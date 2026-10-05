@@ -216,7 +216,9 @@ HELP_TOPICS: list[dict] = [
             "a spellchecker can't catch. The menu's Map the headings turns its "
             "headings into a new mind map. A ```mermaid flowchart (flowchart TD, "
             "A --> B) draws as a diagram in Read and Live and in a print; press "
-            "it to edit its text, and any other Mermaid stays as code."
+            "it to edit its text, and any other Mermaid stays as code. Print or "
+            "save as PDF first asks for the page size, orientation, margins and "
+            "page numbers, and a plain Ctrl+P uses the last choice."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

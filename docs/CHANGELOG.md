@@ -493,6 +493,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Documents: Print or save as PDF first asks for the page size (A4 or Letter), orientation, margins and whether to print page numbers with the title at the head of each page, and remembers it; a plain Ctrl+P prints on the same page (DOCUMENTS_PLAN decision 7, the audit's D4).
 - Documents: a ```mermaid flowchart (flowchart or graph, in any direction, with boxes, rounds, diamonds and circles, labelled and dotted or thick links) draws as a diagram in Read, in Live while the caret is elsewhere, in a print and in the HTML export, by the app's own parser with nothing downloaded; press it in Live to edit its text; any other Mermaid diagram stays as code (DOCUMENTS_PLAN decision 20.6, the audit's D3).
 - Documents: the menu's Map the headings (and the palette) makes a new mind map of the document's headings, laid out as a tree, with a topic that opens the document again; a heading inside a code block is left out (MINDMAP_PLAN decision 35, the audit's M5).
 - Mind maps: markers on a topic, a priority from 1 to 5, how far along it is, a flag and up to six icons (from the app's own icon set, never emoji), drawn before its name and set from the topic's menu (Content, Markers) or the palette; View, Filter by marker dims every topic without the one you pick; OPML and FreeMind exports carry them (MINDMAP_PLAN decision 34, the audit's M4).
@@ -543,6 +544,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Documents: printing a document, or saving it as PDF, gave one blank page; the print rule hid the part of the window the document page now sits in. A long document prints on as many pages as it needs again.
 - Graph: a note's size in focus mode and the Local map is the whole map's (its PageRank), whichever view was opened first; before, the two shared one cached ranking of two different graphs (drafts and boards in one, not the other), so sizes depended on the order, and turning Maps on kept the ranking without boards. The graph also loads about four times faster when warm at 5,000 notes (3.3 to 4.1 s down to 0.7 to 1.0 s in process), reading columns rather than whole notes (GRAPH_PLAN, decision 2026-10-05).
 - The chat list's sort select is as wide as its words (144px) rather than the whole sidebar column (266px).
 

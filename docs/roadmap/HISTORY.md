@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the printed page)
+
+### From DOCUMENTS_PLAN.md section 20, the audit's D4 (decision 7)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Print or save as PDF asks for page size, orientation, margins and the page number and title first (`docPrintSetupDialog`, `docApplyPrintSetup`: a constructed `@page` sheet with `@top-center` and `@bottom-center`), remembered, and a plain Ctrl+P uses it | the browser's defaults; no page numbers | Letter landscape at 12mm: the PDF's page box 792x612, four pages, "1/4" to "4/4" at the feet and the title at every head (pdftotext); Escape prints nothing | `scratchpad/ui-sweeps/mmd2-1005-printsetup.js` 6/6 at 1440x900 light and 390x844 dark |
+| A print of a document was one blank page: `body.printing-doc>*:not(#tab-documents)` hid `#app-main`, which holds the page | `#app-main` display none, `#doc-preview` 0px tall, one page | the main kept, the shell's boxes let go: `#doc-preview` 9,529px, eight pages for a long document | `scratchpad/ui-sweeps/mmd2-1005-printprobe.js`; `mmdoc1005-pagebreak.js` 4/4, `doccomments.js` PASS (its marker check now reads the raised footnote FEAT-03 draws) |
+
+Help moved with it: the menu row's title, the Guide's documents topic. Not
+verified: a real printer, the desktop window's print dialog (WebView2), the
+fallback line on a browser without page-margin boxes (none here).
+
 ## Moved from the plans, 2026-10-05 (Mermaid flowcharts in documents)
 
 ### From DOCUMENTS_PLAN.md section 20, the audit's D3 (decision 6)

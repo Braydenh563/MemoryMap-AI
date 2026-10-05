@@ -10279,6 +10279,8 @@ window.addEventListener("beforeprint", () => {
     docPrintRestore = () => setDocView(wasView);
   }
   renderDocPreview();
+  //: A plain Ctrl+P prints on the page last chosen (decision 7).
+  docApplyPrintSetup();
   document.body.classList.add("printing-doc");
 });
 
@@ -10290,11 +10292,180 @@ window.addEventListener("afterprint", () => {
   restore?.();
 });
 
+//: **The page a document prints on** (DOCUMENTS_PLAN decision 7, the audit's
+//: D4): size, orientation, margins, and the page number and title in the
+//: page's own margin, chosen in one step before the browser's print dialog and
+//: remembered on this computer. Written as a constructed stylesheet
+//: (`adoptedStyleSheets`), because the CSP refuses a `<style>` element and an
+//: `@page` rule has no element to put a class on. The number and the title are
+//: CSS page-margin boxes (`@bottom-center`, `@top-center`), which Chromium
+//: draws from version 131; where the browser has no `CSSMarginRule` the
+//: switch says it cannot, rather than printing nothing silently.
+const DOC_PRINT_KEY = "docPrintSetup";
+const DOC_PRINT_MARGINS = { narrow: "12mm", normal: "20mm", wide: "28mm" };
+let docPrintSheet = null;
+
+function docPrintSetupRead() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(DOC_PRINT_KEY) || "{}") || {};
+  } catch {
+    saved = {};
+  }
+  //: Letter where the reader's own locale says it (the US and Canada print on
+  //: it), A4 everywhere else, until they choose.
+  const letter = /-(US|CA)$/i.test(navigator.language || "");
+  return {
+    size: saved.size === "Letter" || saved.size === "A4" ? saved.size : letter ? "Letter" : "A4",
+    orientation: saved.orientation === "landscape" ? "landscape" : "portrait",
+    margin: DOC_PRINT_MARGINS[saved.margin] ? saved.margin : "normal",
+    numbers: saved.numbers !== false,
+  };
+}
+
+function docPrintMarginBoxes() {
+  return typeof window.CSSMarginRule === "function";
+}
+
+//: A title as a CSS string: quotes and backslashes escaped, line breaks gone.
+function docPrintCssString(text) {
+  return `"${String(text || "").replace(/[\\"]/g, "\\$&").replace(/[\r\n]+/g, " ").slice(0, 120)}"`;
+}
+
+function docApplyPrintSetup(setup = docPrintSetupRead(), title = currentDoc?.title || "") {
+  if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in document)) return false;
+  if (!docPrintSheet) {
+    docPrintSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, docPrintSheet];
+  }
+  const boxes = setup.numbers && docPrintMarginBoxes()
+    ? ` @top-center { content: ${docPrintCssString(title)}; font: 9pt system-ui, sans-serif; color: #555; }` +
+      ` @bottom-center { content: counter(page) " / " counter(pages); font: 9pt system-ui, sans-serif; color: #555; }`
+    : "";
+  docPrintSheet.replaceSync(`@media print { @page { size: ${setup.size} ${setup.orientation}; margin: ${DOC_PRINT_MARGINS[setup.margin]};${boxes} } }`);
+  return true;
+}
+
+//: The one step before the browser's dialog: four choices and Print.
+function docPrintSetupDialog() {
+  return new Promise((resolve) => {
+    const setup = docPrintSetupRead();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Print or save as PDF");
+    const card = document.createElement("div");
+    card.className = "card modal-card space-dialog doc-print-card";
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (go) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      if (!go) returnFocus?.focus?.();
+      resolve(go ? setup : null);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(false);
+      } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        event.stopPropagation();
+        close(true);
+      }
+    };
+    const seg = (label, key, options) => {
+      const row = document.createElement("div");
+      row.className = "doc-print-row";
+      const name = document.createElement("span");
+      name.className = "doc-print-label";
+      name.textContent = label;
+      const group = document.createElement("div");
+      group.className = "seg";
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", label);
+      for (const [value, words] of options) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = words;
+        b.dataset.value = value;
+        b.setAttribute("aria-pressed", String(setup[key] === value));
+        b.addEventListener("click", () => {
+          setup[key] = value;
+          for (const other of group.children) other.setAttribute("aria-pressed", String(other === b));
+        });
+        group.appendChild(b);
+      }
+      row.append(name, group);
+      return row;
+    };
+    const numbers = document.createElement("label");
+    numbers.className = "setting-check doc-print-numbers";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.id = "doc-print-numbers";
+    const can = docPrintMarginBoxes();
+    box.checked = setup.numbers && can;
+    box.disabled = !can;
+    box.addEventListener("change", () => { setup.numbers = box.checked; });
+    const words = document.createElement("span");
+    words.textContent = "Page numbers and the title";
+    const small = document.createElement("small");
+    small.className = "muted";
+    small.textContent = can
+      ? "The number at the foot of each page, the title at the head."
+      : "This browser cannot print them; your print dialog's own headers and footers can.";
+    words.append(document.createElement("br"), small);
+    numbers.append(box, words);
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => close(false));
+    const go = document.createElement("button");
+    go.type = "button";
+    go.id = "doc-print-go";
+    setLabel(go, "ph:printer Print");
+    go.addEventListener("click", () => close(true));
+    foot.append(cancel, go);
+    const body = document.createElement("div");
+    body.className = "doc-print-body";
+    body.append(
+      seg("Page size", "size", [["A4", "A4"], ["Letter", "Letter"]]),
+      seg("Orientation", "orientation", [["portrait", "Portrait"], ["landscape", "Landscape"]]),
+      seg("Margins", "margin", [["narrow", "Narrow"], ["normal", "Normal"], ["wide", "Wide"]]),
+      numbers,
+    );
+    card.append(dialogHead("Print or save as PDF", () => close(false)), body, foot);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(false));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    go.focus();
+  }).then((setup) => {
+    if (!setup) return null;
+    try {
+      localStorage.setItem(DOC_PRINT_KEY, JSON.stringify(setup));
+    } catch {
+      /* this print still uses it */
+    }
+    return setup;
+  });
+}
+
 // PDF via the browser's own print dialog: it renders the preview exactly as
 // shown and every platform already has "Save as PDF" there. Bundling a PDF
 // engine would add a heavy dependency to produce a worse-looking result.
-function exportDocumentPdf() {
+async function exportDocumentPdf() {
   if (!currentDoc) return;
+  const setup = await docPrintSetupDialog();
+  if (!setup) return;
+  docApplyPrintSetup(setup);
   //: Set *before* `withDocPreviewShown`, which renders the pane on the way in:
   //: the whole point of the flag is that the render it triggers is the one that
   //: carries the footnotes (DOCUMENTS_PLAN Phase 5 item 1, "exported as

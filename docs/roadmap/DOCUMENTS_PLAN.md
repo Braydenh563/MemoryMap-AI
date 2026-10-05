@@ -1131,9 +1131,9 @@ documents phone pass)").
 
 From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
 documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
-plans, 2026-10-05 (the feature audit's documents and map fixes)"). D3 is
-built (decision 6). Open: D4's page size, margins and page numbers, D5
-(image handles in Live, pictures in the Word export).
+plans, 2026-10-05 (the feature audit's documents and map fixes)"). D3 and
+D4 are built (decisions 6 and 7). Open: D5 (image handles in Live,
+pictures in the Word export).
 
 **Decisions made.**
 
@@ -1164,8 +1164,7 @@ built (decision 6). Open: D4's page size, margins and page numbers, D5
    for any Markdown-to-PDF tool with its breaks intact. A labelled dashed
    line on screen, the break itself in a print and in the HTML export, the
    "/" menu's Page break in a document (not in a note, which is not
-   printed as pages). Page size, margins and page numbers (the rest of D4)
-   are open.
+   printed as pages). Page size, margins and page numbers are decision 7.
 6. **A flowchart fence draws as one, by a parser of our own** (2026-10-05,
    the audit's D3, inside decision 3's terms). `mermaidFlowParse`,
    `mermaidFlowLayout` and `mermaidFlowSvgTree` (documents.js, the
@@ -1183,6 +1182,20 @@ built (decision 6). Open: D4's page size, margins and page numbers, D5
    Not drawn in a note (notes render through markdown.js at boot, and the
    parser stays out of the boot scripts); "Open as a board" is the
    whiteboard's W5.
+7. **The printed page is chosen in one step before the browser's dialog**
+   (2026-10-05, the audit's D4). Print or save as PDF opens a small dialog:
+   page size (A4 or Letter; Letter first where the locale is US or Canada),
+   orientation, margins (narrow 12mm, normal 20mm, wide 28mm) and a switch
+   for the page number ("n / N" at the foot) with the title at the head,
+   remembered on this computer; a plain Ctrl+P prints on the last choice.
+   Written as a constructed stylesheet (the CSP refuses a `<style>`), the
+   number and title as CSS page-margin boxes, which Chromium draws from 131
+   (the desktop window is Chromium); where `CSSMarginRule` is missing the
+   switch is off and says the print dialog's own headers can do it. Found
+   on the way: the print rule hid every child of `<body>` but the documents
+   page, and the page has sat inside `<main id="app-main">` since the shell
+   moved, so a print was one blank page; the main is kept now and the
+   shell's window-high boxes let go.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

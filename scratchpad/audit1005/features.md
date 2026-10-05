@@ -148,7 +148,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Map `]`/`[` to one step and Ctrl+]/Ctrl+[ to front and back, with four labelled items in Arrange and the right-click menu.
   - Update the board help and the `wb-empty-hint` key list in the same commit (order 13).
 
-**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.** FIXED ad14b76 (claim corrected: fences stay code, no Mermaid vendored)
+**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.** FIXED ad14b76 (claim corrected), flowchart fences drawn FIXED a02d045 (own parser, no vendored Mermaid)
 - Evidence:
   - `md1.js`: a ```mermaid fence renders as `<div class="code-block">…<code data-lang="mermaid">`.
   - "Mermaid diagram" exists only as a language label (`documents-code.js`).
@@ -816,7 +816,7 @@ Map (from §12.5 and `map1.js`):
    - Files: `markdown.js` (footnote pass), `documents.js` print path.
    - Tests: node render tests; `doccomments.js` asserts no `[^` in the print render.
 2. **D2, rich paste (FEAT-04).** An allowlist HTML-to-Markdown walker in `documents.js`, wired into the CodeMirror `paste` domEventHandler beside `docTablePasteEvent`. Ctrl+Shift+V pastes plain text.
-3. **D3, Mermaid and diagrams (FEAT-08).**
+3. **D3, Mermaid and diagrams (FEAT-08).** FIXED a02d045 (flowcharts; Open as a board is W5)
    - Render a flowchart-subset fence as SVG in Read and Live (own parser, no vendor), falling back to code on anything unparsed.
    - "Open as a board" turns it into W5's board import.
 4. **D4, print and page setup.**

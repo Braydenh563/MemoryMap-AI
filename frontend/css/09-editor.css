@@ -1263,3 +1263,24 @@
     break-inside: avoid;
   }
 }
+
+/* The print step (DOCUMENTS_PLAN decision 7): a name over each choice, the
+   page-number switch under them, the dialog's own head and foot around. */
+.doc-print-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-block: var(--space-3);
+}
+
+.doc-print-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.doc-print-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+}

@@ -284,8 +284,8 @@ place, and your notes are not touched. You never need to delete
 **The Windows installer:** Windows Settings, Apps, MemoryMap AI, Uninstall. That
 removes the program and its Start Menu entries and leaves your notes and
 settings in `%APPDATA%\MemoryMap AI`. It then asks whether to delete the
-optional packages you downloaded (the `python-extras` folder, which can be
-large); a silent uninstall keeps them. To take your notes with you first, use
+optional packages you downloaded (the `python-extras` and `extras` folders,
+which can be large); a silent uninstall keeps them. To take your notes with you first, use
 Settings, Import & export.
 
 **A source checkout:** run `./uninstall.sh` (or `uninstall.bat`). It removes the

@@ -364,19 +364,31 @@ end;
 // is gone should not quietly keep them. Asked, never assumed: a reinstall
 // would find them again, and a silent uninstall (the updater's) keeps them.
 // The notebook itself is never touched.
+//
+// Two folders, not one: pip's packages go in python-extras, and the extras
+// the app downloads itself (Pyodide, needle's 36 MB model) go in extras
+// (core/extra_downloads.py). Only the first was asked about, so "yes" left
+// the downloads behind with the program gone.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Extras: String;
+  Downloads: String;
 begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
   Extras := ExpandConstant('{userappdata}\{#MyAppName}\python-extras');
-  if not DirExists(Extras) then
+  Downloads := ExpandConstant('{userappdata}\{#MyAppName}\extras');
+  if (not DirExists(Extras)) and (not DirExists(Downloads)) then
     Exit;
   if UninstallSilent then
     Exit;
   if MsgBox('Also delete the optional packages you downloaded (such as search by meaning)?'
       + #13#10 + #13#10 + 'Your notes are kept either way.',
       mbConfirmation, MB_YESNO) = IDYES then
-    DelTree(Extras, True, True, True);
+  begin
+    if DirExists(Extras) then
+      DelTree(Extras, True, True, True);
+    if DirExists(Downloads) then
+      DelTree(Downloads, True, True, True);
+  end;
 end;

@@ -41,6 +41,9 @@ CSS_FILES = [
     #: Not linked by index.html: loaded with the Library bundle (app.js
     #: `LAZY_MODULES.library`), and so after every file above.
     CSS_DIR / "library-lazy.css",
+    #: Not linked by index.html either: loaded with the icon picker (app.js
+    #: `LAZY_MODULES.iconPicker`, MINDMAP_PLAN decision 43), on first open.
+    CSS_DIR / "icon-picker.css",
 ]
 
 

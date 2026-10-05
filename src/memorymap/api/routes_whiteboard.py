@@ -225,7 +225,7 @@ def _is_one_emoji(value: str) -> bool:
         point = ord(char)
         if point in _EMOJI_JOINERS or 0x1F3FB <= point <= 0x1F3FF or 0xE0020 <= point <= 0xE007F:
             continue
-        pictograph = 0x2100 <= point <= 0x2BFF or 0x1F000 <= point <= 0x1FAFF or point in (0x3030, 0x303D, 0x3297, 0x3299)
+        pictograph = 0x2100 <= point <= 0x2BFF or 0x1F000 <= point <= 0x1FAFF or point in (0x203C, 0x2049, 0x3030, 0x303D, 0x3297, 0x3299)
         if not pictograph or unicodedata.category(char) in {"Cc", "Cf", "Co", "Cn"}:
             return False
     return True

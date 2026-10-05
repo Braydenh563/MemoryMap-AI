@@ -380,6 +380,14 @@
   color: var(--wb-core-ink);
 }
 
+/* A topic's icon slot holding an emoji (MINDMAP_PLAN decision 45): the
+   system's colour face, upright, at the size the Phosphor glyph takes. */
+.wb-map-node-icon.wb-map-node-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--font-sans);
+  font-style: normal;
+  line-height: 1;
+}
+
 /* The centre takes more room round its words, the way a title does. */
 .wb-map-node[data-level="0"]:not([data-shape="none"]) {
   min-height: 3.5rem;

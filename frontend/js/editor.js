@@ -411,6 +411,17 @@ function editorSplice(textarea, start, end, text, select) {
   editorNotifyHost(textarea);
 }
 
+//: **The one icon and emoji picker, fetched on first use** (MINDMAP_PLAN.md
+//: decision 43; icon-picker.js and icon-picker.css). Here rather than as a
+//: row in app.js's `LAZY_MODULES`: app.js is at its gzip ratchet, and this
+//: file is the boot script every caller (the map, the board, both editors)
+//: already reaches. Resolves once the panel is open; a load that fails
+//: (offline, the file gone) does nothing, as a stand-in does.
+function pickIconOrEmoji(options) {
+  return Promise.all([lazyScript("/css/icon-picker.css"), lazyScript("/js/icon-picker.js")])
+    .then(([, loaded]) => (loaded && typeof openIconPicker === "function" ? openIconPicker(options) : null));
+}
+
 // Apply one MD_ACTIONS-shaped action to any textarea.
 //
 // The shapes (wrap / line / block / insert) are app.js's, deliberately: the

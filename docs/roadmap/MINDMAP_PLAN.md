@@ -1740,15 +1740,16 @@ whiteboard half of 641's research (beyond stickers).
     pastes onto every selected topic, one Undo step. A topic's style pasted
     on a shape, or a shape's on a topic, is refused out loud as before.
 43. **One icon and emoji picker, one lazy module** (taken 2026-10-05).
-    `icon-picker.js` (`LAZY_MODULES.iconPicker`, entry point
-    `openIconPicker`), never a second grid: a `.help-popover.icon-picker`
+    `icon-picker.js` and its stylesheet, fetched on first use by
+    `pickIconOrEmoji` (editor.js: app.js is at its gzip ratchet), never a
+    second grid: a `.help-popover.icon-picker`
     placed by `placeHelpPopover`, a search field, Emoji and Icons as a `.seg`,
     a Recent row first (this device, twenty), category heads, and one
     `role="listbox"` grid of `role="option"` tiles (arrows move, Enter
     picks, Escape closes and gives focus back). Icons are the vendored
     Phosphor names read off its own stylesheet (no list to keep in step);
-    emoji are a curated set of about 300 in nine categories with their
-    shortcode names, written as escapes like `DOC_EMOJI_SOURCE`. Nothing is
+    emoji are a curated set of about 470 in nine groups with their
+    Unicode names, written as escapes like `DOC_EMOJI_SOURCE`. Nothing is
     fetched. Every tile is draggable, carrying its glyph as text (so a drop
     into any text box inserts it) and as `application/x-memorymap-icon`.
 44. **A dropped icon is a sticker; dropped on a topic it is that topic's

@@ -1079,7 +1079,7 @@ MORE_TOPICS.extend(
             "keywords": (
                 "central topic", "centre topic", "center topic", "main branch", "map levels",
                 "hierarchy", "level style", "map style", "bigger centre", "core nodes",
-                "solid fill", "topic style",
+                "solid fill", "topic style", "topic icon", "emoji on a topic", "icon picker",
             ),
             "body": (
                 "How a map's topics look. A map draws as a hierarchy: the centre "
@@ -1094,7 +1094,10 @@ MORE_TOPICS.extend(
                 "fill and line. A topic's menu, Look: Copy this topic's style and "
                 "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
                 "Use this look for its level, which hands the topic's own look to "
-                "every topic at its level. Each is one Undo step."
+                "every topic at its level. Each is one Undo step. A topic's icon: "
+                "the Text menu's Icon row has eleven, and More icons and emoji… "
+                "opens every Phosphor icon and about 470 emoji, searchable, with "
+                "your recent ones first; an emoji or an icon, one per topic."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

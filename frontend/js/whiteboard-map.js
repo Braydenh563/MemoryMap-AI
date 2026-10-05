@@ -2431,7 +2431,15 @@ function wbPaintMapNodeStyle(node, d) {
       ? (WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic).replace(/^ph-/, "")
       : "");
     icon.hidden = !name;
-    icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+    //: **An emoji is drawn as text** (MINDMAP_PLAN.md decision 45): one slot,
+    //: a Phosphor name or one emoji, told apart by the name's own pattern.
+    if (name && !WB_MAP_ICON_NAME.test(name)) {
+      icon.className = "wb-map-node-icon wb-map-node-emoji";
+      if (icon.textContent !== name) icon.textContent = name;
+    } else {
+      if (icon.textContent) icon.textContent = "";
+      icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+    }
   }
 
   //: The picture, and the node shape that goes with it (§12.1 item 2's
@@ -5802,9 +5810,12 @@ function wbMapChoiceRow(select) {
       //: "Map" and keeps the sentence as its name.
       const themed = /^As the map draws/.test(words);
       if (icons && option.value) {
-        if (!button.querySelector("i")) {
-          const glyph = document.createElement("i");
-          glyph.className = `ph ph-${option.value}`;
+        if (!button.firstElementChild) {
+          //: A chosen emoji (decision 45) is drawn as itself, a name as its glyph.
+          const emoji = !WB_MAP_ICON_NAME.test(option.value);
+          const glyph = document.createElement(emoji ? "span" : "i");
+          if (emoji) glyph.textContent = option.value;
+          else glyph.className = `ph ph-${option.value}`;
           glyph.setAttribute("aria-hidden", "true");
           button.replaceChildren(glyph);
         }
@@ -5835,7 +5846,65 @@ function wbMapChoiceRow(select) {
   return seg;
 }
 
+//: A Phosphor name, as against an emoji, in a topic's one icon slot.
+const WB_MAP_ICON_NAME = /^[a-z0-9-]+$/;
+
+//: **The icon slot's way to every icon and emoji** (decision 43): the Text
+//: menu's quick row keeps its eleven, and this opens the one picker for the
+//: rest. A choice outside the eleven is shown as one more segment, so the row
+//: always says what the topic wears.
+function wbMapSetTopicIcon(node, value) {
+  if (!node) return Promise.resolve();
+  return wbMapSetNodeStyle(node, { icon: value || null }).then(() => {
+    renderWhiteboardNow();
+    wbSyncMapStrip(node);
+    wbAnnounce(value ? "Icon set." : "Icon removed.");
+  });
+}
+
+function wbMapOpenIconPicker(anchor, node = wbSelectedMapNode()) {
+  if (!node) return;
+  //: By id at the pick, not the object at the open: a render in between can
+  //: replace the objects this tab holds, and a write to the old one is lost.
+  const id = node.id;
+  pickIconOrEmoji({
+    anchor,
+    title: "Icon for this topic",
+    onPick: (choice) => wbMapSetTopicIcon((wbState.objects || []).find((o) => o.id === id), choice.value),
+  });
+}
+
+//: Keeps one extra row in the quick select for an icon outside its eleven.
+function wbMapIconOption(value) {
+  const select = document.getElementById("wb-map-strip-icon");
+  if (!select) return;
+  const known = [...select.options].some((o) => o.value === value && !("chosen" in o.dataset));
+  let chosen = select.querySelector("option[data-chosen]");
+  if (!value || known) {
+    chosen?.remove();
+    return;
+  }
+  if (chosen?.value === value) return;
+  chosen?.remove();
+  chosen = document.createElement("option");
+  chosen.dataset.chosen = "";
+  chosen.value = value;
+  chosen.textContent = WB_MAP_ICON_NAME.test(value) ? value.replace(/-/g, " ") : `Emoji ${value}`;
+  select.appendChild(chosen);
+}
+
+function wbWireMapIconMore() {
+  const select = document.getElementById("wb-map-strip-icon");
+  const row = select?.closest(".wb-menu-row");
+  if (!row || row.querySelector(".wb-map-icon-more")) return;
+  const more = smallButton("ph:smiley More icons and emoji…", "Every icon and emoji: search, recent and drag", (event) =>
+    wbMapOpenIconPicker(event.currentTarget));
+  more.classList.add("wb-map-icon-more");
+  row.appendChild(more);
+}
+
 function wbWireMapChoices() {
+  wbWireMapIconMore();
   for (const select of document.querySelectorAll("#wb-map-strip select")) wbMapChoiceRow(select);
 }
 
@@ -6066,6 +6135,7 @@ function wbSyncMapStrip(node) {
     };
     setSelect("wb-map-text-size", shown("font_size"));
     setSelect("wb-map-align", shown("align"));
+    wbMapIconOption(data.icon || "");
     setSelect("wb-map-strip-icon", data.icon || "");
     setSelect("wb-map-shape", shown("shape"));
     setSelect("wb-map-spine", shown("spine"));

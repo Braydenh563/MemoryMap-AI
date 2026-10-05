@@ -483,6 +483,15 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
 
+- WHITEBOARD_PLAN, INBOX 608's list half ("edge auto-scroll for a drag
+  selection in the lists where a drag selects"). Read at head: no list
+  selects by dragging. notes-list.js, selection.js and library.js have no
+  pointer-drag selection (the only pointer drag in library.js is the OCR
+  region, inside one picture); a row is picked by click, Shift and Ctrl, and
+  the drag a list does have (a note or a library tile onto a board) is
+  native drag and drop, which Chromium scrolls at a container's edge by
+  itself. Closed with nothing built; reopen if a list gains a drag select.
+
 - WHITEBOARD_PLAN, INBOX 596's skeletons. Built: `wbLoadLibrary` draws
   six `showSkeletons` into an empty list before the index and its sets
   arrive, `wbRenderLibrary` clears them; the Notes tab (`renderWbLibrary`)

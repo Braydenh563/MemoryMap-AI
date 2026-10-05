@@ -125,6 +125,371 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)
+
+Rows of WORLD_CLASS_PLAN listed as open that are built on the head, each confirmed by grep. A partly built row keeps a short open line.
+
+- **Section 8's list, the duplicated rows.** The table had been merged from several branches and carried each of rows 11, 16, 17, 18 (twice), 19, 20, 21, 22, 23, 24, 25, 27 and 28 as an unstruck row beside its struck copy (and row 10 twice, struck, with different text). The struck copy is the current one in every case (each names its test or HISTORY block), so the unstruck copies were deleted and the table is one row per number, 1 to 38; row 10 keeps its first text and the second copy's "left: the Library grouping notes by type".
+- **Row 26, the 1 MB boot line.** Built: boot JS is 691,724 bytes as served (own code plus d3's 92,459), gated by `tests/test_boot_budget.py` (H7's 2026-10-05 correction); every list over 200 rows measured (chunk-on-scroll, `s2-1005.js` MODE=rows, scroll p95 19 to 25 ms). Left, in the row: first paint under 300 ms is not measured.
+- **261, `GET /resurface/near` and the vault re-key.** Built: `note-panels.js` calls `/resurface/near/{id}` (the notes rail, row 4); `settings-controls.js` calls `POST /auth/rotate-vault-key` (nbf1005).
+- **I7, "not wired".** Half: `learning.excluded_categories` is called by `janitor._semantic_category` (ARCH-08, fixed 2026-10-05). `filing_evidence` (`ai/learning.py`) still has no caller, so the row says so.
+- **Move a batch of notes to another space.** Built (row 30): `batch-space.js`, `POST /spaces/{id}/move-notes`, an Undo that moves them back, `tests/test_selection_actions_row30.py`.
+- **Briefs 484 to 496** (the 2026-10-04 design queue). Built, each with its "Built:" line in "INBOX resolved": 485 the Attach panel, 496 Contents and the Boards and maps load, 493 the graph's look, 484 the leader menu, 486 callouts, 490 the follow-up trail.
+- **425(j), Settings preferences autosave.** Built: the Save button is hidden and `#prefs-status` reports the autosave (`index.html`, INBOX 426 u).
+- **13, the whiteboard's five menus never driven.** Driven: `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43).
+- **22.1 item 1, no URLs.** Built: `router.js` (hash routes, `popstate`, reload restores the view, the window title names it).
+- **22.1 item 7, no screen-reader pass.** Built apart from a real screen reader: one `<main id="app-main">`, the axe sweep with 0 findings at 1440 in both themes. Not verified: an actual screen reader.
+- **Found NOT built, left open: 423(g)**, `_desktop_port()` treats any MemoryMap on the port as ours whatever its data dir. `instance_lock.py` is per data directory and `_port_holder` reads only `/health`'s app name (no data dir in the answer), so the compare against `/instance` the item asks for does not exist.
+
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WHITEBOARD_PLAN)
+
+Rows of WHITEBOARD_PLAN that were built and still sat in it, each confirmed on the head by a grep. The decisions 19 to 36 stay in the plan (decisions are not remade), with a status line; the placed blocks and the stale "open" lines moved here.
+
+### Placed items 25, 43 and 47 (INBOX, 2026-09-09)
+
+25 is built (HISTORY.md, "one handle recipe": the note card's own edge stands down while it is selected, and a link can start from and land on every kind, `wbLinkCandidates`). 43 is built: the top bar's menus were fixed in e1e395b (`kebab-viewport.js`, 15 cases OK) and the tool rail and the properties panel are Phases 1 to 3 (BUILT 2026-09-12; `whiteboard.js` 24 checks, `whiteboard3.js` 12). 47 is built: `docks.js` at 1440 re-measured on 2026-10-05, Notes 6 controls and Library 6, both under the ceiling. The text as it stood:
+
+25. **Whiteboard: the edge anchor outline on note objects differs from
+    every other object kind.** Decision: one anchor recipe for all kinds
+    (the shape one; the note one goes). Owner: WHITEBOARD_PLAN Phase 1.
+43. **(the top bar's menus: fixed, e1e395b; the rest is Phase 1)**
+    **Whiteboard bottom tool rail and the properties panel** are not on
+    the refined recipes (the top bar is). Owner: WHITEBOARD_PLAN Phase 1.
+    **Done, one part:** the five top-bar menus (Insert, Edit, Arrange, View,
+    Board) clipped at the bottom of the panel, the View menu screenshot in
+    31. They were already capped to the window, which was not the bug:
+    measured at 1280x640, View and Arrange ended at y=628 inside a 640px
+    window while `#library-view-whiteboard` (`overflow: hidden`) ends at
+    y=579, so the last 49px was cut off by an ancestor. Now on 31's recipe
+    (escape the clipper, then cap, then scroll). kebab-viewport.js sweeps
+    all five at 1440x900, 1280x640 and 1280x420: 15 cases, all OK. The tool
+    rail and the properties panel are still open.
+47. **Notes (10) and Library (9) still count over the seven-control
+    ceiling** (`scratchpad/ui-sweeps/docks.js`), same as Graph did before
+    this batch. Graph's fix (moving `#graph-view-picker` into its More menu)
+    is not a decision this item can reuse for these two: graph.md section 3
+    named its own two candidates for graph specifically, and named nothing
+    for Notes or Library beyond the counts, so guessing which of their
+    controls moves where is a design call, not a mechanical one (CLAUDE.md
+    §2 rule 3 -- a missing decision is recorded, not remade). Both docks'
+    inflated counts are partly an artefact of how `docks.js` counts, worth
+    knowing before picking a fix: a native `<select>` is auto-enhanced into
+    three counted elements (the select, its `.select-shell`, its
+    `.select-opener`), and a `.seg` segmented control counts as one plus one
+    per visible option, so Library's sort select and its two-button
+    Cards/Rows segment alone are 6 of its 9, and Notes' sort select and its
+    two-button Rows/Cards segment are 7 of its 10. Recommendation: before
+    moving anything, decide in UI_MODERNISATION_PLAN Phase 8 whether the
+    ceiling counts *controls a person reasons about* (a segmented view
+    toggle is one decision, not three) or literal DOM elements as `docks.js`
+    does today; if the latter stands, the same "into an existing menu"
+    treatment graph got is available for Library's `#library-sort` (into
+    Filter or More) and Notes' `#note-sort` (into a menu of its own), which
+    would need one new decision line each rather than either being moved on
+    a solo guess. Owner: UI_MODERNISATION_PLAN Phase 8.
+
+### Placed items 48, 52, 56, 64 and 65 (INBOX, 2026-09-09)
+
+48 is built: `LAZY_MODULES` in `app.js` loads whiteboard.js, documents.js, library.js and graph.js on first use of their tab (`tests/test_frontend_load_order.py`). 52, 64 and 65 are built by Phases 1 and 2 (one surface per panel, hairline dividers, the Arrange section; HISTORY.md, "Built, 2026-09-09: one surface per panel, and the Arrange section", and the INBOX 52, 64, 65 record). 56 is built: the picture card's bottom recipe ("Decided, 2026-09-12: what the bottom of a picture card is", UI_MODERNISATION_PLAN Phase 7). The text as it stood:
+
+48. **Every module parses at boot, whichever tab opens.** Decision: load
+    whiteboard.js, documents.js, library.js and graph.js on first use of
+    their tab (a small loader in app.js, `tests/test_frontend_load_order.py`
+    updated for the split; boot stays synchronous for app.js and the
+    guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
+    the startup path. Owner: Opus. Size M.
+64. **Whiteboard properties panel, "needs a massive redesign and fix"**
+    (three screenshots, 01:30): Copy style row, Guide colours (three swatch
+    rows), then Group / Ungroup overlapping each other, an arrow button, the
+    three align icons, two Space buttons and Extract notes "just chucked at
+    the bottom". Owner: WHITEBOARD Phase 1 (properties panel), Opus.
+    Decision: sections with a heading each (Style, Guides, Arrange, Notes);
+    Arrange as one icon toolbar row on the dock recipe (align x3, distribute
+    x2, group/ungroup as a pair) with tooltips, never label buttons that
+    overlap; Extract notes as the section's one text button; measure that
+    no two controls' rects intersect and the panel scrolls inside.
+65. **Whiteboard panels "feel unrefined": the buttons look separate from
+    the panels** (bottom tool bar, zoom pill, properties). Same fix as
+    INBOX 52: one surface per panel, hairline dividers, no per-control
+    background except the active tool. Owner: WHITEBOARD Phase 1.
+56. **Library image cards, "really ugly"** (screenshot): thumbnail, file
+    name, "Used in" chip, a Description bullet with Show more, a model chip,
+    a "Text in this image" bullet with Show more, a "Read by ..." chip: six
+    ranks of information at one weight, chips for provenance that read as
+    actions. Owner: Opus, next slot, with INBOX 52 (whiteboard bottom bar).
+    Recommendation: thumbnail with the file name on it; one line "Used in
+    <chip>"; the description as one paragraph with a "More" toggle; the OCR
+    text folded under a single "Text in this image" disclosure; provenance
+    as one muted line at the foot ("Described by X, read by Y"), no chips.
+52. **Whiteboard bottom bar: the tool groups "feel separate from the
+    panels and not integrated"** (screenshot: seven pill groups with their
+    own backgrounds and dividers inside one bar, and the zoom pill on the
+    right in a different style). Owner: WHITEBOARD Phase 1 (bottom rail),
+    with the mind map agent's whiteboard work merged first. Recommendation:
+    one bar surface, groups separated by a hairline divider only, no
+    per-group background; the zoom pill on the same recipe. Size S.
+
+### INBOX 557 and 558, the draw.io pass
+
+Built across decisions 19 to 36 (WHITEBOARD_PLAN's "Decisions made, 2026-10-05"): the locked item's hover lock (28), the Layers tab (27), the object library with "Yours" (25), the Format panel (19, 20), one command table (23, `tests/test_wb_commands.py`), a board's look on the board (24), the AI's board tools (29, `_edit_board_item` and its three siblings), bends and line jumps (30, 31), a Mermaid subgraph as a frame (32), the board's time machine (33, `tests/test_board_history.py`), guides on drawn shapes (34), connection points on the outline (35, `wbPortsForPath`) and Branches from my notes (36). Not built: ghost topics drawn on the canvas (boot CSS room), named layers. The text as it stood:
+
+557. **The owner, 2026-10-05, three asks, verbatim.** "should there be a popup
+     hover subtle faded lick icon on locked elements or smth on the
+     whiteboard or nah??"; "what about whiteboard layers and a layers
+     panel?"; "maybe an object library??"
+     Recommendations given:
+     - (a) A faded lock fades in at a locked item's corner on hover, found
+       by a board-level hit test since the item takes no pointer
+       (decision 15). A press on one pulses it and hints once:
+       "Locked. Right-click to unlock".
+     - (b) A Layers tab: the board as a tree (frames, then groups, then
+       items) in z-order, each row with show/hide, lock and rename; a press
+       selects and zooms, a drag restacks. One new field (`hidden`). Named
+       Draw.io layers are phase 2 (BACKLOG 29c). It also lifts ink's fixed
+       place under cards.
+     - (c) A Library tab beside it: built-in shapes, frames and the vendored
+       icon set, plus "Save to library" for any selection (items, relative
+       positions, links, a thumbnail) in a small table, usable on any
+       board. Board templates (BACKLOG 4b) become saving a whole board to
+       it. Mind maps get saved branches.
+     Placed: into the whiteboard briefs after the features audit
+     (scratchpad/audit1005/features.md).
+
+558. **The owner, 2026-10-05, verbatim.** "I think an object or elements
+     library would be really good like with what draw.io has. I want more
+     whiteboard features, take everything from draw.io as it is sooooo
+     useful and nifty. also improve the usability and reliablility of the
+     mindmap. make them features people can actually use and use well.
+     redesign the controls and how they can be used and accessed where
+     needed to maximise usability, utility, accessibility, and
+     learnability" Placed: the features audit is now writing the full
+     draw.io catalogue, the library spec, a controls redesign for board and
+     map, and a mind map usability pass, as phased briefs. Each phase then
+     goes to one Opus agent, its decisions entered in WHITEBOARD_PLAN and
+     MINDMAP_PLAN.
+     Then (verbatim): "also the ability to save custom elements and stuff as
+     well": saved selections, custom shapes drawn on the board, saved styles
+     and palettes, sticky/card/topic presets, saved branches, and whole
+     boards as templates, all in the library's "Yours", importable and
+     exportable.
+
+### Two stale "open" lines in the undo audit
+
+- **Entity merge**: the audit's table said "none yet (open; another agent's)". Built (INBOX 553(a)): `merge_with_undo` and `POST /merges/{undo_id}/undo` (`routes_entities.py`, `ai/entities.py`), the Undo in the merge's toast (`entity-page.js`). The table row now says so.
+- **A board's undo across a reload**: the audit's "Open: a board's undo does not survive a reload" was answered by the amendment to decision 2 (the last 100 steps per board in IndexedDB, `undo-store.js`). The plan line and `agent-remaining/OPEN.md`'s history row now say so; what stays open is an agent's or another tab's change, which is not on the stack (the History sheet has it).
+
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: UI_MODERNISATION_PLAN)
+
+Three blocks of UI_MODERNISATION_PLAN that were built and still sat in the plan, moved whole with the evidence found on the head. The plan's own record already said "Phases 0 to 11 built" (ROADMAP.md).
+
+### Phases 0 to 6 (tooling and gates, mass and layout, component consistency, typography and glass, motion and placement, the per-surface passes, designed states and copy)
+
+Found built on the head, each by a grep: Phase 0's `tests/test_ui_signatures.py` and `scratchpad/ui-sweeps/all.sh`; Phase 1's `--page-gutter` (12 uses in `00-tokens-shell.css`), `--measure: 54rem` and the `.card` and `.card.compact` recipes; Phase 2's recipes (`kebabMenu`, `.dock`, the glass and radius tokens) held by `tests/test_ui_recipes.py`, `tests/test_style_scale.py` and DESIGN.md's recipe index; Phase 3's glass-off list (`tests/test_ui_recipes.py`); Phase 4's `.is-placed` measure-place-reveal path (`sheets-selects.js`); Phase 5's surfaces (each in HISTORY under its tab); Phase 6's `dashEmpty` and `showSkeletons` and DESIGN.md's "Voice" section. Their text as it stood:
+
+## Phase 0: tooling and acceptance gates (½ session)
+
+1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct
+   `gap:`/`padding:` values on `.row`-class selectors and distinct
+   `border-radius` values on surface selectors, with a ceiling the later
+   phases lower. It cannot see the DOM; it stops regressions between
+   sessions.
+2. Add a `make ui-sweep` (or a `scratchpad/ui-sweeps/all.sh`) that runs every
+   sweep against a running app and writes the tables to one file, so
+   before/after is one diff.
+3. Screenshot set: every tab + every Settings section, light and dark, 1440
+   and 1024 wide, into the scratchpad. Same script each session.
+
+## Phase 1: mass and layout (1 session)
+
+Target: the app reads as one shell with rooms in it, not as cards on a
+gradient.
+
+1. **Shell.** One gutter (`--page-gutter`, done): extend to the dashboard
+   grid gap, the Library grid gap, and the gap between the sub-tab strip and
+   its content (measured 24/17/8px). Status bar and top bar: same height
+   family (`--header-h`), same horizontal padding as the page gutter so the
+   logo, first tab, sidebar edge and first card edge share one x.
+2. **Card system.** `.card` padding to `--space-6/--space-7` on ≥1100px
+   content columns (measured 16/20px everywhere, which is dense for a full-
+   width panel and right for a widget). Define two card sizes only:
+   `.card` (panel) and `.card.compact` (widget, sidebar). Kill card-in-card:
+   `.card .card` becomes a tone (`--surface-2`), never a bordered pane.
+3. **Dashboard.** Hero from 150px to one row (greeting · date · time · name),
+   quick actions become the first widget row, stat tiles fold into the
+   Stats widget. Widget head row: 32px, title + one action, no border below.
+4. **Sidebars.** One width token, one head row (28/38px measured → one),
+   list rows at `--target-min` with tone hover, no bordered rows.
+5. **Max reading width.** `.entry-list.is-rows` already caps the measure;
+   apply the same `--measure` token to chat bubbles, document preview, the
+   Contents page and Settings prose (currently 100% of a 640px column, fine;
+   100% of a 1100px column, not).
+
+Acceptance: `space.js` shows one card padding per card size, one card gap,
+one shell gutter; head rows at one height; screenshots side by side.
+
+## Phase 2: component consistency (1–2 sessions)
+
+Target: one recipe per component family, counted.
+
+| Family | Now (measured) | Target |
+| --- | --- | --- |
+| Buttons | 13–21 signatures per tab | 4: filled, tonal, plain, icon-tonal (+ danger colour) |
+| Rows (`.row`, toolbars) | gaps 4/6.4/8/9.6/16px | 2: `--space-3` inside a control group, `--space-4` between groups |
+| Head rows | 28/38/40px | 1: `--control-h` |
+| Chips/badges | ~6 recipes (tag, link, status, count, filter, inline) | 2: static tag (tone, no border) and interactive filter chip (tonal button) |
+| Fields | inputs with border+inset; selects with border+shadow | 1: recessed well, `--field-inset`, no drop shadow |
+| Segmented | 3 | 2: tab strip (well) and choice (chip well): done, keep |
+| Menus/popovers | action-menu, select-menu, doc-dock-menu, help-popover, graph panels, 5 shells | 1 `.popover` shell: `--modal-bg-opaque`, `--border`, `--glass-shadow`, `--radius-md`, hidden-until-placed |
+| Dialogs | modal-card + 4 one-off panels | 1 |
+| List rows | entry-list li, library-card, bookmark-row, extras-row, setting-row | 2: card row (tone) and divider row |
+
+Method per family: run the sweep, read the signature table, pick the winner
+(the one most used, already on tokens), rewrite the others onto it, delete
+the one-off rules, re-run. Record each family's before/after count in the
+commit.
+
+## Phase 3: typography, colour, glass restraint (½ session)
+
+1. Type: `--text-md` for control labels everywhere (measured 0.85/0.92rem
+   one-offs remain in Settings labels and library meta). Muted text at one
+   colour, one opacity: no `opacity: 0.75` on top of `--muted`.
+2. Colour: the accent is for the one filled action, selection, and links.
+   Remove accent from decorative borders, dots and icons that are not
+   interactive. Status colours (`--ok/--warn/--error`) only on status.
+3. Glass: keep `backdrop-filter` on the top bar, sidebars, floating panels
+   and sticky strips. Remove it from widgets and list cards (tone instead):
+   the measured blur layer count drops again and the page stops shimmering.
+   Sheen: off by default; the setting stays.
+4. Background: the blobs at half strength by default; a professional product
+   has a quiet page.
+
+## Phase 4: motion and placement (½ session)
+
+1. Every floating panel opens through one path: measure → place → reveal.
+   The toolbar menus do (`.is-placed`); port the same class to
+   `.action-menu`, `.select-menu`, `.help-popover`, the graph panels and the
+   whiteboard floating panel, and the chat model panel.
+2. No transitions on `left/top/width/height`; opacity and transform only,
+   ≤ `--motion-base`. Hover changes tone, never size or shape.
+3. Focus rings: one recipe (`--accent` 2px offset) on every interactive
+   element; verify with a keyboard-walk script.
+
+## Phase 5: per-surface passes (1 session each, in this order)
+
+1. **Settings**: the most visited and the most measured; apply phases 1–3
+   and the #129 list (spacing, hierarchy, proximity per page).
+2. **Notes** (Browse, Capture, Write, Ask), #132; the capture toolbar's
+   density; the row list as the reference list component.
+3. **Chat**: dock, sidebar, bubbles; #35's odysseus-style shape as the
+   target, kept restrained.
+4. **Library**: All/Documents/Files/Images/Links/Contents rows onto the two
+   list-row recipes; #101.
+5. **Dashboard**: phase 1's hero and widget head; widget internals onto the
+   compact card.
+6. **Graph, Timeline, Reminders**: toolbars onto the row recipe; the graph's
+   floating panels onto the popover shell.
+7. **Whiteboard and Documents editor**, panel chrome onto the popover
+   shell; the toolbar strip as the reference toolbar; #133, #134.
+
+## Phase 6: designed states and copy (½ session)
+
+1. Empty states: icon + one sentence + one action, one component, used by
+   every list. 2. Loading: skeleton rows for lists, a spinner only inside a
+button. 3. Errors: inline under the control that failed; toasts only for
+background work. 4. Copy: sentence case everywhere except eyebrows; verbs on
+buttons; no exclamation marks; one voice (DESIGN.md gets a "Voice" section).
+
+### Phase 7 item 2, line numbers as a setting
+
+Built, commit 68a81d1 (recorded in HISTORY.md under "Built: items 1, 3, 4 and 5"): `mountGutterFor` (documents.js, called for the capture box, the note edit form in `note-edit-panels.js` and the documents editor) with the one remembered `doc-gutter` preference, `docGutterWanted` following the file type by default; the formatting strip carries the one toggle (a second door in the view menu was removed on request). The item as it stood:
+
+2. **Line numbers as a setting, in all three editors.** The wrap bug is fixed
+   (v0.2.2) but the gutter still appears only for code files in Documents, and
+   the note capture and edit panels have no gutter at all. Wanted: one toggle,
+   remembered, working for any file type, in all three.
+
+### The owner's evening batch of 2026-09-09 (the eight left)
+
+Each confirmed on the head: Ctrl+S in Settings rings the section's own Save (`settings-wiring.js`, INBOX 107c's record); the Packages row's head no longer wraps (`packages.js`, 2026-09-13, 107c); the panels and sidebars' scroll gutter measured 16 to 40px and the AI skills sidebar full height (the 2026-09-12 triage of INBOX 107); the hard container corners (`2767fb3`; the half that did not reproduce is recorded there); the links editor's Save and Cancel are one pair, `small` beside `ghost small` (`library.js`, `.bookmark-edit-actions`); "Write something first" is set on a press of Save and cleared on input (`capture-ask.js`, `clearCaptureStatusOnInput`), never on load; the OCR workspace's reader picker opens (`b24836d`, INBOX 107b, and `GET /ocr-readers` names OCR models, `tests/test_ocr_readers.py`); the README's screenshots were retaken on 2026-10-04 (ROADMAP.md). The section as it stood:
+
+Global, cross-surface. Phase 9 (responsive) and Phase 10 (Liquid Glass)
+own most of these.
+
+Five of these are built and are in HISTORY.md ("Moved from the plans,
+2026-09-09"): the quick-nav chord's guide and its three new second keys, the
+dashboard's back-to-top threshold, the heatmap's size, and the dark palette's
+glass. What is left is below.
+
+- "ctrl s for saving settings changes while on the settings modal doesnt
+  work and it needs visual confirmation as well."
+- "there are also still wrapping issues in the packages tab with the
+  buttons, titles, and badges" (screenshot: the Tesseract row's title, its
+  Installed badge, and Reinstall / Remove on three lines).
+- "the panels and sidebars in windows actually go quite far down below
+  where the scroll should stop, and the ai skill sidebar isnt 100%
+  height."
+- "the containers of all the ui in each tab page have hard corner
+  rectangular edges so I want that fixed because the shadows make the cut
+  off pretty obvious."
+- "the links edit save and cancel buttons arent consistent" (screenshot: an
+  accent pill beside a grey rounded rectangle at a different radius and
+  height).
+- "the words 'write something first' is at the bottom of the note capture
+  tab when I didnt do anything?? maybe I fumbled a button": a validation
+  message shown on load rather than on submit.
+- "I was in the ocr workspace and the model dropdown combobox at the top
+  bar didnt open."
+- "I think the screen shots on the readme need an update from all the ui
+  changes."
+
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: MINDMAP_PLAN)
+
+Rows listed as open in MINDMAP_PLAN that are built or moot on the head, each confirmed by grep.
+
+- **12.1 item 1, the map toolbar's four dock menus** and **12.2 item 3, relationships** and **12.2 item 10, XMind import**: already closed by op5 earlier on 2026-10-05 ("Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)" and "(MINDMAP_PLAN §12.2 items 7 and 10, op5)"); re-checked here and nothing was left in the plan's text. Item 1 is superseded by decision 16 (the board's Insert and Arrange menus stay in the markup, `maptopbar.js`) and §12.5's three surfaces; relationships are 13c's cross-link; the `.xmind` reader is `_parse_xmind` in `routes_whiteboard.py` (`IMPORT_FORMATS` carries `xmind`, `tests/test_xmind_import.py`), read-only by the plan's own text, with FreeMind, OPML, Markdown and plain text out (`EXPORT_FORMATS`).
+- **12.3 item 4, graph sync.** Built: the graph draws a map as a node with an edge of kind `map` to each note on it (`_add_map_edges`, `routes_graph.py`; `tests/test_mindmap.py` reads `kind == "map"` edges), the node panel counts them ("on a mind map", `graph.js`), and the graph's "Mind map" selection action makes one from the selected notes (`graph-canvas.js`, "Mind map ... made from N notes").
+- **12.3 item 2, Summarise this branch** (the half the plan still called open). Built, 3a27c00: `POST /whiteboard/boards/{b}/nodes/{n}/summary`, `wbMapSummariseBranch`, `tests/test_map_summary.py`; the record is "Moved from the plans, 2026-10-05 (op3-1005)". Expand from my notes stays open.
+- **"Ask the owner's map size before 13a"** (Not verified). Moot: 13a is built and met its gate at 500 topics (the render pass, MINDMAP_PLAN 13a), so the question no longer decides a phase.
+
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: DOCUMENTS_PLAN)
+
+DOCUMENTS_PLAN section 13 ended "**Not decided here, and deliberately still open**: DOCX both ways, Markdown with its assets, and import of `.html`. The first needs a dependency decision this session did not have a reason to force." All three are built (Phase 7, "built 2026-09-13" in the plan; the decision on the dependency was `python-docx` as an optional extra), confirmed by grep on the head:
+
+- **DOCX out**: `GET /documents/{id}/export.docx` (`routes_documents.py`) over `docexport.to_docx` (pictures included, FEAT-18), behind `docexport.docx_available()` and `core/extras.py`'s "Export to Word (python-docx)".
+- **DOCX in**: `POST /documents/import` stores a `.docx`, `.pdf`, `.csv`, `.md` or source file as its extracted text (`core/docview.py`, the converter in `entry/importer.py`); `tests/test_document_import.py`.
+- **Markdown with its assets**: `GET /documents/{id}/export.zip` (`docexport.bundle`, the markdown and its images in one zip) beside `export.md`.
+- **`.html` in**: `docview.html_to_markdown` is what an imported `.html` file goes through (`routes_documents.py`, the `.html` branch of the import).
+
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)
+
+Stale rows of `BACKLOG.md` found built on the head, each confirmed by grep before it was struck; the original asks are kept here. Genuinely open rows were left alone, and a partly built row keeps a short open line.
+
+- **4b, templates and base layouts for boards, maps and documents.** The ask (2026-09-13, looking at a board an agent had built to photograph for the README): "add the ability to save whiteboard templates and base layouts, Im inspired by this example whiteboard png the agent took and it can be like canva templates, same with the mindmap and documents"; deferred out of 0.3.0 ("put the templates idea in the roadmap, not for this pr"). Built: WHITEBOARD_PLAN decision 25 made a board or map template a board library item of kind `template` (`routes_board_library.py`: `ITEM_KINDS`, `library_ref {id, version}`, `new_board_from_template`), shown in the object library's "Yours"; documents keep `DOC_TEMPLATES` (a gallery with added and editable templates, `documents.js`). Brief 32 stays a historical brief.
+- **21 and 95 #18, Undo the whole run.** Built: `skill_runner.run_skill` puts `undo_span` on the run's result, `POST /events/undo` takes the actor list, and chat's "What changed" carries "Undo the run" (`undoSkillRun`, `chat-agent.js`, `note-history.js`); the record is "Moved from the plans, 2026-10-05 (AGENT_SKILLS_REFORM: a skill run's own Undo)". Kept open: Gemini's silent pre-run snapshot.
+- **29, a browser clipper** (WORLD_CLASS_PLAN row 24, D9). Built: `POST /links/clip-page` (`routes_webclip.py`), `frontend/clip.html` and `clip.js`, the bookmarklet, `tests/test_webclip_page.py`. A packaged extension is not built.
+- **29c, the whiteboard pointers.** Built and struck: Mermaid both directions (`wbBoardToMermaid`, `wbMermaidParse`, `tests/test_wb_interchange.py`; documents `tests/test_doc_mermaid.py`), frames, board templates (4b), the Layers tab (`wbRenderLayers`), presenting the frames (`wbPresentSteps`), the board's time machine (`whiteboard-history.js`, `tests/test_board_history.py`). Swimlanes and named layers stay open.
+- **79b, the document textarea's resize.** Moot: the editor is CodeMirror 6 (DOCUMENTS_PLAN Phase 2); `#doc-content` is only the fallback if the bundle fails to load, as `index.html` says.
+- **103 #4, anchors and bends.** Built: bends on every connector style (WHITEBOARD_PLAN decision 30, `.wb-link-waypoint-handle`, `.wb-link-waypoint-add`), per-shape ports (`wbPortsForPath`). Open, kept: an anchor anywhere on an edge (`wbNearestAnchor` snaps to a discrete set).
+- **107 #1, board select, move and copy.** Built: marquee, lasso, group resize (`whiteboard.js`, the group-resize helpers), the controls redesign (WHITEBOARD_PLAN Phases 1 to 4) and copy and paste across boards (`wbClipboard`).
+- **109.3 #1, 111.2 #1, 112.2 #1 and 115 row 1, import from other note apps** (WORLD_CLASS_PLAN row 25). Built: `POST /import/app` (`entry/app_import.py`, `routes_import.py`), one reader per app (Notion zips and HTML, Obsidian vaults, Evernote `.enex`, Apple Notes), idempotent by source (`Entry.source_path`), `tests/test_app_import.py`; Markdown and Obsidian folders were already built (`/import/directory`, `tests/test_vault_import.py`). Open, small: attachments are not copied in; no dry-run preview.
+- **115 rows 3, 4 and 6.** Row 3 measured, nothing to fix (`inv1005-keyreach.js`); row 4 the axe sweep, 0 findings at 1440 in both themes (`axe.js`); row 6 the first-run path timed (`inv1005-firstrun.js`). The records are "Moved from the plans, 2026-10-05 (H9, polish in use; the rest of row 25)".
+- **116.3, PLAN.md rows.** Built and struck: W1 to W8, W10 (the undo across a reload is `undo-store.js`, IndexedDB), all of D4 to D11, B1, B3, B8, A4, A7's expose half. Left open, named: W9's palm rejection, W11's three selection actions, B2's remainder, B4/B5's other lists, B6, B7, A3's provenance, A5's Stop, A7's consume half.
+- **96, mermaid rendering.** Built: a flowchart fence drawn in documents (`mermaidFlowParse`, `docRenderMermaidIn`), a board's Mermaid in and out, the source kept in the SVG export. Open: chat and notes, and step 2's preview and edit flow.
+
+## OPEN.md rows closed, 2026-10-05 (docs hygiene before 0.4.0)
+
+Rows of `agent-remaining/OPEN.md` (and one of `op4-1005.md`) that were listed as open and are built on the head; each was confirmed by grep before it was closed. A partly built row keeps a short open line for the rest.
+
+- **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list half). Built: `frontend/js/drag-edge.js` (`DRAG_EDGE`, a lazy module in `app.js`'s `LAZY_MODULES.dragEdge`) scrolls `#entry-list` and `.library-view-section` for a held mouse drag from 56px out to the edge; boards and maps were built before (`wbEdgePan`).
+- **Skeletons for a board's Library and Notes tabs** (INBOX 596). Built, 5c1389d: `wbLoadLibrary` draws six skeletons and `renderWbLibrary` five before the data lands (`whiteboard-library.js`, `whiteboard.js`); `bm1005-sidebar.js` check 7 measured 0 skeletons before, 6 after, then 51 tiles; `tests/test_board_sidebar_596.py`. Open, and kept in OPEN.md: the Library and Documents views read blank at 1440 and 390.
+- **The badge target** (INBOX 503 and 592). Built, 4a2dfaf: `badgealign.js` and `.py` measure the words' cap-height centre, the recipe's one target (DESIGN.md records it); `inkalign.js` retired; `tests/test_badge_recipe.py`.
+- **"Most opened this month"** (retrieval row). Built: `GET /most-opened` (`routes_vision.py`, over `EntryOpen`, written by `entry/opens.py`), the Dashboard's "Most opened this month" widget (`dashboard.js`, `renderMostOpenedWidget`), `tests/test_vision_rows_row11.py`; WORLD_CLASS_PLAN row 11 is struck. The scratchpad's parked design (`wc1005b-most-opened.md`) was not used and is superseded. Open, kept: the "wrong" correction on an evidence card (I7's second half) and I1 pass 2's derived-fact kinds.
+- **arch.md: the Dashboard emblem's idle cost** (5.55% of a core). Built, b944d2c (WORLD_CLASS_PLAN 424(j)): the emblem is drawn once and turned by CSS, 0ms of script idle on Dashboard and Chat, `perf5/idleprof.js`; the frame-rate question no longer exists. INBOX 266's other items stay as a row.
+- **guideia.md: Remind me beyond notes, the Library note card's Remind me and Link to.** Built (WORLD_CLASS_PLAN row 15): `remindAbout` (`shell-reminders.js`) is called from `library.js` (document and note menus, "Link to..." beside it via `linkNoteFromLibrary`) and `whiteboard.js` (a board's menu); the reminder carries `target_kind` (`routes_reminders.py`) and `Reminder.document_id`; `tests/test_reminder_targets_row15.py`. The non-modal Guide stays open.
+- **maptheme.md: the branch palette and font are map-level facts; a topic cannot be pulled back to the app's default** (MINDMAP_PLAN 13e). Built 2026-10-04: `MAP_BRANCH_PALETTES` server-side with `wbMapColors` reading it, `font`, and the per-field app-default pins (`MAP_APP_DEFAULT_PINS`); `mappalette.js` 13/13; the record is "Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)". Open, kept: the theme resolved into each node on export, an untested FreeMind `<arrowlink>`.
+- **Summarise this branch** (Draw.io phase 2's tail; MINDMAP_PLAN 12.3 item 2's half). Built, 3a27c00: `POST /whiteboard/boards/{b}/nodes/{n}/summary` (`routes_map_suggest.py`), `wbMapSummariseBranch`, `tests/test_map_summary.py`, `bm1005-mapmulti.js` check 6. Expand from my notes stays open.
+- **op4-1005: `test_every_route_that_pages_by_offset_takes_a_cursor` red** (found, not fixed). Fixed on the head: `routes_settings.py` takes `cursor` through `paging.cursor_param()`; `tests/test_api_contract_b7.py` passes 10 of 10 (run alone, this pass).
+
 ## Moved from the plans, 2026-10-05 (444 decision 10: the autonomous override's default)
 
 Decision 10 counted "a background-job model is still chosen in Models and in

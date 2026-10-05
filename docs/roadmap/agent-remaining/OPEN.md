@@ -411,10 +411,9 @@ are named in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 the head, so they carry no row of their own.
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": anim.md.
-- **arch.md**: the Dashboard emblem is most of an idle window's cost (5.55% of
-  one core open, 2.09% parked); INBOX 266's usability and lightweight items
-  belong to nobody. [arch]
-  *Needs: the owner's call on the emblem's frame rate (they asked for "always rotating").*
+- **arch.md**: INBOX 266's usability and lightweight items belong to nobody.
+  [arch] (The emblem's idle cost is built: HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (docs hygiene before 0.4.0)".)
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": askcite.md.
 - **backend-0926.md**: F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet).
@@ -437,10 +436,8 @@ the head, so they carry no row of their own.
   *Needs: a phone; the flake is load, not the test.*
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": featuremodels.md; guide.md.
 - **guideia.md**: the Guide is a modal sheet whose scrim dims the app, so
-  "Open the Reminders tab" cannot be read against the tab; the rows
-  WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
-  card's Remind me and Link to). [guideia]
-  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract; Remind me beyond notes needs the reminder to point at other kinds first (a backend step).*
+  "Open the Reminders tab" cannot be read against the tab. [guideia]
+  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract.*
 - **libtl-0926.md**: the Timeline feed lays out about 39 times a second while
   scrolling (the rows' `content-visibility: auto`, INBOX 400's trade); the
   Library search keystroke was 17 to 191ms under load, not re-measured idle;
@@ -459,12 +456,10 @@ the head, so they carry no row of their own.
   gate should pass `SIZES=50`); the keyed render is invalidated by one list,
   `wbObjectPaintKey`, which a new paint input must join. [mapread, maprender]
   *Needs owner: 13g. Left: the rest are notes for whoever touches the paint.*
-- **maptheme.md**: the branch palette and font choice are map-level facts not
-  built (decision 8: `wbMapColors` and `MAP_BRANCH_PALETTE` must agree); a
-  topic cannot be pulled back to the app's own default for a themed field; the
-  theme is resolved into each node on export rather than carried; an
-  `<arrowlink>` written by FreeMind itself is untested. [maptheme]
-  *Needs: schema and export design.*
+- **maptheme.md**: the theme is resolved into each node on export rather than
+  carried; an `<arrowlink>` written by FreeMind itself is untested. [maptheme]
+  *Needs: schema and export design.* (The palette, the font and the pin back to
+  the app's default are built, MINDMAP_PLAN 13e.)
 - **mindmap2.md**: `mindmapimage.js` passes 12 of 12 at 390x844 (measured
   2026-10-04); a picture node does not resize to its picture; `mindmap3.js`
   times out at `#wb-boards-generate` (the AI half); `mindmapcurve.js` at
@@ -546,6 +541,10 @@ pane's name, the errors sweep's aside clipping at 390.
   (`whiteboard-library.js`, `wbLoadLibrary`) draw nothing while they load.
   [boardmap-1005, small-1005]
   *Left: the whiteboard's own rail, owned by the WHITEBOARD plan's agent.*
+
+- **Skeletons: the Library and Documents views read BLANK at 1440 and 390**
+  (`skeletons.js`; the held requests chain, so the list is probably reached
+  after 300 ms): measure before deciding. [boardmap-1005, small-1005]
 - **Phone selection menus and the selection bar** (documents): iOS and Android
   draw Cut, Copy and Paste above a selection, where the bar also goes; if a
   report arrives the bar goes below the selection on `(pointer: coarse)` (one
@@ -574,9 +573,9 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Whiteboard, mind map and Atlas
 
-- **Board and map history**: a board's history does not survive a reload and an
-  agent's or another tab's change is not on its stack (decision 17 says the
-  event log is the long memory); redo of the board-level steps (theme,
+- **Board and map history**: an agent's or another tab's change is not on a
+  board's stack (decision 17 says the event log is the long memory; a board's
+  undo survives a reload since 2026-10-05, `undo-store.js`); redo of the board-level steps (theme,
   numbering, layout) is not swept; `wbMapCrossLinkToBranch`,
   `wbMapReverseCrossLink`, `wbMapCutCrossLink`, `wbMapAddReference`,
   `wbApplyMapTemplate`, `wbArrangeMindMap`, `wbMindMapAddCard`, bucket fill and
@@ -586,7 +585,7 @@ pane's name, the errors sweep's aside clipping at 390.
   Phase G's affinity sort (Group by theme proposes named frames, one Undo) and
   the claim check, both with faked-transport tests and
   `agent.PROSE_BUDGET_CHARS`; the time machine's plain-words "what changed";
-  expand from my notes and summarise this branch (MINDMAP_PLAN 12.3 item 2);
+  expand from my notes (MINDMAP_PLAN 12.3 item 2);
   ports are mouse and pen only (touch has no hover). Found: SQLite reuses a
   deleted row's id (no AUTOINCREMENT on the board item tables), so one id's log
   can hold two items; the board history starts a fresh state on each `created`
@@ -627,13 +626,6 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Settings, help and the shell
 
-- **The badge target**: `badgealign.js` measures against the x-height band
-  (INBOX 503) while the recipe's target is the capital centre (INBOX 592), so
-  it prints 1.0 to 1.8px "outliers" that are 0.5 to 1.0px from the painted ink
-  centre; `iconalign.js` prints 1.17px for the Installed badge and search chips
-  in the sandbox font (0.95px in Segoe; painted ink 0.5px). Decide the target
-  in one place and move the sweep. [iconalign-skel-1005, small-1005]
-  *Needs: a design call.*
 - **Help audit's remainder**: menus drawn on press (the chat "/" menu, a
   message's menu, the board menus, the notes list's menus) are checked by
   source grep only, and a sweep that presses each and lists its items would
@@ -711,6 +703,12 @@ pane's name, the errors sweep's aside clipping at 390.
   /entries/most-accessed?period=month`, hooks on `flashEntry` and
   `openNotePage`, the Most used widget's seg, then the HISTORY block and a
   CHANGELOG line); the "wrong" correction on an evidence card (I7's second
+
+- **A flaky timing test**: `tests/test_relations_kg2.py`'s 10k timing is flaky
+  under load (the typo, message-wording, thread-ratchet and list-paging tests
+  perf2-1005 and worldclass-1004 recorded as red pass on the head, 2026-10-05).
+  [perf2-1005]
+- **Retrieval and the learned loop, plan rows**: the "wrong" correction on an evidence card (I7's second
   half) and I1 pass 2's kinds as derived facts (dates, duplicates, entities)
   are WORLD_CLASS_PLAN rows. [worldclass-1005b, worldclass-1004]
 - **Smaller backend and gate rows**: a note type made through `POST

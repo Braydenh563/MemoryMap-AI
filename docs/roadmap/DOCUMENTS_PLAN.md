@@ -887,9 +887,9 @@ network request refused, and measures what renders: 0 network attempts, 1
 decoded inline image, the table, the disabled task boxes and the reading
 measure.
 
-**Not decided here, and deliberately still open**: DOCX both ways, Markdown
-with its assets, and import of `.html`. The first needs a dependency decision
-this session did not have a reason to force.
+**Closed 2026-10-05 (docs hygiene before 0.4.0):** DOCX both ways, Markdown
+with its assets and import of `.html` are all built (Phase 7; HISTORY.md,
+"Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: DOCUMENTS_PLAN)").
 
 ## 14. What a document daily note is: decided 2026-09-20
 

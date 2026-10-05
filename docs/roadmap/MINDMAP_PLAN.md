@@ -1482,3 +1482,145 @@ the phase.
 ## Placed from INBOX, 2026-10-03 (445 (2) audit, found not fixed)
 
 Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MINDMAP_PLAN.md: the second audit's open items"). Its two decisions are 13 and 14 above.
+
+## Placed from INBOX, 2026-10-05
+
+431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
+     appear in the command palate search / Also is there a way to customise
+     the colour the fill of mind map nodes?? Also for the mindmap export to
+     customise the colour of the background / Or just to be able to customise
+     the mind map background colour in general / Also can there be some more
+     animations and states of the companions?? Like lying down and sleeping or
+     doing other things like reading, sitting on a beanbag, pulling out a
+     chair and sitting on it, face palming, other gestures and props etc. But
+     focus on the smooth transitions and movement adjustment transitions and
+     other similar organic movement as that is the current worst thing. Maybe
+     also giving like the hair , tails, nebular streams some flow and swaying
+     or smth to make the atlas characters really attractive, well designed,
+     well animated and more. The female atlas main body could potentially
+     have a bit more of a femine chest but don't overdo it just really
+     subtle. Round out polish and finish the whole companion and avatar
+     feature. Polish the testing tool html pages for them as well. Then make
+     sure it is all optimised and cheap to run and everything is togglable in
+     settings. And continue. Polish the app, devibecode it. Fix bugs. Fix
+     ui/ux learnability, utility, accessibility, usability and information
+     architecture"
+     Placed: ~~(a) palette notes (verify: notes should appear; if not, bug)
+     and (b) mind map node fill, canvas and export background colour: one
+     Sonnet agent~~ **done 2026-09-27**: both already existed and worked
+     (verified live in Chromium against a real palette search and a real
+     mind map), no feature code changed; regression tests added
+     (`tests/test_palette_contract.py`, `tests/test_export_paint.py`).
+     Left, from the same report: (b)'s discoverability (the owner asked
+     without knowing they exist, so the controls need better labels/help,
+     placed below as its own item) and companion motion. (c) companion
+     motion first (transitions, glide, secondary motion on hair, tails and
+     nebula), then new states and props, the subtle feminine chest, the
+     test pages, per-feature toggles, cost: the two Opus agents on atlas.js
+     and avatars.js; (d) the devibecode programme, WORLD_CLASS_PLAN 22.4,
+     after.
+     Addenda the same afternoon, verbatim where quoted, all placed with the
+     two companion agents: the top-bar peek; locomotion by distance (walk,
+     hop or fly near, portal far: "It is a companion, not a fake soulless
+     construct"); a smoother bust; a slight body tilt left or right; the
+     sleepy face in both looks, "z" emotes and a night cap; close-range
+     pointer following; hover and click reactions that ease in and decay
+     ("more natural and gradual, unless it is startled"); boredom
+     wandering; lying down to sleep and masculine and feminine body
+     language; rotating per-persona thinking words beside the typing dots
+     (the Sonnet agent, lists written by the orchestrator).
+     (e) Categories: "there needs to be a better, easier and more accessible
+     and learnable way to edit categories like with merging them, splitting
+     them, moving notes between them etc. accessible from the notes tab, and
+     settings. maybe an access menu or panel cna be used from the your notes
+     subtab and/or sidebar??" Exists today: rename (onto an existing name it
+     merges) and delete, from the sidebar menu (`renameCategory`,
+     routes_categories.py PUT/DELETE). Missing: an explicit merge, a split,
+     moving notes between categories, and one place to do all of it.
+     Recommendation, taken: one "Manage categories" panel (the sheet recipe),
+     opened from the sidebar head, each category's menu and Settings; a
+     row per category with count, rename, merge into, split (pick notes or
+     let the AI propose), delete with a destination; notes dragged or
+     multi-selected across; every action undoable. Next free Opus slot.
+     The owner, straight after: "I should say manually edit. the user needs
+     to be able to easily do anything the ai can do". So the panel is part
+     of a parity rule: every write tool the agent has (WRITE_TOOLS and
+     tools/categories.py: create, rename, merge and delete category; create,
+     edit, tag, pin, link, unlink, delete and restore note; reminders; rename
+     and delete tag; documents; whiteboard cards and links; mind map nodes)
+     gets an audited, discoverable manual path, each gap fixed, and a lint
+     that fails when a new write tool has no named UI entry point.
+     **Built 2026-09-27** (e): the Manage categories panel and routes
+     (create, merge, split, proposed split, move, delete into), and the
+     parity lint, `tests/test_manual_parity.py`, naming the manual path of
+     every write tool. Left: the proposed split groups by tags; an AI
+     proposal would need the model.
+     (f) The owner, with a screenshot of the Documents AI assistant dialog:
+     "I actually reallly like the design of the document editor's ai
+     assistant popup panel. especially with the design of the close,
+     history,a nd tooltip buttons. idm the edit/write/remove pill either.
+     the suggest an edit button is fine to." Placed: DESIGN.md's recipe
+     index now names it the reference dialog head; every modal and popup
+     head is brought to it, with a ratchet lint (the Sonnet agent, after
+     the thinking words).
+     (g) The owner: "remake and retake the screenshots for the readme file,
+     update the atlas section with a short intro, title, headline and short
+     description and accompanying image with an expression or mood. take the
+     screenshots in dark mode but maybe have a dark/light comparison image.
+     make the graph really visually pleasing and impressive with a mix of
+     connected and non connected, some clusters some webs, some connections
+     ahve reasons and others dont etc. make sure all main features are
+     properly shown. and polish and update the rest of the the readme as
+     well." Placed: after the Atlas and companion passes land (so the shots
+     show the finished art), the first agent to free takes it: a seeded
+     showcase data dir (clusters, webs, loose notes, reasoned and plain
+     links), dark shots of every main feature, one dark/light split, the
+     Atlas section rewritten, README polished; test_readme_freshness green.
+     **Addendum, the owner, 2026-09-28 (Windows, granite4.1:3b), verbatim.**
+     "No gap below the 'use nomic-embed-text' button. Colour contrast issues
+     on the plan and web polls when active on the chat interface. Depending
+     on what the companion is perched on or anchored to at a given time it
+     might have different z-indexes so like if it is perched on like a chat
+     message bubble or a library card, when it scrolls with them it should
+     probably go behind the top bar like the thing it is perched on not in
+     front of it. If say it is stitting on or perched on an element like the
+     top bar, then it would be in front yk?? It's still really confusing to
+     use the built in embedding model because half the time I can't tell if
+     it is working or how well... also the fit drag mini fit map on the
+     whiteboard and mindmap is reallllly glitchy and laggy. The Popup agent
+     has been unable to answer multiple prompts as well and it's really
+     worrying. The whole process of filing, creating, editing, refining,
+     managing, tagging, recategorising notes and more anywhere, especially in
+     the main sections needs to be wayyy more fast, intuitive, guided,
+     assisted, automated, easy manually, and smooth to use." And: "there have
+     obviously been a lot of bugs that have been missed if something as big
+     as filing a note was very broken so I'm worried."
+     Same day, also open: the graph's default layout "looks messy and is
+     distributed wierdly"; the slash menu's Link card and Web link render the
+     same on a line of their own (a lone link is a card, CHAT_PLAN decision
+     12; recommendation: Web link on an empty line inserts inline syntax the
+     card rule skips, owner to confirm); a toggle in the note edit form's
+     preview reportedly exits preview (not reproduced in Chromium, capture's
+     half fixed in 31d5460).
+     Done the same day (commits 3d493ac to 2b721bd): capture preview and
+     gutter, spinner under reduced motion, one-tab picker strip, unread-dot
+     gap, popup agent "(no answer)" reasons and waiting line, Ask waiting
+     line, 499 for abandoned requests, greeting name once, one nudge on an
+     empty agent round, built-in engine applies on selection, Chat and agent
+     read the app's help for how-to questions, popup user mark, companion
+     hide sweep, web reader on site-builder pages.
+     **2026-10-03 (INBOX 432, PR 162):** (1) to (7) all done; (5) the
+     companion goes under the bar its perch scrolls under
+     (`tests/test_companion_stacking.py`, `companionstack.js`: 62px over the
+     bar to 0, 103px at Large to 0).
+     Placed, in this order: (1) **a real-model pass before more features**:
+     `scratchpad/llama-dev.sh serve` with a 3B model, then the popup agent's
+     two failing prompts, filing a new note, and `pytest -m evals`, because
+     every failure reported today passed a fake-transport suite; (2) the
+     note flow as one brief (WORLD_CLASS_PLAN, notes dossier): filing,
+     re-filing, tagging and editing measured end to end in the running app
+     with the model; (3) built-in engine status in words (ready, indexing N
+     of M, last query semantic or keyword); (4) minimap drag performance
+     (whiteboard and mind map, measured frame times); (5) companion stacking
+     by perch; (6) graph default forces; (7) the two small visual ones
+     (button gap, Plan/Web pill contrast) with contrast.js.

@@ -1650,6 +1650,43 @@ function wbBuildMapNode(el, d) {
       wbMapToggleCollapse(d.id);
     })
     .append("i").attr("class", "ph ph-caret-down").attr("aria-hidden", "true");
+  //: **One resize grip, on the topic's own corner** (INBOX 610, the owner:
+  //: "utility and usability for the mindmap is unintuitive like with
+  //: resizing the mindmap nodes, resizing the text"). There were two 16px
+  //: glyphs floating above the topic's top left, "Aa" and an arrow pointing
+  //: down and right, each a drag: one for the box, one for the words, and the
+  //: words grew as the pointer went *down*. Measured in
+  //: `scratchpad/ui-sweeps/bm1005-nodetasks.js`: neither was on the corner it
+  //: resized from, and dragging "Aa" upwards made the text smaller.
+  //:
+  //: Now the board's own grip (DESIGN.md, "a grip you drag on a canvas"): a
+  //: small filled square on the bottom right corner, shown when the topic is
+  //: selected or pointed at, which grows the box the way a card on a board
+  //: grows. Held with Shift it scales the words with the box, which keeps
+  //: the old grip's "a little bigger than that" without a second control;
+  //: the four named sizes are on the topic's bar now, one press each.
+  //:
+  //: One corner, not the board's eight: the chevron and its count own the
+  //: middle of the edge the branch leaves from, and the add buttons hang off
+  //: the bottom left. The bottom right is the corner none of them reach on
+  //: either layout, measured by the same sweep. It writes width and height
+  //: and never x or y (`wbMapStartResizeDrag` says why).
+  //:
+  //: Plain pointer events with capture, not a d3 drag: `preventDefault` on
+  //: `pointerdown` suppresses the compatibility `mousedown` that `objDrag`
+  //: listens for, so grabbing the grip cannot also be the first frame of a
+  //: node drag. The class is in `objDrag`'s own filter as well.
+  el.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-resize-grip")
+    .attr("title", "Drag to resize this topic. Hold Shift to scale its text with it")
+    .attr("aria-label", "Resize this topic")
+    .on("pointerdown", function (event) {
+      event.stopPropagation();
+      event.preventDefault();
+      wbMapStartResizeDrag(this, event, d);
+    });
+
   //: **Two ways to grow the map, in one row.** `+` makes a topic; the second
   //: button makes a node that *points at* a real note, document, file or link
   //: (§5 item 11: the half §10.4 recorded as missing: "a reference node was
@@ -1667,62 +1704,6 @@ function wbBuildMapNode(el, d) {
   //: hand-placed off the same corner is how they come to overlap by a few
   //: pixels that a screenshot does not show, which this file has already had
   //: to fix twice for the count badge (see `.wb-map-count`'s own comment).
-  //: **The text-size grip** (MINDMAP_PLAN.md §12.1 item 6): drag the node's
-  //: own corner and the words get bigger. The strip has four sizes, which is
-  //: the right control for "make this a heading"; this is the one for
-  //: "a little bigger than that", and mind-mapping tools all have it because
-  //: a map's hierarchy is carried as much by size as by position.
-  //:
-  //: Plain pointer events with capture, not a d3 drag: `preventDefault` on
-  //: `pointerdown` suppresses the compatibility `mousedown` that `objDrag`
-  //: listens for, so grabbing the grip cannot also be the first frame of a
-  //: node drag. The class is in `objDrag`'s own filter as well, because one
-  //: guard for this is what the resize handles already learned is not enough.
-  //: **Both grips in one row**, rather than each hand-placed off the same
-  //: corner. That is the lesson `.wb-map-actions` already carries a paragraph
-  //: about, and this is the second time it has been paid for: the size grip
-  //: was first put at the node's *other* bottom corner and landed underneath
-  //: the add buttons' own row, which hangs off that corner from outside and
-  //: takes the pointer first, so the drag never started at all. Measured
-  //: before this row existed: pointerdown on the grip was never received.
-  const grips = el.append("div").attr("class", "wb-map-grips");
-  grips.append("button")
-    .attr("type", "button")
-    .attr("class", "wb-map-size-grip")
-    .attr("title", "Drag to change the text size")
-    .attr("aria-label", "Drag to change the text size")
-    .on("pointerdown", function (event) {
-      event.stopPropagation();
-      event.preventDefault();
-      wbMapStartSizeDrag(this, event, d);
-    })
-    .append("i").attr("class", "ph ph-text-aa").attr("aria-hidden", "true");
-
-  //: **The size grip** (MINDMAP_PLAN.md's item 177, the owner's fourth, asked
-  //: for twice): drag the topic's own corner and the topic gets bigger, the
-  //: same gesture a card on a board already has. It is a grip rather than one
-  //: of the board's eight `.wb-resize-handle`s for the reason `renderWbObjects`
-  //: gives for not giving a map node those: eight handles and a rotate grip
-  //: sit exactly where the chevron, the count badge and the two add buttons
-  //: already are, and would swallow all four. One corner is enough here
-  //: because a resize on a map may not move the node: the layout owns x and y.
-  //:
-  //: Pointer events with capture rather than a d3 drag, for the same reason
-  //: the text-size grip beside it uses them: `preventDefault` on `pointerdown`
-  //: suppresses the compatibility `mousedown` that `objDrag` listens for, so
-  //: grabbing the grip cannot also be the first frame of a node drag.
-  grips.append("button")
-    .attr("type", "button")
-    .attr("class", "wb-map-resize-grip")
-    .attr("title", "Drag to resize this topic")
-    .attr("aria-label", "Drag to resize this topic")
-    .on("pointerdown", function (event) {
-      event.stopPropagation();
-      event.preventDefault();
-      wbMapStartResizeDrag(this, event, d);
-    })
-    .append("i").attr("class", "ph ph-arrow-down-right" ).attr("aria-hidden", "true");
-
   const actions = el.append("div").attr("class", "wb-map-actions");
   actions.append("button")
     .attr("type", "button")
@@ -2245,41 +2226,6 @@ function wbMapOpenLink(d) {
   window.open(String(href).trim(), "_blank", "noopener,noreferrer");
 }
 
-//: The grip's drag, from pointerdown to drop.
-//:
-//: Live on the element and stored once, at the end: a PUT per pixel of drag
-//: is the flood `wbBeginTextEdit`'s own blur-save comment warns about, and the
-//: node is already showing the new size, so there is nothing to see for it.
-//: Divided by the zoom, so the gesture means the same amount of text at every
-//: scale rather than four times as much when zoomed out.
-function wbMapStartSizeDrag(grip, event, d) {
-  const node = grip.closest(".wb-object");
-  if (!node) return;
-  const container = document.getElementById("whiteboard-container");
-  const k = container ? d3.zoomTransform(container).k : 1;
-  const startY = event.clientY;
-  const startSize = d.data?.font_size || WB_MAP_TEXT_DEFAULT;
-  let size = startSize;
-  grip.setPointerCapture?.(event.pointerId);
-  const move = (moveEvent) => {
-    // Four pixels of drag to one of type: the whole useful range (10 to 44)
-    // is then about 140px of travel, which is a gesture rather than a twitch.
-    const next = startSize + ((moveEvent.clientY - startY) / k) / 4;
-    size = Math.round(Math.min(WB_MAP_TEXT_MAX, Math.max(WB_MAP_TEXT_MIN, next)));
-    node.style.fontSize = `${size}px`;
-  };
-  const done = async () => {
-    grip.removeEventListener("pointermove", move);
-    grip.removeEventListener("pointerup", done);
-    grip.removeEventListener("pointercancel", done);
-    if (size === startSize) return;
-    await wbMapSetNodeStyle(d, { font_size: size });
-  };
-  grip.addEventListener("pointermove", move);
-  grip.addEventListener("pointerup", done);
-  grip.addEventListener("pointercancel", done);
-}
-
 //: How small a topic may be dragged. Narrower than this is a box too small to
 //: hold the grip that is resizing it, which is a node you cannot get back.
 const WB_MAP_NODE_MIN_W = 72;
@@ -2325,12 +2271,21 @@ function wbMapStartResizeDrag(grip, event, d) {
   const edges = wbMapEdgesFor(d.id);
   let width = startW;
   let height = startH;
+  //: **Shift scales the words with the box** (INBOX 610), by the width's
+  //: ratio, inside the same bounds the four named sizes sit in. Read on every
+  //: move, so pressing or letting go of Shift mid-drag does what it says.
+  const startFont = d.data?.font_size || WB_MAP_TEXT_DEFAULT;
+  let font = startFont;
   grip.setPointerCapture?.(event.pointerId);
   const move = (moveEvent) => {
     width = Math.max(WB_MAP_NODE_MIN_W, startW + (moveEvent.clientX - startX) / k);
     height = Math.max(WB_MAP_NODE_MIN_H, startH + (moveEvent.clientY - startY) / k);
     width = Math.round(width);
     height = Math.round(height);
+    font = moveEvent.shiftKey
+      ? Math.round(Math.min(WB_MAP_TEXT_MAX, Math.max(WB_MAP_TEXT_MIN, startFont * (width / startW))))
+      : startFont;
+    node.style.fontSize = font === startFont && !d.data?.font_size ? "" : `${font}px`;
     node.style.width = `${width}px`;
     node.style.minHeight = `${height}px`;
     d.width = width;
@@ -2351,7 +2306,7 @@ function wbMapStartResizeDrag(grip, event, d) {
     // and `width`/`height` are already on it.
     // `undo: false`: the size was already live on `d`, so the helper's own
     // snapshot would hold the new size; `before` below is the true one.
-    await wbMapSetNodeStyle(d, { sized: true }, { undo: false });
+    await wbMapSetNodeStyle(d, font === startFont ? { sized: true } : { sized: true, font_size: font }, { undo: false });
     wbPushUndo({ action: "move", kind: "object", id: d.id, before });
     wbScheduleRender();
   };
@@ -5410,6 +5365,100 @@ function wbSyncMapToolState() {
 //: what tells them the change came from the sync rather than from a person.
 let wbMapStripSyncing = false;
 
+//: **Every choice in the topic's bar is one press** (INBOX 610, the owner:
+//: "changing various features ... the popup tool menus (not the radials)"
+//: was "unintuitive"). Each of the bar's settings was a `<select>` inside a
+//: door: open the door, open the list, pick a row, three steps and a popup
+//: inside a popup, measured by `scratchpad/ui-sweeps/bm1005-nodetasks.js`
+//: (eight of eleven tasks took three). Each select is now drawn as the
+//: choice-control recipe (DESIGN.md, `.seg[role="group"]`) beside it, so a
+//: door and one press is the most anything takes, and the text size, on the
+//: bar itself, is one.
+//:
+//: **The select is still the control.** Every listener in whiteboard.js
+//: reads it, `wbSyncMapStrip` sets it and renames its blank row on a themed
+//: map, `wbSyncMapFill` rewrites its rows; the segments only press it. They
+//: are redrawn from it on its own `change` and on any change to its rows, so
+//: nothing that writes the select has to know they exist.
+const WB_MAP_CHOICE_REDRAWS = [];
+
+function wbMapChoiceRow(select) {
+  const seg = document.createElement("div");
+  seg.className = "seg wb-map-choices";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", select.getAttribute("aria-label") || "");
+  const icons = select.id === "wb-map-strip-icon";
+  //: **The buttons are kept, not rebuilt**, while the select's rows are the
+  //: same rows: the chosen segment's fill is the strip's own gliding
+  //: indicator (08-consistency.css, anchored to `.active`), which can only
+  //: glide from one button to another that both still exist, and a rebuilt
+  //: row would also drop the keyboard focus from under the person pressing.
+  //: Rebuilt only when the rows themselves change (a themed map's pin row,
+  //: the fill's "No fill" row), which is a different set of choices.
+  const press = (value) => {
+    if (select.value === value) return;
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    draw();
+  };
+  const draw = () => {
+    const options = [...select.options];
+    const same = seg.children.length === options.length
+      && options.every((option, i) => seg.children[i].dataset.value === option.value);
+    if (!same) {
+      seg.replaceChildren(...options.map((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.value = option.value;
+        button.addEventListener("click", () => press(option.value));
+        return button;
+      }));
+    }
+    options.forEach((option, i) => {
+      const button = seg.children[i];
+      const words = option.textContent.trim();
+      //: A themed map's blank row reads "As the map draws (bold)", which is
+      //: right in a list and a paragraph in a segment: the segment says
+      //: "Map" and keeps the sentence as its name.
+      const themed = /^As the map draws/.test(words);
+      if (icons && option.value) {
+        if (!button.querySelector("i")) {
+          const glyph = document.createElement("i");
+          glyph.className = `ph ph-${option.value}`;
+          glyph.setAttribute("aria-hidden", "true");
+          button.replaceChildren(glyph);
+        }
+        button.setAttribute("aria-label", words);
+      } else {
+        //: `data-short` is the segment's word where the list's says the
+        //: row's name again ("Thick line" under Thickness): the list needs
+        //: the whole phrase, a row of segments under its name does not, and
+        //: the full phrase stays the segment's name and tooltip.
+        const short = option.dataset.short;
+        const text = themed ? "Map" : (icons ? "None" : (short || words));
+        if (button.textContent !== text) button.textContent = text;
+        if (themed || icons || short) button.setAttribute("aria-label", words);
+        else button.removeAttribute("aria-label");
+      }
+      button.title = words;
+      const on = option.value === select.value;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  };
+  select.addEventListener("change", draw);
+  new MutationObserver(draw).observe(select, { childList: true, subtree: true, characterData: true });
+  WB_MAP_CHOICE_REDRAWS.push(draw);
+  draw();
+  select.hidden = true;
+  select.parentElement.append(seg);
+  return seg;
+}
+
+function wbWireMapChoices() {
+  for (const select of document.querySelectorAll("#wb-map-strip select")) wbMapChoiceRow(select);
+}
+
 function wbSyncMapStrip(node) {
   //: **The effective state, not the stored one** (§13e). The arrow button has
   //: always worked this way and says why below; a theme makes it true of the
@@ -5501,6 +5550,7 @@ function wbSyncMapStrip(node) {
     setSelect("wb-map-shape", shown("shape"));
     setSelect("wb-map-spine", shown("spine"));
     wbSyncMapFill(node);
+    for (const draw of WB_MAP_CHOICE_REDRAWS) draw();
     //: The line into this topic (item 177). A trunk has none, so the group is
     //: put away rather than shown as three controls that write a field
     //: nothing draws: `wbMapEdgeHasArrow` and the rest all read the *child*
@@ -5614,8 +5664,8 @@ function wbSyncMapFill(node) {
   }
 }
 
-//: The size the text grip starts from when a node has never been sized, and
-//: the bounds it may drag between (§12.1 item 6). Measured rather than
+//: The size a Shift-drag of the resize grip scales from when a node has never
+//: been sized, and the bounds it may scale between (§12.1 item 6, INBOX 610). Measured rather than
 //: assumed: `.wb-map-node` reads at `--text-md`, which computes to 13.6px at
 //: the default root size, so 14 is that rounded to a whole pixel. The strip's
 //: own "M" stores nothing at all instead, see `wbSyncMapStrip`.

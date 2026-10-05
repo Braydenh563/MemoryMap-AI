@@ -1142,6 +1142,7 @@ HELP_TOPICS.extend(
                 "undo steps", "how many undo", "topic before", "topic after",
                 "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
                 "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
+                "resize a topic", "topic size", "bigger topic", "text size on a topic", "topic bar", "topic toolbar",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and "
@@ -1159,7 +1160,11 @@ HELP_TOPICS.extend(
                 "Right-click a topic for the ring: Add child, Add beside, Fold, "
                 "Delete, Cross-link and More; hold Alt on the ring to remove "
                 "instead of add. Dragging a topic onto another moves its whole "
-                "branch; double-click a line to label it."
+                "branch; double-click a line to label it. A selected topic has "
+                "its bar above it: the colour, the text size (S, M, L, XL), and "
+                "Text, Shape and Branch line, each a panel of choices you press "
+                "once. Drag the square on its bottom right corner to resize it; "
+                "hold Shift as you drag to scale its text with it."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

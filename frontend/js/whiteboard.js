@@ -688,6 +688,7 @@ const WB_INV_ZOOM_GRIPS = [
   ".wb-link-label-handle",
   ".wb-clone-grip",
   ".wb-map-edge-handle",
+  ".wb-map-resize-grip",
   ".wb-sketch-rotate-handle",
   ".wb-rotate-handle-stem",
 ];
@@ -10352,6 +10353,7 @@ async function initWhiteboard() {
   crossSlot("wb-link-label", (node) => wbMapLabelEdge(node.id), (id) => wbMapCrossLinkToBranch(id));
   crossSlot("wb-link-cut", (node) => wbMapSever(node.id), (id) => wbMapCutCrossLink(id));
 
+  wbWireMapChoices();
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
   //: of controls that moves between nodes, so a captured node is a control
@@ -17232,7 +17234,7 @@ function renderWbObjects(canvas) {
       if (event.button) return false;
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
-        ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-map-size-grip"
+        ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip"
         + ", .wb-map-resize-grip"
       )) return false;
       // `.wb-text-content` used to be excluded outright, which is what left a

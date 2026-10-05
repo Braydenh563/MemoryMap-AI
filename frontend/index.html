@@ -6761,10 +6761,25 @@ Link to another note with [[its first few words]]."></textarea>
          `escapeAndCapMenu` keeps it inside the window; every id below is the
          id the control already had, so every listener in whiteboard.js is
          untouched. Positioned by `wbUpdateSelectionBar`, which owns both. -->
-    <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic">
+    <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic" data-no-select-enhance>
       <input type="color" id="wb-map-strip-color" class="wb-color-picker" aria-label="Topic colour" title="Topic colour">
+      <!-- **The text size, on the bar, one press** (INBOX 610: "resizing the
+           text" was "unintuitive"). It was the third step behind the Text
+           door, a list inside a menu. The select stays the source of truth
+           and every listener on it is untouched; `wbMapChoiceRow` draws its
+           four options as a `.seg` beside it and hides it. M is no stored
+           size at all: see `wbSyncMapStrip`, which says why the default has
+           to stay the default. -->
+      <span class="wb-map-bar-size">
+        <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
+          <option value="12">S</option>
+          <option value="">M</option>
+          <option value="19">L</option>
+          <option value="25">XL</option>
+        </select>
+      </span>
       <div class="wb-board-menu-wrap">
-        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="How this topic reads: weight, size, alignment and its icon" aria-label="Text: how this topic reads" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-text-menu"><span class="wb-menu-label">Text</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="How this topic reads: weight, alignment and its icon" aria-label="Text: how this topic reads" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-text-menu"><span class="wb-menu-label">Text</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
         <div id="wb-map-text-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Text">
           <div class="wb-menu-section">
             <div class="wb-menu-row">
@@ -6773,17 +6788,6 @@ Link to another note with [[its first few words]]."></textarea>
                 <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
                 <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
               </span>
-            </div>
-            <!-- **M is no stored size at all**: see `wbSyncMapStrip`, which
-                 says why the default has to stay the default. -->
-            <div class="wb-menu-row">
-              <span>Size</span>
-              <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
-                <option value="12">S</option>
-                <option value="">M</option>
-                <option value="19">L</option>
-                <option value="25">XL</option>
-              </select>
             </div>
             <div class="wb-menu-row">
               <span>Alignment</span>
@@ -6845,9 +6849,9 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-row">
               <span>Edge bar</span>
               <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
-                <option value="">Solid bar</option>
-                <option value="dashed">Dashed bar</option>
-                <option value="none">No bar</option>
+                <option value="" data-short="Solid">Solid bar</option>
+                <option value="dashed" data-short="Dashed">Dashed bar</option>
+                <option value="none" data-short="None">No bar</option>
               </select>
             </div>
             <!-- **The fill**: a tint of the topic's colour across its card,
@@ -6858,8 +6862,8 @@ Link to another note with [[its first few words]]."></textarea>
               <span>Fill</span>
               <select id="wb-map-fill" class="ghost small" aria-label="Fill this topic with its colour" title="Tint this topic with its colour, on its own or with everything under it">
                 <option value="">No fill</option>
-                <option value="self">Fill this topic</option>
-                <option value="branch">Fill with its branch</option>
+                <option value="self" data-short="This topic">Fill this topic</option>
+                <option value="branch" data-short="Its branch">Fill with its branch</option>
               </select>
             </div>
           </div>
@@ -6882,17 +6886,17 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-row">
               <span>Thickness</span>
               <select id="wb-map-edge-width" class="ghost small" aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
-                <option value="thin">Thin line</option>
-                <option value="">Line</option>
-                <option value="thick">Thick line</option>
+                <option value="thin" data-short="Thin">Thin line</option>
+                <option value="" data-short="Normal">Line</option>
+                <option value="thick" data-short="Thick">Thick line</option>
               </select>
             </div>
             <div class="wb-menu-row">
               <span>Shape</span>
               <select id="wb-map-edge-shape" class="ghost small" aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
-                <option value="">Curved line</option>
-                <option value="elbow">Elbow line</option>
-                <option value="straight">Straight line</option>
+                <option value="" data-short="Curved">Curved line</option>
+                <option value="elbow" data-short="Elbow">Elbow line</option>
+                <option value="straight" data-short="Straight">Straight line</option>
               </select>
             </div>
             <div class="wb-menu-row">

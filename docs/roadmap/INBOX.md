@@ -167,6 +167,16 @@ with its owner named in the entry.
      the board and map agent: the tapered branch path sampled finely enough
      (or drawn as true curves) that no corner shows at any zoom.
 
+610. **The owner, 2026-10-05, verbatim.** "also utility and usability for
+     the mindmap is unintuitive like with resizing the mindmap nodes,
+     resizing the text, changing various features and other things about
+     the mindmap nodes with the individual nodes themselves adn the popup
+     tool menus (not the radials)". Placed: the board and map agent (with
+     596, 607-609): direct manipulation on the node (resize grips that
+     appear on select, text size on the node's bar, inline edit), one clear
+     node toolbar instead of nested popup menus, every node property
+     reachable in at most two steps, measured by a task sweep.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

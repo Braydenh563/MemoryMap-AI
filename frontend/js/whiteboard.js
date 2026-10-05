@@ -2391,23 +2391,83 @@ function wbItemEdgeDir(kind, item, pt) {
   return len ? { x: (pt.x - c.x) / len, y: (pt.y - c.y) / len } : null;
 }
 
-//: The eight fixed anchors of an item, in board space, rotated with it.
+//: **An item's connection points, on its own outline** (wb-phase2 step 5;
+//: draw.io's fixed ports). A card, a text box and a rectangle keep the eight
+//: of `WB_FIXED_ANCHORS`. A drawn polygon (a diamond, a triangle, a custom
+//: shape of straight sides) has its corners and the middle of each side, so
+//: a diamond's are its four tips and four side middles rather than the four
+//: corners of its box, which float off it; a curved outline (an ellipse) has
+//: the eight compass points where it actually is. Each is a fraction of the
+//: box, which is how a link stores it (`sourceAnchor`), so a resize carries
+//: it and nothing stored changes shape.
+const wbPortCache = new Map();
+
+function wbPortFractions(kind, item) {
+  if (kind !== "sketch") return WB_FIXED_ANCHORS;
+  const parsed = wbSketchParsedData(item);
+  if (!parsed || typeof parsed.d !== "string") return WB_FIXED_ANCHORS;
+  const cached = wbPortCache.get(item.id);
+  if (cached && cached.d === parsed.d) return cached.ports;
+  const ports = wbPortsForPath(parsed.d, WB_FILLABLE_SHAPES.has(parsed.shape)) || WB_FIXED_ANCHORS;
+  wbPortCache.set(item.id, { d: parsed.d, ports });
+  return ports;
+}
+
+//: Pure (node-tested): the ports of a path as fractions of its box, or null
+//: when it is not a closed outline worth porting (an open stroke).
+function wbPortsForPath(d, shaped = false) {
+  const box = wbPathBBox(d);
+  if (!box) return null;
+  const w = box.maxX - box.minX || 1, h = box.maxY - box.minY || 1;
+  const frac = (p) => ({ x: Math.round(((p.x - box.minX) / w) * 1e4) / 1e4, y: Math.round(((p.y - box.minY) / h) * 1e4) / 1e4 });
+  const curved = /[CcQqAaSsTt]/.test(d);
+  const closed = /[Zz]\s*$/.test(String(d).trim());
+  if (!closed && !shaped) return null;
+  if (!curved) {
+    const segs = wbPathPolyline(d).filter(([x1, y1, x2, y2]) => Math.hypot(x2 - x1, y2 - y1) > 0.5);
+    if (segs.length >= 3 && segs.length <= 12) {
+      const out = [];
+      const add = (p) => {
+        const f = frac(p);
+        if (!out.some((q) => Math.abs(q.x - f.x) < 0.02 && Math.abs(q.y - f.y) < 0.02)) out.push(f);
+      };
+      for (const [x1, y1] of segs) add({ x: x1, y: y1 });
+      for (const [x1, y1, x2, y2] of segs) add({ x: (x1 + x2) / 2, y: (y1 + y2) / 2 });
+      return out;
+    }
+  }
+  //: A curve: where the outline is at the eight compass points of its box's
+  //: inscribed ellipse (an ellipse drawn by the tool is exactly that).
+  const out = [];
+  for (let i = 0; i < 8; i += 1) {
+    const t = (i * Math.PI) / 4;
+    out.push(frac({ x: box.minX + w * (0.5 + 0.5 * Math.cos(t)), y: box.minY + h * (0.5 + 0.5 * Math.sin(t)) }));
+  }
+  return out;
+}
+
+//: An item's connection points, in board space, rotated with it.
 function wbAnchorPositions(kind, item) {
   const box = wbItemBBox(kind, item);
   if (!box) return [];
   const w = box.maxX - box.minX, h = box.maxY - box.minY;
   const c = wbBoxCenter(box);
   const rot = wbItemRotation(kind, item);
-  return WB_FIXED_ANCHORS.map((a) => {
+  return wbPortFractions(kind, item).map((a) => {
     const pt = wbRotatePoint({ x: box.minX + a.x * w, y: box.minY + a.y * h }, c, rot);
     return { anchor: a, x: pt.x, y: pt.y };
   });
 }
 
+//: Where a stored anchor is: read from its fraction, not looked up among
+//: the item's current ports, so a link anchored before an item's ports
+//: changed (a box corner on an ellipse) keeps its end where it was.
 function wbAnchorPoint(kind, item, anchor) {
-  if (!anchor) return null;
-  const hit = wbAnchorPositions(kind, item).find((p) => p.anchor.x === anchor.x && p.anchor.y === anchor.y);
-  return hit ? { x: hit.x, y: hit.y } : null;
+  if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return null;
+  const box = wbItemBBox(kind, item);
+  if (!box) return null;
+  const pt = { x: box.minX + anchor.x * (box.maxX - box.minX), y: box.minY + anchor.y * (box.maxY - box.minY) };
+  return wbRotatePoint(pt, wbBoxCenter(box), wbItemRotation(kind, item));
 }
 
 //: The nearest of the 8 fixed points to a board-coordinate click, or `null`
@@ -3209,7 +3269,7 @@ function wbLinkShape(parsed) {
   return { route: parsed.type === "link-straight" ? "straight" : "curved", points };
 }
 
-//: A small SVG dot at each of a shape's 8 fixed anchors, shown while a link
+//: A small SVG dot at each of a shape's connection points, shown while a link
 //: drag is in progress so the snap targets are actually discoverable rather
 //: than a silent hit-test, draw.io shows the same thing on hover. The
 //: nearest one to the live pointer (if within snapping range) renders larger
@@ -5568,12 +5628,52 @@ function wbPushDragUndo(entries) {
 async function wbFinishDrag(primary, bulkOrigin, altCopy) {
   const carried = wbBulkUndoEntries(bulkOrigin);
   if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+  const bends = await wbCarryWaypoints(primary, bulkOrigin);
   let copies = [];
   if (altCopy && (primary || carried.length)) {
     copies = await wbDropCopies([primary, ...carried].filter(Boolean));
   }
-  wbPushDragUndo([primary, ...carried, ...copies]);
-  if (copies.length) wbScheduleRender();
+  wbPushDragUndo([primary, ...carried, ...bends, ...copies]);
+  if (copies.length || bends.length) wbScheduleRender();
+}
+
+//: **A connector's bends move with what it joins** (wb-phase2 step 5,
+//: draw.io's rule): when both its ends were carried by one drag, its
+//: waypoints go the same way, so a moved group keeps its lines' shape rather
+//: than leaving their bends behind. Returns the undo entries, which ride in
+//: the drag's one step.
+async function wbCarryWaypoints(primary, origin) {
+  if (!origin?.size) return [];
+  let dx = 0, dy = 0, found = false;
+  for (const entry of origin.values()) {
+    if (entry.kind === "sketch") {
+      const was = typeof entry.d === "string" ? wbPathBBox(entry.d) : null;
+      const now = was && wbItemBBox("sketch", entry.item);
+      if (was && now) [dx, dy, found] = [now.minX - was.minX, now.minY - was.minY, true];
+    } else if (entry.x !== undefined) {
+      [dx, dy, found] = [entry.item.x - entry.x, entry.item.y - entry.y, true];
+    }
+    if (found) break;
+  }
+  if (!found || (!dx && !dy)) return [];
+  const moved = new Set(origin.keys());
+  if (primary) moved.add(wbMultiKey(primary.kind, primary.id));
+  const out = [];
+  for (const sketch of wbState.sketches || []) {
+    let data = null;
+    try {
+      data = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!data || !String(data.type || "").startsWith("link-") || !Array.isArray(data.points) || !data.points.length) continue;
+    const ends = [[data.sourceKind || "node", data.sourceId], [data.targetKind || "node", data.targetId]];
+    if (!ends.every(([kind, id]) => id != null && moved.has(wbMultiKey(kind, id)))) continue;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    await wbSaveSketchProps(sketch, { points: data.points.map((p) => ({ x: Math.round(p.x + dx), y: Math.round(p.y + dy) })) });
+    out.push({ action: "move", kind: "sketch", id: sketch.id, before });
+  }
+  return out;
 }
 
 //: **A map's own nodes go in one request.** A tidy of a two hundred node map
@@ -12686,6 +12786,10 @@ async function initWhiteboard() {
     //: Off a link tool there are no dots to show, and any left over go (INBOX
     //: 573: the cross-link tool's dots stayed on a topic after switching back
     //: to Select, through Escape, a press on the canvas, Undo and a tab switch).
+    if (window.currentTool === "select" && !e.buttons) {
+      portHover(e);
+      return;
+    }
     if (!window.currentTool || !window.currentTool.startsWith("link-")) {
       wbClearAnchorHints();
       return;
@@ -12696,6 +12800,140 @@ async function initWhiteboard() {
     const hit = wbLinkCandidateAt(x, y);
     if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], x, y));
     else wbClearAnchorHints();
+  });
+
+  // --- Connection points with Select (wb-phase2 step 5; draw.io's ports) ---
+  //
+  // With Select, pointing at a shape, card or text box shows its connection
+  // points (`wbAnchorPositions`: a polygon's corners and side middles, an
+  // ellipse's compass points), and a press on one draws a connector from it
+  // (an elbow with an arrow, as clone-and-connect makes) to the item it is
+  // let go on, at that item's nearest point, or to a free end on empty board.
+  // Not on what is selected (its resize grips sit where its ports are), a
+  // locked item, a map (whose lines are its tree), or touch (no hover).
+  const port = { kind: null, item: null, drag: null };
+  const zoomK = () => d3.zoomTransform(containerEl).k || 1;
+  const portTarget = (x, y) => {
+    let hit = wbLinkCandidateAt(x, y);
+    if (!hit && port.item) {
+      //: Keep the points while the pointer is just outside the outline,
+      //: which is where it is on its way to one of them.
+      const box = wbItemBBox(port.kind, port.item);
+      const pad = 14 / zoomK();
+      if (box && x >= box.minX - pad && x <= box.maxX + pad && y >= box.minY - pad && y <= box.maxY + pad) hit = [port.kind, port.item];
+    }
+    if (!hit || wbIsMap() || wbIsLocked(hit[0], hit[1]) || wbSelectedKeys().has(wbMultiKey(hit[0], hit[1].id))) return null;
+    return hit;
+  };
+  function portHover(e) {
+    if (e.pointerType === "touch" || port.drag) return;
+    const [x, y] = getLogicalMouse(e);
+    const hit = portTarget(x, y);
+    if (!hit) {
+      if (port.item) wbClearAnchorHints();
+      port.kind = null;
+      port.item = null;
+      return;
+    }
+    [port.kind, port.item] = hit;
+    wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], x, y, 10 / zoomK()));
+  }
+  const portEnd = () => {
+    port.drag?.path?.remove();
+    port.drag = null;
+    wbLinkDragActive = false;
+    wbClearAnchorHints();
+  };
+  containerEl.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType === "touch" || window.currentTool !== "select" || !port.item || e.altKey || e.shiftKey) return;
+    const [x, y] = getLogicalMouse(e);
+    if (!portTarget(x, y)) return;
+    //: Near enough to a point, and never so far that a small shape on screen
+    //: is all points: at most a fifth of its shorter side, so its middle is
+    //: still the shape (measured at a phone's fitted zoom: a 36px-tall box
+    //: was a connector from its middle at a flat 9px).
+    const box = wbItemBBox(port.kind, port.item);
+    const side = box ? Math.min(box.maxX - box.minX, box.maxY - box.minY) * zoomK() : 0;
+    const anchor = wbNearestAnchor(port.kind, port.item, x, y, Math.min(9, side * 0.2) / zoomK());
+    if (!anchor) return;
+    //: Before d3-drag's mousedown: a pointerdown's default prevented is
+    //: the mouse events it would have made, so the item does not move.
+    e.preventDefault();
+    e.stopPropagation();
+    const start = wbAnchorPoint(port.kind, port.item, anchor);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("class", "wb-port-preview");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", window.currentStrokeColor || "#888888");
+    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-dasharray", "6 4");
+    path.setAttribute("pointer-events", "none");
+    document.getElementById("wb-zoom-group")?.appendChild(path);
+    port.drag = { kind: port.kind, item: port.item, anchor, start, path, moved: false, id: e.pointerId };
+    wbLinkDragActive = true;
+    try {
+      containerEl.setPointerCapture(e.pointerId);
+    } catch {
+      /* a synthetic event has no capture to take; the moves still arrive */
+    }
+  }, true);
+  containerEl.addEventListener("pointermove", (e) => {
+    const drag = port.drag;
+    if (!drag) return;
+    const [x, y] = getLogicalMouse(e);
+    drag.moved = drag.moved || Math.hypot(x - drag.start.x, y - drag.start.y) * zoomK() > 4;
+    drag.path.setAttribute("d", `M ${drag.start.x} ${drag.start.y} L ${x} ${y}`);
+    const hit = wbLinkCandidateAt(x, y, drag.kind, drag.item.id);
+    if (hit) wbShowAnchorHints(hit[0], hit[1], wbNearestAnchor(hit[0], hit[1], x, y));
+    else wbShowAnchorHints(drag.kind, drag.item, drag.anchor);
+  });
+  containerEl.addEventListener("keydown", (e) => {
+    if (port.drag && e.key === "Escape") {
+      e.stopPropagation();
+      portEnd();
+    }
+  }, true);
+  containerEl.addEventListener("pointerup", async (e) => {
+    const drag = port.drag;
+    if (!drag) return;
+    const [x, y] = getLogicalMouse(e);
+    portEnd();
+    if (!drag.moved) {
+      //: A press that did not travel is a click on the item it is on.
+      selectWbItem(drag.kind, drag.item.id);
+      return;
+    }
+    const hit = wbLinkCandidateAt(x, y, drag.kind, drag.item.id);
+    const data = {
+      type: "link-straight",
+      route: "elbow",
+      sourceId: drag.item.id,
+      sourceKind: drag.kind === "node" ? undefined : drag.kind,
+      sourceAnchor: drag.anchor,
+      color: window.currentStrokeColor || "#888888",
+      width: 2,
+      endCap: "arrow",
+    };
+    if (hit) {
+      data.targetId = hit[1].id;
+      data.targetKind = hit[0] === "node" ? undefined : hit[0];
+      data.targetAnchor = wbNearestAnchor(hit[0], hit[1], x, y) || undefined;
+    } else {
+      data.targetPoint = { x: Math.round(x), y: Math.round(y) };
+    }
+    try {
+      const made = await apiJson("/whiteboard/sketches", {
+        method: "POST",
+        body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null }),
+      });
+      wbState.sketches.push(made);
+      wbPushUndo({ action: "create", kind: "sketch", id: made.id });
+      renderWhiteboardNow();
+      selectWbItem("sketch", made.id);
+      wbAnnounce(hit ? "Connected." : "Connector drawn to a free end.");
+    } catch (error) {
+      toast(error.message || "The connector could not be made.", true);
+    }
   });
 
   // On `window`, not on the container, and for three event names rather than

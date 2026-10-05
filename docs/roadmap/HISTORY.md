@@ -59,6 +59,17 @@ remaining whiteboard rows; the open rest is in
   (`wbSpacingSeries`). `tests/test_wb_guides.py` 5; `wbguides.js` 6/6 at
   1440 and 390, light and dark; `wbgroupguides.js` 0 findings.
 
+- **Step 5, connection points and waypoint consistency** (decision 35).
+  Checked first: eight fixed anchors and their hover hints with a link
+  tool existed (bbox fractions, so off a diamond's or an ellipse's outline);
+  waypoints on every style came with step 1. Added: `wbPortsForPath` (a
+  polygon's corners and side middles, a curve's compass points, cached per
+  path), `wbAnchorPoint` read from the fraction, ports on hover with Select
+  and a drag from one to connect (initWhiteboard's "Connection points with
+  Select"), and `wbCarryWaypoints` in `wbFinishDrag`.
+  `tests/test_wb_ports.py` 7; `wbports.js` 9/9 and `wbwaypoints.js` 22/22
+  at 1440 and 390, light and dark.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

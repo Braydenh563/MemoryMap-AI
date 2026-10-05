@@ -384,6 +384,16 @@ accessibility, and learnability") are why.
     not); with no neighbour on the far side, the gap to the nearest item
     snaps to the gap that item keeps to the next one out. Alt still bypasses
     every guide; align and distribute stay the Arrange menu's (they existed).
+35. **Connection points are on the outline** (`wbPortsForPath`): a card, a
+    text box and a rectangle keep the eight; a drawn polygon has its corners
+    and side middles, a curve its eight compass points; each is a fraction
+    of the box, and a stored anchor is read from its fraction, so links made
+    before keep their ends. With Select, pointing at an item that is not
+    selected, locked or on a map shows them, and a drag from one makes an
+    elbow connector with an arrow (as clone-and-connect does), to the item
+    let go on or to a free end; a press that does not travel selects. A
+    connector whose two ends one drag carried has its waypoints carried too,
+    in the same Undo step.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

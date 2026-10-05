@@ -165,6 +165,53 @@ const { check, summary } = checker();
   const exported = await page.evaluate(() => { const out = wbBuildExportSvg("board"); return out ? String(out.svg).includes(" A ") : null; });
   check("an SVG export keeps the arcs", exported === true, exported);
 
+  // 8. A connector's bends move with the two things it joins (step 5).
+  //: The Format panel (section 6) covers the left of a phone: closed first.
+  await page.evaluate(() => wbFormatClose({ restoreFocus: false }));
+  const pair = await page.evaluate(async (bid) => {
+    const rect = (x, y) => `M ${x} ${y} L ${x + 120} ${y} L ${x + 120} ${y + 70} L ${x} ${y + 70} Z`;
+    const post = async (data, z = 1) => (await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify(data), x: 0, y: 0, z, board_id: bid }) })).id;
+    const a = await post({ d: rect(0, 600), shape: "rect", color: "#335599", width: 2 });
+    const b = await post({ d: rect(520, 600), shape: "rect", color: "#335599", width: 2 });
+    const link = await post({ type: "link-straight", sourceId: a, sourceKind: "sketch", targetId: b, targetKind: "sketch", width: 2, points: [{ x: 320, y: 760 }] }, 3);
+    await fetchWhiteboardState();
+    renderWhiteboardNow();
+    //: The camera on the pair alone, so the shapes are big enough on a
+    //: phone to grab clear of the selection's bar.
+    const c = document.getElementById("whiteboard-container");
+    const r = c.getBoundingClientRect();
+    const k = Math.min(1, (r.width - 40) / 640);
+    d3.select(c).call(wbZoom.transform, d3.zoomIdentity.translate(r.width / 2 - 320 * k, r.height / 2 - 690 * k).scale(k));
+    clearWbSelection();
+    wbMultiSelection.add(wbMultiKey("sketch", a));
+    wbMultiSelection.add(wbMultiKey("sketch", b));
+    wbApplySelectionHighlight();
+    return { a, b, link };
+  }, board.id);
+  await page.waitForTimeout(600);
+  const grab = await page.evaluate((id) => {
+    const svg = document.getElementById("wb-svg-layer");
+    const pt = svg.createSVGPoint();
+    pt.x = 60; pt.y = 640;
+    const s = pt.matrixTransform(document.getElementById("wb-zoom-group").getScreenCTM());
+    return { x: s.x, y: s.y, k: d3.zoomTransform(document.getElementById("whiteboard-container")).k };
+  }, pair.a);
+  await page.mouse.move(grab.x, grab.y, { steps: 2 });
+  await page.mouse.down();
+  await page.mouse.move(grab.x + 40, grab.y + 30, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(1000);
+  const carried = await page.evaluate((ids) => ({
+    points: JSON.parse(wbFindItem("sketch", ids.link).data).points,
+    b: wbItemBBox("sketch", wbFindItem("sketch", ids.b)),
+  }), pair);
+  const ddx = carried.b.minX - 520, ddy = carried.b.minY - 600;
+  check("a group drag carries its connector's bends with it", Math.abs(ddx) > 5 && Math.abs(carried.points[0].x - (320 + ddx)) <= 1 && Math.abs(carried.points[0].y - (760 + ddy)) <= 1, { carried, ddx, ddy });
+  await page.evaluate(() => wbUndo());
+  await page.waitForTimeout(1000);
+  const restored = await page.evaluate((id) => JSON.parse(wbFindItem("sketch", id).data).points, pair.link);
+  check("and one Undo puts the bends back with the shapes", restored[0].x === 320 && restored[0].y === 760, restored);
+
   check("no console errors", errors.length === 0, errors.slice(0, 5));
   const ok = summary();
   await browser.close();

@@ -1095,6 +1095,7 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
                 "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
+                "connection point", "connection points", "port", "ports", "anchor point",
                 "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
                 "entity relationship", "mermaid", "subgraph", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
                 "connect it to the copy", "connect the copy",
@@ -1111,7 +1112,11 @@ HELP_TOPICS.extend(
                 "of a run (or double-click the line) to add one, drag a bend to move it, double-click it to "
                 "take it out. A straight line runs through its bends, a curved one curves smoothly through "
                 "them, and an elbow turns at right angles and goes round the shapes it joins; changing the "
-                "line shape keeps the bends. Drag the square on a connector's label to slide "
+                "line shape keeps the bends; moving both things a connector joins moves its bends too. "
+                "With Select, pointing at a shape, card or text box shows its connection points (a "
+                "diamond's tips and side middles, an ellipse's compass points); drag from one to draw an "
+                "elbow connector to whatever you let go on, or to a free end. "
+                "Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
                 "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow. "

@@ -455,7 +455,7 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   const xs = nodes.map((n) => n.x);
   const ys = nodes.map((n) => n.y);
   // A hidden panel measures zero, so fall back to the node positions.
-  const box = drawn.width
+  let box = drawn.width
     ? drawn
     : {
         x: Math.min(...xs) - 40,
@@ -463,6 +463,19 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
         width: Math.max(...xs) - Math.min(...xs) + 200,
         height: Math.max(...ys) - Math.min(...ys) + 60,
       };
+  //: **An arc's arcs are part of it** (INBOX 544, the owner: it "starts a
+  //: little too close and too high up"). The canvas renderer has nothing to
+  //: `getBBox`, so the box above was the baseline alone, ±30px: the arcs
+  //: bowing above it (up to 0.3 of the span, `arcPath`) and the labels
+  //: hanging below were outside the frame, which centred the bare line and
+  //: zoomed in until it filled the width.
+  if (arc && !drawn.width) {
+    const spanXs = Math.max(...xs) - Math.min(...xs);
+    const spanYs = Math.max(...ys) - Math.min(...ys);
+    box = spanXs >= spanYs
+      ? { x: Math.min(...xs) - 40, y: Math.min(...ys) - 0.3 * spanXs - 20, width: spanXs + 80, height: 0.3 * spanXs + 160 }
+      : { x: Math.min(...xs) - 0.3 * spanYs - 20, y: Math.min(...ys) - 30, width: 0.3 * spanYs + 240, height: spanYs + 60 };
+  }
   const minX = box.x - 10;
   const maxX = box.x + box.width + 10;
   const minY = box.y - 10;
@@ -474,7 +487,10 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   // exactly what made 29 rows unreadable, but a notebook that *nearly* fits
   // is worth a small zoom-out to see whole, and only falls back to panning
   // when the price of fitting would be text you can't read.
-  const both = Math.min((width - 20) / spanX, (height - 20) / spanY);
+  //: An arc keeps a screen margin either side for the end labels, which are
+  //: drawn at their own size whatever the zoom (INBOX 544).
+  const edge = arc ? 200 : 20;
+  const both = Math.min((width - edge) / spanX, (height - 20) / spanY);
   //: **An arc is framed whole** (INBOX 430, "Arc view doesn't fit the
   //: screen"): it is one line read end to end, and a line cut off at the edge
   //: of the screen reads as the whole of it. Its floor is the fit itself,

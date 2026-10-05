@@ -307,6 +307,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
+- Graph, Arc view: it opens framed whole, its arcs and end labels inside the window with a margin, instead of zoomed in on the bare baseline near the top (INBOX 544).
 - Notes, Capture: the Clear button sits below the text box instead of over its bottom edge (6px over at desktop width, 14px on a phone) (INBOX 545).
 - Top bar: the tabs no longer jump sideways when you switch tab; the strip was measured with its sliding highlight counted as a tab, so whether it was centred depended on which tab was selected (INBOX 539).
 - Agent mode: a model that can call tools is no longer reported as unable to after one tool call Ollama could not read; the request is made once more, only Ollama's own "does not support tools" counts as no tools, an error mid-answer is said instead of ending empty, and a model that claims tools but keeps failing gets its own message (INBOX 538).

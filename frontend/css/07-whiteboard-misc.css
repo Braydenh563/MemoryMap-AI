@@ -3679,9 +3679,16 @@ dialog::backdrop {
   padding: 0;
 }
 
-/* Clear in the foot takes no height of its own: the row is the counter's. */
+/* Clear in the foot sits below the text box, never on it (INBOX 545, the
+   owner: it "clashes with the text box"; measured 6px over the box at 1440
+   and 14px at 390 when it was pulled up to take no height). The row is as
+   tall as the button and the counter is centred on it. */
+.note-composer-foot {
+  padding-top: var(--space-1);
+}
+
 .note-composer-foot .field-clear {
-  margin-block: -1.1rem;
+  margin-block: 0;
 }
 
 /* Notes tab → Ask: the question input, the answer-length select and the Ask

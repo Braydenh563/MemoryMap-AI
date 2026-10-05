@@ -47,4 +47,14 @@ if ! node "$HERE/touch.js" >> "$OUT" 2>&1; then
   echo "!! touch failed" >> "$OUT"
 fi
 
+# The dark pass (BACKLOG 116.4 item 16): every number above is light. Contrast
+# is the sweep a theme can break without any structure changing, so it is the
+# one repeated, at desktop and at the phone width, with THEME=dark.
+for WIDTH in 1440 390; do
+  echo "######## contrast @ $WIDTH, dark" >> "$OUT"
+  if ! THEME=dark WIDTH="$WIDTH" node "$HERE/contrast.js" >> "$OUT" 2>&1; then
+    echo "!! contrast dark @ $WIDTH failed" >> "$OUT"
+  fi
+done
+
 echo "$OUT"

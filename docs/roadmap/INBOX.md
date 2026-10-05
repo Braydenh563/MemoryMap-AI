@@ -34,6 +34,55 @@ with its owner named in the entry.
 
 ## Open items
 
+537. **The owner, 2026-10-05, verbatim.** "I accidentally clicked the + button
+     on a mindmap link. then it made an extra node. I didnt want that so I
+     pressed ctrl+z, it undid most of it, but the link from the parent node
+     to the rest of the branch disappeared. I was trying to figure out how to
+     reconnect them, then I moved the separated branch and it straight up
+     disappeared. I cant undo or redo anything and Ive lost that branch. the
+     undo and redo across the application needs to cover EVERYTHING" Data
+     loss: first.
+
+538. **The owner, 2026-10-05, verbatim.** "Im using a thinking model that can
+     use toolcalling but it fails??" (screenshots: gemma-4-E2B, spec sheet
+     "Can use tools: yes", the answer card says it "can't call tools, so this
+     answered as a plain question instead of using Agent mode").
+
+539. **The owner, 2026-10-05, verbatim.** "when I switch between tabs in the
+     top bar, the pill element for the tabs shifts position slightly
+     horizontally."
+
+540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
+     animations has MASSSSIVE eyebrows."
+
+541. **The owner, 2026-10-05, verbatim.** "some of the settings section
+     navigation rows are at the bottom and some dont have any at all??"
+     (screenshot: Quit MemoryMap with its sub-tab row under the title).
+
+542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
+     arent aligned vertically." (screenshot: the Installed badge in Settings,
+     Packages).
+
+543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
+     moderna dn professional redesigning and restructuring." (screenshot: the
+     calendar strip under the dock).
+
+544. **The owner, 2026-10-05, verbatim.** "the graph arc view starts a little
+     too close and too high up on the screen."
+
+545. **The owner, 2026-10-05, verbatim.** "the clear button in the note
+     capture tab clashes with the text box."
+
+546. **The owner, 2026-10-05, verbatim.** "idk if the "connections beside an
+     open note" in the notes tab does anything."
+
+547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
+     can i change or modify or see topics in the graph or elsewhere??"
+
+548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
+     well to be consistent, moderna and professional." (screenshot: the mind
+     map's "Point a new node at..." picker).
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

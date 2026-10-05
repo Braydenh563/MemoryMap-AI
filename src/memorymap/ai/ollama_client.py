@@ -24,6 +24,8 @@ from memorymap.ai import sampling
 from memorymap.ai.provider import (
     Provider,
     ProviderError,
+    NO_TOOLS_PHRASE,
+    UNREADABLE_CALL_PHRASE,
     ToolsUnsupportedError,
     _ThinkTagSplitter,
     _ToolTextGate,
@@ -604,6 +606,34 @@ class OllamaClient(Provider):
         except requests.RequestException:
             return False
 
+    def _tools_post(self, model: str, messages: list[dict], tools: list[dict], mode, stream: bool):
+        """One tools request, made a second time when Ollama answered 5xx
+        because the model wrote a tool call it could not parse (INBOX 538: a
+        tool-capable model reported as unable to call tools after one slip).
+        A small model's malformed call is usually a one-off; the second try
+        is a fresh sample. A second failure goes on to the caller's probe."""
+        response = None
+        for attempt in (0, 1):
+            response = requests.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": self._to_ollama_messages(messages),
+                    "stream": stream,
+                    "tools": tools,
+                    "keep_alive": self.keep_alive,
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode, model),
+                },
+                stream=stream,
+                timeout=self.timeout,
+            )
+            if attempt == 0 and response.status_code >= 500 and UNREADABLE_CALL_PHRASE in response.text.lower():
+                response.close()
+                continue
+            break
+        return response
+
     def chat_tools_stream(
         self,
         model: str,
@@ -632,23 +662,10 @@ class OllamaClient(Provider):
         raw_calls: list[dict] = []
         stats: dict = {}
         try:
-            with requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": True,
-                    "tools": tools,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                stream=True,
-                timeout=self.timeout,
-            ) as response:
+            with self._tools_post(model, messages, tools, mode, stream=True) as response:
                 # Same capability probe as chat_tools: a model without tool
                 # support is a gap to fall back from, not an outage.
-                if response.status_code == 400 and "tool" in response.text.lower():
+                if response.status_code == 400 and NO_TOOLS_PHRASE in response.text.lower():
                     raise ToolsUnsupportedError(f"'{model}' can't use tools")
                 response.raise_for_status()
 
@@ -670,6 +687,11 @@ class OllamaClient(Provider):
                     if not line:
                         continue
                     data = json.loads(line)
+                    #: Ollama reports a failure after the 200 as an `error`
+                    #: line (a tool call it could not parse, mid-answer); it
+                    #: used to be skipped and the turn ended empty.
+                    if data.get("error"):
+                        raise OllamaError(f"{model}: {str(data['error'])[:300]}")
                     message = data.get("message", {})
                     if message.get("thinking"):  # native thinking models
                         thinking += message["thinking"]
@@ -695,7 +717,7 @@ class OllamaClient(Provider):
                 and self._tools_path_is_broken(model, messages, mode)
             ):
                 raise ToolsUnsupportedError(
-                    f"'{model}' answers without tools but fails with them"
+                    f"'{model}' answers without tools but fails with them", declared=False
                 ) from exc
             # Same reasoning as `describe_http_error`: a 500 whose body says
             # *why* must not reach the user as a bare status line. Only an
@@ -759,23 +781,11 @@ class OllamaClient(Provider):
         conversation. Non-streamed on purpose: tool-call rounds are short
         and this works on every Ollama version that supports tools."""
         try:
-            response = requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": False,
-                    "tools": tools,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                timeout=self.timeout,
-            )
+            response = self._tools_post(model, messages, tools, mode, stream=False)
             # Ollama answers 400 with a "...does not support tools" body
             # for models without tool support, that's a capability gap,
             # not an outage, so signal it distinctly.
-            if response.status_code == 400 and "tool" in response.text.lower():
+            if response.status_code == 400 and NO_TOOLS_PHRASE in response.text.lower():
                 raise ToolsUnsupportedError(f"'{model}' can't use tools")
             response.raise_for_status()
             payload = response.json()
@@ -832,7 +842,7 @@ class OllamaClient(Provider):
                 and self._tools_path_is_broken(model, messages, mode)
             ):
                 raise ToolsUnsupportedError(
-                    f"'{model}' answers without tools but fails with them"
+                    f"'{model}' answers without tools but fails with them", declared=False
                 ) from exc
             # Same reasoning as `describe_http_error`: a 500 whose body says
             # *why* must not reach the user as a bare status line. Only an

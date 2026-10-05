@@ -4803,7 +4803,7 @@ Link to another note with [[its first few words]]."></textarea>
           <textarea id="doc-ai-result" rows="10" aria-label="Atlas's suggested text"></textarea>
           <div class="row doc-ai-result-actions">
             <button id="doc-ai-cancel" class="ghost">Cancel</button>
-            <button id="doc-ai-accept">Replace with this</button>
+            <button id="doc-ai-accept" class="ghost">Replace with this</button>
           </div>
         </div>
       </div>
@@ -7723,7 +7723,7 @@ Link to another note with [[its first few words]]."></textarea>
             <label class="visually-hidden" for="ocr-edit-box">Edit the text that was read</label>
             <textarea id="ocr-edit-box" class="ocr-edit-box" rows="12" spellcheck="false"></textarea>
             <div class="row ocr-edit-actions">
-              <button id="ocr-edit-save" class="small" type="button">Save changes</button>
+              <button id="ocr-edit-save" class="ghost small" type="button">Save changes</button>
               <button id="ocr-edit-cancel" class="ghost small" type="button">Cancel</button>
               <span class="muted text-sm">Your text replaces the sections below.</span>
             </div>
@@ -8473,7 +8473,7 @@ Link to another note with [[its first few words]]."></textarea>
                  shown when there's actually a fix to offer (Ollama has to
                  be running to pull or use an Ollama model at all). -->
             <div id="embedding-error-fix-row" class="row hidden">
-              <button id="embedding-error-fix" class="small" type="button">
+              <button id="embedding-error-fix" class="ghost small" type="button">
                 Switch to nomic-embed-text (Ollama)
               </button>
               <span id="embedding-error-fix-status" class="muted"></span>
@@ -11531,7 +11531,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row button-row setting-dependent" id="update-version-row">
                 <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
                 <select id="update-version-select" class="small-select hidden" aria-label="Choose a release to install"></select>
-                <button id="update-install-version" class="small hidden" type="button">Install this version</button>
+                <button id="update-install-version" class="ghost small hidden" type="button">Install this version</button>
               </div>
               <span class="muted setting-dependent" id="update-version-status"></span>
               <!-- Only meaningful running from start.bat/start-desktop.bat, which
@@ -11623,7 +11623,7 @@ Link to another note with [[its first few words]]."></textarea>
                 or open the list here.
               </p>
               <div class="row">
-                <button id="about-shortcuts" class="small" type="button"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Change keyboard shortcuts</button>
+                <button id="about-shortcuts" class="ghost small" type="button"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Change keyboard shortcuts</button>
               </div>
             </div>
           </section>
@@ -12090,13 +12090,14 @@ Link to another note with [[its first few words]]."></textarea>
         placeholder="The transcript will appear here once recording stops, review and trim it before saving."
         aria-label="Transcript: edit before saving"></textarea>
       <!-- The save row is a dock's action zone by another name: the one filled
-           control first, the other two ways of keeping the transcript beside
+           control first (ghost here; `stagePrimary` fills it, and empties
+           Record, once there is a transcript), the other two ways of keeping the transcript beside
            it, and the one that throws it away pushed to the far end by
            `margin-left: auto` rather than sitting fourth in a run of four.
            DESIGN.md's ramp: a destructive action is never the filled one, and
            it should not be a slip of the hand away from the primary either. -->
       <div class="row hidden" id="meeting-save-row">
-        <button id="meeting-save">Save as a note</button>
+        <button id="meeting-save" class="ghost">Save as a note</button>
         <!-- A lecture or a long meeting is not a note. Asked for as part of
              "expanded as a proper feature with more capabilities": an hour of
              transcript in the Notes list is one enormous card nobody can

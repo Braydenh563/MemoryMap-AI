@@ -1682,6 +1682,13 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
+//: One filled button per dialog (DESIGN.md, "Buttons: the ramp"): a
+//: stage-gated pair hands the fill from `a` to `b` when b's turn comes.
+function stagePrimary(a, b, bTurn) {
+  $(a)?.classList.toggle("ghost", !!bTurn);
+  $(b)?.classList.toggle("ghost", !bTurn);
+}
+
 //: The one "working" ring (DESIGN.md, "Something is working on it"): in a
 //: label write `ph:spin Working…`. All of it is the `.spinner` class.
 function spinnerEl() {
@@ -1751,33 +1758,15 @@ function buildSelect(options, selected) {
 
 // --- asking before something irreversible (§35F) ----------------------------------
 //
-// `window.confirm` is not dependable in the shell this app also runs in.
-// pywebview's backends vary in whether they implement it at all, and one that
-// does not returns `undefined`, which every `if (!confirm(...)) return;` in
-// this file reads as "the user said no". The button then does nothing, says
-// nothing, and looks broken. That is the reported shape of "the recycle bin
-// empty now button doesn't work either": the endpoint behind it is fine, and
-// the click never got past the gate.
-//
-// A promise-based dialog fixes that and is better in the browser too, it is
-// styled like the app, it says what the action is in a heading rather than a
-// system font, and the dangerous option can be marked as dangerous.
-//: `checkbox` adds one optional decision to the same dialog, `{label, title,
-//: checked}`, and the promise then resolves to `{ok, checked}` instead of a
-//: bare boolean. Added for "also take this picture out of the notes that show
-//: it", which is a second, *different* act from deleting the file: a
-//: second dialog for it would be a second modal to dismiss, and doing it
-//: silently would be the app editing someone's notes without being asked.
-//:
-//: Callers that pass no checkbox still get a plain boolean, because thirty of
-//: them read the result directly and widening that contract for all of them
-//: would be a rewrite in service of one feature.
-//: **The button says what it does.** A confirmation whose question is
-//: "Delete the 'Audit link reasons' skill?" answered with a red "OK", which
-//: is the one label that names no action (every platform's guidelines ask
-//: for the verb). Most call sites pass no label, so the default is read off
-//: the question itself: its first word, when that word is one of the
-//: actions the app asks about. Anything else keeps "OK".
+// `window.confirm` is not dependable in pywebview: a backend without it
+// returns `undefined`, which `if (!confirm(...)) return;` reads as "no", so
+// the button silently did nothing ("the recycle bin empty now button doesn't
+// work either"). This dialog is styled like the app and can mark danger.
+//: `checkbox` (`{label, title, checked}`) adds one optional second decision
+//: ("also take this picture out of the notes that show it") and resolves to
+//: `{ok, checked}`; without it callers still get a plain boolean.
+//: **The button says what it does**, never "OK" where a verb fits: with no
+//: label, the question's first word is used when it is one of these actions.
 const CONFIRM_VERBS = new Set([
   "delete", "remove", "clear", "discard", "reset", "replace", "archive", "leave",
   "disconnect", "overwrite", "restore", "empty", "forget", "unlink", "stop",

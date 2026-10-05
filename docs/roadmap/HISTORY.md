@@ -81,6 +81,166 @@ Not in decision 14 and not built: nesting rules, clipping what overhangs a
 frame, a frame as an export scope or a presentation step (presentation is its
 own open row). Help moved with it: the Guide's whiteboard-keys topic, the
 board's help sheet (Frame, F), the rail tooltip and DESIGN.md's recipe row.
+
+## Moved from the backlog, 2026-10-04 (an audit of BACKLOG.md by grep)
+
+Each item was checked against the code before it was moved; "already built"
+means the entry was stale, found by reading the call site, not assumed.
+
+### From section 8 (the ideas parking lot)
+
+- **Settings on a narrow viewport.** Already built: below 600px the top bar's
+  theme, settings, lock and quit squares become the rows of `#header-more`
+  (`initPhoneHeaderMore`, `phone-shell.js`; the bottom sheet's last row is
+  Settings too). Measured at 320 and 390: `#settings-btn` is `display: none`
+  there on purpose and the menu row opens `openSettingsModal()`.
+- **Dashboard widgets and markdown.** Already built: the dashboard's note
+  lists run `renderInlineMarkdown` in compact mode (`dashboard.js`, around
+  2428 to 2530), and `notePreviewText` covers the label-sized ones.
+- **The constellation widget on a theme change.** Already built:
+  `applyPalette` (`ai-tools.js`) and the theme toggle (`settings.js`) both call
+  `refreshArtForTheme()` (`dashboard.js`), guarded for load order.
+- **Gravity and Spread under tree and radial layouts.** Already built:
+  `setGraphPhysicsEnabled` (`graph.js`) disables the three sliders and puts
+  the reason on hover.
+- **The extracted page's visual rendering.** Already built: `.web-reader-text`
+  (`03-dashboard-widgets.css`) has the document measure, a heading scale,
+  blockquotes, lists and code.
+
+### From section 8b
+
+- **A start and an install in flight at once.** Fixed. A start waiting on
+  SearXNG now stops waiting the moment an install begins (the wait's
+  `still_starting` also asks `_install_state["running"]`), stops the process
+  and says "SearXNG was being reinstalled while it started" instead of
+  blaming SearXNG for writing no output. Test:
+  `test_a_start_waiting_on_searxng_gives_up_when_a_reinstall_begins`.
+
+### From section 19 and 22
+
+- **Colour contrast "never measured".** `scratchpad/ui-sweeps/contrast.js`
+  measures it in both themes (HISTORY has the numbers); `all.sh` now also runs
+  it with `THEME=dark` at 1440 and 390.
+- **`prefers-reduced-motion`.** Covered by the two blankets in
+  `02-chat-graph.css` (`test_motion_tokens.py`) and `test_motion_endings.py`.
+- **Chat, Agent and Browse selector.** Done as the Ask/Agent toggle plus the web
+  panel (section 3's audit).
+- **README drift.** `tests/test_readme_freshness.py` holds the numbers and
+  names against the code.
+
+### From section 79b
+
+- **A splash window at launch.** Built: `scripts/splash.ps1` and the launch
+  splash in `__main__.py` (`launch_status`).
+- **Agent-mode and skill auto-detect nudges, start and finish notices for
+  sub-processes, AI follow-up chips, the minimap's drag, wheel and keyboard
+  zoom, and the token-efficiency pass.** All six built in section 93.
+- **Scanned PDFs through the vision model rather than Tesseract.** Built:
+  `pdfpages` rasterises, `vision_ocr.py` reads, `routes_files.py` falls back to
+  it for a PDF with no text layer.
+- **Contrast measured** (see above).
+
+### From sections 64, 65 and 76
+
+- **Documents: a slash menu and focus mode (64).** Built: the slash menu is
+  `editor.js`'s, focus mode is `toggleDocFocus` with `#doc-focus-bar`.
+- **A clipping's source as metadata (65).** Built: `Entry.source_url` and
+  `source_title`, drawn as a "from the web" badge in `note-cards.js`.
+- **Keyword-only filing with no model (76), first half.** Built:
+  `manager.WORDS_FILED`, set by the janitor, reported as `filed_by: "words"`;
+  moving such a note by hand is logged as a correction.
+
+### From sections 16, 17 and 18
+
+- **Keyboard-only navigation of the note list (16).** Built: the list is a
+  roving-tabindex walk with ArrowDown, ArrowUp, Enter, Home, End, Delete and F2
+  (`notes-list.js`, around 2983 to 3010).
+- **The agent only in the Chat tab (18).** Built as the popup agent
+  (`agent-activity.js`, `capture-ask.js`): available from every tab.
+- **Journalling (17).** Built: a daily note is a convention
+  (`dailyNoteTitle`, `timeline.js`, TIMELINE_PLAN phase 4).
+
+### From sections 27 and 109.4
+
+- **The onboarding's model-pull offer and the writable-folder line (27).**
+  Built: `renderOnboardingActions` and `GET /storage`'s `data_dir_writable`.
+- **A backlinks panel, a conflict-safe editor, a shortcut sheet, single-note
+  and single-document export, bulk tag editing and "why is this here?" on a
+  graph edge (109.4).** All built: `/entries/{id}/backlinks`
+  (`notes-list.js`), the 409 dialog (`edit-conflict.js`), Settings, Shortcuts,
+  `/entries/{id}/export.md` and `/documents/{id}/export.md|zip|docx`, the bulk
+  dialog in `tag-manager.js`, and the edge reason in `graph.js`.
+
+### From sections 21, 28 and 29
+
+- **Skills: undo for a link change (21).** `unlink_notes` exists, so a link
+  change has an inverse; a reminder still has none.
+- **In-app help that knows the docs (28).** Built: `ai/help_chat.py`,
+  `help_topics_more.py` and the Guide.
+- **MCP, the expose half (29).** Built: `src/memorymap/mcp_server.py`.
+
+### From section 29b
+
+- **A dry-run for the background librarian (item 2).** Answered by review-after
+  rather than a true dry-run: the pass keeps what it did and every write carries
+  its undo (`autonomous.py`, ROADMAP section 40 item 2; a stubbed pass stops
+  resembling the real one, so a preview would lie).
+
+### From sections 4 and 7
+
+- **Archive (4, item 3).** Built for notes, chats and documents: each model carries
+  `archived_at` (`core/database.py`).
+- **Single instance (7).** Built in `__main__.py`: one server per data directory.
+
+### From sections 9, 10, 13 and 14
+
+- **Performance (11).** Warm model: `OllamaClient` sets `keep_alive` to 30 minutes
+  and `embeddings.start_warmup` loads the embedder; the frontend split is done
+  (`app.js` is 25 files, CLAUDE.md section 7).
+
+- **Graph utility (9).** Built: paths between two notes (`path_between`, the trace
+  in `graph.js`), orphans and hubs, drag-to-link, the timeline scrub, PNG export,
+  filters and `related_notes`.
+- **Reminders as points on the timeline (10).** Built: the `reminder` kind in
+  `timeline.js`.
+
+- **No favicon fetched per search result (13).** Held: `chat.js` draws the
+  site's first letter on a tile, because a real favicon is a request to the
+  site from inside the app for every result.
+- **Tools (14).** Built: `create_document`, `related_notes`,
+  `find_similar_notes`, `notebook_overview` and `count_notes`,
+  `save_user_preference`, `unlink_notes` and the four category tools.
+
+### From section 98
+
+- **The lightbox's actions that need an id (3b).** Built: `buildMoreMenu` in
+  `lightbox-view.js` (describe with AI, read text with AI, rename, delete),
+  shown when the item carries an id.
+
+### From section 116
+
+- **Unlink uploads when a map's entry is purged (116.1 item 1).** Built in
+  `entry/manager.py` (`_hard_delete`: a map's image objects lose their files,
+  confined to `<data>/media`; a plain board keeps its files). It had no test;
+  `test_purging_a_map_removes_its_image_files_but_a_plain_board_keeps_them`
+  in `tests/test_recycle_bin.py` now holds both halves.
+- **The Health block's latency row (116.1 item 2).** Built: `renderHealthBlock`
+  in `settings.js` draws `latency_ms_by_kind` as "kind: 1.2s typical, 3.4s slow".
+- **Mindmaps 116.2 items 6 to 10.** Built: the FreeMind `.mm` importer
+  (`whiteboard.js`), "make a map of these notes" (`POST /whiteboard/boards/propose`
+  with `_outline_covering`, called from `whiteboard.js`), focus mode,
+  perspectives, metrics and templates (`whiteboard-map.js`), the 500-node
+  measurement (HISTORY, the whiteboard topics table), and the cross-link tool.
+- **The phone and dark passes (116.1 items 3 and 4).** Measured 2026-10-04 on
+  a fresh notebook: `errors.js` at 390 over every tab, every Settings section
+  and the Library sub-tabs, 0 errors and 0 layout findings; `contrast.js` with
+  `THEME=dark` at 1440, every surface ok (the whiteboard was skipped, a fresh
+  notebook has no board). Not measured: a notebook with content on those
+  surfaces, and the dark pass at 390 (`all.sh` now runs it).
+- **Tooling 116.4.** `serve.sh` is the per-agent launcher; `all.sh` runs the
+  phone widths (`chrome.js` at 1440, 1024, 820, 390) and now a dark contrast
+  pass at 1440 and 390.
+
 ## Moved from the plans, 2026-10-04 (the consistency contract's missing lints)
 
 ### From WORLD_CLASS_PLAN.md rows 13 (section 1, D14)
@@ -40147,3 +40307,38 @@ over a v4 address against the same server. Windows is not testable here."
   not supported"), so the end-to-end test skips here and runs on CI; Windows
   is not testable here at all.
 
+## Moved from the plans, 2026-10-04 (design-1004)
+
+### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover
+
+Both lints in `tests/test_consistency_contract.py` were ratchets (5 dialogs
+and panes with two or three filled buttons; 13 `.chip` rules drawing a
+border or answering hover). Both are strict now.
+
+- **One primary.** The four stage-gated pairs write the later button `ghost`
+  and hand the one fill over with `stagePrimary(first, later, laterTurn)`
+  (app.js): `doc-ai-run` to `doc-ai-accept` when the result shows
+  (`showDocAiResult`), `ocr-to-note` to `ocr-edit-save` while the reading is
+  being edited (`ocrOpenEdit`/`ocrCloseEdit`), `meeting-record` to
+  `meeting-save` once there is a transcript, `embedding-apply` to
+  `embedding-error-fix` while the fix row shows (status.js; the dead
+  `only_on_error` allowance in `test_ui_recipes.py` went with it).
+  `update-install-version` and `about-shortcuts` are ghost. `STAGE_PAIRS`
+  checks each pair is ghost in markup and handed over in code.
+- **Meta.** 13 to 0. A chip you press is a `.chip-interactive` (role button,
+  from `chip(..., onClick)`; the category that opens its menu now carries the
+  class) and every hover or edge rule names that class: link chips, the
+  category, the chat and Ask suggestions, the Library's usage chip. The
+  facts lost their edge (`.chip.when` and `.chip.untagged` dashed,
+  `.chip.refs`, `.chip.reminders`, `.chip.confidence`, `#entry-list
+  .chip.link`, the category's 8% hairline); `.recent .chip` and its hover
+  were the `.chip-interactive` rule twice. In the Notes list the hover edge
+  is the `.link-connection` pill's, as in Ask. An inset 1px `box-shadow`
+  now counts as a border. Kept by name (`META_EDGED`, not a ratchet): the
+  label recipe `.chip.item-label` (INBOX 461's hairline box, the later and
+  more specific decision than 1.2's "statuses are meta") and
+  `.chip.suggested-tag` (two buttons in one box).
+- Measured (`scratchpad/ui-sweeps/metachips.js`, 1440 light and 390 dark):
+  every chip on a seeded note's line has a 0px edge; the facts (`when`) do
+  not change under the pointer; the category, the "+N", the references and
+  a hashtag tone; link chips change ink; heights 24px, unchanged.

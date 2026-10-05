@@ -1745,20 +1745,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   align-items: flex-start;
 }
 
-.extras-row .entry-title {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-}
-
-.extras-row .entry-actions {
-  flex: 0 0 auto;
-  margin-left: auto;
-}
+/* (The first `.extras-row .entry-title` and `.entry-actions` rules that
+   stood here were folded into the two below, which overrode every value
+   they set but `margin: 0` and `flex: 0 0 auto`: same result, fewer bytes
+   in the boot stylesheet, INBOX 595.) */
 
 /* The name and its "Installed"/"Not ready yet" chip are one flex item, not
    two. Reported: "there are also still wrapping issues in the packages tab
@@ -1790,9 +1780,11 @@ header#top-bar.tabs-wrapped #tab-bar {
      the outcome the original fix wanted in the first place, only one flex
      item too conservative about which piece was allowed to give. */
   flex-wrap: wrap;
+  margin: 0;
 }
 
 .extras-row .entry-actions {
+  flex: 0 0 auto;
   margin-left: auto;
   align-items: center;
   /* INBOX 273: `flex: 0 0 auto` above never shrinks this column, and a row
@@ -1850,6 +1842,19 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .extras-soon {
   cursor: default;
+}
+
+/* Tick and name, one group: the name wraps beside its tick (INBOX 595). */
+.extras-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 100%;
+}
+
+.extras-name > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* --- the Library (§4, §36F) --------------------------------------------------

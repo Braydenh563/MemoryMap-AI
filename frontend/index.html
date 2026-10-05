@@ -10191,6 +10191,28 @@ Link to another note with [[its first few words]]."></textarea>
                   switched off, and everything is downloaded from PyPI to
                   this machine.
                 </p>
+                <p>
+                  A bundle is the packages one kind of work needs together:
+                  its Install fetches the ones still missing, and its ⋯
+                  reinstalls or removes them all. Tick packages to act on
+                  several at once from the bar above the list. They run one
+                  after another, each says how it went, and one that fails
+                  does not stop the rest. An installed package's ⋯ has
+                  Reinstall, for a feature that is switched on but not
+                  working, and Remove.
+                </p>
+              </div>
+              <h4 class="setting-subhead">Bundles</h4>
+              <ul id="extras-bundles" class="extras-list extras-bundles"></ul>
+              <h4 class="setting-subhead">Each package</h4>
+              <div id="extras-selectbar" class="row library-contextbar selectbar hidden" role="group" aria-label="Selected packages">
+                <span id="extras-selected-count" class="library-selected-count" role="status">0 selected</span>
+                <span class="library-contextbar-end">
+                  <button id="extras-bulk-install" class="ghost small" type="button"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Install</button>
+                  <button id="extras-bulk-reinstall" class="ghost small" type="button"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Reinstall</button>
+                  <button id="extras-bulk-remove" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Remove</button>
+                  <button id="extras-bulk-done" class="ghost small" type="button">Done</button>
+                </span>
               </div>
               <ul id="extras-list" class="extras-list"></ul>
               <p id="extras-status" class="status" role="status"></p>

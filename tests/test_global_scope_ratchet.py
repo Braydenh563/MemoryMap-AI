@@ -26,7 +26,7 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: bundles and their guards without knowing this ratchet existed. These are
 #: that tree's exact counts; they only go down (the perf2 follow-up owns it).
 GUARDS_CAP = 387
-TOP_LEVEL_LETS_CAP = 718
+TOP_LEVEL_LETS_CAP = 717  # 2026-10-05: extrasPollTimer went into settings-packages.js's one state object
 
 
 def _code() -> dict[str, str]:

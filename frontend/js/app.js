@@ -2224,6 +2224,8 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/js/usage-ledger.js"],
+  //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
+  packages: ["/js/settings-packages.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2454,6 +2456,7 @@ const LAZY_ENTRY_POINTS = {
   noteHistory: ["openEntryHistory"],
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
+  packages: ["renderExtras"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",

@@ -23,6 +23,9 @@ Nothing here runs pip: `subprocess.Popen` is a fake that records the command.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 from memorymap.api import routes_tasks
@@ -333,3 +336,67 @@ def test_the_bulk_summary_reaches_the_history(client, fake_pip, monkeypatch):
     assert kind == "extra" and label == "Installing 2 packages"
     assert outcome == "failed"
     assert "Export to Word" in detail
+
+
+# --- the screen (source checks: the suite cannot see the DOM) ---------------
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGES_JS = ROOT / "frontend" / "js" / "settings-packages.js"
+
+
+def _function(source: str, name: str) -> str:
+    body = source[source.index(f"function {name}(") :]
+    return body[: body.index("\n}\n")]
+
+
+def test_the_packages_screen_is_a_lazy_bundle_reached_through_its_entry_point():
+    app = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    assert 'packages: ["/js/settings-packages.js"]' in app
+    assert 'packages: ["renderExtras"]' in app
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert "function renderExtras(" not in status
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert "settings-packages.js" not in html.split("<body", 1)[1].split("</body>")[0].split('<script src="/js/app.js')[0]
+
+
+def test_an_installed_rows_reinstall_is_in_its_kebab_menu():
+    """DESIGN.md's menu recipe: Reinstall and Remove behind the row's ⋯,
+    not two more buttons on a row that already holds a name and chips."""
+    source = PACKAGES_JS.read_text(encoding="utf-8")
+    menu = _function(source, "packagesRowMenu")
+    assert "kebabMenu(" in menu
+    assert "ph:arrow-clockwise Reinstall" in menu and "ph:trash Remove" in menu
+    row = _function(source, "packagesRow")
+    assert "packagesRowMenu(extra, body)" in row
+    assert 'smallButton("ph:arrow-clockwise' not in row
+
+
+def test_the_selection_bar_is_the_select_bar_recipe():
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    bar = re.search(r'<div id="extras-selectbar" class="([^"]*)"[^>]*>(.*?)</div>', html, re.S)
+    assert bar, "the Packages selection bar is missing"
+    assert {"library-contextbar", "selectbar"} <= set(bar.group(1).split())
+    inner = bar.group(2)
+    assert inner.index('id="extras-selected-count"') < inner.index("library-contextbar-end")
+    for name in ("install", "reinstall", "remove", "done"):
+        assert f'id="extras-bulk-{name}"' in inner
+
+
+def test_a_bulk_request_sends_allowlist_ids_and_never_a_package_name():
+    source = PACKAGES_JS.read_text(encoding="utf-8")
+    bulk = _function(source, "packagesBulk")
+    assert '"/extras/bulk", { action, ids: extras.map((extra) => extra.id) }' in bulk
+    post = bulk.split("packagesPost(", 1)[1].split("\n", 1)[0]
+    assert ".packages" not in post
+
+
+def test_the_help_says_how_bundles_and_bulk_actions_work():
+    """Help moves with the UI (standing order 13)."""
+    from memorymap.ai import help_topics_more
+
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    popover = html[html.index('id="packages-help"') :]
+    popover = popover[: popover.index("</div>")]
+    assert "bundle" in popover and "Reinstall" in popover
+    topic = next(t for t in help_topics_more.MORE_TOPICS if t["id"] == "packages")
+    assert "bundle" in topic["body"].lower() and "reinstall" in topic["body"].lower()

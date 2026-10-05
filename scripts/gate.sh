@@ -85,6 +85,11 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # The gzip boot budget: a few hundred bytes from the cap, and a merge that
   # passed every other lint here went over it on CI (2026-10-03).
   tests/test_static_compression.py
+  # The whole boot (every script and stylesheet index.html loads, gzipped as
+  # served), the breakpoint set, and "fully local" (no other host in what is
+  # served): each reads every frontend file at once, so no one file's name
+  # selects it (audit 2026-10-05, FE-06, FE-11).
+  tests/test_boot_budget.py tests/test_breakpoints.py tests/test_fully_local.py
   # Which boot-loaded file may call into a lazy bundle, and on what terms.
   # Here rather than left to the changed-test heuristic because it reads
   # index.html, app.js's two loader tables and every frontend file at once,

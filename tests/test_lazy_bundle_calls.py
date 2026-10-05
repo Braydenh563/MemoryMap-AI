@@ -99,6 +99,11 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Capture's staged-files list asks the clear button to re-sync when it
+    #: redraws (audit 2026-10-05, FE-18). Before the fieldClear bundle is in,
+    #: there is no button wiring to sync, and the bundle syncs every button
+    #: itself the moment it loads, so a no-op here loses nothing.
+    "fieldClearSyncAll": "fieldClear, which syncs every button itself when it loads",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section
     #: that is on screen or a search field inside the open dialog. With the

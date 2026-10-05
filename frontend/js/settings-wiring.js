@@ -2125,6 +2125,8 @@ function renderEntryAttachmentChips(boxId = "entry-content", hostId = "entry-att
 //: waiting for Save changes: they are drawn in the same row now.
 function renderCaptureFiles() {
   renderEntryAttachmentChips();
+  //: The clear button counts staged files as something to clear (field-clear.js).
+  if (typeof fieldClearSyncAll === "function") fieldClearSyncAll();
 }
 
 $("entry-content").addEventListener("input", (e) => {

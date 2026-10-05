@@ -42830,6 +42830,40 @@ record.)
      and popups design agent's queue (599), as the same recipe pass.
      Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
 
+612. **The owner, 2026-10-05, verbatim.** "the arm on the right for the
+     feminine atlas actually separates from the body when it moves".
+     Placed: the Atlas agent, with 600 and 601.
+     Fixed 2026-10-05 (dc6237a): her arms turn about her own shoulder roots, inside the torso; atlas612-shoulder.js, both looks, 20s idle and every pose and gesture: root gap 2.5px before, 0 after (slide 0.38 to 0.86px).
+614. **The owner, 2026-10-05, verbatim.** "the masculine atlas kinda looks
+     fat" and "make the masculine atlas look hot and 19-21 like the feminine
+     one". Placed: the Atlas agent.
+     Fixed 2026-10-05 (948eb8e): shoulders 17 tapering in a V to a 9.5 waist and 9.8 hips (1.80 : 1 : 1.03; before 18.6 over a 15.1 belly), slimmer arms, cloak and tail; atlas614-build.js.
+615. **The owner, 2026-10-05, verbatim.** "the atlas masculine main body
+     and lower body are slightly misaligned". Placed: the Atlas agent.
+     Fixed 2026-10-05 (0c7b64b): the lower body moves in the body's breathing box and shears about the join; atlas615-join.js at 2.2x, worst step 8.64px before, 0.76 after (masculine), 6.29 to 0.57 (feminine).
+
+600. **The owner, 2026-10-05, verbatim.** "when I click on atlas in the
+     enlarged view, it might sway or do something for a couple seconds but
+     will then snap still." Placed: the Atlas agent slot.
+     Fixed 2026-10-05 (dc6237a, f7d77c7): a mood's loop hands back over 0.7s, and the visiting companion sways and bobs between beats; atlas600-still.js, the companion visiting, longest still 1,102ms before, 625 after.
+619. **The owner, 2026-10-05, verbatim.** "the lower body on the feminine
+     atlas is also slightly misaligned. and when sleeping etc, her lower body
+     actually rotates halfway off her upperbody which stays mostly upright.
+     female atlas's eyes went blank white for a sec and it looked creepy.
+     also it still snaps between behaviours and no behaviours." and "in the
+     enlarged preview atlas is still hanging, it should be slightly separate
+     from the companion but still have the same life". Placed: the Atlas
+     agent (with 600, 601, 612, 614, 615).
+     Fixed 2026-10-05: her seam (0c7b64b, atlas615-join.js worst step 6.29 to 0.57px at 2.2x); the sleep chain (cc2f11e, lying step 3.35 to 0.22px); the eyes (f8d82a4, atlas619-eyes.js blank 464ms to 0); the large view (f7d77c7, floats free, still at most 935ms at 1440); an act eased into (f7d77c7). Left: laughing's end, a 3px move over three frames under the stepped clock, in agent-remaining/atlas-1005.md.
+
+623. **The owner, 2026-10-05, verbatim.** "can the atlas agent also animate
+     the props and icons as well for various actions and behaviours??"
+     Placed: the Atlas agent (here, the INBOX at its cap): each prop and
+     icon Atlas holds or shows moves with the hands and body and has its own
+     small motion (a book's pages, a lamp's flicker, sleep's Zs drifting,
+     thinking marks pulsing), still under reduced motion, measured attached
+     at its grip every frame.
+     Fixed 2026-10-05 (b6f93a8, 1189acc and the ground and icons commits): eleven props and the startle's "!" loop about their grips while shown; atlas623-props.js grip gap 0px every frame, own motion 0.2 to 2.6px or 0.2 to 0.8 opacity, none under reduced motion. The Zs, thinking dots, hearts, tears and sparkles already moved (the CSS).
 617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
      group of nodes, it defaults to the whiteboard selection and popup menus
      and right click menus etc" (screenshots: the board's group box, its

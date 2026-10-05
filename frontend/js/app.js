@@ -2223,6 +2223,8 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/js/usage-ledger.js"],
+  //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
+  atlasLife: ["/js/atlas-life.js"],
   //: The bar or line under a counting answer (section 17 row 4): see answer-chart.js.
   chart: ["/js/answer-chart.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between

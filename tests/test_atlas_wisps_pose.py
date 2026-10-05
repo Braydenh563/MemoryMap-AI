@@ -19,7 +19,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ATLAS = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+#: atlas.js and its lazy half, atlas-life.js (the living tail and the
+#: rings' loops, out of the boot for the gzip budget), read as one.
+ATLAS = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("atlas.js", "atlas-life.js"))
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 
 
@@ -32,11 +34,12 @@ def _rule(selector: str) -> str:
 def test_the_waist_and_tail_wisps_take_the_tail_s_pose():
     assert ATLAS.count("low: true },") == 2, "the waist and the tail wisps, not the shoulder's"
     assert 'atlasGroup(atlasGroup(wisps, "atl-astral-hips", [31, 57]), "atl-lower", spec.lowerPivot)' in ATLAS
-    # Every turn of the lower layer is matched on the wisps' group.
-    turns = dict(re.findall(r'#nm-buddy\[data-pose="([\w-]+)"\] \.atl-layer-lower \{ rotate: (-?\d+deg); \}', CSS))
-    assert turns, "the lower layer's pose turns"
-    for pose, angle in turns.items():
-        assert f"rotate({angle})" in _rule(f'#nm-buddy[data-pose="{pose}"] .atl-astral-hips'), pose
+    # INBOX 619 (the owner: "when sleeping etc, her lower body actually
+    # rotates halfway off her upperbody which stays mostly upright"): lying
+    # and curled, neither the lower layer nor the wisps' group turns off the
+    # torso; the figure lies down as one chain.
+    assert not re.search(r'#nm-buddy\[data-pose="[\w-]+"\] \.atl-layer-lower \{ rotate:', CSS)
+    assert not re.search(r'#nm-buddy\[data-pose="[\w-]+"\] \.atl-astral-hips \{', CSS)
 
 
 def test_the_wisps_stand_out_on_a_light_page_and_keep_their_starlight_in_the_dark():

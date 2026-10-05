@@ -117,3 +117,13 @@ def test_a_note_being_opened_for_editing_holds_its_place_while_the_form_loads():
     assert "const drawn = renderEditForm(li, entry);" in block
     assert "if (drawn instanceof Promise)" in block and "showSkeletons(li, 2)" in block
     assert "drawn.finally(() => clearSkeletons(li))" in block
+
+
+def test_the_parchment_muted_ink_clears_4_5_on_the_settings_cards():
+    """Manuscript's muted ink was 4.33 to 4.47:1 on the Settings cards' tint
+    (contrast.js LOOK=manuscript, 17 texts in four sections, hidden until the
+    sweep stopped crashing before Settings); #655949 is 4.89 to 5.05:1."""
+    css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    block = css[css.index(':root[data-palette="parchment"] {') :]
+    block = block[: block.index("}")]
+    assert "--muted: #655949;" in block

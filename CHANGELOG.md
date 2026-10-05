@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Manuscript look: muted text is a shade darker, so it reads at 4.5:1 or better on Settings' cards; 17 labels and facts in Search and index, Account, Skills and Tools were at 4.33 to 4.47:1 (qa-1005, contrast.js LOOK=manuscript: 17 to 0).
 - Settings, Logs: the filter hint reads "Filter logs", which fits the field on a phone ("Filter records…" was cut off at 390; qa-1005, qa1005-polish.js placeholders).
 - Notes: opening a note for editing in the first seconds after the app opens (or on a slow disk) holds the note's place with placeholders while the form loads; before, the card dropped to an empty 15px strip and every note under it jumped up and back (qa-1005).
 - Notes on a phone: a card's connection pills keep to one line, their words cut with an ellipsis, as Ask's results already did; at 390 they wrapped to two small lines inside a one-line pill (qa-1005, qa1005-polish.js linkpills).

@@ -3468,7 +3468,10 @@ button.outline-twist:focus-visible {
   --modal-bg: rgba(252, 246, 235, 0.97);
   --glass-shadow: 0 8px 32px rgba(96, 72, 38, calc(0.14 * var(--shadow-low) + 0.36 * var(--shadow-t)));
   --ink: #2f2718;
-  --muted: #6d6151;
+  /* #6d6151 was 4.33 to 4.47:1 on the Settings cards' own tint and the
+     model chip (contrast.js LOOK=manuscript: 17 texts under 4.5:1 in
+     Search and index, Account, Skills and Tools); this is 4.89 to 5.05:1. */
+  --muted: #655949;
   --accent: #9a6b1f;
   --accent-soft: rgba(154, 107, 31, 0.16);
   --border: rgba(63, 51, 30, 0.13);

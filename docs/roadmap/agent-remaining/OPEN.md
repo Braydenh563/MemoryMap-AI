@@ -304,15 +304,6 @@ being written by running agents stay beside this one.
   needs a model). Not a bug on its own; it is the reason the Files fold's filled
   state is still unmeasured. [readings.md]
   *Left: not a bug; a PDF's reading needs a model.*
-- **A Files row asks for a PDF first page that this sandbox cannot render.**
-  Four `GET /media/pdf-page/<name>/0` 404s per render, one per document row,
-  because `pdfpages.render_page` returns None with no rasteriser installed.
-  Deliberate: the `<img>` carries an `error` handler that removes itself and
-  leaves the type glyph underneath (`renderLibraryImagesGallery`, library.js),
-  which is how the fallback is discovered. Recorded so the next agent does not
-  chase the console errors `errors.js` would report on that sub-tab.
-  [readings.md]
-  *Left: deliberate (the glyph fallback); no rasteriser here.*
 - **Two pictures in a gallery row are still different sizes when one card has
   nothing to say.** UI_MODERNISATION_PLAN's decision block records why a
   subgrid was rejected (it equalises everything and puts 75px of hole under

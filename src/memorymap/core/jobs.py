@@ -89,6 +89,13 @@ KIND_LANES: dict[str, str] = {
 
 DEFAULT_LANE = "cpu"
 
+#: How many waiting jobs of one kind `pending()` lists by name before it
+#: counts the rest in one row (19.5: a dropped folder of 2,000 pictures made
+#: every activity-panel poll 2,000 rows). The queue itself is not bounded:
+#: measured, an enqueue costs 53 microseconds and a queued job 484
+#: bytes, and refusing work would lose a reading the person asked for.
+PENDING_ROWS_PER_KIND = 10
+
 #: Kinds that are the app's own housekeeping, not something the person asked
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
@@ -366,9 +373,18 @@ class Pool:
             )
             running = set(self._running)
         rows = []
+        #: Back-pressure on the panel (19.5): the running jobs, the next few
+        #: waiting of each kind, then one row per kind with the rest counted.
+        shown: dict[str, int] = {}
+        hidden: dict[str, int] = {}
         for job in jobs:
             label = LABELS.get(job.kind, "Background job")
             waiting = job.seq not in running
+            if waiting:
+                shown[job.kind] = shown.get(job.kind, 0) + 1
+                if shown[job.kind] > PENDING_ROWS_PER_KIND:
+                    hidden[job.kind] = hidden.get(job.kind, 0) + 1
+                    continue
             rows.append(
                 {
                     "kind": f"job-{job.kind}",
@@ -384,6 +400,20 @@ class Pool:
                     #: The `jobs` row, for `/jobs/{id}/cancel`; None when
                     #: this process alone knows the job.
                     "job_id": job.durable_id,
+                }
+            )
+        for kind, count in hidden.items():
+            rows.append(
+                {
+                    "kind": f"job-{kind}",
+                    "name": "",
+                    "label": LABELS.get(kind, "Background job"),
+                    "detail": f"{count:,} more queued",
+                    "progress": None,
+                    "log": [],
+                    "queued": True,
+                    "job_id": None,
+                    "more": count,
                 }
             )
         return rows

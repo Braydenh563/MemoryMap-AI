@@ -804,7 +804,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
-| 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
+| 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
@@ -1997,7 +1997,7 @@ paths and the search fallback. That is a measurement (`EXPLAIN QUERY PLAN`
 over the real query set), not an opinion, and it is the sort of thing that
 turns a 0.9 s list load into a 0.2 s one.
 
-**State 2026-09-24:** (b) the index checks exist (`tests/test_entry_indexes.py`, `tests/test_db_pragmas_and_indexes.py`); the whole-query-set `EXPLAIN QUERY PLAN` pass was not found. S.
+**State 2026-10-05:** built; moved to HISTORY.md, "Moved from the plans, 2026-10-05 (19.3, 19.5)". Left: the full reads (the graph, duplicates, resurfacing read every live note, 70 to 100 ms at 5,000) are reads of everything by design, not index misses; nothing runs `ANALYZE`, and turning it on is a separate measurement.
 
 ### 19.4 Idle compute: the assumption did not hold
 
@@ -2034,7 +2034,7 @@ list paths?), the event bus, the job queue's back-pressure, the frozen
 build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
 19.3. Each is a measurement with a command, in the manner of §10.
 
-**State 2026-09-24:** (b) N+1 on the list paths has a test (`tests/test_scale_query_counts.py`); the event bus, the job queue's back-pressure and the Windows frozen startup are open. S each.
+**State 2026-10-05:** (b) N+1 on the list paths has a test (`tests/test_scale_query_counts.py`); the job queue's back-pressure is measured and built (HISTORY.md, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the event bus and the Windows frozen startup are open. S each.
 
 ## Placed from INBOX, 2026-09-21
 

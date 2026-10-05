@@ -40582,6 +40582,47 @@ plan's item 6 decided on, and it fits the budget as it is.
 - Not verified: the Skills menu refreshing on open was not driven in a
   browser; no real MCP client was connected.
 
+## Moved from the plans, 2026-10-05 (19.3, 19.5)
+
+### From WORLD_CLASS_PLAN.md 19.3 and 19.5: the state lines they replaced
+
+**19.3, state 2026-09-24:** (b) the index checks exist (`tests/test_entry_indexes.py`, `tests/test_db_pragmas_and_indexes.py`); the whole-query-set `EXPLAIN QUERY PLAN` pass was not found. S.
+
+**19.5, state 2026-09-24:** (b) N+1 on the list paths has a test (`tests/test_scale_query_counts.py`); the event bus, the job queue's back-pressure and the Windows frozen startup are open. S each.
+
+### Built 2026-10-05 (row 28, two of its items)
+
+- **The pass** (`scratchpad/plat1005_query_plans.py`): a 5,000-note notebook
+  (with 20,000 events, 5,000 uploads, 1,000 documents and chats, links,
+  reminders, the bin and the archive), every GET route that needs at most an
+  entry id, every distinct SELECT they ran planned and timed.
+- **The finding.** Every list index led with `workspace_id`, measured with
+  one space selected; the page's default, All spaces, sends no equality on
+  it, so in the view most people are in every list sorted its whole table.
+  Twelve indexes on the lists' own orders (`database._INDEXES`, "the
+  all-spaces orders"), each statement alone before and after: the notes
+  list's page "TEMP B-TREE" to index order (25 to 40 ms, the page of 1,000
+  rows itself now the cost), the Library's notes 36 to 0.2 ms, its activity
+  76.6 to 4.4 ms, the Timeline's page 35.8 to 0.15 ms, the bin 4.3 to 0.3 ms.
+- **The trap, measured and kept out.** A first cut led the new indexes with
+  `is_deleted` like the scoped ones, and with no `ANALYZE` statistics SQLite
+  took `is_deleted = 0` (and `archived_at IS NULL`) as selective lookups:
+  "every live note by id" turned from a table read into a lookup plus a sort
+  (duplicates 69.6 to 98.1 ms, a note's connections 31.9 to 40.0 ms) and the
+  main list sorted again. The orders alone, and the bin's and archive's as
+  partial indexes only their own WHERE can match, fixed both;
+  `tests/test_query_plans.py` holds the lists in index order and the
+  by-id reads as table reads.
+- **Back-pressure, measured** (`tests/test_job_backpressure.py`): a model
+  lane held busy and 2,000 captions queued behind it; an enqueue costs 53
+  microseconds and a queued job holds 484 bytes, so the queue needs no
+  bound. The activity panel did: `pending()` sent one row per queued job,
+  347 KB of JSON on every `/tasks` poll. It now sends the running jobs, the
+  next ten waiting of each kind and one "N more queued" row per kind;
+  `/debug/health`'s queue depth counts the folded rows.
+- Not measured: a durable job's enqueue (it writes its `jobs` row) under a
+  2,000-file drop; the event bus.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

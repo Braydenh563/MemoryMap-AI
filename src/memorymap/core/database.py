@@ -2221,6 +2221,55 @@ class DatabaseManager:
         ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
         ("ix_reminders_entry", "reminders (entry_id)"),
         ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
+        # **The all-spaces orders** (WORLD_CLASS_PLAN 19.3, the whole
+        # `EXPLAIN QUERY PLAN` pass, 2026-10-05: scratchpad/
+        # plat1005_query_plans.py over every GET route at 5,000 notes). Every
+        # composite above leads with `workspace_id`, and they were measured
+        # with one space selected. The page's default is "All spaces", which
+        # sends no equality on `workspace_id` (`_add_workspace_filter` adds
+        # nothing, or a NOT IN for hidden spaces), so not one of them could
+        # serve an ORDER BY in the view most people are in: SQLite sorted.
+        #
+        # **Keyed by the ORDER BY alone, not by `is_deleted` first.** The
+        # first cut put `is_deleted` in front, the way the scoped ones are
+        # built, and measured worse elsewhere: with no `ANALYZE` statistics
+        # SQLite takes an equality on an indexed column as selective, so
+        # every "live notes, by id" scan (duplicates 69.6 to 98.1 ms, a
+        # note's connections 31.9 to 40.0) switched from reading the table
+        # in rowid order to an index lookup plus a sort. An index on the
+        # order alone is only chosen where it removes a sort; the filters are
+        # checked on the walk, and the rows they drop are few (the bin and
+        # the archive are a few percent of a notebook). Before and after,
+        # each statement alone, at 5,000 notes:
+        # the notes list's first page, the Library and link suggestions
+        # (24.98 ms, "USE TEMP B-TREE FOR ORDER BY");
+        ("ix_entries_order_all", "entries (pinned DESC, created_at DESC, id DESC)"),
+        # the bin and the archive (5.10 and 4.12 ms, sorting). **Partial**,
+        # holding only binned or archived rows, and that is load-bearing: a
+        # whole-table index on `archived_at` was taken by the notes list's
+        # `archived_at IS NULL` as an equality lookup (SQLite plans `IS NULL`
+        # like `= ?`), which put the sort back on the main list (40.2 ms);
+        # one only the bin's and the archive's own WHERE can match cannot be.
+        ("ix_entries_deleted_order", "entries (deleted_at DESC, id DESC) WHERE is_deleted = 1"),
+        ("ix_entries_archived_order", "entries (archived_at DESC, id DESC) WHERE archived_at IS NOT NULL"),
+        # the Timeline's page and the Dashboard's counts since a date (35.79
+        # and 15.15 ms, a range on `created_at` read by scanning every note);
+        ("ix_entries_created_order", "entries (created_at DESC, id DESC)"),
+        # the Library's activity rows, newest first over the whole event log
+        # (76.62 ms at 20,000 events, "SCAN audit_log" and a sort), and the
+        # lookups by action (corrections, the link-reason backfill);
+        ("ix_audit_log_recent", "audit_log (created_at DESC, id DESC)"),
+        ("ix_audit_log_action", "audit_log (action, id DESC)"),
+        # and the other lists' pages: uploads (5.52 ms at 5,000), documents
+        # (5.08 ms at 1,000), chats and reminders.
+        ("ix_media_uploads_order", "media_uploads (created_at DESC, id DESC)"),
+        ("ix_documents_order", "documents (updated_at DESC, id DESC)"),
+        # the Timeline's documents since a date (13.38 ms at 1,000) and the
+        # Dashboard's most-opened notes (7.17 ms, sorting every live note);
+        ("ix_documents_created_order", "documents (created_at DESC, id DESC)"),
+        ("ix_entries_accessed_order", "entries (access_count DESC, id DESC)"),
+        ("ix_conversations_order", "conversations (pinned DESC, updated_at DESC, id DESC)"),
+        ("ix_reminders_due_order", "reminders (due_at, id)"),
     )
 
     def _ensure_indexes(self) -> None:

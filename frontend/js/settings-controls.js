@@ -157,6 +157,48 @@ $("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 $("account-change").addEventListener("click", changePassword);
 
+//: Re-encrypt private notes (WORLD_CLASS_PLAN row 31, item 261): a new key for
+//: the vault, every private note moved onto it, all or nothing on the server.
+$("account-rekey").addEventListener("click", async () => {
+  const status = $("account-rekey-status");
+  const password = $("account-rekey-password").value;
+  status.classList.remove("error");
+  if (!password) {
+    status.classList.add("error");
+    status.textContent = "Type your current password.";
+    return;
+  }
+  const sure = await confirmDialog(
+    "Move every private note onto a new encryption key? Every other session is signed out. " +
+      "A backup made before this stops opening your private notes.",
+    { confirmLabel: "Re-encrypt" }
+  );
+  if (!sure) return;
+  status.textContent = "Re-encrypting…";
+  try {
+    const result = await apiJson("/auth/rotate-vault-key", {
+      method: "POST",
+      body: JSON.stringify({ current_password: password }),
+      // A 401 here is "wrong current password", not "your session died".
+      ownsAuthErrors: true,
+    });
+    // Every token was revoked, this tab's included; the server hands back a
+    // fresh one, as it does for Change password.
+    localStorage.setItem("token", result.token);
+    $("account-rekey-password").value = "";
+    const count = result.notes_reencrypted;
+    status.textContent = `Done: ${count} private note${count === 1 ? "" : "s"} re-encrypted.`;
+    toast(
+      result.other_sessions_ended
+        ? `Private notes re-encrypted. ${result.other_sessions_ended} other session(s) were signed out.`
+        : "Private notes re-encrypted."
+    );
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+});
+
 //: "Ask for a password when the app opens". Off needs the current password,
 //: asked through the lock screen's card; on needs nothing.
 $("account-password-on-open").addEventListener("change", async (e) => {
@@ -462,6 +504,10 @@ $("pref-filing-wait-reset").addEventListener("click", () => {
   $("pref-filing-wait").value = 15;
   setPreference("filing_wait_seconds", 15);
 });
+
+$("pref-filing-style").addEventListener("change", (e) =>
+  setPreference("filing_style", e.target.value)
+);
 
 $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)

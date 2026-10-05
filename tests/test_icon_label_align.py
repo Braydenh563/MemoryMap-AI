@@ -98,3 +98,23 @@ def test_the_more_links_button_is_the_link_pill():
     assert "border-radius: var(--radius-pill);" in body
     assert "align-self: stretch;" in body
     assert "min-height: calc(1.5rem + 2px);" in body
+
+
+def test_a_timeline_row_keeps_its_mark_and_its_title_on_one_line():
+    """INBOX 542: the note mark sat 1.2px above its title (2.2px in Segoe UI).
+
+    The mark and the time are start-aligned and offset to the title line's
+    centre, which holds only while the title sits at the top of its track. A
+    row on `--row-h` has a track taller than the title, and the title (the one
+    item left centred) dropped by half the difference. The track is
+    centred in the row (`align-content`) and the title starts at its top, so
+    all three share the title's line in a one-line row and nothing changes in
+    a row with a snippet."""
+    css = _css()
+    body = next(
+        b for s, b in _rules(css)
+        if s == ".timeline-feed .timeline-row" and "--timeline-title-line" in b
+    )
+    assert "align-content: center;" in body
+    main = next(b for s, b in _rules(css) if s == ".timeline-feed .timeline-row > .timeline-row-main")
+    assert "align-self: start;" in main

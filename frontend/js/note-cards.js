@@ -1775,7 +1775,9 @@ function entryItem(entry, options = {}) {
     //: **And the offer to have them written** (INBOX 292). Left out rather
     //: than gated with no model answering: `disabled` does nothing to a
     //: span, and an offer that cannot be honoured is worse than none.
-    if (options.actions && (!modelStatus || modelStatus.ollama_running !== false)) {
+    //: Not on a private note: the route refuses it (sweep 1004 item 7), so the
+    //: chip's only answer would be a refusal toast.
+    if (options.actions && !entry.is_private && (!modelStatus || modelStatus.ollama_running !== false)) {
       const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
         event.stopPropagation();
         reevaluateEntry(entry);
@@ -2320,6 +2322,27 @@ async function showNoteInGraph(id, { document: isDocument = false } = {}) {
   focusGraphNode(node);
   if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
     graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
+  }
+}
+
+//: **Explain this note** (WORLD_CLASS_PLAN section 17 row 6): the note's own
+//: words, where it is filed, then each link with its direction and reason,
+//: spoken. The script is built by the server without a model
+//: (`GET /entries/{id}/explain`), so it is the same with Atlas off. The voice
+//: is the app's one (`speakText`), which also stops what is already speaking.
+async function explainNoteAloud(entry) {
+  if ("speechSynthesis" in window && speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    return;
+  }
+  try {
+    const out = await apiJson(`/entries/${entry.id}/explain`);
+    speakText(out.text);
+    if ("speechSynthesis" in window) {
+      toastAction("Reading this note and its links aloud.", "Stop", () => speechSynthesis.cancel());
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't read this note aloud.", true);
   }
 }
 

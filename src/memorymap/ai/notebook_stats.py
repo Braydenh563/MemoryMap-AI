@@ -63,6 +63,9 @@ class StatAnswer:
     kind: str
     text: str
     facts: list[dict] = field(default_factory=list)
+    #: A bar or a line the page draws from the same rows (`ai/stat_charts.py`,
+    #: WORLD_CLASS_PLAN section 17 row 4), or None for a sentence alone.
+    chart: dict | None = None
 
 
 def _visible(query):
@@ -215,6 +218,16 @@ def answer(message: str, session: Session) -> StatAnswer | None:
     #: Spelling is fixed once, here, and every matcher below sees the corrected
     #: text: including `_recent_count`, which reads the string itself.
     text = _despell((message or "").strip().lower())
+    #: Before the pre-filter below: "chart my race times" names no tag, no
+    #: category and no note, and is exactly the question a chart answers.
+    #: `stat_charts` reads the message as written (a topic word must not be
+    #: "corrected" into the vocabulary) and returns None for anything it is
+    #: not sure of, so the matchers below see every other question unchanged.
+    from memorymap.ai import stat_charts
+
+    charted = stat_charts.answer(message, session)
+    if charted is not None:
+        return charted
     if not text or not looks_like_a_question_about_the_notebook(text):
         return None
 
@@ -262,11 +275,14 @@ def _top_tags(session: Session) -> StatAnswer:
         return StatAnswer("tags", "You have not tagged any notes yet.")
     top = counts.most_common(TOP_N)
     listed = ", ".join(f"{tag} ({n})" for tag, n in top)
+    from memorymap.ai import stat_charts
+
     return StatAnswer(
         "tags",
         f"Your most-used tags are {listed}. "
         f"That is across {_plural(len(counts), 'distinct tag')}.",
         [{"label": tag, "count": n} for tag, n in top],
+        stat_charts.bar_chart("Most-used tags", top[: stat_charts.MAX_BARS]),
     )
 
 
@@ -281,10 +297,13 @@ def _top_categories(session: Session) -> StatAnswer:
     if not rows:
         return StatAnswer("categories", "None of your notes are filed in a category yet.")
     listed = ", ".join(f"{name} ({n})" for name, n in rows)
+    from memorymap.ai import stat_charts
+
     return StatAnswer(
         "categories",
         f"The categories with the most notes are {listed}.",
         [{"label": name, "count": n} for name, n in rows],
+        stat_charts.bar_chart("Categories with the most notes", [(name, int(n)) for name, n in rows][: stat_charts.MAX_BARS]),
     )
 
 

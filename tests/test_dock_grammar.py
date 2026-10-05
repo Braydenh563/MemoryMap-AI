@@ -22,6 +22,16 @@ and this lint holds the parts of it that can be read from the markup:
   primary: refresh, help, more: never help before refresh, never the kebab
   before either. A utility is recognised by its id (`*-refresh`,
   `*-help-toggle`) or class (`dock-more`).
+- **The page head, quiet facts, a quiet field, one trailing group** (INBOX
+  621, the owner: the bars "dont feel professional or modern and more
+  demo/vibe coded"). The one filled action closes the row: it is the last
+  control of `.dock-actions`, after every utility. Icon-only buttons stand
+  in that zone only, after its worded ghosts, so they read as one trailing
+  group rather than icons scattered among the zones. Every search box in a
+  dock is a `.search-field.dock-search` with its leading
+  `.search-field-icon`. And the stylesheet draws no hairline between zones
+  (the title boxed off by one, every zone fenced by another) and no edge or
+  fill round a count (`.dock-chip` is quiet muted text).
 - **No text-only segmented controls in a zone.** A `.seg`/`.segmented-control`
   in a dock zone must carry an icon per option or be inside a menu; the plan
   keeps segments for *view* and gives them icons. A segment's own cells are
@@ -80,6 +90,8 @@ ON_THE_GRAMMAR = {
     "settings-account",
     "settings-learned",
     "settings-memory",
+    # Personas, in the markup since its dock carries New persona.
+    "settings-personas",
     "settings-privacy",
     "settings-skills",
     "settings-templates",
@@ -111,6 +123,31 @@ class _Dock:
         self.loose_switches: list[str] = []
         self.utilities: list[str] = []
         self.segments: list[_Segment] = []
+        #: The zones' direct children in order, as (zone, kind, id): kind is
+        #: "filled", "icon", "worded" or "other".
+        self.run: list[tuple[str, str, str]] = []
+        #: Every search box: [id, wrapped in `.search-field.dock-search`,
+        #: that wrapper holds a `.search-field-icon`, the wrapper's frame id].
+        self.searches: list[list] = []
+
+
+def _kind(tag: str, classes: set[str]) -> str:
+    """What a control in a zone's run is: the filled action, an icon, a word."""
+    if tag == "details" and "dock-menu" in classes:
+        if "dock-more" in classes:
+            return "icon"
+        # A filled action with a choice inside it (the Boards and maps New):
+        # its summary is `.dock-menu-primary` and the details is the flip menu.
+        return "filled" if "dock-menu-flip" in classes else "worded"
+    if "dock-more" in classes:
+        return "icon"
+    if tag != "button":
+        return "other"
+    if "icon-only" in classes:
+        return "icon"
+    if classes & {"ghost", "library-chip", "linklike"}:
+        return "worded"
+    return "filled"
 
 
 class _Parser(HTMLParser):
@@ -122,6 +159,8 @@ class _Parser(HTMLParser):
         self.stack: list[dict] = []
         self.docks: list[_Dock] = []
         self.void = {"input", "img", "br", "hr", "meta", "link"}
+        #: The frames (by `id()`) that hold a `.search-field-icon`.
+        self.icons_in: set[int] = set()
 
     def _classes(self, attrs) -> set[str]:
         return set((dict(attrs).get("class") or "").split())
@@ -191,6 +230,20 @@ class _Parser(HTMLParser):
             if tag == "i" and in_seg and dock.segments:
                 if any(c == "ph" or c.startswith("ph-") for c in classes):
                     dock.segments[-1].with_icon += 1
+        if in_run and not in_menu:
+            # A hidden file input and a help popover's body are not controls
+            # in the row, and nor is a button kept only for the keyboard and a
+            # screen reader (Chat's Export and Delete, which its menu shows).
+            skip = (tag == "input" and a.get("type") == "file") or classes & {"help-body", "visually-hidden"}
+            if not skip:
+                dock.run.append((current_zone or "", _kind(tag, classes), a.get("id") or tag))
+        if tag == "input" and a.get("type") == "search" and not in_menu:
+            wrapper = parent["classes"] if parent else set()
+            dock.searches.append(
+                [a.get("id") or "(no id)", {"search-field", "dock-search"} <= wrapper, False, id(parent)]
+            )
+        if tag == "i" and "search-field-icon" in classes and parent:
+            self.icons_in.add(id(parent))
         if current_zone == "dock-actions" and not in_menu:
             ident = a.get("id") or ""
             if ident.endswith("-refresh"):
@@ -213,6 +266,9 @@ def _docks() -> list[_Dock]:
     text = re.sub(r"<!--.*?-->", "", INDEX.read_text(encoding="utf-8"), flags=re.S)
     parser = _Parser()
     parser.feed(text)
+    for dock in parser.docks:
+        for search in dock.searches:
+            search[2] = search[3] in parser.icons_in
     return parser.docks
 
 
@@ -289,3 +345,83 @@ def test_utilities_keep_their_order(dock):
     assert dock.utilities == seen, (
         f"{dock.name}: utilities are {dock.utilities}; the order is refresh · help · more"
     )
+
+
+@pytest.mark.parametrize("dock", _docks(), ids=lambda d: d.name)
+def test_the_filled_action_closes_the_row(dock):
+    """INBOX 621: "the filled primary sits mid-row followed by more icons".
+
+    The one filled action is the last control of the actions zone, after
+    refresh, help and the overflow, so the row ends on what it is for.
+    """
+    filled = [i for i, (_, kind, _) in enumerate(dock.run) if kind == "filled"]
+    if not filled:
+        return
+    zone, _, ident = dock.run[filled[-1]]
+    assert zone == "dock-actions", f"{dock.name}: the filled {ident} is in {zone}, not the actions"
+    assert filled[-1] == len(dock.run) - 1, (
+        f"{dock.name}: {ident} is followed by {[r[2] for r in dock.run[filled[-1] + 1:]]}; "
+        "the filled action is the last control in the row"
+    )
+
+
+@pytest.mark.parametrize("dock", _docks(), ids=lambda d: d.name)
+def test_icon_buttons_are_one_trailing_group(dock):
+    """INBOX 621: "icon buttons are scattered among dividers".
+
+    Icon-only buttons (and the overflow) stand in the actions zone, after any
+    worded ghost there: one trailing run, then the filled action.
+    """
+    stray = [ident for zone, kind, ident in dock.run if kind == "icon" and zone != "dock-actions"]
+    assert not stray, f"{dock.name}: icon buttons outside the trailing group: {stray}"
+    actions = [(kind, ident) for zone, kind, ident in dock.run if zone == "dock-actions"]
+    first_icon = next((i for i, (kind, _) in enumerate(actions) if kind == "icon"), None)
+    if first_icon is None:
+        return
+    after = [ident for kind, ident in actions[first_icon:] if kind in ("worded", "other")]
+    assert not after, f"{dock.name}: {after} breaks the icon group; worded actions come before it"
+
+
+@pytest.mark.parametrize("dock", _docks(), ids=lambda d: d.name)
+def test_every_search_is_a_quiet_field_with_its_icon(dock):
+    """INBOX 621: "the search fields are heavy and bordered"."""
+    for ident, wrapped, icon, _ in dock.searches:
+        assert wrapped, f"{dock.name}: #{ident} is not inside a .search-field.dock-search"
+        assert icon, f"{dock.name}: #{ident}'s field has no leading .search-field-icon"
+
+
+CSS_DIR = ROOT / "frontend" / "css"
+
+
+def _rules(selector_pattern: str) -> list[str]:
+    """The declaration block of every rule whose selector matches, comments out."""
+    text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(CSS_DIR.glob("*.css")))
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return [
+        m.group(2)
+        for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", text)
+        if re.search(selector_pattern, m.group(1))
+    ]
+
+
+def test_no_hairline_parts_the_zones():
+    """INBOX 621: "the title is boxed off by a divider". The zones are parted
+    by the dock's gap; no rule draws a line before or after a zone."""
+    for body in _rules(r"\.dock\s*>\s*(\*|\.dock-(identity|find|arrange|actions|group))"):
+        assert not re.search(r"border-(left|right|inline-start|inline-end)\s*:\s*1px", body), body
+
+
+def test_a_count_is_quiet_text_not_a_pill():
+    """INBOX 621: "the counts sit in bordered pills"."""
+    bodies = _rules(r"(^|[\s,])\.dock-chip\s*$")
+    assert bodies, "the .dock-chip rule moved"
+    for body in bodies:
+        assert not re.search(r"\bborder\s*:\s*1px", body), body
+        assert "background" not in body, body
+
+
+def test_the_dock_search_field_has_no_edge_at_rest():
+    """A subtle fill and the focus ring; the edge arrives with focus only."""
+    bodies = _rules(r"\.dock-search\s*$")
+    assert bodies, "the .dock-search rule is missing"
+    assert any(re.search(r"border-color\s*:\s*transparent", b) for b in bodies)

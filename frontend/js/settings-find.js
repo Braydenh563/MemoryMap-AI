@@ -49,7 +49,7 @@ function settingRows() {
     const nav = document.querySelector(`#settings-nav [data-section="${name}"]`);
     const sectionLabel = nav ? nav.textContent.trim() : name;
     for (const el of pane.querySelectorAll(SETTING_ROW_SELECTOR)) {
-      if (el.closest(".help-body, .settings-index, .settings-pane-title, [aria-hidden='true'], .skeleton")) continue;
+      if (el.closest(".help-body, .settings-pane-title, [aria-hidden='true'], .skeleton")) continue;
       //: Outermost only: a label inside a `.setting-check` is the same row.
       const outer = el.parentElement?.closest(SETTING_ROW_SELECTOR);
       if (outer && pane.contains(outer) && !outer.matches("h3, h4")) continue;
@@ -184,7 +184,16 @@ function settingResultsKey(event) {
   return false;
 }
 
-// --- the index of one section ------------------------------------------------------
+// --- the index of one section: its groups, nested in the sidebar (INBOX 622) -------
+//
+// The owner, of the strip this replaced: "in settings idk if this navigation
+// is the right way to go about it". It was a row of the pane's group heads
+// in the pane's dock that scrolled sideways, with a scrollbar and the last
+// label clipped (Tools it can use). The groups are the sidebar's second level
+// now, under the pane they belong to, as VS Code and Linear draw settings: a
+// press scrolls the pane to the group, and the group you are reading is
+// marked as you scroll. On a phone the sidebar is the jump list, which gains
+// the same groups under its pane's option.
 
 const settingsIndexScrollers = new WeakSet();
 let settingsIndexWatch = null;
@@ -195,7 +204,7 @@ function settingsIndexHeads(pane) {
   const heads = [];
   const title = settingsPaneTitleHead(pane);
   for (const h of pane.querySelectorAll("h3")) {
-    if (h.closest(".help-body, .settings-pane-title, .settings-index")) continue;
+    if (h.closest(".help-body, .settings-pane-title")) continue;
     if (!h.getClientRects().length) continue;
     const label = (h.dataset.indexLabel || h.textContent).replace(/\s+/g, " ").trim();
     if (!label || (title && h === title.querySelector("h3"))) continue;
@@ -211,24 +220,29 @@ function settingsIndexHeads(pane) {
 function settingsPaneTitleHead(pane) {
   const title = pane.querySelector(":scope > .settings-pane-title");
   if (title) return title;
-  const first = [...pane.children].find((c) => !c.matches(".settings-index") && c.getClientRects().length);
+  const first = [...pane.children].find((c) => c.getClientRects().length);
   return first?.matches(".help-head, .dock") ? first : null;
 }
 
-//: The sticky bar is the pane's dock, which holds the strip (INBOX 599).
-function settingsIndexOffset(nav) {
-  const bar = nav && (nav.closest(".dock") || nav);
-  return (bar ? bar.getBoundingClientRect().height : 0) + 8;
+//: A head stops just under the pane's sticky dock (INBOX 599).
+function settingsIndexOffset(pane) {
+  const bar = pane && settingsPaneTitleHead(pane);
+  return (bar?.matches(".dock") ? bar.getBoundingClientRect().height : 0) + 8;
+}
+
+//: The sidebar's group list, when it belongs to this pane.
+function settingsIndexList(name) {
+  const list = document.querySelector("#settings-nav .settings-nav-groups");
+  return list && list.dataset.section === name ? list : null;
 }
 
 //: Where the scroller should stop for a head: its top just under the sticky
-//: strip. The box's own `scrollTop`, never `scrollIntoView`, which walks every
+//: dock. The box's own `scrollTop`, never `scrollIntoView`, which walks every
 //: scrollable ancestor (DESIGN.md, the outline recipe).
 function settingsIndexGo(name, head) {
   const scroller = settingsScroller(name);
-  const nav = $(`settings-${name}`)?.querySelector(".settings-index");
   if (!scroller) return;
-  const delta = head.getBoundingClientRect().top - scroller.getBoundingClientRect().top - settingsIndexOffset(nav);
+  const delta = head.getBoundingClientRect().top - scroller.getBoundingClientRect().top - settingsIndexOffset($(`settings-${name}`));
   //: **The head clicked is the head marked** (INBOX 459, the owner: on
   //: Personas the strip "only goes on the first or last one"). Heads near a
   //: short pane's end can never reach the line, so the scroll position
@@ -248,13 +262,12 @@ function settingsIndexGo(name, head) {
 //: Mark the head the pane is scrolled to. `aria-current="location"` is the
 //: whole state; the paint is the stylesheet's.
 function settingsIndexMark(name) {
-  const pane = $(`settings-${name}`);
-  const nav = pane?.querySelector(".settings-index");
+  const nav = settingsIndexList(name);
   const scroller = settingsScroller(name);
   if (!nav || !scroller) return;
-  const line = scroller.getBoundingClientRect().top + settingsIndexOffset(nav) + 24;
+  const line = scroller.getBoundingClientRect().top + settingsIndexOffset($(`settings-${name}`)) + 24;
   let current = 0;
-  const links = [...nav.querySelectorAll(".settings-index-link")];
+  const links = [...nav.querySelectorAll(".settings-nav-group")];
   links.forEach((link, i) => {
     const head = link._head;
     if (head?.isConnected && head.getBoundingClientRect().top <= line) current = i;
@@ -270,13 +283,42 @@ function settingsIndexMark(name) {
       link.removeAttribute("aria-current");
     }
   });
-  //: Keep the marked link in the strip on a narrow window, by the strip's
-  //: own scrollLeft.
-  const on = links[current];
-  if (on && nav.scrollWidth > nav.clientWidth) {
-    const over = on.offsetLeft - nav.scrollLeft;
-    if (over < 0 || over + on.offsetWidth > nav.clientWidth) nav.scrollLeft = on.offsetLeft - nav.clientWidth / 2 + on.offsetWidth / 2;
-  }
+  //: The phone's jump list follows the group you are reading.
+  const jump = document.querySelector(".settings-jump");
+  const value = `${name}#${current}`;
+  if (jump && jump.value !== value && jump.querySelector(`option[value="${CSS.escape(value)}"]`)) jump.value = value;
+}
+
+//: Take the groups out of the sidebar and the jump list.
+function settingsIndexClear() {
+  document.querySelector("#settings-nav .settings-nav-groups")?.remove();
+  document.querySelectorAll(".settings-jump option[data-group]").forEach((o) => o.remove());
+}
+
+//: The jump list's group options (a native `<select>` on a phone, built by
+//: phone-shell.js): indented under their pane's option, `pane#index`. The
+//: jump list's own handler clicks `button[data-section="pane#index"]`, which
+//: matches nothing, so a group is this file's to answer.
+function settingsIndexJump(name, heads) {
+  const jump = document.querySelector(".settings-jump");
+  const option = jump?.querySelector(`option[value="${CSS.escape(name)}"]`);
+  if (!option) return;
+  let at = option;
+  heads.forEach(({ label }, i) => {
+    const row = document.createElement("option");
+    row.value = `${name}#${i}`;
+    row.textContent = ` ${label}`;
+    row.dataset.group = "";
+    at.after(row);
+    at = row;
+  });
+  if (jump._groupsWired) return;
+  jump._groupsWired = true;
+  jump.addEventListener("change", () => {
+    const [pane, at] = jump.value.split("#");
+    const link = settingsIndexList(pane)?.querySelectorAll(".settings-nav-group")[Number(at)];
+    if (link) settingsIndexGo(pane, link._head);
+  });
 }
 
 //: Build, refresh or remove the index for the section on screen. Cheap when
@@ -286,44 +328,43 @@ function settingsIndexBuild(name) {
   const pane = $(`settings-${name}`);
   if (!pane || pane.classList.contains("hidden")) return;
   const scroller = settingsScroller(name);
-  const existing = pane.querySelector(".settings-index");
+  const existing = settingsIndexList(name);
   const heads = settingsIndexHeads(pane);
   //: **Every section with three or more groups has one** (INBOX 541, the
   //: owner: "some dont have any at all"). It used to need four heads and a
   //: pane half again as tall as the window, so whether a section had a strip
   //: changed with the window's height.
   if (heads.length < 3 || !scroller) {
-    existing?.remove();
+    settingsIndexClear();
     return;
   }
   const signature = heads.map((h) => h.label).join("|");
   if (existing && existing.dataset.signature === signature) {
-    existing.querySelectorAll(".settings-index-link").forEach((link, i) => {
+    existing.querySelectorAll(".settings-nav-group").forEach((link, i) => {
       link._head = heads[i].el;
     });
     settingsIndexMark(name);
     return;
   }
-  existing?.remove();
-  const nav = document.createElement("nav");
-  nav.className = "settings-index";
-  nav.setAttribute("aria-label", "In this section");
-  nav.dataset.signature = signature;
+  settingsIndexClear();
+  const list = document.createElement("div");
+  list.className = "settings-nav-groups";
+  list.setAttribute("role", "group");
+  list.setAttribute("aria-label", "In this section");
+  list.dataset.section = name;
+  list.dataset.signature = signature;
   for (const { el, label } of heads) {
     const link = document.createElement("button");
     link.type = "button";
-    link.className = "settings-index-link";
+    link.className = "settings-nav-group";
     link.textContent = label;
     link._head = el;
     link.addEventListener("click", () => settingsIndexGo(name, link._head));
-    nav.appendChild(link);
+    list.appendChild(link);
   }
-  //: In the pane's dock, between the title and its '?' (INBOX 599), so the
-  //: head is one bar; a pane with no dock keeps the strip under its head.
-  const anchor = settingsPaneTitleHead(pane);
-  if (anchor?.matches(".dock")) anchor.insertBefore(nav, anchor.querySelector(":scope > .dock-actions"));
-  else if (anchor) anchor.after(nav);
-  else pane.prepend(nav);
+  //: Under the pane's own link: the sidebar's second level.
+  $("settings-nav")?.querySelector(`button[data-section="${CSS.escape(name)}"]`)?.after(list);
+  settingsIndexJump(name, heads);
   if (scroller && !settingsIndexScrollers.has(scroller)) {
     settingsIndexScrollers.add(scroller);
     let queued = false;
@@ -357,8 +398,7 @@ function settingsIndexWatchSection(name) {
   setTimeout(build, 700);
   if (pane.querySelectorAll("h3").length < 3) return;
   let timer = null;
-  settingsIndexWatch = new MutationObserver((records) => {
-    if (records.every((r) => r.target.closest?.(".settings-index"))) return;
+  settingsIndexWatch = new MutationObserver(() => {
     clearTimeout(timer);
     timer = setTimeout(build, 250);
   });

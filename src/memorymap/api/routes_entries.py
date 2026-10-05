@@ -39,11 +39,13 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, events, jobruns, jobs, vault
+from memorymap.core import deps, events, jobruns, jobs, opens, vault
 from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    Attachment,
     AuditLog,
     Bookmark,
+    Category,
     DerivedTension,
     Document,
     DocumentLink,
@@ -55,8 +57,12 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EntryLink,
     EntryRevision,
     MediaUpload,
+    NoteScore,
+    Reminder,
+    Space,
     WhiteboardNode,
     WhiteboardObject,
+    WhiteboardSketch,
     like_escape,
     utcnow,
 )
@@ -2162,9 +2168,28 @@ def list_entries(
 
 # Declared before /{entry_id} so "most-accessed" isn't parsed as an id.
 @router.get("/most-accessed", response_model=list[EntryOut])
-def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
+def most_accessed(
+    period: str = Query(default="all", pattern="^(all|month)$"),
+    session: Session = Depends(get_session),
+) -> list[EntryOut]:
     """Top entries by how often they've been opened or matched a
-    question: the quick-access dashboard."""
+    question: the quick-access dashboard. `period=month` is the ten opened
+    most this month (WORLD_CLASS_PLAN section 17, row 5), from the opens log
+    (`core/opens.py`); a note binned, archived or in another space since is
+    left out, so the list is never a stale id."""
+    if period == "month":
+        ranked = opens.top(deps.get_config().data_dir, limit=30)
+        rows = {
+            e.id: e
+            for e in session.scalars(
+                select(Entry).where(
+                    Entry.id.in_([entry_id for entry_id, _ in ranked]),
+                    Entry.is_deleted == False,  # noqa: E712
+                    Entry.archived_at.is_(None),
+                )
+            )
+        }
+        return _to_out_bulk(session, [rows[i] for i, _ in ranked if i in rows][:10])
     entries = manager.most_accessed_entries(session, limit=5)
     return _to_out_bulk(session, entries)
 
@@ -2293,6 +2318,13 @@ def get_entry(
         if bool(getattr(entry, "is_private", False)) and vault.key() is not None:
             manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
+        #: The month's opens (section 17, row 5): the count above cannot
+        #: say when. Best effort: the open has happened whether or not this
+        #: small file could be written (a read-only disk, a full one).
+        try:
+            opens.record(deps.get_config().data_dir, entry.id)
+        except OSError as exc:
+            logger.warning("Could not count this open: %s", type(exc).__name__)
     out = _to_out(session, entry)
     #: B7: the note's version as an HTTP entity tag, the same text hash the
     #: editor already sends back as `base_hash`, so a client that never reads
@@ -2492,6 +2524,81 @@ def delete_entry(
     if not entry.is_deleted:
         manager.soft_delete_entry(session, entry)
     return _to_out(session, entry)
+
+
+class MoveSpaceBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    target: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/move-space")
+def move_space(body: MoveSpaceBody, session: Session = Depends(get_session)) -> dict:
+    """A batch of notes, boards and maps into another space, in one
+    transaction (WORLD_CLASS_PLAN row 30, the selection bar's Move to space).
+
+    A note's category is a row *of its space*, so it follows by name: the
+    target's own category of that name when it has one, else a new one with
+    the same colour and description. What belongs to the note moves with it
+    (its reminders, files, fade score, and a board's cards, sketches and
+    objects); links to notes that stay behind are kept, and simply read as
+    absent from either side until both are in one space again. Ids that do not
+    exist and notes already in the target are `skipped`, not an error. The ids are
+    looked up in every space, whichever one the page is showing, so the Undo
+    works from the space the notes were moved to.
+
+    `previous` is the way back: moving those ids to that space is the Undo, and
+    the category goes back by name the same way. The search index follows
+    through the ORM flush, so `/search` in the target finds them at once.
+    """
+    target = body.target.strip()
+    if target == "all":
+        raise HTTPException(status_code=422, detail="Pick one space to move them to.")
+    if target != "default" and session.scalar(select(Space.id).where(Space.id == target)) is None:
+        raise HTTPException(status_code=404, detail="That space could not be found.")
+    ids = list(dict.fromkeys(body.ids))
+    #: Across every space, whichever one the page is showing: the Undo posts
+    #: from the space the notes were moved *to*, and "All spaces" asks for ids
+    #: from several at once. The ids are the person's own.
+    moved: list[int] = []
+    previous: list[dict] = []
+    with deps.impersonate_workspace(session, "all"):
+        rows = {row.id: row for row in session.scalars(select(Entry).where(Entry.id.in_(ids)))}
+        categories: dict[int, Category | None] = {}
+        for entry_id in ids:
+            entry = rows.get(entry_id)
+            if entry is None or manager.entry_space(entry) == target:
+                continue
+            source = manager.entry_space(entry)
+            old = session.scalar(select(Category).where(Category.id == entry.category_id)) if entry.category_id else None
+            previous.append({"id": entry.id, "space": source, "category": old.name if old is not None else None})
+            if old is not None:
+                if old.id not in categories:
+                    #: As the target: the session's own space filter would
+                    #: otherwise hide the target's category of that name and the
+                    #: insert would collide with it (UNIQUE on space and name).
+                    with deps.impersonate_workspace(session, target):
+                        found = manager.get_or_create_category(session, old.name, target)
+                    for field in ("colour", "description"):
+                        if not getattr(found, field, None) and getattr(old, field, None):
+                            setattr(found, field, getattr(old, field))
+                    categories[old.id] = found
+                entry.category_id = categories[old.id].id
+            entry.workspace_id = target
+            moved.append(entry.id)
+        if moved:
+            for model in (Reminder, Attachment, NoteScore):
+                for child in session.scalars(select(model).where(model.entry_id.in_(moved))):
+                    child.workspace_id = target
+            for model in (WhiteboardNode, WhiteboardSketch, WhiteboardObject):
+                for child in session.scalars(select(model).where(model.board_id.in_(moved))):
+                    child.workspace_id = target
+            manager.log_action(session, "moved", "entries", detail=f"{len(moved)} to {target}")
+            session.commit()
+            from memorymap.ai import lexical_filing
+
+            lexical_filing.forget_corpus()
+    skipped = [entry_id for entry_id in ids if entry_id not in moved]
+    return {"moved": moved, "skipped": skipped, "target": target, "previous": previous}
 
 
 @router.post("/{entry_id}/restore", response_model=EntryOut)
@@ -3186,6 +3293,33 @@ def _connection_cue(session: Session, other: Entry) -> dict:
         "category": None if other.is_private else manager.category_name_for(session, other),
         "created_at": created.isoformat() if created else None,
     }
+
+
+@router.post("/{entry_id}/opened", status_code=204)
+def note_opened(entry_id: int, session: Session = Depends(get_session)) -> Response:
+    """The page opened this note without reading it: the Notes list already
+    holds every note, so a card flashed from a search result, the graph or a
+    link, or a note's own page, never GETs it (section 17, row 5). Counts one
+    open in this month's log only (`core/opens.py`): the all-time count and
+    `last_opened_at` stay what a real read makes them. A binned note is not
+    counted. 204 either way, so a stale id is not an error worth a toast."""
+    entry = session.get(Entry, entry_id)
+    if entry is not None and not entry.is_deleted:
+        try:
+            opens.record(deps.get_config().data_dir, entry.id)
+        except OSError as exc:
+            logger.warning("Could not count this open: %s", type(exc).__name__)
+    return Response(status_code=204)
+
+
+@router.get("/{entry_id}/explain")
+def explain_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """The script the note's Explain action speaks: its words, where it is
+    filed, and every link with its direction and reason (section 17 row 6).
+    Built without a model (`entry/explain.py`)."""
+    from memorymap.entry import explain
+
+    return explain.explain(session, _existing_entry(session, entry_id))
 
 
 @router.get("/{entry_id}/connections")

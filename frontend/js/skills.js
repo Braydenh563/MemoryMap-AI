@@ -829,8 +829,13 @@ function skillRow(skill) {
 }
 
 async function renderSkillSettings() {
-  await loadSkills();
   const list = $("skill-list");
+  showSkeletons(list, 3, "li");
+  try {
+    await loadSkills();
+  } finally {
+    clearSkeletons(list);
+  }
   list.replaceChildren();
   for (const skill of allSkills()) list.appendChild(skillRow(skill));
   renderSkillFolderLine();
@@ -1001,10 +1006,12 @@ async function saveToolSwitch(check, name) {
 
 async function renderToolSettings() {
   const list = $("tool-list");
+  showSkeletons(list, 4, "li");
   const [catalog, prefs] = await Promise.all([
     apiJson("/chat/tools").catch(() => []),
     apiJson("/preferences").catch(() => ({ disabled_tools: [] })),
   ]);
+  clearSkeletons(list);
   prefsCache = prefs;
   renderToolFocus(prefs.tool_focus || "auto");
   renderSmallModelMode(prefs.small_model_mode || "auto");
@@ -1461,10 +1468,76 @@ function fillBatchMore(hostId = "batch-more-host") {
         { label: "ph:star-half Remove from Favourites", run: () => batchFavourite(false), group: "mark" },
         { label: "ph:paper-plane-tilt Publish drafts", run: batchPublish, group: "state" },
         { label: "ph:archive Archive", run: batchArchive, group: "state" },
+        { label: "ph:folders Move to space", run: batchMoveToSpace, group: "send" },
+        { label: "ph:export Export selection", run: batchExport, group: "send" },
       ],
       "More for the selected notes"
     )
   );
+}
+
+//: Move to space and Export selection (WORLD_CLASS_PLAN row 30): the last two
+//: things a selection could not do. One request each, the Undo of the move
+//: sends every note back to the space it came from.
+async function batchMoveToSpace() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  const here = activeSpaceId();
+  const targets = spacesCache.filter((space) => space.id !== here);
+  if (!targets.length) return toast("There is no other space to move them to. Make one from the space picker.", true);
+  const at = ($("batch-more-host") || $("batch-bar")).getBoundingClientRect();
+  openMenuAtPoint(
+    targets.map((space) => ({
+      label: `ph:${String(space.icon || "ph-folder").replace(/^ph-/, "")} ${space.name}`,
+      run: () => moveNotesToSpace(ids, space),
+    })),
+    "Move to space",
+    at.left,
+    at.bottom + 4
+  );
+}
+
+async function moveNotesToSpace(ids, space) {
+  const send = (list, target) =>
+    apiJson("/entries/move-space", { method: "POST", body: JSON.stringify({ ids: list, target }) });
+  let done;
+  try {
+    done = await send(ids, space.id);
+  } catch (error) {
+    toast(error.message || "Couldn't move them.", true);
+    return;
+  }
+  exitSelectMode();
+  await loadEntries();
+  const count = done.moved.length;
+  if (!count) return toast(`Already in ${space.name}.`);
+  const back = async () => {
+    const from = new Map();
+    for (const item of done.previous) from.set(item.space, [...(from.get(item.space) || []), item.id]);
+    for (const [target, list] of from) await send(list, target);
+    await loadEntries();
+  };
+  const again = async () => {
+    await send(done.moved, space.id);
+    await loadEntries();
+  };
+  const action = pushUndo(`Moved ${count} note${count === 1 ? "" : "s"} to ${space.name}`, back, again);
+  toastAction(`Moved ${count} to ${space.name}.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await back();
+    toast("Moved back.");
+  });
+}
+
+async function batchExport() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  try {
+    const response = await api("/export/markdown", { method: "POST", body: JSON.stringify({ ids }) });
+    await saveFile("memorymap-selection.zip", await response.blob());
+  } catch (error) {
+    if (!error?.isLockout) toast(error.message || "Couldn't export them.", true);
+  }
 }
 
 async function batchDelete() {

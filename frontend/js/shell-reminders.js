@@ -1238,6 +1238,7 @@ function reminderItem(reminder, label) {
             text: reminder.text,
             due_at: reminder.due_at,
             entry_id: reminder.entry_id,
+            document_id: reminder.document_id,
             priority: reminder.priority || "normal",
             recurring: reminder.recurring || "none",
             restore: true,
@@ -1260,7 +1261,24 @@ function reminderItem(reminder, label) {
     };
   const menuItems = [];
   if (reminder.entry_id) {
-    menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
+    //: A board is a note, so its reminder carries `entry_id` and says so.
+    menuItems.push(
+      reminder.entry_is_board
+        ? { label: "ph:presentation Open its board", run: () => openWhiteboardBoard(reminder.entry_id), group: "go" }
+        : { label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" }
+    );
+  }
+  if (reminder.document_id) {
+    menuItems.push({ label: "ph:file-text Open its document", run: () => openDocumentFromNote(reminder.document_id), group: "go" });
+  }
+  //: The third snooze D8 asked for (10 minutes, 1 hour, tomorrow): the two longer
+  //: ones are buttons on the row, this is the one for "not now, in a minute".
+  if (!reminder.done) {
+    menuItems.push({
+      label: "ph:clock Snooze 10 minutes",
+      run: () => snoozeReminderTo(reminder, new Date(Date.now() + 10 * 60 * 1000)),
+      group: "go",
+    });
   }
   menuItems.push(
     { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
@@ -1286,6 +1304,12 @@ function reminderItem(reminder, label) {
   row.appendChild(actions);
   li.appendChild(row);
 
+  if (reminder.document_title) {
+    const linkRow = document.createElement("div");
+    linkRow.className = "entry-links";
+    linkRow.appendChild(chip(`ph:file-text ${reminder.document_title}`, "link", () => openDocumentFromNote(reminder.document_id)));
+    li.appendChild(linkRow);
+  }
   if (reminder.entry_preview) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
@@ -1498,12 +1522,25 @@ function refreshReminderDefaults() {
 }
 
 async function snoozeReminderTo(reminder, when) {
-  await apiJson(`/reminders/${reminder.id}`, {
-    method: "PUT",
-    body: JSON.stringify({ due_at: when.toISOString(), done: false }),
-  });
-  toast(`Snoozed to ${when.toLocaleString()}.`);
+  const before = { due_at: reminder.due_at, done: Boolean(reminder.done) };
+  const put = (body) =>
+    apiJson(`/reminders/${reminder.id}`, { method: "PUT", body: JSON.stringify({ ...body, restore: true }) });
+  await put({ due_at: when.toISOString(), done: false });
   loadReminders();
+  //: Undo puts the old time and state back; `restore` lets a time already past
+  //: through (an overdue reminder is the one that gets snoozed).
+  const back = async () => {
+    await put(before);
+    loadReminders();
+  };
+  const action = pushUndo("Snoozed a reminder", back, async () => {
+    await put({ due_at: when.toISOString(), done: false });
+    loadReminders();
+  });
+  toastAction(`Snoozed to ${when.toLocaleString()}.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await back();
+  });
 }
 
 function reminderEditForm(reminder) {
@@ -1592,6 +1629,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
       text,
       due_at: new Date(dueValue).toISOString(),
       entry_id: entryId,
+      document_id: opts.documentId ?? null,
       priority: opts.priority || "normal",
       recurring: opts.recurring || "none",
     }),

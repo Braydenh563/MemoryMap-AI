@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from typing import Literal
 
 from memorymap.core import deps
-from memorymap.core.database import Entry, Reminder, utcnow
+from memorymap.core.database import Document, Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action, readable_content
 from memorymap.entry.properties import strip as strip_properties
@@ -32,6 +32,8 @@ class ReminderCreate(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     due_at: datetime
     entry_id: int | None = None
+    #: A document instead of a note (a board is a note: it takes `entry_id`).
+    document_id: int | None = None
     priority: Priority = "normal"
     recurring: Recurring = "none"
     #: Undo's door (INBOX 537): a deleted reminder made again as it was, its
@@ -55,6 +57,10 @@ class ReminderUpdate(BaseModel):
     done: bool | None = None
     priority: Priority | None = None
     recurring: Recurring | None = None
+    #: Undo's door for a snooze (WORLD_CLASS_PLAN row 32): the time it goes
+    #: back to is the old one, which is usually already past (an overdue
+    #: reminder is what gets snoozed), so the past-date rule must not refuse it.
+    restore: bool = False
 
 
 def _reject_if_in_the_past(due_at: datetime) -> None:
@@ -85,12 +91,23 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
             # rather than sent to a model.
             content = strip_properties(readable_content(entry)).lstrip()
             entry_preview = content if len(content) <= 60 else content[:59] + "…"
+    entry_is_board = False
+    if reminder.entry_id is not None:
+        target = session.get(Entry, reminder.entry_id)
+        entry_is_board = bool(target is not None and target.is_board)
+    document_title = None
+    if reminder.document_id is not None:
+        document = session.get(Document, reminder.document_id)
+        document_title = document.title if document is not None else None
     return {
         "id": reminder.id,
         "text": reminder.text,
         "due_at": reminder.due_at.isoformat(),
         "done": reminder.done,
         "entry_id": reminder.entry_id,
+        "entry_is_board": entry_is_board,
+        "document_id": reminder.document_id,
+        "document_title": document_title,
         "entry_preview": entry_preview,
         "priority": reminder.priority,
         "recurring": reminder.recurring,
@@ -288,6 +305,7 @@ def list_reminders(
     offset: int = Query(default=0, ge=0),
     cursor: str | None = paging.cursor_param(),
     entry_id: int | None = Query(default=None, description="Only this note's reminders"),
+    document_id: int | None = Query(default=None, description="Only this document's reminders"),
     include_done: bool = True,
     session: Session = Depends(get_session),
 ) -> list[dict]:
@@ -308,6 +326,8 @@ def list_reminders(
     filters = []
     if entry_id is not None:
         filters.append(Reminder.entry_id == entry_id)
+    if document_id is not None:
+        filters.append(Reminder.document_id == document_id)
     if not include_done:
         filters.append(Reminder.done.is_(False))
     total = session.scalar(select(func.count(Reminder.id)).where(*filters)) or 0
@@ -327,12 +347,17 @@ def list_reminders(
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
     if not body.restore:
         _reject_if_in_the_past(body.due_at)
+    if body.entry_id is not None and body.document_id is not None:
+        raise HTTPException(status_code=422, detail="A reminder is about a note or a document, not both.")
     if body.entry_id is not None:
         deps.get_or_404(session, Entry, body.entry_id, "That note could not be found.")
+    if body.document_id is not None:
+        deps.get_or_404(session, Document, body.document_id, "That document could not be found.")
     reminder = Reminder(
         text=body.text,
         due_at=body.due_at,
         entry_id=body.entry_id,
+        document_id=body.document_id,
         priority=body.priority,
         recurring=body.recurring,
         done=body.restore and body.done,
@@ -420,7 +445,8 @@ def update_reminder(
     if body.text is not None:
         reminder.text = body.text
     if body.due_at is not None:
-        _reject_if_in_the_past(body.due_at)
+        if not body.restore:
+            _reject_if_in_the_past(body.due_at)
         reminder.due_at = body.due_at
     if body.priority is not None:
         reminder.priority = body.priority

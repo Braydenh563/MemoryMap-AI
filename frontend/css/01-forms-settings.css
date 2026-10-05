@@ -2718,7 +2718,7 @@ button:not(.ghost) > .spinner {
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-6);
+  padding: var(--space-1) var(--space-3) var(--space-1) calc(var(--space-6) + var(--space-3));
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--ink);
@@ -3642,6 +3642,14 @@ mark.global-find-hit.global-find-current {
   font-size: 0.8rem;
   overflow-x: auto;
   /* a long command scrolls rather than widening the dialog */
+}
+
+/* In Settings it wraps instead (INBOX 622: nothing there scrolls sideways).
+   Out of it the same class holds a note's wide table, which must scroll. */
+#settings-modal .code-block {
+  overflow-x: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .code-block code {
@@ -5035,19 +5043,15 @@ html.modal-open body {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
+  /* No sideways scroll (INBOX 622): the strip of sections is the jump list
+     now (`buildSettingsJumpList`, 07-whiteboard-misc.css), so the nav is
+     one row of a search field and a select that wraps rather than scrolls. */
   .modal-nav {
     flex-direction: row;
     align-items: center;
     gap: var(--space-2);
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* Nothing in the strip may shrink; it scrolls instead: the same rule the
-       collapsed note row's chip lane needed, for the same reason: a squeezed
-       label is worse than one you scroll to. */
-    flex-wrap: nowrap;
     padding-bottom: var(--space-2);
     border-bottom: 1px solid var(--border);
-    scrollbar-width: thin;
   }
 
   .modal-nav > div {
@@ -6222,14 +6226,10 @@ select {
   font-size: var(--text-xs);
 }
 
-/* `.settings-index`: a long section's own heads as a strip in the pane's
-   dock (INBOX 599: one bar, title, where-in-this-pane and '?', where it was a
-   title row over a strip of its own), and the dock is sticky at the top of
-   the pane. The ground is the dialog's opaque ground, never a tint alone: a
-   translucent bar reads right at rest and turns into a window once the pane
-   scrolls under it (the `.selectbar` rule, 00-tokens-shell.css). Links are the
-   Quiet tier; the one you are in is painted from `aria-current`, accent-soft
-   plus a weight step, never colour alone. */
+/* The pane's dock is sticky at the top of the pane (INBOX 599). The ground
+   is the dialog's opaque ground, never a tint alone: a translucent bar reads
+   right at rest and turns into a window once the pane scrolls under it (the
+   `.selectbar` rule, 00-tokens-shell.css). */
 #settings-modal .settings-section > .dock {
   position: sticky;
   top: 0;
@@ -6243,39 +6243,83 @@ select {
   flex: none;
 }
 
-.settings-index {
+/* **The active pane's groups, nested under it in the sidebar** (INBOX 622,
+   the owner: "idk if this navigation is the right way to go about it"). They
+   were a strip in the pane's dock that scrolled sideways, with a scrollbar
+   and a clipped last label; now they are the sidebar's second level, as VS
+   Code and Linear draw settings, built by `settingsIndexBuild`
+   (settings-find.js). Indented under their pane, a step smaller and muted:
+   the Quiet tier. The group you are reading is painted from `aria-current`
+   as ink, a weight step and an accent rail at its leading edge, never colour
+   alone, and never a second fill beside the pane's own. Hidden while the
+   sidebar is searching, which lists matches instead. */
+.settings-nav-groups {
   display: flex;
-  flex: 1 1 12rem;
-  min-width: 0;
-  gap: var(--space-1);
-  overflow-x: auto;
-  scrollbar-width: thin;
+  flex-direction: column;
+  margin: 0 0 var(--space-2);
 }
 
-.settings-index-link {
-  flex: 0 0 auto;
+#settings-nav .settings-nav-group {
+  justify-content: flex-start;
   height: auto;
-  min-height: var(--target-min);
+  min-height: 0;
   margin: 0;
-  padding: var(--space-1) var(--space-4);
-  white-space: nowrap;
+  padding: var(--space-1) var(--space-3) var(--space-1) calc(var(--space-6) + var(--space-3));
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
   font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid transparent;
-  box-shadow: none;
+  text-align: left;
+  white-space: normal;
 }
 
-.settings-index-link:hover {
+#settings-nav .settings-nav-group:hover {
   background: var(--hover-veil);
   color: var(--ink);
 }
 
-.settings-index-link[aria-current="location"] {
-  background: var(--accent-soft);
+#settings-nav .settings-nav-group[aria-current="location"] {
+  box-shadow: inset 2px 0 0 var(--accent);
   color: var(--ink);
   font-weight: 650;
+}
+
+#settings-nav:has(.settings-search:not(:placeholder-shown)) .settings-nav-groups {
+  display: none;
+}
+
+/* **On a phone the pane's New sits on the title's row** (design-rows-1005):
+   the title, then the actions pushed to the end. New is its plus there, the
+   word visually hidden (it still names the button) and the title saying it.
+   The pane's groups are in the jump list now (INBOX 622), not a row here. */
+@media (max-width: 599.98px) {
+  #settings-modal .settings-section > .dock > .dock-actions {
+    order: 2;
+    margin-inline-start: auto;
+  }
+
+  .settings-pane-new {
+    width: var(--target-min);
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .settings-pane-new > .ph-lead {
+    margin-inline-end: 0;
+  }
+
+  .settings-pane-new > .pane-new-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* The strip is a row on a phone (the nav is one), so the results would sit in

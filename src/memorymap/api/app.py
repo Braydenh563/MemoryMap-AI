@@ -86,6 +86,9 @@ from memorymap.api import (
     routes_websearch,
     routes_whiteboard,
     routes_board_library,
+    routes_board_history,
+    routes_map_suggest,
+    routes_map_from_notes,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import (
@@ -214,10 +217,20 @@ def asset_stamps() -> dict[str, str]:
     """Every script a page can load after boot, mapped to its stamp: what
     `lazyAssetStamp` (frontend/js/app.js) reads for a lazy bundle or a
     worker, so a file loaded on demand is stamped by its own bytes too."""
-    return {
+    stamps = {
         f"/js/{p.name}": _stamp_for(f"/js/{p.name}")
         for p in sorted((FRONTEND_DIR / "js").glob("*.js"))
     }
+    #: A lazy stylesheet (`css/lazy-*.css`, linked by its own bundle) is held
+    #: out of index.html so the boot CSS budget does not carry a surface that
+    #: is rarely opened (`tests/test_boot_budget.py`).
+    stamps.update(
+        {
+            f"/css/{p.name}": _stamp_for(f"/css/{p.name}")
+            for p in sorted((FRONTEND_DIR / "css").glob("lazy-*.css"))
+        }
+    )
+    return stamps
 
 
 _index_cache: dict[str, object] = {}
@@ -1224,6 +1237,9 @@ def create_app() -> FastAPI:
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
     app.include_router(routes_board_library.router, dependencies=locked)
+    app.include_router(routes_board_history.router, dependencies=locked)
+    app.include_router(routes_map_suggest.router, dependencies=locked)
+    app.include_router(routes_map_from_notes.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
     app.include_router(routes_capabilities.router, dependencies=locked)

@@ -2013,8 +2013,11 @@ button.ghost.danger {
      about the axis it is actually about. */
   row-gap: var(--space-3);
   column-gap: 0;
-  background: var(--card);
-  border: 1px solid var(--border);
+  /* **Quieter** (INBOX 620): a borderless tint, the field-inset ground the
+     tab well uses, where it was a card-white panel with an edge on a card,
+     a box drawn inside a box. */
+  background: var(--field-inset);
+  border: 0;
   /* `--space-2` at the ends rather than `--space-4`: the first and last groups
      already carry their own inset (a section centres its content inside a box
      the leftover space has grown), so the bar's own side padding is only the
@@ -2024,6 +2027,9 @@ button.ghost.danger {
      which `test_ui_signatures.py` counts and refuses. */
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-inner);
+  /* Room under the head row (INBOX 620, the owner: "a bit more of a gap
+     below the top row title and close button"): it was 0px. */
+  margin-top: var(--space-6);
   margin-bottom: var(--space-4);
 }
 
@@ -2049,9 +2055,13 @@ button.ghost.danger {
    leftover width is already being shared out between the sections above, so
    the fixed margin is 39px of four gaps that the grow is about to add back
    anyway, and it was 39px this bar did not have at its tightest setting. */
+/* And no line (INBOX 620): the groups already share out the bar's width,
+   so space and each group's label tell them apart; four drawn rules in a
+   bar of five groups were the busiest thing on the card. */
 .sketch-toolbar .wb-tool-section + .wb-tool-section {
   padding-left: var(--space-1);
   margin-left: 0;
+  border-left: 0;
 }
 
 /* One height for every row of controls, whatever is in it: a section holding
@@ -2146,6 +2156,14 @@ button.ghost.danger {
 .sketch-color.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* The white ink is a white dot on a near-white bar, and the black one a
+   black dot on the dark theme's bar: ringed, or they are not there to pick
+   (INBOX 620, both seen missing at 1440). */
+.sketch-color[data-color="#f9fafb"]:not(.active),
+:root[data-mode="dark"] .sketch-color[data-color="#111827"]:not(.active) {
+  box-shadow: inset 0 0 0 1px var(--control-edge);
 }
 
 /* ==================== AN INK DOT FOR A FINGER ============================
@@ -2711,11 +2729,6 @@ kbd {
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
-}
-
-#note-search {
-  margin-bottom: 0;
-  min-width: 8rem;
 }
 
 #note-sort {
@@ -3777,9 +3790,10 @@ html {
   stroke-dasharray: 3 2;
 }
 
-#graph-search {
-  max-width: 13rem;
-  margin-bottom: 0;
+/* A highlight box, not a filter: it stays short beside the map's name. The
+   field is the dock's `.search-field` now (INBOX 621), so the cap is on it. */
+.dock[data-dock-name="graph"] .dock-search {
+  max-width: 15rem;
 }
 
 .thumb-wrap {
@@ -6367,7 +6381,10 @@ button.ghost.danger:hover {
 /* GRAPH_PLAN KG8: the graph's Filter fold, two rows of toggle chips. */
 .graph-filter-head {
   margin: var(--space-2) 0 var(--space-1);
-  font-size: var(--text-xs);
+  /* A row's label, at a row label's size and ink (INBOX 621): it was the
+     one 11px label in a panel of 13.6px ones. */
+  font-size: var(--text-md);
+  color: var(--ink);
 }
 
 /* Wrapped, whatever the panel's rows do: a long value never runs past the

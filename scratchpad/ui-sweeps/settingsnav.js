@@ -22,42 +22,75 @@ const check = (name, ok, detail) => {
   check('deep link resolves to the section that holds the control',
     await page.evaluate(() => currentSettingsSection === 'searchindex' && !!document.getElementById('search-relevance-group').getClientRects().length));
 
-  // 2. The index in Models.
-  await page.evaluate(() => openSettingsModal('models'));
+  // 2. The index in Tools it can use (the owner's screenshot): the pane's groups nested under it in the sidebar
+  // (INBOX 622), or, on a phone, the jump list's options under the pane.
+  await page.evaluate(() => openSettingsModal('tools'));
   await page.waitForTimeout(1500);
   const idx = await page.evaluate(() => {
-    const nav = document.querySelector('#settings-models .settings-index');
-    if (!nav) return null;
-    const links = [...nav.querySelectorAll('.settings-index-link')];
-    return { n: links.length, labels: links.map((l) => l.textContent), sticky: getComputedStyle(nav).position, current: links.filter((l) => l.getAttribute('aria-current') === 'location').length };
+    const list = document.querySelector('#settings-nav .settings-nav-groups');
+    const links = list ? [...list.querySelectorAll('.settings-nav-group')] : [];
+    const groups = [...document.querySelectorAll('#settings-jump option[data-group]')];
+    return {
+      strip: document.querySelectorAll('#settings-modal .settings-index').length,
+      under: !!list && list.previousElementSibling?.dataset.section === 'tools',
+      n: links.length, jump: groups.length,
+      labels: links.map((l) => l.textContent),
+      current: links.filter((l) => l.getAttribute('aria-current') === 'location').length,
+    };
   });
-  check('Models has an index with a link per group head', !!idx && idx.n >= 6, idx);
-  if (idx) {
-    await page.evaluate(() => {
-      const links = [...document.querySelectorAll('#settings-models .settings-index .settings-index-link')];
-      links[links.length - 1].click();
-    });
+  check('no strip in the pane; Tools lists its groups under its sidebar link', idx.strip === 0 && idx.under && idx.n >= 3 && idx.n === idx.jump, idx);
+  if (idx.n) {
+    await page.evaluate((phone) => {
+      if (phone) {
+        const jump = document.getElementById('settings-jump');
+        const opts = [...jump.querySelectorAll('option[data-group]')];
+        jump.value = opts[opts.length - 1].value;
+        jump.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        const links = [...document.querySelectorAll('#settings-nav .settings-nav-group')];
+        links[links.length - 1].click();
+      }
+    }, phone);
     await page.waitForTimeout(900);
     const after = await page.evaluate(() => {
-      // Since INBOX 599 the strip is in the pane's dock, and the dock sticks.
-      const nav = document.querySelector('#settings-models .settings-index').closest('.dock') || document.querySelector('#settings-models .settings-index');
+      const dock = document.querySelector('#settings-tools > .dock');
       const scroller = document.querySelector('#settings-modal .modal-content');
-      const links = [...nav.querySelectorAll('.settings-index-link')];
+      const links = [...document.querySelectorAll('#settings-nav .settings-nav-group')];
       const cur = links.find((l) => l.getAttribute('aria-current') === 'location');
       const head = links[links.length - 1]._head;
       return {
         scrollTop: scroller.scrollTop,
-        stuck: Math.abs(nav.getBoundingClientRect().top - scroller.getBoundingClientRect().top) < 2,
+        stuck: Math.abs(dock.getBoundingClientRect().top - scroller.getBoundingClientRect().top) < 2,
         current: cur && cur.textContent,
         last: links[links.length - 1].textContent,
-        headBelowStrip: head.getBoundingClientRect().top >= nav.getBoundingClientRect().bottom - 1,
+        headBelowDock: head.getBoundingClientRect().top >= dock.getBoundingClientRect().bottom - 1,
         focusOnHead: document.activeElement === head,
+        jumpValue: document.getElementById('settings-jump')?.value,
       };
     });
-    check('a press scrolls the pane, the strip stays at the top, the head is clear of it, focus lands on it',
-      after.scrollTop > 200 && after.stuck && after.headBelowStrip && after.focusOnHead, after);
-    check('the link you are in is marked', after.current === after.last, after);
+    check('a press scrolls the pane, the dock stays at the top, the head is clear of it, focus lands on it',
+      after.scrollTop > 200 && after.stuck && after.headBelowDock && after.focusOnHead, after);
+    check('the group you are in is marked (and the jump list follows)', after.current === after.last && /^tools#\d+$/.test(after.jumpValue || ''), after);
+    // Scrolled back to the top by hand, the first group is the marked one.
+    await page.evaluate(() => { const s = document.querySelector('#settings-modal .modal-content'); s.dispatchEvent(new WheelEvent('wheel')); s.scrollTop = 0; });
+    await page.waitForTimeout(400);
+    const top = await page.evaluate(() => document.querySelector('#settings-nav .settings-nav-group[aria-current="location"]')?.textContent);
+    check('scrolling tracks the group', top === idx.labels[0], { top, first: idx.labels[0] });
   }
+
+  // 2b. No element in Settings scrolls sideways, in any pane (INBOX 622).
+  const sideways = [];
+  for (const name of await page.evaluate(() => [...document.querySelectorAll('#settings-nav button[data-section]')].map((b) => b.dataset.section))) {
+    await page.evaluate((n) => openSettingsModal(n), name);
+    await page.waitForTimeout(500);
+    const found = await page.evaluate(() => [...document.querySelectorAll('#settings-modal *')].filter((el) => {
+      if (!el.getClientRects().length) return false;
+      const ox = getComputedStyle(el).overflowX;
+      return (ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1;
+    }).map((el) => (el.id ? '#' + el.id : '.' + [...el.classList].slice(0, 2).join('.')) + ` ${el.scrollWidth}/${el.clientWidth}`));
+    for (const f of found) sideways.push(`${name}: ${f}`);
+  }
+  check('nothing in Settings scrolls sideways', sideways.length === 0, sideways.slice(0, 8));
 
   // 3. The setting search.
   await page.fill('#settings-search', 'similarity');

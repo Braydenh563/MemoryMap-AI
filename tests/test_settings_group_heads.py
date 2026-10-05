@@ -14,6 +14,12 @@ reads the markup rather than the computed style: the cause, not the symptom.
 Allowed containers besides a group: a folded group (`details.settings-fold`),
 a dock's identity (Logs), the profile's own head (the person's name beside
 their mark), and a `.help-accordion` panel's body.
+
+A pane's title is the head in its `.settings-pane-title` dock when it has
+one (the pane-title bars, INBOX 599); otherwise the pane's first loose head.
+Before the lint knew the bar, every pane with one lost its title to the
+dock, so the next loose head (Background tasks' "Quit MemoryMap") was read
+as the title and passed, and the guard test below saw one pane of seven.
 """
 
 from __future__ import annotations
@@ -35,7 +41,8 @@ class _Heads(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.stack: list[tuple[str, set[str], str]] = []
         self.loose: dict[str, list[str]] = {}
-        self._capture: tuple[str, int] | None = None
+        self.titled: dict[str, str] = {}
+        self._capture: tuple[str, int, bool] | None = None
         self._text: list[str] = []
 
     def _section(self) -> str | None:
@@ -47,9 +54,13 @@ class _Heads(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         classes = set((attrs.get("class") or "").split())
-        if tag in {"h3", "h4"} and self._section() and not any(c & HOMES for _, c, _ in self.stack):
-            self._capture = (self._section(), len(self.stack))
-            self._text = []
+        if tag in {"h3", "h4"} and self._section():
+            if any("settings-pane-title" in c for _, c, _ in self.stack):
+                self._capture = (self._section(), len(self.stack), True)
+                self._text = []
+            elif not any(c & HOMES for _, c, _ in self.stack):
+                self._capture = (self._section(), len(self.stack), False)
+                self._text = []
         if tag not in VOID:
             self.stack.append((tag, classes, attrs.get("id") or ""))
 
@@ -61,7 +72,11 @@ class _Heads(HTMLParser):
             if top[0] == tag:
                 break
         if self._capture and tag in {"h3", "h4"} and len(self.stack) == self._capture[1]:
-            self.loose.setdefault(self._capture[0], []).append(" ".join("".join(self._text).split()))
+            text = " ".join("".join(self._text).split())
+            if self._capture[2]:
+                self.titled[self._capture[0]] = text
+            else:
+                self.loose.setdefault(self._capture[0], []).append(text)
             self._capture = None
 
     def handle_data(self, data):
@@ -73,8 +88,14 @@ def _loose_heads() -> dict[str, list[str]]:
     html = re.sub(r"<!--.*?-->", "", HTML.read_text(encoding="utf-8"), flags=re.S)
     parser = _Heads()
     parser.feed(html)
-    # The first loose head of a pane is the pane's own title.
-    return {section: heads[1:] for section, heads in parser.loose.items() if heads[1:]}
+    # A pane with a title bar has its title there; otherwise the first loose
+    # head of a pane is the pane's own title.
+    out = {}
+    for section, heads in parser.loose.items():
+        rest = heads if section in parser.titled else heads[1:]
+        if rest:
+            out[section] = rest
+    return out
 
 
 def test_every_settings_head_after_the_title_heads_a_group():
@@ -90,6 +111,7 @@ def test_the_lint_reads_the_panes_it_means():
     parser = _Heads()
     parser.feed(re.sub(r"<!--.*?-->", "", HTML.read_text(encoding="utf-8"), flags=re.S))
     titles = {section: heads[0] for section, heads in parser.loose.items()}
+    titles.update(parser.titled)
     assert titles.get("settings-websearch") == "Web search", titles
     assert titles.get("settings-templates") == "Templates", titles
     assert len(titles) >= 6, titles

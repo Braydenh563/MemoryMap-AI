@@ -3630,24 +3630,24 @@ def _css_block(selector: str) -> str:
     return match.group(1)
 
 
-def test_a_settings_index_is_a_sticky_strip_on_the_opaque_ground() -> None:
-    """DESIGN.md, "A long Settings section's index". The strip stays with the
-    pane (`position: sticky`), on `--modal-bg-opaque` and never a tint alone (a
-    translucent strip becomes a window once the pane scrolls under it), its
-    links are the Quiet tier (no fill at rest) and the one you are in is painted
-    from `aria-current`, not a class."""
-    # Since INBOX 599 the strip is in the pane's dock and the dock is what
-    # sticks, on the opaque ground.
+def test_a_settings_pane_lists_its_groups_in_the_sidebar() -> None:
+    """DESIGN.md, "A long Settings section's index" (INBOX 622). The pane's
+    group links are the sidebar's second level under the pane's own link, not
+    a strip in the pane that scrolls sideways. The pane's dock still sticks
+    (`position: sticky`) on `--modal-bg-opaque`, never a tint alone; the links
+    are the Quiet tier (no fill at rest) and the one you are in is painted from
+    `aria-current` with a weight step and an accent rail, not a class and not a
+    second fill beside the pane's own."""
     bar = _css_block("#settings-modal .settings-section > .dock")
     assert "position: sticky" in bar and "var(--modal-bg-opaque)" in bar
-    assert "overflow-x: auto" in _css_block(".settings-index")
-    link = _css_block(".settings-index-link")
+    link = _css_block("#settings-nav .settings-nav-group")
     assert "background: transparent" in link and "box-shadow: none" in link
-    current = _css_block('.settings-index-link[aria-current="location"]')
-    assert "var(--accent-soft)" in current and "--accent-surface" not in current
+    current = _css_block('#settings-nav .settings-nav-group[aria-current="location"]')
+    assert "var(--accent)" in current and "font-weight: 650" in current
+    assert "--accent-surface" not in current and "background" not in current
     code = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
     assert "scrollIntoView" not in re.sub(r"//.*", "", code), "scroll the pane's own scrollTop"
-    assert code.count('"settings-index"') >= 1 and "aria-current" in code
+    assert code.count('"settings-nav-groups"') >= 1 and "aria-current" in code
 
 
 def test_the_setting_search_results_are_quiet_rows() -> None:
@@ -4276,8 +4276,9 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
     inside it, the '?' last), one row and one control height at 1440.
 
     A pane written in the markup opens on `.dock.settings-pane-title`; a pane
-    without one gets the same shape from `ensureSettingsPaneTitle`; the index
-    goes inside the dock (`settingsIndexBuild`), and the dock is what sticks.
+    without one gets the same shape from `ensureSettingsPaneTitle`, and the
+    dock is what sticks. The index went from inside the dock to the sidebar's
+    second level (INBOX 622, `settingsIndexBuild`).
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
@@ -4290,34 +4291,75 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
     body = _function_body(settings, "ensureSettingsPaneTitle")
     assert '"dock settings-pane-title"' in body and '"dock-identity"' in body
     find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
-    assert 'anchor?.matches(".dock")' in _function_body(find, "settingsIndexBuild")
+    # The index is the sidebar's second level now (INBOX 622), not a strip in
+    # this dock.
+    assert '$("settings-nav")' in _function_body(find, "settingsIndexBuild")
     title = _css_block("#settings-modal .settings-section > .dock h3")
     # 600 is `.card h3`'s own weight; the size and the ink are this rule's.
     assert "var(--text-body)" in title and "var(--ink)" in title
 
 
 def test_the_note_edit_form_is_one_composition() -> None:
-    """INBOX 606, the owner: "something about the design, ui/ux of the note
-    edit form still feels off...". Measured with `noteeditform.js` at 1440,
-    before: title, strip and body as three frames; a 36px comma field and a
-    select; Save then Cancel mid-row; two boxed "Link" buttons; a lone boxed
-    "Attach a link" (28px, 1px edge) under everything. After: one
-    `.note-composer` surface; tags as chips in the search field's well; the
-    category as its chip; a foot of Attach a link (an icon, no edge) at the
-    left and Cancel then the one filled Save at the right; a quiet + per
-    related note (0 boxed buttons)."""
+    """INBOX 606, then 616, the owner: "its better but still needs a more
+    modern and professional ui/ux redesign (the note edit form)", "the attach
+    a link button doesnt do anything", "there is no padding around the tag
+    entries", the folded strip "looks really awkward" and the category
+    dropdown is "completely out of place". Measured with `noteedit616.js` at
+    1440 and 390, light and dark. Now: one `.note-composer` surface holding
+    the title, the properties line (the category chip, then the tag chips and
+    the add-tag input, no well and no '#' icon), the strip and the text; under
+    it the files and a slim foot: Attach a link and the word count at the
+    left, Cancel then the one filled Save at the right. Related is one
+    disclosure line, closed."""
     form = _function_body(app_js_text(), "renderEditForm")
     assert 'surface.className = "note-composer note-edit-surface"' in form
-    assert 'tagField.className = "search-field tag-field note-edit-tags"' in form
+    assert 'tagField.className = "tag-field note-edit-tags"' in form
+    assert "ph-hash" not in form and "search-field" not in form
     assert 'chip("", "category note-edit-category"' in form
-    assert "meta.append(tagField, categoryChip)" in form
+    assert "meta.append(categoryChip, tagField)" in form
+    assert "surface.append(titleInput, meta, toolbarEl, textarea)" in form
+    assert "li.append(surface, chipsHost, foot)" in form
+    assert "foot.append(count, row)" in form
     assert form.index('smallButton("Cancel"') < form.index("    saveButton\n  );")
-    assert "li.append(surface, chipsHost, meta, foot)" in form
     panels = (ROOT / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
     assert panels.count('li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"))') == 2
     assert "foot.prepend(attachButton)" in panels
     rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
     assert 'smallButton("ph:plus", `Link this note to' in rows
+
+
+def test_the_note_edit_forms_attach_a_link_opens_the_picker() -> None:
+    """INBOX 616, the owner: "the note edit form attach a link button doesnt
+    do anything". It appended a bare select to the References panel, which is
+    hidden while the note has none, so the first press drew nothing visible;
+    a pick re-ran the panel and added a second Attach button. Now the press
+    opens the app's one-thing picker on its Bookmarks source and a pick
+    repaints the one panel (`noteeditflow.js`: refs 1, shown 1, one button)."""
+    panels = (ROOT / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
+    picker = _function_body(panels + "\nfunction ", "openBookmarkAttachPicker")
+    assert 'pickLibraryItemDialog("Attach a link", { sources: ["link"] })' in picker
+    assert 'createElement("select")' not in picker
+    assert "openBookmarkAttachPicker(entry, refresh)" in panels
+    related = panels[panels.index("function renderRelatedWhileEditing("):panels.index("function renderNoteBookmarksWhileEditing(")]
+    assert "note-edit-related-toggle" in related and "list.hidden = true" in related
+
+
+def test_a_notes_strip_is_one_icon_row_that_never_folds() -> None:
+    """INBOX 616: the folded strip was an empty band with three icons and a
+    caret, and B, I, S were typed letters beside Phosphor icons. The note
+    strip (Capture's and the edit form's clone) is icons only, at every width,
+    and `applyDocToolbarCollapsed` leaves it out of the fold."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    strip = html[html.index('id="note-toolbar"'):]
+    strip = strip[: strip.index("</div>")]
+    assert "<strong>B</strong>" not in strip and "<em>I</em>" not in strip
+    for icon in ("ph-text-b", "ph-text-italic", "ph-text-strikethrough", "ph-code-simple"):
+        assert icon in strip
+    docs = _function_body((ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8"), "applyDocToolbarCollapsed")
+    assert 'collapsed && !bar.classList.contains("note-toolbar")' in docs
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    rule = css.index(".note-toolbar .toolbar-word {")
+    assert "@media" not in css[css.rfind("}", 0, rule) : rule]
 
 
 def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:

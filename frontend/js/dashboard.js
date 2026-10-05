@@ -2763,9 +2763,49 @@ async function renderPinnedWidget(body) {
   miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
 }
 
+//: **This month or all time** (WORLD_CLASS_PLAN section 17, row 5). The count
+//: cannot say when a note was opened, so "this month" reads the opens log
+//: (`core/opens.py`: the page's own opens through `noteOpened`, and the notes an
+//: Ask matched). The choice is remembered on this device; with none made, a
+//: month that has opens shows the month and an empty one shows all time, so a
+//: notebook from before the log is not an empty widget on the day it updates.
+const MOST_USED_PERIODS = [
+  ["month", "This month", "The ten notes you opened or asked about most this month"],
+  ["all", "All time", "The notes you have opened or asked about most, ever"],
+];
+
 async function renderMostUsedWidget(body) {
-  const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 });
-  miniEntryList(body, entries, "Ask questions and your most-used notes appear here.", { label: "ph:chat-circle Ask a question", run: "ask", tab: "chat" });
+  const stored = prefs.get("mostUsedPeriod", "");
+  let period = stored === "all" || stored === "month" ? stored : "month";
+  let entries = await apiJson(`/entries/most-accessed?period=${period}`, { cacheMs: 30000 });
+  if (!stored && period === "month" && !entries.length) {
+    period = "all";
+    entries = await apiJson("/entries/most-accessed?period=all", { cacheMs: 30000 });
+  }
+  const seg = document.createElement("div");
+  seg.className = "seg seg-compact dash-period";
+  seg.style.marginBottom = "var(--space-3)"; // not a boot-CSS rule: that sheet is at its byte cap
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "Period for the most used notes");
+  for (const [value, text, title] of MOST_USED_PERIODS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.title = title;
+    button.setAttribute("aria-pressed", String(value === period));
+    button.addEventListener("click", () => {
+      if (value === period) return;
+      prefs.set("mostUsedPeriod", value);
+      body.replaceChildren();
+      renderMostUsedWidget(body);
+    });
+    seg.appendChild(button);
+  }
+  body.appendChild(seg);
+  const empty = period === "month"
+    ? "Open or ask about your notes and the ones you use most this month appear here."
+    : "Ask questions and your most-used notes appear here.";
+  miniEntryList(body, entries, empty, { label: "ph:chat-circle Ask a question", run: "ask", tab: "chat" });
 }
 
 // The graph tab already knows how connected every note is (edges from

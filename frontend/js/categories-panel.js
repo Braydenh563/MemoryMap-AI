@@ -41,6 +41,7 @@ async function openManageCategories(focusName = null) {
         "Colour picks the dot a category wears on its notes, the graph and the timeline. Automatic goes back to a colour chosen from its name. Select several to colour them together.",
         "Sort by name, by how many notes a category holds, or by the one used most recently. Empty shows the categories with no notes. Categories that look like one (Recipe and recipes) are offered as one merge above the list, and the count after a name shows its notes.",
         "Delete asks where its notes should go. Nothing you write is ever deleted here, and every change can be undone.",
+        "Tidy-ups suggested, above the list, are Atlas's proposals: a category whose notes are about the same things as another's (Merge), or one that has been empty for 30 days (Remove). Nothing changes until you press one. Keep both and Keep it are remembered, and a category you made or renamed yourself is never suggested away.",
         "To move particular notes, tick them in the list and choose Move to, or drag a note's category label onto another category in the sidebar.",
         "Keys: arrows move, Space selects, Enter shows the notes, F2 renames, Delete deletes.",
       ]) {
@@ -92,6 +93,14 @@ async function openManageCategories(focusName = null) {
       suggest.setAttribute("role", "region");
       suggest.setAttribute("aria-label", "Categories that look alike");
       state.suggestBox = suggest;
+      //: The librarian's tidy proposals (section 17 row 2): categories about
+      //: the same things, and empty ones. A second region under the look-alike
+      //: row, filled once the panel is up (`loadTidyProposals`).
+      const tidyBox = document.createElement("div");
+      tidyBox.className = "manage-suggest hidden";
+      tidyBox.setAttribute("role", "region");
+      tidyBox.setAttribute("aria-label", "Tidy suggestions");
+      state.tidyBox = tidyBox;
       const list = document.createElement("ul");
       list.className = "manage-cat-list";
       //: A grid, not a listbox (INBOX 433): an option may hold nothing
@@ -105,8 +114,9 @@ async function openManageCategories(focusName = null) {
       footer.className = "manage-cat-footer hidden";
       footer.setAttribute("role", "region");
       footer.setAttribute("aria-label", "Selected categories");
-      card.append(sub, helpBody, tools, suggest, list, footer);
+      card.append(sub, helpBody, tools, suggest, tidyBox, list, footer);
       initHelpToggles(card);
+      loadTidyProposals(state);
       function redraw() {
         drawManageCategoryRows(list, footer, state);
       }
@@ -130,6 +140,105 @@ async function openManageCategories(focusName = null) {
       requestAnimationFrame(() => (start || filter).focus());
     },
   });
+}
+
+//: **Tidy suggestions** (WORLD_CLASS_PLAN section 17 row 2, the original note's
+//: "the AI tidies the database over time ... respects manual changes"). From
+//: `GET /categories/tidy`: a category whose notes are about the same things as
+//: another's, and one that has been empty for 30 days. Nothing is applied until
+//: Merge or Remove is pressed, and those are the panel's own merge and delete
+//: (their confirm, their undo). "Keep both" and "Keep it" are remembered by the
+//: server, so the same proposal is not made twice.
+async function loadTidyProposals(state) {
+  const box = state.tidyBox;
+  if (!box) return;
+  let proposals = [];
+  try {
+    proposals = (await apiJson("/categories/tidy", { silent: true })).proposals || [];
+  } catch (error) {
+    // No list is the honest answer to a list that could not be made: the panel
+    // is the same without it, and a toast here would be noise on opening it.
+    proposals = [];
+  }
+  if (box.isConnected) drawTidyProposals(box, proposals, state);
+}
+
+function drawTidyProposals(box, proposals, state) {
+  box.replaceChildren();
+  const rows = proposals.filter((p) => (p.kind === "merge" ? categoryMeta.has(p.from.name) && categoryMeta.has(p.into.name) : categoryMeta.has(p.category.name)));
+  const show = rows.length > 0 && !state.hideTidy;
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  const head = document.createElement("p");
+  head.className = "manage-suggest-head";
+  setLabel(head, `ph:broom ${rows.length === 1 ? "One tidy-up suggested" : `${rows.length} tidy-ups suggested`}`);
+  const later = smallButton("Not now", "Hide these suggestions until the panel is opened again", () => {
+    state.hideTidy = true;
+    box.classList.add("hidden");
+  });
+  later.classList.add("manage-suggest-later");
+  head.appendChild(later);
+  box.appendChild(head);
+  const decline = async (body) => {
+    try {
+      await apiJson("/categories/tidy/decline", { method: "POST", body: JSON.stringify(body) });
+    } catch (error) {
+      toast(error.message, true);
+      return;
+    }
+    await loadTidyProposals(state);
+  };
+  for (const proposal of rows.slice(0, 3)) {
+    const item = document.createElement("div");
+    item.className = "manage-tidy-item";
+    const row = document.createElement("div");
+    row.className = "manage-suggest-row";
+    const text = document.createElement("span");
+    text.className = "manage-suggest-names";
+    //: A name wraps rather than being cut: it is what the person decides
+    //: about. Set here and not in the boot stylesheet, which is at its cap.
+    text.style.overflowWrap = "anywhere";
+    text.style.whiteSpace = "normal";
+    const reason = document.createElement("p");
+    reason.className = "muted manage-suggest-more";
+    reason.textContent = proposal.reason;
+    if (proposal.kind === "merge") {
+      text.textContent = `${proposal.from.name} into ${proposal.into.name}`;
+      text.title = text.textContent;
+      const merge = smallButton("ph:arrows-merge Merge", `Fold ${text.textContent}: the notes move across, and you can undo it`, async () => {
+        await mergeCategoriesFromPanel([categoryMeta.get(proposal.from.name)], categoryMeta.get(proposal.into.name));
+        await loadTidyProposals(state);
+      });
+      merge.setAttribute("aria-label", `Merge ${text.textContent}`);
+      const keep = smallButton("Keep both", "Do not suggest merging these two again", () =>
+        decline({ kind: "merge", name: proposal.from.name, other: proposal.into.name })
+      );
+      keep.classList.add("ghost");
+      row.append(text, merge, keep);
+    } else {
+      text.textContent = `Remove ${proposal.category.name}`;
+      text.title = text.textContent;
+      const meta = categoryMeta.get(proposal.category.name);
+      const remove = smallButton("ph:trash Remove", `Delete the empty category ${proposal.category.name}`, async () => {
+        await deleteCategory(meta, meta.name, meta.count);
+        await loadTidyProposals(state);
+      });
+      remove.setAttribute("aria-label", `Remove ${proposal.category.name}`);
+      const keep = smallButton("Keep it", "Do not suggest removing this one again", () =>
+        decline({ kind: "remove", name: proposal.category.name })
+      );
+      keep.classList.add("ghost");
+      row.append(text, remove, keep);
+    }
+    item.append(row, reason);
+    box.appendChild(item);
+  }
+  if (rows.length > 3) {
+    const more = document.createElement("p");
+    more.className = "muted manage-suggest-more";
+    more.textContent = `And ${rows.length - 3} more; settle these first.`;
+    box.appendChild(more);
+  }
 }
 
 //: The doc-ai head built into the sheet's own head: the '?' goes beside the

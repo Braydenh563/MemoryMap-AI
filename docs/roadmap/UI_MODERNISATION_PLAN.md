@@ -1559,3 +1559,7 @@ inside a 4,000px section.
      and the distance moved equalled the distance sent. No listener writes
      a scrollTop under a wheel, no scroller snaps or smooth-scrolls. Left:
      a real precision touchpad's momentum phase, which CDP cannot send.
+
+## Placed from INBOX, 2026-10-05 (header bars, Settings navigation)
+
+621 and 622 are built. Moved whole to [`HISTORY.md`](HISTORY.md) ("Moved from the plans, 2026-10-05 (INBOX 621 and 622: the header bars and the Settings navigation)"), with what they measured before and after.

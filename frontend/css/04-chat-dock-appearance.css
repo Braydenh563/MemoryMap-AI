@@ -2176,7 +2176,7 @@ label.setting-check,
      growing an override for the other's layout. */
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  column-gap: 0.6rem;
+  column-gap: var(--space-4);
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);

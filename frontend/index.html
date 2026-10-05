@@ -688,8 +688,8 @@
     <input type="hidden" id="space-create-icon" value="ph-folder">
     <p id="space-create-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="space-create-dialog">Cancel</button>
-      <button type="button" class="accent" id="space-create-submit">Create space</button>
+      <button type="button" class="ghost small" data-close-dialog="space-create-dialog">Cancel</button>
+      <button type="button" class="accent small" id="space-create-submit">Create space</button>
     </div>
   </dialog>
 
@@ -708,8 +708,8 @@
     <input type="hidden" id="space-edit-icon">
     <p id="space-edit-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="space-edit-dialog">Cancel</button>
-      <button type="button" class="accent" id="space-edit-submit">Save</button>
+      <button type="button" class="ghost small" data-close-dialog="space-edit-dialog">Cancel</button>
+      <button type="button" class="accent small" id="space-edit-submit">Save</button>
     </div>
   </dialog>
 
@@ -728,8 +728,8 @@
     <input type="hidden" id="space-delete-id">
     <p id="space-delete-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="space-delete-dialog">Cancel</button>
-      <button type="button" class="danger" id="space-delete-submit">Delete space</button>
+      <button type="button" class="ghost small" data-close-dialog="space-delete-dialog">Cancel</button>
+      <button type="button" class="danger small" id="space-delete-submit">Delete space</button>
     </div>
   </dialog>
 
@@ -756,7 +756,7 @@
       export to back up or export everything at once.
     </p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="doc-storage-dialog">Close</button>
+      <button type="button" class="ghost small" data-close-dialog="doc-storage-dialog">Close</button>
     </div>
   </dialog>
 
@@ -786,8 +786,8 @@
       <div id="doc-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="doc-template-dialog">Cancel</button>
-      <button type="button" class="accent" id="doc-template-use">Use this template</button>
+      <button type="button" class="ghost small" data-close-dialog="doc-template-dialog">Cancel</button>
+      <button type="button" class="accent small" id="doc-template-use">Use this template</button>
     </div>
   </dialog>
   <!-- The Capture box's own template picker (INBOX 410), the same recipe as
@@ -809,9 +809,9 @@
       <div id="note-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" id="note-template-manage"><i class="ph ph-gear-six ph-lead" aria-hidden="true"></i> Manage templates</button>
-      <button type="button" class="ghost" data-close-dialog="note-template-dialog">Cancel</button>
-      <button type="button" class="accent" id="note-template-use">Use this template</button>
+      <button type="button" class="ghost small" id="note-template-manage"><i class="ph ph-gear-six ph-lead" aria-hidden="true"></i> Manage templates</button>
+      <button type="button" class="ghost small" data-close-dialog="note-template-dialog">Cancel</button>
+      <button type="button" class="accent small" id="note-template-use">Use this template</button>
     </div>
   </dialog>
   <!-- New board, from a template or blank (BACKLOG 4b, WHITEBOARD_PLAN
@@ -830,9 +830,9 @@
     <textarea id="wb-import-text" class="wb-import-text" rows="8" spellcheck="false" aria-label="Mermaid flowchart" aria-describedby="wb-import-about" placeholder="flowchart TD&#10;  A[Start] --> B{Ready?}&#10;  B -->|yes| C[Ship it]"></textarea>
     <input type="file" id="wb-import-file" accept=".mmd,.mermaid,.txt,.md,.svg,text/plain,image/svg+xml" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a diagram file" title="Choose a diagram file">
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" id="wb-import-choose">Choose a file…</button>
-      <button type="button" class="ghost" data-close-dialog="wb-import-dialog">Cancel</button>
-      <button type="button" class="accent" id="wb-import-go">Bring in</button>
+      <button type="button" class="ghost small" id="wb-import-choose">Choose a file…</button>
+      <button type="button" class="ghost small" data-close-dialog="wb-import-dialog">Cancel</button>
+      <button type="button" class="accent small" id="wb-import-go">Bring in</button>
     </div>
   </dialog>
 
@@ -855,8 +855,8 @@
       <div id="wb-template-preview" class="doc-template-preview wb-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="wb-template-dialog">Cancel</button>
-      <button type="button" class="accent" id="wb-template-create">Create</button>
+      <button type="button" class="ghost small" data-close-dialog="wb-template-dialog">Cancel</button>
+      <button type="button" class="accent small" id="wb-template-create">Create</button>
     </div>
   </dialog>
   <!-- Quick note (quick-note.js, INBOX 434): a note from any tab without
@@ -890,8 +890,8 @@
     <p id="quick-note-status" class="status" role="status"></p>
     <div class="row right space-dialog-actions">
       <button type="button" id="quick-note-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
-      <button type="button" class="ghost" id="quick-note-more">Open in Capture</button>
-      <button type="button" class="accent" id="quick-note-save">Save note</button>
+      <button type="button" class="ghost small" id="quick-note-more">Open in Capture</button>
+      <button type="button" class="accent small" id="quick-note-save">Save note</button>
     </div>
   </dialog>
   <!-- **These two live here, beside the other dialogs, and not inside
@@ -942,7 +942,7 @@
       <p id="doc-history-empty" class="muted hidden">Nothing yet: this document
         has not been changed since it was made.</p>
       <div class="row right space-dialog-actions">
-        <button type="button" class="ghost" data-close-dialog="doc-history-dialog">Close</button>
+        <button type="button" class="ghost small" data-close-dialog="doc-history-dialog">Close</button>
       </div>
     </dialog>
     <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
@@ -956,7 +956,7 @@
       <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
       <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
       <div class="row right space-dialog-actions">
-        <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
+        <button type="button" class="ghost small" data-close-dialog="doc-ai-history-dialog">Close</button>
       </div>
     </dialog>
   <dialog id="doc-word-goal-dialog" class="card space-dialog">
@@ -973,8 +973,8 @@
     <label for="doc-word-goal-input">Goal (0 to clear)</label>
     <input type="number" id="doc-word-goal-input" min="0" step="1" inputmode="numeric" autocomplete="off">
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="doc-word-goal-dialog">Cancel</button>
-      <button type="button" class="accent" id="doc-word-goal-submit">Set goal</button>
+      <button type="button" class="ghost small" data-close-dialog="doc-word-goal-dialog">Cancel</button>
+      <button type="button" class="accent small" id="doc-word-goal-submit">Set goal</button>
     </div>
   </dialog>
 
@@ -992,7 +992,7 @@
     <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
     <div id="dash-widgets-list" class="dash-widgets-list"></div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="dash-widgets-dialog">Done</button>
+      <button type="button" class="ghost small" data-close-dialog="dash-widgets-dialog">Done</button>
     </div>
   </dialog>
 
@@ -5475,11 +5475,14 @@ Link to another note with [[its first few words]]."></textarea>
                  `renderSkillsDashboard`'s counts; the ids are stable. -->
             <div class="dock-group dock-arrange">
               <div class="seg" id="skills-kind" role="group" aria-label="Which skills to show">
-                <button type="button" class="active" data-kind="all" aria-pressed="true"><i class="ph ph-stack ph-lead" aria-hidden="true"></i> All <span data-count></span></button>
-                <button type="button" data-kind="yours" aria-pressed="false"><i class="ph ph-user ph-lead" aria-hidden="true"></i> Yours <span data-count></span></button>
-                <button type="button" data-kind="builtin" aria-pressed="false"><i class="ph ph-package ph-lead" aria-hidden="true"></i> Built-in <span data-count></span></button>
+                <button type="button" class="active" data-kind="all" aria-pressed="true" title="All skills"><i class="ph ph-stack ph-lead" aria-hidden="true"></i><span class="toolbar-word"> All</span> <span data-count></span></button>
+                <button type="button" data-kind="yours" aria-pressed="false" title="Skills you wrote"><i class="ph ph-user ph-lead" aria-hidden="true"></i><span class="toolbar-word"> Yours</span> <span data-count></span></button>
+                <button type="button" data-kind="builtin" aria-pressed="false" title="Built-in skills"><i class="ph ph-package ph-lead" aria-hidden="true"></i><span class="toolbar-word"> Built-in</span> <span data-count></span></button>
               </div>
-              <select id="skills-sort" aria-label="Sort skills" title="Sort skills">
+              <!-- INBOX 599: an icon-and-caret picker (`data-select-icon`), so
+                   the bar holds one row; the order is still the select's
+                   value, read aloud and on its tooltip. -->
+              <select id="skills-sort" aria-label="Sort skills" title="Sort skills" data-select-icon="ph-sort-ascending">
                 <option value="yours">Yours first</option>
                 <option value="az">Name A → Z</option>
                 <option value="recent">Recently run</option>
@@ -8167,9 +8170,11 @@ Link to another note with [[its first few words]]."></textarea>
       <p class="muted" id="extract-status" role="status"></p>
       <div id="extract-notes-list" class="extract-notes-list"></div>
       <div id="extract-links-list" class="extract-links-list"></div>
-      <div class="row">
-        <button id="extract-commit" data-needs-model="Extracting notes needs the local AI"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
-        <button id="extract-cancel" class="ghost" type="button">Cancel</button>
+      <!-- The dialog foot (INBOX 599, the popup census): at the right, Cancel
+           then the one filled action, both the confirm alert's height. -->
+      <div class="row right space-dialog-actions">
+        <button id="extract-cancel" class="ghost small" type="button">Cancel</button>
+        <button id="extract-commit" data-needs-model="Extracting notes needs the local AI" class="small"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
       </div>
     </div>
   </div>
@@ -8967,13 +8972,15 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Skills (§21): named, repeatable jobs over the notebook -->
           <section class="settings-section hidden" id="settings-skills">
-            <div class="row help-head">
-              <h3>Skills</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="settings-skills-help" aria-controls="settings-skills-help" aria-expanded="false"
-                title="About skills" aria-label="About skills">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-skills">
+              <div class="dock-identity"><h3>Skills</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="settings-skills-help" aria-controls="settings-skills-help" aria-expanded="false"
+                  title="About skills" aria-label="About skills">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">A skill is a job you can run with one click from the Chat tab.</p>
             <div class="help-body hidden" id="settings-skills-help" role="dialog" aria-label="About skills">
@@ -9120,13 +9127,15 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Templates: prefills for the Capture box -->
           <section class="settings-section hidden" id="settings-templates">
-            <div class="row help-head">
-              <h3>Templates</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
-                title="About templates" aria-label="About templates">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-templates">
+              <div class="dock-identity"><h3>Templates</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
+                  title="About templates" aria-label="About templates">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">A template fills the Capture box with a starting shape you can pick from a dropdown.</p>
             <div class="help-body hidden" id="templates-help" role="dialog" aria-label="About templates">
@@ -9164,13 +9173,15 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
-            <div class="row help-head">
-              <h3>What it remembers</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="memory-help" aria-controls="memory-help" aria-expanded="false"
-                title="About what it remembers" aria-label="About what it remembers">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-memory">
+              <div class="dock-identity"><h3>What it remembers</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="memory-help" aria-controls="memory-help" aria-expanded="false"
+                  title="About what it remembers" aria-label="About what it remembers">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">Standing instructions Atlas follows in every conversation, from either side.</p>
             <div class="help-body hidden" id="memory-help" role="dialog" aria-label="About what it remembers">
@@ -9219,13 +9230,15 @@ Link to another note with [[its first few words]]."></textarea>
                is what it worked out, and the only way a person finds the
                second is by recognising it beside the first. -->
           <section class="settings-section hidden" id="settings-learned">
-            <div class="row help-head">
-              <h3>What it learned</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="learned-help" aria-controls="learned-help" aria-expanded="false"
-                title="About what it learned" aria-label="About what it learned">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-learned">
+              <div class="dock-identity"><h3>What it learned</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="learned-help" aria-controls="learned-help" aria-expanded="false"
+                  title="About what it learned" aria-label="About what it learned">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">Everything Atlas worked out on its own, yours to correct, delete or switch off.</p>
             <p class="muted hidden" id="learned-from-you" role="status"></p>
@@ -10593,13 +10606,15 @@ Link to another note with [[its first few words]]."></textarea>
                Preferences page: it is the only feature that leaves the
                machine, and the error messages point people here by name. -->
           <section class="settings-section hidden" id="settings-websearch">
-            <div class="row help-head">
-              <h3>Web search</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="websearch-help" aria-controls="websearch-help" aria-expanded="false"
-                title="About web search" aria-label="About web search">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-websearch">
+              <div class="dock-identity"><h3>Web search</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="websearch-help" aria-controls="websearch-help" aria-expanded="false"
+                  title="About web search" aria-label="About web search">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">The one part of MemoryMap that goes online, and it is off by default.</p>
             <div class="help-body hidden" id="websearch-help" role="dialog" aria-label="About web search">
@@ -10720,8 +10735,8 @@ Link to another note with [[its first few words]]."></textarea>
                    local-first app should do to a machine unasked, so this is a
                    thing you turn on once and then stop thinking about. -->
               <label class="setting-check searxng-autostart-row">
-                <span>Start SearXNG automatically when MemoryMap opens</span>
                 <input type="checkbox" id="searxng-autostart">
+                <span>Start SearXNG automatically when MemoryMap opens</span>
               </label>
               <!-- An install runs for minutes. Without a bar and a live line
                    from the tool itself, slow and stuck look identical. -->
@@ -11018,23 +11033,25 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
             </div>
 
-            <div class="row help-head">
-              <h3>Quit MemoryMap</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="quit-help" aria-controls="quit-help" aria-expanded="false"
-                title="About quitting" aria-label="About quitting">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Quit MemoryMap</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="quit-help" aria-controls="quit-help" aria-expanded="false"
+                  title="About quitting" aria-label="About quitting">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Stops the app and its server properly.</p>
+              <div class="help-body hidden" id="quit-help" role="dialog" aria-label="About quitting">
+                <p>
+                  Stops the app and its server properly, so nothing is left
+                  running in the background and the next start finds its
+                  port free.
+                </p>
+              </div>
+              <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
             </div>
-            <p class="muted">Stops the app and its server properly.</p>
-            <div class="help-body hidden" id="quit-help" role="dialog" aria-label="About quitting">
-              <p>
-                Stops the app and its server properly, so nothing is left
-                running in the background and the next start finds its
-                port free.
-              </p>
-            </div>
-            <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
           </section>
 
           <!-- Data: markdown + backups join the exports -->
@@ -11351,13 +11368,15 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Logs -->
           <!-- Account & security: the one place credentials are managed. -->
           <section class="settings-section hidden" id="settings-account">
-            <div class="row help-head">
-              <h3>Account &amp; security</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="account-help" aria-controls="account-help" aria-expanded="false"
-                title="About accounts" aria-label="About accounts">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-account">
+              <div class="dock-identity"><h3>Account &amp; security</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="account-help" aria-controls="account-help" aria-expanded="false"
+                  title="About accounts" aria-label="About accounts">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">MemoryMap is a single-user app: one notebook, one password.</p>
             <div class="help-body hidden" id="account-help" role="dialog" aria-label="About accounts">
@@ -11561,13 +11580,15 @@ Link to another note with [[its first few words]]."></textarea>
                made (core/egress.py), not a list of features that promise to
                behave. Filled by `renderPrivacyReceipt` in settings-panes.js. -->
           <section class="settings-section hidden" id="settings-privacy">
-            <div class="row help-head">
-              <h3>Where your data went</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="privacy-help" aria-controls="privacy-help" aria-expanded="false"
-                title="How this is recorded" aria-label="How this is recorded">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="dock settings-pane-title" data-dock-name="settings-privacy">
+              <div class="dock-identity"><h3>Where your data went</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="privacy-help" aria-controls="privacy-help" aria-expanded="false"
+                  title="How this is recorded" aria-label="How this is recorded">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <p class="muted">Every connection this app made, recorded as it happened.</p>
             <div class="help-body hidden" id="privacy-help" role="dialog" aria-label="How this is recorded">
@@ -12420,9 +12441,11 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
       <p id="improve-status" class="status" role="status"></p>
-      <div class="row">
-        <button id="improve-apply">Use the suggestion</button>
-        <button id="improve-retry" data-needs-model="Proofreading needs the local AI" class="ghost">Start</button>
+      <!-- The dialog foot (INBOX 599): Start or Try again, then the one
+           filled Use the suggestion, at the right. -->
+      <div class="row right space-dialog-actions">
+        <button id="improve-retry" data-needs-model="Proofreading needs the local AI" class="ghost small">Start</button>
+        <button id="improve-apply" class="small">Use the suggestion</button>
       </div>
     </div>
   </div>

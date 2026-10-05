@@ -58,6 +58,6 @@ def test_the_lint_sees_the_fetches_it_is_for():
     routes = {route for _, _, route, _ in _raw_fetches()}
     # The two streams it was written for went through `api.stream` on
     # 2026-10-05 (F5, `tests/test_no_bare_fetch.py`); the raw fetches left
-    # are app.js's own sign-in calls; the media-session call went through
-    # `api()` too (bf08bc7), so it is no longer a raw fetch.
+    # are app.js's own sign-in call (the media-session ask went through
+    # `api()` with INBOX 597's boot check).
     assert "/auth/auto-session" in routes

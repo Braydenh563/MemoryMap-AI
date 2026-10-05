@@ -2293,17 +2293,28 @@ function noteReviewActions(entry) {
   return row;
 }
 
-async function showNoteInGraph(id) {
+//: A document is a node of its own (`document:<id>`, routes_graph.py) that the
+//: map draws only while its Documents switch is on, so asking for one turns
+//: that switch on first, the way the map's own Show switches would.
+async function showNoteInGraph(id, { document: isDocument = false } = {}) {
   await switchTab("graph");
+  if (isDocument) {
+    const box = $("graph-documents");
+    if (box && !box.checked) {
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  const nodeId = isDocument ? `document:${id}` : id;
   const deadline = Date.now() + 4000;
   let node = null;
   while (Date.now() < deadline) {
-    node = graphNodeById(id);
+    node = graphNodeById(nodeId);
     if (node && Number.isFinite(node.x)) break;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   if (!node || !Number.isFinite(node.x)) {
-    toast("That note is not on the graph right now: a filter or the view may be hiding it.", true);
+    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, true);
     return;
   }
   focusGraphNode(node);

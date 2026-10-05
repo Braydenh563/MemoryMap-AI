@@ -106,7 +106,10 @@ def test_note_edit_form_flag_is_reset_on_open_save_and_cancel() -> None:
     assert form.split("\n")[2].strip() == "noteFormDirty = Boolean(draft);"
     # Set by real edits to any of the three fields...
     assert 'textarea.addEventListener("input", () => { noteFormDirty = true; });' in form
-    assert 'tagsInput.addEventListener("input", () => { noteFormDirty = true; });' in form
+    # Tags are chips since INBOX 606: typing in the tag field, and adding or
+    # removing a chip (`setTags`), both mark the form.
+    assert 'tagEntry.addEventListener("input", () => {\n    noteFormDirty = true;' in form
+    assert "tagsInput.value = [...new Set(tags)].join(\", \");\n    noteFormDirty = true;" in form
     assert 'categorySelect.addEventListener("change", () => { noteFormDirty = true; });' in form
     # ...and cleared by both Save and Cancel.
     save_index = form.index('"Save changes"')

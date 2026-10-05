@@ -3064,7 +3064,7 @@ async function loadAskHistoryBadge() {
 //: focus.
 for (const type of ["focusin", "input", "click"]) {
   document.addEventListener(type, (event) => {
-    if (event.target.matches?.("#entry-tags, .note-edit-tags")) openTagSuggest(event.target);
+    if (event.target.matches?.("#entry-tags, .note-edit-tags > input")) openTagSuggest(event.target);
   });
 }
 

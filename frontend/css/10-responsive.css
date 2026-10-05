@@ -2780,15 +2780,21 @@ header#top-bar,
    search field (`elementFromPoint` at its centre was #skills-search). The
    zone's box steps aside so the segment can take a row of its own and the
    sort shares the next with New skill and help; the segment's cells share
-   their row, on the touch floor like a `.seg-multi`; the glyphs go, the
-   words and counts stay. */
+   their row, on the touch floor like a `.seg-multi`. Since INBOX 599 each
+   cell is its glyph and count, as on a narrow desktop dock. */
 @media (max-width: 599.98px) {
   .dock[data-dock-name="library-skills"] > .dock-arrange {
     display: contents;
   }
 
+  /* New note floats over the edit form's Save otherwise (INBOX 606). */
+  .tab-page:has(.note-edit-surface) > .dock-fab {
+    display: none;
+  }
+
+  /* An icon picker since INBOX 599: its square, not a stretched field. */
   .dock[data-dock-name="library-skills"] .select-shell:has(> #skills-sort) {
-    flex: 1 1 6rem;
+    flex: 0 0 auto;
     min-width: 0;
   }
 
@@ -2806,9 +2812,6 @@ header#top-bar,
     border-radius: var(--radius-md);
   }
 
-  .dock #skills-kind > button > .ph-lead {
-    display: none;
-  }
 }
 
 /* --- the palette on a touch screen (INBOX 464) ------------------------------

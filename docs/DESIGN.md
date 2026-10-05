@@ -1356,6 +1356,15 @@ knob adrift, reported within the hour, so the *target* is a transparent
 (`07-whiteboard-misc.css`): `elementFromPoint` 4px outside the pill returns
 the input, and the pill looks exactly as it did.
 
+**An interactive chip is the same pattern** (audit 2026-10-05, FE-14): the
+category, "Add tags" and references chips on a card paint 24px, a row of
+pills, and take `--target-min` through a transparent `::after` overhang
+(`.chip-interactive::after`, `01-forms-settings.css`; `inset-block`, no
+transform). A chip that shrinks with its row is clipped across only
+(`overflow: clip visible`), or the overhang is clipped with it.
+`scratchpad/ui-sweeps/perf2-1005-chipfloor.js` measures the target with
+`elementFromPoint`: 0 under the floor at 1440, light and dark.
+
 ---
 
 ## Motion: and the one rule that is not optional

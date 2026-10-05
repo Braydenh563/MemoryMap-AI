@@ -1887,7 +1887,22 @@ progress {
    visible keyboard focus ring. */
 .chip-interactive {
   cursor: pointer;
-  min-height: 1.5rem; /* 24px tap target minimum */
+  min-height: 1.5rem; /* the painted chip: a row of 24px pills */
+  position: relative;
+}
+
+/* The target is `--target-min` tall whatever the paint (audit FE-14: the
+   category and "Add tags" chips were 24px targets under the 28px floor).
+   The switches' pattern (DESIGN.md, Hit targets): a transparent overhang,
+   centred, so the row of pills keeps its density and a click 2px above or
+   below still lands. Never shorter than the chip itself. */
+.chip-interactive::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  /* No transform: a later rule resets pseudo-element transforms, and the
+     overhang must not depend on it. Half the shortfall, never negative. */
+  inset-block: min(0px, calc(50% - var(--target-min) / 2));
 }
 
 .chip-interactive:hover {

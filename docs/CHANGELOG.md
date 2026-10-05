@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes: a card's category, Add tags and references chips take a click 2px above and below the chip as well, so each is a 28px target on a desktop while it still looks 24px tall.
 - Suggested links: a note's name is read only for the notes a suggestion names (1.08 s to 371 ms warm at 5,000 notes).
 - Graph: opening the map again with nothing changed reuses the last picture instead of rebuilding it (737 to 149 ms at 5,000 notes); a pin, a visit count, an attachment, a note put on a map, a link's reason or locking the vault still rebuilds it.
 - Editing a note: the save returns before its new text is embedded for search by meaning; the vector is made a moment later on the model's own queue, from the newest text if you kept typing (a real embedding model took 200 to 400 ms of every autosave).

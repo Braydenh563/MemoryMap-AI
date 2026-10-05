@@ -492,6 +492,28 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Web clipper", "section": "data", "target": "web-clip-box"},
     },
+    {
+        "id": "import-apps",
+        "keywords": (
+            "import from notion", "notion", "evernote", "enex", "apple notes", "obsidian vault",
+            "import from another app", "move my notes from", "switch from notion", "switch from evernote",
+        ),
+        "body": (
+            "Settings, Import & export, Import from another app has four buttons: "
+            "From Notion (choose the zip from Notion's Export, Markdown & CSV), "
+            "From Obsidian (choose the vault folder), From Evernote (choose the "
+            ".enex files you exported) and From Apple Notes (choose the folder an "
+            "exporter app wrote, one HTML, Markdown or text file per note). "
+            "Choosing starts the import and the toast's Undo moves exactly those "
+            "notes to the recycle bin. Folders and notebooks become categories, "
+            "tags and dates come along where the app wrote them, and links between "
+            "Notion pages become wiki links. Each note remembers where it came from, "
+            "so importing the same export again adds nothing twice and says how "
+            "many were already here. Imported text is treated as someone else's "
+            "words: Atlas never follows instructions written in it."
+        ),
+        "badge": {"label": "Import from another app", "section": "data", "target": "import-app-box"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -951,6 +973,7 @@ TOPIC_META: dict[str, dict] = {
     "model-bench": {"title": "Test my models", "path": "Settings, Models, Test my models", "target": "bench-box"},
     "margin-reader": {"title": "The margin reader", "path": "A document's menu, While you write, Margin reader"},
     "web-clipper-bookmark": {"title": "Clip a page from your browser", "path": "Settings, Import & export, Web clipper", "target": "web-clip-box"},
+    "import-apps": {"title": "Import from another app", "path": "Settings, Import & export, Import from another app", "target": "import-app-box"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1092,7 +1115,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "lock", "storage", "import-export", "background-tasks",
+        "privacy", "security", "lock", "storage", "import-export", "import-apps", "background-tasks",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",

@@ -173,6 +173,7 @@ function showSettingsSection(name) {
   if (name === "privacy") renderPrivacyReceipt().catch(() => {});
   if (name === "data") {
     ensureModule("webClip");
+    ensureModule("appImport");
     renderBackups();
     renderBackupRetention();
   }

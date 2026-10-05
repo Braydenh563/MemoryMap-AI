@@ -672,7 +672,7 @@ too much routes through the model. Each of these is pure code:
    space and export from a selection were not found. S.
 6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
    stylesheet for documents.
-7. (c) Notion, Evernote and Apple Notes importers are not built (H6). M.
+7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
 8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
 9. (b) documents have word count and reading time; notes were not found to. S.
 10. (b) the bin restores entries (notes, boards, maps: `POST /entries/{id}/restore`);
@@ -794,7 +794,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
 | 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
-| 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
+| 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete~~ built 2026-10-05 (HISTORY); a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
@@ -1684,7 +1684,7 @@ first note and a first question, measured by time to first answer.
    and read as intended, not that `wix build`/`ISCC.exe` actually produced
    a file with that name.
 
-**State 2026-09-24:** (b) done: one-click recovery (253) and the release naming (decision 1). Open: the three importers, print and PDF of a document with its citations (the print stylesheet exists; citations in it were not checked), keyboard-complete, the WCAG audit, multi-window, and a first-run tour that ends in a first answer (the tour exists; the timed path does not).
+**State 2026-10-05:** (b) done: one-click recovery (253), the release naming (decision 1), the four importers and keyboard-complete for every dock (HISTORY, "row 25, the importers and the keyboard"). Open: print and PDF of a document with its citations (the print stylesheet exists; citations in it were not checked), the WCAG audit, multi-window, and a first-run tour that ends in a first answer (the tour exists; the timed path does not).
 
 ### H7 The speed budget (A1 continued; S each)
 

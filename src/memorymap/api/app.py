@@ -56,6 +56,7 @@ from memorymap.api import (
     routes_properties,
     routes_bench,
     routes_editor,
+    routes_import,
     routes_night,
     routes_questions,
     routes_privacy,
@@ -997,6 +998,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_night.router, dependencies=locked)
     app.include_router(routes_bench.router, dependencies=locked)
     app.include_router(routes_editor.router, dependencies=locked)
+    app.include_router(routes_import.router, dependencies=locked)
     app.include_router(routes_questions.router, dependencies=locked)
     app.include_router(routes_resurface.router, dependencies=locked)
     app.include_router(routes_insights.router, dependencies=locked)

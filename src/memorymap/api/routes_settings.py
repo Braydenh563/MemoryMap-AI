@@ -1502,6 +1502,7 @@ def _not_private_events(query):
 def audit_export_csv(
     limit: int = Query(default=AUDIT_EXPORT_MAX_ROWS, ge=1, le=AUDIT_EXPORT_MAX_ROWS),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     entity_type: str = Query(default="", max_length=40),
     session: Session = Depends(get_session),
 ) -> Response:
@@ -1515,6 +1516,7 @@ def audit_export_csv(
     `X-Total-Count` is the size of the same filtered set. The export is itself
     logged, so the trail records who took it.
     """
+    offset = paging.start(cursor, offset)
     query = _not_private_events(select(AuditLog))
     if entity_type:
         query = query.where(AuditLog.entity_type == entity_type)
@@ -1539,7 +1541,7 @@ def audit_export_csv(
         )
     manager.log_action(session, "exported", "data", detail="audit csv")
     session.commit()
-    return Response(
+    exported = Response(
         content=buffer.getvalue(),
         media_type="text/csv",
         headers={
@@ -1547,6 +1549,9 @@ def audit_export_csv(
             "X-Total-Count": str(total),
         },
     )
+    #: The list recipe's next-page cursor, beside `X-Total-Count`.
+    paging.finish(exported, offset, limit, total)
+    return exported
 
 
 def _feed_item(row: AuditLog) -> dict:

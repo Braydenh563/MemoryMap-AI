@@ -180,7 +180,13 @@ def test_no_second_password_form():
     card in prompt mode. A password field built anywhere else is a second
     form to keep in step with the throttle, the error line and the purge."""
     html = (APP_JS.parent.parent / "index.html").read_text(encoding="utf-8")
-    assert html.count('type="password"') == 4, "lock card plus Change password's three"
+    #: Two more, named: the sealed full backup's own passphrase, typed when it
+    #: is made and when it is restored (BACKLOG 115 row 10). It is a secret for
+    #: that one file, not the account password, so the lock card (which checks
+    #: the account password) is the wrong recipe for it.
+    sealed = ('id="export-backup-password" type="password"', 'id="restore-bundle-password" type="password"')
+    assert all(field in html for field in sealed)
+    assert html.count('type="password"') == 6, "lock card, Change password's three, the sealed backup's two"
     for path in sorted(APP_JS.parent.glob("*.js")):
         source = path.read_text(encoding="utf-8")
         assert 'type = "password"' not in source, path.name

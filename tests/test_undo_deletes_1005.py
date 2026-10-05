@@ -177,17 +177,16 @@ def test_a_deleted_conversation_comes_back_whole(client):
 
 
 def test_a_note_type_made_before_the_list_was_read_keeps_its_id_through_delete_and_undo(client):
-    """The report: a type made by POST /note-types before the types list was
-    ever read, then deleted, lost its id on Undo "because the seeding takes
-    id 1". Not reproduced: nothing seeds note types (no starter rows, in the
-    migration, at startup or on a GET), the table is empty until a person makes
-    one. Pinned so a seed added later cannot start taking the ids: the first
-    type is made with no GET before it, then a second, and the first (the low
-    id a seed would take) is deleted and put back."""
-    first = client.post("/note-types", json={"name": "Meeting"}).json()
-    second = client.post("/note-types", json={"name": "Book"}).json()
+    """A type made by POST /note-types before the types list was ever read
+    keeps its id through delete and Undo. The list's first read seeds the
+    built-in types, so the list holds them too; only the two made here are
+    pinned. Still open (integ-1005.md): when the deleted type was the only
+    one and the list is read before the Undo, the seed takes its id."""
+    first = client.post("/note-types", json={"name": "Meeting log"}).json()
+    second = client.post("/note-types", json={"name": "Reading list"}).json()
     gone = client.delete(f"/note-types/{first['id']}").json()
     back = client.post("/note-types", json={**gone["type"], "restore": True})
     assert back.status_code == 201, back.text
     assert back.json()["id"] == first["id"]
-    assert sorted(t["id"] for t in client.get("/note-types").json()) == sorted([first["id"], second["id"]])
+    ids = {t["id"] for t in client.get("/note-types").json()}
+    assert {first["id"], second["id"]} <= ids

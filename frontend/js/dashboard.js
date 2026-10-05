@@ -2784,6 +2784,7 @@ async function renderMostUsedWidget(body) {
   }
   const seg = document.createElement("div");
   seg.className = "seg seg-compact dash-period";
+  seg.style.marginBottom = "var(--space-3)"; // not a boot-CSS rule: that sheet is at its byte cap
   seg.setAttribute("role", "group");
   seg.setAttribute("aria-label", "Period for the most used notes");
   for (const [value, text, title] of MOST_USED_PERIODS) {

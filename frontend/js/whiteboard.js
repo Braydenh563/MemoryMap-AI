@@ -17799,6 +17799,9 @@ function drawLibraryBoardsGallery(listed) {
           makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this board or map", () =>
             askAtlasAboutThing(board.type === "map" ? "map" : "board", board.title)
           ),
+          makeMenuItem("ph:alarm Remind me", "Set a reminder about this board or map", () =>
+            remindAboutThing({ entryId: board.id, title: board.title })
+          ),
           makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
             const next = await promptDialog("Rename this board:", board.title);
             if (!next) return;

@@ -144,19 +144,17 @@ column and the one wording.
 | Object, its menu | Open | Ask Atlas about this | Show in graph | Remind me | Link to |
 | --- | --- | --- | --- | --- | --- |
 | Note, Notes card ⋯ | the card | yes | yes | yes | yes |
-| Note, Library card ⋯ | Open in Notes | yes | yes | no | no |
-| Document, Library card ⋯ | the card | yes | yes (2026-10-05) | no | no |
-| Board or map, Boards card ⋯ | the card | yes | no | no | no |
+| Note, Library card ⋯ | Open in Notes | yes | yes | yes (2026-10-05) | yes (2026-10-05) |
+| Document, Library card ⋯ | the card | yes | yes (2026-10-05) | yes (2026-10-05) | no |
+| Board or map, Boards card ⋯ | the card | yes | no | yes (2026-10-05) | no |
 | Reminder, row ⋯ | Open its note (when it has one) | yes | no | n/a | no |
 | File, Library card ⋯ | the card | yes (2026-09-23) | no | no | no |
 
-Open next, in impact order: Remind me on a document and a board (a
-reminder carries an `entry_id` only, so this needs the reminder to point at
-other kinds first, a backend step); the Library note card's Remind me and Link to,
-which the Notes card already has, so the Library one is two rows short of
-its twin.
+The "no" cells for Remind me (document, board, Library note) and Link to
+(Library note) are built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section
+1.3, row 15"): nothing in this list is open.
 
-**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows marked open in the table above are open. S each.
+**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows are built (2026-10-05, row 15).
 
 ### 1.4 Bars (docks, heads, toolbars, footers)
 
@@ -813,7 +811,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
 | 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
-| 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first) (Show in graph for a document built 2026-10-05), the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
+| 15 | §1.3 | ~~Remind me on documents and boards, the Library note card's Remind me and Link to~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section 1.3, row 15"; `tests/test_reminder_targets_15.py`); Show in graph for a document built 2026-10-05 | done | HISTORY |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |

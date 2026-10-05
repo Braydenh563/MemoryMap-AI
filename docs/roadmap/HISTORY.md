@@ -41612,6 +41612,42 @@ are probably one name, was already built.)
   the desktop window (the sweep captures what `saveFile` receives); the chart in
   the Chat tab, which does not draw it.
 
+### From WORLD_CLASS_PLAN.md section 1.3, row 15: the act-on-this rows
+
+**State 2026-10-04:** Remind me on a document and a board needed the reminder
+to point at other kinds; Show in graph for a document; the Library note card's
+Remind me and Link to.
+
+- **Built 2026-10-05 (worldclass-1005c).** Show in graph for a document was
+  built on the main line the same day (`docingraph.js`). A board is a note
+  (`Entry.is_board`), so its reminder already had a place, `entry_id`; a
+  document got `Reminder.document_id` (a nullable FK, the additive migrator
+  adds it). `POST /reminders` takes `document_id` (404 when missing, 422 with
+  both ids), `GET /reminders?document_id=`, and each reminder says
+  `document_id`, `document_title` and `entry_is_board`. Deleting a document
+  clears the column and keeps the reminder as plain text. The page:
+  `remindAboutThing` (library.js) is one `promptDialog` with a `.seg` for when
+  (in an hour, tomorrow 9am, next week) over `addReminder`, and is a row in the
+  Library document card, the Documents list card, the board card and the
+  Library note card; the note card also gets Link to another (the Notes card's
+  own two-step, `beginOrCompleteLink`, then the Notes tab). A reminder row shows
+  its document as a chip and its menu says Open its document or Open its board;
+  Undo of a delete carries `document_id`. Help: the Guide's reminders-controls
+  topic. Two boot-CSS rules (row 5's `.dash-period`, row 2's tidy names) went
+  into `el.style` assignments because the boot stylesheets were at their cap.
+- Measured: `tests/test_reminder_targets_15.py`;
+  `scratchpad/ui-sweeps/remindthings.js` 10/10 at 1440 light and 390 dark (the
+  rows exist on the four menus, the dialog names the thing and offers three
+  times inside the viewport, each reminder reads back from `/reminders`, Link
+  to another lands on Notes with this note as the first end, the document's
+  chip shows on the Reminders tab with nothing overflowing).
+- Decided (recommended, not confirmed): three preset times in the dialog, not a
+  date picker (the Reminders tab edits anything else); a Library note's Link to
+  another reuses the Notes two-step rather than a new picker.
+- Not verified: Open its board and Open its document from a reminder row in the
+  browser (the row and the openers are wired and tested by source, not
+  clicked); a document reminder on the phone's Reminders tab.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

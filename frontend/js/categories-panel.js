@@ -195,6 +195,10 @@ function drawTidyProposals(box, proposals, state) {
     row.className = "manage-suggest-row";
     const text = document.createElement("span");
     text.className = "manage-suggest-names";
+    //: A name wraps rather than being cut: it is what the person decides
+    //: about. Set here and not in the boot stylesheet, which is at its cap.
+    text.style.overflowWrap = "anywhere";
+    text.style.whiteSpace = "normal";
     const reason = document.createElement("p");
     reason.className = "muted manage-suggest-more";
     reason.textContent = proposal.reason;

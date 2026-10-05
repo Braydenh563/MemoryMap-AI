@@ -1238,6 +1238,7 @@ function reminderItem(reminder, label) {
             text: reminder.text,
             due_at: reminder.due_at,
             entry_id: reminder.entry_id,
+            document_id: reminder.document_id,
             priority: reminder.priority || "normal",
             recurring: reminder.recurring || "none",
             restore: true,
@@ -1260,7 +1261,15 @@ function reminderItem(reminder, label) {
     };
   const menuItems = [];
   if (reminder.entry_id) {
-    menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
+    //: A board is a note, so its reminder carries `entry_id` and says so.
+    menuItems.push(
+      reminder.entry_is_board
+        ? { label: "ph:presentation Open its board", run: () => openWhiteboardBoard(reminder.entry_id), group: "go" }
+        : { label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" }
+    );
+  }
+  if (reminder.document_id) {
+    menuItems.push({ label: "ph:file-text Open its document", run: () => openDocumentFromNote(reminder.document_id), group: "go" });
   }
   menuItems.push(
     { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
@@ -1286,6 +1295,12 @@ function reminderItem(reminder, label) {
   row.appendChild(actions);
   li.appendChild(row);
 
+  if (reminder.document_title) {
+    const linkRow = document.createElement("div");
+    linkRow.className = "entry-links";
+    linkRow.appendChild(chip(`ph:file-text ${reminder.document_title}`, "link", () => openDocumentFromNote(reminder.document_id)));
+    li.appendChild(linkRow);
+  }
   if (reminder.entry_preview) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
@@ -1592,6 +1607,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
       text,
       due_at: new Date(dueValue).toISOString(),
       entry_id: entryId,
+      document_id: opts.documentId ?? null,
       priority: opts.priority || "normal",
       recurring: opts.recurring || "none",
     }),

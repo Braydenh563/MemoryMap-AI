@@ -176,6 +176,29 @@ let librarySelection = new Set();
 
 const LIBRARY_VIEW_KEY = "libraryView";
 
+//: "Remind me" on a document, a board or a Library note (WORLD_CLASS_PLAN row
+//: 15, the "act on this" vocabulary every object's menu speaks). One small
+//: dialog, the app's own: the words, and when as a segment of the three times
+//: people pick most; the Reminders tab edits anything else. A board is a note,
+//: so it is `entryId`; a document is `documentId`.
+async function remindAboutThing({ entryId = null, documentId = null, title = "" }) {
+  const shown = String(title || "").trim();
+  const answer = await promptDialog("Remind me about this:", `Follow up: ${shown.length > 40 ? shown.slice(0, 39) + "…" : shown}`, {
+    confirmLabel: "Set reminder",
+    segment: {
+      label: "When",
+      value: "tomorrow",
+      options: [
+        { value: "1h", label: "In an hour" },
+        { value: "tomorrow", label: "Tomorrow, 9am" },
+        { value: "nextweek", label: "Next week" },
+      ],
+    },
+  });
+  if (!answer || !answer.text) return false;
+  return addReminder(answer.text.trim(), presetDate(answer.choice), entryId, { documentId });
+}
+
 function libraryView() {
   return prefs.get(LIBRARY_VIEW_KEY, null) === "list" ? "list" : "grid";
 }
@@ -807,6 +830,9 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),
+      makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
+        remindAboutThing({ documentId: item.id, title: item.title })
+      ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
@@ -883,6 +909,15 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this note", () =>
         askAtlasAboutThing("note", item.title)
       ),
+      makeMenuItem("ph:alarm Remind me", "Set a reminder about this note", () =>
+        remindAboutThing({ entryId: item.id, title: item.title })
+      ),
+      //: The Notes card's own two-step link: this note is the first end, and
+      //: the Notes list says which note to click next (Esc cancels).
+      makeMenuItem("ph:link Link to another", "Link this note to another, picked in the Notes list", () => {
+        beginOrCompleteLink(allEntries.find((e) => e.id === item.id) || { id: item.id });
+        switchTab("notes");
+      }),
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
@@ -3170,6 +3205,9 @@ async function renderLibraryDocuments() {
             0
           );
         }),
+        makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
+          remindAboutThing({ documentId: doc.id, title: doc.title || "" })
+        ),
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;

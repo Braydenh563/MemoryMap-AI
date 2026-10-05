@@ -1532,8 +1532,12 @@ HELP_TOPICS.extend(
                 "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
-                "calendar (.ics) in the More menu saves every upcoming one. Press m "
-                "then r to jump here from anywhere."
+                "calendar (.ics) in the More menu saves every upcoming one. A note, a "
+                "document or a board can have one too: Remind me in its menu (the "
+                "Library's cards, and the Notes card) asks for the words and when "
+                "(in an hour, tomorrow 9am or next week); the reminder then shows "
+                "what it is about, and Open its document or Open its board is in its "
+                "menu. Press m then r to jump here from anywhere."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},
         },

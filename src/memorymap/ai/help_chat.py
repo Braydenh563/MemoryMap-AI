@@ -472,7 +472,9 @@ HELP_TOPICS: list[dict] = [
             "tags, links and flags duplicate notes on an interval you choose "
             ", off by default, since it writes to your notebook without "
             "being asked each time. It never deletes anything and skips "
-            "itself on battery power."
+            "itself on battery power. It also gives a second opinion on notes "
+            "that were filed by your notebook's own words while no model was "
+            "available, moving the ones the model files elsewhere."
         ),
         "badge": {"label": "Profile", "section": "preferences"},
     },

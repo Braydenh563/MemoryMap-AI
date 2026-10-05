@@ -12,6 +12,13 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **Words-filed notes get a second opinion** (BACKLOG 76, second half):
+  `janitor.review_words_filed`, called from `autonomous._optimization_pass`
+  (20 notes a tick, never a private, binned or hand-filed note, a note the
+  model cannot decide is not asked again this run); a move is a `filed` event
+  by `system:filing` and the note becomes `auto`, so a move by hand is a
+  correction. `tests/test_words_review.py` 7/7 on the fake transport. Not
+  run against a real model.
 - **Audit trail export** (BACKLOG section 115 row 11): `GET /audit/export.csv`
   (`routes_settings.py`, every field, oldest first, field names only, formula
   cells defanged, the export itself logged) and an Export as CSV strip on the

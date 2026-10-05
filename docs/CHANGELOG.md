@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Background tasks: notes that were filed by your notebook's own words while no model was available get a second opinion once one is back (20 a tick); the ones the model files elsewhere move, and the rest are marked as the AI's, so moving one by hand teaches the filer. Never a private, binned or hand-filed note.
 - Library, Activity: an Export as CSV button saves the activity log as a spreadsheet (when, who, what, which note, and the names of the fields it changed, never their values), oldest first, and the export is itself logged; `GET /audit/export.csv`.
 - Mind maps: import an XMind file (.xmind, XMind Zen and later): Import outline… reads its first sheet with its central topic as the map's root, and each topic's notes. An XMind 8 file is refused with how to get the newer one.
 - Whiteboard: a board in and out as text (W5). Insert, Mermaid or board SVG brings in a Mermaid flowchart (pasted or a .mmd file) as shapes and elbow connectors laid out by depth, or an SVG a board here exported, which now carries the board inside it, so it comes back as shapes and connectors rather than a picture. Export adds Outline (Markdown: each frame a heading over what is in it, in reading order) and Mermaid (a flowchart of what the connectors join).

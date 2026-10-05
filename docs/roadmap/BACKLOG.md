@@ -2175,31 +2175,10 @@ or Library page; a new surface, so a design call.
 
 ## 76. Keyword-only note filing while the AI is unavailable, flagged for later AI review
 
-**The filer is built** (checked 2026-10-04): `manager.WORDS_FILED` (`"words"`),
-returned by `janitor` when no model is available and reported as `filed_by:
-"words"` by `routes_entries`; a manual move of such a note counts as a
-correction. **What is open is the second half below: the autonomous review pass
-revisiting `words` notes once a model is back. (needs Opus)**
-**Next:** `ai/autonomous.py` has no reference to `WORDS_FILED` (checked 2026-10-05); add a query over `Entry.filing_state == WORDS_FILED` (`entry/manager.py:458`) to `_optimization_pass` (line 268), re-file each through `janitor` with the model and record a correction when it changes, behind the existing autonomous switch; a test seeds a `words` note with the fake transport and asserts one re-file.
-
-Asked for directly, and specifically **not** the same as `janitor.categorise`'s
-existing low-confidence path (routes_entries.py's `create_entry` already
-falls back to `UNCATEGORISED` when the AI call itself fails — that's a
-"give up" fallback, not a second opinion). What's being asked for is a real
-non-AI filer: while no local model is available at all, look at a new
-note's own words (keyword/term overlap against existing categories and
-tags — no embeddings, no model call) to make a real best-effort filing
-guess instead of dumping everything into Uncategorised, and tag every note
-filed this way so it's unmistakable later. Once the AI is available again —
-on its own schedule, not necessarily right away — the autonomous agent's
-existing stale/orphaned-note review pass (§17 in the session's
-completed-work list) checks that tag specifically: did the keyword guess
-get the filing and metadata right, and correct it if not. Scope: a
-keyword-overlap filer as a genuine alternative code path when
-`deps.get_ollama()`/the model manager reports unavailable (not merely a
-lower-confidence branch of the AI path), a `filed_by="keyword_fallback"` (or
-similar) marker distinct from the existing `"none"`/`"thread"`/`"user"`
-values, and a query added to the existing review pass rather than a new one.
+**Built, both halves** (2026-10-05, HISTORY.md "backlog-1005"). The filer is
+`manager.WORDS_FILED` and `lexical_filing`; the review is
+`janitor.review_words_filed`, called by the background pass in
+`ai/autonomous.py`. `tests/test_words_review.py`.
 
 ## 77. Notes-tab pagination and page-aware note links
 

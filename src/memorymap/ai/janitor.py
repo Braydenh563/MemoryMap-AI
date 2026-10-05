@@ -51,7 +51,7 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry
 from memorymap.core.logbuffer import safe_value
-from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED
+from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED, record_filing
 
 # Above this cosine similarity we trust the embedding match and skip
 # the LLM entirely. Below it, the call is worth its cost.
@@ -231,6 +231,82 @@ def categorise(
         confidence,
     )
     return category, confidence, method
+
+
+#: Notes this process has already given a second opinion and that the model
+#: still could not decide, so the pass moves on to the next ones instead of
+#: asking about the same twenty every tick. In memory on purpose: a restart is
+#: a fresh chance, and a stuck note costs one prompt, not a loop.
+_review_tried: set[int] = set()
+
+
+def review_words_filed(
+    session: Session,
+    embeddings: EmbeddingService,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = 20,
+) -> dict[str, int]:
+    """The second half of filing by the notebook's own words (BACKLOG 76).
+
+    A note filed while no model was available carries `filing_state ==
+    "words"` and is a best guess. Once a model is back, the background pass
+    gives each such note a real second opinion: the same `categorise` a new
+    note gets, which asks the model first. Where the model files it
+    somewhere else the note moves (a `filed` event by `system:filing`, which
+    "undo auto-filing" can put back); where it agrees, the note is marked as
+    the AI's (`auto`), so a later move by hand reads as a correction, exactly
+    as for any other AI filing. Where the model could not decide, the note
+    stays `words` and is not asked again this run.
+
+    A note the person filed themselves, a private note (no model reads one)
+    and a binned note are never touched. Returns what happened, counted:
+    `looked`, `moved`, `confirmed`.
+    """
+    result = {"looked": 0, "moved": 0, "confirmed": 0}
+    if not ollama.is_running():
+        return result
+    query = (
+        select(Entry)
+        .where(
+            Entry.filing_state == WORDS_FILED,
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.user_filed == False,  # noqa: E712
+        )
+        .order_by(Entry.id)
+    )
+    for entry in session.scalars(query):
+        if result["looked"] >= limit:
+            break
+        if entry.id in _review_tried:
+            continue
+        result["looked"] += 1
+        try:
+            category, confidence, method = categorise(
+                session,
+                entry.content,
+                embeddings,
+                model_manager,
+                ollama,
+                exclude_entry_id=entry.id,
+            )
+        except Exception:  # noqa: BLE001 - one note's failure never stops the pass
+            logger.warning("janitor: second opinion failed for a words-filed note", exc_info=True)
+            _review_tried.add(entry.id)
+            continue
+        if not is_ai_method(method):
+            _review_tried.add(entry.id)
+            continue
+        moved = record_filing(
+            session, entry, category,
+            by=filed_by_label(method, confidence, model_manager, embeddings),
+        )
+        entry.ai_confidence = confidence
+        entry.filing_state = settled_state(method)
+        result["moved" if moved else "confirmed"] += 1
+    session.commit()
+    return result
 
 
 def _semantic_category(

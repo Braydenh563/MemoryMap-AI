@@ -755,11 +755,20 @@ const ATLAS_LOOKS = {
     brow: "arch",
     lashes: true,
     //: The second, thinner ribbon tail (INBOX 535): from her left hip, the
-    //: other way from the big tail, curling upward; never under 2 across.
-    tail: [[36.4, 60, 46, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
-    tailWidth: (t) => 5 + 5 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 2.8 * t * t,
-    tailStars: [[46.4, 62.4, 0.45], [54.4, 70, 0.35], [50.4, 80.6, 0.5], [54, 90, 0.35], [62.4, 92, 0.45], [69, 87.6, 0.35]],
-    tailTip: [67, 82.4],
+    //: other way from the dress, curling upward. **Longer, finer, and
+    //: feathered like her wings** (INBOX 565, the owner: "make the feminine
+    //: tail a little longer and flowy, maybe a subtle texture to match the
+    //: angel ears"): a fourth curve curls its end in on itself (23%
+    //: longer), it thins to 0.7 across at a round tip (2 or more until the
+    //: last tenth), filaments run along it as the feathers run along a
+    //: wing (`tailFilaments`, fractions of its half-width off the middle),
+    //: and its tip wears the wings' soft glow, not the comet's.
+    tail: [[36.4, 60, 46, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6], [66.6, 82.6, 61.4, 79.2, 60.4, 72.6, 64.4, 69.8]],
+    tailWidth: (t) => 4.6 + 5 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 3.9 * t ** 4,
+    tailRound: true,
+    tailFilaments: [-0.42, -0.1, 0.3],
+    tailStars: [[46.4, 62.4, 0.45], [54.4, 70, 0.35], [50.4, 80.6, 0.5], [54, 90, 0.35], [62.4, 92, 0.45], [69, 87.6, 0.35], [62.8, 77.4, 0.3]],
+    tailTip: [64.4, 69.8],
   },
 };
 
@@ -949,7 +958,14 @@ function atlasBuild() {
   for (const spec of Object.values(ATLAS_LOOKS)) {
     const root = [spec.tail[0][0], spec.tail[0][1]];
     const tail = atlasTuneSegs(spec.tail, root, tune.tailLength, tune.tailCurl, spec.tail.length - 1);
-    spec.tailPath = atlasStem(tail, spec.tailWidth, { samples: 14 });
+    spec.tailPath = atlasStem(tail, spec.tailWidth, { samples: 14, round: !!spec.tailRound });
+    //: Her tail's filaments (INBOX 565): open lines along it at fixed
+    //: fractions of its half-width, from a fifth of the way to near the tip.
+    spec.tailFilamentPaths = (spec.tailFilaments || []).map((k) => {
+      const pts = atlasStemSides(tail, () => 0, 14, (t) => (spec.tailWidth(t) / 2) * k).left;
+      const run = pts.slice(Math.round(pts.length * 0.18), Math.round(pts.length * 0.92));
+      return `M${atlasFix(run[0][0])} ${atlasFix(run[0][1])}${atlasSmooth(run)}`;
+    }).join("");
     spec.streamPath = atlasStem(tail, (t) => spec.tailWidth(t) * 0.26, { samples: 14, shift: (t) => spec.tailWidth(t) * 0.22 * Math.sin(Math.PI * 2.6 * t) });
     spec.silkPath = atlasStem(tail, (t) => spec.tailWidth(t) * 0.24, { samples: 14, shift: (t) => -spec.tailWidth(t) * 0.3 * Math.sin(Math.PI * 2.6 * t + 1.1) });
     //: The stars ride the tail's scale; the tip is the tuned tail's end.
@@ -1652,9 +1668,16 @@ function atlasTail(layer, edge, look) {
   atlasMake("path", { class: "atl-tail-silk", d: spec.silkPath }, swish);
   atlasMake("path", { class: "atl-tail-stream", d: spec.streamPath }, swish);
   atlasMake("path", { class: "atl-tail-edge", d: spec.tailPath }, swish);
+  if (spec.tailFilamentPaths) atlasMake("path", { class: "atl-tail-filament", d: spec.tailFilamentPaths }, swish);
   const stars = atlasGroup(swish, "atl-tail-core");
   atlasSpecks(stars, spec.tailStarsNow);
   const [tx, ty] = spec.tailTipNow;
+  if (spec.tailRound) {
+    //: The wings' glow at her tail's fine tip, and one small glint.
+    atlasMake("ellipse", { class: "atl-ear-glow atl-tail-tip-glow", cx: tx, cy: ty, rx: 4.2, ry: 3.6 }, stars);
+    atlasSpark(stars, tx, ty, 1.4, "atl-glint");
+    return tail;
+  }
   atlasMake("circle", { class: "atl-tip-glow", cx: tx, cy: ty, r: 8 }, stars);
   atlasMake("circle", { class: "atl-tip-core", cx: tx, cy: ty, r: 2.4 }, stars);
   atlasSpark(stars, tx, ty, 2.4, "atl-glint");

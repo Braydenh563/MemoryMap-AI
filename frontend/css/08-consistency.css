@@ -7904,6 +7904,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    `earGlow`): pale feather lines inside, a soft glow behind. */
 .nm-atlas .atl-ear-feather { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.6; }
 .nm-atlas .atl-ear-glow { fill: var(--atl-cloudb); opacity: 0.7; }
+/* INBOX 565: her tail feathered as her wings are, the wings' fine pale
+   lines running along it, fainter, and their glow at its tip. */
+.nm-atlas .atl-tail-filament { fill: none; stroke: white; stroke-width: 0.35; stroke-linecap: round; opacity: 0.32; }
+.nm-atlas .atl-tail-tip-glow { opacity: 0.55; }
 /* Round 9: the feminine icon's hair (`tinyHair`), a violet lilac deeper
    than her skin so the face reads as framed by hair at 16 to 24px. */
 .nm-atlas .atl-tiny-lock { fill: color-mix(in oklab, var(--atl-dp) 70%, var(--atl-violet)); opacity: 1; }

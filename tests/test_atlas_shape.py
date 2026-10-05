@@ -859,9 +859,19 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
             assert bend > 0.15, ("a straight run", p0, p1)
         p0 = p1
     # The second ribbon tail (the comet tail, from the other hip) is never
-    # under 2 across, and is rooted at the hip, not the middle.
-    assert min(got["feminineTailW"]) >= 2.0
-    assert "tail: [[36.4, 60," in feminine
+    # under 2 across until its last tenth, where it thins to a fine round
+    # tip (INBOX 565), and is rooted at the hip, not the middle.
+    assert min(got["feminineTailW"][:46]) >= 2.0
+    assert 0.5 <= got["feminineTailW"][-1] <= 1.0
+    assert "tail: [[36.4, 60," in feminine and feminine.count("], [") >= 3
+    # INBOX 565: 23% longer (a fourth curve curling in), feathered
+    # like the wings (their pale lines along it, their glow at its tip).
+    tail = re.search(r"    tail: (\[\[.*\]\]),\n", feminine).group(1)
+    assert tail.count("[") - 1 == 4, "four curves"
+    assert "tailRound: true," in feminine and "tailFilaments: [" in feminine
+    assert '"atl-ear-glow atl-tail-tip-glow"' in ATLAS
+    rule = re.search(r"\.nm-atlas \.atl-tail-filament \{([^}]*)\}", CSS).group(1)
+    assert "animation" not in rule and "opacity: 0.32" in rule
     # Fills only along both tails: no stroke anywhere in the tail's paint.
     for cls in ("atl-sower-fill", "atl-dress-neb", "atl-dress-sheen", "atl-dress-rim", "atl-dress-star", "atl-dress-mote"):
         rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)

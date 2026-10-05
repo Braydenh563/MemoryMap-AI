@@ -3,7 +3,7 @@
 //
 //   BASE=http://127.0.0.1:8823 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     SCRATCH=/tmp/x REF_DIR=/tmp/x/base node scratchpad/ui-sweeps/atlasluster.js
-//   PART=fringe,wisps,dress,body,gap,masc,motion,cost  (default: all)
+//   PART=fringe,wisps,dress,tail,body,gap,masc,motion,cost  (default: all)
 //   RUNS=3        frame-cost runs (median)
 //   REF_DIR=dir   atlas.js and 08-consistency.css from before, served in
 //                 place of the app's (lib.js's OVERRIDE_*) for every "before"
@@ -20,6 +20,8 @@
 //   sizes; in the companion, whether the back runs' layer is under the body.
 // - dress: its outline's turn, the overlap (IoU) of its shape with
 //   REF_DIR's, its parts, and any stroke on it (none: no outline).
+// - tail (INBOX 565): her comet tail's length now over before, its tip's
+//   width, its filaments and their paint beside the wings'.
 // - body: the head's height over the figure's (head top to the lowest point
 //   of the body), the face's height over its width, her hips over her
 //   shoulders; now and before.
@@ -37,7 +39,7 @@ const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const PARTS = (process.env.PART || 'fringe,wisps,dress,body,gap,masc,motion,cost').split(',');
+const PARTS = (process.env.PART || 'fringe,wisps,dress,tail,body,gap,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
 const REF_DIR = process.env.REF_DIR || '';
 const SCRATCH = process.env.SCRATCH || '/tmp';
@@ -394,8 +396,35 @@ async function costPart() {
   return out;
 }
 
+//: INBOX 565: her tail's centreline length, now and before, its width at
+//: the tip, its filaments, and the paint of the filaments and of the tip's
+//: glow beside the wings' own (the same colours, the tail's fainter).
+async function tailPart(ref) {
+  side(ref);
+  const out = await drawingPart((page) => page.evaluate(() => {
+    localStorage.setItem('atlas-look', 'feminine');
+    const spec = ATLAS_LOOKS.feminine;
+    let len = 0;
+    const n = spec.tail.length * 40;
+    let prev = atlasSegsAt(spec.tail, 0);
+    for (let i = 1; i <= n; i += 1) { const q = atlasSegsAt(spec.tail, i / n); len += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q; }
+    const svg = atlasDraw(400, 'calm', 'full');
+    document.body.append(svg);
+    const cs = (sel, prop) => { const el = svg.querySelector(sel); return el ? `${getComputedStyle(el)[prop]} @${getComputedStyle(el).opacity}` : null; };
+    const res = { length: +len.toFixed(1), tipWidth: +spec.tailWidth(1).toFixed(2), filaments: (svg.querySelector('.atl-tail-filament')?.getAttribute('d').match(/M/g) || []).length, filament: cs('.atl-tail-filament', 'stroke'), earFeather: cs('.atl-ear-feather', 'stroke'), tipGlow: cs('.atl-tail-tip-glow', 'fill'), earGlow: cs('.atl-ear-glow:not(.atl-tail-tip-glow)', 'fill') };
+    svg.remove();
+    return res;
+  }));
+  side(false);
+  return out;
+}
+
 (async () => {
   const out = {};
+  if (PARTS.includes('tail')) {
+    out.tail = { now: await tailPart(false), ...(REF_DIR ? { before: await tailPart(true) } : {}) };
+    if (out.tail.before) out.tail.lengthRatio = +(out.tail.now.length / out.tail.before.length).toFixed(2);
+  }
   if (PARTS.includes('fringe')) out.fringe = await drawingPart(fringePart);
   if (PARTS.includes('wisps')) out.wisps = await drawingPart(wispsPart);
   if (PARTS.includes('dress')) out.dress = await dressPart();

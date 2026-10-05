@@ -43,7 +43,11 @@ and Travel), four cores at load 14 to 22, 2 to 12 minutes a round.
 | Make a note: buy oat milk and eggs | `create_note` | right (filed by the app under Work) |
 
 A right first tool 6 of 7; a turn that ended telling the truth 5 of 7. The
-three faults, fixed with a test each (fake transport; the 3B not re-run):
+three faults, fixed with a test each, then re-run on the 3B: "File ... under
+Health" `edit_note` first and said right; "Move ... to Home" read the notes
+and asked before editing, no claim; "Pin ..." `pin_note` first, then the
+model server was OOM-killed mid-answer (the sandbox's memory limit), so that
+ending is unmeasured:
 
 | What | Gate |
 | --- | --- |

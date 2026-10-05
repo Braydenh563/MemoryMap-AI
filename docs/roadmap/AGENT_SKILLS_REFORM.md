@@ -318,13 +318,18 @@ retry were not looked at in a browser (no UI changed: they are answer text).
     four cores at load 14 to 22, 2 to 12 minutes a round): seven imperatives,
     a right first tool 6 of 7 and a turn that ended telling the truth 5 of 7.
     The three faults it showed are fixed: HISTORY.md, "Moved from the plans,
-    2026-10-05 (H4, the 3B pass)". Not re-run after those fixes.
+    2026-10-05 (H4, the 3B pass)". Re-run on those three after the fixes:
+    filing right and said right; the move read the notes and asked before
+    editing (no false claim); the pin right first, then the server was
+    killed by the sandbox's memory limit mid-answer, so its ending was not
+    measured.
   - **Brief 13's evals, built and run once**: `tests/test_skill_evals.py`
     (`evals`), the seventy-note loose-ends fixture with eight planted and the
     zero-invalid-calls count over the built-in skills. The 3B named 2 of 8
     loose ends in 55 minutes, having written `list_notes({...})` into prose
     instead of calling it; that shape is recovered for a read now (CHAT_PLAN
-    Phase 4 has the run). Not re-run after the fix.
+    Phase 4 has the run). The re-run after the fix did not start: the model
+    server had been killed by the sandbox's memory limit (eight agents).
   - **Still open**: 4B (none on disk); Ollama's native dialect on a real
     Ollama (no binary; the dialect now runs over a socket against
     `scratchpad/fake_ollama_server.py`, WORLD_CLASS_PLAN row 19); the

@@ -124,7 +124,9 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, Tools it can use lists the actions Atlas may take in "
-            "Agent mode; turn one off and it is never offered. Destructive "
+            "Agent mode, grouped as Reads your notebook, Changes your notebook, "
+            "Asks you first and Reaches the web; turn one off and it is never "
+            "offered. Destructive "
             "actions always ask you first, and once Atlas has read a web page, "
             "a file, or a note clipped or imported from outside, every change "
             "and every web request asks too. How many are offered at once: Only "

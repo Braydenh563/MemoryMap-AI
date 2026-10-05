@@ -5161,7 +5161,10 @@ mark.lightbox-hit {
   padding: var(--space-1) var(--space-3) var(--space-1);
 }
 
-.citation-peek-meta {
+/* The matched words (INBOX 76) take the meta line's shape: one line, cut
+   with an ellipsis, never a second row. */
+.citation-peek-meta,
+.citation-peek-terms {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

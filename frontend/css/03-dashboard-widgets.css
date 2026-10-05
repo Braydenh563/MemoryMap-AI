@@ -4933,6 +4933,17 @@ button.answer-figure-open {
   gap: var(--space-1) var(--space-5);
 }
 
+/* A group's head (INBOX 71) spans both columns; the space above it is what
+   separates one group from the last, so the first has none. */
+#tool-list > li.tool-group-head {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3);
+}
+
+#tool-list > li.tool-group-head:first-child {
+  margin-top: 0;
+}
+
 #tool-list .tool-desc {
   display: -webkit-box;
   -webkit-box-orient: vertical;

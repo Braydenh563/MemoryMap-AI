@@ -4291,6 +4291,18 @@ def tool_catalog() -> list[dict]:
             "enabled": tool_enabled(spec.name),
             "online": spec.name in ("web_search", "read_url"),
             "counts": spec.name in COUNTING_TOOLS,
+            #: The Settings list's group (CHAT_PLAN, INBOX 71): what a tool
+            #: does to the notebook, the one question a person switching it
+            #: off is asking.
+            "group": (
+                "online"
+                if spec.name in ("web_search", "read_url")
+                else "confirm"
+                if spec.destructive
+                else "write"
+                if spec.name in WRITE_TOOLS
+                else "read"
+            ),
         }
         for spec in TOOLS.values()
     ]

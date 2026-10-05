@@ -1102,7 +1102,7 @@ function citationMarker(g, byId, numberFor) {
   //: keeps it open, and on touch a press is the only way to open it.
   const describe = () => ({
     noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
-    signals: g.signals, verdict: g.verdict,
+    signals: g.signals, verdict: g.verdict, terms: g.terms,
   });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1301,6 +1301,14 @@ function openCitationPeek(link, source, { pinned }) {
   mark.textContent = passage;
   body.append(before, ...(passage ? [mark] : []), after);
   preview.append(head, body);
+  //: The words the mark matched on (INBOX 76), so a number on the wrong
+  //: note reads as the wrong words rather than looking as right as any other.
+  if (Array.isArray(source.terms) && source.terms.length) {
+    const terms = document.createElement("span");
+    terms.className = "library-file-meta citation-peek-terms";
+    terms.textContent = `Matched on ${source.terms.map((t) => `“${t}”`).join(", ")}`;
+    preview.append(terms);
+  }
   //: The verdict and the three signals (row 6).
   const evidence = evidenceBlock({ signals: source.signals, verdict: source.verdict });
   if (evidence) preview.append(evidence);

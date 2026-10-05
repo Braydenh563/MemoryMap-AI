@@ -7,6 +7,24 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (CHAT_PLAN's placed items)
+
+### From CHAT_PLAN.md, INBOX 71, 72 and 76 and the owner's 2026-09-09 evening batch
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| 76: precision and recall over twenty hand-marked answers (four cases added: a two-note sentence, two unsupported sentences, a two-sentence single source, a bike log), and the citation peek names the words the mark matched on (`grounding._mark` carries `terms`, at most six in the sentence's order; "Matched on" under the passage, one line, cut with an ellipsis) | sixteen cases, an attribution rate only; a wrong number looked as right as any other | precision 26 of 26, recall 26 of 26; the line drawn at 1440 and 390, light and dark, 17px tall, inside the card, 0 errors | `tests/test_grounding_fixtures.py::test_precision_and_recall_over_the_twenty_answers`, `::test_a_mark_names_the_words_it_matched_on`; `scratchpad/ui-sweeps/ai1005-citeterms.js` |
+| 71 (c): Settings, Tools it can use, grouped by what a tool does: Reads your notebook (29), Changes your notebook (21), Asks you first (6), Reaches the web (2), each under an `h4.setting-subhead` spanning both columns; the filter hides a group's head with its last row (`tool_catalog` carries `group`) | one flat list of 58 | four groups; "delete" leaves one head and 5 rows; no page scroll at 1440 or 390 | `tests/test_tool_catalog_groups.py`; `scratchpad/ui-sweeps/ai1005-toolgroups.js` |
+| 71 (a) and (b), checked built: the Web panel's result rows (a letter tile for the site, the domain above the title, the snippet, Read here and Open; a read page saves as a note), and Extract notes' review list (a Keep checkbox, title, text and tags editable per note, links kept or dropped, nothing saved before Save notes) | | as decided | `chat.js` `buildWebResultRow`; `chat-attach.js` `renderExtractPreview` |
+| 72, checked built: the popup agent's redesign | | `7002cd9` (INBOX 126) | HISTORY, INBOX 126 |
+| The evening batch, checked at head: the answer head ("ANSWERED BY" and Retry, Copy, Read aloud on two rows) | 55.6 to 91.6px over two lines | 32px, one line, three centres equal, at 1440, 1024 and 820 with a short and a long model name, 0 errors | `scratchpad/ui-sweeps/askhead.js` |
+| The bottom row of the chat dock and the Skills button beside the buttons around it | Skills on a row of its own above two buttons; the mode pair and gear pinned right across a long gap | the owner's own later layout (Skills, Web and Plan on the left, the mode pair and settings on the right): one strip, gaps of 8px between groups, every button 32px, at 2000 and 1440 | `scratchpad/ui-sweeps/ai1005-chatstrip.js` |
+| The chat panel's shadow reaching down into the gap under it | | `0 2px 8px` at 5% against a 52.8px gap to the window's foot | `scratchpad/ui-sweeps/chatshadow.js` |
+
+Found on the way: `scratchpad/fake_answer_server.py` answered every
+question "I could not find anything in your notes" since SEC-02 fenced a
+note's words onto the lines after its header; it folds the fence back now.
+
 ## Moved from the plans, 2026-10-05 (row 20)
 
 ### From WORLD_CLASS_PLAN.md, I7: the "Learned from you" line

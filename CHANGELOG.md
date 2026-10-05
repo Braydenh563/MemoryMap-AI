@@ -19,6 +19,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat and Ask: hovering a citation number now also says which words it matched on, so a number pointing at the wrong note shows the wrong words (INBOX 76). Settings, Tools it can use: the list is grouped as Reads your notebook, Changes your notebook, Asks you first and Reaches the web (INBOX 71).
 - Agent mode: every change the assistant makes is checked before and after. A link to a note that does not exist, a retag that changes nothing, or a category that is a misspelling of one you have ("Heath" beside "Health") is refused with a line saying what to use instead, and the notes are read back after each change so a change that did not hold is reported as not done rather than claimed (row 19). Removing a tag now works whatever its case. With Ollama, a small model's first round on an instruction is decoded as a tool call, as it already was with llama.cpp.
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).

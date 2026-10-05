@@ -98,7 +98,25 @@ def _sentences_from_prompt(prompt: str) -> list[str]:
     probe wants: if the numbers are wrong here they are wrong everywhere.
     """
     out: list[str] = []
+    #: Since SEC-02 a note's words are fenced on the lines after its header
+    #: (`1. [General] (written ...) <<<data note>>>`, the text, `<<<end
+    #: data>>>`); the fence is folded back onto the header line here, so the
+    #: parse below reads the shape it always read.
+    folded: list[str] = []
+    fenced = False
     for line in prompt.splitlines():
+        if line.rstrip().endswith(">>>") and "<<<data" in line:
+            folded.append(line[: line.index("<<<data")].rstrip())
+            fenced = True
+            continue
+        if fenced:
+            if line.strip().startswith("<<<end data"):
+                fenced = False
+                continue
+            folded[-1] += " " + line.strip()
+            continue
+        folded.append(line)
+    for line in folded:
         #: Split rather than matched. CodeQL flagged the regex this replaces
         #: (`^\s*\d+\.\s+(.*)$`, high severity: polynomial backtracking on
         #: uncontrolled data) because the prompt is attacker-shaped input as

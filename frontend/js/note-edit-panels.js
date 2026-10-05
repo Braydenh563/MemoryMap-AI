@@ -529,3 +529,17 @@ ${textarea.value}`).match(/\S+/g) || []).length;
   renderRelatedWhileEditing(li, entry);
   renderNoteBookmarksWhileEditing(li, entry);
 }
+
+// Moved from notes-list.js (boot gzip): the edit form's Cancel and Escape are its callers.
+function closeNoteForm() {
+  //: The focus goes back to the note (WCAG 2.4.3): the redraw removes the form
+  //: that held it.
+  const back = editingId;
+  const held = document.activeElement;
+  const wasInside = !held || held === document.body || Boolean(held.closest?.("#entry-list"));
+  editingId = null;
+  noteFormDirty = false;
+  noteFormDraft = null;
+  renderEntries();
+  if (back != null && wasInside) focusNoteRow(back);
+}

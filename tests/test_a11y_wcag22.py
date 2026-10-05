@@ -108,7 +108,7 @@ def test_the_keyboard_lands_somewhere_after_every_note_step():
     # chooser too; a chooser opened on its X, so Enter closed it.
     notes = _read("notes-list.js")
     assert "else focusBodyAfterRender = id;" in _function(notes, "openNoteEditor")
-    assert "focusNoteRow(back)" in _function(notes, "closeNoteForm")
+    assert "focusNoteRow(back)" in _function(_read("note-edit-panels.js"), "closeNoteForm")
     row = _function(notes, "focusNoteRow")
     assert "active !== document.body" in row and "row.focus(" in row
     assert "if (!many) focusNoteRow(noteIds[0]);" in _read("categories-panel.js")

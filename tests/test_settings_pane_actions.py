@@ -14,7 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-JS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+#: The listener lives with the Settings window's others (settings-controls.js, lazy).
+JS = (ROOT / "frontend" / "js" / "settings-controls.js").read_text(encoding="utf-8")
 
 PANES = {
     "personas": ("persona-name", None, "New persona"),

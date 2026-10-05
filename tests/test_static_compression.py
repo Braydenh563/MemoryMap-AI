@@ -83,7 +83,9 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: Caps are the measure rounded up to the next 100.
 APP_JS_CAP = 14_300
 PIECE_CAP = 32_000
-TOTAL_CAP = 322_300
+#: After claude/notes-flow-rebuild 143b240 merged: total 321,331 (the
+#: embedding models list into settings-packages.js), app.js unchanged.
+TOTAL_CAP = 321_400
 
 
 def _served_gzip_size(client, name: str) -> int:

@@ -41,7 +41,10 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: (the note edit form, the full backup's two handlers and seven other
 #: one-caller helpers moved into the lazy files that call them, and 63
 #: same-bundle guards dropped). The measure rounded up to the next 100.
-BOOT_JS_CAP = 590_800
+#: After claude/notes-flow-rebuild 143b240 merged (616's form, skeletons):
+#: 589,955, with the embedding models list, the edit form's close and the
+#: Settings bar's New listener moved to their lazy files.
+BOOT_JS_CAP = 590_000
 BOOT_CSS_CAP = 183_300
 
 

@@ -159,19 +159,6 @@ async function noteFormMayClose() {
   return confirmDialog("Discard your changes to this note?", { confirmLabel: "Discard" });
 }
 
-function closeNoteForm() {
-  //: The focus goes back to the note (WCAG 2.4.3): the redraw removes the form
-  //: that held it.
-  const back = editingId;
-  const held = document.activeElement;
-  const wasInside = !held || held === document.body || Boolean(held.closest?.("#entry-list"));
-  editingId = null;
-  noteFormDirty = false;
-  noteFormDraft = null;
-  renderEntries();
-  if (back != null && wasInside) focusNoteRow(back);
-}
-
 //: The keyboard back on a note's row after a redraw, unless it went somewhere.
 function focusNoteRow(id) {
   requestAnimationFrame(() => {

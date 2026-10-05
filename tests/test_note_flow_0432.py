@@ -133,7 +133,7 @@ def test_an_open_edit_keeps_its_text_through_a_redraw():
     assert "withTitle(textarea.value.trim(), titleInput.value)" in form
     # Cleared only on purpose: Save and Cancel (closeNoteForm).
     assert "noteFormDraft = null" in form
-    assert "noteFormDraft = null" in _function(notes, "closeNoteForm")
+    assert "noteFormDraft = null" in _function(_read("note-edit-panels.js"), "closeNoteForm")
 
 
 def test_leaving_a_changed_form_asks_and_an_empty_one_is_refused():

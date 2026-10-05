@@ -1725,3 +1725,25 @@ function mergeNamedPrompts(existing, imported) {
   const names = new Set(cleaned.map((item) => item.name));
   return [...existing.filter((item) => !names.has(item.name)), ...cleaned];
 }
+
+// Moved from settings.js (boot gzip): a listener inside the Settings window.
+//: **A pane's "New ..." in its bar** (design-rows-1005): Personas, Skills and
+//: Templates carry it in their dock, `data-opens` naming the form's first
+//: field and `data-cancel` the form's Cancel edit. One listener for all
+//: three: it ends an edit in progress (a New that filled the form with the
+//: skill being edited would be a second Edit), opens the form's fold, brings
+//: the form into view under the sticky dock, and puts the cursor in Name.
+document.getElementById("settings-modal")?.addEventListener("click", (event) => {
+  const opener = event.target.closest("[data-opens]");
+  if (!opener) return;
+  const field = document.getElementById(opener.dataset.opens);
+  if (!field) return;
+  const cancel = opener.dataset.cancel && document.getElementById(opener.dataset.cancel);
+  if (cancel && !cancel.classList.contains("hidden")) cancel.click();
+  const fold = field.closest("details");
+  if (fold) fold.open = true;
+  //: The field, not its group: on a phone the Skills form is taller than
+  //: the window, and centring the group left Name under the sticky dock.
+  field.scrollIntoView({ block: "center" });
+  field.focus({ preventScroll: true });
+});

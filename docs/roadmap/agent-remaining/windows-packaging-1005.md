@@ -35,4 +35,4 @@ exit 0.
 - e48e60f instance lock claimed before the window opens (`_claim_notebook`: port chosen, lock written, then `create_window`); `_boot_and_swap` only sets the focus handler. A copy arriving in the remaining gap (relaunch decision, WebView2 probe) sees "starting" and waits.
 - 80ec91e silent update reopens the app: the updater passes `/RELAUNCH=1`, a silent-only `[Run]` entry in installer.iss starts it. Not verified: no Windows here; an update from a build older than this one has no such flag, so that first update still needs a manual reopen.
 - 6b1693a start.bat reads `%~dp0`/`%~f0` and cds before `enabledelayedexpansion` (a nested setlocal; every endlocal is followed by an exit). Not verified on cmd.
-- (this commit) both specs filter `__pycache__` from `a.datas`; not run under PyInstaller (not installed here), the filter is tested on the entry shapes.
+- bae18a3 both specs filter `__pycache__` from `a.datas`; not run under PyInstaller (not installed here), the filter is tested on the entry shapes.

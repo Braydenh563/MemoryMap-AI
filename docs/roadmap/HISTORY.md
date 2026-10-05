@@ -7,6 +7,61 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (row 31 item 97, RapidOCR as an optional extra)
+
+WORLD_CLASS_PLAN row 31 item 97, the owner asking for an OCR alternative to
+pytesseract. Built by op4-1005 at the orchestrator's brief as an optional
+extra through `core/extras.py`, never a required dependency.
+
+- **`core/ocr.py`**: `rapidocr_available()` (a `find_spec` look at
+  `rapidocr_onnxruntime` or the 2.x `rapidocr`), `engine()` ("tesseract"
+  when both its halves are ready, the default whenever it is present;
+  "rapidocr" when Tesseract is not ready and RapidOCR is installed; "" for
+  neither), `engine_name()`, `local_available()`. `extract_text` and
+  `extract_regions` dispatch on it. RapidOCR's lines are joined into blocks
+  (a line starting within 0.6 of a line's height under the last and
+  overlapping it sideways), headings by the same 1.45 height ratio as
+  Tesseract's, boxes normalised to 0..1. The reader is built once per
+  process (`lru_cache`). Both result shapes are read (1.x `(result,
+  elapse)`, 2.x `boxes/txts/scores`). `engine_status()` adds `engine`,
+  `engine_name` and `rapidocr`; `ready` means some engine reads.
+- **The stable id**: "tesseract" stays the local reader's id in stored
+  readings, page reads, `source` and the reader picker's value, whichever
+  engine read; `extract_regions` adds `engine: "rapidocr"`. Renaming a stored
+  id would split one reader in two for every row written before.
+- **The callers**: `/capabilities` `features.ocr.tesseract` is
+  `local_available()` (plus `engine`); `/models/status`
+  `tesseract_available` is `local_available()` (plus `ocr_engine`, the name);
+  `routes_files.py`'s "either reader works", "switch to" and "could not mark"
+  sentences, the page-read job's model name and the empty-page message name
+  the engine that reads. Two tests that stubbed only the program
+  (`test_ocr_regions.py`, `test_ocr_pdf_regions.py`) now stub the wrapper
+  too: a reader is named only when it can read, which the program alone
+  cannot. `extras._installed("ocr")` stays Tesseract's own two halves.
+- **The extra**: "Read images without Tesseract (RapidOCR)",
+  `rapidocr_onnxruntime`, about 60 MB, caveat that its models read English
+  and Chinese and the Tesseract language does not apply. In the Vision
+  bundle beside Tesseract (`tests/test_extras_bundles.py` wants every extra
+  in a bundle; the reason it belongs there is that Tesseract's system program
+  is the half an install most often fails to fetch). README's Packages table
+  and its OCR sentence name it.
+- **The UI**: the OCR workspace's reader option, its engine line ("RapidOCR
+  is ready", no language picker, since the language is Tesseract's), the
+  reading's source badge and title, the positions hint and the Library's
+  "Read text (... OCR)" rows name the engine. Settings mounts the engine line
+  under Tesseract's own Packages row, so there it stays hidden unless
+  Tesseract is the engine. The Guide's two OCR topics say so.
+- **Measured**: `tests/test_ocr_rapidocr.py`, 9 tests with a fake module in
+  `sys.modules` (no RapidOCR in this sandbox); the OCR, extras, help and
+  manual suites (about 400 tests) pass. In the browser (port 8807, 1440,
+  light), with `/ocr-readers` answered as a ready RapidOCR: the reader option
+  "RapidOCR (fast, on-page positions)", the engine line "RapidOCR is ready
+  Manage", no language select, 0 page errors; unfaked, the line is the old
+  "Tesseract can't read yet ... Install Tesseract".
+- **Not verified**: a real RapidOCR install and read (not installed into the
+  shared sandbox venv: onnxruntime and OpenCV are about 100 MB); its accuracy
+  against Tesseract's on a real page; the bulk Vision install with both.
+
 ## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the attach picker's tiles)
 
 The placed row: "The picker's other four sources have no thumbnail

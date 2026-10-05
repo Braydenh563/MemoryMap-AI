@@ -95,6 +95,8 @@ def test_with_tesseract_installed_both_readers_are_offered(two_pages: Path, monk
     anything on *this* page), and a page it read successfully would not reach
     the `source == "none"` branch this message lives in at all."""
     monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: True)
+    # Both halves (op4-1005): a reader is named only when it can read.
+    monkeypatch.setattr("memorymap.core.ocr.packages_available", lambda: True)
     monkeypatch.setattr("memorymap.core.ocr.extract_regions", lambda path: None)
     out = _pdf_regions_for(two_pages, 0, "", "")
     assert out.source == "none"

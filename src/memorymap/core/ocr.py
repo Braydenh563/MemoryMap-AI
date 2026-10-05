@@ -339,17 +339,211 @@ def packages_available() -> bool:
         return False
 
 
-def engine_status() -> dict:
-    """One honest answer to "can Tesseract read here, and how".
+#: **RapidOCR, the second local reader** (WORLD_CLASS_PLAN row 31 item 97, the
+#: owner asking for an OCR alternative to pytesseract). PaddleOCR's models on
+#: onnxruntime: pip-installable whole, no system program, better than
+#: Tesseract on photographs and mixed layouts, Apache-2.0. **An optional extra,
+#: never a dependency**: `core/extras.py`'s "rapidocr" row installs it on the
+#: person's own press, like faster-whisper, and nothing here imports it at
+#: module level. Two package names have shipped the same `RapidOCR` class:
+#: `rapidocr_onnxruntime` (1.x, the one the extra installs) and `rapidocr`
+#: (2.x and later); either is read.
+RAPIDOCR_MODULES = ("rapidocr_onnxruntime", "rapidocr")
 
-    `binary` and `package` are the two halves OCR needs, reported separately
+#: The readers' names as a person reads them. `"tesseract"` stays the *id* of
+#: the local reader in stored readings, page reads and the API (`source`,
+#: the reader picker's value), whichever engine did the reading: rows written
+#: before RapidOCR existed say it, and renaming a stored id to say which
+#: program ran would split one reader in two everywhere it is read back.
+ENGINE_NAMES = {"tesseract": "Tesseract", "rapidocr": "RapidOCR"}
+
+
+def rapidocr_available() -> bool:
+    """Whether a RapidOCR package can be imported (a look, not an import)."""
+    for name in RAPIDOCR_MODULES:
+        try:
+            if importlib.util.find_spec(name) is not None:
+                return True
+        except (ImportError, ValueError):
+            continue
+    return False
+
+
+def engine() -> str:
+    """Which local reader reads: `"tesseract"` when both of its halves are
+    here (the default whenever it is present, as it always was),
+    `"rapidocr"` when Tesseract is not ready and RapidOCR is installed, and
+    `""` when neither can read."""
+    if tesseract_available() and packages_available():
+        return "tesseract"
+    if rapidocr_available():
+        return "rapidocr"
+    return ""
+
+
+def engine_name() -> str:
+    """The reading engine's name for a sentence, "Tesseract" when none is
+    installed (it is the one an install suggestion names first)."""
+    return ENGINE_NAMES.get(engine(), "Tesseract")
+
+
+def local_available() -> bool:
+    """Whether some local OCR engine can read here (the question every caller
+    that used to ask `tesseract_available()` about *reading* meant)."""
+    return bool(engine())
+
+
+@functools.lru_cache(maxsize=1)
+def _rapidocr_reader():
+    """One RapidOCR instance per process: building it loads three ONNX models
+    (about a second), which a reader built per page would pay every time.
+    `lru_cache` rather than a module global, the same shape as
+    `_log_binary_missing` (CodeQL's unused-global note)."""
+    for name in RAPIDOCR_MODULES:
+        try:
+            module = importlib.import_module(name)
+        except ImportError:
+            continue
+        return module.RapidOCR()
+    raise ImportError("no RapidOCR package is installed")
+
+
+def _rapidocr_lines(image_path: Path) -> list[tuple[list, str, float]] | None:
+    """`(box, text, score)` per line RapidOCR found, in its reading order, or
+    None when it cannot run. A box is four `[x, y]` corners; a score 0 to 1.
+
+    The 1.x call returns `(result, elapse)` with `result` a list of
+    `[box, text, score]` or None for a page with no text; 2.x returns an
+    object with `boxes`, `txts` and `scores`. Both are read."""
+    try:
+        reader = _rapidocr_reader()
+        out = reader(str(image_path))
+    except Exception:
+        logger.warning("RapidOCR failed for %s", image_path.name, exc_info=True)
+        return None
+    if isinstance(out, tuple):
+        out = out[0]
+    if out is None:
+        return []
+    if hasattr(out, "txts"):
+        boxes = list(getattr(out, "boxes", None) if getattr(out, "boxes", None) is not None else [])
+        texts = list(out.txts or [])
+        scores = list(getattr(out, "scores", None) or [1.0] * len(texts))
+        rows = zip(boxes, texts, scores)
+    else:
+        rows = ((row[0], row[1], row[2]) for row in out if len(row) >= 3)
+    lines = []
+    for box, text, score in rows:
+        text = str(text).strip()
+        if not text:
+            continue
+        try:
+            corners = [[float(x), float(y)] for x, y in box]
+        except (TypeError, ValueError):
+            continue
+        lines.append((corners, text, float(score)))
+    return lines
+
+
+def _rapidocr_text(image_path: Path) -> str:
+    lines = _rapidocr_lines(image_path)
+    return "\n".join(text for _, text, _ in lines or []).strip()
+
+
+def _image_size(image_path: Path, lines: list[tuple[list, str, float]]) -> tuple[float, float]:
+    """The page's pixel size, from Pillow (RapidOCR's own dependency), or
+    failing that the furthest corner any line reached."""
+    try:
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            return float(img.size[0]), float(img.size[1])
+    except Exception:  # noqa: BLE001  # Pillow missing or the file unreadable: the boxes still say something
+        xs = [x for corners, _, _ in lines for x, _ in corners] or [0.0]
+        ys = [y for corners, _, _ in lines for _, y in corners] or [0.0]
+        return max(xs), max(ys)
+
+
+def _rapidocr_regions(image_path: Path) -> dict | None:
+    """`extract_regions`' shape from RapidOCR's lines. RapidOCR finds lines,
+    not blocks, so lines are joined into a block while each starts within
+    about half a line's height of the last one's foot and overlaps it
+    sideways: a paragraph comes back as one region, a new column or a gap as
+    another, which is what Tesseract's block numbering gives."""
+    lines = _rapidocr_lines(image_path)
+    if lines is None:
+        return None
+    width, height = _image_size(image_path, lines)
+    if not width or not height:
+        return None
+    boxes = []
+    for corners, text, score in lines:
+        xs = [x for x, _ in corners]
+        ys = [y for _, y in corners]
+        boxes.append({"x0": min(xs), "y0": min(ys), "x1": max(xs), "y1": max(ys), "text": text, "score": score})
+    heights = sorted(b["y1"] - b["y0"] for b in boxes)
+    median_height = heights[len(heights) // 2] if heights else 0.0
+    blocks: list[dict] = []
+    for b in boxes:
+        last = blocks[-1] if blocks else None
+        line_h = b["y1"] - b["y0"]
+        joins = (
+            last is not None
+            and 0 <= b["y0"] - last["y1"] <= max(line_h, last["line_h"]) * 0.6
+            and b["x0"] < last["x1"]
+            and b["x1"] > last["x0"]
+        )
+        if joins:
+            last["lines"].append(b["text"])
+            last["scores"].append(b["score"])
+            last["heights"].append(line_h)
+            last["x0"], last["y0"] = min(last["x0"], b["x0"]), min(last["y0"], b["y0"])
+            last["x1"], last["y1"] = max(last["x1"], b["x1"]), max(last["y1"], b["y1"])
+            last["line_h"] = line_h
+        else:
+            blocks.append({**b, "lines": [b["text"]], "scores": [b["score"]], "heights": [line_h], "line_h": line_h})
+    regions = []
+    for block in blocks:
+        block_heights = sorted(block["heights"])
+        block_median = block_heights[len(block_heights) // 2]
+        kind = "heading" if median_height and block_median >= median_height * REGION_HEADING_RATIO else "text"
+        regions.append(
+            {
+                "index": len(regions),
+                "kind": kind,
+                "text": "\n".join(block["lines"]),
+                "confidence": round(100 * sum(block["scores"]) / len(block["scores"]), 1),
+                "box": {
+                    "x": round(block["x0"] / width, 5),
+                    "y": round(block["y0"] / height, 5),
+                    "w": round((block["x1"] - block["x0"]) / width, 5),
+                    "h": round((block["y1"] - block["y0"]) / height, 5),
+                },
+            }
+        )
+    return {
+        "width": int(width),
+        "height": int(height),
+        "regions": regions,
+        "source": "tesseract",
+        "engine": "rapidocr",
+    }
+
+
+def engine_status() -> dict:
+    """One honest answer to "can a local reader read here, and how".
+
+    `binary` and `package` are Tesseract's two halves, reported separately
     because they are fixed by different things (`attempt_binary_install` for
-    one, pip for the other) and "not installed" names neither. `fix` is the
+    one, pip for the other) and "not installed" names neither. `engine` is
+    the one that reads (`engine()`), `rapidocr` whether RapidOCR is
+    installed; Tesseract's languages apply to Tesseract only. `fix` is the
     one action that mends it, which the workspace and Settings both offer.
     """
     binary = tesseract_available()
     package = packages_available()
-    ready = binary and package
+    reader = engine()
+    ready = bool(reader)
     if ready:
         reason = ""
     elif not binary and not package:
@@ -376,19 +570,22 @@ def engine_status() -> dict:
         "language_note": note,
         "reason": reason,
         "fix": "" if ready else "install",
+        "engine": reader,
+        "engine_name": ENGINE_NAMES.get(reader, ""),
+        "rapidocr": rapidocr_available(),
     }
 
 
 def unavailable_reason() -> str:
-    """Why Tesseract cannot read right now, in a sentence that says what to
-    do, or "" when it can. Used where a route used to return nothing and let
-    a missing engine look like a page with no text on it."""
+    """Why no local reader can read right now, in a sentence that says what
+    to do, or "" when one can. Used where a route used to return nothing and
+    let a missing engine look like a page with no text on it."""
     status = engine_status()
     if status["ready"]:
         return ""
     return (
         f"{status['reason']} Install it in Settings, Packages (Search inside images), "
-        "or read this with the AI vision model instead."
+        "or RapidOCR beside it, or read this with the AI vision model instead."
     )
 
 
@@ -433,7 +630,10 @@ def _log_package_missing() -> None:
 def extract_text(image_path: Path) -> str:
     """Best-effort OCR text for one image file. Never raises: a missing
     binary, a corrupt image, or an unsupported format all just mean no text
-    was found, exactly as if the image genuinely had none."""
+    was found, exactly as if the image genuinely had none. RapidOCR reads
+    when Tesseract is not ready and it is installed (`engine()`)."""
+    if engine() == "rapidocr":
+        return _rapidocr_text(image_path)
     if not tesseract_available():
         _log_binary_missing()
         return ""
@@ -494,8 +694,11 @@ def extract_regions(image_path: Path) -> dict | None:
     **normalised to 0–1** against the image's own pixel size, because the
     thing that draws them is an `<img>` scaled to whatever width the panel
     happens to be; sending pixels would make every overlay wrong at every
-    size but one.
+    size but one. RapidOCR's lines are grouped into the same blocks when it
+    is the engine (`_rapidocr_regions`).
     """
+    if engine() == "rapidocr":
+        return _rapidocr_regions(image_path)
     if not tesseract_available():
         _log_binary_missing()
         return None

@@ -1551,10 +1551,17 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
 as the record of what was placed. Built 2026-10-05 (HISTORY.md, "Moved from
 the plans, 2026-10-05 (nbf1005)"): 1's Move to space (row 30), 99 (b), (c)
 and (d), 92's row, 22's last 5px and 261's re-key button; found built: 1's
-capture into the selected space (`updateCaptureSpaceLabel`), 23 and 79. 97
-is decided not to build: RapidOCR is a new Python dependency, which the
-owner ruled out on 2026-10-05 ("make sure it is fully local and doesnt use
-any external libraries that arent vendored"); Tesseract stays the reader.
+capture into the selected space (`updateCaptureSpaceLabel`), 23 and 79
+(79 re-checked 2026-10-05 by op4-1005: every Library card kind is a select,
+one open control and one kebab, the Files row "Read this" plus a nine-row
+kebab). 97 was decided not to build as a dependency (the owner, 2026-10-05:
+"make sure it is fully local and doesnt use any external libraries that
+arent vendored"); it is built as an optional extra instead, on the person's
+own press like faster-whisper, never imported unless installed, and
+Tesseract stays the reader whenever it is ready: HISTORY.md, "Moved from the
+plans, 2026-10-05 (row 31 item 97, RapidOCR as an optional extra)". Whether
+an optional pip extra meets the fully-local rule is the owner's to confirm
+(INBOX-worthy if they say no: remove the `rapidocr` row and its bundle place).
 
 **State 2026-09-24:** 1 (b): a space chip is drawn on
 note cards; capture into the selected space and a "Move to space" bulk action

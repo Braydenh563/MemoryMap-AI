@@ -2214,10 +2214,10 @@ def _pdf_regions_for(
             f"Nothing has been read off page {index + 1} yet. "
             "Use “Read this page” to transcribe it."
         )
-        if ocr.tesseract_available():
+        if ocr.local_available():
             out.message += (
                 " Either reader works here, the AI vision model, or "
-                "Tesseract, which is faster and marks where each block sits."
+                f"{ocr.engine_name()}, which is faster and marks where each block sits."
             )
     if out.source == "stored-text":
         out.message = f"{stored_label}: this is the whole document's reading, not page {index + 1}."
@@ -2441,16 +2441,18 @@ def _regions_for(
     #: machine and simply was not the reader that produced this text (the
     #: vision model is the default reader, so that is the common case, not
     #: the rare one): a program you already have does not need installing,
-    #: it needs choosing. `ocr.tesseract_available()` is the same check the
-    #: "nothing read yet" message above already makes before naming it.
+    #: it needs choosing. `ocr.local_available()` is the same check the
+    #: "nothing read yet" message above already makes before naming it, and
+    #: the engine is named as it is (Tesseract, or RapidOCR where Tesseract is
+    #: not ready).
     positions_offer = (
-        "Install Tesseract to also see where each one sits on the page."
-        if not ocr.tesseract_available()
-        #: Tesseract was the reader and still placed nothing: telling the
-        #: person to switch to what they already chose sent them in a circle.
-        else "Tesseract could not mark where each one sits on this page."
+        "Install Tesseract or RapidOCR to also see where each one sits on the page."
+        if not ocr.local_available()
+        #: The local reader was the reader and still placed nothing: telling
+        #: the person to switch to what they already chose sent them in a circle.
+        else f"{ocr.engine_name()} could not mark where each one sits on this page."
         if auto
-        else "Switch to Tesseract as the reader to also see where each one sits on the page."
+        else f"Switch to {ocr.engine_name()} as the reader to also see where each one sits on the page."
     )
     return OcrRegionsOut(
         width=0,
@@ -2958,7 +2960,7 @@ def _read_page(
     """
     token = vision_ocr.register_page_read(
         f"Reading page {index + 1} of {path.name}",
-        model="Tesseract" if reader == "tesseract" else "",
+        model=ocr.engine_name() if reader == "tesseract" else "",
     )
     try:
         result = (
@@ -3077,7 +3079,7 @@ def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
         page=index,
         text=text,
         model="tesseract" if text else "",
-        message="" if text else f"Tesseract found no text on page {index + 1}.",
+        message="" if text else f"{ocr.engine_name()} found no text on page {index + 1}.",
     )
 
 
@@ -3481,7 +3483,7 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     label = "Describing" if mode == "describe" else "Reading"
     token = vision_ocr.register_page_read(
         f"{label} a region of page {page + 1}",
-        model="Tesseract" if model == "tesseract" else model,
+        model=ocr.engine_name() if model == "tesseract" else model,
     )
     try:
         with tempfile.TemporaryDirectory(prefix="mm-region-") as scratch:

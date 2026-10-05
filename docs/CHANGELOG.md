@@ -608,6 +608,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Settings, Packages: "Read images without Tesseract (RapidOCR)", a second local reader for pictures and scanned pages with nothing else to install. It reads when Tesseract isn't ready; Tesseract stays the reader whenever it is. The Vision bundle installs both, and the OCR workspace names whichever one read.
 - Documents: in Live, drag the corner of a picture to resize it, or focus the corner and use the arrow keys, and its align button puts it on the left, in the centre or on the right; the size and alignment are written into the picture's markdown, so Read, a print and the exports show the same picture (DOCUMENTS_PLAN decision 8, the audit's D5).
 - Documents: Print or save as PDF first asks for the page size (A4 or Letter), orientation, margins and whether to print page numbers with the title at the head of each page, and remembers it; a plain Ctrl+P prints on the same page (DOCUMENTS_PLAN decision 7, the audit's D4).
 - Documents: a ```mermaid flowchart (flowchart or graph, in any direction, with boxes, rounds, diamonds and circles, labelled and dotted or thick links) draws as a diagram in Read, in Live while the caret is elsewhere, in a print and in the HTML export, by the app's own parser with nothing downloaded; press it in Live to edit its text; any other Mermaid diagram stays as code (DOCUMENTS_PLAN decision 20.6, the audit's D3).

@@ -449,6 +449,32 @@ EXTRAS: tuple[Extra, ...] = (
         "by hand (see INSTALL.md). Without it, uploads still work, they just "
         "get no searchable text.",
     ),
+    #: **RapidOCR (WORLD_CLASS_PLAN row 31 item 97).** The owner asked for an
+    #: OCR alternative to pytesseract. PaddleOCR's models on onnxruntime,
+    #: pip-installable whole (no system program to fetch, the half of
+    #: Tesseract that fails most), Apache-2.0. Optional on the person's own
+    #: press like every row here, never a dependency.
+    #: Tesseract stays the reader whenever it is ready (`ocr.engine`). In the
+    #: Vision bundle beside it, deliberately: Tesseract's system program is
+    #: the half an install most often fails to fetch (no winget, no admin), and
+    #: a bundle whose promise is "read the text in pictures" should keep it on
+    #: a machine where that half fails, at the cost of 60 MB that sits unused
+    #: where Tesseract installs cleanly.
+    #: The 1.x package name, whose `RapidOCR` call `ocr._rapidocr_lines` reads
+    #: (it reads the 2.x `rapidocr` package's result shape too).
+    Extra(
+        id="rapidocr",
+        label="Read images without Tesseract (RapidOCR)",
+        enables="A second local reader for pictures and scanned pages, with "
+        "nothing else to install: their text becomes searchable and the OCR "
+        "workspace can read a page with it. Used when Tesseract isn't ready; "
+        "Tesseract stays the reader whenever it is.",
+        packages=("rapidocr_onnxruntime",),
+        module="rapidocr_onnxruntime",
+        size="~60 MB",
+        caveat="Its models read English and Chinese; the language chosen for "
+        "Tesseract doesn't apply to it.",
+    ),
     #: **Pyodide (INBOX 404).** The owner, 2026-09-24: "Run Python files: yes,
     #: as an opt-in extra". CPython compiled to WebAssembly, run by Run on a
     #: .py document inside the same sandbox as JavaScript, from these files
@@ -650,7 +676,7 @@ BUNDLES: tuple[Bundle, ...] = (
         id="vision",
         label="Vision",
         about="Read the text in pictures and in scanned pages.",
-        extras=("ocr", "pdfpages"),
+        extras=("ocr", "rapidocr", "pdfpages"),
     ),
     Bundle(
         id="ai",

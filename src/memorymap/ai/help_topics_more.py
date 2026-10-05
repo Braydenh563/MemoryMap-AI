@@ -967,7 +967,7 @@ MORE_TOPICS.extend(
             "keywords": (
                 "ocr language", "reading language", "tesseract language", "install tesseract",
                 "tesseract not working", "tesseract missing", "read again", "which engine",
-                "language of the scan",
+                "language of the scan", "rapidocr", "ocr without tesseract",
             ),
             "body": (
                 "In the OCR workspace, one line under the toolbar says whether "
@@ -978,7 +978,10 @@ MORE_TOPICS.extend(
                 "cannot do falls to the vision model, and each reading names the "
                 "engine that read it. Read again reads afresh, and a reading can "
                 "be edited by hand or added to an existing note. Settings, "
-                "Packages shows the same status and language."
+                "Packages shows the same status and language. RapidOCR, a second "
+                "reader with nothing else to install (Settings, Packages, Read "
+                "images without Tesseract), reads when Tesseract isn't ready; its "
+                "models read English and Chinese, so the language does not apply."
             ),
             "badge": {"label": "Packages", "section": "extras"},
         },

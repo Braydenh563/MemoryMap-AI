@@ -419,6 +419,7 @@ async function keepUnreadableChatFile(file, error) {
       switchTab("library");
       if (typeof renderLibrary === "function") renderLibrary();
     },
+    { go: { tab: "library" } },
   );
   return true;
 }
@@ -480,7 +481,7 @@ async function importChatDocuments(files) {
   toastAction(label, made.length === 1 ? "Open it" : "Show them", () => {
     switchTab("documents");
     if (made.length === 1) openDocument(first.id);
-  });
+  }, { go: made.length === 1 ? { open: "doc", id: first.id } : { tab: "documents" } });
 }
 
 //: Documents staged on the message being written. Same shape and same

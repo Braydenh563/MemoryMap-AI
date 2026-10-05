@@ -2973,10 +2973,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    43px control in a 65px toast (measured, scratchpad/ui-sweeps/toasthelp.js);
    a toast action is a small ghost, the same height as its close button. */
 .toast .toast-help {
-  height: var(--target-min);
-  min-height: var(--target-min);
   padding: 0 var(--space-3);
-  margin-left: var(--space-2);
   white-space: nowrap;
   /* Never squeezed by the message: at 390 the flex row shrank this button to
      44px and its words ran out of its box (the owner, with a screenshot). */
@@ -4242,31 +4239,12 @@ body .chip.item-label,
 /* Every row is inset from the panel's edges on both sides (INBOX 451, the
    owner: the unread dot and the read toggle "arent properly padded from
    the edges"). Measured: the dot at 0px from the row's left and the toggle
-   at 0px from its right, inside a hover fill that reaches both edges. */
+   at 0px from its right, inside a hover fill that reaches both edges. The
+   padding itself is the row recipe's (06-timeline-dialogs.css, INBOX 585);
+   the unread dot is its own column in every look now, not a flat-look
+   `::before` with its own padding. */
 .notif-row {
-  padding-inline: var(--space-3);
   border-radius: var(--radius-md);
-}
-
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
-  border-left: 0;
-  position: relative;
-  /* The dot's own width plus a clear gap before the icon: at the plain
-     --space-3 the dot sat 0.1rem from the icon and read as touching it. */
-  padding-left: calc(var(--space-3) + 0.4rem + var(--space-4));
-}
-
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {
-  content: "";
-  position: absolute;
-  /* Inside the row's own left padding: at -0.25rem it sat past the list's
-     scrolling edge and was drawn half cut off (the owner at release). */
-  left: var(--space-3);
-  top: calc(var(--space-3) + 0.45em);
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: var(--accent);
 }
 
 /* --- the lock screen ------------------------------------------------------------

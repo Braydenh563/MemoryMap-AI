@@ -2953,7 +2953,7 @@ async function importLibraryDocuments(files) {
   toastAction(`Added “${made[0].title}” to your documents.`, "Open it", () => {
     switchTab("documents");
     openDocument(made[0].id);
-  });
+  }, { go: { open: "doc", id: made[0].id } });
 }
 
 async function renderLibraryDocuments() {

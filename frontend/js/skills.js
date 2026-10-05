@@ -1132,7 +1132,7 @@ async function saveFile(filename, blob) {
         apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
           toast(error.message || "Couldn't open the exports folder.", true);
         });
-      });
+      }, { record: false });
       if (typeof renderExportsList === "function") renderExportsList();
       //: **A saved file is a notification, not only a toast.** Asked for
       //: (INBOX 159): "exported or downloaded files and images etc should

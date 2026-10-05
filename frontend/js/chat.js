@@ -259,7 +259,7 @@ async function reminderFromChatAnswer(answer) {
     toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
       editingReminderId = reminder.id;
       return flashReminder(reminder.id);
-    });
+    }, { go: { open: "reminder", id: reminder.id } });
   } catch (error) {
     toast(error.message || "Couldn't set a reminder.", true);
   }
@@ -829,7 +829,7 @@ async function forkFromBubble(bubble) {
     });
     await loadConversationList();
     toastAction(`Forked at this message → “${fork.title}”.`, "Open it", () =>
-      openConversation(fork.id)
+      openConversation(fork.id), { go: { open: "conversation", id: fork.id } }
     );
   } catch (error) {
     toast(error.message || "Couldn't fork from here.", true);
@@ -2258,7 +2258,7 @@ async function saveChatAsDocument() {
     toastAction("Saved to your documents.", "Open it", () => {
       switchTab("documents");
       if (typeof openDocument === "function") openDocument(doc.id);
-    });
+    }, { go: { open: "doc", id: doc.id } });
   } catch (error) {
     toast(error.message || "Couldn't save that document.", true);
   }

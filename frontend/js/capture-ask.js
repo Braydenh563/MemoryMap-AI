@@ -70,13 +70,13 @@ async function watchFiling(entry, { quiet = false } = {}) {
       if (status.filed_by === "none" || status.filing_state === "failed") {
         if (!shown) toastAction(text, "Choose category", () => chooseNoteCategory([entry.id], status.category));
       } else if (!shown) {
-        toastAction(text, "Go to it", () => flashEntry(entry.id));
+        toastAction(text, "Go to it", () => flashEntry(entry.id), { go: { open: "entry", id: entry.id } });
       }
       // The near-duplicate search moved into the same background pass, so
       // this warning arrives here now rather than on the create response.
       // Still purely informational, still never blocking, the note saved.
       if (status.similar) {
-        toastAction(`This is close to an existing note, “${status.similar.preview}”.`, "Open it", () => flashEntry(status.similar.id));
+        toastAction(`This is close to an existing note, “${status.similar.preview}”.`, "Open it", () => flashEntry(status.similar.id), { go: { open: "entry", id: status.similar.id } });
       }
       return;
     }

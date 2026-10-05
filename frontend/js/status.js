@@ -92,18 +92,22 @@ function storedNotifications() {
 
 // Record something worth remembering. `key` de-duplicates: the reminder poll
 // runs every thirty seconds and must not add the same fired reminder twice.
+//: Returns the row's id (null when nothing was recorded), so a toast's live
+//: action can be tied to its row (`keepToastAction`).
 function recordNotification({ kind, title, detail = "", key = "", action = null }) {
-  if (kind !== "reminder" && notificationsMuted()) return;
+  if (kind !== "reminder" && notificationsMuted()) return null;
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
-  if (key && items.some((n) => n.id === id)) return;
-  if (key && dismissedNotificationIds().has(id)) return;
+  if (key && items.some((n) => n.id === id)) return null;
+  if (key && dismissedNotificationIds().has(id)) return null;
   items.push({ id, kind, title, detail, at: Date.now(), action });
-  localStorage.setItem(
-    NOTIFICATIONS_KEY,
-    JSON.stringify(items.slice(-MAX_NOTIFICATIONS))
-  );
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)));
+  } catch {
+    return null; // storage refused: the toast still shows, the row is not kept
+  }
   renderNotificationBadge();
+  return id;
 }
 
 function notificationsReadAt() {
@@ -296,8 +300,124 @@ const NOTIFICATION_ICONS = {
   error: "ph:warning",
   export: "ph:download-simple",
   assist: "ph:sparkle",
+  undo: "ph:arrow-counter-clockwise",
+  done: "ph:check-circle",
   info: "•",
 };
+
+//: **Every toast with an action is kept in the bell, with that action**
+//: (INBOX 585, the owner: "all notifiactions that contain links or buttons
+//: need to show and be accessible in the notifications panel"). A toast's
+//: button lived for eight seconds and was gone.
+//:
+//: Two halves, because a closure cannot go into localStorage. The row stores
+//: plain data: the label, and `go`, a target the app can find again by id
+//: after a reload (`runNotificationGo`). This session also keeps the toast's
+//: own closure (`noticeLive`), so the row does exactly what the toast did.
+//: An action with no `go` (an Undo, an offer, a restart) is one-shot: pressed
+//: once, from the toast or the row, it reads "Done"; after a reload it reads
+//: "Expired". An Undo is valid only while it can still be undone: while its
+//: action is on the app's own stack when it has one (Ctrl+Z or the toast may
+//: have taken it already), otherwise for `NOTICE_UNDO_MS`.
+const noticeLive = new Map();
+const NOTICE_UNDO_MS = 5 * 60 * 1000;
+
+function keepToastAction(message, label, run, { go = null, record = true, kind = "" } = {}) {
+  const once = !go;
+  const undo = once && /\b(undo|put it back)\b/i.test(label);
+  if (!record) return () => run();
+  const id = recordNotification({
+    kind: kind || (undo ? "undo" : "done"),
+    title: message,
+    action: { label, ...(go || {}), ...(once ? { once: true } : {}) },
+  });
+  //: The app's stack entry this Undo stands for: callers push it just before
+  //: the toast (`pushUndo` then `toastAction`), so it is the top one, now.
+  const top = undoStack[undoStack.length - 1];
+  const stacked = undo && top && Date.now() - top.at < 2000 ? top : null;
+  const live = { run, once, used: false, until: undo && !stacked ? Date.now() + NOTICE_UNDO_MS : 0, stacked };
+  if (id) noticeLive.set(id, live);
+  return async () => {
+    live.used = once;
+    await run();
+  };
+}
+
+//: Whether a kept action can still run from this session's closure.
+function noticeLiveValid(live) {
+  if (!live || (live.once && live.used)) return false;
+  if (live.stacked) return undoStack.includes(live.stacked);
+  return !live.until || Date.now() < live.until;
+}
+
+//: Where a stored `go` leads, found again by id when pressed: a target that
+//: has gone since says so rather than opening an empty view.
+const NOTICE_TARGETS = {
+  entry: [(id) => apiJson(`/entries/${id}`, { silent: true }), (id) => flashEntry(id), "note"],
+  conversation: [(id) => apiJson(`/conversations/${id}`, { silent: true }), (id) => { switchTab("chat"); return openConversation(id); }, "chat"],
+  doc: [(id) => apiJson(`/documents/${id}`, { silent: true }), (id) => { switchTab("documents"); return openDocument(id); }, "document"],
+  board: [(id) => apiJson("/whiteboard/boards", { silent: true }).then((all) => all.find((b) => b.id === id)), (id) => openWhiteboardBoard(id), "board"],
+  reminder: [null, (id) => { editingReminderId = id; return flashReminder(id); }, "reminder"],
+  capture: [null, () => startNewNote(), ""],
+};
+
+async function runNotificationGo(action) {
+  if (action.panel) return reopenAnswerPanel(action);
+  if (action.settings) return openSettingsModal(action.settings, action.focus);
+  if (action.exports) return openExportsFromNotification();
+  if (action.filter) return showNotesFilter(action.filter);
+  const target = NOTICE_TARGETS[action.open];
+  if (target) {
+    const found = target[0] ? await target[0](action.id).catch(() => null) : true;
+    if (!found) return toast(`That ${target[2]} is no longer there.`);
+    return target[1](action.id);
+  }
+  if (action.tab) return switchTab(action.tab);
+}
+
+function notificationGoes(action) {
+  return Boolean(action && (action.tab || action.exports || action.panel || action.settings || NOTICE_TARGETS[action.open]));
+}
+
+//: The row's own button for its action (INBOX 585): the toast's label, or a
+//: plain one for the rows that only ever had a target. Disabled, with the
+//: reason beside it, once a one-shot action is spent or out of date.
+function notificationActionButton(item) {
+  const action = item.action;
+  if (!action || !(action.label || notificationGoes(action))) return null;
+  const live = noticeLive.get(item.id);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small toast-action notif-cta";
+  button.textContent = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
+  const wrap = document.createElement("div");
+  wrap.className = "notif-cta-row";
+  wrap.append(button);
+  if (noticeLiveValid(live)) {
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      if (!noticeLiveValid(live)) return openNotifications({ keepWatermark: true });
+      closeNotifications();
+      //: The toast's own closure, which settles its stack entry itself
+      //: (`settleUndoFromToast`), exactly as pressing the toast did.
+      live.used = live.once;
+      await live.run();
+    });
+  } else if (!action.once && notificationGoes(action)) {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeNotifications();
+      runNotificationGo(action);
+    });
+  } else {
+    button.disabled = true;
+    const state = document.createElement("span");
+    state.className = "notif-cta-state muted";
+    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : "Expired";
+    wrap.append(state);
+  }
+  return wrap;
+}
 
 //: `keepWatermark`: a re-render from a row's own read/unread toggle must
 //: not also stamp the "seen everything" watermark: that is what made one
@@ -369,6 +489,14 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const unread = isNotificationUnread(item, readAt, forced);
     if (unread) row.classList.add("notif-unread");
 
+    //: **One row recipe** (INBOX 585: "clashing, misaligned, and/or poorly
+    //: spaced"): the unread dot, the icon, the text column, then one side
+    //: column holding the time, which the row's two controls replace while
+    //: it is pointed at. Every column's first line is the title's line
+    //: (06-timeline-dialogs.css), and nothing is laid over the text.
+    const dot = document.createElement("span");
+    dot.className = "notif-dot";
+    dot.setAttribute("aria-hidden", "true");
     const icon = document.createElement("span");
     icon.className = "notif-icon";
     setLabel(icon, NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info);
@@ -390,7 +518,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
     time.dateTime = new Date(item.at).toISOString();
     time.textContent = relativeTime(time.dateTime);
     time.title = new Date(item.at).toLocaleString();
-    head.append(title, time);
+    head.append(title);
     body.append(head);
     if (item.detail) {
       const meta = document.createElement("div");
@@ -398,7 +526,9 @@ async function openNotifications({ keepWatermark = false } = {}) {
       meta.textContent = item.detail;
       body.append(meta);
     }
-    row.append(icon, body);
+    const cta = notificationActionButton(item);
+    if (cta) body.append(cta);
+    row.append(dot, icon, body);
 
     //: The dot is the control. A row is either new or it is not, so this is a
     //: two-state toggle rather than a menu, and it sits where the "new"
@@ -448,33 +578,22 @@ async function openNotifications({ keepWatermark = false } = {}) {
     const actions = document.createElement("span");
     actions.className = "notif-row-actions";
     actions.append(readToggle, dismiss);
+    const side = document.createElement("span");
+    side.className = "notif-side";
+    side.append(time, actions);
     row.dataset.at = String(item.at);
-    row.append(actions);
+    row.append(side);
 
     // A notification you cannot act on is a notification you learn to ignore.
-    if (item.action && (item.action.tab || item.action.exports || item.action.panel || item.action.settings)) {
+    // The whole row goes where its target is; a one-shot action (an Undo) is
+    // only ever its own button.
+    if (item.action && !item.action.once && notificationGoes(item.action)) {
       row.classList.add("notif-actionable");
       row.tabIndex = 0;
       row.title = item.action.exports ? "Open the exports folder" : "Open";
       const go = () => {
         closeNotifications();
-        if (item.action.panel) {
-          reopenAnswerPanel(item.action);
-          return;
-        }
-        if (item.action.settings) {
-          openSettingsModal(item.action.settings);
-          return;
-        }
-        if (item.action.exports) {
-          openExportsFromNotification();
-          return;
-        }
-        if (item.action.filter) {
-          showNotesFilter(item.action.filter);
-          return;
-        }
-        switchTab(item.action.tab);
+        runNotificationGo(item.action);
       };
       row.addEventListener("click", go);
       row.addEventListener("keydown", (event) => {
@@ -762,7 +881,7 @@ function agentActivityNotice(message, { isError = false, kind = "task", detail =
   //: A notice with somewhere to go carries the way there on the toast as
   //: well as on its row in the bell, so the reader who sees it fly past does
   //: not have to open the bell to act on it.
-  if (onOpen) toastAction(message, "Open", onOpen);
+  if (onOpen) toastAction(message, "Open", onOpen, { record: false });
   else toast(message, isError);
 }
 
@@ -980,6 +1099,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
   const text = document.createElement("span");
+  text.className = "toast-msg";
   text.textContent = message;
   note.appendChild(text);
   //: An error toast carries the way to report it (INBOX 256): one small
@@ -1031,6 +1151,7 @@ function toastProgress(message) {
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");
+  text.className = "toast-msg";
   setLabel(text, `ph:spin ${message}`);
   note.append(text);
   box.appendChild(note);
@@ -1041,42 +1162,48 @@ function toastProgress(message) {
     //: `done` swaps the spinner for the outcome and starts the ordinary
     //: 5.5-second life every other toast has, so a finished job does not
     //: leave a permanent line on screen.
-    done(finalMessage, { isError = false, actionLabel = null, onAction = null } = {}) {
+    //: Its action is the toast recipe's button and is kept in the bell like
+    //: any other (INBOX 584: a bare link here read "this file.Show it").
+    done(finalMessage, { isError = false, actionLabel = null, onAction = null, go = null, record = true } = {}) {
       text.textContent = finalMessage;
       note.classList.toggle("error", Boolean(isError));
       if (actionLabel && onAction) {
-        const button = document.createElement("button");
-        button.className = "link-button";
-        button.type = "button";
-        button.textContent = actionLabel;
-        button.addEventListener("click", () => {
-          onAction();
-          dismissToast(note);
-        });
-        note.appendChild(button);
+        note.appendChild(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record })));
       }
-      const timer = setTimeout(() => dismissToast(note), 5500);
-      note.appendChild(toastCloseButton(note, timer));
+      note.toastTimer = setTimeout(() => dismissToast(note), 5500);
+      note.appendChild(toastCloseButton(note, note.toastTimer));
     },
   };
 }
 
-function toastAction(message, actionLabel, onAction) {
+//: One action on a toast (INBOX 584): a small button after the message,
+//: spaced by the toast's own gap, never a bare link glued to the words.
+function toastActionButton(note, label, run) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small toast-action";
+  button.textContent = label;
+  button.addEventListener("click", async () => {
+    clearTimeout(note.toastTimer);
+    dismissToast(note);
+    await run();
+  });
+  return button;
+}
+
+//: `opts`: `go`, where the action leads as plain data, so its row in the
+//: bell still works after a reload; `record: false` for a notice that is
+//: already in the bell (`keepToastAction`).
+function toastAction(message, actionLabel, onAction, opts = {}) {
+  const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");
+  text.className = "toast-msg";
   text.textContent = message;
-  const button = document.createElement("button");
-  button.className = "small toast-action";
-  button.textContent = actionLabel;
-  button.addEventListener("click", async () => {
-    clearTimeout(timer);
-    dismissToast(note);
-    await onAction();
-  });
-  const timer = setTimeout(() => dismissToast(note), 8000);
-  note.append(text, button, toastCloseButton(note, timer));
+  note.toastTimer = setTimeout(() => dismissToast(note), 8000);
+  note.append(text, toastActionButton(note, actionLabel, run), toastCloseButton(note, note.toastTimer));
   box.appendChild(note);
 }
 
@@ -1112,6 +1239,7 @@ function showServerDownBanner() {
   const note = document.createElement("div");
   note.className = "toast error server-down-toast";
   const text = document.createElement("span");
+  text.className = "toast-msg";
   text.textContent = "Can't reach MemoryMap. Retrying…";
   const button = document.createElement("button");
   button.className = "small toast-action";
@@ -1197,7 +1325,8 @@ const redoStack = [];
 const UNDO_STACK_LIMIT = 50;
 
 function pushUndo(label, undo, redo) {
-  const action = { label, undo, redo };
+  //: `at`: a toast's Undo finds the entry it stands for (`keepToastAction`).
+  const action = { label, undo, redo, at: Date.now() };
   undoStack.push(action);
   if (undoStack.length > UNDO_STACK_LIMIT) undoStack.shift();
   // A fresh action invalidates whatever was available to redo, the same
@@ -1967,7 +2096,7 @@ function nudgeEmbeddingProblem() {
     key: `embedding:${error}`,
     action: { settings: "models" },
   });
-  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("searchindex", "embedding-model-select"));
+  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("searchindex", "embedding-model-select"), { record: false });
 }
 
 // --- the status bar (§36D) ---------------------------------------------------

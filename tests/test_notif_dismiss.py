@@ -16,5 +16,5 @@ def test_a_removed_overdue_reminder_is_not_folded_back_in():
     """The panel re-records every overdue reminder each time it opens; without
     the dismissed set the row would return on the next press of the bell."""
     js = app_js_text()
-    assert "if (key && dismissedNotificationIds().has(id)) return;" in js
+    assert "if (key && dismissedNotificationIds().has(id)) return null;" in js
     assert "NOTIFICATIONS_DISMISSED_KEY" in js

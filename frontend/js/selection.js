@@ -66,7 +66,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
     await refreshEntries([created.id]);
     progress.done(
       draft ? "Saved as a draft." : "Saved as a note, filing it now.",
-      { actionLabel: "Open", onAction: () => flashEntry(created.id) }
+      { actionLabel: "Open", onAction: () => flashEntry(created.id), go: { open: "entry", id: created.id } }
     );
   } catch (error) {
     progress.done(error.message || "Couldn't save that note.", { isError: true });
@@ -93,7 +93,7 @@ async function appendSelectionToNote(text, { jump = true, message = null, what =
       toast("Added to the note.");
       flashEntry(entry.id);
     } else {
-      toastAction("Added to the note.", "Open it", () => flashEntry(entry.id));
+      toastAction("Added to the note.", "Open it", () => flashEntry(entry.id), { go: { open: "entry", id: entry.id } });
     }
   } catch (error) {
     toast(error.message || `Couldn't add ${what} to the note.`, true);

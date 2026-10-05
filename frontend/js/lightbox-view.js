@@ -1009,6 +1009,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
             switchTab("library");
             if (typeof renderLibrary === "function") renderLibrary();
           },
+          go: { tab: "library" },
         });
       } catch (err) {
         progress.done(err.message || `Couldn't ${label.toLowerCase()}.`, { isError: true });

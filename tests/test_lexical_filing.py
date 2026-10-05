@@ -14,7 +14,14 @@ from memorymap.ai import lexical_filing
 from memorymap.ai.lexical_filing import tokens
 
 
-def _wait_settled(client, entry_id, timeout=10.0):
+def _wait_settled(client, entry_id, timeout=90.0):
+    """Poll until the background filing pass settles the note.
+
+    The ceiling is generous on purpose: it is not a speed claim (that is
+    `test_it_stays_fast_on_a_large_notebook`), only how long a starved
+    machine may take to schedule the filing thread before the test gives up.
+    At 10 s it failed whenever four cores were shared with a dozen busy
+    processes, and the assertion that followed blamed the filing logic."""
     deadline = time.time() + timeout
     status = {}
     while time.time() < deadline:
@@ -22,7 +29,7 @@ def _wait_settled(client, entry_id, timeout=10.0):
         if status["filing_state"] != "pending":
             return status
         time.sleep(0.05)
-    return status
+    raise AssertionError(f"note {entry_id} was still pending after {timeout}s: {status}")
 
 
 def _seed(client):
@@ -97,9 +104,13 @@ def test_it_stays_fast_on_a_large_notebook(client):
         for i in range(800):
             manager.create_entry(session, f"{words[i % 10]} note {i} about {words[(i * 3) % 10]}", category_name=f"C{i % 8}")
         session.commit()
-        started = time.perf_counter()
+        #: CPU time of this process, not the wall clock: the claim is that the
+        #: pass does little work on 800 notes, and the wall clock also counts
+        #: every slice the scheduler hands to other processes.
+        started = time.process_time()
         lexical_filing.lexical_category(session, "alpha gamma note")
-        assert time.perf_counter() - started < 0.5
+        took = time.process_time() - started
+        assert took < 0.5, took
 
 
 def test_an_unfiled_note_offers_categories_to_choose(client):

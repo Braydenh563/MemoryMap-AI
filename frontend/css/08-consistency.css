@@ -6511,7 +6511,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
 #nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-r { transform: rotate(-60deg); }
 /* Masculine, sprawled: an arm behind the head, the other loose, a knee up. */
-#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-172deg); }
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-l { transform: rotate(20deg); }
 #nm-buddy[data-pose="lie"] .nmb-leg-l { transform: rotate(8deg); }
 #nm-buddy[data-pose="lie"] .nmb-leg-r { transform: rotate(-34deg) scaleY(0.84); }
@@ -6520,7 +6520,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    put the left hand past her head and 41% of the arm out along the rings
    (atlasarms.js POSE=lie; the owner: "no arm resting on the orbit rings"). */
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }
-#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(110deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(20deg); }
 #nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
 #nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
 #nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
@@ -7353,7 +7353,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-br-y: 0px;
   --atl-bl-r: 0deg;
   --atl-br-r: 0deg;
-  --atl-lid: 0.04;
+  --atl-lid: 0.12;
   --atl-lid-r: 0deg;
   --atl-low: 0;
   --atl-eye-s: 1;
@@ -7362,6 +7362,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-lean: 0deg;
   /* The avatar lab's tune (atlas.js, ATLAS_TUNE) rides on these. */
   --atl-tune-head: 1;
+  --atl-head-k: 1;
   --atl-tune-star: 1;
   --atl-tune-strand: 1;
   --atl-ps: 1;
@@ -7498,7 +7499,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
 .atl-lw-wisps { transform-origin: 31px 60px; will-change: rotate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
-.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
+.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
 .nm-atlas .atl-lid-shut { opacity: 1; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
@@ -7720,20 +7721,20 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas[data-atlas-look="masculine"][data-atlas-mood="determined"] { --atl-ar0: -14deg; --atl-al0: 14deg; --atl-chin0: 0; --atl-ar1: -18deg; --atl-al1: 18deg; --atl-chin1: 0; --atl-ar2: 40deg; --atl-al2: -40deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="masculine"][data-atlas-mood="love"] { --atl-ar0: 60deg; --atl-al0: -60deg; --atl-chin0: 0; --atl-ar1: 70deg; --atl-al1: -66deg; --atl-chin1: 0; --atl-ar2: -120deg; --atl-al2: 0deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="masculine"][data-atlas-mood="worried"] { --atl-ar0: 70deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 58deg; --atl-al1: -58deg; --atl-chin1: 0; --atl-ar2: 76deg; --atl-al2: -20deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="happy"] { --atl-ar0: -15deg; --atl-al0: 25deg; --atl-chin0: 0; --atl-ar1: -60deg; --atl-al1: 20deg; --atl-chin1: 0; --atl-ar2: 10deg; --atl-al2: 30deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="delighted"] { --atl-ar0: -40deg; --atl-al0: 70deg; --atl-chin0: 0; --atl-ar1: -70deg; --atl-al1: 110deg; --atl-chin1: 0; --atl-ar2: -20deg; --atl-al2: 60deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="laughing"] { --atl-ar0: -20deg; --atl-al0: 30deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 20deg; --atl-chin1: 1; --atl-ar2: 60deg; --atl-al2: -30deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="thinking"] { --atl-ar0: 0deg; --atl-al0: -12deg; --atl-chin0: 1; --atl-ar1: 100deg; --atl-al1: -50deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -24deg; --atl-chin2: 1; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="curious"] { --atl-ar0: -25deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 30deg; --atl-chin1: 0; --atl-ar2: -40deg; --atl-al2: 10deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="surprised"] { --atl-ar0: -70deg; --atl-al0: 110deg; --atl-chin0: 0; --atl-ar1: -50deg; --atl-al1: 90deg; --atl-chin1: 0; --atl-ar2: -90deg; --atl-al2: 60deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 145deg; --atl-chin0: 0; --atl-ar1: -63deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: 20deg; --atl-al2: 145deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: 84deg; --atl-al0: -6deg; --atl-chin0: 0; --atl-ar1: 110deg; --atl-al1: -30deg; --atl-chin1: 0; --atl-ar2: -84deg; --atl-al2: -6deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sad"] { --atl-ar0: 75deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: 70deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: 80deg; --atl-al2: -4deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="proud"] { --atl-ar0: 62deg; --atl-al0: -10deg; --atl-chin0: 0; --atl-ar1: 58deg; --atl-al1: -14deg; --atl-chin1: 0; --atl-ar2: 66deg; --atl-al2: -6deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="shy"] { --atl-ar0: 95deg; --atl-al0: -40deg; --atl-chin0: 0; --atl-ar1: 100deg; --atl-al1: -40deg; --atl-chin1: 0; --atl-ar2: 90deg; --atl-al2: -30deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="determined"] { --atl-ar0: 40deg; --atl-al0: 10deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: 15deg; --atl-chin1: 0; --atl-ar2: 55deg; --atl-al2: -20deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="love"] { --atl-ar0: 115deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 100deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: -60deg; --atl-al2: 20deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="worried"] { --atl-ar0: 120deg; --atl-al0: -75deg; --atl-chin0: 0; --atl-ar1: 110deg; --atl-al1: -65deg; --atl-chin1: 0; --atl-ar2: 100deg; --atl-al2: -20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="happy"] { --atl-ar0: -105deg; --atl-al0: 25deg; --atl-chin0: 0; --atl-ar1: -150deg; --atl-al1: 20deg; --atl-chin1: 0; --atl-ar2: -80deg; --atl-al2: 30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="delighted"] { --atl-ar0: -130deg; --atl-al0: 70deg; --atl-chin0: 0; --atl-ar1: -160deg; --atl-al1: 110deg; --atl-chin1: 0; --atl-ar2: -110deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="laughing"] { --atl-ar0: -110deg; --atl-al0: 30deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 20deg; --atl-chin1: 1; --atl-ar2: -30deg; --atl-al2: -30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="thinking"] { --atl-ar0: 0deg; --atl-al0: -12deg; --atl-chin0: 1; --atl-ar1: 10deg; --atl-al1: -50deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -24deg; --atl-chin2: 1; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="curious"] { --atl-ar0: -115deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 30deg; --atl-chin1: 0; --atl-ar2: -130deg; --atl-al2: 10deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="surprised"] { --atl-ar0: -160deg; --atl-al0: 110deg; --atl-chin0: 0; --atl-ar1: -140deg; --atl-al1: 90deg; --atl-chin1: 0; --atl-ar2: -180deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 145deg; --atl-chin0: 0; --atl-ar1: -153deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: -70deg; --atl-al2: 145deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: -6deg; --atl-al0: -6deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: -30deg; --atl-chin1: 0; --atl-ar2: 140deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sad"] { --atl-ar0: -15deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: -20deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: -10deg; --atl-al2: -4deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="proud"] { --atl-ar0: -28deg; --atl-al0: -10deg; --atl-chin0: 0; --atl-ar1: -32deg; --atl-al1: -14deg; --atl-chin1: 0; --atl-ar2: -24deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="shy"] { --atl-ar0: 5deg; --atl-al0: -40deg; --atl-chin0: 0; --atl-ar1: 10deg; --atl-al1: -40deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="determined"] { --atl-ar0: -50deg; --atl-al0: 10deg; --atl-chin0: 0; --atl-ar1: -70deg; --atl-al1: 15deg; --atl-chin1: 0; --atl-ar2: -35deg; --atl-al2: -20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="love"] { --atl-ar0: 25deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 10deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: -150deg; --atl-al2: 20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="worried"] { --atl-ar0: 30deg; --atl-al0: -75deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: -65deg; --atl-chin1: 0; --atl-ar2: 10deg; --atl-al2: -20deg; --atl-chin2: 0; }
 
 /* The companion turns limbs about its own generic joints; Atlas's are
    higher and narrower, so they are named here, one step more specific. */
@@ -7754,7 +7755,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* Her right arm rests held out level, so his wave's -78 to -102 degrees
    swung her hand across her own face (atlasarms.js); hers waves beside her
    head, from level to about 65 degrees up. */
-#nm-buddy.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-40deg); }
+#nm-buddy.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-130deg); }
 .nm-atlas .nmb-hold { opacity: 0; }
 /* **A silhouette per pose** (the owner's sprite grid; the coordinator:
    "the poses are nearly one pose"). The companion's `data-pose` and its
@@ -7779,7 +7780,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-13deg); }
 /* Dozing on the perch, her held-out arm comes down to her side instead of
    lying out along the rings (69% of it was, measured). */
-#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(84deg); }
+#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(-6deg); }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .nmp-coil { opacity: 1; }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
@@ -7787,7 +7788,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-28deg); }
 /* Floating, her held-out arm drifts down and out like his, not up over
    the rings (-28deg lifted a level arm to 38 degrees up). */
-#nm-buddy[data-pose="float"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(40deg); }
+#nm-buddy[data-pose="float"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-50deg); }
 #nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
 #nm-buddy[data-pose="hang"] .nm-atlas { --atl-sy: 1.05; --atl-sx: 0.97; }
 #nm-buddy.nmb-act-startle .nmb-hold { opacity: 1; }
@@ -7903,6 +7904,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    `earGlow`): pale feather lines inside, a soft glow behind. */
 .nm-atlas .atl-ear-feather { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.6; }
 .nm-atlas .atl-ear-glow { fill: var(--atl-cloudb); opacity: 0.7; }
+/* INBOX 565: her tail feathered as her wings are, the wings' fine pale
+   lines running along it, fainter, and their glow at its tip. */
+.nm-atlas .atl-tail-filament { fill: none; stroke: white; stroke-width: 0.35; stroke-linecap: round; opacity: 0.32; }
+.nm-atlas .atl-tail-tip-glow { opacity: 0.55; }
 /* Round 9: the feminine icon's hair (`tinyHair`), a violet lilac deeper
    than her skin so the face reads as framed by hair at 16 to 24px. */
 .nm-atlas .atl-tiny-lock { fill: color-mix(in oklab, var(--atl-dp) 70%, var(--atl-violet)); opacity: 1; }
@@ -7959,18 +7964,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-dp: #a49fdd;
   --atl-rim: #7d74c2;
 }
-/* **Her arms read when she is small.** At the companion's 64x92 her pale
-   arms over her pale body and hair were lost (atlasmoodgrid.js: the
-   gestures of every mood read on him and not on her). A fine line of her
-   rim colour round each arm, about 3.3:1 against her skin, draws the
-   gesture; the shoulder joins (`atl-shoulders`) are painted over it, so it
-   stops where the arm leaves the body. */
-.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {
-  stroke: var(--atl-rim);
-  stroke-width: 0.5;
-  stroke-opacity: 0.75;
-  stroke-linejoin: round;
-}
+/* Her arms carry no line of their own (INBOX 567, the owner: "the arm on
+   the right of the female atlas still looks disconnected"): the fine rim
+   line round each arm, added so her gestures read at the companion's 1x,
+   drew the step where the arm met her body. The arm takes the body's own
+   paint and rim shade, and the shoulder joins (`atl-shoulders`) are
+   painted over its root. */
 /* Round 9: the feminine chest's form in light alone (atlas.js,
    `chestLight`), no stroke: a soft glow over each side and a softer shade
    under it, both radial fades to nothing. */
@@ -7983,19 +7982,21 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* Round 9: the hair's cap (atlas.js, `atlasHairCap`), fuller than a lock
    so the crown reads as hair, not skin under a veil, and a faint parting. */
 .nm-atlas .atl-hair-cap .atl-cap-fill { opacity: 0.94; }
-/* The feminine front locks lie on the cap in its own paint (atlas.js,
-   `frontLocks`), a touch lighter so each lock's curve reads. */
-.nm-atlas .atl-front-lock { opacity: 0.9; }
-.nm-atlas .atl-wisps .atl-front-lock + .atl-hair-neb { opacity: 0.3; }
-.nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
-/* The feminine fringe (atlas.js, `cap`, `fringeShade`, `browStar`; INBOX
-   480, "it still looks like she's wearing a night cap"): the hair parts off
-   centre and sweeps across the brow in three soft locks with the forehead
-   showing between them; a fine shade up each notch parts the locks, and a
-   small star is pinned at the parting. It replaces a smooth dome with a lit
-   (then shaded) arc for a hairline and parallel strand lines over it.
-   Static: it adds nothing to the motion budget. */
-.nm-atlas .atl-fringe-shade { fill: none; stroke: var(--atl-rim); stroke-width: 0.45; stroke-linecap: round; opacity: 0.32; }
+/* The feminine fringe in strands (atlas.js, `fringe`; INBOX 550, where
+   three wedges cut in the cap's edge read as flat and hard): each lock in
+   the cap's paint over its own shadow on the brow, the roots' shade, a
+   highlight in two bands (broad and soft, then narrow and bright inside
+   it), and fine flyaway strands. Static: nothing here animates. */
+.nm-atlas .atl-fringe-shadow { fill: var(--atl-rim); opacity: 0.34; }
+.nm-atlas .atl-fringe-lock { opacity: 0.94; }
+.nm-atlas .atl-fringe-neb { opacity: 0.3; }
+.nm-atlas .atl-fringe-sheen { fill: white; opacity: 0.16; }
+.nm-atlas .atl-fringe-sheen-hi { opacity: 0.42; }
+.nm-atlas .atl-flyaway { fill: none; stroke: var(--atl-hi); stroke-width: 0.3; stroke-linecap: round; opacity: 0.75; }
+/* The mane's lustre (INBOX 550): a highlight band along each of her locks. */
+.nm-atlas .atl-lock-sheen { fill: white; opacity: 0.2; }
+/* INBOX 567: her back hair a shade deeper, under the locks. */
+.nm-atlas .atl-hair-back { fill: var(--atl-rim); opacity: 0.2; }
 .nm-atlas .atl-brow-halo { fill: var(--atl-tip); opacity: 0.6; }
 .nm-atlas .atl-brow-star { opacity: 0.95; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
@@ -8071,7 +8072,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    character"): softer eyes, a size smaller, the upper lid resting a little
    lower so the look is relaxed rather than a wide stare. Individual
    properties, so every mood's own scale and lid still apply over them. */
-.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }
+.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.84; }
+/* INBOX 563: softer eyes in the narrower face, a little smaller and less
+   wide open at rest (`--atl-lid`, the calm face), so they do not stare. */
+.nm-atlas[data-atlas-look="feminine"] .atl-eye { scale: 0.9; }
 .nm-atlas[data-atlas-look="masculine"] .atl-lid { translate: 0 0.8px; }
 .nm-atlas .atl-pupil { transform: translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
@@ -8084,7 +8088,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
-.nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); }
+.nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); }
+/* **A smaller head** (INBOX 563, "the large round heads ... giving fnaf"):
+   wherever the body is drawn (the companion, the large view, the bust),
+   the head, its hair and its ears are 0.76 of their drawn size about the
+   neck. The head marks and the icon crop to the head, so they keep it
+   whole. */
+.nm-atlas:not(.atl-head, .atl-tiny) { --atl-head-k: 0.76; }
 @property --atl-lean { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @property --atl-sx { syntax: "<number>"; inherits: false; initial-value: 1; }
 @property --atl-sy { syntax: "<number>"; inherits: false; initial-value: 1; }
@@ -8131,25 +8141,61 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-flow2 { stop-color: var(--atl-neb-c); stop-opacity: 0.9; }
 .nm-atlas .atl-st-flow3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.9; }
 .nm-atlas .atl-sower-fill { fill: var(--atl-flow); }
-.nm-atlas .atl-sower-inner { fill: var(--atl-neb2-c); opacity: 0.5; }
-.nm-atlas .atl-sower-light { fill: white; opacity: 0.22; }
-.nm-atlas .atl-sower-sparkle { fill: white; opacity: 0.9; }
+/* The dress (atlas.js, `spec.sower`; INBOX 559, the owner of a striped
+   gown with an outlined, scalloped hem: "it looks old and like a circus").
+   No outline: a nebula's clouds in the flow's paint, two broad soft sweeps
+   of light for folds, a rim light on one side, star dust of uneven sizes
+   and two glints, the last third dissolving into light and motes. Low
+   strength throughout; still, it flows on its layer's root. */
+.nm-atlas .atl-dress-neb { fill: var(--atl-bneb); opacity: 0.55; }
+.nm-atlas .atl-dress-sheen { fill: white; opacity: 0.22; }
+.nm-atlas .atl-dress-rim { fill: white; opacity: 0.34; }
+.nm-atlas .atl-dress-star { fill: white; opacity: 0.6; }
+.nm-atlas .atl-dress-glint { fill: white; opacity: 0.9; }
+.nm-atlas .atl-dress-mote { fill: white; opacity: 0.75; }
 /* The body's edge glow carried down the tail (`atl-sower-glow`, the edge
    group under the tail): the torso's `.atl-edge` colour and strength, as a
    fill 1.3 wider than the tail, so 0.65 shows outside it as on the flank. */
 .nm-atlas .atl-sower-glow { fill: var(--atl-glow-c); opacity: 0.26; }
-/* Her astral wisps (atlas.js, `wisps`; INBOX 535): a soft glow of the
-   nebula's light under a brighter core, with a sparkle trail. Fills only.
-   On a light page a near-white core over a lilac glow was barely there
-   (median contrast 1.13 against what is behind it, atlaswisps.js), so the
-   light theme draws them in the nebula's deeper violet; the dark theme
-   keeps the starlight. */
-.nm-atlas .atl-astral-glow { fill: var(--atl-neb-c); opacity: 0.42; }
-.nm-atlas .atl-astral-core { fill: var(--atl-neb2-c); opacity: 0.8; }
-.nm-atlas .atl-astral-sparkle { fill: var(--atl-neb2-c); opacity: 0.95; }
-:root[data-theme="dark"] .nm-atlas .atl-astral-glow { opacity: 0.2; }
-:root[data-theme="dark"] .nm-atlas :is(.atl-astral-core, .atl-astral-sparkle) { fill: white; opacity: 0.5; }
-:root[data-theme="dark"] .nm-atlas .atl-astral-sparkle { opacity: 0.95; }
+/* Her astral wisps (atlas.js, `wisps`; INBOX 535, then 550: "flat lavender
+   bands with dot sparkles"). Each is a tapered ribbon over a glow 2.6 times
+   as wide, both painted along its run by its own gradient (`wisp<i>`: pink
+   nebula into violet into the accent-tinted glow) and faded out at both
+   ends, a lit edge on its outer side, and four-point glints of five sizes.
+   Fills only. On a light page a near-white core over a lilac glow was
+   barely there (median contrast 1.13, atlaswisps.js), so the light theme's
+   stops are the nebula's deeper violet and the dark theme's starlight. */
+.nm-atlas .atl-astral-glow { opacity: 0.3; }
+.nm-atlas .atl-astral-core { opacity: 0.85; }
+.nm-atlas .atl-astral-edge { fill: white; opacity: 0.6; }
+.nm-atlas .atl-st-wisp0 { stop-color: color-mix(in oklab, var(--atl-pink) 40%, var(--atl-neb2-c)); }
+.nm-atlas .atl-st-wisp1 { stop-color: var(--atl-neb2-c); }
+.nm-atlas .atl-st-wisp2 { stop-color: color-mix(in oklab, var(--atl-glow-c) 45%, var(--atl-neb2-c)); }
+:root[data-theme="dark"] .nm-atlas {
+  & .atl-st-wisp0 { stop-color: color-mix(in oklab, var(--atl-pink) 60%, white); }
+  & .atl-st-wisp1 { stop-color: color-mix(in oklab, var(--atl-lilac) 70%, white); }
+  & .atl-st-wisp2 { stop-color: color-mix(in oklab, var(--atl-glow-c) 85%, white); }
+  & .atl-astral-glow { opacity: 0.3; }
+  & .atl-astral-core { opacity: 0.7; }
+  & .atl-astral-edge { opacity: 0.6; }
+}
+/* The ends' fade (`wispends`): the mask's ink, gone by its rim. */
+.nm-atlas .atl-st-ink { stop-color: black; stop-opacity: 1; }
+.nm-atlas .atl-st-ink-mid { stop-color: black; stop-opacity: 0.8; }
+.nm-atlas .atl-st-ink-0 { stop-color: black; stop-opacity: 0; }
+.nm-atlas :is(.atl-wisp-glint, .atl-band-glint) { fill: white; }
+.nm-atlas .atl-glint-halo { fill: var(--atl-tip); opacity: 0.85; }
+/* The glints twinkle (atlas.js, `glint-a`, `glint-b`): an opacity loop on
+   each layer's root, the compositor's, on two clocks so neighbours are out
+   of step; their boxes drift with the wisps'. Still under Reduce motion,
+   the system's reduced motion and Avatar animation Off. */
+.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back { transform-origin: 31px 60px; will-change: rotate; }
+/* The runs of her wisps behind the body (INBOX 554, `wisps-back`): dimmer,
+   the lit edge fainter, so they read as the far side of the sash. */
+.nm-atlas .atl-astral-back { opacity: 0.55; }
+.nm-atlas .atl-astral-back .atl-astral-edge { opacity: 0.3; }
+.nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { will-change: opacity; }
+@keyframes atl-glint-twinkle { 0%, 100% { opacity: 0.4; } 45% { opacity: 1; } 60% { opacity: 0.85; } }
 /* The waist and tail wisps take the tail's pose: each pose's turn of the
    lower layer (above, `.atl-layer-lower`) on their own group, about the same
    point; the pose shapes (`.atl-lower`) reach them by class. */
@@ -8274,6 +8320,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
 }
 /* A slow turn and lift about her middle, the compositor's (a box). */
+@keyframes atl-float {
+  from { translate: 0 0.5px; }
+  to { translate: 0 -0.9px; }
+}
+@keyframes atl-hem-wind {
+  from { rotate: -1.3deg; translate: 0.35px 0; }
+  to { rotate: 1.5deg; translate: -0.5px 0; }
+}
 @keyframes atl-wisp-drift {
   from { rotate: -2.2deg; translate: 0 0.6px; }
   to { rotate: 2deg; translate: 0 -1.2px; }
@@ -8730,6 +8784,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
     /* Her astral wisps drift on their own slow clock (INBOX 535). */
     & .atl-lw-wisps { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
+    & :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back) { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
+    /* INBOX 554 (the owner: "dynamic and organic movement ... like an azur
+       lane character"): her idle in layers on clocks that never line up,
+       breath 3.7s, float 5.3s, wisps 6.8s, the dress's wind 7.1s, sway
+       9.4s, each on a box or a root, the compositor's. The dress trails
+       the body: its wind is a slower swing and a drift to one side, a
+       quarter turn behind. */
+    &.atl-figure-box[data-atlas-look="feminine"] { animation: atl-float 5.3s ease-in-out infinite alternate; }
+    & .atl-lw-lower[data-atlas-look="feminine"] { animation: atl-hem-wind 7.1s ease-in-out -1.8s infinite alternate; }
+    & .atl-layer-body[data-atlas-look="feminine"] { animation-duration: 3.7s; }
+    & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
+    & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
   }
 }
@@ -8763,6 +8829,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
   .atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }
+  :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back), .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { animation: none !important; }
+  /* Her float and the dress's wind (INBOX 554) stop; a mood's body move
+     keeps its slowed loop (above). */
+  .atl-lw-lower[data-atlas-look="feminine"] { animation: none !important; }
+  .nm-live {
+    &.atl-figure-box[data-atlas-look="feminine"]:not([data-atlas-mood="delighted"], [data-atlas-mood="laughing"], [data-atlas-mood="sleepy"], [data-atlas-mood="love"], [data-atlas-mood="confused"]) { animation: none !important; }
+  }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
@@ -8886,10 +8959,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   16%, 48%, 80% { transform: rotate(-78deg); }
   32%, 64% { transform: rotate(-102deg); }
 }
+/* INBOX 568: her right arm hangs at rest, so the wave rises from there to
+   the old wave's angles less a right angle, and settles back. */
 @keyframes atl-buddy-wave-f {
   0%, 100% { transform: rotate(0deg); }
-  16%, 48%, 80% { transform: rotate(-32deg); }
-  32%, 64% { transform: rotate(-56deg); }
+  16%, 48%, 80% { transform: rotate(-122deg); }
+  32%, 64% { transform: rotate(-146deg); }
 }
 @keyframes atl-buddy-scratch {
   0%, 100% { transform: rotate(0deg); }

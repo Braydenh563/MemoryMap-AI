@@ -40644,3 +40644,64 @@ plan's item 6 decided on, and it fits the budget as it is.
      the well is 44px there and its buttons fit inside it. docviewseg.js
      12/12 (1440, 1024, 390; light and dark): 0px overflow, one centre line.
 
+550. **The owner, 2026-10-05, verbatim.** "on the feminine atlas. could you
+     somehow make it more feminine, attractive, cosmic lustrious and better??
+     and improve the whisps as well as the forehead hair as well on the
+     feminine atlas" (screenshots, scratchpad/inbox550-*.png: the ribbon
+     wisps round the body, flat lavender bands with dot sparkles; the fringe
+     close up, flat wedges with hard edges). Placed: the next free Opus.
+     Fixed (2026-10-05), with 554, 555, 556, 559, 563, 564 (in part), 565,
+     567 and 568 (scratchpad/ui-sweeps/atlasluster.js, before against
+     after): the fringe is five tapered locks with round tips drawn with
+     the cap (largest outline turn 25.7 degrees per 0.1 step, the wedges'
+     161.6; 0 of 468 samples on the hair's arc show the page, three moods,
+     four phases); the wisps taper (2.9 across a third along, 0.5 at the
+     ends), fade to alpha 0 to 9 at their ends, wrap behind the body on a
+     layer under it and carry 17 four-point glints in 7 sizes that twinkle
+     on two compositor layers; the lower body keeps the old silhouette as a
+     dress (IoU 0.79 below the hips; 0.76 whole, the hips slimmed on
+     purpose) with no stroke, its last third dissolving into light and
+     motes; head over figure height 0.294 and 0.297 (0.352 and 0.363), the
+     face 1.24 tall over wide (1.13); her hips 13.3 (17.5); her comet tail
+     1.23 times as long with the wings' filaments and glow; her hair four
+     broad locks with curled round tips (turn 14.2), no page between them;
+     both looks' arms hang 13.4 degrees off vertical with an elbow of 165
+     to 167 and a wrist 0.52 to 0.54 of the shoulder; her idle adds a
+     float (5.3s), the dress's wind (7.1s) and a 3.7s breath, 0 of these
+     loops under reduced motion or Off; frame cost, interleaved before and
+     after: the figure 246 ms against 306 per 8s, the 208px mark 6,449
+     against 6,626 (both within noise). The masculine figure differs from
+     before only in its head, torso and arms.
+
+555. **The owner, 2026-10-05, verbatim.** "also there's a wierd gap on the
+     fringe in the top right corner" (screenshot,
+     scratchpad/inbox555-fringe-gap.png: a jagged notch between two fringe
+     locks at the top right of the hair). Placed: with 550, the Atlas agent.
+559. **The owner, 2026-10-05, verbatim.** "i dont like it, it looks old and
+     like a circus" (scratchpad/inbox559-gown.png: the lower body as drawn,
+     vertical pale stripes like a tent, a wavy outlined hem, dot stars in a
+     line). Placed: with 550, the Atlas agent.
+     Then (verbatim): "I prefered closer to the old tooth look, maybe work
+     from that then implement the othe rthings u suggested. maybe as a dress
+     or smth??" Direction: the original silhouette kept, refined into a
+     dress with a soft trailing hem, then the modern treatment (no outline,
+     the hem dissolving into light, soft sheen, nebula, rim light).
+563. **The owner, 2026-10-05, verbatim.** "I feel like the hip makes it look
+     fat. make it like a girl who is 19-21. also I feel like the large round
+     heads on both the atlas avatars are giving fnaf and a little scary"
+     (screenshots: the gown's wide hip; a reference, "Female Galaxy Seed
+     Sower": slender ethereal figure, small oval head, almond eyes, hair
+     streaming like ribbons, a gown tapering into a curled galaxy tail, star
+     particles from the hand). Placed: with 550, the Atlas agent; the head
+     change applies to both looks.
+565. **The owner, 2026-10-05, verbatim.** "feel free to make the feminine
+     tail a little longer and flowy, maybe a subtle texture to match the
+     angel ears??" Placed: with 550, the Atlas agent.
+567. **The owner, 2026-10-05, verbatim.** "the arm on the rigght of the
+     female atlas still looks disconnected. also can the female long hair be
+     better redesigned to be more attractive and beautiful and flowy and
+     stuff?? the hair right now makes her look a little like a punk"
+     Placed: with 550, the Atlas agent.
+
+
+     Fixed (2026-10-05, Atlas merge): the fringe is drawn inside the hair cap's group; 0 of 468 hairline samples show the page (three moods, four phases).

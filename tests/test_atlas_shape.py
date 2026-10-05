@@ -26,14 +26,14 @@ def test_the_feminine_look_has_no_legs_and_one_spectral_tail():
     assert "legs: false," in feminine
     # INBOX 535 (the Galaxy Seed Sower): no gown, no ribbons, one tail.
     assert 'lowerTaper: "sower",' in feminine and "skirt" not in feminine
-    assert feminine.count("seg: [[") == 1 + 7 + 6 + 3  # the tail, the mane's locks, the head's locks, the astral wisps
+    assert feminine.count("seg: [[") == 1 + 6 + 6 + 3 + 5  # the tail, the mane's locks (INBOX 567: four, a framing strand, the mass), the head's locks, the astral wisps, the fringe's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
     # The tail is the hips down to their widest, then eases to a round end.
     assert "tip + (w - tip) * ((1 - t) / (1 - tHip)) ** 1.15" in ATLAS
-    assert "fill: atlasStem(seg, width, { samples: 18, cap: true })," in ATLAS
+    assert "fill: atlasStem(seg, width, { samples: 18, round: true, tip: hemTip })," in ATLAS
 
 
 def test_the_skirt_sways_on_its_layer_root_only():
@@ -78,11 +78,11 @@ def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_tog
     assert "ATLAS_BAND_FRONT" not in ATLAS
     assert "const ATLAS_BAND = atlasBandPaths();" in ATLAS
     assert 'const names = ["neb", "back",' in ATLAS
-    assert '"front", "neb-front", ...(spec.wisps ? ["wisps"] : []), "fx-1"' in ATLAS
-    assert 'atlasBand(layers["neb-front"].rig, id, "front");' in ATLAS
+    assert '"front", "neb-front", ...(spec.wisps ? ["wisps", "glint-a", "glint-b"] : []), "fx-1"' in ATLAS
+    assert 'atlasBand(layers["neb-front"].rig, id, "front", look);' in ATLAS
     # The single drawing puts the near half after the rings' near halves.
     single = ATLAS[ATLAS.index("function atlasDraw(size") :]
-    assert single.index("atlasRing(rig, id, ring, k, true)") < single.index('atlasBand(rig, id, "front")')
+    assert single.index("atlasRing(rig, id, ring, k, true)") < single.index('atlasBand(rig, id, "front", look)')
     # Both halves on the one drift, so the ribbon never parts at a seam.
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
     assert drift and all(".atl-layer-neb, .atl-layer-neb-front" in rule for rule in drift)
@@ -205,7 +205,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
     assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
-    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front", "wisps"]' in ATLAS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front", "wisps", "wisps-back", "glint-a", "glint-b"]' in ATLAS
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
@@ -248,7 +248,7 @@ def test_the_feminine_chest_is_a_subtle_contour_in_light_not_lines():
     # wearing cup bikinis ... make it attractive and smooth"): a continuous
     # swell in the outline and radial light, never a stroke.
     feminine = _look("feminine")
-    assert "C22.4 38.8 26.2 44.4 26.2 51" in feminine and "chestLight:" in feminine
+    assert "C23.4 38.8 26.6 44.6 26.9 51" in feminine and "chestLight:" in feminine
     assert "bust:" not in feminine and "atl-chest {" not in CSS and "atl-bust" not in CSS
     assert "chestLight" not in _look("masculine")
     torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
@@ -439,7 +439,7 @@ def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale:' in CSS
     # Per look: sprawled with an arm behind the head, or curled with hands
     # under the cheek and the skirt drawn up.
-    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }' in CSS
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-172deg); }' in CSS
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l' in CSS
     assert '#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }' in CSS
     # Variant 1 lies the other way round; the Zs and the rings stay upright.
@@ -457,7 +457,7 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
     arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
     assert arms, "the arm bends: two segments"
-    assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }' in CSS
+    assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.84; }' in CSS
     assert '.atl-lw-body[data-atlas-look="masculine"] { animation: atl-idle-sway' in CSS
     body = _keyframes("atl-idle-sway").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}
@@ -483,35 +483,42 @@ def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
 
 def test_the_feminine_hair_is_a_side_swept_fringe_not_a_cap():
     # Round 9 swept the strands back off the brow after "school girl vibes"
-    # (a centre parting and two rounded curtains). INBOX 480 took away the
-    # lit hairline and circlet that read as a headband, and then the owner
-    # of the smooth dome left: "it still looks like she's wearing a night cap
-    # :(". The cap's lower edge is now a fringe: parted off centre and swept
-    # across the brow in three locks of different lengths, each ending in a
-    # point, with the forehead showing in the notches between them. No
-    # parallel strand lines, no arc for a hairline, and the star is small
-    # and off centre, at the parting.
+    # (a centre parting and two rounded curtains); INBOX 480, of a smooth
+    # dome: "it still looks like she's wearing a night cap :(", answered with
+    # three wedges cut in the cap's edge, parted off centre. INBOX 550, the
+    # owner: "improve ... the forehead hair"; atlasluster.js measured the
+    # wedges' tips turning 161.6 degrees in one 0.1 step. Now the cap stops
+    # at a smooth hairline and five locks lie over it, parted off centre and
+    # swept across the brow: each tapered from a broad root to a round tip
+    # half a unit across, over a shadow, with a highlight in two bands and
+    # fine flyaways. INBOX 555 ("a wierd gap on the fringe in the top right
+    # corner"): the fringe is drawn in the cap's own group, so nothing that
+    # lifts the crest or turns the head can part the two.
     feminine = _look("feminine")
-    cap = re.search(r'cap: "([^"]+)"', feminine).group(1)
-    nums = [float(v) for v in re.findall(r"-?[0-9.]+", cap)]
-    ys = nums[1::2]
-    # The lower edge dips and rises: lock tips at 17 and more, notches back
-    # up to 15 and less between them (a cap's arc never rises again).
-    edge = ys[ys.index(20.6) + 1:]
-    dips = [y for y in edge if y >= 17]
-    notches = [y for y in edge if y <= 15]
-    assert len(dips) >= 3 and len(notches) >= 3, edge
-    for gone in ("frontLocks:", "hairline:", "atl-strand-light", "atl-hairline-shade"):
-        assert gone not in feminine and gone not in CSS, gone
-    assert "fringeShade: \"M" in feminine and '"atl-fringe-shade"' in ATLAS
+    block = feminine[feminine.index("    fringe: [") : feminine.index("    flyaways:")]
+    locks = re.findall(r"\{ seg: \[\[([^\]]+)\][^}]*w: \[([0-9.]+), ([0-9.]+)\] \}", block)
+    assert len(locks) == 5, block
+    for start, root, tip in locks:
+        x = float(start.split(",")[0])
+        assert x >= 36, "every lock leaves the off-centre parting"
+        assert float(tip) <= 0.5 and float(tip) / float(root) <= 0.2, (root, tip)
+    ends = [float(v) for v in re.findall(r"-?[0-9.]+", block)]
+    assert min(ends) < 20, "the longest lock sweeps across the brow past the temple"
+    assert "fill: atlasStem(seg, width, { samples: 12, round: true })" in ATLAS
+    for cls in ("atl-fringe-shadow", "atl-fringe-lock", "atl-fringe-sheen", "atl-flyaway"):
+        assert f"atl-{cls[4:]}" in ATLAS and f".nm-atlas .{cls} " in CSS, cls
+    cap = ATLAS[ATLAS.index("function atlasHairCap(") : ATLAS.index("function atlasEars(")]
+    assert "spec.fringePaths" in cap and '"atl-skin atl-lock atl-fringe-lock"' in cap
+    for gone in ("fringeShade", "atl-fringe-shade", "frontLocks:", "hairline:", "atl-strand-light", "atl-hairline-shade"):
+        assert gone not in ATLAS and gone not in CSS, gone
     x, y, k = (float(v) for v in re.search(r"browStar: \[([^\]]+)\]", feminine).group(1).split(","))
     assert abs(x - 31) >= 6 and k <= 1.2, "a small star off centre, an ornament at the parting, not a badge"
     for gone in ("rootDust:", "circlet:", "spec.rootDust", "spec.circlet"):
         assert gone not in ATLAS, gone
-    # Static: the brow adds nothing to the motion budget.
-    assert not re.search(r"atl-(brow-star|brow-halo|fringe-shade)[^{]*\{[^}]*animation", CSS)
+    # Static: the fringe adds nothing to the motion budget.
+    assert not re.search(r"atl-(brow-star|brow-halo|fringe-[a-z]+|flyaway)[^{]*\{[^}]*animation", CSS)
     # The masculine look keeps its own crest.
-    assert "fringeShade" not in _look("masculine") and "browStar" not in _look("masculine")
+    assert "fringe:" not in _look("masculine") and "browStar" not in _look("masculine")
 
 
 def test_the_masculine_waist_has_no_seam():
@@ -692,13 +699,16 @@ def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
     # scratchpad/ui-sweeps/atlasarms.js (MOODS=sleepy, and POSE=lie, sit):
     # the eye-rub turned the arm out over the rings, and her held-out arm
     # stayed out along them when dozing, sitting or lying.
-    for look, ar2 in (("masculine", "150deg"), ("feminine", "-84deg")):
+    # INBOX 568: her right arm hangs at rest, so the eye-rub turns it up and
+    # across the body to the face from there (atlasarms.js: the hand at 24.2,
+    # 25.6, 3% on the rings).
+    for look, ar2 in (("masculine", "150deg"), ("feminine", "140deg")):
         rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="sleepy"\] \{{([^}}]+)\}}', CSS).group(1)
         assert f"--atl-ar2: {ar2}" in rule, (look, "the eye-rub crosses the body to the face")
         angles = dict(re.findall(r"--atl-(a[rl]\d): (-?\d+)deg", rule))
         assert abs(int(angles["al0"])) <= 10 and abs(int(angles["al2"])) <= 10, (look, "the left arm hangs")
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }' in CSS
-    assert '#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(84deg); }' in CSS
+    assert '#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(-6deg); }' in CSS
 
 
 def test_the_props_hang_from_each_look_s_own_hand():
@@ -706,21 +716,25 @@ def test_the_props_hang_from_each_look_s_own_hand():
     # old arm's hand: measured by scratchpad/ui-sweeps/atlasprop.js, they sat
     # 2.1 to 3.9 units off the masculine mitten and about 18 off her held-out
     # hand. Each look names its grip and the props move there.
-    assert "propHand: [42.2, 60.4]" in _look("masculine")
-    assert "propHand: [51.2, 39.6]" in _look("feminine")
+    # INBOX 568: both hang their arms at rest, and the grips moved with the hands.
+    assert "propHand: [39.4, 59.6]" in _look("masculine")
+    assert "propHand: [38, 59]" in _look("feminine")
     assert "atlasHandProps(arms.r, arms.l, look);" in ATLAS
     assert "const grip = (ATLAS_LOOKS[look] || {}).propHand || hand;" in ATLAS
 
 
-def test_a_head_scratch_reaches_the_head_and_her_arms_are_outlined():
+def test_a_head_scratch_reaches_the_head_and_her_arms_carry_no_line():
     # atlasarms.js: "a scratch at the head" at 103deg and 108deg left the hand
     # out at shoulder height over the rings; a left arm's positive angle turns
     # it out, so reaching the head takes 145 to 163 degrees.
     for look, al0 in (("masculine", "163deg"), ("feminine", "145deg")):
         rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="confused"\] \{{([^}}]+)\}}', CSS).group(1)
         assert f"--atl-al0: {al0}" in rule, look
-    # Her pale arms were lost at the companion's size (atlasmoodgrid.js).
-    assert '.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {' in CSS
+    # Her pale arms were lost at the companion's size (atlasmoodgrid.js), and
+    # a fine rim line round each was added; INBOX 567 ("the arm on the right
+    # of the female atlas still looks disconnected") took it away again: it
+    # drew the step where the arm met the body. No line round her arms.
+    assert '.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {' not in CSS
 
 
 def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():
@@ -825,7 +839,11 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
     ys = [y for _, y, _ in built]
     assert min(xs) < 5 and ys[-1] < max(ys) - 4, "a big sweep to one side that lifts at its end"
     assert built[-1][2] >= 4.0, "the tail's end is round, radius 2 or more"
-    assert 'tail.setAttribute("mask", `url(#${id}-tailtip)`);' in ATLAS
+    # INBOX 559: the end is one soft lobe (`hemTip`), not `cap`'s arc, which
+    # bulges inward (two horns: "too sharp like a tooth"), and the last third
+    # dissolves into light under a round fade about the end.
+    assert "fill: atlasStem(seg, width, { samples: 18, round: true, tip: hemTip })," in ATLAS
+    assert 'tail.setAttribute("mask", `url(#${id}-hemfade)`);' in ATLAS
     # One outline from the waist: the tail is as wide as the torso's own
     # flank at each height down to the hips (no corner where they meet, no
     # box beside the waist), within 0.15 of a unit (this test's own sampling
@@ -848,13 +866,28 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
             assert bend > 0.15, ("a straight run", p0, p1)
         p0 = p1
     # The second ribbon tail (the comet tail, from the other hip) is never
-    # under 2 across, and is rooted at the hip, not the middle.
-    assert min(got["feminineTailW"]) >= 2.0
-    assert "tail: [[36.4, 60," in feminine
+    # under 2 across until its last tenth, where it thins to a fine round
+    # tip (INBOX 565), and is rooted at the hip, not the middle.
+    assert min(got["feminineTailW"][:46]) >= 2.0
+    assert 0.5 <= got["feminineTailW"][-1] <= 1.0
+    assert "tail: [[36.4, 60," in feminine and feminine.count("], [") >= 3
+    # INBOX 565: 23% longer (a fourth curve curling in), feathered
+    # like the wings (their pale lines along it, their glow at its tip).
+    tail = re.search(r"    tail: (\[\[.*\]\]),\n", feminine).group(1)
+    assert tail.count("[") - 1 == 4, "four curves"
+    assert "tailRound: true," in feminine and "tailFilaments: [" in feminine
+    assert '"atl-ear-glow atl-tail-tip-glow"' in ATLAS
+    rule = re.search(r"\.nm-atlas \.atl-tail-filament \{([^}]*)\}", CSS).group(1)
+    assert "animation" not in rule and "opacity: 0.32" in rule
     # Fills only along both tails: no stroke anywhere in the tail's paint.
-    for cls in ("atl-sower-fill", "atl-sower-inner", "atl-sower-light", "atl-sower-sparkle"):
+    for cls in ("atl-sower-fill", "atl-dress-neb", "atl-dress-sheen", "atl-dress-rim", "atl-dress-star", "atl-dress-mote"):
         rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)
         assert rule and "stroke" not in rule.group(1), cls
+    # INBOX 559, the owner of a striped gown with an outlined, scalloped
+    # hem: "it looks old and like a circus". No stripes down its length, no
+    # outline round its end, no row of evenly spaced dots.
+    for gone in ("atl-sower-inner", "atl-sower-light", "atl-sower-sparkle", "atl-hem-edge", "atl-hem-glow", "sparkles: [[0.3, 0.32]"):
+        assert gone not in ATLAS and gone not in CSS, gone
     # The masculine look keeps its own torso and trail.
     assert "sower" not in _look("masculine") and "wisps:" not in _look("masculine")
 
@@ -867,7 +900,7 @@ def test_the_feminine_look_has_astral_wisps_that_drift_on_a_box():
     # on a box, never on an svg root), still under reduced motion.
     feminine = _look("feminine")
     assert feminine.count("sparkles: [0.") == 3
-    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-sparkle"):
+    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-edge"):
         rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)
         assert rule and "stroke" not in rule.group(1), cls
     assert "& .atl-lw-wisps { animation: atl-wisp-drift" in CSS
@@ -892,3 +925,45 @@ def test_one_aura_centred_on_the_figure_and_no_stray_glows():
     for k in "012":
         assert f".atl-st-aura{k} {{ stop-color: var(--atl-aura-c);" in CSS
     assert "--atl-aura-c: color-mix(in oklab, var(--atl-neb-c) 55%" in CSS
+
+
+def test_a_slender_figure_and_a_smaller_oval_head():
+    # INBOX 563, the owner: "I feel like the hip makes it look fat. make it
+    # like a girl who is 19-21. also I feel like the large round heads on
+    # both the atlas avatars are giving fnaf and a little scary". Her hips
+    # 13.6 across (17.2 before); the head an oval at least 1.2 times as tall
+    # as wide (1.13 before), tapering to the chin, drawn at 0.76 wherever
+    # the body is (the head marks keep it whole); the eyes a little smaller
+    # and softer at rest. atlasluster.js measures it as drawn.
+    feminine = _look("feminine")
+    torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
+    width = lambda y: _cubic_x_at_y(torso, y, "r") - _cubic_x_at_y(torso, y, "l")  # noqa: E731
+    hips = max(width(y / 10) for y in range(550, 620))
+    assert hips <= 14.0, hips
+    head = re.search(r'const ATLAS_HEAD_PATH = "([^"]+)"', ATLAS).group(1)
+    nums = [float(v) for v in re.findall(r"-?[0-9.]+", head)]
+    xs, ys = nums[0::2], nums[1::2]
+    assert (max(ys) - min(ys)) / (max(xs) - min(xs)) >= 1.2
+    assert ".nm-atlas:not(.atl-head, .atl-tiny) { --atl-head-k: 0.76; }" in CSS
+    assert CSS.count("scale(calc(var(--atl-tune-head) * var(--atl-head-k)))") == 2, "the head and the lids' layer scale together"
+
+
+def test_both_looks_hang_their_arms_at_rest_with_a_soft_elbow():
+    # INBOX 564, 567, 568, the owner: "the arms still look separate and they
+    # stick straight out of the body and dont hang naturally. it needs to be
+    # organic". At rest the upper arm is 15 degrees or less off vertical,
+    # the elbow bends to 160 to 170 degrees and the arm tapers (atlasluster.js
+    # measures the drawn arm: 13.4, 166.6 and 165.2, wrist over shoulder 0.54
+    # and 0.52). Gestures turn the arm up from there.
+    import math
+
+    for look in ("masculine", "feminine"):
+        spec = _look(look)
+        for key in ("arm", "armL"):
+            segs = re.search(rf"    {key}: (\[\[.*\]\]),\n", spec).group(1)
+            nums = [float(v) for v in re.findall(r"-?[0-9.]+", segs)]
+            assert len(nums) == 16, (look, key, "an upper arm and a forearm")
+            p0, p1, p2 = nums[0:2], nums[6:8], nums[14:16]
+            ang = lambda a, b: math.degrees(math.atan2(b[0] - a[0], b[1] - a[1]))  # noqa: E731
+            assert abs(ang(p0, p1)) <= 15, (look, key, ang(p0, p1))
+            assert 160 <= 180 - abs(ang(p0, p1) - ang(p1, p2)) <= 170, (look, key)

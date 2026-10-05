@@ -46,13 +46,6 @@ with its owner named in the entry.
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
 
-550. **The owner, 2026-10-05, verbatim.** "on the feminine atlas. could you
-     somehow make it more feminine, attractive, cosmic lustrious and better??
-     and improve the whisps as well as the forehead hair as well on the
-     feminine atlas" (screenshots, scratchpad/inbox550-*.png: the ribbon
-     wisps round the body, flat lavender bands with dot sparkles; the fringe
-     close up, flat wedges with hard edges). Placed: the next free Opus.
-
 553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
      (a) Entity merge gets Undo: snapshot both entities and their mentions
      before a merge, and Undo in the toast splits them back exactly.
@@ -72,34 +65,12 @@ with its owner named in the entry.
      lower body still looks too sharp like a tooth. the whole avatar needs to
      ahve dynamic and organic movement. think of it like an azur lane
      character" Placed: with 550, the Atlas agent.
-
-555. **The owner, 2026-10-05, verbatim.** "also there's a wierd gap on the
-     fringe in the top right corner" (screenshot,
-     scratchpad/inbox555-fringe-gap.png: a jagged notch between two fringe
-     locks at the top right of the hair). Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the wisps wrap behind the body and the hem is soft; the layered lifelike motion is the follow-up agent's, with 564.
 
 556. **The owner, 2026-10-05, verbatim.** "and a bit more texture can be
      added to the lower body as well. make it celestial and majestic and
      magical and attractive and flowy" Placed: with 550, the Atlas agent.
-
-559. **The owner, 2026-10-05, verbatim.** "i dont like it, it looks old and
-     like a circus" (scratchpad/inbox559-gown.png: the lower body as drawn,
-     vertical pale stripes like a tent, a wavy outlined hem, dot stars in a
-     line). Placed: with 550, the Atlas agent.
-     Then (verbatim): "I prefered closer to the old tooth look, maybe work
-     from that then implement the othe rthings u suggested. maybe as a dress
-     or smth??" Direction: the original silhouette kept, refined into a
-     dress with a soft trailing hem, then the modern treatment (no outline,
-     the hem dissolving into light, soft sheen, nebula, rim light).
-
-563. **The owner, 2026-10-05, verbatim.** "I feel like the hip makes it look
-     fat. make it like a girl who is 19-21. also I feel like the large round
-     heads on both the atlas avatars are giving fnaf and a little scary"
-     (screenshots: the gown's wide hip; a reference, "Female Galaxy Seed
-     Sower": slender ethereal figure, small oval head, almond eyes, hair
-     streaming like ribbons, a gown tapering into a curled galaxy tail, star
-     particles from the hand). Placed: with 550, the Atlas agent; the head
-     change applies to both looks.
+     Partly done (2026-10-05): the gown's nebula, sheen and glowing hem; the flowing motion is with 564.
 
 564. **The owner, 2026-10-05, verbatim.** "can you fix or redesign the male
      main body on the atlas avatar instead of just being an oval?? also fix
@@ -109,22 +80,13 @@ with its owner named in the entry.
      with 550, the Atlas agent (masculine torso, jointed arms from the
      shoulder line, joint-angle blends with follow-through, lifelike idle).
      Then (verbatim): "the arms for both the male and female atlas".
-
-565. **The owner, 2026-10-05, verbatim.** "feel free to make the feminine
-     tail a little longer and flowy, maybe a subtle texture to match the
-     angel ears??" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): his V-taper torso and both looks' hanging arms (upper arm 13.4 degrees off vertical, elbow 166 and 165, wrist 0.54 and 0.52 of shoulder width). Open: joint-angle blends and IK in avatars.js, counter-phase swing, head lag, his cloak, the travelling hair and tail motion. The follow-up Atlas agent.
 
 566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
      cooked and needs a redesign" (screenshot: the empty board's help card,
      the Move around column's key pills clipped at the right, long labels
      printed over their pills, the description cut off). Placed: the
      whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
-
-567. **The owner, 2026-10-05, verbatim.** "the arm on the rigght of the
-     female atlas still looks disconnected. also can the female long hair be
-     better redesigned to be more attractive and beautiful and flowy and
-     stuff?? the hair right now makes her look a little like a punk"
-     Placed: with 550, the Atlas agent.
 
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
@@ -153,7 +115,6 @@ with its owner named in the entry.
      70 to 160px) meeting a precision trackpad's momentum, which headless
      does not emulate, and the windowed list's page load at the end. Next:
      the owner's tab and window size, then a real-device trace.
-
 
 434. **The owner, 2026-10-03, verbatim.** "Can you make sure everything in
      the frontend, backend, function, utility and process for how the user
@@ -366,6 +327,4 @@ with its owner named in the entry.
   docks as one bar, timeline redesign, responsive design, em-dashes,
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
-
-
 

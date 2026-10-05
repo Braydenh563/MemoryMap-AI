@@ -40,10 +40,14 @@ def test_the_waist_and_tail_wisps_take_the_tail_s_pose():
 
 
 def test_the_wisps_stand_out_on_a_light_page_and_keep_their_starlight_in_the_dark():
-    assert "white" not in _rule(".nm-atlas .atl-astral-core")
-    assert "white" not in _rule(".nm-atlas .atl-astral-sparkle")
-    assert "fill: white" in _rule(':root[data-theme="dark"] .nm-atlas :is(.atl-astral-core, .atl-astral-sparkle)')
-    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-sparkle"):
+    # INBOX 550: each wisp is painted along its run by its own gradient
+    # (`wisp<i>`), so the theme's difference is in the stops: the nebula's
+    # deeper violet on a light page, starlight mixed with white in the dark.
+    for k in "012":
+        assert "white" not in _rule(f".nm-atlas .atl-st-wisp{k}"), k
+        assert re.search(r"& \.atl-st-wisp" + k + r" \{ stop-color: color-mix\(.*white\); \}", CSS), k
+    assert "fill: paint" in ATLAS and "url(#${id}-wisp${i})" in ATLAS
+    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-edge"):
         assert "stroke" not in _rule(f".nm-atlas .{cls}"), cls
 
 

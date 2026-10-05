@@ -12975,6 +12975,26 @@ header#top-bar {
   .tab-label {
     display: none;
   }
+
+  /* **Below 360 the phone header's air gives, not its buttons.** The six targets
+     are 44px each (264px) and a 320 window leaves 291 after the bar's side
+     padding, with the space switcher wider than a square and three 10px gaps
+     and the clusters' own: Large text with Spacious density needed 341px.
+     The side padding, the gaps and the switcher's own padding are what a
+     density multiplies, so they step down a notch here; a target never does. */
+  header#top-bar {
+    --header-pad-x: var(--space-3);
+    gap: var(--space-1);
+  }
+
+  #top-bar .space-switcher-btn.ghost {
+    padding-inline: var(--space-3);
+  }
+
+  #top-bar .header-controls,
+  #top-bar .header-cluster {
+    gap: 0;
+  }
 }
 
 @media (min-width: 360px) and (max-width: 479.98px) {

@@ -4381,7 +4381,7 @@ button.is-on {
    *under* it was the same pill in a card, so two levels of navigation read as
    one. A second level is text on the page: no box, no fill, a hairline under
    the strip and a 2px accent line under the chosen tab (Linear, GitHub,
-   Material's secondary tabs). Notes' "Your notes / Capture / Write with Atlas /
+   Material's secondary tabs). Notes' "Your notes / Capture / Writing room /
    Ask", Library's "All ... Contents" and the document sidebar's "Documents /
    Outline" are all this one recipe: one height, one gap, one padding, **no
    icons** (Library never had them, the labels are clear, and an icon on one

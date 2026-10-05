@@ -93,7 +93,7 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
   spelling and grammar checks that run on your computer, version history,
   focus mode, and code files with line numbers. A document reopens where you
   left it.
-- Write with Atlas turns rough thoughts into a proper note, or a pasted block
+- The Writing room turns rough thoughts into a proper note, or a pasted block
   into several linked notes, before anything is saved.
 - Export a document as Markdown, HTML, PDF or Word (Word is an optional
   package), and your notes as JSON, CSV or Markdown.

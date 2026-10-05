@@ -718,6 +718,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
 ### Changed
 
+- Notes: the "Write with Atlas" sub-tab is now the Writing room, a name that still fits with no AI model set up; its Settings, Models row, the help, the Guide and the tour say the same, and asking the Guide about "write with atlas" still finds it (INBOX 648).
 - Graph: the map's sizes (how central each note is) are worked out from the links' plain columns rather than by loading every link in full, so the first open of the map after a change at 5,000 notes went from about 1.2 s to about 0.7 s (GRAPH_PLAN).
 - Graph: the first open of the map after a change is faster at notebook scale; the map's data was being passed through a generic converter that walked every value only to hand it back unchanged. At 5,000 notes the first build after a write went from about 1.5 s to about 1.2 s, and the next one from about 0.7 to 0.5 s (GRAPH_PLAN).
 - Mind maps: a topic's menu (and the command palette) has Summarise this branch. A few sentences about everything under the topic go into its note, open for you to read, change or keep; with no model running the branch is said plainly from its own topics, and says so.

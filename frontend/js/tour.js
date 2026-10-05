@@ -147,7 +147,7 @@ const TOUR_SECTIONS = [
         side: "right",
         tab: "notes",
         notes: "writing-room",
-        title: "Write with Atlas",
+        title: "Writing room",
         text: "Put rough thoughts here, in any order, and Atlas drafts them into finished writing.",
       },
       {

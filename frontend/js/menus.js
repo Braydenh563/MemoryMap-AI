@@ -1883,7 +1883,7 @@ function entryOverflowMenu(entry) {
       },
       {
         label: "ph:translate Translate",
-        title: "Open this note in Write with Atlas, set to translate",
+        title: "Open this note in the Writing room, set to translate",
         run: () => translateNoteInDesk(entry),
       },
     ];

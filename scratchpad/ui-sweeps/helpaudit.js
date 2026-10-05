@@ -37,7 +37,7 @@ const VENV_PY = process.env.VENV_PY || '/home/user/MemoryMap-AI/.venv/bin/python
 //: on press is read from the source by the person triaging, not here.
 const TAB_CLAIMS = {
   dashboard: ['Customise', 'View', 'Widgets', 'Edit layout', 'Edit quick access', 'Reset quick access', 'All skills', 'Tools & features', 'Commands', 'Ask AI', 'Sketch', 'Remind me', 'Meeting notes', 'New note'],
-  notes: ['Capture a thought', 'Capture', 'Ask', 'Write with Atlas', 'Questions', 'Select', 'Manage tags', 'Manage categories', 'Sort notes', 'Filter notes', 'Split into notes', 'Suggest a title'],
+  notes: ['Capture a thought', 'Capture', 'Ask', 'Writing room', 'Questions', 'Select', 'Manage tags', 'Manage categories', 'Sort notes', 'Filter notes', 'Split into notes', 'Suggest a title'],
   chat: ['Agent mode', 'Plan', 'Skills', 'Fork', 'Compress the earlier messages', 'Export as Markdown', 'New chat'],
   graph: ['Concept maps', 'Display', 'Suggest links', 'Gravity', 'Spread', 'Link force', 'Length by similarity', 'Group by category', 'Labels', 'Label backgrounds', 'Curved links', 'Cluster glow', 'Arrows', 'Text fade', 'Link thickness', 'Minimap', 'Saved views', 'Export as PNG', 'Unpin all', 'Groups', 'Force', 'Tree', 'Radial', 'Arc', 'Colour', 'Size', 'Trace', 'Legend', 'Similarity', 'Entities', 'Documents', 'Boards', 'Tags', 'Attachments', 'Unwritten links', 'Hide unlinked', 'Strength', 'Time filter', 'Reset'],
   library: ['All', 'Documents', 'Boards & maps', 'Images', 'Files', 'AI skills', 'Bookmarks', 'Contents', 'Include the bin', 'Filter', 'Import a file as a document', 'Map from notes', 'Import outline', 'Expand all', 'Collapse all', 'Manage groups', 'New group'],

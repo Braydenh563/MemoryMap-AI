@@ -114,7 +114,7 @@ HELP_TOPICS: list[dict] = [
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
             "Use a template, dictate with the microphone icon, sketch with the "
-            "palette icon, or run \"Improve\" to proofread first. Write with Atlas has "
+            "palette icon, or run \"Improve\" to proofread first. The Writing room has "
             "\"Split into notes\", which turns a block of pasted text into several "
             "AI-drafted, auto-linked notes."
         ),
@@ -554,9 +554,9 @@ HELP_TOPICS: list[dict] = [
         "id": "extract-notes",
         "keywords": ("extract notes", "rough thoughts", "writing room", "draft"),
         "body": (
-            "Split into notes, in the More menu of Write with Atlas (Notes "
+            "Split into notes, in the More menu of the Writing room (Notes "
             "tab), turns a block of pasted free text into several AI-drafted, "
-            "auto-linked notes instead of one long one. Write with Atlas is "
+            "auto-linked notes instead of one long one. The Writing room is "
             "for turning rough, unstructured thoughts into a proper note "
             "before it's saved. A document's menu and a selection of cards on "
             "a board have Extract notes, which does the same for a document "
@@ -759,14 +759,14 @@ HELP_TOPICS.extend(
                 "write an essay", "write an email", "draft",
             ),
             "body": (
-                "Notes tab, Write with Atlas: pick what to write (draft a note, "
+                "Notes tab, Writing room: pick what to write (draft a note, "
                 "continue or rewrite the draft, bullets to prose, prose to bullets, "
                 "or translate), add notes as sources if you want it grounded in "
                 "them, and press Write. The draft stays in the box to edit; save it "
                 "as a note when it reads right. Which model writes is set on the "
                 "same row, or in Settings, Models."
             ),
-            "badge": {"label": "Write with Atlas", "tab": "notes"},
+            "badge": {"label": "Writing room", "tab": "notes"},
         },
         {
             "id": "security",
@@ -891,7 +891,7 @@ HELP_TOPICS.extend(
             "id": "translate",
             "keywords": ("translate", "translation", "translator", "language", "another language", "spanish", "french", "german", "chinese", "japanese"),
             "body": (
-                "Write with Atlas translates: put the text in the box and press "
+                "The Writing room translates: put the text in the box and press "
                 "Translate, or pick a language under Translate into in the menu "
                 "beside Draft. The local model keeps every fact, name, number and "
                 "the markdown, and leaves code and links alone. It needs a model "

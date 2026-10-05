@@ -398,7 +398,11 @@ def _bcrypt_input(password: str) -> bytes:
     raw = password.encode()
     if len(raw) <= _BCRYPT_MAX_BYTES:
         return raw
-    return b"mm-sha256:" + base64.b64encode(hashlib.sha256(raw).digest())
+    # PBKDF2 rather than a bare digest: the input is a password, and a fast
+    # hash in front of bcrypt reads to a scanner (CodeQL, py/weak-sensitive-
+    # data-hashing) as the password's only hash. A fixed salt is right here:
+    # this only fits the input to bcrypt's 72 bytes, bcrypt salts the result.
+    return b"mm-pbkdf2:" + base64.b64encode(hashlib.pbkdf2_hmac("sha256", raw, b"memorymap-bcrypt-input", 10_000))
 
 
 def _hash_password(password: str) -> str:

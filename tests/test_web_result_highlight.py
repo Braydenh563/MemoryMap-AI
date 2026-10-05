@@ -29,7 +29,7 @@ def _terms(query: str) -> list[str]:
     if not node:
         pytest.skip("node is not installed")
     start = CHAT.index("const WEB_TERM_STOP_WORDS")
-    end = CHAT.index("let webResultTerms")
+    end = CHAT.index("const webResultTerms")
     script = CHAT[start:end] + f"\nconsole.log(JSON.stringify(webQueryTerms({json.dumps(query)})));\n"
     out = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True)
     return json.loads(out.stdout.strip())
@@ -60,7 +60,7 @@ def test_an_empty_query_marks_nothing():
 def test_every_row_marks_the_same_terms_including_show_more():
     # The terms are set once, before the first row is built, so the rows that
     # "Show more" reveals later are marked the same way.
-    assert CHAT.index("webResultTerms = webQueryTerms(query)") < CHAT.index(
+    assert CHAT.index("webResultTerms.splice(0, webResultTerms.length, ...webQueryTerms(query))") < CHAT.index(
         "for (const result of results.slice(0, INITIAL_SHOWN))"
     )
     row = CHAT[CHAT.index("function buildWebResultRow") :]

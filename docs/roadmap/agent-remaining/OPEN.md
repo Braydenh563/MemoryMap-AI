@@ -700,6 +700,50 @@ written to in the last two days (`backend-probe`, `mindmap`, `noteobj`,
 `mapux2`, `openitems`, `sweep-1004`), plus `agent_common.md`, the rules every
 agent carries. Their rows are theirs until the work lands or is carried here.
 
+## Atlas, placed from INBOX 2026-10-05
+
+Held by the Atlas motion agent; each closes when its sweep measures it.
+
+540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
+     animations has MASSSSIVE eyebrows."
+     Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
+     and masculine, six poses by nine moods/acts, the blink lids sit within
+     2px of the eyes and the closed-eye stroke and lashes are their usual
+     size; mid-blink frames looked at. Needs the owner: a screenshot of the
+     moment, or which pose/mood it was in (sitting, lying, drowsy, startled).
+
+554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should
+     wrap the body a bit more instead of all of it sitting in front. also the
+     lower body still looks too sharp like a tooth. the whole avatar needs to
+     ahve dynamic and organic movement. think of it like an azur lane
+     character" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the wisps wrap behind the body and the hem is soft; the layered lifelike motion is the follow-up agent's, with 564.
+
+556. **The owner, 2026-10-05, verbatim.** "and a bit more texture can be
+     added to the lower body as well. make it celestial and majestic and
+     magical and attractive and flowy" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the gown's nebula, sheen and glowing hem; the flowing motion is with 564.
+
+564. **The owner, 2026-10-05, verbatim.** "can you fix or redesign the male
+     main body on the atlas avatar instead of just being an oval?? also fix
+     how the arms connect to the atlas bodies and how they are used in
+     transitions between places and positions, same with the lower body,
+     animate everything to be smooth and boilogically lifelike." Placed:
+     with 550, the Atlas agent (masculine torso, jointed arms from the
+     shoulder line, joint-angle blends with follow-through, lifelike idle).
+     Then (verbatim): "the arms for both the male and female atlas".
+     Partly done (2026-10-05): his V-taper torso and both looks' hanging arms (upper arm 13.4 degrees off vertical, elbow 166 and 165, wrist 0.54 and 0.52 of shoulder width). Open: joint-angle blends and IK in avatars.js, counter-phase swing, head lag, his cloak, the travelling hair and tail motion. The follow-up Atlas agent.
+
+575. **The owner, 2026-10-05, verbatim.** "can you have the lower body of
+     both atlas avatars change around in position and and how it is sitting
+     ect with different variations and changes based off the current action
+     or behaviour??" Placed: the Atlas motion agent, with 564 (a lower-body
+     pose per state, small random variants, blended with follow-through).
+     Then (verbatim): "dont forget that both atlas avatars have a tail as
+     well, same with the hair, and the nebular stream. they all need to be
+     dynamically animated and changed": both looks' tails, hair and nebula
+     streams, per state, with secondary motion.
+
 ## Not verified
 
 - **The About pane's "Take tour again" button greyed out with the tour off**

@@ -538,6 +538,8 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Graph: tree, radial and arc no longer throw when a reply is listed before the note it answers, so switching layout works again (INBOX 579); a reply loop hangs off its category instead of hanging the layout.
+- Chat: the agent's step circles sit exactly on the rail's line (INBOX 588).
 - Graph: a note's size in focus mode and the Local map is the whole map's (its PageRank), whichever view was opened first; before, the two shared one cached ranking of two different graphs (drafts and boards in one, not the other), so sizes depended on the order, and turning Maps on kept the ranking without boards. The graph also loads about four times faster when warm at 5,000 notes (3.3 to 4.1 s down to 0.7 to 1.0 s in process), reading columns rather than whole notes (GRAPH_PLAN, decision 2026-10-05).
 - The chat list's sort select is as wide as its words (144px) rather than the whole sidebar column (266px).
 

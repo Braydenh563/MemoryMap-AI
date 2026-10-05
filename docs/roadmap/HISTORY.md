@@ -40954,6 +40954,54 @@ The two cheap additions the plan's research section named (decisions 11 to
 
      Fixed (2026-10-05, Atlas merge): the fringe is drawn inside the hair cap's group; 0 of 468 hairline samples show the page (three moods, four phases).
 
+583. **The owner, 2026-10-05, verbatim.** "note popup menus are behind the
+     back to top button" Fixed (2026-10-05): an open note's action strip is
+     the menu's stacking context and sat at z 5, under the fixed button's
+     40; the strip (and a Library card's) now lifts to 45 while its menu is
+     open. menuovertop.js 4/4 (1440, 390; light and dark), FAIL 2/4 before.
+
+553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
+     (a) Entity merge gets Undo: snapshot both entities and their mentions
+     before a merge, and Undo in the toast splits them back exactly.
+     Built 2026-10-05 (38debe1, `tests/test_entity_merge_undo.py`).
+     (b) The undo histories of each board, map and document survive a
+     reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
+     amended). Built 2026-10-05: IndexedDB, `undo-store.js`; decision 17
+     as amended; `mmdoc1005-undoreload.js` 4/4.
+     (c) Status labels app-wide are a tinted pill without an edge, matching
+     the meta chips.
+     (d) The dashboard's map widget is "dynamic depending on map size and
+     scale": the card's height and the map's scale follow the map's shape,
+     a small map at a readable size, a tall one in a taller card up to a
+     limit, then fitted whole. Built 2026-10-05: the Boards & maps widget
+     draws its busiest board large (`dashMapFeature`, dash-boards.js, lazy),
+     96px to 168px for six topics or fewer, up to 320px otherwise, fitted
+     whole past that; `mmdoc1005-dashmap.js` 5/5 at 1440 and 390.
+     Placed: the next free Opus, after the boot-JS split lands (budget).
+     (c) built 2026-10-05 (the UX fix agent): `chip item-label` is the
+     `--chip-bg` tint at `--radius-pill` with `border: 0`, its tones tints
+     (accent, ok, warn); the Files tiles' "Read · N words" and a chat
+     attachment's reading badge joined it; DESIGN.md's row says so and
+     `tests/test_badge_recipe.py::test_a_status_label_is_a_tinted_pill_without_an_edge`
+     holds it. `badges.js`: 53 labels, one signature (11.2px/500, 19px tall,
+     8px padding, 999px radius, no border, a fill). (a), (b) and (d) are open.
+     Fixed (2026-10-05): (a) entity-merge Undo, 38debe1; (b) undo histories kept across a reload in IndexedDB, b36cc19; (c) edgeless status pills with a ratchet, 9781258; (d) the dashboard map drawn at its own shape, d873a3f.
+
+588. **The owner, 2026-10-05, verbatim.** "I dont think these chat agent
+     step circles and lines are exactly aligned". Fixed 2026-10-05: the rail
+     and each node took their own offset and missed by 0.76px; both now
+     derive from one `--rail-x` (02-chat-graph.css), railalign.js 4/4,
+     worst 0.01px.
+
+579. **The owner, 2026-10-05, verbatim.** "switching the graph layout does
+     nothing" (the gear's Layout: Force, Tree, Radial, Arc). Placed: the
+     graph and sidebar agent, first.
+     Fixed 2026-10-05 from the owner's log: `undefined.push` at
+     layoutHierarchy on every tree, radial and arc switch, when a reply is
+     listed ahead of the note it answers. Child lists are seeded first and a
+     reply loop hangs off its category (graph.js); graphlayoutorder.js 3/3,
+     0/3 on the old code; tests/test_graph_layout_order.py.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.
@@ -41374,4 +41422,3 @@ loading page.
      0 off, and still 0 after a reload (kept on this device). With it the
      spec's last open KG rows: rollups on the query table and a searching
      picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
-

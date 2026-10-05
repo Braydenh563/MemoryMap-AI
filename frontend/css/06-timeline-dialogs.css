@@ -1744,14 +1744,17 @@
    come later in the document, which is every note below this one. See
    `openActionMenu` in menus.js for what that cost. */
 #entry-list>li .entry-actions.menu-open {
-  z-index: 5;
+  /* 45, not 5: this strip is the menu's stacking context, so its own tier is
+     the menu's ceiling, and 5 left an open menu under the fixed back-to-top
+     button (40; INBOX 583, measured with menuovertop.js). */
+  z-index: 45;
 }
 
 /* And the Library's cards, for the same reason with a different cause: each
    card carries `backdrop-filter`, which creates a stacking context of its own,
    so a menu inside one can never rise above the card that comes after it. */
 .library-card.menu-open {
-  z-index: 5;
+  z-index: 45;
 }
 
 #entry-list>li:hover .entry-actions,

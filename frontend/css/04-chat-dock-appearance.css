@@ -2447,7 +2447,6 @@ label.setting-check,
 
 .help-chat-msg.is-user {
   align-self: flex-end;
-  background: var(--accent-surface);
   border-bottom-right-radius: var(--radius-sm);
 }
 
@@ -2698,9 +2697,6 @@ span > .chip {
   transform: none;
 }
 
-.scroll-top:hover {
-  background: var(--accent-soft);
-}
 
 .scroll-top:focus-visible {
   outline: 2px solid var(--accent);
@@ -4839,7 +4835,12 @@ span > .chip {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph {
+/* By the sibling, not `label:has(input:checked) > .ph`: a `:has()` before
+   a class every icon in the app wears made any change Chrome could not rule
+   out restyle every `.ph` on the page (traced on a 301-topic map: 4,700
+   icons on one Tab, FEAT-02's 100ms gate). The radio comes first in each
+   label, so its checked state reaches the icon after it directly. */
+.doc-ai-card > #doc-ai-verb label > input:checked + .ph {
   color: var(--accent-text);
 }
 

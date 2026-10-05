@@ -36,7 +36,6 @@
 
 .msg.user {
   align-self: flex-end;
-  background: var(--accent-surface);
   border-bottom-right-radius: 4px;
 }
 
@@ -398,7 +397,6 @@
 }
 
 #conversation-list li.active-conv {
-  background: var(--accent-soft);
   font-weight: 600;
 }
 
@@ -6049,11 +6047,6 @@ mark.lightbox-hit {
    transcript it let the words underneath through. The tint is stacked over
    the same opaque ground the resting pill uses, so the hover is the same
    colour it was and nothing behind it reaches the eye. */
-.chat-jump-latest:hover {
-  background:
-    linear-gradient(var(--accent-soft), var(--accent-soft)),
-    var(--modal-bg-opaque);
-}
 
 /* The dots only exist while a turn is running; an empty span must not open a
    gap in the pill on the way back to "Jump to latest". */

@@ -58,7 +58,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Replace `test_freemind_imports_with_its_root_as_the_maps_name` (it pins the wrong behaviour; flag to the owner as a decision change).
   - Add a test: a map made in the app with one root survives export and import.
 
-**FEAT-02. Add-topic latency grows with the map. The whole map is re-rendered on every Tab.** FIXED 46a5fa0 (100ms gate not met here: median 224ms at 301 under load 9-14)
+**FEAT-02. Add-topic latency grows with the map. The whole map is re-rendered on every Tab.** FIXED 46a5fa0 (100ms gate not met here: median 224ms at 301 under load 9-14); second pass 1e361d5 (render per add 21-63ms against 122-421; key to editable median 177-276ms against 265-351 for the base on the same runs at load 7-10; the 100ms gate still not met here)
 - Evidence:
   - `lat.js`, tree-right, time from key to `document.activeElement.wb-map-text`:
 
@@ -148,7 +148,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Map `]`/`[` to one step and Ctrl+]/Ctrl+[ to front and back, with four labelled items in Arrange and the right-click menu.
   - Update the board help and the `wb-empty-hint` key list in the same commit (order 13).
 
-**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.** FIXED ad14b76 (claim corrected: fences stay code, no Mermaid vendored)
+**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.** FIXED ad14b76 (claim corrected), flowchart fences drawn FIXED a02d045 (own parser, no vendored Mermaid)
 - Evidence:
   - `md1.js`: a ```mermaid fence renders as `<div class="code-block">…<code data-lang="mermaid">`.
   - "Mermaid diagram" exists only as a language label (`documents-code.js`).
@@ -789,16 +789,16 @@ Map (from §12.5 and `map1.js`):
    - FEAT-16 (focus and announce).
    - Paste of an outline (FEAT-09).
    - Tests first: a single-root `.mm` round trip; a pasted 3-level list makes 4 topics under the selection.
-3. **M3, Outline tab** (§12.2 item 8) in the board sidebar.
+3. **M3, Outline tab** (§12.2 item 8) in the board sidebar. FIXED 0ae92b5
    - The tree as an editable indented list, sharing `wbMapBySiblingOrder`.
    - Tab and Shift+Tab re-parent, Enter adds a sibling, edits are live both ways.
    - Gate: 50 topics edited from the outline show on the canvas within a frame.
-4. **M4, markers and filter** (§12.2 item 4).
+4. **M4, markers and filter** (§12.2 item 4). FIXED 9e20ef2
    - Priority 1 to 5, progress, flag, due date (offering a reminder), tags.
    - Several markers per topic.
    - A View "Filter by marker" that dims the rest.
    - Round-trips as `_priority` and the like in OPML and FreeMind; not in Markdown, by decision 12's rule (Markdown carries only what readers draw).
-5. **M5, map and document twins.**
+5. **M5, map and document twins.** FIXED 5fb59d3 (map to document) and 885dd3b (headings to map)
    - "Write this map as a document" builds headings by depth to level 3, then lists, with topic notes as paragraphs.
    - "Map this document's headings" goes the other way.
    - Both are one-shot conversions first, with a back-link in each.
@@ -823,14 +823,14 @@ Map (from §12.5 and `map1.js`):
    - Files: `markdown.js` (footnote pass), `documents.js` print path.
    - Tests: node render tests; `doccomments.js` asserts no `[^` in the print render.
 2. **D2, rich paste (FEAT-04).** An allowlist HTML-to-Markdown walker in `documents.js`, wired into the CodeMirror `paste` domEventHandler beside `docTablePasteEvent`. Ctrl+Shift+V pastes plain text.
-3. **D3, Mermaid and diagrams (FEAT-08).**
+3. **D3, Mermaid and diagrams (FEAT-08).** FIXED a02d045 (flowcharts; Open as a board is W5)
    - Render a flowchart-subset fence as SVG in Read and Live (own parser, no vendor), falling back to code on anything unparsed.
    - "Open as a board" turns it into W5's board import.
-4. **D4, print and page setup.**
+4. **D4, print and page setup.** FIXED 0ae2e18 (page break) and 8f03f76 (page size, margins, page numbers; a blank print fixed)
    - Page size (A4, Letter), margins and orientation in the print dialog's pre-step.
    - Page numbers and a running title through `@page` margin boxes where supported, with a fallback note.
    - A "Page break" slash item (`<div class="md-page-break">`, `break-before: page`).
-5. **D5, images in Live.**
+5. **D5, images in Live.** FIXED 1ac3928 (handles and align; Word pictures not done, python-docx is not in requirements)
    - Resize handles and an align popover on an image widget, writing back the `|300|center` options.
    - The Word export carries pictures (FEAT-18).
 

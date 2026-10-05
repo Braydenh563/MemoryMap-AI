@@ -3802,7 +3802,7 @@ function wbMindMapEnsureMap(fromId) {
 //: `parentId`, the one operation both Tab and Enter reduce to, differing
 //: only in which card counts as the parent.
 async function wbMindMapAddCard(parentId, x, y) {
-  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch" }) });
+  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch", map_topic: true }) });
   wbPushUndo({ action: "noteMade", entryId: entry.id });
   const nodeRes = await apiJson("/whiteboard/nodes", {
     method: "POST",
@@ -3855,7 +3855,19 @@ async function wbMindMapAddCard(parentId, x, y) {
  *  makes `Tab, type, Tab, type` a fluent way to work rather than a sequence
  *  of edits.
  */
-function wbEditNodeText(nodeId) {
+//: **After Enter names a card, letters name it again** (audit 2026-10-05,
+//: UX-06). The editor's Enter left the card selected and the next word typed
+//: went to the board's tool keys: "Flowers" picked five tools and drew a
+//: stray shape. Now, until the selection moves on, a printable key on that
+//: card opens it for typing with the key as its first letter (XMind's rule
+//: for a selected topic); Tab and Enter still branch. Elsewhere a letter is
+//: still a tool key. The focus is left where it was, not moved to the
+//: canvas as a map's is (decision 27): a focused board canvas reads Tab as
+//: "walk the items" (`wbWalkItems`), which would take the branch key away.
+const wbAddGate = { cardRetypeId: null, renderHold: null, barDeferred: false, barDeferredQueued: false };
+
+function wbEditNodeText(nodeId, firstKey = "") {
+  wbAddGate.cardRetypeId = null;
   const node = wbState.nodes.find((n) => n.id === nodeId);
   if (!node) return;
   const card = document.querySelector(`.node-card[data-id="${nodeId}"]`);
@@ -3892,6 +3904,7 @@ function wbEditNodeText(nodeId) {
   content.replaceChildren(box);
   box.focus();
   box.select();
+  if (firstKey) box.setRangeText(firstKey, 0, box.value.length, "end");
 
   //: Listeners on the card's content element rather than on the textarea,
   //: so they hold whichever of the two has the focus, and all of them go
@@ -3927,6 +3940,7 @@ function wbEditNodeText(nodeId) {
     content.replaceChildren();
     renderMarkdown(content, keep);
     wbScheduleRender();
+    if (save && wbSelectedItem?.kind === "node" && wbSelectedItem.id === nodeId) wbAddGate.cardRetypeId = nodeId;
   };
 
   // Enter commits, Shift+Enter is a real newline, the convention for a
@@ -4065,6 +4079,7 @@ function wbApplySelectionHighlight() {
 }
 
 function selectWbItem(kind, id) {
+  if (kind !== "node" || id !== wbAddGate.cardRetypeId) wbAddGate.cardRetypeId = null;
   wbSelectedItem = { kind, id };
   //: Choosing a topic, by pointer, arrow, new map or a topic just made, is
   //: working in the map, so Tab adds under it (see `wbMapKeysArmed`).
@@ -4180,6 +4195,7 @@ function wbWalkItems(dir) {
 }
 
 function clearWbSelection() {
+  wbAddGate.cardRetypeId = null;
   //: Deselecting clears every overlay, the link tool's dots included (INBOX 573).
   if (!wbLinkDragActive) wbClearAnchorHints();
   if (!wbSelectedItem && wbMultiSelection.size === 0) return;
@@ -4352,7 +4368,43 @@ function wbBarSideEdges(hostRect) {
   return { left, right };
 }
 
+//: **What a render may leave until the new topic's editor is open**
+//: (FEAT-02's 100ms gate): the transforms of the topics that only moved, and
+//: the lines. Opening the editor focuses it, which makes the browser bring
+//: every pending style up to date first; with a tidy's two hundred moves and
+//: three hundred lines pending, that was 37 to 86ms (traced, 1,550 elements)
+//: between the key and a topic you can type in. Written right after the
+//: editor opens, in the same task, so the first frame painted shows all of
+//: it; only the order of the work changes. `wbRenderRelease` writes them.
+
+function wbRenderRelease() {
+  const held = wbAddGate.renderHold;
+  wbAddGate.renderHold = null;
+  if (!held) return;
+  for (const [el, place] of held.moves) el.style.transform = place;
+  if (held.edges) {
+    wbRenderMapEdges();
+    wbRenderMapStructure();
+  }
+}
+
+//: **Set while an add opens its topic for typing** (FEAT-02's 100ms gate):
+//: the bar's placement reads layout, and read in the middle of the add it
+//: restyled the whole moved map before the editor could open (traced: 33 to
+//: 60ms, 2,100 elements, on every Tab at 301 topics). Placed two frames on
+//: instead, after the editor, from the same selection.
+
 function wbUpdateSelectionBar() {
+  if (wbAddGate.barDeferred) {
+    if (!wbAddGate.barDeferredQueued) {
+      wbAddGate.barDeferredQueued = true;
+      requestAnimationFrame(() => {
+        wbAddGate.barDeferredQueued = false;
+        wbQueueSelectionBar();
+      });
+    }
+    return;
+  }
   //: A direct placement makes a queued one redundant: it would place the bar
   //: from the same state a frame later.
   if (wbSelectionBarFrame) {
@@ -5904,6 +5956,9 @@ function wbBuildContextMenu(kind) {
           });
         }
       }
+      //: Markers (MINDMAP_PLAN decision 34): priority, progress, a flag, icons.
+      sub(wbMapMarkerWords(wbMapMarkerParts(mapNode.data)) ? "Change the markers…" : "Markers…",
+        "A priority, how far along it is, a flag and icons", () => wbMapOpenMarkers(mapNode.id));
       const comments = wbItemComments("object", mapNode).length;
       sub(comments ? `Comments (${comments})…` : "Comment…", "A thread on this topic, behind the mark on its corner", () =>
         wbOpenComments("object", mapNode.id)
@@ -8770,7 +8825,7 @@ async function wbExportMapText(format) {
   // strip `renameCurrentBoard` already does, and the only place the open
   // board's title exists on the client.
   const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
-    ?.textContent.replace(/\s*\(\d+ items?\)$/, "") || "mindmap";
+    ?.dataset.title || "mindmap";
   // The extension the format actually is, a `.md` file holding OPML is a
   // file nothing will open. The name is reduced to word characters, spaces and
   // hyphens because a map may be called anything at all and this becomes a
@@ -9097,8 +9152,7 @@ function wbExportDescription(scope) {
   //: map \"Mind map · Export map\"", which is what the first run of the sweep
   //: measured.
   const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
-    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")
-    .replace(/^(Mind map|Board|Whiteboard) \u00b7 /, "").trim() || "";
+    ?.dataset.title?.trim() || "";
   const kind = wbIsMap() ? "mind map" : "whiteboard";
   const part = scope === "selection" ? "Part of the " : "The ";
   const named = title ? ` "${title}"` : "";
@@ -11883,6 +11937,14 @@ async function initWhiteboard() {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+    if (
+      wbAddGate.cardRetypeId != null && e.key.length === 1 && e.key !== " " && !wbIsMap()
+      && wbSelectedItem?.kind === "node" && wbSelectedItem.id === wbAddGate.cardRetypeId && !wbMultiSelection.size
+    ) {
+      e.preventDefault();
+      wbEditNodeText(wbAddGate.cardRetypeId, e.key);
+      return;
+    }
     const letter = e.key.toLowerCase();
     // Shift first: `e.key` for Shift+C is "C", which lower-cases onto the
     // unshifted tool, so reading the shift table second would make the two
@@ -13155,7 +13217,6 @@ async function refreshBoardList(justCreated = null) {
     // Images and text boxes count too, a board holding only those (no
     // cards or sketches) read as "(0 items)" here, which is exactly what
     // exposed this: a board with three text boxes on it, live-verified.
-    const count = board.node_count + board.sketch_count + (board.object_count || 0);
     //: **Each row says what it is** (INBOX 179: "I cant tell with this boards
     //: dropdown menu which is a whitebaord and which is a mindmap"). The
     //: optgroups above only appear when both kinds exist, so a list of two
@@ -13163,9 +13224,12 @@ async function refreshBoardList(justCreated = null) {
     //: quietly, said nothing. A word costs less than a guess, and a native
     //: <option> can carry nothing but text.
     const kind = board.type === "map" ? "Mind map" : "Board";
+    opt.dataset.title = board.title;
+    opt.dataset.kind = kind;
     opt.textContent = board.id === null
       ? `${kind} · ${board.title}`
-      : `${kind} · ${board.title} (${count} item${count === 1 ? "" : "s"})`;
+      : `${kind} · ${board.title} (${wbBoardCountWords(board.type === "map",
+        board.node_count, board.sketch_count - (board.link_count || 0), board.object_count || 0)})`;
     (groups.get(board.type === "map" ? "map" : "board") || select).appendChild(opt);
   }
   select.value = window.currentBoardId || "";
@@ -13175,10 +13239,32 @@ async function refreshBoardList(justCreated = null) {
   if (renameBtn) renameBtn.disabled = !window.currentBoardId;
 }
 
+//: **What the picker says a board holds** (audit 2026-10-05, UX-06). A map
+//: counts topics; a board counts what was put on it, and not the lines
+//: between cards, which are links rather than items. The open board's row is
+//: kept current from what is on screen (`wbSyncBoardCount`): it read
+//: "Pets (1 item)" with three cards on the board, because the list is
+//: fetched when the board opens and was never told about a Tab.
+function wbBoardCountWords(isMap, nodes, drawings, objects) {
+  const n = isMap ? objects : nodes + Math.max(0, drawings) + objects;
+  const noun = isMap ? "topic" : "item";
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
+function wbSyncBoardCount() {
+  const opt = document.getElementById("wb-board-select")?.selectedOptions?.[0];
+  if (!opt || !window.currentBoardId || !opt.dataset.title) return;
+  const sketches = wbState.sketches || [];
+  let links = 0;
+  for (const sk of sketches) if (String(sk.data).includes('"type":"link-')) links++;
+  const text = `${opt.dataset.kind} · ${opt.dataset.title} (${wbBoardCountWords(wbIsMap(),
+    (wbState.nodes || []).length, sketches.length - links, (wbState.objects || []).length)})`;
+  if (opt.textContent !== text) opt.textContent = text;
+}
+
 async function renameCurrentBoard() {
   if (!window.currentBoardId) return;
-  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.textContent
-    .replace(/\s*\(\d+ items?\)$/, "") || "";
+  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.dataset.title || "";
   const name = await promptDialog("Rename this board:", current);
   if (!name || !name.trim()) return;
   try {
@@ -15121,6 +15207,8 @@ function wbScheduleRender() {
     wbRenderQueued = false;
     renderWhiteboard();
     wbUpdateSelectionBar();
+    wbSyncBoardCount();
+    wbMapAfterRender();
   });
 }
 
@@ -15144,6 +15232,8 @@ function renderWhiteboardNow() {
   // from state rather than being re-derived by their own callers.
   wbApplySearchHighlight();
   wbRenderNavigator();
+  wbSyncBoardCount();
+  wbMapAfterRender();
 }
 
 function renderWhiteboard() {
@@ -15976,9 +16066,13 @@ function renderWhiteboard() {
   // its text's), so running this first would measure the previous render's
   // sizes and leave every edge one frame stale, visible as edges that lag
   // behind a node the moment its text changes length.
-  wbRenderMapEdges();
-  //: A map's boundaries and summaries, from the boxes just measured.
-  wbRenderMapStructure();
+  //: Held while an add opens its topic (`wbAddGate.renderHold`): written right after.
+  if (wbAddGate.renderHold) wbAddGate.renderHold.edges = true;
+  else {
+    wbRenderMapEdges();
+    //: A map's boundaries and summaries, from the boxes just measured.
+    wbRenderMapStructure();
+  }
 
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it, re-apply from the state that
@@ -16894,6 +16988,16 @@ function renderWbObjects(canvas) {
   // text box's saved colour/size might have changed elsewhere (undo/redo);
   // the text itself is deliberately left alone here so a re-render mid-edit
   // (another item moving, say) can't overwrite what's being typed.
+  //: **Moves are written after the measure, and only what was repainted is
+  //: measured** (FEAT-02's 100ms gate). A tidy that shifts two hundred topics
+  //: wrote two hundred transforms here, and the measure's first
+  //: `offsetHeight` then restyled all of them before reading one height
+  //: (traced: 37 to 63ms, 1,260 elements, on every Tab at 301 topics). A
+  //: move changes no size, so the measure now reads only the topics this
+  //: pass repainted, with nothing else dirty yet, and the moves are written
+  //: after it, to be restyled once with the rest of the frame.
+  const movesLater = [];
+  const repainted = new Set();
   objectUpdate.each(function (d) {
     const key = wbObjectPaintKey(d, paintCtx);
     //: **A move is a transform, not a repaint** (audit FEAT-02): the key left
@@ -16902,9 +17006,10 @@ function renderWbObjects(canvas) {
     //: (measured: 409ms of `setAttribute` in one Tab at 301 topics).
     if (this._wbPaintKey === key) {
       const place = wbItemTransform(d);
-      if (this.style.transform !== place) this.style.transform = place;
+      if (this.style.transform !== place) movesLater.push([this, place]);
       return;
     }
+    repainted.add(this);
     this._wbPaintKey = key;
     //: Drawn live for this pass, so the measure below reads what the new
     //: content really needs rather than the size it was culled at. The next
@@ -16982,11 +17087,14 @@ function renderWbObjects(canvas) {
     if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
     objectUpdate.each(function (d) {
       if (!WB_MAP_KINDS.has(d.kind)) return;
-      //: A culled topic was not repainted (the paint above uncovers anything
-      //: it repaints), so its stored height is still the one it drew at.
-      if (this.classList.contains("wb-culled")) {
-        if (d.width && d.height) wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
-        return;
+      //: A topic this pass did not repaint is the size it last measured (a
+      //: move is not a resize), and a culled one was not repainted either.
+      if (!repainted.has(this) || this.classList.contains("wb-culled")) {
+        if (d.width && d.height) {
+          wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+          return;
+        }
+        if (this.classList.contains("wb-culled")) return;
       }
       const h = this.offsetHeight;
       if (!h) return;
@@ -16994,6 +17102,8 @@ function renderWbObjects(canvas) {
       d.height = h;
     });
   }
+  if (wbAddGate.renderHold) wbAddGate.renderHold.moves.push(...movesLater);
+  else for (const [el, place] of movesLater) el.style.transform = place;
 }
 
 //: Everything `renderWbObjects` reads when it paints one object, as one
@@ -18041,7 +18151,7 @@ async function createConceptMap() {
     // categorisation off the critical path, the map should open now.
     const root = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content: `# ${title}`, tags: [], defer_filing: true }),
+      body: JSON.stringify({ content: `# ${title}`, tags: [], defer_filing: true, map_topic: true }),
     });
     await apiJson("/whiteboard/nodes", {
       method: "POST",

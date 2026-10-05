@@ -38,6 +38,9 @@ CSS_FILES = [
     #: load order, which is what makes the concatenation above meaningful.
     CSS_DIR / "09-editor.css",
     CSS_DIR / "10-responsive.css",
+    #: Not linked by index.html: loaded with the Library bundle (app.js
+    #: `LAZY_MODULES.library`), and so after every file above.
+    CSS_DIR / "library-lazy.css",
 ]
 
 

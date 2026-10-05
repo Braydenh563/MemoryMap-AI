@@ -210,7 +210,13 @@
    `@media print` block in 09-editor.css, which loads after this file. */
 @media print {
 
-  body.printing-doc>*:not(#tab-documents),
+  /* **The page sits inside `<main id="app-main">` now**, so "every child of
+     body but the documents page" took the documents page with it: measured
+     2026-10-05 (`mmd2-1005-printprobe.js`), `#app-main` display none and a
+     long document printed as one blank page. The main is kept and its other
+     children go. */
+  body.printing-doc>*:not(#tab-documents):not(#app-main),
+  body.printing-doc #app-main>*:not(#tab-documents),
   body.printing-doc #tab-bar,
   body.printing-doc .doc-sidebar,
   body.printing-doc .doc-toolbar,
@@ -221,6 +227,18 @@
   body.printing-doc .scroll-top,
   body.printing-doc #bg-art {
     display: none !important;
+  }
+
+  /* The shell's own window-high, scroll-inside boxes, let go, so the
+     document runs on to as many pages as it needs. */
+  body.printing-doc,
+  body.printing-doc #app-main,
+  body.printing-doc #tab-documents,
+  body.printing-doc .doc-panes {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   body.printing-doc .doc-layout {
@@ -1754,7 +1772,6 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
 #skills-sidebar {
   align-self: stretch;
   height: 100%;
-  max-height: var(--page-sticky-h);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2320,7 +2337,7 @@ body.resizing-sidebar {
     padding-inline: 0;
   }
 
-  .note-toolbar button:has(> .toolbar-word) > .ph-lead {
+  .note-toolbar button > .ph-lead:has(~ .toolbar-word) {
     margin-inline-end: 0;
     translate: none;
   }

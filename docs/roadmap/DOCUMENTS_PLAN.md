@@ -1131,9 +1131,11 @@ documents phone pass)").
 
 From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
 documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
-plans, 2026-10-05 (the feature audit's documents and map fixes)"). Open:
-D3 (a Mermaid flowchart parser), D4's page size, margins and page numbers,
-D5 (image handles in Live, pictures in the Word export).
+plans, 2026-10-05 (the feature audit's documents and map fixes)"). D3 and
+D4 are built (decisions 6 and 7), and D5's handles (decision 8). Open:
+pictures in the Word export (FEAT-18), which needs python-docx, an optional
+extra that is not in requirements.txt; not started, by the fully-local
+rule's "no new Python dependency".
 
 **Decisions made.**
 
@@ -1164,8 +1166,49 @@ D5 (image handles in Live, pictures in the Word export).
    for any Markdown-to-PDF tool with its breaks intact. A labelled dashed
    line on screen, the break itself in a print and in the HTML export, the
    "/" menu's Page break in a document (not in a note, which is not
-   printed as pages). Page size, margins and page numbers (the rest of D4)
-   are open.
+   printed as pages). Page size, margins and page numbers are decision 7.
+6. **A flowchart fence draws as one, by a parser of our own** (2026-10-05,
+   the audit's D3, inside decision 3's terms). `mermaidFlowParse`,
+   `mermaidFlowLayout` and `mermaidFlowSvgTree` (documents.js, the
+   `DOC-MERMAID` region, node-tested): `flowchart` or `graph` in any of the
+   four directions, seven node shapes, six link kinds with labels, chains and
+   `&` fans, comments, and the styling lines read and ignored. Laid out in
+   layers (longest-path ranks with each cycle's return reversed, barycentre
+   ordering, each layer centred), a line that would lie on another (a
+   return, a second link between one pair, one that skips a rank) bowed
+   aside. Drawn in Read (so in a print and the HTML export), and in Live
+   while the caret is outside the fence (a state field, the columns block's
+   reason); pressing the figure opens its text. Anything else, a subgraph
+   and every other diagram type included, stays the code it is, so nothing
+   is drawn half right. Text is text (`createElementNS`, `textContent`).
+   Not drawn in a note (notes render through markdown.js at boot, and the
+   parser stays out of the boot scripts); "Open as a board" is the
+   whiteboard's W5.
+7. **The printed page is chosen in one step before the browser's dialog**
+   (2026-10-05, the audit's D4). Print or save as PDF opens a small dialog:
+   page size (A4 or Letter; Letter first where the locale is US or Canada),
+   orientation, margins (narrow 12mm, normal 20mm, wide 28mm) and a switch
+   for the page number ("n / N" at the foot) with the title at the head,
+   remembered on this computer; a plain Ctrl+P prints on the last choice.
+   Written as a constructed stylesheet (the CSP refuses a `<style>`), the
+   number and title as CSS page-margin boxes, which Chromium draws from 131
+   (the desktop window is Chromium); where `CSSMarginRule` is missing the
+   switch is off and says the print dialog's own headers can do it. Found
+   on the way: the print rule hid every child of `<body>` but the documents
+   page, and the page has sat inside `<main id="app-main">` since the shell
+   moved, so a print was one blank page; the main is kept now and the
+   shell's window-high boxes let go.
+8. **A picture is resized and aligned where it is shown** (2026-10-05, the
+   audit's D5). In Live, a picture (not one under its revealed source) sits
+   in a frame with DESIGN.md's grip on its lower right corner and an align
+   button at its top right, both shown on hover and on focus (always on a
+   touch screen, the grip at 24px). A drag sets the width between 40px and
+   the text column; the grip is a slider to the keys (the arrows 10px, Shift
+   50px, Home and End the bounds, Delete back to the picture's own size);
+   the align menu is Left, Centre, Right and Inline. Both write the options
+   into the alt text (`docImageAltWith`: the name, then the width, then the
+   alignment, then the caption's words), one Undo step each, so Read, a print
+   and every export draw the same picture.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

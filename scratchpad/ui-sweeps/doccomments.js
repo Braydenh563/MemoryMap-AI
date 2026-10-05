@@ -208,6 +208,9 @@ const seed = (title, content) => `(async () => {
     renderDocPreview();
     await new Promise((r) => setTimeout(r, 400));
     const withFootnotes = document.getElementById("doc-preview").textContent;
+    //: Footnotes draw as raised numbers since FEAT-03 (mdFootnotesFinish), so
+    //: the marker is the raised reference, not the literal "c1" it once was.
+    const raised = Boolean(document.querySelector("#doc-preview sup a, #doc-preview .footnotes li"));
     docPrintComments = false;
     renderDocPreview();
     await new Promise((r) => setTimeout(r, 400));
@@ -216,7 +219,7 @@ const seed = (title, content) => `(async () => {
     await new Promise((r) => setTimeout(r, 500));
     return JSON.stringify({
       carriesRemarks: /still true after the rewrite/.test(withFootnotes),
-      marker: /c1/.test(withFootnotes),
+      marker: /c1/.test(withFootnotes) || raised,
       keepsWords: /opening claim/.test(withFootnotes),
       clearsAfter: !/still true after the rewrite/.test(after),
     });

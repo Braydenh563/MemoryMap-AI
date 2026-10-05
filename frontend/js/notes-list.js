@@ -2217,10 +2217,10 @@ function orderedNotesForCurrentView() {
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
     : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      ? allEntries.filter((e) => e.pinned && noteListed(e))
       : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-        : allEntries.filter((e) => !e.is_draft);
+        ? allEntries.filter((e) => e.category === activeCategory && noteListed(e))
+        : allEntries.filter(noteListed);
   visible = visible.filter(matchesSearch);
 
   const flat = Boolean(noteSearch) || noteSort !== "newest";
@@ -2376,6 +2376,15 @@ $("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
+//: **A map's topics live on their map** (audit 2026-10-05, UX-06). Each
+//: topic a concept map's Tab or Enter makes is a note (`map_topic`), and a
+//: map of forty put forty one-word rows at the top of All. They stay out of
+//: All, the categories and Favourites, and come back for a search, which is
+//: how a person looks for one; Drafts keeps its own row as before.
+function noteListed(e) {
+  return !e.is_draft && (!e.map_topic || Boolean(noteSearch));
+}
+
 function noteCountExcludingDrafts() {
   let n = 0;
   for (const e of allEntries) if (!e.is_draft) n += 1;
@@ -2407,10 +2416,10 @@ function libraryVisibleRows() {
   let visible = draftsOnly || wantsDrafts
     ? allEntries.filter((e) => e.is_draft)
     : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      ? allEntries.filter((e) => e.pinned && noteListed(e))
       : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-        : allEntries.filter((e) => !e.is_draft);
+        ? allEntries.filter((e) => e.category === activeCategory && noteListed(e))
+        : allEntries.filter(noteListed);
   const matched = visible.filter(matchesSearch);
   //: UX-04: no match, and /search corrected a typo: show what it found.
   noteSearchCorrectionShown = false;
@@ -2473,10 +2482,10 @@ function renderEntries() {
   const total = draftsOnly
     ? allEntries.filter((e) => e.is_draft).length
     : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft).length
+      ? allEntries.filter((e) => e.pinned && noteListed(e)).length
       : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
-        : allEntries.filter((e) => !e.is_draft).length;
+        ? allEntries.filter((e) => e.category === activeCategory && noteListed(e)).length
+        : allEntries.filter(noteListed).length;
   $("entries-heading-label").textContent =
     noteSearchCorrectionShown
       ? `${scope}: showing results for “${noteSearchCorrection.corrected}”`
@@ -2722,7 +2731,7 @@ function renderSidebar() {
   //: (INBOX 432). Uncategorised only while something is in it.
   for (const name of categoryMeta.keys()) if (name !== "Uncategorised") counts.set(name, 0);
   for (const entry of allEntries) {
-    if (entry.is_draft) continue;
+    if (!noteListed(entry)) continue;
     counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
   }
 
@@ -2787,7 +2796,7 @@ function renderSidebar() {
     ul.appendChild(li);
   };
 
-  addRow("All", allEntries.filter((e) => !e.is_draft).length, null);
+  addRow("All", allEntries.filter(noteListed).length, null);
 
   // A drafts count, not a category, asked for directly: a Drafts filter
   // findable in the same place categories are, so a note drafted with the
@@ -2824,7 +2833,7 @@ function renderSidebar() {
   //
   // The notes it collects are the pinned ones (see `favouritesOnly`), no new
   // flag, no second place to star something.
-  const favouriteCount = allEntries.filter((e) => e.pinned && !e.is_draft).length;
+  const favouriteCount = allEntries.filter((e) => e.pinned && noteListed(e)).length;
   const favouriteRow = document.createElement("li");
   favouriteRow.className = "category-drafts-row";
   if (favouritesOnly) markSidebarRowCurrent(favouriteRow);
@@ -3417,7 +3426,7 @@ async function nudgeReviewQueue() {
 const UNTAGGED_NUDGE_MIN = 5;
 
 function nudgeUntaggedNotes() {
-  const untagged = allEntries.filter((e) => !e.is_board && !e.is_draft && !(e.tags || []).length);
+  const untagged = allEntries.filter((e) => !e.is_board && !e.is_draft && !e.map_topic && !(e.tags || []).length);
   if (untagged.length < UNTAGGED_NUDGE_MIN) return;
   const now = new Date();
   const week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 86400000));

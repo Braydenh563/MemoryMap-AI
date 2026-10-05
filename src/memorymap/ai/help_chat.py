@@ -162,7 +162,9 @@ HELP_TOPICS: list[dict] = [
             "drawn between them, plus optional AI similarity lines. Search "
             "highlights matches, dragging rearranges, and the legend toggles "
             "categories on and off. Concept maps (an authored mindmap, not the "
-            "automatic graph) are made and managed from the Library."
+            "automatic graph) are made and managed from the Library. A concept "
+            "map's topics are notes, kept out of Notes and Recently added; a "
+            "search finds them. After Enter names a topic, typing renames it."
         ),
         "badge": {"label": "Graph", "tab": "graph"},
     },
@@ -220,7 +222,14 @@ HELP_TOPICS: list[dict] = [
             "in the title moves to the body. Code "
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
-            "a spellchecker can't catch."
+            "a spellchecker can't catch. The menu's Map the headings turns its "
+            "headings into a new mind map. A ```mermaid flowchart (flowchart TD, "
+            "A --> B) draws as a diagram in Read and Live and in a print; press "
+            "it to edit its text, and any other Mermaid stays as code. Print or "
+            "save as PDF first asks for the page size, orientation, margins and "
+            "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
+            "the corner of a picture to resize it (or focus the corner and use the "
+            "arrow keys), and its align button puts it left, centre or right."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -351,7 +360,8 @@ HELP_TOPICS: list[dict] = [
             "companion, Ctrl+Alt+R reload clearing "
             "cached files. Make: Ctrl+Shift+N a new note, Alt+N a quick note saved "
             "without leaving the page, Ctrl+Shift+D a new "
-            "document, Ctrl+D today's note, Ctrl+Shift+R record a meeting, "
+            "document, Ctrl+D today's note, Ctrl+Shift+V paste what you copied as a "
+            "new note, Ctrl+Shift+R record a meeting, "
             "Ctrl+Shift+K the quick sketch pad, Ctrl+Shift+B the whiteboard. "
             "Writing: Ctrl+S save, Ctrl+/ the blocks and commands menu (in a "
             "document it comments the line instead), Ctrl+J Atlas writes at the "
@@ -1148,14 +1158,22 @@ HELP_TOPICS.extend(
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
-                "map template", "map as a document",
+                "map template", "map as a document", "marker", "markers", "priority on a topic",
+                "flag a topic", "filter by marker", "map outline", "outline of the map",
+                "map the headings",
             ),
             "body": (
                 "Mind map features. The layout picker lays the map out as a tree, "
                 "radial or free, and Tidy lays every unpinned topic out again. "
                 "The View menu sets Colour by (branch, category, age, or whether "
                 "a note is behind it) and opens every folded branch; View, "
-                "Present branches shows it branch by branch. A topic's menu makes "
+                "Present branches shows it branch by branch. A topic's menu, "
+                "Content, Markers sets a priority (1 to 5), how far along it is, a "
+                "flag and up to six icons; View, Filter by marker dims every topic "
+                "without the one you pick. The sidebar's Outline tab (View, "
+                "Outline) lists the map as an indented outline: type to rename, "
+                "Enter adds a topic, Tab and Shift+Tab move it in and out a level. "
+                "A topic's menu makes "
                 "it a task: press its box to tick it, and every topic above "
                 "counts the done ones (1/2); Markdown exports write tasks as - [ "
                 "] and - [x]. View, Number the branches numbers every topic by "
@@ -1170,7 +1188,8 @@ HELP_TOPICS.extend(
                 "local AI propose a map from notes you pick, and export it as "
                 "OPML, FreeMind or Markdown as well as a picture, or write it as "
                 "a document (the board menu's Write as a document: branches "
-                "become headings, deeper topics lists, notes paragraphs). With a "
+                "become headings, deeper topics lists, notes paragraphs); a "
+                "document's menu, Map the headings, goes the other way. With a "
                 "map open, the command palette (Ctrl+K) lists the map's commands: "
                 "add, rename, fold, focus, tidy, layout, look, numbering, present "
                 "and export."

@@ -4430,6 +4430,8 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Pick the model Atlas runs on in this document"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
                 <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
+                <button id="doc-map-headings" class="menu-item doc-dock-menu-item" type="button"
+                  title="Make a new mind map from this document's headings, with a topic that leads back here"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map the headings</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
                 <!-- **One HTML file that needs nothing else**
@@ -4458,7 +4460,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
-                  title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                  title="Choose the page size, margins and page numbers, then print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
                 <!-- Asked for directly: "there should be the option to have
                      the tool bar as a horizontal scroll or expanded." Expanded
                      (wrapping) is the default because it is also what stops the
@@ -5746,6 +5748,13 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" id="wb-map-focus-more" class="ghost small icon-only" title="Show one step more" aria-label="Show one step more"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <button type="button" id="wb-map-focus-clear" class="ghost small" title="Show the whole map again">Show all</button>
       </div>
+      <!-- Filter by marker (MINDMAP_PLAN decision 34): the focus bar's shell,
+           saying which marker the lit topics carry, with the way out. -->
+      <div id="wb-map-filter" class="wb-map-focus wb-map-filter card glass" role="note" aria-label="Filter by marker" hidden>
+        <i class="ph ph-funnel ph-lead" aria-hidden="true"></i>
+        <span class="wb-map-focus-name" id="wb-map-filter-label"></span>
+        <button type="button" id="wb-map-filter-clear" class="ghost small" title="Show every topic at full strength">Show all</button>
+      </div>
       <!-- **What the colours mean** (§5 item 19), drawn only when they mean
            something other than the branch they are on. -->
       <div id="wb-map-legend" class="wb-map-legend card glass" role="note" aria-label="What the colours mean" hidden></div>
@@ -6046,12 +6055,14 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" hidden title="Number every topic by its place in the outline: 1, 1.1, 1.2"><span>Number the branches</span><input type="checkbox" id="wb-map-numbered"></label>
               <button type="button" class="wb-menu-item" id="wb-map-theme-item" hidden><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-expand-all" hidden><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
+              <button type="button" class="wb-menu-item" id="wb-map-filter-item" data-wb-surface="map" hidden title="Dim every topic that does not carry one marker"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i><span>Filter by marker…</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
             </div>
             <div class="wb-menu-section" role="group" aria-label="Panels">
               <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
               <label class="wb-menu-row wb-snap-label" title="The sidebar: the library, notes and layers"><span>Sidebar</span><input type="checkbox" id="wb-panel-library"></label>
+              <label class="wb-menu-row wb-snap-label" data-wb-surface="map" hidden title="The map as an indented list you can edit"><span>Outline</span><input type="checkbox" id="wb-panel-outline"></label>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
               <div class="wb-menu-row">
                 <span>Toolbar</span>
@@ -7036,7 +7047,11 @@ Link to another note with [[its first few words]]."></textarea>
           <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it.</p>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
-          <ul id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></ul>
+          <!-- The map as an outline (MINDMAP_PLAN decision 33): one field per
+               topic in the tree's order, edited in place and kept in step with
+               the canvas both ways (`wbOutlineSync`, whiteboard-map.js). -->
+          <div id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></div>
+          <p class="wb-outline-hint muted">Enter adds a topic, Tab and Shift+Tab move it in and out a level.</p>
         </section>
       </div>
     </aside>

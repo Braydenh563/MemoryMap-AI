@@ -2114,6 +2114,8 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
+    //: The styles only this bundle's surfaces draw, out of the boot budget.
+    "/css/library-lazy.css",
     //: First: the stored undo histories both editors read (undo-store.js).
     "/js/undo-store.js",
     "/js/documents-code.js",
@@ -2199,12 +2201,15 @@ function ensureModule(name) {
     files.map(
       (file) =>
         new Promise((resolve) => {
-          const script = document.createElement("script");
-          script.async = false; // document order, not network order
-          script.src = file + lazyAssetStamp(file);
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
-          document.head.appendChild(script);
+          //: A bundle's own stylesheet is a `<link>` (library-lazy.css's header).
+          const css = file.endsWith(".css");
+          const el = document.createElement(css ? "link" : "script");
+          if (css) el.rel = "stylesheet";
+          else el.async = false; // document order, not network order
+          el[css ? "href" : "src"] = file + lazyAssetStamp(file);
+          el.onload = () => resolve(true);
+          el.onerror = () => resolve(false);
+          document.head.appendChild(el);
         })
     )
   ).then((results) => results.every(Boolean));

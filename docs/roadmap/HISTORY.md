@@ -7,6 +7,113 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the add path, second pass)
+
+Audit FEAT-02's 100ms gate, MINDMAP_PLAN decision 24. Traced with
+`scratchpad/ui-sweeps/mmd2-1005-maptrace.js` (every style recalculation and
+layout of one Tab with the script that forced it; `WHY=1` adds Chromium's
+invalidation reasons) and `mmd2-1005-mapmutations.js` (every DOM write).
+What one Tab at 301 topics cost, and what was done:
+
+| Cost (traced) | Cause | Change |
+| --- | --- | --- |
+| 4,700 icons restyled on every Tab | `.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph`: a `:has()` keyed on the class every icon wears | rewritten by the sibling (`input:checked + .ph`); three `.ph-lead` cousins rewritten with the `:has()` on the subject; `test_has_invalidation.py::test_no_has_is_keyed_only_on_a_class_everything_wears` |
+| 600 elements created and removed per render | the mid-line `+` buttons rebuilt every render | kept, keyed by their two ends, moved when their line's middle moves |
+| 28 to 49ms forced, 1,213 elements | `contenteditable="false"` set on every new label | not set at birth (it is the default) |
+| 37 to 63ms forced, 1,260 elements | the measure read every topic after the tidy's transforms were written | moves written after the measure, and only repainted topics measured |
+| 33 to 60ms forced, 2,100 elements | the selection bar read layout inside the add | placed two frames on (`wbSelectionBarDeferred`) |
+| 37 to 86ms forced, 1,550 elements | the editor's focus brought every pending move and line up to date first | the editor opens before the moves and lines are written, in the same task (`wbRenderHold`, `wbRenderRelease`) |
+| 12ms | the edge handles toggled one by one, twice | only the ones that change, found from the lines' cache |
+
+Measured with `mmd2-1005-mapab.sh` (the base commit's scripts and these,
+alternated on one server, ten adds each, load 7 to 10): render per add 122
+to 421ms before, 21 to 63ms after (one outlier 188); key to editable median
+265, 336, 351ms before against 185, 177, 276ms after. **Not met:** the
+100ms gate on this sandbox; the fastest adds were 117 to 125ms, and what is
+left is the moved map's own style pass in the frame and the machine's load.
+Gates: `mmdoc1005-mapchecks.js` 15/15, `boardundo.js` 43/43, `wbmapundo.js`
+18/18, `mapstrip.js` 39/39, `maptheme.js` 24/24, `mapline.js` 13/13,
+`maprejoin.js` ok, `mapstructure.js` 19/19, `mappresent.js` 6/6 (all through
+`mmd2-1005-runmapsweeps.sh`). Not run: `mapperf.js` and `mapedgelag.js` (the
+drag path takes the moves-after-measure change too, in the same frame).
+
+## Moved from the plans, 2026-10-05 (pictures resized in Live)
+
+### From DOCUMENTS_PLAN.md section 20, the audit's D5 (decision 8)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A grip and an align menu on a picture in Live (`docWireImageEdit`), writing `![A river|260|center](…)` through `docImageAltWith` | the width and alignment could only be typed into the alt text | the grip on the image's corner (within 2px); a 150px drag left gives `|250` and a 250px picture; ArrowRight `|260` with the grip keeping focus and `aria-valuenow` 260; Centre gives `|260|center`, centred to 0px; Read draws 260px; Ctrl+Z takes the alignment back | `scratchpad/ui-sweeps/mmd2-1005-imagegrip.js` 6/6 at 1440x900 light and 390x844 dark; `tests/test_doc_image_options.py` |
+
+Help moved with it: the Guide's documents topic, the controls' own titles,
+DESIGN.md's grip row. Not built: pictures in the Word export (python-docx is
+not in requirements.txt). Not verified: a finger on the 24px grip, the
+desktop window.
+
+## Moved from the plans, 2026-10-05 (the printed page)
+
+### From DOCUMENTS_PLAN.md section 20, the audit's D4 (decision 7)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Print or save as PDF asks for page size, orientation, margins and the page number and title first (`docPrintSetupDialog`, `docApplyPrintSetup`: a constructed `@page` sheet with `@top-center` and `@bottom-center`), remembered, and a plain Ctrl+P uses it | the browser's defaults; no page numbers | Letter landscape at 12mm: the PDF's page box 792x612, four pages, "1/4" to "4/4" at the feet and the title at every head (pdftotext); Escape prints nothing | `scratchpad/ui-sweeps/mmd2-1005-printsetup.js` 6/6 at 1440x900 light and 390x844 dark |
+| A print of a document was one blank page: `body.printing-doc>*:not(#tab-documents)` hid `#app-main`, which holds the page | `#app-main` display none, `#doc-preview` 0px tall, one page | the main kept, the shell's boxes let go: `#doc-preview` 9,529px, eight pages for a long document | `scratchpad/ui-sweeps/mmd2-1005-printprobe.js`; `mmdoc1005-pagebreak.js` 4/4, `doccomments.js` PASS (its marker check now reads the raised footnote FEAT-03 draws) |
+
+Help moved with it: the menu row's title, the Guide's documents topic. Not
+verified: a real printer, the desktop window's print dialog (WebView2), the
+fallback line on a browser without page-margin boxes (none here).
+
+## Moved from the plans, 2026-10-05 (Mermaid flowcharts in documents)
+
+### From DOCUMENTS_PLAN.md section 20, the audit's D3 (decision 6)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A ```mermaid flowchart fence drawn as an SVG figure by an in-repo parser and layered layout (`mermaidFlowParse`, `mermaidFlowLayout`, `mermaidFlowSvgTree`, `docRenderMermaidIn`, `docMermaidField`) | every Mermaid fence rendered as code with a language label (decision 3) | the three-step chart drawn in Read inside the page, its return link bowed aside, named "Flowchart of 3 steps: Write to Ready?; …"; in Live while the caret is elsewhere, its text on a press; a sequenceDiagram fence left as code; the HTML export carries the SVG; its ink the page's in light and dark | `scratchpad/ui-sweeps/mmd2-1005-mermaid.js` 6/6 at 1440x900 light and 390x844 dark; `tests/test_doc_mermaid.py` 5/5 |
+
+Help moved with it: the Guide's documents topic. Not built: subgraphs, other
+diagram types, notes (which render at boot), "Open as a board" (W5). Not
+verified: a printed page (the print stylesheet's rule is reasoned), the
+desktop window.
+
+## Moved from the plans, 2026-10-05 (a document's headings as a map)
+
+### From MINDMAP_PLAN.md decision 31's open half (decision 35), the audit's M5
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A document's menu, Map the headings (`#doc-map-headings`, `DOC_COMMANDS` "map-headings"): `wbMapHeadingsOutline` reads the headings, the Markdown import makes the map, a document topic under the centre leads back | a map could be written as a document, not the other way | "Field guide(Birds(Owls,Finches),Trees,document)" in tree-right; the `#` inside a code fence left out; the document topic named "Field guide" and pointing at it; a document with no headings says so and makes nothing | `scratchpad/ui-sweeps/mmd2-1005-maptodochead.js` 4/4 at 1440x900 light and 390x844 dark; `tests/test_map_from_headings.py` 4/4 |
+
+Help moved with it: the Guide's documents topic, the menu row's title, the
+palette row. Not built: a twin kept in step both ways.
+
+## Moved from the plans, 2026-10-05 (markers)
+
+### From MINDMAP_PLAN.md §12.2 item 4 (decision 34), the audit's M4
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A topic's markers: priority 1 to 5, progress, a flag, up to six Phosphor icons (`wbMapPaintMarkers`, `wbMapOpenMarkers`); View, Filter by marker (`wbMapChooseMarkerFilter`, `#wb-map-filter`); `priority`, `progress`, `flag`, `markers` validated in `WhiteboardObjectData`, carried by OPML and FreeMind as private attributes, kept by a look reset | a task box and one chosen icon were the only marks a topic could carry | five marks drawn before the label inside the topic's box, said as "Priority 2, 50% done, flagged, star, warning"; saved; Ctrl+Z takes back the last; the filter lists "Priority 2 (1)", "Flagged (1)", "Under way (1)", "Star (1)" and dims four of five topics to 0.28; Show all ends it | `scratchpad/ui-sweeps/mmd2-1005-markers.js` 9/9 at 1440x900 light and 390x844 dark; `test_mindmap.py` (`test_markers_are_checked_on_the_way_in`, `test_markers_round_trip_through_both_xml_formats_and_survive_a_look_reset`); `test_ui_recipes.py::test_a_topics_markers_are_one_row_from_one_icon_set` |
+
+Help moved with it: the Guide's mind-map topic, the topic menu's row, the
+palette's two rows, DESIGN.md's marker row. Not built: due dates and tags on
+a topic, several filters at once, the outline's marker columns. Not verified:
+whether the PNG and SVG exports draw the marks; the desktop window.
+
+## Moved from the plans, 2026-10-05 (the map's outline)
+
+### From MINDMAP_PLAN.md §12.2 item 8 (decision 33), the audit's M3
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| View, Outline on a map: `#wb-map-outline` in the sidebar's place, a field per topic in tree order (`wbOutlineSync` after every render), Enter, Tab, Shift+Tab, Backspace, the arrows and Escape as an outliner's, every change through the canvas's own functions | no outline; a map was edited on the canvas only | 50 of 50 topics renamed from the outline drawn on the canvas within one frame and all 50 saved; a topic added with Enter typed in the outline; Tab under the topic above (level 3 to 4), Shift+Tab back right after it; Backspace on an empty one removes it; a canvas rename shows in its row; a board never shows the panel | `scratchpad/ui-sweeps/mmd2-1005-outline.js` 9/9 at 1440x900 light and 390x844 dark; `mmd2-1005-outlineshot.js` (rows 28px, clear of the top bar and the rail) |
+
+Help moved with it: the Guide's mind-map topic, the panel's own one-line hint,
+the palette row. Not built: the markers as outline columns (waits on §12.2
+item 4); folding in the outline (it lists every topic). Not verified: a
+screen reader on the tree (the rows are `treeitem`s holding a labelled
+field), the desktop window.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

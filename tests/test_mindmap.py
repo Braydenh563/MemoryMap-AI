@@ -2251,3 +2251,45 @@ def test_resetting_a_maps_looks_keeps_its_boundaries_and_summaries(client):
     client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
     styles = _styles_by_text(client, board["id"])
     assert styles["Pack"]["boundary"] == "cloud" and styles["Pack"]["summary"] == "Errands"
+
+
+# --- Markers (§12.2 item 4, the audit's M4, decision 34) -------------------
+
+
+def _marked_map(client):
+    board = _map(client, name="Marked")
+    root = _node(client, board["id"], text="Plan")
+    a = _node(client, board["id"], parent_id=root["id"], text="Pack")
+    b = _node(client, board["id"], parent_id=root["id"], text="Book")
+    marks = {"priority": 2, "progress": 50, "flag": True, "markers": ["star", "warning"]}
+    assert _set_data(client, board, a, marks).status_code == 200
+    assert _set_data(client, board, b, {"priority": 5}).status_code == 200
+    return board, marks
+
+
+def test_markers_are_checked_on_the_way_in(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Topic")
+    assert _set_data(client, board, node, {"priority": 0}).status_code == 422
+    assert _set_data(client, board, node, {"priority": 6}).status_code == 422
+    assert _set_data(client, board, node, {"progress": 101}).status_code == 422
+    assert _set_data(client, board, node, {"markers": ["Star!"]}).status_code == 422
+    assert _set_data(client, board, node, {"markers": ["star"] * 7}).status_code == 422
+
+
+def test_markers_round_trip_through_both_xml_formats_and_survive_a_look_reset(client):
+    board, want = _marked_map(client)
+    styles = _styles_by_text(client, board["id"])
+    assert {k: styles["Pack"].get(k) for k in want} == want
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_priority="2"' in text and '_markers="star,warning"' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        got = _styles_by_text(client, back.json()["id"])
+        assert {k: got["Pack"].get(k) for k in want} == want, fmt
+        assert got["Book"].get("priority") == 5, fmt
+    markdown = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "star" not in markdown and "priority" not in markdown.lower()
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    assert _styles_by_text(client, board["id"])["Pack"].get("markers") == ["star", "warning"]

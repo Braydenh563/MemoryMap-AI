@@ -6262,6 +6262,11 @@ function wbBuildContextMenu(kind) {
       sub("From the library…", "Point a new child at a note, document, file or link", () =>
         wbMapAddReference(mapNode.id)
       );
+      //: FEAT-13 (decision 36): children found in the notebook, each saying
+      //: which note it came from; nothing is made until they are ticked.
+      sub("Branches from my notes…", "Up to five, each from one of your notes; you tick which", () =>
+        wbMapSuggestBranches(mapNode)
+      );
     });
 
     subItem("Content", sub => {

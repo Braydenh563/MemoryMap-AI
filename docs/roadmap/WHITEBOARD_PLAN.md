@@ -394,6 +394,16 @@ accessibility, and learnability") are why.
     let go on or to a free end; a press that does not travel selects. A
     connector whose two ends one drag carried has its waypoints carried too,
     in the same Undo step.
+36. **Branches from my notes is grounded by construction** (FEAT-13,
+    `routes_map_suggest.py`): the search engine finds the notes (not private,
+    not a board, not already on the map), the model only names a topic for
+    one of them by number, and a line naming no listed note is dropped; with
+    no model, or prose, the notes' titles are the suggestions and the dialog
+    says so. Previewed in the picker dialog (the Attach picker's rows, all
+    ticked), never written until Add, which makes the ticked ones under the
+    topic in one transaction with "From your note ..." as each one's note,
+    one Undo step. Ghosts drawn on the canvas wait for boot CSS room (the
+    cap is full); the picker is the recipe the app already has.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

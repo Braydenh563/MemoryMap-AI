@@ -1164,7 +1164,8 @@ HELP_TOPICS.extend(
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
-                "map template", "map as a document",
+                "map template", "map as a document", "suggest branches", "branches from my notes",
+                "grow the map", "expand from my notes", "children from notes",
             ),
             "body": (
                 "Mind map features. The layout picker lays the map out as a tree, "
@@ -1183,7 +1184,10 @@ HELP_TOPICS.extend(
                 "template, import an OPML, FreeMind, XMind or Markdown outline (an "
                 "import opens laid out as a tree to the right), paste an indented "
                 "list onto a topic to add it as that topic's branch, let the "
-                "local AI propose a map from notes you pick, and export it as "
+                "local AI propose a map from notes you pick, or on a topic choose "
+                "Add, Branches from my notes… for up to five children found in your "
+                "notes, each saying which note it came from (tick the ones to keep; "
+                "one Undo takes them back), and export it as "
                 "OPML, FreeMind or Markdown as well as a picture, or write it as "
                 "a document (the board menu's Write as a document: branches "
                 "become headings, deeper topics lists, notes paragraphs). With a "

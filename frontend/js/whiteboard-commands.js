@@ -125,6 +125,7 @@ const WB_COMMANDS = [
   { id: "open-library", group: "Library", icon: "ph:shapes", label: "Open the library", menu: "Shapes, icons and frames…", keys: "", surface: "both", run: () => wbOpenSidebar("library") },
   { id: "save-selection", group: "Library", icon: "ph:bookmark-simple", label: "Save to the library…", keys: "Ctrl+Shift+S", surface: "board", needs: "selection", run: () => wbSaveSelectionToLibrary() },
   { id: "save-branch", group: "Library", icon: "ph:tree-structure", label: "Save this branch to the library…", keys: "Ctrl+Shift+S", surface: "map", needs: "topic", run: () => wbSaveBranchToLibrary() },
+  { id: "suggest-branches", group: "Item", icon: "ph:lightbulb", label: "Branches from my notes…", keys: "", surface: "map", needs: "topic", run: () => wbMapSuggestBranches(wbSelectedMapNode()) },
   { id: "save-shape", group: "Library", icon: "ph:polygon", label: "Save as a shape…", keys: "", surface: "board", needs: "drawing", run: () => wbSaveShapeToLibrary() },
   { id: "save-style", group: "Library", icon: "ph:paint-brush", label: "Save this style…", keys: "", surface: "board", needs: "styled", run: () => wbSaveStyleToLibrary() },
   { id: "save-preset", group: "Library", icon: "ph:note", label: "Save as a preset…", keys: "", surface: "board", needs: "textbox", run: () => wbSavePresetToLibrary() },

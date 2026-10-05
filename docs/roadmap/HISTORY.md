@@ -70,6 +70,17 @@ remaining whiteboard rows; the open rest is in
   `tests/test_wb_ports.py` 7; `wbports.js` 9/9 and `wbwaypoints.js` 22/22
   at 1440 and 390, light and dark.
 
+- **Step 6, FEAT-13 first part: Branches from my notes** (decision 36).
+  `routes_map_suggest.py` (`POST .../nodes/{id}/suggest`, writes nothing;
+  `POST .../nodes/{id}/branches`, one transaction, a created event each);
+  `wbMapSuggestBranches` (whiteboard-map.js) on the picker dialog with the
+  Attach picker's rows, from the topic menu's Add group and the command
+  table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
+  the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
+  at 1440 and 390, light and dark (no model on the sweep's server, so the
+  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
+  Summarise this branch, the affinity sort, the claim check.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

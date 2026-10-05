@@ -266,6 +266,8 @@ function closeOnboarding() {
   // either of them.
   localStorage.setItem("tourDone", "1");
   overlayReturnFocus?.focus?.();
+  //: Whatever waited for the welcome (the first start's update question).
+  document.dispatchEvent(new Event("onboarding-closed"));
   overlayReturnFocus = null;
 }
 

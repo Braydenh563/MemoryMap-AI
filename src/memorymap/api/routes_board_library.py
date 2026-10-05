@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import sys
 import uuid
@@ -120,7 +121,7 @@ def _clean_number(value: Any, default: float = 0.0) -> float:
         number = float(value)
     except (TypeError, ValueError):
         return default
-    return number if number == number and abs(number) < 1e7 else default
+    return number if math.isfinite(number) and abs(number) < 1e7 else default
 
 
 def _clean_element(payload: dict) -> dict:

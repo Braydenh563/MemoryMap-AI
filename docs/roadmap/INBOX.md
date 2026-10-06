@@ -77,6 +77,14 @@ with its owner named in the entry.
      animation adn not sudden and janky." Placed: the 0.4.1 mini release, an
      Opus agent.
 
+677. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Compact view: a "Quick access" label, then five equal,
+     bordered, full-height boxes (New note, Sketch, Ask AI, Remind me,
+     Meeting notes) stretched across the whole row, each icon and word
+     left-aligned in a mostly empty box. "the quick access looks wierd and
+     not refined in the compact view". Placed: with 675, the dashboard
+     hero agent (same surface).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

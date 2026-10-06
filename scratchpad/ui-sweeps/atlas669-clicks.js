@@ -44,6 +44,9 @@ async function sampler(page) {
       head: '.atl-layer-body .nm-buddy-head',
       armR: '.atl-layer-body .nmb-arm-r:not(.atl-arm-probe)',
       armL: '.atl-layer-body .nmb-arm-l:not(.atl-arm-probe)',
+      // The body: its pose group, at a fixed point of its own (the
+      // drawing's middle), so an arm can be measured against it.
+      body: '.atl-layer-body .atl-pose',
     };
     const htmlParts = {
       face: '.nm-buddy-face',
@@ -81,7 +84,7 @@ async function sampler(page) {
           if (!el || !el.getScreenCTM) continue;
           const m = el.getScreenCTM();
           let b; try { b = el.getBBox(); } catch (e) { b = { x: 0, y: 0, width: 0, height: 0 }; }
-          const pt = new DOMPoint(b.x + b.width / 2, b.y + b.height / 2).matrixTransform(m);
+          const pt = (k === 'body' ? new DOMPoint(32, 46) : new DOMPoint(b.x + b.width / 2, b.y + b.height / 2)).matrixTransform(m);
           row[k] = [+((Math.atan2(m.b, m.a) * 180) / Math.PI).toFixed(3), +pt.x.toFixed(2), +pt.y.toFixed(2)];
         }
         for (const [k, sel] of Object.entries(htmlParts)) {
@@ -129,7 +132,12 @@ async function headPoint(page) {
 }
 
 function analyse(rows, ctx) {
-  const parts = ['head', 'armR', 'armL', 'face', 'char', 'box', 'lwBody', 'mood', 'pose', 'probeR', 'probeL'];
+  // Each arm against the body (its turn at the shoulder and where its
+  // middle is, the body's own move taken out): the arm's own motion.
+  for (const r of rows) {
+    for (const k of ['armR', 'armL']) if (r[k] && r.body) r[k + 'Rel'] = [r[k][0] - r.body[0], r[k][1] - r.body[1], r[k][2] - r.body[2]];
+  }
+  const parts = ['head', 'armR', 'armL', 'armRRel', 'armLRel', 'body', 'face', 'char', 'box', 'lwBody', 'mood', 'pose', 'probeR', 'probeL'];
   const out = {};
   const steps = [];
   for (const k of parts) {
@@ -149,7 +157,7 @@ function analyse(rows, ctx) {
       const dp = Math.hypot(b[1] - a[1], b[2] - a[2]) * s;
       if (dd > deg) { deg = dd; degAt = rows[i].t; }
       if (dp > px) { px = dp; pxAt = rows[i].t; }
-      if (['head', 'armR', 'armL'].includes(k) && (dd > LIM_DEG || dp > LIM_PX)) steps.push({ k, t: rows[i].t, deg: +dd.toFixed(2), px: +dp.toFixed(2) });
+      if (['head', 'armR', 'armL', 'armRRel', 'armLRel'].includes(k) && (dd > LIM_DEG || dp > LIM_PX)) steps.push({ k, t: rows[i].t, deg: +dd.toFixed(2), px: +dp.toFixed(2) });
     }
     out[k] = { deg: +deg.toFixed(2), degAt: Math.round(degAt), px: +px.toFixed(2), pxAt: Math.round(pxAt) };
   }
@@ -198,6 +206,19 @@ async function openCase(c) {
   return { browser, page };
 }
 
+// `node atlas669-clicks.js --analyse <dump.json>...`: the same report from
+// a run's DUMP files, without a browser (a before and an after compared on
+// one measure).
+if (process.argv[2] === '--analyse') {
+  for (const f of process.argv.slice(3)) {
+    const { rows, ctx } = JSON.parse(require('fs').readFileSync(f));
+    const res = analyse(rows, ctx);
+    const keep = ['head', 'armR', 'armL', 'armRRel', 'armLRel', 'char'];
+    console.log(f.split('/').pop(), rows.length, 'frames', JSON.stringify(Object.fromEntries(keep.map((k) => [k, res.parts[k] && [res.parts[k].deg, res.parts[k].px]]))));
+  }
+  process.exit(0);
+}
+
 (async () => {
   const fails = [];
   const table = {};
@@ -242,7 +263,10 @@ async function openCase(c) {
     for (const [k, v] of Object.entries(res.parts)) console.log(`  ${k.padEnd(7)} ${String(v.deg).padStart(7)}deg @${v.degAt}  ${String(v.px).padStart(7)}px @${v.pxAt}`);
     for (const w of res.worst) console.log(`  worst ${w.k} ${w.deg}deg ${w.px}px @${Math.round(w.t)}: ${w.why}`);
     if (process.env.DUMP) require('fs').writeFileSync(`${process.env.DUMP}-${c}.json`, JSON.stringify({ rows, ctx }));
-    for (const k of ['head', 'armR', 'armL']) {
+    // A click: the whole figure, as seen. The acts: each arm's own move
+    // (a hop or a cheer moves the whole body as fast as it is drawn to;
+    // that is the body's, reported above, not the arm's).
+    for (const k of c.startsWith('acts-') ? ['armRRel', 'armLRel'] : ['head', 'armR', 'armL']) {
       const v = res.parts[k];
       if (v.deg > LIM_DEG) fails.push(`${c}: ${k} turned ${v.deg}deg in a frame at ${v.degAt}ms`);
       if (v.px > LIM_PX) fails.push(`${c}: ${k} moved ${v.px}px in a frame at ${v.pxAt}ms`);

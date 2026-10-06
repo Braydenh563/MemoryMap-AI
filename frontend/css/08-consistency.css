@@ -7041,7 +7041,7 @@ body .chip.item-label,
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-l { animation: nmb-hide-l 2.4s ease-in-out; }
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-r { animation: nmb-hide-r 2.4s ease-in-out; }
     &.nmb-act-hide .name-mark .nm-eyes { animation: nmb-hide-eyes 2.4s ease-in-out; }
-    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 0.9s ease-in-out; }
+    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 1.2s ease-in-out; }
     &.nmb-act-nod .nm-buddy-head { animation: nmb-nod-yes 0.3s ease-in-out 4 alternate; }
     &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
     &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
@@ -7145,11 +7145,16 @@ body .chip.item-label,
   0%, 100% { scale: 1 1; }
   18%, 82% { scale: 1 0.12; }
 }
+/* **A poke's wiggle swings, it does not snap** (INBOX 669, the owner:
+   "when I click atlas, it often starts tilting to the left then just snaps
+   back"). Its turn back from the left went 11 degrees in 225ms, 1.4 a
+   frame, which in the large view moved the head 4px a frame
+   (atlas669-clicks.js). Now 9 degrees over 336ms, from and back to the
+   body's own transform (a lean, a shy sink) rather than `none`. */
 @keyframes nmb-wiggle {
-  0%, 100% { transform: none; }
-  20% { transform: rotate(-6deg) scale(1.03, 0.97); }
-  45% { transform: rotate(5deg); }
-  70% { transform: rotate(-3deg); }
+  20% { transform: rotate(-5deg) scale(1.03, 0.97); }
+  48% { transform: rotate(4deg); }
+  74% { transform: rotate(-2deg); }
 }
 @keyframes nmb-scratch {
   15%, 35%, 55%, 75% { transform: rotate(-150deg); }

@@ -15,6 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Atlas in the large view: a click no longer tilts it and snaps it back, and its arms move smoothly. A finished move (a wave, a look) no longer replays in jumps after it has ended; arm gestures start and end where the arm rests rather than swinging out to straight first; no arm turns more than 4 degrees a frame; a poke's wiggle swings over 1.2 seconds; a one-hand hang cut short no longer jumps sideways; and Atlas's own large view no longer redraws its arms every frame at rest (INBOX 669).
 - Tools & features: the search field no longer runs into the title and close button. It is the app's standard search field now, with its magnifier and room under the head for its focus ring.
 - The "?" in the Quick note (and any other dialog) opens its help again. It opened underneath the dialog, where it could not be seen or reached; the first Escape now closes the help and leaves the note open.
 - Background jobs: a document that cannot be read, and a job that cannot be resumed after a restart, now show a plain sentence instead of the converter's or decoder's own error text. The detail stays in the log with its traceback.

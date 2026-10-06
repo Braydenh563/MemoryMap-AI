@@ -1371,7 +1371,7 @@ onDomReady(() => {
     wbLibState.libDragging = null;
     wbLibState.libGrab = null;
     wbLibState.libPress = null;
-    if (typeof wbMapClearDropTarget === "function") wbMapClearDropTarget();
+    wbMapClearDropTarget();
   });
   const canvas = document.getElementById("whiteboard-container");
   //: **On a map, the topic a branch or an icon will join is lit while it is
@@ -1393,13 +1393,13 @@ onDomReady(() => {
     }
   });
   canvas?.addEventListener("dragleave", (e) => {
-    if (typeof wbMapClearDropTarget === "function" && !canvas.contains(e.relatedTarget)) wbMapClearDropTarget();
+    if (!canvas.contains(e.relatedTarget)) wbMapClearDropTarget();
   });
   canvas?.addEventListener("drop", (e) => {
     if (!e.dataTransfer?.types?.includes("application/x-memorymap-library") || !wbLibState.libDragging) return;
     e.preventDefault();
     e.stopPropagation();
-    if (typeof wbMapClearDropTarget === "function") wbMapClearDropTarget();
+    wbMapClearDropTarget();
     const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
     wbLibPlace(wbLibState.libDragging, wbClientToBoard(e.clientX, e.clientY), { onto, grab: wbLibState.libGrab });
     wbLibState.libDragging = null;
@@ -1427,7 +1427,7 @@ onDomReady(() => {
       choice = window.iconPickerDragging;
     }
     window.iconPickerDragging = null;
-    if (typeof wbMapClearDropTarget === "function") wbMapClearDropTarget();
+    wbMapClearDropTarget();
     if (!choice || (choice.kind !== "emoji" && choice.kind !== "icon") || typeof choice.value !== "string") return;
     const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
     const topic = onto != null ? wbFindItem("object", onto) : null;

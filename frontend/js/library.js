@@ -6924,7 +6924,7 @@ onDomReady(() => {
       if (document.querySelector(".help-body.help-popover:not(.hidden)")) {
         event.preventDefault();
         closeHelpPopovers();
-        document.querySelector('[data-help-for="ocr-help"]')?.focus();
+        $("ocr-help-toggle")?.focus();
         return;
       }
       const popover = overlay.querySelector("details[open]");

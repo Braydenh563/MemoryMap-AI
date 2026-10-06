@@ -9,7 +9,7 @@
 // findable by search, on the timeline and on the graph. No model: the seeded
 // notebook (global-setup.js) is what the no-model filing path learns from.
 const { test, expect } = require("@playwright/test");
-const { watchErrors, openApp, openTab, api, captureNote, waitFiled, noteExists } = require("../helpers");
+const { watchErrors, openApp, openTab, api, captureNote, waitFiled, noteExists, reloadApp } = require("../helpers");
 
 // One note per seeded category, each written the way a person writes one,
 // sharing words with that category's notes but copying none of them.
@@ -39,8 +39,7 @@ test.describe("capture and filing with no model", () => {
     expect(shown, "the composer still shows the saved text").toBe("");
 
     for (const id of ids) await waitFiled(page, id);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await openApp(page);
+    await reloadApp(page);
 
     for (const [i, note] of NOTES.entries()) {
       const saved = await api(page, `/entries/${ids[i]}`);
@@ -66,8 +65,7 @@ test.describe("capture and filing with no model", () => {
       tags: "landlord, repairs",
       category: "Home",
     });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await openApp(page);
+    await reloadApp(page);
     const saved = await api(page, `/entries/${id}`);
     expect(saved.category).toBe("Home");
     expect(saved.tags).toEqual(expect.arrayContaining(["landlord", "repairs"]));
@@ -120,8 +118,7 @@ test.describe("capture and filing with no model", () => {
     await expect.poll(() => noteExists(page, id), { message: "Undo left the note in place" }).toBe(false);
     await page.keyboard.press("Control+Shift+z");
     await expect.poll(() => noteExists(page, id), { message: "Redo did not bring it back" }).toBe(true);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await openApp(page);
+    await reloadApp(page);
     expect(await noteExists(page, id)).toBe(true);
   });
 });
@@ -146,8 +143,7 @@ test.describe("other ways in", () => {
       })
       .toBe(true);
     note = await waitFiled(page, note.id);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await openApp(page);
+    await reloadApp(page);
     const saved = await api(page, `/entries/${note.id}`);
     expect(saved.content).toBe(text);
     expect(saved.category).toBe("Travel");

@@ -2,7 +2,7 @@
 // and brought back; and the Timeline, which puts notes and reminders on one
 // axis. No model: the plain-words reader is the app's own (no AI needed).
 const { test, expect } = require("@playwright/test");
-const { watchErrors, openApp, openTab, api } = require("../helpers");
+const { watchErrors, openApp, openTab, api, reloadApp } = require("../helpers");
 
 function reminderRow(page, text) {
   return page.locator("#tab-reminders li", { hasText: text });
@@ -26,8 +26,7 @@ test("a reminder typed in plain words gets a due time, survives a reload, and ca
   expect(due.toDateString(), "tomorrow evening is tomorrow").toBe(tomorrow.toDateString());
   expect(due.getHours(), "evening is after 5pm").toBeGreaterThanOrEqual(17);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await openApp(page);
+  await reloadApp(page);
   await openTab(page, "reminders");
   const row = reminderRow(page, `Call ${who}`);
   await expect(row).toBeVisible();

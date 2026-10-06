@@ -36,7 +36,6 @@ test("Library, Create, New document makes a new document, not the last one opene
   expect(untouched.title).toBe(seeded.title);
   expect(untouched.content).toBe(seeded.content);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
   await openApp(page, `/#/docs/${made.id}`);
   await expect(page.locator("#doc-title")).toHaveValue(title);
   await expect(page.locator("#tab-documents .cm-content")).toContainText("the rail pass");

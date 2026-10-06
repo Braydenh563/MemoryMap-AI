@@ -192,6 +192,7 @@ function showSettingsSection(name) {
   }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
+  if (name === "searchindex") renderEmbedChoices();
   //: The Atlas row's starter chips, with the chat's bundle (help-chat.js).
   if (name === "help") renderAtlasStarters();
   if (name === "about") renderHealthBlock().catch(() => {});
@@ -4454,6 +4455,20 @@ function renderJobOverview() {
     line.dataset.jobLine = run.kind;
     line.dataset.jobBare = "1";
     li.append(name, line);
+    //: A scheduled pass says when it runs and has Run now (INBOX 713, the
+    //: owner: "is it possible to manually run them").
+    if (run.can_run) {
+      const when = document.createElement("p");
+      when.className = "muted task-detail";
+      when.textContent = run.schedule || "";
+      const go = smallButton("ph:play Run now", `Run ${run.label} now`, async () => {
+        const result = await apiJson(`/jobs/passes/${encodeURIComponent(run.kind)}/run`, { method: "POST" }).catch((e) => ({ started: false, message: e.message }));
+        toast(result.message, !result.started);
+        refreshBackgroundTasks();
+      });
+      go.classList.add("job-run-now");
+      li.append(when, go);
+    }
     list.appendChild(li);
   }
 }

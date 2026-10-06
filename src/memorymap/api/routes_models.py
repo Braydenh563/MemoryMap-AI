@@ -886,32 +886,49 @@ def cancel_job(kind: str, name: str = "") -> dict:
 def set_embedding_backend(
     body: EmbeddingBackendBody, session: Session = Depends(get_session)
 ) -> dict:
-    """Switch how notes are embedded, then re-index everything, vectors
-    from different models must never be compared (§6.5)."""
+    """Switch how notes are embedded: vectors from different models must
+    never be compared (§6.5), so every note is embedded again.
+
+    Through `core/embedswitch.py` since INBOX 700: the new set is built
+    beside the old one and swapped in whole, so search keeps working on the
+    old model until it is complete, rather than falling back to keywords
+    for the length of a re-index. The settings change at the swap."""
     if body.backend == "ollama" and not body.model:
         raise HTTPException(status_code=400, detail="Pick an Ollama embedding model.")
-    current = jobs.reindex_status()
-    if current is not None and current["status"] == "running":
-        raise HTTPException(status_code=409, detail="A re-index is already running.")
+    from memorymap.core import embedmodels, embedswitch
 
-    deps.get_model_manager().set_embedding_backend(body.backend, body.model)
+    current = jobs.reindex_status()
+    if (current is not None and current["status"] == "running") or embedswitch.status()["running"]:
+        raise HTTPException(status_code=409, detail="A re-index is already running.")
+    manager = deps.get_model_manager()
+    if body.backend == "ollama":
+        model = str(body.model)
+    else:
+        # A built-in model is an allowlist repo, never free text.
+        from memorymap.core import embedfind
+
+        entry = embedmodels.EMBED_MODELS_BY_REPO.get(body.model or "")
+        if entry and entry.one_press:
+            model = entry.repo
+        elif body.model and embedfind.usable_repo(body.model):
+            model = body.model
+        else:
+            model = manager.embedding_st_model()
+
+    # Switching backend is a fresh start: drop any cached failure so the
+    # switch retries right away and the stale error banner clears at once
+    # instead of lingering for the retry-cooldown (bug: a fixed torch/Ollama
+    # still showed the old "search engine problem" until the cooldown lapsed).
+    deps.get_embeddings().reset_failure_state()
+    started, message = embedswitch.start(body.backend, model)
     log_action(
         session,
         "edited",
         "preferences",
-        detail=f"embedding_backend={body.backend} model={body.model or '-'}",
+        detail=f"embedding switch to {body.backend} {model}: {'started' if started else 'not started'}",
     )
     session.commit()
-
-    # Switching backend is a fresh start: drop any cached failure so the
-    # re-index retries right away and the stale error banner clears at once
-    # instead of lingering for the retry-cooldown (bug: a fixed torch/Ollama
-    # still showed the old "search engine problem" until the cooldown lapsed).
-    embeddings = deps.get_embeddings()
-    embeddings.reset_failure_state()
-    jobs.start_reindex(deps.get_db(), embeddings)
-    deps.clear_index_stale()
-    return {"reindex_started": True}
+    return {"reindex_started": started, "message": message}
 
 
 @router.post("/reindex")

@@ -1813,6 +1813,98 @@ def list_embedding_models() -> dict:
     }
 
 
+class EmbeddingChoiceBody(BaseModel):
+    #: A catalogue id (`core/embedmodels.catalogue`), never a repo or a path.
+    id: str = Field(max_length=80)
+
+
+@router.get("/embedding-models/choices")
+def embedding_model_choices() -> dict:
+    """Settings, Models' list (INBOX 700): every model on offer with its
+    facts, which one search uses now, and a switch in progress."""
+    from memorymap.core import embedswitch
+
+    manager = deps.get_model_manager()
+    backend = manager.embedding_backend()
+    model = manager.embedding_model() if backend == "ollama" else manager.embedding_st_model()
+    from memorymap.core import embedfind
+
+    choices = embedmodels.catalogue()
+    #: Which Ollama rows are pulled already, for Install against Reinstall
+    #: and Uninstall (the owner's second addendum). Ollama's local list only.
+    ollama = deps.get_ollama()
+    try:
+        pulled = {str(m.get("name", "")) for m in (ollama.list_models() or [])} if ollama.is_running() else set()
+    except Exception:  # noqa: BLE001  # Ollama down: nothing is pulled as far as this screen knows
+        pulled = set()
+    for row in choices:
+        if row["backend"] == "ollama":
+            row["downloaded"] = row["model"] in pulled or f"{row['model']}:latest" in pulled
+    return {
+        "choices": choices,
+        #: Already on this computer, outside the catalogue (the owner's
+        #: addendum): a read-only scan, offline.
+        "found": embedfind.found(deps.get_ollama()),
+        "current": {"backend": backend, "model": model},
+        "switch": embedswitch.status(),
+    }
+
+
+@router.post("/embedding-models/use")
+def use_embedding_model(body: EmbeddingChoiceBody) -> dict:
+    """Switch search to one catalogue entry, in the background. An entry
+    whose licence or loading rules forbid one press is refused here too,
+    not only by its missing button."""
+    from memorymap.core import embedswitch
+
+    from memorymap.core import embedfind
+
+    if body.id.startswith("found"):
+        resolved = embedfind.resolve(body.id, deps.get_ollama())
+    else:
+        resolved = embedmodels.resolve_choice(body.id)
+    if resolved is None:
+        raise HTTPException(status_code=400, detail="That model can't be switched to from here.")
+    started, message = embedswitch.start(*resolved)
+    return {"started": started, "message": message}
+
+
+class EmbeddingPullBody(BaseModel):
+    name: str = Field(max_length=200)
+
+
+@router.post("/embedding-models/pull")
+def pull_embedding_model(body: EmbeddingPullBody) -> dict:
+    """Pull a model by name (INBOX 700, the owner's second addendum).
+
+    A Hugging Face repo is checked against the Hub's metadata, on this click
+    and never before, and fetched only if the built-in engine can load it
+    (`embedmodels.start_typed` says why not otherwise). An Ollama name goes
+    to Ollama's own pull, a Background task with its bytes. Either way the
+    model then appears under Found on this computer, with Use."""
+    from memorymap.ai import model_manager
+
+    kind, name = embedmodels.parse_typed_name(body.name)
+    if kind is None:
+        return {"started": False, "message": name, "source": ""}
+    if kind == "hf":
+        started, message = embedmodels.start_typed(name)
+        return {"started": started, "message": message, "source": "huggingface"}
+    ollama = deps.get_ollama()
+    try:
+        running = ollama.is_running()
+        installed = {str(m.get("name", "")) for m in (ollama.list_models() or [])} if running else set()
+    except Exception:  # noqa: BLE001  # an Ollama that cannot answer is one that is not there
+        running, installed = False, set()
+    if not running:
+        return {"started": False, "message": "Ollama isn't running. Start it and try again.", "source": "ollama"}
+    if name in installed or f"{name}:latest" in installed:
+        return {"started": False, "message": f"{name} is already in Ollama: it is under Found on this computer.", "source": "ollama"}
+    if not model_manager.start_pull(ollama, name):
+        return {"started": False, "message": f"{name} is already downloading.", "source": "ollama"}
+    return {"started": True, "message": f"Pulling {name} into Ollama. Background tasks shows its progress.", "source": "ollama"}
+
+
 @router.post("/embedding-models/{model_id}/download")
 def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     """Fetch one model **from the allowlist** in `core/embedmodels.py`.
@@ -2025,6 +2117,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "utility_model",
         "embedding_backend",
         "embedding_model",
+        "embedding_st_model",
         "recycle_bin_days",
         "conversation_retention_days",
         "timezone",

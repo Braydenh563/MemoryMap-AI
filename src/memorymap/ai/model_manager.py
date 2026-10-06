@@ -766,6 +766,24 @@ class ModelManager:
         """Only meaningful when the backend is 'ollama'."""
         return self._config.get_preference("embedding_model", "nomic-embed-text")
 
+    def embedding_st_model(self) -> str:
+        """The built-in backend's model (INBOX 700), a repo from the allowlist
+        in `core/embedmodels.py`. Anything else in the preference, an entry
+        since removed or one not offered in one press, reads as the default:
+        a repo id is a download, never free text."""
+        from memorymap.core import embedfind, embedmodels
+
+        chosen = self._config.get_preference("embedding_st_model", embedmodels.DEFAULT_REPO)
+        entry = embedmodels.EMBED_MODELS_BY_REPO.get(chosen)
+        if entry is not None:
+            return chosen if entry.one_press else embedmodels.DEFAULT_REPO
+        #: Or one found on this disk that the engine loads as it is (the
+        #: owner's addendum to 700), checked again here: a folder deleted
+        #: since reads as the default rather than a model that is not there.
+        if isinstance(chosen, str) and chosen and embedfind.usable_repo(chosen):
+            return chosen
+        return embedmodels.DEFAULT_REPO
+
     def set_chat_model(self, name: str) -> None:
         # Chat model switches apply instantly, no re-index needed (§6.5).
         self._config.set_preference("chat_model", name)
@@ -774,8 +792,10 @@ class ModelManager:
         # The caller MUST kick off a re-index after this, vectors from
         # different models are not comparable (§6.5).
         self._config.set_preference("embedding_backend", backend)
-        if model:
+        if model and backend == "ollama":
             self._config.set_preference("embedding_model", model)
+        elif model:
+            self._config.set_preference("embedding_st_model", model)
 
 
 # --- background jobs ---------------------------------------------------------

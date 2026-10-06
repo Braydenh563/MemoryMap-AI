@@ -32,6 +32,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -56,13 +57,48 @@ class EmbedModel:
     size: str
     #: True for the one the app loads unless told otherwise.
     default: bool = False
+    #: INBOX 700's facts, shown on the row: parameters, languages, how much
+    #: text one vector reads, and the licence as its repository states it
+    #: (each read from the Hub's own metadata, 2026-10-06).
+    params: str = ""
+    languages: str = "English"
+    context: str = "512 tokens"
+    licence: str = ""
+    #: One line: who should pick it.
+    best_for: str = ""
+    #: Whether the app may fetch and switch to it in one press. Only for a
+    #: licence that allows it (Apache-2.0, MIT) **and** a model that loads
+    #: without running code from its repository; anything else links to
+    #: `terms_url` and says why.
+    one_press: bool = True
+    terms_url: str = ""
+    why_not: str = ""
+    #: Put in front of every text this model embeds. The E5 family and
+    #: nomic were trained with one; without it their matches are measurably
+    #: worse. One prefix for notes and questions alike: the app embeds both
+    #: through one call, and the symmetric form is the one E5's card names
+    #: for similarity between texts of the same kind.
+    prefix: str = ""
 
 
-#: The allowlist. Three, not thirty: this is a personal notebook, and a list
-#: long enough to need its own search is a list nobody can choose from. Each
-#: entry is here because it answers a different question, "the sane default",
-#: "I have very little disk", "I want the best matches and have the RAM".
+#: The allowlist, and the catalogue Settings, Models offers (INBOX 700, the
+#: owner: "add more embedding model options ... research the best ones
+#: available today"). Each entry answers a different question: the sane
+#: default, very little disk, long notes, many languages, the best matches a
+#: laptop can run. Ordered small to large so the list reads as a trade.
 EMBED_MODELS: tuple[EmbedModel, ...] = (
+    EmbedModel(
+        id="minilm",
+        repo="sentence-transformers/all-MiniLM-L6-v2",
+        label="MiniLM L6 (English)",
+        about="Smaller and quicker, and a little blunter about what counts as "
+        "similar. The one to keep on a machine that is short of disk.",
+        size="~90 MB",
+        params="22M",
+        context="256 tokens",
+        licence="Apache-2.0",
+        best_for="An old or small machine: the fastest here, a little less precise.",
+    ),
     EmbedModel(
         id="bge-small",
         repo="BAAI/bge-small-en-v1.5",
@@ -71,14 +107,22 @@ EMBED_MODELS: tuple[EmbedModel, ...] = (
         "good enough that searching by meaning beats searching by keyword.",
         size="~130 MB",
         default=True,
+        params="33M",
+        licence="MIT",
+        best_for="Most notebooks in English: quick on any laptop, good matches.",
     ),
     EmbedModel(
-        id="minilm",
-        repo="sentence-transformers/all-MiniLM-L6-v2",
-        label="MiniLM L6 (English)",
-        about="Smaller and quicker, and a little blunter about what counts as "
-        "similar. The one to keep on a machine that is short of disk.",
-        size="~90 MB",
+        id="me5-small",
+        repo="intfloat/multilingual-e5-small",
+        label="Multilingual E5 Small",
+        about="About a hundred languages in a small model, so notes in "
+        "several languages find each other.",
+        size="~470 MB",
+        params="118M",
+        languages="About 100 languages",
+        licence="MIT",
+        best_for="Notes in more than one language on an ordinary laptop.",
+        prefix="query: ",
     ),
     EmbedModel(
         id="bge-base",
@@ -87,10 +131,196 @@ EMBED_MODELS: tuple[EmbedModel, ...] = (
         about="Noticeably better matches on long notes, at roughly three times "
         "the size and about twice the time to embed one.",
         size="~440 MB",
+        params="110M",
+        licence="MIT",
+        best_for="English notes when better matches are worth a slower save.",
+    ),
+    EmbedModel(
+        id="nomic-v1.5",
+        repo="nomic-ai/nomic-embed-text-v1.5",
+        label="Nomic Embed Text v1.5 (English)",
+        about="Reads up to 8,000 tokens at once, so a long note is one vector "
+        "of the whole rather than of its start.",
+        size="~550 MB",
+        params="137M",
+        context="8,192 tokens",
+        licence="Apache-2.0",
+        best_for="Long notes and documents in English.",
+        one_press=False,
+        terms_url="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
+        why_not="Built in, it runs Python code from its own repository, which "
+        "MemoryMap never does. The same model is nomic-embed-text in Ollama.",
+        prefix="search_query: ",
+    ),
+    EmbedModel(
+        id="qwen3-0.6b",
+        repo="Qwen/Qwen3-Embedding-0.6B",
+        label="Qwen3 Embedding 0.6B",
+        about="The best matches here on the public benchmarks, in over a "
+        "hundred languages, at the cost of memory and a slower save.",
+        size="~1.2 GB",
+        params="596M",
+        languages="Over 100 languages",
+        context="32,768 tokens",
+        licence="Apache-2.0",
+        best_for="The best matches, with 8 GB of memory or more to spare.",
+    ),
+    EmbedModel(
+        id="bge-m3",
+        repo="BAAI/bge-m3",
+        label="BGE M3 (multilingual)",
+        about="A large multilingual model that reads long notes whole.",
+        size="~2.3 GB",
+        params="568M",
+        languages="Over 100 languages",
+        context="8,192 tokens",
+        licence="MIT",
+        best_for="Long notes in many languages on a well-equipped machine.",
+    ),
+    EmbedModel(
+        id="embeddinggemma",
+        repo="google/embeddinggemma-300m",
+        label="EmbeddingGemma 300M",
+        about="Google's small multilingual model, strong for its size.",
+        size="~1.2 GB",
+        params="303M",
+        languages="Over 100 languages",
+        context="2,048 tokens",
+        licence="Gemma terms",
+        best_for="Multilingual notes, once you have accepted Google's terms.",
+        one_press=False,
+        terms_url="https://ai.google.dev/gemma/terms",
+        why_not="Under Google's Gemma terms rather than an open licence, and "
+        "gated on the Hub: read and accept them first, then it is "
+        "embeddinggemma in Ollama.",
     ),
 )
 
 EMBED_MODELS_BY_ID = {model.id: model for model in EMBED_MODELS}
+EMBED_MODELS_BY_REPO = {model.repo: model for model in EMBED_MODELS}
+DEFAULT_REPO = next(model.repo for model in EMBED_MODELS if model.default)
+
+
+@dataclass(frozen=True)
+class OllamaEmbedModel:
+    """An embedding model Ollama serves, by its Ollama name."""
+
+    name: str
+    label: str
+    size: str
+    languages: str
+    context: str
+    licence: str
+    best_for: str
+    one_press: bool = True
+    terms_url: str = ""
+    why_not: str = ""
+
+
+#: Through Ollama: the model lives in Ollama, so MemoryMap stays near 100 MB
+#: of memory. Licences are the upstream repositories' (read on the Hub,
+#: 2026-10-06); sizes are Ollama's library pages'.
+OLLAMA_EMBED_MODELS: tuple[OllamaEmbedModel, ...] = (
+    OllamaEmbedModel(
+        "granite-embedding", "Granite Embedding 30M", "~63 MB", "English", "512 tokens",
+        "Apache-2.0", "The smallest here: a quick English index with Ollama.",
+    ),
+    OllamaEmbedModel(
+        "nomic-embed-text", "Nomic Embed Text", "~274 MB", "English", "8,192 tokens",
+        "Apache-2.0", "Long English notes, and the usual Ollama choice.",
+    ),
+    OllamaEmbedModel(
+        "qwen3-embedding:0.6b", "Qwen3 Embedding 0.6B", "~639 MB", "Over 100 languages",
+        "32,768 tokens", "Apache-2.0", "The best matches through Ollama on a laptop.",
+    ),
+    OllamaEmbedModel(
+        "mxbai-embed-large", "mxbai Embed Large", "~670 MB", "English", "512 tokens",
+        "Apache-2.0", "Precise English matches on short notes.",
+    ),
+    OllamaEmbedModel(
+        "bge-m3", "BGE M3", "~1.2 GB", "Over 100 languages", "8,192 tokens",
+        "MIT", "Long notes in many languages.",
+    ),
+    OllamaEmbedModel(
+        "snowflake-arctic-embed2", "Snowflake Arctic Embed 2", "~1.2 GB", "About 75 languages",
+        "8,192 tokens", "Apache-2.0", "Multilingual search with long context.",
+    ),
+    OllamaEmbedModel(
+        "embeddinggemma", "EmbeddingGemma", "~622 MB", "Over 100 languages", "2,048 tokens",
+        "Gemma terms", "Multilingual notes, once you have accepted Google's terms.",
+        one_press=False,
+        terms_url="https://ai.google.dev/gemma/terms",
+        why_not="Under Google's Gemma terms rather than an open licence: read "
+        "them, then pull it in Ollama yourself and pick it below.",
+    ),
+)
+
+OLLAMA_EMBED_MODELS_BY_NAME = {model.name: model for model in OLLAMA_EMBED_MODELS}
+
+
+def prefix_for(repo: str) -> str:
+    """The text a built-in model wants in front of everything it embeds."""
+    model = EMBED_MODELS_BY_REPO.get(repo)
+    return model.prefix if model else ""
+
+
+def catalogue() -> list[dict]:
+    """Every choice Settings, Models offers, built-in and Ollama, as rows.
+
+    `id` is what `POST /embedding-models/use` takes: an allowlist id for a
+    built-in model, `ollama:<name>` for an Ollama one; never a repo id."""
+    rows = []
+    for model in EMBED_MODELS:
+        rows.append(
+            {
+                "id": model.id,
+                "backend": "sentence-transformers",
+                "model": model.repo,
+                "label": model.label,
+                "size": model.size,
+                "params": model.params,
+                "languages": model.languages,
+                "context": model.context,
+                "licence": model.licence,
+                "best_for": model.best_for,
+                "one_press": model.one_press,
+                "terms_url": model.terms_url,
+                "why_not": model.why_not,
+                "default": model.default,
+                "downloaded": is_downloaded(model.repo),
+            }
+        )
+    for model in OLLAMA_EMBED_MODELS:
+        rows.append(
+            {
+                "id": f"ollama:{model.name}",
+                "backend": "ollama",
+                "model": model.name,
+                "label": model.label,
+                "size": model.size,
+                "params": "",
+                "languages": model.languages,
+                "context": model.context,
+                "licence": model.licence,
+                "best_for": model.best_for,
+                "one_press": model.one_press,
+                "terms_url": model.terms_url,
+                "why_not": model.why_not,
+                "default": False,
+                "downloaded": False,
+            }
+        )
+    return rows
+
+
+def resolve_choice(choice_id: str) -> tuple[str, str] | None:
+    """`(backend, model)` for a catalogue id, or None for anything else,
+    including an entry whose licence or loading rules forbid one press."""
+    if choice_id.startswith("ollama:"):
+        entry = OLLAMA_EMBED_MODELS_BY_NAME.get(choice_id.removeprefix("ollama:"))
+        return ("ollama", entry.name) if entry and entry.one_press else None
+    model = EMBED_MODELS_BY_ID.get(choice_id)
+    return ("sentence-transformers", model.repo) if model and model.one_press else None
 
 
 @dataclass
@@ -102,6 +332,9 @@ class DownloadState:
     step: str = ""
     log: list[str] = field(default_factory=list)
     started: float = 0.0
+    #: The model's name for the Background tasks row: a catalogue label, or
+    #: the repo a person typed into Pull a model by name (INBOX 700).
+    label: str = ""
     outcome: str = ""  # "" while running, then completed | failed
     #: Someone pressed Quit. Checked between download attempts, see
     #: `cancel()` for why that is the only place it can be checked.
@@ -201,6 +434,9 @@ def status() -> list[dict]:
                 "about": model.about,
                 "size": model.size,
                 "default": model.default,
+                "one_press": model.one_press,
+                "terms_url": model.terms_url,
+                "why_not": model.why_not,
                 "installed": installed,
                 "on_disk": _human_size(_dir_size(path)) if installed else "",
                 "downloading": _state.running and _state.model_id == model.id,
@@ -294,10 +530,16 @@ def _run_download(model: EmbedModel) -> None:
                     _state.outcome = "cancelled"
                     _state.step = "Stopped just as it finished, the files are on disk."
                     return
+                #: Verified, not assumed (INBOX 700, "Reinstall re-downloads
+                #: and verifies"): the weights must be in the snapshot.
+                if not is_downloaded(model.repo):
+                    _state.outcome = "failed"
+                    _state.step = f"{model.label} arrived without its weights. Reinstall fetches it again."
+                    return
                 _state.outcome = "completed"
                 _state.step = (
-                    f"{model.label} is on this machine. Searching by meaning "
-                    "uses it from here on, no restart needed."
+                    f"{model.label} is on this machine. Pick it under Embedding "
+                    "models in Settings, Search and index to search with it."
                 )
                 return
             except Exception as exc:  # noqa: BLE001  # retry decides, not the type
@@ -336,24 +578,135 @@ def start(model_id: str) -> tuple[bool, str]:
     model = EMBED_MODELS_BY_ID.get(model_id)
     if model is None:
         return False, "No such embedding model."
+    if not model.one_press:
+        return False, model.why_not
     if not can_download():
         return False, (
             "Downloading a model needs the huggingface_hub library, which "
             "arrives with “Search by meaning” in Settings, Packages. Install "
             "that first."
         )
+    return _begin_download(model)
+
+
+def _begin_download(model: EmbedModel) -> tuple[bool, str]:
     with _lock:
         if _state.running:
             return False, "Another model is already downloading."
         _state.running = True
         _state.model_id = model.id
+        _state.label = model.label
         _state.outcome = ""
         _state.step = "starting…"
         _state.log = []
         _state.started = time.time()
         _state.cancel_requested = False
-    threading.Thread(target=_run_download, args=(model,), daemon=True).start()
+    _spawn_download(model)
     return True, f"Downloading {model.label}."
+
+
+def _spawn_download(model: EmbedModel) -> None:
+    threading.Thread(target=_run_download, args=(model,), daemon=True).start()
+
+
+# -- Pull a model by name (INBOX 700, the owner's second addendum) -------------
+
+#: A Hugging Face repo id: owner/name, each part starting with a letter or
+#: digit, so no `..` and no path can be spelled with it.
+_HF_REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
+
+#: Licences a typed repo may have and still be fetched in one press: the
+#: open ones, the rule the catalogue keeps (Apache-2.0, MIT and their kin).
+OPEN_LICENCES = frozenset({"apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "cc-by-4.0", "cc-by-sa-4.0", "cc0-1.0"})
+
+_ST_FILES = ("modules.json", "config_sentence_transformers.json")
+
+
+def parse_typed_name(text: str) -> tuple[str | None, str]:
+    """("hf", repo), ("ollama", name) or (None, why) for a typed name.
+
+    owner/name with no tag is a Hugging Face repo; anything with a tag, or
+    no owner, is an Ollama name, checked by the same rules as Settings,
+    Models' "Download another model" (`model_cards.inspect_model_name`)."""
+    text = (text or "").strip()
+    if not text or ".." in text or any(ch.isspace() for ch in text):
+        return None, "Type a Hugging Face repo (owner/name) or an Ollama name (name:tag)."
+    if ":" not in text and _HF_REPO.match(text):
+        return "hf", text
+    from memorymap.ai import model_cards
+
+    info = model_cards.inspect_model_name(text)
+    if not info.get("valid"):
+        return None, info.get("error") or "That is not a model name."
+    return "ollama", info["name"]
+
+
+def hub_metadata(repo: str) -> dict | None:
+    """The Hub's own record of `repo` (files, tags, licence), or None when
+    there is no such model. Called only on a Pull click: the one network
+    request on this screen besides a download, and said so beside the box."""
+    import requests
+
+    response = requests.get(f"https://huggingface.co/api/models/{repo}", timeout=15)
+    if response.status_code in (401, 404):
+        return None
+    response.raise_for_status()
+    return response.json()
+
+
+def hub_refusal(meta: dict) -> str:
+    """Why the built-in engine cannot use this repo, or "" when it can."""
+    names = {str(item.get("rfilename", "")) for item in meta.get("siblings") or []}
+    tags = {str(tag) for tag in meta.get("tags") or []}
+    if not any(name in names for name in _ST_FILES):
+        if any(name.lower().endswith(".gguf") for name in names):
+            return "It holds GGUF files, which the built-in engine can't load. Pull it in Ollama instead."
+        return "It isn't in sentence-transformers' format, so the built-in engine can't load it."
+    if not any(
+        name.rsplit("/", 1)[-1].startswith(("model", "pytorch_model")) and name.endswith((".safetensors", ".bin"))
+        for name in names
+    ):
+        return "It has no weights the built-in engine can read."
+    if "custom_code" in tags:
+        return "It needs Python code from its own repository to load, which MemoryMap never runs."
+    if meta.get("gated"):
+        return "It is gated behind terms on Hugging Face: read and accept them there first."
+    licence = str((meta.get("cardData") or {}).get("license") or "")
+    if not licence:
+        licence = next((tag.split(":", 1)[1] for tag in tags if tag.startswith("license:")), "")
+    if not licence:
+        return "It states no licence, so it is not fetched in one press."
+    if licence.lower() not in OPEN_LICENCES:
+        return f"Its licence is {licence}, not an open one MemoryMap fetches in one press: read its terms on Hugging Face."
+    return ""
+
+
+def start_typed(repo: str) -> tuple[bool, str]:
+    """Check `repo` on the Hub and, if the engine can use it, download it as
+    a Background task. The repo id was matched by `_HF_REPO` and is then
+    confirmed by the Hub itself before anything is written."""
+    if not _HF_REPO.match(repo or ""):
+        return False, "Type a Hugging Face repo as owner/name."
+    if repo in EMBED_MODELS_BY_REPO:
+        entry = EMBED_MODELS_BY_REPO[repo]
+        return start(entry.id) if entry.one_press else (False, entry.why_not)
+    if not can_download():
+        return False, (
+            "Downloading a model needs the huggingface_hub library, which "
+            "arrives with “Search by meaning” in Settings, Packages. Install "
+            "that first."
+        )
+    try:
+        meta = hub_metadata(repo)
+    except Exception:  # noqa: BLE001  # offline, refused or odd: one sentence
+        logger.info("couldn't reach Hugging Face for %s", repo, exc_info=True)
+        return False, "Couldn't reach Hugging Face to check that name. Check the connection and try again."
+    if meta is None:
+        return False, f"No model called {repo} on Hugging Face."
+    why = hub_refusal(meta)
+    if why:
+        return False, why
+    return _begin_download(EmbedModel(id="typed", repo=repo, label=repo, about="", size=""))
 
 
 def remove(model_id: str) -> tuple[bool, str]:
@@ -371,6 +724,9 @@ def remove(model_id: str) -> tuple[bool, str]:
         return False, "No such embedding model."
     if _state.running and _state.model_id == model.id:
         return False, "That model is downloading right now."
+    #: Never the one search uses (INBOX 700): switch first, then remove.
+    if _in_use(model.repo):
+        return False, f"{model.label} is in use for search: switch to another model first, then remove it."
     path = _model_dir(model)
     root = cache_root()
     try:
@@ -396,6 +752,16 @@ def remove(model_id: str) -> tuple[bool, str]:
             "It may be in use by a running model."
         )
     return True, f"{model.label} removed. Downloading it again is one click."
+
+
+def _in_use(repo: str) -> bool:
+    try:
+        from memorymap.core import deps
+
+        manager = deps.get_model_manager()
+        return manager.embedding_backend() != "ollama" and manager.embedding_st_model() == repo
+    except Exception:  # noqa: BLE001  # no app (a script): nothing is in use
+        return False
 
 
 def reset_for_tests() -> None:

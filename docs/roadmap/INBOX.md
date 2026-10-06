@@ -66,7 +66,7 @@ with its owner named in the entry.
      `docs/index.html` as a static landing page (no fetch of repo docs, links
      out to GitHub instead; **built bdbad35**: one self-contained page, no
      request beyond its own screenshots, no overflow at 320 to 1920, text
-     4.5:1 or better in light and dark, `tests/test_docs_site.py` pins it), a documentation correctness pass, version 0.4.0
+     4.5:1 or better in light and dark, `tests/test_docs_site.py` pins it), a documentation correctness pass (**built**: README, INSTALL, MODELS, PRIVACY, SECURITY, TROUBLESHOOTING, ARCHITECTURE, CONTRIBUTING, RELEASING and DESIGN checked against the code, 2026-10-06), version 0.4.0
      and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
      then the PR title and description, then the owner is told it is ready.
 

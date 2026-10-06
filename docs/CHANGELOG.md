@@ -25,6 +25,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Pressing the control that opened a menu closes it, everywhere: a dropdown list (Sort, Model, Priority, Repeat and every other select), a note's category chip and the board's Shapes button no longer shut on the press and open again on the click. Right-click or hold on Shapes closes it too.
+- Settings: the sidebar scrolls to keep the section you are reading in view as the page scrolls (nearest edge, smooth only with Interface animations on, never moving focus, and not while you are scrolling or pointing at the sidebar).
 - The corner companion no longer stops a trackpad or wheel scroll: scrolling over it scrolls the list or board beneath.
 - Filing: the first note in a new notebook no longer waits behind the search model's first load. Loading it on a pause in typing shared the one queue filing uses, so on a fresh install the first note could say "Filing…" for as long as the download took.
 - A note that opens with a property block (any note of a type) shows its title, not "---", on the Timeline, and its preview no longer starts with the block's raw text. The note edit form keeps such a note's block out of the text box (the Properties sheet edits it) and finds its title under the block; a title typed there is written under the block instead of above it, where it turned every property into body text.

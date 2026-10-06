@@ -11824,6 +11824,9 @@ async function initWhiteboard() {
         if (menu.classList.contains("hidden")) wbOpenDockedMenu(menu, toggle);
         else wbCloseDockedMenu(menu, toggle);
       } else {
+        //: A press on the control that opened the list shuts it (INBOX 681), and
+        //: still picks the tool the button shows.
+        if (!menu.classList.contains("hidden")) wbCloseDockedMenu(menu, toggle);
         selectWbTool(getLastTool());
       }
     });
@@ -11831,10 +11834,15 @@ async function initWhiteboard() {
       e.stopPropagation();
       wbOpenDockedMenu(menu, toggle);
     });
+    //: The right-click and the hold open the list and, pressed again, shut it.
+    const toggleDocked = () => {
+      if (menu.classList.contains("hidden")) wbOpenDockedMenu(menu, toggle);
+      else wbCloseDockedMenu(menu, toggle);
+    };
     toggle.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      wbOpenDockedMenu(menu, toggle);
+      toggleDocked();
     });
     //: The hold, through the app's own `wireLongPress` (navigation.js) rather than
     //: a fourth copy of a 500ms timer with its own cancel set. It also
@@ -11842,7 +11850,7 @@ async function initWhiteboard() {
     //: the click the lift synthesises, which is the thing that latch was
     //: written to survive, and a latch that is only cleared by the *next*
     //: click is a click lost whenever no click follows.
-    wireLongPress(toggle, () => wbOpenDockedMenu(menu, toggle));
+    wireLongPress(toggle, toggleDocked);
     //: **And from the keyboard.** Enter on the toggle picks the tool it shows
     //: (the click above), and the caret, the right-click, the double-click
     //: and the hold are all pointer gestures, so a keyboard had no way into

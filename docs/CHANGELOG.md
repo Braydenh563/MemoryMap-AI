@@ -616,6 +616,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Top bar: the tabs no longer jump sideways when you switch tab; the strip was measured with its sliding highlight counted as a tab, so whether it was centred depended on which tab was selected (INBOX 539).
 - Agent mode: a model that can call tools is no longer reported as unable to after one tool call Ollama could not read; the request is made once more, only Ollama's own "does not support tools" counts as no tools, an error mid-answer is said instead of ending empty, and a model that claims tools but keeps failing gets its own message (INBOX 538).
 
+- Mind maps: a map's theme with an impossibly large text size in it (JSON's 1e999, from a hand-edited file or another client) is dropped like any other bad value; before, saving it was a server error, and since the theme is read on every open of the map, a stored one would have broken the map (the final scan, 2026-10-06).
 - Mind maps: the + on a map line is one Undo step that puts the branch back under its parent; Redo brings the new topic back between them; any topic taken back by Undo comes back under its parent on Redo, and a batch redoes in the right order (INBOX 537).
 Graph: a topic summary request's shared terms are capped at 200 characters each.
 Suggestions: a decision's signal names are capped at 40 characters (they are kept in the learning table for good).

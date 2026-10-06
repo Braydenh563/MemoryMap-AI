@@ -972,7 +972,8 @@ def _clean_theme(raw: object) -> dict:
         if allowed is int:
             try:
                 number = int(value)
-            except (TypeError, ValueError):
+            #: OverflowError: JSON's `1e999` is infinity, which has no int.
+            except (TypeError, ValueError, OverflowError):
                 continue
             low, high = MAP_THEME_FONT_RANGE
             if low <= number <= high:
@@ -1005,7 +1006,7 @@ def _clean_levels(raw: object) -> dict:
             elif allowed is int:
                 try:
                     number = int(value)
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     continue
                 low, high = MAP_THEME_FONT_RANGE
                 if low <= number <= high:

@@ -125,3 +125,13 @@ def test_the_route_cleans_what_the_box_sends():
     assert "" not in cleaned
     assert not any(len(k) > 200 for k in cleaned)
     assert _validated_context_windows("not a dict") == {}
+
+
+def test_an_infinite_window_means_auto():
+    """JSON's `1e999` is infinity and `int(inf)` raises OverflowError, which
+    the cleaner did not catch (the final scan, 2026-10-06). The route's model
+    types the field as int, so this is the cleaner's own contract: a value
+    that reaches it some other way means auto, never an exception."""
+    from memorymap.api.routes_settings import _validated_context_windows
+
+    assert _validated_context_windows({"m": float("inf"), "n": float("-inf")}) == {"m": None, "n": None}

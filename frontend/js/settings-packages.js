@@ -169,7 +169,7 @@ function packagesRenderBundles(body) {
               title: body.running ? busy : reinstallable.length ? "" : "Nothing here is installed yet.",
               run: () =>
                 body.running || !reinstallable.length
-                  ? toast(body.running ? busy : "Nothing here is installed yet.", true)
+                  ? toast(body.running ? busy : "Nothing here is installed yet.", "info")
                   : packagesBulk("reinstall", reinstallable),
             },
             {
@@ -179,7 +179,7 @@ function packagesRenderBundles(body) {
               title: body.running ? busy : removable.length ? "" : "Nothing here is installed yet.",
               run: () =>
                 body.running || !removable.length
-                  ? toast(body.running ? busy : "Nothing here is installed yet.", true)
+                  ? toast(body.running ? busy : "Nothing here is installed yet.", "info")
                   : packagesBulk("uninstall", removable),
             },
           ],
@@ -339,14 +339,14 @@ function packagesRowMenu(extra, body) {
         label: "ph:arrow-clockwise Reinstall",
         disabled: Boolean(body.running || extra.unavailable),
         title: body.running ? busy : extra.unavailable || "",
-        run: () => (body.running || extra.unavailable ? toast(body.running ? busy : extra.unavailable, true) : packagesReinstallOne(extra)),
+        run: () => (body.running || extra.unavailable ? toast(body.running ? busy : extra.unavailable, "info") : packagesReinstallOne(extra)),
       },
       {
         label: "ph:trash Remove",
         danger: true,
         disabled: Boolean(body.running),
         title: body.running ? busy : "",
-        run: () => (body.running ? toast(busy, true) : packagesRemoveOne(extra)),
+        run: () => (body.running ? toast(busy, "info") : packagesRemoveOne(extra)),
       },
     ],
     `More for ${extra.label}`

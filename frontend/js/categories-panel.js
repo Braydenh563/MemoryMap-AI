@@ -729,8 +729,8 @@ function splitCategoryFromPanel(meta) {
         event.preventDefault();
         const name = nameInput.value.trim();
         const ids = [...boxes].filter(([, box]) => box.checked).map(([id]) => id);
-        if (!name) { toast("Name the new category first.", true); nameInput.focus(); return; }
-        if (!ids.length) { toast("Tick the notes to move first.", true); return; }
+        if (!name) { toast("Name the new category first.", "info"); nameInput.focus(); return; }
+        if (!ids.length) { toast("Tick the notes to move first.", "info"); return; }
         //: One split per press: a second Enter or click while the first is
         //: on its way asked the server to split notes already moved.
         if (apply.disabled) return;

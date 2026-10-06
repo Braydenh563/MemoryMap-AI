@@ -382,7 +382,7 @@ function renderEditForm(li, entry) {
         //: actually remove a note.
         const written = withTitle(textarea.value.trim(), titleInput.value);
         if (!written.trim()) {
-          toast("A note needs some text. To remove it, use Move to bin in its menu.", true);
+          toast("A note needs some text. To remove it, use Move to bin in its menu.", "info");
           return;
         }
         const before = { content: entry.content, category: entry.category, tags: entry.tags };

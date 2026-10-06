@@ -4420,7 +4420,7 @@ async function exportGraphPng() {
   const liveCanvas = document.getElementById("graph-canvas");
   if (liveCanvas && !liveCanvas.classList.contains("hidden")) {
     if (!graphNodesRef || !graphNodesRef.length) {
-      toast("Nothing to export yet.", true);
+      toast("Nothing to export yet.", "info");
       return;
     }
     // GRAPH_PLAN Phase 4: exactly the visible frame, re-rendered at 2x with
@@ -4451,7 +4451,7 @@ async function exportGraphPng() {
   }
   const liveSvg = document.getElementById("graph-svg");
   if (!liveSvg || !liveSvg.querySelector("circle")) {
-    toast("Nothing to export yet.", true);
+    toast("Nothing to export yet.", "info");
     return;
   }
   const clone = liveSvg.cloneNode(true);

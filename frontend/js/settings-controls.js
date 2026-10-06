@@ -647,7 +647,7 @@ $("skill-export").addEventListener("click", () =>
 $("skill-import").addEventListener("click", () =>
   pickJsonFile("skill-import-file", async (data) => {
     const merged = mergeNamedPrompts((prefsCache && prefsCache.skills) || [], data.skills);
-    if (!merged) return toast("No skills found in that file.", true);
+    if (!merged) return toast("No skills found in that file.", "info");
     try {
       await saveSkillList(merged);
     } catch (error) {
@@ -671,7 +671,7 @@ $("persona-import").addEventListener("click", () =>
       (prefsCache && prefsCache.personas) || [],
       data.personas
     );
-    if (!merged) return toast("No personas found in that file.", true);
+    if (!merged) return toast("No personas found in that file.", "info");
     await savePersonaList(merged);
     toast("Personas imported.");
   })
@@ -1462,7 +1462,7 @@ async function restartMemoryMap({ confirm = true } = {}) {
     if (result.restarting) {
       toast("Restarting…");
     } else {
-      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", true);
+      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", "info");
     }
   } catch (error) {
     toast(error.message || "Couldn't restart.", true);

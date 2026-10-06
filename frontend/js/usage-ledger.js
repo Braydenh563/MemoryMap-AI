@@ -80,7 +80,7 @@ $("capture-command-copy")?.addEventListener("click", async () => {
   //: Through the shared helper, which falls back where the clipboard API
   //: is not allowed (tests/test_log_console.py).
   if (await copyToClipboard($("capture-command").textContent)) toast("Copied. Paste it as the command your shortcut runs.");
-  else toast("Couldn't copy here. Select the command and copy it.", true);
+  else toast("Couldn't copy here. Select the command and copy it.", "info");
 });
 
 $("pref-simple-mode")?.addEventListener("change", (event) => applySimpleMode(event.target.checked));

@@ -840,7 +840,7 @@ function selectionMenuItems() {
         : "Split this into one or more linked notes, with a preview first",
       () => {
         if (aiOff) {
-          toast("Extracting notes needs the local AI.", true);
+          toast("Extracting notes needs the local AI.", "info");
           return;
         }
         openExtractPreview(text);

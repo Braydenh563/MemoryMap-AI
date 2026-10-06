@@ -336,7 +336,7 @@ function noteGrammarMenu(view, plugin, finding, x, y) {
   const apply = (option) => {
     const text = view.state.doc.toString();
     if (text.slice(finding.start, finding.end) !== finding.text) {
-      return toast("That text has changed since it was checked.", true);
+      return toast("That text has changed since it was checked.", "info");
     }
     view.dispatch({ changes: { from: finding.start, to: finding.end, insert: option } });
     view.focus();
@@ -665,7 +665,7 @@ function docSuggestActive() {
 }
 
 function setDocSuggestMode(on) {
-  if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
+  if (!currentDoc || !currentDoc.id) return toast("Save the document first.", "info");
   const modes = docSuggestModes();
   if (on) modes[currentDoc.id] = true;
   else delete modes[currentDoc.id];
@@ -958,7 +958,7 @@ function docReadAloudStart() {
   const view = docCmView;
   if (!view) return;
   if (!window.speechSynthesis || typeof SpeechSynthesisUtterance !== "function") {
-    return toast("This window has no speech voices to read with.", true);
+    return toast("This window has no speech voices to read with.", "info");
   }
   docReadAloudStop();
   const text = view.state.doc.toString();

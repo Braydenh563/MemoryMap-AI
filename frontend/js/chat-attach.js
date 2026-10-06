@@ -2371,7 +2371,7 @@ async function sendChatMessage(preset, opts = {}) {
       // A regenerate already removed the old answer; don't leave a blank in
       // its place, since the previous one is gone either way.
       bubble.remove();
-      toast("The model returned nothing that time. Try again.", true);
+      toast("The model returned nothing that time. Try again.", "info");
       return;
     }
     // A turn that ended by starting a skill said nothing on purpose, the run

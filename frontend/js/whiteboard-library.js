@@ -1112,12 +1112,12 @@ async function wbLibExport(libraryId) {
 
 async function wbLibImportFile(file) {
   if (!file) return;
-  if (file.size > 8 * 1024 * 1024) return toast("That file is too large to be a library (8 MB at most).", true);
+  if (file.size > 8 * 1024 * 1024) return toast("That file is too large to be a library (8 MB at most).", "info");
   let body;
   try {
     body = JSON.parse(await file.text());
   } catch {
-    return toast("That file is not a MemoryMap library.", true);
+    return toast("That file is not a MemoryMap library.", "info");
   }
   try {
     const out = await apiJson("/board-library/import", { method: "POST", body: JSON.stringify(body) });

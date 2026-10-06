@@ -1193,10 +1193,10 @@ async function pasteClipboardAsNote() {
   try {
     text = ((await navigator.clipboard.readText()) || "").trim();
   } catch {
-    toast("Couldn't read the clipboard here. Paste into Capture instead.", true);
+    toast("Couldn't read the clipboard here. Paste into Capture instead.", "info");
     return;
   }
-  if (!text) return toast("There is no text on the clipboard to save.", true);
+  if (!text) return toast("There is no text on the clipboard to save.", "info");
   const result = await createNoteSafely({ content: text }).catch((error) => {
     toast(error.message, true);
     return null;
@@ -1840,7 +1840,7 @@ document.addEventListener("drop", async (e) => {
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (images.length) await attachImageFiles(images);
     if (images.length < files.length) {
-      toast("Only images can be attached to a chat message right now.", true);
+      toast("Only images can be attached to a chat message right now.", "info");
     }
     return;
   }
@@ -1870,7 +1870,7 @@ document.addEventListener("paste", async (e) => {
     const images = files.filter((f) => f.type.startsWith("image/"));
     if (images.length) await attachImageFiles(images);
     if (images.length < files.length) {
-      toast("Only images can be attached to a chat message right now.", true);
+      toast("Only images can be attached to a chat message right now.", "info");
     }
     return;
   }

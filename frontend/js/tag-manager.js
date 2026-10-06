@@ -749,7 +749,7 @@ function openBulkTags(ids) {
         const added = [...new Set(add.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean))];
         const removed = [...boxes].filter(([, box]) => box.checked).map(([name]) => name);
         if (!added.length && !removed.length) {
-          toast("Type a tag to add, or tick one to remove.", true);
+          toast("Type a tag to add, or tick one to remove.", "info");
           return;
         }
         if (apply.disabled) return;

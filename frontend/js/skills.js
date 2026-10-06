@@ -271,7 +271,7 @@ function askSkillInputs(skill, done) {
         box.focus();
         // Nothing is sent half-filled: a skill run with a blank {{topic}}
         // searches the whole notebook for nothing and reads as being ignored.
-        toast(`“${skill.name}” needs ${item.label || item.name}.`, true);
+        toast(`“${skill.name}” needs ${item.label || item.name}.`, "info");
         return;
       }
       values[item.name] = value;
@@ -1185,7 +1185,7 @@ function pickJsonFile(inputId, apply) {
     try {
       apply(JSON.parse(await file.text()));
     } catch {
-      toast("That file isn't valid JSON.", true);
+      toast("That file isn't valid JSON.", "info");
     }
   };
   input.click();
@@ -1276,7 +1276,7 @@ function exitSelectMode() {
 
 function batchSelection() {
   const ids = [...selectedIds];
-  if (!ids.length) toast("Tick some notes first.", true);
+  if (!ids.length) toast("Tick some notes first.", "info");
   return ids;
 }
 

@@ -514,6 +514,7 @@ async function api(path, options = {}) {
     //: `editConflictPrompt`) can read it rather than parse a message.
     const error = new Error(errMsg);
     error.status = response.status;
+    if (response.status < 500) toast.refused.add(errMsg);
     error.detail = detail.detail;
     throw error;
   }
@@ -852,7 +853,7 @@ async function submitLockForm() {
       body: JSON.stringify({ password }),
     });
     localStorage.setItem("token", body.token);
-    if (body.warning) toast(body.warning, true);
+    if (body.warning) toast(body.warning, "info");
     vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
     lockedByHand = false;
     $("lock-password").value = "";

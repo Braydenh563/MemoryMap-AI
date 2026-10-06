@@ -379,7 +379,7 @@ async function noteTemplateForUse(template) {
     try {
       clipboard = (await navigator.clipboard.readText()) || "";
     } catch {
-      toast("Couldn't read the clipboard, so that part of the template is empty.", true);
+      toast("Couldn't read the clipboard, so that part of the template is empty.", "info");
     }
   }
   const full = noteTemplateText(raw, clipboard);
@@ -3326,7 +3326,7 @@ function initQuestionsView() {
     setBusy(button, true, "Reading\u2026");
     const reply = await apiJson("/night/run", { method: "POST", body: JSON.stringify({ budget: 20000 }) }).catch(() => null);
     setBusy(button, false);
-    if (reply?.paused) toast("Reading is paused in Settings, What it learned.", true);
+    if (reply?.paused) toast("Reading is paused in Settings, What it learned.", "info");
     loadQuestions();
   });
   $("questions-more").addEventListener("click", () => loadQuestions({ more: true }));

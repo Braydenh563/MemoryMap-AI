@@ -457,7 +457,7 @@ async function wbImportBoardRows(rows, at = wbViewCentre()) {
 async function wbImportMermaid(source, at = wbViewCentre()) {
   const graph = wbMermaidParse(source);
   if (!graph.nodes.length) {
-    toast("No flowchart found. Start with a line like: flowchart TD", true);
+    toast("No flowchart found. Start with a line like: flowchart TD", "info");
     return 0;
   }
   const place = wbMermaidLayout(graph);
@@ -557,7 +557,7 @@ function wbOpenImportDialog() {
 async function wbImportText(text) {
   const rows = /<svg[\s>]/i.test(text) ? wbBoardRowsFromSvg(text) : null;
   if (/<svg[\s>]/i.test(text) && !rows) {
-    toast("That SVG was not exported from a board here, so it has no board inside it. Insert it as a picture instead.", true);
+    toast("That SVG was not exported from a board here, so it has no board inside it. Insert it as a picture instead.", "info");
     return 0;
   }
   return rows ? wbImportBoardRows(rows) : wbImportMermaid(text);

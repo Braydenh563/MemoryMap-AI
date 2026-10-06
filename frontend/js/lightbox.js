@@ -289,7 +289,7 @@ async function attachFromLibrary(entry) {
     return;
   }
   if (!images.length) {
-    toast("Nothing in the Library gallery yet, upload one from Library → Files & Images first.", true);
+    toast("Nothing in the Library gallery yet, upload one from Library → Files & Images first.", "info");
     return;
   }
 

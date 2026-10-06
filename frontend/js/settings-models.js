@@ -266,7 +266,7 @@ function modelMenuItems(model, state) {
       //: The shared helper: it falls back where the clipboard API is absent
       //: (the desktop window over plain http), as every copy path does.
       if (await copyToClipboard(model.name)) toast("Copied the name.");
-      else toast("Couldn't copy it from here.", true);
+      else toast("Couldn't copy it from here.", "info");
     },
   });
   if (state.installed) {
@@ -277,7 +277,7 @@ function modelMenuItems(model, state) {
       disabled: busy,
       danger: true,
       group: "remove",
-      run: () => (busy ? toast(`${state.installed} is in use for ${state.roles.join(" and ")}. Choose another model there first.`, true) : modelRemove(state.installed)),
+      run: () => (busy ? toast(`${state.installed} is in use for ${state.roles.join(" and ")}. Choose another model there first.`, "info") : modelRemove(state.installed)),
     });
   }
   return items;

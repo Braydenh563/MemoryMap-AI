@@ -122,7 +122,7 @@ const ATTACHMENT_ACTIONS = {
   //: text for a document. Shown in a toast here and kept with the file, where
   //: the lightbox and the Library show it beside the file.
   describe: async (spec) => {
-    if (aiIsOff()) return toast(`Describing a file needs the local AI. ${AI_OFFLINE_HINT}.`, true);
+    if (aiIsOff()) return toast(`Describing a file needs the local AI. ${AI_OFFLINE_HINT}.`, "info");
     const id = attachmentFileId(spec);
     toast(`Describing “${attachmentLabel(spec)}”…`);
     try {

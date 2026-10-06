@@ -2510,7 +2510,7 @@ const WB_MAP_LINK_SCHEMES = /^(https?:\/\/|mailto:)/i;
 function wbMapOpenLink(d) {
   const href = d.data?.link;
   if (!href || !WB_MAP_LINK_SCHEMES.test(String(href).trim())) {
-    toast("That topic's link is not a web address.", true);
+    toast("That topic's link is not a web address.", "info");
     return;
   }
   window.open(String(href).trim(), "_blank", "noopener,noreferrer");
@@ -6319,7 +6319,7 @@ async function wbMapEditLink(node) {
   const trimmed = String(next ?? "").trim();
   if (!trimmed) return;
   if (!WB_MAP_LINK_SCHEMES.test(trimmed)) {
-    toast("A topic's link has to be an http, https or mailto address.", true);
+    toast("A topic's link has to be an http, https or mailto address.", "info");
     return;
   }
   await wbMapSetNodeStyle(node, { link: trimmed });
@@ -6364,7 +6364,7 @@ async function wbMapTakePicture(file) {
   const node = id == null ? null : wbMapIndex().byId.get(id);
   if (!file || !node) return;
   if (!file.type || !file.type.startsWith("image/")) {
-    toast("That file is not a picture.", true);
+    toast("That file is not a picture.", "info");
     return;
   }
   try {
@@ -6911,7 +6911,7 @@ async function wbMapCopyBranch(id) {
   if (!source) return;
   const subtree = wbMapSubtree(index, id);
   if (subtree.length > WB_MAP_COPY_MAX) {
-    toast(`That branch has ${subtree.length} topics: copying stops at ${WB_MAP_COPY_MAX}.`, true);
+    toast(`That branch has ${subtree.length} topics: copying stops at ${WB_MAP_COPY_MAX}.`, "info");
     return;
   }
   const mapped = new Map();
@@ -7558,7 +7558,7 @@ async function wbMapCrossLinkToBranch(sketchId) {
   const { source, target, index } = info;
   const descendants = new Set(wbMapSubtree(index, target.id).map((o) => o.id));
   if (descendants.has(source.id)) {
-    toast(`"${wbMapLabel(source)}" is already under "${wbMapLabel(target)}": turn the cross-link around first.`, true);
+    toast(`"${wbMapLabel(source)}" is already under "${wbMapLabel(target)}": turn the cross-link around first.`, "info");
     return;
   }
   if (!(await wbMapTransplant(target, source.id, false, { via: "link" }))) return;
@@ -7953,7 +7953,7 @@ async function wbMapSummarise(nodes) {
   const siblings = wbMapSiblingsOf(index, first);
   const places = nodes.map((n) => siblings.findIndex((s) => s.id === n.id));
   if (places.some((at) => at < 0)) {
-    toast("A summary covers topics side by side under one parent.", true);
+    toast("A summary covers topics side by side under one parent.", "info");
     return;
   }
   const from = Math.min(...places);
@@ -8588,7 +8588,7 @@ function wbMapDueRow(node, parts, set) {
       const [y, m, d] = parts.due.split("-").map(Number);
       const at = new Date(y, m - 1, d, 9, 0, 0);
       if (at < new Date()) {
-        toast("That day has gone: pick a later due date for a reminder.", true);
+        toast("That day has gone: pick a later due date for a reminder.", "info");
         return;
       }
       try {

@@ -3523,7 +3523,7 @@ function nameMarkBuddySavePreset() {
   const input = document.getElementById("avatar-buddy-preset-name");
   const name = (input?.value || "").trim().slice(0, 30);
   if (!name) {
-    toast("Give the companion a name first.", true);
+    toast("Give the companion a name first.", "info");
     input?.focus();
     return;
   }
@@ -3534,7 +3534,7 @@ function nameMarkBuddySavePreset() {
   }
   const others = nameMarkBuddyPresets().filter((p) => p.name !== name && p.name !== nmbPresetRenaming);
   if (others.length >= NMB_PRESET_MAX) {
-    toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
+    toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, "info");
     return;
   }
   nmbPresetRenaming = "";

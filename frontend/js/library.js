@@ -1044,7 +1044,7 @@ async function linkNoteFromLibrary(item) {
   const other = await pickEntryDialog("Link to which note?");
   if (!other) return;
   if (other.id === item.id) {
-    toast("A note can't be linked to itself.", true);
+    toast("A note can't be linked to itself.", "info");
     return;
   }
   try {
@@ -4613,7 +4613,7 @@ async function ocrRunRegion(mode) {
   if (!chosen.reader) {
     $("ocr-message").textContent = chosen.said;
     $("ocr-message").classList.remove("hidden");
-    toast(chosen.said, true);
+    toast(chosen.said, "info");
     return;
   }
   buttons.forEach((b) => b && (b.disabled = true));
@@ -6092,7 +6092,7 @@ async function ocrReadImage(image, button) {
     //: success toast over an empty panel.
     $("ocr-message").textContent = chosen.said;
     $("ocr-message").classList.remove("hidden");
-    toast(chosen.said, true);
+    toast(chosen.said, "info");
     return;
   }
   const label = `Reading ${image.original_name || "this image"} with ${ocrReaderNameFor(reader)}…`;
@@ -6230,7 +6230,7 @@ onDomReady(() => {
   //: two things anyone does with one are ask about it and keep it.
   $("ocr-to-chat")?.addEventListener("click", () => {
     const text = ocrAllText();
-    if (!text) return toast("There is nothing to ask about yet.", true);
+    if (!text) return toast("There is nothing to ask about yet.", "info");
     const name = ocrWorkspaceCurrent?.original_name || "this page";
     const page = ocrIsPdf(ocrWorkspaceCurrent) ? `, page ${ocrWorkspacePage + 1}` : "";
     const quoted = text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
@@ -6368,7 +6368,7 @@ onDomReady(() => {
   });
   $("ocr-copy-all")?.addEventListener("click", (event) => {
     const text = ocrAllText();
-    if (!text) return toast("There is nothing to copy yet.", true);
+    if (!text) return toast("There is nothing to copy yet.", "info");
     copyToClipboard(text, event.currentTarget);
   });
   //: **Delete, the half of "delete or redo" that redo did not already have.**
@@ -6409,7 +6409,7 @@ onDomReady(() => {
         //: `message` carries that, and a "Description written." toast over it
         //: would be the app claiming work it did not do.
         toast(described?.caption ? `Page ${ocrWorkspacePage + 1} described.` : described?.message
-          || "Nothing was written for that page.", !described?.caption);
+          || "Nothing was written for that page.", described?.caption ? false : "info");
         return;
       }
       const updated = await libraryBackgroundRun(
@@ -6525,7 +6525,7 @@ onDomReady(() => {
     if (!chosen.reader) {
       $("ocr-message").textContent = chosen.said;
       $("ocr-message").classList.remove("hidden");
-      toast(chosen.said, true);
+      toast(chosen.said, "info");
       return;
     }
     setBusy(button, true, "Reading…");
@@ -6597,7 +6597,7 @@ onDomReady(() => {
     if (!chosen.reader) {
       $("ocr-message").textContent = chosen.said;
       $("ocr-message").classList.remove("hidden");
-      toast(chosen.said, true);
+      toast(chosen.said, "info");
       return;
     }
     setBusy(button, true, "Reading…");
@@ -6692,7 +6692,7 @@ onDomReady(() => {
   });
   $("ocr-to-note")?.addEventListener("click", async () => {
     const text = ocrAllText();
-    if (!text) return toast("There is nothing to save yet.", true);
+    if (!text) return toast("There is nothing to save yet.", "info");
     try {
       //: The image goes with the text. A note holding a transcription with no
       //: picture of what was transcribed cannot be checked later, which is
@@ -7858,7 +7858,7 @@ function filterLibraryImagesGallery() {
               (image._isImage
                 ? "No description was written. Is a vision model running in Settings > Models?"
                 : "No description was written. Check a model is running in Settings > Models."),
-            true,
+            "info",
           );
         }
       } catch (error) {
@@ -10168,7 +10168,7 @@ function bookmarkRow(bookmark) {
       event.preventDefault();
       const url = urlInput.value.trim();
       if (!url) {
-        toast("A bookmark needs a URL.", true);
+        toast("A bookmark needs a URL.", "info");
         urlInput.focus();
         return;
       }

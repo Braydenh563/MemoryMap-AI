@@ -19,6 +19,9 @@ tag. Not redone: SEC-01 to SEC-17 (HISTORY, "Security audit fixes,
 | 92dfd7f | Bug (500) | `routes_whiteboard._clean_theme` and `_clean_levels`: JSON `1e999` is infinity and `int(inf)` raised OverflowError on a theme patch, and the cleaner runs on every map read. Same catch added to `routes_settings._validated_context_windows` (unreachable through the route's int model; hardened). |
 | 04a69b8 | CI (release) | `release.yml` notes: the awk range `/^## x/,/^## /` ended on its own header, so every release's notes were empty (GitHub's generated list instead). Fixed; and since 0.4.0's section is about 278,000 chars and GitHub refuses a body over 125,000 (failing the release job), the notes are cut at a line end under 120,000 bytes with a link to CHANGELOG.md, behind a unique heredoc delimiter. Measured on the real CHANGELOG with the header renamed to 0.4.0: 119,592 chars. |
 | 184030b | CI (release) | `workflow_dispatch`'s `${{ inputs.version }}` was spliced into `run:` (Actions script injection); now through `env:`, and a test holds every run block to it. |
+| e7ef51d, 5211870, 1ec5be7, 543fccc | ReDoS (`py/polynomial-redos`) | Item 4 (found, then fixed): `manager._md_links`, `docexport.inline_split`, `answer_trim._METADATA` (each test first; 0.3 to 15 s on 20 KB, now under 0.02 s) and `questions._title` (already linear, bounded loop). Detail in `quickwins-1006.md`. |
+| d1ada94 | Raw exception text | Item 5 (found, then fixed): Background jobs shows a plain sentence for an unreadable document and an unresumable job; the exception is in the log. |
+| 9ea1470 | CI (E2E) | The `first-run` project does not retry. |
 
 ## Reviewed, nothing to fix
 
@@ -38,8 +41,6 @@ tag. Not redone: SEC-01 to SEC-17 (HISTORY, "Security audit fixes,
 1. Pre-tag checklist: `__version__` is `0.3.32` and CHANGELOG's header `## [Unreleased]`; `release.yml` refuses a `v0.4.0` tag until `__init__.py` says 0.4.0, and the notes need `## [0.4.0] - <date>` (README's version is held by `test_readme_freshness`).
 2. CI margin: Tests (Python 3.13) took 16 m 14 s of its 25 m timeout on the head (3.11 15 m 01 s, 3.12 14 m 37 s). A slow runner is a red build; raising it is the owner's call.
 3. Linux release smoke is weaker than Windows': `build-linux-package` only curls `/`, while Windows runs `packaging/frozen_smoke.py` (every lazy asset and the API), and no PR job builds the Linux bundle. Recommend `frozen_smoke.py` there too; not changed, as it cannot be verified without a Linux PyInstaller run.
-4. Quadratic, not reachable from a request: `entry/manager.py:2583` (a note's first line), `core/docexport.py` `_INLINE` (one line), `ai/answer_trim.py:138` (model output), `ai/questions.py:83`: 0.3 to 0.5 s on 12 KB of a crafted pump, on the person's own notes or the model's reply. Left.
-5. Raw exception text in Background jobs: `routes_settings.import_document` records `Couldn't read <file>: <exc>` in `jobruns` (pinned by `test_job_runs.py` as a diagnostic), `jobstore` resume likewise. Local, behind the lock; left as designed.
 
 ## Not verified
 

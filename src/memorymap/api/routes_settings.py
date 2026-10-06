@@ -2809,8 +2809,15 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         try:
             text = importer.convert_to_markdown(Path(saved.name))
         except Exception as exc:  # a file markitdown can't parse must not 500
+            #: Background jobs shows this row to a person, so it is a plain
+            #: sentence with the file's name; the converter's own words (a
+            #: path, a library's message) stay in the log with the traceback
+            #: (final scan, item 5).
             jobruns.note_finished(
-                "import", "failed", f"Couldn't read {file.filename or 'that file'}: {exc}"
+                "import",
+                "failed",
+                f"Couldn't read {logbuffer.safe_value(file.filename or 'that file', 80)}. "
+                "It may be damaged or in a format that can't be converted.",
             )
             logging.getLogger("memorymap.import").warning(
                 "couldn't convert %s", logbuffer.safe_value(file.filename, 80), exc_info=True

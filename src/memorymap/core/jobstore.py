@@ -546,8 +546,12 @@ def resume(db=None, enqueue=None) -> dict:  # noqa: ANN001
                 func = resolve(kind)
                 args, kwargs = decode_payload(payload)
                 dedupe = _as_key(json.loads(key)) if key else None
-            except Exception as exc:  # noqa: BLE001  # one bad row fails alone
-                _fail_unrun(job_id, f"Could not be resumed: {exc}", db)
+            except Exception:  # noqa: BLE001  # one bad row fails alone
+                #: The row is shown in Background jobs, so it says what
+                #: happened in a sentence; the exception (a decoder's words,
+                #: a payload fragment) goes to the log with its traceback.
+                logger.warning("could not resume job %s (%s)", job_id, kind, exc_info=True)
+                _fail_unrun(job_id, "Could not be resumed after the app restarted.", db)
                 continue
             enqueue(kind, func, args, kwargs, name, dedupe, job_id)
             counts["resumed"] += 1

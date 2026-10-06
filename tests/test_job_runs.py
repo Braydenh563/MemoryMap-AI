@@ -275,7 +275,7 @@ def test_a_folder_import_records_an_import(client, tmp_path, monkeypatch):
     assert _runs(client)["import"]["result"] == "imported 1 note from a folder"
 
 
-def test_an_unreadable_document_records_a_failed_import(client, monkeypatch):
+def test_an_unreadable_document_records_a_failed_import(client, monkeypatch, caplog):
     from memorymap.api import routes_settings
 
     monkeypatch.setattr(routes_settings.importer, "markitdown_available", lambda: True)
@@ -284,10 +284,41 @@ def test_an_unreadable_document_records_a_failed_import(client, monkeypatch):
         raise ValueError("corrupt zip")
 
     monkeypatch.setattr(routes_settings.importer, "convert_to_markdown", boom)
-    response = client.post("/import/document", files={"file": ("deck.pptx", b"junk", "application/x")})
+    with caplog.at_level("WARNING", logger="memorymap.import"):
+        response = client.post("/import/document", files={"file": ("deck.pptx", b"junk", "application/x")})
     assert response.status_code == 422
     row = _runs(client)["import"]
-    assert row["status"] == "failed" and "deck.pptx" in row["error"] and "corrupt zip" in row["error"]
+    #: Background jobs shows the row to a person: a plain sentence, with the
+    #: file's name, and none of the converter's own words (final scan item 5).
+    assert row["status"] == "failed" and "deck.pptx" in row["error"]
+    assert "corrupt zip" not in row["error"] and "ValueError" not in row["error"]
+    assert row["error"].startswith("Couldn't read deck.pptx.")
+    #: The detail stays in the log, with its traceback.
+    records = [r for r in caplog.records if r.name == "memorymap.import"]
+    assert records and records[0].exc_info and "corrupt zip" in str(records[0].exc_info[1])
+
+
+def test_a_job_that_cannot_be_resumed_shows_a_plain_reason_and_logs_the_detail(tmp_path, caplog):
+    from memorymap.core import jobstore
+    from memorymap.core.database import DatabaseManager, DurableJob
+
+    db = DatabaseManager(tmp_path / "jobs.db")
+    kind = next(iter(jobstore.HANDLERS))
+    job_id = jobstore.record(kind, (1,), {}, db=db)
+    assert job_id is not None
+    with db.session() as session:
+        session.query(DurableJob).filter(DurableJob.id == job_id).update({"payload": "{not json at all"})
+        session.commit()
+    with caplog.at_level("WARNING", logger="memorymap.jobstore"):
+        counts = jobstore.resume(db=db, enqueue=lambda *call: None)
+    jobstore.stop()
+    assert counts["resumed"] == 0
+    with db.session() as session:
+        row = session.get(DurableJob, job_id)
+        assert row.state == "failed"
+        assert row.error == "Could not be resumed after the app restarted."
+    records = [r for r in caplog.records if r.name == "memorymap.jobstore" and "resume job" in r.getMessage()]
+    assert records and records[0].exc_info is not None
 
 
 def test_link_reasons_records_a_run(client):

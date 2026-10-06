@@ -776,6 +776,23 @@ select optgroup {
      `.dock`, and 0 for the one full-bleed strip. */
   --radius-choice: calc(var(--radius) * 0.5 + var(--radius-md));
   --radius-strip: var(--radius-lg);
+  /* A control inside a fully round container (a pill, a round well): fully
+     round too, so its hover fill, pressed fill and focus ring sit inside the
+     end caps (concentric: the container's corner minus its padding is still
+     the whole short side). The concentric token for a card's inner surface,
+     `--radius-inner`, is 0 at a small corner setting and a few pixels at the
+     default, a square drawn inside a capsule (INBOX 683). */
+  --radius-in-pill: var(--radius-pill);
+  /* A control inside a choice-control track (`--radius-choice`, padded by one
+     `--space-1`): the track's corner minus that padding, never less than the
+     button corner, so a day's hover fill in the timeline's week well is
+     concentric with the well rather than 2px tighter (INBOX 683 sweep). */
+  /* A control inside a button-cornered container (`--radius-md`) padded by one
+     `--space-1`: the container's corner minus that padding, floored at the chip
+     corner so a small corner setting does not square it (the graph's zoom
+     strip, INBOX 683 sweep). */
+  --radius-in-md: max(var(--radius-sm), calc(var(--radius-md) - var(--space-1)));
+  --radius-in-choice: max(var(--radius-md), calc(var(--radius-choice) - var(--space-1)));
 
   /* --- aliases for a second set of token names (audit of §40) ---------------
      Twenty-three declarations across the newer components reached for names

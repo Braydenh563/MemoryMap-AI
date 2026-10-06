@@ -2886,6 +2886,13 @@
   padding: var(--space-1) var(--space-2);
 }
 
+/* **The zoom pill's buttons are round inside it** (INBOX 683 sweep): three
+   `.ghost.small.icon-only` buttons kept the button corner, so their hover
+   fill and focus ring were rounded squares in a capsule. */
+.whiteboard-floating-panel.whiteboard-floating-panel.bottom-right > button {
+  border-radius: var(--radius-in-pill);
+}
+
 /* A pill is a single row of controls. Once it has wrapped it is a block of
    them, and the fully-rounded ends read as a mistake rather than a shape. */
 .whiteboard-floating-panel.bottom-center:has(> :last-child:not(:first-child)) {
@@ -3939,7 +3946,7 @@ aside[data-resizable="1"] {
   min-height: max(var(--control-h-body), var(--target-min));
   padding: var(--space-1);
   border-color: transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-in-choice);
   background: transparent;
   box-shadow: none;
   color: var(--ink);

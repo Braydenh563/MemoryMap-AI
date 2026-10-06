@@ -109,6 +109,32 @@ The multipliers are chosen so each tier lands within a pixel of the value it
 replaced at the default 14px. **Never pin a tier to a constant**: the lint
 checks for this, because doing so silently disconnects the slider again.
 
+### Controls inside a rounded container
+
+**A control inside a rounded container takes a corner that sits inside it:
+fully round, or the container's corner minus its padding, and its hover fill,
+pressed fill and focus ring all follow it** (INBOX 683, the owner: "the square
+active goes out of the circular pill"). Outlines follow `border-radius` in
+current Chromium; a box-shadow ring must use the same corner. The button corner
+(`--radius-md`) is for a button on a surface, not for one inside a capsule: a
+rounded square drawn in a pill is the tell.
+
+| The container | The control's corner | Token |
+| --- | --- | --- |
+| A pill or a round well (`--radius-pill`): the table bar's "Copy, more, close", the board's zoom pill, the selection bar | Fully round | `--radius-in-pill` |
+| A choice-control track (`--radius-choice`) padded by one `--space-1`: the timeline's week well | The track's corner minus that padding, never under the button corner | `--radius-in-choice` |
+| A button-cornered strip (`--radius-md`) padded by one `--space-1`: the graph's zoom strip | The strip's corner minus that padding, never under the chip corner | `--radius-in-md` |
+| A bare tab in a `.tabs-line` strip (no container; INBOX 682) | The button corner, on all four corners | `--radius-md` |
+
+`--radius-inner` is **not** this token: it is a painted *surface's* corner
+inside a card, and it is 0 below a 12px corner setting, which is what drew
+"Copy | ... | X" as three rectangles in a capsule. A container that clips
+(`overflow: hidden`) cuts its controls' focus rings to a line; pad it and let
+it overflow instead (the graph zoom strip did). The check:
+`tests/test_ui_recipes.py` (`test_a_control_in_a_rounded_container_takes_the_container_tokens`),
+`scratchpad/ui-sweeps/radius682.js` (container and child corner at rest, hover
+and keyboard focus, light and dark, 1440 and 390).
+
 ### The page shell: `--page-gutter`, `--page-top`, `--page-bottom`
 
 ```
@@ -950,6 +976,8 @@ fails a rule that rounds a track any other way.
 | Inside a `.dock` bar: the bar's corner, which its buttons already use | `--radius-md` | 8.4px |
 | Inside the chat dock, where every control is a pill | `--radius-pill` | 999px |
 | A `.tabs-line` strip (`#notes-subtabs`, `#library-subtabs`, `#doc-sidebar-tabs`) | `0` | 0 |
+
+The tabs *inside* a `.tabs-line` strip are buttons and take `--radius-md` on all four corners for their hover fill and focus ring (INBOX 682); the chosen tab is the strip's 2px line and never a box, in every look, so no `.tabs-line` is also a `.seg` (that class gave `#doc-sidebar-tabs` the flat looks' filled, edged, square-cornered choice-control slab).
 
 The third row is the one-corner-per-row rule (08-consistency.css): a 15.4px
 well beside 8.4px buttons in the same bar was two radii in one strip, which

@@ -3651,6 +3651,7 @@ button.answer-figure-open {
 .graph-zoom {
   display: flex;
   flex-direction: column;
+  /* The padding, gap and overflow are set again below, with the reason. */
   gap: 0;
   overflow: hidden;
   /* The floating-control recipe (see `.scroll-top`): card fill, glass edge,
@@ -3664,15 +3665,27 @@ button.answer-figure-open {
   -webkit-backdrop-filter: var(--glass-filter);
 }
 
+/* **Round buttons, a rounded strip** (INBOX 683 sweep: "the square active goes
+   out of the circular pill"). The strip clipped its buttons (`overflow:
+   hidden`) and drew them square, so a hover fill was a hard rectangle against
+   the strip's own corner and a keyboard focus ring was cut to a single blue
+   line along the clipped edge (measured at 1440: the ring of "Zoom in" showed
+   only its bottom). The strip takes one `--space-1` of padding and no clip,
+   and each button the concentric corner (`--radius-in-md`: the strip's corner
+   minus that padding), so the fill, the pressed state and the ring all sit
+   inside the strip. The hairlines between the buttons go: a gap is the
+   divider now. */
+.graph-zoom {
+  padding: var(--space-1);
+  gap: var(--space-1);
+  overflow: visible;
+}
+
 .graph-zoom .graph-zoom-btn {
-  border-radius: 0;
+  border-radius: var(--radius-in-md);
   border: none;
   box-shadow: none;
   margin: 0;
-}
-
-.graph-zoom .graph-zoom-btn+.graph-zoom-btn {
-  border-top: 1px solid var(--border);
 }
 
 /* Legend entries read as toggle pills. */

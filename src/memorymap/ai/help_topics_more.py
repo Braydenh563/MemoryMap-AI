@@ -655,7 +655,9 @@ MORE_TOPICS.extend(
                 "counts what is waiting, with Try now to send it at once. A note "
                 "sent twice is still saved once. An edit left unsaved in a note's "
                 "form is kept on this device too: after a reload or a closed "
-                "window, a message offers Open them to carry on."
+                "window, a message offers Open them to carry on. A document's "
+                "last words before a reload are kept the same way, and Put them "
+                "back returns them when that document opens."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

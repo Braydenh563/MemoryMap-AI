@@ -85,6 +85,19 @@ with its owner named in the entry.
      not refined in the compact view". Placed: with 675, the dashboard
      hero agent (same surface).
 
+678. **The owner, 2026-10-06, verbatim**, with two screenshots of one note
+     card, before and after "Show more" (the same four lines both times,
+     only the line spacing larger after): "this note has show more but it
+     doesnt have any text cut off, it just increases the spacing between the
+     rows". Two faults: "Show more" is offered for text that is not
+     clipped, and the clamped and expanded states set different line
+     heights. Placed: with 676, the rows agent (the same card code).
+
+679. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "the popup buttons on notes disappear when pressing
+     the meatball button and opening the menu". The card's hover action
+     cluster hides while its own menu is open. Placed: with 676.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

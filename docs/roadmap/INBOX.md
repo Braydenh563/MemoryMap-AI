@@ -131,6 +131,11 @@ with its owner named in the entry.
      connected" banner and a skill offer): "I pressed the comment button on the
      ocr workspace and idk what just happened". Placed: Opus agent.
 
+718. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tidy
+     review's "Apply automatically" switch (an outlined track with a grey knob,
+     drawn thinner than the app's other switches, inside a filled chip): "this
+     button toggle seems overly thin". Placed: Sonnet agent with 716.
+
 
 ## Placed (last 20, newest first)
 

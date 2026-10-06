@@ -2271,7 +2271,7 @@ const LAZY_ENTRY_POINTS = {
   accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

@@ -44,14 +44,16 @@ def _cls(*ranges: tuple[int, int]) -> str:
     return "[" + "".join(f"\\U{a:08x}-\\U{b:08x}" for a, b in ranges) + "]"
 
 
-#: Emoji and pictographic blocks: banned everywhere. U+2318 (the Mac command
-#: key's own name) is carved out of the technical block below.
+#: Emoji and pictographic blocks: banned everywhere. U+2318 and U+2325 (the
+#: Mac Command and Option keys' own names, in shortcut hints) are carved out
+#: of the technical block below.
 _PICTO = [
     (0x1F000, 0x1FAFF),  # mahjong, cards, pictographs, emoticons, transport, symbols
     (0x2600, 0x27BF),  # misc symbols and dingbats: check, cross, star, warning, gear
     (0x2B00, 0x2BFF),  # misc symbols and arrows: stars, squares, fat arrows
     (0x2300, 0x2317),  # misc technical: hourglass, watch, keyboard, play controls
-    (0x2319, 0x23FF),
+    (0x2319, 0x2324),
+    (0x2326, 0x23FF),
     (0x25A0, 0x25FF),  # geometric shapes: record dots, triangles, chevrons
     (0x2900, 0x297F),  # supplemental arrows B
     (0xFE0F, 0xFE0F),  # emoji presentation selector

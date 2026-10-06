@@ -95,6 +95,12 @@ with its owner named in the entry.
      lines view cards". Then: "also meatball buttons have a visible outline, is
      that consistent with the rest of the app?? i dont think it is...".
      Placed: Sonnet agent.
+     Then: "in the library".
+
+723. **The owner, 2026-10-06, verbatim**: "make sure all the icons for the ai
+     are consistent. also can you use a better icon for the agent?? i dont like
+     the robot". Measured: ph:sparkle 33 uses, ph:magic-wand 35, ph:robot 9,
+     ph:brain 5, ph:star-four 1, ph:asterisk 1. Placed: Opus agent.
 
 ## Placed (last 20, newest first)
 

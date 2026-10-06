@@ -379,7 +379,12 @@ composer acts" (the owner: "or the composer can somehow call tools and act
 like an agent"): deterministic commands parsed from a Chat message ("make a
 reminder for X on Friday", "tag these notes Y"), shown as the action they
 would take and confirmed before anything is written, the same confirm card
-an agent's write uses; Agent mode then opens with no model for those verbs.
+an agent's write uses; Agent mode then opens with no model for those verbs;
+(g) link reasons beyond "similar in meaning" (the owner: "can the composer be
+user to write better link reasons"): INBOX 691's concrete overlaps first,
+then the composer's quoted sentence pair, a model's checked line when one
+runs, feeding Tidy's "Add reasons" and "Add reasons to all". Open items and
+numbers: agent-remaining/composer725-1006.md.
 
 ## 6. Consistency rules
 

@@ -134,6 +134,9 @@ async function pass(theme, width) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`console ${m.text().slice(0, 160)}`); });
+  //: Which requests were refused, so "expected" is a list rather than a count.
+  const refused = [];
+  page.on('response', (r) => { if (r.status() === 401) refused.push(new URL(r.url()).pathname); });
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
 
   // 1. Setup, and the offer.
@@ -162,6 +165,26 @@ async function pass(theme, width) {
   const leftover = await page.evaluate(() => document.getElementById('recovery-key-value').textContent);
   if (leftover) note(label, 'the key stayed in the page after Done');
 
+  // 1b. Settings: the button says Replace it now; replacing asks the password
+  // on the lock card's prompt and shows a different key, once.
+  await page.evaluate(() => openSettingsModal('account'));
+  await page.waitForFunction(() => /Replace it/.test(document.getElementById('account-recovery-make')?.textContent || ''), null, { timeout: 20000, polling: 100 });
+  await page.click('#account-recovery-make');
+  await page.waitForFunction(() => [...document.querySelectorAll('.confirm-overlay button')].some((b) => /Replace/.test(b.textContent)), null, { timeout: 15000 });
+  await page.evaluate(() => [...document.querySelectorAll('.confirm-overlay button')].find((b) => b.textContent.trim() === 'Replace').click());
+  await page.waitForFunction(() => document.getElementById('lock-overlay').dataset.mode === 'prompt', null, { timeout: 15000 });
+  if (await page.isVisible('#lock-forgot')) note(label, 'the forgot link shows on a password prompt');
+  await page.fill('#lock-password', PW);
+  await page.click('#lock-submit');
+  await waitVisible(page, '#recovery-key-value');
+  const replaced = (await page.textContent('#recovery-key-value')).trim();
+  if (!replaced || replaced === key) note(label, 'Replace it did not show a new key');
+  await measure(page, `${label} settings replaced`, '#recovery-key-dialog', touch);
+  await page.click('#recovery-key-done');
+  await page.waitForFunction(() => /Recovery key replaced/.test(document.getElementById('account-recovery-status')?.textContent || ''), null, { timeout: 10000 }).catch(() => note(label, 'no "Recovery key replaced." status'));
+  await page.evaluate(() => document.querySelector('#settings-close')?.click());
+  await page.waitForTimeout(400);
+
   // 2. A private note, then lock.
   const token = await page.evaluate(() => localStorage.getItem('token'));
   const made = await page.evaluate(async ({ token, SECRET }) => {
@@ -179,8 +202,8 @@ async function pass(theme, width) {
   await waitVisible(page, '#lock-forgot-card');
   if (await page.isVisible('#lock-card')) note(label, 'the lock card shows beside the forgot card');
   await measure(page, `${label} card key path`, '#lock-forgot-card', touch);
-  // A wrong key first: the error under the field, nothing else.
-  await page.fill('#lock-recovery-key', 'AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA-AAAA');
+  // A wrong key first, the one Replace it just retired: the error under the field.
+  await page.fill('#lock-recovery-key', key);
   await page.fill('#lock-recovery-new', NEW_PW);
   await page.fill('#lock-recovery-confirm', NEW_PW);
   await page.click('#lock-recovery-submit');
@@ -188,12 +211,12 @@ async function pass(theme, width) {
   const wrong = (await page.textContent('#lock-forgot-error')).trim();
   if (wrong !== 'That recovery key is wrong.') note(label, `wrong key said "${wrong}"`);
   await measure(page, `${label} card wrong key`, '#lock-forgot-card', touch);
-  await page.fill('#lock-recovery-key', key.toLowerCase().replace(/-/g, ' '));
+  await page.fill('#lock-recovery-key', replaced.toLowerCase().replace(/-/g, ' '));
   await page.click('#lock-recovery-submit');
   await waitAppOpen(page);
   await waitVisible(page, '#recovery-key-value');
   const successor = (await page.textContent('#recovery-key-value')).trim();
-  if (!successor || successor === key) note(label, 'no new key after the reset');
+  if (!successor || successor === replaced) note(label, 'no new key after the reset');
   await measure(page, `${label} new key`, '#recovery-key-dialog', touch);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
@@ -223,7 +246,7 @@ async function pass(theme, width) {
 
   // Expected refusals: a wrong key's 401 is the browser's own console line.
   const real = errors.filter((e) => !/status of 401/.test(e));
-  numbers.push(`${label}: ${real.length} console errors (${errors.length - real.length} expected 401)`);
+  numbers.push(`${label}: ${real.length} console errors (${errors.length - real.length} 401 lines; refused: ${refused.join(', ')})`);
   for (const e of real) note(label, e);
   await browser.close();
 }

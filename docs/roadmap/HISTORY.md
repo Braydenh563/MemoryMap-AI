@@ -45272,3 +45272,21 @@ and refuses a topic ("Select a shape, link or text box first").
      segmented control and Settings; `motion1005.js`: 170 to 257 ms on screen,
      lands to 0px at 1440 and 390.
 
+663. **The owner, 2026-10-06, verbatim.** "there is no forgot password option
+     in the lock screen." Today the only way back in is the terminal command
+     `python -m memorymap --reset-password` (Help names it), and private notes
+     stay sealed by the old password whatever is done. Recommendation: a
+     "Forgot your password?" link under the field that opens one card saying
+     plainly what a reset does and does not recover (notes yes, private notes
+     no, a sealed backup only with its own password), with the command to
+     copy and, in the desktop app, a button that runs the same reset after a
+     typed confirmation. Placed: next PR.
+     **Fixed e575d00, 0f1d0f0, dd452b2.** A recovery key (160 bits, shown once,
+     wrapping the same DEK) and the lock card's "Forgot your password?" with
+     both paths, this computer only; the CLI and the button share
+     `core/password_reset.py`. Measured: tests/test_forgot_password.py 24 and
+     test_forgot_password_ui.py 8 pass; forgotpw.js, light and dark at 390 and
+     1440, 32 surfaces, 0 low contrast, every control at the floor (44px touch),
+     0 overflow, 0 console errors; four keys absent from the DB, WAL, prefs and
+     server log (72 files).
+

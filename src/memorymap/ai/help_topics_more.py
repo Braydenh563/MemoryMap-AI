@@ -1117,7 +1117,7 @@ TOPIC_META: dict[str, dict] = {
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
         "Open Settings, Models and check a model is connected.", "Start Ollama, LM Studio or a llama.cpp server, pick a model and press Connect.", "Looks out of date or broken after an update: open Settings, Import & export and press Clear app cache.", "Still stuck: open Settings, Logs and press Email it under the support bundle.")},
     "tour": {"title": "The guided tour", "path": "Settings, Help", "steps": (
-        "Open Settings, Help.", "Press a section's tour button, or start from the top.", "Next and Back move through it; Finish ends it.")},
+        "Open Settings, Help, or press Ctrl+K and choose Take the guided tour.", "Press a section's tour button, or start from the top.", "Next and Back move through it; Finish ends it.")},
     "personas": {"title": "Personas", "path": "Settings, Personas"},
     "templates": {"title": "Templates", "path": "Settings, Templates"},
     "updates": {"title": "Updates", "path": "Settings, About"},

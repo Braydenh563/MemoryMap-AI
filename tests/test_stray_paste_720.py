@@ -24,3 +24,15 @@ def test_ask_history_icon_buttons_are_rounded_squares() -> None:
     rule = rule[: rule.index("\n}\n")]
     assert "border-radius: var(--radius-md);" in rule
     assert "radius-pill" not in rule
+
+
+def test_a_confirm_sits_above_the_lightbox() -> None:
+    """INBOX 721: Delete from the lightbox opened its confirm behind it."""
+    import re
+
+    chat = Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
+    lightbox = chat[chat.index("\n.lightbox {") :]
+    lightbox_z = int(re.search(r"z-index:\s*(\d+)", lightbox[: lightbox.index("\n}\n")]).group(1))
+    confirm = CSS[CSS.index(".modal-overlay.confirm-overlay {") :]
+    confirm_z = int(re.search(r"z-index:\s*(\d+)", confirm[: confirm.index("\n}\n")]).group(1))
+    assert confirm_z > lightbox_z

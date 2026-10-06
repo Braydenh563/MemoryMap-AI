@@ -1025,7 +1025,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
         }),
       },
       {
-        label: "ph:text-aa Read text with AI",
+        label: "ph:sparkle Read text with AI",
         title: "Read the text in this image with a vision model",
         //: The response carries both readings, so the panel is rebuilt from the
         //: whole row rather than from the field this call happened to write:

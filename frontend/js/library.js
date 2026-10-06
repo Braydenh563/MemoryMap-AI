@@ -8038,7 +8038,7 @@ function filterLibraryImagesGallery() {
     const visionOcrBtn = document.createElement("button");
     visionOcrBtn.type = "button";
     visionOcrBtn.className = "ghost small icon-button library-image-vision-ocr-btn";
-    setLabel(visionOcrBtn, "ph:text-aa");
+    setLabel(visionOcrBtn, "ph:sparkle");
 
     const visionOcrText = document.createElement("p");
     // Not `hidden` any more, and it is the class that had to go rather than
@@ -8195,7 +8195,7 @@ function filterLibraryImagesGallery() {
     // **One kebab, not five icons.** Reported directly: "it also seems like
     // there are two popup buttons on the images in the image library which do
     // the same thing??", and they nearly did. `ocrBtn` (ph:scan) and
-    // `visionOcrBtn` (ph:text-aa) are both "read the text in this image",
+    // `visionOcrBtn` (once ph:text-aa) are both "read the text in this image",
     // differing only in *which* reader, which an icon cannot say and a
     // tooltip only says once you have hovered both. A menu row has room for
     // words, so the two readers are told apart by name rather than by glyph.
@@ -8346,7 +8346,7 @@ function filterLibraryImagesGallery() {
       { button: rename, label: "ph:pencil-simple Rename" },
       { button: save, label: "ph:download-simple Save a copy" },
       { button: captionBtn, label: "ph:sparkle Describe with AI" },
-      { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
+      { button: visionOcrBtn, label: "ph:sparkle Read text with AI" },
       //: Left out entirely, not greyed, when the binary is missing, the
       //: lightbox menu (app.js) does the same, for the same report: "make
       //: sure all the fila and document ocr worfs with ai ocr models, I dont

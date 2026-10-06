@@ -3079,6 +3079,13 @@ li.link-source {
   cursor: not-allowed;
 }
 
+/* The AI's mark beside its word (INBOX 723, DESIGN.md "AI and agent icons"):
+   the sparkle every AI control wears, sat close to "Use AI" rather than a
+   gap's width away, so the switch reads as switch, then label. */
+.ask-use-ai .ask-use-ai-mark {
+  margin-inline-end: calc(var(--space-1) - var(--space-2));
+}
+
 #ask-history-toggle {
   position: relative;
 }

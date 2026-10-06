@@ -1350,7 +1350,7 @@ function paletteCommands() {
       // you were last reading, else your newest readable file; the decision and
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
-      label: "ph:book-open-text Read a document or image with AI",
+      label: "ph:sparkle Read a document or image with AI",
       reveal: "page-reader",
     },
     {

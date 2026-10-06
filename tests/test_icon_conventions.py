@@ -268,6 +268,18 @@ def test_the_four_pointed_star_and_the_asterisk_each_have_one_job() -> None:
     assert not asterisks, f"ph-asterisk is the section break only: {asterisks}"
 
 
+def test_a_label_that_says_with_ai_wears_the_sparkle() -> None:
+    """Measured in the lightbox's More menu: "Describe with AI" wore the
+    sparkle and "Read text with AI", one row under it, wore `ph-text-aa`."""
+    offenders = [
+        f"{name}: {match.group(0)}"
+        for name, text in JS.items()
+        for match in re.finditer(r'["`]ph:([\w-]+) [^"`\n]*\bwith AI\b', text)
+        if match.group(1) != AI_ICON
+    ]
+    assert not offenders, "a control that names the AI wears ph-sparkle:\n  " + "\n  ".join(offenders)
+
+
 def test_ask_and_agent_wear_the_two_glyphs_in_the_chat_dock() -> None:
     ask = re.search(r'<button data-chat-mode="chat"[^>]*>\s*<i class="ph (ph-[\w-]+)', HTML)
     agent = re.search(r'<button data-chat-mode="agent"[^>]*>\s*<i class="ph (ph-[\w-]+)', HTML)

@@ -96,8 +96,14 @@ Built, measured by `scratchpad/ui-sweeps/meetings644.js` (light and dark at
    label (m then v is "Record a meeting"), the recorder's '?' text.
 
 Fixed on the way: the timeline row of a typed note showed "---" and the raw
-block (audit item 5); the edit form's title under a property block (item 6);
-a double click on a Create row stacked two New meeting sheets.
+block (audit item 5); the edit form holds a typed note's block out of the text
+box and finds its title under it (item 6, `noteFormParts`, node-tested in
+`tests/test_note_form_property_block.py`); a double click on a Create row
+stacked two New meeting sheets.
+
+For the orchestrator: INBOX 644 (ROADMAP "Next PR, first", item 1) is built
+to its five decisions; 643's meeting parts are in the comparison above, its
+other parts (pages, sections, ink, tags) are not this agent's.
 
 ## Remaining
 

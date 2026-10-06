@@ -48,3 +48,42 @@ def test_it_is_in_the_palette_tools_and_features_and_the_guide():
         assert f'reveal: "{reveal}"' in catalogue
     topics = help_chat._matching_topics("how do I tidy up weak links without the ai")
     assert any(t["id"] == "tidy" for t in topics)
+
+
+CSS = ROOT / "frontend" / "css" / "tidy-lazy.css"
+
+
+def _rule(css: str, selector: str) -> str:
+    """The body of the first rule whose selector list contains `selector`."""
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
+        if selector in [s.strip() for s in match.group(1).split(",")]:
+            return match.group(2)
+    raise AssertionError(f"no rule for {selector}")
+
+
+def test_the_automatic_switch_is_the_apps_switch_with_no_chip_behind_it():
+    """INBOX 718: the row's accent fill (checked) and neutral lift (hover) read
+    as a chip. The switch itself stays the shared pill (no size is declared
+    here), and the row is bare in all four states."""
+    css = CSS.read_text(encoding="utf-8")
+    for state in (
+        ".tidy-card .setting-check.tidy-auto",
+        ".tidy-card .setting-check.tidy-auto:hover",
+        ".tidy-card .setting-check.tidy-auto:has(input:checked)",
+        ".tidy-card .setting-check.tidy-auto:has(input:checked):hover",
+    ):
+        assert "background: transparent" in _rule(css, state), state
+    assert not re.search(r"\.tidy-auto[^{]*input[^{]*\{[^}]*(width|height)", css)
+
+
+def test_one_spacing_token_between_the_blocks_of_the_sheet():
+    """INBOX 718: "no vertical spacing between elements". The card's gap is the
+    only space between blocks (the inbox recipe's margins are zeroed), it is
+    at least --space-3, and Recent runs holds its rows with padding."""
+    css = CSS.read_text(encoding="utf-8")
+    assert "gap: var(--space-5)" in _rule(css, ".sheet-card.tidy-card")
+    assert "margin: 0" in _rule(css, ".tidy-card > .inbox-desc")
+    history = _rule(css, ".tidy-history")
+    assert "padding-inline: var(--space-4)" in history and "border:" in history
+    assert "padding-block: var(--space-2)" in _rule(css, ".tidy-history-row")

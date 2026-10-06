@@ -46054,3 +46054,15 @@ and refuses a topic ("Select a shape, link or text box first").
      that consistent with the rest of the app?? i dont think it is...".
      Placed: Sonnet agent.
 
+732. **The owner, 2026-10-06, verbatim**, with the Chat and Ask "No model is connected"
+     banners: "also I want a way to temporarily hide these no ai popups, they can
+     appear again when the user starts a new app session." "like an x close button
+     or smth". Placed: Sonnet agent.
+733. **The owner, 2026-10-06, verbatim**, with the Library's New menu (Whiteboard,
+     Mind map): "I pressed whiteboard but it selected mindmap. also when making a
+     new one from the library page, when I click the new button options it opens one
+     of my whiteboards or mindmaps in the background rather than staying on the page
+     I opened the create new board/mindmap panel from". Then, with an empty map card
+     still showing: "i deleted this empty map but itdidnt dissapear??" Placed: Sonnet
+     agent.
+

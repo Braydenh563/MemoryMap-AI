@@ -69,7 +69,7 @@ function renderHelpChatMessage(role, content, badges = [], sources = [], system 
   //: toggle on each answer between the AI's answer and the system-generated
   //: answer from the app's help"). The turn carries both (`system`, laid out
   //: by `help_chat.system_answer`: a heading, where it lives, the text, the
-  //: steps); a `.seg` of two above the answer swaps the prose between them.
+  //: steps); a tab strip of two above the answer swaps the prose between them.
   //: With no model the answer already is the help's, so there is no toggle,
   //: only the link.
   const prose = document.createElement("div");
@@ -77,7 +77,9 @@ function renderHelpChatMessage(role, content, badges = [], sources = [], system 
   const both = role === "assistant" && system?.content && !content.includes(system.content);
   if (both) {
     const seg = document.createElement("div");
-    seg.className = "seg seg-compact help-chat-views";
+    //: A tab strip, not a pill (INBOX 715: "i dont like pills like that in
+    //: popups"; DESIGN.md, "A popup that chooses a kind").
+    seg.className = "tabs-line popup-kinds help-chat-views";
     seg.setAttribute("role", "tablist");
     seg.setAttribute("aria-label", "Which answer to show");
     for (const [key, label] of [["ai", `${GUIDE_NAME}'s answer`], ["help", "From the help"]]) {
@@ -89,11 +91,20 @@ function renderHelpChatMessage(role, content, badges = [], sources = [], system 
       const on = key === "ai";
       tab.classList.toggle("active", on);
       tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.tabIndex = on ? 0 : -1;
+      tab.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        const other = [...seg.children].find((t) => t !== tab);
+        other.click();
+        other.focus();
+      });
       tab.addEventListener("click", () => {
         for (const sibling of seg.children) {
           const chosen = sibling === tab;
           sibling.classList.toggle("active", chosen);
           sibling.setAttribute("aria-selected", chosen ? "true" : "false");
+          sibling.tabIndex = chosen ? 0 : -1;
         }
         renderMarkdown(prose, key === "ai" ? content : system.content);
         row.dataset.view = key;

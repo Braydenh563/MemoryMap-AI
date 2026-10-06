@@ -4904,7 +4904,6 @@ SEG_BUILT_IN_SCRIPT = {
     ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
     ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
-    ("help-chat.js", "seg seg-compact help-chat-views"): "PLACED: the Guide's two answers in a reply",
 }
 
 
@@ -4951,3 +4950,5 @@ def test_a_popup_chooses_a_kind_with_a_tab_strip() -> None:
     picker = (ROOT / "frontend" / "js" / "icon-picker.js").read_text(encoding="utf-8")
     assert 'tabs.className = "tabs-line popup-kinds icon-picker-modes"' in picker
     assert 'b.setAttribute("role", "tab")' in picker and '"aria-selected"' in picker
+    guide = (ROOT / "frontend" / "js" / "help-chat.js").read_text(encoding="utf-8")
+    assert 'seg.className = "tabs-line popup-kinds help-chat-views"' in guide

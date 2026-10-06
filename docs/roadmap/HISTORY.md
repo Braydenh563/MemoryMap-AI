@@ -46012,3 +46012,16 @@ and refuses a topic ("Select a shape, link or text box first").
      connected" banner and a skill offer): "I pressed the comment button on the
      ocr workspace and idk what just happened". Placed: Opus agent.
 
+726. **The owner, 2026-10-06, verbatim**, with the graph's settings popover
+     (View: Layout, Shape, Colour, Size selects pushed to the far right, Trace,
+     Hide legend, Physics, Show): "the graph settings popup feels unceccessarily
+     wide and the text has barely any right margin". Also, verbatim, of the Chat
+     tab's sidebar: "there's quite a big gap on the right side of the chat
+     sidebar chat items" (placed with 722).
+     Then, verbatim: "I can see atlas on the edges when on the full screen graph"
+     (the companion peeking out round the full-screen graph's edge, bottom
+     right). "no vertical gap" (the Library boards filter row, All | Maps |
+     Boards, touching the cards below). "random top border on link related
+     notes??" (Settings, the autonomous pass's "What it does while running":
+     a rule drawn above the second switch only).
+

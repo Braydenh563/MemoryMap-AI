@@ -127,6 +127,7 @@ with its owner named in the entry.
      message; the row's copy says this in one line. Placed: the next free
      Sonnet slot.
      Addendum, the owner, 2026-10-06, verbatim: "make sure that while the graph is impressive, it is alse very easy to understand and read, with minimised overlap and wierd spacing, everything has to have meaning and be intentional, not just for the looks. combine looks with systematic function"
+     Addendum, the owner, 2026-10-06, verbatim, with two graph screenshots (a wide flat layout with long hub arcs and stacked labels, rejected; the earlier clustered layout with wandering cross-cluster links): "see i dont want this. and it still looks messy. it needs to be clean, modern and profesisonal and stylistic"
 
 700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
      model options as alternatives in the models??" / "research the best

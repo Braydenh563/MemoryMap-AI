@@ -98,6 +98,13 @@ with its owner named in the entry.
      needs no AI model); next is measuring its accuracy on a held-out set and
      letting the composer explain each filing in one line.
 
+731. **The owner, 2026-10-06, verbatim**, with the Atlas guide answering "whiteboard
+     templates" with "Something went wrong asking that, try again.": "the help guide
+     failed??" Not reproduced: with no model the stream and the one-shot route both
+     answer (200, the Templates topic), and a two-view turn renders. The owner had
+     a model selected (gemma), so the failure is on the model path; needs the
+     server log line from that moment (Settings, Logs).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

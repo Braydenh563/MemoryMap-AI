@@ -1879,7 +1879,9 @@ async function sendChatMessage(preset, opts = {}) {
   // Captured once, not re-read at save time: the toggle can move on to the
   // next message while this one is still streaming, and the meta line and
   // the saved turn must both say what actually answered *this* question.
-  const effectiveUseTools = opts.useTools ?? $("tools-toggle").checked;
+  //: Agent only when something can call tools: the saved toggle stays on with
+  //: no model (renderChatModeSeg greys it), and a turn sent then is Ask's.
+  const effectiveUseTools = opts.useTools ?? ($("tools-toggle").checked && !(aiIsOff() && !modelStatus?.tools_engine));
 
   let slowLoadTimeout;
   try {

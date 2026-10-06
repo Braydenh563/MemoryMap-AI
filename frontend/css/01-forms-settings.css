@@ -526,7 +526,10 @@ button:active:not(:disabled),
 
 button:disabled {
   opacity: 0.5;
-  cursor: wait;
+  /* Not `wait` (the owner, 2026-10-06: "whenever I hover over a disabled
+     element, my cursor changes to a loading ring spinner"): disabled is not
+     busy. A control that is working says so itself. */
+  cursor: default;
 }
 
 /* Reported: "control elements and buttons feel more like just shapes with

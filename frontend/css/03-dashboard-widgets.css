@@ -3437,8 +3437,10 @@ button.answer-figure-open {
 /* --- chat polish ------------------------------------------------------------ */
 #chat-messages {
   max-height: none;
-  /* the flex layout owns the height now */
-  gap: 0.8rem;
+  /* the flex layout owns the height now; the gap is the hover actions'
+     row's room (`.msg-actions`, hung under each bubble), so they never sit
+     on a bubble or the next one. */
+  gap: 2.6rem;
   padding: 0.6rem 0.4rem 0.25rem;
   /* **No `scroll-behavior: smooth` here.** Reported: "I scrolled up on a chat
      and then I couldnt scroll back down to the bottom unless I clicked the

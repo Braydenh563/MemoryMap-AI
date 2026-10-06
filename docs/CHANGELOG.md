@@ -57,6 +57,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Hovering a disabled button shows the normal pointer, not a loading cursor.
+- Chat: a message sent while Agent is greyed (no model) is answered and labelled as Ask; the message buttons hang below the bubble instead of over it.
 - The lock screen's password field keeps its own show-password button (the browser's reveal vanished once the field lost focus) and its typed text stays centred.
 - Four small layout fixes (INBOX 726): the graph's display options panel has the same gap on both sides (label to the left edge, control to the right edge, scrollbar showing or not); the corner companion fades out while anything fills the window (the full-screen graph, a board or mind map, Present frames, a document in focus mode, the image viewer, the OCR workspace) whichever character it is, and fades back on exit; the Library's Boards and the Reminders filter chips have their gap above the cards again (0px, now 16px); and the AI skills background workers have no stray rule above Link related notes.
 - Ask without AI: “The closest match is your note” is said only of the search’s first result, and an answer no model wrote no longer says the rest is “the model’s own writing” (INBOX 724).

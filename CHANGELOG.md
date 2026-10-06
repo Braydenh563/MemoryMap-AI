@@ -30,6 +30,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Task checkboxes: the note editor and the document editor draw one box (the text's size, muted outline, accent fill and a drawn checkmark when done) from one rule, and a task line no longer has a bullet beside its box (INBOX 710).
 - Meeting recorder: one state at a time (ready, recording with the level line and clock, paused, transcribing with a progress bar and the length of the audio, review). Stop works from Paused (the held audio is requested first), Pause no longer says Resume on the next recording, closing the recorder no longer transcribes a discard, and an empty transcript says "Nothing was heard in that recording." instead of "Transcribed". The transcript box is sized to its words, and the save actions are two groups with Discard last (INBOX 708).
 - Switching tabs no longer asks "Leave without saving?" again and again: an open note form keeps its words, and a document with unsaved edits is saved first, asking only if that save fails.
 - Meetings: New meeting has Start and record, which starts the meeting and transcribes straight into its notes (recording had lost its Quick access tile).

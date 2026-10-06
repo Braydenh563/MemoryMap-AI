@@ -206,14 +206,6 @@ with its owner named in the entry.
      the hover target, its accessible name "Link to <title>"). Placed: with
      691, the Tidy and links agent.
 
-710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
-     checkbox in a note's editor (a large outlined box after a bullet) and in
-     the document editor (a smaller filled grey box after a bullet): "the
-     rendering of the selection tick boxes is different on the notes to the
-     document editor". One task-checkbox look for both editors (and no
-     bullet beside a task box), from one shared rule. Placed: the next free
-     Sonnet slot.
-
 712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
      editor's ⋯ menu running past the bottom of the window: "this popup menu
      goes off the bottom of the screen". Every menu is clamped to the window:

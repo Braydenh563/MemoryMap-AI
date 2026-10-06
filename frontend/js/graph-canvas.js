@@ -1657,6 +1657,14 @@ function gcDraw(s = gcTab) {
         ? a.colour
         : null;
     if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
+    //: How sure, as thickness and strength (INBOX 693, the legend's second
+    //: channel): a reason the app deduced (`reason_confidence`, 0 to 1)
+    //: draws its link from 0.6x to 1.2x, so a guess reads lighter than a
+    //: reason in someone's words, which keeps its full line.
+    if (edge.kind === "link" && typeof edge.reason_confidence === "number") {
+      const sure = 0.6 + 0.6 * Math.max(0, Math.min(1, edge.reason_confidence));
+      style = { ...style, width: style.width * sure, alpha: Math.min(1, style.alpha * sure) };
+    }
     //: **A line between clusters is quiet until asked about** (INBOX 693,
     //: the owner: cross-cluster links "thin and muted (only highlighted on
     //: hover)"). The clusters are what the map says; the lines between them
@@ -4469,13 +4477,26 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
 //: line and nothing to tell apart. A fact, not a toggle, so a `span` like the
 //: cluster mode's filter note rather than a `.legend-toggle` button; the
 //: longer sentence is the Show section's '?', and this entry's `title`.
-function gcLegendEdgeKey(data) {
+function gcLegendEdgeKey(data, s = gcTab) {
   const legend = document.getElementById("graph-legend");
-  if (!legend || !data || !(data.edges || []).some((e) => e.kind === "similar")) return;
+  //: Three channels and no more (INBOX 693, the owner: "should links
+  //: visualise differently or have a different style based on distance,
+  //: similarity, type of link etc??"): solid for a link, dashed for a
+  //: suggestion by meaning; thickness and strength for how sure (a closer
+  //: match, a reason deduced with more confidence, `gcDraw`); faint for a
+  //: line between two category clusters. The key shows the ones this map has.
+  const similar = (data?.edges || []).some((e) => e.kind === "similar");
+  const category = new Map((data?.nodes || []).map((n) => [n.id, n.category || ""]));
+  const id = (end) => (end && typeof end === "object" ? end.id : end);
+  const cross =
+    gcShape(s) === "clusters" &&
+    (data?.edges || []).some((e) => e.kind !== "similar" && category.get(id(e.source)) !== category.get(id(e.target)));
+  if (!legend || !data || !(similar || cross)) return;
   const key = document.createElement("span");
   key.className = "legend-item legend-edge-key";
   key.title =
-    "Solid lines are links. Dashed lines join each note to its closest matches in meaning: darker is closer. Point at a note to see the scores.";
+    "Solid lines are links, thicker where the app is surer of a reason it found. Dashed lines join each note to its closest matches in meaning: darker is closer. " +
+    "Faint lines run between two categories. Point at a note to see the scores.";
   const swatch = (kind, word) => {
     const line = document.createElement("span");
     line.className = `legend-line legend-line-${kind}`;
@@ -4488,7 +4509,8 @@ function gcLegendEdgeKey(data) {
   const links = (data.edges || []).filter((e) => e.kind === "link");
   const reasoned = links.filter((e) => e.reason).length;
   swatch(reasoned * 2 > links.length ? "reasoned" : "link", "Link");
-  swatch("similar", "Similar");
+  if (similar) swatch("similar", "Similar");
+  if (cross) swatch("cross", "Between categories");
   legend.appendChild(key);
 }
 

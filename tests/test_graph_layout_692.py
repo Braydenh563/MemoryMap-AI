@@ -344,3 +344,18 @@ def test_the_shape_control_is_saved_and_reaches_the_worker():
     assert 'const SHAPES = new Set(["organic", "clusters", "galaxy"]);' in WORKER
     help_text = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Shape (Organic, Clusters or Galaxy)" in help_text
+
+
+def test_link_styles_carry_meaning_on_three_channels_with_a_key():
+    """INBOX 693, the owner: "should links visualise differently or have a
+    different style based on distance, similarity, type of link etc??"."""
+    canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
+    # Strength: a deduced reason draws its link thinner and fainter.
+    assert 'edge.kind === "link" && typeof edge.reason_confidence === "number"' in canvas
+    # Between categories: faint, in Clusters, and keyed.
+    assert "GC_CROSS_WIDTH" in canvas and "GC_CROSS_ALPHA" in canvas
+    key = canvas[canvas.index("function gcLegendEdgeKey(") :]
+    key = key[: key.index("\n}\n")]
+    assert 'swatch("cross", "Between categories")' in key
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    assert ".legend-line-cross {" in css

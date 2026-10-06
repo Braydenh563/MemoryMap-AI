@@ -1793,8 +1793,16 @@ body.graph-fullscreen-on .sidebar-panel {
 }
 
 
-.legend-edge-key .legend-line-similar {
+.legend-edge-key .legend-line-similar,
+.legend-edge-key .legend-line-cross {
   margin-left: var(--space-2);
+}
+
+/* INBOX 693: a line between two category clusters, thin and faint
+   (`GC_CROSS_WIDTH`, `GC_CROSS_ALPHA` in graph-canvas.js). */
+.legend-line-cross {
+  border-top-width: 1px;
+  opacity: 0.5;
 }
 
 /* --- Wave F: command palette --------------------------------------------------- */

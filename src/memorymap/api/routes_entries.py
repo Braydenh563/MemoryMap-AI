@@ -62,7 +62,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 )
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
-from memorymap.entry import duplicates, manager
+from memorymap.entry import duplicates, link_facts, manager
 from memorymap.entry import meetings as meeting_shape
 from memorymap.entry import properties as note_properties
 from memorymap.entry.tagnames import inline_tags, normalise_tags
@@ -1653,6 +1653,12 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         appearances[a] = appearances.get(a, 0) + 1
         appearances[b] = appearances.get(b, 0) + 1
         signals = candidate.signals()
+        reason = "; ".join(s["reason"] for s in signals if s["signal"] != "time")
+        #: Meaning alone previews what linking would write, and linking now
+        #: names what the two notes share when they share something (INBOX
+        #: 691, `entry/link_wording.py`), so the preview does too.
+        if [s["signal"] for s in signals if s["signal"] != "time"] == ["similarity"]:
+            reason = link_facts.reason_for(session, a, b) or reason
         suggestions.append({
             "source_id": a,
             "target_id": b,
@@ -1661,11 +1667,11 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
             "similarity": round(candidate.similarity, 2) if candidate.similarity is not None else None,
             "confidence": round(candidate.confidence, 2),
             "signals": signals,
-            # Similarity alone reads "similar in meaning", the text `create_link`
-            # deduces at the same bar (`manager.AUTO_REASON_THRESHOLD`), so the
-            # suggestion previews the link. Otherwise every signal, strongest
-            # first, less the time, which supports a pair but is no reason to link.
-            "reason": "; ".join(s["reason"] for s in signals if s["signal"] != "time"),
+            # Similarity alone previews what `create_link` deduces at the same
+            # bar (`manager.AUTO_REASON_THRESHOLD`): the specific reason, else
+            # "similar in meaning". Otherwise every signal, strongest first,
+            # less the time, which supports a pair but is no reason to link.
+            "reason": reason,
         })
         if len(suggestions) == 12:
             break

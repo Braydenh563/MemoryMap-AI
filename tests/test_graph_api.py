@@ -228,7 +228,8 @@ def test_graph_link_edge_carries_a_deduced_reasons_confidence(ai_client):
     ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
 
     edges = ai_client.get("/graph").json()["edges"]
-    assert edges[0]["reason"] == "similar in meaning"
+    # INBOX 691: the reason names what the two notes share.
+    assert edges[0]["reason"] == "Both mention “funny”"
     assert edges[0]["reason_confidence"] == 1.0
 
 

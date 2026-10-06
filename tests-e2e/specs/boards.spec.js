@@ -51,6 +51,11 @@ test("New mind map: Tab adds a branch, typed and kept across a reload", async ({
   await openApp(page);
   const map = await createFromLibrary(page, "New mind map");
   // A new map selects its central topic; Tab makes a child and edits it.
+  // The topic is selected a moment after the board picker shows the map (the
+  // canvas is revealed only once the dialog is answered, INBOX 733), so the
+  // spec waits for what a person sees before pressing Tab: a Tab sent first
+  // moved focus off the map and added nothing.
+  await expect(page.locator("#wb-canvas-view .wb-selected")).toHaveCount(1);
   await page.keyboard.press("Tab");
   await expect(page.locator('.wb-map-text[contenteditable]')).toBeFocused();
   await page.keyboard.type("First branch");

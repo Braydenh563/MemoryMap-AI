@@ -2995,12 +2995,12 @@ header#top-bar[data-scrolled="1"],
 
   /* Ask and Agent keep their words and give up their icons, so the model
      picker beside them reads more than its first six letters. */
-  .chat-dock-controls:has(> .chat-tool-group-mode > .select-shell) .seg .ph-lead {
+  .chat-dock-controls > .chat-tool-group-mode > .select-shell ~ .seg .ph-lead {
     display: none;
   }
 
   /* A word with no icon beside it is shorter than a finger. */
-  .chat-dock-controls:has(> .chat-tool-group-mode > .select-shell) .seg button {
+  .chat-dock-controls > .chat-tool-group-mode > .select-shell ~ .seg button {
     min-width: var(--control-h);
   }
 }

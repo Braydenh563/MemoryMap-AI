@@ -389,7 +389,7 @@ function settingsIndexBuild(name) {
   //: and carries the toggle for the rest of the sections, which is remembered
   //: per device. Collapsed, only the link being read shows (the stylesheet).
   let showAll = false;
-  try { showAll = localStorage.getItem("settings-nav-sections") === "all"; } catch { /* private window: collapsed */ }
+  showAll = prefs.get("settings-nav-sections") === "all";
   const head = document.createElement("div");
   head.className = "settings-nav-groups-head";
   const toggle = document.createElement("button");
@@ -402,7 +402,7 @@ function settingsIndexBuild(name) {
   };
   toggle.addEventListener("click", () => {
     showAll = !showAll;
-    try { localStorage.setItem("settings-nav-sections", showAll ? "all" : "current"); } catch { /* not remembered */ }
+    prefs.set("settings-nav-sections", showAll ? "all" : "current");
     paint();
     settingsIndexMark(name);
     const current = list.querySelector('[aria-current="location"]');

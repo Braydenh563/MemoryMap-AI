@@ -1096,20 +1096,12 @@ function startApp() {
   // answer the documents full screen asks); the answer is kept on this
   // device so the next launch paints without the tile, rather than drawing
   // it and pulling it back when the reply lands. A browser tab keeps it.
-  try {
-    document.documentElement.dataset.chrome = localStorage.getItem("windowChrome") || "";
-  } catch (error) {
-    // No storage: the reply below still sets it for this session.
-  }
+  document.documentElement.dataset.chrome = prefs.get("windowChrome", "");
   apiJson("/desktop/fullscreen", { silent: true })
     .then((state) => {
       const chrome = state?.available ? "native" : "";
       document.documentElement.dataset.chrome = chrome;
-      try {
-        localStorage.setItem("windowChrome", chrome);
-      } catch (error) {
-        // Not kept; the next launch asks again.
-      }
+      prefs.set("windowChrome", chrome);
     })
     .catch(() => {});
 

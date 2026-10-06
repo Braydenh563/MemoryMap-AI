@@ -111,6 +111,9 @@ KIND_LANES: dict[str, str] = {
     #: Installing, removing or reinstalling optional extras, one package or
     #: a bundle (`core/extras.py`, INBOX 595).
     "extras": "install",
+    #: Changing the embedding model (`core/embedswitch.py`, INBOX 700): the
+    #: re-index's lane, for the re-index's reason.
+    "embed-switch": "batch",
 }
 
 DEFAULT_LANE = "cpu"
@@ -130,7 +133,7 @@ PENDING_ROWS_PER_KIND = 10
 #: `extras` is quiet for another reason: `routes_tasks.collect` already draws
 #: an install as its own row, with pip's step and log, and a second generic
 #: "Background job" row for the same install would say the same thing twice.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras"})
+QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202

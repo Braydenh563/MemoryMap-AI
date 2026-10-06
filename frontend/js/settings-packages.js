@@ -595,7 +595,12 @@ async function renderEmbedModels() {
       });
       // Without huggingface_hub there is nothing to download *with*, so the
       // button says so rather than failing on an ImportError nobody can read.
-      if (!body.can_download) {
+      //: Not offered in one press (INBOX 700): its licence or its loading
+      //: rules; the reason is the tooltip and Settings, Models links its terms.
+      if (!model.one_press) {
+        get.disabled = true;
+        get.title = model.why_not;
+      } else if (!body.can_download) {
         get.disabled = true;
         get.title =
           "Needs the huggingface_hub library, it arrives with “Search by " +

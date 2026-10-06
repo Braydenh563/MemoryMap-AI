@@ -1813,6 +1813,41 @@ def list_embedding_models() -> dict:
     }
 
 
+class EmbeddingChoiceBody(BaseModel):
+    #: A catalogue id (`core/embedmodels.catalogue`), never a repo or a path.
+    id: str = Field(max_length=80)
+
+
+@router.get("/embedding-models/choices")
+def embedding_model_choices() -> dict:
+    """Settings, Models' list (INBOX 700): every model on offer with its
+    facts, which one search uses now, and a switch in progress."""
+    from memorymap.core import embedswitch
+
+    manager = deps.get_model_manager()
+    backend = manager.embedding_backend()
+    model = manager.embedding_model() if backend == "ollama" else manager.embedding_st_model()
+    return {
+        "choices": embedmodels.catalogue(),
+        "current": {"backend": backend, "model": model},
+        "switch": embedswitch.status(),
+    }
+
+
+@router.post("/embedding-models/use")
+def use_embedding_model(body: EmbeddingChoiceBody) -> dict:
+    """Switch search to one catalogue entry, in the background. An entry
+    whose licence or loading rules forbid one press is refused here too,
+    not only by its missing button."""
+    from memorymap.core import embedswitch
+
+    resolved = embedmodels.resolve_choice(body.id)
+    if resolved is None:
+        raise HTTPException(status_code=400, detail="That model can't be switched to from here.")
+    started, message = embedswitch.start(*resolved)
+    return {"started": started, "message": message}
+
+
 @router.post("/embedding-models/{model_id}/download")
 def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
     """Fetch one model **from the allowlist** in `core/embedmodels.py`.
@@ -2025,6 +2060,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "utility_model",
         "embedding_backend",
         "embedding_model",
+        "embedding_st_model",
         "recycle_bin_days",
         "conversation_retention_days",
         "timezone",

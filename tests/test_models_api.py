@@ -101,7 +101,14 @@ def test_switch_embedding_backend_reindexes_everything(ai_client, fake_embedding
     )
     assert response.status_code == 200
 
-    _wait_for(ai_client, lambda b: (b["reindex"] or {}).get("status") == "success")
+    # Through the model switch since INBOX 700 (`core/embedswitch.py`): the
+    # new set is staged beside the old and swapped in, then the setting saved.
+    from memorymap.core import embedswitch
+
+    deadline = time.monotonic() + 10
+    while embedswitch.status()["running"] and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert embedswitch.status()["outcome"] == "completed", embedswitch.status()
 
     config = deps.get_config()
     assert config.get_preference("embedding_backend") == "ollama"

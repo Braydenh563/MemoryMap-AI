@@ -106,6 +106,12 @@ def _cancel_extra(_name: str) -> tuple[bool, str]:
     return extras.cancel()
 
 
+def _cancel_embed_switch(_name: str) -> tuple[bool, str]:
+    from memorymap.core import embedswitch
+
+    return embedswitch.cancel()
+
+
 def _cancel_embedding_model(_name: str) -> tuple[bool, str]:
     from memorymap.core import embedmodels
 
@@ -151,6 +157,7 @@ CANCELLERS: dict[str, Callable[[str], tuple[bool, str]]] = {
     "autonomous": _cancel_autonomous,
     "extra": _cancel_extra,
     "embedding-model": _cancel_embedding_model,
+    "embed-switch": _cancel_embed_switch,
     "searxng": _cancel_searxng_install,
     "searxng-start": _cancel_searxng_start,
 }

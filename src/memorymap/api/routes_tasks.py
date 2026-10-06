@@ -309,6 +309,14 @@ def collect() -> list[dict]:
             }
         )
 
+    # Changing the embedding model (INBOX 700): its own row with the phase
+    # and the notes done, like the re-index above.
+    from memorymap.core import embedswitch
+
+    switch = embedswitch.task_row()
+    if switch:
+        tasks.append({"kind": "embed-switch", **switch})
+
     _stamp_started(tasks)
 
     # **One table decides, not eight hard-coded booleans.** Every entry above

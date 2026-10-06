@@ -1954,6 +1954,8 @@ const LAZY_MODULES = {
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
+  //: Settings, Search and index's embedding models (INBOX 700, embed-choices.js).
+  embedChoices: ["/js/embed-choices.js"],
   //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
   chordGuide: ["/js/chord-guide.js"],
   //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
@@ -2216,6 +2218,7 @@ const LAZY_ENTRY_POINTS = {
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
+  embedChoices: ["renderEmbedChoices"],
   chordGuide: ["showTabJumpHint"],
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],

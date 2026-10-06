@@ -56,13 +56,48 @@ class EmbedModel:
     size: str
     #: True for the one the app loads unless told otherwise.
     default: bool = False
+    #: INBOX 700's facts, shown on the row: parameters, languages, how much
+    #: text one vector reads, and the licence as its repository states it
+    #: (each read from the Hub's own metadata, 2026-10-06).
+    params: str = ""
+    languages: str = "English"
+    context: str = "512 tokens"
+    licence: str = ""
+    #: One line: who should pick it.
+    best_for: str = ""
+    #: Whether the app may fetch and switch to it in one press. Only for a
+    #: licence that allows it (Apache-2.0, MIT) **and** a model that loads
+    #: without running code from its repository; anything else links to
+    #: `terms_url` and says why.
+    one_press: bool = True
+    terms_url: str = ""
+    why_not: str = ""
+    #: Put in front of every text this model embeds. The E5 family and
+    #: nomic were trained with one; without it their matches are measurably
+    #: worse. One prefix for notes and questions alike: the app embeds both
+    #: through one call, and the symmetric form is the one E5's card names
+    #: for similarity between texts of the same kind.
+    prefix: str = ""
 
 
-#: The allowlist. Three, not thirty: this is a personal notebook, and a list
-#: long enough to need its own search is a list nobody can choose from. Each
-#: entry is here because it answers a different question, "the sane default",
-#: "I have very little disk", "I want the best matches and have the RAM".
+#: The allowlist, and the catalogue Settings, Models offers (INBOX 700, the
+#: owner: "add more embedding model options ... research the best ones
+#: available today"). Each entry answers a different question: the sane
+#: default, very little disk, long notes, many languages, the best matches a
+#: laptop can run. Ordered small to large so the list reads as a trade.
 EMBED_MODELS: tuple[EmbedModel, ...] = (
+    EmbedModel(
+        id="minilm",
+        repo="sentence-transformers/all-MiniLM-L6-v2",
+        label="MiniLM L6 (English)",
+        about="Smaller and quicker, and a little blunter about what counts as "
+        "similar. The one to keep on a machine that is short of disk.",
+        size="~90 MB",
+        params="22M",
+        context="256 tokens",
+        licence="Apache-2.0",
+        best_for="An old or small machine: the fastest here, a little less precise.",
+    ),
     EmbedModel(
         id="bge-small",
         repo="BAAI/bge-small-en-v1.5",
@@ -71,14 +106,22 @@ EMBED_MODELS: tuple[EmbedModel, ...] = (
         "good enough that searching by meaning beats searching by keyword.",
         size="~130 MB",
         default=True,
+        params="33M",
+        licence="MIT",
+        best_for="Most notebooks in English: quick on any laptop, good matches.",
     ),
     EmbedModel(
-        id="minilm",
-        repo="sentence-transformers/all-MiniLM-L6-v2",
-        label="MiniLM L6 (English)",
-        about="Smaller and quicker, and a little blunter about what counts as "
-        "similar. The one to keep on a machine that is short of disk.",
-        size="~90 MB",
+        id="me5-small",
+        repo="intfloat/multilingual-e5-small",
+        label="Multilingual E5 Small",
+        about="About a hundred languages in a small model, so notes in "
+        "several languages find each other.",
+        size="~470 MB",
+        params="118M",
+        languages="About 100 languages",
+        licence="MIT",
+        best_for="Notes in more than one language on an ordinary laptop.",
+        prefix="query: ",
     ),
     EmbedModel(
         id="bge-base",
@@ -87,10 +130,196 @@ EMBED_MODELS: tuple[EmbedModel, ...] = (
         about="Noticeably better matches on long notes, at roughly three times "
         "the size and about twice the time to embed one.",
         size="~440 MB",
+        params="110M",
+        licence="MIT",
+        best_for="English notes when better matches are worth a slower save.",
+    ),
+    EmbedModel(
+        id="nomic-v1.5",
+        repo="nomic-ai/nomic-embed-text-v1.5",
+        label="Nomic Embed Text v1.5 (English)",
+        about="Reads up to 8,000 tokens at once, so a long note is one vector "
+        "of the whole rather than of its start.",
+        size="~550 MB",
+        params="137M",
+        context="8,192 tokens",
+        licence="Apache-2.0",
+        best_for="Long notes and documents in English.",
+        one_press=False,
+        terms_url="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
+        why_not="Built in, it runs Python code from its own repository, which "
+        "MemoryMap never does. The same model is nomic-embed-text in Ollama.",
+        prefix="search_query: ",
+    ),
+    EmbedModel(
+        id="qwen3-0.6b",
+        repo="Qwen/Qwen3-Embedding-0.6B",
+        label="Qwen3 Embedding 0.6B",
+        about="The best matches here on the public benchmarks, in over a "
+        "hundred languages, at the cost of memory and a slower save.",
+        size="~1.2 GB",
+        params="596M",
+        languages="Over 100 languages",
+        context="32,768 tokens",
+        licence="Apache-2.0",
+        best_for="The best matches, with 8 GB of memory or more to spare.",
+    ),
+    EmbedModel(
+        id="bge-m3",
+        repo="BAAI/bge-m3",
+        label="BGE M3 (multilingual)",
+        about="A large multilingual model that reads long notes whole.",
+        size="~2.3 GB",
+        params="568M",
+        languages="Over 100 languages",
+        context="8,192 tokens",
+        licence="MIT",
+        best_for="Long notes in many languages on a well-equipped machine.",
+    ),
+    EmbedModel(
+        id="embeddinggemma",
+        repo="google/embeddinggemma-300m",
+        label="EmbeddingGemma 300M",
+        about="Google's small multilingual model, strong for its size.",
+        size="~1.2 GB",
+        params="303M",
+        languages="Over 100 languages",
+        context="2,048 tokens",
+        licence="Gemma terms",
+        best_for="Multilingual notes, once you have accepted Google's terms.",
+        one_press=False,
+        terms_url="https://ai.google.dev/gemma/terms",
+        why_not="Under Google's Gemma terms rather than an open licence, and "
+        "gated on the Hub: read and accept them first, then it is "
+        "embeddinggemma in Ollama.",
     ),
 )
 
 EMBED_MODELS_BY_ID = {model.id: model for model in EMBED_MODELS}
+EMBED_MODELS_BY_REPO = {model.repo: model for model in EMBED_MODELS}
+DEFAULT_REPO = next(model.repo for model in EMBED_MODELS if model.default)
+
+
+@dataclass(frozen=True)
+class OllamaEmbedModel:
+    """An embedding model Ollama serves, by its Ollama name."""
+
+    name: str
+    label: str
+    size: str
+    languages: str
+    context: str
+    licence: str
+    best_for: str
+    one_press: bool = True
+    terms_url: str = ""
+    why_not: str = ""
+
+
+#: Through Ollama: the model lives in Ollama, so MemoryMap stays near 100 MB
+#: of memory. Licences are the upstream repositories' (read on the Hub,
+#: 2026-10-06); sizes are Ollama's library pages'.
+OLLAMA_EMBED_MODELS: tuple[OllamaEmbedModel, ...] = (
+    OllamaEmbedModel(
+        "granite-embedding", "Granite Embedding 30M", "~63 MB", "English", "512 tokens",
+        "Apache-2.0", "The smallest here: a quick English index with Ollama.",
+    ),
+    OllamaEmbedModel(
+        "nomic-embed-text", "Nomic Embed Text", "~274 MB", "English", "8,192 tokens",
+        "Apache-2.0", "Long English notes, and the usual Ollama choice.",
+    ),
+    OllamaEmbedModel(
+        "qwen3-embedding:0.6b", "Qwen3 Embedding 0.6B", "~639 MB", "Over 100 languages",
+        "32,768 tokens", "Apache-2.0", "The best matches through Ollama on a laptop.",
+    ),
+    OllamaEmbedModel(
+        "mxbai-embed-large", "mxbai Embed Large", "~670 MB", "English", "512 tokens",
+        "Apache-2.0", "Precise English matches on short notes.",
+    ),
+    OllamaEmbedModel(
+        "bge-m3", "BGE M3", "~1.2 GB", "Over 100 languages", "8,192 tokens",
+        "MIT", "Long notes in many languages.",
+    ),
+    OllamaEmbedModel(
+        "snowflake-arctic-embed2", "Snowflake Arctic Embed 2", "~1.2 GB", "About 75 languages",
+        "8,192 tokens", "Apache-2.0", "Multilingual search with long context.",
+    ),
+    OllamaEmbedModel(
+        "embeddinggemma", "EmbeddingGemma", "~622 MB", "Over 100 languages", "2,048 tokens",
+        "Gemma terms", "Multilingual notes, once you have accepted Google's terms.",
+        one_press=False,
+        terms_url="https://ai.google.dev/gemma/terms",
+        why_not="Under Google's Gemma terms rather than an open licence: read "
+        "them, then pull it in Ollama yourself and pick it below.",
+    ),
+)
+
+OLLAMA_EMBED_MODELS_BY_NAME = {model.name: model for model in OLLAMA_EMBED_MODELS}
+
+
+def prefix_for(repo: str) -> str:
+    """The text a built-in model wants in front of everything it embeds."""
+    model = EMBED_MODELS_BY_REPO.get(repo)
+    return model.prefix if model else ""
+
+
+def catalogue() -> list[dict]:
+    """Every choice Settings, Models offers, built-in and Ollama, as rows.
+
+    `id` is what `POST /embedding-models/use` takes: an allowlist id for a
+    built-in model, `ollama:<name>` for an Ollama one; never a repo id."""
+    rows = []
+    for model in EMBED_MODELS:
+        rows.append(
+            {
+                "id": model.id,
+                "backend": "sentence-transformers",
+                "model": model.repo,
+                "label": model.label,
+                "size": model.size,
+                "params": model.params,
+                "languages": model.languages,
+                "context": model.context,
+                "licence": model.licence,
+                "best_for": model.best_for,
+                "one_press": model.one_press,
+                "terms_url": model.terms_url,
+                "why_not": model.why_not,
+                "default": model.default,
+                "downloaded": is_downloaded(model.repo),
+            }
+        )
+    for model in OLLAMA_EMBED_MODELS:
+        rows.append(
+            {
+                "id": f"ollama:{model.name}",
+                "backend": "ollama",
+                "model": model.name,
+                "label": model.label,
+                "size": model.size,
+                "params": "",
+                "languages": model.languages,
+                "context": model.context,
+                "licence": model.licence,
+                "best_for": model.best_for,
+                "one_press": model.one_press,
+                "terms_url": model.terms_url,
+                "why_not": model.why_not,
+                "default": False,
+                "downloaded": False,
+            }
+        )
+    return rows
+
+
+def resolve_choice(choice_id: str) -> tuple[str, str] | None:
+    """`(backend, model)` for a catalogue id, or None for anything else,
+    including an entry whose licence or loading rules forbid one press."""
+    if choice_id.startswith("ollama:"):
+        entry = OLLAMA_EMBED_MODELS_BY_NAME.get(choice_id.removeprefix("ollama:"))
+        return ("ollama", entry.name) if entry and entry.one_press else None
+    model = EMBED_MODELS_BY_ID.get(choice_id)
+    return ("sentence-transformers", model.repo) if model and model.one_press else None
 
 
 @dataclass
@@ -201,6 +430,9 @@ def status() -> list[dict]:
                 "about": model.about,
                 "size": model.size,
                 "default": model.default,
+                "one_press": model.one_press,
+                "terms_url": model.terms_url,
+                "why_not": model.why_not,
                 "installed": installed,
                 "on_disk": _human_size(_dir_size(path)) if installed else "",
                 "downloading": _state.running and _state.model_id == model.id,
@@ -336,6 +568,8 @@ def start(model_id: str) -> tuple[bool, str]:
     model = EMBED_MODELS_BY_ID.get(model_id)
     if model is None:
         return False, "No such embedding model."
+    if not model.one_press:
+        return False, model.why_not
     if not can_download():
         return False, (
             "Downloading a model needs the huggingface_hub library, which "

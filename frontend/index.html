@@ -9089,8 +9089,15 @@ Link to another note with [[its first few words]]."></textarea>
                   Pick a dedicated <strong>embedding</strong> model (e.g.
                   nomic-embed-text): chat models can't create embeddings.
                   Changing this re-reads every note so search keeps making
-                  sense, it runs in the background and search falls back to
-                  keywords until it finishes.
+                  sense. It runs in the background (Settings, Background
+                  tasks shows it, with Quit) and search keeps using the
+                  current model until the new one has read every note.
+                </p>
+                <p>
+                  Embedding models lists the choices with their size,
+                  languages, how much text they read at once and their
+                  licence. Use switches in one press for an open licence;
+                  others link to their terms.
                 </p>
                 <!-- INBOX 266 (5), measured: 104MB before the built-in model
                      loads, 774MB after. The only memory lever left once the
@@ -9129,6 +9136,13 @@ Link to another note with [[its first few words]]."></textarea>
                 The Ollama option needs Ollama running, start it and this list
                 fills in. The built-in engine works either way.
               </p>
+              <!-- INBOX 700: the curated choices, drawn by embed-choices.js
+                   (lazy) from GET /embedding-models/choices. Use switches in
+                   the background (core/embedswitch.py). -->
+              <h4 class="setting-subhead">Embedding models</h4>
+              <p class="muted">Pick one; search keeps working on the current model while the new one reads your notes.</p>
+              <ul id="embed-choices" class="extras-list" aria-label="Embedding models"></ul>
+              <p id="embed-choices-status" class="muted small" role="status"></p>
             </div>
             <!-- Not `hidden` any more: this used to appear only *while* a
                  re-index ran, and the only thing that could start one was

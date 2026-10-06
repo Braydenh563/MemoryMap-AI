@@ -867,6 +867,33 @@ class ChunkVector(Base):
     model_version: Mapped[str] = mapped_column(String(200))
 
 
+class StagedEmbedding(Base):
+    """A note's vector from the model a switch is moving to (INBOX 700).
+
+    Changing the embedding model used to delete each note's vector as the
+    re-index reached it, so search fell back to keywords for the length of
+    the pass. The new set is built here instead, beside the live one, and
+    swapped in whole in one transaction when it is complete
+    (`core/embedswitch.py`); until then every search reads `embeddings` on
+    the old model. `model_version` names the target, so a resumed switch
+    keeps what it already did and a switch to another model starts clean.
+
+    No foreign key on `entry_id`, for `ChunkVector`'s reason: the hard-delete
+    paths list the side tables they clear, and a row whose note is gone is
+    dropped at the swap. A new table, so `create_all` builds it: no
+    migration, the same as `job_runs`.
+    """
+
+    __tablename__ = "embeddings_staged"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(Integer, unique=True)
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    dim: Mapped[int] = mapped_column(Integer)
+    model_version: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Attachment(Base, WorkspaceMixin):
     """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original

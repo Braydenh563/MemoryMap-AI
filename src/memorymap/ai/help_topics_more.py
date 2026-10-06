@@ -215,6 +215,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "search relevance", "minimum similarity", "above-average margin",
             "search engine", "semantic search", "embedding model", "re-index",
+            "embedding models", "multilingual search", "change embedding model",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
         ),
@@ -222,8 +223,14 @@ MORE_TOPICS: list[dict] = [
             "Settings, Search and index. Search engine: the built-in one "
             "(recommended, about 650 MB of memory while the app is open) or an "
             "Ollama embedding model such as nomic-embed-text; changing it "
-            "re-reads every note in the background and search uses keywords "
-            "until it finishes. Search index: Rebuild search index after an "
+            "re-reads every note in the background (Background tasks shows it, "
+            "with Quit) and search keeps using the current model until the new "
+            "one has read every note. Embedding models lists the choices, from "
+            "MiniLM (smallest, fastest) and BGE Small (the default) to "
+            "multilingual ones (Multilingual E5, BGE M3, Qwen3), with each "
+            "one's size, languages, context and licence: Use switches in one "
+            "press, and a model under other terms (EmbeddingGemma) links to "
+            "them instead. Search index: Rebuild search index after an "
             "update or a restore, or if search stops finding notes you know "
             "are there. Search relevance: Minimum similarity and Above-average "
             "margin; raise them for fewer, surer results, lower them if search "
@@ -293,8 +300,9 @@ MORE_TOPICS: list[dict] = [
             "(for a feature that is on but not working) and Remove, and its "
             "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
-            "Tiny (fastest) to Medium (most accurate). Embedding models chooses "
-            "what search by meaning uses; it is downloaded once and kept."
+            "Tiny (fastest) to Medium (most accurate). Embedding models lists "
+            "the built-in models on this machine, each downloaded once and kept; "
+            "which one search uses is chosen in Settings, Search and index."
         ),
         "badge": {"label": "Packages", "section": "extras"},
     },

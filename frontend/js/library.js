@@ -3754,6 +3754,8 @@ const ocrUi = {
   lastRange: "",
   readMenuKey: "",
   installing: false,
+  //: Which file `ocrWorkspacePages` was counted for (`ocrBuildPageRail`).
+  pagesFor: "",
 };
 let ocrWorkspaceImages = [];
 let ocrWorkspaceCurrent = null;
@@ -4923,6 +4925,8 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     $("ocr-stage")?.classList.add("ocr-stage-text");
     try {
       const file = await ocrFetchFileText(image);
+      //: The view moved on while this was fetched: its answer is not for it.
+      if (ocrWorkspaceCurrent !== image) return;
       const paragraphs = (file.text || "").split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
       ocrRenderRegions({
         regions: (paragraphs.length ? paragraphs : ["(This file is empty.)"]).map((text, index) => ({
@@ -4981,6 +4985,10 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: something: a Tesseract reading with real box positions is a better
     //: answer than stored text, and this must not overwrite it.
     const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
+    //: Another file was opened while this page loaded (a PDF, then at once an
+    //: image): painting this answer would put the PDF's reading and its Pages
+    //: rail under the image.
+    if (ocrWorkspaceCurrent !== image) return;
     //: **Per-page descriptions, from the same response** (Phase 7.3). A page's
     //: reading and its description live on one `PageRead` row, so one request
     //: carries both; keeping them in a map keyed by page is what lets the
@@ -5078,6 +5086,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
 function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
   ocrPagesKnown = true;
+  ocrUi.pagesFor = ocrRailKey(image);
   const rail = $("ocr-rail");
   if (!rail) return;
   //: The switch above the rail gains its "Pages" segment only once the page
@@ -5324,7 +5333,15 @@ function ocrRenderRailSwitch(current) {
       title: "Every document the reader can open",
     },
   ];
-  if (ocrIsPdf(current) && ocrWorkspacePages > 1) {
+  //: **Pages is the open file's** (the owner: "pages should only show if a
+  //: file is selected and open/being viewed on the ocr workspace"). Decided by
+  //: the file on screen, never the caller's argument (a sibling list that
+  //: resolved after the view moved on passed the PDF it was opened with), and
+  //: by the count recorded for that file, never the last count set.
+  const viewing = ocrWorkspaceCurrent;
+  const paged = Boolean(viewing) && ocrIsPdf(viewing) && !ocrIsTextFile(viewing)
+    && ocrPagesKnown && ocrUi.pagesFor === ocrRailKey(viewing) && ocrWorkspacePages > 1;
+  if (paged) {
     segments.push({
       id: "pages",
       label: "Pages",
@@ -5346,8 +5363,9 @@ function ocrRenderRailSwitch(current) {
   //: usually arrives before the page count, so a three-page PDF opened with
   //: the rail on Files and its own pages one press away, and `ocrBuildPageRail`
   //: then returned early because the mode was no longer "pages".
-  if (ocrRailMode === "pages" && ocrPagesKnown && !segments.some((segment) => segment.id === "pages")) {
-    ocrRailMode = "files";
+  const pending = Boolean(viewing) && ocrIsPdf(viewing) && !ocrPagesKnown;
+  if (ocrRailMode === "pages" && !paged && !pending) {
+    ocrRailMode = viewing?._isImage ? "images" : "files";
   }
   const usable = segments;
   host.classList.remove("hidden");
@@ -5447,6 +5465,8 @@ function ocrOpenSibling(row) {
   ocrWorkspacePage = 0;
   ocrWorkspacePages = 1;
   ocrPagesKnown = false;
+  //: A picture or a text file has no pages: the rail goes back to its list.
+  if (ocrRailMode === "pages") ocrRailMode = row._isImage ? "images" : "files";
   ocrLoadPage(row);
   ocrRenderRail(row);
 }

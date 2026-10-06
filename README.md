@@ -6,48 +6,50 @@
 
 **A notebook that files itself. Local AI, your machine, nothing sent anywhere unless you ask.**
 
+[Download](https://github.com/Braydenh563/MemoryMap-AI/releases/latest) ·
+[Quick start](#quick-start) ·
+[Website](https://braydenh563.github.io/MemoryMap-AI/) ·
+[Documentation](#documentation)
+
 [![CI](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml)
 [![Latest release](https://img.shields.io/github/v/release/Braydenh563/MemoryMap-AI)](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
-</div>
+<img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, note cards newest first, each with its category, tags and the notes it links to, and the Connections panel for the open note on the right" width="850">
 
----
+</div>
 
 ## What it is
 
-MemoryMap AI is a notebook for people who think in fragments. You type a
-thought and a local model files it, tags it and links it to what you already
-wrote. Later you ask a question and get an answer beside the notes it came
-from, with each sentence linked to its source so you can check it. Around
-that loop sit a long-form document editor, whiteboards and mind maps, a graph
-of how your notes connect, a timeline, reminders, and an assistant called
-Atlas that can act on the notebook for you.
+Type a thought and a local AI files it, tags it and links it to what you
+already wrote. Ask a question later and get an answer with the notes behind
+it.
 
 ```
-capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with the notes behind it
+capture a thought  ->  it files itself  ->  ask a question  ->  an answer, with its sources
 ```
 
-## Why offline and local-first
+- **Files itself.** Every note lands in a category with tags and links, and
+  says how sure it is.
+- **Answers you can check.** Each sentence of an answer cites the note it came
+  from.
+- **Private by design.** One SQLite file on your computer: no account, no
+  cloud, no telemetry. The AI runs on your machine through
+  [Ollama](https://ollama.com) or any local OpenAI-compatible server.
+- **Works without AI.** With no model it still files by your notebook's own
+  words, searches, and keeps every feature working.
+- **More than notes.** Documents, whiteboards and mind maps, a graph of your
+  ideas, a timeline and reminders, in one app.
 
-- **Your notes are one SQLite file** in a folder you choose. There is no
-  account, no cloud service and no telemetry.
-- **The AI runs on your machine**, through [Ollama](https://ollama.com) or any
-  OpenAI-compatible server on your own computer or network. A setting that is
-  on by default refuses a model address that is not local.
-- **Nothing goes online unless you switch it on.** Web search is off until you
-  turn it on, the first start asks once whether to check for updates and until
-  you answer nothing about updating touches the network, and Settings, Privacy
-  records every connection the app makes.
-- **It works with no model at all.** Without one, notes are filed as
-  Uncategorised, search uses full-text matching with stemming and spelling
-  correction, and every other feature keeps working.
+## Features
 
-## What it does
+Open a section for the detail.
 
-**Capture**
+<details>
+<summary><b>Capture</b>: type, paste, draw, dictate or record; import from Notion, Obsidian, Evernote, Apple Notes and files</summary>
+
 - Type, paste, draw, or dictate and record meetings (transcribed on this machine
   with Whisper). `Alt`+`N` opens a quick note over any tab. `#word` tags a note,
   and Markdown works inline, including `[[wiki links]]` and `==highlights==`.
@@ -66,7 +68,11 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - A note saved while the server is away waits on this device and is sent once
   when the server is back.
 
-**Organise**
+</details>
+
+<details>
+<summary><b>Organise</b>: filed by meaning, honest certainty, tags, categories, spaces, a background librarian</summary>
+
 - The AI picks a category by meaning (or asks, in guided mode), shows an honest
   estimate of how sure it was (never 100%) and suggests tags, one press to keep each. With no AI, tags come from
   the notes most like it.
@@ -78,7 +84,11 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
   images and files, bookmarks, the AI skills, a contents tree and an activity
   log.
 
-**Ask**
+</details>
+
+<details>
+<summary><b>Ask</b>: answers with a citation per sentence, saved chats, Agent mode with tools and skills</summary>
+
 - A question returns a conversational answer and the notes behind it, with a
   numbered citation after each sentence. Chat is saved and resumable, and the
   line under an answer in progress says what is happening: reaching the
@@ -96,7 +106,11 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
   and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
   take plain language: "call Sam tomorrow evening".
 
-**Write**
+</details>
+
+<details>
+<summary><b>Write</b>: a long-form editor with live preview, local spelling and grammar, history and export</summary>
+
 - Documents is a long-form editor with Live, Source, Split and Read views,
   spelling and grammar checks that run on your computer, version history,
   focus mode, and code files with line numbers, the line you are on lightly
@@ -106,7 +120,11 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - Export a document as Markdown, HTML, PDF or Word (Word is an optional
   package), and your notes as JSON, CSV or Markdown.
 
-**Visualise**
+</details>
+
+<details>
+<summary><b>Visualise</b>: graph, timeline, whiteboards and mind maps, dashboard</summary>
+
 - The Graph draws your notes as a map coloured by category, with the reason
   for each link written down.
 - The Timeline puts every note and reminder on a time axis.
@@ -123,7 +141,11 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - The Dashboard shows your capture streak, statistics, a weekly digest and the
   widgets you choose.
 
-**Also**
+</details>
+
+<details>
+<summary><b>Also</b>: themes, accessibility, a guided tour, sign-in</summary>
+
 - Thirteen themes, each in light or dark, with your own accent, type, density
   and corners. A drawn face for every person and persona, and an optional
   corner companion.
@@ -136,17 +158,14 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - A guided tour, and errors written as plain sentences that say what to do.
 - Signing in is on by default and can be turned off on a computer only you use.
 
+</details>
+
 ## Screenshots
 
 Captured from the app in the dark theme at 1440 by 900.
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="The dashboard in the dark theme: a greeting with the note count, reminders and capture streak, a search box, quick actions, and widgets for reminders, recently added notes, favourites, quick capture, boards and recent documents" width="850">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, note cards newest first, each with its category, tags and the notes it links to, and the Connections panel for the open note on the right" width="850">
-  <br><sub><b>Notes</b>: captured, filed into a category, tagged and linked to what they relate to</sub>
 </p>
 
 <p align="center">
@@ -330,6 +349,8 @@ Markdown, or as a full backup that you can seal with a password.
   on your network in is a switch in Settings, Account & security; it always
   asks for your password, over HTTPS with a certificate made on this computer
   (Settings, Account & security shows its fingerprint).
+- The AI runs where you point it, and a setting that is on by default
+  refuses a model address that is not on your computer or network.
 - Private notes are encrypted at rest with a key derived from your password,
   and kept out of search, the graph and every AI tool.
 - Web search is off by default, and the update check waits for your answer to

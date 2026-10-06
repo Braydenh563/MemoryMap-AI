@@ -45695,3 +45695,17 @@ and refuses a topic ("Select a shape, link or text box first").
      first and asked about only if that save fails (navigation.js
      `confirmLeavingUnsavedWork`; tests/test_unsaved_work_guard.py).
 
+708. **The owner, 2026-10-06, verbatim**, with screenshots of the Meeting
+     notes recorder: "the stop and resume on the audio transcribe doesnt
+     work" (paused at 0:05, Stop and Resume shown, "Paused."), then the
+     recorder after Stop reading "Transcribed: review it below before
+     saving." over an empty transcript, and: "also these panels feel badly
+     designed and neglected". Next: reproduce with Chromium's fake
+     microphone (--use-fake-device-for-media-stream), fix Stop and Resume
+     from the paused state (and an empty transcript must say so, not
+     "Transcribed"), then redesign the recorder panel by DESIGN.md: one clear
+     state at a time (ready, recording with level and time, paused,
+     transcribing with progress, review), the transcript sized to its
+     content, actions grouped with one primary. Placed: the next free Opus
+     slot.
+

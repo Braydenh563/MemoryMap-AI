@@ -852,22 +852,46 @@ function stopMeetingTimer() {
   meetingTimerHandle = null;
 }
 
+//: **One state at a time** (INBOX 708, "these panels feel badly designed and
+//: neglected"). The recorder was five things on screen at once whatever it was
+//: doing: a Record button that was sometimes Stop, a clock reading 0:00 before
+//: anything had started, a Pause that said Resume after the recording it
+//: belonged to had ended, and a transcript box twelve rem tall around one
+//: sentence. Now the card says which state it is in (`data-state`) and shows
+//: only what that state needs:
+//:   ready          Record (the one filled control)
+//:   recording      Stop (filled), Pause, the clock, the level line
+//:   paused         Stop (filled), Resume, the clock stopped
+//:   transcribing   a progress bar and how long the audio was
+//:   review         the transcript, sized to its words, and the save actions
+function setMeetingState(state) {
+  $("meeting-card").dataset.state = state;
+  const live = state === "recording" || state === "paused";
+  $("meeting-stage").classList.toggle("hidden", state === "review");
+  $("meeting-controls").classList.toggle("hidden", !(live || state === "ready"));
+  $("meeting-pause").classList.toggle("hidden", !live);
+  $("meeting-timer").classList.toggle("hidden", !live);
+  $("meeting-progress").classList.toggle("hidden", state !== "transcribing");
+  const review = state === "review";
+  $("meeting-transcript").classList.toggle("hidden", !review);
+  $("meeting-save-row").classList.toggle("hidden", !review);
+  stagePrimary("meeting-record", "meeting-save", review);
+}
+
 // Resets the overlay to "ready to record", whether it's opening fresh or
 // coming back after a discard, the same state either way.
 function resetMeetingUI() {
+  stopMeetingTimer();
   $("meeting-timer").textContent = "0:00";
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
   $("meeting-transcript").value = "";
-  $("meeting-transcript").classList.add("hidden");
-  $("meeting-save-row").classList.add("hidden");
-  stagePrimary("meeting-record", "meeting-save", false);
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
   setLabel($("meeting-record"), "ph:record Record");
-  $("meeting-pause")?.classList.add("hidden");
   setLabel($("meeting-pause"), "ph:pause Pause");
   $("meeting-wave")?.classList.add("hidden");
+  setMeetingState("ready");
 }
 
 //: The meeting a recording goes into, or null for a new one: set by the
@@ -891,7 +915,9 @@ async function openMeetingRecorder() {
 // nobody is looking at.
 function closeMeetingRecorder() {
   if (meetingRecorder && meetingRecorder.state !== "inactive") {
-    meetingRecorder.onstop = null; // don't also try to transcribe a discard
+    // A discard is not transcribed: the stop listener reads this (`onstop = null`
+    // here removed nothing, the listener is an `addEventListener` one).
+    meetingRecorder.discarded = true;
     meetingRecorder.stop();
   }
   meetingStream?.getTracks().forEach((t) => t.stop());
@@ -909,6 +935,13 @@ async function toggleMeetingRecording() {
   const button = $("meeting-record");
   if (meetingRecorder) {
     button.disabled = true; // one press, not a double-fire while it stops
+    // The clock keeps the length of the audio: stopped while recording it is
+    // up to a second stale, stopped while paused it is already right.
+    if (meetingRecorder.state === "recording") $("meeting-timer").textContent = meetingElapsedText();
+    // A paused recorder holds what it has heard so far; asking for it before
+    // the stop makes the last chunk arrive on every engine, not only the ones
+    // that flush on a stop from paused (INBOX 708: Stop from Paused).
+    if (meetingRecorder.state === "paused") meetingRecorder.requestData();
     meetingRecorder.stop();
     return;
   }
@@ -928,7 +961,8 @@ async function toggleMeetingRecording() {
     return;
   }
   meetingChunks = [];
-  meetingRecorder = new MediaRecorder(meetingStream);
+  const recorder = new MediaRecorder(meetingStream);
+  meetingRecorder = recorder;
   let stopMeetingLevelMeter = () => {};
   meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
   meetingRecorder.addEventListener("stop", async () => {
@@ -936,28 +970,38 @@ async function toggleMeetingRecording() {
     stopMeetingLevelMeter();
     stopMeetingWave();
     stopMeetingWave = () => {};
-    $("meeting-pause").classList.add("hidden");
     meetingStream = null;
     meetingRecorder = null;
     stopMeetingTimer();
+    if (recorder.discarded) return;
+    const length = $("meeting-timer").textContent;
     button.classList.remove("recording");
     setLabel(button, "ph:record Record");
+    setLabel($("meeting-pause"), "ph:pause Pause");
     button.disabled = false;
     const blob = new Blob(meetingChunks, { type: meetingChunks[0]?.type || "audio/webm" });
     const form = new FormData();
     form.append("file", blob, "meeting.webm");
     $("meeting-status").classList.remove("error");
-    $("meeting-status").textContent =
-      "Transcribing… a long recording can take a while on CPU.";
+    $("meeting-status").textContent = `Transcribing ${length} of audio. A long recording can take a while on CPU.`;
+    setMeetingState("transcribing");
     try {
       const body = await (await api.upload("/voice/transcribe-meeting", form)).json();
-      $("meeting-status").textContent = "Transcribed: review it below before saving.";
+      const text = (body.text || "").trim();
+      if (!text) {
+        // Nothing to review is not a transcript: say so, and put Record back.
+        $("meeting-timer").textContent = "0:00";
+        setMeetingState("ready");
+        $("meeting-status").textContent = "Nothing was heard in that recording.";
+        return;
+      }
+      $("meeting-status").textContent = `Transcript of ${length}. Read it, trim it, then save.`;
       $("meeting-transcript").value = body.text;
-      $("meeting-transcript").classList.remove("hidden");
-      $("meeting-save-row").classList.remove("hidden");
-      stagePrimary("meeting-record", "meeting-save", true);
+      setMeetingState("review");
+      autoGrow($("meeting-transcript"));
       $("meeting-transcript").focus();
     } catch (error) {
+      setMeetingState("ready");
       $("meeting-status").textContent = error.message;
       $("meeting-status").classList.add("error");
     }
@@ -975,8 +1019,8 @@ async function toggleMeetingRecording() {
   // is one: appending it earlier just got it discarded a line later.
   stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
   stopMeetingWave = startMeetingWave(meetingStream);
-  $("meeting-pause").classList.remove("hidden");
-  $("meeting-status").textContent = "";
+  setMeetingState("recording");
+  $("meeting-status").textContent = "Recording.";
   $("meeting-status").classList.remove("error");
 }
 
@@ -999,7 +1043,8 @@ function toggleMeetingPause() {
     meetingPausedAt = Date.now();
     stopMeetingTimer();
     setLabel(button, "ph:play Resume");
-    $("meeting-status").textContent = "Paused.";
+    setMeetingState("paused");
+    $("meeting-status").textContent = "Paused. Resume to keep recording, or stop to transcribe.";
   } else if (meetingRecorder.state === "paused") {
     meetingRecorder.resume();
     // Push the start forward by however long the pause lasted, so the timer
@@ -1009,7 +1054,8 @@ function toggleMeetingPause() {
       $("meeting-timer").textContent = meetingElapsedText();
     }, 1000);
     setLabel(button, "ph:pause Pause");
-    $("meeting-status").textContent = "";
+    setMeetingState("recording");
+    $("meeting-status").textContent = "Recording.";
   }
 }
 

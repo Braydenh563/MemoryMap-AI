@@ -13162,11 +13162,11 @@ Link to another note with [[its first few words]]."></textarea>
            pushed everything below it down by 5rem. They share one surface now,
            on the inner radius the sketch pad's two bars take, and the wave
            grows inside it instead of between two unrelated things. -->
-      <div class="meeting-stage">
+      <div class="meeting-stage" id="meeting-stage">
         <div class="row" id="meeting-controls">
           <button id="meeting-record" type="button"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record</button>
           <button id="meeting-pause" type="button" class="ghost hidden"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
-          <span id="meeting-timer" class="meeting-timer" aria-live="polite">0:00</span>
+          <span id="meeting-timer" class="meeting-timer hidden" role="timer">0:00</span>
         </div>
         <!-- The line that moves while you talk. Reported twice: "there is still
              no line animation that visually picks up the user's voice when
@@ -13185,13 +13185,17 @@ Link to another note with [[its first few words]]."></textarea>
              bar meter's own comment already warns about. -->
         <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
           aria-hidden="true"></canvas>
+        <!-- Transcribing: no way to know how far along the engine is, so the
+             bar is the browser's own indeterminate one (a `progress` with no
+             value), under a status line that says how much audio is in it. -->
+        <progress id="meeting-progress" class="meeting-progress hidden" aria-label="Transcribing"></progress>
       </div>
       <p id="meeting-status" class="status" role="status"></p>
       <!-- Editable, not saved straight away: a raw transcript carries every
            "um" and false start, and the app's whole capture pattern is
            "you're in control before it's saved" (persona peek, the
            compression summary before it replaces anything). -->
-      <textarea id="meeting-transcript" rows="10" class="hidden"
+      <textarea id="meeting-transcript" rows="3" class="hidden"
         placeholder="The transcript will appear here once recording stops, review and trim it before saving."
         aria-label="Transcript: edit before saving"></textarea>
       <!-- The save row is a dock's action zone by another name: the one filled
@@ -13204,6 +13208,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="row hidden" id="meeting-save-row">
         <!-- Two wordings, one shown: `.meeting-into` (a recording opened from a
              meeting's Record into it, meetings.js) shows the second. -->
+        <div class="meeting-actions-main">
         <button id="meeting-save" class="ghost"><span class="meeting-save-new">Save as a meeting</span><span class="meeting-save-into">Add to the meeting</span></button>
         <!-- A lecture or a long meeting is not a note. Asked for as part of
              "expanded as a proper feature with more capabilities": an hour of
@@ -13211,8 +13216,13 @@ Link to another note with [[its first few words]]."></textarea>
              scroll past, where the same text as a document is something you
              can open, edit, extract notes from and export. -->
         <button id="meeting-save-doc" class="ghost">Save as a document</button>
+        </div>
+        <!-- Copy and Discard are not ways of keeping it, so they sit apart from
+             the two that are, Discard last. -->
+        <div class="meeting-actions-more">
         <button id="meeting-copy" class="ghost" title="Copy the transcript">Copy</button>
         <button id="meeting-discard" class="ghost meeting-discard">Discard</button>
+        </div>
       </div>
     </div>
   </div>

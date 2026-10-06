@@ -3440,7 +3440,7 @@ button.answer-figure-open {
   /* the flex layout owns the height now; the gap is the hover actions'
      row's room (`.msg-actions`, hung under each bubble), so they never sit
      on a bubble or the next one. */
-  gap: 2.6rem;
+  gap: calc(var(--space-9) + var(--space-3));
   padding: 0.6rem 0.4rem 0.25rem;
   /* **No `scroll-behavior: smooth` here.** Reported: "I scrolled up on a chat
      and then I couldnt scroll back down to the bottom unless I clicked the

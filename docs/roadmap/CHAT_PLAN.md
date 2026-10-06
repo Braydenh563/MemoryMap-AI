@@ -665,3 +665,20 @@ less and with shorter prompts, and fills the screen while the model streams.
 Measured as model tokens and calls per task, before and after, with answer
 quality held or better.
 
+### Composer decisions, taken with the owner, 2026-10-06
+
+23. **Light rewrites, marked.** Without a model the composer may fix grammar,
+    tense and person ("I" to "you", "b4" to "before") by fixed, tested rules;
+    the original wording is one tap away. No free rewriting.
+24. **No answer is said plainly.** "Nothing here says that. The closest is X",
+    plus a suggested question the person could answer with a note.
+25. **The bar is all four, each measured:** a blind test of composer answers
+    against a 1 to 3B local model on the person's own notes; zero wrong facts,
+    every sentence traced to a note or a measurement, tested on every build;
+    sounds like a person (varied phrasing, no template repeated in a session);
+    does things, not only answers (reminders, tags, links, summaries from a
+    request, each confirmed first).
+26. **Voice: Atlas's by default, changeable.** Warm and brief in openings and
+    companion bubbles, plain in answers; a setting offers plain and playful
+    too, each with its own phrasebook and tests.
+

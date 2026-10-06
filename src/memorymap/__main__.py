@@ -1442,9 +1442,9 @@ def _replace_process(argv: list[str]) -> None:
     **Windows has no exec.** CPython's `os.execv` there starts a new process
     and ends this one, and it hands the C runtime the arguments joined with
     spaces, **unquoted** (a documented, never-fixed CPython behaviour). The
-    installed app lives in `...\Programs\MemoryMap AI\MemoryMap AI.exe`, so
+    installed app lives in `...\\Programs\\MemoryMap AI\\MemoryMap AI.exe`, so
     the restarted process read its own path as three arguments, argparse
-    exited on "unrecognized arguments: AI\MemoryMap AI.exe", and the tray's
+    exited on "unrecognized arguments: AI\\MemoryMap AI.exe", and the tray's
     Restart closed the app with nothing coming back (a source checkout under
     a folder with a space did the same). `subprocess.Popen` quotes each
     argument; this process then exits, as `execv` would have made it.

@@ -15,6 +15,7 @@ model is thinking returns at once.
 
 from __future__ import annotations
 
+import sqlite3
 import threading
 import time
 
@@ -33,16 +34,40 @@ CLAIMS = (
 
 
 class SlowOllama(FakeOllama):
-    """A model that thinks for `SLOW` seconds and says when it starts."""
+    """A model that thinks for `SLOW` seconds, says when it starts, and
+    checks, while it thinks, that nobody holds the database's write lock."""
 
     def __init__(self) -> None:
         super().__init__(running=True)
         self.thinking = threading.Event()
+        self.lock_free: list[bool] = []
+
+    def think(self) -> None:
+        self.thinking.set()
+        self.lock_free.append(_write_lock_is_free())
+        time.sleep(SLOW)
 
     def chat(self, model, messages, mode=None):  # noqa: ANN001, ANN201
-        self.thinking.set()
-        time.sleep(SLOW)
+        self.think()
         return {"content": "0, 1"}
+
+
+def _write_lock_is_free() -> bool:
+    """Can a second connection take SQLite's write lock right now, without
+    waiting? The property itself, where the save's elapsed time was only a
+    proxy for it: a CI runner once stalled a save that took 0.016 s here for
+    1.7 s (Python 3.12, 2026-10-06), which read as "blocked behind the model"
+    though nothing held the lock."""
+    path = deps.get_db().engine.url.database
+    probe = sqlite3.connect(path, timeout=0)
+    try:
+        probe.execute("BEGIN IMMEDIATE")
+        probe.execute("ROLLBACK")
+        return True
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        probe.close()
 
 
 def _save_while_thinking(client, slow: SlowOllama, worker: threading.Thread) -> tuple[int, float]:
@@ -68,7 +93,10 @@ def test_a_save_during_a_night_pass_is_not_blocked(client, app_state):
 
     status, elapsed = _save_while_thinking(client, slow, threading.Thread(target=night))
     assert status == 201
-    assert elapsed < SLOW, f"the save waited {elapsed:.2f}s behind the model"
+    assert slow.lock_free and all(slow.lock_free), f"a pass held the write lock while the model thought: {slow.lock_free}"
+    # A save that queued behind the model would take the whole call and
+    # more; a scheduling stall on a busy runner is the one other way past it.
+    assert elapsed < 2 * SLOW, f"the save waited {elapsed:.2f}s behind the model"
     assert outcome.get("derived"), outcome
     assert outcome["run_id"]
 
@@ -77,7 +105,7 @@ def test_a_save_during_an_entity_pass_is_not_blocked(client, app_state):
     for index in range(2):
         client.post("/entries", json={"content": f"Sam and Priya met in Leeds about the launch plan, note {index}."})
     slow = SlowOllama()
-    slow.chat = lambda model, messages, mode=None: (slow.thinking.set(), time.sleep(SLOW), {"content": "Sam|person, Leeds|place"})[2]
+    slow.chat = lambda model, messages, mode=None: (slow.think(), {"content": "Sam|person, Leeds|place"})[1]
     processed: list[int] = []
 
     def pass_() -> None:
@@ -86,7 +114,10 @@ def test_a_save_during_an_entity_pass_is_not_blocked(client, app_state):
 
     status, elapsed = _save_while_thinking(client, slow, threading.Thread(target=pass_))
     assert status == 201
-    assert elapsed < SLOW, f"the save waited {elapsed:.2f}s behind the model"
+    assert slow.lock_free and all(slow.lock_free), f"a pass held the write lock while the model thought: {slow.lock_free}"
+    # A save that queued behind the model would take the whole call and
+    # more; a scheduling stall on a busy runner is the one other way past it.
+    assert elapsed < 2 * SLOW, f"the save waited {elapsed:.2f}s behind the model"
     assert processed and processed[0] >= 2
 
 

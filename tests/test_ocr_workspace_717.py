@@ -256,3 +256,21 @@ def test_turning_a_page_and_zooming_keep_the_reader_s_place():
     assert "ocrKeepCentre(() => ocrApplyZoom())" in _body(LIBRARY, "ocrSetZoom")
     assert "ocrKeepCentre(() => ocrApplyZoom())" in _body(LIBRARY, "ocrStepZoom")
     assert "ocrUi.activeRegion" in _body(LIBRARY, "ocrRenderRegions")
+
+
+def test_pages_belongs_to_the_file_being_viewed():
+    """The owner: "pages should only show if a file is selected and open/being
+    viewed on the ocr workspace" (a screenshot: "Images 8 | Files 2 | Pages
+    6" with Pages chosen). The switch read whichever file its caller passed and
+    whatever page count was last set, and a page load that finished after the
+    view had moved on (a PDF opened, then an image) still built its page rail.
+    Now the segment is decided by the file on screen and the count recorded
+    for that file, and a stale load stops before it paints."""
+    switch = _body(LIBRARY, "ocrRenderRailSwitch")
+    assert "const viewing = ocrWorkspaceCurrent;" in switch
+    assert "ocrUi.pagesFor === ocrRailKey(viewing)" in switch
+    assert "ocrIsPdf(current)" not in switch
+    assert "ocrUi.pagesFor = ocrRailKey(image);" in _body(LIBRARY, "ocrBuildPageRail")
+    load = _body(LIBRARY, "ocrLoadPage")
+    assert load.count("if (ocrWorkspaceCurrent !== image) return;") >= 2
+    assert 'ocrRailMode = row._isImage ? "images" : "files";' in _body(LIBRARY, "ocrOpenSibling")

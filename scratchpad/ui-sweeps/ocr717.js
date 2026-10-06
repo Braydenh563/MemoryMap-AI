@@ -414,6 +414,29 @@ async function smooth() {
   });
   check("Left arrow in a reading's text moves the caret, not the page", typing.before === typing.after, JSON.stringify(typing));
 
+  // Pages belongs to the file on screen: a PDF opened, then at once an image,
+  // and the PDF's late page load must not put its Pages tab under the image.
+  const pages = await page.evaluate(async (m) => {
+    const canvas = Object.assign(document.createElement("canvas"), { width: 40, height: 20 });
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+    const fd = new FormData();
+    fd.append("file", new File([blob], `pic-${Date.now()}.png`, { type: "image/png" }));
+    fd.append("direct", "true");
+    const up = await (await fetch("/media/upload", { method: "POST", body: fd, headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() } })).json();
+    const pdf = await apiJson(`/media/meta/${encodeURIComponent(m.url.split("/").pop())}`);
+    const pic = await apiJson(`/media/meta/${encodeURIComponent(up.url.split("/").pop())}`);
+    closeOcrWorkspace();
+    openOcrWorkspace({ ...pdf, _isImage: true }, []);
+    openOcrWorkspace({ ...pic, _isImage: true }, []);
+    await new Promise((r) => setTimeout(r, 2500));
+    return {
+      tabs: [...document.querySelectorAll("#ocr-rail-switch .ocr-rail-tab")].map((t) => t.dataset.mode),
+      mode: ocrRailMode,
+      viewing: ocrWorkspaceCurrent?.original_name,
+    };
+  }, media);
+  check("Pages shows only for the paged file on screen", !pages.tabs.includes("pages") && pages.mode !== "pages", JSON.stringify(pages));
+
   await browser.close();
   process.exit(failures ? 1 : 0);
 }

@@ -168,6 +168,19 @@ with its owner named in the entry.
      (none, arrow, open arrow, triangle, circle, diamond, bar), per end, in the
      connector toolbar.
 
+741. **The owner, 2026-10-06, verbatim**: "will the composer get better at writing,
+     sentence structure, more variations and natural language, betetr to understand,
+     more biological. more social, more engaging, better at responding and answering
+     questions correctly". Not covered by the three composer agents running
+     (model context, composer acts, composer everywhere). Recommendation, taken: a
+     fourth Opus track, "composer voice", once one finishes: question understanding
+     (indirect and casual phrasings, synonyms, a clarifying question when
+     ambiguous), more question kinds answered (why, how, how many, comparisons,
+     yes or no as "your notes say"), a first-line-answers check, a larger tested
+     phrasebook of joins and openers, turn-aware follow-ons, length fit to the
+     question, the app voice; facts stay quoted. Measured on the 725 eval grown
+     to about 100 questions with variety and readability scores.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

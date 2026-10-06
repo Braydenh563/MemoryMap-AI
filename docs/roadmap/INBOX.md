@@ -44,6 +44,24 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
+663. **The owner, 2026-10-06, verbatim.** "there is no forgot password option
+     in the lock screen." Today the only way back in is the terminal command
+     `python -m memorymap --reset-password` (Help names it), and private notes
+     stay sealed by the old password whatever is done. Recommendation: a
+     "Forgot your password?" link under the field that opens one card saying
+     plainly what a reset does and does not recover (notes yes, private notes
+     no, a sealed backup only with its own password), with the command to
+     copy and, in the desktop app, a button that runs the same reset after a
+     typed confirmation. Placed: next PR.
+
+664. **The owner, 2026-10-06, verbatim.** "Placing coordinates of templates on
+     the mindmap and whiteboard could be improved (little off from the
+     cursor)." A template placed from the Library lands offset from where the
+     pointer is. Next: measure the drop point against the placed group's
+     anchor at several zoom levels (a click place and a drag place, board and
+     map), and anchor the template where the pointer is (its centre on a
+     click, the grab point on a drag). Placed: next PR.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

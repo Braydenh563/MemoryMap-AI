@@ -235,6 +235,15 @@ with its owner named in the entry.
      way, its height is capped to the room with its list scrolling inside.
      Placed: with 710.
 
+713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
+     processes like the night shift and stuff, is it possible to manually
+     run them as well as manually stop or cancel them when they are
+     running??" Decision taken: every scheduled pass (the night shift and
+     the other maintenance passes) is listed in Background tasks with its
+     schedule and last run, a "Run now" on each, and a running job's row
+     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
+     next step. Placed: with 696, the progress agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

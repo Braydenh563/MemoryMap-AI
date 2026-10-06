@@ -591,3 +591,26 @@ def test_count_notes_takes_a_since_window(ai_client, session):
     counted = tools.execute_tool(session, "count_notes", {"since": "7"})
     assert counted["count"] == 1
     assert "last 7 days" in counted["label"]
+
+
+def test_undo_of_a_change_to_several_notes_runs_through_execute(ai_client):
+    """`tag_note` on two notes answers with a `{"tool": "batch", "steps": [...]}`
+    undo. The Undo button posts it to /chat/tools/execute, which knew no tool
+    called "batch" and answered 404, so a multi-note change could not be undone."""
+    first = _save(ai_client, "pack the tent")
+    second = _save(ai_client, "buy gas canisters")
+    done = ai_client.post(
+        "/chat/tools/execute",
+        json={"name": "tag_note", "arguments": {"note_ids": [first["id"], second["id"]], "add": ["trip"]}},
+    ).json()
+    undo = done["undo"]
+    assert undo["tool"] == "batch" and len(undo["steps"]) == 2
+
+    response = ai_client.post("/chat/tools/execute", json={"name": undo["tool"], "steps": undo["steps"]})
+    assert response.status_code == 200, response.text
+    tags = {e["id"]: e.get("tags") or [] for e in ai_client.get("/entries").json()}
+    assert "trip" not in tags[first["id"]] and "trip" not in tags[second["id"]]
+
+    # A batch only carries registry tools, never another batch.
+    nested = ai_client.post("/chat/tools/execute", json={"name": "batch", "steps": [{"tool": "batch", "steps": []}]})
+    assert nested.status_code == 404

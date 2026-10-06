@@ -1246,9 +1246,11 @@ function changeRow(change, options = {}) {
       try {
         const result = await apiJson("/chat/tools/execute", {
           method: "POST",
+          //: `steps` carries a batch undo (several notes or board items).
           body: JSON.stringify({
             name: change.undo.tool,
             arguments: change.undo.arguments,
+            steps: change.undo.steps,
           }),
         });
         if (result && result.error) throw new Error(result.error);

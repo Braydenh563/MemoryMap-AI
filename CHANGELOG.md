@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Chat and the agent: Undo on a change to several notes at once (tagging two notes, moving several board items) works; it used to fail because the app did not recognise the undo.
 - Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.
 - Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.
 - Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.

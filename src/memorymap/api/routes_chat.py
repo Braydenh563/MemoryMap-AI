@@ -2473,6 +2473,11 @@ class ToolExecuteBody(BaseModel):
 
     name: str
     arguments: dict = Field(default_factory=dict)
+    #: A `{"tool": "batch", "steps": [...]}` undo (a change to several notes or
+    #: board items): each step is `{"tool", "arguments"}` of a registry tool.
+    #: Posted as name "batch" it used to answer 404, so such a change had an
+    #: Undo button that could never undo.
+    steps: list[dict] = Field(default_factory=list)
 
 
 @router.post("/tools/execute")
@@ -2482,15 +2487,28 @@ def execute_confirmed_tool(
     """Run one registry tool, how the UI executes a destructive call
     after the user clicks Confirm. Only registry tools can run, and the
     result carries the same human label shown in chat."""
+    if body.name == "batch":
+        calls = [(str(step.get("tool") or ""), step.get("arguments") or {}) for step in body.steps]
+        if not calls or any(name not in tools.TOOLS for name, _ in calls):
+            raise HTTPException(status_code=404, detail="That undo names a step this app does not have.")
+        # Last change first, the way a stack of edits is taken back.
+        results = [_execute_one(session, name, arguments) for name, arguments in reversed(calls)]
+        return {"label": f"Undid {len(results)} changes.", "results": results}
     if body.name not in tools.TOOLS:
         raise HTTPException(status_code=404, detail=f"There is no tool called '{body.name}'.")
-    result = tools.execute_tool(session, body.name, body.arguments)
+    return _execute_one(session, body.name, body.arguments)
+
+
+def _execute_one(session: Session, name: str, arguments: dict) -> dict:
+    if name not in tools.TOOLS:
+        raise HTTPException(status_code=404, detail=f"There is no tool called '{name}'.")
+    result = tools.execute_tool(session, name, arguments)
     if "error" in result:
         # `result["error"]` is written for the model (it names the tool and
         # its arguments), so it goes to the log and the person reads a
         # sentence about what happened to their click.
         logging.getLogger("memorymap.chat").warning(
-            "confirmed tool %r failed: %s", safe_value(body.name, 40), safe_value(result["error"], 300)
+            "confirmed tool %r failed: %s", safe_value(name, 40), safe_value(result["error"], 300)
         )
         raise HTTPException(
             status_code=400,

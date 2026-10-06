@@ -149,7 +149,7 @@ function wbMapThemedData(node) {
 //: ask, so that choosing what the topic already draws stores nothing rather
 //: than pinning it (`edge_arrow`'s rule, applied to the rest of the strip).
 //: `node` defaults to the selected topic, which is the strip's own subject.
-function wbMapThemeDefault(field, node = typeof wbSelectedMapNode === "function" ? wbSelectedMapNode() : null) {
+function wbMapThemeDefault(field, node = wbSelectedMapNode()) {
   const look = wbMapLevelLook(node);
   if (look[field] !== undefined) return look[field];
   return WB_MAP_THEME_META.has(field) ? undefined : wbMapTheme()[field];
@@ -198,9 +198,15 @@ const WB_MAP_HIERARCHIES = Object.freeze({
   flat: Object.freeze([WB_MAP_NO_THEME, WB_MAP_NO_THEME, WB_MAP_NO_THEME]),
 });
 
-//: Each topic's level, from the render's one walk (`wbMapLevels`). A topic
-//: not in it (made since the last render) takes no level look until the next.
-let wbMapLevelById = new Map();
+//: The map's mutable state, one object (the global-scope ratchet).
+//: `levelById`: each topic's level, from the render's one walk (`wbMapLevels`);
+//: a topic not in it (made since the last render) takes no level look until the
+//: next. `looksFor` and `looks`: the looks per level for the open map's theme,
+//: allocated once per theme rather than once per read (13a: read per topic and
+//: per edge on every drag frame). `accentInk`: the ink for the accent, read once
+//: per render (`wbMapLevels` clears it), since a computed-style read per topic
+//: inside the paint loop would force a style recalculation per topic.
+const wbMapCache = { levelById: new Map(), looksFor: null, looks: null, accentInk: null };
 
 //: **The level of every topic** (decision 38). The first root is the centre,
 //: as is any root with topics under it; a root with nothing under it is a
@@ -218,32 +224,26 @@ function wbMapLevels(index) {
     };
     walk(root, top);
   });
-  wbMapLevelById = levels;
-  wbMapAccentInkCache = null;
+  wbMapCache.levelById = levels;
+  wbMapCache.accentInk = null;
   return levels;
 }
 
 function wbMapLevelOf(node) {
-  return node ? wbMapLevelById.get(node.id) : undefined;
+  return node ? wbMapCache.levelById.get(node.id) : undefined;
 }
-
-//: The looks per level for the open map's theme, cached on the theme object:
-//: this is read once per topic and per edge on every drag frame (13a), so it
-//: allocates once per theme rather than once per read.
-let wbMapLevelLooksFor = null;
-let wbMapLevelLooksCache = null;
 
 function wbMapLevelLooks() {
   const theme = wbMapTheme();
-  if (wbMapLevelLooksFor === theme && wbMapLevelLooksCache) return wbMapLevelLooksCache;
+  if (wbMapCache.looksFor === theme && wbMapCache.looks) return wbMapCache.looks;
   const preset = WB_MAP_HIERARCHIES[theme.hierarchy] || WB_MAP_HIERARCHIES.classic;
   const own = theme.levels || {};
-  wbMapLevelLooksCache = preset.map((look, level) => {
+  wbMapCache.looks = preset.map((look, level) => {
     const mine = own[String(level)];
     return mine && Object.keys(mine).length ? Object.freeze({ ...look, ...mine }) : look;
   });
-  wbMapLevelLooksFor = theme;
-  return wbMapLevelLooksCache;
+  wbMapCache.looksFor = theme;
+  return wbMapCache.looks;
 }
 
 //: What one topic's level draws, `{}` off a map or before its first render.
@@ -2024,16 +2024,12 @@ function wbRelativeLuminance(channels) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-//: The ink for the accent, read once per render (`wbMapLevels` clears it):
-//: a computed-style read per topic inside the paint loop would force a style
-//: recalculation per topic.
-let wbMapAccentInkCache = null;
 
 function wbMapAccentInk(node) {
-  if (wbMapAccentInkCache == null) {
-    wbMapAccentInkCache = wbCoreInkFor(getComputedStyle(node).getPropertyValue("--accent").trim()) || "";
+  if (wbMapCache.accentInk == null) {
+    wbMapCache.accentInk = wbCoreInkFor(getComputedStyle(node).getPropertyValue("--accent").trim()) || "";
   }
-  return wbMapAccentInkCache || null;
+  return wbMapCache.accentInk || null;
 }
 
 function wbCoreInkFor(colour) {

@@ -3710,7 +3710,7 @@ function wbStickerSize(obj) {
 function wbCopySelectedStyle() {
   //: A map topic's look (MINDMAP_PLAN.md decision 42): pasted onto topics
   //: only, refused on a shape the way a shape's is refused on a text box.
-  const topic = typeof wbSelectedMapNode === "function" ? wbSelectedMapNode() : null;
+  const topic = wbSelectedMapNode();
   if (topic) {
     wbCopiedStyle = { kind: "topic", style: wbMapTopicStyle(topic) };
     return toast("Style copied. Select topics and press Ctrl+Alt+V.");

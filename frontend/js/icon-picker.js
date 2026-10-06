@@ -204,12 +204,14 @@ const ICON_EMOJI_SOURCE = [
     "triangular_flag_on_post=\u{1F6A9},chequered_flag=\u{1F3C1},"],
 ];
 
-//: Parsed once, on first open: `[{key, label, items: [{name, glyph}]}]`.
-let iconEmojiGroups = null;
+//: This file's only mutable state, one object (the global-scope ratchet): the
+//: emoji groups, parsed once on first open as `[{key, label, items: [{name, glyph}]}]`,
+//: the icon groups likewise, and the open panel.
+const iconPickerState = { emojiGroups: null, phGroups: null, open: null };
 
 function iconPickerEmojiGroups() {
-  if (!iconEmojiGroups) {
-    iconEmojiGroups = ICON_EMOJI_SOURCE.map(([key, label, source]) => ({
+  if (!iconPickerState.emojiGroups) {
+    iconPickerState.emojiGroups = ICON_EMOJI_SOURCE.map(([key, label, source]) => ({
       key,
       label,
       items: source.split(",").filter(Boolean).map((pair) => {
@@ -218,7 +220,7 @@ function iconPickerEmojiGroups() {
       }),
     }));
   }
-  return iconEmojiGroups;
+  return iconPickerState.emojiGroups;
 }
 
 //: **Phosphor's groups, by what a name says** (the font carries no
@@ -234,8 +236,6 @@ const ICON_PH_GROUPS = [
   ["nature", "Nature", /(tree|leaf|flower|plant|sun|moon|cloud|snow|drop|fire|flame|lightning|mountain|bug|cat|dog|fish|bird|paw|butterfly|cactus|plant|wave|rainbow|thermometer|wind)/],
   ["things", "Things and tools", /(key|lock|gear|wrench|hammer|gift|desktop|laptop|device|cpu|robot|rocket|lamp|coffee|cooking|fork|bag|basket|shopping|money|coin|credit|wallet|puzzle|game|dice|palette|paint|scissors|magnifying|binoculars|flask|atom|dna|pill|first-aid)/],
 ];
-
-let iconPhGroups = null;
 
 //: The vendored font's glyph names, off its own stylesheet's rules.
 function iconPickerPhosphorNames() {
@@ -257,16 +257,16 @@ function iconPickerPhosphorNames() {
 }
 
 function iconPickerIconGroups() {
-  if (!iconPhGroups) {
+  if (!iconPickerState.phGroups) {
     const groups = ICON_PH_GROUPS.map(([key, label]) => ({ key, label, items: [] }));
     const more = { key: "more", label: "More icons", items: [] };
     for (const name of iconPickerPhosphorNames()) {
       const at = ICON_PH_GROUPS.findIndex(([, , re]) => re.test(name));
       (at === -1 ? more : groups[at]).items.push({ kind: "icon", value: name, name: name.replace(/-/g, " ") });
     }
-    iconPhGroups = [...groups.filter((g) => g.items.length), ...(more.items.length ? [more] : [])];
+    iconPickerState.phGroups = [...groups.filter((g) => g.items.length), ...(more.items.length ? [more] : [])];
   }
-  return iconPhGroups;
+  return iconPickerState.phGroups;
 }
 
 //: Recent picks, newest first, on this device (`prefs`, wrapped).
@@ -313,10 +313,8 @@ function iconPickerGlyph(choice) {
 //: drag carries, so a drop target that wants to say "copy" asks this.
 window.iconPickerDragging = null;
 
-let iconPickerOpen = null;
-
 function closeIconPicker() {
-  iconPickerOpen?.close();
+  iconPickerState.open?.close();
 }
 
 //: **Opens the picker** beside `anchor`. `onPick({kind, value})` is called
@@ -340,7 +338,7 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
     if (!panel.isConnected) return;
     document.removeEventListener("pointerdown", outside, true);
     panel.remove();
-    if (iconPickerOpen?.panel === panel) iconPickerOpen = null;
+    if (iconPickerState.open?.panel === panel) iconPickerState.open = null;
   };
   //: Focus goes back to what opened it, or, when that sat in a menu that has
   //: closed since, to the menu's own button: never to the page body.
@@ -611,6 +609,6 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
     if (!panel.contains(event.target)) search.focus({ preventScroll: true });
   };
   document.addEventListener("focusin", keepFocus, true);
-  iconPickerOpen = { panel, close };
+  iconPickerState.open = { panel, close };
   return { close, panel };
 }

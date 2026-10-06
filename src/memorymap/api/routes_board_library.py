@@ -882,21 +882,33 @@ def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceB
         if parent is None or parent.board_id != board_id or parent.kind not in MAP_REFERENCE_KINDS | {MAP_TOPIC_KIND}:
             raise HTTPException(status_code=404, detail="That topic is not on this board.")
     made = []
+    # A sideways tree: each leaf takes the next row, and a topic with children
+    # sits on its first child's row. The row was `parent's row + i`, so the
+    # second child of one topic and the first child of the next landed on the
+    # same spot (the Decision template's "Option B" under "Cost"), which a map
+    # with no layout to tidy it kept as one box on another (INBOX 664).
+    rows = [0]
 
-    def add(node: dict, parent_id: int | None, depth: int, index: int) -> None:
+    def add(node: dict, parent_id: int | None, depth: int) -> int:
         data = {**node.get("data", {}), "content": node.get("text", ""), "library_ref": ref}
         row = WhiteboardObject(
             board_id=board_id, kind="topic", data=json.dumps(WhiteboardObjectData(**{k: v for k, v in data.items() if k != "library_ref"}).model_dump(exclude_none=True) | {"library_ref": ref}),
-            x=body.x + depth * 220, y=body.y + index * 70, z=1, width=180, height=48, parent_id=parent_id,
+            x=body.x + depth * 220, y=body.y, z=1, width=180, height=48, parent_id=parent_id,
         )
         db.add(row)
         db.flush()
         made.append(row)
-        for i, child in enumerate(node.get("children") or []):
-            add(child, row.id, depth + 1, index + i)
+        kids = [add(child, row.id, depth + 1) for child in node.get("children") or []]
+        if kids:
+            at = kids[0]
+        else:
+            at = rows[0]
+            rows[0] += 1
+        row.y = body.y + at * 70
+        return at
 
-    for i, node in enumerate(payload.get("nodes") or []):
-        add(node, parent.id if parent is not None else None, 1 if parent is not None else 0, i)
+    for node in payload.get("nodes") or []:
+        add(node, parent.id if parent is not None else None, 1 if parent is not None else 0)
     return {"sketches": [], "objects": made}
 
 

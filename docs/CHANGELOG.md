@@ -14,6 +14,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Fixed
 
 - Filing: the first note in a new notebook with no AI model no longer waits for the search model to load. With nothing filed yet there is nothing to compare it against, so it is not embedded on the way to Uncategorised; that load, skipped at launch for an empty notebook, could keep the first note at "Filing…" for over 20 seconds.
+- Whiteboard and mind map: things placed from the Library land where you put them. A dragged shape, template or icon keeps the point you held it by under the pointer (the drag now carries the shape's picture, not the whole tile), a click puts it in the middle of the canvas you can see rather than partly under the open Library, a dropped note's card is centred on the pointer whatever its height, and a mind map template lands under the pointer instead of 240px away. Measured at 50%, 100% and 200% with the view panned: within 0.5px everywhere, where it was up to 165px off on a click and 580px on a drag. A dropped note is now one undo step, and on a mind map the topic a branch template or icon will join is highlighted while you hold it over it.
 - Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.
 
 ## [0.4.0] - 2026-10-06

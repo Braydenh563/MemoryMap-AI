@@ -404,6 +404,7 @@ let wbCanvasRectCache = null;
 
 function wbClearCanvasRectCache() {
   wbCanvasRectCache = null;
+  wbCanvasOriginCache = null;
 }
 
 function wbCanvasOriginRect() {
@@ -411,6 +412,49 @@ function wbCanvasOriginRect() {
   const rect = document.getElementById("whiteboard-container").getBoundingClientRect();
   wbCanvasRectCache = rect;
   return rect;
+}
+
+//: **The one conversion from a point on screen to a point on the board**
+//: (INBOX 664: "Placing coordinates of templates on the mindmap and
+//: whiteboard could be improved (little off from the cursor)"). Nine places
+//: wrote `(clientX - rect.left - t.x) / t.k` by hand; they now all come here,
+//: so a correction made once is made for every drop, paste and pointer.
+//:
+//: `origin` is where the layers' 0,0 sits on screen before the pan: the
+//: container's border box, plus its border (the layers are placed in the
+//: padding box), less any scroll of the container (an `overflow: hidden` box
+//: can still be scrolled, by a `focus()` on something inside it), and
+//: `scale` is any CSS transform an ancestor puts on the whole canvas, read as
+//: the drawn width over the laid-out width. A device pixel ratio needs no
+//: term: `clientX` and the rect are both in CSS pixels. Pure, so the node
+//: test can hold it (tests/test_wb_drop_place.py).
+function wbScreenToBoard(clientX, clientY, origin, t) {
+  const s = origin.scale || 1;
+  return [((clientX - origin.left) / s - t.x) / t.k, ((clientY - origin.top) / s - t.y) / t.k];
+}
+
+//: The origin `wbScreenToBoard` wants, cached with the rect it is read from
+//: and dropped with it (`wbClearCanvasRectCache`), so a drag pays for it once.
+let wbCanvasOriginCache = null;
+
+function wbCanvasOrigin() {
+  if (wbCanvasOriginCache && wbCanvasRectCache) return wbCanvasOriginCache;
+  const el = document.getElementById("whiteboard-container");
+  const rect = wbCanvasOriginRect();
+  let scale = el.offsetWidth ? rect.width / el.offsetWidth : 1;
+  //: `offsetWidth` is rounded to a whole pixel and the rect is not, so an
+  //: unscaled canvas reads 0.9996 or so: only a real transform counts.
+  if (!Number.isFinite(scale) || Math.abs(scale - 1) < 0.01) scale = 1;
+  wbCanvasOriginCache = {
+    left: rect.left + (el.clientLeft - el.scrollLeft) * scale,
+    top: rect.top + (el.clientTop - el.scrollTop) * scale,
+    scale,
+  };
+  return wbCanvasOriginCache;
+}
+
+function wbClientToBoard(clientX, clientY) {
+  return wbScreenToBoard(clientX, clientY, wbCanvasOrigin(), d3.zoomTransform(document.getElementById("whiteboard-container")));
 }
 
 window.addEventListener("pointerdown", wbClearCanvasRectCache, true);
@@ -5992,9 +6036,7 @@ let wbPointerClient = null;
 
 function wbPointerOnBoard() {
   if (!wbPointerClient) return null;
-  const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
-  const r = wbCanvasOriginRect();
-  return [(wbPointerClient.clientX - r.left - t.x) / t.k, (wbPointerClient.clientY - r.top - t.y) / t.k];
+  return wbClientToBoard(wbPointerClient.clientX, wbPointerClient.clientY);
 }
 
 //: What a copy of the selection would carry: every selected item a copy can
@@ -6216,13 +6258,135 @@ async function wbPasteText(text, at) {
   return made.length;
 }
 
+//: **The middle of the canvas you can see, not of the box behind the chrome**
+//: (INBOX 664). The top bar, the side rail with its open panel and the tool
+//: dock all float over the canvas, so the container's own middle sat 162px
+//: left of the open area with the Library open (measured at 1440x900): a
+//: click on a Library tile put the shape a third of the way under the panel
+//: it was clicked in.
+//:
+//: Pure: `box` is the container's rect, `covers` the chrome's rects. A wide
+//: cover is a bar along the top or the bottom, a tall one a rail along the
+//: left or the right, whichever edge it sits nearer; the open area is inset
+//: from that edge to it, unless that would leave less than half the canvas
+//: (a phone's bottom sheet, a panel opened wide): then the cover is over the
+//: canvas rather than beside it, and the middle stays the canvas's own.
+function wbFreeCanvasRect(box, covers) {
+  let { left, top, right, bottom } = box;
+  const w = box.right - box.left;
+  const h = box.bottom - box.top;
+  for (const c of covers) {
+    if (!c || !(c.right > c.left) || !(c.bottom > c.top)) continue;
+    if (c.right <= box.left || c.left >= box.right || c.bottom <= box.top || c.top >= box.bottom) continue;
+    const edge = c.right - c.left >= c.bottom - c.top
+      ? (c.top - box.top <= box.bottom - c.bottom ? "top" : "bottom")
+      : (c.left - box.left <= box.right - c.right ? "left" : "right");
+    if (edge === "left" && c.right - box.left <= w / 2) left = Math.max(left, c.right);
+    else if (edge === "right" && box.right - c.left <= w / 2) right = Math.min(right, c.left);
+    else if (edge === "top" && c.bottom - box.top <= h / 2) top = Math.max(top, c.bottom);
+    else if (edge === "bottom" && box.bottom - c.top <= h / 2) bottom = Math.min(bottom, c.top);
+  }
+  return { left, top, right, bottom };
+}
+
+//: The chrome that floats over a board: the top bar, the side rail and its
+//: panel, the tool dock (wherever it is docked).
+const WB_CANVAS_COVERS = ["wb-topbar", "wb-sidebar", "wb-tools-panel"];
+
+function wbVisibleCanvasRect() {
+  const box = document.getElementById("whiteboard-container").getBoundingClientRect();
+  const covers = [];
+  for (const id of WB_CANVAS_COVERS) {
+    const el = document.getElementById(id);
+    if (el && el.offsetParent !== null && !el.hidden) covers.push(el.getBoundingClientRect());
+  }
+  return wbFreeCanvasRect(box, covers);
+}
+
 //: The middle of what the canvas shows, in board units.
 function wbViewCentre() {
-  const el = document.getElementById("whiteboard-container");
-  const r = el.getBoundingClientRect();
-  const t = d3.zoomTransform(el);
-  const o = wbCanvasOriginRect();
-  return [(r.left + r.width / 2 - o.left - t.x) / t.k, (r.top + r.height / 2 - o.top - t.y) / t.k];
+  const r = wbVisibleCanvasRect();
+  return wbClientToBoard((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+}
+
+// --- Where a placed thing lands (INBOX 664) ---------------------------------
+//
+// One rule for everything put on a board from somewhere else (the Library's
+// shapes and templates, a map's branch templates, an icon or emoji, a note,
+// an image): **the point of the thing you are holding stays under the
+// pointer.** A drag from a tile holds the tile's picture where it was
+// grabbed, so that point of the placed item lands under the pointer; a drag
+// with no picture of its own (a note, a file) puts the item's middle there; a
+// click puts the middle in the middle of the canvas you can see. A group (a
+// template) keeps its own layout and is anchored by its whole box. Snap to
+// grid, when it is on, moves the box's corner onto the grid afterwards, the
+// one allowed difference (`WB_GRID_SPACING`, 24 board units).
+//
+// Measured before (scratchpad/ui-sweeps/dropplace.js, 1440x900): a click
+// landed 162px left of the open canvas with the Library open; a drag ignored
+// where the tile was held (48px off for a rectangle held by its corner, 291px
+// for the Kanban template); a star or a cloud whose drawing is not centred in
+// its declared box sat 6 to 7px off; a note card 25px high; a map template
+// 236px right and down, its first topic's corner where the pointer was.
+
+//: How far to move `box` (board units) so its `frac` point is at `at`, with
+//: its corner then snapped to `grid` when one is given. Pure.
+function wbAnchorDelta(box, at, frac = [0.5, 0.5], grid = 0) {
+  let dx = at[0] - (box.minX + (box.maxX - box.minX) * frac[0]);
+  let dy = at[1] - (box.minY + (box.maxY - box.minY) * frac[1]);
+  if (grid > 0) {
+    dx = Math.round((box.minX + dx) / grid) * grid - box.minX;
+    dy = Math.round((box.minY + dy) / grid) * grid - box.minY;
+  }
+  return [dx, dy];
+}
+
+//: The box around what a placement made, as it is drawn: a shape by its
+//: path's own `getBBox` (exact for the curves and arcs `wbPathBBox` bounds by
+//: their control points), a box or card by its rendered size (`wbItemBBox`).
+//: A link is left out: it is drawn between the things it joins.
+function wbPlacedBounds(rows) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const { kind, item } of rows) {
+    let box = null;
+    if (kind === "sketch") {
+      const parsed = wbSketchParsedData(item);
+      if (!parsed) continue;
+      const path = document.querySelector(`#wb-svg-layer .sketch-group[data-id="${item.id}"] .sketch-path`);
+      try {
+        const b = path?.getBBox();
+        if (b && (b.width || b.height)) box = { minX: b.x, minY: b.y, maxX: b.x + b.width, maxY: b.y + b.height };
+      } catch {
+        // Not rendered (culled, or the board closed): the path's own numbers.
+      }
+      box = box || wbItemBBox(kind, item);
+    } else {
+      box = wbItemBBox(kind, item);
+    }
+    if (!box) continue;
+    minX = Math.min(minX, box.minX); minY = Math.min(minY, box.minY);
+    maxX = Math.max(maxX, box.maxX); maxY = Math.max(maxY, box.maxY);
+  }
+  return Number.isFinite(minX) ? { minX, minY, maxX, maxY } : null;
+}
+
+//: Moves what was just placed so it lands by the rule above, after it has
+//: been drawn and before the frame is painted, so it never shows anywhere
+//: else. Called inside the placement's own `wbRecordGesture`, so the move is
+//: part of the one undo step. A move under a quarter of a board unit is not
+//: made: the placement was already right, and a save would only add a row to
+//: the board's history.
+async function wbAnchorPlaced(rows, at, frac = [0.5, 0.5]) {
+  if (!at || !rows.length) return;
+  const box = wbPlacedBounds(rows);
+  if (!box) return;
+  const [dx, dy] = wbAnchorDelta(box, at, frac, wbSnapOn() ? WB_GRID_SPACING : 0);
+  if (Math.abs(dx) < 0.25 && Math.abs(dy) < 0.25) return;
+  const origin = wbCaptureBulkMoveOrigin(null, new Set(rows.map((r) => wbMultiKey(r.kind, r.item.id))));
+  wbApplyBulkMove(origin, dx, dy);
+  await wbSaveBulkMove(origin);
+  // A template's elbow joins keep their bends with the boxes they join.
+  await wbCarryWaypoints(null, origin);
 }
 
 // --- Clone and connect (the features audit W4; draw.io's blue arrows) -------
@@ -8198,10 +8362,7 @@ function wbLockedItemAt(x, y) {
 }
 
 function wbBoardPointOf(e) {
-  const container = document.getElementById("whiteboard-container");
-  const t = d3.zoomTransform(container);
-  const o = wbCanvasOriginRect();
-  return [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k];
+  return wbClientToBoard(e.clientX, e.clientY);
 }
 
 function wbPaintLockHover(hit) {
@@ -12620,11 +12781,7 @@ async function initWhiteboard() {
   const svgCanvas = document.getElementById("wb-svg-layer");
 
   function getLogicalMouse(e) {
-    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = wbCanvasOriginRect();
-    const x = (e.clientX - rect.left - transform.x) / transform.k;
-    const y = (e.clientY - rect.top - transform.y) / transform.k;
-    return [x, y];
+    return wbClientToBoard(e.clientX, e.clientY);
   }
   
   // The eraser doesn't draw: it deletes whatever the pointer crosses while
@@ -13598,8 +13755,7 @@ async function initWhiteboard() {
     const files = [...(data?.items || [])].filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
     if (files.length) {
       e.preventDefault();
-      const rect = containerEl.getBoundingClientRect();
-      const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+      const [x, y] = wbViewCentre();
       for (const file of files) wbPlaceUploadedImage(file, x, y);
       return;
     }
@@ -13634,8 +13790,7 @@ async function initWhiteboard() {
     await wbMapTakePicture(file);
   });
   imageFileInput?.addEventListener("change", () => {
-    const rect = containerEl.getBoundingClientRect();
-    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+    const [x, y] = wbViewCentre();
     for (const file of imageFileInput.files) wbPlaceUploadedImage(file, x, y);
     imageFileInput.value = "";
   });
@@ -13870,56 +14025,48 @@ async function initWhiteboard() {
     
     // Reported directly: "I dragged a note from the library dropdown onto
     // the board but the note appeared in the top left, not in the centre
-    // where I placed it." `#wb-html-layer` already carries the pan/zoom as
-    // a CSS `transform` (handleWbZoom above), so its own
-    // `getBoundingClientRect()` is *already* shifted and scaled by
-    // `transform.x/y/k`; subtracting `transform.x` and dividing by
-    // `transform.k` again then applied the same pan and zoom a second
-    // time, which is exactly wrong once the board has been panned or
-    // zoomed away from its default 0,0/1x. `#whiteboard-container` is the
-    // element `d3.zoom` is attached to and never itself carries the CSS
-    // transform, so its rect is the stable reference `transform.invert`
-    // expects.
-    const container = document.getElementById("whiteboard-container");
-    const transform = d3.zoomTransform(container);
-    const rect = container.getBoundingClientRect();
-
-    // Calculate logical x,y
-    const logicalX = (e.clientX - rect.left - transform.x) / transform.k;
-    const logicalY = (e.clientY - rect.top - transform.y) / transform.k;
+    // where I placed it." The point is read against the container, the
+    // element `d3.zoom` is attached to, which never itself carries the pan
+    // and zoom (the layers inside it do), in the one conversion every drop
+    // shares (`wbClientToBoard`).
+    const at = wbClientToBoard(e.clientX, e.clientY);
 
     // Reported directly: a dropped note lands "quite offset from where I
-    // dropped it". `d.x`/`d.y` are the card's own top-left corner (that's
-    // what `renderWhiteboard`'s `translate(d.x, d.y)` positions), so storing
-    // the raw drop point put the *corner* under the cursor, not the card, 
-    // for the app's own ~250×150 default card size that reads as up to
-    // 125px right and 75px down from where you actually let go. Centring it
-    // on the drop point instead matches how a text box/image already places
-    // itself on click/drop (`wbCreateTextBox`, `wbPlaceUploadedImage`).
+    // dropped it". `d.x`/`d.y` are the card's own top-left corner, so the
+    // card is centred on the drop point. It was centred on an assumed
+    // 250x150, and a card is as tall as its text: a short note's card is
+    // 100 high, so it sat 25px high at 100% and 50px at 200% (INBOX 664).
+    // The default size is the first guess; the drawn card is then measured
+    // and moved (`wbAnchorPlaced`) before the frame is painted.
     const nodeData = {
       entry_id: entryId,
-      x: logicalX - 125,
-      y: logicalY - 75,
+      x: at[0] - WB_CARD_DEFAULT_SIZE.w / 2,
+      y: at[1] - WB_CARD_DEFAULT_SIZE.h / 2,
       z: 10,
       board_id: window.currentBoardId
     };
-    
+
     try {
-      const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
-      // If it exists in state already, replace it. Otherwise push.
-      const idx = wbState.nodes.findIndex(n => n.id === res.id);
-      if (idx !== -1) {
-        wbState.nodes[idx] = res;
-        //: The one in-place replacement in this file, and the one case
-        //: `wbLinkItem`'s index cannot see: same array, same length, a
-        //: different object at that slot. Dropped by hand here so a link
-        //: anchored to this card resolves to the row that is actually in
-        //: state rather than to the one it replaced.
-        wbForgetLinkItems(wbState.nodes);
-      } else {
-        wbState.nodes.push(res);
-      }
-      wbScheduleRender();
+      //: One undo step, which a note dropped here never had: Ctrl+Z after a
+      //: drop took back whatever was done before it.
+      await wbRecordGesture(async () => {
+        const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
+        // If it exists in state already, replace it. Otherwise push.
+        const idx = wbState.nodes.findIndex(n => n.id === res.id);
+        if (idx !== -1) {
+          wbState.nodes[idx] = res;
+          //: The one in-place replacement in this file, and the one case
+          //: `wbLinkItem`'s index cannot see: same array, same length, a
+          //: different object at that slot. Dropped by hand here so a link
+          //: anchored to this card resolves to the row that is actually in
+          //: state rather than to the one it replaced.
+          wbForgetLinkItems(wbState.nodes);
+        } else {
+          wbState.nodes.push(res);
+        }
+        renderWhiteboardNow();
+        await wbAnchorPlaced([{ kind: "node", item: res }], at);
+      });
     } catch (err) {
       //: `console.error("...", err)` printed "{}": an Error's `message` is not
       //: an enumerable own property, so the console's object view showed
@@ -16453,10 +16600,7 @@ function renderWhiteboard() {
       event.stopPropagation();
       const endpoints = wbResolveLinkEndpoints(parsed);
       if (!endpoints) return;
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      const rect = wbCanvasOriginRect();
-      const px = (event.clientX - rect.left - transform.x) / transform.k;
-      const py = (event.clientY - rect.top - transform.y) / transform.k;
+      const [px, py] = wbClientToBoard(event.clientX, event.clientY);
       //: A bend through the click, among the link's others in the order
       //: the line passes them (every connector style, wb-phase2 step 1).
       const live = { ...parsed, bend: undefined, points: wbLinkWaypoints(parsed, endpoints) };

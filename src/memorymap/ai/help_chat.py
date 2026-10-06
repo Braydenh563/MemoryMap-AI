@@ -1142,7 +1142,7 @@ HELP_TOPICS.extend(
                 "built-in sets (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective "
                 "and SWOT, and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
                 "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
-                "to place it in the middle of the view, drag it to put it anywhere, or Shift+Enter to place "
+                "to place it in the middle of the view, drag it and it lands held where you grabbed it, or Shift+Enter to place "
                 "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "
                 "(rename, tags, duplicate, move, delete). To save your own: select things and press "
                 "Ctrl+Shift+S, or right-click, Library, for a selection, a drawn shape, a style, a sticky "

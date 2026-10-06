@@ -54,14 +54,6 @@ with its owner named in the entry.
      copy and, in the desktop app, a button that runs the same reset after a
      typed confirmation. Placed: next PR.
 
-664. **The owner, 2026-10-06, verbatim.** "Placing coordinates of templates on
-     the mindmap and whiteboard could be improved (little off from the
-     cursor)." A template placed from the Library lands offset from where the
-     pointer is. Next: measure the drop point against the placed group's
-     anchor at several zoom levels (a click place and a drag place, board and
-     map), and anchor the template where the pointer is (its centre on a
-     click, the grab point on a drag). Placed: next PR.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

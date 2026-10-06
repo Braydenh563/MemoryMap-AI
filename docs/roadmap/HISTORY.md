@@ -45272,3 +45272,19 @@ and refuses a topic ("Select a shape, link or text box first").
      segmented control and Settings; `motion1005.js`: 170 to 257 ms on screen,
      lands to 0px at 1440 and 390.
 
+664. **The owner, 2026-10-06, verbatim.** "Placing coordinates of templates on
+     the mindmap and whiteboard could be improved (little off from the
+     cursor)." A template placed from the Library lands offset from where the
+     pointer is. Next: measure the drop point against the placed group's
+     anchor at several zoom levels (a click place and a drag place, board and
+     map), and anchor the template where the pointer is (its centre on a
+     click, the grab point on a drag). Placed: next PR.
+     **Fixed 2026-10-06 (dropplace-1006).** One conversion
+     (`wbClientToBoard`), one anchor rule (`wbAnchorDelta`, `wbAnchorPlaced`
+     inside the placement's undo step), the middle of the canvas you can see
+     (`wbFreeCanvasRect`), the tile's picture as the drag image held where it
+     was pressed. `scratchpad/ui-sweeps/dropplace.js`, 105 placements at zoom
+     0.5, 1 and 2 panned, board and map: before up to 165px (click), 581px
+     (drag held off centre), 50px (note card), 474px (map template); after
+     0px on every one, one undo each. `tests/test_wb_drop_place.py`.
+

@@ -147,3 +147,22 @@ with its owner named in the entry.
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
 
+714. **The owner, 2026-10-06, verbatim**, with two screenshots of Ask answers
+     (the mini Atlas avatar beside the "Atlas" name, then a tall gap before
+     the answer text): "the mini atlas avatar on causes a rather wide gap
+     below". Then, with the Ask header's "AI | From your notes" segmented
+     pill: "also that ai/from your notes toggle looks out of place and i dont
+     like it, it doesnt feel modern and professional". Placed: Sonnet agent.
+
+715. **The owner, 2026-10-06, verbatim**, with screenshots of the New board
+     dialog (the "Name" label touching the field's focus ring; the Board |
+     Mind map pill under the title; Mind map offering only "Blank"): "name
+     text clashes with border. also the pill at the top is ugly and I want it
+     to be redesigned to be like the other popups. also there are no mindmap
+     templates to choose from". Then, with the SWOT, retro and To do / Doing /
+     Done board templates (dashed boxes, titles of three different sizes
+     sitting on the dashed border): "some of the templates are poorly
+     designed and the templates need massive improving and expanding". Then,
+     with the template preview's description text flush to its box's top
+     left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
+

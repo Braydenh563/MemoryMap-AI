@@ -19,6 +19,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Ask: the AI / From your notes segmented pill is now one compact switch row, Use AI, in the header's control group (INBOX 714). On, your model writes the answer; off, the answer is From your notes, with no AI. Same stored choice, kept per device; with no model running it is off and greyed with the reason on it. Its '?' help, Settings' help and the Guide say so.
 - Link reasons say what the two notes share (INBOX 691): "Both tagged #portugal; both mention Lisbon and Porto", "“Glaze tests” names “Kiln plan”", "Written two days apart, both in Travel", rather than "similar in meaning", which is kept only when likeness is all there is. New links and the link suggestions get them at once; Tidy names the existing ones, one by one or in a background job that can be stopped and undone. On the showcase notebook, 38 of 48 generic reasons became specific.
 - A note's suggested links are one chip each, the note and its + together, the whole chip the press (INBOX 709).
 - Tools and features lists Manage tags, Filings to check and Find duplicates, which were reachable only from a menu, a typed filter or Settings.
@@ -43,6 +44,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The mini Atlas avatar beside the name on an Ask answer, a Chat reply and the Guide no longer hangs under its row: the head is clipped to its 20px box (the companion's body and legs were drawn 11px below it, so the name sat at the top of a figure twice its height, with empty space under it) (INBOX 714).
 - Menus stay inside the window: one rule (below the opener, else above, else capped with the list scrolling) places the document editor's ⋯ menu and ends every generic menu open, and the ⋯ menu is placed again when the window is resized or its rows change, so its last row is no longer left past the bottom edge (INBOX 712).
 - Task checkboxes: the note editor and the document editor draw one box (the text's size, muted outline, accent fill and a drawn checkmark when done) from one rule, and a task line no longer has a bullet beside its box (INBOX 710).
 - Meeting recorder: one state at a time (ready, recording with the level line and clock, paused, transcribing with a progress bar and the length of the audio, review). Stop works from Paused (the held audio is requested first), Pause no longer says Resume on the next recording, closing the recorder no longer transcribes a discard, and an empty transcript says "Nothing was heard in that recording." instead of "Transcribed". The transcript box is sized to its words, and the save actions are two groups with Discard last (INBOX 708).

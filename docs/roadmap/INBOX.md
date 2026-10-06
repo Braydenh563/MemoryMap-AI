@@ -89,12 +89,6 @@ with its owner named in the entry.
      and seven popups with the companion placed over their heads. Part 1 (the
      cut pill bottoms) is still open; 694 is not resolved.
 
-714. **The owner, 2026-10-06, verbatim**, with two screenshots of Ask answers
-     (the mini Atlas avatar beside the "Atlas" name, then a tall gap before
-     the answer text): "the mini atlas avatar on causes a rather wide gap
-     below". Then, with the Ask header's "AI | From your notes" segmented
-     pill: "also that ai/from your notes toggle looks out of place and i dont
-     like it, it doesnt feel modern and professional". Placed: Sonnet agent.
 
 715. **The owner, 2026-10-06, verbatim**, with screenshots of the New board
      dialog (the "Name" label touching the field's focus ring; the Board |

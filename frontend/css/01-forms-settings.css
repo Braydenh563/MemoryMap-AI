@@ -3053,6 +3053,32 @@ li.link-source {
   align-items: center;
 }
 
+/* **Use AI** (INBOX 714): one compact switch row in the header's control group,
+   on the app's pill-switch recipe (06-timeline-dialogs.css lists
+   `.ask-use-ai input` with the others). It replaced a two-segment pill that
+   "doesnt feel modern and professional". One control high (`--control-h`) and
+   centred on the header line like the History button and the model select
+   beside it; the input is the switch and is not clipped. Greyed with a reason
+   when no model runs (ask-compose.js). */
+.ask-use-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* The touch floor is `--target-min` (44px below 820), the height History and
+     the '?' take there; on a desktop `--control-h` wins. */
+  min-height: max(var(--control-h), var(--target-min));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ask-use-ai.is-off {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 #ask-history-toggle {
   position: relative;
 }

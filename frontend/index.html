@@ -299,12 +299,17 @@
 
   <!-- Unlock / first-run setup gate -->
   <div id="lock-overlay" class="lock-overlay hidden">
-    <div class="card lock-card">
+    <div class="card lock-card" id="lock-card">
       <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
       <h2 id="lock-title">Unlock MemoryMap</h2>
       <p id="lock-message" class="muted"></p>
       <input id="lock-password" type="password" placeholder="Password or PIN"
         aria-label="Password" autocomplete="current-password">
+      <!-- INBOX 663, the owner: "there is no forgot password option in the
+           lock screen." Shown on the unlock only: setup has nothing to
+           forget, and a prompt for one action has "Not now". Opens
+           #lock-forgot-card (account-recovery.js, lazy). -->
+      <button id="lock-forgot" type="button" class="ghost small lock-forgot">Forgot your password?</button>
       <!-- **What this password is for, said before it is chosen, not after.**
            Measured on five fresh data directories, 2026-09-21: the first screen
            a new person sees asked for a credential in 26 words that never said
@@ -312,7 +317,7 @@
            four-character rule (that arrived only after a failed attempt) and
            never mentioned that `vault.create` derives an encryption key from it
            right there in `/auth/setup`. The good explanation of all of it
-           existed, nested inside Settings, Account and security, which is not
+           existed, nested inside Settings, Account &amp; security, which is not
            where somebody deciding whether to trust an app is looking.
 
            Shown only while setting up, hidden on the ordinary unlock, where it
@@ -325,7 +330,140 @@
       <button id="lock-cancel" type="button" class="ghost hidden">Not now</button>
       <p id="lock-error" class="status error" role="alert"></p>
     </div>
+    <!-- **Forgot your password?** (INBOX 663; the owner: "it needs to be
+         robust and secure"). The lock card's twin, shown in its place: one
+         card, two paths. With the recovery key (`POST /auth/recover`) a new
+         password is set and private notes are kept; without it, the same
+         reset `python -m memorymap --reset-password` does (`POST
+         /auth/reset`, core/password_reset.py). Both answer only this
+         computer; another device is told so before anything is typed
+         (`reset_here` from /auth/status). Wired in account-recovery.js. -->
+    <div id="lock-forgot-card" class="card lock-forgot-card hidden" role="region" aria-labelledby="lock-forgot-title">
+      <div class="dialog-head">
+        <h2 class="dialog-head-title" id="lock-forgot-title">Forgot your password?</h2>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="lock-forgot-help" aria-controls="lock-forgot-help" aria-expanded="false"
+          title="About resetting your password" aria-label="About resetting your password">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        <span class="dialog-head-actions">
+          <button type="button" id="lock-forgot-close" class="icon-only ghost small dialog-head-btn"
+            title="Back to unlock (Esc)" aria-label="Back to unlock"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
+      </div>
+      <div class="help-body hidden" id="lock-forgot-help" role="dialog" aria-label="About resetting your password">
+        <p>
+          Ordinary notes, documents, boards and settings are not encrypted
+          with your password, so neither path touches them. Private notes
+          are: only your password or your recovery key opens them.
+        </p>
+        <p>
+          With the recovery key you choose a new password and keep every
+          private note. The key you used stops working and a new one is shown
+          once, so save that one too. Every other open session is signed out.
+        </p>
+        <p>
+          Without it, a reset clears the password so you can set a new one.
+          Private notes stay sealed for good; a sealed backup still opens
+          with its own password. "Allow other devices on this network" is
+          turned off. Either way it can only be done on this computer.
+        </p>
+      </div>
+      <p id="lock-forgot-remote" class="notice hidden" role="status">
+        <i class="ph ph-desktop" aria-hidden="true"></i>
+        <span>Reset your password on the computer this notebook lives on. Another device can't do it.</span>
+      </p>
+      <div id="lock-forgot-paths">
+        <div class="seg lock-forgot-seg" role="group" aria-label="How to reset">
+          <button type="button" id="lock-forgot-have" aria-pressed="true">I have my recovery key</button>
+          <button type="button" id="lock-forgot-lost" aria-pressed="false">I don't have it</button>
+        </div>
+        <div id="lock-forgot-key-pane" class="lock-forgot-pane">
+          <p class="muted">Set a new password with the key you saved. Private notes are kept.</p>
+          <label class="stacked-label" for="lock-recovery-key">Recovery key</label>
+          <input id="lock-recovery-key" type="text" autocomplete="off" spellcheck="false"
+            autocapitalize="characters" maxlength="200" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
+          <label class="stacked-label" for="lock-recovery-new">New password</label>
+          <input id="lock-recovery-new" type="password" autocomplete="new-password"
+            placeholder="At least 8 characters">
+          <label class="stacked-label" for="lock-recovery-confirm">Confirm new password</label>
+          <input id="lock-recovery-confirm" type="password" autocomplete="new-password"
+            placeholder="Type it again">
+          <button id="lock-recovery-submit" type="button" class="lock-forgot-action">Set new password</button>
+        </div>
+        <div id="lock-forgot-reset-pane" class="lock-forgot-pane hidden">
+          <p class="muted">
+            A reset keeps your ordinary notes, documents, boards and settings.
+            Private notes stay sealed for good; a sealed backup still opens
+            with its own password.
+          </p>
+          <p class="muted">In a terminal, in the app's folder:</p>
+          <div class="row lock-forgot-command">
+            <pre class="code-block"><code id="lock-reset-command">python -m memorymap --reset-password</code></pre>
+            <button type="button" id="lock-reset-copy" class="ghost small"
+              title="Copy the command" aria-label="Copy the command"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+          </div>
+          <label class="stacked-label" for="lock-reset-confirm">Or reset here: type RESET to confirm</label>
+          <input id="lock-reset-confirm" type="text" autocomplete="off" spellcheck="false"
+            autocapitalize="characters" maxlength="32" placeholder="RESET">
+          <button id="lock-reset-submit" type="button" class="danger lock-forgot-action" disabled>Reset password</button>
+        </div>
+      </div>
+      <p id="lock-forgot-error" class="status error" role="alert"></p>
+    </div>
   </div>
+
+  <!-- **A recovery key, shown once** (INBOX 663). Offered right after setup
+       (skippable), made or replaced in Settings, Account &amp; security, and
+       handed out again after a reset with the key or a re-key. The key is
+       put in `#recovery-key-value` while this is open and taken out when it
+       closes: it is never stored, so this is the only place it ever is.
+       Wired in account-recovery.js. -->
+  <dialog id="recovery-key-dialog" class="card space-dialog recovery-key-dialog" aria-labelledby="recovery-key-title">
+    <div class="dialog-head">
+      <h2 class="dialog-head-title" id="recovery-key-title">Your recovery key</h2>
+      <button type="button" class="icon-only ghost small graph-help-toggle"
+        data-help-for="recovery-key-dialog-help" aria-controls="recovery-key-dialog-help" aria-expanded="false"
+        title="What a recovery key does" aria-label="What a recovery key does">
+        <i class="ph ph-question" aria-hidden="true"></i>
+      </button>
+      <span class="dialog-head-actions">
+        <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="recovery-key-dialog"
+          title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
+    </div>
+    <div class="help-body hidden" id="recovery-key-dialog-help" role="dialog" aria-label="What a recovery key does">
+      <p>
+        If you forget your password, "Forgot your password?" on the lock
+        screen takes this key and a new password, and keeps your private
+        notes. Without it, a reset leaves them sealed for good.
+      </p>
+      <p>
+        The app never stores the key, so it can't show it again. Making a new
+        one in Settings, Account &amp; security replaces it, and the old one
+        stops working.
+      </p>
+    </div>
+    <div id="recovery-key-offer">
+      <p class="muted">Forget your password, and a recovery key sets a new one with your private notes kept. Recommended.</p>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="ghost small" id="recovery-key-skip">Skip for now</button>
+        <button type="button" class="accent small" id="recovery-key-make">Make a recovery key</button>
+      </div>
+    </div>
+    <div id="recovery-key-show" class="hidden">
+      <p class="muted" id="recovery-key-lead">Save it somewhere away from this computer, such as a password manager or on paper. It is shown only this once.</p>
+      <p class="recovery-key-value" id="recovery-key-value" translate="no"></p>
+      <div class="row recovery-key-tools">
+        <button type="button" class="ghost small" id="recovery-key-copy"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+        <button type="button" class="ghost small" id="recovery-key-download"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download .txt</button>
+      </div>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="accent small" id="recovery-key-done">I've saved it</button>
+      </div>
+    </div>
+    <p id="recovery-key-error" class="status error" role="alert"></p>
+  </dialog>
 
   <!-- Global Command Palette -->
   <!-- **Atlas, the app's guide, in one place** (INBOX 224, the owner: "can
@@ -11787,7 +11925,9 @@ Link to another note with [[its first few words]]."></textarea>
                   notebook may have reached someone, re-encrypting gives every
                   private note a new key, so what they have no longer opens
                   them. It is all or nothing: a note that fails leaves every
-                  note as it was.
+                  note as it was. Private notes a password reset sealed stay
+                  as they are, since no key here opens them. A recovery key,
+                  if you made one, is replaced and the new one shown once.
                 </p>
               </div>
               <div class="row">
@@ -11830,24 +11970,67 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
 
+            <!-- INBOX 663: the recovery key, made or replaced here
+                 (`POST /auth/recovery-key`, the password asked on the lock
+                 card in prompt mode). Wired in settings-controls.js. -->
             <div class="settings-group">
-              <h3>If you forget your password</h3>
-              <p class="muted">
-                There is no reset link, on purpose, one inside an app you're
-                locked out of would just be a way in for anyone at the
-                keyboard. Run this in a terminal instead:
-              </p>
-              <pre class="code-block"><code>python -m memorymap --reset-password</code></pre>
-              <p class="muted">
-                It asks you to confirm, then clears the password so you can set
-                a new one. <strong>Your ordinary notes are not encrypted</strong>
-                and come back untouched. <strong>Private notes are</strong>, 
-                their key is derived from your password, so without it they
-                cannot be recovered by anyone, and the reset loses them. The
-                command tells you how many you have before you confirm. It
-                also turns off "Allow other devices on this network", so the
-                notebook is never open to your network without a password.
-              </p>
+              <div class="row help-head">
+                <h3>Recovery key</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="recovery-key-help" aria-controls="recovery-key-help" aria-expanded="false"
+                  title="About the recovery key" aria-label="About the recovery key">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted" id="account-recovery-state">Sets a new password if you forget yours, with private notes kept.</p>
+              <div class="help-body hidden" id="recovery-key-help" role="dialog" aria-label="About the recovery key">
+                <p>
+                  A recovery key is a second way to open your private notes,
+                  shown once for you to keep somewhere away from this
+                  computer. "Forgot your password?" on the lock screen takes
+                  it and a new password. The app never stores the key, only
+                  a copy of the encryption key locked with it.
+                </p>
+                <p>
+                  Replacing it asks for your current password, and the old
+                  key stops working. Using it, or re-encrypting private
+                  notes, also hands you a new one.
+                </p>
+              </div>
+              <div class="row">
+                <button id="account-recovery-make" class="ghost" type="button">Make a recovery key</button>
+                <span id="account-recovery-status" class="status" role="status"></span>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>If you forget your password</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="forgot-password-help" aria-controls="forgot-password-help" aria-expanded="false"
+                  title="What a reset keeps and loses" aria-label="What a reset keeps and loses">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Use "Forgot your password?" on the lock screen, on this computer.</p>
+              <div class="help-body hidden" id="forgot-password-help" role="dialog" aria-label="What a reset keeps and loses">
+                <p>
+                  With your recovery key you set a new password and keep
+                  every private note. Without it, a reset clears the password
+                  so you can set a new one: <strong>ordinary notes</strong>,
+                  documents, boards and settings are not encrypted and are
+                  kept; <strong>private notes</strong> stay sealed for good,
+                  because only your password or the recovery key opens them.
+                  A sealed backup still opens with its own password.
+                </p>
+                <p>
+                  Both work only on the computer the notebook lives on. The
+                  reset also turns off "Allow other devices on this network",
+                  so the notebook is never open to your network without a
+                  password. The same reset runs in a terminal:
+                </p>
+                <pre class="code-block"><code>python -m memorymap --reset-password</code></pre>
+              </div>
             </div>
           </section>
 

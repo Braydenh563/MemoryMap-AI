@@ -789,7 +789,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "security",
-            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "idle"),
+            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "recovery key", "idle"),
             "body": (
                 "Settings, Account & security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
@@ -797,8 +797,11 @@ HELP_TOPICS.extend(
                 "While it is locked, an open dialog or popover is put away, and "
                 "it comes back as it was after you unlock. "
                 "Private notes are encrypted with that password and are never sent "
-                "to the AI, so a private note's menu has no AI actions. There is "
-                "no reset without the password, so keep it safe."
+                "to the AI, so a private note's menu has no AI actions. Forgot it? "
+                "Press Forgot your password? on the lock screen, on this computer: "
+                "with a recovery key (made at setup or in Account & security) you "
+                "set a new one and keep private notes; without it, a reset keeps "
+                "everything else and leaves private notes sealed."
             ),
             "badge": {"label": "Account & security", "section": "account"},
         },

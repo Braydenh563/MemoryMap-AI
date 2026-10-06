@@ -235,7 +235,7 @@ Other commands:
 | Command | What it does |
 | --- | --- |
 | `python -m memorymap --export PATH` | Write your notes to PATH as a Markdown zip, then exit |
-| `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes are lost |
+| `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes stay sealed (the lock screen's "Forgot your password?" does the same, or keeps them with a recovery key) |
 | `python -m memorymap --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
 | `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
 | `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer (a source checkout only: the packaged app has no Python to run it with) |

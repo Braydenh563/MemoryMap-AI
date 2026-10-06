@@ -149,11 +149,14 @@ Everything you need is in **Settings, Web search**:
 
 ## I forgot my password
 
-There is no reset link inside the app, on purpose. Run
-`python -m memorymap --reset-password` in a terminal. Ordinary notes come back
-untouched; **private notes are lost**, because their key comes from the password,
-and the command tells you how many you have before you confirm. The reset also
-turns off "Allow other devices on this network". More in
+Press **Forgot your password?** on the lock screen, on the computer the notebook
+lives on. With your recovery key (shown when you set up, or made in Settings,
+Account & security) you choose a new password and keep your private notes.
+Without it, "I don't have it" resets the password, as
+`python -m memorymap --reset-password` does in a terminal: ordinary notes,
+documents, boards and settings are kept; **private notes stay sealed**, because
+only the password or the recovery key opens them. The reset also turns off
+"Allow other devices on this network". More in
 [PRIVACY.md](PRIVACY.md#if-you-forget-the-password).
 
 ## Something looks wrong and I want to see what happened

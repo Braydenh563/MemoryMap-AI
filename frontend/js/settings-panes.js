@@ -513,7 +513,17 @@ async function renderAccount() {
         : "No encrypted notes yet",
     ],
     ["Open sessions", String(info.active_sessions)],
+    [
+      "Recovery key",
+      info.recovery_key_created_at
+        ? `Made ${new Date(info.recovery_key_created_at).toLocaleDateString()}`
+        : "None yet",
+    ],
   ];
+  //: INBOX 663: one button, named for what it will do (account-recovery.js).
+  const recoveryMake = $("account-recovery-make");
+  recoveryMake.textContent = info.recovery_key_created_at ? "Replace it" : "Make a recovery key";
+  recoveryMake.dataset.replacing = info.recovery_key_created_at ? "yes" : "no";
   if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
   $("account-password-on-open").checked = info.password_on_open !== false;
   renderLanAccess().catch(() => {});

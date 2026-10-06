@@ -41,6 +41,14 @@ OPEN = {
     # everyone else; `test_sign_in_off_opens_no_route_by_itself` below and
     # tests/test_optional_sign_in.py hold that.
     "/auth/auto-session",
+    # The lock screen's "Forgot your password?" card (INBOX 663): whoever
+    # calls them has no password by definition. Each answers 403 to anything
+    # but this computer (`_from_this_computer`), `/auth/recover` needs the
+    # recovery key and is throttled like an unlock, and `/auth/reset` needs
+    # RESET typed, the same reset the terminal command already did;
+    # tests/test_forgot_password.py holds all three.
+    "/auth/recover",
+    "/auth/reset",
     # Liveness, deliberately: the launcher polls it before the vault exists.
     "/health",
     # Which notebook this server serves, as a hash of its data dir, so a

@@ -2866,7 +2866,13 @@ def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> No
     from memorymap.core.database import AuditLog, EntryRevision
 
     def swap(value: str) -> str:
-        return crypto.encrypt(new_key, crypto.decrypt(old_key, value))
+        # A value the old key cannot open was sealed under a vault a password
+        # reset removed (INBOX 663): unreadable before and after, so it is
+        # kept as it is rather than failing the whole re-key (see the route).
+        try:
+            return crypto.encrypt(new_key, crypto.decrypt(old_key, value))
+        except crypto.DecryptionError:
+            return value
 
     for revision in session.scalars(select(EntryRevision)):
         if crypto.is_encrypted(revision.content):

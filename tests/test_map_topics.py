@@ -103,5 +103,9 @@ def test_the_upgrade_marks_the_topics_a_map_gesture_already_made(tmp_path):
         version = conn.execute("SELECT version_num FROM alembic_version").fetchall()
     finally:
         conn.close()
-    assert version == [("b4e8d2a6f1c9",)]
+    # The head, read rather than pinned: a pinned id goes stale the moment the
+    # next migration lands (the vault's recovery key, the next day).
+    from tests.test_entry_edited_at import _alembic_head
+
+    assert version == [(_alembic_head(),)]
     assert marked == {1: 0, 2: 1, 3: 0, 4: 0}

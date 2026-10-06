@@ -44,16 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-663. **The owner, 2026-10-06, verbatim.** "there is no forgot password option
-     in the lock screen." Today the only way back in is the terminal command
-     `python -m memorymap --reset-password` (Help names it), and private notes
-     stay sealed by the old password whatever is done. Recommendation: a
-     "Forgot your password?" link under the field that opens one card saying
-     plainly what a reset does and does not recover (notes yes, private notes
-     no, a sealed backup only with its own password), with the command to
-     copy and, in the desktop app, a button that runs the same reset after a
-     typed confirmation. Placed: next PR.
-
 669. **The owner, 2026-10-06, verbatim.** "when I click atlas, it often
      starts tilting to the left then just snaps back" / "in the enlarged view
      panel". INBOX 600 eased a mood's loop back over 0.7s

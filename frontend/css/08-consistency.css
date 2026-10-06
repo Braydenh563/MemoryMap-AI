@@ -4248,6 +4248,9 @@ body .chip.item-label,
 .lock-card #lock-submit {
   width: 100%;
   justify-content: center;
+  /* 38px under a touch pointer until 2026-10-06 (forgotpw.js, INBOX 663):
+     the lock screen's one action gets a finger's floor like every other. */
+  min-height: var(--target-min);
 }
 
 /* --- the Library, second pass: cards in reading order, one anatomy ----------

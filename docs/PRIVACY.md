@@ -215,21 +215,38 @@ trust.
 
 ## If you forget the password
 
-There is no reset link inside the app: one there would be a way in for anyone at
-the keyboard. Run this in a terminal instead:
+Press **Forgot your password?** on the lock screen. It works only on the computer
+the notebook lives on: a phone or another computer on your network is told to do
+it there, and another website's page cannot ask for it. It offers two paths.
+
+**With your recovery key.** A recovery key is 160 random bits, shown once as
+eight groups of four letters and digits, when you finish setting up (you can
+skip it) or from Settings, Account & security (Make a recovery key, or Replace
+it, which asks for your current password). Keep it away from this computer, in a
+password manager or on paper. It works like a second password: it locks a second
+copy of the key that encrypts private notes, with its own salt and the same
+scrypt and AES-GCM. The app never stores the key itself, never logs it and never
+gives it to the AI. Type it with a new password and private notes are kept; every
+open session is signed out, the key you used stops working, and a new one is
+shown once. Wrong keys earn the same growing waits as wrong passwords.
+Re-encrypting private notes also replaces the recovery key, since the old one
+locked the old encryption key.
+
+**Without it.** The same reset as this command, which you can also run in a
+terminal:
 
 ```
 python -m memorymap --reset-password
 ```
 
-It asks you to confirm, then clears the password so you can set a new one. It
-tells you which of two very different things will happen to your notes first:
+Both ask you to confirm (type RESET), then clear the password so you can set a
+new one. What happens to your notes:
 
-- **Ordinary notes are not encrypted** by your password. They are plain rows in
-  SQLite and come back untouched.
-- **Private notes are.** Their key comes from the password, so without it nobody
-  can decrypt them, this command included. The reset loses them, and it tells
-  you how many you have before you commit.
+- **Ordinary notes are not encrypted** by your password. Notes, documents,
+  boards, files and settings are plain rows in SQLite and are kept.
+- **Private notes are.** Their key is locked by the password and the recovery
+  key, so without either nobody can decrypt them, this reset included. They
+  stay sealed for good. A sealed full backup still opens with its own password.
 
 The reset also turns off "Allow other devices on this network". No backdoor was
-added, on purpose.
+added, on purpose: the recovery key is yours, and the app keeps no copy.

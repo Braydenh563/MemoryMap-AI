@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, diskspace, netbind, security, vault
+from memorymap.core import crypto, diskspace, netbind, password_reset, security, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -583,9 +583,18 @@ def status(
     # `auto_session` answers for this caller only: whether *this* request
     # would be given a session without a password. A LAN device is told
     # False, which is all it needs to draw the lock screen.
+    #
+    # `reset_here` (INBOX 663) is also about the caller only: whether this
+    # device may use "Forgot your password?" (`_from_this_computer`), so the
+    # card can say "do it on the computer the notebook lives on" before
+    # anyone types a key. It is deliberately the only reset fact this open
+    # route gives: not whether a recovery key exists, not how many private
+    # notes there are. The card offers both paths either way, and a wrong or
+    # absent key earn the same answer from `/auth/recover`.
     return {
         "setup_required": _get_user(session) is None,
         "auto_session": _auto_session_allowed(request, session, config),
+        "reset_here": _from_this_computer(request),
     }
 
 
@@ -949,7 +958,14 @@ def account(
         "vault_exists": vault.exists(session),
         "active_sessions": len(_active_tokens),
         "password_on_open": password_on_open(config),
+        # When the recovery key was made, or None: Settings says which button
+        # to show (INBOX 663). Behind the lock, unlike `/auth/status`.
+        "recovery_key_created_at": _iso(vault.recovery_created_at(session)),
     }
+
+
+def _iso(when) -> str | None:  # noqa: ANN001  # datetime | None
+    return when.isoformat() if when else None
 
 
 @router.post("/change-password", dependencies=[Depends(require_unlock)])
@@ -1104,20 +1120,27 @@ def rotate_vault_key(
     new_key = crypto.new_dek()
 
     # Decrypt with the OLD key and re-encrypt with the NEW one, entirely in
-    # memory, before a single ORM object is touched, so a DecryptionError
-    # partway through leaves nothing staged that would need undoing.
-    try:
-        rewritten = [
-            (entry, plaintext, crypto.encrypt(new_key, plaintext))
-            for entry in private_entries
-            for plaintext in [crypto.decrypt(old_key, entry.content)]
-        ]
-    except crypto.DecryptionError:
-        raise HTTPException(
-            status_code=500,
-            detail="Couldn't read one of your private notes with the current "
-            "key: nothing was changed.",
-        )
+    # memory, before a single ORM object is touched.
+    #
+    # **A note the current key cannot open is left exactly as it is** (INBOX
+    # 663). Until the reset was a button on the lock screen this raised, and
+    # a notebook reset without its recovery key could never re-key again: its
+    # sealed private notes were made under the vault the reset removed, so
+    # the current key opens none of them, and one was enough for a 500
+    # (measured on the forgotpw.js data dir, 2026-10-06). Leaving such a note
+    # is safe in the one direction this guard exists for: it is unreadable by
+    # the current key before the re-key and after it, so nothing that could
+    # be read becomes unreadable. Its ciphertext is not touched, so its own
+    # old key (in an old backup's vault row) still opens it.
+    rewritten = []
+    sealed = 0
+    for entry in private_entries:
+        try:
+            plaintext = crypto.decrypt(old_key, entry.content)
+        except crypto.DecryptionError:
+            sealed += 1
+            continue
+        rewritten.append((entry, plaintext, crypto.encrypt(new_key, plaintext)))
 
     # Verify the round trip against the REAL ciphertext just produced, not a
     # throwaway marker, before any of it becomes the only copy on disk.
@@ -1136,6 +1159,11 @@ def rotate_vault_key(
     new_salt = crypto.new_salt()
     vault_row.kdf_salt = new_salt
     vault_row.wrapped_dek = crypto.wrap_dek(new_key, body.current_password, new_salt)
+    # The recovery key wraps the OLD key, and the old key is exactly what a
+    # re-key exists to make worthless (INBOX 663). So a notebook that had one
+    # is handed its successor, wrapping the new key, in the same commit; the
+    # old one is dead from here. One without a key stays without.
+    recovery_key = vault.issue_recovery(session, new_key) if vault_row.recovery_wrapped_dek else None
 
     log_action(
         session, "edited", "vault",
@@ -1160,9 +1188,186 @@ def rotate_vault_key(
     return {
         "rotated": True,
         "notes_reencrypted": len(rewritten),
+        "notes_sealed": sealed,
         "token": token,
         "other_sessions_ended": ended,
+        "recovery_key": recovery_key,
     }
+
+
+# --- forgot your password? (INBOX 663) --------------------------------------
+#
+# Three routes. `/recovery-key` makes or replaces the key from Settings (or
+# the step after setup), behind the lock and the current password. The other
+# two are the lock screen's "Forgot your password?" card, and so are open:
+# whoever calls them has, by definition, no password. What stands in for it:
+#
+# - **This computer only.** `_from_this_computer`: a loopback connection, no
+#   forwarding header, a loopback Host (the DNS-rebinding door). A phone on
+#   the network is told to do it at the computer the notebook lives on; a
+#   reset is a change to the notebook's own files and belongs at its keyboard,
+#   where the terminal command already was. The Origin check (core/security.py)
+#   still stands in front, so another site's page cannot fire them either.
+# - `/recover` needs the recovery key, and wrong keys earn the same waits as
+#   wrong passwords (the same buckets: a guess is a guess).
+# - `/reset` needs the word RESET typed, which only stops an accident; the
+#   person at this keyboard could always run the terminal command.
+#
+# Nothing either says depends on the notebook's contents: no note counts, no
+# "this notebook has no recovery key". A missing key and a wrong one are the
+# same 401, so a passer-by learns nothing by trying.
+
+RESET_WORD = "RESET"
+_RECOVERY_KEY_MAX_CHARS = 200  # a key is 39 with its dashes; room for spaces
+
+
+class RecoveryKeyBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+
+
+class RecoverBody(BaseModel):
+    recovery_key: str = Field(min_length=1, max_length=_RECOVERY_KEY_MAX_CHARS)
+    new_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+
+
+class ResetBody(BaseModel):
+    confirm: str = Field(default="", max_length=32)
+
+
+def _refuse_unless_this_computer(request: Request) -> None:
+    if not _from_this_computer(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Reset your password on the computer this notebook lives on.",
+        )
+
+
+def _end_sessions_and_issue(request: Request, response: Response) -> str:
+    """Every session and every vault grant ends; the caller gets a new one."""
+    _active_tokens.clear()
+    _media_tickets.clear()
+    vault.revoke_all()
+    token = _issue_token()
+    vault.grant(token)
+    _grant_media(request, response, token)
+    return token
+
+
+@router.post("/recovery-key", dependencies=[Depends(require_unlock)])
+def make_recovery_key(
+    body: RecoveryKeyBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """Make a recovery key, or replace the one there is. Shown once.
+
+    The current password, checked and throttled like an unlock, for the
+    reason `/auth/change-password` gives: an unlocked screen is not proof of
+    knowing it, and this hands out a second way into private notes.
+    """
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not _password_matches(body.current_password, user.password_hash):
+        _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
+    if vault.key() is None:
+        # A session without the password (sign-in off): the one just checked
+        # opens the vault for it, as change-password does.
+        vault.open_with(session, body.current_password)
+        vault.grant(x_auth_token)
+    recovery_key = vault.issue_recovery(session, vault.key())
+    if recovery_key is None:
+        raise HTTPException(status_code=409, detail="Unlock the app before making a recovery key.")
+    log_action(session, "edited", "vault", detail="recovery key made")
+    session.commit()
+    return {
+        "recovery_key": recovery_key,
+        "recovery_key_created_at": _iso(vault.recovery_created_at(session)),
+    }
+
+
+@router.post("/recover")
+def recover(
+    body: RecoverBody,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict:
+    """"I have my recovery key": a new password, private notes kept.
+
+    In this order, each step refusing before anything is written: this
+    computer, the wait a run of wrong guesses has earned, the new password's
+    own rules (a 400 that says nothing about the key), the key's shape (a 400
+    that says nothing about the notebook), then the key itself. On success,
+    in one commit: the DEK the key unwrapped is wrapped by the new password,
+    the hash changes, and a new recovery key replaces the used one. Then
+    every session and vault grant ends, and the caller is handed a new one.
+    """
+    _refuse_unless_this_computer(request)
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    problem = _new_password_problem(body.new_password)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
+    if crypto.normalise_recovery_key(body.recovery_key) is None:
+        raise HTTPException(
+            status_code=400,
+            detail="A recovery key is 32 letters and digits in eight groups of four. Check it and try again.",
+        )
+    dek = vault.open_with_recovery(session, body.recovery_key)
+    if dek is None:
+        _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="That recovery key is wrong.")
+    _unlock_succeeded(client)
+    vault.rewrap_with(session, dek, body.new_password)
+    user.password_hash = _hash_password(body.new_password)
+    # Spent: its wrap is overwritten by the successor's in this commit.
+    new_key = vault.issue_recovery(session, dek)
+    log_action(session, "edited", "user", user.id, "password reset with the recovery key")
+    session.commit()
+    vault.set_key(dek)  # only after the commit, as `rotate_vault_key` does
+    _owner_seen.clear()
+    token = _end_sessions_and_issue(request, response)
+    return {
+        "token": token,
+        "vault_open": True,
+        "recovery_key": new_key,
+        "warning": password_warning(body.new_password),
+    }
+
+
+@router.post("/reset")
+def reset(
+    body: ResetBody,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """"I don't have it": the terminal's `--reset-password`, from the card.
+
+    `core.password_reset.reset_password` does the work for both doors, so the
+    notebook they leave is the same. Then every session ends here, the key
+    in memory is forgotten, and the app goes to first-run setup.
+    """
+    _refuse_unless_this_computer(request)
+    if body.confirm.strip() != RESET_WORD:
+        raise HTTPException(status_code=400, detail="Type RESET to confirm.")
+    if _get_user(session) is None:
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    password_reset.reset_password(session, config)
+    end_every_session()
+    _revoke_media(request, response)
+    _clear_unlock_failures()
+    return {"reset": True}
 
 
 @router.post("/lock-all", dependencies=[Depends(require_unlock)])

@@ -186,7 +186,15 @@ def test_no_second_password_form():
     #: the account password) is the wrong recipe for it.
     sealed = ('id="export-backup-password" type="password"', 'id="restore-bundle-password" type="password"')
     assert all(field in html for field in sealed)
-    assert html.count('type="password"') == 6, "lock card, Change password's three, the sealed backup's two"
+    #: And two more, named (INBOX 663): the new password and its confirmation
+    #: on the "Forgot your password?" card, which sets a password without the
+    #: old one, so the prompt (which checks the old one) cannot be its recipe;
+    #: they are Change password's new and confirm fields, on the lock screen.
+    recovery = ('id="lock-recovery-new" type="password"', 'id="lock-recovery-confirm" type="password"')
+    assert all(field in html for field in recovery)
+    assert html.count('type="password"') == 8, (
+        "lock card, Change password's three, the sealed backup's two, the forgot card's two"
+    )
     for path in sorted(APP_JS.parent.glob("*.js")):
         source = path.read_text(encoding="utf-8")
         assert 'type = "password"' not in source, path.name

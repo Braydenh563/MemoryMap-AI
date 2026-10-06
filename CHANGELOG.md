@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- Forgot your password? on the lock screen, on the computer the notebook lives on. With a recovery key (160 random bits shown once after setup, or made and replaced in Settings, Account & security) you set a new password and keep your private notes; every other session is signed out and the used key is replaced by a new one. Without it, the same reset as `python -m memorymap --reset-password`, now one shared function: ordinary notes, documents, boards and settings are kept and private notes stay sealed. The key is never stored or logged, wrong keys wait like wrong passwords, another device is refused, and re-encrypting private notes replaces the key.
+
 ### Changed
 
 - Command palette: Ctrl+K is commands and places only (tabs, sub-tabs, Settings pages, actions, a category, a tag); notes, documents, files, boards, reminders and conversations are no longer listed there, and typed text ends with a row, Search everything for, that opens Find anything with the words already searched (INBOX 666). Find anything is unchanged and still lists its actions after the content. The palette's prompt reads Run a command or go to a place, and the Guide, Help, the README and the Tools and features row say the same.
@@ -24,6 +28,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Documents: exporting a document whose text has a long run of unclosed markup (`{++`, `[`, `![a](`) no longer takes seconds. The inline markup splitter reads the text in one pass: 0.7 to 1.9 s on 20 KB before, under 0.02 s now, with the same pieces.
 - Notes: a note whose first line is a long run of unclosed `[` or `![` no longer slows the labels that show it (chips, cards, references). The link and image stripping read the line in one pass: 0.8 s on 20 KB before, under 0.01 s now.
 - E2E: the first-run project no longer retries a failed test in CI. Its specs assert an empty notebook, so a retry always failed on a note left by the first attempt and hid the real failure.
+- Settings, Re-encrypt private notes works again after a password reset. Private notes sealed by the reset, which no key in the notebook can open, made every re-encrypt fail; they are now left exactly as they were and every note the current key opens moves to the new key.
 - Filing: the first note in a new notebook with no AI model no longer waits for the search model to load. With nothing filed yet there is nothing to compare it against, so it is not embedded on the way to Uncategorised; that load, skipped at launch for an empty notebook, could keep the first note at "Filing…" for over 20 seconds.
 - Whiteboard and mind map: things placed from the Library land where you put them. A dragged shape, template or icon keeps the point you held it by under the pointer (the drag now carries the shape's picture, not the whole tile), a click puts it in the middle of the canvas you can see rather than partly under the open Library, a dropped note's card is centred on the pointer whatever its height, and a mind map template lands under the pointer instead of 240px away. Measured at 50%, 100% and 200% with the view panned: within 0.5px everywhere, where it was up to 165px off on a click and 580px on a drag. A dropped note is now one undo step, and on a mind map the topic a branch template or icon will join is highlighted while you hold it over it.
 - Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.

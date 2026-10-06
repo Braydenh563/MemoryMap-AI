@@ -1218,7 +1218,7 @@ def test_the_figure_head_never_pulses_and_its_loops_start_at_rest():
     body = _keyframes("atl-breathe-rise").split("{", 1)[1]
     scale = re.search(r"scale\(([0-9.]+), ([0-9.]+)\)", body)
     assert scale and float(scale.group(2)) == 1, body
-    assert "& .atl-lw-breathe { animation: atl-breathe-rise 4.4s" in CSS
+    assert "& .atl-lw-breathe { animation: atl-breathe-rise 4.6s" in CSS
     for rule in ('& .atl-lw-body[data-atlas-look="masculine"] { animation-delay: -3.6s; }', '& .atl-lw-tail { animation-delay: -4.15s; }', "& .atl-lw-neb-front { animation-delay: -2.95s; }"):
         assert rule in CSS, rule
     for name in ("atl-hair-trail", "atl-tail-wave", "atl-hem-wind", "atl-wisp-drift", "atl-float"):

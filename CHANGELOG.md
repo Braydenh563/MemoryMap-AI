@@ -14,6 +14,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Dashboard: the Notebook constellation's Regenerate glides to the new sky (INBOX 686). Each star eases from where it is to its place in the new arrangement over 0.8 s, unpaired stars fade in or out, and the lines fade out and back as the stars settle; a second Regenerate mid-way starts from where the stars are. With Interface animations off or reduced motion it is a quick cross-fade. Save PNG saves the settled sky, even mid-glide.
+- Atlas breathes where you can see it (INBOX 687): its chest swells a few percent about the hips, on a slow 4 to 5 second breath, while the head, the arms and the face keep their size. It stops with Avatar animation off and under reduced motion, and holds while Atlas is off screen.
 - Documents: the current line's highlight is half as strong, a place marker rather than a band.
 - Lock screen: "Forgot your password?" is a quiet link under Unlock rather than a bordered button between the field and it.
 - Note cards: the text runs further across a wide card (84 characters a line rather than 72).

@@ -203,6 +203,25 @@ def test_builtin_templates_place_on_a_board_and_under_a_topic(ai_client):
     assert sorted(o["data"]["content"] for o in made if o["parent_id"] == root["id"]) == ["Ideas", "Next steps", "Questions", "Themes"]
 
 
+def test_no_two_topics_of_a_placed_branch_share_a_spot(ai_client):
+    """INBOX 664: the Decision template put "Option B" and "Cost" on the same
+    spot (a row was the parent's row plus the child's index), which a map
+    with no layout to tidy it kept, one box on top of another."""
+    mind = _board(ai_client, name="Overlap map", kind="map")
+    root = ai_client.post(f"/whiteboard/boards/{mind['id']}/nodes", json={"kind": "topic", "text": "Centre"}).json()
+    for key in ("maps/decision", "maps/project", "maps/brainstorm"):
+        out = ai_client.post(f"/whiteboard/boards/{mind['id']}/place", json={"builtin": key, "x": 100, "y": 50, "parent_id": root["id"]})
+        assert out.status_code == 201, out.text
+        spots = [(o["x"], o["y"]) for o in out.json()["objects"]]
+        assert len(spots) == len(set(spots)), (key, spots)
+        # A topic with children sits on its first child's row, one column left.
+        made = out.json()["objects"]
+        for topic in made:
+            kids = [o for o in made if o["parent_id"] == topic["id"]]
+            if kids:
+                assert kids[0]["y"] == topic["y"] and kids[0]["x"] == topic["x"] + 220
+
+
 def test_a_template_starts_a_board_with_its_look(ai_client):
     item = _save(ai_client, kind="template", payload={
         "board": {"type": "board", "background": {"color": "#101820"}},

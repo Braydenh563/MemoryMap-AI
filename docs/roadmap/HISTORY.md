@@ -45228,9 +45228,9 @@ and refuses a topic ("Select a shape, link or text box first").
      taken on the rename: the sub-tab is "Writing room" (built this commit;
      the panel id was already `writing-room`, the Guide still answers to
      "write with atlas").
-     **Fixed ab7d7b2, 8d0aec9, 5d2faa6, 430da2e, 24107d3.** Measured
+     **Fixed ab7d7b2, 8d0aec9, 5d2faa6, 430da2e, 24107d3, fc1e1a7.** Measured
      (agent-remaining/e2e-1005.md): every flow in the inventory driven end to
-     end with no model, 47 Playwright tests passed with no retries in 4.1 min
+     end with no model, 49 Playwright tests passed with no retries in 3.5 min
      (tests-e2e/specs, now all in CI's E2E job); unsaved work: the capture
      draft, the note form's edit and a document's last words survive a
      confirmed reload (notes.spec.js, documents.spec.js); the no-model crawl

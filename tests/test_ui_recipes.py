@@ -4974,3 +4974,23 @@ def test_a_library_row_reserves_no_leading_slot_for_a_thumbnail() -> None:
     order = re.search(r"order\s*:\s*(-?\d+)", thumb[0])
     assert order and int(order.group(1)) > 0, "a Rows thumbnail follows the title; it never leads the row"
     assert "has-thumbs" not in (ROOT / "frontend/js/library.js").read_text(encoding="utf-8")
+
+
+#: **The hover tick is a control with its icon, not an empty box** (INBOX 722,
+#: the owner: an empty square beside the hovered row's ⋯). It was neither a
+#: leftover nor a pin: it is the Library's selection tick (`.library-card-tick`,
+#: wired to the bulk bar, labelled "Select <title>"), revealed on hover. Drawn
+#: unchecked it was a 28px blank square next to the 28px ⋯, which reads as a
+#: control that failed to load. An unchecked tick now shows a faint check, so it
+#: says what it is before it is pressed, and it carries a title.
+def test_the_library_hover_tick_shows_its_check_and_names_itself() -> None:
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    faint = [
+        body for selector, body in _rules(css)
+        if ".library-card-tick:not(:checked)::after" in selector
+    ]
+    assert faint, "an unchecked Library tick draws a faint check (library-lazy.css)"
+    assert 'content: ""' in faint[0] and "border-width: 0 2px 2px 0" in faint[0]
+    assert re.search(r"border(?:-color)?\s*:[^;]*var\(--(?:muted|faint)", faint[0]) or "border-color: var(--muted)" in faint[0]
+    script = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    assert re.search(r'tick\.className = "library-card-tick";\s*tick\.title = "Select"', script), "the tick names itself on hover"

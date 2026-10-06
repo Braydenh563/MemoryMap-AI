@@ -1315,6 +1315,7 @@ function libraryCard(item) {
     const tick = document.createElement("input");
     tick.type = "checkbox";
     tick.className = "library-card-tick";
+    tick.title = "Select";
     tick.checked = librarySelection.has(libraryKeyOf(item));
     tick.setAttribute("aria-label", `Select ${item.title}`);
     tick.addEventListener("click", (event) => event.stopPropagation());

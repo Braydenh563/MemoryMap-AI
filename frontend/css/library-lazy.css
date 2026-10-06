@@ -2539,3 +2539,30 @@ button.ghost.doc-template-choice.wb-template-choice {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- The Library's hover tick says what it is (INBOX 722) ---
+   The owner, of the Rows view: "an empty square box beside the hovered row's
+   ⋯". It is the selection tick (`.library-card-tick`, "Select <title>", wired
+   to the bulk bar), shown on hover; unchecked it was a blank 28px square next
+   to the 28px ⋯, which reads as a control whose icon failed to load. An
+   unchecked tick now draws the same check a chosen one does, in the muted ink
+   and under the pointer in the accent, so the control carries its own glyph
+   and a press turns it from a hint into a fill. */
+.library-card-tick:not(:checked)::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0.3em;
+  height: 0.6em;
+  border: solid var(--muted);
+  border-width: 0 2px 2px 0;
+  border-color: var(--muted);
+  opacity: 0.55;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.library-card-tick:not(:checked):hover::after {
+  border-color: var(--accent);
+  opacity: 1;
+}

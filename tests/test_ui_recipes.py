@@ -4952,3 +4952,25 @@ def test_a_popup_chooses_a_kind_with_a_tab_strip() -> None:
     assert 'b.setAttribute("role", "tab")' in picker and '"aria-selected"' in picker
     guide = (ROOT / "frontend" / "js" / "help-chat.js").read_text(encoding="utf-8")
     assert 'seg.className = "tabs-line popup-kinds help-chat-views"' in guide
+
+
+#: **A Rows line starts with its kind icon** (INBOX 722, the owner: "theres a
+#: wierd gap at the start of the library all tab lines view"). With one picture
+#: in the list, every row without one reserved a 3rem `::before` slot so the
+#: thumbnails would line up, which pushed every other row's icon 63px in
+#: (measured: icon at x 75 against a 14px row padding). The thumbnail now sits
+#: after the title and the preview, in a slot only the row that has one pays
+#: for, so the icon is at the row's own padding on every row.
+def test_a_library_row_reserves_no_leading_slot_for_a_thumbnail() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    for selector, body in _rules(css):
+        if ".library-list" in selector and "::before" in selector and "content" in body:
+            raise AssertionError(f"a Rows line reserves space before its icon: {selector}")
+    thumb = [
+        body for selector, body in _rules((ROOT / "frontend/css/00-tokens-shell.css").read_text(encoding="utf-8"))
+        if selector == ".library-list .library-card-thumb"
+    ]
+    assert thumb, "the Rows thumbnail rule is missing"
+    order = re.search(r"order\s*:\s*(-?\d+)", thumb[0])
+    assert order and int(order.group(1)) > 0, "a Rows thumbnail follows the title; it never leads the row"
+    assert "has-thumbs" not in (ROOT / "frontend/js/library.js").read_text(encoding="utf-8")

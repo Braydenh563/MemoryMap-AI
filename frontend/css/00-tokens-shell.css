@@ -2551,31 +2551,30 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-5);
 }
 
-/* **The thumbnail column is reserved even on rows that have no thumbnail.**
-   A picture note draws one and a plain note does not, so with the slot
-   present only sometimes every row with a thumb was indented 3rem further
-   than its neighbours: the last of the four columns that did not line up.
-   `:has()` is the only way to ask "does this row have one", and it is the
-   difference between reserving the space and hard-coding a padding that
-   would then be wrong for the rows that do.
+/* **A Rows line starts with its kind icon, whatever else the list holds**
+   (INBOX 722: "theres a wierd gap at the start of the library all tab lines
+   view"). This used to reserve a 3rem `::before` slot on every row without a
+   picture (and `.has-thumbs` made it conditional) so the thumbnails would line
+   up; with one picture in the list that pushed every other row's icon 63px
+   in (measured at 1440: icon at x 75 against a 14px row padding). A leading
+   column is the wrong shape for something only some rows have. The thumbnail
+   now sits after the title and the preview, before the date, in a slot only
+   the row that has one pays for, so the icon is at the row's own padding on
+   every row and the date and the ⋯ still end at one x. `order` puts it there
+   without touching the DOM order the grid view's picture-on-top relies on. */
+.library-list .library-card-meta {
+  order: 2;
+}
 
-   `.has-thumbs` is the other half, added after the report "fix the wierd gap
-   at the start of all the cards in the library line view": reserving the
-   column is right when *some* row has a picture and absurd when none does --
-   it indents the whole list by 48px of nothing, which is what a person sees
-   and calls a gap. CSS cannot ask whether any sibling has a thumbnail, so
-   library.js sets the class after each chunk renders. */
-.library-list.has-thumbs .library-card:not(:has(.library-card-thumb))::before {
-  content: "";
-  flex: 0 0 3rem;
-  order: -1;
+.library-list .library-card-menu {
+  order: 3;
 }
 
 .library-list .library-card-thumb {
   width: 3rem;
   height: 2.2rem;
   flex: 0 0 auto;
-  order: -1;
+  order: 1;
 }
 
 .library-list .library-card-menu {

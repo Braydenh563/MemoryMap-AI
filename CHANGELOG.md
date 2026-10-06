@@ -17,6 +17,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Re-encrypt private notes works again after a password reset. Private notes sealed by the reset, which no key in the notebook can open, made every re-encrypt fail; they are now left exactly as they were and every note the current key opens moves to the new key.
 - Filing: the first note in a new notebook with no AI model no longer waits for the search model to load. With nothing filed yet there is nothing to compare it against, so it is not embedded on the way to Uncategorised; that load, skipped at launch for an empty notebook, could keep the first note at "Filing…" for over 20 seconds.
 - Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.
 

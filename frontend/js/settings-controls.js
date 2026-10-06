@@ -188,6 +188,8 @@ $("account-rekey").addEventListener("click", async () => {
   localStorage.setItem("token", result.token);
   const n = result.notes_reencrypted;
   status.textContent = `Done: ${n} private note${n === 1 ? "" : "s"} on a new key.`;
+  //: Sealed by a reset without the recovery key: left as they were (INBOX 663).
+  if (result.notes_sealed) status.textContent += ` ${result.notes_sealed} sealed by a password reset stay as they were.`;
   //: The old recovery key wrapped the old key, so it is dead; a notebook
   //: that had one is handed its successor, shown once (INBOX 663).
   if (result.recovery_key) {

@@ -352,6 +352,30 @@ def test_after_a_reset_setup_runs_and_a_new_private_note_works(client):
     assert local.post(f"/entries/{fresh['id']}/privacy", json={"private": True}, headers=_auth(token)).status_code == 200
 
 
+def test_a_reset_notebook_can_still_re_key(client, session):
+    """Found by forgotpw.js on its own data dir: after a reset without the
+    key, the sealed notes (made under the vault the reset removed) made every
+    re-key a 500, for good. They are left exactly as they are now, and every
+    note the current key opens moves across."""
+    from memorymap.core.database import Entry
+
+    old_note, _key = _notebook(client)
+    local = _local(client)
+    local.post("/auth/reset", json={"confirm": "RESET"})
+    token = local.post("/auth/setup", json={"password": NEW_PASSWORD}).json()["token"]
+    fresh = local.post("/entries", json={"content": "after the reset"}, headers=_auth(token)).json()
+    local.post(f"/entries/{fresh['id']}/privacy", json={"private": True}, headers=_auth(token))
+    session.info["workspace_id"] = "all"
+    sealed_before = session.get(Entry, old_note).content
+    rotated = local.post("/auth/rotate-vault-key", json={"current_password": NEW_PASSWORD}, headers=_auth(token))
+    assert rotated.status_code == 200, rotated.text
+    body = rotated.json()
+    assert body["notes_reencrypted"] == 1 and body["notes_sealed"] == 1
+    session.expire_all()
+    assert session.get(Entry, old_note).content == sealed_before
+    assert local.get(f"/entries/{fresh['id']}", headers=_auth(body["token"])).json()["content"] == "after the reset"
+
+
 # --- the key is in no file and no log line -------------------------------------
 
 

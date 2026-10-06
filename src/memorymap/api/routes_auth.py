@@ -1120,20 +1120,27 @@ def rotate_vault_key(
     new_key = crypto.new_dek()
 
     # Decrypt with the OLD key and re-encrypt with the NEW one, entirely in
-    # memory, before a single ORM object is touched, so a DecryptionError
-    # partway through leaves nothing staged that would need undoing.
-    try:
-        rewritten = [
-            (entry, plaintext, crypto.encrypt(new_key, plaintext))
-            for entry in private_entries
-            for plaintext in [crypto.decrypt(old_key, entry.content)]
-        ]
-    except crypto.DecryptionError:
-        raise HTTPException(
-            status_code=500,
-            detail="Couldn't read one of your private notes with the current "
-            "key: nothing was changed.",
-        )
+    # memory, before a single ORM object is touched.
+    #
+    # **A note the current key cannot open is left exactly as it is** (INBOX
+    # 663). Until the reset was a button on the lock screen this raised, and
+    # a notebook reset without its recovery key could never re-key again: its
+    # sealed private notes were made under the vault the reset removed, so
+    # the current key opens none of them, and one was enough for a 500
+    # (measured on the forgotpw.js data dir, 2026-10-06). Leaving such a note
+    # is safe in the one direction this guard exists for: it is unreadable by
+    # the current key before the re-key and after it, so nothing that could
+    # be read becomes unreadable. Its ciphertext is not touched, so its own
+    # old key (in an old backup's vault row) still opens it.
+    rewritten = []
+    sealed = 0
+    for entry in private_entries:
+        try:
+            plaintext = crypto.decrypt(old_key, entry.content)
+        except crypto.DecryptionError:
+            sealed += 1
+            continue
+        rewritten.append((entry, plaintext, crypto.encrypt(new_key, plaintext)))
 
     # Verify the round trip against the REAL ciphertext just produced, not a
     # throwaway marker, before any of it becomes the only copy on disk.
@@ -1181,6 +1188,7 @@ def rotate_vault_key(
     return {
         "rotated": True,
         "notes_reencrypted": len(rewritten),
+        "notes_sealed": sealed,
         "token": token,
         "other_sessions_ended": ended,
         "recovery_key": recovery_key,

@@ -5333,7 +5333,10 @@ function ocrRenderRailSwitch(current) {
   const viewing = ocrWorkspaceCurrent;
   const paged = Boolean(viewing) && ocrIsPdf(viewing) && !ocrIsTextFile(viewing)
     && ocrPagesKnown && ocrUi.pagesFor === ocrRailKey(viewing) && ocrWorkspacePages > 1;
-  if (paged) {
+  //: Only beside Files (the owner: "if im on files and go back to imags, the
+  //: pages is still there"): Pages is the open file's own view, so the Images
+  //: list does not carry it even while that file stays in the viewer.
+  if (paged && ocrRailMode !== "images") {
     segments.push({
       id: "pages",
       label: "Pages",

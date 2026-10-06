@@ -274,3 +274,11 @@ def test_pages_belongs_to_the_file_being_viewed():
     load = _body(LIBRARY, "ocrLoadPage")
     assert load.count("if (ocrWorkspaceCurrent !== image) return;") >= 2
     assert 'ocrRailMode = row._isImage ? "images" : "files";' in _body(LIBRARY, "ocrOpenSibling")
+
+
+def test_the_pages_segment_is_not_offered_beside_images() -> None:
+    """The owner, 2026-10-06: back on Images from Files, Pages was still there."""
+    from pathlib import Path
+
+    js = Path("frontend/js/library.js").read_text(encoding="utf-8")
+    assert 'if (paged && ocrRailMode !== "images") {' in js

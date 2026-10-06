@@ -7988,11 +7988,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    ring"): the glow round the figure half as wide and a little fainter, a
    rim of light rather than a sticker's border. */
 .nm-atlas .atl-edge { fill: none; stroke: var(--atl-glow-c); stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; opacity: 0.26; }
-.nm-atlas.atl-tiny .atl-edge { stroke: var(--atl-line); stroke-width: 2.6; opacity: 0.8; }
-/* At 24px and under the face is the icon: the ear tufts shrink toward
-   their base and the crown's wisps go. */
-.nm-atlas.atl-tiny .atl-ear { transform: scale(0.68); }
-.nm-atlas.atl-tiny .atl-wisps { display: none; }
+/* Under 28px the miniature bust (INBOX 650): a fine line round the
+   silhouette in the figure's own line colour, so it holds its shape on any
+   ground without the sticker's heavy outline the old icon wore; the ear
+   tufts a little shorter so they do not crowd the crop. */
+.nm-atlas.atl-tiny .atl-edge { stroke: var(--atl-line); stroke-width: 1.6; opacity: 0.5; }
+.nm-atlas.atl-tiny .atl-ear { transform: scale(0.86); }
 .nm-atlas .atl-belly { fill: var(--atl-belly); }
 .nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.55; }
 .nm-atlas .atl-sheen-dot { opacity: 0.8; }
@@ -8029,7 +8030,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-tail-tip-glow { opacity: 0.55; }
 /* Round 9: the feminine icon's hair (`tinyHair`), a violet lilac deeper
    than her skin so the face reads as framed by hair at 16 to 24px. */
-.nm-atlas .atl-tiny-lock { fill: color-mix(in oklab, var(--atl-dp) 70%, var(--atl-violet)); opacity: 1; }
 .nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.45; }
 .nm-atlas .atl-lock { opacity: 0.86; }
 /* The hair's soft body under the locks: quieter than they are, so the

@@ -189,15 +189,19 @@ def test_the_body_and_its_limbs_read_as_one_figure():
 def test_the_feminine_ears_are_small_wings_and_her_icon_has_hair():
     # Round 9 (the owner: "make them angelic and fluffy"; "make the mini
     # atlas avatar on the atlas feminine version look better"): feathered
-    # wings with a glow where thin fins read as horns, and at icon size a
-    # silhouette of hair and a fringe where the mane is not drawn.
+    # wings with a glow where thin fins read as horns. At icon size (INBOX
+    # 650: the small heads "look like aliens") the icon wears the head
+    # mark's own hair, cap and fringe, the bust's eyes and the shoulders,
+    # not a hair silhouette of its own round a bald egg.
     feminine = _look("feminine")
     assert "earFeathers:" in feminine and "earGlow:" in feminine
-    assert "tinyHair:" in feminine and "tinyFringe:" in feminine
     masculine = _look("masculine")
-    assert "earFeathers" not in masculine and "tinyHair" not in masculine
-    assert 'if (!spec.tinyHair) return null;' in ATLAS
-    assert ".nm-atlas .atl-ear-feather {" in CSS and ".nm-atlas .atl-tiny-lock {" in CSS
+    assert "earFeathers" not in masculine
+    assert "tinyHair" not in ATLAS and "tinyFringe" not in ATLAS
+    assert "spec.headPaths.slice().reverse().forEach" in ATLAS
+    assert "if (tiny && spec.cap) atlasMiniCap(sway, spec);" in ATLAS
+    assert "if (spec.shoulders) atlasMiniShoulders(pose, look);" in ATLAS
+    assert ".nm-atlas .atl-ear-feather {" in CSS
 
 
 

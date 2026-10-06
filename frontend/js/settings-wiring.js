@@ -736,8 +736,16 @@ document.addEventListener("keydown", (e) => {
 //: menu that lives on <body> without a `.menu-wrap` around it (the board's
 //: context menu), where a press on one of its group rows closed the whole
 //: menu before the row could open its flyout (measured on the map node menu).
+//: **A press on the control that opened a menu is the menu's own too** (INBOX
+//: 681, "not all dropdown elements close when pressing that element again").
+//: A `kebabMenu` opener sits inside `.menu-wrap`, so it always was; a custom
+//: select's opener sits in `.select-shell`, outside it, so this closed the
+//: list on the press and the opener's click then opened it again: a second
+//: press never shut it. Every opener's own click already toggles, so the
+//: press is left to it. A chip that opens a menu at a point says so the same
+//: way (`aria-haspopup`, `aria-expanded`, chip-menus.js).
 document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped")) closeActionMenus();
+  if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped, [aria-haspopup][aria-expanded='true']")) closeActionMenus();
 }, true);
 
 // Focus trapping (Wave L): while a modal is open, Tab cycles inside it.

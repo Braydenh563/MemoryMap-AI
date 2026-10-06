@@ -16,8 +16,10 @@ import base64
 import hashlib
 import ipaddress
 import logging
+import os
 import secrets
 import time
+from pathlib import Path
 
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
@@ -25,7 +27,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, diskspace, netbind, password_reset, security, vault
+from memorymap.core import crypto, desktop_dialog, diskspace, netbind, password_reset, security, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -1289,6 +1291,45 @@ def make_recovery_key(
         "recovery_key": recovery_key,
         "recovery_key_created_at": _iso(vault.recovery_created_at(session)),
     }
+
+
+class SaveRecoveryKeyBody(BaseModel):
+    #: The text of the .txt the page built: the key and a few lines on what it
+    #: is for. Short by construction; the cap only bounds a stray request.
+    text: str = Field(min_length=1, max_length=4000)
+
+
+RECOVERY_KEY_FILE = "memorymap-recovery-key.txt"
+
+
+@router.post("/recovery-key/save", dependencies=[Depends(require_unlock)])
+def save_recovery_key(body: SaveRecoveryKeyBody, config: ConfigManager = Depends(get_config)) -> dict:
+    """Download .txt in the desktop window: a native Save dialog (INBOX 671).
+
+    Never `/files/save`, whose exports folder sits inside the data dir: a key
+    beside the notebook opens its private notes for whoever copies the folder.
+    The dialog starts in Documents, and a place inside the data dir is refused
+    even when chosen by hand. A browser tab never comes here; it downloads.
+    The text is written and forgotten: not logged, not in the audit trail.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") != "1":
+        raise HTTPException(status_code=409, detail="Only the desktop app shows a Save dialog.")
+
+    chosen = desktop_dialog.save_dialog(RECOVERY_KEY_FILE, desktop_dialog.documents_folder())
+    if chosen is None:
+        return {"saved": False}
+    target = chosen.expanduser().resolve()
+    notebook = Path(config.data_dir).expanduser().resolve()
+    if target == notebook or notebook in target.parents:
+        raise HTTPException(
+            status_code=400,
+            detail="Save it outside the notebook's own folder, or anyone who copies the folder gets the key.",
+        )
+    try:
+        target.write_text(body.text, encoding="utf-8")
+    except OSError:
+        raise HTTPException(status_code=400, detail="Couldn't save there. Choose another folder.") from None
+    return {"saved": True, "path": str(target)}
 
 
 @router.post("/recover")

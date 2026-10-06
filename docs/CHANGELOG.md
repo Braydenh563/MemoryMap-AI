@@ -10,6 +10,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Added
 
 - Forgot your password? on the lock screen, on the computer the notebook lives on. With a recovery key (160 random bits shown once after setup, or made and replaced in Settings, Account & security) you set a new password and keep your private notes; every other session is signed out and the used key is replaced by a new one. Without it, the same reset as `python -m memorymap --reset-password`, now one shared function: ordinary notes, documents, boards and settings are kept and private notes stay sealed. The key is never stored or logged, wrong keys wait like wrong passwords, another device is refused, and re-encrypting private notes replaces the key.
+- The recovery key's Download .txt in the desktop app opens a Save dialog that starts in Documents and refuses the notebook's own folder, rather than saving into the exports folder beside the notebook, where anyone who copied the folder would have the key to its private notes. A browser tab keeps its ordinary download.
 
 ### Changed
 

@@ -223,7 +223,10 @@ it there, and another website's page cannot ask for it. It offers two paths.
 eight groups of four letters and digits, when you finish setting up (you can
 skip it) or from Settings, Account & security (Make a recovery key, or Replace
 it, which asks for your current password). Keep it away from this computer, in a
-password manager or on paper. It works like a second password: it locks a second
+password manager or on paper. Download .txt is the browser's own download in a
+tab; in the desktop app it opens a Save dialog that starts in Documents and
+refuses the notebook's own folder, never the exports folder beside the notebook.
+It works like a second password: it locks a second
 copy of the key that encrypts private notes, with its own salt and the same
 scrypt and AES-GCM. The app never stores the key itself, never logs it and never
 gives it to the AI. Type it with a new password and private notes are kept; every

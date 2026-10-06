@@ -496,3 +496,110 @@ def test_the_migration_goes_up_and_down_on_an_existing_notebook(tmp_path):
         conn.close()
     assert crypto.unwrap_dek(row[1], PASSWORD, row[0]) == dek
     assert row[2] is None
+
+
+# --- Download .txt in the desktop window (INBOX 671) ------------------------------
+
+
+def _desktop(monkeypatch, chosen):
+    """The desktop window, with its Save dialog faked to answer `chosen`."""
+    from memorymap.core import desktop_dialog
+
+    asked = {}
+
+    def fake(filename, start):
+        asked.update(filename=filename, start=start)
+        return chosen
+
+    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setattr(desktop_dialog, "save_dialog", fake)
+    return asked
+
+
+def _unlocked(client) -> tuple:
+    local = _local(client)
+    token = local.post("/auth/setup", json={"password": PASSWORD}).json()["token"]
+    key = local.post("/auth/recovery-key", json={"current_password": PASSWORD}, headers=_auth(token)).json()
+    return local, token, key["recovery_key"]
+
+
+def _under(data_dir, key: str) -> list:
+    return [p.name for p in data_dir.rglob("*") if p.is_file() and key.encode() in p.read_bytes()]
+
+
+def test_the_desktop_saves_the_key_where_the_person_chooses(client, app_state, monkeypatch, tmp_path):
+    local, token, key = _unlocked(client)
+    outside = tmp_path / "elsewhere" / "memorymap-recovery-key.txt"
+    outside.parent.mkdir()
+    asked = _desktop(monkeypatch, outside)
+    answer = local.post("/auth/recovery-key/save", json={"text": f"key {key}"}, headers=_auth(token))
+    assert answer.status_code == 200, answer.text
+    assert answer.json() == {"saved": True, "path": str(outside.resolve())}
+    assert outside.read_text() == f"key {key}"
+    assert asked["filename"] == "memorymap-recovery-key.txt"
+    assert app_state.data_dir.resolve() not in asked["start"].resolve().parents
+    deps.get_db().engine.dispose()
+    assert _under(app_state.data_dir, key) == []  # nothing beside the notebook
+
+
+def test_the_desktop_refuses_the_notebook_folder(client, app_state, monkeypatch):
+    local, token, key = _unlocked(client)
+    for inside in (app_state.data_dir / "exports" / "key.txt", app_state.data_dir / "key.txt"):
+        inside.parent.mkdir(parents=True, exist_ok=True)
+        _desktop(monkeypatch, inside)
+        answer = local.post("/auth/recovery-key/save", json={"text": key}, headers=_auth(token))
+        assert answer.status_code == 400
+        assert key not in answer.text
+        assert not inside.exists()
+    deps.get_db().engine.dispose()
+    assert _under(app_state.data_dir, key) == []
+
+
+def test_a_cancelled_dialog_writes_nothing(client, app_state, monkeypatch):
+    local, token, key = _unlocked(client)
+    _desktop(monkeypatch, None)
+    answer = local.post("/auth/recovery-key/save", json={"text": key}, headers=_auth(token))
+    assert answer.json() == {"saved": False}
+    deps.get_db().engine.dispose()
+    assert _under(app_state.data_dir, key) == []
+
+
+def test_the_save_route_is_desktop_only_and_behind_the_lock(client, monkeypatch):
+    local, token, key = _unlocked(client)
+    monkeypatch.delenv("MEMORYMAP_DESKTOP", raising=False)
+    assert local.post("/auth/recovery-key/save", json={"text": key}, headers=_auth(token)).status_code == 409
+    _desktop(monkeypatch, None)
+    assert local.post("/auth/recovery-key/save", json={"text": key}).status_code == 401
+
+
+def test_the_dialog_starts_in_documents(monkeypatch, tmp_path):
+    from memorymap.core import desktop_dialog
+
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    assert desktop_dialog.documents_folder() == tmp_path
+    (tmp_path / "Documents").mkdir()
+    assert desktop_dialog.documents_folder() == tmp_path / "Documents"
+
+
+def test_the_dialog_speaks_both_pywebview_dialects(monkeypatch, tmp_path):
+    import sys
+    import types
+
+    from memorymap.core import desktop_dialog
+
+    calls = []
+
+    class Window:
+        def create_file_dialog(self, kind, directory, save_filename):
+            calls.append((kind, directory, save_filename))
+            return (str(tmp_path / save_filename),)
+
+    new = types.SimpleNamespace(windows=[Window()], FileDialog=types.SimpleNamespace(SAVE=30))
+    monkeypatch.setitem(sys.modules, "webview", new)
+    assert desktop_dialog.save_dialog("k.txt", tmp_path) == tmp_path / "k.txt"
+    old = types.SimpleNamespace(windows=[Window()], SAVE_DIALOG=20)
+    monkeypatch.setitem(sys.modules, "webview", old)
+    assert desktop_dialog.save_dialog("k.txt", tmp_path) == tmp_path / "k.txt"
+    assert [c[0] for c in calls] == [30, 20] and calls[0][1] == str(tmp_path)
+    monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace(windows=[]))
+    assert desktop_dialog.save_dialog("k.txt", tmp_path) is None

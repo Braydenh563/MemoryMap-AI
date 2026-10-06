@@ -266,11 +266,7 @@ _FENCE = re.compile(r"^\s*(```|~~~)")
 _TABLE_RULE = re.compile(
     r"^\s*+\|?+\s*+:?+-{3,}+:?+\s*+(?:\|\s*+:?+-{3,}+:?+\s*+)*+\|?+\s*+$"
 )
-_INLINE = re.compile(
-    r"(\{\+\+.+?\+\+\}|\{--.+?--\}|!\[[^\]\n]*\]\([^)\s]+\)|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
-    r"|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`)"
-)
-#: `_INLINE`'s emphasis, strike and code alternatives. Each run is cut short by
+#: The inline pattern's emphasis, strike and code alternatives. Each run is cut short by
 #: its own delimiter (`[^*\n]`, `[^~\n]`, `[^`\n]`), so a start costs at most
 #: the distance to the next delimiter and the starts together cost one pass.
 _INLINE_SPANS = re.compile(
@@ -280,9 +276,12 @@ _INLINE_OPEN = re.compile(r"\{\+\+|\{--|!\[|\[|\*|~~|`")
 
 
 def inline_split(text: str) -> list[str]:
-    """`_INLINE.split(text)`, in one pass.
+    """The old inline pattern's `split(text)`, in one pass.
 
-    The pattern above is the reference: the same pieces come back (text,
+    That pattern is the reference, kept as the oracle in
+    `tests/test_quadratic_scans.py` (`test_inline_split_matches_the_old_pattern`,
+    3,000 random strings; it left this module when nothing here used it, CodeQL
+    #542): the same pieces come back (text,
     markup, text, markup, ..., with the empty strings `re.split` leaves). It
     stayed quadratic on a line of unclosed openers (`{++{++...`, `[[[...`,
     `![a](![a](...`): each start scanned to the end of the line or the text

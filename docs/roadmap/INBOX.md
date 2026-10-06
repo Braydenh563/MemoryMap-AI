@@ -76,6 +76,22 @@ with its owner named in the entry.
      toolbar measured and kept inside its border at every width. Placed:
      the 0.4.1 mini release, an Opus design agent.
 
+666. **The owner, 2026-10-06, verbatim.** "also I feel like the features for
+     the command pallate and the find anything search kinda clash, like the
+     command pallate I though was just for quick commands and navigation, not
+     for finding notes and documents etc. I feel like that should be left to
+     the find anything but idk". Today both overlap: the palette
+     (app-palette.js) asks `/search` for notes and documents and lists
+     reminders and conversations; Find anything (spaces-find.js) searches
+     every kind and also lists the palette's commands (INBOX 270). Decision
+     taken (the VS Code and Linear split): the palette is commands and
+     places in the app only (tabs, sub-tabs, Settings pages, actions); its
+     content groups go, and typed text that matches no command offers one
+     row, "Search everything for ...", which opens Find anything with the
+     text. Find anything stays the one search over content and keeps its
+     actions group (the owner's 270), below the content. Placed: the 0.4.1
+     mini release, a Sonnet agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

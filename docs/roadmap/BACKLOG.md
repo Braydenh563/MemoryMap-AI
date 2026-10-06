@@ -2615,6 +2615,29 @@ as the board import path (`wbMermaidParse`) and the verifier in step 5.
     (SVG, PNG, `.mmd`), Open in whiteboard and Insert into a document under
     its ⋯ menu; a block that fails to parse shows as code with the parser's
     one-line reason.
+12c. **A diagram maker in the whiteboard** (the owner, 2026-10-06, verbatim:
+    "a specialise diagram maker in the whiteboard with assisted and easier
+    creation"). A third board kind beside Board and Mind map, "Diagram",
+    built on the board's own shapes and connectors (no second canvas):
+    - **Kinds** with their own shape set and layout: flowchart, org chart,
+      swimlane process, sequence, ER, state, network; picked in the New board
+      dialog (the 715 picker) with a template each.
+    - **Easier creation**: hover a shape for four + handles that add a
+      connected shape in that direction; Tab adds a child, Enter a sibling,
+      typing replaces the label; connectors route orthogonally round shapes
+      and stay attached when shapes move; alignment guides and even spacing
+      snap; one "Tidy layout" re-runs the kind's layout (`wbMermaidLayout`
+      grown into per-kind layouts).
+    - **Typed creation**: a text box that turns "Start -> Check -> Done" or an
+      indented outline into shapes and links as you type.
+    - **Assisted**: "Describe a diagram" drafts one through the step 5 skill,
+      previewed (step 6) before it lands; selected shapes can be asked to
+      change (step 12a).
+    - **Two-way Mermaid**: a side panel shows the diagram's Mermaid and edits
+      in either side update the other; export as in step 11.
+    - **Accessible**: every shape reachable by arrow keys along its links, a
+      text outline of the diagram for screen readers, labels never below the
+      4.5:1 contrast line.
 13. **Tests and guards**: a lazy-load test (not in `app_js_files`), a
     vendored-file licence notice test, a CSP test that no inline style or
     script is injected, and a sweep that renders one of each kind in light

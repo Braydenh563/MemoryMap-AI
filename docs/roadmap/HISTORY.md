@@ -45832,3 +45832,10 @@ and refuses a topic ("Select a shape, link or text box first").
      other misuse (the same glyph meaning two things, two glyphs for one).
      Placed: a Sonnet agent with 699, 701, 702.
 
+714. **The owner, 2026-10-06, verbatim**, with two screenshots of Ask answers
+     (the mini Atlas avatar beside the "Atlas" name, then a tall gap before
+     the answer text): "the mini atlas avatar on causes a rather wide gap
+     below". Then, with the Ask header's "AI | From your notes" segmented
+     pill: "also that ai/from your notes toggle looks out of place and i dont
+     like it, it doesnt feel modern and professional". Placed: Sonnet agent.
+

@@ -644,23 +644,31 @@ def parse_typed_name(text: str) -> tuple[str | None, str]:
 def hub_metadata(repo: str) -> dict | None:
     """The Hub's own record of `repo` (files, tags, licence), or None when
     there is no such model. Called only on a Pull click: the one network
-    request on this screen besides a download, and said so beside the box."""
-    from urllib.parse import quote
+    request on this screen besides a download, and said so beside the box.
 
-    import requests
-
-    #: The repo id becomes part of a URL to a fixed host, so it is checked
-    #: here as well as by the caller: owner and name each from a closed
-    #: character set, quoted, never a path, query or other host.
+    Asked through `huggingface_hub` (already required before a pull, see
+    `can_download`), whose `model_info` takes the repo id as an id, not as a
+    piece of a URL this code builds, and which always talks to the Hub's own
+    endpoint. The id is still checked against `_HF_REPO` first."""
     if not _HF_REPO.match(repo or ""):
         return None
-    owner, name = repo.split("/", 1)
-    url = "https://huggingface.co/api/models/" + quote(owner, safe="") + "/" + quote(name, safe="")
-    response = requests.get(url, timeout=15)
-    if response.status_code in (401, 404):
+    from huggingface_hub import HfApi
+    from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
+
+    try:
+        info = HfApi().model_info(repo, timeout=15)
+    except GatedRepoError:
+        return {"siblings": [], "tags": [], "cardData": {}, "gated": True}
+    except RepositoryNotFoundError:
         return None
-    response.raise_for_status()
-    return response.json()
+    card = getattr(info, "card_data", None)
+    licence = getattr(card, "license", None) if card is not None else None
+    return {
+        "siblings": [{"rfilename": sibling.rfilename} for sibling in (info.siblings or [])],
+        "tags": list(info.tags or []),
+        "cardData": {"license": licence} if licence else {},
+        "gated": bool(info.gated),
+    }
 
 
 def hub_refusal(meta: dict) -> str:

@@ -128,3 +128,36 @@ def test_the_model_in_use_cannot_be_uninstalled(app_state, tmp_path, monkeypatch
     removed, message = embedmodels.remove("bge-small")
     assert removed is False and "in use" in message
     assert (tmp_path / "models--BAAI--bge-small-en-v1.5").is_dir()
+
+
+def test_hub_metadata_asks_through_huggingface_hub_and_refuses_a_bad_id(monkeypatch):
+    """The repo id goes to `HfApi.model_info` as an id (CodeQL's partial SSRF
+    on a hand-built URL), after the `_HF_REPO` check; the answer keeps the
+    shape `hub_refusal` reads."""
+    from types import SimpleNamespace
+
+    import huggingface_hub
+
+    seen = []
+
+    def model_info(self, repo, timeout=None):
+        seen.append(repo)
+        return SimpleNamespace(
+            siblings=[SimpleNamespace(rfilename="modules.json")],
+            tags=["license:mit"],
+            card_data=SimpleNamespace(license="mit"),
+            gated=False,
+        )
+
+    monkeypatch.setattr(huggingface_hub.HfApi, "model_info", model_info)
+    assert embedmodels.hub_metadata("../etc/passwd") is None
+    assert embedmodels.hub_metadata("a/b?x=1") is None
+    assert seen == []
+    meta = embedmodels.hub_metadata("owner/name")
+    assert seen == ["owner/name"]
+    assert meta == {
+        "siblings": [{"rfilename": "modules.json"}],
+        "tags": ["license:mit"],
+        "cardData": {"license": "mit"},
+        "gated": False,
+    }

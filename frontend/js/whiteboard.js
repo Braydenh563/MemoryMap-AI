@@ -5591,24 +5591,22 @@ function wbCancelGesture() {
 //: It sits above the edge auto-pan's band (3.5rem, `wbEdgePan.band`), so the
 //: board does not scroll away while the pointer travels to it, and the pan
 //: holds still while the pointer is over it.
-let wbTrashEl = null;
-let wbTrashRect = null;
-let wbTrashDown = [0, 0];
+const wbTrash = { el: null, rect: null, down: [0, 0] };
 
 function wbTrashTarget() {
-  if (wbTrashEl?.isConnected) return wbTrashEl;
+  if (wbTrash.el?.isConnected) return wbTrash.el;
   const host = document.getElementById("wb-present-bar")?.parentElement;
   if (!host) return null;
-  wbTrashEl = document.createElement("div");
-  wbTrashEl.className = "whiteboard-floating-panel wb-trash card glass hidden";
-  wbTrashEl.setAttribute("aria-hidden", "true");
+  wbTrash.el = document.createElement("div");
+  wbTrash.el.className = "whiteboard-floating-panel wb-trash card glass hidden";
+  wbTrash.el.setAttribute("aria-hidden", "true");
   const icon = document.createElement("i");
   icon.className = "ph ph-trash";
   const label = document.createElement("span");
   label.className = "wb-trash-label";
-  wbTrashEl.append(icon, label);
-  host.appendChild(wbTrashEl);
-  return wbTrashEl;
+  wbTrash.el.append(icon, label);
+  host.appendChild(wbTrash.el);
+  return wbTrash.el;
 }
 
 function wbTrashSetHot(hot) {
@@ -5619,27 +5617,27 @@ function wbTrashSetHot(hot) {
 }
 
 function wbTrashHide() {
-  wbTrashRect = null;
-  if (wbTrashEl) wbTrashEl.classList.add("hidden");
+  wbTrash.rect = null;
+  if (wbTrash.el) wbTrash.el.classList.add("hidden");
 }
 
-window.addEventListener("pointerdown", (e) => { wbTrashDown = [e.clientX, e.clientY]; }, true);
+window.addEventListener("pointerdown", (e) => { wbTrash.down = [e.clientX, e.clientY]; }, true);
 window.addEventListener("pointermove", (e) => {
   const g = wbGesture;
   if (!g || !g.move || g.cancelled) {
-    if (wbTrashRect) wbTrashHide();
+    if (wbTrash.rect) wbTrashHide();
     return;
   }
-  if (!wbTrashRect) {
+  if (!wbTrash.rect) {
     //: Shown on the drag's first few pixels, never on a click.
-    if (Math.hypot(e.clientX - wbTrashDown[0], e.clientY - wbTrashDown[1]) < 6) return;
+    if (Math.hypot(e.clientX - wbTrash.down[0], e.clientY - wbTrash.down[1]) < 6) return;
     const el = wbTrashTarget();
     if (!el) return;
     wbTrashSetHot(false);
     el.classList.remove("hidden");
-    wbTrashRect = el.getBoundingClientRect();
+    wbTrash.rect = el.getBoundingClientRect();
   }
-  const r = wbTrashRect;
+  const r = wbTrash.rect;
   const pad = 8;
   const over = e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
   if (over !== Boolean(g.overTrash)) {

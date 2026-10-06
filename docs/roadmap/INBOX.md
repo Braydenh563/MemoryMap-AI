@@ -95,6 +95,8 @@ with its owner named in the entry.
      tasks, and a running task row carries a progress bar (determinate when
      the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
      release, an Opus agent when a slot frees.
+     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
+     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
 
 700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
      model options as alternatives in the models??" / "research the best

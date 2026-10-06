@@ -130,10 +130,15 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
   if (text.nodeValue !== from) return false;
   if (line.dataset.entryId && line.dataset.entryId !== String(status.id)) return false;
   text.nodeValue = filingOutcomeText(status);
-  //: Nothing filed it: the line's own button picks a category instead of
-  //: jumping to a note that is sitting in Uncategorised.
-  if (status.filed_by === "none" || status.filing_state === "failed") {
-    const jump = line.querySelector(".jump-to-note");
+  //: A pick the app is not sure of (its number under the review line, after
+  //: the calibration in `ai/filing_certainty.py`) keeps its "Go to it" and
+  //: gets the same one-tap alternatives; a pick nothing could make is
+  //: replaced by "Choose category".
+  const unsurePick = status.filed_by === "ai" && status.ai_confidence > 0
+    && status.ai_confidence < REVIEW_THRESHOLD && (status.suggestions || []).length > 0;
+  const nothingFiled = status.filed_by === "none" || status.filing_state === "failed";
+  if (nothingFiled || unsurePick) {
+    const jump = nothingFiled ? line.querySelector(".jump-to-note") : null;
     if (jump) {
       const choose = jump.cloneNode(false);
       setLabel(choose, "ph:folder-open Choose category");
@@ -150,7 +155,7 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
         if (!moved) return;
         for (const other of line.querySelectorAll(".capture-suggest")) other.remove();
         line.querySelector(".jump-to-note")?.remove();
-        text.nodeValue = `Filed under “${name}”.`;
+        text.nodeValue = `Filed by you under “${name}”.`;
       });
       pick.classList.add("capture-suggest");
       line.appendChild(pick);
@@ -175,10 +180,17 @@ function filingOutcomeText(status) {
       ? `Saved in “${status.category}”: no AI model is running to file it.`
       : `Saved in “${status.category}”: ${aiNameNow()} couldn't decide where it goes.`;
   }
-  if (status.filed_by === "user") return `Filed under “${status.category}”.`;
+  if (status.filed_by === "user") return `Filed by you under “${status.category}”.`;
   //: Filed with no model, from the notes already filed (INBOX 434): said as
   //: what it is, so it is never mistaken for the AI's judgement.
   if (status.filed_by === "words") return `Filed under “${status.category}”: it reads like your other notes there.`;
+  //: **A low number is said as doubt, not as a verdict.** The number is the
+  //: app's calibrated estimate (a small model's own figure is never shown as
+  //: it said it), so under the review line the line asks for a look and the
+  //: alternatives come beside it.
+  if (status.ai_confidence > 0 && status.ai_confidence < REVIEW_THRESHOLD) {
+    return `Filed under “${status.category}”, but only ${status.ai_confidence}% sure. Pick another if it is wrong.`;
+  }
   return status.ai_confidence
     ? `Filed under “${status.category}” (${status.ai_confidence}% sure).`
     : `Filed under “${status.category}”.`;
@@ -206,7 +218,7 @@ function filedByText(saved) {
         modelStatus && modelStatus.chat_model ? `, running ${modelStatus.chat_model}` : ""
       }`;
     case "user":
-      return `Filed under “${saved.category}”: your choice, ${aiNameNow()} stayed out of it`;
+      return `Filed by you under “${saved.category}”: ${aiNameNow()} stayed out of it`;
     default:
       return `Saved as “${saved.category}”: ${aiNameNow()} wasn't available to file it`;
   }

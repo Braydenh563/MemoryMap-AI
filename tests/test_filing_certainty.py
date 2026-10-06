@@ -189,3 +189,15 @@ def test_an_old_row_stored_as_one_hundred_is_shown_capped(sure_work_client, sess
     out = sure_work_client.get(f"/entries/{entry.id}").json()
     assert out["ai_confidence"] == 95
     assert sure_work_client.get(f"/entries/{entry.id}/filing").json()["ai_confidence"] == 95
+
+
+# --- what the composer says (source checks: nothing here drives a browser) -------
+
+
+def test_the_composer_says_doubt_and_who_filed_it():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "capture-ask.js").read_text()
+    assert "only ${status.ai_confidence}% sure" in js
+    assert "Filed by you under" in js
+    assert "unsurePick" in js

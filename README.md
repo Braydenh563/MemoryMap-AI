@@ -67,8 +67,8 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
   when the server is back.
 
 **Organise**
-- The AI picks a category by meaning (or asks, in guided mode), shows how sure
-  it was and suggests tags, one press to keep each. With no AI, tags come from
+- The AI picks a category by meaning (or asks, in guided mode), shows an honest
+  estimate of how sure it was (never 100%) and suggests tags, one press to keep each. With no AI, tags come from
   the notes most like it.
 - Manage categories and tags by hand: create, rename, merge, split, delete and
   move, each step undoable. Spaces keep separate areas of life apart.

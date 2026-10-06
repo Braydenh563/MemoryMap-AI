@@ -1821,7 +1821,7 @@ function entryItem(entry, options = {}) {
   const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
   // Plain-language explanation on hover, "confidence" is jargon otherwise,
   // and the number alone doesn't say what it's confident *about*.
-  const confidenceHint = "How sure Atlas was when it picked this note's category.";
+  const confidenceHint = "Atlas's estimate that it picked the right category. Low, so worth a look.";
   //: A confident score is quiet text beside the category (INBOX 440); a low
   //: one is the warn mark, because that one is a request to check.
   const categoryChip = meta.querySelector(".chip.category");

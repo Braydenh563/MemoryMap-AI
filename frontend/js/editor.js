@@ -2567,3 +2567,52 @@ document.addEventListener("mousedown", (event) => {
 });
 
 window.addEventListener("resize", () => inlineAiState.textarea && inlineAiPosition());
+
+//: Moved from app.js on 2026-10-06: app.js is the head (api, auth, the lazy
+//: loader) under its own gzip cap, and the Meeting template's new shape
+//: (INBOX 644) took it over. Read at call time only (the Capture picker,
+//: note-templates.js, spaces-find.js), never while the scripts load.
+// --- capture templates (Wave B) ---------------------------------------------------
+
+const BUILTIN_TEMPLATES = [
+  { name: "Journal", content: "Journal: {date}\n\nToday I " },
+  { name: "Recipe", content: "Recipe: \n\nIngredients:\n- \n\nSteps:\n1. " },
+  { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
+  { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
+];
+
+//: **Built-ins and the person's own, as one catalogue** (INBOX 409, "templates
+//: cant be edited"). The persona shape: a saved template that carries a
+//: built-in's name is that built-in's edit, kept in `custom_templates` beside
+//: the templates that are wholly the person's, so the Built-in group shows
+//: the edit's text under the shipped name, Yours shows only their own, and
+//: removing the edit is the reset. Nothing else is stored, and the built-in's
+//: original text never leaves this file. Both readers (the Capture dropdown
+//: and the Settings list) draw from this one function, so they cannot
+//: disagree about which templates exist.
+function templateCatalogue() {
+  const saved = (prefsCache && prefsCache.custom_templates) || [];
+  const edits = new Map(saved.map((t) => [t.name, t]));
+  const builtin = BUILTIN_TEMPLATES.map((t) => {
+    const edit = edits.get(t.name);
+    return { ...(edit || t), builtin: true, overridden: Boolean(edit) };
+  });
+  const shipped = new Set(BUILTIN_TEMPLATES.map((t) => t.name));
+  const custom = saved
+    .filter((t) => !shipped.has(t.name))
+    .map((t) => ({ ...t, builtin: false, overridden: false }));
+  return { builtin, custom };
+}
+
+async function loadTemplates() {
+  // Built-ins + the user's own (kept in preferences). Shared with the two
+  // other boot readers (A2): at boot this joins the one request in flight, and
+  // afterwards it reads the cache every PUT in this file keeps current, which
+  // is why `saveTemplateList` (PUT, then this) still shows the new template.
+  await loadPreferences().catch(() => prefsCache);
+  // Saved filters live in the same payload, so draw them while it's fresh.
+  renderSavedSearches();
+  //: The Capture box's picker reads `templateCatalogue()` when it opens
+  //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
+  //: template saved in Settings is in the next opening without a redraw.
+}

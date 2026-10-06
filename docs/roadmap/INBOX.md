@@ -175,6 +175,59 @@ with its owner named in the entry.
      group's first page so the click is never dead. Placed: with 680, the
      Settings sidebar agent.
 
+698. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's Help page expanded into its thirteen in-page sections, pushing
+     the next pages far down: "these sub tabs on the settings sidebar are
+     good but annoying when I am trying to flick through multiple settings
+     pages". Decision taken: the page list stays one compact list; the
+     current page's sections show as a short "On this page" block that does
+     not push the other pages down (collapsed to the current section with a
+     toggle to show all, remembered), and the arrow keys and a click move
+     page to page without opening sections. Placed: with 680/697, the
+     Settings sidebar agent.
+
+699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
+     package's row ("needle's own tools send usage data by default;
+     MemoryMap uses only its engine, which has no network code, and
+     switches that setting off anyway"): "is it possible to remove the part
+     of needle which sends usage data??" / "or even vendor it??" What is
+     true today (ai/needle_provider.py): the app loads only needle's native
+     engine with ctypes; the Python package and the command-line tool, which
+     carry the usage-data client, are never installed; the Linux engine was
+     read and imports no socket, connect, send or getenv. Decision taken:
+     not vendored (a 36 MB native engine plus weights per platform does not
+     belong in the repository, and the source build is not ours to
+     maintain); instead the download is pinned by SHA-256 per platform and,
+     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
+     and an engine that imports any network call is refused with a plain
+     message; the row's copy says this in one line. Placed: the next free
+     Sonnet slot.
+
+700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
+     model options as alternatives in the models??" / "research the best
+     ones available today". Research, 2026-10-06 (sources in the session
+     report): small and CPU-friendly: all-MiniLM-L6-v2 (22M, fastest),
+     BAAI/bge-small-en-v1.5 (today's default), nomic-embed-text v1.5 (137M,
+     8k context), EmbeddingGemma 300M (2k context; Gemma terms, not
+     Apache), Qwen3-Embedding-0.6B (Apache-2.0, about 70.7 MTEB-eng-v2,
+     about 1.2 GB), BGE-M3 (568M, multilingual, MIT), multilingual-e5-small;
+     through Ollama also mxbai-embed-large, snowflake-arctic-embed2,
+     granite-embedding and qwen3-embedding 0.6b/4b/8b. Decision taken: a
+     curated list in Models with size, languages, context, licence and a
+     one-line "best for", the current default kept; changing the model
+     re-embeds in the background (durable job, progress shown, search keeps
+     working on the old vectors until the new set is complete); only
+     licences that allow it are offered as one-press installs, others link
+     to their terms. Placed: the next free agent slot.
+
+701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
+     shortcut, should they be added to the tooltips??" Recommendation,
+     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
+     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
+     changed binding changes its tooltip, with a lint that every bound
+     shortcut with a button has it in that button's title. Placed: the next
+     free Sonnet slot.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

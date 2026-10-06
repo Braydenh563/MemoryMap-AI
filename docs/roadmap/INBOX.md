@@ -98,6 +98,20 @@ with its owner named in the entry.
      the meatball button and opening the menu". The card's hover action
      cluster hides while its own menu is open. Placed: with 676.
 
+680. **The owner, 2026-10-06, verbatim.** "should the settings sidebar
+     scroll a little to show the quick access in page sections if scrolling
+     on that settings page??" Recommendation, taken: yes; as a Settings page
+     scrolls, the sidebar keeps the current in-page section's link in view
+     (scrolled to nearest, smoothly under the motion switch, never stealing
+     focus). Placed: the 0.4.1 mini release, a Sonnet agent.
+
+681. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "not all dropdown elements close when pressing that
+     element again". Every menu, dropdown and popover trigger toggles: a
+     second press on the control that opened it closes it. Next: inventory
+     every trigger (kebabMenu, the action menus, custom selects, popovers,
+     split buttons) and press each twice. Placed: with 680.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

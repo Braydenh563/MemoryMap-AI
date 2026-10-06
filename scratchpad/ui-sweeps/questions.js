@@ -32,10 +32,10 @@ const { boot } = require("./lib.js");
     const card = document.getElementById("questions");
     const rows = [...document.querySelectorAll("#questions-list .question-row")];
     const dockRect = dock.getBoundingClientRect();
-    const heights = [...dock.querySelectorAll(":scope > * > button, :scope > * > .seg")].map((el) => Math.round(el.getBoundingClientRect().top));
+    const heights = [...dock.querySelectorAll(":scope > * > button, :scope > * > .select-shell")].map((el) => Math.round(el.getBoundingClientRect().top));
     return {
       visible: !card.classList.contains("hidden") && card.getBoundingClientRect().height > 0,
-      counts: ["open", "answered", "dropped"].map((s) => document.getElementById(`questions-count-${s}`).textContent),
+      counts: ["open", "answered", "dropped"].map((s) => ((document.querySelector(`#questions-state option[value="${s}"]`).textContent.match(/\((\d+)\)/) || [])[1] || "")),
       rows: rows.map((r) => r.querySelector(".night-fact-text").textContent),
       asked: rows[0]?.querySelector(".dash-list-preview")?.textContent || "",
       buttons: rows[0] ? [...rows[0].querySelectorAll(".night-fact-actions button")].map((b) => b.getAttribute("aria-label")) : [],
@@ -54,7 +54,7 @@ const { boot } = require("./lib.js");
   check("nothing scrolls sideways", open.overflow <= 0 && open.pageOverflow <= 0, `card ${open.overflow}, page ${open.pageOverflow}`);
 
   const answered = await page.evaluate(async () => {
-    document.querySelector('[data-question-state="answered"]').click();
+    { const s = document.getElementById("questions-state"); s.value = "answered"; s.dispatchEvent(new Event("change")); }
     await new Promise((r) => setTimeout(r, 900));
     const row = document.querySelector("#questions-list .question-row");
     const link = row?.querySelector(".question-answer-link");
@@ -99,18 +99,18 @@ const { boot } = require("./lib.js");
   check("answered: Reopen is offered", answered.buttons.includes("Reopen"), JSON.stringify(answered.buttons));
 
   const dropped = await page.evaluate(async () => {
-    document.querySelector('[data-question-state="open"]').click();
+    { const s = document.getElementById("questions-state"); s.value = "open"; s.dispatchEvent(new Event("change")); }
     await new Promise((r) => setTimeout(r, 900));
     const row = document.querySelector("#questions-list .question-row");
     row.querySelector('[aria-label="Drop: it no longer matters"]').click();
     await new Promise((r) => setTimeout(r, 900));
-    const afterDrop = ["open", "dropped"].map((s) => document.getElementById(`questions-count-${s}`).textContent);
-    document.querySelector('[data-question-state="dropped"]').click();
+    const afterDrop = ["open", "dropped"].map((s) => ((document.querySelector(`#questions-state option[value="${s}"]`).textContent.match(/\((\d+)\)/) || [])[1] || ""));
+    { const s = document.getElementById("questions-state"); s.value = "dropped"; s.dispatchEvent(new Event("change")); }
     await new Promise((r) => setTimeout(r, 900));
     document.querySelector("#questions-list .question-row [aria-label='Reopen']").click();
     await new Promise((r) => setTimeout(r, 900));
-    const afterReopen = ["open", "dropped"].map((s) => document.getElementById(`questions-count-${s}`).textContent);
-    document.querySelector('[data-question-state="open"]').click();
+    const afterReopen = ["open", "dropped"].map((s) => ((document.querySelector(`#questions-state option[value="${s}"]`).textContent.match(/\((\d+)\)/) || [])[1] || ""));
+    { const s = document.getElementById("questions-state"); s.value = "open"; s.dispatchEvent(new Event("change")); }
     await new Promise((r) => setTimeout(r, 600));
     return { afterDrop, afterReopen };
   });

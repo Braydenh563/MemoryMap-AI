@@ -939,31 +939,36 @@ function wbMapThemeDialog() {
   body.appendChild(lead);
 
   //: **The hierarchy, and which level the rows below set** (MINDMAP_PLAN.md
-  //: decisions 39 and 40). XMind's theme has a tab per level; here one `.seg`
-  //: of four says whose look the Text, box and line rows are writing: the
-  //: whole map's (the ten fields of decision 8) or one level's own.
+  //: decisions 39 and 40). XMind's theme has a tab per level; here one row
+  //: says whose look the Text, box and line rows are writing: the whole
+  //: map's (the ten fields of decision 8) or one level's own. A select, not
+  //: the `.seg` of four it was (INBOX 665: four worded choices, "Main
+  //: branches" the longest, are a list of values, and a well of them is the
+  //: multi-pill the owner asked to be rid of), in the same label column as
+  //: every row under it.
   body.appendChild(wbMapThemeSelect({ key: "hierarchy", label: "Hierarchy", kind: "select", options: [
     ["", "Classic"], ["outline", "Outline"], ["boxed", "Boxed"], ["flat", "Flat"],
   ] }));
   const scope = document.createElement("div");
-  scope.className = "seg wb-map-theme-scope";
-  scope.setAttribute("role", "group");
-  scope.setAttribute("aria-label", "Whose look the rows below set");
+  scope.className = "wb-menu-row wb-map-theme-row wb-map-theme-scope";
+  const scopeName = document.createElement("span");
+  scopeName.textContent = "Setting";
+  const scopeSelect = document.createElement("select");
+  scopeSelect.className = "ghost small";
+  scopeSelect.setAttribute("aria-label", "Whose look the rows below set");
+  for (const [level, words] of [["map", "The whole map"], ["0", "The centre"], ["1", "Main branches"], ["2", "Sub-topics"]]) {
+    const option = document.createElement("option");
+    option.value = level;
+    option.textContent = words;
+    scopeSelect.appendChild(option);
+  }
+  scope.append(scopeName, scopeSelect);
   const rows = document.createElement("div");
   rows.className = "wb-map-theme-rows";
   const show = (level) => {
-    for (const b of scope.children) b.setAttribute("aria-pressed", String(b.dataset.level === level));
     rows.replaceChildren(...(level === "map" ? wbMapThemeMapRows() : wbMapThemeLevelRows(Number(level))));
   };
-  for (const [level, words] of [["map", "Whole map"], ["0", "Centre"], ["1", "Main branches"], ["2", "Sub-topics"]]) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "ghost small";
-    b.dataset.level = level;
-    b.textContent = words;
-    b.addEventListener("click", () => show(level));
-    scope.appendChild(b);
-  }
+  scopeSelect.addEventListener("change", () => show(scopeSelect.value));
   body.append(scope, rows);
   show("map");
 
@@ -5764,95 +5769,264 @@ let wbMapStripSyncing = false;
 
 //: **Every choice in the topic's bar is one press** (INBOX 610, the owner:
 //: "changing various features ... the popup tool menus (not the radials)"
-//: was "unintuitive"). Each of the bar's settings was a `<select>` inside a
-//: door: open the door, open the list, pick a row, three steps and a popup
-//: inside a popup, measured by `scratchpad/ui-sweeps/bm1005-nodetasks.js`
-//: (eight of eleven tasks took three). Each select is now drawn as the
-//: choice-control recipe (DESIGN.md, `.seg[role="group"]`) beside it, so a
-//: door and one press is the most anything takes, and the text size, on the
-//: bar itself, is one.
+//: was "unintuitive"), and **none of them is a pill well** (INBOX 665, the
+//: owner: "clean up or redesign this bit in the mind map popup. also i dont
+//: really like these multi pill elements"). INBOX 610 drew each select as a
+//: `.seg` of words stacked under its name; measured on a themed map at 1440
+//: (`seg665-probe.js`), the Shape door was 333px tall with Box and Fill each
+//: wrapping to two lines of segments (rows of 103px) and the Text door's
+//: icons to three, while "Map" and "As its level (tinted)" sat among the
+//: shapes as if they were one more shape.
+//:
+//: Now each choice is **a row of previews**: an icon-only ghost button per
+//: option, drawing what it makes (a box's corner, the bar down its edge, a
+//: tint, a line's weight and bend; DESIGN.md "A visual choice in a popup"),
+//: beside its name on one line, the way Weight's B and I already were. The
+//: words stay as each button's name and tooltip. "Follow the map" is not a
+//: peer: it is the trailing reset glyph, and the shape the map draws is the
+//: one ringed rather than filled while the topic follows it.
 //:
 //: **The select is still the control.** Every listener in whiteboard.js
 //: reads it, `wbSyncMapStrip` sets it and renames its blank row on a themed
-//: map, `wbSyncMapFill` rewrites its rows; the segments only press it. They
+//: map, `wbSyncMapFill` rewrites its rows; the previews only press it. They
 //: are redrawn from it on its own `change` and on any change to its rows, so
 //: nothing that writes the select has to know they exist.
 const WB_MAP_CHOICE_REDRAWS = [];
 
-function wbMapChoiceRow(select) {
-  const seg = document.createElement("div");
-  seg.className = "seg wb-map-choices";
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", select.getAttribute("aria-label") || "");
-  const icons = select.id === "wb-map-strip-icon";
-  //: **The buttons are kept, not rebuilt**, while the select's rows are the
-  //: same rows: the chosen segment's fill is the strip's own gliding
-  //: indicator (08-consistency.css, anchored to `.active`), which can only
-  //: glide from one button to another that both still exist, and a rebuilt
-  //: row would also drop the keyboard focus from under the person pressing.
-  //: Rebuilt only when the rows themselves change (a themed map's pin row,
-  //: the fill's "No fill" row), which is a different set of choices.
+//: What each option looks like, by the select's id and the option's value.
+//: A pin (`WB_MAP_APP_DEFAULT_PINS`) draws what the blank draws on an
+//: unthemed map, so both keys name one glyph. `svg:` is a preview drawn by
+//: `wbMapPickPreview`, `ph:` a Phosphor glyph.
+const WB_MAP_PICK_GLYPHS = {
+  "wb-map-align": { "": "ph:magic-wand", auto: "ph:magic-wand", left: "ph:text-align-left", center: "ph:text-align-center", right: "ph:text-align-right" },
+  "wb-map-strip-icon": { "": "ph:prohibit" },
+  "wb-map-shape": { "": "svg:rounded", rounded: "svg:rounded", pill: "svg:pill", rect: "svg:rect", ellipse: "svg:ellipse", none: "svg:plain" },
+  "wb-map-spine": { "": "svg:bar", solid: "svg:bar", dashed: "svg:bar-dashed", none: "svg:bar-none" },
+  "wb-map-fill": { "": "svg:fill-none", none: "svg:fill-none", self: "svg:fill-tint", branch: "svg:fill-branch", solid: "svg:fill-solid" },
+  "wb-map-edge-width": { thin: "svg:line-thin", "": "svg:line", normal: "svg:line", thick: "svg:line-thick" },
+  "wb-map-edge-shape": { "": "svg:curve", curve: "svg:curve", elbow: "svg:elbow", straight: "svg:straight" },
+};
+
+//: The previews, on a 20 by 14 box in `currentColor`, so a pressed button's
+//: `--on-accent` and a resting one's ink both reach them with no rule of
+//: their own. Attributes, not `style`: the CSP refuses inline style.
+const WB_MAP_PICK_SHAPES = {
+  rounded: [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2.5 }]],
+  pill: [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 4.5 }]],
+  rect: [["rect", { x: 2, y: 2.5, width: 16, height: 9 }]],
+  ellipse: [["ellipse", { cx: 10, cy: 7, rx: 8, ry: 5 }]],
+  plain: [["path", { d: "M4 5.5h12M4 8.5h8" }]],
+  bar: [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2 }], ["path", { d: "M4 4.5v5", "stroke-width": 2.5 }]],
+  "bar-dashed": [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2 }], ["path", { d: "M4 4v6", "stroke-width": 2.5, "stroke-dasharray": "1.6 1.4", "stroke-linecap": "butt" }]],
+  "bar-none": [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2 }]],
+  "fill-none": [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2 }]],
+  "fill-tint": [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2, fill: "currentColor", "fill-opacity": 0.35 }]],
+  "fill-solid": [["rect", { x: 2, y: 2.5, width: 16, height: 9, rx: 2, fill: "currentColor" }]],
+  "fill-branch": [
+    ["rect", { x: 1, y: 1, width: 10, height: 6, rx: 1.5, fill: "currentColor", "fill-opacity": 0.35 }],
+    ["path", { d: "M6 7v3.5h3" }],
+    ["rect", { x: 9, y: 8, width: 10, height: 5, rx: 1.5, fill: "currentColor", "fill-opacity": 0.35 }],
+  ],
+  "line-thin": [["path", { d: "M2 7h16", "stroke-width": 1 }]],
+  line: [["path", { d: "M2 7h16", "stroke-width": 2 }]],
+  "line-thick": [["path", { d: "M2 7h16", "stroke-width": 3.5 }]],
+  curve: [["path", { d: "M2 12C9 12 11 2 18 2" }]],
+  elbow: [["path", { d: "M2 12h8V2h8" }]],
+  straight: [["path", { d: "M2 12L18 2" }]],
+};
+
+function wbMapPickPreview(name) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 20 14");
+  svg.setAttribute("class", "wb-map-pick-preview");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  for (const [tag, attrs] of WB_MAP_PICK_SHAPES[name] || []) {
+    const part = document.createElementNS(ns, tag);
+    for (const [key, value] of Object.entries(attrs)) part.setAttribute(key, String(value));
+    svg.appendChild(part);
+  }
+  return svg;
+}
+
+//: The glyph for one option: a preview, a Phosphor icon, or (a chosen emoji
+//: in the icon slot, decision 45) the emoji itself.
+function wbMapPickGlyph(selectId, value) {
+  const spec = WB_MAP_PICK_GLYPHS[selectId]?.[value]
+    || (selectId === "wb-map-strip-icon" && WB_MAP_ICON_NAME.test(value) ? `ph:${value}` : "");
+  if (spec.startsWith("svg:")) return wbMapPickPreview(spec.slice(4));
+  if (spec.startsWith("ph:")) {
+    const glyph = document.createElement("i");
+    glyph.className = `ph ph-${spec.slice(3)}`;
+    glyph.setAttribute("aria-hidden", "true");
+    return glyph;
+  }
+  const emoji = document.createElement("span");
+  emoji.className = "wb-map-pick-emoji";
+  emoji.setAttribute("aria-hidden", "true");
+  emoji.textContent = value;
+  return emoji;
+}
+
+//: A blank row that means "follow the map" (`data-follow`, written by
+//: `wbSyncMapStrip` and `wbSyncMapFill` while a theme, a level or a filled
+//: branch says what the topic draws) rather than a look of its own.
+function wbMapIsFollow(option) {
+  return Boolean(option) && "follow" in option.dataset;
+}
+
+function wbMapPickRow(select) {
+  const row = document.createElement("div");
+  row.className = "wb-map-picks";
+  if (select.id === "wb-map-strip-icon") row.classList.add("is-grid");
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", select.getAttribute("aria-label") || "");
   const press = (value) => {
     if (select.value === value) return;
     select.value = value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
     draw();
   };
+  //: **The buttons are kept, not rebuilt**, while the select's rows are the
+  //: same rows: a rebuilt row would drop the keyboard focus from under the
+  //: person pressing. Rebuilt only when the rows themselves change (a themed
+  //: map's pin row, the fill's "No fill" row), which is a different set.
   const draw = () => {
     const options = [...select.options];
-    const same = seg.children.length === options.length
-      && options.every((option, i) => seg.children[i].dataset.value === option.value);
-    if (!same) {
-      seg.replaceChildren(...options.map((option) => {
+    const key = options.map((o) => `${wbMapIsFollow(o) ? "~" : ""}${o.value}`).join("|");
+    if (row.dataset.rows !== key) {
+      row.dataset.rows = key;
+      const picks = options.filter((o) => !wbMapIsFollow(o)).map((option) => {
         const button = document.createElement("button");
         button.type = "button";
+        button.className = "ghost small icon-only wb-map-pick";
         button.dataset.value = option.value;
+        button.append(wbMapPickGlyph(select.id, option.value));
         button.addEventListener("click", () => press(option.value));
         return button;
-      }));
-    }
-    options.forEach((option, i) => {
-      const button = seg.children[i];
-      const words = option.textContent.trim();
-      //: A themed map's blank row reads "As the map draws (bold)", which is
-      //: right in a list and a paragraph in a segment: the segment says
-      //: "Map" and keeps the sentence as its name.
-      const themed = /^As the map draws/.test(words);
-      if (icons && option.value) {
-        if (!button.firstElementChild) {
-          //: A chosen emoji (decision 45) is drawn as itself, a name as its glyph.
-          const emoji = !WB_MAP_ICON_NAME.test(option.value);
-          const glyph = document.createElement(emoji ? "span" : "i");
-          if (emoji) glyph.textContent = option.value;
-          else glyph.className = `ph ph-${option.value}`;
-          glyph.setAttribute("aria-hidden", "true");
-          button.replaceChildren(glyph);
-        }
-        button.setAttribute("aria-label", words);
-      } else {
-        //: `data-short` is the segment's word where the list's says the
-        //: row's name again ("Thick line" under Thickness): the list needs
-        //: the whole phrase, a row of segments under its name does not, and
-        //: the full phrase stays the segment's name and tooltip.
-        const short = option.dataset.short;
-        const text = themed ? "Map" : (icons ? "None" : (short || words));
-        if (button.textContent !== text) button.textContent = text;
-        if (themed || icons || short) button.setAttribute("aria-label", words);
-        else button.removeAttribute("aria-label");
+      });
+      const follow = options.find(wbMapIsFollow);
+      if (follow) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "ghost small icon-only wb-map-pick wb-map-pick-follow";
+        button.dataset.value = "";
+        const glyph = document.createElement("i");
+        glyph.className = "ph ph-arrow-counter-clockwise";
+        glyph.setAttribute("aria-hidden", "true");
+        button.append(glyph);
+        button.addEventListener("click", () => press(""));
+        picks.push(button);
       }
-      button.title = words;
-      const on = option.value === select.value;
+      row.replaceChildren(...picks);
+    }
+    const chosen = select.selectedOptions[0];
+    const following = !chosen || wbMapIsFollow(chosen);
+    const inherits = following ? options.find(wbMapIsFollow)?.dataset.inherits : undefined;
+    for (const button of row.children) {
+      const isFollow = button.classList.contains("wb-map-pick-follow");
+      const option = isFollow ? options.find(wbMapIsFollow)
+        : options.find((o) => o.value === button.dataset.value && !wbMapIsFollow(o));
+      const words = (option?.textContent || "").trim();
+      const on = isFollow ? following : !following && chosen === option;
       button.classList.toggle("active", on);
       button.setAttribute("aria-pressed", on ? "true" : "false");
-    });
+      button.setAttribute("aria-label", words);
+      button.title = isFollow ? (following ? words : `Back to the map: ${words.replace(/^As /, "as ")}`) : words;
+      //: The look the map gives a topic that follows it: ringed, not filled,
+      //: so "this is what you see" and "this is what you chose" differ.
+      button.classList.toggle("is-inherited", !isFollow && following && button.dataset.value === inherits);
+    }
   };
   select.addEventListener("change", draw);
-  new MutationObserver(draw).observe(select, { childList: true, subtree: true, characterData: true });
+  new MutationObserver(draw).observe(select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["data-follow", "data-inherits"] });
   WB_MAP_CHOICE_REDRAWS.push(draw);
   draw();
   select.hidden = true;
-  select.parentElement.append(seg);
-  return seg;
+  select.parentElement.append(row);
+  return row;
+}
+
+//: **The text size is a stepper on the bar** (INBOX 665: the owner's first
+//: screenshot, "S Map M L XL" as a pill well of five on the topic's bar).
+//: DESIGN.md's stepper: a minus, the size it reads now, a plus, one press a
+//: step; S and XL are two presses from M either way, the same as the well's
+//: one-press-anywhere for the sizes beside the one you have, and it is 80px
+//: of the bar where the well was 151. The readout says the size the topic
+//: is drawn at, the map's when it follows the map (ringed, its sentence the
+//: tooltip), so it never reads "M" over a topic the map draws large.
+function wbMapSizeStepper(select) {
+  const wrap = document.createElement("div");
+  wrap.className = "stepper wb-map-size-stepper";
+  wrap.setAttribute("role", "group");
+  wrap.setAttribute("aria-label", "Text size");
+  const make = (icon, name) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small icon-only stepper-btn";
+    setLabel(button, `ph:${icon}`);
+    button.setAttribute("aria-label", name);
+    return button;
+  };
+  const minus = make("minus", "Smaller text");
+  const plus = make("plus", "Larger text");
+  const unit = document.createElement("span");
+  unit.className = "stepper-unit wb-map-size-unit";
+  //: The size as a number: M is no stored size (the blank) or the pin "0".
+  const px = (option) => Number(option.value) || WB_MAP_TEXT_DEFAULT;
+  const choices = () => [...select.options].filter((o) => !wbMapIsFollow(o)).sort((a, b) => px(a) - px(b));
+  const now = () => {
+    const chosen = select.selectedOptions[0];
+    if (chosen && !wbMapIsFollow(chosen)) return { size: px(chosen), following: false };
+    const drawn = Number(wbMapThemedData(wbSelectedMapNode())?.font_size);
+    return { size: drawn > 0 ? drawn : Number(chosen?.dataset.inherits) || WB_MAP_TEXT_DEFAULT, following: true };
+  };
+  const nameOf = (size) => choices().find((o) => px(o) === size)?.textContent.trim() || `${size}px`;
+  const step = (dir) => {
+    const { size } = now();
+    const list = choices();
+    const next = dir > 0 ? list.find((o) => px(o) > size) : list.reverse().find((o) => px(o) < size);
+    if (!next) return;
+    select.value = next.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    draw();
+  };
+  const draw = () => {
+    const { size, following } = now();
+    const list = choices();
+    const smaller = [...list].reverse().find((o) => px(o) < size);
+    const larger = list.find((o) => px(o) > size);
+    unit.textContent = nameOf(size);
+    unit.classList.toggle("is-inherited", following && Boolean(select.querySelector("option[data-follow]")));
+    const said = select.querySelector("option[data-follow]")?.textContent.trim();
+    unit.title = following && said ? said : `Text size ${nameOf(size)}`;
+    minus.disabled = !smaller;
+    plus.disabled = !larger;
+    minus.title = smaller ? `Smaller text (${smaller.textContent.trim()})` : "Already the smallest";
+    plus.title = larger ? `Larger text (${larger.textContent.trim()})` : "Already the largest";
+  };
+  minus.addEventListener("click", () => step(-1));
+  plus.addEventListener("click", () => step(1));
+  //: Up and down nudge it, the stepper recipe's keys; left and right stay
+  //: the toolbar's, which walk the bar.
+  wrap.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    step(event.key === "ArrowUp" ? 1 : -1);
+  });
+  wrap.append(minus, unit, plus);
+  select.addEventListener("change", draw);
+  new MutationObserver(draw).observe(select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["data-follow", "data-inherits"] });
+  WB_MAP_CHOICE_REDRAWS.push(draw);
+  draw();
+  select.hidden = true;
+  select.parentElement.append(wrap);
+  return wrap;
 }
 
 //: A Phosphor name, as against an emoji, in a topic's one icon slot.
@@ -5914,7 +6088,10 @@ function wbWireMapIconMore() {
 
 function wbWireMapChoices() {
   wbWireMapIconMore();
-  for (const select of document.querySelectorAll("#wb-map-strip select")) wbMapChoiceRow(select);
+  for (const select of document.querySelectorAll("#wb-map-strip select")) {
+    if (select.id === "wb-map-text-size") wbMapSizeStepper(select);
+    else wbMapPickRow(select);
+  }
 }
 
 // --- several topics at once (INBOX 617) --------------------------------------
@@ -6102,8 +6279,16 @@ function wbSyncMapStrip(node) {
       if (value == null) {
         pin?.remove();
         if (blank.textContent !== blank.dataset.appDefault) blank.textContent = blank.dataset.appDefault;
+        //: Not following anything: the blank is the app's own look again,
+        //: drawn as one more preview (`wbMapPickRow`).
+        delete blank.dataset.follow;
+        delete blank.dataset.inherits;
         return;
       }
+      //: **Following the map** (INBOX 665): the previews draw this row as the
+      //: trailing reset, not as a peer, and ring the look the map gives.
+      blank.dataset.follow = "";
+      if (blank.dataset.inherits !== String(value)) blank.dataset.inherits = String(value);
       if (!pin) {
         pin = document.createElement("option");
         pin.dataset.appPin = "";
@@ -6248,6 +6433,17 @@ function wbSyncMapFill(node) {
   const said = inherited ? "Filled by its branch"
     : fromLevel ? `As its level (${level === "solid" ? "solid" : "tinted"})` : "No fill";
   if (blank && blank.textContent !== said) blank.textContent = said;
+  //: The blank follows a filled branch or the level (INBOX 665): the
+  //: previews make it the trailing reset and ring the tint or the solid
+  //: fill it draws. "No fill" on a topic with neither is a look of its own.
+  if (blank && (inherited || fromLevel)) {
+    const drawn = fromLevel && level === "solid" ? "solid" : "self";
+    blank.dataset.follow = "";
+    if (blank.dataset.inherits !== drawn) blank.dataset.inherits = drawn;
+  } else if (blank) {
+    delete blank.dataset.follow;
+    delete blank.dataset.inherits;
+  }
   let none = el.querySelector('option[value="none"]');
   const offerNone = inherited || fromLevel || own === "none";
   if (offerNone && !none) {
@@ -8614,28 +8810,56 @@ function wbMapCloseMarkers({ restoreFocus = false } = {}) {
   if (restoreFocus) document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
 }
 
-//: A segmented row: one pressed at a time, the app's `.seg`.
+//: A row of previews, one pressed at a time (INBOX 665): each choice drawn
+//: as the mark it puts on the topic (`wbMapMarkerGlyph`), the topic bar's
+//: `.wb-map-picks` recipe. It was a `.seg` of six words ("None 1 2 3 4 5",
+//: "None 0% 25% 50% 75% Done"), the pill well the owner asked to be rid of.
 function wbMapMarkerSeg(label, options, current, choose) {
   const wrap = document.createElement("div");
   wrap.className = "wb-map-markers-row";
   const name = document.createElement("span");
   name.className = "wb-map-markers-label";
   name.textContent = label;
-  const seg = document.createElement("div");
-  seg.className = "seg";
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", label);
+  const row = document.createElement("div");
+  row.className = "wb-map-picks";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", label);
   for (const [value, text, title] of options) {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = text;
-    if (title) b.title = title;
-    b.setAttribute("aria-pressed", String(value === current));
+    b.className = "ghost small icon-only wb-map-pick";
+    b.append(wbMapMarkerGlyph(label, value));
+    const words = title ? `${text}, ${title.toLowerCase()}` : text;
+    b.setAttribute("aria-label", `${label} ${words}`);
+    b.title = words;
+    const on = value === current;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
     b.addEventListener("click", () => choose(value));
-    seg.appendChild(b);
+    row.appendChild(b);
   }
-  wrap.append(name, seg);
+  wrap.append(name, row);
   return wrap;
+}
+
+//: The mark a choice puts on the topic, drawn by the one painter
+//: (`wbMapPaintMarkers`, decision 34) into a scratch row, so the button shows
+//: exactly what pressing it does and no second copy of the marks exists.
+function wbMapMarkerGlyph(label, value) {
+  if (value === null || value === false) {
+    const none = document.createElement("i");
+    none.className = "ph ph-prohibit";
+    none.setAttribute("aria-hidden", "true");
+    return none;
+  }
+  const host = document.createElement("span");
+  host.className = "wb-map-markers wb-map-pick-mark";
+  wbMapPaintMarkers(host, { [label.toLowerCase()]: value });
+  host.removeAttribute("role");
+  host.removeAttribute("aria-label");
+  host.removeAttribute("title");
+  host.setAttribute("aria-hidden", "true");
+  return host;
 }
 
 function wbMapOpenMarkers(id, anchor = null) {

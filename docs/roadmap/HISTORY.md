@@ -45326,3 +45326,25 @@ and refuses a topic ("Select a shape, link or text box first").
      (magnifier, the inset well) with `--space-3` above it: 8px clear at 1440
      and 390, light and dark (`scratchpad/ui-sweeps/featureshead.js`).
 
+665. **The owner, 2026-10-06, verbatim**, with four screenshots (the mind
+     map size picker "S Map M L XL"; the mind map popup's Box, Edge bar and
+     Fill rows as wrapping pill wells; a three-pill count group "21 / 0 /
+     21"; the note composer's formatting toolbar): "also clean up or
+     redesign this bit in the mind map popup. also i dont really like these
+     multi pill elements exept in some small cases like the little view
+     mode 2 pill ones in places and the formatting toolbar in the note
+     capture and edit forms go slightly off the edge on the border".
+     Recommendation: a `.seg` well only for two or three short, always
+     visible choices (view modes); longer option sets become a select or a
+     swatch/preview picker per DESIGN.md, the popup restructured; the
+     toolbar measured and kept inside its border at every width. Placed:
+     the 0.4.1 mini release, an Opus design agent. Added by the owner, "and
+     this as well": Questions' Open, Answered, Dropped well. **Fixed
+     2026-10-06 (seg665-1006)**: the topic bar's doors are one-line rows of
+     previews (Shape door 333 to 155px at 1440, every row 32px), the size a
+     stepper, markers and the theme's level switch converted; Questions and
+     AI skills' kinds are selects with their counts; the note strip's More
+     opened into one row 700px past its border below 600 and now wraps;
+     `seg665.js`, `seg665-toolbar.js`. Remaining wells of four:
+     `agent-remaining/seg665-1006.md`.
+

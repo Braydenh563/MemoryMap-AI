@@ -9724,7 +9724,7 @@ input[type="file"] {
    well off to one side of the thing it is about. `escapeAndCapMenu` still
    takes over whenever the canvas would clip it. */
 .wb-map-strip-menu {
-  width: 20rem;
+  width: 21rem;
   right: auto;
   left: 50%;
   transform: translateX(-50%);
@@ -9738,42 +9738,161 @@ input[type="file"] {
   transform: none;
 }
 
-/* **A door's choices are pressed, not picked from a list** (INBOX 610). Each
-   select in the topic's bar is drawn as the choice-control recipe beside it
-   (`wbMapChoiceRow`, DESIGN.md's `.seg[role="group"]`) and is itself put
-   away: it stays in the DOM because every listener reads it. A row holding
-   segments stacks its name over them, so a run of three or five words has
-   the door's full width and wraps there rather than widening the door; the
-   door is 20rem for the same reason (the longest run, the five shapes, fits
-   one line at 1440, measured by `bm1005-nodetasks.js`). The select is put
-   away with `hidden`, and the strip is `data-no-select-enhance`, so no
-   `.select-shell` opener is drawn for a select nobody sees. */
-.wb-map-strip-menu .wb-menu-row:has(> .wb-map-choices) {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-  padding-bottom: var(--space-1);
+/* **A door is a form of one-line rows** (INBOX 665, the owner: "clean up or
+   redesign this bit in the mind map popup"; DESIGN.md "A visual choice in a
+   popup"). Measured before on a themed map at 1440 (`seg665-probe.js`): the
+   Shape door 333px tall, Box and Fill each a pill well wrapping to two lines
+   (rows of 103px), the Text door's icons to three. Now every row is its name
+   in one label column and its control in the next, so the controls of
+   adjacent rows start on one edge, and every control is a menu row's height
+   (`--control-h-lg`, 32px; 44 below 820 and under touch, `--target-min`
+   there). INBOX 610's one press each stays:
+   a choice is a row of previews (`wbMapPickRow`), each an icon-only ghost
+   drawing what it makes, never wrapping. The select stays in the DOM because
+   every listener reads it, put away with `hidden`; the strip is
+   `data-no-select-enhance`, so no `.select-shell` is drawn for it. */
+.wb-map-strip-menu {
+  --wb-map-pick: max(var(--control-h-lg), var(--target-min));
 }
 
-.wb-map-choices.seg {
-  margin: 0;
+.wb-map-strip-menu .wb-menu-row {
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  min-height: var(--wb-map-pick);
 }
 
-.wb-map-choices.seg button {
-  padding: var(--space-1) var(--space-2);
+.wb-map-strip-menu .wb-menu-row > :first-child {
+  grid-row: 1;
+  grid-column: 1;
 }
 
-/* The text size on the bar: the same four segments, at the bar's own
-   control height so the well does not stand taller than the round buttons
-   beside it. */
-.wb-map-bar-size .wb-map-choices.seg {
-  flex-wrap: nowrap;
-  padding: 2px;
+.wb-map-strip-menu .wb-menu-row > :not(:first-child) {
+  grid-column: 2;
+  justify-self: start;
 }
 
-.wb-map-bar-size .wb-map-choices.seg button {
+.wb-board-menu.wb-map-strip-menu .wb-menu-controls > button,
+.wb-map-strip-menu .wb-menu-row .wb-map-pick {
+  width: var(--wb-map-pick);
+  height: var(--wb-map-pick);
   min-height: 0;
-  height: 1.5rem;
-  padding-block: 0;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+
+.wb-map-strip-menu .wb-menu-controls {
+  gap: 2px;
+}
+
+.wb-map-picks {
+  grid-row: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+}
+
+/* The icon slot's eleven and None are a palette, six to a row like the
+   swatch picker's (DESIGN.md "A choice among colours"): two rows by design,
+   not a run that wrapped, with More icons and emoji under them. */
+.wb-map-picks.is-grid {
+  display: grid;
+  grid-template-columns: repeat(6, var(--wb-map-pick));
+}
+
+.wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks.is-grid) {
+  align-items: start;
+  row-gap: var(--space-2);
+}
+
+.wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks.is-grid) > :first-child {
+  line-height: var(--wb-map-pick);
+}
+
+.wb-map-strip-menu .wb-map-icon-more {
+  grid-row: 2;
+  justify-self: stretch;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+/* A preview is drawn in the button's own ink, so the chosen one reads in
+   `--on-accent` on the accent with no rule of its own. */
+.wb-map-pick-preview {
+  width: 1.25rem;
+  height: 0.875rem;
+  flex: none;
+}
+
+.wb-map-pick-emoji {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+/* Chosen: the choice control's selected state (DESIGN.md: `--accent-surface`
+   behind `--on-accent`, no shadow), on the previews and on the door's own
+   toggles (Bold, Italic, Core idea, Dashed, Arrowhead) alike, so one door
+   has one way of saying "on". */
+.wb-board-menu.wb-map-strip-menu .wb-menu-controls > button.active,
+.wb-map-strip-menu .wb-menu-row .wb-map-pick.active {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* What the map gives a topic that follows it: ringed in the accent, not
+   filled, so the look you see and a look you chose never read the same. The
+   reset beside it says it is following by its ink rather than a fill: it is
+   a way back, not one more look. */
+.wb-map-strip-menu .wb-menu-row .wb-map-pick.is-inherited:not(.active) {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.wb-map-pick-follow {
+  margin-inline-start: var(--space-1);
+}
+
+.wb-map-strip-menu .wb-menu-row .wb-map-pick-follow.active {
+  background: transparent;
+  color: var(--accent-text);
+}
+
+/* The text size on the bar: the stepper recipe at the bar's own control
+   height, so it does not stand taller than the round buttons beside it. */
+.wb-map-size-stepper > .stepper-btn {
+  width: var(--target-min);
+  height: var(--target-min);
+}
+
+.wb-map-size-stepper .stepper-unit {
+  min-width: 2rem;
+}
+
+.wb-map-size-stepper .stepper-unit.is-inherited {
+  color: var(--accent-text);
+}
+
+/* At 44px a row of six previews is 278px, which leaves no room for a name
+   column inside the 21rem door: below the tablet band and under touch the
+   name goes over its previews instead, and the previews still never wrap. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+
+  .wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks) > :not(:first-child) {
+    grid-column: 1;
+  }
+
+  .wb-map-strip-menu .wb-menu-row > .wb-map-picks {
+    grid-row: 2;
+  }
+
+  .wb-map-strip-menu .wb-map-icon-more {
+    grid-row: 3;
+  }
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------

@@ -3296,7 +3296,13 @@ async function loadQuestions({ more = false } = {}) {
   for (const item of items) list.appendChild(questionRow(item));
   questionsView.offset += items.length;
   const counts = reply.counts || {};
-  for (const state of ["open", "answered", "dropped"]) $(`questions-count-${state}`).textContent = counts[state] || "";
+  //: The counts ride on the select's rows (INBOX 665), "Answered (2)", and
+  //: a state with none reads as its word alone.
+  for (const option of $("questions-state").options) {
+    const count = counts[option.value] || 0;
+    const text = count ? `${option.dataset.label} (${count})` : option.dataset.label;
+    if (option.textContent !== text) option.textContent = text;
+  }
   $("questions-more").classList.toggle("hidden", questionsView.offset >= (reply.total || 0));
   const ask = $("questions-ask");
   ask.disabled = !counts.open;
@@ -3308,15 +3314,10 @@ async function loadQuestions({ more = false } = {}) {
 function initQuestionsView() {
   if (questionsView.ready || !$("questions")) return;
   questionsView.ready = true;
-  const seg = $("questions-state");
-  seg.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-question-state]");
-    if (!button) return;
-    questionsView.state = button.dataset.questionState;
-    for (const other of seg.querySelectorAll("button")) {
-      other.classList.toggle("active", other === button);
-      other.setAttribute("aria-pressed", String(other === button));
-    }
+  const state = $("questions-state");
+  state.value = questionsView.state;
+  state.addEventListener("change", () => {
+    questionsView.state = state.value;
     loadQuestions();
   });
   //: INBOX 551: the night pass, now (it runs unattended only with background

@@ -4258,8 +4258,12 @@ button.is-on {
      Library has ever been opened the capture strip has no More and no
      fit, and a one-row strip there was cut at the card's edge with
      Bulleted list, Task, Link and Preview past it. Without its group it
-     wraps, which loses nothing. */
-  .doc-toolbar:has(> .doc-toolbar-tools) {
+     wraps, which loses nothing. **Never once More is open** (INBOX 665):
+     at (0,2,0) and later in the file this beat `.doc-toolbar.is-more-open`,
+     so on a phone More "opened" the strip into one row running 700px past
+     its own border (measured at 390: the last tool's right edge at 1052 on
+     a strip ending at 349), with nothing new to see. */
+  .doc-toolbar:not(.is-more-open):has(> .doc-toolbar-tools) {
     flex-wrap: nowrap;
   }
 

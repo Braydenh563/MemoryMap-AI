@@ -54,20 +54,6 @@ with its owner named in the entry.
      copy and, in the desktop app, a button that runs the same reset after a
      typed confirmation. Placed: next PR.
 
-665. **The owner, 2026-10-06, verbatim**, with four screenshots (the mind
-     map size picker "S Map M L XL"; the mind map popup's Box, Edge bar and
-     Fill rows as wrapping pill wells; a three-pill count group "21 / 0 /
-     21"; the note composer's formatting toolbar): "also clean up or
-     redesign this bit in the mind map popup. also i dont really like these
-     multi pill elements exept in some small cases like the little view
-     mode 2 pill ones in places and the formatting toolbar in the note
-     capture and edit forms go slightly off the edge on the border".
-     Recommendation: a `.seg` well only for two or three short, always
-     visible choices (view modes); longer option sets become a select or a
-     swatch/preview picker per DESIGN.md, the popup restructured; the
-     toolbar measured and kept inside its border at every width. Placed:
-     the 0.4.1 mini release, an Opus design agent.
-
 669. **The owner, 2026-10-06, verbatim.** "when I click atlas, it often
      starts tilting to the left then just snaps back" / "in the enlarged view
      panel". INBOX 600 eased a mood's loop back over 0.7s

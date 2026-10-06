@@ -182,7 +182,7 @@ MORE_TOPICS: list[dict] = [
             "Notes, Questions lists the questions your notes ask in passing, "
             "found when Atlas reads your notes (Read notes now, or on its own "
             "with background tasks on), newest note first: "
-            "Open, Answered and Dropped, each with a count. A row says when and "
+            "Open, Answered or Dropped, picked in the bar with a count on each. A row says when and "
             "in which note it was asked; when a later note answers it, the row "
             "says so with the sentence, and pressing that line opens the note. "
             "Mark answered asks which note answers it and links the two notes; "
@@ -969,9 +969,9 @@ MORE_TOPICS.extend(
                 "changes notes", "last run of a skill", "undo a skill run", "undo the run",
             ),
             "body": (
-                "Library, AI skills lists every skill: Yours and Built-in switch "
-                "between your own and the ones that ship with the app (each with "
-                "a count; on a narrow window each shows its icon and count), and "
+                "Library, AI skills lists every skill: the filter beside the "
+                "search shows All skills, Yours or Built-in (your own or the ones "
+                "that ship with the app, each with its count), and "
                 "the sort button (the arrows beside them) orders by Yours first, "
                 "Name A to Z or Recently run. Each card says whether the skill Reads only or Changes "
                 "notes, and how its last run went. Duplicate makes a copy of any "
@@ -1129,8 +1129,8 @@ MORE_TOPICS.extend(
                 "its level's: the Text and Shape menus over a selected topic set "
                 "them, and Fill offers Solid colour. View, How this map looks picks "
                 "the hierarchy (Classic, Outline with plain text on the lines, "
-                "Boxed, or Flat for every topic alike) and, under Centre, Main "
-                "branches or Sub-topics, that level's size, weight, box, edge bar, "
+                "Boxed, or Flat for every topic alike) and, with Setting on The "
+                "centre, Main branches or Sub-topics, that level's size, weight, box, edge bar, "
                 "fill and line. A topic's menu, Look: Copy this topic's style and "
                 "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
                 "Use this look for its level, which hands the topic's own look to "

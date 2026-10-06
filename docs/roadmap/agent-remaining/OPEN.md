@@ -774,6 +774,42 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
      dynamically animated and changed": both looks' tails, hair and nebula
      streams, per state, with secondary motion.
 
+## Closed 2026-10-06 (the last round's three found-not-fixed items)
+
+- **The shell at 360 wide, Large text, Spacious density was 368px** (hash
+  c069120). Cause: the header's six squares take `--target-min` and
+  `--header-control-h`, rems, so Large text made them 49.5px; the dock only
+  followed the stretched layout viewport. Both are capped at 44px inside
+  `header#top-bar`, and below 360 the bar's padding and gaps step down (inside
+  07-whiteboard-misc.css's one 359.98 query; `test_breakpoints.py` allows one).
+  `shellwidth.js`: scrollWidth <= viewport at 320, 360, 390 x small, normal,
+  large x compact, comfortable, spacious x all seven tabs, 20 failures to 0;
+  `phonehead.js` 0 findings. Note `innerWidth` grows with the content on a
+  mobile context (it read 368), so the sweep bounds against the viewport it
+  asked for.
+- **Phone action sheets vanished with no exit** (34a965c). `openSheet`'s close
+  adds `.sheet-leaving` (opacity and a short drop, `--motion-fast`) and removes
+  the overlay after the computed transition, at once under the OS hint or
+  Interface animations "reduced"; the ⋯ sheet sends its menu home in the new
+  `onGone`. `sheetexit.js`: gone at 178 and 180ms on Escape and an outside
+  press, first frame still drawn and pointer-events none, 0ms under both
+  reduced-motion routes, menu home and hidden after.
+- **Four sweeps repaired** (447d6fb, e4c1b76, and the commit that records this).
+  `kebab-viewport.js` ran 80s, the Bash limit's edge: `ONLY=menus|dock|wb`
+  splits it (12, 8 and 60 checks) and a not-found or did-not-open line now
+  fails it. `selmenu.js` selected a notes row, where a drag selects nothing; it
+  takes a paragraph and ends in PASS or FAIL. `libtab.js` listed no board on a
+  fresh data dir; it creates a board and a map and asserts the Library tab
+  leaves each. `mapstrip.js` asserts the corner `.wb-map-resize-grip` (absent
+  until selected, nwse-resize, grows the box, Shift scales text, 72x40 and 10
+  to 44 clamps), 43/43. It found a real fault: the grip, link and reference
+  doors closed over the object the node was built with (`wbMapLiveDatum` now
+  looks it up by id), so after a refresh a plain grip drag restored a cleared
+  25px text size.
+- *Found, not fixed:* `phonetabs.js` reports 3 findings on a near-empty
+  notebook (the bar does not recede on scroll there: nothing scrolls); not
+  compared against the base, since the change here does not touch the dock.
+
 ## Not verified
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The feminine sash sways on an inner <g>; The companion's walk lays out and recalculates style 59 times a second.

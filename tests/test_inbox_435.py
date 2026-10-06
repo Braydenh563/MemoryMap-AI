@@ -35,7 +35,7 @@ def test_a_bar_with_an_open_popup_stands_above_the_companion():
     at = css.index("#status-bar:has(.ai-status-wrap:hover")
     rule = css[at:css.index("}", at)]
     assert "header#top-bar:has(" in rule and "z-index: 51;" in rule
-    assert "#nm-buddy-band {" in css and "z-index: 50;" in css[css.index("#nm-buddy-band {"):][:200]
+    assert "#nm-buddy-band {" in css and "z-index: 44;" in css[css.index("#nm-buddy-band {"):][:900]
 
 
 def test_models_says_cannot_reach_only_when_the_server_is_down():

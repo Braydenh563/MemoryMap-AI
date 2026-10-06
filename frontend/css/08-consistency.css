@@ -5925,7 +5925,7 @@ body .chip.item-label,
    Placed by `left`/`top` from avatars.js, one layout per move and never per
    frame; the walk between perches is a `translate` avatars.js animates on
    the compositor. Above the top bar (40) so its hands can hold that edge,
-   and under toasts (60), menus and dialogs. Only the drawn parts take the
+   and under menus (45), popovers, toasts and dialogs (`#nm-buddy-band`). Only the drawn parts take the
    pointer: the box's empty corners are not a dead zone over the page. The
    box is the body's own 64 by 92 drawing, in px because avatars.js
    measures perches in those px. */
@@ -5989,13 +5989,23 @@ body .chip.item-label,
 #nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 #nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
 
+/* **44: above the top bar (40), under every menu (45), popover, panel and
+   dialog** (INBOX 694, the owner: "the companion covers the attach popup").
+   It was 50, which put it over each action menu (45), the dock's Attach
+   panel (45 inside a dock at 3) and the lock screen (50, a tie it won by
+   coming later in the body). A bar with its own popup open still lifts above
+   it (z 51, the rule at `header#top-bar:has(`), and the chat dock lifts to 46
+   while one of its panels is open. A `<dialog>` opened with `showModal()` is
+   in the browser's top layer, above any z-index, and a `.modal-overlay` is
+   1010, so with a modal open it is seen dimmed behind the scrim, as the
+   modal rule has it for every other thing on the page. */
 #nm-buddy-band {
   position: fixed;
   left: 0;
   top: 0;
   width: 0;
   height: 0;
-  z-index: 50;
+  z-index: 44;
   pointer-events: none;
 }
 

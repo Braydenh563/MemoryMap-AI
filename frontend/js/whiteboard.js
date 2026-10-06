@@ -17311,10 +17311,27 @@ async function wbFitToText(el) {
       toast("This topic is already sized to its text.");
       return;
     }
-    item.data = { ...item.data, sized: false };
-    item.height = null;
+    //: **The height is a number the server accepts, never null** (INBOX 716,
+    //: the owner's log: `[HTTP 422] PUT /whiteboard/objects/57: Check the
+    //: height and try again.`). `height` is not nullable on the object schema,
+    //: so dropping it as `null` was refused, `wbSaveObject` took the refusal
+    //: for a stale board and reloaded it from the server, and the server still
+    //: had the manual size: the next move of the node saved the old box back.
+    //: What the topic needs is what its text needs, so it is measured once the
+    //: floor is gone and stored as the drawn height, which is also what
+    //: `wbMapNodeSize` falls back to before an element exists.
+    const before = WB_KIND_INFO.object.payload(item);
     el.style.removeProperty("min-height");
+    item.data = { ...item.data, sized: false };
+    item.height = Math.max(WB_MAP_HEIGHT_FLOOR, Math.round(el.offsetHeight) || WB_MAP_NODE_H);
+    //: The line follows the box in the same frame. The size measured for the
+    //: edges is cached per gesture (`wbMapNodeSize`), and nothing here is a
+    //: pointer-up, so without this the branch kept ending at the old box until
+    //: something else redrew it.
+    wbForgetMapNodeSize(item.id);
+    wbUpdateMapEdges(wbMapEdgesFor(item.id));
     await wbSaveObject(item);
+    wbPushUndo({ action: "move", kind: "object", id: item.id, before });
     wbScheduleRender();
     toast("Sized to its text.");
     return;

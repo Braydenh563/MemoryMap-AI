@@ -53,7 +53,7 @@ def test_models_says_cannot_reach_only_when_the_server_is_down():
 
 def test_an_unfiled_note_offers_one_tap_categories():
     code = app_js_text()
-    settle = code[code.index("function settleCaptureStatus(status) {"):]
+    settle = code[code.index("function settleCaptureStatus(status"):]
     settle = settle[: settle.index("\n}\n")]
     assert "status.suggestions" in settle and "moveNotesToCategory([status.id], name)" in settle
     assert 'status.filed_by === "words"' in code

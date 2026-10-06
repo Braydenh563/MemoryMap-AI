@@ -21,7 +21,9 @@ def _section() -> str:
 def test_edge_pan_runs_for_a_marquee_and_an_item_drag_only():
     body = _section()
     assert "wbMarqueeEl && wbMarqueeStart && !wbMarqueeStart.pending" in body
-    assert "wbGesture && !wbGesture.cancelled && !wbEdgePan.turn" in body
+    # Not while the dragged item is over the delete target (INBOX 660): the
+    # board scrolling under it would carry it off the target.
+    assert "wbGesture && !wbGesture.cancelled && !wbGesture.overTrash && !wbEdgePan.turn" in body
     # Not for the pen tools or the hand, and not for a rotation.
     assert "WB_BRUSH_TOOLS.has(window.currentTool)" in body
     assert ".wb-rotate-handle, .wb-sketch-rotate-handle" in body

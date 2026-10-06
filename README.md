@@ -302,7 +302,7 @@ version for first-time terminal users.
 
 1. Choose a password when the app first opens.
 2. Add the AI. Install [Ollama](https://ollama.com) and pull a model that fits
-   your machine; `ollama pull llama3.2` is a safe start. Which model, from
+   your machine; `ollama pull llama3.2` through your computer's terminal is a safe start. Which model, from
    "runs on a laptop with no GPU" upwards, is in [docs/MODELS.md](docs/MODELS.md).
    LM Studio, llama.cpp's `llama-server`, Jan and vLLM work too, through
    Settings, Models.

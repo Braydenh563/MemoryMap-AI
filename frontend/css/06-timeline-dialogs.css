@@ -1200,6 +1200,56 @@
   font-size: 0.8rem;
 }
 
+/* INBOX 696: how long a job has run, beside its name, and a bulk action's
+   packages one line each (Background tasks and the Packages bundle rows). */
+.task-elapsed {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.task-steps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+}
+
+.task-step {
+  color: var(--muted);
+}
+
+.task-step.is-running {
+  color: var(--text);
+}
+
+.task-step.is-completed {
+  color: var(--ok);
+}
+
+.task-step.is-failed {
+  color: var(--error);
+}
+
+/* Pull a model by name (INBOX 700): the field takes the row, Pull beside it. */
+.embed-pull {
+  flex-wrap: nowrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.embed-pull > .search-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.task-step-bar.task-progress {
+  max-width: 12rem;
+  margin: var(--space-1) 0 0;
+}
+
 /* --- the in-app confirm dialog (§35F) --------------------------------------
    Replaces window.confirm, which pywebview's backends do not all implement, 
    one that doesn't returns undefined, and every `if (!confirm(...)) return;`
@@ -2351,7 +2401,8 @@
    switching something on. `.sr-only` stays excluded: that is the variant
    whose visible control is drawn by a sibling. */
 .checkbox-label>input[type="checkbox"]:not(.sr-only),
-.wb-snap-label input[type="checkbox"] {
+.wb-snap-label input[type="checkbox"],
+.ask-use-ai input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   /* A control's own size: not a spacing token, and it must not move with the
@@ -2447,7 +2498,8 @@
 .check-row input[type="checkbox"]::after,
 .semantic-toggle input[type="checkbox"]::after,
 .checkbox-label>input[type="checkbox"]:not(.sr-only)::after,
-.wb-snap-label input[type="checkbox"]::after {
+.wb-snap-label input[type="checkbox"]::after,
+.ask-use-ai input[type="checkbox"]::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -2471,7 +2523,8 @@
 .check-row input[type="checkbox"]:hover,
 .semantic-toggle input[type="checkbox"]:hover,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):hover,
-.wb-snap-label input[type="checkbox"]:hover {
+.wb-snap-label input[type="checkbox"]:hover,
+.ask-use-ai input[type="checkbox"]:hover {
   border-color: var(--ink);
 }
 
@@ -2482,7 +2535,8 @@
 .check-row input[type="checkbox"]:checked,
 .semantic-toggle input[type="checkbox"]:checked,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):checked,
-.wb-snap-label input[type="checkbox"]:checked {
+.wb-snap-label input[type="checkbox"]:checked,
+.ask-use-ai input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -2494,13 +2548,15 @@
 .check-row input[type="checkbox"]:checked::after,
 .semantic-toggle input[type="checkbox"]:checked::after,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):checked::after,
-.wb-snap-label input[type="checkbox"]:checked::after {
+.wb-snap-label input[type="checkbox"]:checked::after,
+.ask-use-ai input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
   background: #fff;
 }
 
 .checkbox-label>input[type="checkbox"]:not(.sr-only):disabled,
-.wb-snap-label input[type="checkbox"]:disabled {
+.wb-snap-label input[type="checkbox"]:disabled,
+.ask-use-ai input[type="checkbox"]:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

@@ -215,6 +215,9 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "search relevance", "minimum similarity", "above-average margin",
             "search engine", "semantic search", "embedding model", "re-index",
+            "embedding models", "multilingual search", "change embedding model",
+            "pull a model", "pull a model by name", "found on this computer",
+            "uninstall embedding model", "reinstall embedding model", "cached models",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
         ),
@@ -222,8 +225,20 @@ MORE_TOPICS: list[dict] = [
             "Settings, Search and index. Search engine: the built-in one "
             "(recommended, about 650 MB of memory while the app is open) or an "
             "Ollama embedding model such as nomic-embed-text; changing it "
-            "re-reads every note in the background and search uses keywords "
-            "until it finishes. Search index: Rebuild search index after an "
+            "re-reads every note in the background (Background tasks shows it, "
+            "with Stop) and search keeps using the current model until the new "
+            "one has read every note. Embedding models lists the choices, from "
+            "MiniLM (smallest, fastest) and BGE Small (the default) to "
+            "multilingual ones (Multilingual E5, BGE M3, Qwen3), with each "
+            "one's size, languages, context and licence: Use switches in one "
+            "press, and a model under other terms (EmbeddingGemma) links to "
+            "them instead; each row's ⋮ has Use, Install or Reinstall, and "
+            "Uninstall (refused on the model in use). Found on this computer "
+            "lists embedding models already here (the Hugging Face cache, "
+            "Ollama, LM Studio), with Use where MemoryMap can load them and "
+            "why not where it cannot. Pull a model by name takes a Hugging Face "
+            "repo (owner/name) or an Ollama name and checks it online only when "
+            "you press Pull. Search index: Rebuild search index after an "
             "update or a restore, or if search stops finding notes you know "
             "are there. Search relevance: Minimum similarity and Above-average "
             "margin; raise them for fewer, surer results, lower them if search "
@@ -251,13 +266,19 @@ MORE_TOPICS: list[dict] = [
             "battery", "battery-efficient", "save power", "quit the app",
             "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
+            "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
-            "(re-indexing, downloading a model, setting up search) with Quit on "
+            "(re-indexing, downloading a model, installing packages, setting up "
+            "search), each running job with a progress bar (a moving one when "
+            "it cannot count its steps) and how long it has run, with Stop on "
             "the jobs that can stop safely, and what has finished since it "
             "started. Background jobs lists every kind of job, the never-run "
-            "ones too, with when it last ran and how it went, and beside each "
+            "ones too, with when it last ran and how it went; each scheduled "
+            "pass (autonomous background AI, the night shift, the daily backup, "
+            "resurfacing, the embeddings backfill, housekeeping) also says when "
+            "it runs by itself and has Run now. Beside each "
             "control (Back up now, Rebuild search index, Find duplicates, the "
             "importers) a line reads, for example, \"Last run 2h ago, "
             "succeeded, 412 notes indexed\", with the exact time on hover; a "
@@ -286,12 +307,14 @@ MORE_TOPICS: list[dict] = [
             "missing, and its ⋮ reinstalls or removes them all. Tick packages "
             "to install, reinstall or remove several at once from the bar "
             "above the list; they run one after another and one that fails "
-            "does not stop the rest. An installed package's ⋮ has Reinstall "
+            "does not stop the rest; a bundle's row shows each of its packages "
+            "as it goes, waiting, installing or done. An installed package's ⋮ has Reinstall "
             "(for a feature that is on but not working) and Remove, and its "
             "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
-            "Tiny (fastest) to Medium (most accurate). Embedding models chooses "
-            "what search by meaning uses; it is downloaded once and kept."
+            "Tiny (fastest) to Medium (most accurate). Embedding models lists "
+            "the built-in models on this machine, each downloaded once and kept; "
+            "which one search uses is chosen in Settings, Search and index."
         ),
         "badge": {"label": "Packages", "section": "extras"},
     },
@@ -981,16 +1004,17 @@ MORE_TOPICS.extend(
             "badge": {"label": "Chat", "tab": "chat"},
         },
         {
-            #: INBOX 688: the Ask box's AI / From your notes switch.
+            #: INBOX 688, 714: the Ask box's Use AI switch.
             "id": "answers-from-notes",
             "keywords": (
                 "from your notes", "answer without ai", "no ai answer", "answer with no model",
                 "composed answer", "without the ai", "ai or notes", "notes instead of ai",
-                "switch off the ai", "ai off", "who answers", "ask without a model",
+                "switch off the ai", "ai off", "who answers", "ask without a model", "use ai",
             ),
             "body": (
-                "Ask on the Notes tab has a switch beside its title: AI, or From "
-                "your notes. From your notes answers with no AI: the app picks the "
+                "Ask on the Notes tab has a Use AI switch beside its title. On, your "
+                "model writes the answer; off, the answer is From your notes, with "
+                "no AI: the app picks the "
                 "sentences in your notes that answer the question and lays them "
                 "out, the closest one first under the note it came from, the rest "
                 "grouped by note, a timeline for a when question, the newest first "
@@ -1001,7 +1025,7 @@ MORE_TOPICS.extend(
                 "none of the notes found mention. It never answers yes or no for "
                 "you. The chip over the answer reads Your notes, no AI. The "
                 "choice is kept on this device; with no model running it is the "
-                "answer and AI is greyed until a model runs."
+                "answer and Use AI is greyed, with the reason on it, until a model runs."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1331,8 +1355,8 @@ TOPIC_META: dict[str, dict] = {
     "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
-    "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, AI or From your notes", "steps": (
-        "Open Ask on the Notes tab.", "Choose From your notes beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
+    "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, the Use AI switch", "steps": (
+        "Open Ask on the Notes tab.", "Turn Use AI off beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},

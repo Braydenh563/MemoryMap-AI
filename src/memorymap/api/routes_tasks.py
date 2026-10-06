@@ -60,7 +60,7 @@ def collect() -> list[dict]:
                 "label": "Re-indexing your notes",
                 "detail": f"{reindex['done']} of {reindex['total']}",
                 "progress": _percent(reindex["done"], reindex["total"]),
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -75,7 +75,7 @@ def collect() -> list[dict]:
                 "label": f"Downloading {name}",
                 "detail": f"{round(fraction * 100)}%" if fraction is not None else "starting…",
                 "progress": fraction,
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -93,7 +93,7 @@ def collect() -> list[dict]:
                 "stopped part-way: it is a single load with nothing to "
                 "interrupt between.",
                 "progress": None,
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -172,7 +172,7 @@ def collect() -> list[dict]:
                 "stops it at the next safe point and keeps it from starting "
                 "again for a while.",
                 "progress": None,
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -216,7 +216,8 @@ def collect() -> list[dict]:
                     f"{starting.get('backend') or 'source'} backend."
                 ),
                 "progress": min(waited / max(searxng_manager.START_TIMEOUT, 1), 1.0),
-                                "log": [],
+                "log": [],
+                "started": starting.get("since") or None,
             }
         )
 
@@ -235,12 +236,13 @@ def collect() -> list[dict]:
             {
                 "kind": "embedding-model",
                 "name": embed_download.model_id,
-                "label": f"Downloading {model.label}" if model else "Downloading an embedding model",
+                "label": f"Downloading {model.label if model else embed_download.label or 'an embedding model'}",
                 "detail": embed_download.step or "starting…",
                 # No fraction reported for the same reason pip's isn't below:
                 # snapshot_download doesn't hand back one worth trusting.
                 "progress": None,
-                                "log": list(embed_download.log),
+                "log": list(embed_download.log),
+                "started": embed_download.started or None,
             }
         )
 
@@ -264,6 +266,10 @@ def collect() -> list[dict]:
                 "detail": f"{bulk['done'] + 1 if now else bulk['done']} of {bulk['total']}. {step}",
                 "progress": bulk["done"] / bulk["total"] if bulk["total"] else None,
                 "log": list(pip.log),
+                "started": extras.bulk().started or None,
+                #: Each package and where it is (INBOX 696), so the row can
+                #: say which are done, which is in hand and which wait.
+                "steps": [{"label": item["label"], "outcome": item["outcome"]} for item in bulk["items"]],
             }
         )
     elif pip.running:
@@ -278,7 +284,8 @@ def collect() -> list[dict]:
                 # pip does not report a fraction it is worth believing, and a
                 # bar that guesses is worse than one that admits it can't say.
                 "progress": None,
-                                "log": list(pip.log),
+                "log": list(pip.log),
+                "started": pip.started or None,
             }
         )
 
@@ -301,6 +308,34 @@ def collect() -> list[dict]:
             }
         )
 
+    # The Windows installer's download (Settings, About, Update now): minutes
+    # on a slow line, and it was visible only in its own dialog (INBOX 696:
+    # "does everything show in the background tasks??").
+    from memorymap.api import routes_update
+
+    update = routes_update.current()
+    if update["running"]:
+        tasks.append(
+            {
+                "kind": "app-update",
+                "name": "",
+                "label": "Downloading the update",
+                "detail": update["step"] or "starting…",
+                "progress": _percent(update["done_bytes"], update["total_bytes"]),
+                "log": [],
+            }
+        )
+
+    # Changing the embedding model (INBOX 700): its own row with the phase
+    # and the notes done, like the re-index above.
+    from memorymap.core import embedswitch
+
+    switch = embedswitch.task_row()
+    if switch:
+        tasks.append({"kind": "embed-switch", **switch})
+
+    _stamp_started(tasks)
+
     # **One table decides, not eight hard-coded booleans.** Every entry above
     # used to carry its own `"cancellable": True/False`, and six of them said
     # False because nothing could stop them, which was true when they were
@@ -308,15 +343,45 @@ def collect() -> list[dict]:
     # canceller. A flag repeated at eight call sites is a flag that drifts;
     # this reads the same table the cancel endpoint dispatches through, so the
     # button appears exactly where pressing it does something.
+    from memorymap.core import passes
+
     for task in tasks:
         task["cancellable"] = (
             task["kind"] in bgtasks.CANCELLABLE_KINDS
+            # A running pass that has a step to stop at (INBOX 713).
+            or (task["kind"] == "job-pass" and not task.get("queued") and passes.kind_for_label(task.get("name", "")) in passes.STOPPABLE)
             or task["kind"] in FILING_KINDS
             # A queued job the `jobs` table holds: cancelling its row is a
             # real stop (`jobstore.cancel`). A running one is not offered.
             or bool(task.get("queued") and task.get("job_id"))
         )
     return tasks
+
+
+#: (kind, name) -> when `collect` first saw that row, for a job that keeps no
+#: clock of its own (a re-index, a pull, the SearXNG install). A first sight
+#: is a poll's, so it can be late by one poll interval; it never restarts
+#: while the row stays, which is what lets the elapsed time grow.
+_first_seen: dict[tuple[str, str], float] = {}
+
+
+def _stamp_started(tasks: list[dict]) -> None:
+    """Give every row a `started` (INBOX 696: the panel shows how long each
+    has run): its own where the job keeps one, else when it was first seen.
+    Rows gone from the list are forgotten, so a job run again starts afresh."""
+    now = time.time()
+    keys = set()
+    for task in tasks:
+        key = (task["kind"], str(task.get("name") or ""))
+        keys.add(key)
+        if task.get("started"):
+            task["started"] = float(task["started"])
+            _first_seen[key] = task["started"]
+            continue
+        task["started"] = _first_seen.setdefault(key, now)
+    for key in list(_first_seen):
+        if key not in keys:
+            del _first_seen[key]
 
 
 #: The filing rows (the pool's "Filing a note" and janitor's late-answer
@@ -346,7 +411,8 @@ def list_tasks() -> dict:
     finished, and the only record of why was the log console, a different
     screen that you have to know to look at.
     """
-    return {"tasks": collect(), "history": taskhistory.recent()}
+    #: `now` so the panel counts elapsed time on the server's clock.
+    return {"tasks": collect(), "history": taskhistory.recent(), "now": time.time()}
 
 
 @router.get("/jobs/last-runs")
@@ -359,7 +425,28 @@ def jobs_last_runs() -> dict:
     `/tasks` this survives a restart: it is the database's record, not the
     process's.
     """
-    return {"jobs": jobruns.last_runs(deps.get_db())}
+    from memorymap.core import passes
+
+    #: The scheduled passes carry their schedule and a Run now (INBOX 713).
+    runs = jobruns.last_runs(deps.get_db())
+    extra = passes.overview()
+    for run in runs:
+        run.update(extra.get(run["kind"], {}))
+    return {"jobs": runs}
+
+
+@router.post("/jobs/passes/{kind}/run")
+def run_pass_now(kind: str) -> dict:
+    """Run one scheduled pass now, through the job pool, deduped (INBOX 713).
+    `kind` is a name from `passes.PASS_KINDS`, never a function."""
+    from fastapi import HTTPException
+
+    from memorymap.core import passes
+
+    if kind not in passes.PASS_KINDS:
+        raise HTTPException(status_code=404, detail="No such pass.")
+    started, message = passes.run_now(kind)
+    return {"started": started, "message": message}
 
 
 @router.get("/jobs")
@@ -454,6 +541,13 @@ def cancel_task(body: CancelTaskBody) -> dict:
     honest response is `stopped: false` and a sentence saying so.
     """
     kind = body.kind.strip()
+    if kind == "job-pass":
+        # A scheduled pass started by hand (INBOX 713): stopped at its next
+        # step where it has one, said plainly where it has not.
+        from memorymap.core import passes
+
+        stopped, detail = passes.stop(passes.kind_for_label(body.name.strip()))
+        return {"status": "ok", "stopped": stopped, "detail": detail}
     if kind.startswith("job-") and kind not in FILING_KINDS:
         count = jobstore.cancel_queued(kind[len("job-"):], body.name.strip())
         if count:

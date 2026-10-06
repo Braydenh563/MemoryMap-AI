@@ -1096,20 +1096,12 @@ function startApp() {
   // answer the documents full screen asks); the answer is kept on this
   // device so the next launch paints without the tile, rather than drawing
   // it and pulling it back when the reply lands. A browser tab keeps it.
-  try {
-    document.documentElement.dataset.chrome = localStorage.getItem("windowChrome") || "";
-  } catch (error) {
-    // No storage: the reply below still sets it for this session.
-  }
+  document.documentElement.dataset.chrome = prefs.get("windowChrome", "");
   apiJson("/desktop/fullscreen", { silent: true })
     .then((state) => {
       const chrome = state?.available ? "native" : "";
       document.documentElement.dataset.chrome = chrome;
-      try {
-        localStorage.setItem("windowChrome", chrome);
-      } catch (error) {
-        // Not kept; the next launch asks again.
-      }
+      prefs.set("windowChrome", chrome);
     })
     .catch(() => {});
 
@@ -1918,7 +1910,7 @@ const LAZY_MODULES = {
   chipMenus: ["/js/chip-menus.js"],
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
-  //: The Ask box's AI / From your notes switch (ask-compose.js), preloaded below.
+  //: The Ask box's Use AI switch (ask-compose.js), preloaded below.
   askCompose: ["/js/ask-compose.js"],
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/js/questions-view.js"],
@@ -1977,6 +1969,8 @@ const LAZY_MODULES = {
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
+  //: Settings, Search and index's embedding models (INBOX 700, embed-choices.js).
+  embedChoices: ["/js/embed-choices.js"],
   //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
   chordGuide: ["/js/chord-guide.js"],
   //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
@@ -2241,6 +2235,7 @@ const LAZY_ENTRY_POINTS = {
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
+  embedChoices: ["renderEmbedChoices"],
   chordGuide: ["showTabJumpHint"],
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],
@@ -2276,7 +2271,7 @@ const LAZY_ENTRY_POINTS = {
   accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

@@ -72,6 +72,8 @@ HANDLERS: dict[str, str] = {
     "vision-pdf": "memorymap.ai.vision_ocr:pdf_vision_ocr_and_store",
     "document": "memorymap.ai.docreader:read_document_and_store",
     "file-entry": "memorymap.api.routes_entries:_file_entry_in_background",
+    #: Resumes where it stopped: staged vectors for the same target are kept.
+    "embed-switch": "memorymap.core.embedswitch:run",
     #: Tidy's link reason pass (INBOX 691): idempotent, a named link no
     #: longer matches, so a resumed pass repeats nothing.
     "tidy-link-reasons": "memorymap.entry.tidy:respecify_all",

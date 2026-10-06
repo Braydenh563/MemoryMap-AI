@@ -1877,20 +1877,21 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="row space-between">
             <h2>Ask your notebook</h2>
             <span class="row ask-header-actions">
-              <!-- Who writes the answer (INBOX 688): the model, or the app
-                   composing it from the notes' own sentences with no model
-                   (`ai/composer.py`). Two short choices always in view, the
-                   `.seg` recipe; this device's choice, wired and kept in step
-                   with the model by ask-compose.js (lazy). -->
-              <div class="seg seg-compact ask-source-seg" id="ask-source-seg" role="group" aria-label="Who answers">
-                <button type="button" data-answer-from="ai" class="active" aria-pressed="true"
-                  title="Atlas answers with your model, citing your notes">AI</button>
-                <button type="button" data-answer-from="notes" aria-pressed="false"
-                  title="Compose the answer from your notes' own sentences, with no AI">From your notes</button>
-              </div>
+              <!-- Who writes the answer (INBOX 688, 714): on, the model composes
+                   it; off, the app composes it from the notes' own sentences
+                   with no model (`ai/composer.py`). One compact switch row on
+                   the app's pill-switch recipe (INBOX 714: the two-segment
+                   pill "doesnt feel modern and professional"), this device's
+                   choice, wired and kept in step with the model by
+                   ask-compose.js (lazy). The markup's own state (on) stands
+                   until it lands. -->
+              <label class="ask-use-ai" id="ask-use-ai-row" title="Atlas answers with your model, citing your notes">
+                <input type="checkbox" id="ask-use-ai" checked>
+                <span>Use AI</span>
+              </label>
               <button type="button" class="icon-only ghost small graph-help-toggle"
                 data-help-for="ask-source-help" aria-controls="ask-source-help" aria-expanded="false"
-                title="About answers from your notes" aria-label="About answers from your notes">
+                title="About the Use AI switch" aria-label="About the Use AI switch">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
               <!-- The model this box answers on: the Ask tab row of Settings,
@@ -1912,20 +1913,22 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Clear this conversation and start fresh">New chat</button>
             </span>
           </div>
-          <div class="help-body hidden" id="ask-source-help" role="dialog" aria-label="About answers from your notes">
+          <div class="help-body hidden" id="ask-source-help" role="dialog" aria-label="About the Use AI switch">
             <p>
-              From your notes answers with no AI. The app picks the sentences
-              in your notes that answer the question and lays them out: the
-              closest one first, the rest grouped by note, a timeline for a
-              when question, the newest first for a latest question, two sides
-              for a comparison.
+              Use AI on: your model writes the answer from your notes, citing
+              them. Off: the answer is From your notes, with no AI. The app
+              picks the sentences in your notes that answer the question and
+              lays them out: the closest one first, the rest grouped by note,
+              a timeline for a when question, the newest first for a latest
+              question, two sides for a comparison.
             </p>
             <p>
               Every sentence in it is quoted from a note and cited; the only
               words the app adds are the joining ones and the counts and dates
               it measured. It never answers yes or no for you, and it says
               which of your words none of the notes found mention. With no
-              model running it is the answer; AI comes back when a model does.
+              model running the switch is off and greyed, and the answer is
+              From your notes; Use AI comes back when a model does.
             </p>
           </div>
           <!-- One surface, not five loose controls on a bare card. The
@@ -9117,8 +9120,23 @@ Link to another note with [[its first few words]]."></textarea>
                   Pick a dedicated <strong>embedding</strong> model (e.g.
                   nomic-embed-text): chat models can't create embeddings.
                   Changing this re-reads every note so search keeps making
-                  sense, it runs in the background and search falls back to
-                  keywords until it finishes.
+                  sense. It runs in the background (Settings, Background
+                  tasks shows it, with Stop) and search keeps using the
+                  current model until the new one has read every note.
+                </p>
+                <p>
+                  Embedding models lists the choices with their size,
+                  languages, how much text they read at once and their
+                  licence. Use switches in one press for an open licence;
+                  others link to their terms. Each row's ⋮ installs,
+                  reinstalls or uninstalls it (never the one in use).
+                </p>
+                <p>
+                  Found on this computer lists embedding models already on
+                  disk (the Hugging Face cache, Ollama, LM Studio), read
+                  without going online. Pull a model by name checks a Hugging
+                  Face repo or an Ollama name online when you press Pull,
+                  then downloads it as a background task.
                 </p>
                 <!-- INBOX 266 (5), measured: 104MB before the built-in model
                      loads, 774MB after. The only memory lever left once the
@@ -9157,6 +9175,30 @@ Link to another note with [[its first few words]]."></textarea>
                 The Ollama option needs Ollama running, start it and this list
                 fills in. The built-in engine works either way.
               </p>
+              <!-- INBOX 700: the curated choices, drawn by embed-choices.js
+                   (lazy) from GET /embedding-models/choices. Use switches in
+                   the background (core/embedswitch.py). -->
+              <h4 class="setting-subhead">Embedding models</h4>
+              <p class="muted">Pick one; search keeps working on the current model while the new one reads your notes.</p>
+              <ul id="embed-choices" class="extras-list" aria-label="Embedding models"></ul>
+              <p id="embed-choices-status" class="muted small" role="status"></p>
+              <!-- The owner's addenda to 700: models already on this computer
+                   (core/embedfind.py, a read-only scan), and pulling one by
+                   name (POST /embedding-models/pull). -->
+              <h4 class="setting-subhead">Found on this computer</h4>
+              <ul id="embed-found" class="extras-list" aria-label="Embedding models found on this computer"></ul>
+              <p id="embed-found-empty" class="muted empty-line hidden">None found outside the list above.</p>
+              <h4 class="setting-subhead">Pull a model by name</h4>
+              <p class="muted">A Hugging Face repo (owner/name) or an Ollama name (name:tag); Pull checks it online, nothing is sent before.</p>
+              <div class="row embed-pull">
+                <div class="search-field">
+                  <i class="ph ph-download-simple search-field-icon" aria-hidden="true"></i>
+                  <input id="embed-pull-name" type="text" class="search-field-input" autocomplete="off" spellcheck="false"
+                    placeholder="BAAI/bge-small-en-v1.5 or nomic-embed-text" aria-label="Pull a model by name">
+                </div>
+                <button id="embed-pull-go" type="button" class="small ghost">Pull</button>
+              </div>
+              <p id="embed-pull-status" class="muted small" role="status"></p>
             </div>
             <!-- Not `hidden` any more: this used to appear only *while* a
                  re-index ran, and the only thing that could start one was
@@ -11268,6 +11310,11 @@ Link to another note with [[its first few words]]."></textarea>
                   list above, this is remembered after you restart. A job that
                   has never run says so. Hover a line for the exact time and
                   how long it took.
+                </p>
+                <p>
+                  A scheduled pass also says when it runs by itself, and Run
+                  now starts it at once; while it runs, its row in the list
+                  above has Stop where it has a step to stop at.
                 </p>
               </div>
               <ul id="job-runs-list" class="entry-list"></ul>

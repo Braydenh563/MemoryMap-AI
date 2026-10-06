@@ -66,47 +66,54 @@ with its owner named in the entry.
      and seven popups with the companion placed over their heads. Part 1 (the
      cut pill bottoms) is still open; 694 is not resolved.
 
-696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
-     package bundles and the buttons disabled and it just stayed as the 2/3
-     packages I had installed until it just suddenly updated, there was no
-     progress indicator or anything. does verything show in the background
-     tasks?? also the running background task stuff dont have progress bars
-     or indicators, they are just flat rows". Next: a bundle install shows
-     per-package progress in its row (queued, installing with a determinate
-     or indeterminate bar, done), every long job appears in Background
-     tasks, and a running task row carries a progress bar (determinate when
-     the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
-     release, an Opus agent when a slot frees.
-     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
-     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
 
-700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
-     model options as alternatives in the models??" / "research the best
-     ones available today". Research, 2026-10-06 (sources in the session
-     report): small and CPU-friendly: all-MiniLM-L6-v2 (22M, fastest),
-     BAAI/bge-small-en-v1.5 (today's default), nomic-embed-text v1.5 (137M,
-     8k context), EmbeddingGemma 300M (2k context; Gemma terms, not
-     Apache), Qwen3-Embedding-0.6B (Apache-2.0, about 70.7 MTEB-eng-v2,
-     about 1.2 GB), BGE-M3 (568M, multilingual, MIT), multilingual-e5-small;
-     through Ollama also mxbai-embed-large, snowflake-arctic-embed2,
-     granite-embedding and qwen3-embedding 0.6b/4b/8b. Decision taken: a
-     curated list in Models with size, languages, context, licence and a
-     one-line "best for", the current default kept; changing the model
-     re-embeds in the background (durable job, progress shown, search keeps
-     working on the old vectors until the new set is complete); only
-     licences that allow it are offered as one-press installs, others link
-     to their terms. Placed: the next free agent slot.
-     Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
-     Addendum, the owner, 2026-10-06, verbatim: "I feel like there should be the options to modify, install, uninstall, reinstall embedded models etc. also maybe a way to type a model name into a text box near the suggested model section and then pull in a model that is typed in the box if it exists?? like from ollama or huggingface."
+715. **The owner, 2026-10-06, verbatim**, with screenshots of the New board
+     dialog (the "Name" label touching the field's focus ring; the Board |
+     Mind map pill under the title; Mind map offering only "Blank"): "name
+     text clashes with border. also the pill at the top is ugly and I want it
+     to be redesigned to be like the other popups. also there are no mindmap
+     templates to choose from". Then, with the SWOT, retro and To do / Doing /
+     Done board templates (dashed boxes, titles of three different sizes
+     sitting on the dashed border): "some of the templates are poorly
+     designed and the templates need massive improving and expanding". Then,
+     with the template preview's description text flush to its box's top
+     left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
+     Addendum, the owner, 2026-10-06, verbatim, with the mind map's "Start from a shape" bar and the icon picker's Emoji | Icons pill: "redesign this popup. and change the pill for the emoji popup as well. i dont like pills like that in popups"
 
-713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
-     processes like the night shift and stuff, is it possible to manually
-     run them as well as manually stop or cancel them when they are
-     running??" Decision taken: every scheduled pass (the night shift and
-     the other maintenance passes) is listed in Background tasks with its
-     schedule and last run, a "Run now" on each, and a running job's row
-     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
-     next step. Placed: with 696, the progress agent.
+716. **The owner, 2026-10-06, verbatim**, three mind map bugs with screenshots.
+     (1) "I double clicked to reset the sizing on a mindmap node and the link
+     didnt update" (the branch line still ends at the old, larger box).
+     (2) "then I moved the reset node and it went back to my manually upscaled
+     size". (3) With the View menu open over a selected node: "mindmap node
+     popup tools go in front of dropdown menus" (the node's floating format
+     bar, colour, 17px, Text, Shape, Branch line, draws over the menu).
+     The owner's server log at the time: "ERROR: browser: [HTTP 422] PUT /whiteboard/objects/57: Check the height and try again." then "WARN: browser: [Whiteboard] object 57 is stale: reloading the board".
+     Placed: Sonnet agent.
+
+717. **The owner, 2026-10-06, verbatim**, with screenshots of the OCR
+     workspace toolbar (Regions switch, Fit, 100%, zoom, One page | Scroll,
+     engine select, Read this page again, a bare "all" field, Read pages, then
+     a second row: "Tesseract 5.5.3 is ready", Reads in [Default], Manage):
+     "these arent aligned. and can you redesign the ocr worspace controls to be
+     more modern, professional, learnable, accessible, usable and better ui/ux??
+     they also go onto two rows. the whole ocr workspace is just a bit iffy to
+     use and interact with". Then, after pressing the workspace's comment
+     button (the page's text landed in the chat composer under a "No model is
+     connected" banner and a skill offer): "I pressed the comment button on the
+     ocr workspace and idk what just happened". Placed: Opus agent.
+
+718. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tidy
+     review's "Apply automatically" switch (an outlined track with a grey knob,
+     drawn thinner than the app's other switches, inside a filled chip): "this
+     button toggle seems overly thin". Placed: Sonnet agent with 716.
+     Addenda, the owner, 2026-10-06, verbatim, on the Tidy dialog: "no vertical
+     spacing between elements,also what is naming???" (Recent runs touching the
+     row above and the Undo row below; the "Name 1" and "Name all in the
+     background" buttons). "is it possible to see all issues identified??" (the
+     review picker is a dropdown of nine). "this popup coveres the ? button and
+     is massive and takes up a lot of room" (the Tidy help popover, a long
+     scrolling essay over its own trigger).
+
 
 ## Placed (last 20, newest first)
 
@@ -127,4 +134,3 @@ with its owner named in the entry.
   docks as one bar, timeline redesign, responsive design, em-dashes,
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
-

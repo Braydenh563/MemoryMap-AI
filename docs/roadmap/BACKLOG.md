@@ -2551,6 +2551,59 @@ Work, in order:
 
 **Pointer:** `scratchpad/audit1005/features.md` section 10 (Documents D3) and section 4 row C6 and Phase E. Documents and boards render and import Mermaid (steps 1, 3 and 4 above); the AI-writes-mermaid-then-preview flow (step 2) and chat and notes rendering are what is left.
 
+**The owner, 2026-10-06, verbatim:** "also does the whiteboard handle and export
+in mermaid.js?? can the ai generate diagrams for export, download and opeining
+in the whiteboard (may need heavy guidance)?? maybe this should go in the
+roadmap". Answer: yes for import and export (flowcharts and subgraphs, built
+above); no for the AI step. Placed as the next diagram work, in order:
+
+5. **The AI writes Mermaid, heavily guided.** A built-in skill "Draw a
+   diagram" with a house style and few-shot examples per kind (flowchart,
+   mind map, sequence, timeline), a small-model-safe subset (flowchart TD/LR,
+   subgraphs, labelled edges, no styling directives), and a verifier:
+   `wbMermaidParse` must accept the text, every node must be reachable and
+   labels at most 40 characters, else one re-prompt with the parser's error,
+   then a plain failure. Replaces `generate_diagram` writing straight to the
+   board.
+6. **Preview, then act**: the step 2 split view, with three actions: Open in
+   whiteboard (a new board via `wbMermaidLayout`, the source kept), Download
+   (`.mmd` and `.svg`) and Copy.
+7. **Wider Mermaid**: sequence and timeline diagrams render in documents and
+   chat, and import to boards as frames; anything else stays as code.
+
+**The owner, 2026-10-06, verbatim:** "I think mermaid.js should be better
+integrated and expanded with the features, add to roadmap as well". This
+reopens DOCUMENTS_PLAN decision 3 ("No Mermaid is vendored"), by the owner.
+New decision: **vendor mermaid.js** into `frontend/vendor/` (MIT, so it may
+come into this AGPL project with its notice; never fetched from a CDN, the
+fully-local rule holds), **lazy-loaded** only when a diagram is on screen (it
+is large; never in the boot scripts or their gzip budget), with
+`securityLevel: "strict"` and no HTML labels (the CSP and the
+`test_no_innerhtml_interpolation` rule). The in-house flowchart parser stays
+as the board import path (`wbMermaidParse`) and the verifier in step 5.
+
+8. **Every Mermaid kind renders** where Markdown renders: documents, chat,
+   Ask answers, note previews and the print view: flowchart, sequence, class,
+   state, ER, Gantt, timeline, mind map, pie, quadrant, journey, git graph.
+   Themed from the app's tokens (light, dark, high contrast), re-drawn on a
+   theme switch.
+9. **A Mermaid editor**: a Live and Split view for a fence (source beside the
+   drawing, errors inline with the line), snippets per kind from the "/" menu,
+   and a "Diagram" block in the document toolbar.
+10. **Boards and mind maps both ways**: a mind map exports to and imports
+    from Mermaid `mindmap`; sequence and timeline import as frames with
+    shapes; a board frame can be "Copy as Mermaid".
+11. **Export**: any diagram to SVG and PNG, the `.mmd` source, and Mermaid
+    kept inside the exported SVG (as boards already do); a diagram in a
+    document exports with the document (PDF, HTML, DOCX as an image).
+12. **The AI**: steps 5 and 6 above use the full renderer for the preview;
+    the agent gets a `render_mermaid` check tool so it can see its own parse
+    errors; Ask can answer with a diagram when the question asks for one.
+13. **Tests and guards**: a lazy-load test (not in `app_js_files`), a
+    vendored-file licence notice test, a CSP test that no inline style or
+    script is injected, and a sweep that renders one of each kind in light
+    and dark with no console errors.
+
 ### Related, and cheap: finish the rendering story
 
 Checked this session: chat, documents and the dashboard digest all go through

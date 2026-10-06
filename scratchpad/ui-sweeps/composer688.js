@@ -1,4 +1,4 @@
-// INBOX 688: the Ask box's "AI" / "From your notes" switch and the composed
+// INBOX 688, 714: the Ask box's "Use AI" switch and the composed
 // answer, driven in a real browser with no model running.
 //
 //   bash scratchpad/ui-sweeps/serve.sh 8827 <scratch>/mm-comp
@@ -6,8 +6,8 @@
 //   BASE=http://127.0.0.1:8827 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     THEME=light node scratchpad/ui-sweeps/composer688.js   (then THEME=dark)
 //
-// For each width (1440, 390): the switch's state with no model (From your
-// notes chosen, AI disabled with its reason), the toggle (with `aiIsOff`
+// For each width (1440, 390): the switch's state with no model (off and
+// disabled with its reason), the toggle (with `aiIsOff`
 // stubbed to false: the choice is stored, pressed and sent as `answer_from`),
 // then the ten audit questions: every answer composed, labelled, cited, its
 // markers pointing at notes in Matching records, no console error, no
@@ -42,43 +42,34 @@ async function run(width) {
   const findings = [];
 
   const seg = await page.evaluate(() => {
-    const s = document.getElementById('ask-source-seg');
-    const b = [...s.querySelectorAll('button')].map((x) => ({
-      from: x.dataset.answerFrom, pressed: x.getAttribute('aria-pressed'), disabled: x.disabled, title: x.title,
-      w: Math.round(x.getBoundingClientRect().width), clipped: x.scrollWidth > x.clientWidth + 1,
-    }));
-    const r = s.getBoundingClientRect();
-    const head = s.closest('.row').getBoundingClientRect();
-    return { buttons: b, wired: s.dataset.wired, segRight: Math.round(r.right), vw: innerWidth, headH: Math.round(head.height) };
+    const box = document.getElementById('ask-use-ai');
+    const r = box.closest('label').getBoundingClientRect();
+    return { checked: box.checked, disabled: box.disabled, title: box.closest('label').title, wired: box.dataset.wired, right: Math.round(r.right), vw: innerWidth };
   });
-  console.log(`[${width}] seg`, JSON.stringify(seg));
-  const notesBtn = seg.buttons.find((b) => b.from === 'notes');
-  const aiBtn = seg.buttons.find((b) => b.from === 'ai');
+  console.log(`[${width}] use-ai`, JSON.stringify(seg));
   if (seg.wired !== '1') findings.push('the switch was never wired (ask-compose.js not loaded)');
-  if (notesBtn.pressed !== 'true') findings.push('no model, but From your notes is not chosen');
-  if (!aiBtn.disabled || !/No model is running/.test(aiBtn.title)) findings.push('no model, but AI is not disabled with its reason');
-  if (seg.segRight > seg.vw) findings.push(`the switch runs off screen: right ${seg.segRight} > ${seg.vw}`);
-  if (seg.buttons.some((b) => b.clipped)) findings.push('a switch label is clipped');
+  if (seg.checked) findings.push('no model, but Use AI is on');
+  if (!seg.disabled || !/No model is running/.test(seg.title)) findings.push('no model, but Use AI is not disabled with its reason');
+  if (seg.right > seg.vw) findings.push(`the switch runs off screen: right ${seg.right} > ${seg.vw}`);
 
-  // The toggle itself, with a model "running": stored, pressed, sent.
+  // The toggle itself, with a model "running": stored, checked, sent.
   const toggle = await page.evaluate(async () => {
     const real = window.aiIsOff;
     window.aiIsOff = () => false;
-    renderAskSourceSeg();
-    const seg = document.getElementById('ask-source-seg');
-    const ai = seg.querySelector('[data-answer-from="ai"]');
-    const notes = seg.querySelector('[data-answer-from="notes"]');
-    const out = { aiEnabled: !ai.disabled };
-    ai.click();
-    out.afterAi = [localStorage.getItem('ask-answer-from'), ai.getAttribute('aria-pressed')];
-    notes.click();
-    out.afterNotes = [localStorage.getItem('ask-answer-from'), notes.getAttribute('aria-pressed'), ai.getAttribute('aria-pressed')];
+    renderAskUseAi();
+    const box = document.getElementById('ask-use-ai');
+    const out = { enabled: !box.disabled, on: box.checked };
+    box.click();
+    out.afterOff = [localStorage.getItem('ask-answer-from'), box.checked];
+    box.click();
+    out.afterOn = [localStorage.getItem('ask-answer-from'), box.checked];
+    box.click();
     window.aiIsOff = real;
-    renderAskSourceSeg();
+    renderAskUseAi();
     return out;
   });
   console.log(`[${width}] toggle`, JSON.stringify(toggle));
-  if (!toggle.aiEnabled || toggle.afterAi.join() !== 'ai,true' || toggle.afterNotes.join() !== 'notes,true,false') {
+  if (!toggle.enabled || !toggle.on || toggle.afterOff.join() !== 'notes,false' || toggle.afterOn.join() !== 'ai,true') {
     findings.push('the toggle does not store and show the choice');
   }
 

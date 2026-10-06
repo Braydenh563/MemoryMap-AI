@@ -654,3 +654,14 @@ the owner says otherwise).
     still from the notes or a measured value, and the person can turn the
     personal wording off.
 
+**Decision, the owner, 2026-10-06, verbatim:** "ai should still be the core
+when it is available, but the composer should be used to lessen the load,
+refine and betetr the responses and results, assist and complement, as well
+as cheapen the run cost of the ai". Every item above is held to it: with a
+model running, the model answers; the composer prepares its input (item 10),
+checks and refines its output against the notes, answers the cheap parts
+itself (counts, dates, lists, follow-ups, suggestions) so the model is called
+less and with shorter prompts, and fills the screen while the model streams.
+Measured as model tokens and calls per task, before and after, with answer
+quality held or better.
+

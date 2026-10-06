@@ -48,7 +48,7 @@ use, and none of them is your notes:
 | The search model | Once, the first time search by meaning needs it | The `sentence-transformers` package from PyPI and `BAAI/bge-small-en-v1.5` from Hugging Face. `MEMORYMAP_NO_AUTO_INSTALL` stops it, and an Ollama embedding model avoids it |
 | Optional packages and SearXNG | You press Install in Settings, Packages, or Start SearXNG in Settings, Web search | pip downloads; Run Python files (Pyodide) from GitHub and Tool calling without Ollama (needle) from Hugging Face, both checked against a sha256; SearXNG's source from GitHub |
 | Web search | Only while Settings, Web search is on, which also covers the reader view and page clipping | Your search words, or the address of the page you open. Never your notes |
-| The update check | Only if you turn on Settings, About, Updates, Check GitHub for a newer version, or press Check for updates | A request to GitHub's releases API, with no data about you. A launcher copy asks once, at first start, before it pulls |
+| The update check | Only if you turn on Settings, About, Updates, Check GitHub for a newer version, or press Check for updates | A request to GitHub's releases API, with no data about you. The first start asks once whether to check automatically (in the terminal for `start.sh`, in the app otherwise), and until you answer nothing about updating touches the network, a launcher copy's pull included |
 
 Your notes, your questions and everything the AI writes about them stay on your
 machine in every case. The AI provider is a separate matter, covered above.

@@ -66,9 +66,10 @@ def _parsed() -> _Collect:
 
 def _scripts_and_styles() -> str:
     source = SITE.read_text(encoding="utf-8")
-    # Case-insensitive and lenient about the closing tag (`</SCRIPT >`), so an
+    # Case-insensitive and lenient about the closing tag (`</SCRIPT >`, even
+    # `</script foo>`, which a browser also closes on), so an
     # upper-case or spaced tag cannot hide code from these checks (CodeQL).
-    return "\n".join(re.findall(r"<(?:script|style)\b[^>]*>(.*?)</(?:script|style)\s*>", source, re.S | re.I))
+    return "\n".join(re.findall(r"<(?:script|style)\b[^>]*>(.*?)</(?:script|style)\b[^>]*>", source, re.S | re.I))
 
 
 def test_the_page_fetches_nothing():

@@ -53,6 +53,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Four small layout fixes (INBOX 726): the graph's display options panel has the same gap on both sides (label to the left edge, control to the right edge, scrollbar showing or not); the corner companion fades out while anything fills the window (the full-screen graph, a board or mind map, Present frames, a document in focus mode, the image viewer, the OCR workspace) whichever character it is, and fades back on exit; the Library's Boards and the Reminders filter chips have their gap above the cards again (0px, now 16px); and the AI skills background workers have no stray rule above Link related notes.
 - Ask without AI: “The closest match is your note” is said only of the search’s first result, and an answer no model wrote no longer says the rest is “the model’s own writing” (INBOX 724).
 - A confirm opened from the lightbox (Delete) now shows above it rather than behind it (INBOX 721).
 - A stray Ctrl+V on another tab no longer drops an image onto a board left open in the Library (and starts captioning it); a board takes a paste only while it is on screen. The Ask history's pin and delete buttons are rounded squares like the app's other icon buttons (INBOX 720).

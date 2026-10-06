@@ -6024,10 +6024,30 @@ body .chip.item-label,
   height: 0;
   z-index: 44;
   pointer-events: none;
+  /* Fades with the full-screen flag below, and back. */
+  transition: opacity var(--motion-base) var(--ease-out), visibility 0s linear 0s;
 }
 
 #nm-buddy-band.nmb-riding {
   overflow: clip;
+}
+
+/* **Gone while anything fills the window** (INBOX 726, the owner: "I can see
+   atlas on the edges when on the full screen graph", then "the same full
+   screen companion issue with other full screens probably too", then "not
+   just atlas but the companion"). Keyed on the companion's container, so it
+   holds for every avatar the companion can be (Atlas, you, a persona, your
+   own character), mini or full, and for anything riding in it; and on one
+   flag on the root that every full-screen surface sets (wiring.js,
+   `watchFullscreenSurface`), so no surface is named here. Its own fade, not
+   the tab-away cut of `.nmb-away`: leaving a full screen brings it back the
+   same way. `visibility` follows the fade out (delayed) and leads the fade
+   in, so a hidden companion is never a target for the pointer. */
+:root[data-fullscreen] #nm-buddy-band {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--ease-out), visibility 0s linear var(--motion-base);
 }
 
 /* The shutter (avatars.js, `nameMarkBuddyRideFrames`): riding, a clipping

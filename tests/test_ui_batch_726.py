@@ -58,3 +58,72 @@ def test_autonomous_pass_jobs_have_no_rule_above_the_second_switch():
     assert "flex-direction: column" in body and "flex-wrap" not in body
     rule = _rule(text, ".skills-worker-toggles > .setting-check")
     assert "border-top-color: transparent" in rule
+
+
+# --- 2. The companion hides while anything fills the window -------------------
+
+#: The surfaces the flag knows, by name: each is a full-screen class (or a
+#: modal that covers the window) watched in wiring.js. Adding one is a new
+#: entry here and a new `watchFullscreenSurface(...)` there.
+FULLSCREEN_SURFACES = {
+    "graph": "graph-fullscreen",
+    "whiteboard": "wb-fullscreen",
+    "documents": "doc-focus",
+    "ocr": "ocr-workspace",
+}
+
+
+def _js(name: str) -> str:
+    return (JS / name).read_text(encoding="utf-8")
+
+
+def test_companion_container_fades_on_the_root_flag():
+    text = _css("08-consistency.css")
+    body = _rule(text, ":root[data-fullscreen] #nm-buddy-band")
+    assert "opacity: 0" in body and "visibility: hidden" in body
+    assert "pointer-events: none" in body
+    # Its own fade, on the container, for whichever avatar it draws.
+    assert "transition: opacity" in _rule(text, "#nm-buddy-band")
+    # Keyed on the container and the flag, never on one avatar's classes.
+    assert not re.search(r":root\[data-fullscreen[^\]]*\][^{]*(nm-atlas|atl-figure|nm-figure|\.name-mark)", text)
+
+
+def test_every_full_screen_surface_is_watched():
+    wiring = _js("wiring.js")
+    for name, marker in FULLSCREEN_SURFACES.items():
+        assert re.search(r'watchFullscreenSurface\("' + name + r'",[^\n]*' + re.escape(marker), wiring), name
+    assert 'setFullscreenSurface("lightbox", true)' in _js("lightbox-view.js")
+    assert 'setFullscreenSurface("lightbox", false)' in _js("lightbox-view.js")
+
+
+def test_a_new_full_screen_class_must_be_watched():
+    """Any `classList.toggle/add("...fullscreen...")` or the document focus
+    class, anywhere in the scripts, is a surface that fills the window; the
+    companion hides for it only if wiring.js watches that class."""
+    wiring = _js("wiring.js")
+    seen: dict[str, str] = {}
+    pattern = r'classList\.(?:toggle|add)\(\s*"([\w-]*(?:fullscreen|doc-focus)[\w-]*)"'
+    for path in sorted(JS.glob("*.js")):
+        for match in re.finditer(pattern, path.read_text(encoding="utf-8")):
+            seen.setdefault(match.group(1), path.name)
+    # `graph-fullscreen-on` is the body class that hides the app chrome beside
+    # the card's own `graph-fullscreen`, which is the one watched.
+    seen.pop("graph-fullscreen-on", None)
+    # Sub-modes of a watched surface (tools and sidebar inside focus mode).
+    for sub in ("doc-focus-tools", "doc-focus-sidebar", "doc-focus-idle"):
+        seen.pop(sub, None)
+    unwatched = {cls: file for cls, file in seen.items() if f'"{cls}"' not in wiring}
+    assert not unwatched, f"full-screen classes with no watchFullscreenSurface in wiring.js: {unwatched}"
+
+
+def test_the_browsers_own_full_screen_is_only_asked_for_by_a_watched_surface():
+    callers = [p.name for p in JS.glob("*.js") if "requestFullscreen(" in p.read_text(encoding="utf-8")]
+    assert callers == ["documents.js"], f"a new requestFullscreen caller needs its own flag: {callers}"
+
+
+def test_every_viewer_overlay_that_covers_the_window_sets_the_flag():
+    # The lightbox is built and removed, so it says so itself rather than being watched.
+    for path in JS.glob("*.js"):
+        text = path.read_text(encoding="utf-8")
+        if 'overlay.className = "lightbox"' in text:
+            assert "setFullscreenSurface(" in text, path.name

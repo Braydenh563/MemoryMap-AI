@@ -399,3 +399,29 @@ def test_the_rule_holds_over_a_sweep_of_questions():
         "difference between Alfama and Príncipe Real",
     ):
         ask(question)
+
+
+def test_a_notes_tags_say_what_it_is_about_without_being_quoted():
+    """"Reading list", tagged books, answers "which books am I reading" though
+    no line of it says "book"; the tag picks the note and is never quoted."""
+    notes = [
+        _note(1, "# Reading list\n\n- Designing Data-Intensive Applications\n- The Mom Test", 5, tags=["books"]),
+        _note(2, "# Teach what I just learned\n\nWrite a short post after each book I am reading.", 3),
+    ]
+    result = ask("Which books am I reading?", notes)
+    assert result["text"].startswith("From your note **Reading list**:")
+    assert "books" not in result["text"].split("\n", 1)[1].lower().replace("**", "")
+
+
+def test_the_word_list_is_a_subject_unless_it_opens_the_question():
+    assert composer.subject_terms("Why did the list feel slow?") == ["list", "slow"]
+    assert composer.subject_terms("List my books") == ["books"]
+
+
+def test_a_sentence_that_leans_back_brings_the_one_it_leans_on():
+    notes = [
+        _note(1, "# Main\n\nThe beta testers are the subject here, all of them active.", 4),
+        _note(2, "# Teach\n\nWrite a short post after each book. It keeps the beta testers reading.", 3),
+    ]
+    result = ask("What about the beta testers?", notes)
+    assert "Write a short post after each book. It keeps the beta testers reading." in result["text"]

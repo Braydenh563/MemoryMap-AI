@@ -79,6 +79,10 @@ TITLE_WEIGHT = 1.0
 #: heading, and only when the question has two words or more.
 NOTE_COVERAGE = 0.5
 
+#: A question word among a note's tags or its category, per word: half a
+#: heading's worth, since a tag says what a note is about less precisely.
+FILED_WEIGHT = 0.5
+
 #: Two sentences sharing this share of their words say the same thing; the
 #: second is dropped. Token Jaccard, because it needs no model.
 NEAR_DUPLICATE = 0.6
@@ -201,7 +205,7 @@ _ASKING_WORDS = frozenset(
     recently most current currently tell say says said know think thought
     feel felt get got go went make made want need like much many number
     often long ever still actually really there here things thing note notes
-    wrote written write mention mentioned list name names explain should
+    wrote written write mention mentioned explain should
     could would way am i me my mine whose whom anyone someone near after
     before during without within over under around across through since
     until also again just only some other one any every each""".split()
@@ -240,6 +244,9 @@ def subject_terms(question: str) -> list[str]:
     """The words the question is about, as typed, without the asking words."""
     understood = query_understanding.understand(question)
     source = understood.subject or question
+    #: "List my ..." and "Name the ..." ask; "the reading list" names. Only the
+    #: first word is dropped, so the list a question is about stays in it.
+    source = re.sub(r"^\s*(list|name|show|tell)\b", "", source, flags=re.I)
     seen: list[str] = []
     for word in query_understanding.search_terms(source):
         if word in _ASKING_WORDS or word in seen:
@@ -297,6 +304,10 @@ class NoteView:
     sentences: list[Sentence] = field(default_factory=list)
     words: set[str] = field(default_factory=set)
     title_words: set[str] = field(default_factory=set)
+    #: Its tags and category: never quoted, but what the person filed it
+    #: under says what it is about ("Reading list", tagged #books, is about
+    #: books without saying the word).
+    filed_words: set[str] = field(default_factory=set)
 
     @property
     def id(self) -> int:
@@ -391,6 +402,8 @@ def read_note(note: dict, rank: int) -> NoteView | None:
     title, body_start = _title(content)
     view = NoteView(note=note, rank=rank, title=title, written=_written(note))
     view.title_words = set(_words(title))
+    filed = [str(t) for t in (note.get("tags") or [])] + [str(note.get("category") or "")]
+    view.filed_words = set(_words(" ".join(filed)))
     view.words = set(_words(content))
     in_fence = False
     offset = 0
@@ -498,7 +511,8 @@ def _score(shape: str, terms: list[str], views: list[NoteView]) -> list[Sentence
         #: the answer to "why did the list feel slow" because its note is
         #: called "Why the list felt slow".
         title_hits = sum(1 for term in stems if term in view.title_words)
-        relevance = bm25 + TITLE_WEIGHT * title_hits
+        filed_hits = sum(1 for term in stems if term in view.filed_words and term not in view.title_words)
+        relevance = bm25 + TITLE_WEIGHT * title_hits + FILED_WEIGHT * filed_hits
         if stems and title_hits == len(stems):
             relevance += TITLE_WEIGHT
         if stems and relevance <= 0:
@@ -522,7 +536,9 @@ def select(shape: str, terms: list[str], views: list[NoteView], limit: int = MAX
     the same thing, no more than `MAX_PER_NOTE` from one note."""
     stems = {_stem(t) for t in terms}
     if len(stems) >= 2:
-        covering = [v for v in views if len(stems & (v.words | v.title_words)) / len(stems) > NOTE_COVERAGE]
+        covering = [
+            v for v in views if len(stems & (v.words | v.title_words | v.filed_words)) / len(stems) > NOTE_COVERAGE
+        ]
         #: None covering is a question the notes only half answer: every note
         #: stays in, and the closing line says which words none of them hold.
         views = covering or views
@@ -679,7 +695,7 @@ def _pick(question: str, salt: str, options: list[str]) -> str:
 def _quote_block(out: _Answer, quotes: list[Sentence], terms: list[str]) -> None:
     """The lead quote, set apart: one blockquote of prose, or the items as a
     list when the note's answer is a list."""
-    prose = [s for s in quotes if s.kind == "prose"]
+    prose = sorted(_with_context(out, [s for s in quotes if s.kind == "prose"]), key=lambda s: s.order)
     items = [s for s in quotes if s.kind != "prose"]
     if prose:
         out.t("para", "quote")
@@ -730,13 +746,34 @@ def _span(out: _Answer, views: list[NoteView]) -> None:
         out.t("from_span").m(out.day(days[0])).t("to_span").m(out.day(days[-1]))
 
 
+#: A sentence opening with one of these leans on the one before it: "It
+#: forces the reading to be active" quoted alone has lost what "it" is.
+_LEANS_BACK = re.compile(r"^(it|this|that|these|those|they|he|she|then|there|which|second|third|another)\b", re.I)
+
+
+def _with_context(out: _Answer, sentences: list[Sentence]) -> list[Sentence]:
+    """The sentences, each one that leans back preceded by the sentence it
+    leans on (the note's own previous sentence, quoted whole too)."""
+    have = {(s.note_id, s.order) for s in sentences}
+    result: list[Sentence] = []
+    for s in sentences:
+        if s.order and _LEANS_BACK.match(s.text) and (s.note_id, s.order - 1) not in have:
+            before = out.views[s.note_id].sentences[s.order - 1]
+            if before.kind == "prose":
+                before.score = before.score or s.score
+                result.append(before)
+                have.add((s.note_id, before.order))
+        result.append(s)
+    return result
+
+
 def _grouped(out: _Answer, rest: list[Sentence], terms: list[str]) -> None:
     """The other notes' sentences, grouped by note in score order, under a
     measured line: "Across three more notes, from 3 March to 12 May:".
 
     Prose only: a list item quoted inside a sentence-long bullet loses the
     tick and the list that gave it its meaning."""
-    rest = [s for s in rest if s.kind == "prose"]
+    rest = _with_context(out, [s for s in rest if s.kind == "prose"])
     if not rest:
         return
     order: list[int] = []
@@ -763,6 +800,7 @@ def _grouped(out: _Answer, rest: list[Sentence], terms: list[str]) -> None:
 def _timeline(out: _Answer, sentences: list[Sentence], terms: list[str], heading: str, newest_first: bool) -> None:
     """Sentences in the order their notes were written, under a bold heading."""
     out.t("para", "bold", heading, "bold")
+    sentences = _with_context(out, sentences)
     order: list[int] = []
     for s in sentences:
         if s.note_id not in order:
@@ -809,7 +847,7 @@ def _missing(out: _Answer, terms: list[str], views: list[NoteView]) -> None:
     measured."""
     found: set[str] = set()
     for view in views:
-        found |= view.words | view.title_words
+        found |= view.words | view.title_words | view.filed_words
     missing = [t for t in terms if len(t) >= _MISSING_MIN and _stem(t) not in found]
     if not missing or len(missing) == len(terms):
         return

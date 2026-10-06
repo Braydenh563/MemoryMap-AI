@@ -1895,6 +1895,10 @@ const LAZY_MODULES = {
   chipMenus: ["/js/chip-menus.js"],
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
+  //: The Ask box's AI / From your notes switch (ask-compose.js), preloaded below.
+  askCompose: ["/js/ask-compose.js"],
+  //: Notes, Questions (questions-view.js), behind two stand-ins.
+  questionsView: ["/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
@@ -2234,6 +2238,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  questionsView: ["initQuestionsView", "loadQuestions"],
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],
@@ -2356,4 +2361,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose"].forEach((name) => ensureModule(name)), 3000);

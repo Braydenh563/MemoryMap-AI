@@ -59,6 +59,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Menus placed by the shared rule stop at the status bar's top, so the document ⋯ no longer runs under it; a task tick box has room before its words.
 - The header's Quit button is at full strength like its neighbours; dimmed, it read as disabled.
+- Chat and Ask: the "No model is connected" line has a close button; closing it hides that line until you start the app again, and a new session shows it (INBOX 732).
+- Library, Boards and maps: deleting an empty map or board from its card removes the card at once (it was drawn again from memory because the server does not list an empty board), and Undo brings it back (INBOX 733).
+- Library, Boards and maps, New: Whiteboard opens the dialog on Board even after you made a mind map, and neither row opens a board behind the dialog any more; the Library stays as it was until Create, and Cancel leaves it untouched (INBOX 733).
 - Hovering a disabled button shows the normal pointer, not a loading cursor.
 - Chat: a message sent while Agent is greyed (no model) is answered and labelled as Ask; the message buttons hang below the bubble instead of over it.
 - The lock screen's password field keeps its own show-password button (the browser's reveal vanished once the field lost focus) and its typed text stays centred.

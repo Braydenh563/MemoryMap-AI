@@ -8987,6 +8987,17 @@ async function wbDeleteCurrentBoard() {
 //: 537). The confirm used to say "This cannot be undone", which was untrue.
 async function wbBinBoard(id, bin) {
   await apiJson(bin ? `/entries/${id}` : `/entries/${id}/restore`, { method: bin ? "DELETE" : "POST" });
+  //: **The board made a moment ago is drawn from memory** when the server omits
+  //: it (an empty board is not listed: `drawLibraryBoardsGallery`), so a delete
+  //: has to forget it too, or an empty map's card stays after "Moved to the
+  //: bin" (INBOX 733). Undo puts it back the same way.
+  if (bin && window.wbLastCreatedBoard?.id === id) {
+    window.wbBinnedBoard = window.wbLastCreatedBoard;
+    window.wbLastCreatedBoard = null;
+  } else if (!bin && window.wbBinnedBoard?.id === id) {
+    window.wbLastCreatedBoard = window.wbBinnedBoard;
+    window.wbBinnedBoard = null;
+  }
   await refreshBoardList();
   if ($("wb-boards-landing") && !$("wb-boards-landing").classList.contains("hidden")) renderLibraryBoardsGallery();
 }
@@ -14344,7 +14355,20 @@ function wbRememberedBoardKind() {
   }
 }
 
-async function createNewBoard(preset = null) {
+//: **`reveal`: the canvas comes up when a board is chosen, not before** (INBOX
+//: 733: "it opens one of my whiteboards or mindmaps in the background rather
+//: than staying on the page I opened the create new board/mindmap panel
+//: from"). The Library's New menu used to show the canvas first, so the last
+//: board loaded behind the dialog and Cancel left it there. A caller already
+//: on the canvas passes nothing. The short wait is `openWhiteboardBoard`'s own:
+//: the canvas starts itself 50 ms after it is shown, and a board made before
+//: that would be drawn over by it.
+async function createNewBoard(preset = null, { reveal = false } = {}) {
+  const showCanvas = async () => {
+    if (!reveal) return;
+    wbShowCanvasView();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  };
   //: **New board opens the template gallery** (BACKLOG 4b, decision 25):
   //: Blank, the built-in frames and your own templates, kind and name in one
   //: dialog (`wbOpenTemplateGallery`, whiteboard-library.js, in the same
@@ -14352,6 +14376,7 @@ async function createNewBoard(preset = null) {
   if (typeof wbOpenTemplateGallery === "function") {
     const picked = await wbOpenTemplateGallery(preset || wbRememberedBoardKind());
     if (!picked) return;
+    await showCanvas();
     try {
       localStorage.setItem(WB_LAST_BOARD_KIND, picked.kind);
     } catch (err) { /* see wbRememberedBoardKind */ }
@@ -14397,6 +14422,7 @@ async function createNewBoard(preset = null) {
   const name = answer?.text || "";
   const kind = answer?.choice === "map" ? "map" : "board";
   if (!name || !name.trim()) return;
+  await showCanvas();
   //: Remembered on the way out, not on the click: a dialog someone dismissed
   //: said nothing about what they want next time.
   try {
@@ -18756,15 +18782,16 @@ async function dragEndNode(event, d) {
 // home now (ROADMAP.md §88.3 flagged this as "an accident worth fixing
 // while splitting"). Only these two survive here, unchanged.
 onDomReady(() => {
+  //: "Whiteboard" says Board whatever kind was made last (INBOX 733: it
+  //: opened on Mind map after a map), and the canvas is shown by the dialog's
+  //: answer, never before it.
   $("wb-boards-new")?.addEventListener("click", async () => {
-    wbShowCanvasView();
-    await createNewBoard();
+    await createNewBoard("board", { reveal: true });
   });
   // The same dialog, opened with the Mind map segment already chosen, not a
   // second creation path with its own copy of the create-and-open sequence.
   $("wb-boards-new-map")?.addEventListener("click", async () => {
-    wbShowCanvasView();
-    await createNewBoard("map");
+    await createNewBoard("map", { reveal: true });
   });
   //: Import (§5 item 17). The button opens the hidden input, the input does
   //: the work: the app's own file-picking pattern (`pickJsonFile`,

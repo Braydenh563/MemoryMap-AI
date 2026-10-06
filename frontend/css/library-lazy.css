@@ -416,3 +416,38 @@
 .wb-object.wb-sticker:not(:hover, .wb-selected) .wb-object-grip {
   opacity: 0;
 }
+
+/* --- drag to delete (INBOX 660) -------------------------------------------
+   The target that floats at the foot of a board or a map while an item is
+   carried (`wbTrashTake`, whiteboard.js): a one-row floating panel, so it is
+   a pill and the glass-off list already holds it. It stands above the edge
+   auto-pan's 3.5rem band so reaching it does not scroll the board, takes no
+   pointer of its own (the drag's own pointer is measured against its box),
+   and turns to the error ink with a ring under the pointer, so the state is
+   a shape and words as well as a colour. */
+.whiteboard-floating-panel.wb-trash {
+  left: 50%;
+  bottom: calc(3.5rem + var(--space-3));
+  transform: translateX(-50%);
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-5);
+  gap: var(--space-2);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: background-color var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out), border-color var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out);
+}
+
+.whiteboard-floating-panel.wb-trash .ph {
+  font-size: 1.25em;
+}
+
+.whiteboard-floating-panel.wb-trash.wb-trash-hot {
+  color: var(--error);
+  border-color: var(--error);
+  background: color-mix(in oklab, var(--error-soft), var(--modal-bg));
+  box-shadow: 0 0 0 2px var(--error-soft), var(--glass-shadow);
+  scale: 1.06;
+}

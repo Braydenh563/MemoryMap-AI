@@ -352,6 +352,7 @@ const WB_HELP_SECTIONS = [
     { cmd: "cut" }, { cmd: "duplicate" },
     { icon: "ph:copy", label: "Copy as you drag", keys: ["Alt+drag"] },
     { cmd: "delete" },
+    { icon: "ph:trash", label: "Delete by dropping on the target at the foot (a topic takes its branch)", keys: ["drag"] },
     { icon: "ph:arrows-out-cardinal", label: "Nudge, further", keys: ["arrows", "Shift+arrows"] },
     { icon: "ph:x", label: "Cancel a drag, back to Select", keys: ["Esc"] },
     { icon: "ph:text-t", label: "A text box on the empty board", keys: ["double-click"] },

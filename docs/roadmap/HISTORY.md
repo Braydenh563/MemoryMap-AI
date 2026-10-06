@@ -45176,3 +45176,35 @@ and refuses a topic ("Select a shape, link or text box first").
   icon. `mc1-stickers.js` 8/8 (sticker 96px box, glyph 69px, no card).
 - 14e 87241de: the note toolbar, the document's Insert menu and the "/" menu;
   `:ph-name:` drawn in reading, words inside code. `mc1-editoricons.js` 7/7.
+## INBOX resolved, 2026-10-06
+
+650. **The owner, 2026-10-05, verbatim.** "Can you also update the small
+     miniature atlas male and female avatar icons that go in the corner of
+     chat bubbles?? They aren't up to date and they look like aliens" Placed:
+     the next Opus slot (`assistantAvatar` in chat-agent.js draws
+     `atlasDraw(size)` under 28px, not the current `atlasAvatar` look).
+     **Fixed 8f6a7cd.** The tiny level is a miniature bust: the head mark's
+     hair, cap and fringe, iris eyes, ears, neck and shoulders, both looks;
+     measured (atlasmini650.js/.py, 20px): eye against skin 3.7 to 11.2:1 at
+     1x and 6.0 to 12.2:1 at 2x, light and dark; 115 nodes a head (86 before),
+     a 150-turn chat painted in 956 to 1074ms against 849 to 1122ms before.
+660. **The owner, 2026-10-05, verbatim.** "also I want to be able to drag
+     elements on the whiteboard and mindmap onto a popup delete button to
+     delete them" Placed: the next Opus slot, with 650 and 656: a delete
+     target that appears while an item is dragged (board and map), drop
+     deletes with Undo and a toast, Escape cancels.
+     **Fixed 2de4225.** `wbTrashTake` on the three item drags; measured
+     (wbtrash660.js): 39/39 at 1440 and 390, light and dark, 30/30 by touch:
+     card, box, shape, map topic with its branch and a three-item selection
+     each one Undo step that restores the board identically; a drop
+     elsewhere moves, Escape puts back; target 166x33 (44 tall at 390),
+     centred, 64px above the canvas foot.
+656. **The owner, 2026-10-05, verbatim, with a screenshot of the status bar's
+     hollow-circle AI dot and its "Notebook ready · chat AI off" card.** "can
+     the no ai available ai status icon be better??" Placed: the next Opus
+     slot, with 650 (the avatars): a glyph that says "AI off, notebook fine",
+     not an empty ring.
+     **Fixed 82ce01c.** The AI sparkle with a slash (`aiOffGlyph`), neutral
+     grey on the chip, same card; measured (aioff656.js/.py): 14px glyph
+     centred to the pixel in the 28px and 44px dot, 5.33:1 light, 6.86:1 dark.
+

@@ -3970,6 +3970,41 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     assert "Unlock ${locked} locked item" in wb
 
 
+def test_drag_to_delete_is_one_target_on_the_three_drags() -> None:
+    """INBOX 660 (DESIGN.md's drag-to-delete row): the three item drags (a
+    card, a box or topic, a shape) mark their gesture as a move, and each
+    one's end asks `wbTrashTake` before it saves anything, so a drop on the
+    target is put back and then deleted, never saved and then deleted. The
+    delete is the selection's own, one Undo step (`wbRecordGesture`) with a
+    toast; the target is a floating panel (on the glass-off list), hidden
+    from the tree, and its styles ride the Library bundle, not the boot CSS."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    lazy = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    for kind in ("sketch", "object", "node"):
+        assert f'wbBeginGesture(() => wbRestoreMove("{kind}", d), true)' in wb, kind
+        assert f'wbTrashTake(d._gesture, "{kind}", d);' in wb, kind
+    assert wb.count("wbTrashTake(d._gesture,") == 3, "one target, asked at the three drags' ends and nowhere else"
+    obj_end = wb[wb.index("async function objDragEnd(") :]
+    assert obj_end.index("wbTrashTake(") < obj_end.index("delete d._bulkOrigin;"), "asked while the drag still holds its origin"
+    node_end = wb[wb.index("async function dragEndNode(") :]
+    assert node_end.index("wbTrashTake(") < node_end.index("await wbSaveNode(d);")
+    delete = wb[wb.index("async function wbTrashDelete(") :]
+    delete = delete[: delete.index("\n}\n")]
+    assert "await wbRecordGesture(" in delete and 'toastAction(words, "Undo"' in delete
+    take = wb[wb.index("function wbTrashTake(") :]
+    take = take[: take.index("\n}\n")]
+    assert "gesture.restore?.()" in take and "gesture.cancelled = true;" in take
+    target = wb[wb.index("function wbTrashTarget(") :]
+    target = target[: target.index("\n}\n")]
+    assert '"whiteboard-floating-panel wb-trash card glass hidden"' in target
+    assert 'setAttribute("aria-hidden", "true")' in target
+    assert "!wbGesture.overTrash" in wb, "the edge pan holds still over the target"
+    assert ".whiteboard-floating-panel.wb-trash {" in lazy and ".wb-trash.wb-trash-hot {" in lazy
+    for css in CSS:
+        if css.name != "library-lazy.css":
+            assert "wb-trash" not in css.read_text(encoding="utf-8"), css.name
+
+
 def test_presenting_is_one_mode_with_one_bar() -> None:
     """WHITEBOARD_PLAN decision 16 (DESIGN.md's presentation row): the View
     menu's row starts it, board only; one host class hides the chrome and

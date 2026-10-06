@@ -1064,7 +1064,7 @@ function paintPersonaAvatar(holder, persona, size = 20) {
 //: `paintAssistantAvatar` (Chat, the popup agent, the Atlas guide and help
 //: heads); none draws its own, and tests/test_ui_recipes.py holds that.
 //: Atlas's own face at the size it is drawn at: under 28px that is its face
-//: icon (`atlasDraw`'s tiny level: head, ears, eyes, 58 nodes), the same Atlas
+//: icon (`atlasDraw`'s tiny level, a miniature bust, 115 nodes), the same Atlas
 //: the bust shows larger. The bust itself at 20px drew the whole figure to
 //: crop it, 218 nodes a reply: 32,700 nodes in a 150-turn chat, and the first
 //: paint went from 580 to 981ms (chatheads.js). The emblem is the p5 logo

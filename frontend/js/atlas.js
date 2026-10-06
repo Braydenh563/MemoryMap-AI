@@ -121,8 +121,9 @@
 //:   the large view), `figure` (the companion's 64 by 92 box, parts named
 //:   for the companion's behaviours), `head` (the head, its ears and a
 //:   shorter cut of the mane, 28 to 95px: the dashboard mark, chat heads,
-//:   persona rows) and `tiny` (under 28px: head, ears and eyes, thicker
-//:   lines, no lids, brows or motion).
+//:   persona rows) and `tiny` (under 28px: a miniature bust, the head
+//:   mark's hair, ears and eyes over the shoulders, no overlays, lids,
+//:   brows or motion; INBOX 650).
 
 //: The moods Atlas can show. `cue` is what the corner companion is told when
 //: Atlas moves into it (think, cheer, startle or rest); the words are the
@@ -644,16 +645,6 @@ const ATLAS_LOOKS = {
     earIn: "",
     earTip: [11.6, 5],
     fin: true,
-    //: At icon size (the `tiny` level, under 28px) the mane is not drawn,
-    //: and without it the feminine face was a pale blob with two points
-    //: (the owner: "make the mini atlas avatar on the atlas feminine
-    //: version look better"). One lilac silhouette of hair behind the
-    //: head instead: a rim over the crown and the left temple, falling
-    //: fuller past the right cheek, inside the tiny crop (x 13 to 49).
-    //: and a side-swept fringe over the crown, so the top of the head is
-    //: hair rather than a bald dome between the wings.
-    tinyFringe: "M18.4 22C18.6 13.4 24 8.2 31 8.2C37.6 8.2 43 12.6 44.2 19.4C41.4 15.4 37 13 32 13.2C26.6 13.4 21.8 16.6 18.4 22Z",
-    tinyHair: "M17.6 33.6C14.2 29.6 13.4 23.4 14.8 17.8C16.8 9.6 23.2 3.6 31.2 3.4C40 3.2 46.4 9.4 47.4 18.4C48.2 25 47.8 32.2 46 37.4C45.2 34 44.2 31.4 42.4 29.4L31 22L20 29.6Z",
     strand: "",
     //: **No legs** (`legs: false`: the figure draws none, and the companion
     //: builds no leg layers for this look).
@@ -1570,14 +1561,19 @@ function atlasEye(parent, id, [cx, cy, side], tiny, lashes) {
   const open = atlasGroup(eye, "atl-eye-open");
   const blink = atlasGroup(open, "nm-blinks atl-blink", [cx, cy]);
   const shape = atlasAlmond(cx, cy, side);
-  if (!tiny) atlasMake("path", { class: "atl-sclera", d: shape.d }, blink);
-  const inner = atlasMake("g", tiny ? {} : { "clip-path": `url(#${id}-e${side > 0 ? "l" : "r"})` }, blink);
+  atlasMake("path", { class: "atl-sclera", d: shape.d }, blink);
+  const inner = atlasMake("g", { "clip-path": `url(#${id}-e${side > 0 ? "l" : "r"})` }, blink);
   const look = atlasGroup(inner, "nm-eyes");
   const pupil = atlasGroup(look, "atl-pupil", [cx, cy]);
   const iris = atlasGroup(pupil, "atl-iris");
   if (tiny) {
-    atlasMake("path", { class: "atl-ink", d: shape.d, transform: `translate(${cx} ${cy}) scale(1 1.15) translate(${-cx} ${-cy})` }, iris);
-    atlasMake("circle", { class: "atl-catch", cx: cx - 1.4, cy: cy - 1.8, r: 1.5 }, iris);
+    //: The eye the bust has, at icon size: the iris, the pupil and the
+    //: big catchlight, and the lash line over them (INBOX 650: a solid ink
+    //: almond is what read as an alien's eye).
+    atlasMake("ellipse", { class: "atl-iris-fill", cx, cy: cy - 0.3, rx: 4.6, ry: 5.2 }, iris);
+    atlasMake("ellipse", { class: "atl-ink", cx, cy: cy - 0.4, rx: 2.2, ry: 2.6 }, iris);
+    atlasMake("circle", { class: "atl-catch", cx: cx - 1.8, cy: cy - 2.2, r: 1.6 }, iris);
+    atlasMake("path", { class: "atl-liner", d: shape.upper }, blink);
   } else {
     atlasMake("ellipse", { class: "atl-iris-fill", cx, cy: cy - 0.3, rx: 4.6, ry: 5.2 }, iris);
     atlasMake("ellipse", { class: "atl-iris-foot", cx, cy: cy + 2.6, rx: 2.6, ry: 1.5 }, iris);
@@ -1695,9 +1691,13 @@ function atlasExtras(parent) {
 function atlasMane(parent, level, edge, look) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   if (level === "tiny") {
-    if (!spec.tinyHair) return null;
+    //: The head mark's locks, fills only, then one shading pass over them
+    //: all (one path, so the overlaps are painted once).
     const hair = atlasGroup(parent, "atl-crest atl-mane atl-tiny-hair", ATLAS_GEO.hair);
-    atlasMake("path", { class: edge ? "atl-edge" : "atl-lock atl-tiny-lock", d: spec.tinyHair }, hair);
+    spec.headPaths.slice().reverse().forEach((lock) => {
+      atlasMake("path", { class: edge ? "atl-edge" : `atl-skin atl-lock${lock.mass ? " atl-hair-mass" : ""}`, d: lock.fill }, hair);
+    });
+    if (!edge) atlasMake("path", { class: "atl-overlay atl-hair-root", d: spec.headPaths.map((l) => l.fill).join("") }, hair);
     return hair;
   }
   const locks = level === "head" ? spec.headPaths : spec.lockPaths;
@@ -1772,6 +1772,35 @@ function atlasHairCap(parent, spec) {
   return g;
 }
 
+//: The cap at icon size: its fill and the fringe's locks, one fill each,
+//: so the hairline and the feminine fringe read; no shading, flyaways or star.
+function atlasMiniCap(parent, spec) {
+  const g = atlasGroup(parent, "atl-hair-cap");
+  atlasMake("path", { class: "atl-skin atl-lock atl-cap-fill", d: spec.cap }, g);
+  if (spec.fringePaths) atlasMake("path", { class: "atl-skin atl-lock atl-fringe-lock", d: spec.fringePaths.map((l) => l.fill).join("") }, g);
+  atlasMake("path", { class: "atl-overlay atl-hair-root", d: spec.fringePaths ? spec.cap + spec.fringePaths.map((l) => l.fill).join("") : spec.cap }, g);
+  return g;
+}
+
+//: The neck and shoulders under the icon's head: the body's own torso and
+//: arms at rest (the look's, tuned), glow edge then skin then the body's
+//: rim shade, cropped by the icon's viewBox just under the shoulders. The
+//: bust draws the head at 0.76 of the body (`--atl-head-k`); the icon keeps
+//: the head whole for its face and widens the body instead, 1.3 about the
+//: neck, so it reads as shoulders and not a stalk.
+function atlasMiniShoulders(parent, look) {
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
+  const g = atlasMake("g", { class: "atl-shoulders", transform: "translate(31 36) scale(1.3) translate(-31 -36)" }, parent);
+  const torso = spec.torsoNow || ATLAS_TORSO_PATH;
+  const arms = (spec.armPaths || ATLAS_LIMBS.arms).map(([, d]) => d).join("");
+  for (const cls of ["atl-edge", "atl-skin"]) {
+    atlasMake("path", { class: cls, d: arms }, g);
+    atlasMake("path", { class: cls, d: torso }, g);
+  }
+  atlasMake("path", { class: "atl-overlay atl-rim-body", d: torso }, g);
+  return g;
+}
+
 function atlasEars(parent, level, edge, look) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const tiny = level === "tiny";
@@ -1801,7 +1830,7 @@ function atlasEars(parent, level, edge, look) {
   }
   const wisps = atlasGroup(parent, "atl-crest atl-wisps", ATLAS_GEO.hair);
   //: The feminine look's fringe is drawn with the cap (`atlasHairCap`).
-  if (spec.fringePaths && !tiny) {
+  if (spec.fringePaths) {
     out.wisps = wisps;
     return out;
   }
@@ -2020,8 +2049,8 @@ function atlasHead(parent, id, level, look, hairAt = null) {
   atlasMake("path", { class: "atl-edge", d: tiny ? ATLAS_HEAD_PATH : ATLAS_HEAD_EDGE }, sway);
   atlasMane(maneAt, level, false, look);
   atlasMake("path", { class: "atl-skin", d: ATLAS_HEAD_PATH }, sway);
-  if (!tiny) atlasMake("path", { class: "atl-overlay atl-rim-head", d: ATLAS_HEAD_PATH }, sway);
-  if (tiny && spec.tinyFringe) atlasMake("path", { class: "atl-lock atl-tiny-lock", d: spec.tinyFringe }, sway);
+  atlasMake("path", { class: "atl-overlay atl-rim-head", d: ATLAS_HEAD_PATH }, sway);
+  if (tiny && spec.cap) atlasMiniCap(sway, spec);
   if (!tiny && spec.cap) atlasHairCap(sway, spec);
   const ears = atlasEars(sway, level, false, look);
   if (!tiny) atlasNightcap(sway);
@@ -2042,7 +2071,7 @@ function atlasHead(parent, id, level, look, hairAt = null) {
     }
   }
   const [mx, my] = ATLAS_GEO.mouth;
-  const place = atlasMake("g", { transform: tiny ? `translate(${mx} ${my - 1}) scale(0.72) translate(-32 -38)` : `translate(${mx} ${my}) scale(0.5) translate(-32 -38)` }, sway);
+  const place = atlasMake("g", { transform: tiny ? `translate(${mx} ${my - 0.6}) scale(0.62) translate(-32 -38)` : `translate(${mx} ${my}) scale(0.5) translate(-32 -38)` }, sway);
   const mouth = atlasGroup(place, "atl-mouth", [32, 38.4]);
   for (const [name, shape] of Object.entries(ATLAS_MOUTHS)) {
     const g = atlasGroup(mouth, `atl-m atl-m-${name}`);
@@ -2053,7 +2082,7 @@ function atlasHead(parent, id, level, look, hairAt = null) {
       atlasMake("path", { class: "atl-ink", d: shape.d }, g);
       if (!tiny) atlasMake("path", { class: "atl-tongue", d: shape.tongue }, g);
     } else {
-      atlasMake("path", { class: "atl-stroke", d: shape.d, "stroke-width": tiny ? 3.2 : 2.4 }, g);
+      atlasMake("path", { class: "atl-stroke", d: shape.d, "stroke-width": tiny ? 2.8 : 2.4 }, g);
     }
   }
   if (!tiny) atlasExtras(sway);
@@ -2695,9 +2724,15 @@ const ATLAS_LEVELS = {
   //: chest star, so the rings, the mane and the strand's first sweep show.
   bust: { viewBox: [4, -8, 54, 54], body: true },
   head: { viewBox: [7, -6, 50, 50], body: false },
-  //: Under 28px the face is the icon: a crop just round the head, the ear
-  //: tufts shrunk toward their base in the CSS, no wisps, mane or strand.
-  tiny: { viewBox: [13, 0, 36, 38], body: false },
+  //: **Under 28px, a miniature of the bust** (INBOX 650, the owner: the
+  //: small heads "aren't up to date and they look like aliens"). It was a
+  //: crop round a bald egg with two solid ink almonds for eyes and a heavy
+  //: sticker outline; now it is the head mark's own hair (the head level's
+  //: locks and cap), its eyes (white, iris, pupil, one catchlight), its
+  //: ears, and the neck and shoulders under them, with every overlay,
+  //: speck, lid and glint left out, so a reply's head stays a few dozen
+  //: nodes (`atlasMiniShoulders`, the `tiny` branches below).
+  tiny: { viewBox: [8, -2, 46, 46], body: false, shoulders: true },
 };
 
 function atlasLevelFor(size) {
@@ -3115,6 +3150,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   const id = atlasDefs(svg, look);
   const anchor = spec.body ? ATLAS_GEO.feet : ATLAS_GEO.chin;
   const pose = atlasGroup(svg, "atl-pose", anchor);
+  if (spec.shoulders) atlasMiniShoulders(pose, look);
   if (level !== "tiny") {
     const aura = spec.body ? atlasAuraAt(ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine) : { cx: 31, cy: 20, rx: 26, ry: 26 };
     atlasMake("ellipse", { class: "atl-aura", ...aura }, pose);

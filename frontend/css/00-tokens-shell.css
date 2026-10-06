@@ -1643,20 +1643,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--muted);
 }
 
-/* No model connected (INBOX 472): the supported way to run, so neutral, with
-   the ring Settings, Models draws beside "Ollama isn't running". Drawn like
-   the checking dots, so the grid centres it exactly. */
+/* No model connected (INBOX 472): the supported way to run, so neutral. The
+   glyph is the AI sparkle with a slash (INBOX 656, `aiOffGlyph` in
+   status.js), a block so the grid centres its box exactly. */
 .ai-status[data-level="off"] {
   background: var(--chip-bg);
   color: var(--muted);
 }
 
-.ai-status[data-level="off"] .ai-status-dot {
-  width: 0.6em;
-  height: 0.6em;
-  box-sizing: border-box;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
+.ai-off-glyph {
+  display: block;
 }
 
 .ai-status[data-level="ok"] {

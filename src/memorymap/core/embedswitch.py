@@ -205,8 +205,8 @@ def run(backend: str, model: str) -> None:
     except Exception as exc:  # noqa: BLE001  # a failed switch reports; the old model stays
         logger.warning("embedding model switch failed", exc_info=True)
         _drop_staged(db)
-        _end("failed", f"Couldn't switch: {exc}. Search stayed on the model it was using.")
-        taskhistory.record("embed-switch", title, "failed", str(exc),
+        _end("failed", "Couldn't switch: the model didn't load. Search stayed on the model it was using. The log has the details.")
+        taskhistory.record("embed-switch", title, "failed", type(exc).__name__,
                            duration_ms=(time.monotonic() - started) * 1000)
         return
     _end("completed", f"Search now uses {_state.label}.")

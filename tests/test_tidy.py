@@ -12,11 +12,9 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
-import numpy as np
 
-from memorymap.ai.embeddings import vector_to_bytes
 from memorymap.core import deps, events
-from memorymap.core.database import EmbeddingRecord, Entry, EntryLink, Reminder
+from memorymap.core.database import Entry, EntryLink, Reminder
 from memorymap.entry import manager, tidy
 
 # --- the pure rules -------------------------------------------------------------
@@ -79,18 +77,6 @@ def _undo(client, undo_id):
     response = client.post(f"/tidy/undo/{undo_id}")
     assert response.status_code == 200, response.text
     return response.json()
-
-
-def _vector(session, entry_id, vec):
-    session.add(
-        EmbeddingRecord(
-            entry_id=entry_id,
-            embedding=vector_to_bytes(np.array(vec, dtype="float32")),
-            dim=len(vec),
-            model_version="test",
-        )
-    )
-    session.commit()
 
 
 def test_the_summary_names_every_review_with_a_count(client):
@@ -379,4 +365,3 @@ def test_new_links_made_by_similarity_get_specific_reasons(ai_client, session):
     b = _save(ai_client, "another funny pun", tags=["jokes"])
     link = ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).json()["links"][0]
     assert link["reason"].startswith("Both tagged #jokes")
-    _vector  # noqa: B018  # kept for tests that build vectors by hand

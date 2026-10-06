@@ -645,9 +645,18 @@ def hub_metadata(repo: str) -> dict | None:
     """The Hub's own record of `repo` (files, tags, licence), or None when
     there is no such model. Called only on a Pull click: the one network
     request on this screen besides a download, and said so beside the box."""
+    from urllib.parse import quote
+
     import requests
 
-    response = requests.get(f"https://huggingface.co/api/models/{repo}", timeout=15)
+    #: The repo id becomes part of a URL to a fixed host, so it is checked
+    #: here as well as by the caller: owner and name each from a closed
+    #: character set, quoted, never a path, query or other host.
+    if not _HF_REPO.match(repo or ""):
+        return None
+    owner, name = repo.split("/", 1)
+    url = "https://huggingface.co/api/models/" + quote(owner, safe="") + "/" + quote(name, safe="")
+    response = requests.get(url, timeout=15)
     if response.status_code in (401, 404):
         return None
     response.raise_for_status()
@@ -699,7 +708,7 @@ def start_typed(repo: str) -> tuple[bool, str]:
     try:
         meta = hub_metadata(repo)
     except Exception:  # noqa: BLE001  # offline, refused or odd: one sentence
-        logger.info("couldn't reach Hugging Face for %s", repo, exc_info=True)
+        logger.info("couldn't reach Hugging Face to check a typed model name", exc_info=True)
         return False, "Couldn't reach Hugging Face to check that name. Check the connection and try again."
     if meta is None:
         return False, f"No model called {repo} on Hugging Face."

@@ -735,20 +735,21 @@ def summary(session, config) -> dict:  # noqa: ANN001
 
 #: Seconds between automatic runs: filing a folder of notes runs it once.
 AUTO_EVERY = 30.0
-_last_auto = 0.0
+#: When the automatic pass last ran (monotonic seconds), held in a dict so
+#: no function rebinds a module global.
+_auto_clock = {"last": 0.0}
 _auto_lock = threading.Lock()
 
 
 def run_automatic(session, force: bool = False) -> dict[str, int]:  # noqa: ANN001
     """Apply every review switched on, as `system:tidy`. Returns what each
     applied. Called after a note is filed; never raises."""
-    global _last_auto
     from memorymap.core import deps
 
     with _auto_lock:
-        if not force and time.monotonic() - _last_auto < AUTO_EVERY:
+        if not force and time.monotonic() - _auto_clock["last"] < AUTO_EVERY:
             return {}
-        _last_auto = time.monotonic()
+        _auto_clock["last"] = time.monotonic()
     done: dict[str, int] = {}
     try:
         autos = auto_settings(deps.get_config())

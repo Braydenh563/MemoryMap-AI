@@ -86,4 +86,6 @@ def test_truncated_real_shapes_raise_not_crash():
             try:
                 ni.read_imports(data[:cut])
             except ni.NotANativeLibrary:
-                pass
+                # A cut file is refused in plain words; anything else raised
+                # here (an IndexError, a struct.error) fails the test.
+                continue

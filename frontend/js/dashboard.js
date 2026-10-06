@@ -645,11 +645,13 @@ function dashMeetingWhen(entry, now) {
 //: Drawn at every view and shown at Focused only (the CSS): the reads are the
 //: widgets' own, so drawing it costs nothing, and a switch of view needs no
 //: render. Tiles are the tile recipe (`quickLinkButton`), toned for a card.
-let dashGlanceSerial = 0;
 async function renderDashGlance() {
   const host = $("dash-glance");
   if (!host) return;
-  const serial = ++dashGlanceSerial;
+  //: The newest draw wins; its number is held on the host, not in a
+  //: top-level `let` (the global-scope ratchet).
+  const serial = String((Number(host.dataset.glanceDraw) || 0) + 1);
+  host.dataset.glanceDraw = serial;
   //: Four placeholders first, so the hero holds its height while the reads
   //: land (INBOX 577's rule for this banner: no shift at boot).
   if (!host.childElementCount) {
@@ -665,7 +667,7 @@ async function renderDashGlance() {
     fetchDashStats().catch(() => null),
     dashEntries().catch(() => []),
   ]);
-  if (serial !== dashGlanceSerial || !host.isConnected) return;
+  if (serial !== host.dataset.glanceDraw || !host.isConnected) return;
   const facts = dashGlanceFacts({ reminders, stats, entries });
   const press = {
     reminders: () => switchTab("reminders"),

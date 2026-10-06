@@ -25,7 +25,6 @@
 
 const WB_FMT_KEY = "wb-format";
 const WB_FMT_TABS = ["style", "text", "arrange"];
-const WB_FMT_SHADOW = "drop-shadow(0 0.15rem 0.3rem rgb(0 0 0 / 0.28))";
 
 //: What is selected, as `{kind, id, item, bbox}` rows: the multi-selection
 //: when there is one, else the one selected item.

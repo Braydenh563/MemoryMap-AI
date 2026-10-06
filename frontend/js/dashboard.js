@@ -1596,12 +1596,9 @@ function gettingStartedCard() {
       //: worded: Settings, Help's "Replay the welcome" and the
       //: features browser's "Welcome tour" row.
       note: "Two minutes through what's here.",
-      //: Guarded because tour.js is a separate file: a page served without
-      //: it must still show a dashboard rather than throw on the press.
-      run: () => {
-        if (typeof openTour === "function") openTour("basics");
-        else openOnboarding();
-      },
+      //: tour.js is a lazy file; `openTour` is a LAZY_ENTRY_POINTS stand-in
+      //: (app.js), so it is always defined here and needs no guard.
+      run: () => openTour("basics"),
     },
   ];
   for (const action of actions) {

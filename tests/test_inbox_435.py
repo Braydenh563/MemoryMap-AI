@@ -152,4 +152,13 @@ def test_a_late_tag_list_does_not_open_after_the_tag_was_entered():
     waiting = body.index("if (tagSuggestOpening?.input === input) {")
     assert "if (input.value !== tagSuggestOpening.value) tagSuggestOpening.typed = true;" in body[waiting : waiting + 260]
     after = body[body.index('await apiJson("/tags"') :]
-    assert "if (opening.typed && !tagSuggestToken(input).token) return;" in after
+    assert "if (!tagSuggestToken(input).token && (opening.typed || input.dataset.tagged)) return;" in after
+    # A tag entered before this file arrived: the note form marks the field,
+    # a key or press in it clears the mark, and the list stays shut till then.
+    fill = source[source.index("function fillTagSuggest() {") :]
+    assert "if (!token && input.dataset.tagged) {" in fill[:400]
+    panels = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
+    commit = panels[panels.index("const commitTag = () => {") :]
+    commit = commit[: commit.index("\n  };")]
+    assert 'tagEntry.dataset.tagged = "1";' in commit
+    assert 'for (const type of ["focus", "pointerdown"]) tagEntry.addEventListener(type, () => delete tagEntry.dataset.tagged);' in panels

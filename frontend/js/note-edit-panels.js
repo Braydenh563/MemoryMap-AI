@@ -267,8 +267,13 @@ function renderEditForm(li, entry) {
   const commitTag = () => {
     const typed = tagEntry.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
     tagEntry.value = "";
-    if (typed.length) setTags([...tagList(), ...typed]);
+    if (!typed.length) return;
+    setTags([...tagList(), ...typed]);
+    //: A tag just entered: the tag list (tag-suggest.js) stays shut until the
+    //: next key or press in the field, rather than opening every tag over Save.
+    tagEntry.dataset.tagged = "1";
   };
+  for (const type of ["focus", "pointerdown"]) tagEntry.addEventListener(type, () => delete tagEntry.dataset.tagged);
   function drawTagChips() {
     for (const old of tagField.querySelectorAll(".chip")) old.remove();
     for (const tag of tagList()) {

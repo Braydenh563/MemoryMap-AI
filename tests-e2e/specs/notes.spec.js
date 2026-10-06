@@ -85,14 +85,16 @@ test("an edit left unsaved in the form survives a reload and can be reopened", a
 // Enter pressed, the list opened then, every tag in it, over Save changes; a
 // press meant for Save took a tag nobody chose. The answer is held back here
 // so the order is certain, not a matter of load.
-test("a tag typed and entered before the tag list arrives does not open the list over Save", async ({ page }) => {
+// Twice: once with the tags slow to come, once with the list's own file
+// (tag-suggest.js, loaded on the first focus) slow to come.
+for (const [slow, url] of [["the tags arrive", /\/tags(\?|$)/], ["the list's code arrives", /tag-suggest\.js/]]) test(`a tag typed and entered before ${slow} does not open the list over Save`, async ({ page }) => {
   await openApp(page);
   const id = await captureNote(page, `Tag race ${Date.now()}: call the plumber about the boiler`);
   const row = await noteRow(page, id);
   await row.locator('button[aria-label="Edit this entry"]').click();
   let release;
   const held = new Promise((resolve) => (release = resolve));
-  await page.route(/\/tags(\?|$)/, async (route) => {
+  await page.route(url, async (route) => {
     await held;
     await route.continue();
   });

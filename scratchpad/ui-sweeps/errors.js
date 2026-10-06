@@ -9,6 +9,11 @@
 // reported "New chat" as an off-screen control every time. An element with
 // `visibility: hidden` is not visible, so the stricter test is the correct
 // one rather than an excuse made for the sheet.
+//
+// "Clipped" means `overflow-y: hidden` or `clip` with content past the box:
+// content cut off with no way to reach it. A scroller (`auto`) is reachable,
+// and counting it reported the phone's categories drawer, which scrolls, as
+// clipped (2026-10-03).
 const {chromium}=require('/opt/node22/lib/node_modules/playwright');
 const PW='testpassword123'; const BASE=process.env.BASE||'http://127.0.0.1:8781';
 // Every tab page, not the seven with a button in the tab bar. Documents and
@@ -18,9 +23,30 @@ const PW='testpassword123'; const BASE=process.env.BASE||'http://127.0.0.1:8781'
 const TABS=['dashboard','notes','library','chat','graph','timeline','reminders','documents','whiteboard'];
 const SECTIONS=['account','privacy','learned','appearance','preferences','models','tools','skills','personas','templates','websearch','memory','tasks','data','logs','shortcuts','extras','help','about'];
 const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','boards','images','files','skills','links','contents']};
+// FAULTS=1: the fault-injection pass instead (errors-faults.js, WORLD_CLASS_PLAN H9):
+// one route at a time answers 500, and no tab may go blank or throw.
+if (process.env.FAULTS) { require("./errors-faults.js"); return; }
+// "Target crashed" at the first `page.evaluate` of a tab (INBOX, 2026-10-05) is
+// the renderer dying, not a page error: one shared browser carried every width's
+// graph, whiteboard and Settings pages in turn, and a container whose /dev/shm is
+// small (Docker's default is 64 MB) or a box under load kills a Chromium that
+// holds that much. Each width now gets its own browser, launched with
+// `--disable-dev-shm-usage` (shared memory goes to /tmp instead), and a crash is
+// reported as a finding naming the tab, then the next width runs, instead of an
+// unhandled rejection that hides every width after it. It did not reproduce on a
+// fresh data dir with /dev/shm at 16 GB, so this is the cause named by its
+// signature and not one measured here.
+const LAUNCH_ARGS=['--disable-dev-shm-usage'];
 (async()=>{
-  const browser=await chromium.launch();
   for(const width of (process.env.WIDTHS||'1440,1024,820,390').split(',').map(Number)){
+    const browser=await chromium.launch({args:LAUNCH_ARGS});
+    try{ await runWidth(browser,width); }
+    catch(e){ console.log(`== ${width}px: the run stopped: ${String(e.message||e).split('\n')[0].slice(0,160)}`); process.exitCode=1; }
+    await browser.close().catch(()=>{});
+  }
+})();
+async function runWidth(browser,width){
+  {
     const ctx=await browser.newContext({viewport:{width,height:width<600?844:900},deviceScaleFactor:1,hasTouch:width<820,isMobile:width<600});
     // **And who wrote the NaN.** A `<rect> attribute x: Expected length,
     // "NaN"` is a browser parse error: it names the attribute and nothing
@@ -51,6 +77,7 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
       };
     });
     const page=await ctx.newPage(); const errs=[]; let where='boot';
+    page.on('crash',()=>errs.push(`[${where}] the renderer crashed (out of memory or /dev/shm)`));
     page.on('pageerror',e=>errs.push(`[${where}] ${e.message}`));
     page.on('response',r=>{if(r.status()>=500)errs.push(`[${where}] HTTP ${r.status()} ${r.request().method()} ${r.url().replace(BASE,'')}`);});
     page.on('console',m=>{if(m.type()==='error'&&!/401|Failed to load resource/.test(m.text()))errs.push(`[${where}] console: ${m.text().slice(0,140)}`);});
@@ -59,8 +86,9 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
     if(await page.$('#lock-password')&&await page.isVisible('#lock-password')){await page.fill('#lock-password',PW);await page.click('#lock-submit');await page.waitForTimeout(2500);}
     await page.evaluate(()=>{const o=document.getElementById('onboarding-overlay');if(o)o.classList.add('hidden');}); await page.waitForTimeout(500);
     const findings=[];
-    const check=async(label)=>{const r=await page.evaluate(()=>{const vis=e=>e.checkVisibility&&e.checkVisibility({visibilityProperty:true,opacityProperty:true,contentVisibilityAuto:true});const over=document.documentElement.scrollWidth>window.innerWidth+1;const clipped=[...document.querySelectorAll('.card, .tab-page:not(.hidden) button, .tab-page:not(.hidden) h2, .tab-page:not(.hidden) h3')].filter(e=>vis(e)&&getComputedStyle(e).overflow!=='visible'&&e.scrollHeight>e.clientHeight+2&&!e.matches('textarea, .tab-page, [class*="scroll"], .entry-list, ul, ol')).slice(0,4).map(e=>`${e.tagName.toLowerCase()}#${e.id}.${[...e.classList].slice(0,2).join('.')} ${e.scrollHeight}>${e.clientHeight}`);const inStrip=e=>{for(let p=e.parentElement;p&&p!==document.body;p=p.parentElement){const o=getComputedStyle(p).overflowX;if((o==='auto'||o==='scroll')&&p.scrollWidth>p.clientWidth+1)return true;}return false;};const off=[...document.querySelectorAll('.tab-page:not(.hidden) button, .tab-page:not(.hidden) input')].filter(e=>vis(e)&&!inStrip(e)).filter(e=>{const r=e.getBoundingClientRect();return r.right>window.innerWidth+1||r.left<-1;}).slice(0,4).map(e=>`${e.tagName.toLowerCase()}#${e.id}.${[...e.classList].slice(0,2).join('.')}`);return {over,clipped,off};});
+    const check=async(label)=>{const r=await page.evaluate(()=>{const vis=e=>e.checkVisibility&&e.checkVisibility({visibilityProperty:true,opacityProperty:true,contentVisibilityAuto:true});const over=document.documentElement.scrollWidth>window.innerWidth+1;const clipped=[...document.querySelectorAll('.card, .tab-page:not(.hidden) button, .tab-page:not(.hidden) h2, .tab-page:not(.hidden) h3')].filter(e=>vis(e)&&/^(hidden|clip)$/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+2&&!e.matches('textarea, .tab-page, [class*="scroll"], .entry-list, ul, ol')).slice(0,4).map(e=>`${e.tagName.toLowerCase()}#${e.id}.${[...e.classList].slice(0,2).join('.')} ${e.scrollHeight}>${e.clientHeight}`);const inStrip=e=>{for(let p=e.parentElement;p&&p!==document.body;p=p.parentElement){const o=getComputedStyle(p).overflowX;if((o==='auto'||o==='scroll')&&p.scrollWidth>p.clientWidth+1)return true;}return false;};const off=[...document.querySelectorAll('.tab-page:not(.hidden) button, .tab-page:not(.hidden) input')].filter(e=>vis(e)&&!inStrip(e)).filter(e=>{const r=e.getBoundingClientRect();return r.right>window.innerWidth+1||r.left<-1;}).slice(0,4).map(e=>`${e.tagName.toLowerCase()}#${e.id}.${[...e.classList].slice(0,2).join('.')}`);return {over,clipped,off};});
       if(r.over)findings.push(`[${label}] page scrolls horizontally`); if(r.clipped.length)findings.push(`[${label}] clipped: ${r.clipped.join(', ')}`); if(r.off.length)findings.push(`[${label}] off-screen: ${r.off.join(', ')}`);};
+    try{
     for(const t of TABS){where=t; await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t); await page.waitForTimeout(700);
       const shown=await page.evaluate((name)=>{const el=document.getElementById('tab-'+name);return el?!el.classList.contains('hidden'):null;},t);
       if(shown===false){findings.push(`[${t}] the tab did not open, so nothing here was checked`); continue;}
@@ -69,7 +97,8 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
     where='settings'; await page.click('#settings-btn').catch(()=>{}); await page.waitForTimeout(500);
     for(const s of SECTIONS){where='settings/'+s; const ok=await page.click(`#settings-modal [data-section="${s}"]`,{timeout:1500}).then(()=>true).catch(()=>false); if(!ok)continue; await page.waitForTimeout(300);
       const r=await page.evaluate(()=>{const m=document.querySelector('#settings-modal .settings-section:not(.hidden), #settings-modal .settings-body');return m?(m.scrollWidth>m.clientWidth+2?`section scrolls sideways ${m.scrollWidth}>${m.clientWidth}`:''):'';}); if(r)findings.push(`[${where}] ${r}`);}
-    const nanWrites=await page.evaluate(()=>window.__nanWrites||[]);
+    }catch(e){ findings.push(`[${where}] the run stopped here: ${String(e.message||e).split('\n')[0].slice(0,160)}`); process.exitCode=1; }
+    const nanWrites=await page.evaluate(()=>window.__nanWrites||[]).catch(()=>[]);
     console.log(`== ${width}px: ${errs.length} errors, ${findings.length} layout findings`);
     for(const hit of nanWrites){
       console.log(`  NaN written: ${hit.el} ${hit.name}="${hit.value}"`);
@@ -77,5 +106,4 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
     } errs.forEach(e=>console.log('  '+e)); findings.forEach(f=>console.log('  '+f));
     await ctx.close();
   }
-  await browser.close();
-})();
+}

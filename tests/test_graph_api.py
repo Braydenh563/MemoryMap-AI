@@ -14,7 +14,7 @@ def _save(client, content, **extra):
 
 def test_graph_empty_notebook(client):
     body = client.get("/graph").json()
-    assert body == {"nodes": [], "edges": [], "categories": []}
+    assert body == {"nodes": [], "edges": [], "categories": [], "type_colours": {}}
 
 
 def test_graph_nodes_and_manual_link_edges(client):
@@ -342,6 +342,18 @@ def client_edges(client, similarity: bool) -> list[dict]:
     return client.get(url).json()["edges"]
 
 
+def test_graph_label_is_the_notes_first_line_not_its_body(client):
+    """INBOX 446 (5), found by the density pass: a titled note was labelled
+    "Tomato soup A few lin…" on the graph, its heading run into its body,
+    while a longer title clipped before the body showed alone. The label is
+    the first line, as the docstring always said and the dashboard's rows
+    and the Notes list already draw it."""
+    client.post("/entries", json={"content": "# Tomato soup\n\nA few lines about soup."})
+    client.post("/entries", json={"content": "\n\nCall the dentist\nask about the retainer"})
+    previews = sorted(n["preview"] for n in client.get("/graph").json()["nodes"])
+    assert previews == ["Call the dentist", "Tomato soup"]
+
+
 def test_graph_previews_show_words_not_markdown_markers(client):
     """Reported: "**note" showing in graph titles when a note starts with a
     header or bolded word. Labels clip at ~40 characters, so markers are
@@ -367,7 +379,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     from memorymap.api.app import FRONTEND_DIR
 
     # setGraphPhysicsEnabled's *definition* moved out of app.js into
-    # frontend/graph.js in the frontend refactor path's graph-view extraction
+    # frontend/js/graph.js in the frontend refactor path's graph-view extraction
     # (the step after whiteboard.js), see index.html and graph.js's own
     # header for why that file has to load *before* app.js, unlike
     # whiteboard.js. Its call sites did not move with it: `switchTab`'s
@@ -375,7 +387,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     # app.js, so the count below needs both files' text, the same way
     # test_frontend_ids.py/test_frontend_handlers.py read app.js +
     # whiteboard.js + graph.js together rather than any one file alone.
-    graph_source = (FRONTEND_DIR / "graph.js").read_text(encoding="utf-8")
+    graph_source = (FRONTEND_DIR / "js" / "graph.js").read_text(encoding="utf-8")
     app_source = app_js_text()
     start = graph_source.index("function setGraphPhysicsEnabled(")
     body = graph_source[start : start + 1400]

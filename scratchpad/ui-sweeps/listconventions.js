@@ -1,5 +1,5 @@
 // The conventions a list is expected to keep, driven in Chromium
-// (docs/roadmap/agent-remaining/pass2.md, micro-conventions). Seed first:
+// (docs/roadmap/archive/agent-remaining/pass2.md, micro-conventions). Seed first:
 // seed.js, seed-images.js, seed-file.js, seed-links.js, seed-libtext.js.
 //
 //   BASE=http://127.0.0.1:8799 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \

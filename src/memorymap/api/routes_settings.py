@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import hashlib
 import json
 import logging
 import importlib
@@ -23,6 +24,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse, FileResponse
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -30,7 +33,8 @@ from sqlalchemy.orm import Session
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
-from memorymap.core import deps, embedmodels, events, extras, logbuffer
+from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
+from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -142,7 +146,7 @@ class PersonaItem(BaseModel):
     #: answering (the owner: rotating "thinking words" like Claude Code's,
     #: "customisable per persona"). Empty (the default for every persona that
     #: has never set one) means "use the app's default list, or the built-in
-    #: persona's own list"; frontend/sheets-selects.js resolves which. Stored
+    #: persona's own list"; frontend/js/sheets-selects.js resolves which. Stored
     #: here rather than in localStorage for the same reason the writing
     #: dictionary is: a list built by hand should survive a cleared browser
     #: and travel with the daily backup.
@@ -199,6 +203,27 @@ def suggest_persona_thinking_words(body: SuggestThinkingWordsBody) -> dict:
         )
         words = []
     return {"thinking_words": words}
+
+
+class DraftTemplateBody(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    description: str = Field(default="", max_length=200)
+    current: str = Field(default="", max_length=2000)
+
+
+@router.post("/templates/draft")
+def draft_template(body: DraftTemplateBody) -> dict:
+    """"Draft with Atlas" in Settings, Templates: a body from the name and
+    the one line, or another take on the one in the box. A model that is
+    down answers with an empty body and a reason, never an error page."""
+    try:
+        text = librarian.draft_template(
+            body.name, body.description, body.current, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception as exc:  # noqa: BLE001 - said in the panel, logged here
+        logging.getLogger("memorymap.templates").warning("template draft failed", exc_info=True)
+        return {"content": "", "reason": librarian.model_error_message(deps.get_model_manager().utility_model(), exc)}
+    return {"content": text, "reason": "" if text else "The model wrote nothing. Try again."}
 
 
 class CustomThemeItem(BaseModel):
@@ -334,6 +359,18 @@ class PreferencesBody(BaseModel):
     custom_themes: list[CustomThemeItem] | None = Field(default=None, max_length=20)
     # Dashboard layout: widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
+    #: The dashboard's Quick access tiles, in order: stable ids (the five
+    #: defaults' names, or `tab:x` / `reveal:x` for a command from the
+    #: catalogue), at most `QUICK_ACCESS_MAX`. `[]` is "never arranged", the
+    #: same convention `dashboard_layout` uses, so Reset writes `[]` and the
+    #: frontend falls back to its default five. Declared here because a field
+    #: Pydantic does not know about is silently dropped.
+    dashboard_quick_access: list[str] | None = Field(default=None, max_length=32)
+    #: A highlight per Quick access tile, tile id to a key (INBOX 589): one of
+    #: the category palette's twelve, "accent", or "none". A tile with no entry
+    #: takes its position's default (the first is the accent, the rest plain),
+    #: so `{}` is "never chosen". Cleaned by `_validated_quick_tints`.
+    dashboard_quick_tints: dict[str, object] | None = None
     # User-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
@@ -459,6 +496,20 @@ class PreferencesBody(BaseModel):
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     filing_wait_seconds: int | None = Field(default=None, ge=5, le=60)
+    #: **Four filing and image switches Settings has always shown and never
+    #: saved** (found 2026-10-04 with INBOX 509): they were missing here, so
+    #: pydantic dropped them on the way in and the checkbox snapped back on
+    #: the next load. `tests/test_preferences_roundtrip.py` now compares
+    #: every key the frontend sends with this body.
+    ai_first_filing: bool | None = None
+    #: WORLD_CLASS_PLAN section 17 row 3 (`librarian.FILING_STYLES`).
+    filing_style: Literal["topic", "project", "time"] | None = None
+    background_filing: bool | None = None
+    auto_caption_images: bool | None = None
+    auto_read_image_text: bool | None = None
+    #: INBOX 509: the search model loads at launch (the first note files at
+    #: once) or on first use (a lighter start; the first note waits for it).
+    warm_search_model_at_launch: bool | None = None
     battery_efficient_mode: bool | None = None
     smart_model_routing_enabled: bool | None = None
     # Asked directly: a way to quiet toasts and the notifications panel for
@@ -476,7 +527,9 @@ class PreferencesBody(BaseModel):
     #: *where* an activity notice lands, not whether it happens.
     agent_activity_notices: str | None = Field(default=None, pattern="^(toasts|centre)$")
     # Agent tools the user has switched off (by tool name).
-    disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    #: Room for every tool and the ones still to come: the cap was 50 while the
+    #: catalogue was already 58, so the 51st switch in Settings was refused.
+    disabled_tools: list[str] | None = Field(default=None, max_length=300)
     # Which faster-whisper model size the dictation buttons load. Read by
     # `routes_voice.py` since the feature shipped; nothing ever let a user set
     # it, so every install has silently run "base" regardless of the box's
@@ -595,11 +648,68 @@ class DashboardLayout(BaseModel):
     sizes: dict[str, str] = Field(default_factory=dict)
 
 
+#: Quick access holds eight tiles at most (the row is five across at the
+#: desktop width; more would wrap). The request model's own cap is looser so a
+#: stale client sending nine is cleaned here rather than failing the whole
+#: save, which is the same reason `_validated_context_windows` cleans.
+QUICK_ACCESS_MAX = 8
+
+
+def _validated_quick_access(value: object) -> list[str]:
+    """Strings only, trimmed, no repeats, short, and at most `QUICK_ACCESS_MAX`.
+
+    Whether an id still names anything is the frontend's question (a command
+    can be renamed away by a later version, and the tile then simply is not
+    drawn); the server only keeps the stored list from becoming a blob.
+    """
+    if not isinstance(value, list):
+        return []
+    cleaned: list[str] = []
+    for item in value:
+        key = item.strip() if isinstance(item, str) else ""
+        if key and len(key) <= 80 and key not in cleaned:
+            cleaned.append(key)
+    return cleaned[:QUICK_ACCESS_MAX]
+
+
+#: The keys a tile's highlight may be: the category swatches (one palette for
+#: every colour a person picks), the theme's accent, and an explicit "none"
+#: (which is how the first tile turns its default accent off).
+QUICK_TINT_KEYS = frozenset(("accent", "none")) | frozenset(CATEGORY_PALETTE_KEYS)
+
+
+def _validated_quick_tints(value: object) -> dict[str, str]:
+    """Known keys only, short ids, and a bounded map.
+
+    The value ends up in a CSS custom property (`--quick-tint`, through a
+    lookup in the frontend), so nothing but a palette key is ever stored. The
+    frontend prunes ids that left the row; the cap only keeps a stale map from
+    growing without end.
+    """
+    if not isinstance(value, dict):
+        return {}
+    cleaned: dict[str, str] = {}
+    for raw_id, tint in value.items():
+        tile = raw_id.strip() if isinstance(raw_id, str) else ""
+        if tile and len(tile) <= 80 and isinstance(tint, str) and tint in QUICK_TINT_KEYS:
+            cleaned[tile] = tint
+        if len(cleaned) >= 32:
+            break
+    return cleaned
+
+
 @router.get("/preferences")
 def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "ai_first_filing": config.get_preference("ai_first_filing", True),
+        "filing_style": config.get_preference("filing_style", "topic"),
+        "background_filing": config.get_preference("background_filing", True),
+        "auto_caption_images": config.get_preference("auto_caption_images", True),
+        "auto_read_image_text": config.get_preference("auto_read_image_text", True),
+        "filing_wait_seconds": config.get_preference("filing_wait_seconds", None),
+        "warm_search_model_at_launch": config.get_preference("warm_search_model_at_launch", True),
         "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
@@ -632,6 +742,8 @@ def get_preferences() -> dict:
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),
+        "dashboard_quick_access": config.get_preference("dashboard_quick_access", []),
+        "dashboard_quick_tints": config.get_preference("dashboard_quick_tints", {}),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "local_only_ai": config.get_preference("local_only_ai", True),
@@ -646,6 +758,7 @@ def get_preferences() -> dict:
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),
+        "update_choice_made": config.get_preference("update_choice_made", False) is True,
         "update_channel": config.get_preference("update_channel", "stable"),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
@@ -767,6 +880,28 @@ _QUIET_PREFERENCE_KEYS = frozenset(
 )
 
 
+#: The audit log is kept for ever and shown in Activity, so a setting's words
+#: go into it only when they are a short plain value. A name, a profile, a
+#: dictionary of the person's words, a whole skill or persona were each copied
+#: in full at every save (the profile was the one exception).
+_PERSONAL_PREFERENCE_KEYS = frozenset({"user_profile", "display_name"})
+
+
+def _preference_detail(key: str, value: object) -> str:
+    #: A short list of short words (disabled_tools=['find_contradictions']) is
+    #: a setting, not the person's words, and Activity is where it is checked.
+    short_list = (
+        isinstance(value, list)
+        and len(value) <= 12
+        and all(isinstance(v, str) and len(v) <= 40 for v in value)
+        and key not in {"writing_dictionary", "skills", "personas"}
+    )
+    plain = short_list or isinstance(value, (bool, int, float)) or (isinstance(value, str) and len(value) <= 80)
+    if key in _PERSONAL_PREFERENCE_KEYS or not plain:
+        return f"{key}=…"
+    return f"{key}={value}"
+
+
 #: One window per model, cleaned at the door.
 #:
 #: Written by hand into a number box, so it is exactly the kind of value that
@@ -795,7 +930,8 @@ def _validated_context_windows(value: object) -> dict[str, int | None]:
             continue
         try:
             wanted = int(window)
-        except (TypeError, ValueError):
+        #: OverflowError: JSON's `1e999` is infinity, which has no int.
+        except (TypeError, ValueError, OverflowError):
             cleaned[key] = None
             continue
         cleaned[key] = wanted if 0 < wanted <= _MAX_SETTABLE_CONTEXT else None
@@ -819,14 +955,26 @@ def update_preferences(
             value = _validated_templates(value)
         if key == "export_save_dir":
             value = _validated_export_dir(value)
+        if key == "dashboard_quick_access":
+            value = _validated_quick_access(value)
+        if key == "dashboard_quick_tints":
+            value = _validated_quick_tints(value)
         if key == "model_context_windows":
             value = _validated_context_windows(value)
         config.set_preference(key, value)
         changed_keys.add(key)
+        if key in ("update_check_enabled", "auto_update_enabled"):
+            # Either switch is an answer to the ask-once question (routes_update).
+            config.set_preference("update_choice_made", True)
+        if key == "warm_search_model_at_launch" and value:
+            # Switched on mid-session: load it now rather than at the next
+            # launch. Idempotent, so a model already warm costs nothing.
+            from memorymap.ai import embeddings
+
+            embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
         if key in _QUIET_PREFERENCE_KEYS:
             continue
-        # Don't copy profile text into the audit log, it's personal.
-        detail = f"{key}=…" if key == "user_profile" else f"{key}={value}"
+        detail = _preference_detail(key, value)
         manager.log_action(session, "edited", "preferences", detail=detail)
     session.commit()
     if changed_keys & _AUTONOMOUS_PREFS:
@@ -965,12 +1113,15 @@ def _validated_skills(raw: list[dict]) -> list[dict]:
             skill = skills.normalise(item, known)
         except skills.SkillError as exc:
             raise HTTPException(
-                status_code=422, detail=f"“{item.get('name', '?')}”: {exc}"
+                status_code=422,
+                # A `SkillError` is a sentence written for whoever wrote the
+                # skill (ai/skills.py, held by tests/test_core_message_wording.py).
+                detail=f"{exc} “{item.get('name', '?')}” was not saved.",
             ) from exc
         if skill["name"] in shipped:
             raise HTTPException(
                 status_code=422,
-                detail=f"“{skill['name']}” is a built-in skill, pick another name",
+                detail=f"“{skill['name']}” is a built-in skill. Pick another name.",
             )
         out.append(skill)
     return out
@@ -995,7 +1146,7 @@ def _validated_templates(raw: list[dict]) -> list[dict]:
         if name in seen:
             raise HTTPException(
                 status_code=422,
-                detail=f"“{name}” is already used by another template",
+                detail=f"“{name}” is already used by another template.",
             )
         seen.add(name)
         out.append(item)
@@ -1035,8 +1186,12 @@ def list_skills() -> dict:
     """
     from memorymap.ai import tools
 
+    from memorymap.ai import skill_folder
+    from memorymap.api.routes_debug import shown_path
+
+    config = deps.get_config()
     catalog = []
-    for skill in skills.catalog(deps.get_config(), set(tools.TOOLS)):
+    for skill in skills.catalog(config, set(tools.TOOLS)):
         # "This one changes things" is a different question from "this one
         # uses tools", and the UI marks it as such. A skill with steps but no
         # declared tools could do anything, so it counts.
@@ -1047,8 +1202,16 @@ def list_skills() -> dict:
                 or (not skill["tools"] and bool(skill["steps"])),
             }
         )
+    where = skill_folder.folder(config)
     return {
         "skills": catalog,
+        #: The user skills folder (B8): where to drop a `.md` skill, and every
+        #: file there that did not load, with why, so a file that is not in
+        #: the menu says so rather than being silently absent.
+        "folder": {
+            "path": shown_path(where) if where else "",
+            "problems": skills.folder_skills(config, set(tools.TOOLS))[1],
+        },
         "limits": {
             "skills": skills.MAX_SKILLS,
             "steps": skills.MAX_STEPS,
@@ -1114,11 +1277,14 @@ MEMORY_PAGE_SIZE_MAX = 1000
 
 @router.get("/memory")
 def list_memory(
+    response: Response,
     limit: int = Query(default=MEMORY_PAGE_SIZE, ge=1, le=MEMORY_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """A page of what the AI has been told to remember, newest first."""
+    offset = paging.start(cursor, offset)
     from memorymap.ai import memory
     from memorymap.core.database import UserPreference
 
@@ -1131,6 +1297,7 @@ def list_memory(
             .offset(offset)
         )
     )
+    paging.finish(response, offset, limit, total)
     return {
         "preferences": [_preference_out(r) for r in rows],
         "total": total,
@@ -1210,7 +1377,7 @@ def answer_memory_proposal(
     """
     from memorymap.core.database import UserPreference
 
-    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "That preference could not be found.")
     if not getattr(row, "proposed", False):
         return _preference_out(row)
     row.proposed = False
@@ -1226,7 +1393,7 @@ def update_memory(
 ) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "That preference could not be found.")
     if body.content is not None:
         text_ = body.content.strip()
         if not text_:
@@ -1243,7 +1410,7 @@ def update_memory(
 def forget_memory(preference_id: int, session: Session = Depends(get_session)) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "That preference could not be found.")
     session.delete(row)
     session.commit()
     return {"status": "ok"}
@@ -1292,10 +1459,114 @@ def audit_log(
     ]
 
 
+#: A spreadsheet runs a cell that opens with one of these as a formula, and an
+#: audit trail carries free text a person (or a web page the agent read) wrote.
+_CSV_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
+
+#: One page of the export, and the most one call may ask for: the list
+#: endpoints' recipe (`limit`, `offset`, `X-Total-Count`), with a ceiling
+#: because "bounded by the retention rule" has been wrong before and a file of
+#: a million rows is a file nobody opens. A caller with more walks `offset`.
+AUDIT_EXPORT_MAX_ROWS = 100_000
+
+#: The columns, in order: when, who, what, which kind of thing, which one, and
+#: its title (the log's own one-line description of it). No payload, ever.
+AUDIT_EXPORT_COLUMNS = ["time", "actor", "action", "entity kind", "entity id", "title"]
+
+
+def _csv_safe(value: object) -> object:
+    """A cell that cannot be read as a formula (the OWASP CSV-injection rule)."""
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_LEAD):
+        return "'" + value
+    return value
+
+
+def _not_private_events(query):
+    """Drop every event about a private note, and the vault's own.
+
+    The file leaves the app, and a private note exists so that nothing about
+    what it says does. An event on one carries its title or a clip of it in
+    `detail`; the vault's events (unlocking, re-keying) say that private notes
+    exist and when they were opened. Neither is part of a hand-over file.
+
+    Two ways an event is about a private note: the note is still there and
+    private (looked up by id), or it was purged, and its id matches nothing
+    any more. A purge seals the events it leaves behind with a `private` flag
+    in their payload (`manager.seal_private_events`), and that flag is the
+    second test. `is_(True)` rather than `== True`, so an event with no
+    payload at all (SQL null) is kept rather than dropped by a null compare.
+    """
+    private_ids = select(Entry.id).where(Entry.is_private == True)  # noqa: E712
+    return query.where(
+        AuditLog.entity_type != "vault",
+        ~(
+            AuditLog.entity_type.in_(("entry", "note", "entries"))
+            & AuditLog.entity_id.in_(private_ids)
+        ),
+        ~AuditLog.payload["private"].as_boolean().is_(True),
+    )
+
+
+@router.get("/audit/export.csv")
+def audit_export_csv(
+    limit: int = Query(default=AUDIT_EXPORT_MAX_ROWS, ge=1, le=AUDIT_EXPORT_MAX_ROWS),
+    offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
+    entity_type: str = Query(default="", max_length=40),
+    session: Session = Depends(get_session),
+) -> Response:
+    """The activity log as a file a professional can hand over: who, what, when.
+
+    Oldest first (a trail reads forward), six columns, and never a payload
+    value: a payload holds whole note texts. Events about private notes are
+    left out (`_not_private_events`). Every cell is defanged against CSV
+    formula injection (`_csv_safe`): the log carries free text a person, or a
+    web page the agent read, wrote. `limit` and `offset` page it and
+    `X-Total-Count` is the size of the same filtered set. The export is itself
+    logged, so the trail records who took it.
+    """
+    offset = paging.start(cursor, offset)
+    query = _not_private_events(select(AuditLog))
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = session.scalars(query.order_by(AuditLog.id).limit(limit).offset(offset))
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(AUDIT_EXPORT_COLUMNS)
+    for row in rows:
+        writer.writerow(
+            [
+                _csv_safe(value)
+                for value in (
+                    row.created_at.isoformat(),
+                    row.actor or events.ACTOR_USER,
+                    row.action,
+                    row.entity_type,
+                    row.entity_id if row.entity_id is not None else "",
+                    row.detail or "",
+                )
+            ]
+        )
+    manager.log_action(session, "exported", "data", detail="audit csv")
+    session.commit()
+    exported = Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=memorymap-activity.csv",
+            "X-Total-Count": str(total),
+        },
+    )
+    #: The list recipe's next-page cursor, beside `X-Total-Count`.
+    paging.finish(exported, offset, limit, total)
+    return exported
+
+
 def _feed_item(row: AuditLog) -> dict:
     """One event as the feed reports it: what happened, not what it stored."""
     span = events.snapshot_span(row)
-    return {
+    item = {
         "id": row.id,
         "action": row.action,
         "entity_type": row.entity_type,
@@ -1311,13 +1582,23 @@ def _feed_item(row: AuditLog) -> dict:
         "compacted": events.is_compacted(row),
         "created_at": row.created_at.isoformat(),
     }
+    #: A restore by an undo names the events it reversed, so the Recent
+    #: activity widget can stop offering to undo what is already undone.
+    undid = (row.payload or {}).get("undid") if row.action == "restored" else None
+    if isinstance(undid, list):
+        item["undid"] = [i for i in undid if isinstance(i, int)]
+    return item
 
 
 class UndoBody(BaseModel):
     #: Whose changes: `system:librarian`, `ai:<tool>`, `system:<job>`.
-    actor: str = Field(min_length=1, max_length=80)
+    actor: str = Field(default="", max_length=80)
+    #: Or several, as one: a skill run's tools (its result's `undo_span`).
+    actors: list[str] = Field(default_factory=list, max_length=40)
     #: Undo what they did after this event id (the feed's cursor).
     since: int = Field(default=0, ge=0)
+    #: And up to this one, inclusive (a run's last event); 0 for no bound.
+    until: int = Field(default=0, ge=0)
     #: On by default: the first answer is always the plan, never the change.
     dry_run: bool = True
     #: Put back the actor's fields even on a note changed since by someone else.
@@ -1335,9 +1616,19 @@ def undo_actor(body: UndoBody, session: Session = Depends(get_session)) -> dict:
     undoes: their own history is the per-note History sheet, one change at a
     time, where they can see what they are putting back.
     """
-    if body.actor == events.ACTOR_USER:
-        raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours")
-    result = events.undo(session, body.actor, body.since, apply=not body.dry_run, force=body.force)
+    names = [a for a in body.actors if a] or ([body.actor] if body.actor else [])
+    if not names or any(len(a) > 80 for a in names):
+        raise HTTPException(status_code=422, detail="Say whose changes to undo.")
+    if events.ACTOR_USER in names:
+        raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours.")
+    result = events.undo(
+        session,
+        body.actor if not body.actors else names,
+        body.since,
+        until_id=body.until or None,
+        apply=not body.dry_run,
+        force=body.force,
+    )
     if not body.dry_run:
         session.commit()
     return result
@@ -1419,9 +1710,13 @@ def clear_audit_log(
 
 @router.post("/recycle-bin/empty")
 def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
+    from memorymap.entry import bin as other_bin
+
     removed = manager.empty_recycle_bin(
         session, uploads_dir=deps.get_config().uploads_dir
     )
+    #: The bin's documents and reminders go with its notes (5 item 10).
+    removed += other_bin.empty(session)
     return {"removed": removed}
 
 
@@ -1436,14 +1731,37 @@ def list_extras() -> dict:
     so this is only the catalogue and the current state.
     """
     state = extras.current()
+    bulk = extras.bulk_status()
     return {
         "extras": extras.status(),
-        "running": state.running,
+        "bundles": extras.bundles(),
+        #: A bulk action is running between two of its packages too, when
+        #: `state` is idle for a moment: the screen keeps polling through it.
+        "running": state.running or bulk["running"],
         "installing": state.extra_id if state.running else "",
         "step": state.step,
         "outcome": state.outcome,
         "log": list(state.log),
+        "bulk": bulk,
     }
+
+
+class ExtrasBulkBody(BaseModel):
+    """A bulk action: ids from the allowlist, or one bundle's id. Never a
+    package spec: `core/extras.start_bulk` refuses any id it does not hold."""
+
+    action: str = Field(max_length=20)
+    ids: list[str] = Field(default_factory=list, max_length=50)
+    bundle: str = Field(default="", max_length=40)
+
+
+@router.post("/extras/bulk")
+def bulk_extras(body: ExtrasBulkBody) -> dict:
+    """Install, remove or reinstall several extras, one after another, as one
+    background job (INBOX 595). Each package reports its own outcome in
+    `GET /extras`'s `bulk.items`; one failing does not stop the rest."""
+    started, message = extras.start_bulk(body.action, body.ids, bundle=body.bundle)
+    return {"started": started, "message": message}
 
 
 @router.post("/extras/{extra_id}/install")
@@ -1731,7 +2049,8 @@ def _redacted_preferences(preferences: dict) -> dict:
     withheld: dict = {}
     for key, value in sorted(preferences.items()):
         if key in DIAGNOSTIC_PREFERENCES:
-            kept[key] = value
+            # An address is kept, a password typed into it is not (SEC-12).
+            kept[key] = security.without_userinfo(value) if key.endswith("_url") and isinstance(value, str) else value
             continue
         shape = type(value).__name__
         if isinstance(value, str):
@@ -1883,30 +2202,24 @@ def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[En
 def export_backup(background_tasks: BackgroundTasks):
     import os
     config = deps.get_config()
-    db_path = config.data_dir / "memorymap.db"
-    media_dir = config.data_dir / "media"
-    
     fd, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="memorymap_backup_")
     os.close(fd)
-    
+
     def cleanup():
         try:
             os.remove(tmp_path)
         except OSError:
             pass  # already gone, or never got written, nothing left to clean up
-            
+
     background_tasks.add_task(cleanup)
-    
-    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        if db_path.exists():
-            zf.write(db_path, "memorymap.db")
-        if media_dir.exists() and media_dir.is_dir():
-            for root, _, files in os.walk(media_dir):
-                for f in files:
-                    file_path = Path(root) / f
-                    arcname = file_path.relative_to(config.data_dir)
-                    zf.write(file_path, str(arcname))
-                    
+    #: **A snapshot, not the live file** (audit 2026-10-05, ARCH-18): the
+    #: database runs in WAL mode, so zipping the main file alone lost what
+    #: was saved last (measured, three notes and none of them in the zip,
+    #: with `integrity_check` passing). `backup_bundle.build_zip` copies a
+    #: consistent whole through SQLite's backup API, and adds `uploads/` to
+    #: `media/`. The same zip is what `POST /backups/bundle` seals with a
+    #: password and `POST /backups/bundle/restore` reads back.
+    backup_bundle.build_zip(config.data_dir, config.data_dir / "memorymap.db", Path(tmp_path))
     return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
 
 @router.get("/export/json")
@@ -1929,12 +2242,16 @@ def export_json(session: Session = Depends(get_session)) -> Response:
             "id": e.id,
             # Exports decrypt while the app is unlocked. An export is for
             # taking your notes elsewhere, and ciphertext with no key is
-            # not your notes. (The app's own backups keep the database
-            # file as-is, so those stay encrypted.)
+            # not your notes. (The app's own backups keep private notes
+            # encrypted, and since SEC-03 carry none of their words in the
+            # search index either: `backup.strip_leftovers`.)
             "content": manager.readable_content(e),
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "tags": manager.entry_tags(e),
             "ai_confidence": e.ai_confidence,
+            # Said, so a note decrypted for the export is not mistaken for an
+            # ordinary one by whatever reads the file next (SEC-14).
+            "is_private": bool(e.is_private),
             "created_at": e.created_at.isoformat(),
             "updated_at": e.updated_at.isoformat(),
             # `is_deleted` is not decoration and not derivable from
@@ -1950,8 +2267,17 @@ def export_json(session: Session = Depends(get_session)) -> Response:
             "id": link.id,
             "source_entry_id": link.source_entry_id,
             "target_entry_id": link.target_entry_id,
+            # GRAPH_PLAN KG3: a link is its kind, its reason and its
+            # properties as much as its two ends.
+            "reason": link.reason,
+            "link_type": link.link_type,
+            "props": link.props,
         }
         for link in links
+    ]
+    payload["relation_types"] = [
+        {k: v for k, v in kind.items() if k != "description"}
+        for kind in manager.relation_types(session).values()
     ]
     manager.log_action(session, "exported", "data", detail="json")
     session.commit()
@@ -1968,7 +2294,7 @@ def _slug(text: str, length: int = 30) -> str:
     return re.sub(r"[\s]+", "-", cleaned) or "note"
 
 
-def build_markdown_export(session: Session) -> bytes:
+def build_markdown_export(session: Session, ids: list[int] | None = None) -> bytes:
     """The zip itself, as bytes, with nothing HTTP about it.
 
     Lifted out of the route below so `python -m memorymap --export PATH`
@@ -1983,6 +2309,11 @@ def build_markdown_export(session: Session) -> bytes:
     either way.
     """
     _categories, entries, _links = _export_rows(session)
+    #: A selection (WORLD_CLASS_PLAN 5 item 6, section 8 row 30): the same
+    #: files the whole export writes, for these notes only.
+    if ids is not None:
+        wanted = set(ids)
+        entries = [entry for entry in entries if entry.id in wanted]
     category_names = manager.bulk_category_names(session, entries)
     
     buffer = io.BytesIO()
@@ -2004,22 +2335,35 @@ def build_markdown_export(session: Session) -> bytes:
                 front.append(f"tags: [{', '.join(tags)}]")
             if entry.pinned:
                 front.append("pinned: true")
-            front.append("---")
             readable = manager.readable_content(entry)
+            #: KG4: the note's own properties join the app's in one block.
+            from memorymap.entry import properties as note_properties
+
+            end = note_properties.block_end(readable)
+            if end:
+                front.extend(line for line in readable[:end].rstrip("\n").split("\n")[1:-1] if line.strip())
+                readable = readable[end:].lstrip("\n")
+            front.append("---")
             body = "\n".join(front) + f"\n\n{readable}\n"
             archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
-    manager.log_action(session, "exported", "data", detail="markdown")
+    detail = "markdown" if ids is None else f"markdown, {len(entries)} selected"
+    manager.log_action(session, "exported", "data", detail=detail)
     session.commit()
     return buffer.getvalue()
 
 
 @router.get("/export/markdown")
-def export_markdown(session: Session = Depends(get_session)) -> Response:
+def export_markdown(
+    session: Session = Depends(get_session),
+    ids: str = Query(default="", max_length=6000, description="Comma-separated note ids; empty for every note"),
+) -> Response:
     """A zip of Obsidian-friendly .md files: one file per note, one
     folder per category, YAML frontmatter carrying the metadata. Binned
-    notes go under _recycle-bin/, exports never silently drop data."""
+    notes go under _recycle-bin/, exports never silently drop data. With
+    `ids`, only those notes (the Notes selection's Export)."""
+    chosen = [int(part) for part in ids.split(",") if part.strip().isdigit()] if ids.strip() else None
     return Response(
-        content=build_markdown_export(session),
+        content=build_markdown_export(session, chosen),
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=memorymap-markdown.zip"},
     )
@@ -2035,26 +2379,40 @@ MAX_IMPORT_BYTES = 1024 * 1024  # a single markdown note, not a novel
 MAX_IMPORT_FILES = 500
 
 
+#: The keys the app reads into its own fields (and writes on export); every
+#: other key stays in the note's text as a property (GRAPH_PLAN KG4).
+_APP_KEYS = {"category", "tags", "created", "updated", "pinned"}
+
+
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
-    """(metadata, body). Understands the small subset this app writes:
-    `category: X` and `tags: [a, b]`. Anything else is left in the body
-    untouched: imports must never eat someone's text."""
-    if not text.startswith("---\n"):
+    """(metadata, content). `category` and `tags` become the note's own
+    fields; `created` and `updated` are the export's and are dropped; every
+    other key stays at the top of the note as its properties (KG4), lines
+    as written, so an imported vault keeps them. Imports must never eat
+    someone's text."""
+    from memorymap.entry import properties as note_properties
+
+    end = note_properties.block_end(text)
+    if not end:
         return {}, text
-    end = text.find("\n---\n", 4)
-    if end == -1:
-        return {}, text
+    found, body = note_properties.split(text)
     meta: dict = {}
-    for line in text[4:end].splitlines():
-        if ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key, value = key.strip().lower(), value.strip()
-        if key == "category" and value:
-            meta["category"] = value
-        elif key == "tags":
-            meta["tags"] = [t.strip() for t in value.strip("[]").split(",") if t.strip()]
-    return meta, text[end + 5 :].lstrip("\n")
+    if found.get("category"):
+        meta["category"] = found["category"][0]
+    if "tags" in found:
+        meta["tags"] = [t for t in found["tags"] if t]
+    kept: list[str] = []
+    skipping = False
+    for line in text[:end].rstrip("\n").split("\n")[1:-1]:
+        head = line.partition(":")[0].strip().lower()
+        if line[:1] not in (" ", "\t", "-") and ":" in line:
+            skipping = head in _APP_KEYS
+        if not skipping:
+            kept.append(line)
+    body = body.lstrip("\n")
+    if any(line.strip() for line in kept):
+        return meta, "---\n" + "\n".join(kept) + "\n---\n" + body
+    return meta, body
 
 
 
@@ -2142,14 +2500,54 @@ def _inside(root: Path, f: Path) -> bool:
 
 
 def _run_directory_import(directory_path: str):
+    """The background task: the import, recorded as the last "import" run
+    (INBOX 438), because a 202 Accepted answers nobody about how it went."""
+    with jobruns.job_run("import") as run:
+        _import_directory_files(directory_path, run)
+
+
+#: Stands for "this path is a private note": matched without its text.
+_PRIVATE = object()
+
+
+def _text_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _already_imported(session) -> dict:  # noqa: ANN001
+    """Every live note that came from a vault file: its path in the vault ->
+    the hashes of its text, or `_PRIVATE` when its text is encrypted."""
+    from sqlalchemy import select
+
+    from memorymap.core.database import Entry
+
+    known: dict = {}
+    rows = session.execute(
+        select(Entry.source_path, Entry.content, Entry.is_private).where(
+            Entry.source_path != "", Entry.is_deleted.is_(False)
+        )
+    )
+    for path, content, private in rows:
+        if private:
+            known[path] = _PRIVATE
+        elif known.get(path) is not _PRIVATE:
+            known.setdefault(path, set()).add(_text_hash((content or "").strip()))
+    return known
+
+
+def _import_directory_files(directory_path: str, run: "jobruns.Run"):
     try:
         p = _validated_import_directory(directory_path)
     except ValueError:
+        run.fail("That folder is not inside your home folder or the data folder.")
         return
     with deps.get_db().session() as session:
         imported = 0
         skipped = 0
         skipped_oversize = 0
+        already = 0
+        made = []
+        known = _already_imported(session)
         for f in p.rglob("*.md"):
             if not _inside(p, f):
                 skipped += 1
@@ -2172,6 +2570,21 @@ def _run_directory_import(directory_path: str):
                 if not body.strip():
                     skipped += 1
                     continue
+                try:
+                    relative = f.relative_to(p).as_posix()[:500]
+                except ValueError:
+                    relative = f.name[:500]
+                #: **Running it again is safe** (SEC-10, audit 2026-10-05): a
+                #: file whose path in the vault and whose text are already a
+                #: note is passed over, so "import again" finishes an import
+                #: that was cut off instead of doubling what got in. A note
+                #: made private since is matched on its path alone: its text
+                #: is encrypted, and a second, readable copy is the one thing
+                #: an import must never make of it.
+                seen = known.get(relative)
+                if seen is not None and (seen is _PRIVATE or _text_hash(body.strip()) in seen):
+                    already += 1
+                    continue
                 #: **The file's own text, unchanged.** An earlier attempt at
                 #: this prepended `# <filename>` so the note would carry its
                 #: vault name: and three existing tests caught it, rightly:
@@ -2191,14 +2604,13 @@ def _run_directory_import(directory_path: str):
                 #: Relative to the vault root, never absolute, see
                 #: `Entry.source_path`. `as_posix` so a vault imported on
                 #: Windows and one imported on Linux group identically.
-                try:
-                    entry.source_path = f.relative_to(p).as_posix()[:500]
-                except ValueError:
-                    entry.source_path = f.name[:500]
+                entry.source_path = relative
                 if meta.get("category"):
                     entry.user_filed = True
                 deps.store_quietly(session, entry)
                 imported += 1
+                made.append(entry)
+                known.setdefault(relative, set()).add(_text_hash(body.strip()))
                 if imported % 50 == 0:
                     session.commit()
             except Exception:
@@ -2208,6 +2620,11 @@ def _run_directory_import(directory_path: str):
                     "skipped %s while importing a folder", f.name, exc_info=True
                 )
                 skipped += 1
+                #: A failed flush leaves the session refusing every later
+                #: statement until it is rolled back, so one bad file used to
+                #: end the import for every file after it (SEC-10). Each note
+                #: before it is already committed by `create_entry`.
+                session.rollback()
         #: The importer runs as a background task (202 Accepted, no
         #: synchronous response), so a skipped file has nowhere to be
         #: reported except this activity-log line: unlike `import_markdown`,
@@ -2216,8 +2633,11 @@ def _run_directory_import(directory_path: str):
         #: Firing on `skipped` too, not just `imported`, matters here: a
         #: directory whose files were all oversize used to leave no trace
         #: at all, imported stayed 0 and the whole run vanished silently.
-        if imported > 0 or skipped > 0:
+        _link_imported(session, made)
+        if imported > 0 or skipped > 0 or already > 0:
             detail = f"markdown dir x{imported}"
+            if already:
+                detail += f", {already} already in"
             if skipped:
                 detail += f", skipped {skipped}"
                 if skipped_oversize:
@@ -2225,10 +2645,17 @@ def _run_directory_import(directory_path: str):
                     detail += f" ({skipped_oversize} over {limit_mb} MB)"
             manager.log_action(session, "imported", "data", detail=detail)
             session.commit()
+            run.result = (
+                f"imported {imported} note{'' if imported == 1 else 's'} from a folder"
+                + (f", {already} already in" if already else "")
+                + (f", skipped {skipped}" if skipped else "")
+            )
             #: A whole vault arriving at once is exactly the "large change"
             #: the rebuild suggestion exists for, see `mark_index_stale`.
             if imported > 0:
                 deps.mark_index_stale(imported)
+        else:
+            run.result = "no markdown files found in that folder"
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
@@ -2258,8 +2685,40 @@ def import_markdown(
             detail=f"{len(files)} files at once is more than one import handles "
             f"({MAX_IMPORT_FILES} max): split it into smaller batches.",
         )
+    with jobruns.job_run("import") as run:
+        result = _import_markdown_files(files, session)
+        run.result = f"imported {result['imported']} note{'' if result['imported'] == 1 else 's'}" + (
+            f", skipped {len(result['skipped'])}" if result["skipped"] else ""
+        )
+    return result
+
+
+def _link_imported(session: Session, entries: list) -> None:
+    """Join up the `[[wiki links]]` an import brought in, both ways.
+
+    After every file is a note, so a link to a file later in the same batch
+    resolves (`sync_wiki_links` only links names that exist), and
+    `resolve_links_to` links notes already here that named one of the new
+    ones. Before this, an imported vault had no links at all until each note
+    was saved again (tests/test_import_markdown_links.py)."""
+    for entry in entries:
+        manager.sync_wiki_links(session, entry)
+        manager.resolve_links_to(session, entry)
+    session.commit()
+
+
+def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
     imported = 0
     skipped: list[str] = []
+    #: The notes this import made, so the client's Undo can bin exactly
+    #: these (INBOX 464 (18): choosing the files starts the import now).
+    ids: list[int] = []
+    made = []
+    #: **Choosing the same files again adds nothing** (the folder importer's
+    #: rule, SEC-10, and the README's promise): a file whose name or path and
+    #: whose text are already a note is passed over; an edited one comes in.
+    known = _already_imported(session)
+    already = 0
     for file in files:
         raw = file.file.read(MAX_IMPORT_BYTES + 1)
         name = file.filename or "note.md"
@@ -2280,6 +2739,11 @@ def import_markdown(
         #: relative path as the filename when the picker was a directory
         #: picker, and the bare name otherwise; both are relative, which is
         #: the only kind stored.
+        relative = name.lstrip("/")[:500]
+        seen = known.get(relative)
+        if seen is not None and (seen is _PRIVATE or _text_hash(body.strip()) in seen):
+            already += 1
+            continue
         entry = manager.create_entry(
             session,
             body.strip(),
@@ -2287,16 +2751,21 @@ def import_markdown(
             tags=meta.get("tags") or [],
             ai_confidence=100 if meta.get("category") else 0,
         )
-        entry.source_path = name.lstrip("/")[:500]
+        entry.source_path = relative
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
         deps.store_quietly(session, entry)
         imported += 1
-    manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
+        ids.append(entry.id)
+        made.append(entry)
+        known.setdefault(relative, set()).add(_text_hash(body.strip()))
+    _link_imported(session, made)
+    detail = f"markdown x{imported}" + (f", {already} already in" if already else "")
+    manager.log_action(session, "imported", "data", detail=detail)
     session.commit()
     deps.mark_index_stale(imported)
-    return {"imported": imported, "skipped": skipped}
+    return {"imported": imported, "skipped": skipped, "ids": ids, "already": already}
 
 
 #: A PDF or slide deck, not a video, well past what a document-conversion
@@ -2325,9 +2794,9 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
 
     data = file.file.read(MAX_DOCUMENT_IMPORT_BYTES + 1)
     if len(data) > MAX_DOCUMENT_IMPORT_BYTES:
-        raise HTTPException(status_code=413, detail="File is larger than 20 MB")
+        raise HTTPException(status_code=413, detail="That file is larger than 20 MB.")
     if not data:
-        raise HTTPException(status_code=400, detail="The file is empty")
+        raise HTTPException(status_code=400, detail="That file is empty.")
 
     suffix = Path(file.filename or "document").suffix[:12] or ".txt"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as saved:
@@ -2336,18 +2805,49 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         try:
             text = importer.convert_to_markdown(Path(saved.name))
         except Exception as exc:  # a file markitdown can't parse must not 500
+            jobruns.note_finished(
+                "import", "failed", f"Couldn't read {file.filename or 'that file'}: {exc}"
+            )
+            logging.getLogger("memorymap.import").warning(
+                "couldn't convert %s", logbuffer.safe_value(file.filename, 80), exc_info=True
+            )
             raise HTTPException(
-                status_code=422, detail=f"Couldn't read that file: {exc}"
+                status_code=422,
+                detail="Couldn't read that file. It may be damaged or in a format that can't be converted.",
             ) from exc
 
     all_sections = importer.split_into_sections(text)
     if not all_sections:
+        jobruns.note_finished(
+            "import", "failed", f"{file.filename or 'That file'} had no readable text in it"
+        )
         raise HTTPException(
-            status_code=422, detail="That file had no readable text in it"
+            status_code=422, detail="That file had no readable text in it."
         )
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
-    imported = 0
+    with jobruns.job_run("import") as run:
+        ids = _create_document_notes(session, sections, Path(file.filename or "document").name)
+        imported = len(ids)
+        run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"
+    manager.log_action(
+        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
+    )
+    session.commit()
+    return {
+        "imported": imported,
+        "truncated": len(all_sections) > len(sections),
+        "filename": file.filename,
+        "ids": ids,
+    }
+
+
+def _create_document_notes(session: Session, sections: list[str], source_name: str = "") -> list[int]:
+    """The ids of the notes made, one per section (the client's Undo bins
+    exactly these). Each keeps the file's name as its `source_path`, as the
+    other importers do, which is also what marks it as text from outside for
+    the agent's injection guard (SEC-02)."""
+    ids: list[int] = []
     for section in sections:
         entry = manager.create_entry(
             session,
@@ -2357,18 +2857,11 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
             ai_confidence=100,
         )
         entry.user_filed = True  # this file said where it came from, not the janitor
+        entry.source_path = (source_name or "document")[:500]
         session.commit()
         deps.store_quietly(session, entry)
-        imported += 1
-    manager.log_action(
-        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
-    )
-    session.commit()
-    return {
-        "imported": imported,
-        "truncated": len(all_sections) > len(sections),
-        "filename": file.filename,
-    }
+        ids.append(entry.id)
+    return ids
 
 
 

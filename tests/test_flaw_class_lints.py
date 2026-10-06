@@ -31,13 +31,13 @@ THREAD_SITES = {
     "ai/autonomous.py": 2,
     "ai/embeddings.py": 2,
     "ai/janitor.py": 1,  # the filing deadline: runs *on* the model lane, so it cannot queue there
-    "ai/model_manager.py": 2,
+    "ai/model_manager.py": 1,  # model downloads; the reindex moved onto the pool 2026-10-05
     "api/app.py": 1,
-    "api/routes_models.py": 1,
+    "api/routes_models.py": 1,  # the runner's model list off the request thread, one per runner (a status poll never waits on it); the capability probe moved onto the pool 2026-10-05
     "api/routes_update.py": 2,
     "core/embedmodels.py": 1,
-    "core/extras.py": 2,
-    "core/jobs.py": 1,  # the pool itself: the one place this is the design
+    # core/extras.py: 0 since INBOX 595, its installs run on the pool's `install` lane
+    "core/jobs.py": 2,  # the pool itself and the durable leases' heartbeat: the one place this is the design
     "core/security.py": 1,
     "search/searxng_install.py": 1,
     "search/searxng_manager.py": 1,

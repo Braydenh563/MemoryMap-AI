@@ -150,7 +150,7 @@ def test_a_long_history_pages_and_says_so(client):
     """A note edited past one page hands back a cursor, and the next page
     continues from it without repeating or skipping an event.
 
-    The sheet in `frontend/app.js` reads both: before this was wired up it
+    The sheet in `frontend/js/app.js` reads both: before this was wired up it
     took the first page and dropped the cursor, so a note with more changes
     than one page showed its newest fifty and looked complete.
     """
@@ -206,3 +206,75 @@ def test_every_row_of_a_long_history_shows_its_own_version(client):
     assert [item["content"] for item in items] == [
         f"edit {i}" for i in range(edits, -1, -1)
     ]
+
+
+def test_making_a_note_private_encrypts_the_history_it_already_had(client, session):
+    """The history written *before* a note went private held its text in the
+    clear: the `created` and `edited` events' payloads and the snapshots.
+    Found 2026-10-04 by scanning every column of a fresh data dir for a
+    private note's words."""
+    import json
+
+    from sqlalchemy import select
+
+    from memorymap.core import crypto, vault
+    from memorymap.core.database import AuditLog, EntryRevision
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+
+    entry = _make(client, "opening quokka wording")
+    client.put(f"/entries/{entry['id']}", json={"content": "edited quokka wording"})
+    client.post(f"/entries/{entry['id']}/privacy", json={"private": True})
+
+    session.expire_all()
+    revisions = session.scalars(select(EntryRevision).where(EntryRevision.entry_id == entry["id"])).all()
+    assert revisions and all(crypto.is_encrypted(r.content) for r in revisions)
+    rows = session.scalars(
+        select(AuditLog).where(AuditLog.entity_type == "entry", AuditLog.entity_id == entry["id"])
+    ).all()
+    assert rows
+    assert not any("quokka" in json.dumps(row.payload or {}) for row in rows)
+
+    # Still readable while unlocked: the history sheet decrypts what it shows.
+    page = client.get(f"/entries/{entry['id']}/history").json()
+    assert any("edited quokka wording" in item["content"] for item in page["items"])
+    assert any("opening quokka wording" == rev["content"] for rev in page["revisions"])
+    vault.close()
+
+
+def test_restoring_an_older_version_fits_the_note_as_it_is_now(client, session):
+    """A snapshot written while the note was private is ciphertext. Restoring
+    it after the note went public must not leave ciphertext in a note anyone
+    reads, and a plain version restored into a private note must be encrypted."""
+    from memorymap.core import crypto, vault
+    from memorymap.core.database import Entry
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+
+    entry = _make(client, "version one")
+    eid = entry["id"]
+    client.put(f"/entries/{eid}", json={"content": "version two"})
+    client.post(f"/entries/{eid}/privacy", json={"private": True})
+    client.post(f"/entries/{eid}/privacy", json={"private": False})
+    revisions = client.get(f"/entries/{eid}/history").json()["revisions"]
+    one = next(r for r in revisions if r["content"] == "version one")
+
+    assert client.post(f"/entries/{eid}/history/{one['id']}/restore").status_code == 200
+    session.expire_all()
+    row = session.get(Entry, eid)
+    assert row.content == "version one" and not crypto.is_encrypted(row.content)
+
+    client.put(f"/entries/{eid}", json={"content": "version three"})
+    client.post(f"/entries/{eid}/privacy", json={"private": True})
+    revisions = client.get(f"/entries/{eid}/history").json()["revisions"]
+    two = next(r for r in revisions if r["content"] == "version one")
+    assert client.post(f"/entries/{eid}/history/{two['id']}/restore").status_code == 200
+    session.expire_all()
+    row = session.get(Entry, eid)
+    assert row.is_private and crypto.is_encrypted(row.content)
+    assert client.get(f"/entries/{eid}").json()["content"] == "version one"
+    vault.close()

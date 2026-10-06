@@ -253,7 +253,8 @@ echo  !ESC![1;38;5;73m[done]!ESC![0m Removed the build caches.
 
 REM --- 2. The shortcut --------------------------------------------------
 if not "!SHORTCUTS!"=="1" goto :notes
-set "MM_LNK=%USERPROFILE%\Desktop\MemoryMap AI.lnk"
+call :desktop_dir
+set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
 if not exist "!MM_LNK!" goto :no_shortcut
 del /q "!MM_LNK!" >nul 2>nul
 echo  !ESC![1;38;5;73m[done]!ESC![0m Removed !MM_LNK!
@@ -362,9 +363,23 @@ REM  Exactly the path start.bat --shortcut writes, and nothing else: an
 REM  uninstaller that guesses at desktop files is one that deletes somebody
 REM  else's launcher.
 :list_shortcut
-set "MM_LNK=%USERPROFILE%\Desktop\MemoryMap AI.lnk"
+call :desktop_dir
+set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
 if exist "!MM_LNK!" call :line "shortcut" "!MM_LNK!"
 if not exist "!MM_LNK!" call :line "shortcut" "none found"
+exit /b 0
+
+REM  The Desktop the shell shows, asked of the shell. OneDrive's folder
+REM  backup, on by default on many new PCs, moves it to
+REM  %USERPROFILE%\OneDrive\Desktop, and %USERPROFILE%\Desktop is then a
+REM  folder nobody looks at, or none at all: --shortcut failed with "Could
+REM  not create the shortcut on your Desktop" there, or wrote one nobody saw.
+REM  start.bat and uninstall.bat carry the same lines, so --shortcuts
+REM  removes exactly the file --shortcut wrote.
+:desktop_dir
+set "MM_DESKTOP="
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')" 2^>nul`) do set "MM_DESKTOP=%%D"
+if not defined MM_DESKTOP set "MM_DESKTOP=%USERPROFILE%\Desktop"
 exit /b 0
 
 REM  The same two questions start.bat asks: is the port busy, and is it

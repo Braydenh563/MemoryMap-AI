@@ -44,11 +44,11 @@ def test_floating_surfaces_keep_the_blur() -> None:
 
 
 def test_performance_mode_is_wired_end_to_end() -> None:
-    settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
-    boot = (FRONTEND / "theme-boot.js").read_text(encoding="utf-8")
+    settings = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
+    boot = (FRONTEND / "js" / "theme-boot.js").read_text(encoding="utf-8")
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
-    canvas = (FRONTEND / "graph-canvas.js").read_text(encoding="utf-8")
-    worker = (FRONTEND / "graph-worker.js").read_text(encoding="utf-8")
+    canvas = (FRONTEND / "js" / "graph-canvas.js").read_text(encoding="utf-8")
+    worker = (FRONTEND / "js" / "graph-worker.js").read_text(encoding="utf-8")
     # The preference, its default, and its place on the reset list.
     assert 'perf: "auto"' in settings
     assert '"perf", "motion"' in settings
@@ -65,7 +65,7 @@ def test_performance_mode_is_wired_end_to_end() -> None:
     assert 'id="perf-mode"' in html and 'id="perf-mode-hint"' in html
     assert html.count('<option value="auto">Auto</option>') >= 1
     # Said once, never when chosen by hand.
-    assert 'localStorage.getItem("perf-noticed")' in settings
+    assert 'prefs.get("perf-noticed", null)' in settings
     # The graph's physics rest twice as long.
     assert 'perf: document.documentElement.dataset.perf === "on"' in canvas
     assert "message.perf === true" in worker and "const rest = perf ? 2 : 1" in worker

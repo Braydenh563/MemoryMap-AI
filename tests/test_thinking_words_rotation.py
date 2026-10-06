@@ -14,9 +14,9 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text()
-SHEETS = (ROOT / "frontend" / "sheets-selects.js").read_text(encoding="utf-8")
+SHEETS = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
 CSS = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
-SETTINGS_JS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+SETTINGS_JS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 INDEX_HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 
@@ -92,7 +92,7 @@ def test_wants_thinking_words_defaults_true_and_never_touches_the_server() -> No
     """Stored the way its nearest sibling control, `progress-motion`, is: a
     per-browser `localStorage` setting, never a `/preferences` field."""
     body = _function(SHEETS, "wantsThinkingWords")
-    assert 'localStorage.getItem("show-thinking-words")' in body
+    assert 'prefs.get("show-thinking-words", null)' in body
     assert '!== "off"' in body, "missing/unset must read as on"
     assert "prefsCache" not in body
 
@@ -107,7 +107,7 @@ def _typing_dots_body() -> str:
 
 def test_typing_dots_takes_persona_and_words_options_defaulted_off() -> None:
     body = _typing_dots_body()
-    assert 'function typingDots(label = "Thinking…", { persona = null, words = false } = {})' in body
+    assert 'function typingDots(label = null, { persona = null, words = false } = {})' in body
 
 
 def test_the_rotation_only_starts_in_the_enhanced_motion_branch() -> None:
@@ -175,18 +175,18 @@ def test_the_crossfade_reuses_the_progress_musings_own_technique() -> None:
 
 
 def test_chat_passes_the_persona_that_was_actually_sent() -> None:
-    text = (ROOT / "frontend" / "chat-attach.js").read_text(encoding="utf-8")
-    assert 'progressLine("Thinking…", { persona: sentPersona, words: true })' in text
+    text = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    assert 'progressLine(null, { persona: sentPersona, words: true })' in text
 
 
 def test_capture_ask_opts_in_with_no_persona_picker_of_its_own() -> None:
-    text = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    text = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     assert "progressLine(text, { words: true })" in text
 
 
 def test_the_popup_agent_passes_the_persona_it_asked_with() -> None:
-    text = (ROOT / "frontend" / "palette.js").read_text(encoding="utf-8")
-    assert 'progressLine("Thinking…", { persona: askedPersona, words: true })' in text
+    text = (ROOT / "frontend" / "js" / "palette.js").read_text(encoding="utf-8")
+    assert 'progressLine(null, { persona: askedPersona, words: true })' in text
 
 
 # --- CSS ---------------------------------------------------------------------

@@ -225,6 +225,9 @@ def test_with_tesseract_already_installed_the_message_says_switch_not_install(cl
     "nothing read yet" message next to this one already makes."""
     monkeypatch.setattr(ocr, "extract_regions", lambda path: None)
     monkeypatch.setattr(ocr, "tesseract_available", lambda: True)
+    # Both halves (op4-1005): "switch to" is offered only for a reader that
+    # can read, which the program alone without its wrapper cannot.
+    monkeypatch.setattr(ocr, "packages_available", lambda: True)
     created = client.post("/entries", json={"content": "host note"}).json()
     files = {"file": ("scan.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")}
     upload = client.post(f"/entries/{created['id']}/files", files=files)
@@ -234,7 +237,7 @@ def test_with_tesseract_already_installed_the_message_says_switch_not_install(cl
         json={"kind": "vision", "text": "A page read by the vision model."},
     )
 
-    body = client.get(f"/files/{attachment_id}/ocr-regions").json()
+    body = client.get(f"/files/{attachment_id}/ocr-regions?auto=false").json()
     assert body["source"] == "reading"
     assert "Switch to Tesseract" in body["message"]
     assert "Install" not in body["message"]

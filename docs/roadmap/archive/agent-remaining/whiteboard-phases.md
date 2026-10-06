@@ -1,8 +1,8 @@
 # The whiteboard: what Phases 1 to 4 left
 
-> Companions: [WHITEBOARD_PLAN.md](../WHITEBOARD_PLAN.md) ·
-> [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) · [mindmap.md](mindmap.md) ·
-> [../../DESIGN.md](../../DESIGN.md)
+> Companions: [WHITEBOARD_PLAN.md](../../WHITEBOARD_PLAN.md) ·
+> [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) · [mindmap.md](mindmap.md) ·
+> [../../DESIGN.md](../../../DESIGN.md)
 >
 > Written 2026-09-12 by the agent that built WHITEBOARD_PLAN Phases 1, 2 and
 > 3, and extended the same day by the agent that built Phase 4. Everything

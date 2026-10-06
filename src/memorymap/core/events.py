@@ -25,18 +25,16 @@ Three things live here and nothing else does:
 `payload`. No second `events` table: two half-histories, each missing what
 the other recorded, is worse than one.
 
-This module deliberately imports nothing from `entry/` or `api/` at module
-level, and reaches `entry.manager` through `importlib` in the one place it
-needs to (`exercise_for_test`), for the reason `manager.record_dates`
-already states: CodeQL's py/cyclic-import flags the import statement
-itself, not only module-level ones.
+This module deliberately imports nothing from `entry/` or `api/`. The
+spec's per-write drivers, which do, live in `tests/_event_drivers.py`
+(audit 2026-10-05, ARCH-21: 150 lines of them shipped here).
 """
 from __future__ import annotations
 
 import contextlib
 import functools
-import importlib
 import json
+import re
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -58,6 +56,10 @@ from memorymap.core.database import (
 #: A person pressed something. The default, and the honest description of
 #: every row written before this module existed.
 ACTOR_USER = "user"
+
+#: A person saved text that includes an Atlas suggestion they applied (the
+#: edit form's Improve writing): both of them, said as both (INBOX 446).
+ACTOR_USER_AND_AI = "user+ai"
 
 #: Actions that are bookkeeping rather than news: they exist so a version can
 #: be rebuilt, and they always accompany an `edited` event that says the same
@@ -91,11 +93,58 @@ def acting_as(actor: str):
         _actor.reset(token)
 
 
+#: **An outside agent, named** (WORLD_CLASS_PLAN H4). A coding agent or a
+#: desktop assistant writing to the notebook through the MCP server or the
+#: HTTP API is neither the person nor Atlas, and filing its change under
+#: either would make the activity panel's "who did this" wrong in the one
+#: case it matters most: something the person did not do and did not ask
+#: the app's own model to do. `agent:<what>@<who>`: `<what>` is the tool it
+#: called, or `api` for a plain HTTP write; `<who>` is the name the client
+#: gave (MCP's `clientInfo.name`, or the `X-MemoryMap-Agent` header).
+#: Self-declared, so it is attribution and not authentication: anyone able
+#: to write already holds the session's token.
+ACTOR_AGENT_PREFIX = "agent:"
+_AGENT_NAME = re.compile(r"[^A-Za-z0-9 ._-]+")
+_agent: ContextVar[str] = ContextVar("memorymap_event_agent", default="")
+
+
+def agent_name(raw: str | None) -> str:
+    """A client's self-given name, cut to what a label can hold safely."""
+    return _AGENT_NAME.sub("", str(raw or "")).strip()[:30]
+
+
+def agent_actor(what: str, who: str) -> str:
+    """`agent:<what>@<who>`, within the column's 60 characters."""
+    return f"{ACTOR_AGENT_PREFIX}{what[:24]}@{agent_name(who) or 'unnamed'}"[:60]
+
+
+def current_agent() -> str:
+    """The outside agent the current request or call speaks for, or ''."""
+    return _agent.get()
+
+
+@contextlib.contextmanager
+def as_agent(who: str, what: str = "api"):
+    """Everything recorded inside this block is the named outside agent's,
+    and any tool run inside it is filed under the agent too
+    (`tools.execute_tool` reads `current_agent`)."""
+    name = agent_name(who)
+    if not name:
+        yield
+        return
+    token = _agent.set(name)
+    try:
+        with acting_as(agent_actor(what, name)):
+            yield
+    finally:
+        _agent.reset(token)
+
+
 @contextlib.contextmanager
 def suppressed():
     """Record nothing inside this block.
 
-    Test support, and used by `exercise_for_test` only: the spec counts rows
+    Test support, used by `tests/_event_drivers.py` only: the spec counts rows
     around one call, so the scaffolding that call needs (a second note to
     link to, a binned note to purge) must not write events of its own. Not
     for production code: an unrecorded change is exactly what this module
@@ -615,6 +664,9 @@ def node_state(node: WhiteboardNode) -> dict:
         "height": node.height,
         "rotation": node.rotation,
         "group_id": node.group_id,
+        "locked": bool(node.locked),
+        "comments": node.comments,
+        "hidden": bool(node.hidden),
     }
 
 
@@ -705,9 +757,10 @@ def _readable_now(content: Any) -> bool:
 
 def undo(
     session: Session,
-    actor: str,
+    actor: str | list[str],
     since_id: int,
     *,
+    until_id: int | None = None,
     apply: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
@@ -729,14 +782,19 @@ def undo(
     `apply=False` is the dry run: the same plan, nothing written. With
     `apply=True` each entity gets one `restored` event, by the person, naming
     the events it reversed in `undid`. The caller commits.
+
+    **A skill run is several actors over one span** (AGENT_SKILLS_REFORM,
+    "a skill run's own Undo"): each tool call files its writes under
+    `ai:<tool>@<model>`, so a run's Undo passes the list of actors its span
+    holds and `until_id`, the last event of the run. The list's members are
+    one actor for "changed since": a later write by another tool of the same
+    run is the run's own, not somebody else's.
     """
-    rows = list(
-        session.scalars(
-            select(AuditLog)
-            .where(AuditLog.id > since_id, AuditLog.actor == actor, AuditLog.entity_id.is_not(None))
-            .order_by(AuditLog.id.asc())
-        )
-    )
+    actors = [actor] if isinstance(actor, str) else [a for a in actor if a]
+    where = [AuditLog.id > since_id, AuditLog.actor.in_(actors), AuditLog.entity_id.is_not(None)]
+    if until_id is not None:
+        where.append(AuditLog.id <= until_id)
+    rows = list(session.scalars(select(AuditLog).where(*where).order_by(AuditLog.id.asc())))
     already = _undone_ids(session, since_id)
     touched: dict[tuple[str, int], list[AuditLog]] = {}
     for row in rows:
@@ -777,7 +835,7 @@ def undo(
                 AuditLog.entity_type == entity_type,
                 AuditLog.entity_id == entity_id,
                 AuditLog.id > first,
-                AuditLog.actor != actor,
+                AuditLog.actor.notin_(actors),
                 AuditLog.action.notin_(sorted(QUIET_ACTIONS)),
             )
         )
@@ -829,170 +887,17 @@ def undo(
                 "restored",
                 "entry",
                 entry.id,
-                detail=f"undid {len(live)} change(s) by {actor}",
+                detail=f"undid {len(live)} change(s) by {', '.join(actors)}"[:200],
                 payload={**changed(was, entry_state(entry)), "undid": [row.id for row in live]},
             )
         undone += 1
     if apply:
         session.flush()
-    return {"actor": actor, "since": since_id, "dry_run": not apply, "undone": undone, "items": items}
-
-
-# --- the spec's driver -------------------------------------------------------
-#
-# `tests/test_events.py` enumerates every public write function in
-# `entry/manager.py` by name prefix and asks this module to exercise each one.
-# The point is the day someone adds a new write: the enumeration finds it, no
-# driver is registered, and the test fails here with a message saying what to
-# do. A write that quietly records nothing is exactly what this catches, so
-# this table is not test scaffolding that could live in the test file: it is
-# the registration that makes "you cannot add a write and forget" true.
-
-
-def _scratch_entry(session: Session, content: str = "driver note") -> Entry:
-    """A throwaway note for a driver to act on, recorded by nobody."""
-    manager = importlib.import_module("memorymap.entry.manager")
-    with suppressed():
-        entry = manager.create_entry(session, content, tags=["driver"])
-    return entry
-
-
-def _drive_archive_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.archive_entry(session, _scratch_entry(session))
-
-
-def _drive_create_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    with suppressed():
-        # So the category this note lands in already exists: creating it is
-        # part of the same event, but the test counts rows, and a category
-        # created here would make the count depend on what ran before.
-        manager.get_or_create_category(session, manager.UNCATEGORISED)
-    manager.create_entry(session, "a note the driver made", tags=[])
-
-
-def _drive_create_link(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.create_link(session, entry, _scratch_entry(session, "link target"))
-
-
-def _document_for(session: Session):
-    from memorymap.core.database import Document
-
-    document = Document(title="driver document", content="")
-    session.add(document)
-    session.flush()
-    return document
-
-
-def _drive_link_document(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.link_document(session, _document_for(session).id, entry.id)
-
-
-def _drive_unlink_document(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    document = _document_for(session)
-    with suppressed():
-        manager.link_document(session, document.id, entry.id)
-    manager.unlink_document(session, document.id, entry.id)
-
-
-def _drive_purge_entries(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    doomed = [_scratch_entry(session, "purge me"), _scratch_entry(session, "purge me too")]
-    with suppressed():
-        for one in doomed:
-            manager.soft_delete_entry(session, one)
-    manager.purge_entries(session, doomed)
-
-
-def _drive_purge_expired_deleted(session: Session, entry: Entry) -> None:
-    from datetime import timedelta
-
-    from memorymap.core.database import utcnow
-
-    manager = importlib.import_module("memorymap.entry.manager")
-    expired = _scratch_entry(session, "binned long ago")
-    with suppressed():
-        manager.soft_delete_entry(session, expired)
-        expired.deleted_at = utcnow() - timedelta(days=90)
-        session.commit()
-    manager.purge_expired_deleted(session, days=30)
-
-
-def _drive_record_dates(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.record_dates(session, _scratch_entry(session, "the deadline is tomorrow"))
-
-
-def _drive_record_revision(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.record_revision(session, _scratch_entry(session, "a version worth keeping"))
-
-
-def _drive_restore_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    binned = _scratch_entry(session, "back from the bin")
-    with suppressed():
-        manager.soft_delete_entry(session, binned)
-    manager.restore_entry(session, binned)
-
-
-def _drive_soft_delete_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.soft_delete_entry(session, _scratch_entry(session, "into the bin"))
-
-
-def _drive_unarchive_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    archived = _scratch_entry(session, "out of the archive")
-    with suppressed():
-        manager.archive_entry(session, archived)
-    manager.unarchive_entry(session, archived)
-
-
-def _drive_record_filing(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.record_filing(session, _scratch_entry(session), "Filed by the driver")
-
-
-def _drive_update_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.update_entry(session, _scratch_entry(session), content="edited by the driver")
-
-
-_DRIVERS = {
-    "archive_entry": _drive_archive_entry,
-    "create_entry": _drive_create_entry,
-    "create_link": _drive_create_link,
-    "link_document": _drive_link_document,
-    "purge_entries": _drive_purge_entries,
-    "purge_expired_deleted": _drive_purge_expired_deleted,
-    "record_dates": _drive_record_dates,
-    "record_filing": _drive_record_filing,
-    "record_revision": _drive_record_revision,
-    "restore_entry": _drive_restore_entry,
-    "soft_delete_entry": _drive_soft_delete_entry,
-    "unarchive_entry": _drive_unarchive_entry,
-    "unlink_document": _drive_unlink_document,
-    "update_entry": _drive_update_entry,
-}
-
-
-def exercise_for_test(session: Session, name: str, entry: Entry) -> None:
-    """Call one manager write the way the spec needs it called.
-
-    Each driver sets up whatever that write needs with events suppressed, so
-    the one event the test counts is the write's own.
-    """
-    driver = _DRIVERS.get(name)
-    if driver is None:
-        raise NotImplementedError(
-            f"{name} is a public write in entry/manager.py with no driver in "
-            "core/events.py. Make it record exactly one event (wrap it in "
-            "@events.writes and give its log_action a whole-field payload), "
-            "then register a driver for it in _DRIVERS."
-        )
-    driver(session, entry)
+    return {
+        "actor": actor if isinstance(actor, str) else ",".join(actors),
+        "since": since_id,
+        "until": until_id,
+        "dry_run": not apply,
+        "undone": undone,
+        "items": items,
+    }

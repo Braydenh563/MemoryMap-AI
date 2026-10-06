@@ -8,7 +8,7 @@
 // each asserted by its effect as a number (a rotation, a size, a count of
 // items, the depth of the undo stack, the zoom transform), never by a
 // screenshot. WHITEBOARD_PLAN.md "Placed from INBOX, 2026-09-23" is the
-// record; docs/roadmap/agent-remaining/mapux2.md holds the checklist.
+// record; docs/roadmap/archive/agent-remaining/mapux2.md holds the checklist.
 //
 //   BASE=http://127.0.0.1:8795 SCRATCH=/tmp/mm-agentM \
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/canvasconventions.js
@@ -558,9 +558,13 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
 
     // --- 17. a first-time user can find them: the help and the grips say so ---
     const taught = await page.evaluate(() => {
-      const help = document.getElementById("wb-empty-hint")?.textContent.replace(/\s+/g, " ") || "";
+      //: The board's keys are its help sheet now (INBOX 566), drawn from the
+      //: command table; " + " and "+" read the same.
+      wbRenderHelpSheet("");
+      const flat = (t) => t.replace(/\s+/g, " ").replace(/ ?\+ ?/g, "+");
+      const help = flat(document.getElementById("wb-help-sections")?.textContent || "");
       const wanted = ["Alt + drag", "Shift + drag", "Shift + corner", "Ctrl+0", "Shift+1", "Shift + arrows",
-        "Ctrl + Shift + G", "paste at the pointer", "Cancel a drag", "upright again", "Label a line"];
+        "Ctrl + Shift + G", "paste at the pointer", "Cancel a drag", "upright again", "Label a line"].map(flat);
       const grip = document.querySelector(".wb-rotate-handle")?.title || "";
       const resize = document.querySelector(".wb-resize-handle")?.title || "";
       return { missing: wanted.filter((w) => !help.includes(w)), grip, resize };

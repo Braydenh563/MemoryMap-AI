@@ -108,7 +108,8 @@ const MEASURE = (barSel) => {
 };
 
 (async () => {
-  for (const { w, h } of WIDTHS) {
+  // ONLY=ocr skips the board widths and runs the OCR workspace head alone.
+  for (const { w, h } of (process.env.ONLY === "ocr" ? [] : WIDTHS)) {
     const { browser, page } = await boot({
       viewport: { width: w, height: h },
       hasTouch: w <= 1024,
@@ -251,17 +252,79 @@ const MEASURE = (barSel) => {
     await browser.close();
   }
 
-  // The OCR workspace head, the probe's other half. Report only: it exists
-  // only once a scanned file is open, which the sweep's notebook has no path
-  // to, so its absence is a gap in the fixture and not a finding about the app.
-  const { browser, page } = await boot();
-  await page.click('[data-tab="library"]').catch(() => {});
-  await page.waitForTimeout(700);
-  await page.click('[data-target="library-view-files"]', { timeout: 4000 }).catch(() => {});
-  await page.waitForTimeout(1200);
-  const ocr = await page.evaluate(MEASURE, '.ocr-toolbar, .ocr-head');
-  console.log('== ocr head: ' + (ocr ? `${ocr.controls} controls, heights ${ocr.heights.join('/')}, ${ocr.surface}` : 'not open in this notebook (no scanned file to open)'));
-  await browser.close();
+  // The OCR workspace head, the probe's other half. It exists only once a
+  // scanned file is open, so the sweep makes one: a page of text drawn in a
+  // second browser context and uploaded the way the app uploads (`direct`),
+  // then opened with `openOcrWorkspace`, as `ocrflow.js` does. No Tesseract is
+  // needed to open the head (the engine line says it cannot read yet).
+  // Measured at 1440 and, as a phone, 390: every control in the toolbar sits on
+  // one centre line (the fault `.doc-toolbar` and `.library-head` had: a
+  // segmented track shorter than its own buttons), no control is under its
+  // band's floor, and the page does not scroll sideways (the toolbar itself
+  // scrolls, by design).
+  const PAGE = '<!doctype html><meta charset="utf-8"><body style="margin:0;width:900px;height:400px;background:#fff;font-family:Arial,sans-serif;color:#111"><div style="padding:40px;font-size:34px">Kickoff meeting notes. Action items: send the budget, book the room.</div>';
+  for (const [w, h, phone] of [[1440, 900, false], [390, 844, true]]) {
+    const { browser, page } = await boot({ viewport: { width: w, height: h }, ...(phone ? { hasTouch: true, isMobile: true } : {}) });
+    const scan = await (await browser.newContext()).newPage();
+    await scan.setViewportSize({ width: 900, height: 400 });
+    await scan.setContent(PAGE);
+    const png = (await scan.screenshot({ type: 'png' })).toString('base64');
+    const media = await page.evaluate(async (b64) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const fd = new FormData();
+      fd.append('file', new File([bytes], `scan-${Date.now()}.png`, { type: 'image/png' }));
+      fd.append('direct', 'true');
+      const r = await fetch('/media/upload', { method: 'POST', body: fd, headers: { 'X-Auth-Token': authToken(), 'X-Workspace-ID': activeSpaceId() } });
+      return r.json();
+    }, png);
+    await page.evaluate(() => switchTab('library'));
+    await page.waitForFunction(() => typeof openOcrWorkspace === 'function', null, { timeout: 15000 });
+    await page.evaluate(async (m) => {
+      const row = await apiJson(`/media/meta/${encodeURIComponent(m.url.split('/').pop())}`);
+      openOcrWorkspace({ ...row, _isImage: true }, [{ ...row, _isImage: true }]);
+    }, media);
+    await page.waitForSelector('.ocr-toolbar', { state: 'visible', timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(800);
+    const m = await page.evaluate(() => {
+      const bar = document.querySelector('.ocr-toolbar');
+      if (!bar) return null;
+      const box = bar.getBoundingClientRect();
+      // The bar's top-level controls: a button, a select's opener, a switch's label,
+      // or a segmented track (never what is inside a track: its buttons).
+      const parts = [...bar.querySelectorAll('button, .select-shell, .checkbox-label, .seg')]
+        .filter((c) => !c.closest('.seg') || c.matches('.seg'))
+        .filter((c) => !c.closest('.select-shell') || c.matches('.select-shell'))
+        .filter((c) => { const r = c.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+      const rows = parts.map((c) => {
+        const r = c.getBoundingClientRect();
+        const kids = c.matches('.seg') ? [...c.querySelectorAll('button')].map((b) => b.getBoundingClientRect().height) : [];
+        return { n: c.id || String(c.className).split(' ')[0] || c.tagName.toLowerCase(), cy: r.top + r.height / 2, h: r.height, w: r.width, kidsH: Math.max(0, ...kids) };
+      });
+      const cys = rows.map((r) => r.cy);
+      return {
+        bar: [Math.round(box.width), Math.round(box.height)],
+        n: rows.length,
+        spreadY: Math.round((Math.max(...cys) - Math.min(...cys)) * 10) / 10,
+        heights: [...new Set(rows.map((r) => Math.round(r.h)))].sort((a, b) => a - b),
+        tracks: rows.filter((r) => r.kidsH > r.h + 0.5).map((r) => `${r.n} is ${Math.round(r.h)}px tall around buttons ${Math.round(r.kidsH)}px tall`),
+        short: rows.filter((r) => r.h < 28).map((r) => `${r.n} ${Math.round(r.h)}px`),
+        docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    if (!m) {
+      findings.push(`the OCR workspace head did not open at ${w}`);
+      console.log(`== ocr head ${w}: did not open`);
+    } else {
+      console.log(`== ocr head ${w}: ${m.n} controls, bar ${m.bar.join('x')}, heights ${m.heights.join('/')}, centre spread ${m.spreadY}px`);
+      // The switch (18px) is the one control allowed to be shorter than its row.
+      const floor = phone ? 44 : 28;
+      for (const t of m.tracks) findings.push(`ocr head at ${w}: ${t}`);
+      if (m.spreadY > 3) findings.push(`ocr head at ${w}: the controls' centres are ${m.spreadY}px apart (one row should sit on one line)`);
+      if (phone && m.heights.some((x) => x < floor && x > 20)) findings.push(`ocr head at ${w}: a control is under the ${floor}px floor (${m.heights.join('/')})`);
+      if (m.docOverflow > 0) findings.push(`ocr head at ${w}: the page scrolls ${m.docOverflow}px sideways`);
+    }
+    await browser.close();
+  }
 
   console.log(findings.length ? 'FAIL:\n  ' + findings.join('\n  ') : 'PASS: 0 findings');
   process.exit(findings.length ? 1 : 0);

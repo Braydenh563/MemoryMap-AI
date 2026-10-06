@@ -543,8 +543,10 @@ def test_both_dialects_normalise_tool_calls_the_same_way():
 
 
 def test_unparseable_arguments_do_not_take_the_turn_down():
+    # INBOX 527: still `{}`, never an exception, and now marked, so the loop
+    # says the JSON was unreadable rather than running the tool with nothing.
     assert normalise_tool_calls([{"function": {"name": "n", "arguments": "{oops"}}]) == [
-        {"name": "n", "arguments": {}}
+        {"name": "n", "arguments": {}, "invalid_arguments": "{oops"}
     ]
 
 

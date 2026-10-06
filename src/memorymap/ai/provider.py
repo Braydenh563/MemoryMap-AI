@@ -68,10 +68,26 @@ class ProviderError(RuntimeError):
 
 class ToolsUnsupportedError(ProviderError):
     """The active model can't do tool calls, the caller should fall
-    back to plain Q&A, never fail the whole chat."""
+    back to plain Q&A, never fail the whole chat. `declared` is True when
+    the backend said so itself ("does not support tools"); False when the
+    model claims tools but its tool requests failed (INBOX 538), which
+    calls for different words."""
+
+    def __init__(self, message: str = "", declared: bool = True) -> None:
+        super().__init__(message)
+        self.declared = declared
 
 
-def tools_unsupported_message(model: str) -> str:
+#: Ollama's own words for a model whose template declares no tools. Matched
+#: exactly: a 400 that merely mentions "tool" (a bad argument, a thinking
+#: option) is a different problem and must not relabel the model (INBOX 538).
+NO_TOOLS_PHRASE = "does not support tools"
+#: Ollama's 500 when the model wrote a tool call it could not parse: the model
+#: *can* call tools and slipped once, so the request is worth one more try.
+UNREADABLE_CALL_PHRASE = "error parsing tool call"
+
+
+def tools_unsupported_message(model: str, declared: bool = True) -> str:
     """INBOX 272 part 1: a failure with a known remedy names it where it
     happened, not two screens away. Agent mode was requested and silently
     downgraded to a plain answer because `model` can't call tools, one
@@ -82,6 +98,13 @@ def tools_unsupported_message(model: str) -> str:
     fix is one setting (Settings, Models has the "Can call tools" fact
     beside every installed model), never a download: some small models
     genuinely cannot do this at any size the app would suggest pulling."""
+    if not declared:
+        return (
+            f"'{model}' says it can call tools, but its tool requests failed "
+            "twice with this backend, so this answered as a plain question "
+            "instead of using Agent mode. Asking again often works; if it "
+            "keeps happening, pick another model in Settings, Models."
+        )
     return (
         f"'{model}' can't call tools, so this answered as a plain question "
         "instead of using Agent mode. Pick a model whose spec sheet says "
@@ -1038,6 +1061,15 @@ def _python_style_calls(content: str, tool_names: set[str]) -> list[tuple[int, i
     return found
 
 
+
+#: The write tools' names, set by `memorymap.ai.tools` as it loads; read by
+#: the prose-call recovery below, which takes only reads without a marker.
+_WRITE_TOOLS: dict[str, frozenset[str] | None] = {"names": None}
+
+
+def set_write_tools(names) -> None:  # noqa: ANN001
+    _WRITE_TOOLS["names"] = frozenset(names)
+
 def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
@@ -1059,7 +1091,7 @@ def extract_text_tool_calls(
 
     def _consume(blob: str, whole: str) -> bool:
         try:
-            data = json.loads(blob)
+            data = loads_lenient(blob)
         except ValueError:
             return False
         candidates = data if isinstance(data, list) else [data]
@@ -1075,7 +1107,7 @@ def extract_text_tool_calls(
                 args = fn.get("arguments") or fn.get("parameters") or {}
                 if isinstance(args, str):
                     try:
-                        args = json.loads(args)
+                        args = loads_lenient(args)
                     except ValueError:
                         args = {}
                 calls.append({"name": name, "arguments": args if isinstance(args, dict) else {}})
@@ -1123,7 +1155,7 @@ def extract_text_tool_calls(
                 continue
             begin, end, blob = nearby
             try:
-                arguments = json.loads(blob)
+                arguments = loads_lenient(blob)
             except ValueError:
                 continue
             if not isinstance(arguments, dict):
@@ -1141,6 +1173,38 @@ def extract_text_tool_calls(
         for begin, end, call in _python_style_calls(content, tool_names):
             calls.append(call)
             cleaned = cleaned.replace(content[begin:end], "")
+
+    # 5) a read written with its JSON arguments in prose, `list_notes({...})`
+    # (Qwen2.5-3B, the loose-ends eval, 2026-10-05: it wrote the call, then
+    # "I cannot execute the tool call as I am a text-based AI"). A JSON object
+    # as the one argument is the schema's own shape, which a model describing
+    # a tool rarely writes; still, a description taken as a call must cost a
+    # round and never a change, so only the reads are taken without a
+    # marker. The write list is the tools module's, which registers it here
+    # when it loads (`set_write_tools`): importing it from here closed an
+    # import cycle through the whole tools package (ARCH-10's ratchet). Not
+    # registered, nothing is taken, since a write must never pass as a read.
+    if not calls:
+        writes = _WRITE_TOOLS["names"]
+        reads = set() if writes is None else {name for name in tool_names if name not in writes}
+        for match in re.finditer(r"\b([a-z_]{3,40})\s*\(\s*(?=\{)", content):
+            name = match.group(1)
+            if name not in reads:
+                continue
+            nearby = _first_json_object_after(content, match.end() - 1, window=2000)
+            if nearby is None or nearby[0] != match.end():
+                continue
+            begin, end, blob = nearby
+            close = re.match(r"\s*\)", content[end:])
+            if not close:
+                continue
+            try:
+                arguments = loads_lenient(blob)
+            except ValueError:
+                continue
+            if isinstance(arguments, dict):
+                calls.append({"name": name, "arguments": arguments})
+                cleaned = cleaned.replace(content[match.start() : end + close.end()], "")
 
     # The markers themselves are special tokens, never prose, so once a call
     # has been lifted out they are noise in the answer: `<|python_tag|>` or a
@@ -1209,6 +1273,110 @@ def split_thinking(text: str) -> tuple[str, str | None]:
     return "".join(answer).strip(), thinking or None
 
 
+
+def _unfence(text: str) -> str:
+    """The inside of a ```json ... ``` fence, by string ops (no regex for a
+    CodeQL to call polynomial), or `text` itself."""
+    if not text.startswith("```"):
+        return text
+    body = text[3:].lstrip("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ").rstrip()
+    return (body[:-3] if body.endswith("```") else body).strip()
+
+#: A comma left before a closing brace or bracket: `{"a": 1,}`.
+_TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+
+
+def _close_open_json(text: str) -> str:
+    """`text` with an unterminated string and any unclosed brackets closed, in
+    the order they opened: the shape of a call cut off by the output cap."""
+    stack: list[str] = []
+    in_string = escape = False
+    for ch in text:
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack:
+            stack.pop()
+    tail = '"' if in_string else ""
+    return text.rstrip().rstrip(",") + tail + "".join(reversed(stack))
+
+
+#: Deeper than any argument a tool takes. Checked before parsing because
+#: where `json.loads` gives up differs by Python version: 3.11 raises
+#: RecursionError at 5,000 nested objects, 3.12 and later parse them.
+JSON_MAX_DEPTH = 200
+
+
+def _json_too_deep(raw: str, limit: int = JSON_MAX_DEPTH) -> bool:
+    """True when brackets outside strings nest past `limit`: one pass."""
+    depth = 0
+    in_string = escaped = False
+    for ch in raw:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "[{":
+            depth += 1
+            if depth > limit:
+                return True
+        elif ch in "]}":
+            depth -= 1
+    return False
+
+
+def loads_lenient(text: str) -> object:
+    """JSON a small model wrote, read the way it meant it (INBOX 527).
+
+    Measured before this existed: none of five ordinary slips survived
+    (a trailing comma, single quotes, Python's True, a fence, a call cut
+    off by the output cap). Each became `{}`, and the model was told its
+    arguments were "missing something" with no hint that it was the JSON.
+    Tried in order, strictest first, so valid JSON is never reinterpreted:
+    as written; the first object of several; trailing commas dropped;
+    a Python literal (`ast.literal_eval`, literals only); brackets closed.
+    Raises ValueError when none of them reads. **A runaway `[[[[` is one that
+    does not** (sweep 1004): past a few thousand levels `json.loads` raises
+    RecursionError, which is not a ValueError, and a small model looping on a
+    bracket ended the whole turn instead of failing one tool call.
+    """
+    raw = _unfence(str(text).strip())
+    if _json_too_deep(raw):
+        raise ValueError("JSON nested too deeply")
+    try:
+        return json.loads(raw)
+    except (ValueError, RecursionError):
+        pass  # not strict JSON: try the leading value alone
+    try:
+        return json.JSONDecoder().raw_decode(raw)[0]
+    except (ValueError, RecursionError):
+        pass  # no leading value either: try the repairs below
+    tidy = _TRAILING_COMMA_RE.sub(r"\1", raw)
+    for attempt in (tidy, _close_open_json(tidy)):
+        try:
+            return json.loads(attempt)
+        except (ValueError, RecursionError):
+            pass  # a Python literal (single quotes, True) is the last reading
+        try:
+            return ast.literal_eval(attempt)
+        except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+            pass  # this repair did not read; the next one, or the error below
+    raise ValueError("not JSON, even read leniently")
+
+
 def normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
     """`[{"function": {...}}]` in either dialect -> `[{"name", "arguments"}]`.
 
@@ -1216,22 +1384,30 @@ def normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
     object: but Ollama models are inconsistent among themselves and some send
     the string too, which is why this already handled both before there was a
     second provider. One dialect fewer to add.
+
+    A string read with `loads_lenient`; one that still does not read, or reads
+    as something other than an object, comes back with `invalid_arguments`
+    (what the model wrote, clipped) so the agent loop can say *the JSON* was
+    wrong rather than run the tool with nothing.
     """
     calls: list[dict] = []
     for item in raw_calls or []:
         function = item.get("function") or {}
         arguments = function.get("arguments") or {}
+        invalid = None
         if isinstance(arguments, str):
             try:
-                arguments = json.loads(arguments)
+                arguments = loads_lenient(arguments)
             except ValueError:
+                invalid = function.get("arguments")
                 arguments = {}
-        calls.append(
-            {
-                "name": function.get("name", ""),
-                "arguments": arguments if isinstance(arguments, dict) else {},
-            }
-        )
+        if not isinstance(arguments, dict):
+            invalid = invalid or str(function.get("arguments"))
+            arguments = {}
+        call = {"name": function.get("name", ""), "arguments": arguments}
+        if invalid is not None:
+            call["invalid_arguments"] = str(invalid)[:300]
+        calls.append(call)
     return calls
 
 
@@ -1245,6 +1421,8 @@ def offered_tool_names(tools: list[dict]) -> set[str]:
 __all__ = [
     "ProviderError",
     "ToolsUnsupportedError",
+    "NO_TOOLS_PHRASE",
+    "UNREADABLE_CALL_PHRASE",
     "Provider",
     "DEFAULT_CONTEXT_TOKENS",
     "MAX_REQUESTED_CONTEXT",
@@ -1256,6 +1434,7 @@ __all__ = [
     "detect_provider",
     "extract_text_tool_calls",
     "normalise_tool_calls",
+    "loads_lenient",
     "offered_tool_names",
     "split_thinking",
 ]

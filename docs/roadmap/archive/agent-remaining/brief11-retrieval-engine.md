@@ -1,7 +1,7 @@
 # Brief 11, the retrieval engine (WORLD_CLASS_PLAN B3): what is left
 
-> Companions: [HISTORY.md](../HISTORY.md) ("From WORLD_CLASS_PLAN.md B3 and
-> SESSION_BRIEFS Brief 11") · [SESSION_BRIEFS.md](../SESSION_BRIEFS.md)
+> Companions: [HISTORY.md](../../HISTORY.md) ("From WORLD_CLASS_PLAN.md B3 and
+> SESSION_BRIEFS Brief 11") · [SESSION_BRIEFS.md](../../SESSION_BRIEFS.md)
 > Brief 11 · the spec, `tests/test_search_engine_spec.py` · the measurement,
 > `scratchpad/search/measure_engine.py`
 

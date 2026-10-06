@@ -1,4 +1,4 @@
-// The hash router (WORLD_CLASS_PLAN 22.1 item 1, frontend/router.js): every
+// The hash router (WORLD_CLASS_PLAN 22.1 item 1, frontend/js/router.js): every
 // view has an address, the title names it, the browser's Back and Forward and
 // the app's own walk the same list, reload keeps the view and a deep link
 // opens the thing it names. At 1093x614@1.25 (the owner's laptop) unless VIEW.

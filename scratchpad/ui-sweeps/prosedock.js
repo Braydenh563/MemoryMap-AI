@@ -29,17 +29,25 @@ const geom = (page) =>
       return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom) };
     };
     const panel = document.getElementById("doc-prose-panel");
-    const dock = panel.querySelector(".doc-prose-dock");
+    // INBOX 552: the side is chosen from the head's ⋯ (`kebabMenu` keeps its
+    // items on the wrap), not from a fifth icon in the head.
+    const dock = panel.querySelector(".doc-prose-more")?.rowMenu?.items.find((i) => /^Dock/.test(i.title));
     return {
       editor: r(document.getElementById("doc-source-wrap")),
       panes: r(document.getElementById("doc-panes")),
       panel: r(panel),
       inPanes: panel.parentElement.id === "doc-panes",
       handle: r(document.querySelector(".doc-prose-resize")),
-      dock: dock ? { label: dock.getAttribute("aria-label"), shown: getComputedStyle(dock).display !== "none" } : null,
+      dock: dock ? { label: dock.title, shown: true } : null,
       overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
+
+async function clickDock(page) {
+  await page.click("#doc-prose-panel .doc-prose-more > button");
+  await page.waitForTimeout(200);
+  await page.locator(".action-menu:not(.hidden) .menu-item", { hasText: "Dock" }).first().click();
+}
 
 async function openDoc(page) {
   await page.evaluate(() => switchTab("documents"));
@@ -69,13 +77,13 @@ async function openDoc(page) {
   ok("by default the panel is under the editor", !g.inPanes && g.panel.y >= g.editor.b, J({ editor: g.editor, panel: g.panel }));
   ok("with a toggle in its head offering the right", g.dock?.shown && g.dock.label === "Dock the suggestions on the right", J(g.dock));
   const before = g;
-  await page.click(".doc-prose-dock");
+  await clickDock(page);
   await page.waitForTimeout(400);
   g = await geom(page);
   ok("the toggle moves it to a column beside the editor", g.inPanes && g.panel.x >= g.editor.r && Math.abs(g.panel.y - g.editor.y) <= 2, J({ editor: g.editor, panel: g.panel }));
   ok("the editor gives up width, not height", g.editor.h > before.editor.h && g.editor.w < before.editor.w, J({ before: before.editor, after: g.editor }));
   ok("the column is the default width and the pane's height", Math.abs(g.panel.w - 320) <= 1 && Math.abs(g.panel.h - g.panes.h) <= 2, J({ panel: g.panel, panes: g.panes }));
-  ok("the toggle now offers the bottom, and keeps focus", g.dock.label === "Dock the suggestions at the bottom" && (await page.evaluate(() => document.activeElement?.classList.contains("doc-prose-dock"))), J(g.dock));
+  ok("the toggle now offers the bottom, and keeps focus", g.dock.label === "Dock the suggestions at the bottom" && (await page.evaluate(() => !!document.activeElement?.closest(".doc-prose-more"))), J(g.dock));
   ok("the grip sits between them", !!g.handle && g.handle.x >= g.editor.r - 1 && g.handle.r <= g.panel.x + 1, J(g.handle));
   ok("nothing scrolls sideways", !g.overflowX);
 
@@ -130,11 +138,11 @@ async function openDoc(page) {
   ok("after a reload it is still on the right, at its width", g.inPanes && Math.abs(g.panel.w - 380) <= 1, J({ inPanes: g.inPanes, w: g.panel.w }));
 
   // Back to the bottom.
-  await page.click(".doc-prose-dock");
+  await clickDock(page);
   await page.waitForTimeout(300);
   g = await geom(page);
   ok("the toggle puts it back under the editor", !g.inPanes && g.panel.y >= g.editor.b && !g.handle, J({ panel: g.panel, handle: g.handle }));
-  await page.click(".doc-prose-dock");
+  await clickDock(page);
   await page.waitForTimeout(200);
   await browser.close();
 

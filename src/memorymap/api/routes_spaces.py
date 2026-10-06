@@ -1,6 +1,8 @@
 import re
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from memorymap.api.schemas import SpaceResponse, SpaceCreate, SpaceUpdate
 from memorymap.core import deps
@@ -48,16 +50,16 @@ def _generate_space_id(name: str, session: Session) -> str:
 
 def _validate_icon(icon: str) -> str:
     if not _ICON_RE.match(icon):
-        raise HTTPException(400, "icon must match ^ph-[a-z0-9-]{1,40}$")
+        raise HTTPException(400, "Pick an icon from the list.")
     return icon
 
 
 def _validate_name(name: str) -> str:
     name = name.strip()
     if not name:
-        raise HTTPException(400, "name must not be empty")
+        raise HTTPException(400, "A space needs a name.")
     if len(name) > _MAX_NAME_LEN:
-        raise HTTPException(400, f"name must be at most {_MAX_NAME_LEN} characters")
+        raise HTTPException(400, f"A space name can be at most {_MAX_NAME_LEN} characters.")
     return name
 
 
@@ -81,7 +83,7 @@ def create_space(space_in: SpaceCreate, session: Session = Depends(get_session))
 
 @router.put("/spaces/{space_id}", response_model=SpaceResponse)
 def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depends(get_session)):
-    space = deps.get_or_404(session, Space, space_id, "Space not found")
+    space = deps.get_or_404(session, Space, space_id, "That space could not be found.")
     # Only fields the caller actually sent are applied, so an omitted field
     # doesn't get overwritten with None (SpaceUpdate's fields are optional).
     provided = space_in.model_dump(exclude_unset=True)
@@ -104,10 +106,15 @@ def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depend
     return space
 
 
-def _move_space_contents(session: Session, source: str, target: str) -> None:
+def _move_space_contents(session: Session, source: str, target: str) -> dict:
     """Every row of `source` becomes `target`'s. Categories are the one
     per-space unique name: a category the target already has is merged
-    into it (its notes re-pointed, the duplicate dropped); the rest move."""
+    into it (its notes re-pointed, the duplicate dropped); the rest move.
+
+    Answers with what it did, row by row, for Undo (undo-1005): the ids it
+    moved per table, and each merged category as it was with the notes that
+    pointed at it. Afterwards the moved rows cannot be told from the
+    target's own, so this list is the only way back."""
     with impersonate_workspace(session, source):
         doomed = session.query(Category).filter(Category.workspace_id == source).all()
     with impersonate_workspace(session, target):
@@ -115,20 +122,117 @@ def _move_space_contents(session: Session, source: str, target: str) -> None:
             c.name: c.id
             for c in session.query(Category).filter(Category.workspace_id == target).all()
         }
+    entries = Entry.__table__
+    merged: list[dict] = []
     for category in doomed:
         if category.name in existing:
+            pointing = [
+                row_id
+                for (row_id,) in session.execute(
+                    sa_select(entries.c.id).where(entries.c.category_id == category.id)
+                )
+            ]
+            merged.append({
+                "id": category.id, "name": category.name, "description": category.description,
+                "colour": category.colour,
+                "created_at": category.created_at.isoformat() if category.created_at else None,
+                "into": existing[category.name], "entry_ids": pointing,
+            })
             session.execute(
-                sa_update(Entry.__table__)
-                .where(Entry.__table__.c.category_id == category.id)
+                sa_update(entries)
+                .where(entries.c.category_id == category.id)
                 .values(category_id=existing[category.name])
             )
             _detach_references(session, Category.__table__, [category.id])
             session.execute(sa_delete(Category.__table__).where(Category.__table__.c.id == category.id))
+    moved: dict[str, list[int]] = {}
     for model in workspace_scoped_models():
         table = model.__table__
+        ids = [row_id for (row_id,) in session.execute(sa_select(table.c.id).where(table.c.workspace_id == source))]
+        if ids:
+            moved[table.name] = ids
         session.execute(
             sa_update(table).where(table.c.workspace_id == source).values(workspace_id=target)
         )
+    # These statements move notes round the ORM, so `updated_at` stays put
+    # and the filing corpus's diff would not see them (`lexical_filing`).
+    from memorymap.ai import lexical_filing
+
+    lexical_filing.forget_corpus()
+    return {"moved": moved, "merged": merged}
+
+
+def _space_has_rows(session: Session, space_id: str) -> bool:
+    for model in workspace_scoped_models():
+        table = model.__table__
+        if session.execute(sa_select(table.c.id).where(table.c.workspace_id == space_id).limit(1)).first():
+            return True
+    return False
+
+
+class SpaceRestore(BaseModel):
+    """What a space's delete answered with, sent back by Undo (undo-1005)."""
+
+    space: SpaceResponse
+    move_to: str | None = None
+    moved: dict[str, list[int]] = Field(default_factory=dict)
+    merged: list[dict] = Field(default_factory=list)
+
+
+@router.post("/spaces/restore", response_model=SpaceResponse)
+def restore_space(body: SpaceRestore, session: Session = Depends(get_session)):
+    """Undo a space's delete: the space again, with its own id, and every row
+    the delete moved out of it moved back (a row moved on since stays where
+    it is now). A merged category is made again with its id and its notes
+    pointed back at it. A delete that took the contents with it answers with
+    no restore at all, so it never reaches here."""
+    sid = body.space.id
+    if sid in RESERVED_SPACE_IDS:
+        raise HTTPException(400, "The default spaces cannot be made again.")
+    if session.get(Space, sid) is not None:
+        raise HTTPException(409, "A space with that id already exists.")
+    name = _validate_name(body.space.name)
+    icon = _validate_icon(body.space.icon)
+    session.add(Space(id=sid, name=name, icon=icon, hidden_from_all=bool(body.space.hidden_from_all)))
+    session.flush()
+    if body.move_to:
+        tables = {model.__table__.name: model.__table__ for model in workspace_scoped_models()}
+        categories, entries = Category.__table__, Entry.__table__
+        for item in body.merged:
+            cid = int(item["id"])
+            if session.execute(sa_select(categories.c.id).where(categories.c.id == cid)).first():
+                continue
+            created = item.get("created_at")
+            session.execute(categories.insert().values(
+                id=cid, name=str(item["name"])[:100], description=item.get("description"),
+                colour=item.get("colour"), workspace_id=sid,
+                **({"created_at": datetime.fromisoformat(created)} if created else {}),
+            ))
+            ids = [int(i) for i in item.get("entry_ids") or []]
+            for start in range(0, len(ids), 500):
+                session.execute(
+                    sa_update(entries)
+                    .where(entries.c.id.in_(ids[start:start + 500]), entries.c.category_id == int(item["into"]))
+                    .values(category_id=cid)
+                )
+        for name_, ids in body.moved.items():
+            table = tables.get(name_)
+            if table is None:
+                continue
+            for start in range(0, len(ids), 500):
+                session.execute(
+                    sa_update(table)
+                    .where(table.c.id.in_(ids[start:start + 500]), table.c.workspace_id == body.move_to)
+                    .values(workspace_id=sid)
+                )
+        from memorymap.ai import lexical_filing
+        from memorymap.search import index as search_index
+
+        search_index.rebuild(session)
+        # Moved back by statement, so the filing corpus must forget too.
+        lexical_filing.forget_corpus()
+    session.commit()
+    return session.get(Space, sid)
 
 
 def _detach_references(session: Session, table, ids: list, depth: int = 0) -> None:  # noqa: ANN001
@@ -161,7 +265,13 @@ def _detach_references(session: Session, table, ids: list, depth: int = 0) -> No
                         session.execute(sa_delete(other).where(column.in_(chunk)))
 
 
-@router.delete("/spaces/{space_id}", response_model=SpaceResponse)
+class SpaceDeleted(SpaceResponse):
+    #: What Undo sends back to `POST /spaces/restore`; null when the delete
+    #: took the space's contents with it, which has no way back.
+    restore: dict | None = None
+
+
+@router.delete("/spaces/{space_id}", response_model=SpaceDeleted)
 def delete_space(
     space_id: str,
     move_to: str | None = None,
@@ -172,14 +282,14 @@ def delete_space(
     delete all its contents, and the other to move its contents to a
     different space")."""
     if space_id in RESERVED_SPACE_IDS:
-        raise HTTPException(400, "Cannot delete default spaces")
-    space = deps.get_or_404(session, Space, space_id, "Space not found")
+        raise HTTPException(400, "The default spaces cannot be deleted.")
+    space = deps.get_or_404(session, Space, space_id, "That space could not be found.")
     if move_to:
         if move_to == space_id:
-            raise HTTPException(400, "Pick a different space to move its contents to")
-        deps.get_or_404(session, Space, move_to, "The space to move to was not found")
+            raise HTTPException(400, "Pick a different space to move its contents to.")
+        deps.get_or_404(session, Space, move_to, "The space to move to could not be found.")
         response = SpaceResponse.model_validate(space)
-        _move_space_contents(session, space_id, move_to)
+        manifest = _move_space_contents(session, space_id, move_to)
         session.delete(space)
         session.commit()
         from memorymap.search import index as search_index
@@ -187,12 +297,22 @@ def delete_space(
         # Every moved row's index entry still names the old space.
         search_index.rebuild(session)
         session.commit()
-        return response
+        return SpaceDeleted(
+            **response.model_dump(),
+            restore={"space": response.model_dump(), "move_to": move_to, **manifest},
+        )
 
     # Capture the response body before deleting: reading attributes off an
     # instance after session.delete()+commit() raises ObjectDeletedError,
     # since SQLAlchemy expires it and then finds no row to refresh from.
     response = SpaceResponse.model_validate(space)
+    # An empty space has nothing to lose, so its delete can be undone; one
+    # with contents deletes them for good (files on disk included).
+    restorable = not _space_has_rows(session, space_id)
+    response = SpaceDeleted(
+        **response.model_dump(),
+        restore={"space": response.model_dump()} if restorable else None,
+    )
 
     # **Deleting a space deletes what was in it.** Asked for directly: "make
     # sure that if a specific space is deleted too, that all the content
@@ -215,13 +335,17 @@ def delete_space(
     from memorymap.core.database import (
         AskTurn, Attachment, Bookmark, Conversation, Document, DocumentAiEdit,
         DocumentBookmark, DocumentLink, DocumentRevision, EmbeddingRecord,
-        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryRevision, MediaUpload,
+        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryOpen, EntryProperty, EntryRevision, MediaUpload,
         PageRead, Reminder, WhiteboardNode, WhiteboardObject, WhiteboardSketch,
     )
 
+    from memorymap.entry import bin as other_bin
+
     config = deps.get_config()
     to_unlink: list[Path] = []
-    with impersonate_workspace(session, "all"):
+    #: The space's bin goes with it: a binned document or reminder is hidden
+    #: from every ordinary read, so this block reads them on purpose.
+    with impersonate_workspace(session, "all"), other_bin.including_binned(session):
         def rows(model):
             return session.query(model).filter_by(workspace_id=space_id)
 
@@ -259,6 +383,8 @@ def delete_space(
             (EmbeddingRecord, EmbeddingRecord.entry_id),
             (EntryRevision, EntryRevision.entry_id),
             (EntryDate, EntryDate.entry_id),
+            (EntryProperty, EntryProperty.entry_id),
+            (EntryOpen, EntryOpen.entry_id),
             (EntryBookmark, EntryBookmark.entry_id),
             (DocumentLink, DocumentLink.entry_id),
         ):
@@ -327,3 +453,58 @@ def delete_space(
         except OSError:
             pass  # the row is gone; a stray file is the recoverable failure
     return response
+
+
+class MoveNotesBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
+@router.post("/spaces/{space_id}/move-notes")
+def move_notes_to_space(space_id: str, body: MoveNotesBody, session: Session = Depends(get_session)) -> dict:
+    """Move these notes into one space (WORLD_CLASS_PLAN 5 item 5, section 8
+    row 30; INBOX 1's "a Move to space bulk action").
+
+    Only notes the request can see move: the ambient space filter reads them,
+    so a selection made in one space cannot reach into another. A note keeps
+    its category's *name*: categories are per space, so the target's category
+    of that name is used, made when it has none. What hangs off the note in
+    its old space comes with it (its files, its reminders, its fade score),
+    and so do links whose both ends moved; a link to a note left behind stays
+    where it was, as a space's delete leaves one. `from` is each note's old
+    space, which is what an Undo sends back.
+    """
+    from memorymap.core.database import Attachment, EntryLink, NoteScore, Reminder
+    from memorymap.entry import manager
+
+    if space_id == "all":
+        raise HTTPException(400, "Pick one space to move them to.")
+    deps.get_or_404(session, Space, space_id, "That space could not be found.")
+    wanted = list(dict.fromkeys(body.ids))
+    entries = [
+        e for e in session.scalars(sa_select(Entry).where(Entry.id.in_(wanted)))
+        if (e.workspace_id or "default") != space_id
+    ]
+    if not entries:
+        return {"moved": 0, "from": {}}
+    names = manager.bulk_category_names(session, entries)
+    moved_ids = [e.id for e in entries]
+    before = {str(e.id): e.workspace_id or "default" for e in entries}
+    with impersonate_workspace(session, space_id):
+        for entry in entries:
+            name = names.get(entry.category_id)
+            if entry.category_id is not None and name:
+                entry.category_id = manager.get_or_create_category(session, name, space_id).id
+            entry.workspace_id = space_id
+    with impersonate_workspace(session, "all"):
+        for model in (Attachment, Reminder, NoteScore):
+            for row in session.scalars(sa_select(model).where(model.entry_id.in_(moved_ids))):
+                row.workspace_id = space_id
+        for link in session.scalars(
+            sa_select(EntryLink).where(
+                EntryLink.source_entry_id.in_(moved_ids), EntryLink.target_entry_id.in_(moved_ids)
+            )
+        ):
+            link.workspace_id = space_id
+    manager.log_action(session, "moved", "entry", None, f"{len(entries)} note(s) to the space {space_id}")
+    session.commit()
+    return {"moved": len(entries), "from": before}

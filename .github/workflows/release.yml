@@ -46,13 +46,32 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       version: ${{ steps.resolve.outputs.version }}
     steps:
+      - uses: actions/checkout@v7
+
       - name: Resolve from the tag push or the manual input
         id: resolve
+        # The typed version reaches the script as an environment variable,
+        # never spliced into its text: `${{ inputs.version }}` inside `run:`
+        # is substituted before bash parses it, so a value with a quote and
+        # a command in it would run (GitHub's script-injection guidance).
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          # The tag must say what the code says: the app reports
+          # src/memorymap/__init__.py's __version__ (About, /health, the
+          # updater's comparison), and installer.iss stamps the installer
+          # with it. A tag that disagrees stops the release here, before
+          # anything is built or published, rather than shipping v0.4.0
+          # that calls itself 0.3.32 and offers itself as an update forever.
+          CODE=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/memorymap/__init__.py)
+          if [ "$VERSION" != "$CODE" ]; then
+            echo "::error::release version $VERSION does not match __version__ $CODE in src/memorymap/__init__.py"
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
@@ -72,11 +91,25 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.resolve-version.outputs.version }}"
-          # Pull the section between this version header and the next
-          NOTES=$(awk "/^## \[?${VERSION}\]?/,/^## /" CHANGELOG.md | head -n -1 | tail -n +2)
-          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          # The section under this version's header, up to the next one. Not
+          # an awk range (`/^## x/,/^## /`): its end pattern matches the
+          # start line itself, so the range was that one line and the notes
+          # were always empty. The header is matched as text, so the dots
+          # in a version are not regex wildcards.
+          NOTES=$(awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 || index($0, "## " v) == 1 {on = 1; next} on && /^## / {exit} on' CHANGELOG.md)
+          # A release body is capped at 125,000 characters and the API
+          # refuses a longer one, failing the release (0.4.0's section is
+          # about 278,000). Cut at a line end under the cap, in bytes, which
+          # are never fewer than characters, and point at the full file.
+          if [ "$(printf %s "$NOTES" | wc -c)" -gt 120000 ]; then
+            NOTES="$(printf %s "$NOTES" | head -c 120000 | sed '$d')
+
+          The full list is in [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md)."
+          fi
+          DELIM="notes_$(date +%s%N)"
+          echo "notes<<$DELIM" >> "$GITHUB_OUTPUT"
           echo "$NOTES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "$DELIM" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         uses: softprops/action-gh-release@v3
@@ -141,21 +174,17 @@ jobs:
         env:
           MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
           MEMORYMAP_PORT: "8765"
+        # The same smoke package-check.yml runs (packaging/frozen_smoke.py):
+        # every asset, the lazy bundles included, and the API on a fresh
+        # data dir. A release that cannot serve one of them does not happen.
         run: |
           "dist/MemoryMap AI/MemoryMap AI.exe" &
           pid=$!
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://127.0.0.1:8765/; then
-              echo "the frozen app served its page after ${i}s"
-              kill $pid || true
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "the frozen app did not answer within 60 s"
-          cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+          failed=0
+          python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
+            --data-dir "$MEMORYMAP_DATA_DIR" --log "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
           kill $pid || true
-          exit 1
+          exit $failed
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
@@ -165,7 +194,10 @@ jobs:
         env:
           MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
 
       # The MSI ships alongside the .exe, not instead of it (the owner's
       # explicit call): the .exe stays the simplest no-terminal path, the

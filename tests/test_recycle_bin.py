@@ -400,3 +400,38 @@ def _model_name(table) -> str:  # noqa: ANN001
         if mapper.local_table is table:
             return mapper.class_.__name__
     return table.name
+
+
+def test_purging_a_map_removes_its_image_files_but_a_plain_board_keeps_them(client, session):
+    """BACKLOG 116.1 item 1: a purged map's objects go with it, and the image
+    files behind them go too, or `<data>/media` fills with files nothing can
+    reach. An ordinary whiteboard only detaches its objects, so its files stay."""
+    media = deps.get_config().data_dir / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    (media / ("a" * 32 + ".png")).write_bytes(b"map image")
+    (media / ("b" * 32 + ".png")).write_bytes(b"board image")
+
+    map_board = client.post("/whiteboard/boards", json={"name": "A map", "type": "map"}).json()
+    plain = client.post("/whiteboard/boards", json={"name": "A board"}).json()
+    for board, stem in ((map_board, "a"), (plain, "b")):
+        session.add(
+            WhiteboardObject(
+                board_id=board["id"],
+                kind="image",
+                data=json.dumps({"url": f"/media/{stem * 32}.png"}),
+                x=0,
+                y=0,
+                width=10,
+                height=10,
+            )
+        )
+    session.commit()
+
+    for board in (map_board, plain):
+        binned = client.delete(f"/entries/{board['id']}")
+        assert binned.status_code == 200
+        purged = client.delete(f"/entries/{board['id']}/purge")
+        assert purged.status_code == 200
+
+    assert not (media / ("a" * 32 + ".png")).exists()
+    assert (media / ("b" * 32 + ".png")).exists()

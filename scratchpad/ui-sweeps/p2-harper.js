@@ -15,7 +15,7 @@ const SAMPLE = "Their is a problem with this sentence. He go to the store yester
   await page.waitForTimeout(1500);
   ok("nothing of Harper is fetched at boot", requested.length === 0, requested.join(", ") || "none");
   const out = await page.evaluate(async (sample) => {
-    const w = new Worker("/harper-worker.js", { type: "module" });
+    const w = new Worker("/js/harper-worker.js", { type: "module" });
     let n = 0;
     const ask = (text) => new Promise((res) => {
       const id = ++n;

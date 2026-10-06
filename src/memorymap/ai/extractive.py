@@ -136,6 +136,8 @@ def answer(question: str, notes: list[dict], limit: int = MAX_PASSAGES) -> dict:
     #: One blank line between the lead and the first passage, not two: the
     #: join already puts one in, and an empty element added a second.
     text = "\n\n".join([LEAD, *(row["text"] for row in rows)])
+    contents = {note.get("id"): note.get("content") or "" for note in notes}
+    nearness = {note.get("id"): grounding._graph_nearness(note) for note in notes}
     return {
         "text": text,
         "grounding": [
@@ -145,7 +147,47 @@ def answer(question: str, notes: list[dict], limit: int = MAX_PASSAGES) -> dict:
                 "start": row["start"],
                 "end": row["end"],
                 "score": row["score"],
+                #: The evidence card's fields (row 6). A quoted passage is the
+                #: note's own words, so every word is matched and it supports
+                #: itself; there is no model here to measure meaning with.
+                "chunk_ordinal": grounding.paragraph_ordinal(
+                    contents.get(row["note_id"], ""), row["start"], row["end"]
+                ),
+                "signals": {"bm25": 1.0, "cosine": None, "graph": nearness.get(row["note_id"])},
+                "verdict": "supported",
             }
             for row in rows
         ],
     }
+
+
+def recent(notes: list[dict], limit: int = 5) -> dict:
+    """The offline answer to "what have I saved recently?": the newest notes,
+    each by its opening line and when it was written, newest first.
+
+    The notes arrive already in that order (the retrieval's `recent` mode).
+    Quoting passages "about" a question that names no subject found nothing
+    to quote and said so (INBOX 446), which answered a list question with an
+    apology. Grounded like any extractive answer: each line is a note's own
+    opening words, cited back to it.
+    """
+    rows = []
+    for note in notes[:limit]:
+        content = str(note.get("content") or "").strip()
+        if not content:
+            continue
+        first = content.split("\n", 1)[0].strip().lstrip("#").strip()[:160]
+        when = str(note.get("written") or "").split(",")[0].strip()
+        rows.append({"note_id": note.get("id"), "first": first, "when": when, "end": len(first)})
+    if not rows:
+        return {"text": NOTHING_MATCHED, "grounding": []}
+    lines = [f"{row['first']}" + (f" ({row['when']})" if row["when"] else "") for row in rows]
+    text = "Your newest notes:\n\n" + "\n\n".join(lines)
+    return {
+        "text": text,
+        "grounding": [
+            {"sentence": row["first"], "note_id": row["note_id"], "start": 0, "end": row["end"], "score": 1.0}
+            for row in rows
+        ],
+    }
+

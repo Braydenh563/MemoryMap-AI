@@ -166,7 +166,7 @@ JSON_CASES = [
 
 def _json_region() -> str:
     #: documents-code.js since the code side was split out of documents.js.
-    text = (Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js").read_text(encoding="utf-8")
+    text = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-code.js").read_text(encoding="utf-8")
     start = text.find("// DOC-JSON-BEGIN")
     end = text.find("// DOC-JSON-END")
     assert start != -1 and end > start, "the DOC-JSON markers are missing from documents-code.js"

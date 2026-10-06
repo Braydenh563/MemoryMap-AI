@@ -1,4 +1,4 @@
-# The documents editor — a professional dev plan
+# The documents editor: a professional dev plan
 
 **Status: written by direct instruction; to be executed after the plans in
 [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md),
@@ -30,7 +30,7 @@ plan fixes by *exposure* rather than by building again.
 
 ## 2. What exists (checked in the code, not assumed)
 
-`frontend/documents.js` (~5,000 lines), the `.doc-dock` markup in
+`frontend/js/documents.js` (~5,000 lines), the `.doc-dock` markup in
 `index.html` (lines ~2200–2620) and `05-sidebars-themes.css` /
 `07-whiteboard-misc.css`.
 
@@ -48,7 +48,7 @@ plan fixes by *exposure* rather than by building again.
 
 **In flight as this is written:** D2 (a selection-driven floating toolbar)
 and D3 (a document-local undo stack across Live and Source) on a subagent
-branch — see HANDOVER.md. Both are absorbed by §5 Phase 1/2 rather than
+branch: see HANDOVER.md. Both are absorbed by §5 Phase 1/2 rather than
 redone.
 
 ## 3. The diagnosis
@@ -60,7 +60,7 @@ them is how the editor ended up "chucked together and then polished".
 
 A textarea's value is a string. It cannot carry a mark, so nothing in
 Source view can be underlined, which is why "click the underlined word" is
-answered today with "double-click and we look up the caret offset" — the
+answered today with "double-click and we look up the caret offset", the
 comment at documents.js ~4626 says so honestly. Live view works around it
 with one textarea per paragraph, which is why the caret is lost on a mode
 switch, why undo was two stacks (D3), why a selection cannot span two
@@ -96,7 +96,7 @@ Everything else is a menu, a palette or a setting.
 ### 3.3 Features that exist and do not show themselves
 
 - The findings menu exists and is reachable only by double-click or
-  right-click in Source — nothing on screen says so.
+  right-click in Source: nothing on screen says so.
 - The `/` menu, `[[` links, the connections dialog, revisions, templates,
   the word goal and the dictionary are all behind a key or a ⋯ item with no
   discoverable entry.
@@ -110,7 +110,7 @@ Everything else is a menu, a palette or a setting.
 Three options. The plan below is written for **B**; A is its first step
 either way; C is recorded so the next session does not re-derive it.
 
-**A — Keep the textarea, add a backdrop (one session).** The
+**A: Keep the textarea, add a backdrop (one session).** The
 "highlight-within-textarea" technique: a `div` behind a transparent-ink
 textarea, same font, same padding, same wrapping, holding the text with
 `<mark>`s where the findings are. Underlines appear in Source; a click
@@ -118,10 +118,10 @@ lands in the textarea, sets the caret, and the existing findings menu opens
 for the finding at that offset (`docFindingAtOffset` already does this).
 Cheap, offline, and it answers the sentence in the instruction directly.
 What it does not give: inline widgets, block handles, a single model for
-Live and Source, decent tables. **Do this first regardless** — it is the
+Live and Source, decent tables. **Do this first regardless**, it is the
 bridge, and it is measurable in a day.
 
-**B — CodeMirror 6, vendored (recommended).** MIT-licensed, no build step
+**B: CodeMirror 6, vendored (recommended).** MIT-licensed, no build step
 needed (a single prebuilt bundle under `frontend/vendor/`, ~350 KB, the
 licence file beside it, the same way `d3.v7.min.js` and `p5` are vendored
 today). It gives, natively and offline: decorations (underlines that are
@@ -129,21 +129,21 @@ clickable, widgets, block backgrounds), a real undo history, search and
 replace, folding, syntax highlighting for every file type this editor
 already opens, line numbers, IME and mobile input that a hand-rolled
 contenteditable never gets right, and a plugin API. **Live preview becomes
-decorations over the markdown source** — headings rendered as headings,
+decorations over the markdown source**, headings rendered as headings,
 `**bold**` shown bold with the markers hidden until the caret enters them,
-links as chips, images and embeds as widgets — which is exactly Obsidian's
+links as chips, images and embeds as widgets, which is exactly Obsidian's
 architecture and the one with the most published prior art. Markdown stays
 the single source of truth; every existing endpoint, revision, export and
 AI action keeps working unchanged. Source view is the same editor with the
 decoration set switched off. Split and Read stay as they are.
 Cost: the D2/D3 work in flight is partly superseded (CM6 has its own undo
-and selection API — D2's toolbar is kept as the *UI*, re-pointed at CM6's
+and selection API: D2's toolbar is kept as the *UI*, re-pointed at CM6's
 `dispatch`), and `EDITOR_SURFACES`' textarea assumptions in `editor.js`
 have to be re-pointed at one adapter (`docSurface()`: get/set text,
-selection, replace range) — which is also what finally lets the note
+selection, replace range): which is also what finally lets the note
 composer and the documents editor share one implementation.
 
-**C — A block editor over `contenteditable` (Notion's model).** Rejected
+**C: A block editor over `contenteditable` (Notion's model).** Rejected
 for this app. It needs a second document model (blocks) beside the
 markdown one, a serialiser both ways, and it makes every existing feature
 that reads offsets (selection → chat, revisions, the AI edit, exports)
@@ -154,7 +154,7 @@ as decorations and widgets in B.
 **Made in this document: B, with A as Phase 0.** The ROADMAP entry should
 not be started until a session has read CM6's licence into
 `frontend/vendor/` and confirmed the bundle loads under this app's CSP
-(no `eval`, no inline styles — CM6 injects a stylesheet through the CSSOM,
+(no `eval`, no inline styles: CM6 injects a stylesheet through the CSSOM,
 which the CSP allows; verify before building on it).
 
 ## 5. The phases
@@ -164,7 +164,7 @@ says what was not verified. Measurements use the Chromium sandbox; the
 editor sweep is `scratchpad/ui-sweeps/editor.js` (from the D2/D3 branch),
 extended per phase.
 
-### Phase 0 — the bridge: click an underline, see suggestions (1 session)
+### Phase 0: the bridge: click an underline, see suggestions (1 session)
 
 1. **Backdrop underlines in Source** (§4 A). Findings from `docProseFound`
    drawn as `<mark class="doc-finding doc-finding-{kind}">` behind the
@@ -178,7 +178,7 @@ extended per phase.
    dictionary" and "Ignore in this document". Keyboard: `Alt+Enter` on a
    finding opens the same menu (the VS Code gesture).
 3. **A findings count that is a control.** The status bar's "No
-   suggestions" becomes a chip — `3 suggestions` — that opens the panel;
+   suggestions" becomes a chip, `3 suggestions`, that opens the panel;
    `F8` / `Shift+F8` step through findings (VS Code again). The switches
    (Autocorrect, Suggestions) leave the status bar for Settings → Documents
    and the ⋯ menu; a status bar states, it does not configure.
@@ -189,7 +189,7 @@ extended per phase.
    appears within 300 ms → one click opens a menu whose first item replaces
    the word → `F8` moves to the next finding; the same in Live.
 
-### Phase 1 — chrome: three questions, three places (1 session)
+### Phase 1: chrome: three questions, three places (1 session)
 
 1. **Header = identity.** Left: a breadcrumb (`Documents › Design system
    notes`) that is also the title field; right: save state as one word
@@ -221,14 +221,14 @@ extended per phase.
    (PLAN D1's own gate), and at 820px the sidebar's labels are unclipped
    (scrollWidth = clientWidth on every sidebar label).
 
-### Phase 2 — the engine: CodeMirror 6 as the surface (2 sessions)
+### Phase 2: the engine: CodeMirror 6 as the surface (2 sessions)
 
 1. Vendor CM6 (`@codemirror/state`, `view`, `commands`, `search`,
    `language`, `lang-markdown`, the languages the file editor already
    detects) as one bundle under `frontend/vendor/codemirror/` with its
    `LICENSE`; a `tests/test_vendor_licences.py` that asserts the licence
    file exists beside every vendored bundle.
-2. `docSurface()` — the one adapter every existing feature talks to: text
+2. `docSurface()`, the one adapter every existing feature talks to: text
    get/set, selection get/set, `replaceRange`, `onChange`, `coordsAt`. Every
    `$("doc-content")` read in documents.js and editor.js goes through it.
 3. **Live preview as decorations**: headings, emphasis, code, links as
@@ -241,12 +241,12 @@ extended per phase.
    the app's field recipe, folding on headings, the gutters via CM6's line
    numbers. The existing `/` menu, `[[` autocomplete and selection → chat
    re-pointed at the adapter.
-   Acceptance: `editor.js` sweep — type in Live, switch to Source, Ctrl+Z
+   Acceptance: `editor.js` sweep: type in Live, switch to Source, Ctrl+Z
    undoes the Live edit (D3's own gate); a 20k-word document keeps keydown
    → paint < 30 ms (PLAN P4's gate, measurable now); every existing
    documents test passes; `node --check` and the DOM lints green.
 
-### Phase 3 — blocks and structure: built, 2026-09-12
+### Phase 3: blocks and structure: built, 2026-09-12
 
 All five items. The record, with every measurement and every decision, is in
 HISTORY.md ("From DOCUMENTS_PLAN.md Phase 3", items 1 to 3 and items 4 and 5);
@@ -258,7 +258,7 @@ closes; an image's options are pipe-separated and read by shape, so
 `![[river.jpg|300|center]]` and `![A river|300|center](/media/river.jpg)` mean
 the same thing.
 
-### Phase 4 — the connected document (1 session)
+### Phase 4: the connected document (1 session)
 
 1. **Backlinks with context**: built, 2026-09-12. `GET
    /documents/{id}/backlinks` answers for notes and documents at once, the
@@ -295,23 +295,23 @@ the same thing.
    its first line, 0 "start today's note" offers, 1 "Today's document" offer,
    and the calendar glyph on the row.
 
-### Phase 5 — review, history and AI (1 session)
+### Phase 5: review, history and AI (1 session)
 
 1. **Comments and annotations**: built 2026-09-13. Moved to HISTORY.md
    ("Moved from the plans, 2026-09-13", DOCUMENTS_PLAN.md); listed in the
    sidebar's Outline tab rather than in a right panel, with the measurement
    that decided it.
-2. **Version history UI**: a timeline of revisions with a diff view and
-   Restore (PLAN D8); an "AI changed this" filter using the per-document AI
-   edit log that exists.
-3. **AI edit with a diff preview** and accept/reject per hunk (PLAN D11);
-   "Check with AI" renders its findings *as findings* (Phase 0's menu),
-   not as a paragraph of advice.
+2. **Version history UI**: built (revisions, diff, Restore, the "AI edits"
+   filter). Re-run 2026-10-04, `dochistory.js` all pass; see HISTORY.md
+   ("Moved from the plans, 2026-10-04 (the documents phone pass)").
+3. **AI edit with a diff preview, per hunk; Check with AI as findings**:
+   built (the per-hunk diff; INBOX 410's in-place findings). Re-run
+   2026-10-04, `docaidiff.js` all pass; same HISTORY entry.
 4. **Focus and typewriter modes, reading typography, a print stylesheet**:
    built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
    DOCUMENTS_PLAN.md Phase 5 item 4).
 
-### Phase 6 — responsive by device (partly built; UI Phase 9 did the bands)
+### Phase 6: responsive by device (partly built; UI Phase 9 did the bands)
 
 **Measured first, 2026-09-13, `scratchpad/ui-sweeps/docnarrow.js` at 1440x900,
 1024x768, 800x1000 and 390x820**, because most of this phase turned out to be
@@ -323,7 +323,7 @@ without knowing which:
 | ≥ 1100 | sidebar 260px, editor 794px, measure at its 78ch cap | as the plan asks |
 | 820–1100 | sidebar 192px, editor 741px (the cap is ~700px, so the measure is already full) | **the icons rail would buy the measure nothing**; the selection toolbar is Phase 8's, not this phase's |
 | 600–820 | one column (`0px 764.8px`), the sidebar parked at `translateX(rail - 100%)` with a 52px rail, nothing past the window's right edge, first line at y=316 | built, by Phase 9 |
-| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; **the bottom formatting bar is not built** |
+| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; the bottom formatting bar built 2026-09-13 (item 1 below) |
 
 The phase's own acceptance line, `errors.js` at 390/820/1024: **0 errors and 0
 layout findings at all three**, 2026-09-13, with the band-4 targets in place.
@@ -393,7 +393,7 @@ the reasoning; `docnarrow.js` asserts it.
    width: the measure is at its cap there already. Left as a row here rather
    than built, so the next session does not build it twice.
 
-### Phase 8 — one editor everywhere (1 session, the owner's ask, 2026-09-09)
+### Phase 8: one editor everywhere (1 session, the owner's ask, 2026-09-09)
 
 The owner: "plan for the note capture and editors in the notes tab, making
 a new note from the graph, and anywhere there is a note related capture,
@@ -461,30 +461,18 @@ menu with the groups "Answers you will be asked for" and "Tools this skill may
 use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
 0 note commands leak in, and running one writes the placeholder at the caret.
 
-*Open, and still not for the documents agent: the board's note card.* It is
-`whiteboard.js`'s canvas text field (`wbEditNodeText`, ~2760), and adding a
-`NOTE_SURFACES` row for it is **not** the whole job, which is worth writing
-down before someone does exactly that. Three behaviours hang off that
-textarea and all three stop firing the moment a view is mounted over it:
-`keydown` (Enter commits, because the card is a single-idea field, and Escape
-abandons), `blur` (clicking away to the next card commits), and the
-`event.stopPropagation()` on that same keydown, which is what stops Tab and
-Enter reaching the board's own branch gestures. The last of those is a guard
-removed while the shape around it is kept, CLAUDE.md section 6 item 3: the
-row would look right, the edit would stop committing, and a Tab meant for the
-text would grow a branch. So the real work item is "move the commit keymap and
-the gesture guard onto the surface, then add the row", and it belongs to
-whoever owns `whiteboard.js`.
+*The board's note card*: built 2026-09-23 (askcite), the commit keymap and
+the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
+2026-09-23 (askcite agent): Phase 8c, the board's note card").
 
-### Phase 7 — export and interchange: **built 2026-09-13**
+### Phase 7: export and interchange: **built 2026-09-13**
 
 PDF (the print stylesheet), markdown, self-contained HTML, the markdown bundle
 with its images, the Word export behind an optional extra, and import of
 `.docx` and `.html` to markdown are all built; see HISTORY.md "Moved from the
-plans, 2026-09-13". What is left is one row for whoever owns
-`core/extras.py`: **python-docx has no entry in the extras catalogue**, so the
-Word export's 501 names the package rather than pointing at a button in
-Settings. One `Extra(...)` there and the message can point at it.
+plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
+"Export to Word (python-docx)" and the 501 points at it in Settings (checked
+2026-10-04).
 
 ## 6. Competitor matrix (what the plan takes from whom)
 
@@ -508,13 +496,13 @@ Settings. One `Extra(...)` there and the message can point at it.
 | AI edit with diff | ✓ | – | ✓ | ✓ | replace in place | P5 |
 | Focus / typewriter | – | ✓ | – | ✓ | – | P5 |
 | Works with the plug pulled | – | ✓ | partial | – | ✓ | kept |
-| The AI reads *your* notes, locally | – | – | – | – | ✓ | kept — the thing that beats them |
+| The AI reads *your* notes, locally | – | – | – | – | ✓ | kept, the thing that beats them |
 
 ## 7. Files this will touch
 
-`frontend/documents.js` (split into `documents/{surface,chrome,findings,
-blocks,connections}.js` — served as-is, `test_frontend_load_order.py`
-enforces order), `frontend/editor.js` (the adapter), `frontend/vendor/
+`frontend/js/documents.js` (split into `documents/{surface,chrome,findings,
+blocks,connections}.js`, served as-is, `test_frontend_load_order.py`
+enforces order), `frontend/js/editor.js` (the adapter), `frontend/vendor/
 codemirror/`, `index.html` (`.doc-dock`), `05-sidebars-themes.css`,
 `07-whiteboard-misc.css`, `src/memorymap/api/routes_documents.py`
 (properties, comments, block ids), `core/docview.py` (export), tests
@@ -528,7 +516,7 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
   control height in every dock row; 0 `errors.js` findings at 390/820/1024.
 - Every row of §6's "Plan" column has a test or a sweep assertion.
 - `python -m pytest tests/` green; `ruff`; `node --check` on every file.
-- HANDOVER.md says what was not verified — a real vision model, a real
+- HANDOVER.md says what was not verified, a real vision model, a real
   on-screen keyboard and a real iPad are three things the sandbox cannot
   supply.
 
@@ -548,6 +536,29 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 
 ---
 
+## 21. The code editor against VS Code, and writing checks everywhere (INBOX 646)
+
+Placed 2026-10-05. Exists: CodeMirror 6 vendored
+(`frontend/vendor/codemirror`, `CM6`), with Lezer grammars for JS, Python,
+CSS, HTML, JSON, YAML and Markdown and legacy modes for C, C++, C#, Java,
+Kotlin, Go, Rust, Ruby, Swift, R, SQL, shell, TOML, XML, diff, Dockerfile and
+INI; Emmet (`frontend/vendor/emmet`); Harper grammar in a worker
+(`harper-worker.js`); `documents-code.js` (4,400 lines). Open, for one Opus
+agent that audits what renders first (section 1 of CLAUDE.md) and then builds:
+
+- Languages missing: Visual Basic (`vb`, `vbScript` legacy modes), p5.js (JS
+  plus p5 completions from the vendored `p5.min.js`), PHP stays out (section
+  above, the size).
+- Per-language completions and snippets: CSS property values for the property
+  under the cursor, Python, JS, Java, C#, C, C++ keywords and common forms;
+  bracket and tag auto-close, indent guides, fold, multi-cursor, go to line,
+  format selection, comment toggle, a keybindings sheet in Help.
+- Where each is used: every code surface (documents, code blocks in notes,
+  chat code, board code blocks) shares one engine and one set of options;
+  every prose surface gets the grammar check.
+- Help moves with it (standing order 13). Measure with a Playwright sweep per
+  language; no new required dependency (CLAUDE.md, the owner's offline rule).
+
 ## Built, Phase 1 (the chrome), 2026-09-09
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
@@ -560,7 +571,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only. What is left open from this phase is in `archive/agent-remaining/documents-engine.md`.
 
-## Built — Phase 0
+## Built: Phase 0
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 
@@ -682,8 +693,9 @@ work found and did *not* fix, which is the part that is still open.
   native element out of the tab order, so `select.focus()` anywhere in this
   app focuses nothing and a `keydown` bound to a select never fires. Two
   listeners in this batch were written that way before a sweep caught it.
-  There is no lint for the class; a cheap one would fail on `.focus()` or
-  `addEventListener("keydown"` applied to a variable holding a `<select>`.
+  The lint exists since 2026-10-04, `tests/test_select_focus.py` (`.focus()`
+  or a key listener on a page `<select>`, directly or through a binding; 0
+  offences, and proved against drift).
   The empty column above References is fixed: both sections carried
   `flex: 1 1 auto`, so with a two-heading document the outline was 312.4px of
   box around 68.3px of content and References 296.5px around 46px, leaving
@@ -885,7 +897,10 @@ That is one assertion and everything below follows from it.
   title as its first heading, and the name also travels in `<title>`, which is
   what names a tab, a bookmark and the saved file.
 - **Comments travel as footnotes**, exactly as they do in the PDF export: a
-  document handed to somebody carries what was said about it.
+  document handed to somebody carries what was said about it. (Audit
+  2026-10-05, FEAT-03: footnotes rendered only in Live, so this travelled as
+  literal `[^c1]` text until `mdFootnotePrepare`/`mdFootnotesFinish` in
+  markdown.js drew them in Read, print and the HTML export the same day.)
 
 **What holds the line**: `tests/test_document_export_html.py` runs the document
 shell in node and fails on a host name, a `<link>`, an `@import`, a `url()` or a
@@ -895,9 +910,9 @@ network request refused, and measures what renders: 0 network attempts, 1
 decoded inline image, the table, the disabled task boxes and the reading
 measure.
 
-**Not decided here, and deliberately still open**: DOCX both ways, Markdown
-with its assets, and import of `.html`. The first needs a dependency decision
-this session did not have a reason to force.
+**Closed 2026-10-05 (docs hygiene before 0.4.0):** DOCX both ways, Markdown
+with its assets and import of `.html` are all built (Phase 7; HISTORY.md,
+"Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: DOCUMENTS_PLAN)").
 
 ## 14. What a document daily note is: decided 2026-09-20
 
@@ -1118,180 +1133,128 @@ compared with.
   plans, 2026-09-23"); `scratchpad/ui-sweeps/docpage17.js` is the gate.
 - **17c: built 2026-09-23.** Moved to HISTORY.md ("Moved from the plans,
   2026-09-23"); `scratchpad/ui-sweeps/docblocks17c.js` is the gate.
-- **17d. The document's own furniture.** What tells a writer where they are:
-  the title, the section they are in, how far through they are. Nothing new
-  on the page; this is whether what exists is legible. Gate: a reader
-  arriving at a long document can name their position without scrolling.
-- **17e. Dark and light parity.** Every change above measured in both, since
-  the two views of a highlight disagreeing in one theme is exactly how INBOX
-  291 was found. Gate: `contrast.js` clean at 390, 820 and 1440 in both, with
-  its element count above zero, and `dochighlight.js` still passing.
+- **17d and 17e: built 2026-10-04.** Moved to HISTORY.md ("Moved from the
+  plans, 2026-10-04 (the documents tails)"); `doccrumbview.js` and
+  `contrast.js` with `ONLY=document` are the gates. One half of 17d was
+  decided against there (a "how far through" figure, the scrollbar and the
+  outline mark already say it).
 
 **Not verified, and to be taken first by whoever opens this.** 17a to 17c
 are measured at 1280, 1440, 1920 and 2560, light and dark, in the default
 look and in Classic (`scratchpad/ui-sweeps/doclooks.sh`); 17d and 17e are
-not started. The phone is untouched by this section: the live view on a
-phone is UI_MODERNISATION_PLAN Phase 11's territory and should not be
-redesigned from here, which is why 17a's page margin applies above 600
-only.
+built (see above). The phone is not redesigned from here (UI_MODERNISATION_PLAN
+Phase 11's territory, which is why 17a's page margin applies above 600 only),
+but it is measured: 2026-10-04 at 390x844, light and dark, `docphonebar.js`
+and `doctaskbox.js`, which found and fixed three faults (the status line under
+the foot bar, the selection bar off the window, the task box at the target
+floor's size); see HISTORY.md ("Moved from the plans, 2026-10-04 (the
+documents phone pass)").
 
-## 18. The slash menus as one system: built 2026-09-21
+## 20. The 2026-10-05 feature audit: decisions
 
-The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
-commands in the notes and documents, I want them to be properly structured
-elements ... proper objects, they need to make the user's live really easy
-and also they need to be discoverable by the user as well."
-
-**Read the code before believing the brief.** "Not properly structured" is
-not what is there. `EDITOR_SURFACES` in `frontend/editor.js` is an
-id-to-context table, and each context has its own command list whose rows
-carry an id, a group, a label, a hint, search keywords, a `primary` flag and
-a `run`. That is a reasonable object already, and the documents side has a
-second one, `DOC_COMMANDS` in `frontend/documents.js`, 34 rows of id, icon,
-label, chord and `run`, bracketed by markers so `tests/test_doc_commands.py`
-can read its shape without a browser. So this section is not a rewrite of a
-mess. It is the work of making two good tables into one system, and of
-telling anybody that the feature exists.
-
-**Measured on the branch head, 2026-09-21:**
-
-| What | Reading |
-| --- | --- |
-| Contexts with their own commands | note, document, chat, skill |
-| Command groups declared in editor.js | 45 |
-| Labels written as emoji | 38 |
-| Labels written as the app's icon tokens | 10 |
-| Separate command tables | 2, editor.js's per-context lists and documents.js's `DOC_COMMANDS` |
-| Discoverability affordance | none found: the menu exists only once "/" is typed |
-
-The emoji count is the finding. This app ships a vendored icon set and names
-icons as `ph:` tokens everywhere else, and `tests/test_no_glyph_icons.py`
-exists precisely to keep typed characters out of the interface. The slash
-menus are where that rule was never applied: 38 rows against 10. A menu that
-draws its own icons in a different alphabet from every other menu is exactly
-the "not proper objects" the owner is reacting to, even though the data
-behind it is fine.
+From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
+documents briefs D1 to D5). Every brief is built: D3 and D4 (decisions 6
+and 7), D5's handles (decision 8) and its pictures in the Word export
+(FEAT-18, on the existing `docx` extra). The record is in HISTORY.md ("Moved
+from the plans, 2026-10-05 (the feature audit's documents and map fixes)");
+checked at head 2026-10-05 (op3-1005): `mermaidFlowParse`, the print dialog's
+`CSSMarginRule` test and `docImageAltWith` in documents.js. Nothing here is
+open; the decisions stay.
 
 **Decisions made.**
 
-1. One table shape for every context, and the row is the object: id, icon as
-   a `ph:` token, label, hint, keywords, group, `primary`, chord, `run`. The
-   document table and the editor tables meet at that shape rather than one
-   absorbing the other, because they are reached differently and always will
-   be.
-2. Icons come from the vendored set. No emoji in a command row, held by
-   extending `tests/test_no_glyph_icons.py` to cover the command tables, so
-   the next row added cannot reintroduce them.
-3. A command is discoverable three ways or it is not discoverable: the hint
-   on the surface, the menu itself, and search by keyword rather than by the
-   app's internal vocabulary. The keywords field already exists and is
-   already used for the second of those.
-4. The affordance is shown, not documented. Whatever says "/" is available
-   appears on an empty surface and gets out of the way once there is text,
-   rather than being a line in a help panel nobody opens.
-5. Nothing is added to the chrome, per section 17's rule, and any new recipe
-   arrives with its lint in the same commit (standing order 11).
+1. **Footnotes are drawn by the shared renderer, not by each view**
+   (FEAT-03). `mdFootnotePrepare` in markdown.js is pure (node-tested) and
+   `mdFootnotesFinish` draws the raised numbers and the notes at the foot;
+   a document runs the pass over the whole text before it is cut into
+   pieces. Numbered in citing order; an uncited note is still printed, last.
+   The back link is the word "Back", not an icon, because an icon is
+   stripped from the HTML export.
+2. **Rich paste is an allowlist walker, no library** (FEAT-04). HTML goes
+   through `DOMParser` (`style` renamed first, which the CSP would refuse)
+   and only headings, emphasis, strike, links with http, https, mailto or
+   app paths, lists, quotes, code, pictures and tables become Markdown.
+   It takes a paste only when the HTML carries one of those, so a code
+   editor's coloured copy stays plain. Ctrl+Shift+V is plain text.
+3. **Mermaid fences stay code blocks** (FEAT-08). No Mermaid is vendored
+   (the fully-local rule: nothing that is not already in `frontend/vendor/`),
+   so a ` ```mermaid ` fence renders as code with its language label;
+   BACKLOG 29c's "already renders" is corrected. A flowchart-subset parser
+   (the audit's D3) is the way in if it is built, not a vendored bundle.
+4. **A hidden formatting toolbar always shows its way back** (INBOX 574,
+   2026-10-05): the dock's Formatting button while it is hidden (not on a
+   phone, which formats from the thumb bar), Ctrl+Shift+X, the ⋯ row and
+   the palette row, and one toast the first time it is hidden.
+5. **A page break is `\newpage` on its own line** (2026-10-05, the audit's
+   D4, first part): the Pandoc and LaTeX spelling, so a document leaves
+   for any Markdown-to-PDF tool with its breaks intact. A labelled dashed
+   line on screen, the break itself in a print and in the HTML export, the
+   "/" menu's Page break in a document (not in a note, which is not
+   printed as pages). Page size, margins and page numbers are decision 7.
+6. **A flowchart fence draws as one, by a parser of our own** (2026-10-05,
+   the audit's D3, inside decision 3's terms). `mermaidFlowParse`,
+   `mermaidFlowLayout` and `mermaidFlowSvgTree` (documents.js, the
+   `DOC-MERMAID` region, node-tested): `flowchart` or `graph` in any of the
+   four directions, seven node shapes, six link kinds with labels, chains and
+   `&` fans, comments, and the styling lines read and ignored. Laid out in
+   layers (longest-path ranks with each cycle's return reversed, barycentre
+   ordering, each layer centred), a line that would lie on another (a
+   return, a second link between one pair, one that skips a rank) bowed
+   aside. Drawn in Read (so in a print and the HTML export), and in Live
+   while the caret is outside the fence (a state field, the columns block's
+   reason); pressing the figure opens its text. Anything else, a subgraph
+   and every other diagram type included, stays the code it is, so nothing
+   is drawn half right. Text is text (`createElementNS`, `textContent`).
+   Not drawn in a note (notes render through markdown.js at boot, and the
+   parser stays out of the boot scripts); "Open as a board" is the
+   whiteboard's W5.
+7. **The printed page is chosen in one step before the browser's dialog**
+   (2026-10-05, the audit's D4). Print or save as PDF opens a small dialog:
+   page size (A4 or Letter; Letter first where the locale is US or Canada),
+   orientation, margins (narrow 12mm, normal 20mm, wide 28mm) and a switch
+   for the page number ("n / N" at the foot) with the title at the head,
+   remembered on this computer; a plain Ctrl+P prints on the last choice.
+   Written as a constructed stylesheet (the CSP refuses a `<style>`), the
+   number and title as CSS page-margin boxes, which Chromium draws from 131
+   (the desktop window is Chromium); where `CSSMarginRule` is missing the
+   switch is off and says the print dialog's own headers can do it. Found
+   on the way: the print rule hid every child of `<body>` but the documents
+   page, and the page has sat inside `<main id="app-main">` since the shell
+   moved, so a print was one blank page; the main is kept now and the
+   shell's window-high boxes let go.
+8. **A picture is resized and aligned where it is shown** (2026-10-05, the
+   audit's D5). In Live, a picture (not one under its revealed source) sits
+   in a frame with DESIGN.md's grip on its lower right corner and an align
+   button at its top right, both shown on hover and on focus (always on a
+   touch screen, the grip at 24px). A drag sets the width between 40px and
+   the text column; the grip is a slider to the keys (the arrows 10px, Shift
+   50px, Home and End the bounds, Delete back to the picture's own size);
+   the align menu is Left, Centre, Right and Inline. Both write the options
+   into the alt text (`docImageAltWith`: the name, then the width, then the
+   alignment, then the caption's words), one Undo step each, so Read, a print
+   and every export draw the same picture.
+9. **A narrow sidebar puts its tab strip under the collapse toggle**
+   (2026-10-05, audit FE-19). "Documents" and "Outline" need 182px and the
+   toggle's lane 46px; at 1024 the sidebar is 192px, and "Outline" ran 7px
+   under the toggle. Below a 14rem content box (a 256px sidebar) the strip
+   starts one toggle-height down, full width, with `--space-2` of side room
+   per tab instead of `--space-5` (a container query on `#doc-sidebar`).
+   Not chosen: a wider sidebar at 1024 (the editor's width is the page),
+   shorter labels (the strip's words are its only labels). Measured by
+   `scratchpad/ui-sweeps/perf2-1005-docside.js`: fits, nothing under the
+   toggle, at 1024, 1440 and 390, light and dark.
 
-**Phases, each with its gate.**
+## 18. The slash menus as one system: built 2026-09-21
 
-- ~~**18a. One row shape.**~~ **Built 2026-09-21**, and the difference
-  between the two shapes turned out not to be cosmetic. `DOC_COMMANDS` kept
-  its icon in an `icon` field; editor.js's four lists packed theirs into the
-  front of `label`, as a string the row builder printed whole. Two
-  consequences, both fixed by the split:
+Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DOCUMENTS_PLAN.md section 18) on
+2026-10-03: a plan holds open work only. The one thing still open is below.
 
-  * it is *why* the eight callout commands reached for emoji. The row builder
-    used `textContent`, so a `ph:` token in a label would have printed as the
-    literal text "ph:note Note box"; an emoji was the only mark that could go
-    there at all.
-  * it quietly broke the menu's own ranking. `editorRankCommands` scores
-    `label.startsWith(query)` first, and no label started with a letter, so
-    that branch could never fire: typing the first word of a command ranked
-    it no better than a keyword hit.
-
-  39 rows split (38 plain, one template literal), the icon joined to the
-  label at render rather than stored joined, so a row can be read for its
-  icon without parsing its label. `tests/test_command_row_shape.py` reads
-  both tables from source with no browser and asserts every row carries an
-  `icon`, that no `label` opens with a token, and that no `label` opens with
-  a character outside ASCII (the shape check that backs
-  `test_no_glyph_icons.py`'s named-character one). Two of its three fail
-  against the code before the split.
-- ~~**18b. The icons.**~~ **Built 2026-09-21, and it found the menu did not
-  open at all.** The 38 are `ph:` tokens; the menu row builds its label
-  through `setLabel` like every other menu in the app, which it did not
-  before and which is why a token could not be written in one; the rendered
-  callout heads with an `<i class="ph">`, since `CALLOUT_KINDS` is read by
-  the renderer as well as by the menu. The Library's create table, the chat
-  attachment close, a note embed's marker and two graph arrows went with
-  them. `tests/test_no_glyph_icons.py` now decodes `\uXXXX` and `\u{...}`
-  before looking, which is the hole the 38 sat in: they were escapes, so a
-  lint reading the source text of the literal saw backslashes.
-  `scratchpad/ui-sweeps/slashicons.js` is the probe, in the gate: 14 rows, 0
-  printing a literal token, 14 of 14 carrying an icon element (4 of 14
-  before), 0 opening with a character outside ASCII.
-
-  **The finding that matters more than the icons.** Opening the menu to
-  count its rows is how this was found: 0 rows. `editorSurfaceFor` needs
-  `asSurface`, which documents.js defines, and documents.js is in the
-  Library's lazy bundle, so on every fresh load the "/" menu did nothing in
-  the note capture box, the note edit box, the chat composer and the skill
-  steps box until the person happened to open Library or Documents. Four of
-  the five surfaces. The guard that hid it said the case "cannot happen in
-  the browser (the script order is fixed)"; the script order had stopped
-  being fixed under it. Fixed by warming the bundle when an editing surface
-  takes focus and replaying the keystroke that arrived first, and held by
-  `tests/test_lazy_bundle_calls.py`, which accounts for every call a
-  boot-loaded file makes into a lazy bundle.
-
-  **The rule this leaves behind, which is the point of writing it down:** a
-  `typeof x === "function"` guard around a feature is not a safety net, it is
-  a silent off switch. A bare call would have thrown on the first press and
-  been fixed that day.
-- ~~**18c. Discoverability.**~~ **Built 2026-09-21.** Three ways, which is
-  what decision 3 asks for and what the surface had one of:
-
-  1. **The placeholder**, on every surface in `EDITOR_SURFACES`: "Press / for
-     blocks and commands." Applied from editor.js rather than written into
-     the markup, because one of the four (`entry-edit-content`) is built in
-     JS every time a note is opened, and three boxes that say it beside one
-     that does not teaches that the feature is per-box. Measured: 4 of 4
-     hinted, and the engine carries it through to `aria-placeholder` when it
-     is mounted over the composer.
-  2. **Ctrl+/**, through `DEFAULT_SHORTCUTS` and `runShortcut` (app.js), not
-     through a listener of editor.js's own. That makes it rebindable like
-     every other chord and, more to the point, puts it in the shortcuts cheat
-     sheet, which is where somebody looks for what an app can do. A second
-     listener would also have fired alongside app.js's chorded dispatcher and
-     inserted two slashes.
-  3. The menu itself, which is what 18a and 18b were about.
-
-  **Decision taken, recorded rather than remade** (standing order 3): 18c's
-  gate asked for a "visible route", and decision 5 forbids adding to the
-  chrome. The note toolbar already carries twelve controls; a thirteenth
-  teaches nothing and costs the one thing section 17 is protecting. So the
-  visible thing is the placeholder, which is copy rather than chrome and is
-  on screen at exactly the moment it is useful and gone the moment it is not,
-  and the route it names is a chord that the cheat sheet also lists.
-
-  The chord writes a real "/" into the text rather than faking the menu open:
-  the menu filters on what follows the slash and closes when it is deleted,
-  so both routes have to leave the surface in the same state or Escape and
-  Backspace would behave differently depending on how it was opened.
-
-  `scratchpad/ui-sweeps/slashicons.js` covers all of it: 4 of 4 surfaces
-  hinted, the menu open with 14 rows from the chord alone, and
-  `shortcuts.editorMenu` present so the cheat sheet lists it.
-- **18d. The menu itself.** Grouping, ordering, the `primary` flag's meaning,
-  what happens on no match, and keyboard behaviour end to end. Gate: arrow
-  keys move through the rows, Escape closes and returns focus to the surface,
-  a no-match state says so rather than showing an empty box, and every
-  context is measured at 1440 and 390.
-
-**Not verified.** None of the above is measured on a phone yet, and the chat
-context's commands press controls in the chat dock, so a change there has to
-be measured against that dock rather than assumed. The note context's own
-list was not read row by row for this section; 18a is where that happens.
+**Measured on a phone, 2026-10-04** (`docphonebar.js`, 390x844, light and
+dark): the document's "/" menu, opened from the foot bar, is 354x386 inside the
+window and above the bar, 56 rows at 45px, 8 on screen. 18a (one row shape)
+is built, HISTORY.md. **Not verified:** the chat context's commands press
+controls in the chat dock, so a change there has to be measured against that
+dock rather than assumed.
 
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
@@ -1304,7 +1267,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 294. **The owner, 2026-09-21, verbatim:** "can you improve the ui and ux of
     the live view and make it better for professional use and impressive as
     both a tool, utility and aesthetic?"
-    The documents live view (the CodeMirror surface, `frontend/documents.js`
+    The documents live view (the CodeMirror surface, `frontend/js/documents.js`
     and its theme around the `.cm-md-*` decorations). Scope is a plan
     section rather than an INBOX fix: it wants a measured read of what the
     surface is today against what a professional editor gives, a decision
@@ -1318,75 +1281,8 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 
 ## 19. A board or a map as an object in a note, and a note's reminders: built 2026-09-21
 
-The owner, INBOX 309, verbatim: "there is also no way to attach a whiteboard
-or mindmap to a note as like an object in the notes. or to link reminders to
-notes". Two halves of one idea: this note and that thing are the same piece
-of work.
-
-**What the read found before anything was built.** Half of it existed and
-was not drawn, and one sentence of the brief was simply wrong, which is why
-section 1 of CLAUDE.md says to grep first.
-
-| Claim | What is actually there |
-| --- | --- |
-| A note cannot hold a board | A note's typed objects are markdown constructs, and `mdEmbedElement` (app.js) is the single renderer for `![[name]]` behind both `renderNoteText` (note cards) and `renderMarkdown` (documents and chat). `resolveWikiTarget` has resolved a board since the map chips were built, and `renderNoteInline` already drew an inline `mapChip` for `[[My map]]`. What `mdEmbedElement` did with a board was fall through to "Nothing called House jobs yet", measured on 8793 before the change: the embed of a live board claimed it did not exist |
-| There is no preview to reuse | `mapPreview(board, {size})` is the one miniature renderer (MINDMAP_PLAN §5 item 12), fed by `preview_items` from `/whiteboard/boards` through `loadMapBoardIndex` |
-| "A reminder row has no column naming the note it came from" | It has had one since reminders existed: `Reminder.entry_id`, with `entry_preview` on every reminder read, a chip on the reminder row that opens the note, `entry_id` on `POST /reminders`, `note_id` on the `set_reminder` tool, and the note card's own "Remind me" passing `entry.id`. **No migration was needed and none was written.** What was missing was the other direction: no way to ask for one note's reminders, and nothing on the note |
-
-**Built.**
-
-- `![[board:12|House jobs]]` (and `map:`) renders a preview card: the kind,
-  the board's own miniature from `mapPreview`, its title and `mapCountLabel`,
-  the whole card a `<button>` that opens the board. A plain `![[House jobs]]`
-  that happens to name a board renders the same card, which is the bug above
-  fixed in the same place.
-- Both doorways the brief asked for: the "/" menu's "Board or mind map" in
-  Links and references, and "Add to a note" on the board itself (the Board
-  menu's `#wb-add-to-note`, and the Library card's kebab). Both write through
-  `boardEmbedMarkdown`, and the board side appends through
-  `appendSelectionToNote`, so there is one spelling and one undo.
-- `GET /reminders?entry_id=` and `GET /reminders/counts?ids=`, then a
-  `2 reminders` chip on the note card that opens a panel listing them, each
-  pressing through to `flashReminder`.
-
-**Decisions made** (standing order 3: each was missing, each got a one-line
-recommendation, each was taken).
-
-1. **A board object is addressed by id, with its title carried beside it**
-   (`![[board:12|House jobs]]`), not by title alone like every other wiki
-   link. A title-addressed object breaks silently on a rename, and worse, a
-   renamed board and a deleted one look identical to the resolver. The title
-   travels anyway because it is what the tombstone says, and because
-   `_reference_rows` in routes_entries.py finds a board's references with a
-   LIKE over note content for its label, so the card's "on 1 board" chip
-   keeps working with no backend change.
-2. **A deleted board leaves a tombstone**, `.board-embed-gone` naming what
-   was there, rather than the object vanishing. Content that disappears
-   silently teaches the reader the note was always like that.
-   **And a miss is not a tombstone until the index has been refreshed once**:
-   `loadMapBoardIndex(true)`, because a board made a minute ago is missing
-   from an index built before it existed, and "this board is no longer in
-   your notebook" over a board somebody just made is the worst thing this
-   card could say.
-3. **The slash command is "Board or mind map"**, in Links and references,
-   `primary` so it is in the shortlist with nothing typed. Named for the two
-   things it inserts, in the app's own words for them.
-4. **A note's reminders are a chip on the facts line, not a section.** The
-   card is a title, a body and one line of facts; a block under every note
-   with a reminder would push the next note off the screen for a fact that is
-   usually four words long. The chip opens the same `.entry-links` panel
-   "Referenced by" and "Similar notes" use, which is also what keeps one
-   panel open per card.
-5. **The board picker is `pickLibraryItemDialog`'s fifth source, opt in.**
-   A fifth chooser for a fifth kind is the failure this app already has a
-   rule against. It is opt in because that dialog's first caller feeds a map
-   reference node, and `MAP_REFERENCE_KINDS` has no board in it: a board
-   offered there would be a row that cannot be saved.
-
-**Not done, and deliberately.** No backfill of `Reminder.entry_id` for
-reminders made before the link was drawn: there is nothing to backfill from.
-A reminder written by hand in the Reminders tab never named a note, and
-guessing one from the text would invent a link the person did not make.
+Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DOCUMENTS_PLAN.md section 19) on
+2026-10-03: a plan holds open work only. Nothing in it is open.
 
 ## Placed from INBOX, 2026-09-23 (392)
 
@@ -1400,3 +1296,34 @@ guessing one from the text would invent a link the person did not make.
   2026-09-23"); `doccodeedit.js` and `tests/test_code_editing.py` are the
   gate. Decided there: quick fixes on Alt+Enter, not Ctrl+. (the app's stop
   chord); no model call and no new endpoint.
+
+## Placed from INBOX, 2026-10-03 (INBOX 409: the AI assistant bar is what stays open)
+
+409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
+    Templates, the persona list, a .json document with the formatting bar
+    over it, and the Write tab's AI assistant bar.** "templates cant be
+    edited, I want the generation of persona icons to be improved and I also
+    want to auto generate other icons in other places like potentially the
+    user chat bubbles?? idk. also the degree of indenting is shallow, I think
+    it should be more prominent. also this edit/write/remove bar is ugly and
+    doesnt suit a modern app, it needs to be restructured/redesigned or
+    transformed somehow to be better." Read from the screenshots: built-in
+    templates have no edit (only added ones do); the persona marks are a
+    blob on a flat disc, too alike at 20px; the prose formatting bubble (B,
+    I, S, highlight, code, link, H, quote) draws over a code document, where
+    none of it applies; the indent guides step 2 spaces; the AI assistant
+    control is a filled segmented pill. Placed: orchestrator, in this order.
+    **Built 2026-09-24**: templates editable, built-ins included (3a769ed,
+    sweep `templates.js`); persona marks a generated face, closest pair of
+    23 at 40px 5.6% before, 29.8% after (259b743, `namemarks.js`); the
+    user's own mark on their chat bubbles and the persona picker's
+    (0e88b6e, ede4f2a, `chatmarks.js`, bubble box unchanged). The code
+    selection bar and the indent step are 7ab7eec. The AI assistant bar
+    is closed: the owner's later line (INBOX 431 (f), 2026-09-27) says they
+    like that dialog's design and the edit/write/remove pill, so nothing
+    is open here.
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- ~~`docRevealForSuggest` will not bring a table-cell word into view~~ Not reproduced at 1440 or 390; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)" (`revealcell.js`).
+- ~~`editor.js` sweep describes the retired editor~~ Re-pointed at `docSurface()`: 78 of the old 89 checks remain and pass; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005)".

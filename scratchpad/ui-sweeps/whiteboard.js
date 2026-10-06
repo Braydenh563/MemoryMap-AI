@@ -30,18 +30,18 @@ function ok(name, good, detail) {
 
 // Clicks through the real UI, the way mapstrip.js does: `openWhiteboardBoard`
 // called from `page.evaluate` leaves the boards landing showing and the board
-// never opens (agent-remaining/mindmap.md, "what the next run should not
+// never opens (archive/agent-remaining/mindmap.md, "what the next run should not
 // repeat").
 async function newBoard(page, name, type) {
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(500);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(700);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", name);
-  if (type === "map") await page.click('.confirm-overlay .seg button[data-value="map"]');
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", name);
+  if (type === "map") await page.click('#wb-template-kind button[data-value="map"]');
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
 }
@@ -115,6 +115,11 @@ async function clickCanvas(page) {
   );
 
   // --- 3. the rail is one panel at one control height -----------------------
+  // The key walk above ends 80ms after the last tool change, and the tool
+  // that just lost `active` is still fading its fill out (a ghost button's
+  // background transition), which read as a second painted surface at
+  // alpha 0.011. Let the transition finish before measuring what rests.
+  await page.waitForTimeout(600);
   const rail = await page.evaluate(() => {
     const panel = document.getElementById("wb-tools-panel");
     if (!panel) return null;
@@ -163,7 +168,7 @@ async function clickCanvas(page) {
   ok(
     "one painted surface in the rail, plus the active tool",
     extraSurfaces.length === 0,
-    `${rail?.opaqueChildren.length} painted children, ${extraSurfaces.length} not the active tool`,
+    `${rail?.opaqueChildren.length} painted children, ${extraSurfaces.length} not the active tool${extraSurfaces.length ? ": " + JSON.stringify(extraSurfaces) : ""}`,
   );
   ok(
     "one control height across the rail",

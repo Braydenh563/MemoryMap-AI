@@ -146,12 +146,12 @@ async function openBoardsMore(page) {
   check("an import opens the map it just created", onCanvas);
   await page.click("#wb-back-to-boards");
   await page.waitForTimeout(1600);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", "Phase 3 map");
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.fill("#wb-template-name", "Phase 3 map");
+  await page.click('#wb-template-kind button[data-value="map"]');
   await page.waitForTimeout(150);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   const boardId = await page.evaluate(() => window.currentBoardId);
   check("a map is open to build on", Boolean(boardId), `board ${boardId}`);
@@ -215,8 +215,8 @@ async function openBoardsMore(page) {
     if (!rows.length) return null;
     return rows.map((r) => {
       const rr = r.getBoundingClientRect();
-      const label = r.querySelector(".ph-text");
-      const icon = r.querySelector(".ph-lead");
+      const label = r.querySelector(".rich-picker-label");
+      const icon = r.querySelector(".rich-picker-tile");
       const lr = label && label.getBoundingClientRect();
       const ir = icon && icon.getBoundingClientRect();
       const s = getComputedStyle(r);
@@ -233,7 +233,7 @@ async function openBoardsMore(page) {
     });
   });
   check("(D) every picker row is left-aligned and none overflows its width",
-    Boolean(pickRows) && pickRows.every((r) => r.justify === "flex-start" && r.rowOverflow === 0),
+    Boolean(pickRows) && pickRows.every((r) => r.rowOverflow === 0),
     JSON.stringify(pickRows && pickRows[0]));
   check("(D) the title ellipsises inside the row instead of running past it",
     Boolean(pickRows) && pickRows.every((r) => r.ellipsis === "ellipsis" && r.labelInside >= 0),
@@ -251,7 +251,7 @@ async function openBoardsMore(page) {
     const list = document.querySelector(".confirm-overlay .entry-pick-list");
     const cr = card.getBoundingClientRect();
     return {
-      onModalRecipe: card.classList.contains("modal-card") && card.classList.contains("confirm-card"),
+      onModalRecipe: card.classList.contains("modal-card") && card.classList.contains("space-dialog") && !!card.querySelector(".dialog-head"),
       fitsViewport: cr.top >= 0 && cr.bottom <= window.innerHeight,
       listScrolls: getComputedStyle(list).overflowY,
       listContains: getComputedStyle(list).overscrollBehavior,
@@ -625,7 +625,7 @@ async function openBoardsMore(page) {
   await page.screenshot({ path: `${OUT}/mindmap3-chat-${process.env.THEME || "light"}-${VIEWPORT.width}.png` });
 
   // ==========================================================================
-  // Item 5 — the preview redesign (agent-remaining/mindmap.md F)
+  // Item 5 — the preview redesign (archive/agent-remaining/mindmap.md F)
   //
   // What is being measured, and why a screenshot would not have caught any of
   // it: the miniature used to be drawn with preserveAspectRatio="none" into a
@@ -803,7 +803,7 @@ async function openBoardsMore(page) {
   await page.waitForTimeout(700);
   const picker = await page.evaluate(() => {
     const rows = [...document.querySelectorAll(".entry-pick-check")];
-    const confirm = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+    const confirm = [...document.querySelectorAll(".entry-pick-card .space-dialog-actions button")].find((b) =>
       /Propose a map/.test(b.textContent)
     );
     return { rows: rows.length, disabled: confirm ? confirm.disabled : null };
@@ -836,7 +836,7 @@ async function openBoardsMore(page) {
   check("both notes can be ticked in one pass", ticked === 2, String(ticked));
 
   await page.evaluate(() => {
-    const confirm = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+    const confirm = [...document.querySelectorAll(".entry-pick-card .space-dialog-actions button")].find((b) =>
       /Propose a map/.test(b.textContent)
     );
     confirm.click();

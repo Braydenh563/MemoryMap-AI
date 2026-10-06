@@ -38,11 +38,15 @@ REM      >>"file" echo !VAR!, because a value ending in a digit turns
 REM      "echo !VAR!>>file" into a numbered stream redirect instead.
 REM ===================================================================
 
-setlocal enabledelayedexpansion
-
-REM Generate the ESC character to allow ANSI color codes in Windows CMD
-for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-
+REM  The two lines that read this script's own path run FIRST, with delayed
+REM  expansion off. %~dp0 and %~f0 are expanded when the line is parsed, and
+REM  with delayed expansion on, cmd then scans the result for "!" again: a
+REM  folder called "Notes!" or "Hi!there" lost the "!" (and anything between
+REM  two of them), so MM_HOME, MM_SELF and the cd below named a folder that
+REM  does not exist. The SETLOCAL below nests inside this one; every
+REM  ENDLOCAL in the script is followed by an exit, so the extra level costs
+REM  nothing (cmd closes it when the script ends).
+setlocal disabledelayedexpansion
 cd /d "%~dp0"
 
 REM  This script's own path, captured before the argument parser below runs.
@@ -54,6 +58,11 @@ REM  exactly that way. Nothing after :parse_args may use %~f0 or %~dp0
 REM  (tests\test_launcher_scripts.py holds that line).
 set "MM_HOME=%~dp0"
 set "MM_SELF=%~f0"
+
+setlocal enabledelayedexpansion
+
+REM Generate the ESC character to allow ANSI color codes in Windows CMD
+for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 
 REM  The arguments this run was given, captured before the parser below
 REM  starts shifting them away: SHIFT does not rewrite %*, so this is the
@@ -408,19 +417,10 @@ REM  .venv exists on a first launch, so there is no Python to ask. The app
 REM  writes that file with indent=2 (core\atomic_io.py), one key per line, so
 REM  a key and its value on the same line is the whole of the parse.
 REM
-REM  The default is on, and on for a source checkout only: that is what a
-REM  `git pull` on every launch has always done here, so someone who has
-REM  never opened Settings sees no change. A packaged Windows install keeps
-REM  the default off (core\config.py) and has no .git to pull anyway.
-set "MM_UPDATE_PLAN=main"
-set "MM_PREFS_FILE=!MM_DATA_DIR!\preferences.json"
-if not exist "!MM_PREFS_FILE!" goto :update_plan_done
-findstr /I /R /C:"auto_update_enabled.*false" "!MM_PREFS_FILE!" >nul 2>nul
-if not errorlevel 1 set "MM_UPDATE_PLAN=off"
-if "!MM_UPDATE_PLAN!"=="off" goto :update_plan_done
-findstr /I /R /C:"update_channel.*stable" "!MM_PREFS_FILE!" >nul 2>nul
-if not errorlevel 1 set "MM_UPDATE_PLAN=stable"
-:update_plan_done
+REM  **"ask" until the person has answered** (the owner, 2026-10-05, "Ask
+REM  once", WORLD_CLASS_PLAN 12): read in :read_update_plan, which the
+REM  doctor calls too, so its row and this step never disagree.
+call :read_update_plan
 
 REM --- 0. Self-update, then re-launch a FRESH copy --------------------
 REM  A running .bat is read from disk by byte offset, so a git pull that
@@ -449,6 +449,7 @@ REM  than one.
 if defined MM_CHILD goto :after_update
 if "!MM_NO_UPDATE!"=="1" goto :no_update
 if "!MM_UPDATE_PLAN!"=="off" goto :updates_off
+if "!MM_UPDATE_PLAN!"=="ask" goto :updates_ask
 REM  **A skipped step is still a step, and these two jumps are the whole of
 REM  the "only loads up to step 3/5 and then it loads" report.** The splash's
 REM  bar is a count of steps that reached `done` over the total
@@ -537,6 +538,13 @@ set "MM_RC=!errorlevel!"
 endlocal & exit /b %MM_RC%
 :no_update
 call :status !MM_STEP_UPDATE! "Update" "Skipped, --no-update" "done"
+goto :after_update
+:updates_ask
+REM  Not answered yet, so nothing touches the network. The question is the
+REM  app's, asked once in its window: this console may sit behind the
+REM  splash, where a prompt would hold the launch with nobody to see it.
+echo         Nothing checked for updates: the app asks once whether to.
+call :status !MM_STEP_UPDATE! "Update" "Not chosen yet, nothing checked" "done"
 goto :after_update
 :updates_off
 REM  Said out loud and ticked as a real outcome, the same way every other
@@ -926,8 +934,14 @@ exit /b 0
 REM  A real .lnk rather than a copy of this file: it carries the icon, the
 REM  working directory and the --desktop argument, which a copy cannot.
 REM  uninstall.bat --shortcuts removes this exact path.
-set "MM_LNK=%USERPROFILE%\Desktop\MemoryMap AI.lnk"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_LNK!'); $s.TargetPath='!MM_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_HOME!'; $s.IconLocation='!MM_HOME!frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
+REM  The paths go into PowerShell inside single quotes, where a quote is
+REM  written twice: a checkout under C:\Users\O'Brien ended the string at
+REM  the apostrophe and the shortcut was never made.
+call :desktop_dir
+set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
+set "MM_PS_LNK=!MM_LNK:'=''!"
+set "MM_PS_HOME=!MM_HOME:'=''!"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_PS_LNK!'); $s.TargetPath='!MM_PS_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_PS_HOME!'; $s.IconLocation='!MM_PS_HOME!frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
 if exist "!MM_LNK!" goto :do_shortcut_ok
 set "MM_FAIL_MSG=Could not create the shortcut on your Desktop."
 set "MM_FAIL_FIX=Check that your Desktop folder exists and that PowerShell is allowed to run."
@@ -935,6 +949,19 @@ goto :fail
 :do_shortcut_ok
 echo  !ESC![1;38;5;73m[done]!ESC![0m Shortcut created: !MM_LNK!
 endlocal
+exit /b 0
+
+REM  The Desktop the shell shows, asked of the shell. OneDrive's folder
+REM  backup, on by default on many new PCs, moves it to
+REM  %USERPROFILE%\OneDrive\Desktop, and %USERPROFILE%\Desktop is then a
+REM  folder nobody looks at, or none at all: --shortcut failed with "Could
+REM  not create the shortcut on your Desktop" there, or wrote one nobody saw.
+REM  start.bat and uninstall.bat carry the same lines, so --shortcuts
+REM  removes exactly the file --shortcut wrote.
+:desktop_dir
+set "MM_DESKTOP="
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')" 2^>nul`) do set "MM_DESKTOP=%%D"
+if not defined MM_DESKTOP set "MM_DESKTOP=%USERPROFILE%\Desktop"
 exit /b 0
 
 REM ====================================================================
@@ -1049,12 +1076,21 @@ REM  this row cannot be slower than the thing it describes. cmd has no
 REM  wall-clock timeout to wrap it in, which start.sh does have, so those
 REM  flags are the whole bound here.
 :doctor_updates
+call :read_update_plan
+if "!MM_UPDATE_PLAN!"=="ask" goto :doctor_updates_ask
+if "!MM_UPDATE_PLAN!"=="off" goto :doctor_updates_off
 if not exist ".git" goto :doctor_updates_nogit
 where git >nul 2>nul
 if errorlevel 1 goto :doctor_updates_nobin
 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 ls-remote --exit-code origin HEAD >nul 2>nul
 if errorlevel 1 goto :doctor_updates_quiet
 call :row ok "Updates" "the git remote answered"
+goto :doctor_provider
+:doctor_updates_ask
+call :row ok "Updates" "not chosen yet, so nothing is checked until you answer the one-time question"
+goto :doctor_provider
+:doctor_updates_off
+call :row ok "Updates" "off in Settings, so a launch will not change this checkout"
 goto :doctor_provider
 :doctor_updates_nogit
 call :row warn "Updates" "not a git checkout, so start.bat cannot self-update"
@@ -1322,6 +1358,23 @@ if not defined MM_LATEST_TAG (
 )
 git merge --ff-only "!MM_LATEST_TAG!" > "!MM_GIT_LOG!" 2>&1
 set "MM_GIT_STATUS=!errorlevel!"
+exit /b 0
+
+:read_update_plan
+REM  One word for what a launch does about updating: ask, off, main or
+REM  stable. preferences.json is written one key per line, indent 2, so a
+REM  key and its value on one line is the whole of the parse.
+set "MM_UPDATE_PLAN=ask"
+set "MM_PREFS_FILE=!MM_DATA_DIR!\preferences.json"
+if not exist "!MM_PREFS_FILE!" exit /b 0
+findstr /I /R /C:"update_choice_made.*true" "!MM_PREFS_FILE!" >nul 2>nul
+if errorlevel 1 exit /b 0
+set "MM_UPDATE_PLAN=off"
+findstr /I /R /C:"auto_update_enabled.*true" "!MM_PREFS_FILE!" >nul 2>nul
+if errorlevel 1 exit /b 0
+set "MM_UPDATE_PLAN=main"
+findstr /I /R /C:"update_channel.*stable" "!MM_PREFS_FILE!" >nul 2>nul
+if not errorlevel 1 set "MM_UPDATE_PLAN=stable"
 exit /b 0
 
 :read_version

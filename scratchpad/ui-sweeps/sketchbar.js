@@ -21,7 +21,10 @@ const { boot } = require('./lib.js');
 // width (it is one card in a 390px window, and the report this sweep was
 // written for was about a desktop bar), so a second row below 600 is counted
 // and printed rather than failed. Above 600 one row is still the rule.
-const WIDTHS = [1440, 1024, 820, 390];
+// The widths between the named ones are here because "820 only" (WHITEBOARD_PLAN
+// 276) is a claim about every width in 600 to 1023, and only 820 was measured:
+// 700, 900 and 1000 are the rest of the band, 1100 the first above it.
+const WIDTHS = (process.env.WIDTHS ? process.env.WIDTHS.split(',').map(Number) : [1440, 1100, 1024, 1000, 900, 820, 819, 700, 640, 390]);
 const SETTINGS = [
   { name: 'default', fontsize: null, density: null },
   { name: 'large-text', fontsize: 'large', density: null },
@@ -131,7 +134,18 @@ const probe = () => {
       await page.evaluate(() => document.getElementById('sketch-btn').click());
       await page.waitForTimeout(400);
       const r = await page.evaluate(probe);
-      if (r.rows > 1 && w > 600) bad += 1;
+      //: WHITEBOARD_PLAN 276, decided 2026-10-05 (op5): 820 with Large text
+      //: and Spacious density together takes two rows (41px short; the
+      //: slider and the separators give 33 between them), rather than
+      //: shrinking 44px targets. Every other combination is one row.
+      //: "820 only" means 820 only (it said 820 to 1023, and 900 and 1000 are
+      //: one row at that setting, measured), so the allowance is the one width.
+      //: Between 600 and 819 the dots are 2rem for a finger and the groups
+      //: wrap, two or three rows (measured at 600, 640, 700, 760, 819); that
+      //: is the cost the swatch step recorded, capped here at three.
+      const fingerBand = w > 600 && w < 820;
+      const maxRows = fingerBand ? 3 : (w === 820 && s.name === 'large+spacious' ? 2 : 1);
+      if (r.rows > maxRows && w > 600) bad += 1;
       //: Below 820 the pointer is a finger, so the dot's *target* carries the
       //: app's stepped floor in the axis that has room for it and stays over
       //: the 24px WCAG minimum in the one that does not, and no two dots
@@ -158,5 +172,5 @@ const probe = () => {
     console.log(`FAIL: ${bad} findings (a bar that wraps above 600, a swatch whose target is under 40px tall below 820 (the walk undercounts by about three pixels: a 44px box measures 41 and a 49.5px one 46), a group running off the end, or two dots sharing a pixel)`);
     process.exit(1);
   }
-  console.log(`PASS: one row above 600, a finger-sized swatch target below 820 and no two dots sharing a pixel, in all ${WIDTHS.length * SETTINGS.length} combinations`);
+  console.log(`PASS: one row from 820 (two at 820 on Large text with Spacious, three at most from 600 to 819), a finger-sized swatch target below 820 and no two dots sharing a pixel, in all ${WIDTHS.length * SETTINGS.length} combinations`);
 })();

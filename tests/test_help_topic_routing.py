@@ -46,6 +46,8 @@ ROUTES = [
     ("Is anything sent to the cloud?", "privacy"),
     ("How do I lock the app?", "security"),
     ("How do I add a tag?", "tags-categories"),
+    # INBOX 487: Settings, Import & export, Clear app cache.
+    ("Something looks out of date after an update, can I clear the cache?", "troubleshooting"),
     ("What is a whiteboard?", "whiteboard"),
     ("How do mind maps work?", "mind-maps"),
     ("What does the graph show?", "graph"),

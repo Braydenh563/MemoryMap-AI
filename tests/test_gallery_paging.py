@@ -20,7 +20,7 @@ FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 def test_no_caller_reads_the_gallery_as_one_response() -> None:
     offenders = []
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if re.search(r'apiJson\(\s*"/files/gallery', line):
                 offenders.append(f"{path.name}:{number}: {line.strip()}")

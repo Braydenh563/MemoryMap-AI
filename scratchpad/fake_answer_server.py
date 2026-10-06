@@ -54,6 +54,9 @@ STYLE = os.environ.get("FAKE_STYLE") or "plain"
 #: the retrieved notes like any other answer, so it is written in their words.
 ANSWER_FILE = os.environ.get("FAKE_ANSWER_FILE") or ""
 FOLLOWUPS_FILE = os.environ.get("FAKE_FOLLOWUPS_FILE") or ""
+#: Thinking sent as `reasoning_content` before the answer (INBOX 534: a chat
+#: scroll sweep needs the thinking fold to exist while the answer streams).
+THINK_FILE = os.environ.get("FAKE_THINK_FILE") or ""
 
 
 def _read(path: str) -> str:
@@ -95,7 +98,25 @@ def _sentences_from_prompt(prompt: str) -> list[str]:
     probe wants: if the numbers are wrong here they are wrong everywhere.
     """
     out: list[str] = []
+    #: Since SEC-02 a note's words are fenced on the lines after its header
+    #: (`1. [General] (written ...) <<<data note>>>`, the text, `<<<end
+    #: data>>>`); the fence is folded back onto the header line here, so the
+    #: parse below reads the shape it always read.
+    folded: list[str] = []
+    fenced = False
     for line in prompt.splitlines():
+        if line.rstrip().endswith(">>>") and "<<<data" in line:
+            folded.append(line[: line.index("<<<data")].rstrip())
+            fenced = True
+            continue
+        if fenced:
+            if line.strip().startswith("<<<end data"):
+                fenced = False
+                continue
+            folded[-1] += " " + line.strip()
+            continue
+        folded.append(line)
+    for line in folded:
         #: Split rather than matched. CodeQL flagged the regex this replaces
         #: (`^\s*\d+\.\s+(.*)$`, high severity: polynomial backtracking on
         #: uncontrolled data) because the prompt is attacker-shaped input as
@@ -119,6 +140,11 @@ def _sentences_from_prompt(prompt: str) -> list[str]:
 
 
 class Handler(BaseHTTPRequestHandler):
+    #: Chunked, like LM Studio / llama.cpp: a close-delimited HTTP/1.0 stream
+    #: is read by `requests` in 512-byte blocks and reaches the page in bursts
+    #: (INBOX 534: a sweep of a *live* stream saw the whole answer land at once).
+    protocol_version = "HTTP/1.1"
+
     def log_message(self, *_args) -> None:  # noqa: ANN002
         pass
 
@@ -135,6 +161,7 @@ class Handler(BaseHTTPRequestHandler):
         if DUMP:
             with open(DUMP, "a", encoding="utf-8") as fh:
                 fh.write("=== prompt ===\n" + prompt + "\n")
+        self.prompt = prompt
         if FOLLOWUPS_FILE and "Suggest short follow-up questions" in prompt:
             answer = _read(FOLLOWUPS_FILE)
         elif ANSWER_FILE and "My notes:" in prompt:
@@ -162,10 +189,24 @@ class Handler(BaseHTTPRequestHandler):
     def _sse(self, answer: str) -> None:
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Transfer-Encoding", "chunked")
         self.end_headers()
+        raw_write = self.wfile.write
+
+        def chunked(data: bytes) -> None:
+            raw_write(b"%x\r\n" % len(data) + data + b"\r\n")
+
+        self.wfile.write = chunked  # type: ignore[method-assign]
         #: Word by word, because the Ask tab renders as it streams and the
         #: citation markers are written against the finished text: a fake that
         #: sent the answer in one chunk would not exercise that ordering.
+        think = _read(THINK_FILE) if THINK_FILE and ANSWER_FILE and "My notes:" in self.prompt else ""
+        for word in think.split(" ") if think else []:
+            chunk = {"choices": [{"index": 0, "delta": {"reasoning_content": word + " "}}]}
+            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+            self.wfile.flush()
+            if STREAM_DELAY_MS:
+                time.sleep(STREAM_DELAY_MS / 1000)
         for word in answer.split(" "):
             chunk = {"choices": [{"index": 0, "delta": {"content": word + " "}}]}
             self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
@@ -175,6 +216,7 @@ class Handler(BaseHTTPRequestHandler):
         done = {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
         self.wfile.write(f"data: {json.dumps(done)}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")
+        raw_write(b"0\r\n\r\n")
         self.wfile.flush()
 
 

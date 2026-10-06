@@ -16,8 +16,9 @@ from sqlalchemy.orm import Session
 from memorymap.core import deps, events
 from memorymap.core.database import Entry
 from memorymap.entry import manager
+from memorymap.entry.properties import strip as strip_properties
 
-from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg, _require_note
+from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg, _require_note, mark_outside
 
 def _whiteboard_board_filter(model, board_id: int | None):
     """Same rule `routes_whiteboard.py`'s own `_board_filter` uses: `== None`
@@ -147,6 +148,14 @@ def _new_board(session: Session, entry: Entry, name: str, board_type: str, layou
     return entry
 
 
+def _inside(item, frame) -> bool:
+    """Whether a card's corner lies in a frame's region (decision 14): the
+    board moves what lies wholly inside, and a card's stored corner is the
+    part of it the server knows."""
+    x, y = item.x or 0, item.y or 0
+    return frame.x <= x <= frame.x + (frame.width or 0) and frame.y <= y <= frame.y + (frame.height or 0)
+
+
 def _read_whiteboard(session: Session, args: dict) -> dict:
     """The read half of ROADMAP item 11's AI+whiteboard integration: lets the
     agent answer "what's on my project-planning board?" without a human
@@ -184,14 +193,22 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         # `_require_note` gives every other read.
         if entry.is_private:
             return "(private note: not available to the AI)"
-        return _clip(entry.content, PREVIEW_CHARS)
+        if manager.came_from_outside(entry):
+            mark_outside()  # SEC-02: a clipped or imported note's words
+        return _clip(strip_properties(entry.content).lstrip(), PREVIEW_CHARS)
 
     cards = [
         {"card_id": n.id, "note_id": n.entry_id, "preview": _card_preview(n)}
         for n in nodes
     ]
 
+    from .board_edit import _path_corner
+
     links = []
+    #: The drawn shapes with words in them, by id and corner (FEAT-12): what
+    #: `move_board_item`, `edit_board_item` and `delete_board_item` act on.
+    #: Pen strokes without words are left out; they are many and say nothing.
+    shapes = []
     for sketch in sketches:
         try:
             parsed = json.loads(sketch.data)
@@ -199,8 +216,15 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
             continue
         if isinstance(parsed, dict) and str(parsed.get("type", "")).startswith("link-"):
             links.append({"from_card_id": parsed.get("sourceId"), "to_card_id": parsed.get("targetId")})
+        elif isinstance(parsed, dict) and parsed.get("label") and isinstance(parsed.get("d"), str):
+            x, y = _path_corner(parsed["d"])
+            shapes.append({
+                "shape_id": sketch.id, "shape": parsed.get("shape") or "shape",
+                "text": _clip(str(parsed["label"]), PREVIEW_CHARS), "x": round(x), "y": round(y),
+            })
 
     text_boxes = []
+    frames = []
     image_count = 0
     for obj in objects:
         try:
@@ -211,6 +235,14 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
             text_boxes.append({"object_id": obj.id, "text": _clip(str(data.get("content") or ""), PREVIEW_CHARS)})
         elif obj.kind == "image":
             image_count += 1
+        elif obj.kind == "frame":
+            #: A frame's title is how a board is divided up ("Ideas", "Done"),
+            #: and the region it covers says which cards sit under it.
+            frames.append({
+                "object_id": obj.id,
+                "title": _clip(str(data.get("content") or ""), PREVIEW_CHARS),
+                "card_ids": [n.id for n in nodes if _inside(n, obj)],
+            })
 
     board_title = "Default board"
     if board_id is not None:
@@ -225,6 +257,8 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         "board_title": board_title,
         "cards": cards,
         "text_boxes": text_boxes,
+        "shapes": shapes,
+        "frames": frames,
         "image_count": image_count,
         "links": links,
         "label": f"ph:folders Read whiteboard board “{board_title}”",
@@ -259,11 +293,13 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
         # report back to the model regardless. Same guard as `_read_whiteboard`'s
         # `_card_preview` above.
         if entry is not None and not entry.is_private and term in entry.content.lower():
+            if manager.came_from_outside(entry):
+                mark_outside()  # SEC-02
             matches.append({
                 "board_id": node.board_id,
                 "card_id": node.id,
                 "note_id": node.entry_id,
-                "preview": _clip(entry.content, PREVIEW_CHARS),
+                "preview": _clip(strip_properties(entry.content).lstrip(), PREVIEW_CHARS),
             })
 
     for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "text")):

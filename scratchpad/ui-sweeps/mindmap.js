@@ -36,20 +36,20 @@ function check(label, ok, detail) {
   await page.waitForTimeout(800);
 
   // --- create a map through the real dialog (item 2) -------------------------
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  const seg = await page.$(".confirm-overlay .seg");
+  const seg = await page.$("#wb-template-kind");
   check("the New board dialog carries a type segmented control", Boolean(seg));
-  await page.fill(".confirm-overlay input[type=text]", "Verification map");
+  await page.fill("#wb-template-name", "Verification map");
   // Choose "Mind map".
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.click('#wb-template-kind button[data-value="map"]');
   await page.waitForTimeout(150);
   const segActive = await page.$eval(
-    '.confirm-overlay .seg button[data-value="map"]',
+    '#wb-template-kind button[data-value="map"]',
     (b) => b.classList.contains("active")
   );
   check("choosing Mind map marks that segment active", segActive);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
 
   const boardId = await page.evaluate(() => window.currentBoardId);
@@ -708,12 +708,12 @@ function check(label, ok, detail) {
   // this by reading the real, rendered `#whiteboard-container` rect.
   await page.click("#wb-back-to-boards").catch(() => {});
   await page.waitForTimeout(500);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", "Centering check");
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.fill("#wb-template-name", "Centering check");
+  await page.click('#wb-template-kind button[data-value="map"]');
   await page.waitForTimeout(150);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   const centering = await page.evaluate(() => {
     const container = document.getElementById("whiteboard-container");
@@ -879,12 +879,12 @@ function check(label, ok, detail) {
 
   await page.click("#wb-back-to-boards").catch(() => {});
   await page.waitForTimeout(500);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", "Edge drag check");
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.fill("#wb-template-name", "Edge drag check");
+  await page.click('#wb-template-kind button[data-value="map"]');
   await page.waitForTimeout(150);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   const dragBoard = await page.evaluate(() => window.currentBoardId);
   await page.evaluate(() => document.getElementById("whiteboard-container")?.focus());

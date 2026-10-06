@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TOUR = (ROOT / "frontend" / "tour.js").read_text(encoding="utf-8")
+TOUR = (ROOT / "frontend" / "js" / "tour.js").read_text(encoding="utf-8")
 
 
 def _body(name: str) -> str:
@@ -64,3 +64,18 @@ def test_atlas_in_the_guide_head_is_a_disc_sized_to_the_title() -> None:
     assert rule, "the guide head's mark has no rule of its own"
     assert "overflow: hidden" in rule.group(1)
     assert "height: 2.5rem" in rule.group(1)
+
+
+def test_the_settings_steps_name_the_width_the_section_strip_changes_at() -> None:
+    """The tour's Settings steps said the section strip showed from 640 and the
+    picker below it; the strip is hidden below 820 and the picker shown there
+    (`.settings-jump`, 07-whiteboard-misc.css; `p9.js`-style probe: strip hidden
+    and picker 300x44 at 700, strip 212x32 at 820). Between 641 and 819 the
+    three strip steps were planned and not shown (5 planned, 2 shown, so the
+    count changed card to card) and the picker step was left out. The two
+    `media` values are the CSS's own 820."""
+    assert TOUR.count('media: "(min-width: 820px)"') == 3
+    assert TOUR.count('media: "(max-width: 819.98px)"') == 1
+    assert "640.02px" not in TOUR
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert "@media (max-width: 819.98px) {\n  /* Beside the search field, not under it." in css

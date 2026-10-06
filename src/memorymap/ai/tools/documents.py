@@ -20,6 +20,7 @@ from ._common import (
     _clip,
     _keyword_context,
     _limit_arg,
+    mark_outside,
 )
 
 def _list_documents(session: Session, args: dict) -> dict:
@@ -47,6 +48,9 @@ def _list_documents(session: Session, args: dict) -> dict:
             .limit(limit)
         )
     )
+    # SEC-02: an imported file's words in a preview taint the turn too.
+    if any(manager.document_came_from_outside(session, d.id) for d in rows):
+        mark_outside()
     return {
         "documents": [
             {
@@ -89,6 +93,8 @@ def _get_document(session: Session, args: dict) -> dict:
     document = session.get(Document, int(args["document_id"]))
     if document is None:
         raise ToolError(f"No document with id {args.get('document_id')}")
+    if manager.document_came_from_outside(session, document.id):
+        mark_outside()  # SEC-02: an imported file is text from outside
     text = document.content
 
     query = args.get("query")

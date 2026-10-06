@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from memorymap.api.routes_whiteboard import MAP_BRANCH_PALETTE
 from memorymap.core.database import Entry, WhiteboardObject
 
@@ -551,10 +553,13 @@ FREEMIND = """<?xml version="1.0" encoding="UTF-8"?>
 </map>"""
 
 
-def test_freemind_imports_with_its_root_as_the_maps_name(client):
-    """A `.mm` file's single root node *is* its title, which is the shape
-    FreeMind, Freeplane and Coggle all write: taking it as a node instead
-    would leave every imported map one level deeper than it was drawn."""
+def test_freemind_imports_its_single_root_as_the_central_topic(client):
+    """**Reversed 2026-10-05** (audit FEAT-01, features.md 9.5; the owner's
+    newer words win). A `.mm` file's single root node is the map's central
+    topic, the way FreeMind, Freeplane and XMind draw it: reading it as the
+    board's title instead left every imported map as loose trunks with its
+    centre gone. The title still comes from the root's text when the file
+    names nothing else."""
     imported = client.post(
         "/whiteboard/boards/import", json={"format": "freemind", "content": FREEMIND}
     )
@@ -565,9 +570,63 @@ def test_freemind_imports_with_its_root_as_the_maps_name(client):
 
     roots = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
     assert roots == [
-        {"text": "Method", "children": [{"text": "Interviews", "children": []}]},
-        {"text": "Results", "children": []},
+        {
+            "text": "Thesis",
+            "children": [
+                {"text": "Method", "children": [{"text": "Interviews", "children": []}]},
+                {"text": "Results", "children": []},
+            ],
+        }
     ]
+
+
+def _big_map(client, name="Hundred"):
+    """A map made in the app, one root, ten branches of nine: 101 topics,
+    the `kb100.js` shape the audit measured the round trips at."""
+    board = _map(client, name=name)
+    root = _node(client, board["id"], text="Centre")
+    for b in range(10):
+        branch = _node(client, board["id"], parent_id=root["id"], text=f"Branch {b}")
+        for leaf in range(9):
+            _node(client, board["id"], parent_id=branch["id"], text=f"Leaf {b}.{leaf}")
+    return board
+
+
+@pytest.mark.parametrize("fmt", ["freemind", "opml", "markdown"])
+def test_a_101_topic_map_made_here_round_trips_losslessly(client, fmt):
+    """FEAT-01's own test: start from a map made in the app, not from an
+    import that had already dropped its root, so the export and the import
+    are each tested against the other. All 101 topics, every parent edge,
+    the central topic and the map's name come back."""
+    board = _big_map(client, name="Hundred topics")
+    first = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
+    assert len(first) == 1 and first[0]["text"] == "Centre"
+
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}")
+    assert exported.status_code == 200, exported.text
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": fmt, "content": exported.text}
+    )
+    assert back.status_code == 201, back.text
+    assert back.json()["title"] == "Hundred topics"
+    assert back.json()["object_count"] == 101
+    second = _structure(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+    assert second == first
+
+
+@pytest.mark.parametrize("fmt", ["freemind", "opml", "markdown"])
+def test_an_imported_map_opens_in_the_tree_right_layout(client, fmt):
+    """Audit FEAT-05: an import landed in the Free layout, so the first Tab
+    piled new topics on top of old ones (240 overlapping pairs over 101
+    topics, measured). A map made here starts in tree-right, and so does
+    one brought in."""
+    board = _big_map(client, name="Laid out")
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+    back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": exported})
+    assert back.status_code == 201, back.text
+    assert back.json()["layout"] == "tree-right"
+    listed = {b["id"]: b for b in client.get("/whiteboard/boards").json()}
+    assert listed[back.json()["id"]]["layout"] == "tree-right"
 
 
 def test_freemind_round_trips_through_the_export(client):
@@ -957,7 +1016,9 @@ def test_a_topic_with_no_box_is_freeminds_own_fork_node(client):
     back = client.post(
         "/whiteboard/boards/import", json={"format": "freemind", "content": foreign}
     ).json()
-    roots = client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"]
+    # The single root is the central topic (FEAT-01), so the two styled
+    # topics are its children.
+    roots = client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"][0]["children"]
     shapes = {node["text"]: node["style"].get("shape") for node in roots}
     # `bubble` is this map's own default, so it stays unset rather than
     # putting a field on every node of every imported file.
@@ -1742,10 +1803,10 @@ def test_a_cross_link_round_trips_through_freemind(client):
     )
     assert back.status_code == 201, back.text
     tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
-    # A single-root map's `.mm` file names the map with its one root node, so
-    # the import brings "Left" and "Right" back as the roots: that is the
-    # format's own shape, documented on `_parse_freemind`, not this link's.
-    names = {node["id"]: node["text"] for node in tree["roots"]}
+    # The single root comes back as the central topic (FEAT-01), with
+    # "Left" and "Right" under it, still linked.
+    assert [node["text"] for node in tree["roots"]] == ["Trunk"]
+    names = {node["id"]: node["text"] for node in tree["roots"][0]["children"]}
     assert sorted(names.values()) == ["Left", "Right"]
     assert len(tree["cross_links"]) == 1
     link = tree["cross_links"][0]
@@ -1788,3 +1849,507 @@ def test_a_map_with_no_cross_links_exports_exactly_as_it_did(client):
     for fmt, marker in (("freemind", "arrowlink"), ("opml", "_links")):
         text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
         assert marker not in text
+
+
+def test_a_topics_order_among_its_siblings_is_stored_and_read_back(client):
+    """Sibling order (INBOX 445; MINDMAP_PLAN §12.0's Ctrl+Shift+arrows): a
+    topic moved up among its siblings carries `data.order`, and the tree and
+    the exports read the siblings in that order, so it round-trips. Without
+    it the order was creation order and nothing could change it."""
+    board = _map(client, name="Order map")
+    root = _node(client, board["id"], text="Trunk")
+    first = _node(client, board["id"], parent_id=root["id"], text="First")
+    _node(client, board["id"], parent_id=root["id"], text="Second")
+    third = _node(client, board["id"], parent_id=root["id"], text="Third")
+
+    def kids(board_id):
+        tree = client.get(f"/whiteboard/boards/{board_id}/tree").json()
+        return [n["text"] for n in tree["roots"][0]["children"]]
+
+    assert kids(board["id"]) == ["First", "Second", "Third"]
+    # Third to the top: its key goes below First's, which is First's id.
+    moved = {**third, "data": {**third["data"], "order": first["id"] - 0.5}}
+    put = client.put(f"/whiteboard/objects/{third['id']}", json=moved)
+    assert put.status_code == 200, put.text
+    assert put.json()["data"]["order"] == first["id"] - 0.5
+    assert kids(board["id"]) == ["Third", "First", "Second"]
+
+    outline = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert outline.index("Third") < outline.index("First") < outline.index("Second")
+    opml = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    again = client.post("/whiteboard/boards/import", json={"format": "opml", "content": opml})
+    assert again.status_code == 201, again.text
+    assert kids(again.json()["id"]) == ["Third", "First", "Second"]
+
+
+def test_deleting_a_branch_hands_back_the_cross_links_that_went_with_it(client):
+    """INBOX 445 (2): a branch deleted and restored with Ctrl+Z came back
+    without its cross-links, because the response named the topics and not
+    the link sketches the server dropped with them. They ride along now, as
+    sketch rows, so the client can draw them again between the restored
+    topics. A link from inside the branch to a topic outside it is among
+    them (its far end still exists); a link elsewhere on the board is not."""
+    board = _map(client, name="Links go too")
+    root = _node(client, board["id"], text="Trunk")
+    branch = _node(client, board["id"], parent_id=root["id"], text="Branch")
+    inside = _node(client, board["id"], parent_id=branch["id"], text="Inside")
+    outside = _node(client, board["id"], parent_id=root["id"], text="Outside")
+    other = _node(client, board["id"], parent_id=root["id"], text="Other")
+    across = _cross_link(client, board["id"], inside["id"], outside["id"], label="across")
+    within = _cross_link(client, board["id"], branch["id"], inside["id"])
+    elsewhere = _cross_link(client, board["id"], outside["id"], other["id"])
+
+    res = client.delete(f"/whiteboard/objects/{branch['id']}")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    got = {row["id"]: json.loads(row["data"]) for row in body["links"]}
+    assert set(got) == {across["id"], within["id"]}
+    assert got[across["id"]]["label"] == "across"
+    assert got[across["id"]]["sourceId"] == inside["id"]
+    assert got[across["id"]]["targetId"] == outside["id"]
+    # The server really dropped them, and left the unrelated one.
+    left = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["cross_links"]
+    assert [(link["from_id"], link["to_id"]) for link in left] == [(outside["id"], other["id"])]
+    assert elsewhere["id"] not in got
+
+
+def test_deleting_a_topic_with_no_links_returns_an_empty_list(client):
+    """The new field is empty rather than absent, so a client can read it
+    without a guard."""
+    board = _map(client, name="No links")
+    root = _node(client, board["id"], text="Trunk")
+    leaf = _node(client, board["id"], parent_id=root["id"], text="Leaf")
+    body = client.delete(f"/whiteboard/objects/{leaf['id']}").json()
+    assert body["links"] == []
+
+
+
+# --- a topic that is a task (MINDMAP_PLAN.md decision 15) ---------------------
+
+
+def _set_data(client, board, node, patch):
+    return client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], **patch},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+
+
+def _task_map(client):
+    board = _map(client, name="Launch")
+    root = _node(client, board["id"], text="Launch")
+    open_ = _node(client, board["id"], parent_id=root["id"], text="Write the post")
+    done = _node(client, board["id"], parent_id=root["id"], text="Book the room")
+    assert _set_data(client, board, open_, {"task": "open"}).status_code == 200
+    assert _set_data(client, board, done, {"task": "done"}).status_code == 200
+    return board
+
+
+def test_a_task_is_open_or_done_and_nothing_else(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Maybe")
+    assert _set_data(client, board, node, {"task": "half"}).status_code == 422
+    assert _set_data(client, board, node, {"task": "done"}).status_code == 200
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"] == {"task": "done"}
+
+
+def test_a_markdown_export_writes_tasks_as_task_list_items_and_reads_them_back(client):
+    board = _task_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "  - [ ] Write the post" in text and "  - [x] Book the room" in text
+    assert "- Launch" in text and "[ ] Launch" not in text
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "markdown", "content": text, "name": "Back"}
+    )
+    assert back.status_code == 201, back.text
+    kids = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"][0]["children"]
+    assert {(k["text"], k["style"].get("task")) for k in kids} == {
+        ("Write the post", "open"),
+        ("Book the room", "done"),
+    }
+
+
+def test_a_task_round_trips_through_both_xml_formats(client):
+    board = _task_map(client)
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_task="open"' in text and '_task="done"' in text
+        back = client.post(
+            "/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt}
+        )
+        assert back.status_code == 201, back.text
+        # A FreeMind file's root is the map's title on the way back in, so
+        # every node is read rather than the first root's children.
+        seen, stack = [], list(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+        while stack:
+            node = stack.pop()
+            seen.append(node["style"].get("task"))
+            stack.extend(node["children"])
+        assert sorted(t for t in seen if t) == ["done", "open"], fmt
+
+
+def test_resetting_a_maps_looks_keeps_its_tasks(client):
+    board = _task_map(client)
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    kids = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]["children"]
+    assert sorted(k["style"].get("task") for k in kids) == ["done", "open"]
+
+
+def test_a_bracket_with_nothing_after_it_is_a_topic_not_a_task(client):
+    back = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "markdown", "content": "# T\n- [ ]\n- [x] Done thing\n", "name": "Edge"},
+    )
+    assert back.status_code == 201, back.text
+    roots = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"]
+    assert [(r["text"], r["style"].get("task")) for r in roots] == [("[ ]", None), ("Done thing", "done")]
+
+
+
+# --- numbered branches (MINDMAP_PLAN.md decision 17) --------------------------
+
+
+def _numbered_map(client, numbered=True):
+    board = _map(client, name="Plan")
+    root = _node(client, board["id"], text="Plan")
+    first = _node(client, board["id"], parent_id=root["id"], text="Research")
+    _node(client, board["id"], parent_id=first["id"], text="Read the papers")
+    second = _node(client, board["id"], parent_id=root["id"], text="Write")
+    _node(client, board["id"], parent_id=first["id"], text="Interview")
+    assert _set_data(client, board, second, {"task": "open"}).status_code == 200
+    if numbered:
+        assert client.put(f"/whiteboard/boards/{board['id']}", json={"numbered": True}).status_code == 200
+    return board
+
+
+def test_numbering_is_off_until_a_map_asks_and_a_put_without_it_leaves_it(client):
+    board = _map(client)
+
+    def tree():
+        return client.get(f"/whiteboard/boards/{board['id']}/tree").json()
+
+    assert tree()["numbered"] is False
+    assert client.put(f"/whiteboard/boards/{board['id']}", json={"numbered": True}).status_code == 200
+    assert tree()["numbered"] is True
+    # A layout change, a theme change and a rename do not touch it.
+    client.put(f"/whiteboard/boards/{board['id']}", json={"layout": "radial"})
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"bold": True}})
+    client.put(f"/whiteboard/boards/{board['id']}", json={"title": "Renamed"})
+    assert tree()["numbered"] is True
+    assert tree()["layout"] == "radial"
+    assert client.put(f"/whiteboard/boards/{board['id']}", json={"numbered": False}).status_code == 200
+    assert tree()["numbered"] is False
+
+
+def test_a_numbered_maps_markdown_carries_the_numbers_after_the_task_box(client):
+    board = _numbered_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    lines = [line for line in text.splitlines() if line.lstrip().startswith("-")]
+    assert lines == [
+        "- Plan",
+        "  - 1 Research",
+        "    - 1.1 Read the papers",
+        "    - 1.2 Interview",
+        "  - [ ] 2 Write",
+    ]
+
+
+def test_an_unnumbered_maps_markdown_has_no_numbers(client):
+    board = _numbered_map(client, numbered=False)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "  - Research" in text and "1.1" not in text
+
+
+def _tree_texts(client, board_id):
+    out, stack = [], list(client.get(f"/whiteboard/boards/{board_id}/tree").json()["roots"])
+    while stack:
+        node = stack.pop()
+        out.append(node["text"])
+        stack.extend(node["children"])
+    return sorted(out)
+
+
+def test_numbering_round_trips_through_markdown_and_opml(client):
+    board = _numbered_map(client)
+    for fmt in ("markdown", "opml"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        if fmt == "opml":
+            assert '_number="1.2"' in text and '_number="2"' in text
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+        assert tree["numbered"] is True, fmt
+        assert _tree_texts(client, back.json()["id"]) == sorted(
+            ["Plan", "Research", "Read the papers", "Interview", "Write"]
+        ), fmt
+
+
+def test_numbers_that_do_not_match_the_outline_stay_as_text(client):
+    content = "# Years\n- Years\n  - 2024 plan\n  - 2025 plan\n"
+    back = client.post("/whiteboard/boards/import", json={"format": "markdown", "content": content})
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert tree["numbered"] is False
+    assert [k["text"] for k in tree["roots"][0]["children"]] == ["2024 plan", "2025 plan"]
+
+
+
+# --- a note behind a topic (MINDMAP_PLAN.md decision 18) ----------------------
+
+_NOTE = "First line\nsecond line\n\n- a line that looks like a bullet\n# and one like a heading"
+
+
+def _note_map(client, numbered=False):
+    board = _map(client, name="Notes")
+    root = _node(client, board["id"], text="Notes")
+    research = _node(client, board["id"], parent_id=root["id"], text="Research")
+    _node(client, board["id"], parent_id=research["id"], text="Read the papers")
+    plain = _node(client, board["id"], parent_id=root["id"], text="Write")
+    assert _set_data(client, board, research, {"note": _NOTE}).status_code == 200
+    assert _set_data(client, board, plain, {"task": "open", "note": "One line."}).status_code == 200
+    if numbered:
+        assert client.put(f"/whiteboard/boards/{board['id']}", json={"numbered": True}).status_code == 200
+    return board
+
+
+def _notes_by_text(client, board_id):
+    out, stack = {}, list(client.get(f"/whiteboard/boards/{board_id}/tree").json()["roots"])
+    while stack:
+        node = stack.pop()
+        out[node["text"]] = (node["style"].get("note"), len(node["children"]))
+        stack.extend(node["children"])
+    return out
+
+
+def test_a_note_is_saved_with_the_topic_and_has_a_ceiling(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Topic")
+    assert _set_data(client, board, node, {"note": "x" * 10_001}).status_code == 422
+    assert _set_data(client, board, node, {"note": "Behind it."}).status_code == 200
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"] == {"note": "Behind it."}
+
+
+def test_a_markdown_export_writes_a_note_as_an_indented_paragraph(client):
+    board = _note_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert (
+        "  - Research\n"
+        "\n"
+        "    First line\n"
+        "    second line\n"
+        "\n"
+        "    \\- a line that looks like a bullet\n"
+        "    \\# and one like a heading\n"
+        "\n"
+        "    - Read the papers\n"
+    ) in text
+    assert "  - [ ] Write\n\n    One line.\n" in text
+
+
+def test_notes_round_trip_through_markdown_with_tasks_and_numbers(client):
+    board = _note_map(client, numbered=True)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    back = client.post("/whiteboard/boards/import", json={"format": "markdown", "content": text})
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert tree["numbered"] is True
+    notes = _notes_by_text(client, back.json()["id"])
+    assert notes["Research"] == (_NOTE, 1)
+    assert notes["Write"] == ("One line.", 0)
+    assert notes["Read the papers"] == (None, 0)
+    kids = tree["roots"][0]["children"]
+    assert [k["style"].get("task") for k in kids] == [None, "open"]
+
+
+def test_notes_round_trip_through_both_xml_formats(client):
+    board = _note_map(client)
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_note="One line."' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        notes = _notes_by_text(client, back.json()["id"])
+        assert notes["Research"][0] == _NOTE, fmt
+        assert notes["Write"][0] == "One line.", fmt
+
+
+def test_a_paragraph_under_a_hand_written_bullet_is_its_note(client):
+    content = "# Trip\n- Trip\n  - Pack\n    Passport, charger.\n    Tickets.\n  - Go\n"
+    back = client.post("/whiteboard/boards/import", json={"format": "markdown", "content": content})
+    assert back.status_code == 201, back.text
+    notes = _notes_by_text(client, back.json()["id"])
+    assert notes["Pack"] == ("Passport, charger.\nTickets.", 0)
+    assert notes["Go"] == (None, 0)
+
+
+def test_resetting_a_maps_looks_keeps_its_notes(client):
+    board = _note_map(client)
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    notes = _notes_by_text(client, board["id"])
+    assert notes["Research"][0] == _NOTE and notes["Write"][0] == "One line."
+
+
+# --- boundaries and summaries (MINDMAP_PLAN.md decisions 19 and 20) ---------
+
+
+def _structure_map(client):
+    board = _map(client, name="Structure")
+    root = _node(client, board["id"], text="Plan")
+    a = _node(client, board["id"], parent_id=root["id"], text="Pack")
+    _node(client, board["id"], parent_id=a["id"], text="Passport")
+    b = _node(client, board["id"], parent_id=root["id"], text="Book")
+    _node(client, board["id"], parent_id=root["id"], text="Go")
+    assert _set_data(client, board, a, {"boundary": "cloud", "boundary_label": "Before"}).status_code == 200
+    assert _set_data(client, board, a, {"boundary": "cloud", "boundary_label": "Before", "summary": "Errands", "summary_span": 2}).status_code == 200
+    assert _set_data(client, board, b, {"boundary": "dashed"}).status_code == 200
+    return board
+
+
+def _styles_by_text(client, board_id):
+    out, stack = {}, list(client.get(f"/whiteboard/boards/{board_id}/tree").json()["roots"])
+    while stack:
+        node = stack.pop()
+        out[node["text"]] = node["style"]
+        stack.extend(node["children"])
+    return out
+
+
+def test_a_boundary_and_a_summary_are_checked_on_the_way_in(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Topic")
+    assert _set_data(client, board, node, {"boundary": "zigzag"}).status_code == 422
+    assert _set_data(client, board, node, {"boundary_label": "x" * 81}).status_code == 422
+    assert _set_data(client, board, node, {"summary": "x" * 81}).status_code == 422
+    assert _set_data(client, board, node, {"summary_span": 0}).status_code == 422
+    assert _set_data(client, board, node, {"summary_span": 101}).status_code == 422
+
+
+def test_boundaries_and_summaries_round_trip_through_both_xml_formats(client):
+    board = _structure_map(client)
+    want = {"boundary": "cloud", "boundary_label": "Before", "summary": "Errands", "summary_span": 2}
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_summary_span="2"' in text and '_boundary="cloud"' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        styles = _styles_by_text(client, back.json()["id"])
+        assert {k: styles["Pack"].get(k) for k in want} == want, fmt
+        assert styles["Book"].get("boundary") == "dashed", fmt
+        assert "boundary" not in styles["Go"], fmt
+
+
+def test_resetting_a_maps_looks_keeps_its_boundaries_and_summaries(client):
+    board = _structure_map(client)
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    styles = _styles_by_text(client, board["id"])
+    assert styles["Pack"]["boundary"] == "cloud" and styles["Pack"]["summary"] == "Errands"
+
+
+# --- Markers (§12.2 item 4, the audit's M4, decision 34) -------------------
+
+
+def _marked_map(client):
+    board = _map(client, name="Marked")
+    root = _node(client, board["id"], text="Plan")
+    a = _node(client, board["id"], parent_id=root["id"], text="Pack")
+    b = _node(client, board["id"], parent_id=root["id"], text="Book")
+    marks = {"priority": 2, "progress": 50, "flag": True, "markers": ["star", "warning"]}
+    assert _set_data(client, board, a, marks).status_code == 200
+    assert _set_data(client, board, b, {"priority": 5}).status_code == 200
+    return board, marks
+
+
+def test_markers_are_checked_on_the_way_in(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Topic")
+    assert _set_data(client, board, node, {"priority": 0}).status_code == 422
+    assert _set_data(client, board, node, {"priority": 6}).status_code == 422
+    assert _set_data(client, board, node, {"progress": 101}).status_code == 422
+    assert _set_data(client, board, node, {"markers": ["Star!"]}).status_code == 422
+    assert _set_data(client, board, node, {"markers": ["star"] * 7}).status_code == 422
+
+
+def test_markers_round_trip_through_both_xml_formats_and_survive_a_look_reset(client):
+    board, want = _marked_map(client)
+    styles = _styles_by_text(client, board["id"])
+    assert {k: styles["Pack"].get(k) for k in want} == want
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_priority="2"' in text and '_markers="star,warning"' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        got = _styles_by_text(client, back.json()["id"])
+        assert {k: got["Pack"].get(k) for k in want} == want, fmt
+        assert got["Book"].get("priority") == 5, fmt
+    markdown = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "star" not in markdown and "priority" not in markdown.lower()
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    assert _styles_by_text(client, board["id"])["Pack"].get("markers") == ["star", "warning"]
+
+
+def test_a_due_date_is_a_marker_checked_kept_and_carried(client):
+    """MINDMAP_PLAN §12.2 item 4's due date (decision 37): a calendar day,
+    content like the other markers (a look reset keeps it), carried by OPML
+    and FreeMind as `_due`, never by Markdown."""
+    board = _map(client, name="Due")
+    root = _node(client, board["id"], text="Plan")
+    node = _node(client, board["id"], parent_id=root["id"], text="Book")
+    assert _set_data(client, board, node, {"due": "12 October"}).status_code == 422
+    assert _set_data(client, board, node, {"due": "2026-10-12T09:00"}).status_code == 422
+    assert _set_data(client, board, node, {"due": "2026-10-12"}).status_code == 200
+    assert _styles_by_text(client, board["id"])["Book"]["due"] == "2026-10-12"
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_due="2026-10-12"' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert _styles_by_text(client, back.json()["id"])["Book"].get("due") == "2026-10-12", fmt
+    assert "2026-10-12" not in client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    assert _styles_by_text(client, board["id"])["Book"]["due"] == "2026-10-12"
+
+
+def test_a_map_exports_and_imports_as_a_plain_text_outline(client):
+    """MINDMAP_PLAN §12.2 item 10: "plain-text outline" out and ".txt
+    outline" in. One topic per line, a tab per level, no bullets and no
+    title line (a plain outline has no word for one: the file's name is the
+    map's, and the client sends it back as `name`). The 101-topic map comes
+    back whole."""
+    board = _big_map(client, name="Plain")
+    first = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=text")
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-type"].startswith("text/plain")
+    assert ".txt" in exported.headers["content-disposition"]
+    lines = exported.text.splitlines()
+    assert lines[0] == "Centre" and lines[1] == "\tBranch 0" and lines[2] == "\t\tLeaf 0.0"
+    assert not any(line.lstrip().startswith(("-", "#")) for line in lines)
+    back = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "text", "content": exported.text, "name": "Plain"},
+    )
+    assert back.status_code == 201, back.text
+    assert back.json()["title"] == "Plain" and back.json()["object_count"] == 101
+    second = _structure(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+    assert second == first
+
+
+def test_a_hand_written_text_outline_imports_by_indentation(client):
+    """A .txt from anywhere: spaces or tabs, a numbered line, a bullet left
+    in; with no name sent, a single top line names the map."""
+    text = "Trip\n  1. Book\n    flights\n  - Pack\n"
+    back = client.post("/whiteboard/boards/import", json={"format": "text", "content": text})
+    assert back.status_code == 201, back.text
+    assert back.json()["title"] == "Trip"
+    tree = _structure(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+    assert tree == [{"text": "Trip", "children": [
+        {"text": "Book", "children": [{"text": "flights", "children": []}]},
+        {"text": "Pack", "children": []},
+    ]}]

@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import facts
-from memorymap.core import deps
+from memorymap.core import deps, jobruns
 from memorymap.core.deps import get_session
 
 logger = logging.getLogger("memorymap.api.night")
@@ -63,10 +65,13 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
         # be every row saying `local` and nobody knowing why.
         logger.info("night pass: no model to narrow with (%s)", exc)
         provider = None
-    result = facts.run(
-        session, budget=body.budget, force=body.force, provider=provider, model=model, config=config
-    )
-    session.commit()
+    with jobruns.job_run("night-shift") as run:
+        result = facts.run(
+            session, budget=body.budget, force=body.force, provider=provider, model=model, config=config,
+            embeddings=deps.get_embeddings(),
+        )
+        session.commit()
+        jobruns.describe_night_pass(run, result)
     return result
 
 
@@ -80,16 +85,20 @@ def latest(session: Session = Depends(get_session)) -> dict:
 
 @router.get("/runs/{run_id}/facts")
 def run_facts(
+    response: Response,
     run_id: int,
     kind: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """The review list behind one line of the card, paged."""
+    offset = paging.start(cursor, offset)
     from memorymap.core.database import NightRun
 
     if session.get(NightRun, run_id) is None:
-        raise HTTPException(status_code=404, detail="No such night run")
+        raise HTTPException(status_code=404, detail="That night run could not be found.")
     rows, total = facts.run_facts(session, run_id, kind=kind, limit=limit, offset=offset)
+    paging.finish(response, offset, limit, total)
     return {"items": [facts.as_json(row) for row in rows], "total": total}

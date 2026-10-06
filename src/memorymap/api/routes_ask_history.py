@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
+
+from memorymap.api import paging
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -42,15 +44,18 @@ def _summary(turn: AskTurn) -> dict:
 
 @router.get("")
 def list_ask_history(
+    response: Response,
     q: str = "",
     pinned_only: bool = False,
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """Newest first, pinned first among ties, same ordering Conversation
     uses for the Chat tab's own saved list, for the same reason: the thread
     you keep coming back to shouldn't sink under a week of one-offs."""
+    offset = paging.start(cursor, offset)
     query = select(AskTurn)
     if pinned_only:
         query = query.where(AskTurn.pinned == True)  # noqa: E712
@@ -64,6 +69,7 @@ def list_ask_history(
     ordered = query.order_by(AskTurn.pinned.desc(), AskTurn.created_at.desc())
     total = session.scalar(select(func.count()).select_from(ordered.subquery()))
     rows = session.scalars(ordered.limit(limit).offset(offset)).all()
+    paging.finish(response, offset, limit, total or 0)
     return {
         "turns": [_summary(t) for t in rows],
         "total": total or 0,
@@ -92,7 +98,7 @@ def get_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
     """
     from memorymap.api.routes_entries import _to_out_bulk  # avoids a route-module cycle
 
-    turn = deps.get_or_404(session, AskTurn, turn_id, "No such question in your history")
+    turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     ids = json.loads(turn.raw_result_ids or "[]")
     entries = []
     if ids:
@@ -154,7 +160,7 @@ def _live_grounding(session: Session, turn: AskTurn) -> list[dict]:
 
 @router.put("/{turn_id}/pin")
 def pin_ask_turn(turn_id: int, pinned: bool, session: Session = Depends(get_session)) -> dict:
-    turn = deps.get_or_404(session, AskTurn, turn_id, "No such question in your history")
+    turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     turn.pinned = pinned
     session.commit()
     return _summary(turn)
@@ -162,7 +168,7 @@ def pin_ask_turn(turn_id: int, pinned: bool, session: Session = Depends(get_sess
 
 @router.delete("/{turn_id}")
 def delete_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
-    turn = deps.get_or_404(session, AskTurn, turn_id, "No such question in your history")
+    turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     session.delete(turn)
     session.commit()
     return {"deleted": True}

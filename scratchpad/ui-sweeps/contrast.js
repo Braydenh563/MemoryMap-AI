@@ -29,7 +29,8 @@ const SUBTABS={
   notes:['browse','capture','writing-room','ask'],
   library:null,  // filled in from the strip itself: its ids move with the plan
 };
-const SECTIONS=['models','appearance','account','tools','skills','memory','learned','tasks','data','logs','extras','about'];
+const SECTIONS=['models','searchindex','appearance','account','tools','skills','memory','learned','tasks','data','logs','extras','about'];
+// ONLY=settings skips the tabs and measures the Settings sections alone.
 // WIDTH/HEIGHT, because this sweep took no viewport at all and had therefore
 // only ever run at `boot`'s default 1440x900 (UI_MODERNISATION_PLAN Phase 11
 // item 11 named it as open for exactly that reason). A phone is not the same
@@ -51,6 +52,13 @@ const PHONE=WIDTH<600;
 // 0. The surfaces that measured nothing are collected here, named at the end,
 // and the process exits non-zero. A sweep that measures nothing must fail.
 const empty=[];
+// **A low-contrast finding fails the sweep** (readings.md: it used to print and
+// exit 0, so the gate's `sweep-contrast` step stayed green over a finding).
+// Measured clean at 1440, 820 and 390 in both themes before this was made a
+// failure. A finding whose background had to be composited from a translucent
+// layer ("~" after the ratio) is the worst-case estimate the comment above
+// `over` describes, so it is reported but does not fail on its own.
+const low=[];
 (async()=>{const {browser,page}=await boot({viewport:{width:WIDTH,height:HEIGHT},hasTouch:PHONE,isMobile:PHONE});
 const run=async(label)=>{const r=await page.evaluate(()=>{
   const cv=document.createElement('canvas');cv.width=cv.height=1;const cx=cv.getContext('2d',{willReadFrequently:true});
@@ -88,9 +96,29 @@ const run=async(label)=>{const r=await page.evaluate(()=>{
   }
   return {out:out.slice(0,12),checked};});
   console.log(`== ${label}: ${r.out.length?r.out.length+' low-contrast':'ok'} (${r.checked} text elements)`);r.out.forEach(l=>console.log('  '+l));
+  if(r.out.some((l)=>!/^[\d.]+~/.test(l)))low.push(label);
   if(!r.checked){console.log('  nothing was measured here, which is a finding about the sweep, not the surface');empty.push(label);}};
 const go=async(t)=>{await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t);await page.waitForTimeout(700);};
-for(const t of TABS){
+// ONLY=document measures the documents editor with a document open (DOCUMENTS_PLAN
+// 17e). The `documents` entry in TABS reaches the tab with nothing open, so
+// the editor, its dock, the formatting strip, the outline and every `.cm-md-*`
+// decoration had never been read for contrast. One document holding each
+// construct and a few writing findings, in every view.
+if(process.env.ONLY==='document'){
+  const body=['# Contrast fixture','','A paragraph with **bold**, *italic*, ==highlight==, `inline code`, a [link](https://example.com) and a [[Wiki link]] and teh misspelled wrnog words.','','## A section','','> A quotation that carries on for a while.','','> [!note] A callout','> Its body text.','','- [ ] an open task','- [x] a done task','- a bullet','','| Name | Value |','| --- | --- |','| one | 1 |','','```js','const a = 1; // comment','```','','A footnote.[^1]','','[^1]: The note.',''].join('\n');
+  await page.evaluate(async(content)=>{const r=await api('/documents',{method:'POST',body:JSON.stringify({title:'Contrast fixture',content})});const d=await r.json();switchTab('documents');await openDocument(d.id);},body);
+  await page.waitForSelector('#doc-editor .cm-content',{state:'visible',timeout:15000}).catch(()=>{});
+  await page.waitForTimeout(2500);
+  for(const view of ['live','source','split','rendered']){
+    await page.evaluate((v)=>setDocView(v),view);await page.waitForTimeout(900);await run('documents/'+view);
+  }
+  await page.evaluate(()=>setDocView('live'));await page.waitForTimeout(600);
+  const tab=await page.evaluate(()=>{const b=[...document.querySelectorAll('#doc-sidebar [role="tab"], #doc-sidebar button')].find((x)=>/^Outline/.test(x.textContent.trim()));if(b){b.click();return true;}return false;});
+  if(tab){await page.waitForTimeout(500);await run('documents/outline');}
+  console.log(`== done at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}`);
+  await browser.close();process.exit(empty.length||low.length?1:0);
+}
+for(const t of (process.env.ONLY==='settings'?[]:TABS)){
   await go(t);
   // A tab that would not open is worth saying so about, rather than being
   // silently reported as clean.
@@ -113,23 +141,45 @@ for(const t of TABS){
     await run(`${t}/${sub}`);
   }
 }
-// A board, opened from the Boards & maps section the way a person opens one.
-// Nothing is created here: a sweep that made a board on every run would fill
-// the data directory it shares with every other sweep. If there is no board
-// to open it says so rather than passing quietly.
-{
-  await go('library');
-  const opened=await page.evaluate(async()=>{
-    document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
-    await new Promise(r=>setTimeout(r,900));
-    const card=document.querySelector('.library-board-card');
-    if(!card)return 'no board in this notebook';
-    card.click();
-    await new Promise(r=>setTimeout(r,1800));
-    return document.getElementById('wb-topbar')?.offsetParent?'open':'it would not open';
-  });
-  if(opened==='open'){await page.waitForTimeout(600);await run('whiteboard (a board open)');await page.keyboard.press('Escape').catch(()=>{});await page.waitForTimeout(400);}
-  else console.log(`== whiteboard: SKIPPED, ${opened}`);
+// A board and a map, each opened from the Boards & maps section the way a
+// person opens one (there is no tab page for either, so they cannot join TABS).
+// A board is also measured with every object selected, because the drag grip
+// on a sticky or text box (`.wb-object-grip`), the resize handles and the
+// selection bar only exist selected: the surfaces this sweep never read, where
+// the small contrast rows lived (OPEN.md: "the sticky's grip and other small
+// contrast rows"). Nothing is created here: a sweep that made a board on every
+// run would fill the data directory it shares with every other sweep. If the
+// notebook has no board or map to open it says so rather than passing quietly.
+if(process.env.ONLY!=='settings'){
+  for(const kind of ['board','map']){
+    await go('library');
+    const opened=await page.evaluate(async(kind)=>{
+      document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      await new Promise(r=>setTimeout(r,900));
+      const card=[...document.querySelectorAll('.library-board-card')].find(c=>c.wbBoard&&(kind==='map'?c.wbBoard.type==='map':c.wbBoard.type!=='map'));
+      if(!card)return 'no '+kind+' in this notebook';
+      card.click();
+      await new Promise(r=>setTimeout(r,1800));
+      return document.getElementById('wb-topbar')?.offsetParent?'open':'it would not open';
+    },kind);
+    if(opened!=='open'){console.log(`== whiteboard (${kind}): SKIPPED, ${opened}`);continue;}
+    await page.waitForTimeout(600);await run(`whiteboard (${kind} open)`);
+    // Everything selected: the grips and handles are drawn for a selection.
+    const sel=await page.evaluate(()=>{try{wbSelectAllItems();return true;}catch(e){return false;}});
+    if(sel){await page.waitForTimeout(500);await run(`whiteboard (${kind}, all selected)`);
+      // How many of the small selection-only marks were on screen to be read:
+      // an "ok" over a board with none of them proves nothing about them.
+      const marks=await page.evaluate(()=>({grips:[...document.querySelectorAll('.wb-object-grip')].filter(g=>g.checkVisibility()).length,handles:[...document.querySelectorAll('.wb-handle, .wb-resize-handle')].filter(g=>g.checkVisibility()).length}));
+      console.log(`   selection marks on screen: ${marks.grips} grips, ${marks.handles} handles`);}
+    // The board's own sidebar, one tab at a time (a board has Library, Notes,
+    // Layers and Pages; a map has Library, This map and Outline).
+    for(const side of (kind==='map'?['library','map','outline']:['library','notes','layers','pages'])){
+      const ok=await page.evaluate((s)=>{try{wbOpenSidebar(s,{focus:false});return true;}catch(e){return false;}},side);
+      if(!ok)continue;await page.waitForTimeout(700);await run(`whiteboard (${kind}) sidebar/${side}`);
+    }
+    await page.evaluate(()=>{try{wbCloseSidebar();}catch(e){}});
+    await page.keyboard.press('Escape').catch(()=>{});await page.waitForTimeout(400);
+  }
 }
 
 // `openSettingsModal`, not a click on `#settings-btn`: below 600 that button
@@ -139,8 +189,11 @@ for(const t of TABS){
 // The guide panel (INBOX 270 part 4): a sheet, so `.modal-overlay` already
 // puts it in scope; it only had to be opened. Empty, then with a conversation,
 // because the welcome and the bubbles are different text on different grounds.
-{
-  const opened=await page.evaluate(()=>{try{openHelpChat();return true;}catch(e){return false;}});
+if(process.env.ONLY!=='settings'){
+  // The Guide is a lazy bundle (helpChat): awaited before its first call, or
+  // on a slow machine `renderHelpChatMessage` was not there yet and the throw
+  // ended the run before Settings (qa-1005, every LOOK run at 1440).
+  const opened=await page.evaluate(async()=>{try{await ensureModule('helpChat');openHelpChat();return true;}catch(e){return false;}});
   if(opened){
     await page.waitForTimeout(500);await run('guide (empty)');
     await page.evaluate(()=>{renderHelpChatMessage('user','How do I add a reminder?');renderHelpChatMessage('assistant','Open the **Reminders** tab.',[{label:'Open Reminders',tab:'reminders'}],['Reminders']);});
@@ -166,5 +219,6 @@ if(empty.length){
   console.log(`FAIL: ${empty.length} surface${empty.length===1?'':'s'} measured 0 text elements at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}: ${empty.join(', ')}`);
   console.log('A surface with no text on it is either a surface this sweep could not open or one the app did not draw. Either way its "ok" above is about nothing.');
 }
+if(low.length)console.log(`FAIL: low contrast on ${low.length} surface${low.length===1?'':'s'}: ${low.join(', ')}`);
 await browser.close();
-process.exitCode=empty.length?1:0;})();
+process.exitCode=empty.length||low.length?1:0;})();

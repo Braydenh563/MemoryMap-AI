@@ -18,7 +18,10 @@ import mimetypes
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import date, timezone
 from itertools import chain
+from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -31,12 +34,14 @@ from memorymap.ai import (
     agent,
     captioning,
     context,
+    fence,
     followups,
     intent,
     librarian,
     memory,
     notebook_stats,
     presets,
+    questions,
     skill_runner,
     skills,
     tool_fallback,
@@ -51,7 +56,7 @@ from memorymap.ai.grounding import (
 )
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview
+from memorymap.core import deps, docview, model_gate
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
@@ -65,10 +70,13 @@ from memorymap.core.database import (
     Reminder,
     like_escape,
 )
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.deps import get_session
+from memorymap.core.imagesize import image_size
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
+from memorymap.search import chunks as search_chunks
 from memorymap.search import search_manager
 from sqlalchemy import func
 
@@ -184,7 +192,7 @@ def _fill(candidates: list[str], asked: set[str]) -> list[str]:
 
 # Shown when the chat is empty, to teach the feature (Round 1).
 STARTER_SUGGESTIONS = [
-    "What have I saved so far?",
+    "What have I saved recently?",
     "Summarise my notes.",
     "What are my most common topics?",
 ]
@@ -261,6 +269,11 @@ def chat_followups(body: FollowupBody) -> list[str]:
     turn is on screen and simply renders nothing if it comes back empty, which
     it does on every failure path, including the AI not running at all.
     """
+    if model_gate.busy():
+        # The person is already asking the next thing: a second model call
+        # now would put their question behind suggestions they can no longer
+        # use (audit ARCH-16).
+        return []
     return followups.suggest_followups(
         body.question,
         body.answer,
@@ -289,6 +302,10 @@ class PlanRun(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
+    #: Answer from the notebook as it stood at the end of this day
+    #: (WORLD_CLASS_PLAN I5, row 23). Read, never act: the turn runs without
+    #: tools, which would read and change the notebook as it is now.
+    as_of: date | None = None
     # Prior turns for follow-up context (Round 1); the server clips this.
     history: list[ChatTurn] = Field(default_factory=list)
     # Persona name; None → the active persona preference.
@@ -412,6 +429,26 @@ class ChatRequest(BaseModel):
     # was already doing that, plus however many unrelated notes the
     # instruction text itself happened to match.
     attached_notes_only: bool = False
+    #: "questions": answer from the notes that still hold an open question
+    #: (WORLD_CLASS_PLAN I3, row 7: "what am I still undecided about?"), and
+    #: only from them. Resolved into `note_ids` and `attached_notes_only` by
+    #: `_apply_scope` before anything reads either.
+    scope: Literal["questions"] | None = None
+
+
+def _apply_scope(session: Session, body: ChatRequest) -> None:
+    """Turn a scope into the closed set of notes it means.
+
+    With no open question anywhere the turn falls back to ordinary
+    retrieval: an Ask over an empty set would answer from nothing, and the
+    Ask box says beforehand that there are none (`askScopeQuestions`).
+    """
+    if body.scope != "questions":
+        return
+    ids = questions.open_note_ids(session)
+    if ids:
+        body.note_ids = ids
+        body.attached_notes_only = True
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -578,12 +615,12 @@ def _resolve_skill(body: ChatRequest) -> dict | None:
         return None
     found = skills.find(deps.get_config(), body.skill, set(tools.TOOLS))
     if found is None:
-        raise HTTPException(status_code=404, detail=f"No skill called “{body.skill}”")
+        raise HTTPException(status_code=404, detail=f"No skill called “{body.skill}”.")
     missing = skills.missing_inputs(found, body.skill_inputs or {})
     if missing:
         raise HTTPException(
             status_code=422,
-            detail=f"“{found['name']}” needs {', '.join(missing)} before it can run",
+            detail=f"“{found['name']}” needs {', '.join(missing)} before it can run.",
         )
     return {
         "skill": found,
@@ -636,6 +673,10 @@ class ChatResponse(BaseModel):
     # converts back). Not every id in raw_results has an entry here: dated/
     # recent/attached results are already explained by search_mode itself.
     match_info: dict[str, dict] = {}
+    # Words for the retrieved notes' pictures, by url (INBOX 502).
+    picture_alts: dict[str, str] = {}
+    # Their real [width, height], so an answer's figure holds its space (INBOX 526).
+    picture_sizes: dict[str, list[int]] = {}
     # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
     # Whether Ollama is reachable, lets the UI distinguish "offline"
@@ -667,7 +708,17 @@ def _grounding_candidates(
     and a note id share a number space in the citation UI, which opens the
     *note* with that id.
     """
-    rows = [note for note in notes if note.get("id") is not None]
+    #: A note's attached files count as what it says (INBOX 604, the owner:
+    #: "it didnt intext number reference the referenced notes??"). Two of
+    #: three sketches are one word and a picture: the answer described them
+    #: from their captions, which the prompt carries (`_files_on`), and the
+    #: grounding, reading `content` alone, found no note saying it.
+    rows = [
+        {**note, "content": f"{note.get('content') or ''}\n\n" + "\n".join(note["files"])}
+        if note.get("files") else note
+        for note in notes
+        if note.get("id") is not None
+    ]
     seen = {note["id"] for note in rows}
     for note_id in dict.fromkeys(touched_note_ids):
         if note_id in seen:
@@ -849,7 +900,114 @@ def _outline_into(nodes: list[dict], depth: int, out: list[str]) -> None:
 #: are a *hint* about what is in the note, not a second copy of the notebook,
 #: and every character here is resent on every round of the turn.
 MEDIA_READINGS_PER_NOTE = 4
-MEDIA_READING_CHARS = 240
+#: 1,200, not 240 (INBOX 491): a screenshot of typed notes is the note, and
+#: 240 characters of it is a line and a half. The note's own allowance
+#: (`librarian.note_for_prompt`) still caps the whole, readings included.
+MEDIA_READING_CHARS = 1200
+
+#: A retrieved note whose own words (pictures' Markdown taken out) are this
+#: short is mostly its pictures, so it gets their readings too (INBOX 491:
+#: "What are the specific feature suggestions?" over a note that was one
+#: screenshot of typed ideas reached the model as `![image.png](...)`, and
+#: the answer said the note gave no specifics, though retrieval had found the
+#: note *by* that picture's text). A note with words of its own stays as it
+#: is, so ten search hits do not spend the budget on incidental pictures.
+MOSTLY_PICTURE_CHARS = 200
+_IMAGE_MARKDOWN = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+
+
+#: How many of the retrieved notes' pictures get words for their thumbnails.
+PICTURE_ALTS_MAX = 40
+PICTURE_ALT_CHARS = 160
+
+
+def _picture_alts(session: Session, entries: list) -> dict[str, str]:
+    """`/media/<file>` -> words that say what a retrieved note's picture is.
+
+    INBOX 502 (the owner: "should the ai chats be able to pull images and
+    sketches and render them in chat responses?? with accompanying references
+    and hyperlinks??", decision taken: yes). An answer draws a grounded note's
+    pictures as thumbnails beside its citation, and a thumbnail needs alt
+    text: the caption the app already wrote, else the start of the text read
+    off it. A lookup, never a pipeline, for `_media_readings`' reason: a
+    picture with no reading yet gets its Markdown alt on the page instead.
+    One query for every note, sent once with the results.
+    """
+    filenames = list(
+        dict.fromkeys(name for entry in entries for name in _MEDIA_REF.findall(entry.content or ""))
+    )[:PICTURE_ALTS_MAX]
+    if not filenames:
+        return {}
+    alts = {}
+    for upload in session.query(MediaUpload).filter(MediaUpload.filename.in_(filenames)).all():
+        words = (upload.caption or "").strip() or " ".join(
+            (upload.vision_ocr_text or upload.ocr_text or "").split()
+        )
+        if words:
+            alts[f"/media/{upload.filename}"] = words[:PICTURE_ALT_CHARS]
+    return alts
+
+
+def _picture_sizes(entries: list) -> dict[str, list[int]]:
+    """`/media/<file>` -> [width, height] for the same pictures, read from the
+    file headers (`core/imagesize`), so an answer's figure (INBOX 526) holds
+    its space before the image loads. A picture whose size is unknown is left
+    out and the figure sizes itself."""
+    names = list(
+        dict.fromkeys(name for entry in entries for name in _MEDIA_REF.findall(entry.content or ""))
+    )[:PICTURE_ALTS_MAX]
+    media_dir = deps.get_config().data_dir / "media"
+    sizes = {}
+    for name in names:
+        size = image_size(media_dir / Path(name).name)
+        if size:
+            sizes[f"/media/{name}"] = list(size)
+    return sizes
+
+
+def _mostly_pictures(content: str) -> bool:
+    """True when a note is little more than its pictures."""
+    if not _MEDIA_REF.search(content or ""):
+        return False
+    words = _IMAGE_MARKDOWN.sub("", content or "")
+    return len(" ".join(words.split())) < MOSTLY_PICTURE_CHARS
+
+
+def _note_dates(entry, zone) -> str:  # noqa: ANN001
+    """"Wednesday 23 September 2026, 09:40", and ", edited ..." when it has been
+    since: spelled out, the form `_long_date` explains (a small model reasons
+    about weekdays better than ISO dates)."""
+
+    def day(when):  # noqa: ANN001, ANN202
+        if when is None:
+            return ""
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        when = when.astimezone(zone)
+        #: With the time: notes written the same day are told apart only by
+        #: it (measured: the model picked the wrong one of two on one day).
+        return f"{when:%A} {when.day} {when:%B %Y}, {when:%H:%M}"
+
+    written = day(getattr(entry, "created_at", None))
+    edited = day(getattr(entry, "edited_at", None))
+    return f"{written}, edited {edited}" if edited and edited != written else written
+
+
+def _time_words(dates, today) -> list[str]:  # noqa: ANN001
+    """Each resolved time phrase in a note, worded for the model with how far
+    it is from today: '"this Friday" meant Friday 25 September 2026, 8 days
+    ago' (INBOX 441). The app resolves the phrase against the day the note was
+    written; without this the model read "this Friday" as this week's."""
+    out = []
+    for item in dates:
+        when = item.at
+        day = f"{when:%A} {when.day} {when:%B %Y}"
+        if item.precision == "minute":
+            span = f"{day} at {when:%H:%M}"
+        else:
+            span = day if item.precision == "day" else f"the {item.precision} of {day}"
+        out.append(f'"{item.phrase}" meant {span}, {days_from_today(when.date(), today)}')
+    return out
 
 
 def _media_readings(session: Session, content: str) -> str:
@@ -906,6 +1064,34 @@ def _media_readings(session: Session, content: str) -> str:
     return "\n\n[Pictures in this note, as this app read them:\n" + "\n".join(lines) + "]"
 
 
+#: A file's caption as the prompt gives it beside a retrieved note: one line,
+#: enough for "a sketch of a bean" to be seen as a sketch, not the reading
+#: `_attachment_readings` gives a note picked by hand.
+FILE_CAPTION_CHARS = 160
+
+
+def _files_on(session: Session, entry_ids: list[int]) -> dict[int, list[str]]:
+    """Each note's attached files, "sketch.png (a blue bean drawn in pen)",
+    in one query. Names and stored captions only: nothing is read from disk
+    here, so ten notes cost one SELECT."""
+    if not entry_ids:
+        return {}
+    out: dict[int, list[str]] = {}
+    rows = (
+        session.query(Attachment.entry_id, Attachment.filename, Attachment.caption)
+        .filter(Attachment.entry_id.in_(entry_ids))
+        .order_by(Attachment.id)
+        .all()
+    )
+    for entry_id, filename, caption in rows:
+        names = out.setdefault(entry_id, [])
+        if len(names) >= MEDIA_READINGS_PER_NOTE:
+            continue
+        said = " ".join((caption or "").split())[:FILE_CAPTION_CHARS]
+        names.append(f"{filename} ({said})" if said else filename)
+    return out
+
+
 def _attachment_readings(session: Session, entry_id: int) -> str:
     """What's inside the *files* attached to a note (PDFs, Office documents,
     code, plain text): `_media_readings` above's own sibling, and the gap it
@@ -960,6 +1146,7 @@ def _prepare(
     file_ids: list[int] | None = None,
     board_ids: list[int] | None = None,
     surface: str = ASK_SURFACE,
+    as_of: "date | None" = None,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
@@ -1003,7 +1190,7 @@ def _prepare(
     #: truth below), which means the phrasing is natural and the numbers cannot
     #: be invented: and with the model stopped the computed sentence is
     #: already a complete answer on its own.
-    stats = notebook_stats.answer(question, session) if detected == intent.NOTES else None
+    stats = notebook_stats.answer(question, session) if detected == intent.NOTES and as_of is None else None
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
@@ -1034,6 +1221,32 @@ def _prepare(
     else:
         entries, mode = [], "none"
 
+    #: **As of a date** (WORLD_CLASS_PLAN I5, row 23; `ai/timetravel.py`):
+    #: the candidates are today's matches and every note whose past text
+    #: matches, each read as it stood at the end of that day, those that did
+    #: not exist then dropped. With none left the answer is the honest empty
+    #: one, said without a model, never today's notebook.
+    as_of_then: dict = {}
+    if as_of is not None and intent.needs_retrieval(detected):
+        from memorymap.ai import timetravel
+
+        found = search_manager.retrieve_detailed(session, question, deps.get_embeddings(), limit=20)
+        candidates = found.entries + timetravel.revision_candidates(session, question)
+        zone = user_now(deps.get_config()).tzinfo
+        rewound = timetravel.rewind(session, question, timetravel.end_of_day(as_of, zone), candidates, limit=5)
+        entries, mode = [then.entry for then in rewound], "as of"
+        connected_ids, match_info = set(), {}
+        as_of_then = {then.entry.id: then for then in rewound}
+        if not rewound:
+            stats = notebook_stats.StatAnswer(
+                kind="as_of_empty",
+                text=(
+                    f"There are no notes from on or before {timetravel.day_words(as_of)} to answer "
+                    "from, so there is nothing to say about how things stood then."
+                ),
+                facts=[],
+            )
+
     # Attached notes come first and are never dropped by the retrieval limit.
     # Anything retrieval also found is de-duplicated against them.
     attached_ids = {entry.id for entry in attached}
@@ -1042,7 +1255,7 @@ def _prepare(
         mode = "attached" if mode == "none" else f"attached + {mode}"
 
     def as_note(entry) -> dict:
-        content = entry.content
+        content = as_of_then[entry.id].text if entry.id in as_of_then else entry.content
         if entry.id in attached_ids:
             # Only for notes the user picked by hand. A retrieved note is a
             # candidate; an attached one is the subject of the question, and
@@ -1050,14 +1263,22 @@ def _prepare(
             # search hits would spend the notes budget on pictures nobody
             # asked about.
             content = f"{content}{_media_readings(session, content)}{_attachment_readings(session, entry.id)}"
+        elif _mostly_pictures(content):
+            content = f"{content}{_media_readings(session, content)}"
         return {
             # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.
             "id": entry.id,
             "content": content,
+            #: How many pictures the note holds: the prompt says so, because
+            #: the answer shows them beside this note's citation (INBOX 502).
+            "pictures": len(set(_MEDIA_REF.findall(entry.content or ""))),
             "category": manager.category_name_for(session, entry),
             # Marked so the prompt can say which notes the user chose.
             "attached": entry.id in attached_ids,
+            # Clipped from the web or imported (SEC-02): the agent starts the
+            # turn tainted, so writes and reaching out ask first.
+            "from_outside": manager.came_from_outside(entry),
             # …and which arrived by the graph rather than by the search. The
             # prompt renders this as a caveat, so an answer can say "you linked
             # this to the note about X" instead of implying it was a hit.
@@ -1070,9 +1291,30 @@ def _prepare(
             # tracing back to the specific Link row, a bigger change not made
             # here.
             "match_info": match_info.get(entry.id),
+            #: The day it was written, and edited if since (wrapup-0927 10 n):
+            #: with no dates a model guessed "your last entry" from the order
+            #: the notes were listed in.
+            "written": _note_dates(entry, zone)
+            + (f", as it read on {as_of.day} {as_of:%B %Y}" if entry.id in as_of_then else ""),
+            "dates": _time_words(time_words.get(entry.id, []), today),
+            #: Its tags and the files on it, which the model never saw (INBOX
+            #: 594, the owner: "it only mentions one of the sketches not all
+            #: the sketches"). Two of three sketches were notes whose text is
+            #: one word with a `sketch.png` attached and `#Sketches` on them;
+            #: shown "[Hobbies] whoaaahhh", the model called them "too vague".
+            "tags": manager.entry_tags(entry),
+            "files": files_on.get(entry.id, []),
         }
 
+    now = user_now(deps.get_config())
+    zone, today = now.tzinfo, now.date()
+    time_words = manager.entry_dates_bulk(session, [entry.id for entry in entries])
+    files_on = _files_on(session, [entry.id for entry in entries])
     notes = [as_note(entry) for entry in entries]
+    #: Listed newest first for "my last note": said on the first, which a
+    #: small model otherwise ignores the order of (measured on a 1.5B model).
+    if mode == "recent" and notes:
+        notes[0]["newest"] = True
     # Same shape `as_note` builds, by hand rather than through it, a
     # Document has no category/tags and its id lives in a different table
     # than Entry's, so folding it through the Entry-shaped helper above
@@ -1126,7 +1368,20 @@ def _prepare(
             if stats is not None
             else None
         ),
-        "raw_results": [_to_out(session, entry) for entry in entries],
+        "raw_results": [
+            _to_out(session, entry).model_copy(update={"content": as_of_then[entry.id].text})
+            if entry.id in as_of_then
+            else _to_out(session, entry)
+            for entry in entries
+        ],
+        #: The day asked about and, per note, the revision its text came from
+        #: (None for a note that read the same then as now).
+        "as_of": as_of.isoformat() if as_of is not None else None,
+        "as_of_revisions": {str(i): then.revision_id for i, then in as_of_then.items()},
+        #: Words for each retrieved note's pictures, for the thumbnails an
+        #: answer draws beside a citation (INBOX 502, `_picture_alts`).
+        "picture_alts": _picture_alts(session, entries),
+        "picture_sizes": _picture_sizes(entries),
         "search_mode": mode,
         # Ids that came along because they are *connected* to a match, so the
         # results panel can label them rather than presenting a note about
@@ -1147,6 +1402,7 @@ def _prepare(
 
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
+    _apply_scope(session, body)
     prepared = _prepare(
         session,
         body.question,
@@ -1158,6 +1414,8 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         # This endpoint has no tool loop, it retrieves and answers, nothing
         # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
+        # Row 23: the same time travel the stream takes.
+        as_of=body.as_of,
     )
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent
@@ -1229,7 +1487,10 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     # notes at all (there may be none), and grounding one would attach a
     # note to a sentence that has nothing to do with it.
     sentence_grounding = (
-        ground_answer_sentences(ai_response, prepared["notes"])
+        ground_answer_sentences(
+            ai_response, prepared["notes"],
+            meaning=search_chunks.meaning_scorer(session, deps.get_embeddings()),
+        )
         if not conversational and answered
         else []
     )
@@ -1237,6 +1498,8 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ai_response=ai_response,
         ai_thinking=ai_thinking,
         raw_results=prepared["raw_results"],
+        picture_alts=prepared.get("picture_alts") or {},
+        picture_sizes=prepared.get("picture_sizes") or {},
         search_mode=prepared["search_mode"],
         connected_ids=prepared["connected_ids"],
         match_info=prepared["match_info"],
@@ -1521,7 +1784,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: passage highlight are drawn by the code that already exists. An
         #: extractive answer cannot be wrong about where a claim came from,
         #: because the claim is the passage.
-        offline = extractive.answer(req.question, prepared["notes"])
+        #: A recency question is answered by the list itself (INBOX 446).
+        offline = (
+            extractive.recent(prepared["notes"])
+            if str(prepared.get("search_mode") or "").endswith("recent")
+            else extractive.answer(req.question, prepared["notes"])
+        )
         yield {"type": "answer", "delta": offline["text"]}
         if offline["grounding"]:
             #: An extractive answer is every sentence lifted from a note, so
@@ -1607,6 +1875,103 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         }
 
 
+def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterator[dict]:  # noqa: ANN001
+    """The event stream of a skill run or an agent turn for this request.
+
+    Lifted from `_stream_lines` with no behaviour change (audit 2026-10-05,
+    ARCH-22: it was 334 lines)."""
+    shared = {
+        "style": prepared["style"],
+        "profile": prepared["profile"],
+        "history": req.history,
+        "persona_prompt": req.persona_prompt,
+    }
+    if req.skill:
+        # A skill runs step by step, the runner emits the plan, ticks
+        # each step, and ends with what changed. Its first event has
+        # the same meaning as the agent's, so the fallback below is
+        # unchanged.
+        agent_events = skill_runner.run_skill(
+            req.session,
+            req.skill["skill"],
+            req.body.skill_inputs or {},
+            prepared["notes"],
+            req.model_manager,
+            req.ollama,
+            start_at=req.body.skill_from_step,
+            only_step=req.body.skill_only_step,
+            step_text=req.body.skill_step_text,
+            manual=req.body.skill_manual,
+            manual_note=req.body.skill_manual_note,
+            small_model=_small_model_mode(),
+            # The run's own budget (Brief 13), read from the user's
+            # settings here rather than inside the runner so that the
+            # runner stays testable without app state and so a caller
+            # with its own budget (an eval, a background job) can pass
+            # one instead.
+            #: The step count goes with it: the token allowance is per
+            #: step, and a nine-step skill held to one step's worth is how
+            #: a correct run came to stop after three of them.
+            budget=run_budget.from_settings(
+                deps.get_config(),
+                steps=len(req.skill["skill"].get("steps") or []) or 1,
+            ),
+            **shared,
+        )
+    else:
+        agent_events = agent.run_agent(
+            req.session,
+            req.question,
+            prepared["notes"],
+            req.model_manager,
+            tools_provider,
+            mode=req.mode,
+            allowed_tools=req.allowed_tools,
+            images=req.images,
+            image_context=req.image_context,
+            **shared,
+        )
+    return agent_events
+
+
+def _first_agent_event(req: _StreamRequest, agent_events: Iterator[dict]) -> dict | None:
+    """The stream's first event, or an answer saying what went wrong if the
+    run failed before it could yield one. Lifted from `_stream_lines` (ARCH-22)."""
+    # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
+    # expect to go wrong (OllamaError, ToolsUnsupportedError) is
+    # already caught inside them and turned into a real event, this
+    # is the outer boundary, for whatever isn't. Reported directly: a
+    # skill run that "failed before even completing the first step
+    # ... no answer and no tool call", an exception here had nothing
+    # catching it, so it killed the generator and the stream just
+    # ended with nothing rendered, no error, the plan card (if any)
+    # never even reaching the page. Silence was the bug, not the
+    # underlying failure, which is why this doesn't try to guess
+    # which failure it was, it says what actually happened and stays
+    # on stage instead of vanishing.
+    try:
+        first = next(agent_events, None)
+    except Exception as exc:  # noqa: BLE001  # the outer boundary
+        logging.getLogger("memorymap.chat").exception(
+            "%s: unhandled error before the first event: %s",
+            "skill run" if req.skill else "agent turn",
+            exc,
+        )
+        first = {
+            "type": "answer",
+            # CodeQL #419, the same finding as #296 one branch over: this
+            # arm was written before `safe_value` existed and kept `exc`'s
+            # own str(), which can carry a file path or a connection
+            # detail out to the browser. The sanitiser the mid-stream arm
+            # below already trusts.
+            "delta": (
+                "Something went wrong before it could start: "
+                f"{safe_value(exc)}"
+            ),
+        }
+    return first
+
+
 def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     def event(payload: dict) -> str:
         return json.dumps(payload) + "\n"
@@ -1637,6 +2002,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         # preference is accounted for and an unset flag cannot land a
         # Request turn in the chip row.
         surface=ASK_SURFACE if (req.body.notes_only or not req.use_tools) else AGENT_SURFACE,
+        as_of=None if req.skill else req.body.as_of,
     )
     ollama_running = req.ollama.is_running()
     #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
@@ -1663,10 +2029,14 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         {
             "type": "meta",
             "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
+            "picture_alts": prepared.get("picture_alts") or {},
+            "picture_sizes": prepared.get("picture_sizes") or {},
             "search_mode": prepared["search_mode"],
             "connected_ids": prepared["connected_ids"],
             "match_info": prepared["match_info"],
             "when_phrase": prepared["when_phrase"],
+            "as_of": prepared.get("as_of"),
+            "as_of_revisions": prepared.get("as_of_revisions") or {},
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer
@@ -1681,89 +2051,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
     if (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
-        shared = {
-            "style": prepared["style"],
-            "profile": prepared["profile"],
-            "history": req.history,
-            "persona_prompt": req.persona_prompt,
-        }
-        if req.skill:
-            # A skill runs step by step, the runner emits the plan, ticks
-            # each step, and ends with what changed. Its first event has
-            # the same meaning as the agent's, so the fallback below is
-            # unchanged.
-            agent_events = skill_runner.run_skill(
-                req.session,
-                req.skill["skill"],
-                req.body.skill_inputs or {},
-                prepared["notes"],
-                req.model_manager,
-                req.ollama,
-                start_at=req.body.skill_from_step,
-                only_step=req.body.skill_only_step,
-                step_text=req.body.skill_step_text,
-                manual=req.body.skill_manual,
-                manual_note=req.body.skill_manual_note,
-                small_model=_small_model_mode(),
-                # The run's own budget (Brief 13), read from the user's
-                # settings here rather than inside the runner so that the
-                # runner stays testable without app state and so a caller
-                # with its own budget (an eval, a background job) can pass
-                # one instead.
-                #: The step count goes with it: the token allowance is per
-                #: step, and a nine-step skill held to one step's worth is how
-                #: a correct run came to stop after three of them.
-                budget=run_budget.from_settings(
-                    deps.get_config(),
-                    steps=len(req.skill["skill"].get("steps") or []) or 1,
-                ),
-                **shared,
-            )
-        else:
-            agent_events = agent.run_agent(
-                req.session,
-                req.question,
-                prepared["notes"],
-                req.model_manager,
-                tools_provider,
-                mode=req.mode,
-                allowed_tools=req.allowed_tools,
-                images=req.images,
-                image_context=req.image_context,
-                **shared,
-            )
-        # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
-        # expect to go wrong (OllamaError, ToolsUnsupportedError) is
-        # already caught inside them and turned into a real event, this
-        # is the outer boundary, for whatever isn't. Reported directly: a
-        # skill run that "failed before even completing the first step
-        # ... no answer and no tool call", an exception here had nothing
-        # catching it, so it killed the generator and the stream just
-        # ended with nothing rendered, no error, the plan card (if any)
-        # never even reaching the page. Silence was the bug, not the
-        # underlying failure, which is why this doesn't try to guess
-        # which failure it was, it says what actually happened and stays
-        # on stage instead of vanishing.
-        try:
-            first = next(agent_events, None)
-        except Exception as exc:  # noqa: BLE001  # the outer boundary
-            logging.getLogger("memorymap.chat").exception(
-                "%s: unhandled error before the first event: %s",
-                "skill run" if req.skill else "agent turn",
-                exc,
-            )
-            first = {
-                "type": "answer",
-                # CodeQL #419, the same finding as #296 one branch over: this
-                # arm was written before `safe_value` existed and kept `exc`'s
-                # own str(), which can carry a file path or a connection
-                # detail out to the browser. The sanitiser the mid-stream arm
-                # below already trusts.
-                "delta": (
-                    "Something went wrong before it could start: "
-                    f"{safe_value(exc)}"
-                ),
-            }
+        agent_events = _agent_events(req, prepared, tools_provider)
+        first = _first_agent_event(req, agent_events)
         if first is None or first.get("type") == "unsupported":
             # The active model can't do tool calls, plain Q&A, never
             # a hard dependency. INBOX 272 part 1: this used to be a silent
@@ -1828,14 +2117,28 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: note a tool reads, so a live row there could name a set the final pass
     #: would not.
     live_grounder = (
-        SentenceGrounder(prepared["notes"])
+        SentenceGrounder(
+            prepared["notes"], meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings())
+        )
         if not agentic and not conversational and prepared["notes"]
         else None
     )
+    #: The fence markers a small model echoes back are taken out of the
+    #: answer before anything reads or saves it (`fence.AnswerScrubber`).
+    scrubber = fence.AnswerScrubber()
     try:
         for payload in events:
             kind = payload.get("type")
             live_rows: list[dict] = []
+            if kind == "answer":
+                payload = {**payload, "delta": scrubber.feed(payload.get("delta") or "")}
+                if not payload["delta"]:
+                    continue
+            else:
+                held = scrubber.flush()
+                if held:
+                    answer_text += held
+                    yield event({"type": "answer", "delta": held})
             if kind == "answer":
                 if answer_text and not in_prose:
                     answer_text += "\n\n"
@@ -1855,6 +2158,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             yield event(payload)
             if live_rows:
                 yield event({"type": "grounding_live", "sentences": list(live_grounder.rows)})
+        held = scrubber.flush()
+        if held:
+            answer_text += held
+            yield event({"type": "answer", "delta": held})
     except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
         # for a failure that shows up partway through rather than before
         # the first event (a later skill step, say). Same fix: say what
@@ -1890,7 +2197,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     grounding: list[dict] = []
     if not conversational and candidates and answer_text:
         grounding = (
-            ground_answer_sentences(answer_text, candidates, numbered=len(prepared["notes"]))
+            ground_answer_sentences(
+                answer_text, candidates, numbered=len(prepared["notes"]),
+                meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings()),
+            )
             or []
         )
         if grounding:
@@ -1933,6 +2243,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"answer", "delta": "..."}     (one or more)
     {"type":"done"}
     """
+    _apply_scope(session, body)
     ollama = deps.get_ollama()
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent
@@ -1962,6 +2273,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # cannot tell them apart, which is what gives a plan the ticked steps, the
     # change list and the Undo on each without a second implementation.
     skill = _resolve_skill(body) or _resolve_plan(body)
+    if body.as_of is not None and not skill:
+        use_tools = False
     question = skill["question"] if skill else body.question
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:
@@ -1993,10 +2306,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
     # stream, so tokens reach the browser as they're produced.
     return StreamingResponse(
-        _stream_lines(req),
+        _interactive_lines(req),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+def _interactive_lines(req):  # noqa: ANN001, ANN202
+    """`_stream_lines`, marked as an interactive model call while it runs, so
+    background model work waits between its calls (`core/model_gate.py`,
+    ARCH-09). Entered on the first line, left when the stream ends or the
+    client goes: a generator closed early still runs its `finally`."""
+    with model_gate.interactive():
+        yield from _stream_lines(req)
 
 
 @router.get("/modes")
@@ -2077,7 +2399,13 @@ def compress_history(body: CompressBody) -> dict:
     except OllamaError as exc:
         # Offline, or the call itself failed, either way there is no summary
         # to show, distinct from the model answering with nothing (below).
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        # The provider's text names the model and the transport's error: log
+        # it, and say the one thing the person can act on.
+        logging.getLogger("memorymap.chat").warning("chat summary failed", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="The AI isn't available to summarise this chat right now. Check that it is running, then try again.",
+        ) from exc
     except tools.ToolError as exc:
         # An empty reply. Better to say nothing happened than to hand back an
         # empty summary the client would send in place of ten real turns.
@@ -2099,8 +2427,17 @@ def execute_confirmed_tool(
     after the user clicks Confirm. Only registry tools can run, and the
     result carries the same human label shown in chat."""
     if body.name not in tools.TOOLS:
-        raise HTTPException(status_code=404, detail=f"Unknown tool '{body.name}'")
+        raise HTTPException(status_code=404, detail=f"There is no tool called '{body.name}'.")
     result = tools.execute_tool(session, body.name, body.arguments)
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        # `result["error"]` is written for the model (it names the tool and
+        # its arguments), so it goes to the log and the person reads a
+        # sentence about what happened to their click.
+        logging.getLogger("memorymap.chat").warning(
+            "confirmed tool %r failed: %s", safe_value(body.name, 40), safe_value(result["error"], 300)
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="That couldn't be done. The note or item may have changed since you asked, so check it and try again.",
+        )
     return result

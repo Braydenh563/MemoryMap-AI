@@ -21,8 +21,13 @@ HISTORY = ROOT / "docs" / "roadmap" / "HISTORY.md"
 
 
 def main(numbers: list[str]) -> int:
+    # `--from docs/roadmap/WORLD_CLASS_PLAN.md 484 485`: a placed item, built,
+    # leaves its plan the same way an INBOX item leaves the tray.
+    source = INBOX
+    if numbers[:1] == ["--from"]:
+        source, numbers = ROOT / numbers[1], numbers[2:]
     wanted = {int(n) for n in numbers}
-    text = INBOX.read_text(encoding="utf-8")
+    text = source.read_text(encoding="utf-8")
     parts = re.split(r"(?m)^(?=\d+\. \*\*)", text)
     kept, moved = [parts[0]], []
     for part in parts[1:]:
@@ -42,7 +47,7 @@ def main(numbers: list[str]) -> int:
     if not moved:
         print("nothing moved: numbers not found")
         return 1
-    INBOX.write_text("".join(kept), encoding="utf-8")
+    source.write_text("".join(kept), encoding="utf-8")
     today = datetime.date.today().isoformat()
     history = HISTORY.read_text(encoding="utf-8").rstrip("\n")
     heading = f"\n## INBOX resolved, {today}\n"

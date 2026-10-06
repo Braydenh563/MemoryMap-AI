@@ -245,7 +245,7 @@ def test_the_filter_happens_before_the_limit(client):
 def test_the_panel_asks_the_server_to_filter():
     from pathlib import Path as _Path
 
-    source = _Path("frontend/library.js").read_text(encoding="utf-8")
+    source = _Path("frontend/js/library.js").read_text(encoding="utf-8")
     block = source.split("async function renderSkillLogs()")[1].split("\n}")[0]
     assert "entity_type=skill" in block
     assert "logs.filter(" not in block, "the browser-side filter is what hid them"

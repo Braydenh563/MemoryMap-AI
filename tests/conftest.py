@@ -6,11 +6,49 @@ real database, and singletons are rebuilt between tests.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.ai import model_manager
 from memorymap.core import deps, taskhistory, vault
+
+
+# --- one copy of each frontend file, however many test modules read it --------
+#
+# About 145 test modules read a frontend file into a module-level constant
+# (`SRC = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(...)`: 36 of
+# them index.html, 24 whiteboard.js, and so on). Every call decoded a fresh
+# copy, and the module keeps it for the whole session, so collection alone held
+# 180 MB of identical strings in every pytest-xdist worker (measured with
+# tracemalloc: 181 MB under `codecs`, of 437 MB traced; about 650 MB RSS before
+# the first test ran). Strings are immutable, so handing every caller the same
+# object is invisible to the tests and drops that to the 11 MB the files
+# really are. Keyed by size and mtime so a test that writes one of these files
+# still reads what it wrote; only paths under `frontend/` are shared.
+
+_FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+_real_read_text = Path.read_text
+_shared_texts: dict[tuple, str] = {}
+
+
+def _read_text_once(self, encoding=None, errors=None):
+    if errors is None:
+        try:
+            if _FRONTEND_DIR in self.resolve().parents:
+                st = self.stat()
+                key = (str(self), encoding, st.st_mtime_ns, st.st_size)
+                text = _shared_texts.get(key)
+                if text is None:
+                    text = _shared_texts[key] = _real_read_text(self, encoding)
+                return text
+        except OSError:
+            pass  # let the real call raise the error the test expects
+    return _real_read_text(self, encoding, errors)
+
+
+Path.read_text = _read_text_once
 
 
 @pytest.fixture()
@@ -230,3 +268,52 @@ def _forget_the_docker_probe():
     searxng_docker.forget_docker_daemon_state()
     yield
     searxng_docker.forget_docker_daemon_state()
+
+
+@pytest.fixture(autouse=True)
+def _reset_the_librarian():
+    """The librarian's Quit flag and hold are module level (one scheduler per
+    process), so a test that pressed Quit left them set for every test after
+    it in the same process, in whatever order that run happened to have.
+    Cleared on both sides, like `_forget_the_docker_probe` above. See
+    tests/test_autonomous_state_isolation.py."""
+    from memorymap.ai import autonomous
+
+    autonomous.reset_state()
+    yield
+    autonomous.reset_state()
+
+
+@pytest.fixture(autouse=True)
+def _release_fastapi_callable_caches():
+    """Stop FastAPI's process-wide callable caches from pinning every test app.
+
+    `fastapi.dependencies.models` keeps three `lru_cache`s (generator, async
+    generator and coroutine classification, 4,096 entries each) keyed by the
+    *identity* of each endpoint and dependency callable. `create_app()` defines
+    its system routes (`/health`, `/openapi.json`, `/changelog`...) as closures
+    over the `app` being built, so one cache entry holds that closure, the
+    closure holds the `FastAPI` instance, and the instance holds every router,
+    route context, pydantic field and the first request's lazily built
+    `_EffectiveRouteContext` objects: about 8 MB per app. The caches only
+    evict at 4,096 entries, so a test process kept a few hundred dead apps and
+    every pytest-xdist worker climbed to 2 to 2.7 GB by the end of the suite
+    (four of them filled a 16 GB CI runner, which then shut down mid-run).
+    Measured with a per-test RSS plugin: 7 to 9 MB per test that builds an app,
+    perfectly linear, and `gc.get_referrers` on a dead app ends at
+    `_is_*_callable_cached`.
+
+    The app itself does not leak: a real process builds one. Clearing between
+    tests is the whole fix, and it is a clear, not a patch, so what a test
+    sees is unchanged (the caches only memoise a classification that is cheap
+    to recompute). Found by `cache_clear` rather than by name so a FastAPI
+    release that renames or adds one of them is still covered."""
+    yield
+    import sys
+
+    models = sys.modules.get("fastapi.dependencies.models")
+    if models is not None:
+        for value in vars(models).values():
+            clear = getattr(value, "cache_clear", None)
+            if callable(clear):
+                clear()

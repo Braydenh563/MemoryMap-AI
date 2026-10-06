@@ -18,6 +18,12 @@ OFFLINE_MESSAGE = (
     "The AI answer isn't available right now (Ollama doesn't seem to be "
     "running), but here are the notes that match your question."
 )
+#: What a route says when the model call failed and the provider's own error
+#: (which names the model and carries the transport's text) went to the log.
+AI_FAILED_MESSAGE = (
+    "The AI couldn't finish that. Check that it is running and the model is "
+    "installed in Settings, Models, then try again."
+)
 NO_RESULTS_MESSAGE = "I couldn't find any saved notes matching that question."
 
 
@@ -352,8 +358,12 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
     from memorymap.ai.fence import fence
 
     content = str(note.get("content", ""))
+    #: A note clipped from a page or brought in by an import says so in its
+    #: fence (row 24): the model is told what the text is, not just that it
+    #: is quoted, and `from_outside` is the same flag the agent's guard reads.
+    kind = "note from outside" if note.get("from_outside") else "note"
     if len(content) <= limit:
-        return fence("note", content)
+        return fence(kind, content)
     note_id = note.get("id")
     if can_fetch and note_id:
         # Naming the tool and the id: a truncation the model cannot act on is
@@ -363,7 +373,7 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
         # No tools this turn. Say it is cut and say nothing about fixing it,
         # so the model reports the gap instead of promising to look.
         where = ", the rest is in the note itself"
-    return fence("note", f"{content[:limit].rstrip()}… [cut{where}]")
+    return fence(kind, f"{content[:limit].rstrip()}… [cut{where}]")
 
 
 def build_conversational_messages(
@@ -408,6 +418,78 @@ def _written_hint(note: dict) -> str:
     date the note. See the comment where `build_messages` uses it."""
     written = str(note.get("written") or "").strip()
     return f" (written {written})" if written else ""
+
+
+#: A question about a picture (INBOX 533). Only then is the model told a
+#: note has pictures: a small model told about `[picture N]` wrote it into
+#: answers that had nothing to do with any picture ("test notes" drew a
+#: screenshot of a to-do list). Mirrors `PICTURE_ASK` in capture-ask.js.
+PICTURE_ASK = re.compile(
+    r"\b(picture|photo|image|screenshot|sketch|drawing|diagram|whiteboard|scan|show me|look(s|ed)? like)",
+    re.IGNORECASE,
+)
+
+
+def _tags_files_hint(note: dict) -> str:
+    """' (tags: sketches, visual ideas; files: sketch.png)', or "" for a note
+    with neither. INBOX 594: a note whose text is one word and whose point is
+    an attached sketch reached the model as "[Hobbies] whoaaahhh", and was
+    left out of "what have I saved about sketches" as too vague."""
+    parts = []
+    tags = [str(tag) for tag in note.get("tags") or [] if str(tag).strip()]
+    if tags:
+        parts.append("tags: " + ", ".join(tags[:8]))
+    files = [str(name) for name in note.get("files") or [] if str(name).strip()]
+    if files:
+        parts.append("files: " + "; ".join(files))
+    if not parts:
+        return ""
+    #: A caption is a model's reading of a picture, so it is defanged the way
+    #: a note is (ai/fence.py): it may not draw a fence line of its own.
+    from memorymap.ai.fence import _defang  # noqa: PLC2701
+
+    return f" ({_defang('; '.join(parts))})"
+
+
+def _pictures_hint(note: dict, number: int, asked: bool = True) -> str:
+    """' (has 2 pictures: write [picture 3] or [picture 3.2] to show one)', or
+    "" for a note without any. INBOX 526: the token is replaced by the picture
+    in the answer's bubble; one per note is drawn beside its citation anyway."""
+    count = note.get("pictures") or 0
+    if not count or not asked:
+        return ""
+    plural = "s" if count != 1 else ""
+    more = f" or [picture {number}.2]" if count > 1 else ""
+    return f" (has {count} picture{plural}: write [picture {number}]{more} only if seeing it answers or shows the point, never as decoration)"
+
+
+def _dates_hint(note: dict) -> str:
+    """' (its time words: "this Friday" meant Friday 25 September 2026, 8 days
+    ago)', or "" when the note has none.
+
+    INBOX 441: a note written two weeks ago said "this Friday"; the app had
+    resolved the phrase against the day the note was written and showed it,
+    but the model only saw the words and read them as this week's Friday. The
+    caller passes each phrase already worded (routes_chat, with the reader's
+    "ago" or "from now"); a bare dict, as a test or another caller may pass,
+    is worded here without the distance.
+    """
+    worded = []
+    for item in note.get("dates") or []:
+        if isinstance(item, str):
+            worded.append(item)
+            continue
+        when = item.get("at")
+        if not when:
+            continue
+        precision = item.get("precision") or "day"
+        day = f"{when:%A} {when.day} {when:%B %Y}"
+        if precision == "minute" and hasattr(when, "hour"):
+            span = f"{day} at {when:%H:%M}"
+        else:
+            span = day if precision in ("day", "minute") else f"the {precision} of {day}"
+        worded.append(f'"{item.get("phrase", "")}" meant {span}')
+    return f" (its time words: {'; '.join(worded[:4])})" if worded else ""
 
 
 def _match_info_hint(match_info: dict | None) -> str:
@@ -484,7 +566,7 @@ def plan_budget(
     window = report(model) if callable(report) else None
     return context.plan(
         window or OllamaClient.DEFAULT_CONTEXT_TOKENS,
-        len(system_content(style, profile, persona_prompt, mode)),
+        context.weighted_len(system_content(style, profile, persona_prompt, mode)),
     )
 
 
@@ -570,9 +652,13 @@ def build_messages(
         # digest, reported 2026-09-23). Optional, so every other caller's
         # prompt is exactly what it was.
         f"{_written_hint(note)}"
+        f"{_dates_hint(note)}"
+        f"{' (my newest note)' if note.get('newest') else ''}"
+        f"{_pictures_hint(note, i, bool(PICTURE_ASK.search(question or '')))}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
-        f"{_match_info_hint(note.get('match_info'))} "
+        f"{_match_info_hint(note.get('match_info'))}"
+        f"{_tags_files_hint(note)} "
         # No tools on this path by definition, it is the plain librarian
         # prompt: so notes get the larger allowance and an honest marker.
         f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"
@@ -969,6 +1055,42 @@ def suggest_tags(
     return tags[:limit]
 
 
+def draft_template(
+    name: str,
+    description: str,
+    current: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+) -> str:
+    """A note template's body from its name and one line about it: "Draft
+    with Atlas" in Settings, Templates (INBOX 430, the owner: "AI templates
+    (generate, edit, regenerate)"). `current` is the body as it stands, so a
+    second press is a different take rather than the same one. Plain
+    markdown, short, with `{date}` where a date belongs (the app fills it in
+    when the template is applied). Raises OllamaError when no model is up.
+    """
+    system = (
+        "You write note templates: a short markdown skeleton a person fills "
+        "in. Headings or labelled lines with empty space after them, a "
+        "checklist where one fits, no example content, no explanation, no "
+        "code fence. Write {date} at most once, where the day it is written belongs. At most 15 lines."
+    )
+    ask = f"Template name: {name}."
+    if description:
+        ask += f" What it is for: {description}."
+    if current.strip():
+        ask += "\nWrite a different version from this one:\n" + current.strip()[:1500]
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [{"role": "system", "content": system}, {"role": "user", "content": ask}],
+    )
+    body = str(reply.get("content") or "").strip()
+    #: A model that fenced it anyway: the fence is not the template.
+    if body.startswith("```"):
+        body = body.strip("`").split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    return body[:2000]
+
+
 #: The `PersonaItem.thinking_words` field's own rules (routes_settings.py),
 #: kept alongside the one place that generates a list rather than accepting
 #: one by hand: a model-written word that fails validation there is dropped
@@ -1220,7 +1342,74 @@ def corrections_note(session, categories: list[str]) -> str:
     )
 
 
-def filing_prompt(session, content: str, categories: list[str]) -> str:
+#: WORLD_CLASS_PLAN section 17 row 3, "preferences for how the database is
+#: structured": how a new category is named and an existing one chosen. By
+#: topic is the default and adds nothing, so the prompt every notebook had is
+#: unchanged unless the person picks another; each other style gives the
+#: model three examples, because a rule alone reads as a suggestion.
+FILING_STYLES = {
+    "topic": "",
+    "project": (
+        "File by project: put the note under the project, client, course or "
+        "goal it belongs to, not under a general subject. Examples: a quote "
+        "for new tiles goes in \"Kitchen renovation\", lecture notes on Kant go "
+        "in \"PHIL201\", an invoice question goes in \"Acme account\"."
+    ),
+    "time": (
+        "File by time: name categories by the period the note belongs to. "
+        "Examples: \"2026 Q4\", \"October 2026\", \"Week of 6 October\". Prefer "
+        "an existing period that fits over a new one."
+    ),
+}
+
+
+def filing_style_note() -> str:
+    from memorymap.core import deps
+
+    style = str(deps.get_config().get_preference("filing_style", "topic") or "topic")
+    return FILING_STYLES.get(style, "")
+
+
+#: How many rows of each kind the evidence block carries: the plan's "three
+#: nearest already-filed notes" and "last three refile corrections".
+FILING_EVIDENCE_ROWS = 3
+
+
+def evidence_note(session, content: str, already: str = "", exclude_entry_id: int | None = None) -> str:
+    """The evidence block of a filing prompt (WORLD_CLASS_PLAN I7): the notes
+    already filed that read like this one, with their categories, and any
+    refile correction that reads like it and is not already in `already`
+    (the corrections block). "" when there is none, or when the corrections
+    runner is switched off, the same switch `excluded_categories` obeys."""
+    from memorymap.ai import learning
+    from memorymap.ai.facts import runner_enabled
+
+    if not runner_enabled("corrections"):
+        return ""
+    lines: list[str] = []
+    seen_moves: list[str] = []
+    for item in learning.filing_evidence(
+        session, content, limit=FILING_EVIDENCE_ROWS, exclude_entry_id=exclude_entry_id
+    ):
+        excerpt = str(item.get("excerpt") or "")[:CORRECTION_EXCERPT_CHARS]
+        if item["kind"] == "neighbour":
+            lines.append(f'- "{excerpt}" is in {item["category"]}')
+        elif excerpt and excerpt not in already:
+            where = f" from {item['from']}" if item["from"] else ""
+            seen_moves.append(f'- "{excerpt}" was moved{where} to {item["to"]}')
+    if not lines and not seen_moves:
+        return ""
+    out = []
+    if lines:
+        out.append("Notes already filed that read like this one:\n" + "\n".join(lines))
+    if seen_moves:
+        out.append("Moves I made to notes like it:\n" + "\n".join(seen_moves))
+    return "\n".join(out)
+
+
+def filing_prompt(
+    session, content: str, categories: list[str], exclude_entry_id: int | None = None
+) -> str:
     """The user half of the filing prompt: the choices, what the person has
     already corrected about them, and the note itself.
 
@@ -1230,20 +1419,14 @@ def filing_prompt(session, content: str, categories: list[str]) -> str:
     to put them in.
     """
     parts = [f"Existing categories: {', '.join(categories) if categories else '(none yet)'}"]
+    style = filing_style_note()
+    if style:
+        parts.append(style)
     note = corrections_note(session, categories)
     if note:
         parts.append(note)
+    evidence = evidence_note(session, content, already=note, exclude_entry_id=exclude_entry_id)
+    if evidence:
+        parts.append(evidence)
     parts.append(f"Note: {content}")
     return "\n".join(parts)
-
-
-def filing_prompt_for_test(session, category) -> str:
-    """The filing prompt a note being considered for `category` would get.
-
-    A seam, in the spirit of `core/events.exercise_for_test`: the property
-    worth pinning is *"a correction reaches the next prompt for that
-    category"*, and asserting it through a full janitor run would be asserting
-    the janitor's routing as well, which is a different test.
-    """
-    name = getattr(category, "name", category)
-    return filing_prompt(session, "(a note being filed)", [str(name)])

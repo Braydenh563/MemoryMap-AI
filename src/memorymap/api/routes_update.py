@@ -42,6 +42,7 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from memorymap import __version__
 
@@ -333,14 +334,18 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         DETACHED_PROCESS = 0x00000008
         CREATE_NEW_PROCESS_GROUP = 0x00000200
         subprocess.Popen(  # noqa: S603  # fixed args, path is our own download, no shell
-            [str(installer_path), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
+            # /RELAUNCH=1: this process is the running app and is about to
+            # exit, so the installer opens it again when it is done
+            # (installer.iss, ShouldRelaunch). A silent install otherwise
+            # never starts the app: the launch entry is skipifsilent.
+            [str(installer_path), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/RELAUNCH=1"],
             creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
             close_fds=True,
         )
         _state.outcome = "launched"
         _state.step = (
-            "Installing in the background, close and reopen MemoryMap AI in a "
-            "minute or two to start using the new version."
+            "Installing in the background. MemoryMap AI closes now and reopens "
+            "by itself in a minute or two, on the new version."
         )
         logger.info("update installer launched (%s), exiting to let it run", asset_name)
     except (PermissionError, OSError):
@@ -370,8 +375,55 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         _state.running = False
 
 
+def record_update_choice(config, check: bool) -> None:  # noqa: ANN001  # a ConfigManager
+    """The answer to "check for updates automatically?", asked once (the
+    owner, 2026-10-05, WORLD_CLASS_PLAN 12 "Decisions made").
+
+    Yes turns the in-app check on everywhere. In a source checkout the
+    launcher's pull *is* its check, so yes turns that on too; the packaged
+    app keeps installing behind its own switch, because "tell me a version
+    exists" and "run an installer by itself" are different sizes of
+    consequence (core/config.py). No turns both off. Either way the question
+    is not asked again; Settings, About holds both switches.
+    """
+    config.set_preference("update_check_enabled", bool(check))
+    if not check or not getattr(sys, "frozen", False):
+        config.set_preference("auto_update_enabled", bool(check))
+    config.set_preference("update_choice_made", True)
+
+
+def apply_launcher_choice(config) -> None:  # noqa: ANN001  # a ConfigManager
+    """Keep the answer start.sh took in the terminal. The launcher asks
+    before `.venv` exists, so it cannot write `preferences.json` itself; it
+    exports `MM_UPDATE_CHOICE=yes|no` and the app records it at start. An
+    answer already on file (from the app, or a switch) is never overwritten,
+    and anything but yes or no is no answer at all."""
+    value = os.environ.get("MM_UPDATE_CHOICE", "").strip().lower()
+    if value not in ("yes", "no") or config.get_preference("update_choice_made", False) is True:
+        return
+    record_update_choice(config, value == "yes")
+
+
+class _ChoiceBody(BaseModel):
+    check: bool
+
+
+@router.post("/choice")
+def update_choice(body: _ChoiceBody) -> dict:
+    """The app's one-time question, answered (update-dialogs.js)."""
+    from memorymap.core import deps
+
+    config = deps.get_config()
+    record_update_choice(config, body.check)
+    return {
+        "update_choice_made": True,
+        "update_check_enabled": config.get_preference("update_check_enabled", False),
+        "auto_update_enabled": config.get_preference("auto_update_enabled", False),
+    }
+
+
 @router.get("/check")
-def check_for_update() -> dict:
+def check_for_update(manual: bool = False) -> dict:
     """Is a newer release on GitHub than the one running right now?
 
     Moved here from app.py (was inline) so it lives alongside the rest of
@@ -387,7 +439,10 @@ def check_for_update() -> dict:
     from memorymap.core import deps
 
     config = deps.get_config()
-    if not config.get_preference("update_check_enabled", False):
+    #: `manual` is the Check for updates button in Settings: a click is the
+    #: person asking for this one request, so the switch (which governs the
+    #: check made by itself at sign-in) does not refuse it.
+    if not manual and not config.get_preference("update_check_enabled", False):
         return {"checked": False, "reason": "disabled"}
     channel = config.get_preference("update_channel", "stable")
     #: "Track the main branch" is a launcher setting: `start.bat` and
@@ -623,15 +678,15 @@ def apply_update(tag: str | None = None) -> dict:
     if not config.get_preference("auto_update_enabled", False):
         raise HTTPException(
             status_code=403,
-            detail="Automatic updates are turned off in Settings → About, "
-            "turn on 'Update automatically' first, or download the "
+            detail="Automatic updates are turned off in Settings → About. "
+            "Turn on 'Update automatically' first, or download the "
             "installer from the release page instead.",
         )
     if not _can_auto_apply():
         raise HTTPException(
             status_code=409,
             detail="Automatic updates are only available for the packaged "
-            "Windows app right now, download the new version from the "
+            "Windows app right now. Download the new version from the "
             "release page instead.",
         )
     with _lock:
@@ -660,7 +715,7 @@ def apply_update(tag: str | None = None) -> dict:
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
-                detail="Couldn't reach GitHub to fetch the update, check your "
+                detail="Couldn't reach GitHub to fetch the update. Check your "
                 "internet connection and try again.",
             ) from exc
         if tag:
@@ -733,4 +788,10 @@ def _exit_once_launched(watched: _ApplyState | None = None, attempt: int | None 
     if still_mine() and state.outcome == "launched":
         time.sleep(EXIT_DELAY_SECONDS)  # let the last status poll's response actually go out
         if still_mine():
+            # The notebook's lock goes before the exit that skips every
+            # `finally`: the installer the person reopens the app after must
+            # not find a lock naming this pid (core/instance_lock.py).
+            from memorymap.core import instance_lock
+
+            instance_lock.release()
             exit_now(0)

@@ -37,13 +37,19 @@ def test_the_context_vector_reorders_the_top_three(session, fake_embeddings):
     from memorymap.ai import resurface
     from memorymap.entry import manager
 
-    a = manager.create_entry(session, "sourdough starter feeding schedule", tags=[])
-    b = manager.create_entry(session, "hiking boots for the weekend trip", tags=[])
+    # `b` shares a tag with `a` and `c` shares nothing. Before 2026-10-03 this
+    # asserted an unrelated `b` came back with no vectors at all; that was the
+    # measured bug ("close to this" listing the newest notes), so with no
+    # vector to measure by, close now means joined, and `c` is left out.
+    a = manager.create_entry(session, "sourdough starter feeding schedule", tags=["baking"])
+    b = manager.create_entry(session, "hiking boots for the weekend trip", tags=["Baking"])
+    c = manager.create_entry(session, "tax return paperwork", tags=[])
     session.commit()
     resurface.compute_scores(session)
     with_context = resurface.for_context(session, context_entry_id=a.id, limit=3)
     assert with_context and with_context[0].id != a.id  # never the context note itself
     assert b.id in [e.id for e in with_context]
+    assert c.id not in [e.id for e in with_context]
 
 
 def test_never_again_is_honoured_across_restarts(ai_client):
@@ -272,3 +278,31 @@ def test_the_near_route_answers_rather_than_raising(ai_client):
     assert answer.status_code == 200, answer.text
     items = answer.json()["items"]
     assert made[0]["id"] not in [item["id"] for item in items]
+
+
+def test_near_without_vectors_is_related_or_nothing(client):
+    """Measured 2026-10-03 with no embedding backend: "Forgotten, and close
+    to this" listed drafts and simply the newest notes, nothing related to
+    the note open. Without a vector, close means a link either way, shared
+    tags or the same (real) category; with none of those, nothing."""
+    anchor = client.post("/entries", json={"content": "sourdough starter", "tags": ["baking"], "category": "Kitchen"}).json()
+    linked = client.post("/entries", json={"content": "oven temperatures"}).json()
+    client.post(f"/entries/{anchor['id']}/links", json={"target_id": linked["id"]})
+    tagged = client.post("/entries", json={"content": "rye crumb", "tags": ["Baking"]}).json()
+    same_cat = client.post("/entries", json={"content": "knife sharpening", "category": "Kitchen"}).json()
+    unrelated = [client.post("/entries", json={"content": f"tax return part {i}"}).json() for i in range(8)]
+    draft = client.post("/entries", json={"content": "draft", "tags": ["baking"], "is_draft": True}).json()
+    archived = client.post("/entries", json={"content": "archived", "tags": ["baking"]}).json()
+    client.post(f"/entries/{archived['id']}/archive")
+    binned = client.post("/entries", json={"content": "binned", "tags": ["baking"]}).json()
+    client.delete(f"/entries/{binned['id']}")
+    client.post("/resurface/compute")
+
+    ids = [item["id"] for item in client.get(f"/resurface/near/{anchor['id']}?limit=10").json()["items"]]
+    assert set(ids) == {linked["id"], tagged["id"], same_cat["id"]}
+    assert ids[0] == linked["id"], "a link is the strongest relation"
+    for gone in (draft, archived, binned, *unrelated):
+        assert gone["id"] not in ids
+
+    lonely = unrelated[0]
+    assert client.get(f"/resurface/near/{lonely['id']}").json()["items"] == []

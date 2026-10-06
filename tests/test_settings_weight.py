@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-SETTINGS_JS = Path(__file__).resolve().parent.parent / "frontend" / "settings.js"
+SETTINGS_JS = Path(__file__).resolve().parent.parent / "frontend" / "js" / "settings.js"
 
 
 def _load_changelog_source() -> str:

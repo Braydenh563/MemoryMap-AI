@@ -156,6 +156,9 @@ ROOT_CUSTOM_PROPERTIES = {
     "--accent", "--accent-soft", "--blob-a", "--page", "--glass-sheen-strength",
     "--bg-art-opacity", "--radius", "--glass-blur", "--glass-opacity", "--zoom",
     "--border-style", "--shadow-intensity",
+    # settings.js, `measureLabelOptics`: at boot, when the fonts are ready and
+    # when Appearance changes the font (INBOX 592), never per frame.
+    "--ph-cap-dy",
     # app.js: a ResizeObserver on the top bar, and the on-screen keyboard.
     "--header-h", "--keyboard-inset",
 }
@@ -166,7 +169,7 @@ def test_root_custom_properties_written_from_script_are_known():
         r"(?:document\.documentElement|\broot|\b_r)\.style\.setProperty\(\s*[\"'](--[\w-]+)"
     )
     found = {}
-    for path in sorted(FRONTEND_DIR.glob("*.js")):
+    for path in sorted((FRONTEND_DIR / "js").glob("*.js")):
         for name in pattern.findall(path.read_text(encoding="utf-8")):
             found.setdefault(name, path.name)
     unknown = {k: v for k, v in found.items() if k not in ROOT_CUSTOM_PROPERTIES}
@@ -237,7 +240,7 @@ LAYOUT_READ_AFTER_WRITE_LOOPS = {
     # The read is of a <pre> not yet in the document, which forces nothing.
     ("app.js", "renderTasks"),
     # One gutter per numbered box, a handful at most. documents.js belongs to
-    # the document editor's own work; noted in agent-remaining/perfpolish.md.
+    # the document editor's own work; noted in archive/agent-remaining/perfpolish.md.
     ("documents.js", "syncDocGutterMetrics"),
     ("documents.js", "renderDocGutter"),
 }
@@ -290,7 +293,7 @@ def test_no_loop_reads_layout_after_writing_style():
     dirtied. Profiled on a switch to the dashboard, 14.7ms of a 22ms switch.
     """
     offenders = []
-    for path in sorted(FRONTEND_DIR.glob("*.js")):
+    for path in sorted((FRONTEND_DIR / "js").glob("*.js")):
         if path.name in ("sw.js", "graph-worker.js"):
             continue
         # Comments blanked to the same length, so offsets still give lines.

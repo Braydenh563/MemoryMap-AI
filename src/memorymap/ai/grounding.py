@@ -30,6 +30,7 @@ import math
 import re
 from collections import Counter
 
+from memorymap.ai.embeddings import paragraph_chunks
 from memorymap.search.search_manager import _meaningful_terms
 
 # Below this fraction of a sentence's own meaningful words being found in a
@@ -370,8 +371,60 @@ def _word_set(text: str) -> set[str]:
     return set(_meaningful_terms(text))
 
 
+#: A passage holding at least this share of a sentence's meaningful words
+#: "supports" it; one holding less (the note cleared the bar on its
+#: distinctive words, or on words spread through it) supports it "partly".
+#: The evidence card says which, beside the three signals that decided it.
+SUPPORTED_WORDS_RATIO = 0.5
+
+#: How the retrieval reached a note, as the third signal's 0 to 1: a direct
+#: match or a note the person attached is the subject itself; one link out
+#: is half as near, two links a third (the hops `graph_expansion` records).
+_GRAPH_NEARNESS = {
+    "hybrid": 1.0,
+    "semantic": 1.0,
+    "keyword": 1.0,
+    "connected": 0.5,
+    "connected_2hop": 0.33,
+}
+
+
+def _graph_nearness(note: dict) -> float | None:
+    """The third signal for one candidate note, or None when retrieval did
+    not reach it at all (a note a tool read mid-turn)."""
+    if note.get("attached"):
+        return 1.0
+    info = note.get("match_info") or {}
+    if isinstance(info, dict) and info.get("type") in _GRAPH_NEARNESS:
+        return _GRAPH_NEARNESS[info["type"]]
+    if note.get("connected"):
+        return 0.5
+    return None
+
+
+def paragraph_ordinal(content: str, start: int, end: int | None = None) -> int:
+    """Which paragraph of `content` (`embeddings.paragraph_chunks`) a passage
+    sits in: the one it overlaps most.
+
+    The same split the paragraph vectors were stored with, so an ordinal here
+    names the row of `chunk_vectors` whose vector the meaning signal read.
+    Overlap rather than the start, because a passage is a forty-word window
+    on a twenty-word stride and often begins at the tail of the paragraph
+    before the one it is about.
+    """
+    spans = paragraph_chunks(content or "")
+    if not spans:
+        return 0
+    end = start + 1 if end is None or end <= start else end
+    overlaps = [max(0, min(end, last) - max(start, first)) for first, last in spans]
+    best = max(range(len(spans)), key=lambda i: (overlaps[i], -i))
+    if overlaps[best] == 0:
+        return next((i for i, (_f, last) in enumerate(spans) if start < last), len(spans) - 1)
+    return best
+
+
 def ground_answer_sentences(
-    answer: str, notes: list[dict], numbered: int | None = None
+    answer: str, notes: list[dict], numbered: int | None = None, meaning=None  # noqa: ANN001
 ) -> list[dict]:
     """One entry per (sentence, supporting note): `{"sentence": str,
     "note_id": int}`. Sentences with no note clearing either threshold, or
@@ -397,7 +450,7 @@ def ground_answer_sentences(
     """
     if not answer or not notes:
         return []
-    return SentenceGrounder(notes, numbered).finish(answer)
+    return SentenceGrounder(notes, numbered, meaning=meaning).finish(answer)
 
 
 class SentenceGrounder:
@@ -423,8 +476,16 @@ class SentenceGrounder:
     and `finish` grounds the rest when the stream says there is no more.
     """
 
-    def __init__(self, notes: list[dict], numbered: int | None = None) -> None:
+    def __init__(self, notes: list[dict], numbered: int | None = None, meaning=None) -> None:  # noqa: ANN001
         self.rows: list[dict] = []
+        #: `meaning(sentence, note_id, start, end) -> float | None`: the
+        #: cosine between a sentence and the paragraph its passage sits in
+        #: (row 6). None when there is no embedding backend; the card then
+        #: shows two signals, never an invented third.
+        self._meaning = meaning
+        self._nearness = {
+            note.get("id"): _graph_nearness(note) for note in notes if note.get("id") is not None
+        }
         #: The prompt numbers its notes 1..n in this order (librarian and
         #: agent both enumerate from 1, and `fit_notes` only ever drops the
         #: tail), so number k in the answer is `notes[k - 1]`. `numbered` is
@@ -503,7 +564,42 @@ class SentenceGrounder:
             if len(sentence_words & words) / len(sentence_words) >= DISTINCTIVE_MIN_RATIO:
                 rows.append(_mark(sentence, note_id, self._contents))
                 cited.add(note_id)
+        for row in rows:
+            self._evidence(row, sentence_words)
         return rows
+
+    def _evidence(self, row: dict, sentence_words: set[str]) -> None:
+        """The evidence card's fields for one row (WORLD_CLASS_PLAN I6).
+
+        `chunk_ordinal`: the paragraph the passage sits in. `signals`: the
+        three reasons, each 0 to 1 or None: `bm25` the share of the
+        sentence's meaningful words that passage holds (what BM25 ranked it
+        on, said as a share a person can read), `cosine` the sentence's
+        meaning against that paragraph's vector, `graph` how near retrieval
+        found the note. `verdict`: supported or partly, from the words, since
+        a cosine threshold means a different thing for every model.
+        """
+        content = self._contents.get(row["note_id"], "")
+        start, end = row.get("start"), row.get("end")
+        if start is None or end is None:
+            words = len(sentence_words & self._words_by_id.get(row["note_id"], set())) / len(sentence_words)
+            row["chunk_ordinal"] = 0
+        else:
+            passage_words = _word_set(content[start:end])
+            words = len(sentence_words & passage_words) / len(sentence_words)
+            row["chunk_ordinal"] = paragraph_ordinal(content, start, end)
+        cosine = None
+        if self._meaning is not None:
+            try:
+                cosine = self._meaning(row["sentence"], row["note_id"], start, end)
+            except Exception:  # noqa: BLE001  # a signal, never a failed answer
+                cosine = None
+        row["signals"] = {
+            "bm25": round(words, 2),
+            "cosine": None if cosine is None else round(max(0.0, min(1.0, float(cosine))), 2),
+            "graph": self._nearness.get(row["note_id"]),
+        }
+        row["verdict"] = "supported" if words >= SUPPORTED_WORDS_RATIO else "partly"
 
     def _rank(self, sentence: str, sentence_words: set[str]) -> list[dict]:
         """The word and passage rules: none, the best note, or two notes."""
@@ -548,6 +644,11 @@ LOW_SUPPORT_RATIO = 0.5
 LOW_SUPPORT_MIN_SENTENCES = 2
 
 
+#: The most unsupported sentences `support` lists; a longer answer's count
+#: still says how many there were.
+UNSUPPORTED_LISTED = 40
+
+
 def support(answer: str, grounded: list[dict]) -> dict:
     """How much of this answer the notebook actually backs.
 
@@ -573,6 +674,10 @@ def support(answer: str, grounded: list[dict]) -> dict:
     return {
         "supported": hit,
         "sentences": total,
+        #: The sentences no note backs, in answer order, for the evidence view
+        #: to say so beside them ("No note says this"), rather than leaving a
+        #: reader to work out which ones the count left out.
+        "unsupported": [sentence for sentence in eligible if sentence not in marked][:UNSUPPORTED_LISTED],
         "ratio": round(ratio, 3),
         #: The judgement travels with the numbers, so the frontend and any
         #: future caller cannot each pick their own threshold.
@@ -595,7 +700,23 @@ def _mark(sentence: str, note_id: int, contents: dict[int, str]) -> dict:
     naming; the frontend already reads a missing span as "no highlight".
     """
     row = {"sentence": sentence, "note_id": note_id}
-    passage = best_passage(sentence, contents.get(note_id, ""))
+    content = contents.get(note_id, "")
+    passage = best_passage(sentence, content)
     if passage:
         row["start"], row["end"], row["score"] = passage
+    #: The sentence's words the mark matched on, in the sentence's order
+    #: (INBOX 76): the citation popover shows them, so a mark on the wrong
+    #: note is visible as the wrong words. From the passage when there is
+    #: one, the whole note otherwise; at most `MATCHED_TERMS_SHOWN`.
+    where = _word_set(content[row["start"] : row["end"]] if passage else content)
+    shown: list[str] = []
+    for term in _meaningful_terms(sentence):
+        if term in where and term not in shown:
+            shown.append(term)
+    row["terms"] = shown[:MATCHED_TERMS_SHOWN]
     return row
+
+
+#: How many matched words a mark carries to its popover: enough to tell two
+#: notes apart, few enough to stay one line.
+MATCHED_TERMS_SHOWN = 6

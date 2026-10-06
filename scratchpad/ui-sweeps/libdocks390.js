@@ -1,7 +1,7 @@
 // Library docks at a phone width: the height of each sub-tab's dock and the
 // row each of its visible controls lands on. The Boards & maps dock was
 // 198px at 390 (four rows) while every other Library dock was 114px
-// (docs/roadmap/agent-remaining/pass2.md, Remaining 1).
+// (docs/roadmap/archive/agent-remaining/pass2.md, Remaining 1).
 //
 //   BASE=http://127.0.0.1:8796 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node libdocks390.js
 // WIDTH=... to measure another width. Fails when any Library dock is taller

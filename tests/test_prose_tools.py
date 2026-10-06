@@ -27,9 +27,9 @@ HARPER = FRONTEND / "vendor" / "harper"
 #: documents-prose.js verbatim on 2026-09-24, and the panel and dock wiring
 #: that reaches them stayed in documents.js.
 DOCUMENTS = "\n".join(
-    (FRONTEND / name).read_text(encoding="utf-8") for name in ("documents.js", "documents-prose.js")
+    (FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("documents.js", "documents-prose.js")
 )
-WORKER = (FRONTEND / "harper-worker.js").read_text(encoding="utf-8")
+WORKER = (FRONTEND / "js" / "harper-worker.js").read_text(encoding="utf-8")
 
 
 def _body(name: str) -> str:
@@ -60,14 +60,25 @@ def test_the_policy_compiles_wasm_and_still_refuses_eval() -> None:
     assert "worker-src 'self'" in policy
 
 
-def test_the_binary_is_served_as_wasm_and_not_gzipped(client) -> None:
-    """Measured: 755 ms to gzip it per cold fetch against 60 ms to send it."""
-    response = client.get(
-        "/vendor/harper/harper_wasm_slim_bg.wasm", headers={"Accept-Encoding": "gzip"}
-    )
+def test_the_binary_is_served_as_wasm_and_gzipped_once(client) -> None:
+    """Was left uncompressed: the middleware took 755 ms to gzip it on every
+    cold fetch. The precompressed cache (`RevalidatedStatic`) pays that once
+    per version and keeps the bytes, so it now goes as 8 MB rather than 15.9
+    (audit 2026-10-05, FE-03); the bytes are the file's own."""
+    import gzip
+
+    from memorymap.api.app import FRONTEND_DIR
+
+    with client.stream(
+        "GET", "/vendor/harper/harper_wasm_slim_bg.wasm", headers={"Accept-Encoding": "gzip"}
+    ) as response:
+        raw = b"".join(response.iter_raw())
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/wasm"
-    assert "content-encoding" not in response.headers
+    assert response.headers["content-encoding"] == "gzip"
+    wasm = FRONTEND_DIR / "vendor" / "harper" / "harper_wasm_slim_bg.wasm"
+    assert len(raw) < wasm.stat().st_size * 0.6
+    assert gzip.decompress(raw) == wasm.read_bytes()
 
 
 def test_the_grammar_switch_is_a_preference_on_by_default(client) -> None:
@@ -82,7 +93,7 @@ def test_the_worker_is_same_origin_and_started_only_on_demand() -> None:
     would fetch 15.9 MB on every launch whether or not anything is written."""
     code = "\n".join(line for line in WORKER.splitlines() if not line.lstrip().startswith("//"))
     assert "createObjectURL" not in code and "WorkerLinter" not in code
-    assert 'import { slimBinary } from "./vendor/harper/slimBinary.js"' in WORKER
+    assert 'import { slimBinary } from "../vendor/harper/slimBinary.js"' in WORKER
     starts = [m.start() for m in re.finditer(r"new Worker\(`\$\{DOC_GRAMMAR_WORKER_URL\}", DOCUMENTS)]
     assert len(starts) == 1
     assert starts[0] > DOCUMENTS.index("function docGrammarAsk(")
@@ -147,7 +158,7 @@ def test_a_sentence_case_heading_is_not_a_finding(tmp_path) -> None:
     script.write_text(HARPER_DRIVER, encoding="utf-8")
     text = "# Why we moved the notebook offline\n\n## What changed\n\nThe the search index moved.\n"
     out = subprocess.run(
-        [node, str(script), (FRONTEND / "harper-worker.js").as_uri(), text],
+        [node, str(script), (FRONTEND / "js" / "harper-worker.js").as_uri(), text],
         capture_output=True, text=True, timeout=120, check=False,
     )
     assert out.returncode == 0, out.stderr
@@ -442,3 +453,53 @@ def test_a_document_survives_the_trip_through_word(tmp_path) -> None:
     assert "<w:ins " in xml and "<w:delText" in xml and "{++" not in xml
     unsafe = docexport.to_docx("T", "[x](javascript:alert(1))")
     assert b"javascript" not in zipfile.ZipFile(__import__("io").BytesIO(unsafe)).read("word/_rels/document.xml.rels")
+
+
+def test_a_grammar_lint_on_a_wiki_link_is_dropped(tmp_path) -> None:
+    """Harper reads markdown and skips code, but `[[Another doc]]` is this
+    app's syntax, not markdown: "a [[Another doc]] chip" came back as a
+    redundancy ("Use another on its own") whose only fix was "aNother",
+    measured in the live view on 2026-10-04 (`cm-live.js`'s fixture). A lint
+    that touches a link or an embed is dropped; one beside it is kept. Run in
+    node on the page's own `docGrammarFindings`, through the real worker so
+    the lint is the one Harper really returns."""
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    text = "A link to a [[Another doc]] chip and ![[Some picture.png]] here.\n\nThe the search index moved.\n"
+    script = tmp_path / "harper.mjs"
+    script.write_text(HARPER_DRIVER, encoding="utf-8")
+    out = subprocess.run(
+        [node, str(script), (FRONTEND / "js" / "harper-worker.js").as_uri(), text],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert out.returncode == 0, out.stderr
+    lints = json.loads(out.stdout)[0]["lints"]
+    #: The premise: Harper itself does flag the link, so the filter is what
+    #: removes it (were Harper ever to stop, this test says so rather than
+    #: passing on nothing).
+    assert any("[[" in text[lint["start"] : lint["end"]] for lint in lints), lints
+    src = "\n".join(
+        DOCUMENTS[DOCUMENTS.index(start) : DOCUMENTS.index(end, DOCUMENTS.index(start)) + len(end)]
+        for start, end in (
+            ("const DOC_GRAMMAR_SKIP_KINDS", ";\n"),
+            ("const DOC_GRAMMAR_DASH", ";\n"),
+            ("function docGrammarMessage(", "\n}\n"),
+            ("const DOC_GRAMMAR_WIKI", ";\n"),
+            ("function docGrammarOutside(", "\n}\n"),
+            ("function docGrammarFindings(", "\n}\n"),
+        )
+    )
+    runner = tmp_path / "findings.js"
+    runner.write_text(
+        src + "\nconst lints = JSON.parse(process.argv[2]);\n"
+        "process.stdout.write(JSON.stringify(docGrammarFindings(lints, process.argv[3])));\n",
+        encoding="utf-8",
+    )
+    found = subprocess.run(
+        [node, str(runner), json.dumps(lints), text], capture_output=True, text=True, timeout=60, check=False
+    )
+    assert found.returncode == 0, found.stderr
+    findings = json.loads(found.stdout)
+    assert not [f for f in findings if "[[" in f["text"] or "]]" in f["text"]], findings
+    assert any(f["text"] == "The the" for f in findings), findings

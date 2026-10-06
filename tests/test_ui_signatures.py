@@ -61,7 +61,9 @@ SURFACE_SELECTOR = re.compile(
 # formatting strips (`.doc-toolbar`, `.note-toolbar`, 60 controls each, where
 # an 8px gap would cost 240px of width). A fourth value is drift.
 ROW_GAP_CEILING = 3
-ROW_PADDING_CEILING = 11
+# 7 since 2026-10-05: the dead graph toolbar and the notification row's
+# own padding took three more with them (10 since INBOX 436).
+ROW_PADDING_CEILING = 7
 SURFACE_RADIUS_CEILING = 4
 
 

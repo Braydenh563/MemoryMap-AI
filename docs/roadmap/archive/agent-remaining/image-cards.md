@@ -10,7 +10,7 @@ clean-data runs, data dirs `/tmp/mm-cards2`, `/tmp/mm-cards2b`,
 
 | Item | Where the numbers are |
 | --- | --- |
-| INBOX 115's image-card line and INBOX 118, the card's foot | INBOX.md, both entries marked; UI_MODERNISATION_PLAN "Decided, 2026-09-12 — what the bottom of a picture card is" |
+| INBOX 115's image-card line and INBOX 118, the card's foot | INBOX.md, both entries marked; UI_MODERNISATION_PLAN "Decided, 2026-09-12: what the bottom of a picture card is" |
 | The fold's ground and its label's contrast | commit `65cf876`, and `pixelcontrast.py`'s header |
 | The menu half ("and funection"), run rather than assumed | `scratchpad/ui-sweeps/imagecardmenu.js` |
 

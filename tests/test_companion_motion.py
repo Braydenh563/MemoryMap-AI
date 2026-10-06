@@ -32,9 +32,11 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-AV = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+#: avatars.js and its lazy half, companion-menu.js (the menu and the enlarged
+#: view), read as one.
+AV = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("avatars.js", "companion-menu.js"))
 APP = app_js_text()
-SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 
@@ -70,8 +72,9 @@ def test_no_move_is_a_fade_to_somewhere_else() -> None:
     move = _fn("nameMarkBuddyGo")
     assert "distance > 700" not in move
     # The two fades left: Reduce motion's, in place of the travel, and
-    # being carried asleep (a sleeper is not woken to walk).
-    assert move.count("opacity: 0") == 4 and "if (nameMarkBuddyNoTravel()) {" in move
+    # being carried asleep (a sleeper is not woken to walk). Each is a
+    # crossfade now (INBOX 443), never a fade to nothing and back.
+    assert move.count("nameMarkBuddyCrossfade(buddy, dx, dy,") == 2 and "if (nameMarkBuddyNoTravel()) {" in move
     assert "if (nameMarkBuddyAsleep(buddy)) {" in move
 
 
@@ -399,7 +402,7 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
         assert f"{kind}: {{ cool:" in AV, kind
     # The streak: once, and only for a count longer than the last seen.
     assert "if (seen && days > seen) nameMarkBuddyReact(\"streak\");" in _fn("nameMarkBuddyStreak")
-    dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
+    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
     assert "nameMarkBuddyStreak(streak)" in dashboard
     # Night: a tick yawns, and the yawn's early return comes after the mood
     # has moved, so a tick that yawns still tires it at night (review, round 6).
@@ -438,7 +441,7 @@ def test_a_scroll_already_on_its_way_does_not_close_a_new_menu() -> None:
     # momentum, a smooth scroll) opened a menu that closeActionMenusOnScroll
     # shut a moment later: 17 of 20 such right-clicks showed no menu, 0 of
     # 80 after this.
-    menus = (ROOT / "frontend" / "menus.js").read_text(encoding="utf-8")
+    menus = (ROOT / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
     on_scroll = menus[menus.index("function closeActionMenusOnScroll(") :]
     on_scroll = on_scroll[: on_scroll.index("\n}\n")]
     assert "performance.now() - (window._menuOpenedAt || 0) < 200" in on_scroll
@@ -463,7 +466,7 @@ def test_every_way_to_a_note_counts_as_opening_it() -> None:
     # graph and chat all go to a note through flashEntry (capture-ask.js);
     # the companion reads along from there too (companionreact.js: the
     # palette's jump to a long note reads along).
-    ask = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    ask = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     flash = ask[ask.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
     assert 'if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);' in flash
@@ -495,7 +498,7 @@ def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
     # height of 0, is one: it was replaced by a whole 20px Atlas, in the
     # page's flow under everything, and the next look's defs made the next
     # head. strayheads.js: one head per change, at x 0 and y 840, 860, 880.
-    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
     start = atlas.index("function atlasRepaint(")
     body = atlas[start : atlas.index("\n}\n", start)]
     loop = body[: body.index("svg.replaceWith(")]
@@ -504,13 +507,14 @@ def test_a_change_of_look_does_not_draw_the_shared_defs_as_heads() -> None:
 
 def test_the_companion_shows_and_hides_from_anywhere() -> None:
     # INBOX 430: a hotkey, a palette action, and so a Find anything action.
-    wiring = (ROOT / "frontend" / "settings-wiring.js").read_text(encoding="utf-8")
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
     assert 'toggleCompanion: { keys: "Ctrl+Shift+Y"' in wiring
     assert "nameMarkBuddyToggle()" in wiring
-    panes = (ROOT / "frontend" / "settings-panes.js").read_text(encoding="utf-8")
-    assert "Show or hide the companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
+    panes = (ROOT / "frontend" / "js" / "settings-panes.js").read_text(encoding="utf-8")
+    # The row names which it will do (tests/test_companion_toggle.py).
+    assert "Show companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
     toggle = _fn("nameMarkBuddyToggle")
-    assert 'localStorage.getItem("nm-buddy-last")' in toggle
+    assert 'prefs.get("nm-buddy-last", null)' in toggle
     assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
 
 
@@ -560,7 +564,9 @@ def test_it_follows_a_tab_change_only_once_you_stay_and_comes_in_smoothly():
     assert "NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS" in changed
     assert "if (!nmb.tab || tab === nmb.tab)" in changed
     enter = _fn("nameMarkBuddyEnter")
-    for how in ('how = "down"', 'how = "up"', 'how = "walk"', 'let how = "materialise"'):
+    # The ways it can come (INBOX 501 made the choice varied; see the test
+    # of not the same way twice).
+    for how in ('"down"', '"up"', '"walk"', '"materialise"', 'how === "down"', 'how === "walk"'):
         assert how in enter, how
     for guard in ("nameMarkBuddyBeat", "nameMarkBuddyCheck"):
         assert "nmb.away" in _fn(guard), guard
@@ -575,7 +581,8 @@ def test_reduce_actions_and_atlas_stances_at_rest():
     for value in ('value="off"', 'value="fewer"', 'value="normal"'):
         assert value in HTML[HTML.index('id="avatar-buddy-actions"') :][:400]
     decide = _fn("nameMarkBuddyDecide")
-    assert "if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: 0.33, normal: 1 }[actions] ?? 0.33;" in decide
+    # Fewer is a third, except in its large view, where it is watched.
+    assert "if (!NMB_QUIET_ACTS.includes(act)) w *= { off: 0, fewer: nmb.visit ? 1 : 0.33, normal: 1 }[actions] ?? 0.33;" in decide
     assert "if (stance && (!nmb.atlasLook || nmb.atlasLook !== stance.look)) w = 0;" in decide
     for stance, look in (("fold", "masculine"), ("hip", "masculine"), ("clasp", "feminine"), ("sway", "feminine")):
         assert f'{stance}: {{ ms:' in AV and f'look: "{look}" }}' in AV
@@ -588,7 +595,7 @@ def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
     # feminine, which companion is displayed". Submenus are the kebab
     # recipe's own (`items` on a row, `buildMenuGroupButton`), and each choice
     # goes through the Appearance control it mirrors.
-    kebab = (ROOT / "frontend" / "sheets-selects.js").read_text(encoding="utf-8")
+    kebab = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
     assert "if (Array.isArray(item.items) && typeof buildMenuGroupButton === \"function\")" in kebab
     menu = _fn("nameMarkBuddyMenu")
     for row in ("ph:user-switch Companion", "ph:star-four Atlas look", "ph:resize Size", "ph:gear Settings"):
@@ -603,8 +610,10 @@ def test_it_sets_off_and_lands_and_eases_between_poses():
     # is held back for a crouch and ends in a squash and a rebound, eased per
     # keyframe (an easing over the whole animation made the crouch late);
     # the limbs ease into a new pose; the pacer leaves those transitions be.
-    assert "delay: NMB_SET_OFF_MS, fill: \"backwards\"" in AV
-    assert "nameMarkBuddySquash(char, duration + NMB_SET_OFF_MS);" in AV
+    # Held back `setOff` (the crouch), unless it takes over a move under way.
+    assert "const setOff = underway ? 0 : NMB_SET_OFF_MS;" in AV
+    assert "delay: setOff, fill: \"backwards\"" in AV
+    assert "nameMarkBuddySquash(char, duration + setOff, underway);" in AV
     squash = _fn("nameMarkBuddySquash")
     assert '.map((frame) => ({ ...frame, easing: "ease-in-out" })), { duration: total });' in squash
     assert "a instanceof CSSTransition" in AV
@@ -683,9 +692,9 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     # floats), 640px a poof, its panel jumping 40px a hop; at most 10.8px a
     # frame, speed changing at most 5.5px a frame, every move ending on its
     # place.
-    go = _fn("nameMarkBuddyGo")
+    go = _fn("nameMarkBuddyGo") + _fn("nameMarkBuddyRoute")
     for way in ("if (nameMarkBuddyNoTravel()) {", "if (spot.tossed) {", "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)",
-                "if (nameMarkBuddyFlies(buddy)) {", "if (distance < size * NMB_HOP_SIZES && !poseChanged) {",
+                "if (route === \"float\") {", "if (d < size * NMB_HOP_SIZES && !poseChanged)",
                 'buddy.classList.add("nmb-walking");'):
         assert way in go, way
     # Distances are in its own size, not pixels.
@@ -698,7 +707,7 @@ def test_every_change_of_place_is_travelled_by_its_body() -> None:
     # same way when it stands still.
     assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyCatchUp")
     assert "nameMarkBuddyGo(buddy, dx, dy, nmb.spot || {}, false);" in _fn("nameMarkBuddyRefit")
-    assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was);" in _fn("nameMarkBuddyMoveTo")
+    assert "nameMarkBuddyGo(buddy, dx, dy, spot, poseChanged, was, underway);" in _fn("nameMarkBuddyMoveTo")
 
 
 def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
@@ -722,7 +731,7 @@ def test_it_settles_in_with_props_and_each_doing_can_be_turned_off() -> None:
     assert "const NMB_RESTING_ACTS = new Set([" in AV
     # Every doing has a switch, and what is off is never picked.
     assert 'id="avatar-buddy-activities"' in HTML
-    assert "mountBuddyActivities()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "mountBuddyActivities()" in (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert "if (nameMarkBuddyActOff(act, off)) continue;" in _fn("nameMarkBuddyDecide")
     table = AV[AV.index("const NMB_ACTIVITIES = [") : AV.index("];", AV.index("const NMB_ACTIVITIES = ["))]
     for act in ("wave", "peek", "peekdown", "lie", "read", "beanbag", "chair", "facepalm", "shrug"):
@@ -839,7 +848,10 @@ def test_its_gaze_has_one_reach_for_every_kind_and_drifts_back() -> None:
     # Atlas and as you): 20, 60 and 150px look that way (eyes 0.7, 2 and
     # 3.4px), 400px has let go and drifted back to 0; one code path.
     notice = _fn("nameMarkBuddyNotice")
-    assert "const reach = Math.max(0.7, nmb.scale || 1);" in notice and "if (dist > 220 * reach && !loud) {" in notice
+    # Its reach is its size, read where its head is drawn (INBOX 443: in its
+    # large view, 2.2 times).
+    assert "const reach = size;" in notice and "if (dist > 220 * reach && !loud) {" in notice
+    assert "Math.max(0.7, nmb.scale || 1)];" in _fn("nameMarkBuddyHeadAt")
     release = _fn("nameMarkBuddyRelease")
     assert 'buddy.style.setProperty("--nmb-ex", "0");' in release
     assert "#nm-buddy .name-mark .nm-eyes { transition: translate calc(var(--motion-slow) * 3) var(--ease-in-out); }" in CSS08
@@ -988,7 +1000,7 @@ def test_it_never_perches_in_a_run_of_words() -> None:
     assert 'child.closest("p, blockquote, pre, h1, h2, h3, h4, h5, h6")' in walk
     assert '!cs.display.startsWith("inline")' in walk
     choose = _fn("nameMarkBuddyChoose")
-    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "return soiled || corner;" in choose
+    assert "if (!soiled || perch.score > soiled.score) soiled = perch;" in choose and "if (soiled) return soiled;" in choose
 
 
 def test_the_lab_keeps_what_you_pick_and_no_cap_is_worn_upright() -> None:
@@ -1033,7 +1045,7 @@ def test_companions_can_be_saved_applied_renamed_and_deleted() -> None:
     for key in ('"avatar-buddy"', '"atlas-look"', '"avatar-buddy-custom"', '"avatar-buddy-size"', '"avatar-buddy-acts-off"', '"avatar-buddy-motion"'):
         assert key in AV[AV.index("const NMB_PRESET_KEYS = [") :][:400], key
     assert "p.name !== nmbPresetRenaming" in _fn("nameMarkBuddySavePreset")
-    assert "mountBuddyPresets()" in (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "mountBuddyPresets()" in (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")
@@ -1109,7 +1121,7 @@ def test_perches_are_top_edges_outside_card_content_and_measured_for_words() -> 
     assert "cb.height > innerHeight * 0.6" in inside and "box.top > cb.top + 6" in inside
     choose = _fn("nameMarkBuddyChoose")
     assert "const words = nameMarkBuddyWordsUnder(perch.x, perch.y, perch.pose, perch.legs);" in choose
-    assert choose.index('legs: "peek"') < choose.index("return soiled || corner;")
+    assert choose.index('legs: "peek"') < choose.index("if (soiled) return soiled;")
     words = _fn("nameMarkBuddyWordsUnder")
     assert "seen < 400" in words and "nameMarkBuddyScroller(root)" in words
 
@@ -1174,3 +1186,351 @@ def test_a_woken_atlas_companion_wakes_atlas_too() -> None:
     # more (the click lands on the face's box, not `.nm-atlas`). Now its
     # eyes are open 1255ms after the poke.
     assert 'if (slept && nameMarkBuddyHasAtlas(buddy) && typeof atlasWake === "function") atlasWake();' in _fn("nameMarkBuddyWake")
+
+
+def test_the_chat_tab_is_a_perch_that_keeps_its_controls_clear() -> None:
+    # INBOX 443 (a), the owner: "the companion perches and action surfaces
+    # and stuff needs to be properly done for the chat tab". Measured before
+    # (companionchat.js, 1440): Atlas sat tucked on the chat dock with its
+    # tail curled 22px below its seat, over the input by 13px, and while an
+    # answer was written its reading errand put the tail 27 to 29px over
+    # Stop. A tucked Atlas still has a tail, so the tail is in its shape.
+    shape = _fn("nameMarkBuddyShapeAt1")
+    assert 'legs !== "tuck" && document.querySelector("#nm-buddy .atl-figure-box")' not in shape
+    assert 'document.querySelector("#nm-buddy .atl-figure-box")) shape.push(' in shape
+    # The latest message is never covered, and the chat's dock is its first
+    # perch: as a card it was past the dozen card edges looked at (the
+    # sidebar's saved chats came first) and was never considered.
+    obstacles = _fn("nameMarkBuddyObstacles")
+    assert '#chat-messages .msg' in obstacles
+    surfaces = AV[AV.index("const NAME_MARK_BUDDY_SURFACES = [") : AV.index("].join", AV.index("const NAME_MARK_BUDDY_SURFACES = ["))]
+    assert '".chat-dock"' in surfaces
+    assert '.dash-toolbar, .chat-dock, .wb-topbar") ? "dock" : "card"' in AV
+    assert 'chat: ["dock", "card", "under", "hang", "bar"]' in AV
+    # Reading along while an answer is written: a clean place on the dock's
+    # top edge, searched along it, never a fixed x that lands on Stop.
+    errand = _fn("nameMarkBuddyChatErrand")
+    assert ".chat-dock" in errand and "nameMarkBuddyHits(" in errand
+    assert "box.right - NMB_W - 72" not in errand
+
+
+def test_its_enlarged_view_is_itself_alive_and_still_doing_what_it_was() -> None:
+    # INBOX 443 (b), (c), the owner: "the regular companion expanded popup
+    # window needs more life and not just a statue"; "if the companion is
+    # doing a specific action and i double click it to view it in the
+    # enlarged window, I want it to keep doing that action unless poked or
+    # something else happens". Measured in a browser by
+    # scratchpad/ui-sweeps/companionviewer.js.
+    viewer = _fn("openNameMarkViewer")
+    # The companion's own element visits the view, so its act, face, props,
+    # sleep and pose carry over, and its own timer ends the act.
+    assert 'openNameMarkViewer(buddy.dataset.seed || "", { visit: true })' in AV
+    assert "nameMarkBuddyVisit(figure)" in viewer and "if (home) home();" in viewer
+    visit = _fn("nameMarkBuddyVisit")
+    assert "host.appendChild(buddy);" in visit and "anim.finish()" in visit
+    assert "visit.home.insertBefore(buddy" in _fn("nameMarkBuddyHome")
+    # While it visits nothing moves it, and it cannot be carried off.
+    for name in ("nameMarkBuddyMoveTo", "nameMarkBuddyCheck", "nameMarkBuddyFollow", "nameMarkBuddyErrand",
+                 "nameMarkBuddyWander", "nameMarkBuddyRide", "nameMarkBuddyDodge", "nameMarkBuddyBeat",
+                 "nameMarkBuddyTabChanged", "nameMarkBuddyRefit", "nameMarkBuddyLieRoom"):
+        assert "nmb.visit" in _fn(name), name
+    assert 'if (event.button !== 0 || nmb.visit) return;' in AV
+    # Watched, it plays: a quicker beat, neither Fewer nor the calm budget
+    # holding it back, its eyes on the pointer from where it is drawn, and
+    # its lines now and then. Reduced motion: a blink and nothing more.
+    assert "nmb.visit ? 2500 + Math.random() * 3500" in _fn("nameMarkBuddySchedule")
+    decide = _fn("nameMarkBuddyDecide")
+    assert "const calm = !!nmb.visit ||" in decide and "fewer: nmb.visit ? 1 : 0.33" in decide
+    assert "nameMarkBuddyHeadAt()" in _fn("nameMarkBuddyNotice") and "nameMarkBuddyHeadAt()" in _fn("nameMarkBuddyAim")
+    assert "nameMarkSay(host, nameMarkLine(seed))" in viewer
+    assert "nameMarkViewerBlinks(figure)" in viewer and "nameMarkIdleQuiet()" in viewer
+    # Any other face: the view's quicker beat, and it looks about and fidgets.
+    assert "viewer ? 2500 + Math.random() * 3000" in _fn("nameMarkIdleTick")
+    assert 'acts.push("look", "shift")' in _fn("nameMarkIdleAct")
+    # The dialog's head recipe and one line of description.
+    assert 'head.className = "dialog-head nm-viewer-head"' in viewer and '"dialog-head-btn"' in viewer
+    assert "Click it to say hello." not in viewer and "nm-viewer-hint" not in viewer
+    css = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "frontend" / "css").glob("*.css")))
+    assert ".nm-viewer-figure > #nm-buddy {" in css and "--nmb-scale: 2.2 !important;" in css
+
+
+def test_a_double_click_does_not_poke_it_and_no_move_leaves_it_gone() -> None:
+    # INBOX 443: the first click of the double-click that enlarges it used
+    # to poke it, ending the act the large view was to carry; and the owner:
+    # "I also want companion transitions to be better even with reduced
+    # motion on". Without travel a move faded out, left nothing, and faded
+    # in: now a copy fades out where it was while it fades in where it is.
+    assert "pokeTimer = setTimeout(poke, 280);" in AV
+    assert "if (!nmb.visit && event.detail >= 2) return;" in AV
+    assert "clearTimeout(pokeTimer);\n    pokeTimer = 0;\n    openNameMarkViewer(" in AV
+    assert "if (!nmb.act || NMB_FACELESS_ACTS.includes(nmb.act)) nameMarkBuddyAct(\"wiggle\");" in _fn("nameMarkBuddyPet")
+    fade = _fn("nameMarkBuddyCrossfade")
+    assert "buddy.cloneNode(true)" in fade and "ghost.inert = true;" in fade and "buddy.after(ghost);" in fade
+    assert "[{ opacity: 1 }, { opacity: 0 }]" in fade and "[{ opacity: 0 }, { opacity: 1 }]" in fade
+    go = _fn("nameMarkBuddyGo")
+    assert go.count("nameMarkBuddyCrossfade(buddy, dx, dy,") == 2
+    assert "{ opacity: 0, translate:" not in go
+
+
+def test_it_does_what_the_apps_model_work_is_doing() -> None:
+    # INBOX 443, the owner: "the companion doesnt change action for related
+    # actions when things are happening like for the tag and file with atlas
+    # note function running with atlas reading the note". One hook (fetch,
+    # watched once) and a table of the model's addresses, not a call in each
+    # feature. Measured by scratchpad/ui-sweeps/companionwork.js.
+    table = AV[AV.index("const NMB_WORK = [") : AV.index("];", AV.index("const NMB_WORK = ["))]
+    for address in ("reevaluate", "suggest-tags", "improve", "vision-ocr", "caption", "chat|help\\/ask|drafts\\/compose"):
+        assert address in table, address
+    assert "window.fetch = (input, init = {}) =>" in AV and AV.count("window.fetch = (") == 1
+    # The filing is read from the save's answer and the filing poll's.
+    assert '/^\\/entries\\/[^/]+\\/filing$/.test(path)' in AV and 'state === "pending"' in AV
+    # A stream's end is seen as it is read, its cancel passed on.
+    assert "return reader.cancel(reason);" in AV and 'Object.defineProperty(response, "body", { value: body });' in AV
+    work = _fn("nameMarkBuddyWork")
+    assert 'nameMarkBuddyAct("read", 10 * 60 * 1000);' in work and 'nameMarkBuddyCue("think")' in work
+    assert 'nameMarkBuddyCue(kind === "file" ? "carry" : "nod")' in work and 'nameMarkBuddyCue("shrug")' in work
+    assert 'nameMarkBuddyCue("rest");' in work
+    assert "nod: { ms: 1200, w: 0" in AV and "&.nmb-act-nod .nm-buddy-head" in CSS08
+    # No feature file calls it: the hook is the only way in.
+    for path in (ROOT / "frontend" / "js").glob("*.js"):
+        if path.name != "avatars.js":
+            assert "nameMarkBuddyWork(" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_its_last_resort_is_never_the_corner_over_a_control() -> None:
+    # INBOX 443: on the phone's Chat, an answer down to the dock left no
+    # clean edge, and the corner was taken over Send by 32px
+    # (companionchat.js, 390). Tucked behind the bottom bar instead.
+    choose = _fn("nameMarkBuddyChoose")
+    assert "return soiled || corner;" not in choose
+    assert "nameMarkBuddyHits(corner.x, corner.y, corner.pose, obstacles, corner.legs) ? tucked : corner" in choose
+
+
+def test_the_size_ring_is_not_drawn_in_the_enlarged_view() -> None:
+    # INBOX 466: the ring at the companion's corner still showed on the
+    # visiting companion inside the large view, where the card sizes it.
+    assert ".nm-viewer-figure > #nm-buddy .nmb-size-grip { display: none; }" in CSS08
+
+
+def test_a_folded_sidebar_is_no_perch_and_its_rider_moves_on() -> None:
+    # INBOX 462: "the companion perches dont handle collapsed sidebars at
+    # least in the chat tab". Measured by companioncollapse.js: before, it
+    # sat on in the air over Chat's folded "New chat" (227,726, the rail
+    # 48px); after, it walks to a perch it can be seen on.
+    shown = _fn("nameMarkBuddyPerchShown")
+    assert 'el.closest(".sidebar-collapsed")' in shown and "opacityProperty: true" in shown
+    assert 'child.classList.contains("sidebar-collapsed")' in _fn("nameMarkBuddySurfaceWalk")
+    assert "nameMarkBuddyPerchShown(el)" in _fn("nameMarkBuddyRestore")
+    follow = _fn("nameMarkBuddyFollow")
+    assert 'g.el.closest(".sidebar-collapsed")' in follow
+    assert follow.index("const folded =") < follow.index("if (!box || (!box.width && !box.height)) {")
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
+    # INBOX 455 (2), the owner: "more and better transitions between
+    # positions and moving across different and the same tab(s)". A small
+    # step is a hop, a shuffle or a scoot; mostly up or down, a climb; a
+    # change of level within three of itself, a leap; on the level, a walk;
+    # further, a far way; a flyer floats, and glides when far.
+    consts = "const NMB_HOP_SIZES = 0.7; const NMB_FAR_SIZES = 3; const NMB_FAR_POOF_SIZES = 5;"
+    src = consts + "\n" + _fn("nameMarkBuddyRoute")
+    cases = "[[20,0,0.1],[20,0,0.5],[20,0,0.9],[160,0,0.5],[60,-160,0.5],[10,120,0.5],[150,60,0.5],[400,0,0.5],[400,200,0.5]]"
+    script = src + f"\nconsole.log(JSON.stringify({cases}.map(([dx, dy, r]) => nameMarkBuddyRoute(dx, dy, 64, false, false, r)).concat([nameMarkBuddyRoute(100, 0, 64, true, false, 0), nameMarkBuddyRoute(400, 0, 64, true, false, 0), nameMarkBuddyRoute(20, 0, 64, false, true, 0)])));"
+    out = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+    assert out == ["hop", "shuffle", "scoot", "walk", "climb", "climb", "leap", "far", "far", "float", "glide", "walk"]
+    go = _fn("nameMarkBuddyGo")
+    # Far: the geometry says which far ways are open (a walk only on the level).
+    assert 'nameMarkBuddyFarWay([...(distance > size * NMB_FAR_POOF_SIZES ? ["poof"] : []), "glide", ...(Math.abs(dy) <= 36 ? ["walk"] : [])])' in go
+    # A climb is one path with a corner, its limbs switching at the corner.
+    assert 'goingUp ? `0px ${dy}px` : `${dx}px 0px`' in go
+    assert 'nameMarkBuddyTravel(buddy, "", at, "climb")' in go
+    # Interruptible: a new place mid-move starts at speed from where it is
+    # drawn, and a figure cut off in mid-air comes down rather than snapping.
+    move = _fn("nameMarkBuddyMoveTo")
+    assert "const underway =" in move and 'composite: "add"' in move
+    assert "...(underway ? [] :" in _fn("nameMarkBuddySquash")
+    # Into a tab from the side of the tab it left.
+    assert "nmb.cameFrom = nameMarkBuddyTabSide(nmb.tab, tab);" in _fn("nameMarkBuddyTabChanged")
+    enter = _fn("nameMarkBuddyEnter")
+    # The side it glides in from is the tab's it left (INBOX 501 lets it
+    # glide in from the nearer edge at a start too).
+    assert "const fromLeft = side ? side < 0 : x < innerWidth / 2;" in enter
+    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];' in enter
+
+
+def test_its_limbs_move_with_it() -> None:
+    # INBOX 469, the owner: "have the arms and legs be used a bit for various
+    # position, action etc changes and transitions". One gesture per way of
+    # going, on the individual transform properties (they add to the pose),
+    # and none under Reduce motion
+    # (the crossfade returns before any is started).
+    limbs = _fn("nameMarkBuddyLimbs")
+    assert 'id: "nmb-limb"' in limbs and "rotate: `${deg * m}deg`" in limbs and "transform" not in limbs
+    # Inside Atlas's drawing they are paced at 20Hz, like the walk's steps.
+    assert 'a.id !== "nmb-limb" && a.effect.target.closest("svg.atl-layer")' in _fn("nameMarkBuddyTempo")
+    assert "nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);" in limbs
+    for kind in ("leap", "glide", "float", "cue"):
+        assert f"  {kind}: {{ arm:" in AV, kind
+    go = _fn("nameMarkBuddyGo")
+    assert go.index("nameMarkBuddyCrossfade(buddy, dx, dy, 420);") < go.index('nameMarkBuddyLimbs(buddy, "glide"')
+    assert 'nameMarkBuddyLimbs(buddy, "cue", 420)' in _fn("nameMarkBuddyAct")
+    for rule in ('.nmb-walking:not([data-travel]) .nmb-arm-l { animation: nmb-arm-swing',
+                 '&[data-travel="climb"] .nmb-hold { opacity: 1; }',
+                 '&[data-travel="climb"] .nmb-hold-l { animation: nmb-reach'):
+        assert rule in CSS08, rule
+
+
+def _css_rule(css: str, selector: str) -> str:
+    start = css.index(selector + " {")
+    return css[start : css.index("}", start)]
+
+
+def test_a_speech_line_is_as_wide_as_its_words_wherever_it_is_said() -> None:
+    """INBOX 481, the owner: "these messages on the companion dont render
+    properly". In the large view the stage's rule set `right` and the
+    figure's rule set `left: 100%`, so the absolute bubble was the 8px
+    between them: its background behind the first letter and the rest of
+    the `nowrap` line drawn white over the art (measured, 15px box under a
+    132px line; `scratchpad/ui-sweeps/companionsay.js` walks every case).
+    The box takes its width from its text, and the figure's rule undoes
+    the inset it does not use."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    base = _css_rule(css, ".nm-say")
+    assert "width: max-content" in base
+    assert "max-width:" in base and "100vw" in base
+    assert "white-space: nowrap" not in base
+    viewer = _css_rule(css, ".nm-viewer-figure > #nm-buddy > .nm-say")
+    assert "left: 100%" in viewer and "right: auto" in viewer
+
+
+def test_atlas_pupils_stay_inside_its_eyes():
+    """INBOX 497, the owner: "when I have my cursor to the top right of the
+    companion or atlas, the pupils basically go off the head and you can
+    only see white eyes". Four offsets added up on Atlas's iris, measured at
+    up to 3.3 times the room its pupil has (`companioneyes.js`, which walks
+    every pose, both looks and four moods with the gaze at the 8 compass
+    points and the window's corners). The aim is held inside the unit
+    circle, the generated faces' eye moves are not Atlas's, its look scales
+    to the room (2 across, 1 up or down), and the mood's own pupil placement
+    eases out of the way while it looks at something."""
+    aim = _fn("nameMarkBuddyAim")
+    assert "const len = Math.hypot(lx, ly);" in aim and "lx /= len;" in aim and "ly /= len;" in aim
+    assert "Math.max(-1, Math.min(1, (dx / reach)" not in aim
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "#nm-buddy .nm-atlas .nm-eyes { translate: none !important; }" in css
+    assert "#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-pupil { --atl-px: 0px; --atl-py: 0px; --atl-lean-dir: 0; }" in css
+    iris = re.search(r"#nm-buddy:is\(\.nmb-attend, \.nmb-watch\) \.nm-atlas \.atl-iris \{ translate: calc\(var\(--nmb-ex\) \* ([0-9.]+)px\) calc\(var\(--nmb-ey\) \* ([0-9.]+)px\)", css)
+    assert iris, "the iris follows the aim"
+    gx, gy = float(iris.group(1)), float(iris.group(2))
+    # The pupil's room in the almond, less its own size at a mood's larger
+    # pupil (1.1), the tightest of the two mirrored eyes, by direction
+    # (measured in the eye's own units, companioneyes.js): 1.7 across, 1.26
+    # up, 1.12 on the upward diagonals. The look's ellipse stays inside it,
+    # and nothing else moves the pupil while it looks.
+    import math
+    room = {0: 1.7, 22.5: 1.68, 45: 1.44, 67.5: 1.38, 90: 1.44, 270: 1.26, 292.5: 1.12, 315: 1.14, 337.5: 1.28}
+    for deg, r in room.items():
+        a = math.radians(deg)
+        reach = 1 / math.hypot(math.cos(a) / gx, math.sin(a) / gy)
+        assert reach <= r, (deg, reach, r)
+    assert "--atl-lean-dir: 0; }" in css
+
+
+def test_an_act_or_a_walk_is_let_go_not_dropped():
+    """INBOX 497, the owner: "make the atlas behaviour more smooth and less
+    sudden beginning and stopping of actions". Taking an act's class off
+    mid-way put every part back at rest in one frame (companionblend.js: 7
+    to 22px in a frame against 2 to 4px while the act ran). The parts it
+    moved are read first and eased back from there (an `offset: 0`
+    keyframe, since a lone keyframe is the end), off the pacer, and not
+    under reduced motion; the companion's expressions cross over 0.6s."""
+    blend = _fn("nameMarkBuddyBlend")
+    assert "nameMarkIdleQuiet()" in blend and "{ ...from, offset: 0 }" in blend
+    assert 'id: "nmb-blend"' in blend
+    assert "nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in _fn("nameMarkBuddyAct")
+    assert 'nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));' in AV
+    assert 'a.id !== "nmb-blend"' in _fn("nameMarkBuddyTempo")
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert "transition: transform calc(var(--motion-slow) * 3) var(--ease-in-out);" in css
+
+
+def test_it_comes_on_screen_a_way_that_suits_the_place_and_not_the_same_twice():
+    """INBOX 501, the owner: "when atlas or the companion appears on the
+    screen it just kinda appears and there is no smooth or creative
+    animation for it to happen, or even differences on how it gets there".
+    The same perch chose the same entrance every time (the climb down from
+    the top bar five times in five on the dashboard, faded up in 136 to
+    200ms; companionarrive.js). Each place has the ways that suit it, the
+    last one is left out when there is another, and the climb fades up over
+    its first half."""
+    enter = _fn("nameMarkBuddyEnter")
+    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise"]' in enter
+    assert 'ways = ["walk", "glide", "materialise"]' in enter
+    assert "const fresh = ways.filter((w) => w !== nmb.lastEnter);" in enter and "nmb.lastEnter = how;" in enter
+    assert "opacity: 1, offset: 0.5 }" in enter
+    # Reduced motion still fades in where it is.
+    assert "if (nameMarkBuddyNoTravel()) {" in enter
+
+
+def test_it_perches_on_every_library_view_and_on_a_board_never_in_the_air() -> None:
+    # INBOX 521, the owner: "the companion perching needs fixing for many of
+    # the library tabs as well as for the whiteboard and mindmap". Measured
+    # (perchall.js, 1536x864): 10 of 10 Library sub-tabs, board and map on a
+    # window bar before; on a dock, a card or the board's toolbar after, feet
+    # within 4px of a painted edge everywhere, and at 1440x900 and 390x844.
+    walk = _fn("nameMarkBuddySurfaceWalk")
+    # An open board's view is 0px tall round its toolbars: looked inside.
+    assert "if ((!box.width || !box.height) && depth < 8" in walk
+    # Only what paints is a surface; a canvas's own drawing is not walked.
+    assert "nameMarkBuddyPainted(cs)" in walk and "!nameMarkBuddyOverCanvas(child, true)" in walk
+    # A panel with its own dock holds cards; it is not a content card.
+    assert ":scope > .dock, :scope > [role='toolbar']" in _fn("nameMarkBuddyInsideCard")
+    # A toolbar over a canvas may be hung from.
+    assert 'type: "under", kind: "dock", y: box.bottom' in _fn("nameMarkBuddyEdges")
+    # Panels before the controls in them, and a dock looked at along its length.
+    perches = _fn("nameMarkBuddyPerches")
+    assert "sort((a, b) => ctl(a) - ctl(b))" in perches and 'kind === "dock" ? Math.min(30' in perches
+    # Another view in the same tab asks for a new perch, by preference.
+    assert "nmb.fresh = true;" in _fn("nameMarkBuddyViewChanged")
+    assert "fresh ? null : [nmb.x, nmb.y]" in _fn("nameMarkBuddyBeat")
+    # A panel found again by its path must be the same panel.
+    assert "again.className === g.cls" in _fn("nameMarkBuddyFollow")
+    # A peek ignores the bar's own buttons, not a button floating over it.
+    assert "if (box.top >= bar) continue;" in _fn("nameMarkBuddyHits")
+    # Reflowed over a control on resize, it moves at once.
+    assert "nameMarkBuddyRefitClear(buddy)" in _fn("nameMarkBuddyRefit")
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert " perchall " in gate
+
+
+def test_the_large_view_of_a_face_is_alive_like_the_companion() -> None:
+    # INBOX 591 (the owner: "the regular companion enlarged panel view has no
+    # life to it like with atlas and the companion itself"). Measured
+    # (scratchpad/ui-sweeps/atlasmo1005-viewerlife.js, a plain face, 2s): 3
+    # of 40 elements moved before (its 1.3px breath and a blink), and the
+    # pointer moved nothing (its face is not one of the faces on screen the
+    # follow listener nudges). Now its weight shifts, its head sways and its
+    # arms drift on clocks that never line up, each starting at rest, and its
+    # eyes and head turn to the pointer; under reduced motion, none of it.
+    gate = ':root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-viewer-figure > .nm-figure.nm-live {'
+    assert gate in CSS08
+    block = CSS08[CSS08.index(gate) : CSS08.index("\n  }\n", CSS08.index(gate))]
+    for rule in (
+        "& .nm-char { animation: nmv-shift 7.3s ease-in-out -3.65s infinite alternate; }",
+        "& .nm-char .nm-buddy-head { animation: nmv-head-sway 5.9s ease-in-out -2.95s infinite alternate; }",
+        "& .nmb-arm-l { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate; }",
+        "& .nmb-arm-r { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate-reverse; }",
+    ):
+        assert rule in block, rule
+    assert "translate: calc(var(--nmv-x) * 3.4px) calc(var(--nmv-y) * 2.6px);" in block
+    assert "rotate: calc(var(--nmv-x) * 7deg);" in block
+    reduce = CSS08[CSS08.index("/* INBOX 591: under the system's reduced-motion hint") :]
+    assert ".nm-viewer-figure > .nm-figure :is(.nm-char, .nm-buddy-head, .nmb-arm-l, .nmb-arm-r) { animation: none !important; }" in reduce[:800]
+    viewer = _fn("openNameMarkViewer")
+    # Attached only once the quiet check has returned, so reduced motion and
+    # Avatar animation off never follow; Faces follow the pointer off holds.
+    assert viewer.index("if (nameMarkIdleQuiet())") < viewer.index("nameMarkViewerFollow(overlay, figure)")
+    follow = _fn("nameMarkViewerFollow")
+    assert 'document.documentElement.dataset.avatarFollow === "off"' in follow
+    assert 'style.setProperty("--nmv-x"' in follow and "requestAnimationFrame" in follow

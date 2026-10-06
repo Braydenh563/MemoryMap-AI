@@ -4,6 +4,7 @@
 // tab that renders wrong, a console exception on load, a card that pushes
 // the page sideways.
 const { test, expect } = require("@playwright/test");
+const { openApp } = require("../helpers");
 
 // Mirrors app.js's own TABS array, minus "documents" — §36F replaced it with
 // Library in the nav bar rather than keeping both (see index.html's own
@@ -30,7 +31,7 @@ test.describe("every tab loads clean", () => {
         if (msg.type() === "error") consoleErrors.push(msg.text());
       });
 
-      await page.goto("/");
+      await openApp(page);
       await page.waitForSelector(`#tab-btn-${tab}`, { timeout: 15_000 });
       await page.click(`#tab-btn-${tab}`);
       await page.waitForTimeout(500); // let async loads (fetches, renders) settle
@@ -60,24 +61,8 @@ test.describe("every tab loads clean", () => {
   }
 });
 
-test("capturing a note makes it appear in Notes -> Browse", async ({ page }) => {
-  await page.goto("/");
-  await page.click("#tab-btn-notes");
-  // The Notes tab defaults to its "Your notes" (browse) sub-tab — the
-  // capture box lives under its own sub-tab and isn't visible until it's
-  // selected (index.html's #notes-subtabs, data-section="capture").
-  await page.click('[data-section="capture"]');
-  await page.waitForSelector("#entry-content", { timeout: 10_000 });
-
-  const marker = `E2E smoke-test note ${Date.now()}`;
-  await page.fill("#entry-content", marker);
-  await page.click("#save-btn");
-  await page.waitForTimeout(1000); // filing (even the fake AI path) is async
-
-  await page.click('[data-section="browse"]');
-  await page.waitForTimeout(300);
-  await expect(page.locator("#entry-list")).toContainText(marker, { timeout: 10_000 });
-});
+// Capturing a note is capture-filing.spec.js, which asserts far more than
+// that it appears in the list.
 
 // Reported with a screenshot: "I cant view older chat sessions, the
 // panel/page just appears blank." The header was right — title, model, token
@@ -98,28 +83,24 @@ test("opening a saved conversation renders its messages", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (err) => pageErrors.push(err.message));
 
-  await page.goto("/");
+  await openApp(page);
   await page.click("#tab-btn-chat");
   await page.waitForSelector("#chat-messages", { timeout: 15_000 });
 
   // A conversation has to exist to be reopened, and the empty state has to
-  // have been shown first — that is what lends `#chat-suggest` away, and a
-  // test that skipped it would pass against the bug.
-  const conversationId = await page.evaluate(async () => {
-    const list = await apiJson("/conversations");
-    return list.length ? list[0].id : null;
-  });
-  test.skip(conversationId === null, "no saved conversations in this profile");
-
-  await page.evaluate((id) => openConversation(id), conversationId);
-  await page.waitForTimeout(500);
-
-  const rendered = await page.evaluate(
-    () => document.getElementById("chat-messages").children.length
+  // have been shown first, which is what lends `#chat-suggest` away. The
+  // seeded notebook has none and no model is running to make one, so it is
+  // saved through the API, the way the chat saves a turn: before this the
+  // test skipped itself on every CI run and could not fail.
+  const made = await page.evaluate(() =>
+    apiJson("/conversations", {
+      method: "POST",
+      body: JSON.stringify({ question: "Where did I put the spare key?", answer: "Under the blue pot by the door." }),
+    })
   );
-  expect(
-    rendered,
-    "a saved conversation opened with an empty transcript — see openConversation's #chat-suggest comment"
-  ).toBeGreaterThan(0);
+  await page.evaluate((id) => openConversation(id), made.id);
+  const messages = page.locator("#chat-messages");
+  await expect(messages, "a saved conversation opened with an empty transcript").toContainText("Under the blue pot");
+  await expect(messages).toContainText("spare key");
   expect(pageErrors, `uncaught exceptions: ${pageErrors.join("; ")}`).toEqual([]);
 });

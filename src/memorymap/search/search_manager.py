@@ -14,8 +14,10 @@ import difflib
 import importlib
 import logging
 import re
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
@@ -275,6 +277,75 @@ def configured_thresholds() -> tuple[float, float]:
     )
 
 
+#: **Speculative retrieval** (WORLD_CLASS_PLAN H9, row 27). The question's
+#: vector, kept by its exact text for the backend that made it: the Ask box
+#: and the chat box send the words on a typing pause (`POST /search/warm`), so
+#: the embedding call, the slow part of a search with a model behind it, is
+#: already done when Enter arrives and the first token comes that much
+#: sooner. A miss costs nothing: the vector is made here as it always was.
+#: Kept on the embedding service itself, so two services (a reindex to a new
+#: width, a test's fake) can never be handed each other's vectors.
+_QUERY_VECTOR_CACHE = 64
+_query_lock = threading.Lock()
+
+
+def query_vector(embeddings: EmbeddingService, query: str):  # noqa: ANN201
+    """The vector for `query`, from the cache when it was warmed."""
+    key = (embeddings.backend_id(), query)
+    with _query_lock:
+        cache = embeddings.__dict__.setdefault("_query_vectors", OrderedDict())
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key]
+    vector = embeddings.embed_text(query)
+    if vector is not None:
+        with _query_lock:
+            cache[key] = vector
+            while len(cache) > _QUERY_VECTOR_CACHE:
+                cache.popitem(last=False)
+    return vector
+
+
+def warm(session: Session, query: str, embeddings: EmbeddingService) -> bool:
+    """Embed what `_retrieve` will embed for `query`, ahead of Enter.
+
+    The same subject `_retrieve` searches for (the question's scaffolding and
+    its time phrase taken off by `search/query.py`), so the vector warmed is
+    the vector asked for. False when there is nothing to warm.
+
+    **A model not yet loaded is loaded now, in the background.** Measured on a
+    fresh install (`scratchpad/ui-sweeps/inv1005-firstrun.js`): an empty
+    notebook skips the launch warm-up (`embeddings.start_warmup`), so the
+    first question paid the embedding model's cold load, 15 of the 17 s to
+    the first answer. The Ask box asks for this as soon as it is typed in, so
+    the load overlaps the person's typing instead of following their Enter.
+    """
+    if not embeddings.is_ready():
+        if not getattr(embeddings, "_warm_loading", False):
+            try:
+                embeddings._warm_loading = True
+            except AttributeError:
+                return False
+
+            def load() -> None:
+                try:
+                    embeddings.embed_text("warm up")
+                except Exception:  # noqa: BLE001  # the real search reports a broken model
+                    logger.debug("warm: the embedding model did not load", exc_info=True)
+                finally:
+                    embeddings._warm_loading = False
+
+            from memorymap.core import jobs
+
+            jobs.enqueue("warm", load, name="warm the search model", dedupe_key="search-warm")
+        return False
+    asked = query_understanding.understand(query, _user_today(session))
+    subject = asked.subject or query
+    if is_recency_ask(query) or asked.time_only or len(subject.strip()) < 3:
+        return False
+    return query_vector(embeddings, subject) is not None
+
+
 def semantic_search(
     session: Session,
     query: str,
@@ -298,11 +369,11 @@ def semantic_search(
     `Entry` fetched."""
     import numpy as np
 
-    query_vector = embeddings.embed_text(query)
-    if query_vector is None:
+    query_vec = query_vector(embeddings, query)
+    if query_vec is None:
         return None
 
-    query_norm = float(np.linalg.norm(query_vector))
+    query_norm = float(np.linalg.norm(query_vec))
     if query_norm == 0:
         return []
 
@@ -315,9 +386,9 @@ def semantic_search(
     # what is stored now. The table scan below stays as the fallback, for a
     # query at a width the matrix does not hold (the minority side of a
     # half-finished reindex) or a matrix that cannot be had at all.
-    scored = _score_from_matrix(session, query_vector, query_norm, embeddings.backend_id())
+    scored = _score_from_matrix(session, query_vec, query_norm, embeddings.backend_id())
     if scored is None:
-        scored = _score_from_table(session, query_vector, query_norm, embeddings.backend_id())
+        scored = _score_from_table(session, query_vec, query_norm, embeddings.backend_id())
     if scored is None:
         return []
     entry_ids, scores, valid = scored
@@ -409,6 +480,12 @@ def _score_from_matrix(session: Session, query_vector, query_norm: float, backen
     # other work running, 0.45 ms through `einsum`, 0.3 ms either way on one
     # thread). One core at memory speed is all this needs.
     scores = np.einsum("ij,j->i", rows, np.asarray(query_vector, dtype="float32") / np.float32(query_norm))
+    # **A long note scores on its best paragraph too** (row 6, §14 item 3):
+    # its own vector averages every subject it covers, so one paragraph about
+    # the question used to rank below a short note that only brushed it.
+    scores = importlib.import_module("memorymap.search.chunks").lift(
+        session, backend_id, query_vector, ids, scores
+    )
     return ids, scores, live
 
 
@@ -829,7 +906,32 @@ def retrieve(
     return _retrieve(session, query, embeddings, limit, expand_graph, {})
 
 
+#: How the most recent search found its notes, for Settings' one-line answer
+#: to "is search by meaning working" (INBOX 431 (3), the owner: "half the time
+#: I can't tell if it is working or how well"). Process-wide and overwritten,
+#: never a log: the question is only ever about the last one.
+_last_search: dict = {}
+
+
+def last_search() -> dict:
+    """`{"mode": "hybrid"|"semantic"|"keyword", "at": ISO time}`, or {}."""
+    return dict(_last_search)
+
+
 def _rank(
+    semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
+) -> tuple[list[Entry], str]:
+    ranked, mode = _rank_inner(semantic, keyword, limit)
+    note_search_mode(mode)
+    return ranked, mode
+
+
+def note_search_mode(mode: str) -> None:
+    """Record how a search found its notes (the box's engine calls this too)."""
+    _last_search.update(mode=mode, at=datetime.now(timezone.utc).isoformat())
+
+
+def _rank_inner(
     semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
 ) -> tuple[list[Entry], str]:
     """Combine a semantic and a keyword result list into one ranked answer,
@@ -858,6 +960,96 @@ def _rank(
     return keyword[:limit], "keyword"
 
 
+_RECENCY_ASK = re.compile(
+    r"\b(?:last|latest|newest|most recent|recent)\s+(?:\w+\s+){0,2}?(?:note|notes|entry|entries|thing i (?:wrote|saved|added))\b"
+    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)$"
+    #: "What have I saved recently?" (INBOX 441): the whole question is the
+    #: verb and the time word, nothing between them to search for. A topic
+    #: in between ("written about golf recently") stays a search.
+    r"|^what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)$",
+    re.IGNORECASE,
+)
+
+
+def is_recency_ask(query: str) -> bool:
+    r"""Whether a question asks for the newest notes rather than a subject.
+
+    The trailing whitespace and closing marks are stripped here, in code,
+    so the pattern ends on a word and `$` with no quantifier before it:
+    any `\s*` (or `[\s?.!]*`) ahead of `$` backtracks over a run of tabs
+    on every start position `search` tries (CodeQL 443 and 445, the second
+    after a 300-character slice the analysis cannot see). Read on the first
+    300 characters: a recency question is short.
+    """
+    return bool(_RECENCY_ASK.search(query[:300].strip().rstrip("?.! \t\r\n")))
+
+
+#: The words a question about a whole category is made of besides the
+#: category's own name: "Summarise my notes in Health" is nothing but these,
+#: so it asks for the category, not for notes about some subject in it.
+_CATEGORY_ONLY_WORDS = frozenset(
+    "summarise summarize summary sum up recap overview what whats say says said "
+    "have has i ive my me all every the a an of in under from about do does did "
+    "notes note entries entry saved written wrote tell give show list category".split()
+)
+
+
+def _named_category(session: Session, query: str):
+    """The category a question names as where its notes are, or None.
+
+    "notes in Health", "under Work", "my Travel notes", "the Cooking
+    category": the app suggests "Summarise my notes in Health." itself, and
+    retrieval answered it from whatever matched the words, other categories
+    included (tests/test_ask_category_scope.py). A bare word is not enough:
+    "how does the physio work" names no category, so the name has to be
+    framed as a place ("in", "under", "from") or as a kind of note ("my Work
+    notes"). Answers `(category, the question with that phrase taken out)`.
+    """
+    from memorymap.core.database import Category
+    from memorymap.entry import manager
+
+    try:
+        categories = list(session.scalars(select(Category)))
+    except Exception:  # noqa: BLE001
+        return None
+    for category in sorted(categories, key=lambda c: -len(c.name or "")):
+        name = (category.name or "").strip()
+        if not name or name == manager.UNCATEGORISED:
+            continue
+        named = re.escape(name)
+        for pattern in (
+            rf"\b(?:in|under|from|filed under)\s+(?:my\s+|the\s+)?{named}\b(?:\s+(?:category|notes?))?",
+            rf"\b(?:my|the)\s+{named}\s+(?:notes?|category)\b",
+        ):
+            match = re.search(pattern, query, re.IGNORECASE)
+            if match:
+                rest = (query[: match.start()] + " " + query[match.end() :]).strip()
+                return category, rest
+    return None
+
+
+def _category_only(rest: str) -> bool:
+    """Whether what is left of the question asks for nothing narrower."""
+    words = re.findall(r"[a-z']+", rest.lower().replace("'", ""))
+    return all(word in _CATEGORY_ONLY_WORDS or len(word) < 3 for word in words)
+
+
+def _category_notes(session: Session, category_id: int, limit: int) -> list[Entry]:
+    """A category's notes, newest first."""
+    return list(
+        session.scalars(
+            select(Entry)
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                Entry.category_id == category_id,
+            )
+            .order_by(Entry.created_at.desc(), Entry.id.desc())
+            .limit(limit)
+        )
+    )
+
+
 def _retrieve(
     session: Session,
     query: str,
@@ -876,6 +1068,14 @@ def _retrieve(
     found["until"] = asked.until
     found["when_phrase"] = asked.when_phrase
     found["connected"] = set()
+    #: **"My last note" is an order, not a subject** (the owner at release,
+    #: wrapup-0927 10 n: "Show me my last entry" answered with an older
+    #: note). Searched by meaning, "last entry" matches whatever note talks
+    #: about entries; the question is about when. The newest notes, newest
+    #: first, and the prompt now carries each note's dates, so the answer
+    #: can say which is newest written and which was last edited.
+    if is_recency_ask(query):
+        return _without_private(recent_entries(session, limit=min(limit, RECENT_FALLBACK_LIMIT))), "recent"
     if asked.time_only:
         # Nothing but a date range: list it. Ranking by similarity here would
         # be ranking noise, and the honest answer to "what did I write last
@@ -886,6 +1086,16 @@ def _retrieve(
         # An empty week is a real answer, but an empty *list* looks like a
         # failure: fall through so the caller still gets recent notes.
 
+    #: **A named category is a scope** (`_named_category`). A question that
+    #: asks for the whole category lists it; one with a subject searches
+    #: inside it, and lists it when nothing inside matches.
+    scoped = _named_category(session, query)
+    if scoped is not None:
+        scope, rest = scoped
+        found["category"] = scope.name
+        if _category_only(rest):
+            return _without_private(_category_notes(session, scope.id, max(limit, 10))), "category"
+
     # Searching for the subject rather than the sentence. Falls back to the
     # whole question when stripping left nothing to search for.
     subject = asked.subject or query
@@ -895,6 +1105,10 @@ def _retrieve(
         min_similarity=_min_sim, relative_z_margin=_z_margin,
     )
     keyword = keyword_search(session, subject, limit=FUSION_DEPTH)
+    if scoped is not None:
+        if semantic is not None:
+            semantic = [(entry, score) for entry, score in semantic if entry.category_id == scope.id]
+        keyword = [entry for entry in keyword if entry.category_id == scope.id]
     # Kept before the range narrows them below, so a subject match outside
     # the stated window is still reachable as a fallback (see "outside the
     # window you named" further down) without a second, identical search.
@@ -936,6 +1150,9 @@ def _retrieve(
             semantic = sorted(semantic, key=lambda pair: _written_at(pair[0]), reverse=True)
 
     entries, mode = _rank(semantic, keyword, limit)
+
+    if not entries and scoped is not None:
+        return _without_private(_category_notes(session, scope.id, max(limit, 10))), "category"
 
     if not entries:
         # Nothing matched. The "never look empty" fallback is recent notes, 
@@ -1021,7 +1238,9 @@ def _retrieve(
             match_info[entry.id] = {"type": "semantic", "score": round(sem_scores[entry.id], 2)}
         elif matched_terms:
             match_info[entry.id] = {"type": "keyword", "terms": matched_terms}
-    if expand_graph and entries:
+    #: Not across a scope: a neighbour from another category is exactly the
+    #: stray a question about one category must not be answered with.
+    if expand_graph and entries and scoped is None:
         # Appended, never interleaved: a connected note is context and a match
         # is an answer, and a prompt that has to drop something should drop the
         # context first. The order encodes that.

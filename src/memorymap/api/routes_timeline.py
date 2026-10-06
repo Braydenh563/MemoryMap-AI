@@ -28,7 +28,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, String, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Document, Entry, EntryDate, Reminder, Space, utcnow
@@ -48,7 +48,12 @@ SCALES = {"day": 1, "week": 7, "month": 30, "year": 365}
 MAX_BANDS = 8
 OTHER_BAND = "Everything else"
 
-PREVIEW_CHARS = 120
+#: A row's title is the first line of this, and the row's own CSS ellipsis is
+#: what should cut it, at the row's edge. At 120 the cut came first: at 1440 a
+#: 1248px title ended "...borrows as loans. #learn…" at x=896, with 430px of
+#: empty row before the time (INBOX 464). 240 fills the widest row; the grid
+#: and the band cards clamp their own lines.
+PREVIEW_CHARS = 240
 
 #: How many rows one request draws, and the ceiling on asking for more.
 #:
@@ -69,19 +74,6 @@ def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     genuinely had less text than the note, and nothing on screen said that.
     """
     return text if len(text) <= limit else text[: limit - 1] + "…"
-
-
-def _encode_cursor(at: datetime, entry_id: int) -> str:
-    """`created_at|id`, base64url.
-
-    Opaque on purpose, and URL-safe by construction rather than by everyone who
-    builds a link remembering to encode it: the plain form ends in a `+00:00`
-    offset for any row saved with a timezone, and a `+` in a query string is a
-    space by the time it reaches here. That is a 422 on the second page of a
-    notebook and on nothing else, which is exactly the kind of fault that gets
-    found in a week rather than in a test.
-    """
-    return base64.urlsafe_b64encode(f"{at.isoformat()}|{entry_id}".encode()).decode()
 
 
 def _decode_cursor(cursor: str) -> str:
@@ -116,7 +108,7 @@ def _requested_kinds(kind: str | None) -> tuple[str, ...]:
     unknown = [name for name in asked if name not in KINDS]
     if unknown or not asked:
         raise HTTPException(
-            status_code=422, detail=f"kind must be one or more of {', '.join(KINDS)}"
+            status_code=422, detail=f"Pick one or more of: {', '.join(KINDS)}."
         )
     #: Deduplicated in the declared order, so `kind=board,note` and
     #: `kind=note,board` are the same request and cache the same way.
@@ -201,6 +193,24 @@ def _place_notes(
         mention = resolved.get(entry.id)
         at = mention.at if mention else entry.created_at
         text = manager.readable_content(entry)
+        #: **A mentioned day is a day, not an instant** (audit 2026-10-05,
+        #: UX-02). `EntryDate.at` is the writer's own calendar day (and the
+        #: clock they said with it, if any), with no zone. Served as
+        #: `...T00:00:00+00:00` it was read as UTC midnight, which a browser
+        #: west of UTC draws on the evening before: the dentist "on Friday"
+        #: sat under Thursday 8:00 PM in New York. So a day row carries the
+        #: date alone, and a row whose note said "at 3pm" carries that clock
+        #: with no offset; the view groups and draws both as written.
+        timed = bool(mention) and mention.precision == "minute"
+        if mention:
+            when = {
+                "at": at.strftime("%Y-%m-%dT%H:%M:%S") if timed else at.date().isoformat(),
+                "date": at.date().isoformat(),
+                "time": at.strftime("%H:%M") if timed else None,
+                "all_day": not timed,
+            }
+        else:
+            when = {"at": at.isoformat()}
         placed.append(
             {
                 "id": entry.id,
@@ -212,7 +222,7 @@ def _place_notes(
                 "kind": "board" if entry.is_board else "note",
                 "key": f"{'board' if entry.is_board else 'note'}:{entry.id}",
                 "_at": _naive(at),
-                "at": at.isoformat(),
+                **when,
                 "bucket": _bucket_start(at, scale),
                 # Said out loud so the view can be honest: this note is here
                 # because of what it talks about, not when it was typed.
@@ -334,6 +344,12 @@ def timeline(
     #: Which kinds of thing the feed holds (TIMELINE_PLAN decision 9). Comma
     #: separated, omitted for all four.
     kind: str | None = None,
+    #: "On this day" (TIMELINE_PLAN section 8): `MM-DD`, what was written on
+    #: that calendar day in an earlier month or year, in the reader's own day
+    #: (`tz`, minutes east of UTC), today itself left out. The Dashboard's On
+    #: this day widget's rule, so the two never disagree.
+    on: str | None = Query(default=None, pattern=r"^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"),
+    tz: int = Query(default=0, ge=-840, le=840),
     session: Session = Depends(get_session),
 ) -> dict:
     """The notebook on a time axis, in bands.
@@ -346,15 +362,15 @@ def timeline(
     kinds = _requested_kinds(kind)
     if scale not in SCALES:
         raise HTTPException(
-            status_code=422, detail=f"scale must be one of {', '.join(SCALES)}"
+            status_code=422, detail=f"Pick one of: {', '.join(SCALES)}."
         )
     if group not in ("category", "tag", "thread", "none"):
         raise HTTPException(
-            status_code=422, detail="group must be category, tag, thread or none"
+            status_code=422, detail="Pick one of: category, tag, thread, none."
         )
 
     if limit < 1 or limit > MAX_PAGE:
-        raise HTTPException(status_code=422, detail=f"limit must be between 1 and {MAX_PAGE}")
+        raise HTTPException(status_code=422, detail=f"Ask for between 1 and {MAX_PAGE} items at a time.")
 
     query = select(Entry).where(
         Entry.is_deleted == False,  # noqa: E712
@@ -377,15 +393,25 @@ def timeline(
             since = datetime.fromisoformat(start)
             until = datetime.fromisoformat(end)
         except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid date format for start/end")
+            raise HTTPException(status_code=422, detail="Write the start and end as dates, like 2026-10-04.")
     elif days > 0:
         since = utcnow() - timedelta(days=days)
+
+    shift = f"{tz:+d} minutes"
+    today_here = (utcnow() + timedelta(minutes=tz)).date().isoformat()
 
     def in_range(statement: Select, column) -> Select:
         if since is not None:
             statement = statement.where(column >= since)
         if until is not None:
             statement = statement.where(column <= until)
+        if on:
+            #: The stored instant moved into the reader's day, then compared
+            #: by month and day; today's own rows are not a memory.
+            statement = statement.where(
+                func.strftime("%m-%d", column, shift) == on,
+                func.strftime("%Y-%m-%d", column, shift) != today_here,
+            )
         return statement
 
     query = in_range(query, Entry.created_at)
@@ -407,7 +433,7 @@ def timeline(
         try:
             marks = _decode_marks(cursor)
         except (ValueError, binascii.Error, TypeError):
-            raise HTTPException(status_code=422, detail="Invalid cursor")
+            raise HTTPException(status_code=422, detail="That page marker is not valid. Reload the timeline and try again.")
 
     def page_of(statement: Select, column, id_column, source: str) -> list:
         """One source's next `limit + 1` rows, oldest mark honoured.
@@ -526,30 +552,13 @@ def timeline(
         "scale": scale,
         "group": group,
         "kinds": list(kinds),
-        #: **The rows, under the name they deserve**, and under the old one
-        #: for one release. The key said `notes` from the days when the feed
-        #: held only notes; it has held boards since mind maps existed and
-        #: holds documents and reminders since Phase 4, so a reader of this
-        #: response had to know that `notes[3]` might be a reminder.
-        #:
-        #: Both keys, same list, because of the one caller that can be older
-        #: than this server: the app's own frontend, served from a cache. A
-        #: desktop window or a service worker holding a previous build's
-        #: `app.js` asks this endpoint the moment it opens the tab, and
-        #: `body.notes.map` on an undefined would empty the Timeline with no
-        #: error on screen (CLAUDE.md section 5 records what that class of bug
-        #: costs to diagnose). The duplicate is measured rather than assumed,
-        #: against a 2,000-note notebook with 600 documents and 600 reminders
-        #: in it: a full 300-row page is 263,828 bytes of JSON with both keys
-        #: against 140,096 with one, and 22,278 bytes against 13,764 over the
-        #: wire, the response being gzipped. Eight and a half kilobytes a page
-        #: to a server on the same machine, for one release, against a
-        #: Timeline that silently draws nothing.
-        #:
-        #: **Drop `notes` in the release after 0.3.0**, once no cached build
-        #: that reads it can still be talking to this server.
+        #: **The rows.** The key said `notes` from the days when the feed held
+        #: only notes, and both keys carried the same list for the releases
+        #: a cached build might still read `notes` (the plan was to drop it
+        #: after 0.3.0). Dropped on 0.3.32 (audit 2026-10-05, ARCH-11): at
+        #: 5,000 notes it was 175 KB of the 350 KB page, built and encoded
+        #: twice, for a frontend that reads `rows` only.
         "rows": placed,
-        "notes": placed,
         #: Bands are a property of notes (a category, a tag, a thread), so they
         #: are counted over the rows that have those and not over the feed.
         "bands": _bands([row for row in placed if row["kind"] in ("note", "board")], group),
@@ -591,26 +600,25 @@ def _density(session: Session, ranged: Select) -> dict[str, int]:
     stays affordable at a size where fetching every row would not, which is the
     whole reason the view is paged.
     """
-    dates = session.execute(
-        ranged.with_only_columns(Entry.id, Entry.created_at).order_by(None)
-    ).all()
-    if not dates:
-        return {}
-    mentioned: dict[int, datetime] = {}
-    rows = session.execute(
-        select(EntryDate.entry_id, EntryDate.at)
-        .where(EntryDate.entry_id.in_([entry_id for entry_id, _ in dates]))
+    #: Counted in SQL (audit 2026-10-05, ARCH-11): this read every note's id
+    #: and date and then sent all 5,000 ids back as `IN (...)` parameters for
+    #: the mentioned dates, 78 ms of a 179 ms page. A note's first mentioned
+    #: date (lowest id, as before) is a correlated read served by the
+    #: `entry_id` index; dates are stored as naive UTC text, so the day is its
+    #: first ten characters, which is what `.date()` gave on the row.
+    first_mentioned = (
+        select(EntryDate.at)
+        .where(EntryDate.entry_id == Entry.id)
         .order_by(EntryDate.id)
+        .limit(1)
+        .correlate(Entry)
+        .scalar_subquery()
+    )
+    day = func.substr(func.coalesce(first_mentioned, Entry.created_at), 1, 10, type_=String)
+    rows = session.execute(
+        ranged.with_only_columns(day.label("day"), func.count()).order_by(None).group_by("day")
     ).all()
-    for entry_id, at in rows:
-        mentioned.setdefault(entry_id, at)
-
-    counts: dict[str, int] = {}
-    for entry_id, created_at in dates:
-        when = mentioned.get(entry_id, created_at)
-        day = when.date().isoformat()
-        counts[day] = counts.get(day, 0) + 1
-    return counts
+    return {str(when): int(count) for when, count in rows if when}
 
 
 def _bands(notes: list[dict], group: str) -> list[dict]:

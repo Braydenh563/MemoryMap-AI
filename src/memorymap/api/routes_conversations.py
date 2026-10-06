@@ -7,8 +7,11 @@ turn here: keeping the streaming path simple and the history durable.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -129,6 +132,19 @@ class TurnBody(BaseModel):
     #: there is nothing to migrate: a reply saved before this has no key and
     #: reads as the default assistant. Bounded as a name, not a prompt.
     persona: str | None = Field(default=None, max_length=80)
+    #: The question whose suggested follow-up this one was, as its words (INBOX
+    #: 490: "hyperlinked bread crumbs ... if a suggested follow suggested
+    #: question is used"). Words rather than a turn index, because deleting a
+    #: turn renumbers every turn after it and an index would then point at the
+    #: wrong question; the page walks back to the nearest earlier question
+    #: with these words, and a deleted one simply ends the trail there.
+    followup_of: str | None = Field(default=None, max_length=4000)
+    #: Words for the pictures of the notes this answer drew on, by url, as
+    #: the stream's `meta` sent them (INBOX 502, `routes_chat._picture_alts`),
+    #: so a reopened chat's thumbnails keep their alt text.
+    picture_alts: dict[str, str] | None = Field(default=None, max_length=40)
+    #: Their [width, height] (INBOX 526), so a reopened figure holds its space.
+    picture_sizes: dict[str, list[int]] | None = Field(default=None, max_length=40)
 
 
 class RenameBody(BaseModel):
@@ -158,6 +174,16 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["search_mode"] = turn.search_mode
         assistant["match_info"] = turn.match_info or {}
         assistant["connected_ids"] = turn.connected_ids or []
+    if turn.picture_alts:
+        assistant["picture_alts"] = {
+            url[:300]: str(words)[:160] for url, words in turn.picture_alts.items() if url.startswith("/media/")
+        }
+    if turn.picture_sizes:
+        assistant["picture_sizes"] = {
+            url[:300]: [int(n) for n in size[:2]]
+            for url, size in turn.picture_sizes.items()
+            if url.startswith("/media/") and len(size) >= 2
+        }
     if turn.sentence_grounding:
         assistant["sentence_grounding"] = turn.sentence_grounding
         #: How much of the answer the notebook backs, from the one counter
@@ -180,6 +206,9 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         user["file_ids"] = turn.file_ids
     if turn.note_ids:
         user["note_ids"] = turn.note_ids
+    followup_of = (turn.followup_of or "").strip()
+    if followup_of:
+        user["followup_of"] = followup_of
     return [user, assistant]
 
 
@@ -203,7 +232,7 @@ def _summary(conversation: Conversation) -> dict:
 
 
 def _existing(session: Session, conversation_id: int) -> Conversation:
-    return deps.get_or_404(session, Conversation, conversation_id, "Conversation not found")
+    return deps.get_or_404(session, Conversation, conversation_id, "That conversation could not be found.")
 
 
 def _process_committed_media(session: Session, turn: TurnBody) -> None:
@@ -260,6 +289,7 @@ def list_conversations(
     q: str = "",
     limit: int = Query(default=CONVERSATIONS_PAGE_SIZE, ge=1, le=MAX_CONVERSATIONS_PAGE),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """Pinned first, then most recently used, one page at a time.
@@ -279,6 +309,7 @@ def list_conversations(
     two chats sharing an `updated_at` could otherwise swap places between two
     pages and hide one of them.
     """
+    offset = paging.start(cursor, offset)
     term = (q or "").strip()
     # Archived chats are kept, but out of the way, same shape as an
     # archived note dropping out of the Notes tab. Reachable via the
@@ -298,6 +329,7 @@ def list_conversations(
             )
         )
         response.headers["X-Total-Count"] = str(total)
+        paging.finish(response, offset, limit, total)
         return [_summary(c) for c in rows]
 
     # A cheap SQL prefilter, which over-matches (JSON keys count as text), so
@@ -317,6 +349,7 @@ def list_conversations(
     )
     matched = [c for c in candidates if conversation_matches(c, term)]
     response.headers["X-Total-Count"] = str(len(matched))
+    paging.finish(response, offset, limit, len(matched))
     return [_summary(c) for c in matched[offset : offset + limit]]
 
 
@@ -601,7 +634,7 @@ def delete_turn(
     messages = json.loads(conversation.messages)
     start = index * 2
     if index < 0 or start >= len(messages):
-        raise HTTPException(status_code=404, detail="Turn not found")
+        raise HTTPException(status_code=404, detail="That turn could not be found.")
     del messages[start : start + 2]
     if not messages:
         log_action(session, "deleted", "conversation", conversation.id)
@@ -820,7 +853,7 @@ def edit_answer(
     messages = json.loads(conversation.messages)
     position = index * 2 + 1  # user, assistant, user, assistant, …
     if index < 0 or position >= len(messages):
-        raise HTTPException(status_code=404, detail="Turn not found")
+        raise HTTPException(status_code=404, detail="That turn could not be found.")
     messages[position]["content"] = body.content
     messages[position]["edited"] = True
     steps = _rewrite_answer_steps(messages[position].get("steps"), body.content)
@@ -847,7 +880,62 @@ def delete_conversation(
     conversation_id: int, session: Session = Depends(get_session)
 ) -> dict:
     conversation = _existing(session, conversation_id)
+    # The whole row, for Undo to send back to `POST /conversations/restore`
+    # (undo-1005): a chat is one row, so this is all of it.
+    kept = {
+        "id": conversation.id,
+        "title": conversation.title,
+        "messages": conversation.messages,
+        "pinned": bool(conversation.pinned),
+        "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
+        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+        "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
+        "workspace_id": conversation.workspace_id,
+    }
     log_action(session, "deleted", "conversation", conversation.id)
     session.delete(conversation)
     session.commit()
-    return {"deleted": True}
+    return {"deleted": True, "restore": kept}
+
+
+class RestoreBody(BaseModel):
+    id: int
+    title: str = Field(max_length=120)
+    messages: str
+    pinned: bool = False
+    archived_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    workspace_id: str | None = Field(default=None, max_length=60)
+
+
+@router.post("/restore", status_code=201)
+def restore_conversation(body: RestoreBody, session: Session = Depends(get_session)) -> dict:
+    """Undo a chat's delete (undo-1005): the row its DELETE answered with,
+    under its own id and in its own space. Refused while that id is taken,
+    so a second Undo cannot make a copy."""
+    try:
+        messages = json.loads(body.messages)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="That chat's turns could not be read.") from error
+    if not isinstance(messages, list):
+        raise HTTPException(status_code=422, detail="That chat's turns could not be read.")
+    table = Conversation.__table__
+    if session.execute(select(table.c.id).where(table.c.id == body.id)).first():
+        raise HTTPException(status_code=409, detail="That conversation is already here.")
+    def plain(when: datetime | None) -> datetime | None:
+        return when.replace(tzinfo=None) if when else None
+
+    conversation = Conversation(
+        id=body.id, title=body.title, messages=body.messages, pinned=body.pinned,
+        archived_at=plain(body.archived_at),
+        created_at=plain(body.created_at) or utcnow(),
+        updated_at=plain(body.updated_at) or utcnow(),
+    )
+    if body.workspace_id:
+        conversation.workspace_id = body.workspace_id
+    session.add(conversation)
+    session.flush()
+    log_action(session, "restored", "conversation", conversation.id)
+    session.commit()
+    return _summary(conversation)

@@ -115,20 +115,17 @@ const { boot } = require('./lib.js');
   const density = {};
   for (const want of ['full', 'compact', 'focused']) {
     density[want] = await page.evaluate(async (value) => {
-      //: A select now, not a segmented control: the three segments sat taller
-      //: than the buttons beside them and none read as chosen.
-      const seg = document.getElementById('dash-density');
-      if (seg) {
-        seg.value = value;
-        seg.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      //: The View choice moved into the dashboard's one ⋯ menu (INBOX 436);
+      //: the function behind its three items is what is driven here.
+      const seg = null;
+      if (typeof applyDashDensity === 'function') applyDashDensity(value);
       await new Promise((r) => setTimeout(r, 500));
       const grid = document.getElementById('dash-grid');
       const page_ = document.getElementById('tab-dashboard');
       const find = document.getElementById('dash-find');
       return {
         attr: page_?.dataset.density,
-        pressed: seg ? [seg.value] : [],
+        pressed: [],
         //: The control has to line up with the two buttons beside it: as a
         //: `.seg` it stood taller than both, which is what the report saw.
         alignedWithToolbar: (() => {
@@ -221,9 +218,6 @@ const { boot } = require('./lib.js');
   if (scrolling.overflowY !== 'auto' && scrolling.overflowY !== 'scroll') findings.push(`the results list does not scroll (overflow-y: ${scrolling.overflowY})`);
   for (const [name, read] of Object.entries(density)) {
     if (read.attr !== name) findings.push(`density ${name} did not take (attribute is ${read.attr})`);
-    if (read.pressed.length !== 1 || read.pressed[0] !== name) {
-      findings.push(`density ${name}: ${read.pressed.length} segment(s) read as pressed, ${JSON.stringify(read.pressed)}`);
-    }
     if (!read.findVisible) findings.push(`the search field is hidden in ${name}, and it is the one thing every density keeps`);
     if (read.alignedWithToolbar === false) findings.push(`the view picker does not line up with the toolbar buttons beside it in ${name}`);
   }

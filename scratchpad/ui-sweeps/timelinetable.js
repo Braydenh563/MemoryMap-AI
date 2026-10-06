@@ -136,17 +136,15 @@ const check = (label, ok, detail) => {
   const tagged = await page.evaluate(async (ids) => {
     document.getElementById('timeline-batch-tag').click();
     await new Promise((r) => setTimeout(r, 400));
-    // `promptDialog` builds its own overlay per call (app.js): find the one
-    // that is actually open rather than the first `.modal-card` in the page,
-    // which is a settings dialog that has never been shown.
-    const card = [...document.querySelectorAll('.prompt-card')].pop();
-    if (!card) return { ok: false, why: 'no prompt dialog' };
+    // INBOX 447: Tags opens the bulk dialog (tag-manager.js, a sheet).
+    const card = document.querySelector('.sheet-overlay[data-sheet="bulk-tags"]');
+    if (!card) return { ok: false, why: 'no bulk tag dialog' };
     const input = card.querySelector('input[type="text"]');
-    if (!input) return { ok: false, why: 'no field in the prompt dialog' };
+    if (!input) return { ok: false, why: 'no field in the dialog' };
     input.value = 'sweepmark';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    const confirm = [...card.querySelectorAll('button')].find((b) => /add tag/i.test(b.textContent));
-    if (!confirm) return { ok: false, why: 'no confirm button' };
+    const confirm = card.querySelector('button[type="submit"]');
+    if (!confirm) return { ok: false, why: 'no apply button' };
     confirm.click();
     await new Promise((r) => setTimeout(r, 1500));
     const out = [];
@@ -183,6 +181,29 @@ const check = (label, ok, detail) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/timeline-table-1440.png` });
+
+  // Crossing the 599.98px mode breakpoint without a reload leaves one view's
+  // rows in the DOM, not two (found 2026-09-23: 113 rows read as 226, because
+  // the hidden mode kept its rows). No stored choice, so the width decides.
+  await page.evaluate(() => { try { localStorage.removeItem('timeline-view'); } catch {} });
+  const rowCount = () => page.evaluate(() => ({
+    rows: document.querySelectorAll('#timeline-scroll .timeline-row').length,
+    feed: document.querySelectorAll('#timeline-feed .timeline-row').length,
+    table: document.querySelectorAll('#timeline-table-body .timeline-row').length,
+  }));
+  const crossings = [];
+  for (const [width, height] of [[1440, 900], [1024, 768], [390, 844], [1440, 900], [390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(300);
+    // switchTab, not a click: the phone's tab bar has no [data-tab] buttons.
+    await page.evaluate(() => switchTab('notes'));
+    await page.evaluate(() => switchTab('timeline'));
+    await page.waitForTimeout(700);
+    crossings.push({ width, ...(await rowCount()) });
+  }
+  check('crossing the feed/table breakpoint never doubles the rows',
+    crossings.every((c) => c.rows > 0 && c.rows === c.feed + c.table && (c.feed === 0 || c.table === 0)),
+    crossings.map((c) => `${c.width}:feed=${c.feed},table=${c.table}`).join(' '));
 
   await browser.close();
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');

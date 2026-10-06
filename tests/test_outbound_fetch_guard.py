@@ -176,7 +176,13 @@ def test_the_guard_refuses_every_way_in(monkeypatch):
 
     # The families of address that are local without being 127.0.0.1: the
     # LAN, link-local, and the cloud metadata service.
-    for address in ("10.0.0.5", "192.168.1.7", "169.254.169.254", "::1"):
+    # And the shared address space (100.64.0.0/10: carrier-grade NAT, Tailscale
+    # nodes, Alibaba Cloud's metadata service at 100.100.100.200), which Python
+    # does not call private, and the IPv4-mapped form of a private address.
+    for address in (
+        "10.0.0.5", "192.168.1.7", "169.254.169.254", "::1",
+        "100.64.0.1", "100.100.100.200", "198.18.0.1", "::ffff:10.0.0.5",
+    ):
         resolves_to(address)
         with pytest.raises(security.UnsafeUrl, match="local address"):
             security.public_addresses("https://example.com/")

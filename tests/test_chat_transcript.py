@@ -28,11 +28,11 @@ def test_a_reply_head_is_drawn_once_per_face_and_copied() -> None:
     later one is a deep copy, and no reply head starts a p5 sketch
     (chatheads.js: 0 canvases in 150 replies)."""
     app = app_js_text()
-    paint = _function(app, "paintPersonaAvatar")
+    paint = _function(app, "paintPersonaAvatar") + _function(app, "assistantAvatar")
     assert "renderEmblem" not in paint, "a reply head builds a p5 sketch again"
     assert "chatHeadSources.get(key)" in paint
-    assert "source.cloneNode(true)" in paint
-    assert paint.count("chatHeadSources.set(") == 1
+    assert "source.cloneNode(true)" in paint or "face.cloneNode(true)" in paint
+    assert paint.count("chatHeadSources.set(") == 2, "one per kind of face: a persona's, Atlas's"
     key = _function(app, "chatHeadKey")
     for part in ("size", "atlasLook()", "atlasStyle()", "name"):
         assert part in key, f"the copy is not keyed on {part}: a stale face would be copied"
@@ -116,6 +116,16 @@ def test_enter_on_a_citation_mark_moves_the_keyboard_into_the_peek() -> None:
     assert "if (citationPeekState.restoring) return;" in focus
 
 
+def test_tab_off_either_end_of_a_pinned_peek_closes_it_at_the_mark() -> None:
+    """The peek is at the end of <body> and a pinned one ignores focusout, so
+    Tab past Open note left it open until Escape (OPEN.md, 2026-09-27)."""
+    peek = _function(app_js_text(), "openCitationPeek")
+    keys = peek[peek.index('panel.addEventListener("keydown"') :]
+    keys = keys[: keys.index("\n  });\n")]
+    assert 'event.key !== "Tab"' in keys and "event.shiftKey ? 0 : stops.length - 1" in keys
+    assert "closeCitationPeek({ restoreFocus: true })" in keys
+
+
 def test_a_grounding_chip_fits_its_answer_and_says_its_sentences_in_characters() -> None:
     """At 390 an answer is 288px wide and the chips were 352px, running 79px
     past the bubble; and the chip's tooltip printed the answer's Markdown
@@ -151,3 +161,14 @@ def test_a_citation_mark_takes_a_finger_sized_tap_on_a_touch_screen() -> None:
     after = block[block.index(".answer-citation-link::after") :]
     assert "height: var(--target-min)" in after, "the mark's touch box is not the touch floor's height"
     assert "position: absolute" in after, "the touch box must not take room in the line"
+
+
+def test_a_bubbles_hover_row_hangs_over_its_own_foot_not_the_next_message() -> None:
+    """CHAT_PLAN (OPEN.md triage): hung 2px under its bubble, the 25px row
+    overran the 13px between messages and lay 7 to 13px across the answer
+    under a question at 640 to 820. It now starts inside its own bubble's
+    foot padding, 2px under the last line (a probe, 640 and 1280)."""
+    rule = CSS[CSS.index(".msg-actions {\n  position: absolute;") :]
+    rule = rule[: rule.index("\n}")]
+    assert "top: calc(100% - 0.75rem);" in rule
+    assert "100% + 2px" not in rule

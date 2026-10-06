@@ -234,7 +234,7 @@ def web_read(url: str, session: Session = Depends(get_session)) -> dict:
     # rejected every real page with "URL host is not allowed".
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        raise HTTPException(status_code=400, detail="Only http(s) URLs are allowed")
+        raise HTTPException(status_code=400, detail="Only web addresses that start with http or https are allowed.")
 
     try:
         page = websearch.fetch_readable(url)

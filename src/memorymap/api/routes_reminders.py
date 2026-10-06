@@ -9,15 +9,18 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from typing import Literal
 
 from memorymap.core import deps
-from memorymap.core.database import Entry, Reminder, utcnow
+from memorymap.core.database import Document, Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import log_action, readable_content
+from memorymap.entry.manager import extract_title, log_action, plain_label, readable_content
+from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -29,8 +32,15 @@ class ReminderCreate(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     due_at: datetime
     entry_id: int | None = None
+    #: A document instead of a note (row 15); never both.
+    document_id: int | None = None
     priority: Priority = "normal"
     recurring: Recurring = "none"
+    #: Undo's door (INBOX 537): a deleted reminder made again as it was, its
+    #: due time in the past and its done mark included, which the past-date
+    #: rule below otherwise refuses.
+    restore: bool = False
+    done: bool = False
 
 
 class MagicAddBody(BaseModel):
@@ -47,6 +57,10 @@ class ReminderUpdate(BaseModel):
     done: bool | None = None
     priority: Priority | None = None
     recurring: Recurring | None = None
+    #: Undo's door for a snooze (WORLD_CLASS_PLAN row 32): the time it goes
+    #: back to is the old one, which is usually already past (an overdue
+    #: reminder is what gets snoozed), so the past-date rule must not refuse it.
+    restore: bool = False
 
 
 def _reject_if_in_the_past(due_at: datetime) -> None:
@@ -60,12 +74,38 @@ def _reject_if_in_the_past(due_at: datetime) -> None:
     if compare_at < now - timedelta(minutes=1):
         raise HTTPException(
             status_code=422,
-            detail="That reminder's due time is in the past, pick a time that hasn't happened yet.",
+            detail="That reminder's due time is in the past. Pick a time that hasn't happened yet.",
         )
+
+
+def _target(session: Session, reminder: Reminder) -> tuple[str | None, str | None]:
+    """What the reminder is about, as (kind, title): "note", "board", "map"
+    or "document", so the row says "Open its board" rather than calling every
+    target a note (row 15). (None, None) when it is about nothing, or about
+    something since deleted."""
+    if reminder.document_id is not None:
+        document = session.get(Document, reminder.document_id)
+        if document is None or getattr(document, "deleted_at", None) is not None:
+            return None, None
+        return "document", document.title or "Untitled"
+    if reminder.entry_id is None:
+        return None, None
+    entry = session.get(Entry, reminder.entry_id)
+    if entry is None or entry.is_deleted:
+        return None, None
+    text = strip_properties(readable_content(entry))
+    title = extract_title(text) or plain_label(text, 60)
+    if entry.is_board:
+        from memorymap.api.routes_whiteboard import _board_settings
+
+        kind, _layout = _board_settings(entry)
+        return ("map" if kind == "map" else "board"), title
+    return "note", title
 
 
 def _to_out(session: Session, reminder: Reminder) -> dict:
     entry_preview = None
+    target_kind, target_title = _target(session, reminder)
     if reminder.entry_id is not None:
         entry = session.get(Entry, reminder.entry_id)
         if entry is not None and not entry.is_deleted:
@@ -75,7 +115,7 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
             # locked-vault placeholder every other preview surface uses), 
             # the same class of bug as the digest's, just local to this UI
             # rather than sent to a model.
-            content = readable_content(entry)
+            content = strip_properties(readable_content(entry)).lstrip()
             entry_preview = content if len(content) <= 60 else content[:59] + "…"
     return {
         "id": reminder.id,
@@ -84,13 +124,16 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
         "done": reminder.done,
         "entry_id": reminder.entry_id,
         "entry_preview": entry_preview,
+        "document_id": reminder.document_id,
+        "target_kind": target_kind,
+        "target_title": target_title,
         "priority": reminder.priority,
         "recurring": reminder.recurring,
     }
 
 
 def _existing(session: Session, reminder_id: int) -> Reminder:
-    return deps.get_or_404(session, Reminder, reminder_id, "Reminder not found")
+    return deps.get_or_404(session, Reminder, reminder_id, "That reminder could not be found.")
 
 
 #: A page of the reminder list, not a ceiling on how many reminders may
@@ -278,7 +321,9 @@ def list_reminders(
     response: Response,
     limit: int = Query(default=REMINDERS_PAGE_SIZE, ge=1, le=REMINDERS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     entry_id: int | None = Query(default=None, description="Only this note's reminders"),
+    document_id: int | None = Query(default=None, description="Only this document's reminders"),
     include_done: bool = True,
     session: Session = Depends(get_session),
 ) -> list[dict]:
@@ -295,9 +340,12 @@ def list_reminders(
     that answers a different question from the rows is worse than no total:
     the Reminders tab pages on it.
     """
+    offset = paging.start(cursor, offset)
     filters = []
     if entry_id is not None:
         filters.append(Reminder.entry_id == entry_id)
+    if document_id is not None:
+        filters.append(Reminder.document_id == document_id)
     if not include_done:
         filters.append(Reminder.done.is_(False))
     total = session.scalar(select(func.count(Reminder.id)).where(*filters)) or 0
@@ -309,20 +357,30 @@ def list_reminders(
         .offset(offset)
     )
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     return [_to_out(session, r) for r in rows]
 
 
 @router.post("", status_code=201)
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
-    _reject_if_in_the_past(body.due_at)
+    if not body.restore:
+        _reject_if_in_the_past(body.due_at)
+    if body.entry_id is not None and body.document_id is not None:
+        raise HTTPException(status_code=422, detail="A reminder is about a note or a document, not both.")
     if body.entry_id is not None:
-        deps.get_or_404(session, Entry, body.entry_id, "Entry not found")
+        deps.get_or_404(session, Entry, body.entry_id, "That note could not be found.")
+    if body.document_id is not None:
+        document = session.get(Document, body.document_id)
+        if document is None or getattr(document, "deleted_at", None) is not None:
+            raise HTTPException(status_code=404, detail="That document could not be found.")
     reminder = Reminder(
         text=body.text,
         due_at=body.due_at,
         entry_id=body.entry_id,
+        document_id=body.document_id,
         priority=body.priority,
         recurring=body.recurring,
+        done=body.restore and body.done,
     )
     session.add(reminder)
     session.flush()
@@ -335,8 +393,9 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
 def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_session)) -> dict:
     """Magic Add: parse natural language into a reminder and create it.
 
-    Needs the local model running; returns 503 otherwise so the UI can point
-    the user at the manual form.
+    The time is read by rules first ("in 20 minutes", then `ai/when`'s
+    wall-clock phrases), with no model; the model is asked only for what
+    neither reads, and a 503 when it is off points the user at the form.
     """
     from memorymap.ai import reminder_parser
 
@@ -364,12 +423,19 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
     # principle 2 for a request that needs nothing but arithmetic.
     parsed = reminder_parser.parse_relative(body.text, local_now)
     if parsed is None:
+        # Wall-clock phrases ("tomorrow at 5pm", "next Friday", "tonight") are
+        # read by `when` with no model too (audit 2026-10-05, UX-01): the model
+        # is only for what neither reader understands.
+        from memorymap.ai import when
+
+        parsed = when.parse_reminder_text(body.text, local_now)
+    if parsed is None:
         if not ollama.is_running():
             raise HTTPException(
                 status_code=503,
                 detail=(
                     "The local AI isn't running, and I couldn't read a time from "
-                    "that. Try “in 20 minutes”, or use the form."
+                    "that. Try “tomorrow at 5pm” or “in 20 minutes”, or use the form."
                 ),
             )
         parsed = reminder_parser.parse_reminder(
@@ -399,7 +465,8 @@ def update_reminder(
     if body.text is not None:
         reminder.text = body.text
     if body.due_at is not None:
-        _reject_if_in_the_past(body.due_at)
+        if not body.restore:
+            _reject_if_in_the_past(body.due_at)
         reminder.due_at = body.due_at
     if body.priority is not None:
         reminder.priority = body.priority
@@ -420,8 +487,42 @@ def update_reminder(
 
 @router.delete("/{reminder_id}")
 def delete_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    """To the recycle bin (WORLD_CLASS_PLAN 5 item 10): hidden, not fired,
+    restorable with its id and its target until purged."""
     reminder = _existing(session, reminder_id)
     log_action(session, "deleted", "reminder", reminder.id)
+    reminder.deleted_at = utcnow()
+    session.commit()
+    return {"deleted": True, "binned": True}
+
+
+def _binned(session: Session, reminder_id: int) -> Reminder:
+    from memorymap.entry import bin as other_bin
+
+    with other_bin.including_binned(session):
+        reminder = session.get(Reminder, reminder_id)
+    if reminder is None:
+        raise HTTPException(status_code=404, detail="That reminder could not be found.")
+    return reminder
+
+
+@router.post("/{reminder_id}/restore")
+def restore_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    reminder = _binned(session, reminder_id)
+    if reminder.deleted_at is not None:
+        reminder.deleted_at = None
+        log_action(session, "restored", "reminder", reminder.id)
+        session.commit()
+    return _to_out(session, reminder)
+
+
+@router.delete("/{reminder_id}/purge")
+def purge_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    """For good; only a binned reminder."""
+    reminder = _binned(session, reminder_id)
+    if reminder.deleted_at is None:
+        raise HTTPException(status_code=409, detail="Only a reminder in the bin can be deleted for good.")
+    log_action(session, "purged", "reminder", reminder.id)
     session.delete(reminder)
     session.commit()
-    return {"deleted": True}
+    return {"purged": reminder_id}

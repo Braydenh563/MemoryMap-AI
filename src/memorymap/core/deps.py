@@ -24,6 +24,7 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import Provider
+from memorymap.core import jobruns
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
@@ -269,7 +270,16 @@ def reload_llm_client() -> None:
     global _ollama, _embeddings
     assert _config is not None
     _ollama = build_llm_client(_config)
-    _embeddings = EmbeddingService(get_model_manager(), _ollama)
+    # **Re-pointed, not rebuilt.** A new `EmbeddingService` starts with no
+    # model loaded, and the built-in sentence-transformers model never uses
+    # the chat client at all: measured (audit 2026-10-05, ARCH-06), after a
+    # switch and back `embedding_ready` stayed false and search ran keyword
+    # only for as long as nobody saved, then the next save paid the 5 s cold
+    # load. The service keeps its loaded model and talks to the new client.
+    if _embeddings is None:
+        _embeddings = EmbeddingService(get_model_manager(), _ollama)
+    else:
+        _embeddings.use_client(_ollama)
 
 
 def override_ai(
@@ -294,6 +304,21 @@ def get_db() -> DatabaseManager:
     init_app_state()
     assert _db is not None
     return _db
+
+
+def peek_db() -> DatabaseManager | None:
+    """The database if the app has one, without creating it.
+
+    `get_db` initialises the app state on first use, which is right for a
+    request and wrong for bookkeeping: a job record written from a helper
+    that a test (or a script) runs without an app must not conjure a data
+    directory to put its note in.
+    """
+    return _db
+
+
+#: The job records (`core/jobruns.py`) find the database through this.
+jobruns.set_database_source(peek_db)
 
 
 def get_ollama() -> Provider:

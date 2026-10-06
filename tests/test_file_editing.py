@@ -220,7 +220,7 @@ def test_the_app_may_frame_blobs_and_itself_but_nothing_else():
 
 
 def _editor_js() -> str:
-    return (Path(__file__).resolve().parents[1] / "frontend" / "editor.js").read_text(
+    return (Path(__file__).resolve().parents[1] / "frontend" / "js" / "lightbox-view.js").read_text(
         encoding="utf-8"
     )
 
@@ -253,7 +253,8 @@ def test_no_syntax_pattern_nests_a_quantifier():
     written in this repo. The string rules use the `[^"\\\\\\n]|\\\\.` shape,
     whose alternatives are disjoint on their first character."""
     editor = _editor_js()
-    body = editor[editor.index("function codeScanner(") : editor.index("function codeFamilyFor(")]
+    start = editor.index("function codeScanner(")
+    body = editor[start : editor.index("\n}\n", start)]  # codeScanner is in lightbox-view.js now
     assert ")+*" not in body and ")**" not in body and ")++" not in body
 
 

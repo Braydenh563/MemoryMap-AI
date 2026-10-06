@@ -29,7 +29,7 @@ async function boot(opts={}) {
   const browser = await chromium.launch(
     process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}
   );
-  const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1};
+  const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor: opts.scale || 1};
   for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
   const ctx = await browser.newContext(ctxOpts);
   // Deterministic theme: the app remembers the last theme server-side, so a
@@ -76,8 +76,9 @@ async function boot(opts={}) {
   // OVERRIDE_JS="whiteboard.js=/tmp/base/whiteboard.js" serves that file in
   // place of the app's own, so a "before" can be measured against a base
   // commit's script on the same server and data dir as the "after".
-  if (process.env.OVERRIDE_JS) {
-    const [name, file] = process.env.OVERRIDE_JS.split('=');
+  // Several at once, comma separated: "a.js=/p/a.js,b.js=/p/b.js".
+  for (const pair of (process.env.OVERRIDE_JS || '').split(',').filter(Boolean)) {
+    const [name, file] = pair.split('=');
     const body = require('fs').readFileSync(file, 'utf8');
     await ctx.route(`**/${name}*`, (route) => route.fulfill({ body, contentType: 'application/javascript' }));
   }
@@ -110,12 +111,77 @@ async function boot(opts={}) {
     await page.click('#lock-submit');
   }
   await page.waitForTimeout(3000);
+  //: **The opening curtain** (INBOX 577): after a good password the lock
+  //: screen stays up, its button saying "Opening…", while the first tab
+  //: draws (`curtainShell`), and fades once it has. Waited out here, or a
+  //: loaded machine's slow first tab read as a failed unlock and the field
+  //: was filled again as it faded.
+  await page.waitForFunction(() => !document.documentElement.classList.contains('shell-curtain')
+    && !document.querySelector('#lock-overlay.lock-leaving'), null, { timeout: 15000, polling: 100 }).catch(() => {});
   if (way === 'lock' && await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }
   await page.evaluate(()=>{ const o=document.getElementById('onboarding-overlay'); if(o) o.classList.add('hidden'); });
   await page.waitForTimeout(800);
+  //: **Updates ask once** (the owner, 2026-10-05): a fresh data dir is asked
+  //: "Check for updates automatically?" after unlock, a dialog that would sit
+  //: over every click a sweep makes. Answered "Don't check" here (nothing
+  //: touches the network either way); UPDATE_ASK=1 leaves it for a sweep
+  //: that measures the dialog itself.
+  if (!process.env.UPDATE_ASK) {
+    await page.waitForFunction(() => {
+      const card = [...document.querySelectorAll('.confirm-overlay')]
+        .find((o) => /Check for updates automatically/.test(o.textContent));
+      if (!card) return !!(window.prefsCache && window.prefsCache.update_choice_made !== false) || document.readyState === 'complete';
+      const no = [...card.querySelectorAll('button')].find((b) => /Don.t check/.test(b.textContent));
+      if (no) no.click();
+      return true;
+    }, null, {timeout: 4000, polling: 200}).catch(() => {});
+  }
   //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
   return {browser, ctx, page, OUT, signIn: way};
 }
-module.exports = {boot, OUT, PW, BASE};
+// Open the Library on its Boards & maps sub-tab and wait until the board code
+// has arrived, for a sweep that is about a board (OPEN.md: "board sweeps that
+// only click the Library tab time out").
+//
+// Two traps, both measured. The Library reopens on the sub-tab it was last
+// left on (it is mirrored to the server, so a fresh browser context inherits
+// whatever another sweep left), so a sweep that only presses the Library tab
+// can land on Files or Images and wait for a board that never loads. And the
+// board code is a lazy bundle that the Boards sub-tab fetches: a fixed sleep
+// after the press is a guess at how long that takes on a loaded machine, so it
+// waits for the functions instead. The press is repeated inside the wait, since
+// switching to the Library restores the last sub-tab a moment *after* the
+// switch and can undo a press made too early (`skeletons.js` found that).
+//
+// `fns` are the functions to wait for: `initWhiteboard` and `wbOpenSidebar` are
+// defined only by the bundle (a stand-in answers to `openWhiteboardBoard` and a
+// few more from the start, so those say nothing about whether it has loaded).
+async function openBoardsTab(page, fns = ['initWhiteboard', 'wbOpenSidebar'], timeout = 20000) {
+  await page.evaluate(() => switchTab('library'));
+  await page.waitForFunction(({ names }) => {
+    const button = document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]');
+    if (!button) return false;
+    if (!button.classList.contains('active')) { button.click(); return false; }
+    return names.every((f) => typeof window[f] === 'function');
+  }, { names: fns }, { timeout, polling: 100 });
+}
+
+// After `openWhiteboardBoard(id)` has been called: wait until the board is on
+// screen (its top bar and its canvas laid out) and its first render has put
+// its objects on the page, instead of a sleep sized for an idle machine.
+// `objects` is how many `.wb-object` the board is known to hold (0 for an empty
+// one, which has nothing to wait for).
+async function waitForBoardOpen(page, objects = 0, timeout = 20000) {
+  await page.waitForFunction((n) => {
+    const bar = document.getElementById('wb-topbar');
+    const box = document.getElementById('whiteboard-container');
+    if (!bar || !bar.offsetParent || !box || !box.offsetParent) return false;
+    return document.querySelectorAll('#whiteboard-container .wb-object').length >= n;
+  }, objects, { timeout, polling: 100 });
+  // One frame for the render's own follow-ups (the fit, the guides).
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+}
+
+module.exports = {boot, OUT, PW, BASE, openBoardsTab, waitForBoardOpen};

@@ -46,7 +46,7 @@ const {boot}=require('./lib.js');
   // New board dialog
   await page.click('[data-tab="library"]'); await page.waitForTimeout(800);
   await page.click('[data-target="library-view-whiteboard"]',{timeout:4000}).catch(()=>{}); await page.waitForTimeout(1200);
-  await page.click('#wb-boards-new',{timeout:4000}).catch(()=>{}); await page.waitForTimeout(700);
+  await page.evaluate(() => document.getElementById("wb-boards-new").click()).catch(()=>{}); await page.waitForTimeout(700);
   await probe('new board dialog','.confirm-card');
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
 

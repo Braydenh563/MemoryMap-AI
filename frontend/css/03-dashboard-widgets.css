@@ -7,12 +7,12 @@
      1010 alongside `.modal-overlay` (01-forms-settings.css) when that tier
      itself moved off 55 to clear #agent-monitor's z-index: 1000. */
   z-index: 1010;
-  background: rgba(10, 12, 24, 0.45);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 1rem;
+  padding: 1.5rem;
 }
 
 #improve-overlay.hidden {
@@ -55,7 +55,7 @@
   margin-top: var(--space-4);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599.98px) {
   .improve-cols {
     grid-template-columns: 1fr;
   }
@@ -98,6 +98,57 @@
   min-width: 12rem;
 }
 
+/* Two note chips joined by an arrow (WORLD_CLASS_PLAN, Placed 2026-09-09
+   item 92). A chip keeps its own line clamp; the pair wraps whole. */
+.link-suggestion-pair {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+.link-suggestion-pair > .chip {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.link-suggestion-join {
+  color: var(--muted);
+}
+
+/* The score as a short bar with its number beside it. */
+.link-suggestion-score {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.link-suggestion-bar {
+  display: inline-block;
+  width: 3rem;
+  height: 0.375rem;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.link-suggestion-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* Each reason the pair was found for, with its own confidence, on a line of
+   its own under the row (GRAPH_PLAN KG2). */
+.link-suggestion-why {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
 /* The reason box. Sized so it is obviously a field you may type in rather
    than a label: the whole complaint was that every suggestion said "similar
    in meaning" and there was no way to say anything else without linking
@@ -129,40 +180,286 @@
   height: 1.75rem;
 }
 
-/* A heading and its actions are two groups, not three peers sharing a
-   space-between: which is what put the backfill button in the middle of the
-   row and read as broken spacing. */
-.link-suggest-head {
+/* The suggestions inbox (GRAPH_PLAN KG9, suggestions-inbox.js): one sheet,
+   a `.seg` of four kinds with their counts, and one scroller under it. A
+   reading width wider than a sheet of choices: a link row holds a name pair,
+   a reason field, a score and two buttons, and a disagreement two columns. */
+.sheet-card.inbox-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
-  align-items: center;
 }
 
-.link-suggest-title {
+@media (min-width: 600px) {
+  .sheet-card.inbox-card:not(.sheet-card-corner) {
+    max-width: 48rem;
+  }
+}
+
+.inbox-card .dialog-head {
+  gap: var(--space-1);
+}
+
+/* One row at every width, as the Attach picker's sources (the `.seg` recipe
+   wraps, which put Link types alone on a second line at 390). */
+.seg.inbox-seg {
+  flex: 0 0 auto;
+  align-self: stretch;
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.seg.inbox-seg > button {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 599.98px) {
+  .seg.inbox-seg > button {
+    padding-inline: var(--space-1);
+    font-size: var(--text-sm);
+  }
+}
+
+/* The count after a kind is quiet text, never a pill (INBOX 466). */
+.inbox-count:not(:empty) {
+  margin-inline-start: var(--space-1);
+  color: var(--muted);
+}
+
+.inbox-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.inbox-desc {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.inbox-tools {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.inbox-status {
+  flex: 1 1 12rem;
+  font-size: var(--text-sm);
+}
+
+.inbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+}
+
+.inbox-row-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.inbox-row .doc-backlink-context,
+.inbox-row .link-suggestion-why {
+  margin: 0;
+}
+
+.inbox-row-actions {
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.inbox-row-actions > .chip {
+  margin-inline-end: auto;
+}
+
+.inbox-empty {
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+
+/* An entity's page (GRAPH_PLAN KG5, entity-page.js): the inbox's sheet and
+   rows, in three sections, each under a quiet heading. */
+.entity-section + .entity-section {
+  margin-top: var(--space-5);
+}
+
+.entity-section-title {
+  margin: 0 0 var(--space-2);
+}
+
+.entity-section .inbox-row-title {
+  align-self: flex-start;
+  text-align: start;
+}
+
+.entity-related {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.entity-date {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.entity-count {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+}
+
+.entity-filter {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* GRAPH_PLAN KG3: a link's kind on its chip, quiet, before the note's name. */
+.link-kind {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  margin-inline-end: var(--space-1);
+}
+
+.relation-type-row {
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding-inline: var(--space-4);
+}
+
+.relation-type-name {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.link-suggest-actions {
-  flex: 0 0 auto;
+/* GRAPH_PLAN KG4: a note's properties under its title, two quiet columns. */
+.note-props {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.note-props dt {
+  color: var(--muted);
+}
+
+.note-props dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The properties sheet: a name and a value per row, at one height. */
+.prop-row {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
-/* `--space-3`, not `0.5rem`: the same complaint the rule above this one
-   answers for the rows ("0.5/0.6/0.4rem are none of those"), one rule
-   further up and missed at the time. It computes to the same 8px today and
-   moves with the spacing scale from now on. */
-#link-suggestions {
-  margin: var(--space-3) 0;
+.prop-row > .prop-key {
+  flex: 0 0 9rem;
+  min-width: 0;
 }
 
-/* Unbounded before: a notebook with enough related-but-unlinked notes grew
-   this list past the bottom of its container with nothing to scroll it, so
-   everything past the fold was simply unreachable. Only the rows scroll, 
-   the heading (with the two buttons in it) stays put above them. */
-.link-suggest-rows {
-  max-height: 55vh;
-  overflow-y: auto;
+.prop-row > .prop-value {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prop-row > input,
+.prop-row > select {
+  margin: 0;
+}
+
+/* GRAPH_PLAN KG7: a structural query's bar over the notes list. */
+.note-query-bar {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.note-query-bar > .muted {
+  margin-inline-end: auto;
+}
+
+@media (max-width: 599.98px) {
+  .note-query-bar > .muted {
+    flex-basis: 100%;
+  }
+}
+
+/* The query's table: the note, then its properties, one scroller. */
+.query-table-wrap {
+  overflow: auto;
+}
+
+.query-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.query-table th,
+.query-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.query-table th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Rollups: the footer stays in view under a long table, the kind of
+   rollup quiet beside its value. */
+.query-table tfoot td,
+.query-table tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--modal-bg-opaque);
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  vertical-align: middle;
+}
+
+.query-rollup {
+  white-space: nowrap;
+}
+
+.query-rollup-value {
+  margin-inline-start: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The kind's name from the other end, quiet, giving way before the name. */
+.relation-type-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  margin-inline-start: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
 }
 
 /* --- Wave O: brand logo + a more present background ------------------------------ */
@@ -200,7 +497,7 @@
 
 /* The header is the first thing to run out of room; the mark is the first
    thing that can go when it does. */
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .emblem-mark {
     display: none;
   }
@@ -219,101 +516,13 @@
   background-repeat: no-repeat;
 }
 
-/* The CSS styles (mesh, bubbles): pre-rendered images and gradients on
-   their own elements, moved by the compositor. Each path is split over
-   nested elements (horizontal on one, vertical or rise on the next, wobble
-   innermost) so each axis keeps its own period. Durations, reaches and
-   delays are per element, set from bg-art.js as custom properties. */
+/* The layer a CSS style (`dom: true` in bg-art.js) mounts its elements in.
+   No style is a CSS style now: the mesh and the bubbles became canvas
+   styles (bg-art.js says why), so their elements, keyframes and per-element
+   timings went from here (design-rows-1005, room in the boot CSS budget);
+   the runtime keeps the path, and a new CSS style brings its own rules. */
 .bg-art-layer {
   overflow: hidden;
-  /* Each moving element sets its own; these are the resting values. */
-  --dx: 0px;
-  --dy: 0px;
-  --dur-x: 30s;
-  --dur-y: 30s;
-  --dur-r: 60s;
-  --dur-w: 1.5s;
-  --delay-x: 0s;
-  --delay-y: 0s;
-  --delay-r: 0s;
-  --delay-w: 0s;
-}
-
-.bg-mesh-field,
-.bg-bubble {
-  position: absolute;
-}
-
-.bg-mesh-field-body,
-.bg-bubble-part {
-  width: 100%;
-  height: 100%;
-}
-
-.bg-bubble-part {
-  background-size: 100% 100%;
-}
-
-@keyframes bg-drift-x {
-  from { transform: translateX(calc(-1 * var(--dx))); }
-  to { transform: translateX(var(--dx)); }
-}
-
-@keyframes bg-drift-y {
-  from { transform: translateY(calc(-1 * var(--dy))); }
-  to { transform: translateY(var(--dy)); }
-}
-
-@keyframes bg-rise {
-  from { transform: translateY(0); }
-  to { transform: translateY(calc(-100vh - 100%)); }
-}
-
-@keyframes bg-wobble {
-  from { transform: scale(1.035, 0.965); }
-  to { transform: scale(0.965, 1.035); }
-}
-
-/* `!important` answers the blanket in 02-chat-graph.css that stops every
-   animation under Reduce motion: the art is only ever given `is-moving`
-   when it should move, which under Reduce motion means the person chose
-   Movement "Moving" for the background, an explicit request that is
-   meant to win (startBgArt in settings.js). */
-.bg-art-layer.is-moving .bg-drift-x {
-  animation: bg-drift-x var(--dur-x) ease-in-out var(--delay-x) infinite alternate !important;
-}
-
-.bg-art-layer.is-moving .bg-drift-y {
-  animation: bg-drift-y var(--dur-y) ease-in-out var(--delay-y) infinite alternate !important;
-}
-
-.bg-art-layer.is-moving .bg-rise {
-  animation: bg-rise var(--dur-r) linear var(--delay-r) infinite !important;
-}
-
-.bg-art-layer.is-moving .bg-wobble {
-  animation: bg-wobble var(--dur-w) ease-in-out var(--delay-w) infinite alternate !important;
-}
-
-/* Hidden, long unfocused, or covered: held where it is. */
-.bg-art-layer.is-moving.is-paused .bg-drift-x,
-.bg-art-layer.is-moving.is-paused .bg-drift-y,
-.bg-art-layer.is-moving.is-paused .bg-rise,
-.bg-art-layer.is-moving.is-paused .bg-wobble {
-  animation-play-state: paused !important;
-}
-
-/* The system asks for calm: startBgArt already mounts the art still unless
-   the background's Movement is "Moving" (`is-requested`), and this is the
-   same rule in CSS, so a moving layer mounted without that request cannot
-   slip past it. */
-@media (prefers-reduced-motion: reduce) {
-  .bg-art-layer.is-moving:not(.is-requested) .bg-drift-x,
-  .bg-art-layer.is-moving:not(.is-requested) .bg-drift-y,
-  .bg-art-layer.is-moving:not(.is-requested) .bg-rise,
-  .bg-art-layer.is-moving:not(.is-requested) .bg-wobble {
-    animation: none !important;
-  }
 }
 
 /* --- Wave O: expanded appearance (theme/size/density/glass) ---------------------- */
@@ -334,7 +543,6 @@
   color: var(--muted);
   font-weight: 500;
   padding: 0.25rem 0.8rem;
-  border-radius: var(--radius-md);
 }
 
 /* **One label size for a choice control, and it was three.** `.seg button`
@@ -488,7 +696,6 @@
   background: var(--card);
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-shadow), var(--glass-rim);
 }
 
 :root[data-glass="off"] .glass {
@@ -564,8 +771,7 @@ header#top-bar select,
 .dash-hero button,
 .dash-hero input,
 .dash-hero select,
-.quick-link,
-.stat-tile {
+.quick-link {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -680,10 +886,6 @@ header#top-bar select,
   overflow-wrap: anywhere;
 }
 
-.task-detail {
-  margin: 0.15rem 0 0;
-  font-size: 0.8rem;
-}
 
 /* Full width, on its own line: inline after the label it ran off the right
    edge of the card as soon as the job name got long. */
@@ -795,10 +997,12 @@ header#top-bar select,
   margin-top: 0.4rem;
 }
 
+/* `--space-4` from the switch to its label, as `.setting-check`: one on/off
+   row in Settings, whichever class it carries (togglerows.js). */
 .check-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-4);
   min-width: 0;
   font-size: 0.85rem;
   cursor: pointer;
@@ -869,8 +1073,18 @@ header#top-bar select,
 }
 
 /* The model is the same on every turn of a conversation, so it is context
-   rather than news: present, and never the thing your eye lands on. */
+   rather than news: present, and never the thing your eye lands on. **And
+   never longer than its place in the line** (INBOX 458): a pulled model id
+   runs to fifty characters ("hf.co/bartowski/...-GGUF:Q4_K_M") and wrapped
+   the whole facts line; it is cut with an ellipsis and its title carries the
+   whole name. `block` because an ellipsis needs a block box to land in, and
+   this item's text is a bare text node in a flex row. */
 .msg-meta-model {
+  display: block;
+  min-width: 0;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
   opacity: 0.7;
 }
 
@@ -1054,7 +1268,7 @@ header#top-bar select,
   height: var(--control-h-lg);
   margin: 0 0 var(--space-4);
   padding: 0 var(--space-1) 0 var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-md);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
@@ -1205,7 +1419,6 @@ header#top-bar select,
   border-radius: var(--radius-md);
   min-width: 0;
   overflow-wrap: anywhere;
-  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .web-result:hover,
@@ -1302,6 +1515,16 @@ header#top-bar select,
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* The words the search was for, marked in the snippet: the same quiet accent
+   wash a note card's search match and a chat source's passage use. */
+.web-result-snippet mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+  font-weight: 600;
 }
 
 .web-result-actions {
@@ -1421,6 +1644,12 @@ header#top-bar select,
     border: 0;
   }
 
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .web-reader #web-reader-ask .ph-lead:has(~ .toolbar-word) {
+    translate: none;
+  }
+
   .web-reader .web-reader-title {
     font-size: var(--text-body);
   }
@@ -1431,12 +1660,9 @@ header#top-bar select,
    `ch` so it counts characters of the face on screen). */
 .web-reader-text {
   flex: 0 0 auto;
-  min-width: 0;
-  max-width: var(--doc-measure);
   font-size: var(--text-lg);
   line-height: 1.65;
   color: var(--ink);
-  overflow-wrap: anywhere;
 }
 
 .web-reader-text p {
@@ -1489,125 +1715,6 @@ header#top-bar select,
   background: var(--chip-bg);
   border-radius: var(--radius-md);
   font-size: var(--text-md);
-  overflow-x: auto;
-}
-
-/* --- at-a-glance strip ------------------------------------------------------ */
-.dash-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  /* Vertical rhythm only. The 2rem side margin this used to carry sat on top
-     of .tab-page's own --page-gutter, so the strip, and the quick links, the
-     toolbar and the widget grid, all of which did the same, began 64px in
-     while the hero banner directly above them began at 32px. Measured, not
-     guessed: hero x=32, everything below it x=64, on one page. That is the
-     "spacing and alignment change per tab" complaint happening *within* a
-     single tab, which is worse, because both edges are on screen together. */
-  margin: var(--space-6) 0 0;
-}
-
-.stat-tile {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 1rem;
-  /* The tile recipe: see `.quick-link`. */
-  background: var(--card);
-  color: var(--ink);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: none;
-  cursor: pointer;
-  font-weight: 500;
-  /* Reported "bland, needs a modern improvement": four flat rows of an
-     icon glyph and two numbers, no depth, nothing that reads as pressable
-     until the pointer is already on it. The lift below is the same
-     hover language `.dash-widget` and `.quick-link` already use
-     elsewhere on this page; this row was the one place on the dashboard
-     that had opted out of it. */
-  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out),
-    border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out);
-}
-
-@media (hover: hover) {
-  .stat-tile:hover {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-    transform: translateY(-1px);
-    box-shadow: var(--glass-shadow);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stat-tile {
-    transition: none;
-  }
-}
-
-/* The icon graduates from a bare glyph to a small tinted chip behind it,
-   the same "icon on a soft circle" language the command palette and the
-   skill cards already use, so this row reads as belonging to the same
-   app rather than as a plainer, earlier design left behind. Colour comes
-   from `currentColor` through `--ink`, so it needs no per-stat palette
-   and stays correct through every theme and accent choice; `.stat-alert`
-   already recolours its whole tile to `--warn`, which this inherits. */
-.stat-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-size: 0.92rem;
-  flex: none;
-}
-
-.stat-tile.stat-alert .stat-icon {
-  background: color-mix(in srgb, var(--warn) 16%, transparent);
-  color: var(--warn);
-}
-
-.stat-value {
-  font-size: 1.3rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.stat-tile.stat-alert {
-  border-color: var(--warn);
-}
-
-.stat-tile.stat-alert .stat-value {
-  color: var(--warn);
-}
-
-@media (max-width: 720px) {
-  .dash-stats {
-    gap: var(--space-2);
-  }
-
-  /* Two equal columns: shrink-wrapped, the four tiles wrapped two a row at
-     110 to 135px each and left a third of every row empty (the devibe pass,
-     a 390 still). */
-  .dash-stats > .stat-tile {
-    flex: 1 1 calc(50% - var(--space-2));
-  }
-
-  .stat-tile {
-    padding: var(--space-2) var(--space-5);
-  }
-
-  .stat-value {
-    font-size: var(--text-body);
-  }
 }
 
 /* --- dashboard quick links ------------------------------------------------- */
@@ -1681,10 +1788,14 @@ header#top-bar select,
 
 .quick-link {
   display: flex;
-  padding: 0.8rem 1rem;
+  /* Start-aligned and 8/12.8px (INBOX 446 (5)): the button base centres
+     its content, so in a 1fr track the icon and its two lines floated in
+     the middle of a 68px tile, five centred islands in a row; the label
+     now begins where the tile does, as a list of actions reads. */
+  padding: var(--space-3) var(--space-5);
+  justify-content: flex-start;
   align-items: center;
-  gap: var(--space-3);
-  /* **The tile recipe**: shared with `.stat-tile` and `.start-step`: a card
+  /* **The tile recipe**: shared with `.start-step`: a card
      fill, the glass edge, the button radius, no shadow, accent-soft on
      hover. The three used to differ in edge colour (glass-border vs
      border), radius (md / 0.8 / 0.8) and fill (card / inner). */
@@ -1741,32 +1852,61 @@ header#top-bar select,
   color: var(--muted);
 }
 
-.quick-link-primary {
-  /* Marked, not inverted. This tile used to be a solid accent block with
-     dark ink, which on the dark theme made it the one pale slab in a row of
-     dark tiles: the icon went dark, the hint went white on lavender (2.1:1)
-     and the whole thing read as a pressed state rather than a suggestion.
-     A tinted fill with an accent edge and an accent icon says "start here"
-     while keeping the ink, hint and hover of every other tile, in both
-     themes. */
-  background: var(--accent-soft);
-  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+.quick-link-tinted {
+  /* **A highlighted tile** (INBOX 589): the first tile by default, any tile
+     the person colours. Marked, not inverted. The first tile used to be a
+     solid accent block with dark ink, which on the dark theme made it the one
+     pale slab in a row of dark tiles: the icon went dark, the hint went white
+     on lavender (2.1:1) and the whole thing read as a pressed state rather
+     than a suggestion. A fill mixed from the tint into the card, an edge in
+     the tint and an icon in it say "start here" while keeping the ink, hint
+     and hover of every other tile, in both themes. `--quick-tint` (the fill
+     and edge) and `--quick-tint-ink` (the icon) are set through the CSSOM by
+     `quickLinkButton` (dashboard.js): the accent, or one of the twelve
+     category hues, each of which clears 3:1 as a mark on both grounds. */
+  --quick-tint: var(--accent);
+  --quick-tint-ink: var(--accent-text);
+  background: color-mix(in oklab, var(--quick-tint) 14%, var(--card));
+  border-color: color-mix(in oklab, var(--quick-tint) 55%, transparent);
 }
 
-.quick-link-primary .quick-link-icon {
-  color: var(--accent-text);
+.quick-link-tinted .quick-link-icon {
+  color: var(--quick-tint-ink);
 }
 
-.quick-link-primary:hover {
-  background: color-mix(in oklab, var(--accent) 22%, var(--card));
-  border-color: var(--accent);
+.quick-link-tinted:hover {
+  background: color-mix(in oklab, var(--quick-tint) 22%, var(--card));
+  border-color: var(--quick-tint);
+}
+
+/* The highlight sheet's preview is the tile itself (quick-access.js), drawn
+   at the width a row gives it and taking no presses. */
+.quick-tint-preview {
+  display: grid;
+  max-width: 18rem;
+  margin: 0 0 var(--space-4);
+  pointer-events: none;
+}
+
+/* Thirteen swatches (the accent and the twelve hues): seven to a row on a
+   wide screen and five on a phone, so no row is one swatch on its own. */
+.quick-tint-card .swatch-picker {
+  grid-template-columns: repeat(7, max-content);
+}
+
+@media (max-width: 599.98px) {
+  .quick-tint-card .swatch-picker {
+    grid-template-columns: repeat(5, max-content);
+  }
 }
 
 /* An action: a tile you read before you press. Vertical padding rather than a
    fixed height, because this one has two lines in it and a height would clip
    the second the moment the density setting or the font changed. */
 .quick-action {
-  padding: var(--space-5) var(--space-6);
+  /* 9.6/16px, was 12.8/16 (INBOX 446 (5)): 68px for two lines of copy was
+     the tallest control in the app. */
+  padding: var(--space-4) var(--space-6);
   font-size: var(--text-lg);
 }
 
@@ -1774,62 +1914,7 @@ header#top-bar select,
   font-size: var(--text-h3);
 }
 
-/* A destination: one line, one height, no explanation. Height declared and
-   padding horizontal only: the control-strip rule. With vertical padding the
-   pills' heights would be decided by whether a label wrapped, and one two-line
-   pill would set the height of its whole row.
-   Not a spacing token: a hit target is a control's own size and must not move
-   with the density setting. */
-.quick-pill {
-  --quick-h: 2.3rem;
-  height: var(--quick-h);
-  padding: 0 var(--space-5);
-  font-size: var(--text-md);
-  border-radius: var(--radius-md);
-}
-
-/* A pill is one line by definition, a declared height and a second line of
-   text cannot both be honoured, and the browser resolves that by drawing the
-   text outside the pill. The hint is still the tooltip, which is where a pill's
-   explanation belongs. */
-.quick-pill .quick-link-hint {
-  display: none;
-}
-
-/* **A pill that carries a note's opening words ends in an ellipsis.**
-   Reported with a screenshot of the Continue pill reading "Why did the
-   student eat his homework? Beca", the words simply stopping at the pill's
-   edge: "the open where you last left off button doesnt cut off with an
-   ellipse". The pill is a flex row (icon, text) and `text-overflow` on the
-   button never reaches the span the words are in; the span itself has to be
-   the thing that is too narrow, and a flex child's automatic minimum is its
-   content, so it is not narrow until told it may be. The label inside it is a
-   block for the same reason: an inline span has no width of its own to run
-   out of. */
-.quick-link-continue {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.quick-link-continue .quick-link-text,
-.quick-link-continue .quick-link-label {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* A skill costs a model round-trip, so it is marked rather than merely listed:
-   by its lightning icon. It was a dashed accent edge too, which read as a drop
-   zone and, on a pill, as the most generated-looking thing on the page (INBOX
-   394 h). */
-
-.quick-link-more {
-  color: var(--muted);
-}
-
-@media (max-width: 720px) {
+@media (max-width: 599.98px) {
   .dash-quicklinks {
     gap: var(--space-4);
   }
@@ -1842,11 +1927,182 @@ header#top-bar select,
     font-size: var(--text-md);
     padding: var(--space-4) var(--space-5);
   }
+}
 
-  .quick-pill {
-    --quick-h: 2.1rem;
-    padding: 0 var(--space-4);
+/* --- Quick access, and arranging it (INBOX 461) ------------------------------
+   The head is the label and the section's one menu (`kebabMenu`); while
+   arranging, it carries the count and Done instead. The tiles are the tiles
+   above, unchanged: arranging wraps each in a row with its own menu beside it
+   (Move left, Move right, Remove, the keyboard's way to reorder) and lets a
+   pointer drag it. The tile itself stops taking presses, so a drag never
+   opens the feature it started on. */
+.launch-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.launch-head .launch-label {
+  margin-right: auto;
+}
+
+.launch-count {
+  font-size: var(--text-sm);
+}
+
+.quick-edit-tile {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  cursor: grab;
+}
+
+/* The menu sits inside the tile's right edge, where the hand already is, and
+   the tile keeps room for it so no hint runs under the glyph. */
+.quick-edit-tile > .quick-link {
+  flex: 1 1 auto;
+  padding-right: var(--space-9);
+  pointer-events: none;
+}
+
+.quick-edit-tile > .menu-wrap {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.quick-edit-tile.dragging {
+  opacity: 0.5;
+}
+
+.quick-edit-add {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.quick-pick-search {
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
+/* The manager (INBOX 524): the Attach picker's rows (`note-picker-*`, in
+   04-chat-dock-appearance.css) in two groups, the added set first. The only
+   scroller is `.quick-manage-scroll`; a row is the row's label plus a grip and
+   two small move buttons, which appear with the pointer or focus and stay
+   under `(hover: none)`, where there is no Alt key and no drag. */
+.quick-manage-about {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.quick-manage-scroll {
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+  margin-top: var(--space-3);
+}
+
+.quick-manage-group {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.quick-manage-group:first-child {
+  margin-top: 0;
+}
+
+.quick-manage-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-manage-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+/* (0,2,1): `.space-dialog label` (a form label: block, muted, small, with a
+   top margin) would otherwise win over the picker row's own flex. */
+.quick-manage-item > label.note-picker-row {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.quick-manage-item.dragging {
+  opacity: 0.5;
+}
+
+.quick-manage-grip {
+  flex: none;
+  width: 1rem;
+  color: var(--muted);
+  cursor: grab;
+}
+
+.quick-manage-grip.is-idle {
+  visibility: hidden;
+}
+
+.quick-manage-moves {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  min-width: calc(2 * var(--target-min));
+  opacity: 0;
+  transition: opacity var(--ui-fast) var(--ease-out);
+}
+
+.quick-manage-item:hover .quick-manage-moves,
+.quick-manage-item:focus-within .quick-manage-moves {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .quick-manage-moves {
+    opacity: 1;
   }
+}
+
+.quick-manage-warn {
+  margin: var(--space-3) 0 0;
+}
+
+.quick-manage-foot {
+  flex-wrap: nowrap;
+}
+
+/* Cancel and Done are one height (a ghost's border made one 2px taller),
+   44px under touch. */
+.quick-manage-foot > button {
+  height: max(var(--control-h-body), var(--target-min));
+}
+
+.quick-manage-foot .quick-manage-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: auto;
+  font-size: var(--text-sm);
+}
+
+.quick-pick-empty {
+  list-style: none;
+  padding: var(--space-4);
 }
 
 /* --- tools & features browser ---------------------------------------------- */
@@ -1965,7 +2221,6 @@ header#top-bar select,
   grid-auto-flow: column;
   grid-template-rows: repeat(7, auto);
   grid-auto-columns: var(--heat-cell-max);
-  gap: var(--heat-gap);
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 0.25rem;
@@ -2011,9 +2266,6 @@ header#top-bar select,
 }
 
 .heat-legend {
-  display: flex;
-  align-items: center;
-  gap: 3px;
   font-size: 0.75rem;
   margin-top: 0.4rem;
 }
@@ -2048,7 +2300,6 @@ header#top-bar select,
   background: none;
   border: none;
   box-shadow: none;
-  border-radius: calc(var(--radius) * 0.5);
   color: var(--ink);
   font-weight: 500;
   font-size: 0.85rem;
@@ -2078,7 +2329,10 @@ header#top-bar select,
 .cat-fill {
   display: block;
   height: 100%;
-  background: var(--accent);
+  /* Accent unless dashboard.js sets this on the bar for a colour the person
+     chose; a declaration here, so the token is never undeclared. */
+  --cat-fill: var(--accent);
+  background: var(--cat-fill);
   border-radius: var(--radius-pill);
 }
 
@@ -2108,7 +2362,7 @@ header#top-bar select,
 /* Card actions stay out of the way until you're looking at a note. */
 .entry-list li .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .entry-list li:hover .entry-actions,
@@ -2126,7 +2380,6 @@ header#top-bar select,
 
 #entry-list li {
   padding: 0.8rem 1rem;
-  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -2136,9 +2389,12 @@ header#top-bar select,
   }
 }
 
-/* The note itself should read first; its metadata second. */
+/* The note itself should read first; its metadata second. `--text-lg`
+   (14.7px), was 1rem (INBOX 446 (5)): at 16px a preview was larger than
+   its own bold title and a card held three lines of it; the title's weight
+   and the metadata's 12px still order the three. */
 #entry-list .entry-content {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   line-height: 1.55;
 }
 
@@ -2257,6 +2513,75 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
+/* **Where a follow-up came from** (INBOX 490, `followupTrail`): one muted
+   line above the question, "Follow-up of" and each earlier question as a
+   link, a caret between them. A question is clipped to one line with its
+   whole text on the title, so a long chain wraps by crumbs, not by words. */
+.chat-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0 0 var(--space-2);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.chat-trail-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.chat-trail-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-trail-list > li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chat-trail-list > li + li::before {
+  content: "\e13a"; /* ph-caret-right */
+  flex: none;
+  font-family: Phosphor, sans-serif;
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+button.chat-trail-link {
+  height: auto;
+  min-height: 0;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ask shows one answer at a time, so a crumb opens that earlier answer here,
+   under the trail: a quiet tinted group (surface 2), one scroller at most. */
+.ask-trail-peek {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  max-height: 16rem;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
 /* "No model is connected", with the one click that changes it (CHAT_PLAN.md
    decision 11). A quiet row, not a warning: running with no AI is a supported
    way to use this app, the same judgement the AI status pill makes when it
@@ -2288,29 +2613,6 @@ header#top-bar select,
    top spacing as the two rows it lives between and nothing else. */
 #ask-answer-sources {
   margin-top: var(--space-4);
-}
-
-/* **One control where the source cards were** (INBOX 274, then INBOX 300).
-   The Ask layout already shows every cited note in the Matching records
-   column beside the answer, so what belongs under the answer is the fact and
-   the way to it, not a second copy of the column.
-
-   It was drawn as a full-width pill, on the reasoning that taking the whole
-   row would make it read as a line rather than as an action among others.
-   Measured on the owner's screen and then here: 525px of a 525px column,
-   100% of it, which does not read as a line either. It reads as a banner,
-   and a banner is the one thing a control must not look like. The owner:
-   "fix the ui of this sources button in the ask tab".
-
-   So it sizes to its own words, like the follow-up chips it sits above and
-   like DESIGN.md's "a fact on a facts line that is also the way in". The
-   muted colour stays: this is the quietest thing in the foot, and it is
-   still a button. */
-.ask-sources-line {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--muted);
 }
 
 /* The row a citation mark points at, in the records column. The same
@@ -2437,6 +2739,123 @@ header#top-bar select,
   border: none;
 }
 
+/* **A cited note's pictures beside its citation** (INBOX 502,
+   `groundingThumbs`): the chip that opens the note, then up to three 32px
+   squares that open the picture, one unit that wraps as one. */
+.answer-grounding-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* The chip gives way first; on a phone the pictures wrap under it. */
+.answer-grounding-item > .answer-grounding-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.answer-grounding-thumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+button.answer-grounding-thumb {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  box-shadow: none;
+  cursor: zoom-in;
+}
+
+.answer-grounding-thumb > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+button.answer-grounding-thumb:hover {
+  border-color: var(--accent);
+}
+
+/* A finger's target, not a pointer's (DESIGN.md, "Hit targets"). */
+@media (pointer: coarse) {
+  button.answer-grounding-thumb {
+    width: var(--target-min);
+    height: var(--target-min);
+  }
+}
+
+/* A picture the answer placed (INBOX 526): inside the bubble, never wider than
+   it, and no taller than 20rem; the width/height attributes hold its space. */
+.answer-figure {
+  margin: var(--space-2) 0;
+  max-width: 100%;
+}
+
+button.answer-figure-open {
+  display: block;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  box-shadow: none;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.answer-figure-open > img {
+  display: block;
+  max-width: 100%;
+  max-height: 20rem;
+  height: auto;
+  object-fit: contain;
+  /* A box before the file loads when its size was not known (INBOX 534). */
+  aspect-ratio: auto 4 / 3;
+}
+
+/* The bubble being written is rebuilt every frame; the browser's scroll
+   anchor must not sit in it (INBOX 534). */
+.bubble-answer.is-streaming {
+  overflow-anchor: none;
+}
+
+.answer-figure-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  min-width: 0;
+}
+
+.answer-figure-words,
+.answer-figure-from {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.answer-grounding-more {
+  font-size: var(--text-xs);
+}
+
 /* Same cap as `.tool-touched-chip` (02-chat-graph.css): a note-preview chip
    that can carry an arbitrarily long opening is the same control wherever it
    appears, so it gets the same width rather than a new number invented for
@@ -2542,7 +2961,7 @@ header#top-bar select,
   margin-bottom: 0.8rem;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 599.98px) {
   .reminders-card {
     /* The horizontal inset is `.tab-page`'s job (--page-gutter). Setting one
        here put the card 1rem inside a gutter that had already been applied,
@@ -2584,8 +3003,11 @@ header#top-bar select,
 .reminder-form input,
 .reminder-form select,
 .reminder-form button {
-  height: 2.75rem;
-  min-height: 2.75rem;
+  /* The composers' height, 36px, and never under the touch floor (INBOX 446
+     (5)): a literal 2.75rem made this the one 44px row on a desktop, eight
+     pixels over every other form in the app. */
+  height: max(var(--control-h-body), var(--target-min));
+  min-height: max(var(--control-h-body), var(--target-min));
   margin-bottom: 0;
   padding-block: 0;
   font-size: var(--text-md);
@@ -2597,7 +3019,7 @@ header#top-bar select,
 .reminder-form input[type="datetime-local"] {
   width: auto;
   padding-inline: 0.6rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-md);
   background: var(--input-bg);
   color: var(--ink);
@@ -2636,29 +3058,15 @@ header#top-bar select,
   gap: var(--space-3);
 }
 
+/* No reserved width: it follows the steppers now (wrapup-0927 8(c)), so its
+   length moves nothing anyone is pressing, and 15rem of it was the gap the
+   steppers floated across when they followed it. */
 #reminder-due-readout {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  min-width: 15rem;
 }
 
 #reminder-due-readout.error {
   color: var(--warn);
-}
-
-.reminder-listbar {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.6rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.reminder-listbar h2 {
-  margin: 0;
-  margin-right: auto;
 }
 
 /* **A stray bottom margin reads as a misalignment, and this one was
@@ -2676,25 +3084,11 @@ header#top-bar select,
 
    Scoped to rows rather than removed from `.seg` outright, so a segmented
    control that really is standing alone keeps the gap under it. */
-:is(.row, .reminder-listbar, .ask-history-toolbar) > .seg {
+:is(.row, .ask-history-toolbar) > .seg {
   margin-bottom: 0;
 }
 
-/* One height across the bar, the same way `.ask-query-row` and
-   `.capture-field-row` do it. Before: segments 40px, the page-size select
-   35.59px, the heading 24px. */
-.reminder-listbar {
-  --control-h: 2.5rem;
-}
-
-.reminder-listbar > .seg,
-.reminder-listbar > .select-shell > .select-opener,
-.reminder-listbar > select,
-.reminder-listbar > button:not(.menu-item) {
-  min-height: var(--control-h);
-}
-
-/* Group headings read as section labels with a count pill. */
+/* Group headings read as section labels with their count beside them. */
 .reminder-group-head {
   display: flex;
   align-items: center;
@@ -2710,20 +3104,19 @@ header#top-bar select,
   margin-top: 0.25rem;
 }
 
+/* **A count is muted figures, not a pill** (INBOX 437 (4)): every other
+   group head in the app (the Timeline's days, Find anything's groups, the
+   writing panel's, Models') prints its count as plain muted numbers; this
+   one was the only filled lozenge, a badge recipe of its own. */
 .reminder-group-head .group-count {
-  padding: 0.05rem 0.4rem;
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
-  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
 
-.reminder-group-head.group-overdue {
-  color: var(--warn);
-}
-
+.reminder-group-head.group-overdue,
 .reminder-group-head.group-overdue .group-count {
-  background: var(--warn-soft);
   color: var(--warn);
 }
 
@@ -2745,7 +3138,7 @@ header#top-bar select,
 
 #tab-reminders .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #tab-reminders li:hover .entry-actions,
@@ -2842,6 +3235,11 @@ header#top-bar select,
   display: flex;
   justify-content: center;
   margin-bottom: 0.6rem;
+  /* The mark is drawn by script once the lock screen shows (76px,
+     phone-shell.js); the room is kept before it, or the card grew by it
+     under the reader's eyes (INBOX 577: the lock card's 0.003 layout shift,
+     `scratchpad/ui-sweeps/smooth1005-boot.js`). */
+  min-block-size: 76px;
 }
 
 #about-emblem {
@@ -2852,6 +3250,32 @@ header#top-bar select,
   display: inline-flex;
   line-height: 0;
   vertical-align: middle;
+}
+
+/* The app emblem as an assistant's head (Appearance, Assistant avatar;
+   assistant-avatar.js). The canvas is the head's own copy of one sketch, in
+   the box `assistantAvatar` asked for; the turn is `canvas.emblem-spin`
+   above. In an Atlas mark's disc (the guide and help heads) it sits at three
+   quarters of the disc, centred by the mark's own flex. */
+.assistant-emblem {
+  --emblem-size: 20px; /* the head sets its own, inline */
+  display: block;
+  width: var(--emblem-size);
+  height: var(--emblem-size);
+}
+
+.atlas-mark > .assistant-emblem {
+  width: 75%;
+  height: 75%;
+}
+
+/* The scratch box the sketch is drawn in before it is copied: out of sight,
+   out of flow, never read by anything. */
+.assistant-emblem-scratch {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: -100vw;
+  pointer-events: none;
 }
 
 /* Both roles line up the same way now that the user has an avatar too, one
@@ -2973,7 +3397,6 @@ header#top-bar select,
    rather than one voice and one advert. */
 .msg.user {
   border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
-  background: var(--accent-surface);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
 }
 
@@ -3030,14 +3453,6 @@ header#top-bar select,
   font-size: 0.86em;
 }
 
-/* Tool activity reads as a distinct strip of "things it did". */
-.tool-activity:not(:empty) {
-  margin: 0.4rem 0 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
   gap: var(--space-3);
@@ -3071,7 +3486,6 @@ header#top-bar select,
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.15rem;
   border-left: 3px solid transparent;
-  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 /* **The open chat has to be findable at a glance, not inferred.** Reported:
@@ -3096,6 +3510,13 @@ header#top-bar select,
   color: var(--accent-text);
 }
 
+/* The weight is the name's, not the row's (INBOX 437 (4)): `font-weight: 600`
+   on the chosen row reached its date line too, the only meta line in the app
+   drawn bold. */
+#conversation-list li.active-conv .conv-meta {
+  font-weight: 400;
+}
+
 /* The whole row is the target now, so it must say so on the way in. */
 #conversation-list li {
   cursor: pointer;
@@ -3113,7 +3534,7 @@ header#top-bar select,
 
 #conversation-list li .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #conversation-list li:hover .entry-actions,
@@ -3121,10 +3542,6 @@ header#top-bar select,
   opacity: 1;
 }
 
-.chat-toolbar {
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
 
 .chat-empty {
   padding: 1.5rem 1rem;
@@ -3132,7 +3549,6 @@ header#top-bar select,
 
 /* --- graph polish ----------------------------------------------------------- */
 #graph-box {
-  border-radius: var(--radius);
   overflow: hidden;
   background:
     radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 60%),
@@ -3198,13 +3614,6 @@ header#top-bar select,
   text-decoration: line-through;
 }
 
-/* Toolbar clusters, separated rather than crowded. */
-.graph-toolbar .graph-physics {
-  padding: 0 0.6rem;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-}
-
 /* Segmented Controls (replaces native radio buttons) */
 /* --- the two radio-backed segmented bars ------------------------------------
    `#doc-ai-verb` (Edit / Write / Remove, in the document assistant) and
@@ -3254,10 +3663,9 @@ header#top-bar select,
   gap: 0.15rem;
 }
 
-:root[data-glass="off"] .segmented-control {
-  background: var(--card);
-  border: 1px solid var(--border);
-}
+/* No glass-off well of its own (INBOX 621): it drew a card-white well with a
+   1px edge where every `.seg` beside it is the tinted well with none, two
+   segmented controls in two styles. Both are `--chip-bg` now. */
 
 .segmented-control label {
   cursor: pointer;
@@ -3274,8 +3682,7 @@ header#top-bar select,
   border-radius: var(--radius-inner);
   /* Explicit properties, not `all`, `color`/`background` change on
      `:hover` below, plus `box-shadow` on the `:checked` state further down. */
-  transition: color var(--motion-slow) var(--ease-out), background var(--motion-slow) var(--ease-out),
-    box-shadow var(--motion-slow) var(--ease-out);
+  transition: color var(--ui-slow) var(--ease-out), background var(--ui-slow) var(--ease-out);
   user-select: none;
 }
 
@@ -3314,124 +3721,10 @@ header#top-bar select,
   background: var(--accent-surface);
 }
 
-/* --- graph page layout ------------------------------------------------------
-   One toolbar row instead of three stacked ones, and a canvas that fills the
-   window so the map never runs off the bottom of the page. Shared with the
-   Timeline toolbar (same class, same strip). */
-.graph-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-  /* Anchor for the help button's corner placement below. */
-  position: relative;
-  /* Same rule DESIGN.md states for the chat dock: one height for every
-     select/input/button/segmented-control in the strip. Measured, not
-     assumed: the search box and the segmented Layout/Colour groups were
-     45px tall against 28-30px buttons beside them, the exact "stood four
-     pixels taller" failure DESIGN.md names, just wider here because a full
-     text input's padding is a bigger jump than a segmented control's. */
-  --control-h: 2rem;
-}
-
-.graph-toolbar h2 {
-  margin: 0;
-  margin-right: 0.25rem;
-}
-
-/* Was `width: 100%`, which forced this row to claim the whole line every
-   time: the highlight/trace group now lives beside "Graph" directly in
-   index.html instead (see its own comment there) precisely because a flex
-   item inside the `display: contents` `#graph-toolbar-secondary` wrapper
-   would not size to content no matter what was tried here (explicit widths,
-   flex-basis, even `!important`, measured with a live page, not assumed).
-   This still merges what used to be two hard-split rows into one, which
-   remains a real win: Options now wraps up onto whichever line has room
-   instead of being pinned to a permanent second row. */
-.graph-toolbar-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  width: 100%;
-}
-
-/* A select sized to its widest option, so nothing truncates to "Minimap: t…".
-   The browser's own intrinsic sizing does not account for the dropdown arrow,
-   which is what pushed these two past their box. */
-.graph-toolbar select {
-  min-width: 8.5rem;
-}
-
-/* Wide enough for "No saved views" plus the arrow: at 10rem it still
-   truncated to "No saved vi…", which was the reported symptom. */
-.graph-toolbar #graph-view-picker {
-  min-width: 12.5rem;
-}
-
-/* Related controls read as one thing, with a hairline between groups.
-   The strip was a flat run of a dozen equally-weighted controls that wrapped
-   into a mostly-empty second row, reported directly, with a screenshot. The
-   separator is a border rather than a spacer element so it disappears cleanly
-   when a group wraps to the start of a new line. */
-.graph-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border);
-}
-
-/* The first group needs no separator, and neither does one that has wrapped
-   to the start of a row, a leading hairline on a new line reads as a stray
-   mark rather than a divider. */
-.graph-toolbar-group:first-of-type {
-  padding-left: 0;
-  border-left: 0;
-}
-
-@media (max-width: 700px) {
-  /* At this width almost every group wraps, so every separator would be a
-     leading one. Drop them and let the row gap do the grouping instead. */
-  .graph-toolbar-group {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-.graph-toolbar #graph-search,
-.graph-toolbar .timeline-search {
-  width: 11rem;
-  height: var(--control-h);
-  padding-block: 0;
-  margin: 0;
-}
-
-.graph-toolbar select {
-  height: var(--control-h);
-  /* Missing here while `#graph-search`/`.timeline-search` right above and
-     `.library-sort select` elsewhere both zero it: the base `select` rule's
-     own `padding-block` (from `--space-4`) was left fighting this fixed
-     height, so the option text sat low and, at some zoom/density
-     combinations, clipped against the box. */
-  padding-block: 0;
-}
-
-.graph-toolbar .tools-toggle {
-  white-space: nowrap;
-  margin: 0;
-}
 
 .timeline-custom-range {
   gap: var(--space-1);
   margin-left: var(--space-2);
-}
-
-.graph-toolbar button {
-  white-space: nowrap;
-  height: var(--control-h);
-  padding-block: 0;
 }
 
 /* Last in the row (see index.html) so this pushes only itself to the far
@@ -3488,31 +3781,14 @@ header#top-bar select,
   flex: 0 0 auto;
 }
 
-.graph-help-panel {
-  position: absolute;
-  top: 3.5rem;
-  right: var(--space-6);
-  z-index: 30;
-  width: min(26rem, calc(100% - var(--space-8)));
-  padding: var(--space-4);
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-}
-
-.graph-help-panel p {
-  margin: 0;
-}
-
 /* Reported live, with a screenshot: cut off at the bottom. This panel
    (six bullets across two lists) is meaningfully longer than every other
-   .graph-help-panel use (a single paragraph: #draft-intro, #timeline-
-   intro, #graph-help-panel itself), none of which has hit this, so the
+   help body (a single paragraph: #draft-intro, #timeline-intro,
+   #graph-help-panel itself), none of which has hit this, so the
    cap is scoped here rather than added to the shared rule for a problem
-   only this instance has.
+   only this instance has. It is a `.help-popover` now (the `data-help-for`
+   recipe), whose own ceiling is 60vh or 32rem; the lines below are what is
+   left of the fix, the visible scrollbar.
    Two wrong attempts before this, both measured and rejected rather than
    assumed fixed: a flat `73vh` correctly stopped the panel growing but
    still left its own bottom edge below the window on a short viewport
@@ -3531,8 +3807,6 @@ header#top-bar select,
    the panel's own scrollHeight (701px) now exceeds this cap, so it
    scrolls internally and the last bullet is reachable within its own box. */
 .capture-help-hint {
-  max-height: 24rem;
-  overflow-y: auto;
   /* **The scroll itself worked; nothing showed it did.** Reported after
      the cap above landed: "still no visible scrollbar??", correct, and
      not this rule's fault so much as `overflow-y: auto`'s own default:
@@ -3566,15 +3840,6 @@ header#top-bar select,
   border: 2px solid var(--modal-bg);
 }
 
-/* A .graph-help-panel used as a standalone element (Timeline, the Skills/
-   Whiteboard/Image-Gallery Library sub-tabs) rather than nested one level
-   down like the graph's own <div><p>…</p></div> shape: this file's own
-   `.graph-help-panel p { margin: 0 }` rule above doesn't reach a panel that
-   *is* the <p>, so it needs the same reset directly. */
-p.graph-help-panel {
-  margin: 0;
-}
-
 /* The positioning root each of these panels anchors to, an absolutely
    positioned popup anchors to the nearest positioned ancestor, and without
    this it would fall back to the page (same reasoning as #graph-card's own
@@ -3585,36 +3850,6 @@ p.graph-help-panel {
 #library-view-media .card,
 #capture {
   position: relative;
-}
-
-.graph-toolbar .segmented-control {
-  height: var(--control-h);
-}
-
-.graph-toolbar .segmented-control label {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  padding-block: 0;
-}
-
-.graph-toolbar .graph-physics input[type="range"] {
-  width: 5rem;
-}
-
-/* The two action buttons used to group on the right (`margin-left: auto`), and
-   that is the orphan-row pattern §36B names: the moment the row fills, the
-   auto-margined item wraps and lands alone on the next line, hard right, with
-   nothing beside it. Measured in a browser after the Colour picker was added, 
-   at 1700px the second row was `↻ Refresh` by itself, and at 1500–1440 it was
-   an orphaned "Labels" checkbox plus the two buttons.
-
-   It was previously patched with a `max-width: 1080px` reset, and that is the
-   part worth not repeating: a breakpoint chosen to match the row's contents is
-   wrong again the next time a control is added, silently, at whatever width
-   people actually use. Packing left needs no number and cannot go stale. */
-.graph-toolbar #link-suggest-btn {
-  margin-left: 0;
 }
 
 /* The tuned-once controls, behind the dock's gear (INBOX 41). **A column of
@@ -3667,22 +3902,14 @@ p.graph-help-panel {
    packing two per row costs nothing but the width, which this panel has:
    `min(22rem, 100%)` is wide enough for two "Hide unlinked"-length rows
    side by side without either wrapping. */
+/* **One column, at every width** (INBOX 621). Two switches to a row put a
+   second column of labels at x=204 and a second column of switches mid
+   panel, so the panel's rows answered to two left edges and two right
+   edges where every other row has one: measured 19 labels at 9px and 7 at
+   204px. A list that scrolls is the cost, and the folds keep it short. */
 .graph-toggle-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  column-gap: var(--space-3);
   row-gap: var(--space-1);
-}
-
-@media (max-width: 820px) {
-  /* Below 820 the pointer is a finger and `--target-min` grows every row to
-     44px (07-whiteboard-misc.css, "touch targets, one step, one block"); two
-     of those side by side in a 22rem panel is a label and a knob fighting
-     for less than 11rem each. One column there, the same as the rest of the
-     panel already is. */
-  .graph-toggle-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* One setting, one row: what it is on the left, the control that changes it
@@ -3719,40 +3946,55 @@ p.graph-help-panel {
   text-overflow: ellipsis;
 }
 
-.graph-option-row > input[type="range"] {
-  flex: 1 1 auto;
-  width: auto;
-  max-width: 9.5rem;
-  min-width: 5rem;
+/* **One control column** (INBOX 621): a slider and a picker are the same
+   width, so every control in the panel ends on one right edge and the
+   sliders start on one left edge. Measured before: picker widths of 83, 94,
+   107 and 129px under three sliders of their own width. */
+.graph-option-row > input[type="range"],
+.graph-option-row > select,
+.graph-option-row > .select-shell {
+  flex: 0 0 9.5rem;
+  width: 9.5rem;
+  max-width: none;
   margin: 0;
 }
 
-.graph-option-row > button,
-.graph-option-row > select {
+.graph-option-row > .select-shell > .select-opener {
+  width: 100%;
+}
+
+.graph-option-row > button {
   flex: 0 0 auto;
 }
 
-/* The Strength cell (INBOX 412) shares the grid's second column with the
-   switches. A range's usual 5rem floor made that column wider than the
-   panel could give it beside "Length by similarity", and the grid pushed
-   the whole right column 39px past the panel's edge (measured: the switches
-   there were clipped off). The floor alone is not enough, because a range
-   whose width is `auto` counts its intrinsic width (about 8rem) towards its
-   column's minimum; a set width is its minimum, and `flex-grow` still hands
-   it whatever the cell has left. */
-#graph-similarity-min-row > input[type="range"] {
-  width: 3.5rem;
-  min-width: 3.5rem;
+/* Trace and Legend, Unpin all, Suggest links and Reset: the panel's actions
+   are menu rows (`.doc-dock-menu-item`), the popover recipe's row, icon and
+   words at the row's left edge. They were bordered tonal buttons, two to a
+   row, one at each end, which is a dialog's footer inside a list. A mode
+   that is on takes the accent tint a menu row's selected state wears
+   (08-consistency.css), since both write `.is-on` from their handlers. */
+.graph-options .graph-view-tools {
+  display: flex;
+  flex-direction: column;
 }
 
-/* The panel's last row: its two actions, one at each end (INBOX 412). A
-   `.dock-menu-section` is a column, which stretched a lone button to the
-   panel's width; a row keeps each at the width of its words. */
-.graph-options .graph-options-foot {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+#graph-options .doc-dock-menu-item {
+  padding-inline: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#graph-options .doc-dock-menu-item:hover {
+  color: var(--accent-text);
+}
+
+#graph-options .doc-dock-menu-item.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
 }
 
 :root[data-glass="off"] .graph-options {
@@ -3811,69 +4053,12 @@ p.graph-help-panel {
   margin-top: var(--space-1);
 }
 
-/* The section's one action, where `.dock-menu-section-head` used to put it:
-   hard right, with the fold's name at the left. The summary is already a
-   flex row (08-consistency.css), so one `auto` margin is the whole of it. */
-.graph-options .graph-options-fold > summary > button {
-  margin-left: auto;
-}
-
 /* An id rule outranks the generic .hidden helper, restate it, the same trap
    `#graph-empty.hidden` had to be dug out of. */
 #graph-options.hidden {
   display: none;
 }
 
-
-/* --- Mobile Graph Toolbar Collapse --- */
-#graph-mobile-more-toggle {
-  display: none;
-}
-.graph-toolbar-secondary {
-  display: contents;
-}
-
-@media (max-width: 600px) {
-  #graph-mobile-more-toggle {
-    display: inline-flex;
-  }
-  .graph-toolbar-secondary {
-    display: none;
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    padding-top: 0.5rem;
-    margin-top: 0.5rem;
-    border-top: 1px solid var(--border-light);
-  }
-  .graph-toolbar-secondary.open {
-    display: flex;
-  }
-}
-
-/* "+ New note" and the help button, pinned together to the strip's top-right
-   corner. `margin-left: auto` only reaches the end of the line it is on, and
-   with the toolbar wrapping into several rows below, either button ended up
-   alone on its own line if left in normal flow. Absolute placement puts the
-   pair where they belong regardless of how many rows the controls beneath
-   take, and removes both from the wrap calculation entirely.
-
-   These two used to bookend the strip separately, "+ New note" beside the
-   "Graph" title on the left, "?" alone on the right, which read as two
-   unrelated leftover controls rather than a group. Reported directly; now
-   one pinned pair. `#graph-help-toggle` cancels its own general
-   `.graph-help-toggle` rule (margin-left: auto, position: static) because
-   the wrapper positions both buttons now, that general rule is still what
-   the Skills/Whiteboards/Image Gallery copies of this button use, unscoped
-   by id, so they keep their own single-row behaviour untouched. */
-.graph-toolbar-end {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
 
 #graph-help-toggle {
   position: static;
@@ -3918,7 +4103,7 @@ p.graph-help-panel {
 
 /* ---------------------------------------------------------------------------
    Placed at the end of this file on purpose. A panel keeps its original class
-   (`.graph-help-panel`, `.setting-hint`) when `wireHelpPopover` promotes it,
+   (`.help-body`, `.setting-hint`) when `wireHelpPopover` promotes it,
    and those rules carry the same single-class specificity as these, so
    whichever is written later wins. Written first, this block lost, and the
    popover silently rendered with the old `position: absolute; z-index: 30`:
@@ -3941,17 +4126,8 @@ p.graph-help-panel {
    affordance an unanchored rectangle is missing. */
 .help-popover {
   position: fixed;
-  z-index: 1020;
   width: min(26rem, calc(100vw - var(--space-8)));
-  max-height: min(24rem, 70vh);
-  overflow-y: auto;
   padding: var(--space-4);
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   /* Beats `.setting-hint.is-collapsed`'s own max-height:0 for a Settings
      hint being shown through this component rather than inline. */
   margin: 0;
@@ -3960,30 +4136,10 @@ p.graph-help-panel {
      the trigger's own centre. Declared rather than left to a `var()`
      fallback so `test_style_scale.py` can tell a real token from a typo. */
   --help-caret-x: 50%;
-  /* Arrives from its '?' (INBOX 399 (4)): a fade and 4px of travel away from
-     the button, the toasts' and menus' distance, where it used to appear
-     between two frames. `translate`, so `placeHelpPopover`'s own placement
-     is not replaced. */
-  animation: help-popover-in var(--motion-base) var(--ease-out);
+  /* Arrives from its '?': the menus' grow (10-responsive.css, "a menu or
+     popover grows from what opened it"). */
 }
 
-.help-popover.help-popover-above {
-  animation-name: help-popover-in-above;
-}
-
-@keyframes help-popover-in {
-  from {
-    opacity: 0;
-    translate: 0 -4px;
-  }
-}
-
-@keyframes help-popover-in-above {
-  from {
-    opacity: 0;
-    translate: 0 4px;
-  }
-}
 
 /* The caret. Two squares rotated 45°, the back one carries the border, the
    front one covers the join so the panel's own edge reads as continuous. */
@@ -4000,12 +4156,10 @@ p.graph-help-panel {
 
 .help-popover::before {
   top: -6px;
-  background: var(--glass-border);
 }
 
 .help-popover::after {
   top: -5px;
-  background: var(--modal-bg);
 }
 
 .help-popover.help-popover-above::before {
@@ -4135,6 +4289,42 @@ p.graph-help-panel {
   border-radius: 0;
 }
 
+/* **The busiest map, large, at its own shape** (INBOX 553(d)). One button,
+   the board embed's recipe: the whole picture is the press. Its height is
+   set by `dashMapFeature` (dash-boards.js) from the map's aspect, between
+   the floor and the caps there; 96px until then. */
+.dash-board-feature {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dash-board-feature:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dash-board-feature .dash-board-feature-map {
+  width: 100%;
+  height: 96px;
+  margin: 0;
+}
+
+.dash-board-feature-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  text-align: start;
+}
+
 /* `.dash-board-thumb-card` / `-sketch` lived here and are gone with the copy
    of the drawing they belonged to. The widget's thumbnail is now produced by
    `mapPreview` (note-cards.js) exactly like the Library card's, so it carries
@@ -4202,6 +4392,13 @@ p.graph-help-panel {
 .dash-loose-caption {
   margin: var(--space-1) 0 var(--space-3);
   font-size: var(--text-xs);
+}
+
+/* A widget's empty state (`dashEmpty`, INBOX 464 (12)) inside a card that
+   has its own padding: the page-level 2rem of air took an empty Favourites
+   card from 101px to 211px, twice a full one. */
+.dash-body > .empty-state {
+  padding: var(--space-3) 0;
 }
 
 /* The Loose ends widget's call to action, below its sample rows. */
@@ -4469,26 +4666,29 @@ p.graph-help-panel {
   color: var(--ink);
 }
 
-@media (min-width: 37.5625rem) {
-  #tab-dashboard[data-density="full"] .launch-row:not(.launch-row-start) > .quick-pill {
-    flex: 0 0 auto;
-    font-weight: 500;
-    background: transparent;
-  }
-}
-
-
-
 /* **The tool list as a grid, not a page** (INBOX 424 m): fifty-odd tools, one
    full-width row each with its whole description, made Tools 6,901px tall at
    1440, the longest section in Settings by far. Two columns where the pane
    has room, each description clamped to two lines with the rest on hover, so
    the list reads as a set of switches to scan rather than a manual to read.
-   The filter box above it is still the fast way to one tool. */
+   The filter box above it is still the fast way to one tool. `min(..., 100%)`
+   so a phone's one column fits its pane: 17rem is 272px in a 268px column at
+   390, 4.4px past the group head's edge (INBOX 464 (13)). */
 #tool-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
   gap: var(--space-1) var(--space-5);
+}
+
+/* A group's head (INBOX 71) spans both columns; the space above it is what
+   separates one group from the last, so the first has none. */
+#tool-list > li.tool-group-head {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3);
+}
+
+#tool-list > li.tool-group-head:first-child {
+  margin-top: 0;
 }
 
 #tool-list .tool-desc {
@@ -4527,7 +4727,7 @@ p.graph-help-panel {
 }
 
 .night-kind-toggle > .ph {
-  transition: rotate var(--motion-fast) var(--ease-out);
+  transition: rotate var(--ui-fast) var(--ease-out);
 }
 
 .night-kind-toggle[aria-expanded="true"] > .ph {
@@ -4557,8 +4757,124 @@ p.graph-help-panel {
   gap: var(--space-1);
 }
 
+/* The Tensions widget's rows carry four actions: where the card is too
+   narrow for the names beside them (a phone, a narrow column), the actions
+   go under the words rather than squeezing them to a word a line. */
+.dash-tensions > li.night-fact {
+  flex-wrap: wrap;
+}
+
+.dash-tensions > li.night-fact > .dash-list-text {
+  flex-basis: 10rem;
+}
+
 .night-more {
   margin-top: var(--space-1);
+}
+
+/* The open questions line under the card (row 7). */
+.night-questions-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.night-questions-row .night-questions {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7): the morning
+   card's finding row, a question over where it was asked, and the
+   answered-by link under it as a quiet ghost line that wraps. */
+.dash-list.questions-list {
+  margin: var(--space-2) 0 0;
+}
+
+.dash-list.questions-list > li.question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.question-row > .dash-list-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.question-row .question-answer-link {
+  align-self: flex-start;
+  height: auto;
+  min-height: 0;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.questions-lead:empty {
+  display: none;
+}
+
+.questions-more {
+  margin-top: var(--space-2);
+}
+
+/* A count inside a segment ("Open 4"): quieter than the label it follows. */
+.seg .seg-count {
+  margin-left: var(--space-1);
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.seg .seg-count:empty {
+  display: none;
+}
+
+/* The Ask box's scope line: what the next answer is drawn from. */
+.ask-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* Then and now under a History row (row 23): one row per change, its kind
+   as a chip, the sentence then in muted ink above the sentence now. */
+.then-now {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--divider);
+}
+
+.then-now-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.then-now-row p {
+  margin: 0;
+}
+
+/* Time travel's day (row 23): a field on the line's own control height. */
+.ask-scope .ask-as-of-date {
+  width: auto;
+  height: var(--control-h);
+  padding-block: 0;
 }
 
 /* Recent activity's "Undo what Atlas did" under its list (activityUndoControl,
@@ -4581,4 +4897,127 @@ p.graph-help-panel {
 
 #settings-tools .tool-filter-row {
   border-bottom-color: transparent;
+}
+
+/* The move buttons take no width of their own (the owner: "there's an
+   awkward gap on the right side where the hidden up/down arrows are").
+   Hidden, they held a 2 x 44px column beside every row. They now float
+   over the row's right end, left of its check, on a small raised plate,
+   while the row is pointed at or focused; on touch, where nothing is
+   pointed at, they keep their column. */
+.quick-manage-item {
+  position: relative;
+}
+
+@media (hover: hover) {
+  .quick-manage-moves {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: calc(var(--space-6) + 1.75rem);
+    translate: 0 -50%;
+    min-width: 0;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    pointer-events: none;
+  }
+
+  .quick-manage-item:hover .quick-manage-moves,
+  .quick-manage-item:focus-within .quick-manage-moves {
+    pointer-events: auto;
+  }
+}
+
+/* A chart answering a question (WORLD_CLASS_PLAN section 17 row 4,
+   ask-chart.js; DESIGN.md "A chart answering a question"): one card above the
+   answer, its marks in the theme's tokens so both themes hold, the numbers
+   in a table under it. */
+.ask-chart {
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ask-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.ask-chart-head > button {
+  margin-left: auto;
+}
+
+.ask-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-block: var(--space-2);
+}
+
+.ask-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.ask-chart-axis {
+  fill: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.ask-chart-bar,
+.ask-chart-dot {
+  fill: var(--accent);
+}
+
+.ask-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.ask-chart-numbers > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.ask-chart-table {
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-chart-table th,
+.ask-chart-table td {
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  text-align: left;
+  border-bottom: 1px solid var(--divider);
+}
+
+/* Explain this note (section 17 row 6): the words, then each link and why. */
+.explain-note-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.explain-note-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.explain-note-links {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.dash-review-count {
+  margin: 0 0 var(--space-2);
 }

@@ -10,13 +10,20 @@ the UI explains instead of breaking. Audio never leaves the machine.
 from __future__ import annotations
 
 import importlib.util
+import logging
 import threading
 from pathlib import Path
 
+from memorymap.core.logbuffer import safe_value
+
+#: Names the add-on as Settings, Packages lists it ("Voice notes"), not the
+#: command that installs it: the person reads this in a toast.
 INSTALL_HINT = (
-    "Voice capture needs the optional faster-whisper package. In your "
-    "MemoryMap folder run:  pip install faster-whisper: then restart the app."
+    "Voice notes need an add-on that isn't installed yet. Install “Voice "
+    "notes” in Settings, Packages, then restart the app."
 )
+
+logger = logging.getLogger(__name__)
 
 # One loaded model per process; Whisper models are too heavy to reload
 # per request. Guarded by a lock because two requests can race the load.
@@ -63,10 +70,13 @@ def transcribe(audio_path: Path, model_size: str = "base") -> str:
     try:
         model = _get_model(model_size)
     except Exception as exc:
+        # The library's own error (a network failure deep in a download, a
+        # corrupt cache) is for the log; the person gets the one thing they
+        # can act on, which is nearly always the connection.
+        logger.warning("Couldn't load the Whisper %s model", safe_value(model_size, 40), exc_info=True)
         raise RuntimeError(
-            f"Couldn't load the Whisper '{model_size}' model. The first use "
-            "downloads it from Hugging Face, check your internet connection "
-            f"and try again. ({exc})"
+            "Couldn't load the speech model. The first use downloads it, so "
+            "check your internet connection and try again."
         ) from exc
     segments, _info = model.transcribe(str(audio_path))
     return " ".join(segment.text.strip() for segment in segments).strip()

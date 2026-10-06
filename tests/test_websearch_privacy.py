@@ -13,6 +13,7 @@ import ipaddress
 
 import pytest
 
+from memorymap.core import privacy_http
 from memorymap.search import websearch
 
 
@@ -156,7 +157,7 @@ def test_a_search_session_starts_with_an_empty_cookie_jar():
     session = websearch._private_session()
     try:
         assert len(session.cookies) == 0
-        assert session.headers["User-Agent"] == websearch.USER_AGENT
+        assert session.headers["User-Agent"] == privacy_http.USER_AGENT
         # trust_env must stay on: it is how someone's own proxy (Tor, a VPN)
         # and the system CA bundle reach requests at all. Disabling it would
         # look like a privacy win and be the opposite.
@@ -310,7 +311,7 @@ def test_searxng_probe_rejects_a_public_address(monkeypatch):
 
 
 def test_searxng_search_rejects_a_public_address():
-    with pytest.raises(websearch.WebSearchError, match="this machine or your own network"):
+    with pytest.raises(websearch.WebSearchError, match="this computer or your own network"):
         websearch._search_searxng("anything", 5, "https://searx.example.com")
 
 

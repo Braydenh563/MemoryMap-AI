@@ -37,6 +37,7 @@ tool names handed in by the caller rather than importing the registry, because
 from __future__ import annotations
 
 import re
+import threading
 
 MAX_SKILLS = 30
 MAX_NAME = 40
@@ -153,14 +154,31 @@ PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]{0,23})\s*\}\}")
 INPUT_NAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,23}$")
 
 
+#: The last problem sentence this module wrote, per thread. A skills-folder
+#: file's reason reaches the Settings response (`folder_skills`), and CodeQL
+#: reads anything taken from a caught exception as stack-trace information on
+#: its way out, `exc.message` included (alert 2026-10-05). The sentence is the
+#: same text either way; reading it from here rather than off the exception is
+#: what keeps the exception itself out of every response.
+_LAST_PROBLEM = threading.local()
+
+
 class SkillError(ValueError):
     """Something about this skill is wrong, phrased for whoever wrote it."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        #: The sentence itself, kept apart from the exception so what reaches
+        #: a response is the text this module wrote, not the exception object
+        #: (CodeQL, information exposure through an exception).
+        self.message = message
+        _LAST_PROBLEM.text = message
 
 
 def _text(value, limit: int, what: str) -> str:
     text = str(value or "").strip()
     if len(text) > limit:
-        raise SkillError(f"{what} is limited to {limit} characters")
+        raise SkillError(f"{what} is limited to {limit} characters.")
     return text
 
 
@@ -198,7 +216,7 @@ def _step_specs(
             continue  # a blank line in the textarea is not a step
         specs.append(_one_step_spec(text, step, known_tools, declared))
     if len(specs) > MAX_STEPS:
-        raise SkillError(f"A skill can have at most {MAX_STEPS} steps")
+        raise SkillError(f"A skill can have at most {MAX_STEPS} steps.")
     return specs
 
 
@@ -208,9 +226,7 @@ def _one_step_spec(
     expects = str(step.get("expects") or "").strip() or None
     if expects is not None and expects not in STEP_EXPECTS:
         raise SkillError(
-            f"“{expects}” is not something a step can expect, use one of "
-            + ", ".join(STEP_EXPECTS)
-            + "."
+            f"“{expects}” is not something a step can expect. Use one of {', '.join(STEP_EXPECTS)}."
         )
     tools: list[str] = []
     for tool in step.get("tools") or []:
@@ -232,7 +248,7 @@ def _one_step_spec(
             )
         tools.append(tool)
     if len(tools) > MAX_STEP_TOOLS:
-        raise SkillError(f"A step can name at most {MAX_STEP_TOOLS} tools")
+        raise SkillError(f"A step can name at most {MAX_STEP_TOOLS} tools.")
     retries = step.get("retries", DEFAULT_STEP_RETRIES)
     try:
         retries = int(retries)
@@ -267,7 +283,7 @@ def verify_spec(raw: dict, known_tools: set[str] | None, declared: list[str]) ->
         return None
     tool = str(block.get("tool") or "").strip()
     if not tool:
-        raise SkillError("A verify block needs a tool to read the answer from")
+        raise SkillError("A verify block needs a tool to read the answer from.")
     if known_tools is not None and tool not in known_tools:
         raise SkillError(f"There is no tool called “{tool}” to verify with.")
     if declared and tool not in declared:
@@ -279,15 +295,12 @@ def verify_spec(raw: dict, known_tools: set[str] | None, declared: list[str]) ->
         )
     expect = block.get("expect")
     if not isinstance(expect, dict) or not expect:
-        raise SkillError("A verify block needs an expect, for example {\"min\": 1}")
+        raise SkillError("A verify block needs an expect, for example {\"min\": 1}.")
     unknown = sorted(set(expect) - set(VERIFY_PREDICATES))
     if unknown:
+        listed = ", ".join(f"“{name}”" for name in unknown)
         raise SkillError(
-            "A verify block can't expect "
-            + ", ".join(f"“{name}”" for name in unknown)
-            + ", use one of "
-            + ", ".join(VERIFY_PREDICATES)
-            + "."
+            f"A verify block can't expect {listed}. Use one of {', '.join(VERIFY_PREDICATES)}."
         )
     checks: dict = {}
     for name, value in expect.items():
@@ -483,7 +496,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     name = _text(raw.get("name"), MAX_NAME, "A skill name")
     prompt = _text(raw.get("prompt"), MAX_PROMPT, "A skill prompt")
     if not name:
-        raise SkillError("A skill needs a name")
+        raise SkillError("A skill needs a name.")
     #: **Steps count as the prompt** (Brief 13's decision, recorded in
     #: CHAT_PLAN "Decisions made"). A numbered list of steps already says what
     #: the job is, and making the author write it twice is how the two drift
@@ -491,7 +504,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     #: reads both. A skill with neither is still refused, because that is a
     #: skill that says nothing at all.
     if not prompt and not (raw.get("steps") or raw.get("step_specs")):
-        raise SkillError("A skill needs a prompt saying what it should do, or steps")
+        raise SkillError("A skill needs a prompt saying what it should do, or steps.")
 
     tools: list[str] = []
     for tool in raw.get("tools") or []:
@@ -509,12 +522,12 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
             )
         if known_tools is not None and tool not in known_tools:
             raise SkillError(
-                f"There is no tool called “{tool}”. Call list_tools, or pick "
-                "from the tools shown in Settings → Tools."
+                f"There is no tool called “{tool}”. Pick from the tools shown "
+                "in Settings → Tools it can use."
             )
         tools.append(tool)
     if len(tools) > MAX_TOOLS:
-        raise SkillError(f"A skill can name at most {MAX_TOOLS} tools")
+        raise SkillError(f"A skill can name at most {MAX_TOOLS} tools.")
 
     specs = _step_specs(raw, known_tools, tools)
     steps = [spec["text"] for spec in specs]
@@ -526,8 +539,8 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         input_name = str((item or {}).get("name") or "").strip()
         if not INPUT_NAME.match(input_name):
             raise SkillError(
-                f"“{input_name or item}” is not a usable input name, use "
-                "letters, digits and underscores, starting with a letter."
+                f"“{input_name or item}” is not a usable input name. Use letters, "
+                "digits and underscores, and start with a letter."
             )
         inputs.append(
             {
@@ -539,7 +552,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
             }
         )
     if len(inputs) > MAX_INPUTS:
-        raise SkillError(f"A skill can declare at most {MAX_INPUTS} inputs")
+        raise SkillError(f"A skill can declare at most {MAX_INPUTS} inputs.")
 
     skill = {
         "name": name,
@@ -574,13 +587,9 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         used.update(PLACEHOLDER.findall(text))
     missing = sorted(used - declared)
     if missing:
-        raise SkillError(
-            "This skill uses "
-            + ", ".join(f"{{{{{name}}}}}" for name in missing)
-            + " but doesn't declare "
-            + ("them" if len(missing) > 1 else "it")
-            + " as an input."
-        )
+        listed = ", ".join(f"{{{{{name}}}}}" for name in missing)
+        pronoun = "them" if len(missing) > 1 else "it"
+        raise SkillError(f"This skill uses {listed} but doesn't declare {pronoun} as an input.")
     # An action skill is one that names tools or steps; kept as `useTools` so
     # skills saved before this rebuild keep the flag the UI already reads.
     if raw.get("useTools") or steps or tools:
@@ -1416,6 +1425,37 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": _READING_TOOLS,
     },
     {
+        "name": "Write a document from a tag",
+        "description": "Every note under one tag, written up as one document.",
+        "prompt": "Write one document that brings together every note I tagged {{tag}}.",
+        "steps": [
+            _step("List the notes tagged {{tag}}.", "tool_called", "list_notes"),
+            _step(
+                "Read each one in full with get_note, rather than working "
+                "from the previews.",
+                "tool_called",
+                "get_note",
+            ),
+            _step(
+                "Decide the order the notes read best in, and what the "
+                "document should open with. Do not invent anything the notes "
+                "do not say.",
+                "answer_only",
+            ),
+            #: The one write, last, so a run that stalls earlier has changed
+            #: nothing. A document, never an edit to the notes it draws on.
+            _step(
+                "Save it with create_document, titled after {{tag}}, as "
+                "Markdown with a heading for each theme, and say which notes "
+                "it draws on.",
+                "tool_called",
+                "create_document",
+            ),
+        ],
+        "inputs": [{"name": "tag", "label": "Which tag?", "required": True}],
+        "tools": [*_READING_TOOLS, "create_document"],
+    },
+    {
         "name": "Daily review",
         "description": "Today's notes, turned into tomorrow's list.",
         "prompt": "Review what I captured today and tell me what needs doing.",
@@ -1427,15 +1467,13 @@ BUILTIN_SKILLS: list[dict] = [
                 "than a thought I wrote down.",
                 "answer_only",
             ),
-            _step(
-                "Check the current time with get_current_time, so any reminder "
-                "lands on the right date.",
-                "tool_called",
-                "get_current_time",
-            ),
+            #: No clock step (AGENT_SKILLS_REFORM, "The harness does the work
+            #: the model is worst at", consequence 3): `set_reminder` reads the
+            #: time in the user's own words against their clock, so fetching
+            #: the time first was arithmetic the app does, and a round spent.
             _step(
                 "Set a reminder with set_reminder for each action that has a "
-                "time in it.",
+                "time in it, putting the time in `when` in my own words.",
                 "tool_optional",
                 "set_reminder",
             ),
@@ -1444,7 +1482,7 @@ BUILTIN_SKILLS: list[dict] = [
                 "answer_only",
             ),
         ],
-        "tools": [*_READING_TOOLS, "get_current_time", "set_reminder"],
+        "tools": [*_READING_TOOLS, "set_reminder"],
     },
     {
         "name": "Draft an email",
@@ -1682,7 +1720,49 @@ def catalog(config, known_tools: set[str] | None = None) -> list[dict]:
             except SkillError:
                 continue
         out.append({**skill, "builtin": False})
+    #: The user skills folder (B8): Markdown files, read on every call so a
+    #: file dropped in is runnable without a restart. Last, so a name already
+    #: taken by a built-in or a saved skill keeps it (`folder_skills`).
+    out.extend(folder_skills(config, known_tools, taken={s["name"] for s in out})[0])
     return out
+
+
+def _checked_folder_skill(raw: dict, known_tools: set[str] | None) -> dict | str:
+    """A folder file's skill through `normalise`, or the reason it is not one."""
+    try:
+        return normalise(raw, known_tools)
+    except SkillError:
+        return getattr(_LAST_PROBLEM, "text", "") or "This file is not a skill."
+
+
+def folder_skills(
+    config, known_tools: set[str] | None = None, taken: set[str] | None = None
+) -> tuple[list[dict], list[dict]]:
+    """The skills folder's runnable skills and the files that did not load.
+
+    A file whose skill name is already taken is a problem, not a silent loss:
+    the person who wrote it needs to know why it is not in the menu.
+    """
+    from memorymap.ai import skill_folder
+
+    if taken is None:
+        taken = {s["name"] for s in builtins(known_tools)} | {
+            str(s.get("name") or "") for s in stored(config)
+        }
+    found, problems = skill_folder.scan(config, known_tools, check=_checked_folder_skill)
+    runnable = []
+    for skill in found:
+        if skill["name"] in taken:
+            problems.append(
+                {
+                    "file": skill["file"],
+                    "message": f"names “{skill['name']}”, which another skill already has",
+                }
+            )
+            continue
+        taken = taken | {skill["name"]}
+        runnable.append({**skill, "builtin": False})
+    return runnable, problems
 
 
 def find(config, name: str, known_tools: set[str] | None = None) -> dict | None:

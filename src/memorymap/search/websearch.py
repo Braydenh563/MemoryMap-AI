@@ -26,17 +26,22 @@ import socket
 import time
 from urllib.parse import (
     parse_qs,
-    parse_qsl,
     unquote,
-    urlencode,
     urljoin,
     urlparse,
-    urlunparse,
 )
 
 import requests
 
+from memorymap.core.logbuffer import safe_value
 from memorymap.core.security import UnsafeUrl, is_internal_address, public_addresses
+from memorymap.core import webclip
+from memorymap.core.privacy_http import (  # noqa: F401 - the old names stay importable from here
+    PRIVACY_HEADERS,
+    PinnedAdapter as _PinnedAdapter,
+    pin_url as _pin_url,
+    strip_tracking,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,44 +64,6 @@ _CHALLENGE_MARKERS = (
     "rate limit",
 )
 
-# The User-Agent used to be "MemoryMapAI/0.1 (personal notebook)", which is a
-# near-unique fingerprint: it announces the exact app on every site visited and
-# links those visits together across unrelated domains. That is the opposite of
-# what someone asking for private search wants. A plain, extremely common
-# browser string is the quiet choice, the aim is to look like everyone else,
-# not to be identifiable and polite about it.
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
-)
-
-# Sent on every outbound request. None of these are a guarantee, a header is a
-# request, not a control, but they cost nothing and they are what a browser in
-# a privacy mode sends.
-PRIVACY_HEADERS = {
-    "User-Agent": USER_AGENT,
-    # Generic, so the header doesn't narrow anyone down by locale.
-    "Accept-Language": "en-US,en;q=0.9",
-    "DNT": "1",
-    "Sec-GPC": "1",
-    # No Referer, ever: where you came from is nobody's business, and on a
-    # manually-followed redirect chain we are the ones who decide.
-    "Referer": "",
-}
-
-# Analytics parameters that exist only to identify the click that brought you.
-# Stripped from every result link and from anything opened in the reader, so
-# the request the site receives carries no campaign or click identifier.
-_TRACKING_PARAMS = frozenset(
-    """utm_source utm_medium utm_campaign utm_term utm_content utm_id utm_name
-    utm_reader utm_place utm_brand utm_social utm_social-type
-    gclid gclsrc dclid gbraid wbraid fbclid msclkid twclid igshid ttclid
-    yclid _openstat mc_cid mc_eid vero_id vero_conv oly_anon_id oly_enc_id
-    hsa_acc hsa_cam hsa_grp hsa_ad hsa_src hsa_tgt hsa_kw hsa_mt hsa_net
-    hsa_ver ref_src ref_url spm scm cmpid campaign_id ad_id adset_id
-    s_kwcid ei sca_esv usg ved""".split()
-)
-
-
 def _private_session() -> requests.Session:
     """A one-shot session that keeps nothing between calls.
 
@@ -115,30 +82,6 @@ def _private_session() -> requests.Session:
     session.headers.update(PRIVACY_HEADERS)
     session.cookies.clear()
     return session
-
-
-def strip_tracking(url: str) -> str:
-    """Remove click-tracking parameters from a URL, keeping everything else.
-
-    Deliberately an allowlist-of-removals rather than a blanket "drop the
-    query string": plenty of URLs need their query to resolve at all (a search
-    result, an article id), and silently breaking links would be a worse
-    failure than a leaked campaign tag.
-    """
-    try:
-        parsed = urlparse(url)
-    except ValueError:
-        return url
-    if not parsed.query:
-        return url
-    kept = [
-        (key, value)
-        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
-        if key.lower() not in _TRACKING_PARAMS
-    ]
-    if len(kept) == len(parse_qsl(parsed.query, keep_blank_values=True)):
-        return url
-    return urlunparse(parsed._replace(query=urlencode(kept)))
 
 
 # Small in-process cache so repeating a search (or an agent retrying one)
@@ -172,6 +115,7 @@ def _cache_put(key: tuple[str, int], results: list[dict]) -> None:
 def clear_cache() -> None:
     """Used by tests and when the provider settings change."""
     _CACHE.clear()
+    _PREFETCHED.clear()
 
 
 # Where a self-hosted SearXNG usually listens. Checked in order, once, so a
@@ -487,8 +431,8 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     target = _searxng_target(base_url)
     if not target:
         raise WebSearchError(
-            "The SearXNG address must be a plain http(s) URL on this machine "
-            "or your own network"
+            "The SearXNG address must be a plain web address (starting with "
+            "http or https) on this computer or your own network."
         )
     url, headers = target
     session = _private_session()
@@ -507,13 +451,17 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
-        raise WebSearchError(f"SearXNG search failed: {exc}") from exc
+        # The transport's own text is for the log; the query is not in it.
+        logger.warning("SearXNG search failed (%s): %s", type(exc).__name__, safe_value(str(exc), 300))
+        raise WebSearchError(
+            "The SearXNG search failed. Check that SearXNG is running, then try again."
+        ) from exc
     finally:
         session.close()  # the cookie jar goes with it
 
     rows = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
-        raise WebSearchError("SearXNG returned an unexpected response")
+        raise WebSearchError("SearXNG sent back something MemoryMap couldn't read.")
 
     results = []
     for row in rows[:limit]:
@@ -608,7 +556,9 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
         # The query itself is deliberately not logged: this is the one feature
         # that leaves the machine, and the log is a file on disk.
         logger.warning("Web search request failed (%s): %s", type(exc).__name__, exc)
-        raise WebSearchError(f"Web search failed: {exc}") from exc
+        raise WebSearchError(
+            "Web search failed. Check your internet connection and try again."
+        ) from exc
     finally:
         session.close()  # no cookies carried into the next search
 
@@ -752,48 +702,8 @@ def _assert_external(url: str) -> list:
     try:
         return public_addresses(url)
     except UnsafeUrl as exc:
+        # `UnsafeUrl` is a sentence written for a person (core/security.py).
         raise WebSearchError(str(exc)) from exc
-
-
-def _pin_url(url: str, address) -> tuple[str, str]:
-    """Rewrite a URL to connect to one already-validated IP.
-
-    Without this the guard above is checkable but not enforceable:
-    _assert_external resolves the hostname, then requests resolves it AGAIN to
-    open the connection. A hostile nameserver can answer the first lookup with
-    a public address and the second with 127.0.0.1, DNS rebinding, and the
-    fetch walks straight past the check. Connecting to the exact address that
-    passed closes that window.
-
-    Returns (pinned_url, host_header).
-    """
-    parsed = urlparse(url)
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    literal = f"[{address}]" if address.version == 6 else str(address)
-    host_header = (
-        parsed.hostname if parsed.port is None else f"{parsed.hostname}:{parsed.port}"
-    )
-    pinned = urlunparse(parsed._replace(netloc=f"{literal}:{port}"))
-    return pinned, host_header
-
-
-class _PinnedAdapter(requests.adapters.HTTPAdapter):
-    """Connects to a pinned IP while still doing TLS against the real hostname.
-
-    Aiming a request at an IP literal would otherwise send the wrong SNI and
-    check the certificate against the address, so every HTTPS fetch would fail.
-    These two put the hostname back where TLS needs it, leaving verification
-    fully intact.
-    """
-
-    def __init__(self, hostname: str, **kwargs) -> None:
-        self._hostname = hostname
-        super().__init__(**kwargs)
-
-    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        pool_kwargs["server_hostname"] = self._hostname
-        pool_kwargs["assert_hostname"] = self._hostname
-        super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
 
 def _get_external(url: str) -> requests.Response:
@@ -829,7 +739,7 @@ def _get_external(url: str) -> requests.Response:
                 location = response.headers.get("location", "")
                 response.close()
                 if not location:
-                    raise WebSearchError("That page redirected to nowhere")
+                    raise WebSearchError("That page redirected to nowhere.")
                 # A relative Location is resolved against the hop it came from, 
                 # the original URL, not the pinned one, so the next check sees
                 # the real hostname.
@@ -850,7 +760,7 @@ def _get_external(url: str) -> requests.Response:
         session.close()
         raise
     session.close()
-    raise WebSearchError("That page redirected too many times")
+    raise WebSearchError("That page redirected too many times.")
 
 
 def _split_url(url: str) -> tuple[str, str]:
@@ -868,6 +778,29 @@ def _split_url(url: str) -> tuple[str, str]:
     return parsed.scheme, parsed.hostname
 
 
+#: Pages fetched ahead for an agent round (INBOX 527, `tools.prefetch_web`),
+#: each handed out once by `fetch_readable_cached` and then forgotten: a
+#: round's calls run in order from memory, and nothing outlives the round.
+_PREFETCHED: dict[str, tuple[float, dict]] = {}
+PREFETCH_TTL_SECONDS = 60
+
+
+def prefetch_readable(url: str) -> None:
+    """Fetch `url` now, for the `read_url` call about to ask for it."""
+    page = fetch_readable(url)
+    if len(_PREFETCHED) >= CACHE_MAX_ENTRIES:
+        _PREFETCHED.clear()
+    _PREFETCHED[strip_tracking(url)] = (time.time(), page)
+
+
+def fetch_readable_cached(url: str) -> dict:
+    """`fetch_readable`, or the page `prefetch_readable` just fetched."""
+    hit = _PREFETCHED.pop(strip_tracking(url), None)
+    if hit and time.time() - hit[0] <= PREFETCH_TTL_SECONDS:
+        return hit[1]
+    return fetch_readable(url)
+
+
 def fetch_readable(url: str) -> dict:
     """Fetch a page and return its readable text.
 
@@ -883,7 +816,7 @@ def fetch_readable(url: str) -> dict:
         response = _get_external(url)
         content_type = response.headers.get("content-type", "")
         if "html" not in content_type and "text" not in content_type:
-            raise WebSearchError("That link isn't a readable page")
+            raise WebSearchError("That link isn't a readable page.")
         raw = response.raw.read(_READER_MAX_BYTES, decode_content=True) or b""
     except requests.HTTPError as exc:
         # Name the site, not the pinned IP-literal the request was aimed at, 
@@ -899,10 +832,13 @@ def fetch_readable(url: str) -> dict:
                 "protection wants a real browser. Open the link there instead."
             ) from exc
         raise WebSearchError(
-            f"Couldn't open that page: {domain_of(url)} answered {status}"
+            f"Couldn't open that page: {domain_of(url)} answered with an error ({status})."
         ) from exc
     except requests.RequestException as exc:
-        raise WebSearchError(f"Couldn't open that page: {exc}") from exc
+        logger.warning("Couldn't open a page for the reader (%s): %s", type(exc).__name__, safe_value(str(exc), 300))
+        raise WebSearchError(
+            "Couldn't open that page. Check the address and your internet connection."
+        ) from exc
 
     # Relative links resolve against where the page actually came from
     # (redirects included): never against response.url, which is the
@@ -919,8 +855,6 @@ def fetch_readable(url: str) -> dict:
     #: parses the page into a tree and picks the densest container, the
     #: same reader "Save page as note" uses; its markdown becomes blocks.
     if words < _THIN_READ_WORDS:
-        from memorymap.core import webclip
-
         tree_blocks = _blocks_from_markdown(webclip.extract(page, final_url)["markdown"])
         tree_words = sum(len(block["text"].split()) for block in tree_blocks)
         if tree_words > words:

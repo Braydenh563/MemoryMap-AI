@@ -24,7 +24,7 @@ from tests._css_paths import CSS_DIR
 
 ROOT = Path(__file__).resolve().parent.parent
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-LIST_JS = (ROOT / "frontend" / "notes-list.js").read_text(encoding="utf-8")
+LIST_JS = (ROOT / "frontend" / "js" / "notes-list.js").read_text(encoding="utf-8")
 CSS = "\n".join(p.read_text(encoding="utf-8") for p in sorted(CSS_DIR.glob("*.css")))
 
 
@@ -36,9 +36,9 @@ def _rail_markup() -> str:
 
 def test_the_rail_is_a_column_of_the_notes_layout_after_the_list():
     notes = HTML.split('id="tab-notes"')[1].split('id="tab-chat"')[0]
-    after_main = notes.split("</main>")[1]
+    after_main = notes.split("</div><!-- .tab-main -->")[1]
     assert re.search(r'<aside[^>]*id="notes-rail"', after_main), (
-        "the rail is the Notes layout's third column, after <main>, so it sits "
+        "the rail is the Notes layout's third column, after .tab-main, so it sits "
         "beside the list rather than inside the scroller the list lives in"
     )
     assert re.search(r'<aside[^>]*id="notes-rail"[^>]*\bhidden\b', after_main), (

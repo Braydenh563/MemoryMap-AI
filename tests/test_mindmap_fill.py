@@ -25,9 +25,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-WHITEBOARD_JS = ROOT / "frontend" / "whiteboard.js"
+WHITEBOARD_JS = ROOT / "frontend" / "js" / "whiteboard.js"
 # The map layer is its own file (whiteboard-map.js), loaded before this one.
-WHITEBOARD_MAP_JS = ROOT / "frontend" / "whiteboard-map.js"
+WHITEBOARD_MAP_JS = ROOT / "frontend" / "js" / "whiteboard-map.js"
 
 
 def _whiteboard_text() -> str:
@@ -123,17 +123,18 @@ def fills(tmp_path_factory) -> dict:
 
 
 def test_a_branch_fill_cascades_and_a_topic_fill_does_not(fills):
-    # Nothing set: nothing filled.
-    assert fills["root"] is False and fills["c"] is False
-    # "Fill with its branch": the topic and everything under it.
-    assert fills["a"] is True and fills["a1"] is True
+    # Nothing set: nothing said (`undefined`, which is where a level's own
+    # fill comes in, MINDMAP_PLAN.md decision 39; JSON drops it).
+    assert "root" not in fills and "c" not in fills
+    # "Fill with its branch": the topic and everything under it, as a tint.
+    assert fills["a"] == "tint" and fills["a1"] == "tint"
     # "No fill" inside a filled branch unfills that one topic only; what is
     # under it still belongs to the filled branch.
-    assert fills["a2"] is False and fills["a21"] is True
+    assert fills["a2"] is False and fills["a21"] == "tint"
     # "Fill this topic": the topic alone.
-    assert fills["b"] is True and fills["b1"] is False
+    assert fills["b"] == "tint" and "b1" not in fills
     # A cascade can start anywhere down the tree.
-    assert fills["c1"] is True and fills["c11"] is True
+    assert fills["c1"] == "tint" and fills["c11"] == "tint"
 
 
 def test_the_fill_is_offered_in_the_topic_strip_and_drawn_as_a_tint():

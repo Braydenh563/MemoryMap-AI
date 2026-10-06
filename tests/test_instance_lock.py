@@ -274,3 +274,60 @@ def test_a_stale_lock_launches_normally_and_is_replaced(monkeypatch, tmp_path):
     assert seen["lock"].port == launcher.PORT
     # Released when the window closed.
     assert il.read_lock(il.lock_path(tmp_path)) is None
+
+
+def test_every_abrupt_exit_lets_go_of_the_lock(tmp_path, monkeypatch):
+    """Quit, Restart and the console-mode switch end the process with
+    `os._exit` or an exec, which skip `_run_desktop`'s `finally`; each calls
+    `_stop_background_work` first, so that is where the lock goes. Left
+    behind, it named a dead pid that Windows soon reuses, and a restart's
+    new process could read the dying server as live."""
+    from memorymap import __main__ as launcher
+    from memorymap.core import bgtasks
+
+    monkeypatch.setattr(bgtasks, "stop_all", lambda *a, **k: None)
+    il.claim(tmp_path, 8123)
+    try:
+        launcher._stop_background_work()
+        left = il.lock_path(tmp_path).exists()
+        assert left is False
+    finally:
+        il.release()
+
+
+
+def test_the_lock_is_claimed_before_the_window_shows(monkeypatch, tmp_path):
+    """Two quick double-clicks: the second must find the first's lock. The
+    claim used to happen in `_boot_and_swap`, after the window was on screen
+    and a second of imports later, so both launches read "none" and both
+    started a server on one data directory. It now happens before the
+    window exists."""
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(launcher, "_run_server", lambda: None)
+    monkeypatch.setattr(launcher, "_desktop_port", lambda: 8765)
+    monkeypatch.setattr(launcher, "PORT", 8000)
+    seen = {}
+    calls = _fake_webview(monkeypatch)
+    real_create = sys.modules["webview"].create_window
+
+    def create_window(*args, **kwargs):
+        seen["lock"] = il.read_lock(il.lock_path(tmp_path))
+        return real_create(*args, **kwargs)
+
+    sys.modules["webview"].create_window = create_window
+
+    launcher._run_desktop()
+
+    assert calls["create_window"] is not None
+    assert seen["lock"] is not None, "no lock existed when the window opened"
+    assert seen["lock"].pid == os.getpid() and seen["lock"].port == 8765
+    assert launcher.PORT == 8765, "the lock names a port the server does not use"
+    assert os.environ["MEMORYMAP_PORT"] == "8765"
+    assert il.read_lock(il.lock_path(tmp_path)) is None, "released when the window closed"
+
+
+def test_boot_and_swap_no_longer_claims_the_lock():
+    import inspect
+
+    body = inspect.getsource(launcher._boot_and_swap)
+    assert "instance_lock.claim" not in body and "_desktop_port()" not in body

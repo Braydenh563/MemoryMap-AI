@@ -117,6 +117,29 @@ def test_the_activity_log_reads_in_words_not_in_verbs(client, session):
     assert not any("purged" in t or "queried" in t for t in titles), titles
 
 
+def test_every_logged_kind_of_thing_has_a_word():
+    """The README's Activity shot (INBOX 431 (g)) read "Edited
+    whiteboard_object" and "Edited board": the board routes log under names
+    the word table never learned, so the schema's vocabulary reached the
+    screen. Every entity type the code writes to the log has a phrase."""
+    import re
+    from pathlib import Path
+
+    from memorymap.api.routes_library import _ENTITY_WORDS
+
+    src = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+    written = set()
+    for path in src.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        written.update(re.findall(r"log_action\(\s*\w+,\s*\"\w+\",\s*\"(\w+)\"", text))
+        written.update(re.findall(r"events\.writes\(\s*\"(\w+)\"", text))
+        written.update(re.findall(r"events\.record\(\s*\w+,\s*\"\w+\",\s*\"(\w+)\"", text))
+    assert {"entry", "whiteboard_object", "board"} <= written, written
+    missing = sorted(written - set(_ENTITY_WORDS))
+    assert not missing, f"logged with no word for the Activity list: {missing}"
+    assert all("_" not in phrase for phrase in _ENTITY_WORDS.values())
+
+
 def test_an_activity_detail_keeps_its_underscores(client, session):
     """INBOX 426 (z), image 90: a settings change's record is `key=value`,
     and the preview ran it through the markdown stripper, which read

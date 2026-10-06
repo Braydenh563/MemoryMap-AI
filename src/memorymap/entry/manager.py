@@ -14,7 +14,7 @@ import re
 import threading
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, text, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
     Category,
+    ChunkVector,
     EmbeddingRecord,
     EntityMention,
     Entry,
@@ -31,9 +32,13 @@ from memorymap.core.database import (
     DocumentLink,
     EntryBookmark,
     EntryDate,
+    EntryOpen,
     EntryLink,
+    EntryProperty,
     EntryRevision,
+    LINK_TYPE_INVERSES,
     LINK_TYPES,
+    RelationType,
     NoteScore,
     Reminder,
     WhiteboardNode,
@@ -44,9 +49,42 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.entry import timewords
+from memorymap.entry.tagnames import normalise_tags
 
 # Where entries land when no AI is available or the AI can't decide.
 UNCATEGORISED = "Uncategorised"
+
+#: Below this confidence a filing is worth a person's look: the card's "check
+#: this" chip (`REVIEW_THRESHOLD` in app.js, the same number) and the review
+#: queue (WORLD_CLASS_PLAN section 17, row 1). Section 17 wrote "under 60%";
+#: the queue takes the card's 50 so a note in it always wears the chip that
+#: says why (recorded in the plan's Decisions made).
+REVIEW_CONFIDENCE = 50
+
+
+def review_queue_count(session: Session) -> int:
+    """How many live notes wait for a person to look at their filing: the
+    janitor was unsure (an attempt under `REVIEW_CONFIDENCE`) or left them in
+    Uncategorised, and nobody has decided since (`user_filed`). Drafts and
+    boards are not notes in the list, so they are not counted."""
+    return int(
+        session.scalar(
+            select(func.count(Entry.id))
+            .outerjoin(Category, Entry.category_id == Category.id)
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_draft == False,  # noqa: E712
+                Entry.is_board == False,  # noqa: E712
+                Entry.user_filed == False,  # noqa: E712
+                or_(
+                    (Entry.ai_confidence > 0) & (Entry.ai_confidence < REVIEW_CONFIDENCE),
+                    Entry.category_id.is_(None),
+                    Category.name == UNCATEGORISED,
+                ),
+            )
+        )
+        or 0
+    )
 
 
 def log_action(
@@ -82,6 +120,30 @@ def log_action(
     )
 
 
+def category_space(session: Session, workspace_id: str | None = None) -> str:
+    """The one space a category lookup or insert belongs to.
+
+    Given a space, that one. Otherwise the session's own when a request scoped
+    it to a single space, and "default" when it did not ("All spaces", or a
+    background pass with no request): that is where an unscoped insert lands
+    anyway (`WorkspaceMixin`'s column default), so a lookup that answers for
+    the same space can never find a row the insert would not have made.
+    Callers filing an existing note pass the note's own space instead
+    (`entry_space`), which is the only right answer in the "all" view.
+    """
+    if workspace_id:
+        return workspace_id
+    ambient = session.info.get("workspace_id")
+    if ambient and ambient != "all":
+        return ambient
+    return "default"
+
+
+def entry_space(entry: Entry) -> str:
+    """A note's own space, for filing it: the space its category must be in."""
+    return getattr(entry, "workspace_id", None) or "default"
+
+
 def get_or_create_category(
     session: Session, name: str, workspace_id: str | None = None
 ) -> Category:
@@ -111,20 +173,31 @@ def get_or_create_category(
     the row: SQLite allows one writer at a time, so the other transaction had
     to have committed for its row to be what this one collided with.
     """
+    # **Always one space, never "whichever space has that name".** With no
+    # space given, the lookup used to be by name alone, which is right only
+    # while the session itself is scoped to a space (the statement filter in
+    # `core/database.py` then adds the space for us). In the "All spaces"
+    # view the filter is off, so filing a note of space "uni" under "Kids"
+    # found the default space's "Kids" and pointed the uni note at it; uni's
+    # own view could not list that category and the note read as
+    # Uncategorised (measured 2026-10-03). The insert half already landed in
+    # one space (the session's, or the column default); the lookup now asks
+    # the same space the insert would write to.
+    workspace_id = category_space(session, workspace_id)
+
     def _find() -> Category | None:
-        query = select(Category).where(Category.name == name)
-        if workspace_id is not None:
-            query = query.where(Category.workspace_id == workspace_id)
-        return session.scalar(query)
+        return session.scalar(
+            select(Category).where(
+                Category.name == name, Category.workspace_id == workspace_id
+            )
+        )
 
     category = _find()
     if category is not None:
         return category
     try:
         with session.begin_nested():
-            category = Category(name=name)
-            if workspace_id is not None:
-                category.workspace_id = workspace_id
+            category = Category(name=name, workspace_id=workspace_id)
             session.add(category)
             session.flush()  # assigns category.id without committing yet
     except IntegrityError:
@@ -134,6 +207,19 @@ def get_or_create_category(
         return existing
     log_action(session, "created", "category", category.id, name)
     return category
+
+
+def mark_edited(entry: Entry) -> None:
+    """Record that a person just changed what this note says.
+
+    Called at each per-note edit of the text, title, tags or category, and
+    only there; see `Entry.edited_at` for why `updated_at` cannot answer
+    "recently edited". Not called by filing (`record_filing`), opening,
+    pinning, a privacy toggle, or a notebook-wide tag or category rename:
+    those change a note without anyone editing it, and a list sorted by
+    "recently edited" that jumped on them would be sorting by noise.
+    """
+    entry.edited_at = utcnow()
 
 
 def set_category(session: Session, entry: Entry, name: str) -> Entry:
@@ -161,7 +247,7 @@ def set_category(session: Session, entry: Entry, name: str) -> Entry:
     # and the value is the honest thing to pass anyway. It is one fact, the
     # note's own space, travelling to the one place that needs it.
     entry.category_id = get_or_create_category(
-        session, name, workspace_id=entry.workspace_id or "default"
+        session, name, workspace_id=entry_space(entry)
     ).id
     session.flush()
     return entry
@@ -174,18 +260,27 @@ def create_entry(
     category_name: str = UNCATEGORISED,
     tags: list[str] | None = None,
     ai_confidence: int = 0,
+    client_key: str | None = None,
 ) -> Entry:
-    """Store one thought. Commits the transaction."""
+    """Store one thought. Commits the transaction.
+
+    `client_key` is the offline queue's name for this save; the unique index
+    on it makes a second save with the same key raise `IntegrityError`, which
+    the route answers with the note the first one made."""
     category = get_or_create_category(session, category_name)
     entry = Entry(
         content=content,
         category_id=category.id,
-        tags=json.dumps(tags or []),
+        # The schema normalises an HTTP write; this is every other writer
+        # (the AI tools, imports, passive capture), held to the same rule.
+        tags=json.dumps(normalise_tags(tags)),
         ai_confidence=ai_confidence,
+        client_key=client_key or None,
     )
     session.add(entry)
     session.flush()
     record_dates(session, entry)
+    reindex_properties(session, entry)
     log_action(
         session,
         "created",
@@ -243,6 +338,8 @@ def list_entries(
     limit: int | None = None,
     offset: int = 0,
     boards: str = BOARDS_INCLUDE,
+    after: tuple | None = None,
+    ids: list[int] | None = None,
 ) -> list[Entry]:
     """Pinned first, then newest first. Deleted and archived entries stay
     hidden until the recycle bin / archive UI asks for them explicitly, 
@@ -260,11 +357,29 @@ def list_entries(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
     query = _list_entries_filter(query, include_deleted, include_archived, boards)
+    if after is not None:
+        # A keyset page (WORLD_CLASS_PLAN B7): the rows that sort after the
+        # last one the caller saw, by the same three keys the ORDER BY uses,
+        # all descending, so "after" is "less than" as one row value. Served
+        # from `ix_entries_live`'s trailing columns, which are these three in
+        # this order and direction (measured in `tests/test_query_plans.py`).
+        query = query.where(
+            tuple_(Entry.pinned, Entry.created_at, Entry.id) < tuple_(*after)
+        )
+    if ids is not None:
+        # Just these rows of the same list, in its order (audit 2026-10-05,
+        # FE-05: the client re-reads what a save touched, not the notebook).
+        query = query.where(Entry.id.in_(ids))
     if offset:
         query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)
     return list(session.scalars(query))
+
+
+def list_sort_key(entry: Entry) -> tuple:
+    """What `list_entries(after=...)` takes: the row's own ORDER BY values."""
+    return (bool(entry.pinned), entry.created_at, entry.id)
 
 
 def count_entries(
@@ -396,6 +511,10 @@ AUTO_FILED = "auto"
 #: Filed by meaning because the model missed the wait; its answer replaces
 #: this when it lands, or on the next launch if the app closed first.
 STAND_IN = "standin"
+#: Filed by the notebook's own words with no model (`ai/lexical_filing.py`,
+#: INBOX 434): not the AI's decision, and said so, but like one in that a
+#: later move by hand is a correction the next filing learns from.
+WORDS_FILED = "words"
 #: Filing stopped by hand: nothing files it again unless asked (re-evaluate).
 FILING_STOPPED = "stopped"
 
@@ -417,7 +536,9 @@ def record_filing(session: Session, entry: Entry, category_name: str, by: str | 
     note's History could not rebuild the category it had between capture and
     now, and "undo auto-filing" had nothing to find.
     """
-    category = get_or_create_category(session, category_name)
+    # The note's own space: the filer runs off the request thread, so the
+    # session's space is not the note's (see `category_space`).
+    category = get_or_create_category(session, category_name, workspace_id=entry_space(entry))
     if category.id == entry.category_id:
         return False
     before = entry.category_id
@@ -459,7 +580,7 @@ def update_entry(
     it.
     """
     before_category = category_name_for(session, entry)
-    was_auto = (getattr(entry, "filing_state", "") or "") in (AUTO_FILED, STAND_IN)
+    was_auto = (getattr(entry, "filing_state", "") or "") in (AUTO_FILED, STAND_IN, WORDS_FILED)
     excerpt = readable_content(entry) or ""
     _update_entry_fields(session, entry, content, category_name, tags)
     after_category = category_name_for(session, entry)
@@ -472,6 +593,7 @@ def update_entry(
             entry.id,
             f"moved from {before_category} to {after_category}",
             payload={
+                "kind": "refile",
                 "from": before_category,
                 "to": after_category,
                 # The note's own words, so a filing prompt can say what kind
@@ -496,11 +618,19 @@ def _update_entry_fields(
     """The edit itself. One write, one `edited` event; see `update_entry`."""
     was = events.entry_state(entry)
     changed = []
+    if content is not None and entry.is_private:
+        #: Whoever the caller is, a private note's text lands encrypted.
+        stored = content_for_entry(entry, content)
+        if stored is None:
+            raise PermissionError("The encryption key isn't loaded.")
+        content = stored
     if content is not None and content != entry.content:
         entry.content = content
         changed.append("content")
     if category_name is not None:
-        category = get_or_create_category(session, category_name)
+        # In the note's own space, never the view's: from "All spaces" the
+        # view is every space at once (see `category_space`).
+        category = get_or_create_category(session, category_name, workspace_id=entry_space(entry))
         if category.id != entry.category_id:
             entry.category_id = category.id
             # A manual move means the user decided, the janitor stays
@@ -508,13 +638,16 @@ def _update_entry_fields(
             entry.user_filed = True
             changed.append(f"category={category_name}")
     if tags is not None:
-        entry.tags = json.dumps(tags)
+        entry.tags = json.dumps(normalise_tags(tags))
         changed.append("tags")
+    if changed:
+        mark_edited(entry)
     if "content" in changed:
         # The text is what carries the phrases, so a rewrite re-reads them.
         # Resolved against *now*, not the original capture: the user is
         # writing "tomorrow" today.
         record_dates(session, entry)
+        reindex_properties(session, entry)
     if changed:
         log_action(
             session,
@@ -559,6 +692,44 @@ def entry_dates_bulk(session: Session, entry_ids: list[int]) -> dict[int, list[E
     return out
 
 
+#: How each indexed value is read as a number or a date (KG4).
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?$")
+
+
+def reindex_properties(session: Session, entry: Entry) -> None:
+    """Rebuild this note's rows in `EntryProperty` from its text (KG4).
+
+    The text is the truth; this is an index for queries. A private note has
+    no rows (its text is encrypted at rest, and a plain table of its values
+    would leak them), and a note with no block has none. Best effort, like
+    `record_dates`: a note saves whatever happens here.
+    """
+    from memorymap.entry import properties as note_properties
+
+    try:
+        session.execute(delete(EntryProperty).where(EntryProperty.entry_id == entry.id))
+        if entry.is_private or entry.is_deleted:
+            return
+        found, _ = note_properties.split(entry.content or "")
+        for key, values in found.items():
+            for value in values or [""]:
+                number = None
+                when = None
+                text = str(value)[:300]
+                try:
+                    number = float(text) if re.fullmatch(r"-?\d+(?:\.\d+)?", text.strip()) else None
+                except ValueError:
+                    number = None
+                if _ISO_DATE.match(text.strip()):
+                    try:
+                        when = datetime.fromisoformat(text.strip().replace(" ", "T"))
+                    except ValueError:
+                        when = None
+                session.add(EntryProperty(entry_id=entry.id, key=key[:60], value=text, number=number, date=when))
+    except Exception:  # noqa: BLE001  # an index must never cost a save
+        logging.getLogger("memorymap.properties").warning("couldn't index properties for %s", entry.id, exc_info=True)
+
+
 @events.writes("entry", "dated")
 def record_dates(session: Session, entry: Entry) -> None:
     """Resolve the relative time phrases in a note and store what they meant.
@@ -591,7 +762,11 @@ def record_dates(session: Session, entry: Entry) -> None:
                 EntryDate(
                     entry_id=entry.id,
                     phrase=mention.phrase[:60],
-                    at=datetime(mention.at.year, mention.at.month, mention.at.day),
+                    # A date, or a date and the clock the note said beside it,
+                    # both the writer's own wall clock with no zone: a day is
+                    # not an instant, and storing one as UTC midnight put
+                    # every mention a day early west of UTC (UX-02).
+                    at=datetime.combine(mention.at, mention.time or datetime.min.time()),
                     precision=mention.precision,
                 )
             )
@@ -599,6 +774,7 @@ def record_dates(session: Session, entry: Entry) -> None:
                 {
                     "phrase": mention.phrase[:60],
                     "at": mention.at.isoformat(),
+                    "time": mention.time.strftime("%H:%M") if mention.time else None,
                     "precision": mention.precision,
                 }
             )
@@ -867,11 +1043,35 @@ def _board_type_of(session: Session, board_id: int) -> str:
 _MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 
+def seal_private_events(session: Session, ids: list[int]) -> None:
+    """Mark every event about these (private) notes as sealed, and empty it.
+
+    The activity export leaves out events about a private note by looking the
+    note up (`routes_settings._not_private_events`), and a purged note is
+    gone, so that lookup stops matching and its events, which carry a title or
+    a clip of it in `detail` and the whole text in `payload`, would be handed
+    over. A purge seals them first: `detail` dropped, `payload` replaced by
+    the flag the export reads. The history of a note that no longer exists
+    cannot be replayed or undone anyway.
+    """
+    if not ids:
+        return
+    from memorymap.core.database import AuditLog
+
+    session.flush()
+    session.execute(
+        update(AuditLog)
+        .where(AuditLog.entity_type.in_(("entry", "note", "entries")), AuditLog.entity_id.in_(ids))
+        .values(detail=None, payload={"private": True})
+    )
+
+
 def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | None = None) -> int:
     """Permanently remove entries plus their vectors, links, and files."""
     ids = [e.id for e in entries]
     if not ids:
         return 0
+    seal_private_events(session, [e.id for e in entries if e.is_private])
     # Attached files: remove bytes from disk (best effort) then the rows.
     attachments = list(
         session.scalars(select(Attachment).where(Attachment.entry_id.in_(ids)))
@@ -898,6 +1098,7 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     search_index.forget(session, Entry, ids)
     session.execute(delete(Attachment).where(Attachment.entry_id.in_(ids)))
     session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_(ids)))
+    session.execute(delete(ChunkVector).where(ChunkVector.entry_id.in_(ids)))
     session.execute(
         delete(EntryLink).where(
             or_(EntryLink.source_entry_id.in_(ids), EntryLink.target_entry_id.in_(ids))
@@ -937,6 +1138,10 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(EntryBookmark).where(EntryBookmark.entry_id.in_(ids)))
     session.execute(delete(EntityMention).where(EntityMention.entry_id.in_(ids)))
     session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
+    # KG4: a note's property index is about the note.
+    session.execute(delete(EntryProperty).where(EntryProperty.entry_id.in_(ids)))
+    # Section 17 row 5: the day-by-day open counts are about the note.
+    session.execute(delete(EntryOpen).where(EntryOpen.entry_id.in_(ids)))
     # An eighth, added with the derived facts table (I9): what the app
     # worked out about a note is about the note, so it goes when the note
     # does. Keeping it would also leave the "what the notebook learned"
@@ -1055,6 +1260,7 @@ def purge_entries(
     note that is gone from the list and still findable by search.
     """
     ids = [entry.id for entry in entries]
+    private_ids = [entry.id for entry in entries if entry.is_private]
     count = _hard_delete(session, entries, uploads_dir=uploads_dir)
     if count:
         # One event carrying the id list, never one per row: a purge is a
@@ -1069,6 +1275,8 @@ def purge_entries(
             f"{count} entries",
             payload={"ids": ids, "count": count},
         )
+        # The purge event is itself about the first id; sealed when that was private.
+        seal_private_events(session, private_ids[:1] if private_ids[:1] == ids[:1] else [])
     session.commit()
     return count
 
@@ -1389,36 +1597,127 @@ def all_tags(session: Session) -> dict[str, int]:
     return result
 
 
+@events.writes("entry", "edited")
+def _retag_entry(session: Session, entry: Entry, tags: list[str]) -> None:
+    """One note's tags set to `tags`: a revision first, then the edit and its
+    event, the way `PUT /entries/{id}` does it, and no commit (the caller
+    commits the whole batch once, so a batch is one transaction).
+
+    The revision is taken before the scope opens here, by the caller, so it
+    keeps its own `revised` event rather than being folded into this one.
+    """
+    was = events.entry_state(entry)
+    entry.tags = json.dumps(tags)
+    mark_edited(entry)
+    log_action(
+        session,
+        "edited",
+        "entry",
+        entry.id,
+        "tags",
+        payload=events.changed(was, events.entry_state(entry)),
+    )
+
+
+def _retag(session: Session, entries, change) -> dict[int, list[str]]:
+    """Apply `change(entry, tags) -> tags` to each entry, in one transaction.
+
+    Returns `{entry id: the tags it had}` for the notes that actually changed,
+    which is exactly what an undo needs to put back (`restore_tags`). A note
+    whose tags come out the same is left alone: no revision, no event, no
+    `edited_at` bump for a no-op.
+    """
+    before: dict[int, list[str]] = {}
+    for entry in entries:
+        old = entry_tags(entry)
+        new = normalise_tags(change(entry, list(old)))
+        if new == old:
+            continue
+        record_revision(session, entry)
+        _retag_entry(session, entry, new)
+        before[entry.id] = old
+    session.commit()
+    return before
+
+
+def rename_tags(session: Session, olds: list[str], new: str) -> dict[int, list[str]]:
+    """Rename (or merge, if `new` already exists, or if several `olds` are
+    given) tags everywhere, in one transaction. See `rename_tag`.
+
+    `new` is held to the tag rule (`normalise_tags`): a blank name is refused
+    with ValueError rather than written, because "   " used to arrive here
+    intact and put an empty-string tag on every note that had `old`
+    (measured: four notes). The result on each note is normalised too, so
+    renaming onto a tag the note already has in another case ("Food" onto a
+    note with "food") folds into that one instead of leaving both.
+    """
+    cleaned = normalise_tags([new])
+    if not cleaned:
+        raise ValueError("A tag needs a name.")
+    new = cleaned[0]
+    wanted = set(olds)
+    if not wanted:
+        return {}
+
+    def change(entry: Entry, tags: list[str]) -> list[str]:
+        if not wanted.intersection(tags):
+            return tags
+        return [t for t in tags if t not in wanted] + [new]
+
+    holders = [e for e in session.scalars(select(Entry)) if wanted.intersection(entry_tags(e))]
+    return _retag(session, holders, change)
+
+
 def rename_tag(session: Session, old: str, new: str) -> int:
     """Rename (or merge, if `new` already exists) a tag everywhere.
     Returns how many entries changed. Commits."""
-    changed = 0
-    for entry in session.scalars(select(Entry)):
-        tags = entry_tags(entry)
-        if old in tags:
-            merged = [t for t in tags if t != old]
-            if new not in merged:
-                merged.append(new)
-            entry.tags = json.dumps(merged)
-            changed += 1
-    if changed:
-        log_action(session, "edited", "tags", detail=f"rename {old} -> {new} ({changed})")
-    session.commit()
-    return changed
+    return len(rename_tags(session, [old], new))
+
+
+def remove_tags(session: Session, names: list[str]) -> dict[int, list[str]]:
+    """Remove tags from every note that carries them. Notes are untouched."""
+    doomed = set(names)
+    if not doomed:
+        return {}
+    holders = [e for e in session.scalars(select(Entry)) if doomed.intersection(entry_tags(e))]
+    return _retag(session, holders, lambda _e, tags: [t for t in tags if t not in doomed])
 
 
 def delete_tag(session: Session, name: str) -> int:
     """Remove a tag from every entry. Returns entries changed. Commits."""
-    changed = 0
-    for entry in session.scalars(select(Entry)):
-        tags = entry_tags(entry)
-        if name in tags:
-            entry.tags = json.dumps([t for t in tags if t != name])
-            changed += 1
-    if changed:
-        log_action(session, "edited", "tags", detail=f"deleted {name} ({changed})")
-    session.commit()
-    return changed
+    return len(remove_tags(session, [name]))
+
+
+def edit_tags_on_notes(
+    session: Session, ids: list[int], add: list[str], remove: list[str]
+) -> dict[int, list[str]]:
+    """Add tags to, and remove tags from, the chosen notes, in one transaction.
+
+    Removal is case-insensitive (tags are stored once whatever the case, so
+    "Food" on one note and "food" on another are one tag to the person),
+    and the add runs after it, so a name in both lists ends up added.
+    """
+    drop = {t.casefold() for t in normalise_tags(remove)}
+    put = normalise_tags(add)
+    if not ids or not (drop or put):
+        return {}
+    entries = list(
+        session.scalars(select(Entry).where(Entry.id.in_(ids), Entry.is_deleted == False))  # noqa: E712
+    )
+
+    def change(entry: Entry, tags: list[str]) -> list[str]:
+        return [t for t in tags if t.casefold() not in drop] + put
+
+    return _retag(session, entries, change)
+
+
+def undo_tag_edit(session: Session, by_id: dict[int, list[str]]) -> dict[int, list[str]]:
+    """Put each note's tags back to the given lists (an undo), in one
+    transaction. Returns what they were, so a redo is the same call."""
+    if not by_id:
+        return {}
+    entries = list(session.scalars(select(Entry).where(Entry.id.in_(list(by_id)))))
+    return _retag(session, entries, lambda entry, _tags: by_id[entry.id])
 
 
 # How close two notes' embeddings must be, cosine-wise, before a link left
@@ -1450,7 +1749,7 @@ def _shares_a_date(session: Session, source_id: int, target_id: int) -> bool:
     """
     dates_by_entry = entry_dates_bulk(session, [source_id, target_id])
     day_sets = {
-        entry_id: {d.at.date() for d in dates if d.precision == "day"}
+        entry_id: {d.at.date() for d in dates if d.precision in ("day", "minute")}
         for entry_id, dates in dates_by_entry.items()
     }
     if day_sets.get(source_id, set()) & day_sets.get(target_id, set()):
@@ -1518,6 +1817,96 @@ def _deduce_reason(
     return None, None
 
 
+def _seal_reason(reason: str | None) -> str | None:
+    """A link reason, encrypted for storage, for a link that touches a private
+    note. `None` when there is nothing to seal or the vault is closed: a
+    private note cannot be written while the vault is locked, and a reason
+    that cannot be sealed is dropped rather than stored in the clear.
+    """
+    from memorymap.core import crypto, vault
+
+    key = vault.key()
+    if not reason or key is None:
+        return None
+    return crypto.encrypt(key, reason)
+
+
+def _set_stored_reason(session: Session, link: EntryLink, stored: str | None) -> None:
+    """Write `entry_links.reason` exactly as given, bypassing the attribute.
+
+    The column decrypts on load (`database.LinkReason`), so the attribute
+    holds plaintext whenever the vault is open, and assigning the plaintext
+    back would look like "no change" to the ORM and write nothing. A Core
+    update puts the real stored string in, and the expire makes the next
+    read of the attribute go back through the decrypting load.
+    """
+    session.execute(update(EntryLink).where(EntryLink.id == link.id).values(reason=stored))
+    session.expire(link, ["reason"])
+
+
+def _seal_props(props: dict | None) -> str | None:
+    """`_seal_reason` for link properties: the encrypted JSON of the object,
+    or `None` (dropped) when there is nothing to seal or the vault is closed.
+    """
+    from memorymap.core import crypto, vault
+
+    key = vault.key()
+    if not props or key is None:
+        return None
+    return crypto.encrypt(key, json.dumps(props))
+
+
+def _set_stored_props(session: Session, link: EntryLink, stored: str | dict | None) -> None:
+    """`_set_stored_reason` for `entry_links.props`: a Core update writes the
+    stored form as given (ciphertext string, plain object or null) and the
+    expire sends the next read back through the decrypting load."""
+    session.execute(update(EntryLink).where(EntryLink.id == link.id).values(props=stored))
+    session.expire(link, ["props"])
+
+
+def _touches_private(session: Session, link: EntryLink) -> bool:
+    ends = session.scalars(
+        select(Entry.is_private).where(
+            Entry.id.in_((link.source_entry_id, link.target_entry_id))
+        )
+    ).all()
+    return any(ends)
+
+
+def _redact_link_audit(session: Session, entry: Entry, key: bytes) -> None:
+    """Take a private note's link reasons out of the activity log.
+
+    The "linked" and "relinked" rows spell the reason in `detail` and carry
+    it in `payload.after.reason`, both in the clear when the link was made
+    before the note went private. The detail loses its parenthesis (the
+    reason is the only part that is about the notes' meaning; the ids stay
+    so the log still reads), and the payload's copy is encrypted like the
+    content next to it.
+    """
+    from memorymap.core import crypto
+    from memorymap.core.database import AuditLog
+
+    own = f"-> entry {entry.id}"
+    rows = session.scalars(
+        select(AuditLog).where(
+            AuditLog.entity_type == "entry",
+            AuditLog.action.in_(("linked", "relinked")),
+            or_(
+                AuditLog.entity_id == entry.id,
+                AuditLog.detail.like(f"{own} (%", escape=LIKE_ESCAPE),
+            ),
+        )
+    )
+    for row in rows:
+        if row.detail and " (" in row.detail:
+            row.detail = row.detail.split(" (", 1)[0]
+        payload = row.payload
+        state = payload.get("after") if isinstance(payload, dict) else None
+        text = state.get("reason") if isinstance(state, dict) else None
+        if isinstance(text, str) and text and not crypto.is_encrypted(text):
+            row.payload = {**payload, "after": {**state, "reason": crypto.encrypt(key, text)}}
+
+
 @events.writes("entry", "linked")
 def create_link(
     session: Session,
@@ -1525,6 +1914,9 @@ def create_link(
     target: Entry,
     reason: str | None = None,
     link_type: str | None = None,
+    origin: str | None = None,
+    reason_confidence: float | None = None,
+    props: dict | None = None,
 ) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
@@ -1578,20 +1970,34 @@ def create_link(
     if existing is not None:
         return None
     reason = (reason or "").strip() or None
-    confidence = None
+    #: A reason the suggestions' signals wrote keeps their confidence (KG9);
+    #: a person's own words have none, as before.
+    confidence = None if reason is None or reason_confidence is None else max(0.0, min(1.0, reason_confidence))
     if reason is None:
         reason, confidence = _deduce_reason(session, source.id, target.id)
+    # A reason is a sentence about the two notes, so on a link with a private
+    # end it is stored encrypted and kept out of the activity log's text
+    # (`entry_links.reason` decrypts on load, `database.LinkReason`).
+    private_link = bool(source.is_private or target.is_private)
+    shown_reason = None if private_link else reason
+    if private_link:
+        reason = _seal_reason(reason)
+        stored_props = _seal_props(props)
+    else:
+        stored_props = dict(props) if props else None
     # An unrecognised kind is stored as null rather than rejected: the column
     # is advisory (it styles an edge and weights a traversal), and refusing an
     # otherwise-valid link because a caller sent a typo would trade a working
     # connection for a validation error nobody asked for.
-    kind = link_type if link_type in LINK_TYPES else None
+    kind = link_type if is_link_type(session, link_type) else None
     link = EntryLink(
         source_entry_id=source.id,
         target_entry_id=target.id,
         reason=reason,
         reason_confidence=confidence,
         link_type=kind,
+        origin=origin,
+        props=stored_props,
         # **The link belongs to the space its notes are in, whoever made it.**
         # A new row usually takes its space from `session.info["workspace_id"]`
         # (the before-flush hook in core/database.py), which is set from the
@@ -1610,7 +2016,11 @@ def create_link(
     )
     session.add(link)
     session.flush()
-    detail = f"-> entry {target.id}" + (f" ({link.reason})" if link.reason else "")
+    if private_link:
+        # The attribute holds the ciphertext just stored; make the next read
+        # go back through the decrypting load (`expire_on_commit` is off).
+        session.expire(link, ["reason", "props"])
+    detail = f"-> entry {target.id}" + (f" ({shown_reason})" if shown_reason else "")
     log_action(
         session,
         "linked",
@@ -1622,7 +2032,7 @@ def create_link(
                 "link_id": link.id,
                 "source_entry_id": source.id,
                 "target_entry_id": target.id,
-                "reason": link.reason,
+                "reason": reason,  # as stored: ciphertext on a private link
                 "link_type": link.link_type,
             }
         },
@@ -1701,10 +2111,105 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     null already means "not deduced", so an edited link and a freshly
     auto-reasoned one that hasn't been touched stay tellable apart.
     """
-    link.reason = (reason or "").strip() or None
+    text = (reason or "").strip() or None
     link.reason_confidence = None
-    detail = f"-> entry {link.target_entry_id}" + (f" ({link.reason})" if link.reason else "")
+    if _touches_private(session, link):
+        # Encrypted, and not spelled in the activity log (see `create_link`).
+        _set_stored_reason(session, link, _seal_reason(text))
+        detail = f"-> entry {link.target_entry_id}"
+    else:
+        link.reason = text
+        detail = f"-> entry {link.target_entry_id}" + (f" ({text})" if text else "")
     log_action(session, "relinked", "entry", link.source_entry_id, detail)
+    session.commit()
+    return link
+
+
+def relation_types(session: Session) -> dict[str, dict]:
+    """Every kind of link this notebook knows, by key: the six built-ins
+    (`LINK_TYPES`, with `LINK_TYPE_INVERSES`) then the ones a person added
+    (`RelationType`, GRAPH_PLAN KG3). Kept on the session for the request
+    (a notes list reads it once per note); the routes that change a type
+    drop it (`forget_relation_types`)."""
+    cached = session.info.get("relation_types")
+    if cached is not None:
+        return cached
+    out: dict[str, dict] = {}
+    for key, label in LINK_TYPES.items():
+        inverse = LINK_TYPE_INVERSES.get(key)
+        out[key] = {
+            "key": key,
+            "name": label.split(":", 1)[0],
+            "description": label.split(":", 1)[-1].strip(),
+            "inverse": inverse,
+            "directed": inverse is not None,
+            "colour": None,
+            "built_in": True,
+        }
+    for row in session.scalars(select(RelationType).order_by(RelationType.name)):
+        out[row.key] = {
+            "key": row.key,
+            "name": row.name,
+            "description": "",
+            "inverse": row.inverse,
+            "directed": bool(row.directed),
+            "colour": row.colour,
+            "built_in": False,
+        }
+    session.info["relation_types"] = out
+    return out
+
+
+def forget_relation_types(session: Session) -> None:
+    session.info.pop("relation_types", None)
+
+
+def is_link_type(session: Session, key: str | None) -> bool:
+    """A built-in or a custom type's key (KG3)."""
+    if not key:
+        return False
+    return key in relation_types(session)
+
+
+def relation_label(types: dict[str, dict], link_type: str | None, outgoing: bool) -> str | None:
+    """What a link of this type is called from one end: its name from the
+    source, its inverse from the target (when it has one). None for an
+    untyped link or a type no longer known."""
+    kind = types.get(link_type or "")
+    if kind is None:
+        return None
+    if not outgoing and kind["directed"] and kind["inverse"]:
+        return kind["inverse"]
+    return kind["name"]
+
+
+def set_link_props(session: Session, link: EntryLink, props: dict | None) -> EntryLink:
+    """Replace a link's properties (KG3); an empty object clears them."""
+    if _touches_private(session, link):
+        _set_stored_props(session, link, _seal_props(props))
+    else:
+        _set_stored_props(session, link, dict(props) if props else None)
+    log_action(session, "relinked", "entry", link.source_entry_id, f"-> entry {link.target_entry_id} (properties)")
+    session.commit()
+    return link
+
+
+def set_link_type(session: Session, link: EntryLink, link_type: str | None) -> EntryLink:
+    """Give a link a kind, built-in or custom (KG3), or none (GRAPH_PLAN KG9:
+    the inbox's type suggestions, and the link menu's Type). The caller has
+    checked the key; an unknown one here is a bug, so it raises."""
+    if link_type is not None and not is_link_type(session, link_type):
+        raise ValueError(f"unknown link type {link_type!r}")
+    before = link.link_type
+    link.link_type = link_type
+    log_action(
+        session,
+        "relinked",
+        "entry",
+        link.source_entry_id,
+        f"-> entry {link.target_entry_id} ({link_type or 'untyped'})",
+        payload={"before": {"link_type": before}, "after": {"link_id": link.id, "link_type": link_type}},
+    )
     session.commit()
     return link
 
@@ -1807,20 +2312,28 @@ def entry_tags(entry: Entry) -> list[str]:
 def all_categories(session: Session) -> list[dict]:
     """Every category with how many live entries sit in it, biggest first.
 
-    Binned entries aren't counted: the number should match what the sidebar
-    shows, and the sidebar only ever lists notes you can still see.
+    The number is the Notes list's own under that category, so it counts
+    exactly what the list shows: not binned, not archived, not a draft (the
+    list keeps drafts in their own view), not a board. It used to exclude
+    only the bin, and two numbers for one category disagreed on screen:
+    Health 4 in the sidebar and 5 in Manage categories with one archived
+    note, Work 5 and 6 with one draft (measured 2026-10-03). The where-clause
+    is `_list_entries_filter`'s, the same one `GET /entries` uses, so the two
+    cannot drift apart again by one of them gaining a filter.
     """
     rows = list(session.scalars(select(Category).order_by(Category.name)))
+    query = _list_entries_filter(
+        select(Entry.category_id, func.count(Entry.id)),
+        include_deleted=False,
+        include_archived=False,
+        boards=BOARDS_EXCLUDE,
+    ).where(Entry.is_draft == False)  # noqa: E712
     counts = {
         category_id: total
-        for category_id, total in session.execute(
-            select(Entry.category_id, func.count(Entry.id))
-            .where(Entry.is_deleted == False)  # noqa: E712
-            .group_by(Entry.category_id)
-        )
+        for category_id, total in session.execute(query.group_by(Entry.category_id))
     }
     out = [
-        {"id": c.id, "name": c.name, "count": counts.get(c.id, 0)}
+        {"id": c.id, "name": c.name, "count": counts.get(c.id, 0), "colour": c.colour}
         for c in rows
     ]
     out.sort(key=lambda c: (-c["count"], c["name"].lower()))
@@ -1874,14 +2387,24 @@ def rename_category(session: Session, category_id: int, new_name: str) -> dict:
     """
     category = session.get(Category, category_id)
     if category is None:
-        raise ValueError("That category no longer exists")
+        raise ValueError("That category no longer exists.")
     new_name = new_name.strip()
     if not new_name:
-        raise ValueError("A category needs a name")
+        raise ValueError("A category needs a name.")
     if new_name == category.name:
         return {"renamed": False, "merged": False, "moved": 0}
 
-    existing = session.scalar(select(Category).where(Category.name == new_name))
+    # Only a same-named category in *this one's own space* is a merge. By
+    # name alone, renaming uni's "Lectures" to "Garden" from the "All spaces"
+    # view merged it into the default space's "Garden" and both uni notes
+    # then read as Uncategorised in uni (measured 2026-10-03). In another
+    # space the name is simply free, so this is a plain rename.
+    existing = session.scalar(
+        select(Category).where(
+            Category.name == new_name,
+            Category.workspace_id == category_space(session, category.workspace_id),
+        )
+    )
     if existing is not None and existing.id != category.id:
         # Merge: move the entries across, then drop the now-empty category.
         moved = _reassign(session, category.id, existing.id)
@@ -1907,11 +2430,15 @@ def delete_category(session: Session, category_id: int) -> dict:
     """
     category = session.get(Category, category_id)
     if category is None:
-        raise ValueError("That category no longer exists")
+        raise ValueError("That category no longer exists.")
     if category.name == UNCATEGORISED:
-        raise ValueError("Uncategorised is where notes go; it can't be removed")
+        raise ValueError("Uncategorised is where notes go, so it can't be removed.")
 
-    fallback = get_or_create_category(session, UNCATEGORISED)
+    # The deleted category's own Uncategorised, not the view's: a note must
+    # stay filed in a category its own space can list.
+    fallback = get_or_create_category(
+        session, UNCATEGORISED, workspace_id=category_space(session, category.workspace_id)
+    )
     moved = _reassign(session, category.id, fallback.id)
     log_action(session, "deleted", "category", category.id, category.name)
     session.delete(category)
@@ -1925,6 +2452,42 @@ def _reassign(session: Session, from_id: int, to_id: int) -> int:
     for entry in entries:
         entry.category_id = to_id
     return len(entries)
+
+
+# --- where a note's words came from (SEC-02) ----------------------------------
+
+
+def came_from_outside(entry: Entry) -> bool:
+    """Whether this note's text was written by somebody other than the person:
+    clipped from a web page (`source_url`) or brought in by an import
+    (`source_path`, set by the folder, markdown and document importers).
+
+    The agent's injection guard reads this (audit 2026-10-05, SEC-02): a page
+    clipped into a note and read back later is the same untrusted text a web
+    search returns, so it taints the turn the same way. Derived from columns
+    every clipped and imported note already has, so no row needs migrating.
+    """
+    return bool(getattr(entry, "source_url", None)) or bool(getattr(entry, "source_path", None))
+
+
+def document_came_from_outside(session: Session, document_id: int) -> bool:
+    """A document made by importing a file (the "imported" event its import
+    logged), as opposed to one written here. Events are never deleted
+    (`events.compact` strips payloads, not rows), so the answer lasts."""
+    from memorymap.core.database import AuditLog
+
+    return (
+        session.scalar(
+            select(AuditLog.id)
+            .where(
+                AuditLog.entity_type == "document",
+                AuditLog.entity_id == document_id,
+                AuditLog.action == "imported",
+            )
+            .limit(1)
+        )
+        is not None
+    )
 
 
 # --- private notes -----------------------------------------------------------
@@ -1992,7 +2555,10 @@ def plain_label(content: str, limit: int = 80) -> str:
     Images lose their alt text entirely (an image is not what the note *says*),
     links keep their text, and the usual inline emphasis/code markers go.
     """
-    text = (content or "").strip()
+    from memorymap.entry.properties import strip as strip_properties
+
+    #: KG4: a note opening with properties is named by what follows them.
+    text = strip_properties(content or "").strip()
     if not text:
         return ""
     first = ""
@@ -2013,7 +2579,7 @@ def plain_label(content: str, limit: int = 80) -> str:
     #: source labels were wiki links and every one of them showed its
     #: brackets. Same rule as the markdown link below: the link keeps its
     #: text, because the text is what the note says.
-    first = WIKI_LINK.sub(r"\1", first)
+    first = wiki_plain(first)
     first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
     first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
     first = re.sub(r"\s+", " ", first).strip()
@@ -2028,7 +2594,9 @@ def extract_title(content: str) -> str | None:
     second input box fighting the single-box capture flow this app is built
     around).
     """
-    for line in (content or "").splitlines():
+    from memorymap.entry.properties import strip as strip_properties
+
+    for line in strip_properties(content or "").splitlines():
         stripped = line.strip()
         if not stripped:
             continue
@@ -2046,34 +2614,46 @@ def _first_content_line(content: str) -> int | None:
     return None
 
 
+def _split_block(content: str) -> tuple[str, str]:
+    """`(properties block, body)`: a title lives in the body, never in the
+    block (KG4), so editing one must leave the block where it is."""
+    from memorymap.entry.properties import block_end
+
+    end = block_end(content or "")
+    return (content or "")[:end], (content or "")[end:]
+
+
 def apply_title(content: str, title: str) -> str:
     """Set (or replace) a note's title: its first line, as a heading.
     Prepends a new heading line if the note doesn't have one yet; replaces
     the existing one otherwise, so generating a title for a note that
-    already has one swaps it rather than stacking two."""
-    lines = (content or "").splitlines()
-    i = _first_content_line(content or "")
+    already has one swaps it rather than stacking two. A note that opens
+    with properties gets its heading after them."""
+    block, body = _split_block(content or "")
+    lines = body.splitlines()
+    i = _first_content_line(body)
     heading = f"# {title}"
     if i is not None and _heading_text(lines[i].strip()) is not None:
         lines[i] = heading
-        return "\n".join(lines)
-    return heading if not content else f"{heading}\n{content}"
+        return block + "\n".join(lines)
+    return block + (heading if not body else f"{heading}\n{body}")
 
 
 def remove_title(content: str) -> str:
     """Take a note's title back out, asked for directly, it's just the
     leading heading line, so removing it is removing that line (and one
     blank line right after it, so the body doesn't start with a gap). A
-    note with no title is returned unchanged.
+    note with no title is returned unchanged; properties stay as written.
     """
-    lines = (content or "").splitlines()
-    i = _first_content_line(content or "")
+    block, body = _split_block(content or "")
+    lines = body.splitlines()
+    i = _first_content_line(body)
     if i is None or _heading_text(lines[i].strip()) is None:
         return content
     del lines[i]
     if i < len(lines) and not lines[i].strip():
         del lines[i]
-    return "\n".join(lines)
+    return block + "\n".join(lines)
 
 
 #: Inline markdown markers, matched with their content so stripping keeps
@@ -2094,6 +2674,51 @@ _INLINE_MD = re.compile(
 )
 
 
+#: A line that starts a block of its own: a heading, a list item, a quote, a
+#: table row.
+_BLOCK_LINE = re.compile(r"^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>|\|)")
+#: A block that already ends its sentence needs no separator after it.
+_BLOCK_ENDED = re.compile(r"[.!?:;,…·)\]\"'”’]$")
+
+
+def join_blocks(text: str, strip=lambda line: line, limit: int | None = None) -> str:
+    """A note's or document's lines as one line of prose, its blocks kept apart.
+
+    INBOX 464: a preview that joins every line with a space reads a heading
+    and the list under it as one run-on sentence, "Goals Ship the notebook
+    redesign Cut travel spend by 15% Risks The hiring freeze...". A boundary
+    between blocks (a heading, a list item, a quote, or a blank line) whose
+    first half ends without a stop gets the app's dot separator, the one the
+    facts lines use; a block that ends its own sentence is followed by a
+    space. Lines inside one paragraph (hard-wrapped prose) are joined with a
+    space, so an imported file wrapped at 80 columns does not grow dots in
+    the middle of its sentences. `strip` cleans one line (its markers) after
+    its kind is read; `limit` stops reading once that many characters are
+    in, so a long document is not walked to its end for a 240-char preview.
+    """
+    out: list[str] = []
+    size = 0
+    gap = prev_block = False
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            gap = True
+            continue
+        block = bool(_BLOCK_LINE.match(line))
+        line = strip(line).strip()
+        if not line:
+            continue
+        if out:
+            boundary = gap or block or prev_block
+            out.append(" · " if boundary and not _BLOCK_ENDED.search(out[-1]) else " ")
+        out.append(line)
+        size += len(line)
+        gap, prev_block = False, block
+        if limit is not None and size > limit:
+            break
+    return "".join(out)
+
+
 def strip_inline_markdown(text: str) -> str:
     """A note's text as plain words: bold/italic/strike/code markers gone,
     an image or link reduced to its alt/link text. Markers only: block
@@ -2102,6 +2727,256 @@ def strip_inline_markdown(text: str) -> str:
     return _INLINE_MD.sub(
         lambda m: next(g for g in m.groups() if g is not None), text
     )
+
+
+def content_for_entry(entry: Entry, text: str) -> str | None:
+    """`text` (from a past version) in the form this note stores its text in
+    now: ciphertext when it is private, plain when it is not. None when that
+    needs the vault and it is locked. A version written while the note was in
+    the other state would otherwise put ciphertext in a note anyone reads, or
+    plain text in a private one."""
+    from memorymap.core import crypto, vault
+
+    if bool(entry.is_private) == crypto.is_encrypted(text):
+        return text
+    key = vault.key()
+    if key is None:
+        return None
+    return crypto.encrypt(key, text) if entry.is_private else crypto.decrypt(key, text)
+
+
+def _encrypt_history(session: Session, entry: Entry, key: bytes) -> None:
+    """Encrypt what the note's history already holds in the clear.
+
+    A note is made private after it was written, so its `created` and
+    `edited` events and its version snapshots carry the plaintext: scanning
+    every column for a private note's words found them in `audit_log.payload`
+    (2026-10-04). Same rule as the embedding and the dates above. The history
+    sheet and a replay read through `_readable`, which decrypts either form.
+    """
+    from memorymap.core import crypto
+    from memorymap.core.database import AuditLog, EntryRevision
+
+    for revision in session.scalars(select(EntryRevision).where(EntryRevision.entry_id == entry.id)):
+        if not crypto.is_encrypted(revision.content):
+            revision.content = crypto.encrypt(key, revision.content)
+    for row in session.scalars(
+        select(AuditLog).where(AuditLog.entity_type == "entry", AuditLog.entity_id == entry.id)
+    ):
+        payload = row.payload
+        if not isinstance(payload, dict):
+            continue
+        changed = {}
+        for side in ("before", "after"):
+            state = payload.get(side)
+            text = state.get("content") if isinstance(state, dict) else None
+            if isinstance(text, str) and text and not crypto.is_encrypted(text):
+                changed[side] = {**state, "content": crypto.encrypt(key, text)}
+        if changed:
+            row.payload = {**payload, **changed}  # a new dict: the JSON column only notices a new value
+
+
+def _links_of(session: Session, entry: Entry) -> list[EntryLink]:
+    return list(
+        session.scalars(
+            select(EntryLink).where(
+                or_(EntryLink.source_entry_id == entry.id, EntryLink.target_entry_id == entry.id)
+            )
+        )
+    )
+
+
+def _seal_link_reasons(session: Session, entry: Entry, key: bytes) -> None:
+    """Encrypt the reasons on every link touching a note that just went
+    private, and take them out of the activity log's text.
+
+    What stays visible, by decision: the link itself (which two notes are
+    joined, its kind) and the note's tags. Only the free text a person or the
+    model wrote about the notes is sealed.
+    """
+    from memorymap.core import crypto
+
+    for link in _links_of(session, entry):
+        text = link.reason  # plaintext: the column decrypts on load
+        if text:
+            _set_stored_reason(session, link, crypto.encrypt(key, text))
+        if link.props:
+            _set_stored_props(session, link, crypto.encrypt(key, json.dumps(link.props)))
+    _redact_link_audit(session, entry, key)
+
+
+def _unseal_link_reasons(session: Session, entry: Entry) -> None:
+    """The reverse, for each link whose other end is not itself private."""
+    for link in _links_of(session, entry):
+        other_id = link.target_entry_id if link.source_entry_id == entry.id else link.source_entry_id
+        other = session.get(Entry, other_id)
+        if other is not None and other.is_private:
+            continue
+        if link.reason:
+            _set_stored_reason(session, link, link.reason)
+        if link.props:
+            _set_stored_props(session, link, dict(link.props))
+
+
+def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> None:
+    """Move what a private note keeps outside its own row onto a new key.
+
+    `/rotate-vault-key` re-encrypts the notes; the version snapshots, the
+    event payloads and the link reasons are encrypted under the same data key
+    (`_encrypt_history`, `_seal_link_reasons`), so left alone they would stay
+    under the OLD key and read as empty the moment the vault row pointed at
+    the new one. Nothing is committed here: the caller's one commit makes the
+    notes, these and the vault row real together, or none.
+    """
+    from memorymap.core import crypto
+    from memorymap.core.database import AuditLog, EntryRevision
+
+    def swap(value: str) -> str:
+        return crypto.encrypt(new_key, crypto.decrypt(old_key, value))
+
+    for revision in session.scalars(select(EntryRevision)):
+        if crypto.is_encrypted(revision.content):
+            revision.content = swap(revision.content)
+    for row in session.scalars(select(AuditLog).where(AuditLog.payload.is_not(None))):
+        payload = row.payload
+        if not isinstance(payload, dict):
+            continue
+        changed = {}
+        for side in ("before", "after"):
+            state = payload.get(side)
+            if not isinstance(state, dict):
+                continue
+            fresh = {
+                name: swap(state[name])
+                for name in ("content", "reason")
+                if isinstance(state.get(name), str) and crypto.is_encrypted(state[name])
+            }
+            if fresh:
+                changed[side] = {**state, **fresh}
+        if changed:
+            row.payload = {**payload, **changed}
+    # Raw SQL: the typed column would hand back plaintext, not the stored text.
+    for link_id, stored in session.execute(
+        text("SELECT id, reason FROM entry_links WHERE reason LIKE :p"),
+        {"p": crypto.PREFIX + "%"},
+    ).all():
+        session.execute(
+            text("UPDATE entry_links SET reason = :r WHERE id = :i"),
+            {"r": swap(stored), "i": link_id},
+        )
+    # Props are a JSON string of ciphertext in a JSON column: the stored text
+    # is the quoted form, so read it as JSON and write it back as JSON.
+    for link_id, stored in session.execute(
+        text("SELECT id, props FROM entry_links WHERE props LIKE :p"),
+        {"p": '"' + crypto.PREFIX + "%"},
+    ).all():
+        sealed = json.loads(stored)
+        if isinstance(sealed, str) and crypto.is_encrypted(sealed):
+            session.execute(
+                text("UPDATE entry_links SET props = :r WHERE id = :i"),
+                {"r": json.dumps(swap(sealed)), "i": link_id},
+            )
+
+
+#: What a stored answer says once a note it quoted has been made private
+#: (SEC-14, audit 2026-10-05).
+PRIVATE_ANSWER_REDACTED = (
+    "This answer quoted a note that is now private, so its words were removed. "
+    "Ask again to get an answer from what is still readable."
+)
+
+#: This many words of the note in a row, found in an answer, count as a
+#: quote: long enough that ordinary phrasing does not trip it, short enough
+#: that a clause lifted out of a longer sentence does.
+_QUOTE_WORDS = 6
+
+
+def _word_runs(text: str) -> set[tuple[str, ...]]:
+    words = re.findall(r"\w+", (text or "").lower())
+    return {tuple(words[i : i + _QUOTE_WORDS]) for i in range(len(words) - _QUOTE_WORDS + 1)}
+
+
+def _quotes(text: str, runs: set[tuple[str, ...]]) -> bool:
+    return bool(runs) and not runs.isdisjoint(_word_runs(text))
+
+
+def _ids_in(value) -> set[int]:  # noqa: ANN001
+    """Every note id a stored answer's bookkeeping names: plain ids, and the
+    `id` / `note_id` of each dict (raw results, grounding marks)."""
+    found: set[int] = set()
+    for item in value or []:
+        if isinstance(item, int) and not isinstance(item, bool):
+            found.add(item)
+        elif isinstance(item, dict):
+            for key in ("id", "note_id", "entry_id"):
+                if isinstance(item.get(key), int):
+                    found.add(item[key])
+    return found
+
+
+def _json_list(text: str | None) -> list:
+    try:
+        value = json.loads(text or "[]")
+    except (TypeError, ValueError):
+        return []
+    return value if isinstance(value, list) else []
+
+
+def _redact_answers_quoting(session: Session, entry_id: int, plaintext: str) -> int:
+    """SEC-14: no stored answer goes on quoting a note that is now private.
+
+    An Ask turn or a saved chat reply is redacted when it named the note
+    (its results, its marks, its attached notes) or repeats one of the
+    note's sentences verbatim, however it got there (an agent's tool step, a
+    paraphrase that kept a line). The question, the person's own words,
+    stays; the answer, its thinking, its steps and its sources go, and the
+    reply says why. Returns how many answers were redacted.
+    """
+    from memorymap.core.database import AskTurn, Conversation
+
+    fragments = _word_runs(plaintext)
+    redacted = 0
+    for turn in session.scalars(select(AskTurn)):
+        named = entry_id in _ids_in(_json_list(turn.raw_result_ids)) | _ids_in(
+            _json_list(turn.connected_ids)
+        ) | _ids_in(_json_list(turn.grounding))
+        if not named and not _quotes(" ".join((turn.answer or "", turn.grounding or "", turn.match_info or "")), fragments):
+            continue
+        if turn.answer == PRIVATE_ANSWER_REDACTED:
+            continue
+        turn.answer = PRIVATE_ANSWER_REDACTED
+        turn.grounding = "[]"
+        turn.match_info = "{}"
+        turn.raw_result_ids = json.dumps([i for i in _json_list(turn.raw_result_ids) if i != entry_id])
+        turn.connected_ids = json.dumps([i for i in _json_list(turn.connected_ids) if i != entry_id])
+        redacted += 1
+    for conversation in session.scalars(select(Conversation)):
+        messages = _json_list(conversation.messages)
+        changed = False
+        asked_with_it = False
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            if message.get("role") == "user":
+                asked_with_it = entry_id in _ids_in(message.get("note_ids"))
+                continue
+            if message.get("role") != "assistant" or message.get("redacted"):
+                continue
+            named = asked_with_it or entry_id in (
+                _ids_in(message.get("raw_results"))
+                | _ids_in(message.get("connected_ids"))
+                | _ids_in(message.get("sentence_grounding"))
+            )
+            if not named and not _quotes(json.dumps(message, ensure_ascii=False), fragments):
+                continue
+            keep = {k: message[k] for k in ("role", "persona", "elapsed_ms", "tokens") if k in message}
+            message.clear()
+            message.update(keep, content=PRIVATE_ANSWER_REDACTED, redacted=True)
+            changed = True
+            redacted += 1
+        if changed:
+            conversation.messages = json.dumps(messages)
+    return redacted
 
 
 @events.writes("entry", "edited")
@@ -2119,10 +2994,20 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         return False
 
     if private:
+        # SEC-03: zero what this transaction frees (the plaintext row's old
+        # cell, its search rows), not just unlink it. Per connection, and only
+        # on this path; `scrub_private_leftovers` finishes the job after commit.
+        session.connection().exec_driver_sql("PRAGMA secure_delete=ON")
         if not crypto.is_encrypted(entry.content):
+            # Before the text is sealed: the redaction looks for its sentences.
+            _redact_answers_quoting(session, entry.id, entry.content)
             entry.content = crypto.encrypt(key, entry.content)
         entry.is_private = True
         session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
+        # Its paragraph vectors too: inert once the note vector is gone
+        # (`search/chunks.py`), but a vector of the text is what encryption
+        # hides, so they do not wait for the orphan pass.
+        session.execute(delete(ChunkVector).where(ChunkVector.entry_id == entry.id))
         # And out of the retrieval engine's in-memory matrix, which a bulk
         # `delete()` statement never reaches: a vector derived from this text
         # is exactly what the encryption is for, and one left in the array
@@ -2139,11 +3024,21 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         # its text and stored in the clear has to be cleared out here too.
         # "The appointment is tomorrow" plus a date is most of the note.
         session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        # And the people and places a model read out of it: an entity's
+        # membership is the note's text in another shape ("this note names Sam
+        # Lee"), and the live query's `entity:` term and the graph would
+        # still answer with it. Left unscanned, so a note made readable again
+        # is read again by the next extraction pass.
+        session.execute(delete(EntityMention).where(EntityMention.entry_id == entry.id))
+        entry.entities_extracted_at = None
+        _encrypt_history(session, entry, key)
+        _seal_link_reasons(session, entry, key)
     else:
         if crypto.is_encrypted(entry.content):
             entry.content = crypto.decrypt(key, entry.content)
         entry.is_private = False
         record_dates(session, entry)  # readable again, so it can be read again
+        _unseal_link_reasons(session, entry)
     # The payload carries the content as it now stands (ciphertext when the
     # note was just made private), so a replay of this note's events rebuilds
     # what is actually in the column rather than the plaintext it stopped
@@ -2159,6 +3054,34 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
     return True
 
 
+def scrub_private_leftovers(session: Session) -> None:
+    """After a note is made private and committed: no word of it left in the
+    file (SEC-03, security audit 2026-10-05).
+
+    `set_private` removes the note's search rows, but FTS5 keeps a deleted
+    row's tokens in its segment blobs behind a delete marker, so a PIN or a
+    place name from a private note stayed readable with `strings` in the
+    database, every backup and the export zip. This merges both FTS tables
+    (`optimize`) with `secure_delete` on, so the freed pages are zeroed, and
+    then truncates the WAL, whose old frames still hold the plaintext pages.
+    The checkpoint is best effort: a reader holding a snapshot can stop it
+    from finishing, and the next one takes it the rest of the way.
+    """
+    from memorymap.core.backup import optimize_fts
+
+    connection = session.connection()
+    connection.exec_driver_sql("PRAGMA secure_delete=ON")
+    optimize_fts(connection)
+    session.commit()
+    raw = session.get_bind().raw_connection()
+    try:
+        raw.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception:  # noqa: BLE001  # best effort, see the docstring
+        logging.getLogger("memorymap.entries").warning("could not checkpoint after making a note private", exc_info=True)
+    finally:
+        raw.close()
+
+
 # --- [[wiki links]] ----------------------------------------------------------
 # Typing [[something]] in a note links it to the note that starts with that
 # text. It's the cheapest way to build a real web of notes: no AI, no dialog,
@@ -2168,11 +3091,37 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
 WIKI_LINK = re.compile(r"\[\[([^\[\]]{1,120})\]\]")
 
 
+def wiki_target(inner: str) -> str:
+    """The note a `[[Target|Shown]]` names: the part before the first `|`.
+
+    The part after the bar is only what is drawn. One definition, because
+    several readers (`sync_wiki_links`, a document's backlinks, a note's
+    references row) each used to decide for themselves and gave different
+    answers for the same text.
+    """
+    return (inner or "").split("|", 1)[0].strip()
+
+
+def wiki_shown(inner: str) -> str:
+    """The words a `[[Target|Shown]]` draws: the part after the bar, else the target."""
+    target, bar, shown = (inner or "").partition("|")
+    return (shown.strip() if bar else "") or target.strip()
+
+
+def wiki_plain(text: str) -> str:
+    """Some text with each `[[link]]` replaced by the words it draws."""
+    return WIKI_LINK.sub(lambda match: wiki_shown(match.group(1)), text or "")
+
+
 def wiki_link_targets(content: str) -> list[str]:
-    """The [[names]] mentioned in some text, de-duplicated, in order."""
+    """The [[names]] mentioned in some text, de-duplicated, in order.
+
+    A `[[Target|Shown]]` is named by its target, so `[[bread]]` and
+    `[[Bread|loaf]]` are one name.
+    """
     seen = {}
     for match in WIKI_LINK.finditer(content or ""):
-        name = match.group(1).strip()
+        name = wiki_target(match.group(1))
         if name:
             seen.setdefault(name.lower(), name)
     return list(seen.values())
@@ -2186,7 +3135,7 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
     partial one, and among equals the oldest wins so a link doesn't silently
     change meaning when a newer note happens to start the same way.
     """
-    wanted = (name or "").strip().lower()
+    wanted = wiki_target(name).lower()
     if not wanted:
         return None
     #: **A vault's links name the file, not the first words.** An imported
@@ -2221,39 +3170,142 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
         stem = (entry.source_path or "").rsplit("/", 1)[-1].lower()
         if stem.removesuffix(".md").removesuffix(".markdown") == wanted:
             return entry
+    #: **A note that opens with a heading is named by the heading** (INBOX
+    #: 517). Most notes start `# Name`, and matching the raw text against
+    #: `name%` never saw past the `#`, so `[[Name]]` linked to nothing. The
+    #: SQL narrows (raw start, or a heading marker then the name); the
+    #: opening line with its marker stripped decides.
+    escaped = like_escape(wanted)
     candidates = session.scalars(
         select(Entry)
         .where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_private == False,  # noqa: E712
-            Entry.content.ilike(f"{like_escape(wanted)}%", escape=LIKE_ESCAPE),
+            or_(
+                Entry.content.ilike(f"{escaped}%", escape=LIKE_ESCAPE),
+                Entry.content.ilike(f"#% {escaped}%", escape=LIKE_ESCAPE),
+                # KG4: a note opening with properties; the name is after them.
+                Entry.content.ilike(f"---%{escaped}%", escape=LIKE_ESCAPE),
+            ),
         )
         .order_by(Entry.id)
     ).all()
+    candidates = [e for e in candidates if wiki_opening(e.content).startswith(wanted)]
     if not candidates:
         return None
     for entry in candidates:
-        if entry.content.strip().lower() == wanted:
-            return entry  # the whole note is exactly that name
+        if wiki_opening(entry.content) == wanted:
+            return entry  # its name, exactly: the whole opening line
     return candidates[0]
+
+
+_HEADING_MARK = re.compile(r"^\s{0,3}#{1,6}\s+")
+
+
+def wiki_opening(content: str | None) -> str:
+    """A note's name for [[links]]: its first line, heading marker stripped
+    (after its properties block, KG4)."""
+    from memorymap.entry.properties import strip as strip_properties
+
+    first = strip_properties(content or "").strip().split("\n", 1)[0]
+    return _HEADING_MARK.sub("", first).strip().lower()
+
+
+def resolve_links_to(session: Session, entry: Entry) -> int:
+    """Link the notes that already wrote `[[this note's name]]` (INBOX 517).
+
+    A link is often written before the note it names; `sync_wiki_links` runs
+    only on the note that holds the link, so without this such a link stayed
+    unresolved until that other note happened to be saved again.
+    """
+    name = wiki_opening(entry.content)
+    if not name or len(name) > 120:
+        return 0
+    holders = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.id != entry.id,
+            Entry.content.ilike(f"%[[{like_escape(name)}]]%", escape=LIKE_ESCAPE),
+        )
+    ).all()
+    made = 0
+    for holder in holders:
+        if find_by_wiki_name(session, name) is entry and create_link(session, holder, entry, origin="wiki"):
+            made += 1
+    return made
 
 
 def sync_wiki_links(session: Session, entry: Entry) -> list[str]:
     """Create links for the [[names]] in this note. Returns the unresolved ones.
 
-    Only ever adds. A [[name]] that matches nothing is left alone rather than
-    reported as an error, you often write the link before the note it points
-    at, and having that fail the save would be worse than useless.
+    A [[name]] that matches nothing is left alone rather than reported as an
+    error, you often write the link before the note it points at, and having
+    that fail the save would be worse than useless.
+
+    **And takes away the ones whose name left the text** (GRAPH_PLAN 518): a
+    link this note's own `[[name]]` made (`origin == "wiki"`) whose target no
+    name in the text resolves to any more. A link made any other way is never
+    touched here.
     """
     unresolved = []
+    named: set[int] = set()
     for name in wiki_link_targets(entry.content):
         target = find_by_wiki_name(session, name)
         if target is None or target.id == entry.id:
             if target is None:
                 unresolved.append(name)
             continue
-        create_link(session, entry, target)
+        named.add(target.id)
+        create_link(session, entry, target, origin="wiki")
+    stale = session.scalars(
+        select(EntryLink).where(
+            EntryLink.source_entry_id == entry.id,
+            EntryLink.origin == "wiki",
+            EntryLink.target_entry_id.not_in(named),
+        )
+    ).all()
+    for link in stale:
+        delete_link(session, link)
     return unresolved
+
+
+def _wiki_name_pattern(name: str) -> re.Pattern:
+    """`[[name]]`, `[[name|alias]]` and `[[name#part]]`, any case."""
+    return re.compile(r"\[\[\s*" + re.escape(name.strip()) + r"\s*(?=[\]|#])", re.IGNORECASE)
+
+
+def wiki_holders(session: Session, entry: Entry, name: str) -> list[Entry]:
+    """The other notes whose text has `[[name]]` in one of its forms."""
+    if not name or len(name) > 120:
+        return []
+    pattern = _wiki_name_pattern(name)
+    rows = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.id != entry.id,
+            Entry.content.ilike(f"%[[{like_escape(name.strip())}%", escape=LIKE_ESCAPE),
+        )
+    ).all()
+    return [row for row in rows if pattern.search(row.content or "")]
+
+
+def rewrite_wiki_name(session: Session, entry: Entry, old: str, new: str) -> int:
+    """Rewrite `[[old]]` as `[[new]]` in every note that names it (GRAPH_PLAN
+    518: a renamed note offers this). Each note keeps its alias and part, gets
+    a revision first so it can be undone from its history, and is synced so
+    its links point where the names now do. Returns how many notes changed."""
+    pattern = _wiki_name_pattern(old)
+    changed = 0
+    for holder in wiki_holders(session, entry, old):
+        record_revision(session, holder)
+        update_entry(session, holder, content=pattern.sub(lambda _m: f"[[{new.strip()}", holder.content))
+        sync_wiki_links(session, holder)
+        changed += 1
+    if changed:
+        log_action(session, "edited", "entry", entry.id, f"renamed [[{old}]] in {changed} notes")
+    session.commit()
+    return changed
 
 
 # ROADMAP.md's onboarding item: "seeded example notes so the graph, timeline

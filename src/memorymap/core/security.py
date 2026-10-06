@@ -24,26 +24,10 @@ from base64 import b64encode
 from pathlib import Path
 from urllib.parse import urlparse, urlsplit
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, Response
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import JSONResponse
 
-
-async def _call_next_or_gone(request, call_next):
-    """`call_next`, except for a request the browser has already given up on.
-
-    Starlette's `BaseHTTPMiddleware` raises `RuntimeError("No response
-    returned.")` when the app below it sent nothing because the client went
-    away mid-request (a fetch aborted by a tab switch or a superseded search).
-    That is not a server fault, but it reached the console as a full "Exception
-    in ASGI application" traceback (the owner's Windows log, 2026-09-28). A
-    request nobody is waiting for gets an empty 499 instead; anything else
-    still raises."""
-    try:
-        return await call_next(request)
-    except RuntimeError as exc:
-        if str(exc) == "No response returned." and await request.is_disconnected():
-            return Response(status_code=499)
-        raise
 
 # Loopback spellings that all mean this machine. A person who typed
 # "localhost:8000" and a desktop shell that loaded "127.0.0.1:8000" are the
@@ -93,15 +77,42 @@ def _is_same_site(candidate: str, host_header: str | None, scheme: str) -> bool:
     return False
 
 
-class HostCheckMiddleware:
-    """LAN mode's DNS-rebinding guard (see `core/netbind.host_allowed`).
+def without_userinfo(url: str) -> str:
+    """A URL with any `user:password@` taken out (SEC-12, security audit
+    2026-10-05): a model server address typed with credentials in it went
+    into the support bundle and the privacy receipt as typed."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    if "@" not in (parts.netloc or ""):
+        return url
+    return parts._replace(netloc=parts.netloc.rsplit("@", 1)[1]).geturl()
 
-    Only while the server listens beyond this computer: on loopback the lock
-    and the Origin check already cover a rebinding page, and every tool that
-    talks to the app locally (the test client's own `testserver` among them)
-    names it however it likes. Off loopback, a Host that is not this computer
-    is answered 421 before anything else runs. Pure ASGI, so it costs one
-    header scan per request and never wraps a response.
+
+class HostCheckMiddleware:
+    """The DNS-rebinding guard (see `core/netbind.host_allowed`), on every
+    real socket, loopback included.
+
+    It used to run only while the server listened beyond this computer, on
+    the reasoning that "on loopback the lock and the Origin check already
+    cover a rebinding page". They did not (SEC-05, security audit
+    2026-10-05): a page on evil.example re-pointed at 127.0.0.1 is
+    same-origin with itself, so the Origin check passes it; it shared the
+    owner's unlock-throttle bucket (every loopback client is 127.0.0.1) and
+    could keep the owner locked out, and with sign-in off it could close the
+    owner's vault. The Host it sends is still its own name, and loopback
+    names, this machine's own name and address literals are all a real
+    caller ever sends, so a Host that is not one of those is answered 421
+    before anything else runs.
+
+    Two differences remain between loopback and the network. Off loopback a
+    request with no Host at all is refused too (HTTP/1.1 requires one; a
+    local tool may omit it), and before a password exists every request from
+    the network is answered 403 (SEC-01). And a request whose scope names
+    its server rather than numbering it is the in-process test client
+    (`testserver`), never a socket, so it is not judged. Pure ASGI, so it
+    costs one header scan per request and never wraps a response.
     """
 
     def __init__(self, app) -> None:  # noqa: ANN001  # an ASGI app
@@ -110,30 +121,186 @@ class HostCheckMiddleware:
     async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
         from memorymap.core import netbind
 
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        server = scope.get("server")
         #: Off loopback by either fact: what the launcher bound, or the address
         #: this request actually arrived on (`netbind.arrived_on_loopback`),
-        #: since a server started outside the launcher never says. A request
-        #: with no Host at all is refused there too: HTTP/1.1 requires one, so
-        #: nothing legitimate on the network omits it (on loopback a tool may).
-        if scope.get("type") == "http" and (
-            not netbind.is_loopback_bind() or not netbind.arrived_on_loopback(scope.get("server"))
-        ):
+        #: since a server started outside the launcher never says.
+        off_loopback = not netbind.is_loopback_bind() or not netbind.arrived_on_loopback(server)
+        if off_loopback or netbind.arrived_on_socket(server):
             host = None
             for name, value in scope.get("headers") or ():
                 if name == b"host":
                     host = value.decode("latin-1")
                     break
-            if host is None or not netbind.host_allowed(host):
+            if (host is None and off_loopback) or (host is not None and not netbind.host_allowed(host)):
                 response = JSONResponse(
                     status_code=421,
                     content={"detail": "This address does not name this computer."},
                 )
                 await response(scope, receive, send)
                 return
+        if off_loopback:
+            #: SEC-01 (audit 2026-10-05): before a password exists every route
+            #: is open (there is nothing to unlock with), so the network gets
+            #: nothing at all: not the notes, not the status, and not
+            #: `/auth/setup`, which would let any device claim the notebook.
+            #: The launcher already binds loopback without a password; this
+            #: covers a server started any other way.
+            if not _notebook_has_password():
+                response = JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "This notebook has no password yet. Set one on the "
+                            "computer it runs on first."
+                        )
+                    },
+                )
+                await response(scope, receive, send)
+                return
         await self.app(scope, receive, send)
 
 
-class OriginCheckMiddleware(BaseHTTPMiddleware):
+#: **How much a request may send** (SEC-06, security audit 2026-10-05). One
+#: unauthenticated `POST /auth/unlock` with a 300 MB password took the server
+#: up about 800 MB of RAM before anything said no. A request that has not
+#: shown a session gets `SMALL_BODY_BYTES`: plenty for a password, a setup, a
+#: client log line, and every route behind the lock answers such a request
+#: 401 anyway. A signed-in request gets `LARGE_BODY_BYTES`, above the largest
+#: upload any route takes (a 300 MB meeting recording, `routes_voice`), so
+#: the routes' own limits stay the ones a person meets.
+SMALL_BODY_BYTES = 1024 * 1024
+LARGE_BODY_BYTES = 320 * 1024 * 1024
+#: Open to everyone, so always the small cap, whatever token is sent.
+_ALWAYS_SMALL = ("/auth/", "/logs/client")
+
+
+class _BodyTooLarge(StarletteHTTPException):
+    """An HTTP 413 so that a route reading its body passes it on as one
+    (FastAPI re-raises an HTTPException met while parsing a body, and turns
+    anything else into a 400)."""
+
+    def __init__(self) -> None:
+        super().__init__(status_code=413, detail="That request is too large.")
+
+
+class BodyCapMiddleware:
+    """Refuse a body past its cap before it is read, or as soon as it passes.
+
+    A declared `Content-Length` over the cap is answered 413 without reading
+    a byte. A body with no length (chunked) is counted as it arrives, and the
+    read stops the moment it passes the cap: the route sees a 413 instead of
+    the rest. Pure ASGI, so nothing is buffered here either.
+    """
+
+    def __init__(self, app) -> None:  # noqa: ANN001  # an ASGI app
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        declared = headers.get("content-length")
+        if (
+            declared is None
+            and "transfer-encoding" not in headers
+            and scope.get("method", "GET").upper() in ("GET", "HEAD", "OPTIONS")
+        ):
+            # No body at all: every page, script and stylesheet load, which
+            # need not pay for the session lookup below.
+            await self.app(scope, receive, send)
+            return
+        limit = _body_limit(scope.get("path") or "", headers)
+        if declared is not None:
+            try:
+                too_big = int(declared) > limit
+            except ValueError:
+                too_big = False  # a malformed length is the server's to refuse
+            if too_big:
+                await _too_large(scope, receive, send)
+                return
+
+        seen = 0
+        started = False
+
+        async def counted_receive():
+            nonlocal seen
+            message = await receive()
+            if message.get("type") == "http.request":
+                seen += len(message.get("body") or b"")
+                if seen > limit:
+                    raise _BodyTooLarge
+            return message
+
+        async def tracked_send(message):
+            nonlocal started
+            if message.get("type") == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, counted_receive, tracked_send)
+        except _BodyTooLarge:
+            if not started:
+                await _too_large(scope, receive, send)
+
+
+async def _too_large(scope, receive, send) -> None:  # noqa: ANN001  # ASGI
+    response = JSONResponse(
+        status_code=413,
+        content={"detail": "That request is too large."},
+    )
+    await response(scope, receive, send)
+
+
+def _body_limit(path: str, headers: Headers) -> int:
+    if path.startswith(_ALWAYS_SMALL):
+        return SMALL_BODY_BYTES
+    token = headers.get("x-auth-token")
+    if token and _session_is_live(token):
+        return LARGE_BODY_BYTES
+    # No session shown. Before a password exists there is nothing to sign in
+    # with and every route is open on this computer (`require_unlock`), so the
+    # large cap; after, the small one.
+    return SMALL_BODY_BYTES if _notebook_has_password() else LARGE_BODY_BYTES
+
+
+#: The unlock gate's two answers, registered by `api/routes_auth.py` when it
+#: loads (`register_auth`). A hook rather than an import: `deps` imports this
+#: module and `routes_auth` imports `deps`, so importing `routes_auth` from
+#: here, even through `importlib`, closed a 17-module cycle
+#: (`tests/test_import_module_cycles.py`). Unregistered means "cannot tell",
+#: which is the safe answer in both: the small body cap, no network.
+_auth_hooks: dict = {}
+
+
+def register_auth(active_tokens, has_password) -> None:  # noqa: ANN001  # a dict and a callable
+    _auth_hooks["tokens"] = active_tokens
+    _auth_hooks["has_password"] = has_password
+
+
+def _session_is_live(token: str) -> bool:
+    tokens = _auth_hooks.get("tokens")
+    return tokens is not None and token in tokens
+
+
+def _notebook_has_password() -> bool:
+    """The unlock gate's own answer (cached when yes), or False when the
+    database cannot be asked: refusing the network is the safe failure."""
+    has_password = _auth_hooks.get("has_password")
+    if has_password is None:
+        return False
+    try:
+        return bool(has_password())
+    except Exception:  # noqa: BLE001  # any failure means "do not serve the network"
+        return False
+
+
+class OriginCheckMiddleware:
     """Refuse requests a *different* site's page caused a browser to send.
 
     The rule is narrow on purpose: a request is refused only when it carries
@@ -150,19 +317,40 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
     could claim the notebook and lock the real owner out of it.
     """
 
-    async def dispatch(self, request, call_next):
-        if request.method.upper() in _CHECKED_METHODS:
-            stated = request.headers.get("origin")
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] == "http" and scope["method"].upper() in _CHECKED_METHODS:
+            headers = Headers(scope=scope)
+            stated = headers.get("origin")
+            #: `Origin: null` is what a sandboxed iframe, a `data:` page or a
+            #: redirect chain sends, never this app's own page, which always
+            #: has a real origin. On the open `/auth/*` routes (setup, unlock,
+            #: lock) it is read as cross-site (SEC-05, audit 2026-10-05):
+            #: falling through to "no Origin" there let any site fire them.
+            if stated == "null" and scope.get("path", "").startswith("/auth/"):
+                refusal = JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "This request came from another site. MemoryMap "
+                            "only answers its own pages."
+                        )
+                    },
+                )
+                await refusal(scope, receive, send)
+                return
             # Referer is the fallback, not an equal: it is absent under a
             # strict referrer policy, so it can only ever be used to reject
             # something, never as the reason to trust something.
             if stated is None or stated == "null":
-                stated = request.headers.get("referer")
+                stated = headers.get("referer")
             if stated is not None and stated != "null":
-                host = request.headers.get("host")
-                scheme = request.url.scheme or "http"
+                host = headers.get("host")
+                scheme = scope.get("scheme") or "http"
                 if not _is_same_site(stated, host, scheme):
-                    return JSONResponse(
+                    refusal = JSONResponse(
                         status_code=403,
                         content={
                             "detail": (
@@ -171,7 +359,9 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
                             )
                         },
                     )
-        return await _call_next_or_gone(request, call_next)
+                    await refusal(scope, receive, send)
+                    return
+        await self.app(scope, receive, send)
 
 
 # --- Content-Security-Policy ------------------------------------------------
@@ -183,7 +373,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 # and any path that pairs one version of the page with the other version's
 # header refuses it: reported as "[browser/csp] blocked script-src-elem:
 # inline", which lands as the app opening in its default look with the saved
-# theme never applied. The block now lives in `frontend/theme-boot.js`, which
+# theme never applied. The block now lives in `frontend/js/theme-boot.js`, which
 # `script-src 'self'` covers unconditionally, and
 # `test_static_freshness.py::test_the_page_has_no_inline_script_left` holds
 # the page that way.
@@ -261,7 +451,7 @@ def build_csp(script_hashes: list[str]) -> str:
         # `'wasm-unsafe-eval'` is the one exception, and it is narrower than
         # its name: it lets the page compile WebAssembly and nothing else.
         # `eval` and `new Function` stay refused. It is here for the grammar
-        # checker (Harper, vendored, run in `frontend/harper-worker.js`);
+        # checker (Harper, vendored, run in `frontend/js/harper-worker.js`);
         # without it `WebAssembly.instantiate` throws a CompileError naming
         # this policy and the check quietly never runs.
         "script-src": " ".join(["'self'", "'wasm-unsafe-eval'", *script_hashes]),
@@ -279,7 +469,7 @@ def build_csp(script_hashes: list[str]) -> str:
         # Ollama directly, every call goes through this server, so there is
         # nothing else to allow.
         "connect-src": "'self'",
-        # `frontend/graph-worker.js`, the graph's force simulation, off the
+        # `frontend/js/graph-worker.js`, the graph's force simulation, off the
         # main thread (GRAPH_PLAN.md §4). Checked before that file was written
         # rather than after: a missing `worker-src` falls back to
         # `default-src 'self'` here so it would have worked anyway, but a
@@ -362,37 +552,45 @@ class CspForPage:
         return self._csp
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """Attach the CSP and its neighbours to every response."""
 
     def __init__(self, app, csp: str | CspForPage) -> None:
-        super().__init__(app)
+        self.app = app
         self._csp = csp
 
     def _policy(self) -> str:
         # A plain string is still accepted so a test can pin an exact policy.
         return self._csp.value() if isinstance(self._csp, CspForPage) else self._csp
 
-    async def dispatch(self, request, call_next):
-        response = await _call_next_or_gone(request, call_next)
-        headers = response.headers
-        # setdefault, not assignment: a route that has deliberately set its own
-        # policy knows something this middleware does not.
-        headers.setdefault("Content-Security-Policy", self._policy())
-        # Belt and braces with frame-ancestors above, for anything that reads
-        # the older header instead.
-        headers.setdefault("X-Frame-Options", "DENY")
-        # Stops a note attachment being sniffed into text/html and run as a
-        # page on this origin, same-origin, so it would inherit everything.
-        headers.setdefault("X-Content-Type-Options", "nosniff")
-        # Never leak a notebook's URLs to a third party.
-        headers.setdefault("Referrer-Policy", "no-referrer")
-        # This app needs none of these, and saying so stops an injected iframe
-        # or script asking the user for them in MemoryMap's name.
-        headers.setdefault(
-            "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
-        )
-        return response
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def stamped(message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                # setdefault, not assignment: a route that has deliberately set
+                # its own policy knows something this middleware does not.
+                headers.setdefault("Content-Security-Policy", self._policy())
+                # Belt and braces with frame-ancestors above, for anything
+                # that reads the older header instead.
+                headers.setdefault("X-Frame-Options", "DENY")
+                # Stops a note attachment being sniffed into text/html and run
+                # as a page on this origin, same-origin, so it would inherit
+                # everything.
+                headers.setdefault("X-Content-Type-Options", "nosniff")
+                # Never leak a notebook's URLs to a third party.
+                headers.setdefault("Referrer-Policy", "no-referrer")
+                # This app needs none of these, and saying so stops an injected
+                # iframe or script asking the user for them in MemoryMap's name.
+                headers.setdefault(
+                    "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
+                )
+            await send(message)
+
+        await self.app(scope, receive, stamped)
 
 
 # --- where the AI backend is allowed to live --------------------------------
@@ -531,15 +729,15 @@ def _refuses(address) -> str | None:
     # leftovers.
     if address.is_link_local:
         return (
-            f"{address} is a link-local address. On a cloud machine that is "
-            "the instance-metadata service, not a model server."
+            f"{address} is an address a cloud computer keeps for its own "
+            "settings, so it can't be where an AI runs."
         )
     if address.is_multicast or address.is_unspecified:
-        return f"{address} isn't an address something can listen on."
+        return f"{address} can't be used as the address of an AI server."
     if address.is_loopback or address.is_private:
         return None
     if address.is_reserved:
-        return f"{address} isn't an address something can listen on."
+        return f"{address} can't be used as the address of an AI server."
     return None
 
 
@@ -566,13 +764,13 @@ def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bo
     if parts.scheme not in _ALLOWED_BACKEND_SCHEMES:
         return (
             False,
-            f"A model backend has to be an http:// or https:// address"
-            f"{f', “{parts.scheme}:” is not' if parts.scheme else ''}.",
+            "The address has to start with http:// or https://"
+            f"{f' (“{parts.scheme}:” is not allowed)' if parts.scheme else ''}.",
             False,
         )
     host = (parts.hostname or "").strip()
     if not host:
-        return False, "That address has no host in it.", False
+        return False, "That address has no computer name in it, for example http://localhost:11434.", False
 
     addresses = _backend_addresses(host)
     for address in addresses:
@@ -599,17 +797,17 @@ def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bo
         return False, _LOCKED_REASON.format(host=host), False
     return (
         True,
-        "This backend is not on your machine or your local network. Your "
+        "This AI server is not on your computer or your own network. Your "
         "notes and questions will be sent to it over the internet.",
         False,
     )
 
 
 _LOCKED_REASON = (
-    "“{host}” is not on this machine or your local network, and MemoryMap is "
-    "set to keep the AI local, so your notes are never sent anywhere. If you "
-    "really do want to use a hosted API, turn off “Keep the AI on this "
-    "machine” in Settings → Models first."
+    "“{host}” is not on this computer or your own network, and MemoryMap is "
+    "set to keep the AI local, so your notes are never sent anywhere. To use "
+    "an online AI service anyway, turn off “Keep the AI on this machine” in "
+    "Settings, Models first."
 )
 
 
@@ -632,6 +830,9 @@ _LOCKED_REASON = (
 # move deliberately did not touch).
 
 
+_ONLY_WEB_LINKS = "Only web addresses that start with http or https can be opened."
+
+
 class UnsafeUrl(ValueError):
     """A URL that must not be fetched, with a sentence fit to show a person."""
 
@@ -652,6 +853,11 @@ def is_internal_address(address) -> bool:  # noqa: ANN001  # an ipaddress object
         or address.is_reserved
         or address.is_multicast
         or address.is_unspecified
+        #: Everything the registry does not mark global: the shared address
+        #: space 100.64.0.0/10 (carrier NAT, Tailscale, Alibaba's metadata
+        #: service at 100.100.100.200) is neither `is_private` nor
+        #: `is_reserved` to Python and was fetchable.
+        or not address.is_global
     )
 
 
@@ -670,9 +876,9 @@ def public_addresses(url: str) -> list:
     """
     parsed = urlparse(url)
     if parsed.scheme not in _ALLOWED_BACKEND_SCHEMES or not parsed.hostname:
-        raise UnsafeUrl("Only http(s) links can be opened")
+        raise UnsafeUrl(_ONLY_WEB_LINKS)
     if parsed.username or parsed.password:
-        raise UnsafeUrl("Only http(s) links can be opened")
+        raise UnsafeUrl(_ONLY_WEB_LINKS)
     found = []
     for raw in _resolve(parsed.hostname):
         try:
@@ -682,9 +888,9 @@ def public_addresses(url: str) -> list:
     if not found:
         # A lookup that fails is a failed check, never a pass: the one rule
         # that keeps a resolver outage from opening the hole this closes.
-        raise UnsafeUrl("Couldn't look up that address")
+        raise UnsafeUrl("Couldn't look up that web address.")
     if any(is_internal_address(address) for address in found):
-        raise UnsafeUrl("That link points at a local address, so it wasn't opened")
+        raise UnsafeUrl("That link points at a local address, so it wasn't opened.")
     return found
 
 

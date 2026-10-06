@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from memorymap.ai import janitor, librarian
+from memorymap.ai import filing_certainty, janitor, librarian
 from memorymap.ai.embeddings import (
     bytes_to_vector,
     cosine_similarity,
@@ -103,7 +103,10 @@ def test_janitor_asks_llm_when_no_match(session, app_state):
     category, confidence, method = janitor.categorise(
         session, "buy milk and eggs", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence, method) == ("Shopping", 85, "llm")
+    # The model said 85 for a category the notebook has no notes in, so what is
+    # kept is the calibrated number (`filing_certainty`), not the model's.
+    assert (category, method) == ("Shopping", "llm")
+    assert confidence == filing_certainty.calibrate(85, "llm", support=None, category_notes=0) < 85
     assert len(ollama.chat_calls) == 1
 
 
@@ -458,5 +461,8 @@ def test_with_ai_first_filing_off_the_model_still_decides_what_vectors_cannot(
         session, "buy milk and eggs", embeddings, deps.get_model_manager(), ollama
     )
 
-    assert (category, confidence, method) == ("Shopping", 85, "llm")
+    # The model said 85 for a category the notebook has no notes in, so what is
+    # kept is the calibrated number (`filing_certainty`), not the model's.
+    assert (category, method) == ("Shopping", "llm")
+    assert confidence == filing_certainty.calibrate(85, "llm", support=None, category_notes=0) < 85
     assert len(ollama.chat_calls) == 1

@@ -59,13 +59,13 @@ LAZY_TABLE = re.compile(r"const LAZY_MODULES = \{(.*?)\n\};", re.S)
 
 
 def _lazy_order() -> list[str]:
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     table = LAZY_TABLE.search(app)
     assert table, "app.js has no LAZY_MODULES table; has the lazy loader moved?"
-    names = [name for name in re.findall(r'"/([A-Za-z0-9_.-]+\.js)"', table.group(1))]
+    names = [name for name in re.findall(r'"/js/([A-Za-z0-9_.-]+\.js)"', table.group(1))]
     assert names, "the LAZY_MODULES table lists no files"
     for name in names:
-        assert (FRONTEND / name).exists(), f"LAZY_MODULES names {name}, which does not exist"
+        assert (FRONTEND / "js" / name).exists(), f"LAZY_MODULES names {name}, which does not exist"
     return names
 
 
@@ -78,7 +78,7 @@ ENTRY_POINT_TABLE = re.compile(r"const LAZY_ENTRY_POINTS = \{(.*?)\n\};", re.S)
 
 
 def _stand_ins() -> set[str]:
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     table = ENTRY_POINT_TABLE.search(app)
     assert table, "app.js has no LAZY_ENTRY_POINTS table; has the lazy loader moved?"
     names = set(re.findall(r'"([A-Za-z_$][\w$]*)"', table.group(1)))
@@ -89,9 +89,9 @@ def _stand_ins() -> set[str]:
 def _script_order() -> list[str]:
     html = INDEX.read_text(encoding="utf-8")
     names: list[str] = []
-    for match in re.finditer(r'<script src="/([A-Za-z0-9_.-]+\.js)', html):
+    for match in re.finditer(r'<script src="/js/([A-Za-z0-9_.-]+\.js)', html):
         name = match.group(1)
-        if (FRONTEND / name).exists() and name not in names:
+        if (FRONTEND / "js" / name).exists() and name not in names:
             names.append(name)
     assert names, "no local scripts found in index.html"
     for name in _lazy_order():
@@ -120,7 +120,7 @@ NOT_CALLS = {"if", "for", "while", "switch", "catch", "return", "typeof", "funct
 
 def test_no_script_calls_a_later_script_from_its_own_top_level():
     order = _script_order()
-    sources = {name: (FRONTEND / name).read_text(encoding="utf-8") for name in order}
+    sources = {name: (FRONTEND / "js" / name).read_text(encoding="utf-8") for name in order}
     defined_in: dict[str, str] = {}
     for name in order:
         for function in re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", sources[name], re.M):
@@ -162,13 +162,13 @@ def test_the_paging_helper_is_reachable_from_the_script_that_boots_with_it():
     callers = [
         name
         for name in order
-        if re.search(r"(?<![\w$.])apiPagedList\s*\(", (FRONTEND / name).read_text(encoding="utf-8"))
+        if re.search(r"(?<![\w$.])apiPagedList\s*\(", (FRONTEND / "js" / name).read_text(encoding="utf-8"))
     ]
     assert callers, "nothing calls apiPagedList any more; is it still needed?"
     home = [
         name
         for name in order
-        if re.search(r"^(?:async )?function apiPagedList\(", (FRONTEND / name).read_text(encoding="utf-8"), re.M)
+        if re.search(r"^(?:async )?function apiPagedList\(", (FRONTEND / "js" / name).read_text(encoding="utf-8"), re.M)
     ]
     assert len(home) == 1, f"apiPagedList is defined in {home}"
     assert order.index(home[0]) <= order.index(callers[0]), (
@@ -197,7 +197,7 @@ def test_every_lazy_name_app_js_reads_at_load_has_a_stand_in():
     lazy_files = _lazy_order()
     lazy_functions: dict[str, str] = {}
     for name in lazy_files:
-        source = (FRONTEND / name).read_text(encoding="utf-8")
+        source = (FRONTEND / "js" / name).read_text(encoding="utf-8")
         for function in re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", source, re.M):
             lazy_functions.setdefault(function, name)
 
@@ -237,7 +237,7 @@ def test_the_stand_ins_name_functions_that_exist():
     touching the table is how that happens."""
     lazy_functions: set[str] = set()
     for name in _lazy_order():
-        source = (FRONTEND / name).read_text(encoding="utf-8")
+        source = (FRONTEND / "js" / name).read_text(encoding="utf-8")
         lazy_functions.update(re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", source, re.M))
     orphans = sorted(_stand_ins() - lazy_functions)
     assert not orphans, (
@@ -253,7 +253,7 @@ def test_lazy_bundles_do_not_wait_for_domcontentloaded():
     wire through `onDomReady` (app.js), which runs at once when the document
     is already parsed."""
     for file in _lazy_order():
-        text = (FRONTEND / file).read_text(encoding="utf-8")
+        text = (FRONTEND / "js" / file).read_text(encoding="utf-8")
         assert 'addEventListener("DOMContentLoaded"' not in text, (
             f"{file} waits for DOMContentLoaded; use onDomReady() so it wires when loaded on demand"
         )
@@ -294,7 +294,7 @@ def test_app_js_does_not_read_a_later_scripts_constant_at_load():
     for path in app_js_files():
         later: set[str] = set()
         for name in order[order.index(path.name) + 1 :]:
-            later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
+            later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / "js" / name).read_text(encoding="utf-8"), re.M))
         top = _top_level(path.read_text(encoding="utf-8"))
         at_load = top
         for function in {m.group(1) for m in STATEMENT_CALL.finditer(top)} - NOT_CALLS:
@@ -333,7 +333,7 @@ def test_a_typeof_guard_at_load_cannot_see_a_later_scripts_constant():
     for path in app_js_files():
         later: set[str] = set()
         for name in order[order.index(path.name) + 1 :]:
-            later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
+            later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / "js" / name).read_text(encoding="utf-8"), re.M))
         for line in _top_level(path.read_text(encoding="utf-8")).split("\n"):
             for name in {m.group(1) for m in guard.finditer(line.split("//")[0])}:
                 if name in later:

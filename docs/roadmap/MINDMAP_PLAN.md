@@ -1,4 +1,4 @@
-# Mindmaps — a dev plan
+# Mindmaps: a dev plan
 
 > Companions: [ROADMAP.md](../ROADMAP.md) · [HANDOVER.md](HANDOVER.md) ·
 > [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md) ·
@@ -29,13 +29,13 @@
 > etc.
 
 **The naming question is settled.** Asked directly, the user confirmed
-"kaggle" was a typo for **Coggle (coggle.it)** — and said all of the tools
+"kaggle" was a typo for **Coggle (coggle.it)**: and said all of the tools
 named here are good references, so the feature set below draws on **Coggle**
 (immediacy, branch colours, loops and joins, image nodes, PNG/PDF/text/OPML
 export, `.mm` import), **Kumu** (attributes, perspectives, focus mode, signed
 edges), **XMind** (output quality, structure templates) and **Obsidian Canvas
 Mindmap** (the keyboard set). They also named **Lucidchart** as a reference,
-"but that's more for the whiteboard" — its smart connectors, containers,
+"but that's more for the whiteboard", its smart connectors, containers,
 alignment tools and shape libraries map onto PLAN.md W1–W5, not this plan.
 
 **The scope call in §4 is made: option B** (confirmed by the user in the same
@@ -52,11 +52,11 @@ rebuilt existing work here.
   `ForeignKey("entries.id")` (`src/memorymap/core/database.py` ~930-1010). A
   board *is* a note row. So "the mindmap as a whole is its own object that can
   be attached to, linked to and referenced" is **already true at the data
-  layer** — it inherits linking, tags, categories, the graph, the timeline and
+  layer**: it inherits linking, tags, categories, the graph, the timeline and
   full-text search for free. The work is surfacing that, not adding it.
 - **Nodes, sketches and objects are all board-scoped and workspace-scoped**
   (`WorkspaceMixin`), with `x/y/z`, optional `width/height/rotation`, and a
-  `group_id` — so grouping and z-order exist.
+  `group_id`, so grouping and z-order exist.
 - **`WhiteboardObject` uses one table with a `kind` discriminator**, which is
   the extension point for new node kinds (a mindmap topic, an embedded file
   card) without a migration per kind.
@@ -65,10 +65,10 @@ rebuilt existing work here.
   manages them, plus duplicate.
 - **A Concept Map feature exists** (task #7, "Build the authored mindmap"),
   reachable from the Graph tab's toolbar. Its learnability is a known open item
-  (task #103). **Read what it does before designing a second one** — the
+  (task #103). **Read what it does before designing a second one**, the
   likeliest right answer is that "mindmap" and "concept map" become one feature,
   not two.
-- **The graph already renders note-to-note structure** (`frontend/graph.js`),
+- **The graph already renders note-to-note structure** (`frontend/js/graph.js`),
   and the Library already has a Boards & maps sub-tab (the user's own preferred
   home for this).
 
@@ -89,7 +89,7 @@ Sources at the end. Grouped by what it would mean here.
 - **Obsidian Canvas Mindmap** is the closest model for keyboard-first editing:
   Tab adds a child, Enter adds a sibling, arrow keys navigate, a node's whole
   subtree can be selected and moved, and edges can be coloured for grouping.
-  This is the interaction set to copy — it is what makes a mindmap fast rather
+  This is the interaction set to copy, it is what makes a mindmap fast rather
   than a drawing.
 - **XMind** is the benchmark for *output* quality and offline work; **Coggle**
   for immediacy (no ceremony, real-time concurrent edits); **MindMeister** for
@@ -98,14 +98,14 @@ Sources at the end. Grouped by what it would mean here.
 ### 3.2 Semantics beyond a tree
 - **Kumu** is the one worth studying hardest for this app: elements and
   connections carry **tags and attributes**, and "perspectives" turn that data
-  into decorations — colour, size, filter. It adds **social-network metrics**
+  into decorations: colour, size, filter. It adds **social-network metrics**
   (betweenness, closeness, eigenvector centrality), **automated community
   detection**, and a **focus mode** that starts from one element and unfolds the
   network step by step. It supports **systems maps and causal loop diagrams**
   (signed, directional edges), not just trees.
 - That maps onto MemoryMap directly: a map's nodes are often *real notes*, which
   already have tags and categories, so "perspectives" is a filter over data the
-  app already holds — and the graph tab already computes some of these metrics.
+  app already holds: and the graph tab already computes some of these metrics.
 
 ### 3.3 Integration patterns
 - **Excalidraw-in-Obsidian** is the reference for "a drawing is a first-class
@@ -122,11 +122,11 @@ Three options, with a recommendation.
 
 | | Option | Consequence |
 | --- | --- | --- |
-| A | Mindmap as a **mode of the whiteboard** — same board, a toggle that turns on tree semantics, auto-layout and keyboard editing | Least new code, no second data model, one Library home. Risk: modes are a learnability tax. |
+| A | Mindmap as a **mode of the whiteboard**, same board, a toggle that turns on tree semantics, auto-layout and keyboard editing | Least new code, no second data model, one Library home. Risk: modes are a learnability tax. |
 | B | Mindmap as a **new board `type`** on the existing board entry (`board.type = "map" \| "board"`) | One data model, two behaviours, two filters in the Library. Clean. **Recommended.** |
 | C | A **separate entity** with its own tables and sub-tab | Duplicates linking, preview, export, permissions and the Library plumbing that boards already have. Not recommended. |
 
-**Decision: B — confirmed by the user.** A board is already an entry; add a
+**Decision: B: confirmed by the user.** A board is already an entry; add a
 `type` and a `layout` to it. Everything in §5 and §6 assumes B.
 
 ### What Coggle specifically does that the phases below must keep
@@ -137,7 +137,7 @@ Recorded because Coggle is the reference the user actually meant:
   the `+` on hover or `Tab`; there is no "mode" to enter. Phase 2 item 5 is
   the keyboard half of this; the `+` affordance on the hovered node is the
   pointer half and belongs in the same item.
-- **Branch colour carries down the branch** — every descendant inherits the
+- **Branch colour carries down the branch**, every descendant inherits the
   first-level colour unless overridden. Phase 2 item 8's "inherit-from-parent
   by default" is exactly this; the default palette is one colour per
   first-level branch, assigned in order.
@@ -155,10 +155,10 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 5. The feature set, in build order
 
-### Phase 1 — the map object (foundation)
+### Phase 1: the map object (foundation)
 1. **`type` and `layout` on the board entry.** `type: "board" | "map"`;
    `layout: "free" | "tree-right" | "tree-down" | "radial"`. Stored on the
-   board's own `Entry` (a JSON settings column or a dedicated table —
+   board's own `Entry` (a JSON settings column or a dedicated table,
    `WhiteboardObject`'s `kind` discriminator is the precedent for not adding a
    table per idea).
 2. **A parent edge for nodes.** Mindmaps are trees; the whiteboard's links are
@@ -166,30 +166,30 @@ Recorded because Coggle is the reference the user actually meant:
    existing free links for cross-branch connections (which every serious
    mindmapper supports and calls a "relationship" or "cross-link").
 3. **Node kinds**, on the existing discriminator: `topic` (text), `note` (a real
-   `Entry` — this is `WhiteboardNode` today), `document`, `file`, `image`,
+   `Entry`, this is `WhiteboardNode` today), `document`, `file`, `image`,
    `link`. A node that *is* a note keeps its identity: editing it edits the note.
 4. **Containment is real.** "any and all text boxes and things that are in the
-   map stay bundled within the map" — enforce it: deleting a map deletes its
+   map stay bundled within the map", enforce it: deleting a map deletes its
    `topic` nodes (they exist only there) and *unlinks* its `note`/`document`/
    `file` nodes (those live in the library and must survive). Write the test
    first; this is the rule most likely to be got wrong.
 
-### Phase 2 — editing that feels like a mindmap
+### Phase 2: editing that feels like a mindmap
 5. **Keyboard-first**: Tab = child, Enter = sibling, Shift+Tab = outdent,
    arrows = navigate, F2/double-click = rename, Delete = subtree with confirm.
    Copy Obsidian Canvas Mindmap's set; it is the de-facto standard.
 6. **Auto-layout** via Reingold–Tilford with variable node sizes (d3-flextree's
-   algorithm, implemented locally — **no CDN, the app is offline-first**;
-   `frontend/graph.js` already hand-rolls layout, so this is a sibling of
+   algorithm, implemented locally: **no CDN, the app is offline-first**;
+   `frontend/js/graph.js` already hand-rolls layout, so this is a sibling of
    existing code, not a new dependency).
 7. **Collapse/expand a branch**, with a count badge on the collapsed node.
 8. **Styling that carries meaning, not decoration**: per-node colour, shape and
    icon; per-edge colour and thickness; inherit-from-parent by default.
-9. **Cross-links** (non-tree edges) rendered distinctly — dashed, per the
-   systems-map convention — and optionally **signed/directional** for causal
+9. **Cross-links** (non-tree edges) rendered distinctly, dashed, per the
+   systems-map convention: and optionally **signed/directional** for causal
    loop diagrams (Kumu's model).
 
-### Phase 3 — the map as a citizen of the app
+### Phase 3: the map as a citizen of the app
 10. **Library**: maps live in **Boards & maps** with a Maps filter chip (the
     user's stated preference), with the existing board preview upgraded to
     render map structure.
@@ -199,39 +199,39 @@ Recorded because Coggle is the reference the user actually meant:
     inline with the existing `@` picker.
 12. **Rendered previews and chips** everywhere the user listed: note bodies,
     the chat transcript, dashboard widgets, the timeline and the graph. One
-    `mapChip()` and one `mapPreview()`, used by all of them — the app's
+    `mapChip()` and one `mapPreview()`, used by all of them, the app's
     recurring failure is the same object drawn five ways.
 13. **Graph integration**: a map is a node in the graph; its note-nodes are
     edges from the map to those notes. This is the "decide once" call from
-    §3.3 — a map's *membership* is a link, a node's *position* is not.
+    §3.3: a map's *membership* is a link, a node's *position* is not.
 
-### Phase 4 — AI and export
+### Phase 4: AI and export
 14. **The AI can read a map.** A `read_mindmap` tool returning an indented
     outline (title, then the tree, with each node's kind and any note id), which
     is the form a small model handles best. Plus `create_mindmap`,
-    `add_map_node`, `link_map_nodes` — gated behind the tool toggles, and
+    `add_map_node`, `link_map_nodes`, gated behind the tool toggles, and
     written to the *contract* shape the skills reform (Phase A of
     [AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md)) defines, so they are
     usable by a 4B model.
-15. **AI generation**: "make a map of these notes" — the agent proposes a tree,
+15. **AI generation**: "make a map of these notes", the agent proposes a tree,
     the user accepts or edits it. Every mainstream tool now has this; the
     differentiator here is that the nodes are *the user's real notes*, not
     invented text.
 16. **Export**: PNG and SVG from the existing canvas render, and PDF via the
     same path the app already uses for "Print or save as PDF" in the documents
-    kebab. Also **Markdown outline**, **OPML** and **FreeMind `.mm`** — the
-    interchange formats every mindmapper (Coggle included) reads — cheap, and
+    kebab. Also **Markdown outline**, **OPML** and **FreeMind `.mm`**, the
+    interchange formats every mindmapper (Coggle included) reads: cheap, and
     it makes the feature not a lock-in.
 17. **Import**: OPML, FreeMind `.mm` and indented Markdown, so an existing map
     can come in.
 
-### Phase 5 — utility
+### Phase 5: utility
 18. **Focus mode** (Kumu): start at one node, reveal the network step by step.
 19. **Filter/perspective**: colour or hide by tag, category, age, or "has a
-    note behind it" — reusing the notebook's own metadata, which is the thing
+    note behind it", reusing the notebook's own metadata, which is the thing
     a general mindmapper cannot do.
 20. **Map metrics** where they are honest: node count, depth, orphan branches,
-    and — for cross-linked maps — the centrality measures the graph tab already
+    and, for cross-linked maps, the centrality measures the graph tab already
     computes.
 21. **Templates**: a few starting shapes (brainstorm, decision tree, project
     breakdown, cause-and-effect), because an empty canvas is the main reason
@@ -239,17 +239,17 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 6. Files this will touch
 
-- `src/memorymap/core/database.py` — board `type`/`layout`, node `parent_id`,
+- `src/memorymap/core/database.py`, board `type`/`layout`, node `parent_id`,
   new `kind` values. One Alembic migration.
-- `src/memorymap/api/routes_whiteboard.py` — map CRUD, layout endpoint, node
+- `src/memorymap/api/routes_whiteboard.py`, map CRUD, layout endpoint, node
   tree endpoints, export; extend `_board_preview` for map structure.
-- `src/memorymap/ai/tools*.py` — the four map tools, contract-shaped.
-- `frontend/whiteboard.js` (and `frontend/graph.js` for layout precedent) — the
+- `src/memorymap/ai/tools*.py`, the four map tools, contract-shaped.
+- `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent): the
   map mode, keyboard editing, auto-layout, collapse.
-- `frontend/library.js` — the Maps filter and the upgraded preview.
-- `frontend/app.js` — `mapChip()`/`mapPreview()`, the `@` picker source, chat
+- `frontend/js/library.js`, the Maps filter and the upgraded preview.
+- `frontend/js/app.js`, `mapChip()`/`mapPreview()`, the `@` picker source, chat
   attachment, dashboard widget, timeline row.
-- `docs/DESIGN.md` — the node/edge visual language, once, so it is not
+- `docs/DESIGN.md`, the node/edge visual language, once, so it is not
   reinvented per surface.
 
 ## 7. Acceptance
@@ -258,7 +258,7 @@ Recorded because Coggle is the reference the user actually meant:
   edits the note; deleting the map leaves the notes intact and deletes only its
   own topics (test first).
 - The same map appears as a chip in a note, in a chat message, in the graph, in
-  a dashboard widget and on the timeline — all drawn by one renderer.
+  a dashboard widget and on the timeline, all drawn by one renderer.
 - `read_mindmap` returns an outline a 4B model can act on, verified against a
   real local model (the standing caveat in CLAUDE.md applies).
 - Export produces PNG, SVG, PDF, Markdown and OPML; OPML round-trips through
@@ -267,11 +267,11 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 8. Risks
 
-- **Two linking levels** (§3.3) — decide the rule before building, or the graph
+- **Two linking levels** (§3.3): decide the rule before building, or the graph
   fills with noise.
 - **A second concept-map feature.** Check task #7 and #103 first; merging is
   almost certainly right.
-- **Layout performance** on a large map — the whiteboard already had "shapes
+- **Layout performance** on a large map, the whiteboard already had "shapes
   and links lag behind notes when panning" (task #71); auto-layout must run off
   the paint path.
 - **Scope.** Phases 1-3 are the user's actual request; 4-5 are where a
@@ -279,20 +279,20 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## Sources
 
-- [Kumu](https://kumu.io/) · [Kumu — network mapping](https://kumu.io/markets/network-mapping)
-- [Best Mind Mapping Software for 2026 — ClickHelp](https://clickhelp.com/clickhelp-technical-writing-blog/best-mind-mapping-software/)
-- [The 12 Best Mind Mapping Tools and Apps — Storyflow](https://storyflow.so/blog/best-mind-mapping-tools-2025)
-- [Canvas Mindmap — Obsidian plugin](https://community.obsidian.md/plugins/canvas-mindmap)
+- [Kumu](https://kumu.io/) · [Kumu: network mapping](https://kumu.io/markets/network-mapping)
+- [Best Mind Mapping Software for 2026, ClickHelp](https://clickhelp.com/clickhelp-technical-writing-blog/best-mind-mapping-software/)
+- [The 12 Best Mind Mapping Tools and Apps, Storyflow](https://storyflow.so/blog/best-mind-mapping-tools-2025)
+- [Canvas Mindmap: Obsidian plugin](https://community.obsidian.md/plugins/canvas-mindmap)
 - [Mind mapping with Excalidraw in Obsidian](https://www.zsolt.blog/2021/09/mind-mapping-with-excalidraw-in-obsidian.html)
 - [Spatial canvases and your notes](https://tfthacker.substack.com/p/spatial-canvases-and-your-notes)
-- [d3-hierarchy `tree()` — Reingold–Tilford](https://d3js.org/d3-hierarchy/tree) · [d3-flextree](https://github.com/Klortho/d3-flextree)
-- [Radial tree component — Observable](https://observablehq.com/@d3/radial-tree-component)
+- [d3-hierarchy `tree()`, Reingold–Tilford](https://d3js.org/d3-hierarchy/tree) · [d3-flextree](https://github.com/Klortho/d3-flextree)
+- [Radial tree component: Observable](https://observablehq.com/@d3/radial-tree-component)
 
-## 9. Built — Phase 1 (backend)
+## 9. Built: Phase 1 (backend)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", MINDMAP_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-## 10. Built — Phase 2 (frontend)
+## 10. Built: Phase 2 (frontend)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", MINDMAP_PLAN.md) on 2026-09-09: a plan holds open work only.
 
@@ -352,6 +352,8 @@ extended with the numbers named.
   constant, so a hand-placed node stays put until asked.
 - Everything the map shows is in the tree endpoint and the FreeMind and
   OPML exports round-trip; a feature that cannot round-trip is not built.
+  (Audit 2026-10-05 found FreeMind dropped a one-root map's centre; fixed
+  the same day, decision 22.)
 - **The last topic cannot be deleted; clearing the map is offered
   instead** (the owner asked directly: "should the user even be able to
   delete the primary core node??"). A map with no nodes is a dead end by
@@ -449,91 +451,53 @@ extended with the numbers named.
   its parent it lands exactly on the middle of the line into it
   (`elementFromPoint` at the handle's centre returned the strip). Hover needs
   nothing selected, so it needs no strip.
+- **A topic's place among its siblings is a key, `data.order`, defaulting to
+  its id** (taken 2026-10-03, INBOX 445, building the Ctrl+Shift+arrows this
+  section names). A key rather than a rank, so a move writes two rows and an
+  insert one; the id default keeps every existing map in creation order; the
+  server sorts by the same key (`_sibling_key`), so the tree, the exports and
+  the agent's outline agree with the canvas, and the order round-trips as
+  outline order. Branch colours stay with the branch (the palette walks by
+  id), so moving a branch up does not repaint the map.
+- **Delete on a topic is one entry on the board's undo stack** (taken
+  2026-10-03): the toast's Undo and Ctrl+Z are the same entry, and the
+  restore writes the whole row back, not only the text and colour.
 
-### 12.1 Phase 6a, the controls (1 session)
+### 12.1 Phase 6a, the controls
 
-1. **The map toolbar** (replaces the whiteboard rail on a map): Add
-   topic, Add sub-topic, Add sibling, Delete, Collapse/Expand branch,
-   Layout ▾, Style ▾ (theme, branch colours, line style), Insert ▾ (note
-   card, image, link, icon, boundary, summary, relationship), Arrange
-   (auto, tidy siblings, centre root), Focus, Present, Export ▾, and the
-   undo pair; seven visible at most, the rest in ▾ menus, per the dock
-   grammar. **Part of this is built**: the board-only sections (draw,
-   shapes, the free adds) are hidden on a map and the map's own Topic and
-   Branch sections carry add topic, add child, add sibling, collapse,
-   branch colour and focus; the layout picker and Tidy are still in the
-   top bar, and the Style, Insert, Arrange, Present and Export menus are
-   not written. See `agent-remaining/mindmap.md` for the measured numbers
-   and the rest of the list.
-2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
-   link radial, the mid-line add, the text-size grip, uncollapse, drag to
-   transplant and sever. Moved whole to HISTORY.md ("Moved from the plans,
-   2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
-   only. What is left of those eight, with the reason each was left:
-
-   - **An image in a node** (item 2's fourth) and **the control points on a
-     curve drag to reshape it** (item 5's third) were both built on
-     2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
-     MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
-     `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
-     measured 182x102 inside a 200x138 card, 12/12 in
-     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
-     `edge_slide` on the child, two fractions of the line's own length, with a
-     handle measured 0.2 to 0.4 board units off the path for all three line
-     shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
-   - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
-     there, not here.
-   - **Line thickness** (item 4's "style") was not built: the three shapes
-     and the dash carry the distinction, and a fourth axis on a 2px line is
-     a setting nobody can see.
-   - **Shift+drag off a node to sever** (item 9's second gesture). Sever is
-     on both rings; the drag gesture would collide with drag-to-transplant,
-     which took the same pointer.
-
-Gate: every action reachable by strip, radial and key (mindmap.js counts
-the three routes per action); an empty map recreates a root; 0 console
-errors; export/import round-trip of a map using every feature.
-
-**The gate's round-trip half is met** (2026-09-12, sixth run): everything the
-strip and the two rings write is in the FreeMind and OPML exports and comes
-back through both imports, and the two rings stay inside the canvas at any
-viewport. The account, including which field each format has an honest home
-for and which ride as private attributes, is in HISTORY.md ("Moved from the
-plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
-still open of §12.1 is item 1's four dock menus and the three sub-items above
-that are still open (the comment, which belongs to §12.2, line thickness, and
-the shift-drag sever).
-**Node shape is built too** (2026-09-12, same run): four shapes, decided in
-§12.0 and recorded in HISTORY with the rest.
+Closed 2026-10-05 (op5): moved whole to HISTORY.md ("Moved from the plans,
+2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)").
 
 ### 12.2 Phase 6b, structure and richness (1 session)
 
-1. **Boundaries** (XMind): a shaded background shape around a branch or
-   a lasso'd set, with a label, a colour and a style (rounded, cloud,
-   dashed); moves with its nodes.
-2. **Summaries** (XMind): a bracket beside a set of siblings with a
-   summary node.
-3. **Relationships**: a cross-link between any two nodes with an arrow
-   and a label, curved, dashed by default so it reads as secondary.
+1. **Boundaries** and 2. **Summaries**: built (decisions 19 and 20;
+   HISTORY.md, "Moved from the plans, 2026-10-05 (boundaries and
+   summaries)"). A boundary round a lasso'd set that is not one branch is
+   not built.
+3. **Relationships**: built (§13c, the cross-link; HISTORY.md, op5's
+   §12.1 record).
 4. **Markers and task info**: priority 1 to 5, progress 0 to 100, flags,
    due date (a reminder can be created from it), a checkbox; filter the
-   map by marker; the outline view shows them as columns.
-5. **Notes on nodes**: a text note behind a node (the small marker
-   opens it); a node that is a notebook note shows the note's own text
-   here, editable both ways.
-6. **Comments** (MindMeister): a thread per node, count marker.
-7. **Multiple roots and floating topics**; **numbering** of branches
-   (1, 1.1, 1.1.1) as a toggle; **auto-colour by branch** as the
-   default theme with eight curated palettes.
-8. **Outline view** beside the map (a two-pane split): the same tree as
-   indented text, editable, Tab and Shift+Tab re-parent, every edit
-   mirrored live.
-9. **Presentation mode** (MindMeister): step through branches with the
-   arrow keys, each step zooming to a branch; Escape ends.
-10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
-    Markdown outline, plain-text outline; **import** by drop of .mm,
-    .opml, .txt outline or Markdown, and from XMind's .xmind (its
-    content.json) read-only.
+   map by marker; the outline view shows them as columns. The checkbox and
+   the count up the branch are built (decision 15; HISTORY.md, "Moved from
+   the plans, 2026-10-04"); priority, progress, the flag, icon markers and
+   the filter are built (decision 34; HISTORY.md, "Moved from the plans,
+   2026-10-05 (markers)"); due dates with a reminder are built (decision
+   37; HISTORY.md, "Moved from the plans, 2026-10-05 (due dates, op5)");
+   tags on a topic are open.
+5. **Notes on nodes**: a node that is a notebook note shows the note's
+   own text here, editable both ways. The text note behind a topic is
+   built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
+6. **Comments** (MindMeister): a thread per node, count marker. Built for
+   topics and board items alike (WHITEBOARD_PLAN decision 17; HISTORY.md,
+   "Moved from the plans, 2026-10-04 (comments)").
+7. **Multiple roots, floating topics, eight palettes**: built (HISTORY.md,
+   "Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.2 items 7 and 10, op5)").
+8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
+   2026-10-05 (the map's outline)"). Its markers as columns wait on item 4.
+9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
+   plans, 2026-10-05 (a map presented by branch)").
+10. **Export and import**: built (the same HISTORY.md record).
 Gate: mindmap3.js extended with one check per feature; the 201-node map
 keeps 60 fps pan (measured with the frame probe); round-trip of every
 export that claims it.
@@ -546,16 +510,21 @@ export that claims it.
 2. **Grow with the AI**: on any node, "Suggest branches" proposes five
    children from the notebook (grounded, with the source note on each),
    "Expand from my notes" fills a branch from search results,
-   "Summarise this branch" writes the parent's note.
+   "Summarise this branch" writes the parent's note. (Suggest branches is in:
+   WHITEBOARD_PLAN decision 36, HISTORY "wb-phase2"; a picker, not yet
+   ghosts on the canvas. Summarise this branch is built, HISTORY.md, "Moved
+   from the plans, 2026-10-05 (op3-1005)". Expand from my notes is open.)
 3. **From a question**: "Make a map of..." in chat proposes a map
    (exists, Phase 4) and now opens it in the map editor with the
    proposal as floating topics to accept or discard.
-4. **Graph sync**: a map's cross-links become graph links (kind "map");
-   the graph's "Mind map" selection action (Phase 4) opens here with the
-   layout pre-chosen.
-5. **Study mode**: hide all but the root, reveal a branch at a time,
-   with a "recall" prompt before revealing (the note's own text is the
-   answer); progress stored per map.
+4. ~~**Graph sync**~~ **Built** (HISTORY.md, "Moved from the plans, 2026-10-05
+   (docs hygiene before 0.4.0: MINDMAP_PLAN)"): a map is a node in the graph
+   with an edge of kind `map` to each note on it (`_add_map_edges`,
+   `routes_graph.py`; `tests/test_mindmap.py`), and the graph's "Mind map"
+   selection action makes one.
+5. **Study mode**: built (decision 36; HISTORY.md, "Moved from the plans,
+   2026-10-05 (study the map, op5)"). The note behind a topic as the answer
+   is open.
 Gate: each AI action grounded (its sources listed) and faked in tests;
 the study mode measured on a 40-node map.
 
@@ -573,7 +542,7 @@ radials are used is confusing and doesnt feel clean", and "I want more and
 better ways to differentiate core idea nodes in the mindmap".
 
 The audit that this is written from is in
-[`agent-remaining/mindmap.md`](agent-remaining/mindmap.md), measured by
+[`archive/agent-remaining/mindmap.md`](archive/agent-remaining/mindmap.md), measured by
 `scratchpad/ui-sweeps/mapaudit.js` on a map of twelve topics: **112 controls
 across six surfaces**, add-a-child reachable from five places, a fold from
 four, a colour from four, six actions reachable only from a ring nobody finds
@@ -581,6 +550,11 @@ by accident, and a node context menu that was **dead code on a map** (the
 right-click opens the ring and returns before the menu is built).
 
 #### Decisions made, 2026-09-13 night (do not remake)
+
+*Revised 2026-10-05* (WHITEBOARD_PLAN decisions 19 and 26, the features
+audit 9.5): the sidebar and the Format panel are new surfaces, off the canvas.
+The ring keeps the topic; the strip's three doors move into the Format panel's
+tabs when the panel reaches maps, so one place per action is kept.
 
 - **One place per action, and three surfaces with one job each.** The **ring**
   is what you do to *this topic from here*; the **strip** is how the topic and
@@ -783,7 +757,7 @@ So: the map is slow to open and slow to touch, and both are the same bug.
 Nothing else measured here is worth a phase until that one is fixed. **What
 is not known is the owner's own map size**, and it changes which phase
 matters: at 50 topics the stall is 67ms and nobody would write that sentence,
-at 500 it is 1.6 seconds. That question is 13.6's first row.
+at 500 it is 1.6 seconds. (The question is moot: 13a is built.)
 
 ### 13.2 The two kinds of connection
 
@@ -952,6 +926,10 @@ topic: a control that wide has nowhere to go.
 5. **Nothing is added to the canvas.** Per standing order 11, any new
    affordance comes from DESIGN.md's recipe index or arrives with its own
    recipe and lint in the same commit.
+   *Revised 2026-10-05* (WHITEBOARD_PLAN decision 26, the features audit
+   9.5): the board's left sidebar (Library: saved branches and map templates;
+   Outline) and the Format panel sit off the canvas, beside it, so this
+   decision holds; neither draws on the map.
 6. **A cross-link has no colour of its own** (taken 2026-09-21, building
    13c). It is drawn in `--muted`, dashed, whatever the rail's ink well held
    when it was drawn. The alternative was to keep the stored colour and give
@@ -1009,6 +987,7 @@ topic: a control that wide has nowhere to go.
    three-state against the theme, which is the rule `edge_arrow` had been
    following alone. The remaining gap is recorded below rather than solved,
    because it needs a stored name for each app default and the case is narrow.
+   (Built 2026-10-04 with exactly that stored name per field; see 13e.)
 10. **The theme lives in one row of the View menu's Map section, and nothing
    is added to the canvas** (taken 2026-09-21, building 13e). Decision 5
    above, and §13b had just taken the topic strip from fourteen controls to
@@ -1047,6 +1026,270 @@ topic: a control that wide has nowhere to go.
    `_parse_markdown_outline`, which reads indentation and nothing else, so
    one map's two links would return as two topics. Two of three formats is
    the honest answer, and `maptwokinds.js` asserts both halves.
+13. **Delete removes the whole branch** (taken 2026-10-03, order 3). The code
+   and the server already did, and now that it is one undo step (the
+   topics and their cross-links, `wbMapRestoreRows`) there is nothing to
+   soften; §12.0's "re-parents children" line is superseded.
+14. **Tab adds a topic only when the map was engaged** (taken 2026-10-03).
+   Tab on a selected topic added a child from anywhere, so a keyboard user
+   could not Tab past the map without Escape first, and the Tab that carried
+   focus in added a topic nobody asked for. `wbMapKeysArmed` (whiteboard.js)
+   is set by a pointer press on the canvas, by selecting a topic and by any
+   map key, and cleared when focus lands on a control outside the canvas.
+   Not armed, or focus on another control: Tab is Tab (and so is Shift+Tab).
+   The alternative, Tab always walking the topics like a board's items, was
+   refused because it takes away the one key every mind map builds with.
+   Escape then Tab still leaves from an armed map.
+15. **A topic can be a task, and §12.2 item 4 starts there** (taken
+   2026-10-04, the competitor pass: MindNode and XMind both put a box on a
+   topic and count the done ones up the branch, and a map of a plan is what
+   a notebook's maps are for). `data.task` is `open` or `done`, one field so
+   "done but not a task" cannot be stored; content, not a look, so the theme
+   never sets it and neither reset clears it. Made from the topic's menu
+   ("Make this a task", "Stop being a task"), ticked by its box on the topic
+   (a real checkbox button, so no new control on the strip, the ring or the
+   dock: decision 5 and §12.5's three surfaces stand), counted as quiet text
+   after every ancestor's label ("1/2", the success ink at "2/2"). Markdown
+   carries it as `- [ ]` / `- [x]`, the one thing a node wears that Markdown
+   has a word for (decision 12's reasoning about that file holds: every
+   reader draws those as boxes), and reads it back; OPML and FreeMind carry
+   `_task`. No key: Space is the hand tool's hold. Priority, progress
+   percentages, flags and due dates (the rest of item 4) stay open.
+16. **The board's Insert and Arrange menus stay in the markup** (taken
+   2026-10-04, §13f's remainder). Read as dead markup on a map; measured, it
+   is the board's own: one top bar serves both kinds and a board uses all 20
+   of those controls, so removing it from a map means building it per kind,
+   a working thing made riskier for no change anybody sees (`hidden` already
+   keeps it out of the tab order and the accessibility tree). What was wrong
+   was the lookup: the wrap was found from the menu, and an open menu
+   escaped to `<body>` is outside its wrap, so a map opened with one open
+   drew both toggles. Found from the button now, and the open menu is closed
+   and put home (`maptopbar.js`).
+17. **Numbering is the map's, by outline place, and off until asked** (taken
+   2026-10-04, §12.2 item 7). One switch in the View menu's Map group (the
+   menu's own switch row), stored as `numbered` beside `type`, `layout` and
+   `theme` in the board's settings and not in the theme: the theme is what a
+   topic follows when it says nothing, and a number is not something one
+   topic can decline. A root is the map's subject and has none; its children
+   are 1, 2, 3 and theirs 1.1, 1.2, counted in sibling order (the canvas's
+   `wbMapBySiblingOrder` and the server's `_sibling_key` are one order), and
+   drawn as quiet text before the label, never inside it, so a rename never
+   edits a number. No trailing dot: `- 2. Write` is an ordered list inside a
+   bullet to every Markdown reader. Markdown writes the number after a
+   task's box and reads it back only when every topic's number is its own
+   place, all or nothing, so "2024 plan" stays a name; OPML carries
+   `_number`. FreeMind does not carry it (the setting is a view; its private
+   attributes are the topics' own).
+18. **A note behind a topic is plain text, a topic's own, and opens in the
+   help popover's shell** (taken 2026-10-04, §12.2 item 5's first half).
+   `data.note`, up to 10,000 characters, content like `task` (no theme sets
+   it, no reset clears it, a copy keeps it). A topic that has one wears a
+   note mark (`.wb-map-note`, the link marker's recipe in the label's ink);
+   the mark, or the topic menu's "Add a note…" / "Open the note…", opens
+   `.help-popover.wb-map-note-peek` anchored to it: one text box, saved when
+   it closes (Escape, a press elsewhere, Ctrl+Enter), an emptied note is no
+   note, one undo step. Not a new surface and nothing new on the strip, the
+   ring or the dock (decision 5, §12.5). Not on a note node: it already has
+   the notebook's note behind it, and showing that note's text here,
+   editable both ways, is item 5's second half, still open. Markdown writes
+   the note as an indented paragraph under its bullet (a reader draws a
+   paragraph inside the item; a line that would read as a bullet or a
+   heading is escaped with a backslash), and the import reads any text
+   indented under a bullet as that topic's note, which is also what a
+   paragraph under a hand-written bullet means. OPML carries `_note`, the
+   spelling OmniOutliner and Workflowy write; FreeMind a private `_note`,
+   because its own `<richcontent TYPE="NOTE">` is HTML this file does not
+   read.
+19. **A boundary is a branch's, drawn round the topics it holds** (taken
+   2026-10-04, §12.2 item 1, under standing order 3; XMind's shape).
+   `data.boundary` on the topic whose branch it encloses (`rounded`, `dashed`
+   or `cloud`) and `data.boundary_label` (up to 80 characters). Drawn by the
+   map's own render pass as one SVG shape under the lines
+   (`.wb-map-boundaries`): the box of that topic and of every topic under it
+   that is showing, padded by 12, so it grows, folds and moves with them,
+   redrawn on every drag frame. Its colour is the branch's (a tint inside, the
+   colour on the edge), so the branch colour well is its colour control and
+   there is no second one. The label sits above its top edge in the line
+   label's recipe. Made, restyled, labelled and removed from the topic menu's
+   Branch group. A lasso'd set that is not one branch is not in this decision
+   (a run of siblings is what a summary is for). Content, not a look: no theme
+   sets it and Reset branch styling keeps it. The image exports draw it as
+   drawn; OPML and FreeMind carry `_boundary` and `_boundary_label`; Markdown
+   does not (a list has no word for a region).
+20. **A summary is words beside a run of siblings, not a topic** (taken
+   2026-10-04, §12.2 item 2). `data.summary` (up to 80 characters) and
+   `data.summary_span` (1 to 100) on the first topic of the run: the run is
+   that topic and the siblings after it in sibling order, `summary_span` in
+   all, clipped to the siblings there are, so it survives a reorder and an
+   export by place rather than by id. A brace on the run's outer side (away
+   from the parent, found from where the run lies, so every layout gets one)
+   spans the run's showing branches, and the words sit beyond its tip in the
+   line label's recipe one size up. Not a topic: a topic outside the tree is a
+   root to every walk of the tree (Tidy, the exports, numbering, the outline)
+   and none of the formats this map writes has a word for one. Made from the
+   topic menu (one topic) or from the menu of a multi-selection of siblings
+   (the run from the first of them to the last); changed and removed from the
+   first topic's menu. A root takes none. Content, exported as boundaries are
+   (`_summary`, `_summary_span`).
+21. **A map presents by branch** (taken 2026-10-05, §12.2 item 9, under
+   standing order 3; MindMeister's shape on the board's machinery,
+   WHITEBOARD_PLAN decision 16). View, Present branches: the board's full
+   screen, bar, keys and Escape, with the steps a map has instead of frames:
+   the whole map first, then each trunk's branches in sibling order, each
+   fitted with what of it is showing (a folded branch is its topic); a trunk
+   with nothing under it is a step of its own when the map has more than
+   one. One level deep: a branch's own branches are not steps, which keeps a
+   two-hundred-topic map a talk of a dozen steps. No key edits the map while
+   it runs.
+22. **A FreeMind file's single root node is the central topic** (taken
+   2026-10-05, audit FEAT-01, features.md 9.5: the owner's newer words win).
+   This reverses the older code decision pinned by
+   `test_freemind_imports_with_its_root_as_the_maps_name`, which read the
+   root as the map's name and dropped it, so every `.mm` from Freeplane or
+   XMind arrived as loose trunks and a map made here lost its centre on the
+   way back. The map is named after the root unless `<map _title>` names it;
+   the trunk the export invents over a multi-root map carries `_wrapper` and
+   is taken off again. OPML, FreeMind and Markdown each round-trip a
+   101-topic map made here, every topic, edge, the centre and the name
+   (`test_a_101_topic_map_made_here_round_trips_losslessly`).
+23. **A map made from text starts in tree-right and is tidied once as it
+   opens** (taken 2026-10-05, audit FEAT-05). The import and the accepted AI
+   proposal took the board default, Free, while every other map door starts
+   in tree-right (`DEFAULT_MAP_LAYOUT`); `wbMapTidyFresh` lays it out once,
+   with no undo entry, when the import or proposal opens.
+24. **A new topic is drawn and open for typing before the server answers**
+   (taken 2026-10-05, audit FEAT-02). Tab and Enter make a provisional row
+   (negative id), lay the branch out by the tidy's positions applied as
+   transforms, render once, open the editor, and adopt the server's id in
+   the background (`wbMapAdoptProvisional`): the row, its element, the
+   selection and both Undo stacks take the real id; a save that reaches the
+   row first waits for it (`wbSaveObject`); a save's answer no longer takes
+   back a position or a text changed while it was out. A render repaints
+   what changed and moves what only moved (the paint key has no x or y).
+   Three stylesheet rules whose `:has()` sat before a classless compound
+   made every DOM insertion restyle the whole page; they are rewritten and
+   `tests/test_has_invalidation.py` holds the line. Second pass, the same
+   day (HISTORY, "Moved from the plans, 2026-10-05 (the add path, second
+   pass)"): the editor opens in the add's own task, before the moved
+   topics' transforms and the lines are written (`wbRenderHold`), the
+   measure reads only what was repainted, the mid-line `+` buttons and the
+   edge handles are kept rather than rebuilt, the selection bar is placed
+   two frames on, and a `:has()` keyed on `.ph` (every icon) is rewritten
+   with a ratchet against its kind. The render of one add is 21 to 63ms at
+   301 topics against 118 to 421 before; the 100ms key-to-editable gate is
+   still not met on this sandbox under a load of 7 to 10 (medians 177 to
+   276ms against 265 to 351 for the base scripts on the same runs), and is
+   to be measured on a quiet machine.
+25. **The open map's commands are palette rows** (taken 2026-10-05, audit
+   FEAT-11): add, rename, fold, focus, delete, tidy, open every branch,
+   look, numbering, statistics, present, zoom to fit, the six layouts and
+   the three text exports, in groups "This topic", "This map", "Map
+   layout" and "Export the map", only while a map is on screen. The
+   board's own commands are the board's (WHITEBOARD_PLAN, section 8's one
+   command table).
+26. **A new topic and its first name are one Undo step** (taken 2026-10-05,
+   audit FEAT-15), as in XMind: the rename is folded while the add is still
+   the last step.
+27. **A committed name hands the keys back to the canvas and is said aloud**
+   (taken 2026-10-05, audit FEAT-16), unless the press that ended it went to
+   another field.
+28. **No front-and-back Order on a laid-out map** (taken 2026-10-05, audit
+   FEAT-17): a tidied tree never overlaps; a Free map keeps the group.
+29. **Text pasted onto a map is a branch** (taken 2026-10-05, audit FEAT-09):
+   one topic per line, nested by indentation, a numbered or heading line
+   read as a topic, under the selected topic (or as trunks), made by
+   `POST /boards/{id}/nodes/outline` in one transaction and recorded as one
+   Undo step. Ctrl+V on a map with nothing copied on the board lets the
+   browser's paste through to it; an in-app copy still pastes as before.
+30. **The dashboard draws a map at its own shape** (taken 2026-10-05, INBOX
+   553(d), the owner's decision): the Boards & maps widget's busiest board
+   at the widget's width and its natural height, at least 96px, at most
+   168px for six topics or fewer and 320px otherwise, then fitted whole;
+   the rest as rows. DESIGN.md's recipe row names the numbers.
+31. **A map writes itself as a document, one way first** (taken 2026-10-05,
+   the audit's brief M5, first half): the board menu's Write as a document
+   and the palette row make a new document titled after the central topic
+   (or the map, with several trunks), branches as `##`, theirs as `###`,
+   deeper topics as nested lists, notes as paragraphs, and the map's card
+   (`boardEmbedMarkdown`) at its head as the way back. The other direction
+   is decision 35.
+32. **A concept map's topics are notes that stay on their map** (taken
+   2026-10-05, audit UX-06). A note made by a map gesture (a new concept
+   map's root, a card Tab or Enter adds) carries `map_topic`; Notes (All,
+   the categories, Favourites, Untagged) and Recently added leave it out,
+   and a search in Notes, Ctrl+K and Ask still find it. Old maps' topics
+   are marked by the upgrade (a short note placed on a board within ten
+   seconds of being written). The board picker counts a map's topics and a
+   board's items (not the links between them) and is kept current from the
+   board on screen; the Library and dashboard say "links" and "drawings",
+   never "sketches". After Enter names a card, a letter renames it (the
+   focus is not moved to the canvas, where Tab walks items).
+33. **A map's outline is a panel of fields in the tree's order** (taken
+   2026-10-05, §12.2 item 8, the audit's M3). View, Outline (and the
+   palette's row) opens it in the board sidebar's place (`#wb-map-outline`,
+   the `.whiteboard-sidebar` shell, one of the two at a time), on maps only,
+   remembered per device. One text field per topic, indented by depth; the
+   keys are an outliner's: Enter adds a topic after this one and types it in
+   the outline (not on the canvas), Tab makes it the last child of the topic
+   above, Shift+Tab puts it right after its old parent, Backspace on an
+   empty topic with no branch removes it, the arrows walk the rows, Escape
+   hands the keys to the canvas. Every change goes through the canvas's own
+   functions (the add, `wbMapTransplant`, `wbMapOutdent`, the rename's save
+   and its FEAT-15 fold), so Undo and the tidy are the canvas's. Typing
+   draws the label on the canvas as it goes, without a render; the name is
+   saved when the row is left. The outline follows every render, rebuilt only
+   when the tree's shape changed, never taking the field being typed in.
+34. **A topic's markers are content, from one icon set** (taken 2026-10-05,
+   §12.2 item 4, the audit's M4). `data.priority` (1 to 5), `data.progress`
+   (0 to 100; the menu offers None, 0, 25, 50, 75 and Done), `data.flag` and
+   `data.markers` (up to six names from `WB_MAP_MARKER_ICONS`, twelve glyphs
+   of the vendored Phosphor font; never emoji, which each system draws its
+   own way and an export does not draw at all). Drawn in one row before the
+   label, set in one popover from the topic's menu (Content, Markers) and
+   the palette, each press one Undo step. Content, not a look: a look reset
+   and a branch copy keep them; OPML and FreeMind carry them as private
+   `_priority`, `_progress`, `_flag` and `_markers` (a comma list), Markdown
+   not at all (decision 12's rule). View, Filter by marker lists the markers
+   in use with their counts and dims (never hides) every topic without the
+   chosen one, for this visit, with a bar in the focus bar's shell to end
+   it. Not built: due dates, tags, several filters at once, markers as the
+   outline's columns.
+35. **A document maps its own headings, one way** (taken 2026-10-05, the
+   audit's M5 second half). The document's menu, Map the headings (and the
+   palette's row) makes a new map through the Markdown import, so it opens
+   in tree-right and tidied (decision 23). The headings are read by
+   `wbMapHeadingsOutline` (node-tested): a heading inside a fenced code
+   block is code; one top-level heading, first, is the central topic,
+   otherwise the document's title is and every top-level heading a branch;
+   a skipped level hangs one level down, never two. The way back is a
+   document topic under the centre pointing at the document (it opens it, as
+   any document topic does), so it travels with the map into every export
+   that keeps references. A twin kept in step both ways is the audit's idea,
+   not built.
+36. **Studying a map is presenting with each branch hidden until recalled**
+   (taken 2026-10-05, §12.3 item 5, under standing order 3; op5). The board
+   menu's Study the map (maps only; the View menu is at its 450px ceiling)
+   and the palette's row start the presenting shell (decision 21's bar,
+   keys and Escape). The questions are the trunks' branches that have
+   topics under them, in Present branches' order; everything under each is
+   hidden as a view, like focus (`wbMapConcealed`), never folded or
+   written. Show (or Enter) draws the answer; Knew it or Not yet marks it
+   and moves on; the end says how many were recalled. The marks are kept
+   per map on this device (`wbStudy:<id>` in local storage: a study record
+   is the person's, not the map's), and a branch missed last time says so
+   in its step. Not built: a note behind the topic as the answer (the
+   plan's "the note's own text"), a spaced order.
+37. **A topic's due date is a day, a marker, and a reminder only when asked**
+   (taken 2026-10-05, §12.2 item 4, under standing order 3; op5).
+   `data.due` is a calendar day (`YYYY-MM-DD`, no time: a topic is due on a
+   day wherever the map is opened), content like decision 34's markers (a
+   look reset keeps it; OPML and FreeMind carry `_due`; Markdown does not).
+   Set in the Markers popover's Due row (the browser's date field, Clear),
+   drawn in the marker row as words ("14 Mar") in the ink, a day gone in the
+   error ink and read "was due"; View, Filter by marker lists "With a due
+   date". Remind me makes an ordinary reminder at 9:00 that day; a day gone
+   makes none and says why. No reminder is made by setting a date. Tags on a
+   topic stay open.
 
 ### Phases, each with the gate it is finished against
 
@@ -1067,6 +1310,8 @@ topic: a control that wide has nowhere to go.
   not be met by caching: `renderWhiteboard` is still a full d3 data-join over
   every node on the board, and making it proportional to what changed is a
   separate piece of work.
+- (Audit 2026-10-05: 13a-open's figures hold for a move; the add path was
+  never gated and cost two whole renders, see decision 24.)
 - ~~**13a-open. The render pass proper.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13a-open: the render pass"). Both gate figures are
@@ -1111,10 +1356,12 @@ topic: a control that wide has nowhere to go.
   1024 and 820 (0.22, 0.31 and 0.38 of the window, against a gate of a half)
   and 314 x 54 at 390, against 959.4 x 38 and 348.4 x 150 before. `mapstrip.js`
   39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` and `mapspine.js`
-  untouched at 13/13, 16/16 and 9/9. **What is left of 13b** is the one thing
-  its gate asked that this did not measure: whether the strip still covers the
-  handle of the line into its own topic. It is a third of the width it was,
-  which makes it far less likely and does not make it false.
+  untouched at 13/13, 16/16 and 9/9. ~~**What is left of 13b**: whether the
+  strip still covers the handle of the line into its own topic~~ **measured
+  and fixed 2026-10-04**, recorded in HISTORY.md ("Moved from the plans,
+  2026-10-04 (the map's palette, font and the app's own default)"): 4 of 48
+  handles covered at 1440, 0 of 192 at 1440, 1024, 820 and 390
+  (`mapstripcover.js`).
 - ~~**13c. One vocabulary for two connections.**~~ **Built 2026-09-21**, and
   the record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13c: one vocabulary for two connections"). Both
@@ -1127,9 +1374,9 @@ topic: a control that wide has nowhere to go.
   bend grip did nothing~~: **built 2026-09-26**, the grips (bend and both
   ends) hand the press to the link's own hit stroke
   (`wbForwardGripContextMenu`), so the grip opens the same ring as the line;
-  `maptwokinds.js` 18/18, the new check failing on base. **What is left of
-  13c**: nothing yet says which kind a drag is about to make *while* it is in
-  flight, only after it lands.
+  `maptwokinds.js` 18/18, the new check failing on base. The in-flight cue
+  (which kind a connect drag will make, before it lands) is built
+  2026-10-04 (HISTORY.md, "Moved from the plans, 2026-10-04").
 - ~~**13d. A free link survives an export.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13d: a cross-link survives an export"). FreeMind
@@ -1159,11 +1406,12 @@ topic: a control that wide has nowhere to go.
   `maptheme.js`, new, 24/24 in light at 1440, in dark at 1440 and at 390,
   against a base branch on which it stops at its second check
   (`wbMapTheme is not defined`). One request themes 25 topics; one request
-  clears them. **What is left of 13e**: the branch palette and the font
-  choice §13.4 also names, both of which are drawn in two places rather
-  than one (decision 8), and the narrow case decision 9 records, a topic
-  that cannot be pulled back to the app's own default for a field the map
-  themes.
+  clears them. ~~**What is left of 13e**: the branch palette, the font and
+  decision 9's narrow case~~ **built 2026-10-04**, recorded in HISTORY.md
+  ("Moved from the plans, 2026-10-04 (the map's palette, font and the app's
+  own default)"): one palette list on the server read by canvas and
+  thumbnail, a map font, and a pin per themed select; `mappalette.js` 13/13
+  in light, dark and 390. 13e is closed.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from
   the plans, 2026-09-21", "the two gestures a blank map did not answer").
@@ -1174,15 +1422,14 @@ topic: a control that wide has nowhere to go.
   answered neither of the two gestures anybody tries on a blank part of it: a
   right-click opened nothing and a double-click added nothing. Both now do,
   and `mapdoors.js` (7/7, 3/7 on base, in the gate's sweep list) holds them
-  plus the door count and the naming rule. **What is left**: the Insert and
-  Arrange markup is still in the bar for a map to carry, which is a tidy-up,
-  not a user-visible bug.
+  plus the door count and the naming rule. The Insert and Arrange markup
+  stays (decision 16; HISTORY.md, "Moved from the plans, 2026-10-04").
 
 ### Not verified, and to be taken first by whoever opens this
 
-- **The owner's own map size is unknown**, and it decides whether 13a is
-  urgent or academic. At 50 topics the stall is 67ms; at 500 it is 1.6
-  seconds. **Ask before building 13a.**
+- ~~**The owner's own map size is unknown**~~ Moot: 13a is built and met its
+  gate at 500 topics (HISTORY.md, "Moved from the plans, 2026-10-05 (docs
+  hygiene before 0.4.0: MINDMAP_PLAN)").
 - **Every figure above is light mode.** Dark is unmeasured in this read.
 - The timings are one machine, one Chromium, one run each except the 500-node
   row, which was run twice (1,583.3ms and 1,616.5ms worst drag frame). They
@@ -1200,70 +1447,20 @@ topic: a control that wide has nowhere to go.
 
 ## Placed from INBOX, 2026-09-09
 
-The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
-
-24. **"New board" and "New mind map": same or different?** Decision: the
-    dock grammar allows one filled button per dock, so one filled "New"
-    button opens a two-row menu (Board, Mind map), each with its icon and a
-    one-line hint. Two side-by-side filled buttons is the wrong answer.
-    Owner: docks.md.
+24 built; moved to HISTORY.md ("Moved from the plans, 2026-10-04 (the map's
+palette, font and the app's own default)", "the placed items of 2026-09-09").
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
-- "in the all library subtab, the mindmap I made called bubble tea shows as
-  a note" (two screenshots: the All list draws a "bubble tea" row with a
-  note's pencil icon, while Boards & maps draws the same thing as a map
-  with 3 nodes). The All view's kind test does not know about maps, so a
-  map falls through to the note branch.
-- "the boards and maps dashboard widget is ugly and needs fixing", and
-  "also the ui at the top of the boards and maps subtab dock is broken and
-  miss wrapped. remember responsive design!" (screenshot at ~2000px: the
-  search box and sort/view controls on one line, then New board, New mind
-  map, Map from notes, Import outline, refresh and help wrapped onto a
-  second line below them, left-aligned under nothing).
+The All list's kind test and the dock's wrap are built; moved to the same
+HISTORY.md record.
+The dashboard widget's tall-map sliver is built (decision 30, `d873a3f`);
+moved to HISTORY.md with §12.1 (op5).
 
 ## Placed from INBOX, 2026-09-13
 
-177 (part). **Node styling this plan does not yet cover** (the owner, with
-Coggle captures). Built already: the radial ring's visibility, 3px branches
-with an arrowhead, the "Aa" grip's placement, topics as link-tool
-candidates. Placed here:
-
-- **Core nodes**: built. The strip's crown writes `core` on the node and the
-  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
-  10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
-  outline 1px to 2px and the type 400 to 600 against a plain sibling, the
-  ellipse computes a 50% radius with centred text, and the round trip through
-  `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
-  drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
-  348x102 in 364px at 390.
-- **Per-node left edge**: built. The strip's second picker writes `spine`
-  (`dashed`, `none`, absent for solid). Measured,
-  `scratchpad/ui-sweeps/mapspine.js`, 9/9 at 1440 light, 1440 dark and
-  390x844: 4px solid to 4px dashed to a 1px hairline at the same 55% alpha
-  the other three sides carry, the label moving 3px with it; the choice beats
-  a core node's 6px bar (6px to 1px) and the node stays core; a plain topic,
-  whose box is transparent on purpose, is untouched (4px, label at the same
-  x); downward the choice is on the top edge instead. A server restart was
-  needed for the round trip to pass: the field is dropped by a stale process,
-  which is the `WhiteboardObjectData` trap wearing its other hat.
-- **Connection line styles**: built. `edge_width` (`thin`, `thick`) and
-  `edge_arrow` (`on`, `off`) join `edge_dashed` on the child, and all three
-  are in the strip's line group, which a trunk is not shown. Measured,
-  `scratchpad/ui-sweeps/mapline.js`, 13/13 at 1440 light, 1440 dark and
-  390x844: the ribbon goes 6.5 units at the parent to 11 thick and 3.6 thin
-  while its sibling stays 6.5, the stroked shapes 3px to 5.1px, a head added
-  to a ribbon takes its path from 50 to 53 points and its far end from 3.4 to
-  11.5 units, a head comes off a stroked line as `marker-end: none`, and all
-  three survive the round trip. The line group measures 0px on a trunk and
-  1/117/28/28px on a child. The strip is now 853px inside a 1408px canvas at
-  1440 and wraps to 348x150 inside 364px at 390.
-- **Resize a topic**: built, commit `3c9b874`. Measured,
-  `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
-  `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.
-
-Each becomes a phase row when its phase is written; until then this list is
-the phase.
+177 (part): every item built; moved whole to HISTORY.md ("Moved from the
+plans, 2026-10-05 (placed blocks found built, op5)").
 
 ## Placed from INBOX, 2026-09-21
 
@@ -1282,3 +1479,293 @@ the phase.
     one claim that must be measured before anything is designed.
     **Placed 2026-09-21 into MINDMAP_PLAN section 13**, which carries the
     measured read, the decisions and the gated phases.
+
+## Placed from INBOX, 2026-10-03 (445 (2) audit, found not fixed)
+
+Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MINDMAP_PLAN.md: the second audit's open items"). Its two decisions are 13 and 14 above.
+
+## Placed from INBOX, 2026-10-05
+
+431. **The owner, 2026-09-27 after the reset, verbatim.** "I think notes
+     appear in the command palate search / Also is there a way to customise
+     the colour the fill of mind map nodes?? Also for the mindmap export to
+     customise the colour of the background / Or just to be able to customise
+     the mind map background colour in general / Also can there be some more
+     animations and states of the companions?? Like lying down and sleeping or
+     doing other things like reading, sitting on a beanbag, pulling out a
+     chair and sitting on it, face palming, other gestures and props etc. But
+     focus on the smooth transitions and movement adjustment transitions and
+     other similar organic movement as that is the current worst thing. Maybe
+     also giving like the hair, tails, nebular streams some flow and swaying
+     or smth to make the atlas characters really attractive, well designed,
+     well animated and more. The female atlas main body could potentially
+     have a bit more of a femine chest but don't overdo it just really
+     subtle. Round out polish and finish the whole companion and avatar
+     feature. Polish the testing tool html pages for them as well. Then make
+     sure it is all optimised and cheap to run and everything is togglable in
+     settings. And continue. Polish the app, devibecode it. Fix bugs. Fix
+     ui/ux learnability, utility, accessibility, usability and information
+     architecture"
+     Placed: ~~(a) palette notes (verify: notes should appear; if not, bug)
+     and (b) mind map node fill, canvas and export background colour: one
+     Sonnet agent~~ **done 2026-09-27**: both already existed and worked
+     (verified live in Chromium against a real palette search and a real
+     mind map), no feature code changed; regression tests added
+     (`tests/test_palette_contract.py`, `tests/test_export_paint.py`).
+     Left, from the same report: (b)'s discoverability (the owner asked
+     without knowing they exist, so the controls need better labels/help,
+     placed below as its own item) and companion motion. (c) companion
+     motion first (transitions, glide, secondary motion on hair, tails and
+     nebula), then new states and props, the subtle feminine chest, the
+     test pages, per-feature toggles, cost: the two Opus agents on atlas.js
+     and avatars.js; (d) the devibecode programme, WORLD_CLASS_PLAN 22.4,
+     after.
+     Addenda the same afternoon, verbatim where quoted, all placed with the
+     two companion agents: the top-bar peek; locomotion by distance (walk,
+     hop or fly near, portal far: "It is a companion, not a fake soulless
+     construct"); a smoother bust; a slight body tilt left or right; the
+     sleepy face in both looks, "z" emotes and a night cap; close-range
+     pointer following; hover and click reactions that ease in and decay
+     ("more natural and gradual, unless it is startled"); boredom
+     wandering; lying down to sleep and masculine and feminine body
+     language; rotating per-persona thinking words beside the typing dots
+     (the Sonnet agent, lists written by the orchestrator).
+     (e) Categories: "there needs to be a better, easier and more accessible
+     and learnable way to edit categories like with merging them, splitting
+     them, moving notes between them etc. accessible from the notes tab, and
+     settings. maybe an access menu or panel cna be used from the your notes
+     subtab and/or sidebar??" Exists today: rename (onto an existing name it
+     merges) and delete, from the sidebar menu (`renameCategory`,
+     routes_categories.py PUT/DELETE). Missing: an explicit merge, a split,
+     moving notes between categories, and one place to do all of it.
+     Recommendation, taken: one "Manage categories" panel (the sheet recipe),
+     opened from the sidebar head, each category's menu and Settings; a
+     row per category with count, rename, merge into, split (pick notes or
+     let the AI propose), delete with a destination; notes dragged or
+     multi-selected across; every action undoable. Next free Opus slot.
+     The owner, straight after: "I should say manually edit. the user needs
+     to be able to easily do anything the ai can do". So the panel is part
+     of a parity rule: every write tool the agent has (WRITE_TOOLS and
+     tools/categories.py: create, rename, merge and delete category; create,
+     edit, tag, pin, link, unlink, delete and restore note; reminders; rename
+     and delete tag; documents; whiteboard cards and links; mind map nodes)
+     gets an audited, discoverable manual path, each gap fixed, and a lint
+     that fails when a new write tool has no named UI entry point.
+     **Built 2026-09-27** (e): the Manage categories panel and routes
+     (create, merge, split, proposed split, move, delete into), and the
+     parity lint, `tests/test_manual_parity.py`, naming the manual path of
+     every write tool. Left: the proposed split groups by tags; an AI
+     proposal would need the model.
+     (f) The owner, with a screenshot of the Documents AI assistant dialog:
+     "I actually reallly like the design of the document editor's ai
+     assistant popup panel. especially with the design of the close,
+     history,a nd tooltip buttons. idm the edit/write/remove pill either.
+     the suggest an edit button is fine to." Placed: DESIGN.md's recipe
+     index now names it the reference dialog head; every modal and popup
+     head is brought to it, with a ratchet lint (the Sonnet agent, after
+     the thinking words).
+     (g) The owner: "remake and retake the screenshots for the readme file,
+     update the atlas section with a short intro, title, headline and short
+     description and accompanying image with an expression or mood. take the
+     screenshots in dark mode but maybe have a dark/light comparison image.
+     make the graph really visually pleasing and impressive with a mix of
+     connected and non connected, some clusters some webs, some connections
+     ahve reasons and others dont etc. make sure all main features are
+     properly shown. and polish and update the rest of the the readme as
+     well." Placed: after the Atlas and companion passes land (so the shots
+     show the finished art), the first agent to free takes it: a seeded
+     showcase data dir (clusters, webs, loose notes, reasoned and plain
+     links), dark shots of every main feature, one dark/light split, the
+     Atlas section rewritten, README polished; test_readme_freshness green.
+     **Addendum, the owner, 2026-09-28 (Windows, granite4.1:3b), verbatim.**
+     "No gap below the 'use nomic-embed-text' button. Colour contrast issues
+     on the plan and web polls when active on the chat interface. Depending
+     on what the companion is perched on or anchored to at a given time it
+     might have different z-indexes so like if it is perched on like a chat
+     message bubble or a library card, when it scrolls with them it should
+     probably go behind the top bar like the thing it is perched on not in
+     front of it. If say it is stitting on or perched on an element like the
+     top bar, then it would be in front yk?? It's still really confusing to
+     use the built in embedding model because half the time I can't tell if
+     it is working or how well... also the fit drag mini fit map on the
+     whiteboard and mindmap is reallllly glitchy and laggy. The Popup agent
+     has been unable to answer multiple prompts as well and it's really
+     worrying. The whole process of filing, creating, editing, refining,
+     managing, tagging, recategorising notes and more anywhere, especially in
+     the main sections needs to be wayyy more fast, intuitive, guided,
+     assisted, automated, easy manually, and smooth to use." And: "there have
+     obviously been a lot of bugs that have been missed if something as big
+     as filing a note was very broken so I'm worried."
+     Same day, also open: the graph's default layout "looks messy and is
+     distributed wierdly"; the slash menu's Link card and Web link render the
+     same on a line of their own (a lone link is a card, CHAT_PLAN decision
+     12; recommendation: Web link on an empty line inserts inline syntax the
+     card rule skips, owner to confirm); a toggle in the note edit form's
+     preview reportedly exits preview (not reproduced in Chromium, capture's
+     half fixed in 31d5460).
+     Done the same day (commits 3d493ac to 2b721bd): capture preview and
+     gutter, spinner under reduced motion, one-tab picker strip, unread-dot
+     gap, popup agent "(no answer)" reasons and waiting line, Ask waiting
+     line, 499 for abandoned requests, greeting name once, one nudge on an
+     empty agent round, built-in engine applies on selection, Chat and agent
+     read the app's help for how-to questions, popup user mark, companion
+     hide sweep, web reader on site-builder pages.
+     **2026-10-03 (INBOX 432, PR 162):** (1) to (7) all done; (5) the
+     companion goes under the bar its perch scrolls under
+     (`tests/test_companion_stacking.py`, `companionstack.js`: 62px over the
+     bar to 0, 103px at Large to 0).
+     Placed, in this order: (1) **a real-model pass before more features**:
+     `scratchpad/llama-dev.sh serve` with a 3B model, then the popup agent's
+     two failing prompts, filing a new note, and `pytest -m evals`, because
+     every failure reported today passed a fake-transport suite; (2) the
+     note flow as one brief (WORLD_CLASS_PLAN, notes dossier): filing,
+     re-filing, tagging and editing measured end to end in the running app
+     with the model; (3) built-in engine status in words (ready, indexing N
+     of M, last query semantic or keyword); (4) minimap drag performance
+     (whiteboard and mind map, measured frame times); (5) companion stacking
+     by perch; (6) graph default forces; (7) the two small visual ones
+     (button gap, Plan/Web pill contrast) with contrast.js.
+
+## The features audit's Phase G, what is left (placed 2026-10-05, op3-1005)
+
+From `scratchpad/audit1005/features.md` section 10 and Phase G, open since
+FEAT-13's first part (HISTORY.md, "Step 6"). Built so far: Branches from my
+notes (decision 36 in WHITEBOARD_PLAN) and Summarise this branch (HISTORY.md,
+"Moved from the plans, 2026-10-05 (op3-1005)"). Open, each with the fake
+transport for its tests and the no-model fallback measured in a sweep:
+
+- **Ghost topics on the canvas**: the suggestions drawn faded under the topic,
+  Tab to take one, Escape to drop them all. Waits on boot CSS room (the cap
+  is full; the picker dialog is the shape until then).
+- **Expand from my notes**: a topic grown a level from the note it is
+  grounded in (its headings and links), not from search.
+- **The affinity sort** (a board, WHITEBOARD_PLAN's territory): thirty
+  stickies grouped into named frames by theme, each placement shown with the
+  notes that back it, accepted per frame, one Undo step.
+- **The claim check** (DOCUMENTS_PLAN's territory): a document's sentences
+  checked against the notebook, each marked supported, contradicted or not
+  found, with the note.
+
+
+## 14. Core nodes, levels and the icon library (INBOX 641, 642; mc1, 2026-10-05)
+
+The owner, 2026-10-05: "I'm still not happy on the mindmap with how the core
+nodes work and can be customised as well as with the icons in them", and "an
+emoji and icon widget library which can be dragged and placed in the
+whiteboard and mindmap and which are also available in text editors and
+formatting toolbars". Read against Coggle, XMind, Miro, Illustrator and
+Photoshop.
+
+### 14.1 Measured before anything was designed
+
+Moved to HISTORY.md ("Moved from the plans, 2026-10-05 (MINDMAP_PLAN §14, mc1)"), with the build record: the centre, a branch and a leaf drew identically (13.6px, 400, 31px).
+
+### 14.2 What the five apps do, and what is taken
+
+| App | What it does | Taken as |
+| --- | --- | --- |
+| XMind | A theme styles Central topic, Main topic and Subtopic separately; floating topics have their own | Levels (decision 38) and the hierarchy presets (decision 39) |
+| Coggle | The centre is a large bold card; branches are thick tapered lines; deeper topics are text on the line | The Outline preset; main branches thick by default |
+| Illustrator | Graphic styles: a named look, linked, "Redefine graphic style" updates every object wearing it; Symbols dragged from a panel; the eyedropper copies appearance | Level styles are linked looks; "Use this look for its level" is Redefine (decision 41); stickers (decision 44) |
+| Photoshop | Copy and Paste layer style; the Glyphs panel: search, recent, insert into text | Copy and paste a topic's style (decision 42); the picker's search and Recent row (decision 43) |
+| Miro | Copy style and Paste style (Ctrl+Alt+C, V); an icon and emoji panel dragged onto the board; reactions | Paste style reaches topics; drag from the picker onto the canvas |
+
+Not taken now, kept open under INBOX 641: Illustrator's linked symbol
+instances (edit one, every placed copy follows), Photoshop's layer effects
+(shadow, glow, stroke per topic), Miro's reaction stamps and voting, and the
+whiteboard half of 641's research (beyond stickers).
+
+### 14.3 Decisions made (do not remake)
+
+38. **A topic draws as its level unless told otherwise** (taken 2026-10-05,
+    mc1). Three levels: 0 is the centre (a root with topics under it, or the
+    only topic on the map), 1 the main branches (its children), 2 every
+    topic deeper, and a free root with nothing under it (a floating topic,
+    XMind's own fourth style, drawn as a sub-topic). The level is worked out
+    in the render's one walk of the tree (`wbMapLevels`) and painted as
+    `data-level`, never stored on a topic: dragging a branch to another
+    parent changes its look with its place, which is what a level means.
+39. **The hierarchy is a named preset on the theme, resolved at paint**
+    (decision 9's rule, extended). `theme.hierarchy` names one of four:
+    Classic (the default, stored as no value: centre 22px bold on a pill
+    filled in the accent, main branches 17px bold with a tinted card and a
+    thick line), Outline (Coggle: the centre as Classic, everything else
+    plain text on its line), Boxed (XMind: a filled box per level) and Flat
+    (every topic as before this section, for a person who wants that). Every
+    map made before this draws Classic, since the owner asked for a
+    hierarchy by default; Flat is one choice away and one Undo back.
+40. **A level's own look overrides its preset, and a topic's own look
+    overrides both** (taken 2026-10-05). `theme.levels` holds up to seven
+    fields per level (text size, bold, italic, box shape, edge bar, fill,
+    line thickness), sent and stored whole, so Undo puts the whole set back.
+    The order a field is read in: the topic's own value, its level's,
+    its preset's, the map-wide theme's, the app's. The map-wide theme stays
+    what it was (decision 8's ten fields), now underneath the levels: setting
+    every topic's size map-wide no longer flattens the centre.
+41. **"Use this look for its level" is Illustrator's Redefine** (taken
+    2026-10-05). On a topic's menu: the topic's own looks (the level fields)
+    are written into its level's style and dropped from the topic, one
+    request for the theme and one per changed topic, one Undo step, so every
+    topic at that level that was never told otherwise follows. "Reset to
+    branch" stays the way back for one topic.
+42. **Copy style and Paste style reach topics** (taken 2026-10-05). Ctrl+Alt+C
+    on a topic copies its look (`WB_MAP_STYLE_KEYS` less `link`, the line's
+    label and its waypoint: what a topic *is* never travels); Ctrl+Alt+V
+    pastes onto every selected topic, one Undo step. A topic's style pasted
+    on a shape, or a shape's on a topic, is refused out loud as before.
+43. **One icon and emoji picker, one lazy module** (taken 2026-10-05).
+    `icon-picker.js` and its stylesheet, fetched on first use by
+    `pickIconOrEmoji` (editor.js: app.js is at its gzip ratchet), never a
+    second grid: a `.help-popover.icon-picker`
+    placed by `placeHelpPopover`, a search field, Emoji and Icons as a `.seg`,
+    a Recent row first (this device, twenty), category heads, and one
+    `role="listbox"` grid of `role="option"` tiles (arrows move, Enter
+    picks, Escape closes and gives focus back). Icons are the vendored
+    Phosphor names read off its own stylesheet (no list to keep in step);
+    emoji are a curated set of about 470 in nine groups with their
+    Unicode names, written as escapes like `DOC_EMOJI_SOURCE`. Nothing is
+    fetched. Every tile is draggable, carrying its glyph as text (so a drop
+    into any text box inserts it) and as `application/x-memorymap-icon`.
+44. **A dropped icon is a sticker; dropped on a topic it is that topic's
+    icon** (taken 2026-10-05). On a board or a map's empty canvas: an emoji
+    becomes a text object with `sticker: true` (no card, the glyph sized to
+    its box, resized as any object is); a Phosphor icon is the Library's own
+    vector icon (`wbLibIconEntry`, placed through `/place`, so it recolours
+    and exports as a shape). Dropped on a topic, either sets `data.icon`.
+    Each is one Undo step. The board's Insert menu opens the picker for a
+    person without a mouse; a picked tile is placed at the middle of the view.
+45. **A topic's icon is one slot: a Phosphor name or one emoji** (taken
+    2026-10-05). `data.icon` keeps its name and widens its rule: either the
+    Phosphor pattern it had or a single emoji (at most 16 code points, no
+    ASCII, no markup); the paint pass tells them apart by that pattern. The
+    exports carry it as `_icon` already. Decision 34 stands: markers stay
+    Phosphor only, because a marker is read across a map and an emoji is
+    drawn differently by every system.
+46. **In text, an emoji is a character and an icon is `:ph-name:`** (taken
+    2026-10-05). The note and document formatting toolbars, the document's
+    Insert menu and the "/" menu open the picker; an emoji goes in as itself
+    (it survives any export), an icon as the token `:ph-name:`, which the
+    reading view draws as the glyph (`renderInlineMarkdown`, outside code)
+    and every other reader sees as the words.
+47. **The Centre's Enter adds a main branch** (taken 2026-10-05; XMind and
+    Coggle). On the level-0 topic, Enter and Shift+Enter add a child, since a
+    second centre is never what was meant; a floating topic's Enter keeps
+    adding a free topic beside it.
+
+### 14.4 What is open
+
+Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
+(MINDMAP_PLAN §14, mc1)"). Open, from INBOX 641 and §14.2's "not taken now":
+
+- **Linked stickers** (Illustrator's symbols): edit one placed icon or emoji
+  and every copy follows. Needs a `library_ref` that is followed, which
+  decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
+- **Topic effects** (Photoshop's layer styles): shadow and glow per topic and
+  per level; a level field each, under decision 40's rule.
+- **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
+- **The whiteboard half of 641's research**, beyond stickers.
+- The exported picture draws every topic as one box: the levels, shapes and a
+  Phosphor icon do not reach PNG or SVG (an emoji icon does, as text).
+- The document editor's `:shortcode:` completion keeps its own 248-entry table
+  (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
+  can wait on the picker's script.

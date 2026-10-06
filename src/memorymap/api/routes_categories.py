@@ -25,7 +25,7 @@ import re
 from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,6 +41,41 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 class RenameBody(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+
+
+#: The swatches the Manage categories panel offers, in the order it draws them
+#: (notes-list.js `CATEGORY_PALETTE` holds the same keys with their hexes, and
+#: `tests/test_category_colour.py` compares the two). Twelve hues picked so each
+#: reads at 3:1 or better as a dot on both the lightest and the darkest surface
+#: of either theme, so one hex serves light and dark.
+CATEGORY_PALETTE_KEYS = (
+    "red", "orange", "amber", "lime", "green", "teal",
+    "cyan", "blue", "indigo", "violet", "magenta", "pink",
+)
+_HEX_COLOUR = re.compile(r"#[0-9a-fA-F]{6}")
+
+
+class ColourBody(BaseModel):
+    """A palette key, a `#rrggbb` hex, or null for automatic.
+
+    Required, so an empty body is refused rather than read as "clear". The
+    value ends up in a CSS custom property and a canvas fill, so nothing but
+    these two shapes is ever stored: no named colours, no `rgb()`, no
+    whitespace, nothing a stylesheet could be talked into reading as more.
+    """
+
+    colour: str | None
+
+    @field_validator("colour")
+    @classmethod
+    def _known_colour(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if value in CATEGORY_PALETTE_KEYS:
+            return value
+        if _HEX_COLOUR.fullmatch(value):
+            return value.lower()
+        raise ValueError("Pick one of the swatches, or a #rrggbb colour")
 
 
 class CreateBody(BaseModel):
@@ -65,8 +100,23 @@ class SplitBody(BaseModel):
 def _existing_category(session: Session, category_id: int) -> Category:
     category = session.get(Category, category_id)
     if category is None:
-        raise HTTPException(status_code=400, detail="That category no longer exists")
+        raise HTTPException(status_code=400, detail="That category no longer exists.")
     return category
+
+
+def _same_space(source: Category, target: Category) -> None:
+    """Refuse folding a category into one of another space.
+
+    Only the "All spaces" view can even name both, and a merge there would
+    point one space's notes at a category their own space cannot list: in
+    that space they would read as Uncategorised (measured 2026-10-03). Moving
+    notes between spaces is the space picker's job, not a category merge's.
+    """
+    if (source.workspace_id or "default") != (target.workspace_id or "default"):
+        raise HTTPException(
+            status_code=400,
+            detail="Those categories are in different spaces, so they can't be merged.",
+        )
 
 
 def _ids_in(session: Session, category_id: int) -> list[int]:
@@ -126,6 +176,7 @@ def merge_category(category_id: int, body: MergeBody, session: Session = Depends
     """Fold this category into another (the agent's `merge_categories`)."""
     source = _existing_category(session, category_id)
     target = _existing_category(session, body.into)
+    _same_space(source, target)
     moved_ids = _ids_in(session, source.id)
     try:
         result = _merge_categories(session, {"from": source.name, "into": target.name})
@@ -264,6 +315,17 @@ def propose_split(
     }
 
 
+@router.put("/{category_id}/colour")
+def set_category_colour(
+    category_id: int, body: ColourBody, session: Session = Depends(get_session)
+) -> dict:
+    """Choose a category's colour, or send null to go back to automatic."""
+    category = _existing_category(session, category_id)
+    category.colour = body.colour
+    session.commit()
+    return {"id": category.id, "name": category.name, "colour": category.colour}
+
+
 @router.put("/{category_id}")
 def rename_category(
     category_id: int, body: RenameBody, session: Session = Depends(get_session)
@@ -288,7 +350,8 @@ def delete_category(
     if into is not None:
         target = _existing_category(session, into)
         if target.id == category.id:
-            raise HTTPException(status_code=400, detail="A category cannot be moved into itself")
+            raise HTTPException(status_code=400, detail="A category cannot be moved into itself.")
+        _same_space(category, target)
         try:
             manager.rename_category(session, category.id, target.name)
         except ValueError as exc:

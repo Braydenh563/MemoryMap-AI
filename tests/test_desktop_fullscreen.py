@@ -56,7 +56,7 @@ def test_the_desktop_launcher_registers_the_window_toggle():
 
 
 def test_the_page_prefers_the_window_where_there_is_one():
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     toggle = docs[docs.index("async function docFocusToggleFullscreen"):]
     toggle = toggle[: toggle.index("\n}\n")]
     assert toggle.index("docDesktopFs().available") < toggle.index("requestFullscreen")

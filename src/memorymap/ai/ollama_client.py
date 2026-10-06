@@ -24,6 +24,8 @@ from memorymap.ai import sampling
 from memorymap.ai.provider import (
     Provider,
     ProviderError,
+    NO_TOOLS_PHRASE,
+    UNREADABLE_CALL_PHRASE,
     ToolsUnsupportedError,
     _ThinkTagSplitter,
     _ToolTextGate,
@@ -142,6 +144,11 @@ def describe_http_error(exc: requests.HTTPError, model: str) -> str:
     return f"Chat with '{model}' failed: Ollama said: {detail}.{advice}"
 
 
+
+#: How long a model request may take to *connect* (ARCH-17): a reachable
+#: server accepts in milliseconds; past this it is off or unreachable.
+CONNECT_TIMEOUT_SECONDS = 5.0
+
 class OllamaClient(Provider):
     name = "ollama"
 
@@ -181,6 +188,17 @@ class OllamaClient(Provider):
         # round trips on the path that already feels slowest.
         self._shown: dict[str, dict] = {}
 
+
+    def _request_timeout(self, read: float | None = None) -> tuple[float, float]:
+        """`(connect, read)` for a model request (audit 2026-10-05, ARCH-17).
+
+        One float, as this was, is what `requests` applies to the connect as
+        well as to each read: a model host on the LAN that is switched off
+        and drops packets held a chat turn, a filing job or a night-pass
+        step for the whole ten minutes before saying anything. Connecting is
+        quick or it is not happening; only the answer may take long.
+        """
+        return (CONNECT_TIMEOUT_SECONDS, self.timeout if read is None else read)
     def supports_pull(self) -> bool:
         """Ollama is the only backend that can fetch a model it doesn't have."""
         return True
@@ -459,7 +477,7 @@ class OllamaClient(Provider):
                         "options": self.runtime_options(model, mode=mode),
                         **self.request_extras(mode, model),
                     },
-                    timeout=self.timeout,
+                    timeout=self._request_timeout(),
                 )
                 response.raise_for_status()
                 message = response.json()["message"]
@@ -506,7 +524,7 @@ class OllamaClient(Provider):
                         **self.request_extras(mode, model),
                     },
                     stream=True,
-                    timeout=self.timeout,
+                    timeout=self._request_timeout(),
                 ) as response:
                     response.raise_for_status()
                     for line in response.iter_lines():
@@ -598,11 +616,74 @@ class OllamaClient(Provider):
                         "num_predict": 1,
                     },
                 },
-                timeout=min(self.timeout, 60),
+                timeout=self._request_timeout(min(self.timeout, 60)),
             )
             return bool(response.ok)
         except requests.RequestException:
             return False
+
+    @staticmethod
+    def forced_call_format(tools: list[dict]) -> dict:
+        """The JSON schema a forced round is decoded under (WORLD_CLASS_PLAN
+        B5, grammar-forced JSON where the backend supports it).
+
+        Ollama has no `tool_choice`; what it has is `format`, a JSON schema it
+        turns into a decoding grammar, so the reply cannot be prose. The
+        schema is the call itself: a name out of the offered ones and an
+        arguments object. The arguments are not schema'd per tool: one
+        unsupported keyword in one tool's parameters would make Ollama refuse
+        the whole request, and `tools.check_arguments` already reads and
+        names what is wrong with them after the fact. What comes back is a
+        `{"name", "arguments"}` object in `content`, which the text-dialect
+        recovery (`extract_text_tool_calls`) reads as the call, or a
+        `tool_calls` entry when Ollama's own parser takes it first."""
+        names = [t.get("function", {}).get("name") for t in tools if isinstance(t, dict)]
+        return {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "enum": [n for n in names if n]},
+                "arguments": {"type": "object"},
+            },
+            "required": ["name", "arguments"],
+        }
+
+    def _tools_post(
+        self, model: str, messages: list[dict], tools: list[dict], mode, stream: bool, forced: bool = False
+    ):
+        """One tools request, made a second time when Ollama answered 5xx
+        because the model wrote a tool call it could not parse (INBOX 538: a
+        tool-capable model reported as unable to call tools after one slip).
+        A small model's malformed call is usually a one-off; the second try
+        is a fresh sample. A second failure goes on to the caller's probe."""
+        response = None
+        fmt = self.forced_call_format(tools) if forced and tools else None
+        retried = False
+        for _ in range(3):
+            payload = {
+                "model": model,
+                "messages": self._to_ollama_messages(messages),
+                "stream": stream,
+                "tools": tools,
+                "keep_alive": self.keep_alive,
+                "options": self.runtime_options(model, mode=mode),
+                **self.request_extras(mode, model),
+            }
+            if fmt is not None:
+                payload["format"] = fmt
+            response = requests.post(f"{self.base_url}/api/chat", json=payload, stream=stream, timeout=self._request_timeout())
+            #: An Ollama too old for a schema `format`, or one whose grammar
+            #: conversion refuses it, answers 4xx or 5xx: the round goes again
+            #: unforced, as it was before, rather than failing the turn.
+            if fmt is not None and response.status_code >= 400:
+                response.close()
+                fmt = None
+                continue
+            if not retried and response.status_code >= 500 and UNREADABLE_CALL_PHRASE in response.text.lower():
+                response.close()
+                retried = True
+                continue
+            break
+        return response
 
     def chat_tools_stream(
         self,
@@ -610,8 +691,12 @@ class OllamaClient(Provider):
         messages: list[dict],
         tools: list[dict],
         mode: str | None = None,
+        tool_choice: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn: the agent loop's normal path.
+
+        `tool_choice="required"` decodes the round under `forced_call_format`,
+        the same forced first call the OpenAI dialect gets from the server.
 
         Same decisions as chat_tools, but the assistant's prose arrives as it's
         written instead of in one block at the end. That difference is the
@@ -632,23 +717,11 @@ class OllamaClient(Provider):
         raw_calls: list[dict] = []
         stats: dict = {}
         try:
-            with requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": True,
-                    "tools": tools,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                stream=True,
-                timeout=self.timeout,
-            ) as response:
+            forced = tool_choice == "required"
+            with self._tools_post(model, messages, tools, mode, stream=True, forced=forced) as response:
                 # Same capability probe as chat_tools: a model without tool
                 # support is a gap to fall back from, not an outage.
-                if response.status_code == 400 and "tool" in response.text.lower():
+                if response.status_code == 400 and NO_TOOLS_PHRASE in response.text.lower():
                     raise ToolsUnsupportedError(f"'{model}' can't use tools")
                 response.raise_for_status()
 
@@ -670,6 +743,11 @@ class OllamaClient(Provider):
                     if not line:
                         continue
                     data = json.loads(line)
+                    #: Ollama reports a failure after the 200 as an `error`
+                    #: line (a tool call it could not parse, mid-answer); it
+                    #: used to be skipped and the turn ended empty.
+                    if data.get("error"):
+                        raise OllamaError(f"{model}: {str(data['error'])[:300]}")
                     message = data.get("message", {})
                     if message.get("thinking"):  # native thinking models
                         thinking += message["thinking"]
@@ -695,7 +773,7 @@ class OllamaClient(Provider):
                 and self._tools_path_is_broken(model, messages, mode)
             ):
                 raise ToolsUnsupportedError(
-                    f"'{model}' answers without tools but fails with them"
+                    f"'{model}' answers without tools but fails with them", declared=False
                 ) from exc
             # Same reasoning as `describe_http_error`: a 500 whose body says
             # *why* must not reach the user as a bare status line. Only an
@@ -759,23 +837,11 @@ class OllamaClient(Provider):
         conversation. Non-streamed on purpose: tool-call rounds are short
         and this works on every Ollama version that supports tools."""
         try:
-            response = requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": False,
-                    "tools": tools,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                timeout=self.timeout,
-            )
+            response = self._tools_post(model, messages, tools, mode, stream=False)
             # Ollama answers 400 with a "...does not support tools" body
             # for models without tool support, that's a capability gap,
             # not an outage, so signal it distinctly.
-            if response.status_code == 400 and "tool" in response.text.lower():
+            if response.status_code == 400 and NO_TOOLS_PHRASE in response.text.lower():
                 raise ToolsUnsupportedError(f"'{model}' can't use tools")
             response.raise_for_status()
             payload = response.json()
@@ -789,7 +855,7 @@ class OllamaClient(Provider):
                 if isinstance(arguments, str):  # some models emit JSON text
                     try:
                         arguments = json.loads(arguments)
-                    except ValueError:
+                    except (ValueError, RecursionError):  # a runaway "[[[[" reads as none
                         arguments = {}
                 calls.append({"name": function.get("name", ""), "arguments": arguments})
 
@@ -832,7 +898,7 @@ class OllamaClient(Provider):
                 and self._tools_path_is_broken(model, messages, mode)
             ):
                 raise ToolsUnsupportedError(
-                    f"'{model}' answers without tools but fails with them"
+                    f"'{model}' answers without tools but fails with them", declared=False
                 ) from exc
             # Same reasoning as `describe_http_error`: a 500 whose body says
             # *why* must not reach the user as a bare status line. Only an
@@ -854,7 +920,7 @@ class OllamaClient(Provider):
             response = requests.post(
                 f"{self.base_url}/api/embed",
                 json={"model": model, "input": text},
-                timeout=self.timeout,
+                timeout=self._request_timeout(),
             )
             response.raise_for_status()
             return response.json()["embeddings"][0]

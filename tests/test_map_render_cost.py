@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 #: whiteboard-map.js verbatim on 2026-09-24, and the renderer and the
 #: gestures that call into it stayed in whiteboard.js.
 WB = "\n".join(
-    (ROOT / "frontend" / n).read_text(encoding="utf-8") for n in ("whiteboard.js", "whiteboard-map.js")
+    (ROOT / "frontend" / "js" / n).read_text(encoding="utf-8") for n in ("whiteboard.js", "whiteboard-map.js")
 )
 
 
@@ -62,7 +62,10 @@ def test_an_object_that_has_not_changed_is_not_repainted() -> None:
     body = _code("renderWbObjects")
     compare = body.index("this._wbPaintKey === key")
     store = body.index("this._wbPaintKey = key")
-    write = body.index("this.style.transform")
+    #: The unchanged branch may still move the object (a drag changes its
+    #: place, not its paint), so the full write is the first one after the
+    #: key is stored.
+    write = body.index("this.style.transform", store)
     assert compare < store < write
 
 
@@ -94,6 +97,20 @@ def test_every_topic_is_measured_after_the_writes_never_between_them() -> None:
     # And the same reads fill the size cache, because `wbRenderMapEdges` runs
     # next and asks for both ends of every edge.
     assert "wbMapNodeSizeCache.set(d.id" in body
+
+
+def test_a_topic_the_pass_did_not_repaint_keeps_its_own_measured_height() -> None:
+    """OPEN.md's "94px" row, reproduced: a state fetched from the server hands
+    every topic the server's placeholder height (120) while the element is what
+    its text needs (44), and a topic this pass did not repaint took the 120
+    into the size cache, so `wbMapNodeSize` was 38px out at 1440 and 12px at
+    390 (`mapstrip.js`'s "first pan lands within 4px", 0 now). The element keeps
+    the height it was last measured at and the cache takes that, not the
+    stored one."""
+    body = _code("renderWbObjects")
+    assert "this._wbMeasuredH = h;" in body, "the live read must record what it measured"
+    skip = body[body.index("const known = this._wbMeasuredH;") :][:500]
+    assert "h: known || d.height" in skip, "the cache takes the measured height before the stored one"
 
 
 def test_a_line_is_keyed_by_its_two_ends_and_updated_in_place() -> None:

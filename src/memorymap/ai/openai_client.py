@@ -100,6 +100,11 @@ def _looks_like_tools_rejection(status: int, body: str) -> bool:
 _OPENAI_SAMPLING = frozenset({"temperature", "top_p"})
 
 
+
+#: How long a model request may take to *connect* (ARCH-17): a reachable
+#: server accepts in milliseconds; past this it is off or unreachable.
+CONNECT_TIMEOUT_SECONDS = 5.0
+
 class OpenAICompatClient(Provider):
     """Anything that serves `/v1/chat/completions`.
 
@@ -141,6 +146,17 @@ class OpenAICompatClient(Provider):
 
     # --- plumbing -----------------------------------------------------------
 
+
+    def _request_timeout(self, read: float | None = None) -> tuple[float, float]:
+        """`(connect, read)` for a model request (audit 2026-10-05, ARCH-17).
+
+        One float, as this was, is what `requests` applies to the connect as
+        well as to each read: a model host on the LAN that is switched off
+        and drops packets held a chat turn, a filing job or a night-pass
+        step for the whole ten minutes before saying anything. Connecting is
+        quick or it is not happening; only the answer may take long.
+        """
+        return (CONNECT_TIMEOUT_SECONDS, self.timeout if read is None else read)
     def _headers(self) -> dict:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -652,6 +668,11 @@ class OpenAICompatClient(Provider):
             **self.request_extras(mode, model),
         }
         payload.update(extra)
+        if "tools" in payload and not payload["tools"]:
+            # A round with the tools withdrawn (the budget ran out, or the
+            # wrap-up after the last round): strict servers refuse `tools: []`
+            # ("too short"), and no tools is what it means.
+            del payload["tools"]
         return payload
 
     def _post(self, payload: dict, stream: bool):
@@ -660,7 +681,7 @@ class OpenAICompatClient(Provider):
             json=payload,
             headers=self._headers(),
             stream=stream,
-            timeout=self.timeout,
+            timeout=self._request_timeout(),
         )
 
     # --- the four generation paths ------------------------------------------
@@ -765,14 +786,55 @@ class OpenAICompatClient(Provider):
             except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
+    def _open_tools_stream(
+        self, model: str, messages: list[dict], tools: list[dict], mode: str | None, tool_choice: str | None = None
+    ):
+        """The streamed tools request, opened, with one silent retry on a
+        transient 5xx (INBOX 527: `chat` and `chat_stream` had one, the agent's
+        own path did not, so llama-server's 503 while it loads a model ended
+        the turn). Safe for the reason `chat_stream`'s is: nothing has been
+        yielded yet. A model without tool support is a gap to fall back from,
+        not an outage, and is not retried."""
+        payload = self._payload(
+            model, messages, mode, stream=True, tools=tools, stream_options={"include_usage": True}
+        )
+        if tool_choice and tools:
+            payload["tool_choice"] = tool_choice
+        for attempt in range(2):
+            response = self._post(payload, stream=True)
+            if 400 <= response.status_code < 500 and payload.pop("tool_choice", None):
+                # A server that does not know `tool_choice` (INBOX 527) is not a
+                # server without tools: ask again as an ordinary turn.
+                response.close()
+                response = self._post(payload, stream=True)
+            #: `.text` only on an error: read first, it drained a streamed 200
+            #: whole, so nothing reached the page until the end (INBOX 534).
+            if response.status_code >= 400 and _looks_like_tools_rejection(response.status_code, response.text):
+                response.close()
+                raise ToolsUnsupportedError(f"'{model}' can't use tools")
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as exc:
+                response.close()
+                if attempt == 0 and is_transient_server_error(exc):
+                    continue
+                raise
+            return response
+        raise ProviderError(f"Tool chat with '{model}' failed: retries exhausted")
+
     def chat_tools_stream(
         self,
         model: str,
         messages: list[dict],
         tools: list[dict],
         mode: str | None = None,
+        tool_choice: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn: the agent loop's normal path.
+
+        `tool_choice="required"` asks the server to answer with a call (see
+        `agent._requires_a_call`); a server that refuses the field is asked
+        again without it.
 
         Yields, in order:
           {"thinking_delta": str}   zero or more
@@ -788,22 +850,7 @@ class OpenAICompatClient(Provider):
         started = time.monotonic()
         last: dict = {}
         try:
-            with self._post(
-                self._payload(
-                    model,
-                    messages,
-                    mode,
-                    stream=True,
-                    tools=tools,
-                    stream_options={"include_usage": True},
-                ),
-                stream=True,
-            ) as response:
-                # A model without tool support is a gap to fall back from, not
-                # an outage: the same distinction the Ollama path draws.
-                if _looks_like_tools_rejection(response.status_code, response.text):
-                    raise ToolsUnsupportedError(f"'{model}' can't use tools")
-                response.raise_for_status()
+            with self._open_tools_stream(model, messages, tools, mode, tool_choice) as response:
 
                 def emit(piece: dict) -> Iterator[dict]:
                     """Route one splitter piece, gating candidate tool-call text."""
@@ -938,7 +985,7 @@ class OpenAICompatClient(Provider):
                 f"{self.base_url}/embeddings",
                 json={"model": model, "input": text},
                 headers=self._headers(),
-                timeout=self.timeout,
+                timeout=self._request_timeout(),
             )
             response.raise_for_status()
             return response.json()["data"][0]["embedding"]

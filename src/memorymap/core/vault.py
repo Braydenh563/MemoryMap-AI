@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.core import crypto
-from memorymap.core.database import Vault
+from memorymap.core.database import LinkReason, Vault
 
 # Set on unlock, cleared on lock. Deliberately module-level: this app is
 # single-user, and one process holds one notebook, so there is one key.
@@ -214,3 +214,8 @@ def rewrap(session: Session, new_password: str) -> bool:
     row.kdf_salt = salt
     row.wrapped_dek = crypto.wrap_dek(_dek, new_password, salt)
     return True
+
+
+# The link-reason column decrypts on load; it asks this module for the key
+# through a hook rather than an import, which would be a cycle.
+LinkReason.key_source = staticmethod(key)

@@ -14,13 +14,16 @@ from __future__ import annotations
 import json
 import logging
 import re
+from urllib.parse import urlsplit
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, tools
-from memorymap.ai.model_manager import ModelManager, is_small_model
+from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
+from memorymap.ai.model_manager import SMALL_MODEL_PARAMS_B, ModelManager, parameter_count
 from memorymap.ai.ollama_client import (
     OllamaClient,
     OllamaError,
@@ -42,6 +45,57 @@ MAX_ROUNDS = 6
 #: and the same reason. Nothing is capped for a model the name does not size:
 #: see `is_small_model`, where None means off.
 SMALL_MODEL_MAX_ROUNDS = 4
+
+#: Below this many billion parameters a model is "tiny" (H3): the 1.5B the
+#: harness was measured on, against the 3B to 8B the small rules were made for.
+TINY_MODEL_PARAMS_B = 3.0
+
+
+class SizeTier(NamedTuple):
+    """What a turn asks of a model of one size (AGENT_SKILLS_REFORM H3)."""
+
+    name: str
+    #: The core tools plus the ones the request names, never the orchestration
+    #: three, in place of the question-focused set.
+    narrow_toolbox: bool
+    #: The short schema descriptions whatever the window.
+    compact_schemas: bool
+    #: The whole allowance, granted plus earned; None leaves the caller's.
+    max_rounds: int | None
+    #: `tool_choice: "required"` on an instruction's first round.
+    force_first_call: bool
+    #: Characters of prose a round with tools offered may write before its
+    #: stream is closed; None never cuts. Prose only: thinking is not counted.
+    reply_chars: int | None
+
+
+#: **The one place a size decision lives** (H3; before, one boolean under 8B).
+#: Measured on Qwen2.5-1.5B through llama-server: "Make a note" wrote the note
+#: out in prose for 948 s, to the 2,048-token reply cap, and made no call.
+#: 2,400 characters is about 600 tokens, three Normal-mode answers; a round
+#: that meant to call a tool has said what it will say long before that. The
+#: 3B to 8B tier gets twice the room. A name that gives no size is treated as
+#: large: narrowing a capable model on a guess is the worse mistake.
+SIZE_TIERS = {
+    "tiny": SizeTier("tiny", True, True, SMALL_MODEL_MAX_ROUNDS, True, 2_400),
+    "small": SizeTier("small", True, True, SMALL_MODEL_MAX_ROUNDS, True, 4_800),
+    "large": SizeTier("large", False, False, None, False, None),
+    "unsized": SizeTier("unsized", False, False, None, False, None),
+}
+
+
+def size_tier(model: str) -> SizeTier:
+    """The tier for the model a turn will actually call, read off its name."""
+    size = parameter_count(model)
+    if size is None:
+        return SIZE_TIERS["unsized"]
+    if size < TINY_MODEL_PARAMS_B:
+        return SIZE_TIERS["tiny"]
+    return SIZE_TIERS["small" if size < SMALL_MODEL_PARAMS_B else "large"]
+
+
+#: Said after a tool round's prose was cut at its tier's `reply_chars`.
+REPLY_CAP_NOTE = "…\n\n(I cut that reply short: it was running long.)"
 
 # Rounds a turn can *earn* beyond MAX_ROUNDS, one per round that got somewhere.
 #
@@ -82,6 +136,189 @@ EMPTY_ROUND_NUDGE = (
     "Your last reply was empty. Answer my previous message now, in plain words, "
     "or call the one tool that does what I asked."
 )
+
+#: Sent after a forced first round (`tool_choice: "required"`) that still came
+#: back as prose. Measured at 3B (H4): the server's grammar did not always
+#: hold, and a reply that neither claimed nor announced an act was taken as
+#: the turn's answer, so the request was never done.
+FORCED_PROSE_NUDGE = (
+    "That request needs a tool call, and your reply made none. Call the one "
+    "tool that does what I asked now."
+)
+
+#: Sent, with the tools withdrawn, when a turn runs out of rounds (see the end
+#: of `run_agent`): what it found is worth an answer even if the job is not done.
+WRAP_UP_NUDGE = (
+    "You have used all your tool calls for this turn. Answer my request now, "
+    "from what your tool results above show. Say plainly what you did and "
+    "what is still not done. Do not claim anything you did not do."
+)
+
+#: H1: the rows of the plan card a multi-step turn draws (see `_TurnCard`).
+TURN_ROW_RUNNING = "Deciding the next step"
+TURN_ROW_ANSWER = "Wrote the answer"
+TURN_ROW_RECHECK = "Rechecked the reply"
+TURN_ROW_WRAP_UP = "Answered from what was found"
+_ROW_ICON = re.compile(r"^(?:ph:[\w-]+|\u21a9\ufe0e)\s+")
+_ROW_CHARS = 120
+_TITLE_CHARS = 60
+
+
+class _TurnCard:
+    """**A plan card for every multi-step turn** (AGENT_SKILLS_REFORM H1).
+
+    The tracker used to draw only for `make_plan` and skills, and a small model
+    is never offered `make_plan`, so a turn that searched, read and answered
+    showed tool rows and no sense of where it was. The card is drawn from the
+    harness's own ledger when the second round starts (no model call): one row
+    per round, the calls it made, ticked as it ends. It emits the same `plan`
+    and `step` events a skill run does, marked `kind: "turn"`, so the client
+    reuses `startPlan` and saves and replays it like any other card.
+    """
+
+    def __init__(self, question: str, enabled: bool):
+        self.enabled = enabled
+        title = " ".join(question.split())
+        self.title = title if len(title) <= _TITLE_CHARS else title[: _TITLE_CHARS - 1].rstrip() + "…"
+        self.rows: list[str] = []
+        self.drawn = False
+        self.open: int | None = None
+
+    def start_round(self, called_any: bool) -> list[dict]:
+        if not self.enabled or not called_any:
+            return []
+        events = []
+        if not self.drawn:
+            self.drawn = True
+            events.append(
+                {
+                    "type": "plan",
+                    "kind": "turn",
+                    "skill": self.title,
+                    "steps": list(self.rows),
+                    "states": {str(i): {"state": "done"} for i in range(len(self.rows))},
+                }
+            )
+        self.open = len(self.rows)
+        events.append(self._step("running", TURN_ROW_RUNNING))
+        return events
+
+    def end_round(self, text: str, state: str = "done", reason: str | None = None) -> list[dict]:
+        """Close this round's row. Before the card is drawn, only remembered."""
+        if not self.enabled:
+            return []
+        text = text if len(text) <= _ROW_CHARS else text[: _ROW_CHARS - 1].rstrip() + "…"
+        if not self.drawn:
+            self.rows.append(text)
+            return []
+        index = len(self.rows) if self.open is None else self.open
+        self.rows[index:index + 1] = [text]
+        self.open = None
+        event = self._step(state, text, index)
+        if reason:
+            event["reason"] = reason
+        return [event]
+
+    def _step(self, state: str, text: str, index: int | None = None) -> dict:
+        index = self.open if index is None else index
+        return {"type": "step", "kind": "turn", "index": index, "state": state, "text": text}
+
+    @staticmethod
+    def row_for(labels: list[str]) -> str:
+        names = [_ROW_ICON.sub("", label).strip() for label in labels if label]
+        row = ", ".join(dict.fromkeys(n for n in names if n)) or "Used a tool"
+        return row[:1].upper() + row[1:]
+
+
+def _check_sources(answer: str, messages: list[dict], wanted: bool):
+    """H2: flag a number or a name the answer states that nothing this turn
+    read contains (`source_check`). Only after a tool ran, so the answer is
+    meant to be from the notebook, and only on an ordinary chat turn: a
+    skill step's prose is checked by the run's own verify block."""
+    if not wanted or not answer.strip():
+        return
+    claims = source_check.unbacked_claims(answer, source_check.sources_from_messages(messages))
+    if claims:
+        yield {"type": "answer", "delta": source_check.heads_up(claims)}
+
+
+def _labelled(gen, labels: list[str]):
+    """Re-yield a `_dispatch_call` generator, noting each tool row's label."""
+    try:
+        event = next(gen)
+        while True:
+            if event.get("type") == "tool" and event.get("label"):
+                labels.append(str(event["label"]))
+            event = gen.send((yield event))
+    except StopIteration as stop:
+        return stop.value
+
+
+#: Sent once after a reply that claims an act no tool performed (see
+#: `unsupported_claims` and the end of a round in `run_agent`).
+CLAIM_RETRY_NUDGE = (
+    "You wrote that you {claims}, but no tool ran, so it has not happened. "
+    "Do it now by calling {tools}, or say plainly that it was not done."
+)
+
+#: Sent after a round whose words only announce an action ("I'll count the
+#: notes in Work", "I will use the count_notes function") and that called no
+#: tool (see `announces_unacted_tool`). Measured with Qwen2.5-1.5B through
+#: llama.cpp in the popup agent (INBOX 432): every one of four prompts ended
+#: on such a sentence, so each read as answered and none was.
+UNACTED_INTENT_NUDGE = (
+    "You said what you would do but did not do it. Do it now: call the tool "
+    "instead of describing it. If no tool fits, answer my question in plain words."
+)
+
+#: "I'll", "I will", "I am going to", "let me", followed by a verb a tool
+#: does. Verbs, not every verb: "let me know", "I'll keep that in mind" are
+#: answers.
+_INTENT_PATTERN = re.compile(
+    r"\b(?:I(?:'ll|\u2019ll| will| am going to|'m going to| shall)|let me)\s+"
+    r"(?:now\s+|first\s+|just\s+|go ahead and\s+)?"
+    r"(?:use|call|run|count|search|look|find|check|create|make|add|tag|move|file|"
+    r"list|fetch|read|open|update|edit|delete|remove|save|write|rename|link|get)\b",
+    re.IGNORECASE,
+)
+
+#: Past this length a reply is an answer that happens to offer more, not an
+#: announcement standing in for one.
+_INTENT_MAX_CHARS = 400
+
+#: What makes an announced act an offer ("if you like", "would you") or the
+#: answer itself ("I'll list them below").
+_CONDITIONAL = re.compile(
+    r"\b(?:if|would|could|want|wish|prefer|should|below|above|following)\b", re.IGNORECASE
+)
+
+
+def announces_unacted_tool(answer: str, offered: list[dict]) -> bool:
+    """Whether a reply with no tool call only says it is about to act.
+
+    True for a short reply that names one of the tools on offer, or that says
+    "I'll" / "let me" and a verb a tool does. False with nothing on offer,
+    since then there is nothing to nudge the model toward.
+    """
+    text = (answer or "").strip()
+    if not text or not offered:
+        return False
+    if len(text) > _INTENT_MAX_CHARS:
+        #: **A long reply counts when one of its sentences announces an act
+        #: outright** (INBOX 527, Qwen2.5-1.5B): asked "Make a note: buy oat
+        #: milk", it wrote the note out as markdown, said "I will call the
+        #: tool to save the note for you", and called nothing. A promise with
+        #: a condition ("I'll search for more if you like") is an offer, and a
+        #: long answer making one is still an answer.
+        return any(
+            _INTENT_PATTERN.search(sentence) and not _CONDITIONAL.search(sentence)
+            for sentence in re.split(r"[.!?\n]+", text)
+        )
+    names = {t.get("function", {}).get("name", "") for t in offered}
+    if any(name and re.search(rf"\b{re.escape(name)}\b", text) for name in names):
+        return True
+    return bool(_INTENT_PATTERN.search(text))
+
 
 # How much tool output one turn may add to the conversation, in characters.
 # Local models run in small windows, and tool results accumulate: six rounds
@@ -149,14 +386,11 @@ TOOLS_GUIDE = (
     "it), and their saved skills (list_skills, save_skill; run_skill starts "
     "one and takes over from you, so use it when a saved skill already "
     "describes the job). "
-    # Kept, not trimmed: the schema says due_at is an ISO date-time, but not
-    # that it must be computed from the clock given below. Without that, a
-    # model resolves "in 10 minutes" against whatever it imagines the time is,
-    # which is how a reminder set for five minutes' time read as ten hours
-    # overdue the moment it was saved.
-    "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
-    "set_reminder with due_at computed from the current time given below, as "
-    "an ISO 8601 datetime. "
+    # The arithmetic left the prompt (INBOX 527; AGENT_SKILLS_REFORM, decided
+    # 2026-09-21): set_reminder takes the user's words in `when` and the app
+    # resolves them (`ai/when.py`). This only says so.
+    "For \"remind me… in 10 minutes / tomorrow at 9\", call set_reminder "
+    "with when in the user's own words; the app works out the date. "
     # Both halves of this earned their place and both were briefly cut. Without
     # the first the model acts and then says nothing, so the user watches tool
     # chips scroll past and gets no answer; without the second it narrates work
@@ -234,7 +468,7 @@ COMPACT_TOOLS_GUIDE = (
     "notebook. Use count_notes for totals, list_notes to walk through, "
     "get_note to read one in full. Never state a total from a page of "
     "results. Private notes are invisible to you; say so if asked. "
-    "For reminders, compute due_at from the current time below as ISO 8601. "
+    "For reminders, pass when in the user's own words. "
     "NEVER say you created, saved, edited, deleted, tagged or linked "
     "anything unless you actually called the tool, claiming work you did "
     "not do is the worst thing you can write. Planning ahead is fine: say "
@@ -940,6 +1174,23 @@ _CLAIM_MATCHERS = tuple(
     for label, verb, needs in _CLAIMED_ACTIONS
 )
 
+#: **The passive voice** (INBOX 527, Qwen2.5-1.5B): asked to pin a note, it
+#: created a duplicate instead and wrote "Your dentist appointment note has
+#: been created and pinned". No "I", so nothing matched. Read only on a turn
+#: that ran or parked some write, because "has been tagged" also describes a
+#: note as it already is, and a heads-up on a plain answer would be the net
+#: crying wolf; on a turn that changed something it is a report of that turn.
+_PASSIVE = r"(?:has|have|is now|are now)\s+(?:now\s+|just\s+|also\s+)?(?:been\s+)?(?:successfully\s+)?"
+_PASSIVE_MATCHERS = tuple(
+    re.compile(
+        r"\bremind\w*\s+(?:has|have|is|are)\s+(?:now\s+)?(?:been\s+)?(?:set|scheduled|added|created)\b"
+        if label == "set a reminder"
+        else rf"\b{_PASSIVE}{verb}\b",
+        re.IGNORECASE,
+    )
+    for label, verb, _needs in _CLAIMED_ACTIONS
+)
+
 # Kept because it is the cheapest check for the commonest case, a model that
 # describes a note it never saved, and it catches phrasings with no claimant
 # at all. Widened from the original to cover "we" as well as "I".
@@ -947,6 +1198,20 @@ _CLAIM_PATTERN = re.compile(
     rf"\b({_CLAIMANT}(?:created|added|saved|made|updated|edited|deleted|tagged|"
     r"pinned|linked)|new note titled|created a? ?note)\b",
     re.IGNORECASE,
+)
+
+
+#: **"Added" says which act by what it was added to** (Qwen2.5-3B,
+#: 2026-10-05, `scratchpad/harness_probe.py`): "Pin my dentist note" ran
+#: `pin_note` and answered "has been added to Favourites"; "added" read as a
+#: saved note, the heads-up and a retry followed, and the turn ended
+#: contradicting itself. Rewritten to the verb of the act before matching,
+#: so the claim is still checked, against the tool that does it.
+_ADDED_TO = (
+    (re.compile(r"\b(?:added|moved)\b(?=[^.!?\n]{0,40}\bto\s+(?:your\s+|the\s+)?favou?rites\b)", re.I), "pinned"),
+    (re.compile(r"\bremoved\b(?=[^.!?\n]{0,40}\bfrom\s+(?:your\s+|the\s+)?favou?rites\b)", re.I), "unpinned"),
+    (re.compile(r"\b(?:added|removed|applied)\b(?=[^.!?\n]{0,30}\btags?\b)", re.I), "tagged"),
+    (re.compile(r"\b(?:added|appended)\b(?=[^.!?\n]{0,60}\bto\s+(?:your|the|that)\s+[^.!?\n]{0,40}\bnote\b)", re.I), "updated"),
 )
 
 
@@ -958,13 +1223,16 @@ def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
     tool is in there is taken at face value, this is a net for fabrication,
     not an auditor of whether the right note was edited.
     """
+    for pattern, verb in _ADDED_TO:
+        answer = pattern.sub(verb, answer)
     # Whether this answer speaks in the claiming voice at all. A carried-on
     # verb is only a claim inside a sentence that already made one, so this is
     # checked first and gates the looser half of every matcher below.
-    claiming = any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
+    passive = [m.search(answer) if ran else None for m in _PASSIVE_MATCHERS]
+    claiming = any(passive) or any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
     said = []
-    for label, direct, carried, needs in _CLAIM_MATCHERS:
-        hit = direct.search(answer) or (claiming and carried.search(answer))
+    for (label, direct, carried, needs), by_passive in zip(_CLAIM_MATCHERS, passive):
+        hit = direct.search(answer) or by_passive or (claiming and carried.search(answer))
         if hit and not (needs & ran):
             said.append(label)
     return said
@@ -986,6 +1254,92 @@ AGENT_GROUNDING = (
 #: itself.
 _OUTSIDE_TOOLS = frozenset({"read_url", "web_search", "read_file", "search_files"})
 _OUTBOUND_TOOLS = frozenset({"read_url", "web_search"})
+#: **What parks once the turn is tainted** (SEC-02, audit 2026-10-05): every
+#: tool that reaches out *and* every tool that writes. Outbound alone left
+#: the slower attack open: a page that cannot send the notebook anywhere
+#: this turn could still plant a note or rewrite a saved skill (`save_skill`
+#: replaces a skill's tool list in place) so that a later, clean turn does
+#: the sending. Taint also comes from the notebook itself now: a note
+#: clipped from the web or brought in by an import, and an imported
+#: document, are text from outside however they reach the model (a tool
+#: result's `from_outside`, or a retrieved note's, see `run_agent`).
+_PARK_WHEN_TAINTED = _OUTBOUND_TOOLS | frozenset(_WRITE_TOOLS)
+
+#: **Which pages a tainted turn may still open without a card** (SEC-02's last
+#: step). Parking every `read_url` once outside text is in the turn stopped a
+#: page sending the notebook anywhere, and made every research turn a stack of
+#: cards. Two addresses carry nothing the model could have put there:
+#: one the person named (its site, by their own choice), and the exact
+#: address a search result gave this turn. Anything else, a query string
+#: added, a longer path, a name that only ends like the site, still parks:
+#: that is where a page smuggles data out.
+#: The lookbehind is what keeps it linear: without it a match restarted at
+#: every label of a dotted run (`a.a.a.` 16,000 long took 3.8 s, CodeQL's
+#: `py/polynomial-redos`), and a host never starts inside another host.
+_ADDRESS = re.compile(
+    r"(?<![a-z0-9.\-])(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63})(?::\d+)?(/[^\s<>()\"']*)?",
+    re.IGNORECASE,
+)
+
+
+def _page_key(url: str) -> str | None:
+    """An address as compared: no scheme, no fragment, no trailing slash,
+    the host lowercased. None when it names no host."""
+    text = (url or "").strip()
+    if not text:
+        return None
+    if "://" not in text:
+        text = "https://" + text
+    parsed = urlsplit(text)
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return None
+    path = parsed.path.rstrip("/")
+    return host + path + (f"?{parsed.query}" if parsed.query else "")
+
+
+def _bare_host(host: str) -> str:
+    host = host.lower().rstrip(".")
+    return host[4:] if host.startswith("www.") else host
+
+
+def _hosts_named(question: str) -> set[str]:
+    """The sites the person named in their own words."""
+    return {_bare_host(m.group(1)) for m in _ADDRESS.finditer(question or "")}
+
+
+def _result_urls(result) -> set[str]:  # noqa: ANN001
+    """Every address a search result handed back, as page keys."""
+    found: set[str] = set()
+
+    def walk(value) -> None:  # noqa: ANN001
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in ("url", "link", "href") and isinstance(item, str):
+                    page = _page_key(item)
+                    if page:
+                        found.add(page)
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(result)
+    return found
+
+
+def _cleared_page(state: "_TurnState", name: str, arguments: dict) -> bool:
+    """Whether a `read_url` in a tainted turn opens without a card."""
+    if name != "read_url":
+        return False
+    page = _page_key(str(arguments.get("url") or ""))
+    if page is None:
+        return False
+    if page in state.result_pages:
+        return True
+    host = _bare_host(urlsplit("https://" + page).hostname or "")
+    return host in state.named_hosts
 
 
 def build_agent_messages(
@@ -1043,10 +1397,9 @@ def build_agent_messages(
     #: characters against `PROSE_BUDGET_CHARS` and removes a whole class of
     #: wrong answer.
     #:
-    #: The "still today" sentence is there because of the specific slip
-    #: above: a time worked out by subtracting from tonight's midnight lands
-    #: on today, and the model moved it to tomorrow. Saying so once is
-    #: cheaper than a reminder set on the wrong night.
+    #: The "still today" sentence that followed is gone (INBOX 527): it taught
+    #: reminder arithmetic, which `ai/when.py` now does. The week stays,
+    #: because placing a note's "due Friday" is reading, not a tool argument.
     #: The day number by hand, not `%-d`: that flag is glibc's, and Windows'
     #: strftime raises "Invalid format string" on it, which took every agent
     #: turn down on the owner's machine before the first event.
@@ -1063,8 +1416,6 @@ def build_agent_messages(
     #: it caught this being written the other way round.
     now_hint = (
         f" Today is {local.strftime('%A')}, and the next seven days are {week}."
-        " Today ends at midnight tonight, so a time you reach by counting back"
-        " from that midnight is still today's date, not tomorrow's."
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
@@ -1110,13 +1461,30 @@ def build_agent_messages(
         # `prepared["notes"]` already carries this from routes_chat.py; the
         # agent path just never read it before.
         f"{i}. (note id {note.get('id', '?')}) [{note['category']}]"
+        #: When it was written and what its time words meant (INBOX 441: the
+        #: chat read a two-week-old "this Friday" as this week's).
+        f"{librarian._written_hint(note)}{librarian._dates_hint(note)}"
+        #: INBOX 527, the owner: "does the ai know that it can have images in
+        #: its response??" Chat and Ask did (526); this prompt, the default
+        #: with tools on, did not. N is the note's number here, which is its
+        #: place in the turn's `raw_results`, where the bubble looks it up.
+        f"{librarian._pictures_hint(note, i)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{librarian._match_info_hint(note.get('match_info'))} "
         f"{librarian.note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )
-    body = f"My notes:\n{numbered}\n\n" if notes else "My notebook looks empty.\n\n"
+    #: **No match is not an empty notebook** (INBOX 527, Qwen2.5-1.5B): with
+    #: four notes saved, "How many notes do I have?" matched none of them by
+    #: its words, the prompt said "My notebook looks empty", and the model
+    #: answered "There are no notes in your notebook". Retrieval cannot see the
+    #: notebook's size; count_notes can.
+    body = (
+        f"My notes:\n{numbered}\n\n"
+        if notes
+        else "(No notes matched these words. That says nothing about how many I have: count_notes and search_notes do.)\n\n"
+    )
     if dropped_notes:
         # Said rather than silently done. A model that knows its notes were
         # cut short can search for the rest; one that doesn't will answer as
@@ -1195,6 +1563,74 @@ def _recent_text(history: list[dict] | None) -> str:
     return " ".join(parts)[:FOLLOW_THROUGH_CONTEXT_CHARS]
 
 
+#: The board and map tools a picture question must not be sent to (below).
+_CANVAS_TOOLS = frozenset(
+    {
+        "read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link",
+        "generate_diagram", "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+    }
+)
+#: Words that ask for a board to be changed, which keep the board tools.
+_CANVAS_WRITE = re.compile(r"\b(?:add|put|place|pin|draw|make|create|link|map|diagram)\b", re.I)
+_PICTURE_WORDS = re.compile(
+    r"\b(?:photo|photos|picture|pictures|pic|image|images|sketch|drawing|screenshot|scan)\b", re.I
+)
+
+
+_PREFERENCE_CUE = re.compile(
+    r"\b(?:remember|prefer|preference|from now on|always|never|call me|my name|i like|i don'?t like|i hate|i love)\b",
+    re.I,
+)
+_FENCE_TEXT = re.compile(r"<<<(?:end data|data[^<>\n]{0,40})>>>")
+
+
+def _copies_what_was_read(arguments: dict, messages: list[dict], wrote: bool) -> bool:
+    """**A `create_note` that is a copy of a note this turn already has.**
+
+    Qwen2.5-3B, H4: "Pin my dentist note" pinned it and then made a new note
+    of the same text with the prompt's fence markers in it; "Add 'bring a rain
+    jacket' to my Snowdon note" edited it and then made a copy of the edited
+    note. Prompt markers in a new note are always a copy; otherwise, after a
+    write, a new note whose first line (20 characters or more) is already in
+    a note or tool result this turn is the same note again.
+    """
+    content = str(arguments.get("content") or "")
+    if _FENCE_TEXT.search(content):
+        return True
+    first = content.strip().split("\n", 1)[0].strip()
+    if not wrote or len(first) < 20:
+        return False
+    return any(
+        first in str(m.get("content") or "") for m in messages[1:] if m.get("role") in ("user", "tool")
+    )
+
+
+def _picture_in_hand(question: str, notes: list[dict]) -> bool:
+    """**A picture question whose picture is already in the prompt.**
+
+    Measured on Qwen2.5-1.5B (INBOX 527's eval): "Show me the whiteboard
+    sketch from the planning meeting" cued the board tools by its words, and
+    the model read a whiteboard instead of writing `[picture 1]` for the note
+    that held the sketch, listed in its own prompt with "has 1 picture"; with
+    the reads gone, Qwen2.5-3B placed the note on a board instead (H4). When
+    a note with a picture shares a word with a question that does not ask for
+    a board to change, the board and map tools are left off the first offer;
+    the focus correction still widens to them if the model asks.
+    """
+    if not _PICTURE_WORDS.search(question or "") or _CANVAS_WRITE.search(question or ""):
+        return False
+    from memorymap.search.search_manager import _meaningful_terms
+
+    asked = {t for t in _meaningful_terms(question) if not _PICTURE_WORDS.fullmatch(t)}
+    for note in notes or []:
+        if not note.get("pictures"):
+            continue
+        text = f"{note.get('title') or ''} {note.get('content') or ''}".lower()
+        if any(re.search(rf"\b{re.escape(term.lower())}", text) for term in asked):
+            return True
+    return False
+
+
 def _focus(question: str, history: list[dict] | None = None) -> list[str] | None:
     """Which tools this turn is offered, unless the user asked for all of them.
 
@@ -1226,7 +1662,8 @@ class _TurnPlan:
     """
 
     agent_model: str
-    small_model: bool
+    #: The size tier this turn runs under (`SIZE_TIERS`).
+    tier: SizeTier
     #: The model's usable context, or None when the provider does not say.
     #: Passed to each tool call so a tool can size its own result.
     window: int | None
@@ -1290,14 +1727,12 @@ def _prepare_turn(
     #: the schemas cost is a window question; whether the model can choose
     #: between twenty of them is not.
     #:
-    #: `is_small_model` is the predicate the skills path already uses
-    #: (`chat_model_is_small` calls it), so there is one rule in one place, and
-    #: None ("the name does not say") is off: narrowing a capable model on a
-    #: guess is the worse of the two mistakes.
-    small_model = is_small_model(agent_model) is True
+    #: Read from `SIZE_TIERS` (H3), the one table every size decision below
+    #: comes from; a name that gives no size is the large tier.
+    tier = size_tier(agent_model)
     persona = memory.persona_with_memory(session, persona_prompt)
 
-    system_chars = len(
+    system_chars = context.weighted_len(
         f"{persona} "
         f"{AGENT_GROUNDING} {tools_guide(window)}{librarian.length_hint(mode)}"
     )
@@ -1332,7 +1767,7 @@ def _prepare_turn(
     focus_names = (
         allowed_tools if allowed_tools is not None else _focus(question, history)
     )
-    if small_model and allowed_tools is None:
+    if tier.narrow_toolbox and allowed_tools is None:
         # **One stable toolbox for a small model, not a per-question guess.**
         # `_focus` is an economy: it reads the question's words and adds the
         # groups they hint at, so the same model sees a different set every
@@ -1347,10 +1782,27 @@ def _prepare_turn(
         # A skill's declared list is exempt (`allowed_tools is not None`): it
         # asked for exactly those tools, and dropping one breaks the run
         # rather than simplifying it.
+        #:
+        #: **Plus the tools the request itself names** (INBOX 527, measured on
+        #: Qwen2.5-1.5B): the core alone holds one write, `create_note`, so
+        #: "Pin my dentist note" was offered no `pin_note` and the model wrote
+        #: a duplicate note instead; 2 of 10 everyday requests chose a right
+        #: tool. The cued groups are added after the core, which stays first
+        #: and stable; a broad request (None) still gets the core alone.
+        cued = _focus(question, history) or []
+        #: `save_user_preference` only when the request is about the user
+        #: (H4, Qwen2.5-3B under the forced first call: "Note down: ...",
+        #: "Save this: ..." and "Put ... in my note" saved a preference, 3/20).
+        keep_pref = bool(_PREFERENCE_CUE.search(question or ""))
         focus_names = [
-            name for name in tools.CORE_TOOLS if name not in tools.ORCHESTRATION_TOOLS
+            name
+            for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
+            if name not in tools.ORCHESTRATION_TOOLS
+            and (keep_pref or name != "save_user_preference")
         ]
-    offered = tools.ollama_tools(focus_names)
+    if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
+        focus_names = [name for name in focus_names if name not in _CANVAS_TOOLS]
+    offered = tools.with_relation_types(tools.ollama_tools(focus_names), session)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
     # its own fresh rounds, so nesting them means the bound on a turn stops
@@ -1372,7 +1824,7 @@ def _prepare_turn(
     # Safe for a skill's declared list too (hence above the `allowed_tools`
     # branch): compaction never removes a tool, so nothing a skill asked for
     # can go missing this way.
-    if small_model or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
+    if tier.compact_schemas or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
         offered = tools.compact_schemas(offered)
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
@@ -1409,8 +1861,9 @@ def _prepare_turn(
         # is a judgement about the model rather than a guess about the
         # question, so a miss is evidence the focus was wrong, not evidence
         # that a 3B can suddenly choose between twenty-two schemas.
-        every_tool = tools.ollama_tools(
-            _focus(question, history) if small_model else None
+        every_tool = tools.with_relation_types(
+            tools.ollama_tools(_focus(question, history) if tier.narrow_toolbox else None),
+            session,
         )
         if barred:
             every_tool = [
@@ -1470,14 +1923,14 @@ def _prepare_turn(
     # flat cap always stopped it.
     granted = max(1, max_rounds)
     ceiling = granted + max(0, earned_rounds)
-    if small_model:
+    if tier.max_rounds is not None:
         # The cap is on the ceiling as well as the grant, or the earned rounds
         # put the total straight back to twelve: see SMALL_MODEL_MAX_ROUNDS.
-        granted = min(granted, SMALL_MODEL_MAX_ROUNDS)
-        ceiling = min(ceiling, SMALL_MODEL_MAX_ROUNDS)
+        granted = min(granted, tier.max_rounds)
+        ceiling = min(ceiling, tier.max_rounds)
     return _TurnPlan(
         agent_model=agent_model,
-        small_model=small_model,
+        tier=tier,
         window=window,
         budget=budget,
         messages=messages,
@@ -1520,6 +1973,9 @@ class _TurnState:
     #: Which write tools ran, so a claim can be checked against the action that
     #: would have made it true rather than against the turn as a whole.
     ran_writes: set[str] = field(default_factory=set)
+    #: Acts a write did on the side, for the claim check only: a note made
+    #: with `tags` was tagged (H4, Qwen2.5-3B was told it had not been).
+    implied: set[str] = field(default_factory=set)
     #: Characters of tool output added to the conversation so far.
     spent: int = 0
     #: (tool, arguments) pairs that have already failed.
@@ -1531,16 +1987,411 @@ class _TurnState:
     #: Has this turn read something from outside the notebook (a page, a
     #: search result, a file)? Then reaching out again needs a confirm.
     outside: bool = False
+    #: `outside` as it stood when this round's calls were chosen: what parks
+    #: an outbound call. A call in the same reply as the first web read was
+    #: decided before anything outside was read, so no page can have asked
+    #: for it (INBOX 527: "search for X and Y" parked the second search).
+    tainted: bool = False
     #: Calls that already succeeded: a repeat of one is not progress either.
     done_calls: set[tuple[str, str]] = field(default_factory=set)
     #: Reads whose result is already in `messages` and still current.
     fresh_reads: set[tuple[str, str]] = field(default_factory=set)
     #: Did this round do something new? Reset at the top of each round.
     progressed: bool = False
+    #: SEC-02: the sites the person named, and the exact addresses this
+    #: turn's searches returned (`_cleared_page`).
+    named_hosts: set[str] = field(default_factory=set)
+    result_pages: set[str] = field(default_factory=set)
 
     def count_failure(self, tool_name: str) -> int:
         self.tool_failures[tool_name] = self.tool_failures.get(tool_name, 0) + 1
         return self.tool_failures[tool_name]
+
+
+#: Below this much room a shortened result is too thin to answer from.
+MIN_FITTED_CHARS = 400
+
+#: Said inside a result that was shortened to fit (see `_fit_result`).
+SHORTENED_NOTE = (
+    "Shortened to fit what is left of this conversation: {what}. Answer from "
+    "this; get_note reads one note in full if you need it."
+)
+
+
+def _clip_strings(value, limit: int):
+    """`value` with every string over `limit` characters cut to it."""
+    if isinstance(value, str):
+        return value if len(value) <= limit else value[:limit] + "…"
+    if isinstance(value, dict):
+        return {k: _clip_strings(v, limit) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clip_strings(v, limit) for v in value]
+    return value
+
+
+def _fit_result(result: dict, name: str, room: int) -> str | None:
+    """The result as the model will read it, shortened to `room` characters
+    if it must be, or None when no honest shortening fits (INBOX 527).
+
+    Before, a result over the turn's budget was dropped whole and the tools
+    withdrawn: on a 4k-window model one `search_notes` page of long notes
+    could end the turn's reading with nothing read. Now its long text is
+    clipped (400, then 160, then 60 characters) and then its lists kept from
+    the front (10, 5, 3, 1 items), whole objects every time, with a note
+    saying what was cut; only when one item does not fit is it refused.
+    """
+    payload = json.dumps(fence.fence_result(result, name))
+    if len(payload) <= room:
+        return payload
+    if room < MIN_FITTED_CHARS or not isinstance(result, dict):
+        return None
+    lists = [k for k, v in result.items() if isinstance(v, list) and len(v) > 1]
+    for limit in (400, 160, 60):
+        for keep in (None, 10, 5, 3, 1):
+            if keep is not None and not lists:
+                break
+            shorter = _clip_strings(result, limit)
+            dropped = 0
+            if keep is not None:
+                for key in lists:
+                    dropped += max(0, len(shorter[key]) - keep)
+                    shorter[key] = shorter[key][:keep]
+            what = f"long text clipped to {limit} characters"
+            if dropped:
+                what += f", {dropped} item{'s' if dropped != 1 else ''} left out"
+            shorter["shortened"] = SHORTENED_NOTE.format(what=what)
+            payload = json.dumps(fence.fence_result(shorter, name))
+            if len(payload) <= room:
+                return payload
+    return None
+
+
+def _prefetch_outbound(calls: list[dict]) -> None:
+    """Fetch a round's web reads side by side, before they run one by one.
+
+    **Parallel independent tool calls** (INBOX 527). A model that asks for
+    three pages in one reply waited for them in series: three network
+    round trips, each seconds, where the tool calls themselves are
+    milliseconds. The calls still run in order through `_dispatch_call`,
+    every guard and the session untouched; this only warms the in-process
+    caches `websearch` already keeps, from threads that touch no database.
+    Only for a round chosen before anything outside was read (the caller
+    checks), so no page can start a fetch, and only when web access is on.
+    """
+    wanted = [c for c in calls if c.get("name") in _OUTBOUND_TOOLS and not c.get("invalid_arguments")]
+    if len(wanted) < 2:
+        return
+    tools.prefetch_web([(c["name"], c.get("arguments") or {}) for c in wanted])
+
+
+#: An instruction to change the notebook, said as one: "Make a note: ...",
+#: "Remind me ...", "Pin my ...". A question ("can you pin it?") is not one.
+_IMPERATIVE = re.compile(
+    r"^\s*(?:please\s+)?(?:make\s+a\s+note|note\s+down|jot\s+down|create|save|"
+    r"remind\s+me|set\s+a\s+reminder|tag|untag|pin|unpin|link|unlink|rename|"
+    r"add|append|put|write\s+down|file|move|mark)\b",
+    re.IGNORECASE,
+)
+
+
+def _requires_a_call(question: str, plan: "_TurnPlan") -> bool:
+    """Whether the first round of a small model's turn must be a tool call.
+
+    INBOX 527, measured on Qwen2.5-1.5B under llama.cpp: asked "Make a note:
+    buy oat milk and eggs", "Remind me tomorrow at 9am...", "Tag my plumber
+    note", it answered in prose on most turns, sometimes claiming the work.
+    Asked with `tool_choice: "required"`, the same server answered "Make a
+    note" with `create_note {"content": "buy oat milk and eggs"}`. Only for an
+    imperative whose own tools are on offer, never a question, never a
+    skill's turn, and only the first round: what follows is the model's call.
+    """
+    text = (question or "").strip()
+    if plan.permitted is not None or not text or text.endswith("?"):
+        return False
+    if not _IMPERATIVE.match(text):
+        return False
+    offered = {t["function"]["name"] for t in plan.offered}
+    return bool(offered & _WRITE_TOOLS)
+
+
+#: The reads a forced first round keeps: the ones that find the thing the
+#: instruction names ("my dentist note", "the reminder to pay rent"). Every
+#: other read is something a small model reaches for instead of acting.
+_LOCATING_TOOLS = frozenset({"search_notes", "get_note", "list_notes", "list_reminders"})
+
+#: A request for information, said as one: a wh-word, or an auxiliary with
+#: its subject ("do I have", "is there", "are my"). "Can you pin it?" is a
+#: request said as a question and is not matched: it keeps its writes.
+_INFORMATION_QUESTION = re.compile(
+    r"^\s*(?:(?:what|which|who|whom|whose|when|where|why|how)\b|"
+    r"(?:is|are|am|do|does|did|have|has|was|were)\s+"
+    r"(?:i|you|we|there|my|it|this|that|these|those|the|any)\b)",
+    re.IGNORECASE,
+)
+
+
+#: The writes that change the category tree rather than a note.
+_CATEGORY_TREE_TOOLS = frozenset({"create_category", "rename_category", "merge_categories", "delete_category"})
+
+#: "File the dentist note under Health", "move the plumber note to Home".
+_FILING_REQUEST = re.compile(r"\b(?:file|filed|move|moved|recategori[sz]e|categori[sz]e)\b", re.IGNORECASE)
+
+
+def _names_an_existing_category(session: Session, question: str) -> bool:
+    """Whether a filing request names a category the notebook already has.
+
+    Qwen2.5-3B, forced: "File the dentist note under Health" opened once with
+    `create_category` although "Health" existed; the note then stayed where it
+    was. A narrowing is a hint and never a reason to fail a turn, so any
+    trouble reading the categories (a test's stub session, a locked database)
+    answers no and leaves the round as it was.
+    """
+    if not _FILING_REQUEST.search(question or ""):
+        return False
+    try:
+        from memorymap.core.database import Category
+
+        names = list(session.scalars(select(Category.name)))
+    except Exception:  # noqa: BLE001
+        return False
+    return any(
+        name and re.search(r"\b" + re.escape(name) + r"\b", question, re.IGNORECASE) for name in names
+    )
+
+
+def _first_round_tools(
+    question: str, plan: "_TurnPlan", offered: list[dict], required: bool, session: Session | None = None
+) -> list[dict]:
+    """The tools a small model's first round is offered (H4, measured on
+    Qwen2.5-3B through llama-server).
+
+    Forced, the round must call something, and a small model given the whole
+    toolbox sometimes calls the harmless read: "Add X to my note" opened with
+    `get_current_time`, "File the dentist note under Health" with
+    `count_notes`. Forced rounds keep the writes and the reads that locate a
+    note or a reminder, nothing else.
+
+    Unforced, a question for information is offered no write: "What tags and
+    what categories am I using?" opened with `tag_note`, because the word
+    "tags" cues the tag group. The writes come back on the next round, so a
+    question that turns into a job ("which note is about boots? pin it") still
+    gets them once it has read.
+
+    Only a narrowed tier and only an ordinary turn: a skill declared its own
+    list, and a large model was never measured choosing this badly.
+    """
+    if not plan.tier.narrow_toolbox or plan.permitted is not None:
+        return offered
+    if required:
+        keep = _WRITE_TOOLS | _LOCATING_TOOLS
+        #: "Put 'buy stamps' in my shopping note" names a note that exists:
+        #: forced, the 3B made a new one instead (2 of 2). The edit and the
+        #: finders stay; a new note is not what was asked.
+        if tools.adds_to_a_named_note(question):
+            keep = keep - {"create_note"}
+        #: Filing under a category that exists is an edit of the note: leave
+        #: out every tool that reshapes the category tree. The 3B picked
+        #: `create_category` once, and on 2026-10-05 `rename_category {"old":
+        #: "note 2", "new": "Health"}` (scratchpad/harness_probe.py).
+        if session is not None and _names_an_existing_category(session, question):
+            keep = keep - _CATEGORY_TREE_TOOLS
+        narrowed = [t for t in offered if t["function"]["name"] in keep]
+    elif _INFORMATION_QUESTION.match(question or ""):
+        narrowed = [t for t in offered if t["function"]["name"] not in _WRITE_TOOLS]
+    else:
+        return offered
+    if len(narrowed) != len(offered):
+        logging.getLogger("memorymap.agent").info(
+            "first round: %s, %d of %d tools", "forced" if required else "question", len(narrowed), len(offered)
+        )
+    return narrowed or offered
+
+
+def _round_stream(ollama, model, messages, offered, mode, required):
+    """One round's stream, with `tool_choice="required"` when asked and the
+    provider takes it (the OpenAI dialect); any other provider, or a test's
+    fake, is called as it always was."""
+    if required and offered:
+        try:
+            return ollama.chat_tools_stream(model, messages, offered, mode=mode, tool_choice="required")
+        except TypeError:
+            pass  # a fake or provider without tool_choice: the plain call below
+    return ollama.chat_tools_stream(model, messages, offered, mode=mode)
+
+
+def _tool_event(name: str, arguments: dict, result: dict) -> dict:
+    """The `tool` event for one finished call: what the chat's chip, the
+    Sources panel, the live action line and `skill_runner` read. Lifted
+    from `_run_and_record` (ARCH-22)."""
+    return {
+        "type": "tool",
+        #: **The tool's own name.** The front end has always tried
+        #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
+        #: app.js) and it was never sent, so every web page and
+        #: every file this app read was silently missing from the
+        #: answer's Sources panel: a feature that could not have
+        #: worked once.
+        "tool": name,
+        "label": result.get("label") or name,
+        "ok": "error" not in result,
+        "error": result.get("error"),
+        "arguments": arguments,
+        #: Titles, addresses and one line each of what was read, 
+        #: see `_tool_sources`. This is what the Sources panel
+        #: draws its cards, previews and links from.
+        "sources": _tool_sources(name, result),
+        # UI display only: the version fed back to the model as
+        # conversation context is `payload` below, with its own
+        # separate, real token budget (`result_cap`). This is just
+        # what the chat transcript's tool-call disclosure shows,
+        # and that box already scrolls (.tool-chip-result, 12rem
+        # max-height): 300 chars cut it down to a couple of
+        # lines for no reason tied to cost. Reported live: "make
+        # the tool call output view a scrollable text box rather
+        # than it being truncated", the box already was one;
+        # this is what was starving it. 4000 is generous enough
+        # that raw JSON from a typical note/search/fetch result
+        # reads in full, while still bounding a pathological
+        # single result (a huge page fetch) from bloating the
+        # SSE event.
+        "result_summary": _result_summary(result),
+        # What this call actually touched, for the chat's live
+        # action line: see `_touched_items`.
+        "touched": _touched_items(result),
+        #: **The ids this read returned, and whether there are
+        #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
+        #: A paging read already tells the *model* there is more
+        #: (`note_to_model`, `next_offset`); nothing told the
+        #: *app*, so `skill_runner` could only see that a tool had
+        #: been called once and ticked the step off with four
+        #: fifths of the notebook unread. Read off the result here
+        #: rather than parsed back out of `result_summary` in the
+        #: runner: the shape is this module's to know, and a
+        #: regex over a truncated JSON blob is the version of this
+        #: that breaks silently.
+        "seen": _seen_ids(result),
+        "more": bool(result.get("has_more")),
+        "next_offset": result.get("next_offset"),
+        #: **The same call, as things with actions** (PLAN.md §4
+        #: A1). `touched` is notes and documents; this is all five
+        #: kinds: a file, a board and a reminder are equally
+        #: openable and had no representation at all. Kept beside
+        #: `touched` rather than replacing it because a saved
+        #: transcript from before this existed has only `touched`,
+        #: and `skill_runner._absorb` reads it to carry ids across
+        #: a run's steps.
+        "cards": cards.result_cards(name, result),
+    }
+
+
+def _run_and_record(
+    session: Session, plan: _TurnPlan, state: _TurnState, name: str, arguments: dict
+) -> Iterator[dict]:
+    """Run a call every guard let through, record what it did on the turn's
+    state, yield its tool event, and return the result for the model.
+
+    `_dispatch_call`'s last branch, lifted with no behaviour change (audit
+    2026-10-05, ARCH-22: the function was 455 lines). The order inside is
+    the branch's own: the taint, the ledgers, the write's change, the advice
+    on an error, then the event.
+    """
+    result = tools.execute_tool(
+        session, name, arguments, context_tokens=plan.window, model=plan.agent_model
+    )
+    # SEC-02: the result carries a clipped or imported note's words (or an
+    # imported document's): from here on the turn is tainted, exactly as
+    # after a web read. Popped: the flag is for this loop, not the model.
+    if isinstance(result, dict) and result.pop("from_outside", False):
+        state.outside = True
+    # What changed, and the call that would put it back. Popped
+    # rather than read: `undo` is for the user, and every field
+    # left in the result is resent to the model on every later
+    # round of the turn.
+    undo = result.pop("undo", None)
+    change = None
+    signature = (name, json.dumps(arguments, sort_keys=True))
+    if "error" not in result and signature not in state.done_calls:
+        # Something new worked. That is what buys another round, 
+        # see EARNED_ROUNDS. Reads and writes both count: paging
+        # through a notebook to find the right note is the work,
+        # not a preamble to it.
+        state.done_calls.add(signature)
+        state.progressed = True
+    if "error" not in result and name not in _WRITE_TOOLS:
+        # Its result is now in the messages above, and stays valid
+        # until something writes.
+        state.fresh_reads.add(signature)
+    if "error" not in result and name in _OUTSIDE_TOOLS:
+        state.outside = True
+    if "error" not in result and name == "web_search":
+        state.result_pages |= _result_urls(result)
+    if "error" not in result and name in _WRITE_TOOLS:
+        state.did_write = True
+        state.ran_writes.add(name)
+        if name == "create_note" and arguments.get("tags"):
+            state.implied.add("tag_note")
+        # The notebook just changed, so every read taken before now
+        # may be out of date. Clearing this is what keeps the
+        # repeat-suppression above from ever serving a stale
+        # answer: after a write, re-reading is legitimate work
+        # rather than a loop, and it has to be allowed through.
+        #
+        # Deliberately *not* `done_calls`, which is the earned-round
+        # ledger: clearing that would let a model repeating one
+        # identical write buy a fresh round every time it did so,
+        # which is the exact loop EARNED_ROUNDS exists to starve.
+        #
+        # Deliberately not `failed_calls` either, for the same
+        # reason one step removed. A write briefly cleared it here,
+        # which sounds symmetrical and is not: a call that failed on
+        # its own arguments, a bad note id, a malformed date, fails
+        # again for exactly the same reason after an unrelated note
+        # is written, and forgetting it hands the model back the
+        # infinite retry that `_RECOVERY_HINTS` and the repeat
+        # interception exist to break. Only a read can go stale.
+        state.fresh_reads.clear()
+        change = {
+            "tool": name,
+            "label": result.get("label") or name,
+            "note_id": _change_note_id(name, result),
+            "document_id": _change_document_id(name, result),
+            "reminder_id": _change_reminder_id(name, result),
+            "category_name": _change_category_name(name, result),
+            "undo": undo,
+        }
+    if "error" in result:
+        # Hand back advice with the error, not just the error.
+        repeated = signature in state.failed_calls
+        state.failed_calls.add(signature)
+        exhausted = state.count_failure(name) >= MAX_TOOL_FAILURES
+        result = {
+            **result,
+            "what_to_do": (
+                # Said on the failure that *reaches* the cap, not
+                # only on the blocked call after it, otherwise the
+                # model spends one more round discovering a rule it
+                # could have been told here.
+                TOOL_EXHAUSTED_NOTE
+                if exhausted
+                else REPEATED_CALL_NOTE
+                if repeated
+                else _recovery_hint(name, str(result["error"]))
+            ),
+        }
+    event = _tool_event(name, arguments, result)
+    if change:
+        event["change"] = change
+    if result.get("proposal"):
+        # `save_user_preference` no longer saves anything: it asks.
+        # The row exists but is inactive and flagged `proposed`, and
+        # it stays out of every system prompt until somebody says
+        # yes. Carrying the id and the text on the event is what
+        # lets the chat draw the accept/decline card next to the
+        # tool chip, so the answer is given where the suggestion was
+        # made rather than three clicks away in Settings.
+        event["proposal"] = result["proposal"]
+    yield event
+    return result
 
 
 def _dispatch_call(
@@ -1611,6 +2462,27 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
+    elif spec is not None and call.get("invalid_arguments") is not None:
+        #: The JSON did not read even leniently (`provider.loads_lenient`).
+        #: Said as that, with a shape to copy: running the tool with `{}`
+        #: told the model "missing something" and it retried the same JSON.
+        result = {
+            "error": f"{name}: the arguments were not valid JSON, so nothing ran",
+            "what_to_do": (
+                f"Call {name} again with its arguments as one JSON object, "
+                f"for example {tools.example_arguments(name)}."
+            ),
+        }
+        state.failed_calls.add(signature)
+        state.count_failure(name)
+        yield {
+            "type": "tool",
+            "tool": name,
+            "label": f"ph:warning {name.replace('_', ' ')}, arguments unreadable",
+            "ok": False,
+            "error": result["error"],
+            "arguments": {"unreadable": call["invalid_arguments"]},
+        }
     elif spec is not None and spec.ends_turn:
         # `ask_user` and `run_skill`. The turn stops here, and in both
         # cases that is the feature rather than a limitation: the model
@@ -1655,7 +2527,7 @@ def _dispatch_call(
             return False
         yield handover
         return True
-    elif spec is not None and (spec.destructive or (state.outside and name in _OUTBOUND_TOOLS)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED and not _cleared_page(state, name, arguments))) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm
         # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
         # rather than a result, which is honest but is not a *stop*:
@@ -1684,7 +2556,7 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
-    elif spec is not None and (spec.destructive or (state.outside and name in _OUTBOUND_TOOLS)):
+    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED and not _cleared_page(state, name, arguments))):
         # Park it for the user, never auto-run a destructive tool, nor a
         # tool that reaches out once the turn has read from outside.
         # The confirm card is the honest signal, so count it as an
@@ -1742,6 +2614,17 @@ def _dispatch_call(
             "ok": False,
             "error": "Repeated failure intercepted",
         }
+    elif name == "create_note" and _copies_what_was_read(arguments, state.messages, state.did_write):
+        result = {
+            "error": "That note already exists: this is a copy of a note you read or changed this turn.",
+            "what_to_do": "Do not make a new note. Tell the user what you did to the existing note.",
+        }
+        yield {
+            "type": "tool",
+            "label": "ph:warning create note, a copy of an existing note",
+            "ok": False,
+            "error": "Copy of an existing note intercepted",
+        }
     elif signature in state.done_calls and name in _WRITE_TOOLS:
         # --- NEW INTERCEPTION: Duplicate Writes ---
         # A write that already succeeded this turn. Intercept before executing again.
@@ -1790,166 +2673,21 @@ def _dispatch_call(
             "ok": True,
         }
     else:
-        result = tools.execute_tool(
-            session, name, arguments, context_tokens=plan.window, model=plan.agent_model
-        )
-        # What changed, and the call that would put it back. Popped
-        # rather than read: `undo` is for the user, and every field
-        # left in the result is resent to the model on every later
-        # round of the turn.
-        undo = result.pop("undo", None)
-        change = None
-        signature = (name, json.dumps(arguments, sort_keys=True))
-        if "error" not in result and signature not in state.done_calls:
-            # Something new worked. That is what buys another round, 
-            # see EARNED_ROUNDS. Reads and writes both count: paging
-            # through a notebook to find the right note is the work,
-            # not a preamble to it.
-            state.done_calls.add(signature)
-            state.progressed = True
-        if "error" not in result and name not in _WRITE_TOOLS:
-            # Its result is now in the messages above, and stays valid
-            # until something writes.
-            state.fresh_reads.add(signature)
-        if "error" not in result and name in _OUTSIDE_TOOLS:
-            state.outside = True
-        if "error" not in result and name in _WRITE_TOOLS:
-            state.did_write = True
-            state.ran_writes.add(name)
-            # The notebook just changed, so every read taken before now
-            # may be out of date. Clearing this is what keeps the
-            # repeat-suppression above from ever serving a stale
-            # answer: after a write, re-reading is legitimate work
-            # rather than a loop, and it has to be allowed through.
-            #
-            # Deliberately *not* `done_calls`, which is the earned-round
-            # ledger: clearing that would let a model repeating one
-            # identical write buy a fresh round every time it did so,
-            # which is the exact loop EARNED_ROUNDS exists to starve.
-            #
-            # Deliberately not `failed_calls` either, for the same
-            # reason one step removed. A write briefly cleared it here,
-            # which sounds symmetrical and is not: a call that failed on
-            # its own arguments, a bad note id, a malformed date, fails
-            # again for exactly the same reason after an unrelated note
-            # is written, and forgetting it hands the model back the
-            # infinite retry that `_RECOVERY_HINTS` and the repeat
-            # interception exist to break. Only a read can go stale.
-            state.fresh_reads.clear()
-            change = {
-                "tool": name,
-                "label": result.get("label") or name,
-                "note_id": _change_note_id(name, result),
-                "document_id": _change_document_id(name, result),
-                "reminder_id": _change_reminder_id(name, result),
-                "category_name": _change_category_name(name, result),
-                "undo": undo,
-            }
-        if "error" in result:
-            # Hand back advice with the error, not just the error.
-            repeated = signature in state.failed_calls
-            state.failed_calls.add(signature)
-            exhausted = state.count_failure(name) >= MAX_TOOL_FAILURES
-            result = {
-                **result,
-                "what_to_do": (
-                    # Said on the failure that *reaches* the cap, not
-                    # only on the blocked call after it, otherwise the
-                    # model spends one more round discovering a rule it
-                    # could have been told here.
-                    TOOL_EXHAUSTED_NOTE
-                    if exhausted
-                    else REPEATED_CALL_NOTE
-                    if repeated
-                    else _recovery_hint(name, str(result["error"]))
-                ),
-            }
-        event = {
-            "type": "tool",
-            #: **The tool's own name.** The front end has always tried
-            #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
-            #: app.js) and it was never sent, so every web page and
-            #: every file this app read was silently missing from the
-            #: answer's Sources panel: a feature that could not have
-            #: worked once.
-            "tool": name,
-            "label": result.get("label") or name,
-            "ok": "error" not in result,
-            "error": result.get("error"),
-            "arguments": arguments,
-            #: Titles, addresses and one line each of what was read, 
-            #: see `_tool_sources`. This is what the Sources panel
-            #: draws its cards, previews and links from.
-            "sources": _tool_sources(name, result),
-            # UI display only: the version fed back to the model as
-            # conversation context is `payload` below, with its own
-            # separate, real token budget (`result_cap`). This is just
-            # what the chat transcript's tool-call disclosure shows,
-            # and that box already scrolls (.tool-chip-result, 12rem
-            # max-height): 300 chars cut it down to a couple of
-            # lines for no reason tied to cost. Reported live: "make
-            # the tool call output view a scrollable text box rather
-            # than it being truncated", the box already was one;
-            # this is what was starving it. 4000 is generous enough
-            # that raw JSON from a typical note/search/fetch result
-            # reads in full, while still bounding a pathological
-            # single result (a huge page fetch) from bloating the
-            # SSE event.
-            "result_summary": _result_summary(result),
-            # What this call actually touched, for the chat's live
-            # action line: see `_touched_items`.
-            "touched": _touched_items(result),
-            #: **The ids this read returned, and whether there are
-            #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
-            #: A paging read already tells the *model* there is more
-            #: (`note_to_model`, `next_offset`); nothing told the
-            #: *app*, so `skill_runner` could only see that a tool had
-            #: been called once and ticked the step off with four
-            #: fifths of the notebook unread. Read off the result here
-            #: rather than parsed back out of `result_summary` in the
-            #: runner: the shape is this module's to know, and a
-            #: regex over a truncated JSON blob is the version of this
-            #: that breaks silently.
-            "seen": _seen_ids(result),
-            "more": bool(result.get("has_more")),
-            "next_offset": result.get("next_offset"),
-            #: **The same call, as things with actions** (PLAN.md §4
-            #: A1). `touched` is notes and documents; this is all five
-            #: kinds: a file, a board and a reminder are equally
-            #: openable and had no representation at all. Kept beside
-            #: `touched` rather than replacing it because a saved
-            #: transcript from before this existed has only `touched`,
-            #: and `skill_runner._absorb` reads it to carry ids across
-            #: a run's steps.
-            "cards": cards.result_cards(name, result),
-        }
-        if change:
-            event["change"] = change
-        if result.get("proposal"):
-            # `save_user_preference` no longer saves anything: it asks.
-            # The row exists but is inactive and flagged `proposed`, and
-            # it stays out of every system prompt until somebody says
-            # yes. Carrying the id and the text on the event is what
-            # lets the chat draw the accept/decline card next to the
-            # tool chip, so the answer is given where the suggestion was
-            # made rather than three clicks away in Settings.
-            event["proposal"] = result["proposal"]
-        yield event
+        result = yield from _run_and_record(session, plan, state, name, arguments)
     #: Someone else's words in the result (a note's body, a page's text, a
     #: snippet) go to the model fenced as quoted data (`fence`, INBOX 430);
     #: the app's own fields (`what_to_do`, labels, ids) do not.
-    payload = json.dumps(fence.fence_result(result, name))
-    # The window's share, but never more than the absolute ceiling, 
+    # The window's share, but never more than the absolute ceiling,
     # a 128k model would otherwise be allowed tens of thousands of
     # tokens of tool output, which is prefill time on every subsequent
     # round for material the model has usually finished with.
     result_cap = min(plan.budget.tool_result_chars, TOOL_RESULT_BUDGET_CHARS)
-    if state.spent + len(payload) > result_cap:
-        # Over budget. Hand back the notice instead of the result and
-        # withdraw the tools, so the next round has to be an answer.
-        # Dropping the result rather than truncating it is deliberate:
-        # half a JSON object is worse than none, the model reads it
-        # as data and answers from a note that got cut mid-sentence.
+    payload = _fit_result(result, name, result_cap - state.spent)
+    if payload is None:
+        # Not even a shortened copy fits. Hand back the notice instead and
+        # withdraw the tools, so the next round has to be an answer. Never
+        # a cut string: half a JSON object is worse than none, the model
+        # reads it as data and answers from a note cut mid-sentence.
         payload = json.dumps(BUDGET_EXHAUSTED)
         state.offered = []
     state.spent += len(payload)
@@ -1958,6 +2696,43 @@ def _dispatch_call(
     )
 
     return False
+
+
+def _wrap_up_round(ollama, agent_model: str, mode, state: _TurnState, card: _TurnCard, show_plan: bool) -> Iterator[dict]:  # noqa: ANN001
+    """One more round with the tools withdrawn, for an answer, when a turn
+    runs out of rounds; yields the answer as it streams and returns its
+    text. Lifted from `run_agent` with no behaviour change (audit
+    2026-10-05, ARCH-22)."""
+    wrapped = ""
+    # **One more round, with the tools withdrawn, for an answer** (INBOX
+    # 527). Before, a turn that ran out handed the user only "I stopped
+    # after 4 rounds", however much it had found: a small model capped at
+    # four rounds that had read the right note gave no answer from it.
+    # A skill step passes its own note and is left alone: the runner
+    # reads the stop, not prose, to mark the step stalled.
+    state.messages.append({"role": "user", "content": WRAP_UP_NUDGE})
+    try:
+        for piece in ollama.chat_tools_stream(agent_model, state.messages, [], mode=mode):
+            if "content_delta" in piece:
+                wrapped += piece["content_delta"]
+                yield {"type": "answer", "delta": piece["content_delta"]}
+            elif "final" in piece and not piece["final"].get("streamed"):
+                late = (piece["final"].get("content") or "").strip()
+                if late and not wrapped:
+                    wrapped = late
+                    yield {"type": "answer", "delta": late}
+    except (OllamaError, ToolsUnsupportedError) as exc:
+        logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
+    if card.drawn:
+        yield from card.end_round(TURN_ROW_WRAP_UP)
+    yield from _check_sources(wrapped, state.messages, show_plan)
+    unsupported = unsupported_claims(wrapped, state.ran_writes | state.implied)
+    if unsupported:
+        yield {
+            "type": "answer",
+            "delta": f"\n\nHeads up: I said I {', '.join(unsupported)}, but that tool never ran, so it did not happen.",
+        }
+    return wrapped
 
 
 def run_agent(
@@ -1980,6 +2755,7 @@ def run_agent(
     images: list[str] | None = None,
     model_override: str | None = None,
     image_context: str | None = None,
+    show_plan: bool = True,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported", "model": ..., "message": ...}, model can't do
@@ -1996,6 +2772,9 @@ def run_agent(
                                                  the answer that follows is a
                                                  stopping notice, not a result
     {"type": "answer", "delta": str}: the final text
+    {"type": "plan"/"step", "kind": "turn", ...}, the turn's own plan card
+                                                 (`_TurnCard`); off for a
+                                                 skill step (`show_plan`)
     """
     plan = _prepare_turn(
         session,
@@ -2021,7 +2800,11 @@ def run_agent(
     every_tool = plan.every_tool
     focused_only = plan.focused_only
     composition_tokens = plan.composition_tokens
-    state = _TurnState(messages=plan.messages, offered=plan.offered)
+    state = _TurnState(messages=plan.messages, offered=plan.offered, named_hosts=_hosts_named(question))
+    # SEC-02: a note retrieved for the question that was clipped from the web
+    # or imported is already in the prompt, so the turn starts tainted.
+    if any(isinstance(n, dict) and n.get("from_outside") for n in notes or ()):
+        state.outside = True
 
     # Granted, then earned: see `_prepare_turn` for the two caps.
     granted, ceiling = plan.granted, plan.ceiling
@@ -2035,10 +2818,21 @@ def run_agent(
     spend = run_budget.current()
     #: One nudge per turn for a round that came back with nothing at all.
     nudged_empty = False
+    #: A forced first round that came back without a call is asked once more
+    #: with the call required again (`FORCED_PROSE_NUDGE`); set when that
+    #: second round is owed, so the retry is forced and the turn gets one.
+    retry_forced = False
+    #: And one for a round that only said what it would do.
+    nudged_intent = False
+    #: And one for a reply that claimed an act no tool performed.
+    nudged_claim = False
+    #: The replies a nudge set aside, for the claim check at the turn's end.
+    said_before = ""
     #: Only a turn that has done nothing at all is nudged: a skill step that
     #: read its page and then stops is finished, and the runner reads that
     #: silence (`skill_runner`'s paging and postconditions depend on it).
     called_any = False
+    card = _TurnCard(question, show_plan)
 
     while round_number + 1 < allowance:
         #: Checked between rounds, never mid-stream: stopping inside a model
@@ -2059,6 +2853,7 @@ def run_agent(
             }
             return
         round_number += 1
+        yield from card.start_round(called_any)
         # Set by any tool call that succeeded and had not been made before, 
         # the definition of "this round got somewhere". Read at the bottom of
         # the loop, where it buys the next round.
@@ -2069,25 +2864,48 @@ def run_agent(
         # path streamed, and the default path (tools on) didn't.
         reply: dict = {}
         streamed_any = False
+        #: H3: prose this round has streamed, against the tier's reply cap.
+        cap = plan.tier.reply_chars if state.offered else None
+        said = ""
         try:
-            for piece in ollama.chat_tools_stream(agent_model, state.messages, state.offered, mode=mode):
+            required = (round_number == 0 or retry_forced) and plan.tier.force_first_call and _requires_a_call(question, plan)
+            this_round = (
+                _first_round_tools(question, plan, state.offered, required, session)
+                if round_number == 0 or (retry_forced and required)
+                else state.offered
+            )
+            retry_forced = False
+            stream = _round_stream(ollama, agent_model, state.messages, this_round, mode, required)
+            for piece in stream:
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:
                     streamed_any = True
+                    said += piece["content_delta"]
                     yield {"type": "answer", "delta": piece["content_delta"]}
+                    if cap is not None and len(said) >= cap:
+                        # Closing the generator closes the HTTP stream with
+                        # it (the same path Stop takes).
+                        stream.close()
+                        logging.getLogger("memorymap.agent").info(
+                            "reply cap: %s-tier round cut at %d chars", plan.tier.name, len(said)
+                        )
+                        yield {"type": "answer", "delta": REPLY_CAP_NOTE}
+                        reply = {"content": said, "tool_calls": [], "streamed": True}
+                        break
                 elif "final" in piece:
                     reply = piece["final"]
-        except ToolsUnsupportedError:
+        except ToolsUnsupportedError as exc:
             # INBOX 272 part 1: named here, once, so every caller that
             # forwards this event (routes_chat.py, skill_runner.py) shows
             # the same remedy instead of dropping the event on the floor,
             # which is what happened before (see tools_unsupported_message's
             # own docstring).
+            yield from card.end_round(TURN_ROW_RUNNING, "failed", "the model cannot use tools")
             yield {
                 "type": "unsupported",
                 "model": agent_model,
-                "message": tools_unsupported_message(agent_model),
+                "message": tools_unsupported_message(agent_model, getattr(exc, "declared", True)),
             }
             return
         except OllamaError as exc:
@@ -2118,6 +2936,7 @@ def run_agent(
                 "delta": f"{prefix}{librarian.model_error_message(agent_model, exc)}",
                 "offline": True,
             }
+            yield from card.end_round(TURN_ROW_RUNNING, "failed", "the model stopped answering")
             return
 
         # Report what this round cost. Agent turns used to emit nothing here,
@@ -2149,14 +2968,68 @@ def run_agent(
             #: and the client says the model wrote nothing.
             if not answer and not reply.get("streamed") and not nudged_empty and not called_any:
                 nudged_empty = True
+                retry_forced = required
                 state.messages.append({"role": "user", "content": EMPTY_ROUND_NUDGE})
+                yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             if not reply.get("streamed") and answer:
                 yield {"type": "answer", "delta": answer}
+            #: **A forced round that came back as prose is asked once more**,
+            #: with the call required again. One re-prompt per turn: it takes
+            #: the place of the intent and claim nudges below, which would
+            #: otherwise stack a second and third round onto the same miss.
+            if required and answer and not called_any and not nudged_empty and not nudged_intent and round_number + 1 < allowance:
+                nudged_intent = nudged_claim = True
+                retry_forced = True
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append({"role": "user", "content": FORCED_PROSE_NUDGE})
+                yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
+                continue
+            #: **Said it would act, and did not.** Asked once to do it; the
+            #: sentence already shown stays as the turn's opening line, and
+            #: what the tool finds follows it. A second such round ends the
+            #: turn as before, with the claim checks below.
+            if not nudged_intent and announces_unacted_tool(answer, state.offered):
+                nudged_intent = True
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append({"role": "user", "content": UNACTED_INTENT_NUDGE})
+                yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
+                continue
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.
-            unsupported = unsupported_claims(answer, state.ran_writes)
+            unsupported = unsupported_claims(f"{said_before}{answer}", state.ran_writes | state.implied)
+            #: **Reflect and retry: a claimed act is asked for once** (INBOX
+            #: 527, Qwen2.5-1.5B): "Make a note: buy oat milk" got "I've made a
+            #: new note for you" and no call, and the heads-up below was all
+            #: the user got. Now the model is told what it claimed and which
+            #: tool does it, once, while it still has a round; the heads-up is
+            #: what is left when the retry does not do it either, checked
+            #: against everything said this turn, not only the last reply.
+            needed = [
+                tool
+                for label, _verb, needs in _CLAIMED_ACTIONS
+                if label in unsupported
+                for tool in sorted(needs)
+                if tool in {t["function"]["name"] for t in state.offered}
+            ]
+            if unsupported and needed and not nudged_claim and round_number + 1 < allowance:
+                nudged_claim = True
+                said_before += f"{answer}\n"
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append(
+                    {
+                        "role": "user",
+                        "content": CLAIM_RETRY_NUDGE.format(
+                            claims=", ".join(unsupported), tools=" or ".join(needed)
+                        ),
+                    }
+                )
+                yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
+                continue
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"
                 # is useless when the answer claimed five different things, 
@@ -2185,6 +3058,8 @@ def run_agent(
                         "a new note yourself."
                     ),
                 }
+            yield from _check_sources(f"{said_before}{answer}", state.messages, called_any and show_plan)
+            yield from card.end_round(TURN_ROW_ANSWER)
             return
 
         called_any = True
@@ -2234,11 +3109,17 @@ def run_agent(
                 )
                 state.offered = every_tool
 
+        state.tainted = state.outside
+        if not state.tainted:
+            _prefetch_outbound(calls)
+        labels: list[str] = []
         for call in calls:
             # One call, its guards and its result; True when the tool ended the
             # turn (the handover tools). See `_dispatch_call`.
-            if (yield from _dispatch_call(session, plan, state, call, history)):
+            if (yield from _labelled(_dispatch_call(session, plan, state, call, history), labels)):
+                yield from card.end_round(_TurnCard.row_for(labels))
                 return
+        yield from card.end_round(_TurnCard.row_for(labels))
         if state.progressed and allowance < ceiling:
             # This round did something new, so the turn gets another one. The
             # cap that stops a runaway is still there, a round that repeats
@@ -2257,11 +3138,15 @@ def run_agent(
         "rounds": round_number + 1,
         "wrote": sorted(state.ran_writes),
     }
+    wrapped = ""
+    if exhausted_note is None and not (spend is not None and spend.exceeded()):
+        wrapped = yield from _wrap_up_round(ollama, agent_model, mode, state, card, show_plan)
     yield {
         "type": "answer",
         "delta": exhausted_note
         or (
-            "I stopped after "
+            ("\n\n" if wrapped.strip() else "")
+            + "I stopped after "
             f"{round_number + 1} rounds of tool calls, here's where things "
             "stand. Continue and I'll pick up from here."
         ),

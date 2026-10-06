@@ -299,6 +299,24 @@ class TestBatchFileRules:
         assert offenders == [], offenders
         assert 'call "!MM_SELF!" !MM_ARGS!' in after
 
+    def test_the_own_path_is_read_before_delayed_expansion_is_on(self):
+        """%~dp0 and %~f0 are expanded when the line is parsed, and with
+        delayed expansion on cmd then scans the result for "!": a folder named
+        "Notes!" lost the character, and MM_HOME, MM_SELF and the cd named a
+        folder that does not exist. Every line that reads the script's own
+        path comes before the first enabledelayedexpansion, after an explicit
+        disabledelayedexpansion."""
+        lines = [
+            line.strip().lower()
+            for line in _read(START_BAT).splitlines()
+            if not re.match(r"(?i)^\s*(rem\b|::)", line)
+        ]
+        on = next(i for i, line in enumerate(lines) if line.startswith("setlocal enabledelayedexpansion"))
+        off = next(i for i, line in enumerate(lines) if line.startswith("setlocal disabledelayedexpansion"))
+        own_path = [i for i, line in enumerate(lines) if "%~dp0" in line or "%~f0" in line]
+        assert own_path, "the script no longer reads its own path"
+        assert off < min(own_path) and max(own_path) < on, (off, own_path, on)
+
     def test_the_status_write_puts_the_redirect_first(self):
         """A value ending in a digit turns `echo !VAR!>>file` into a
         numbered stream redirect."""
@@ -892,7 +910,7 @@ class TestTheBrowserBootSplash:
         assert ".boot-splash-tip {" in css
 
     def test_still_loading_appears_at_eight_seconds_with_the_way_out(self):
-        js = _read(ROOT / "frontend" / "boot-guard.js")
+        js = _read(ROOT / "frontend" / "js" / "boot-guard.js")
         at = js.index("}, 8000);")
         block = js[js.rindex("setTimeout(", 0, at) : at]
         assert "Still loading" in block
@@ -1208,3 +1226,139 @@ def test_the_windows_launchers_use_crlf():
         "Windows batch files must be CRLF, or `call :label` fails: "
         + ", ".join(offenders)
     )
+
+
+class TestUpdatesAskOnce:
+    """The owner's decision, 2026-10-05: the first launch asks whether to check
+    for updates automatically, and until that is answered nothing touches the
+    network. Run for real in a scratch copy (`_scratch_repo`), never in ROOT,
+    with a `git` on PATH that writes down every call and reaches nothing."""
+
+    def _fake_git(self, tmp_path: Path) -> tuple[Path, Path]:
+        bin_dir = tmp_path / "fakebin"
+        bin_dir.mkdir()
+        calls = tmp_path / "git-calls.txt"
+        stub = bin_dir / "git"
+        stub.write_text(f'#!/bin/sh\necho "$*" >> "{calls}"\nexit 0\n')
+        stub.chmod(0o755)
+        return bin_dir, calls
+
+    def test_the_doctor_does_not_reach_the_remote_before_the_answer(self, tmp_path):
+        repo = _scratch_repo(tmp_path)
+        (repo / ".git").mkdir()
+        bin_dir, calls = self._fake_git(tmp_path)
+        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
+        env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+        env.pop("MEMORYMAP_PORT", None)
+        result = subprocess.run(
+            ["./start.sh", "--doctor"],
+            cwd=repo,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            stdin=subprocess.DEVNULL,
+        )
+        assert result.returncode in (0, 1), result.stdout + result.stderr
+        assert "not chosen yet" in result.stdout, result.stdout
+        called = calls.read_text() if calls.exists() else ""
+        assert "ls-remote" not in called and "pull" not in called, called
+
+    def test_after_yes_the_doctor_does_reach_it(self, tmp_path):
+        """The control: the same run with the question answered yes."""
+        repo = _scratch_repo(tmp_path)
+        (repo / ".git").mkdir()
+        data = tmp_path / "data"
+        data.mkdir()
+        (data / "preferences.json").write_text(
+            '{\n  "update_choice_made": true,\n  "auto_update_enabled": true\n}\n'
+        )
+        bin_dir, calls = self._fake_git(tmp_path)
+        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(data))
+        env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+        env.pop("MEMORYMAP_PORT", None)
+        result = subprocess.run(
+            ["./start.sh", "--doctor"],
+            cwd=repo,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            stdin=subprocess.DEVNULL,
+        )
+        assert result.returncode in (0, 1), result.stdout + result.stderr
+        assert "ls-remote" in calls.read_text()
+
+    _ASK = r"""
+set -u
+eval "$(sed -n '/^mm_ask_update_choice() {/,/^}/p' "$1")"
+mm_ask_update_choice
+"""
+
+    def _ask(self, tmp_path: Path, typed: bytes | None) -> tuple[str, str]:
+        """Runs the live function with a terminal on stdin (a pty) when
+        `typed` is given, and with no terminal at all when it is None."""
+        import pty
+
+        script = tmp_path / "start.sh"
+        shutil.copy2(START_SH, script)
+        if typed is None:
+            result = subprocess.run(
+                ["bash", "-c", self._ASK, "probe", str(script)],
+                stdin=subprocess.DEVNULL, capture_output=True, timeout=30,
+            )
+            return result.stdout.decode(), result.stderr.decode()
+        primary, secondary = pty.openpty()
+        try:
+            proc = subprocess.Popen(
+                ["bash", "-c", self._ASK, "probe", str(script)],
+                stdin=secondary, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            os.write(primary, typed)
+            out, err = proc.communicate(timeout=30)
+        finally:
+            os.close(primary)
+            os.close(secondary)
+        return out.decode(), err.decode()
+
+    def test_no_terminal_means_no_question_and_no_answer(self, tmp_path):
+        out, err = self._ask(tmp_path, None)
+        assert out == "" and "Check for updates" not in err
+
+    @pytest.mark.parametrize(("typed", "answer"), [(b"y\n", "yes"), (b"YES\n", "yes"), (b"n\n", "no"), (b"\n", "no")])
+    def test_a_person_at_the_terminal_is_asked_once(self, tmp_path, typed, answer):
+        out, err = self._ask(tmp_path, typed)
+        assert out == answer
+        assert "Check for updates automatically" in err
+
+    def test_the_answer_is_handed_to_the_app(self):
+        text = _read(START_SH)
+        assert 'MM_UPDATE_CHOICE="$(mm_ask_update_choice)"' in text
+        assert "export MM_UPDATE_CHOICE" in text
+
+
+def test_the_windows_shortcut_lands_on_the_desktop_the_shell_shows():
+    """OneDrive's folder backup, on by default on many new PCs, moves the
+    Desktop to %USERPROFILE%\\OneDrive\\Desktop, so `start.bat --shortcut`
+    wrote into a folder nobody saw (or failed for want of one), and
+    `uninstall.bat --shortcuts` looked in the same wrong place. Both ask the
+    shell for the folder now, by the same lines."""
+    start_bat = _read(ROOT / "start.bat")
+    uninstall_bat = _read(ROOT / "uninstall.bat")
+    for name, text in (("start.bat", start_bat), ("uninstall.bat", uninstall_bat)):
+        assert "%USERPROFILE%\\Desktop\\MemoryMap AI.lnk" not in text, name
+        assert "[Environment]::GetFolderPath('Desktop')" in text, name
+        assert 'set "MM_LNK=!MM_DESKTOP!\\MemoryMap AI.lnk"' in text, name
+    sub = start_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
+    assert "GetFolderPath" in sub
+    assert sub == uninstall_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
+
+
+def test_a_path_with_an_apostrophe_survives_the_shortcut_powershell():
+    """The paths go into PowerShell inside single quotes; C:\\Users\\O'Brien
+    ended the string at the apostrophe and no shortcut was made."""
+    text = _read(ROOT / "start.bat")
+    line = next(line for line in text.splitlines() if "CreateShortcut(" in line)
+    assert "'!MM_PS_LNK!'" in line and "'!MM_PS_HOME!start.bat'" in line
+    assert "!MM_LNK!'" not in line and "'!MM_HOME!" not in line
+    assert 'set "MM_PS_HOME=!MM_HOME:\'=\'\'!"' in text

@@ -28,8 +28,8 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_JS = ROOT / "frontend" / "app.js"
-EDITOR_JS = ROOT / "frontend" / "editor.js"
+APP_JS = ROOT / "frontend" / "js" / "app.js"
+EDITOR_JS = ROOT / "frontend" / "js" / "editor.js"
 
 
 def region(path: Path, name: str) -> str:
@@ -103,6 +103,7 @@ out.rewrite = [
   calloutRewriteHead("> [!note] T", "danger", ""),
   calloutRewriteHead("> plain quote", "tip", "-"),
 ];
+out.hint = ["note", "todo", "warning", "nope"].map(calloutHint);
 console.log(JSON.stringify(out));
 """
 
@@ -198,3 +199,28 @@ def test_callout_rewrite_touches_only_the_marker(result):
         "> [!danger] T",
         "> plain quote",
     ]
+
+
+def test_an_empty_callout_body_says_what_goes_there(result):
+    """INBOX 486: the "/" menu wrote "What matters about this?" into the body
+    as real text; the body is empty now and the Live view hints instead."""
+    assert result["hint"] == ["Write the note", "Write the task", "Write the warning", "Write the note"]
+
+
+def test_the_live_callout_shows_its_kind_once_and_no_markers():
+    """INBOX 486, the owner: "I have no clue how to use these things". The
+    Live view drew the kind as a word and the title beside it ("Note Note"),
+    and showed `> [!note]` whenever the caret was on the line. The kind is its
+    icon (a menu: a caret beside it), the word only stands in for a missing
+    title, the markers never show, and an empty body gets a hint."""
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    widget = docs[docs.index("class DocCalloutWidget") : docs.index("class DocCalloutHintWidget")]
+    assert "if (!this.titled) chip.append(word)" in widget
+    assert "cm-md-callout-caret" in widget
+    quote = docs[docs.index('if (name === "Blockquote")') : docs.index('if (name === "FencedCode")')]
+    assert "if (kind) {" in quote and "!rangeRevealed(first.from" not in quote
+    assert "new DocCalloutHintWidget(calloutHint(kind))" in quote
+    assert "!inCallout && touched(" in quote
+    editor = EDITOR_JS.read_text(encoding="utf-8")
+    assert "What matters about this?" not in editor
+    assert "{ caretInside: true }" in editor

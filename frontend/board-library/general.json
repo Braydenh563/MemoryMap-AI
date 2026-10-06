@@ -1,0 +1,696 @@
+{
+ "format": "memorymap-library-set",
+ "version": 1,
+ "key": "general",
+ "name": "General",
+ "items": [
+  {
+   "key": "rect",
+   "kind": "element",
+   "name": "Rectangle",
+   "tags": [
+    "box",
+    "square",
+    "process"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 160 0 L 160 100 L 0 100 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "rounded",
+   "kind": "element",
+   "name": "Rounded rectangle",
+   "tags": [
+    "box",
+    "card"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 16 0 L 144 0 A 16 16 0 0 1 160 16 L 160 84 A 16 16 0 0 1 144 100 L 16 100 A 16 16 0 0 1 0 84 L 0 16 A 16 16 0 0 1 16 0 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "ellipse",
+   "kind": "element",
+   "name": "Ellipse",
+   "tags": [
+    "circle",
+    "oval"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 50 A 80 50 0 1 1 160 50 A 80 50 0 1 1 0 50 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0.15,
+        "w": 0.7,
+        "h": 0.7
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "triangle",
+   "kind": "element",
+   "name": "Triangle",
+   "tags": [
+    "delta"
+   ],
+   "payload": {
+    "box": {
+     "w": 120,
+     "h": 104
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 60 0 L 120 104 L 0 104 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.25,
+        "y": 0.5,
+        "w": 0.5,
+        "h": 0.45
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "diamond",
+   "kind": "element",
+   "name": "Diamond",
+   "tags": [
+    "rhombus",
+    "decision"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 80 0 L 160 50 L 80 100 L 0 50 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.25,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "parallelogram",
+   "kind": "element",
+   "name": "Parallelogram",
+   "tags": [
+    "slanted",
+    "input",
+    "output"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 28 0 L 160 0 L 132 100 L 0 100 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "hexagon",
+   "kind": "element",
+   "name": "Hexagon",
+   "tags": [
+    "six"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 30 0 L 130 0 L 160 50 L 130 100 L 30 100 L 0 50 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "cylinder",
+   "kind": "element",
+   "name": "Cylinder",
+   "tags": [
+    "database",
+    "storage",
+    "drum"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 120
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 16 A 80 16 0 0 1 160 16 L 160 104 A 80 16 0 0 1 0 104 Z M 0 16 A 80 16 0 0 0 160 16",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0.25,
+        "w": 1,
+        "h": 0.65
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "cloud",
+   "kind": "element",
+   "name": "Cloud",
+   "tags": [
+    "internet",
+    "weather"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 40 90 C 12 90 8 58 32 52 C 30 26 66 18 80 38 C 92 14 136 20 134 50 C 160 54 158 92 128 90 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.2,
+        "y": 0.35,
+        "w": 0.6,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "callout",
+   "kind": "element",
+   "name": "Callout",
+   "tags": [
+    "speech",
+    "bubble",
+    "comment"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 160 0 L 160 76 L 64 76 L 36 100 L 40 76 L 0 76 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.76
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "document",
+   "kind": "element",
+   "name": "Document",
+   "tags": [
+    "page",
+    "paper"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 160 0 L 160 84 C 120 64 40 108 0 88 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.8
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "star",
+   "kind": "element",
+   "name": "Star",
+   "tags": [
+    "favourite",
+    "rating"
+   ],
+   "payload": {
+    "box": {
+     "w": 120,
+     "h": 120
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 60 0 L 75.3 39 L 117.1 41.5 L 84.7 68 L 95.3 108.5 L 60 86 L 24.7 108.5 L 35.3 68 L 2.9 41.5 L 44.7 39 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.3,
+        "y": 0.35,
+        "w": 0.4,
+        "h": 0.35
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "text",
+   "kind": "element",
+   "name": "Text",
+   "tags": [
+    "words",
+    "label",
+    "type"
+   ],
+   "payload": {
+    "box": {
+     "w": 200,
+     "h": 60
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Text"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 200,
+      "h": 60,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "sticky-yellow",
+   "kind": "element",
+   "name": "Sticky note, yellow",
+   "tags": [
+    "sticky",
+    "note",
+    "post-it",
+    "yellow"
+   ],
+   "payload": {
+    "box": {
+     "w": 180,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 0,
+      "y": 0,
+      "w": 180,
+      "h": 140,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "sticky-pink",
+   "kind": "element",
+   "name": "Sticky note, pink",
+   "tags": [
+    "sticky",
+    "note",
+    "post-it",
+    "pink"
+   ],
+   "payload": {
+    "box": {
+     "w": 180,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "",
+       "bg": "#ffd1dc",
+       "border_color": "#e8a3b4",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 0,
+      "y": 0,
+      "w": 180,
+      "h": 140,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "sticky-blue",
+   "kind": "element",
+   "name": "Sticky note, blue",
+   "tags": [
+    "sticky",
+    "note",
+    "post-it",
+    "blue"
+   ],
+   "payload": {
+    "box": {
+     "w": 180,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 0,
+      "y": 0,
+      "w": 180,
+      "h": 140,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "sticky-green",
+   "kind": "element",
+   "name": "Sticky note, green",
+   "tags": [
+    "sticky",
+    "note",
+    "post-it",
+    "green"
+   ],
+   "payload": {
+    "box": {
+     "w": 180,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 0,
+      "y": 0,
+      "w": 180,
+      "h": 140,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "sticky-orange",
+   "kind": "element",
+   "name": "Sticky note, orange",
+   "tags": [
+    "sticky",
+    "note",
+    "post-it",
+    "orange"
+   ],
+   "payload": {
+    "box": {
+     "w": 180,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "",
+       "bg": "#ffe0b8",
+       "border_color": "#e8b878",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 0,
+      "y": 0,
+      "w": 180,
+      "h": 140,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "sticky-purple",
+   "kind": "element",
+   "name": "Sticky note, purple",
+   "tags": [
+    "sticky",
+    "note",
+    "post-it",
+    "purple"
+   ],
+   "payload": {
+    "box": {
+     "w": 180,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "t",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "",
+       "bg": "#e6d9ff",
+       "border_color": "#b9a3e8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 0,
+      "y": 0,
+      "w": 180,
+      "h": 140,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  }
+ ]
+}

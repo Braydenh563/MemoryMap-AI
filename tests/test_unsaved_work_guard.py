@@ -63,7 +63,7 @@ def test_documents_js_no_longer_has_its_own_docdirty_only_guard() -> None:
     documents.js, not just duplicated alongside the new one."""
     from tests._app_js import FRONTEND_DIR
 
-    documents_js = (FRONTEND_DIR / "documents.js").read_text(encoding="utf-8")
+    documents_js = (FRONTEND_DIR / "js" / "documents.js").read_text(encoding="utf-8")
     assert 'addEventListener("beforeunload"' not in documents_js
 
 
@@ -74,7 +74,7 @@ def test_switch_tab_asks_before_leaving_unsaved_work() -> None:
     down."""
     app = app_js_text()
     guard = _function(app, "confirmLeavingUnsavedWork")
-    assert 'localStorage.getItem("activeTab") === name' in guard, (
+    assert 'prefs.get("activeTab", null) === name' in guard, (
         "re-pressing the tab already on screen is not a departure"
     )
     assert "hasUnsavedWork()" in guard
@@ -101,13 +101,19 @@ def test_note_edit_form_flag_is_reset_on_open_save_and_cancel() -> None:
     previous note can never leak into the next one."""
     app = app_js_text()
     form = _function(app, "renderEditForm")
-    assert form.split("\n")[1].strip() == "noteFormDirty = false;"
+    # Clean, unless it is the same note's form rebuilt over unsaved changes
+    # (INBOX 432: `noteFormDraft` carries them across a list redraw).
+    assert form.split("\n")[2].strip() == "noteFormDirty = Boolean(draft);"
     # Set by real edits to any of the three fields...
     assert 'textarea.addEventListener("input", () => { noteFormDirty = true; });' in form
-    assert 'tagsInput.addEventListener("input", () => { noteFormDirty = true; });' in form
+    # Tags are chips since INBOX 606: typing in the tag field, and adding or
+    # removing a chip (`setTags`), both mark the form.
+    assert 'tagEntry.addEventListener("input", () => {\n    noteFormDirty = true;' in form
+    assert "tagsInput.value = [...new Set(tags)].join(\", \");\n    noteFormDirty = true;" in form
     assert 'categorySelect.addEventListener("change", () => { noteFormDirty = true; });' in form
     # ...and cleared by both Save and Cancel.
     save_index = form.index('"Save changes"')
     cancel_index = form.index('"Cancel"')
     assert "noteFormDirty = false;" in form[save_index:cancel_index]
-    assert "noteFormDirty = false;" in form[cancel_index:]
+    assert "closeNoteForm()" in form[cancel_index:]
+    assert "noteFormDirty = false;" in _function(app, "closeNoteForm")

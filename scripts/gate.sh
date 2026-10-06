@@ -82,6 +82,14 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py
+  # The gzip boot budget: a few hundred bytes from the cap, and a merge that
+  # passed every other lint here went over it on CI (2026-10-03).
+  tests/test_static_compression.py
+  # The whole boot (every script and stylesheet index.html loads, gzipped as
+  # served), the breakpoint set, and "fully local" (no other host in what is
+  # served): each reads every frontend file at once, so no one file's name
+  # selects it (audit 2026-10-05, FE-06, FE-11).
+  tests/test_boot_budget.py tests/test_breakpoints.py tests/test_fully_local.py
   # Which boot-loaded file may call into a lazy bundle, and on what terms.
   # Here rather than left to the changed-test heuristic because it reads
   # index.html, app.js's two loader tables and every frontend file at once,
@@ -106,14 +114,25 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_offline_promise.py
   tests/test_cheap_animations.py tests/test_motion_tokens.py tests/test_icon_label_gap.py tests/test_like_escaping.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
-  # reads every string in `frontend/*.js` and every piece of markup outside a
+  # reads every string in `frontend/js/*.js` and every piece of markup outside a
   # comment, so the changed-test heuristic (a test naming a changed source
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
   tests/test_ai_name.py tests/test_frontend_symbols.py
-  # Same reason again: it reads every string in `frontend/*.js`, so no changed
+  # The Guide's controls entries against the markup and the shortcut tables:
+  # it reads `ai/help_chat.py` and the frontend together, so a help or a
+  # control edit never names it. A help edit once put the Guide's whiteboard
+  # keys entry at 1,926 characters against 1,920 and passed this gate.
+  tests/test_help_controls.py
+  # Same reason again: it reads every string in `frontend/js/*.js`, so no changed
   # source file selects it.
   tests/test_no_glyph_icons.py
+  # The scratchpad file cap: a merge adds sweeps from several branches at once,
+  # and no changed source file selects it (2026-10-05: an Atlas merge took the
+  # count 14 over and the gate passed).
+  tests/test_scratchpad_size.py
+  # A request inside an assert: CodeQL flags each new one on push.
+  tests/test_codeql_shapes.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
   # Mirror drift (docs/CHANGELOG.md and friends) belongs here rather than in
   # --changed: the file that goes stale is a `.md` at the repo root, and the
@@ -122,7 +141,20 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # drift on 2026-09-12 that every `--changed` gate that day had passed. One
   # second.
   tests/test_docs_site.py)
-step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
+# **The lint set runs once.** Under `--staged` it runs against the index (the
+# scratch tree below) and not also against the working tree: the two used to
+# run back to back, so a staged commit paid for the lint set twice (over
+# twenty-five minutes under load, OPEN.md "Smaller backend and gate rows").
+# The staged run checks everything the working-tree run did, because it is the
+# same LINTS array over the same tracked files, and it checks what the commit
+# will contain rather than what the folder holds. With nothing staged there is
+# no index to check, so the working tree is linted instead: `--staged` never
+# runs zero lints. `tests/test_gate_staged_once.py` pins all three cases.
+if [ "$STAGED" = 1 ] && ! git -C "$ROOT" diff --cached --quiet; then
+  skipped+=("lints (--staged lints the index once, as staged-lints)")
+else
+  step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
+fi
 
 # --staged: the same lint set, against the *index* rather than the working
 # tree.
@@ -161,14 +193,14 @@ staged_lints() {
 }
 if [ "$STAGED" = 1 ]; then
   if git -C "$ROOT" diff --cached --quiet; then
-    skipped+=("staged-lints (nothing staged)")
+    skipped+=("staged-lints (nothing staged; the working tree was linted above)")
   else
     step staged-lints staged_lints
   fi
 else
   skipped+=("staged-lints (--staged)")
 fi
-node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
+node_check() { local bad=0; for f in frontend/js/*.js frontend/sw.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check
 step ruff "$RUFF" check .
 # --changed: every changed test file, plus tests/test_<stem>*.py for each
@@ -223,7 +255,7 @@ changed_tests() {
   while read -r f; do
     case "$f" in
       tests/test_*.py) [ -f "$f" ] && echo "$f" ;;
-      src/memorymap/*.py|src/memorymap/*/*.py|frontend/*.js|frontend/css/*.css)
+      src/memorymap/*.py|src/memorymap/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
         stem="$(basename "$f")"; stem="${stem%.*}"
         ls tests/test_"${stem}"*.py 2>/dev/null
         case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac
@@ -273,7 +305,12 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests diskspace previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer imagefold imagecardfoot featuremodels asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps btnrows slashicons answersupport uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu touchticks companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin iconfloor listenerrounds companionreact companioninteract libtlscroll; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  # Only sweeps that exist: fifteen names here (requests, previewclash, wbfitanchor,
+  # helpstream, writingroom, dashdensity, timelinetablewidth, tourtile, findinghover,
+  # dochighlight, spinnershape, featuremodels, btnrows, answersupport, listenerrounds)
+  # outlived their files in the sweep cleanup and failed this mode for good;
+  # `tests/test_gate_lint_set.py` keeps the list and the folder in step.
+  for s in errors docks contrast touch leaks keyboard diskspace sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder skillverify refchips phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone draftreadonly wbexportimage ctrlwheelzoom guidescroll libreadingfoot libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate mindmapimage mindmapcurve wbtopbar spinners tagoffer imagefold imagecardfoot asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps slashicons uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin perchall iconfloor companionreact companioninteract libtlscroll wbshapetext wblinklabel maptasks maplinkcue; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

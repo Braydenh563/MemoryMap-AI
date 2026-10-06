@@ -61,7 +61,7 @@ def _rows(source: str, start: int) -> list[str]:
 
 
 def _doc_command_rows() -> list[str]:
-    source = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    source = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     at = source.index("const DOC_COMMANDS = [")
     return _rows(source, at)
 
@@ -73,7 +73,7 @@ def _editor_command_rows() -> list[str]:
     are found by shape: an object with an `id:` and a `run:`, which is what a
     command is.
     """
-    source = (FRONTEND / "editor.js").read_text(encoding="utf-8")
+    source = (FRONTEND / "js" / "editor.js").read_text(encoding="utf-8")
     rows = []
     for match in re.finditer(r"\{[^{}]*\bid:[^{}]*\brun:", source):
         depth = 0

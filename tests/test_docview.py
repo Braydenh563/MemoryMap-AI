@@ -114,7 +114,7 @@ def test_a_converted_document_reports_the_install_hint_when_markitdown_is_absent
     path.write_bytes(b"PK\x03\x04not-really-a-docx")
     viewed = docview.extract(path)
     assert viewed.text == ""
-    assert "markitdown" in viewed.message
+    assert "Import documents" in viewed.message and "Settings, Packages" in viewed.message
 
 
 def test_a_converted_document_comes_back_as_markdown(tmp_path, monkeypatch):

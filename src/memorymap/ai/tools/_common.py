@@ -10,6 +10,7 @@ land somewhere with no dependency back on any of them.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.database import EmbeddingRecord, Entry
 from memorymap.entry import manager
 
@@ -46,7 +48,30 @@ __all__ = [
     "_since_days",
     "_refresh_embedding",
     "_keyword_context",
+    "mark_outside",
+    "outside_seen",
 ]
+
+#: **Did this tool call hand the model text from outside?** (SEC-02, audit
+#: 2026-10-05.) Set by every path that puts a clipped or imported note's
+#: words, or an imported document's, into a tool result (`_readable`, the
+#: whiteboard previews, the document reads); `execute_tool` opens a fresh
+#: flag per call and reports it as `from_outside` on the result, which the
+#: agent turns into the same taint a web search sets. A context variable,
+#: not a parameter, so the dozens of handlers that render a note through
+#: `_readable` are covered without each one remembering.
+_OUTSIDE: contextvars.ContextVar[list[bool] | None] = contextvars.ContextVar("tool_outside", default=None)
+
+
+def mark_outside() -> None:
+    flag = _OUTSIDE.get()
+    if flag is not None:
+        flag[0] = True
+
+
+def outside_seen() -> contextvars.ContextVar[list[bool] | None]:
+    """The variable itself, for `execute_tool` to open and close per call."""
+    return _OUTSIDE
 
 
 class ToolError(ValueError):
@@ -212,7 +237,10 @@ def _visible(*extra):
 
 def _readable(entry: Entry) -> str:
     """Non-private notes are stored in the clear, but go through the manager
-    anyway so this can never be the path that hands back ciphertext."""
+    anyway so this can never be the path that hands back ciphertext. Also the
+    one place a note's origin is noticed for the injection guard (SEC-02)."""
+    if manager.came_from_outside(entry):
+        mark_outside()
     return manager.readable_content(entry)
 
 
@@ -245,8 +273,18 @@ def _note_summary(
     if dates is None:
         dates = manager.entry_dates(session, entry)
     if dates:
+        #: With its distance from today (INBOX 441, "make sure the other
+        #: agents like the popup and chat are aware of time relativity"): an
+        #: ISO date alone left a small model to do the weekday arithmetic.
+        today = user_now(deps.get_config()).date()
         summary["dates"] = [
-            {"phrase": d.phrase, "meant": d.at.date().isoformat()} for d in dates
+            {
+                "phrase": d.phrase,
+                # "2026-10-09 15:00" when the note said a time with the day.
+                "meant": d.at.strftime("%Y-%m-%d %H:%M") if d.precision == "minute" else d.at.date().isoformat(),
+                "when": days_from_today(d.at.date(), today),
+            }
+            for d in dates
         ]
     return summary
 
@@ -339,7 +377,14 @@ def _since_days(value) -> int | None:
     try:
         when = datetime.fromisoformat(str(value))
     except ValueError:
-        return None
+        #: The user's own words ("this week", "since Friday", "last month"),
+        #: counted on their calendar by `ai/when.py` (AGENT_SKILLS_REFORM, the
+        #: audit of arguments the app can compute): the model no longer has
+        #: to work out which date "this week" began on.
+        from memorymap.ai import when as when_words
+        from memorymap.core.config import user_now as now_for
+
+        return when_words.days_since(str(value), now_for(deps.get_config()))
     days = (datetime.now(tz=when.tzinfo) - when).days
     return max(0, days)
 

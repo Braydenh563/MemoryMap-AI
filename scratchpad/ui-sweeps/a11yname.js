@@ -54,7 +54,10 @@ function snapshot() {
     //: The element and two ancestors: a field inside a composer, or a
     //: CodeMirror content box, shows its focus on the frame around it
     //: (`:focus-within`), which is as visible as a ring on itself.
-    look: [a, a.parentElement, a.parentElement && a.parentElement.parentElement].filter(Boolean).map((e) => {
+    //: Plus the note box's own frame (`.note-surface`), three levels above
+    //: its content box: it draws the ring, and a 2px accent outline there
+    //: was reported "not visible" (2026-10-03).
+    look: [a, a.parentElement, a.parentElement && a.parentElement.parentElement, a.closest && a.closest('.note-surface')].filter(Boolean).map((e) => {
       const c = getComputedStyle(e);
       return [c.outlineStyle, c.outlineWidth, c.outlineColor, c.boxShadow, c.borderColor, c.backgroundColor].join('|');
     }).join('||'),
@@ -89,7 +92,7 @@ function snapshot() {
         const a = document.activeElement;
         const keep = a;
         a.blur();
-        const look = [keep, keep.parentElement, keep.parentElement && keep.parentElement.parentElement].filter(Boolean).map((e) => {
+        const look = [keep, keep.parentElement, keep.parentElement && keep.parentElement.parentElement, keep.closest && keep.closest('.note-surface')].filter(Boolean).map((e) => {
           const c = getComputedStyle(e);
           return [c.outlineStyle, c.outlineWidth, c.outlineColor, c.boxShadow, c.borderColor, c.backgroundColor].join('|');
         }).join('||');

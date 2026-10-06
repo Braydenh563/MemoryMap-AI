@@ -25,7 +25,7 @@ import json
 import re
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import (
@@ -40,7 +40,9 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import extract_title, remove_title, strip_inline_markdown
+from memorymap.entry import highlights as note_highlights
+from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
+from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(tags=["library"])
 
@@ -89,17 +91,44 @@ _MD_BLOCK_MARKER = re.compile(r"^(?:#{1,6}\s+|>\s?)", re.MULTILINE)
 #: strike marker `strip_inline_markdown` could not pair (a marker split by
 #: the clip, or a run like `***`) goes on its own rather than surviving as
 #: `Offline Links**:`.
-_MD_TABLE_RULE = re.compile(r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$", re.MULTILINE)
-_MD_LIST_MARKER = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+", re.MULTILINE)
+#: **Spaces and tabs, never `\s`, in the two line-shaped patterns.** `\s`
+#: crosses newlines, so at every line start `^\s*` swallowed all the blank
+#: lines after it and failed, once per line: cubic in the run. Measured:
+#: 500 blank lines in one note took 0.84 s, 1,000 took 6.5 s and 2,000 took
+#: 49 s, in a single-worker server, on every Library list that clipped it.
+#: Written so no two stars sit side by side with nothing between them: that
+#: adjacency is what made a failed match on a long run of spaces quadratic.
+_MD_TABLE_RULE = re.compile(
+    r"^(?:[ \t]*\|)?(?:[ \t]*:?-{2,}:?[ \t]*\|)+[ \t]*(?::?-+:?[ \t]*)?\r?$", re.MULTILINE
+)
+_MD_LIST_MARKER = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+", re.MULTILINE)
 _MD_WIKI_LINK = re.compile(r"\[\[#?\s*([^\]\n|]{1,300})(?:\|([^\]\n]{1,300}))?\]\]")
-_MD_TABLE_PIPE = re.compile(r"\s*\|\s*")
+#: A bare pipe: the whitespace round it is folded by the `split()` below, and
+#: `\s*\|\s*` was quadratic in a long run of whitespace.
+_MD_TABLE_PIPE = re.compile(r"\|")
 _MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
 
 
+#: How much of a note `_clip` reads, in lines up to this many characters. A
+#: preview is 160 characters and every pass below only removes text, so the
+#: opening few thousand always hold it, and a long document no longer costs
+#: its whole length in eight regex passes per Library visit (audit
+#: 2026-10-05, ARCH-11). Cut at a line end so no marker is split.
+CLIP_WINDOW = 4000
+
+
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
-    text = _MD_TABLE_RULE.sub("", text or "")
-    text = _MD_BLOCK_MARKER.sub("", text)
-    text = _MD_LIST_MARKER.sub("", text)
+    # A note's or document's `---` properties block is data about it, never
+    # its opening words (GRAPH_PLAN, "Still open after KG1 to KG9").
+    text = strip_properties(text or "")
+    if len(text) > CLIP_WINDOW:
+        end = text.rfind("\n", 0, CLIP_WINDOW)
+        text = text[: end if end > limit else CLIP_WINDOW]
+    text = _MD_TABLE_RULE.sub("", text)
+    # Each line's own heading, quote or list marker goes as its kind is read,
+    # and the blocks stay apart (`join_blocks`, INBOX 464): "oat milk · eggs",
+    # not "oat milk eggs".
+    text = join_blocks(text, strip=lambda line: _MD_LIST_MARKER.sub("", _MD_BLOCK_MARKER.sub("", line)))
     text = _MD_WIKI_LINK.sub(lambda m: (m.group(2) or m.group(1)).strip(), text)
     # An image-only note (a sketch, most often, but any note that's just a
     # pasted image works the same way) read as literal `![sketch](/media/
@@ -379,6 +408,7 @@ def _archive(session: Session) -> list[dict]:
         items.append(
             {
                 "kind": "archived",
+                "subtype": "note",
                 "id": entry.id,
                 "title": own_title or (_clip(content)[:60] or "Empty note"),
                 "preview": _clip(preview_source),
@@ -390,6 +420,47 @@ def _archive(session: Session) -> list[dict]:
                 "pinned": False,
                 "thumb_attachment_id": thumb_id,
                 "thumb_url": None if thumb_id else _first_inline_image_url(content),
+            }
+        )
+    #: Documents and reminders have a bin too (WORLD_CLASS_PLAN 5 item 10):
+    #: the same list, told apart by `subtype`, each with its own routes.
+    from memorymap.entry import bin as other_bin
+
+    documents, reminders = other_bin.binned(session)
+    for doc in documents[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "document",
+                "id": doc.id,
+                "title": doc.title or "Untitled",
+                "preview": _clip(doc.content or ""),
+                "updated_at": doc.deleted_at.isoformat(),
+                "detail": "a document, in the bin",
+                "size": len(doc.content or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
+            }
+        )
+    for reminder in reminders[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "reminder",
+                "id": reminder.id,
+                "title": reminder.text or "Reminder",
+                "preview": "",
+                "updated_at": reminder.deleted_at.isoformat(),
+                "detail": "a reminder, in the bin",
+                "size": len(reminder.text or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
             }
         )
     return items
@@ -632,6 +703,64 @@ def _notes(session: Session, q: str = "") -> list[dict]:
     return items
 
 
+#: How many notes are read for their highlights in one request. The marks are
+#: text (`entry/highlights.py`), so this is a scan of note bodies, bounded the
+#: way every other kind here is; newest first, so the passages a person marked
+#: lately are the ones that are always there.
+HIGHLIGHT_NOTES_SCANNED = 400
+#: How long a passage may be on its card. A highlight is one line by
+#: definition; this only guards against a mark wrapped round a paragraph.
+HIGHLIGHT_CLIP = 220
+
+
+def _highlights(session: Session, q: str = "") -> list[dict]:
+    """The passages you marked, each with the note it came from (BACKLOG 109.4).
+
+    No table: a highlight is `==words==` in a note's text, so this reads the
+    text of the notes whose text has one. A private note's text is ciphertext
+    and is never read; a draft or a binned note is not part of the notebook
+    here. One item per passage, `entry_id` pointing at its note, which is what
+    pressing the card opens.
+    """
+    rows = session.execute(
+        select(Entry)
+        .where(
+            *_LIVE_NOTE,
+            Entry.is_board == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.content.contains("=="),
+        )
+        .order_by(Entry.created_at.desc())
+        .limit(HIGHLIGHT_NOTES_SCANNED)
+    ).scalars()
+    wanted = q.lower()
+    items: list[dict] = []
+    for entry in rows:
+        text = entry.content or ""
+        own_title = extract_title(text)
+        source = own_title or (_clip(text)[:60] or "Untitled note")
+        for passage in note_highlights.passages(text):
+            if wanted and wanted not in passage.lower() and wanted not in (own_title or "").lower():
+                continue
+            items.append(
+                {
+                    "kind": "highlight",
+                    "id": len(items) + 1,
+                    "title": passage if len(passage) <= HIGHLIGHT_CLIP else passage[: HIGHLIGHT_CLIP - 1] + "…",
+                    "preview": "",
+                    "updated_at": entry.created_at.isoformat(),
+                    "detail": f"in {source}",
+                    "size": len(passage),
+                    "entry_id": entry.id,
+                    "mime": None,
+                    "pinned": False,
+                }
+            )
+            if len(items) >= PER_KIND_LIMIT:
+                return items
+    return items
+
+
 #: What the audit log's verbs mean to a person. The raw values are the app's
 #: own vocabulary ("queried", "purged") and reading them back is how a log
 #: becomes something only its author can use.
@@ -662,6 +791,8 @@ _ACTION_WORDS = {
 #: than to broken grammar.
 _ENTITY_WORDS = {
     "entry": "a note",
+    #: A saved element, shape or template in the board library.
+    "library_item": "a library item",
     "category": "a category",
     "document": "a document",
     "conversation": "a chat",
@@ -678,6 +809,19 @@ _ENTITY_WORDS = {
     "preferences": "your settings",
     "user": "the notebook",
     "recycle_bin": "the bin",
+    #: The boards' and the rest of the app's own types, which reached the
+    #: README's Activity shot as "Edited whiteboard_object" (INBOX 431 (g));
+    #: `tests/test_library.py` now fails on a logged type with no phrase.
+    "board": "a board",
+    "whiteboard_object": "a board item",
+    "whiteboard_node": "a board item",
+    "whiteboard_sketch": "a drawing on a board",
+    "bookmark": "a bookmark",
+    "model": "a model",
+    "data": "your notebook's data",
+    "vault": "your private notes",
+    "voice": "a recording",
+    "embeddings": "the search index",
 }
 
 
@@ -728,24 +872,58 @@ def _drafts(session: Session) -> list[dict]:
     return items
 
 
-def _activity(session: Session) -> list[dict]:
+def _activity(session: Session, q: str = "") -> list[dict]:
     """What you did, as a kind rather than as a panel.
 
     It was behind a button in the Notes sidebar, which is a strange place for a
     record of everything you did *anywhere*, and a list of things you did is
     the same shape as a list of things you made, so it costs one entry in this
     function rather than a surface of its own.
+
+    **The columns it shows, the query and the space** (audit 2026-10-05,
+    ARCH-24, ARCH-05): it loaded whole rows, each `payload` a whole note, 200
+    of them to print a verb; it ignored `q` (every other kind here honours
+    it); and the audit log has no space, so "personal" listed what was done
+    in "work". A row about a note now follows that note's space, the way the
+    space hook narrows every other read; a row about anything else is the
+    notebook's and shows in every space.
     """
-    rows = session.scalars(
-        select(AuditLog)
+    query = (
+        select(
+            AuditLog.id,
+            AuditLog.action,
+            AuditLog.entity_type,
+            AuditLog.entity_id,
+            AuditLog.detail,
+            AuditLog.created_at,
+        )
         # The bookkeeping events (a version snapshotted before an edit, the
         # dates re-resolved because the text changed) always accompany the
         # edit that caused them, so a feed that shows both says everything
         # twice and buries the half a person recognises.
         .where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
-        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
-        .limit(PER_KIND_LIMIT)
     )
+    workspace = session.info.get("workspace_id")
+    scoped = bool((workspace and workspace != "all") or session.info.get("hidden_workspaces"))
+    if q or scoped:
+        query = query.outerjoin(
+            Entry, and_(AuditLog.entity_type == "entry", Entry.id == AuditLog.entity_id)
+        )
+    if scoped:
+        query = query.where(or_(AuditLog.entity_type != "entry", Entry.id.is_not(None)))
+    if q:
+        # A note's own events carry no sentence (its words are the note), so
+        # a row about a note matches on the note's text as well.
+        pattern = f"%{like_escape(q)}%"
+        query = query.where(
+            or_(
+                AuditLog.detail.ilike(pattern, escape=LIKE_ESCAPE),
+                Entry.content.ilike(pattern, escape=LIKE_ESCAPE),
+            )
+        )
+    rows = session.execute(
+        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(PER_KIND_LIMIT)
+    ).all()
     items = []
     for row in rows:
         word = _ACTION_WORDS.get(row.action, row.action.capitalize())
@@ -873,6 +1051,7 @@ def library(
     q = q.strip()
     items = (
         _notes(session, q)
+        + _highlights(session, q)
         + _documents(session, q)
         + _chats(session, q)
         + _images(session)
@@ -880,7 +1059,7 @@ def library(
         + _archive(session)
         + _shelved(session)
         + _drafts(session)
-        + _activity(session)
+        + _activity(session, q)
     )
     counts: dict[str, int] = {}
     for item in items:

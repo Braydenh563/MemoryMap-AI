@@ -1,4 +1,4 @@
-# The graph — a full redesign, front and back
+# The graph: a full redesign, front and back
 
 **Status: written by direct instruction; executed in ROADMAP.md order after
 the plans already listed (row 13).** The instruction, verbatim:
@@ -13,7 +13,7 @@ the plans already listed (row 13).** The instruction, verbatim:
 
 ## 1. What exists (checked in the code, not assumed)
 
-`frontend/graph.js` (3,800 lines) draws an **SVG** d3 force graph: one
+`frontend/js/graph.js` (3,800 lines) draws an **SVG** d3 force graph: one
 `<g>` per node with a circle, a label and a halo; edges as `<line>`s;
 `forceManyBody(-340)`, `forceLink`, `alphaDecay(0.05)`; four layouts
 (force, tree, radial, arc); colour by category or by cluster; a legend row;
@@ -21,10 +21,10 @@ a minimap; search highlight; a trace (path between two notes); focus mode
 (`/graph/local/{id}` at depth 2); saved views; entity, document and map
 nodes as opt-ins; physics sliders (gravity, spread); a time slider; drag
 that pins a node. `routes_graph.py` (850 lines) serves `/graph`,
-`/graph/local`, `/graph/structure` (clusters, hubs, orphans — a real
+`/graph/local`, `/graph/structure` (clusters, hubs, orphans: a real
 community pass) and `/graph/path`. The dock is on the Phase 8 grammar.
 
-## 2. Why it disappoints — measured and read
+## 2. Why it disappoints: measured and read
 
 1. **SVG per node does not scale, and it is why dragging is glitchy.** Every
    tick rewrites `transform` on N groups and `x1..y2` on E lines through
@@ -46,7 +46,7 @@ community pass) and `/graph/path`. The dock is on the Phase 8 grammar.
    node is one radius, every label is drawn, and hover changes one halo.
 4. **Colour has no semantics a reader can learn.** Category colours are
    the graph's own palette; clusters use the same. There is no colour by
-   tag, by age, by folder/space, and no way to *save* a colour rule — the
+   tag, by age, by folder/space, and no way to *save* a colour rule, the
    thing Obsidian's "groups" do and the thing that makes a graph a lens.
 5. **The view is awkward.** The graph sits in a card under a dock with a
    stats line and a legend row, in a page that scrolls; the canvas is a
@@ -84,7 +84,7 @@ the map's node graph, so the three cannot disagree.
   what makes drag smooth regardless of N.
 - **Layout persistence.** Positions are saved per view (the saved-views
   feature already stores layout/colour) so a notebook opens where it was
-  left rather than re-exploding — `/graph/views` gets `positions` (a
+  left rather than re-exploding, `/graph/views` gets `positions` (a
   compact `{id: [x, y]}`), written on settle and on drag end.
 - **Backend computes what the client should not.** Degree, cluster id,
   and age bucket come from `/graph` per node (cheap, one pass); community
@@ -94,7 +94,7 @@ the map's node graph, so the three cannot disagree.
 
 ## 5. Phases
 
-### Phase 1 — the canvas renderer and physical drag (1–2 sessions)
+### Phase 1: the canvas renderer and physical drag (1–2 sessions)
 Canvas 2D renderer behind the same `renderGraph()` entry; d3-force in a
 Worker; quadtree hit-testing; drag with `alphaTarget(0.3)` on start and
 decay on end, `forceCollide` from radius, `velocityDecay 0.4`, a weak
@@ -107,18 +107,18 @@ fixture.js`) paints its first frame < 300 ms and holds ≥ 55 fps during a
 2 s drag (Playwright `requestAnimationFrame` counter); no frame > 16 ms
 on a 200-note board; `errors.js` 0.
 
-### Phase 2 — the space (½ session)
+### Phase 2: the space (½ session)
 The graph fills the tab; the dock, legend, minimap and zoom strip float
 over it on the popover shell; the page does not scroll on Graph; the
 stats line becomes a chip in the dock's identity zone; fullscreen is
 just "hide the app chrome". Dark theme measured with `contrast.js`.
 
-### Phase 3 — colour rules and groups (½ session)
+### Phase 3: colour rules and groups (½ session)
 "Colour by" becomes a rule picker (category, tag, space, age, cluster,
 has a map, has a file) plus **groups**: a saved search → a colour, listed
 in the legend, stored with the view. Legend entries toggle visibility.
 
-### Phase 6 — the node panel (½ session, INBOX 59)
+### Phase 6: the node panel (½ session, INBOX 59)
 The popup that opens on a node is a form with nine equal buttons under it.
 Target: a header (title, category chip, the confidence as a small mark
 beside it, not a chip), one muted meta line (date, links, views), the
@@ -132,7 +132,7 @@ panel scrolls inside, never the page; measured at 1440 and 1024 and on
 390 as a sheet. Gate: `scratchpad/ui-sweeps/graph4b.js` plus a node-panel
 probe that counts buttons per row and the panel's own scrollHeight.
 
-### Phase 5 — backend (built; one row deliberately deferred, see below)
+### Phase 5: backend (built; one row deliberately deferred, see below)
 Built 2026-09-09 (HISTORY.md, "Built, Phase 5 (backend)"): the per-node
 fields, `/graph/structure` cached per notebook version, and the payload
 gate. Two more rows of the original phase were re-read against the code on
@@ -164,7 +164,7 @@ The graph uses the app's tokens for every colour; the dock is the Phase 8
 dock; the legend is `.library-chip`s; the right-click menu is
 `.action-menu`; the zoom strip is the whiteboard's `.graph-zoom` recipe
 (they are the same control and must look it); keyboard: `+`/`-` zoom,
-`0` fit, `F` focus selection, `Esc` clears — the same keys the whiteboard
+`0` fit, `F` focus selection, `Esc` clears: the same keys the whiteboard
 uses.
 
 ## 7. Not verified until built
@@ -195,7 +195,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-13", GRAPH_PLAN.md) on 2026-
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-## Built — Phase 1 (the canvas renderer and physical drag)
+## Built: Phase 1 (the canvas renderer and physical drag)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
 
@@ -351,8 +351,8 @@ notebook content) is a different, permanent hold and is never touched by
 this: it is set and released by the code that already owns it.
 
 Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
-(`frontend/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
-(`frontend/graph-canvas.js`, the default renderer).
+(`frontend/js/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
+(`frontend/js/graph-canvas.js`, the default renderer).
 
 
 ## Decision made, 2026-09-24: similarity is each note's two closest matches
@@ -404,3 +404,155 @@ another dot). Decided, and measured with `scratchpad/ui-sweeps/graphlabels.js`:
   every other label keeps the dot rule (0 on a dot), and a covered dot still
   takes the pointer, because a canvas label is paint and hit testing is on
   the notes. Hubs named: 0 to 10 of 10 at the fit, 0 to 9 of 10 at 2x.
+
+## Decision made, 2026-10-03: the shape follows the links, and the unlinked sit on a ring
+
+INBOX 443 (1) (the owner: "the graph shape could look nicer"), measured with
+`scratchpad/ui-sweeps/graphlook.js` on 60 notes in 5 categories, 10 unlinked,
+1440x900, and on a 300-note fixture whose links ignore categories:
+
+- **The category gather scales with how category-shaped the links are**
+  (`groupCohesion`, graph-worker.js): the share of non-similarity links joining
+  two notes of one category. At 0.6 or more the pull is 0.05 and the ring 28
+  per root of the count (the nearest-four colour purity rose 0.56 to 0.84); at
+  0.2 or less it is the old 0.025 and 22. A flat 0.05 doubled the 300-note
+  fixture's crossings, so it is not flat.
+- **Unlinked notes have seats** on a ring that follows the cluster's outline
+  (36 angle bins, smoothed by the widest neighbour), each category's on the arc
+  facing its own place, evenly spaced, a second ring when an arc is full. Gap to
+  the nearest linked note, in the cluster's own median spacings: 3.0 to 1.8.
+- **Links wear a category.** Same colour at both ends takes that colour;
+  a bridge stays neutral; a reasoned link is 1.9px at 0.62; curved by default
+  (a note that never touched the switch is on). Tapered strokes were not built:
+  a taper is one polygon per link, and the batched stroke per colour is what
+  keeps a 2,000-link map inside a frame.
+- **One size scale, 5 to 15**, and a glow at roughly two thirds of its old
+  strength.
+- **Not changed, on purpose:** the fit (`fitGraphToView` pads each dot by its
+  radius plus 34 for its label, a decision from the "gap at the bottom" report);
+  the server's 40-character preview, so the whole name on hover is as long as
+  the server sends.
+
+## Decision made, 2026-10-04: names on plates, clear of lines, and a calmer palette
+
+INBOX 493 (the owner: "is there a way to make my graphed notes look
+nicer??", a screenshot with labels in white over the lines). Measured with
+`scratchpad/ui-sweeps/graphlook.js` (60 notes, 1440x900) and
+`graphlabels.js` (417 notes):
+
+- **A name stands on a plate**: its box in the card's colour at 0.88, 4px
+  corners, in place of the 3px card stroke around each glyph, which left a
+  line under a name showing between its letters.
+- **Placement knows the lines**: eight places (under, above, beside, the four
+  corners); the first free of labels, dots and lines wins, else the one
+  crossing the fewest. Label-line crossings 43 to 28, names on a line 14 of
+  15 to 12 of 19. Not while the layout moves (the grid would rebuild every
+  frame); the names cross-fade to their places when it settles. Cost on the
+  417-note map, settled: a frame 3.3 to 4.1ms at the fit, 2.6 to 4.9ms at 2x.
+- **The automatic palette at 78% saturation**, same hue and lightness, so
+  contrast is unchanged; a chosen colour is drawn as chosen.
+- **Not changed:** the reasoned link's accent stroke (1.9px at 0.62, the
+  decision above), the loudest thing left on the map.
+
+## Decision made, 2026-10-04: a Display fold
+
+The owner asked for Label backgrounds as a switch, and 514 adds Arrows and two
+display sliders; the Show grid could not take them (the panel already scrolled
+closed, 632px in 492 at 1440x900). Decided: **how the map is drawn is a fourth
+fold, Display**, on the 2026-09-20 rule (set once, then left): Labels, Label
+backgrounds, Curved links, Cluster glow, then 514's Arrows, Text fade and Link
+thickness; Length by similarity and Group by category move to Physics (they are
+forces) beside Link force, so Show stays four rows. Off, Label backgrounds draws each name
+on the old 3px card-coloured outline; the placement keeps it clear of lines
+either way (`scratchpad/ui-sweeps/graphplates.js`: 19 plates on, 19 outlines
+off, off kept after a reload).
+
+## Decision made, 2026-10-04: a Filter fold
+
+KG8 asks for filter chips by kind of link and by property. Decided: **a fifth
+fold, Filter**, after Display, on the same rule (set, then left): a row of
+chips per kind of link on the map and a row per property value, built from
+what is on the map, so the closed panel grows by one summary row and the
+chips never cost the Show grid a row.
+
+## Decision made, 2026-10-05: one PageRank, the map's
+
+`/graph` and `/graph/local` shared one cache slot ("centrality", keyed by the
+notebook and the similarity switch) while ranking two different graphs: the
+map leaves drafts out, and boards unless Maps is on; focus mode indexed every
+live note. Whichever call came first was served to the other (a note's size in
+focus mode depended on which view had been opened since the last edit), and
+Maps on was served the no-maps ranking. The similarity sweep's slot had the
+same shape. Decided: **a note's centrality is the map's** (live, non-draft
+notes; boards only with Maps on), one slot per (similarity, maps), built from
+columns by `_centrality` itself and never from a caller's index; focus mode
+shows the map's number, not a PageRank of its own neighbourhood, because
+centrality is a global property and a local one would make every focus
+view's centre its biggest dot. One similarity sweep per version, over the
+map's notes, each caller keeping the pairs inside its own set.
+`tests/test_graph_centrality_slot.py` (3, all failing before). A warm `/graph`
+no longer builds an index at all, and reads its notes and links as column
+rows instead of 15,000 ORM objects (the space is in the fingerprint now too).
+
+**Measured at 5,000 notes** (`scratchpad/kg1005_graph_bench.sh`, in process,
+10,000 links, two tags a note, the box shared with seven other agents, so the
+numbers are relative; before and after alternated twice on one notebook):
+warm `/graph` p50 3,273 to 4,127 ms before, 720 to 1,017 ms after; cold 6.9 to
+7.4 s before, 4.5 to 4.7 s after; Maps on warm 2.8 to 2.9 s before, 0.8 to
+1.1 s after; focus mode warm 80 to 101 ms either way; the payload is 3.0 MB
+(234 KB gzipped in the browser, ARCH-14). Profiled warm handler: 2.77 s to
+0.89 s, of which building the node dicts is now the largest part (0.37 s) and
+`json.dumps` 0.15 s. Left: the payload itself (a fingerprint-keyed cache of the
+encoded bytes needs the pins, access counts, attachments and board members in
+its key, none of which moves the fingerprint), and the canvas side at 5,000
+(FE-04, the frontend agent's).
+
+## Placed from INBOX, 2026-10-04: parity with Obsidian's graph
+
+514 (parity with Obsidian's graph) and 518 (wiki link origin, the payload cache,
+the fingerprint, similarity per note) are built: moved to HISTORY.md ("INBOX
+resolved, 2026-10-04"). Arrows default off.
+
+## The knowledge graph, 2026-10-04 (INBOX 528)
+
+528. **The owner, 2026-10-04, verbatim.** "what I want to take from obsidian
+     is how ideas, context, relationships, and similarities are stored,
+     recognised, sorted, visualised etc. My graph and the backend knowledge
+     graph needs to be waaayy better more versatile and have more features
+     than both obsidian and notion". Placed here: the phases below (KG1 to
+     KG9) are the brief; KG1 and KG2 are built first.
+
+Every phase, KG1 to KG9, is built (2026-10-04). The spec as it was written
+((a) what existed, (b) research, (c) the gap table, (d) the target design,
+(e) the build order) moved whole to HISTORY.md, "Moved from the plans,
+2026-10-04 (the knowledge graph, INBOX 528)", beside each phase's Built
+block. What stays here is the standing decisions and what is still open.
+
+### Still open after KG1 to KG9
+
+- A real local model's `name|kind` entity extraction and a topic's sentence
+  were never run here (no model in the sandbox); both fall back cleanly.
+- `/graph` at 5,000 notes: the map's read is slim (`slim=1`, 1,767 KB from
+  3,145; built, HISTORY.md "Moved from the plans, 2026-10-05 (op3-1005)").
+  The generic encoder is skipped and the PageRank's links are read as
+  columns (same HISTORY block): the first build after a change is about
+  0.7 s on this sandbox at load 7. Open: nothing measured worth a step;
+  PageRank itself is 0.13 s.
+- The note field's picker and the query table's rollups are built
+  (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
+  (GRAPH_PLAN, the last KG rows)").
+
+**Decisions made (recommendations taken):** a suggestion never links by
+itself; every inferred relation carries a reason and a confidence, and the
+reasons are the signals, not a model's prose; properties live in the note's
+text and the table is an index; components stay the clusters, topics are a
+labelled second layer; the structural signals work with embeddings off; one
+mention scanner for notes and documents; a moved span is refused, never
+guessed; a link's properties on a link with a private end are sealed exactly like its reason (encrypted at rest, read while unlocked, absent while locked), because they are free text a person wrote about the notes (sweep 1004).
+
+**Not to build:** a block model (notes are short and `[[Note#Heading]]`
+exists); a second canvas (the whiteboard is one); model-extracted
+entity-to-entity triples at notebook scale (slow and unreliable on a small
+local model; typing happens on accept, one pair at a time); Leiden as a
+dependency (label propagation in Python suffices at 10k); formulas and
+rollups beyond count, sum, min, max, earliest and latest.

@@ -33,11 +33,17 @@ def _css() -> str:
 
 
 def test_a_pointer_picked_settings_section_hands_the_keys_to_the_pane() -> None:
-    settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
+    settings = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
     wiring = settings[settings.index("function focusSettingsPane"):]
     wiring = wiring[: wiring.index("\n}\n", wiring.index("for (const button"))]
     assert "focus({ preventScroll: true })" in wiring
-    assert "if (event.detail > 0) focusSettingsPane();" in wiring
+    #: INBOX 444: Enter or Space lands on the section's heading (named to a
+    #: screen reader); with no heading it falls back to the pane. INBOX 467
+    #: (the owner, later): a pointer click keeps the focus in the list so the
+    #: arrows walk the sections, and Page Up/Down read the pane from there.
+    assert "if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(button.dataset.section);" in wiring
+    assert 'event.key === "PageDown" || event.key === "PageUp"' in settings
+    assert "if (!head) return focusSettingsPane();" in wiring
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     assert '<div class="modal-content" tabindex="-1">' in html
 

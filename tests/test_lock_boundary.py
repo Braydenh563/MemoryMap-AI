@@ -20,10 +20,11 @@ everything because `startApp()` re-renders it.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from tests._app_js import app_js_text
 
-APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "app.js"
+APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "js" / "app.js"
 
 #: Containers that hold the user's own words rather than the app's chrome.
 USER_CONTENT_IDS = [
@@ -31,8 +32,10 @@ USER_CONTENT_IDS = [
     "chat-messages",
     "library-grid",
     "library-docs-list",
-    "timeline-scroll",
-    "reminder-list-card",
+    "timeline-feed",
+    "timeline-table-body",
+    "reminder-groups",
+    "reminder-calendar",
     "graph-svg",
     "palette-list",
     "palette-preview",
@@ -55,6 +58,50 @@ def test_every_user_content_container_is_purged():
     listed = source[start : source.index("];", start)]
     missing = [name for name in USER_CONTENT_IDS if f'"{name}"' not in listed]
     assert not missing, f"these still hold the user's words while locked: {missing}"
+
+
+def test_a_purged_container_holds_no_static_ui():
+    """INBOX 492: `replaceChildren()` on a container deletes everything in
+    it, not only the user's words. `#timeline-scroll` and `#reminder-list-card`
+    were listed, and both hold static markup (the feed, the table and its head,
+    the reminders' dock and filters) that `startApp()` never rebuilds: after one
+    lock the Notes select button threw `Cannot read properties of null` from
+    `paintTimeline`, and the Reminders tab lost its controls. A purged
+    container may hold only what the app renders into it, so no element in
+    `index.html` with an id may sit inside one."""
+    from html.parser import HTMLParser
+
+    source = app_js_text()
+    start = source.index("const LOCK_PURGE_IDS")
+    listed = re.findall(r'"([a-z0-9-]+)"', source[start : source.index("];", start)])
+    assert listed
+
+    class Walk(HTMLParser):
+        VOID = {"input", "br", "img", "hr", "meta", "link", "source", "col", "wbr"}
+
+        def __init__(self):
+            super().__init__()
+            self.stack: list[tuple[str, str | None]] = []
+            self.bad: list[tuple[str, str]] = []
+
+        def handle_starttag(self, tag, attrs):
+            ident = dict(attrs).get("id")
+            if ident:
+                for _tag, outer in self.stack:
+                    if outer in listed:
+                        self.bad.append((outer, ident))
+            if tag not in self.VOID:
+                self.stack.append((tag, ident))
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.stack) - 1, -1, -1):
+                if self.stack[i][0] == tag:
+                    del self.stack[i:]
+                    break
+
+    walk = Walk()
+    walk.feed((APP_JS.parent.parent / "index.html").read_text(encoding="utf-8"))
+    assert not walk.bad, f"purging these deletes static UI: {sorted(set(walk.bad))}"
 
 
 def test_text_fields_are_cleared_too():
@@ -92,7 +139,7 @@ def test_locking_reaches_every_open_tab():
     assert "purgeLockedContent()" in handler
     assert "showLockScreen(false)" in handler
     # A sign-in elsewhere must not be mistaken for a lock.
-    assert 'localStorage.getItem("token")' in handler
+    assert 'prefs.get("token", null)' in handler
 
 
 def test_the_password_free_boot_is_taken_only_when_the_server_offers_it():
@@ -132,8 +179,14 @@ def test_no_second_password_form():
     """DESIGN.md's recipe for asking the password for one action is the lock
     card in prompt mode. A password field built anywhere else is a second
     form to keep in step with the throttle, the error line and the purge."""
-    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
-    assert html.count('type="password"') == 4, "lock card plus Change password's three"
+    html = (APP_JS.parent.parent / "index.html").read_text(encoding="utf-8")
+    #: Two more, named: the sealed full backup's own passphrase, typed when it
+    #: is made and when it is restored (BACKLOG 115 row 10). It is a secret for
+    #: that one file, not the account password, so the lock card (which checks
+    #: the account password) is the wrong recipe for it.
+    sealed = ('id="export-backup-password" type="password"', 'id="restore-bundle-password" type="password"')
+    assert all(field in html for field in sealed)
+    assert html.count('type="password"') == 6, "lock card, Change password's three, the sealed backup's two"
     for path in sorted(APP_JS.parent.glob("*.js")):
         source = path.read_text(encoding="utf-8")
         assert 'type = "password"' not in source, path.name

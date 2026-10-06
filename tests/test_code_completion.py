@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 #: moved there verbatim, and the wiring that mounts them stayed in
 #: documents.js, so a test that reads "the documents editor" reads all three.
 DOCUMENTS_JS = tuple(
-    ROOT / "frontend" / name
+    ROOT / "frontend" / "js" / name
     for name in ("documents.js", "documents-code.js", "documents-prose.js")
 )
 

@@ -144,7 +144,9 @@ def test_without_the_extra_the_endpoint_says_which_extra(client, app_state, monk
 
     assert response.status_code == 501
     detail = response.json()["detail"]
-    assert "python-docx" in detail
+    #: Named the way the person can act on it: the Settings switch that
+    #: installs it, not the package (the wording sweep, INBOX 472).
+    assert "Export to Word" in detail
     #: And it says what *is* available, so the answer is a route out rather
     #: than a dead end.
     assert "zip" in detail

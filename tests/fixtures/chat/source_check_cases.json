@@ -1,0 +1,125 @@
+{
+  "about": "H2 (AGENT_SKILLS_REFORM): twenty agent answers with what the turn read. `backed` true means every number and name in the answer is in the sources and must not be flagged; false means the answer invents one and should be. Done when at least 18 are right and none of the twelve true ones is flagged.",
+  "cases": [
+    {
+      "id": "plumber-time",
+      "sources": ["When is the plumber coming?", "{\"results\": [{\"id\": 4, \"title\": \"Plumber\", \"snippet\": \"Plumber comes Tuesday at 9:30, bring the invoice\"}]}"],
+      "answer": "Your plumber note says he comes on Tuesday at 9:30, and to have the invoice ready.",
+      "backed": true
+    },
+    {
+      "id": "count-from-tool",
+      "sources": ["How many notes do I have?", "{\"count\": 14, \"by_category\": {\"Work\": 9, \"Personal\": 5}}"],
+      "answer": "You have **14 notes**: 9 in Work and 5 in Personal.",
+      "backed": true
+    },
+    {
+      "id": "count-from-list-length",
+      "sources": ["Which notes mention running?", "{\"results\": [{\"id\": 2, \"title\": \"Park run\"}, {\"id\": 7, \"title\": \"Marathon plan\"}, {\"id\": 9, \"title\": \"Shoes\"}]}"],
+      "answer": "I found 3 notes about running:\n1. Park run\n2. Marathon plan\n3. Shoes",
+      "backed": true
+    },
+    {
+      "id": "named-person",
+      "sources": ["Who is my dentist?", "{\"id\": 3, \"title\": \"Dentist\", \"content\": \"Dr. Anika Patel, Harbour Street clinic, check-up every 6 months\"}"],
+      "answer": "Your dentist is Dr Anika Patel at the Harbour Street clinic; you go every 6 months.",
+      "backed": true
+    },
+    {
+      "id": "date-iso-to-words",
+      "sources": ["When is the passport due?", "{\"results\": [{\"title\": \"Passport\", \"snippet\": \"renewal due 2026-11-14, form costs 75 pounds\"}]}"],
+      "answer": "The passport renewal is due on 14 November 2026, and the form costs 75 pounds.",
+      "backed": true
+    },
+    {
+      "id": "general-no-numbers",
+      "sources": ["What did I decide about the garden?", "{\"results\": [{\"title\": \"Garden\", \"snippet\": \"Decided on raised beds, no lawn\"}]}"],
+      "answer": "You decided on raised beds and no lawn. That should make the garden easier to keep.",
+      "backed": true
+    },
+    {
+      "id": "money-and-place",
+      "sources": ["How much was the Snowdon trip?", "{\"title\": \"Snowdon trip\", \"content\": \"Train to Bangor 42.50, hostel in Llanberis 30 a night for 2 nights\"}"],
+      "answer": "The train to Bangor was 42.50 and the hostel in Llanberis was 30 a night for 2 nights.",
+      "backed": true
+    },
+    {
+      "id": "user-gave-the-number",
+      "sources": ["Make a note that the boiler code is 4471", "{\"id\": 12, \"title\": \"Boiler code\", \"created\": true}"],
+      "answer": "Saved. Your Boiler code note says 4471.",
+      "backed": true
+    },
+    {
+      "id": "list-with-headings",
+      "sources": ["What's on my reading list?", "{\"results\": [{\"title\": \"Reading list\", \"snippet\": \"Middlemarch, The Overstory, Piranesi\"}]}"],
+      "answer": "Here is your reading list:\n- Middlemarch\n- The Overstory\n- Piranesi\n\nWant me to add another?",
+      "backed": true
+    },
+    {
+      "id": "week-from-month-name",
+      "sources": ["When is Sam's birthday?", "{\"results\": [{\"title\": \"Birthdays\", \"snippet\": \"Sam: 3 March\"}]}"],
+      "answer": "Sam's birthday is on 3/3.",
+      "backed": true
+    },
+    {
+      "id": "app-nouns",
+      "sources": ["Pin my dentist note", "{\"id\": 3, \"pinned\": true, \"title\": \"Dentist\"}"],
+      "answer": "Done, your Dentist note is pinned. You will find it at the top of Notes and in the Library.",
+      "backed": true
+    },
+    {
+      "id": "tags-and-percent",
+      "sources": ["How full is my Work category?", "{\"category\": \"Work\", \"count\": 20, \"tagged\": 15, \"share\": \"75%\"}"],
+      "answer": "Work has 20 notes and 15 of them are tagged, so 75% have tags.",
+      "backed": true
+    },
+    {
+      "id": "invented-time",
+      "sources": ["When is the plumber coming?", "{\"results\": [{\"title\": \"Plumber\", \"snippet\": \"Plumber comes Tuesday morning\"}]}"],
+      "answer": "Your note says the plumber comes on Tuesday at 10:15.",
+      "backed": false
+    },
+    {
+      "id": "invented-count",
+      "sources": ["How many notes do I have?", "{\"count\": 14}"],
+      "answer": "You have 41 notes in your notebook.",
+      "backed": false
+    },
+    {
+      "id": "invented-person",
+      "sources": ["Who is my dentist?", "{\"title\": \"Dentist\", \"content\": \"Dr. Anika Patel, check-up every 6 months\"}"],
+      "answer": "Your dentist is Dr Robert Hughes, and you go every 6 months.",
+      "backed": false
+    },
+    {
+      "id": "invented-amount",
+      "sources": ["How much was the Snowdon trip?", "{\"title\": \"Snowdon trip\", \"content\": \"Train to Bangor, hostel in Llanberis\"}"],
+      "answer": "The trip cost about 180 pounds in total, mostly the train to Bangor.",
+      "backed": false
+    },
+    {
+      "id": "invented-place",
+      "sources": ["Where is the team offsite?", "{\"results\": [{\"title\": \"Offsite\", \"snippet\": \"Offsite booked for the 12th, venue to be confirmed\"}]}"],
+      "answer": "The offsite is on the 12th at the Grand Kensington Hotel.",
+      "backed": false
+    },
+    {
+      "id": "invented-date",
+      "sources": ["When is the passport due?", "{\"results\": [{\"title\": \"Passport\", \"snippet\": \"renewal due in November\"}]}"],
+      "answer": "Your passport renewal is due on 28 November.",
+      "backed": false
+    },
+    {
+      "id": "invented-book",
+      "sources": ["What's on my reading list?", "{\"results\": [{\"title\": \"Reading list\", \"snippet\": \"Middlemarch, Piranesi\"}]}"],
+      "answer": "Your list has Middlemarch, Piranesi and Wolf Hall.",
+      "backed": false
+    },
+    {
+      "id": "invented-percent",
+      "sources": ["How full is my Work category?", "{\"category\": \"Work\", \"count\": 20, \"tagged\": 15}"],
+      "answer": "Work has 20 notes, and 90% of them are tagged.",
+      "backed": false
+    }
+  ]
+}

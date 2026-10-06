@@ -6,8 +6,14 @@
 //   BASE=http://127.0.0.1:8802 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node tablefullclose.js
 const { boot } = require('./lib.js');
 
+// `WIDTH=390 HEIGHT=844 PHONE=1` runs the same checks as a phone: the X must be
+// at least `--target-min` (28px with a pointer, 44px on touch) either way.
+const W = Number(process.env.WIDTH || 0);
+const H = Number(process.env.HEIGHT || 0);
+const PHONE = process.env.PHONE === '1';
+
 (async () => {
-  const { page, browser } = await boot({});
+  const { page, browser } = await boot(W ? { viewport: { width: W, height: H || 844 }, hasTouch: PHONE, isMobile: PHONE } : {});
   const errs = []; page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 120)); });
   const bad = [];
   await page.evaluate(() => switchTab('documents'));
@@ -37,7 +43,14 @@ const { boot } = require('./lib.js');
     const cs = getComputedStyle(close);
     const at = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
     const bar = full.querySelector('.code-bar').getBoundingClientRect();
+    // `--target-min` as pixels: a probe box sized by the token.
+    const probe = document.createElement('div');
+    probe.style.width = 'var(--target-min)';
+    document.body.appendChild(probe);
+    const targetMin = probe.getBoundingClientRect().width;
+    probe.remove();
     return {
+      targetMin,
       present: true, focused: document.activeElement === close,
       rect: { w: +r.width.toFixed(1), h: +r.height.toFixed(1), l: Math.round(r.left), t: Math.round(r.top) },
       border: cs.borderTopWidth, bg: cs.backgroundColor, seam: cs.boxShadow !== 'none',
@@ -52,8 +65,31 @@ const { boot } = require('./lib.js');
     if (!x.reachable) bad.push('the close X is painted over');
     if (!x.inBar) bad.push('the close X is not in the panel head');
     if (!x.focused) bad.push('the panel does not take the focus on open');
+    if (x.rect.w < x.targetMin - 0.5 || x.rect.h < x.targetMin - 0.5) {
+      bad.push(`the close X is ${x.rect.w}x${x.rect.h}, under --target-min (${x.targetMin}px)`);
+    }
     if (x.border !== '0px' || x.bg !== 'rgba(0, 0, 0, 0)') bad.push(`the close X is a chip, not part of the shell: border ${x.border}, ground ${x.bg}`);
   }
+  // Overflow at the width the sweep runs at (OPEN.md: "table full view at
+  // phone width"): a table of fourteen wide columns, so the panel has
+  // something to overflow with. The panel stays inside the window and the page
+  // does not scroll sideways; the table scrolls inside its own box.
+  await page.evaluate(() => {
+    const full = document.querySelector('.md-table-block.is-full');
+    const t = full.querySelector('table');
+    if (!t || t.rows[0].cells.length >= 14) return;
+    for (let i = 2; i < 16; i++) { for (const [n, r] of [...t.rows].entries()) { const c = r.insertCell(); c.textContent = n ? 'a fairly long cell value ' + i : 'Column ' + i; } }
+  });
+  await page.waitForTimeout(200);
+  const fit = await page.evaluate(() => {
+    const full = document.querySelector('.md-table-block.is-full');
+    const r = full.getBoundingClientRect();
+    const de = document.documentElement;
+    return { overflow: de.scrollWidth - de.clientWidth, l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), vw: innerWidth, vh: innerHeight };
+  });
+  console.log(`full fit     ${JSON.stringify(fit)}`);
+  if (fit.overflow > 0) bad.push(`the page scrolls ${fit.overflow}px sideways with the table full view open`);
+  if (fit.l < 0 || fit.t < 0 || fit.r > fit.vw || fit.b > fit.vh) bad.push(`the full view runs outside the window: ${fit.l},${fit.t} to ${fit.r},${fit.b} in ${fit.vw}x${fit.vh}`);
   await page.click('.md-table-block.is-full .md-table-close');
   await page.waitForTimeout(300);
   const afterX = await page.evaluate(() => ({

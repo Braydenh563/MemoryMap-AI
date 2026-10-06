@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DASHBOARD_JS = ROOT / "frontend" / "dashboard.js"
+DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 
 
 def test_opening_an_entry_stamps_when(client):
@@ -74,8 +74,9 @@ def test_the_pill_ranks_on_both_and_says_so():
     """The browser half. A ranking that reads one field is the bug; a hint
     that promises two while the code reads one is how it stayed hidden."""
     source = DASHBOARD_JS.read_text(encoding="utf-8")
-    body = re.search(r"async function renderContinueLink\(row\) \{(.*?)\n\}", source, re.S)
-    assert body, "renderContinueLink is gone or has been renamed"
+    # The pill became the dashboard menu's Continue row (INBOX 436).
+    body = re.search(r"function dashContinueNote\(entries\) \{(.*?)\n\}", source, re.S)
+    assert body, "dashContinueNote is gone or has been renamed"
     assert "last_opened_at" in body.group(1), (
         "the Continue pill no longer reads last_opened_at, so opening a note "
         "does not move it"

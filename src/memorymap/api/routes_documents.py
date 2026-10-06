@@ -16,6 +16,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -30,20 +32,26 @@ from memorymap.core.database import (
     Entry,
     DocumentAiEdit,
     DocumentBookmark,
-    DocumentLink,
     DocumentRevision,
     utcnow,
     like_escape,
 )
 from memorymap.core.deps import get_session
+from memorymap.entry.mentions import (
+    BACKLINK_ROWS_MAX,
+    BACKLINK_SOURCES_MAX,
+    backlink_rows as _backlink_rows,
+    backlink_spans as _backlink_spans,
+)
 from memorymap.entry.manager import (
-    WIKI_LINK,
     entries_for_document,
+    join_blocks,
     get_entry,
     link_document,
     log_action,
     unlink_document,
 )
+from memorymap.entry.properties import strip as strip_properties
 
 logger = logging.getLogger(__name__)
 
@@ -137,18 +145,12 @@ def _preview(content: str) -> str:
     lines collapse for the same reason, three lines of preview should be
     three lines of the document's words.
     """
-    lines = []
-    for raw in content.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        # Leading markdown syntax only, a `#` inside a sentence stays.
-        line = line.lstrip("#>-*+ \t")
-        if line:
-            lines.append(line)
-        if sum(len(part) for part in lines) > PREVIEW_CHARS:
-            break
-    text = " ".join(lines)
+    # Leading markdown syntax only, a `#` inside a sentence stays. The blocks
+    # stay apart (`join_blocks`, INBOX 464): a heading is not the first word
+    # of the sentence under it.
+    text = join_blocks(
+        strip_properties(content), strip=lambda line: line.lstrip("#>-*+ \t"), limit=PREVIEW_CHARS
+    )
     if len(text) <= PREVIEW_CHARS:
         return text
     # Cut at a word boundary, not mid-word. A hard slice ended the first
@@ -212,7 +214,7 @@ def _linked_notes(session: Session, document_id: int) -> list[dict]:
 
 
 def _existing(session: Session, document_id: int) -> Document:
-    return deps.get_or_404(session, Document, document_id, "Document not found")
+    return deps.get_or_404(session, Document, document_id, "That document could not be found.")
 
 
 class AttachBookmarkBody(BaseModel):
@@ -243,7 +245,7 @@ def attach_bookmark(
     document_id: int, body: AttachBookmarkBody, session: Session = Depends(get_session)
 ) -> dict:
     _existing(session, document_id)
-    deps.get_or_404(session, Bookmark, body.bookmark_id, "Bookmark not found")
+    deps.get_or_404(session, Bookmark, body.bookmark_id, "That bookmark could not be found.")
     already = (
         session.query(DocumentBookmark)
         .filter_by(document_id=document_id, bookmark_id=body.bookmark_id)
@@ -341,6 +343,7 @@ def list_documents(
     q: str = Query(default="", max_length=200),
     limit: int = Query(default=DOCUMENTS_PAGE_SIZE, ge=1, le=DOCUMENTS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """A page of documents, newest-first, optionally narrowed by `q`.
@@ -372,6 +375,7 @@ def list_documents(
     case-insensitive substring matching, not semantic search, whether
     documents get embeddings at all is a separate, larger decision.
     """
+    offset = paging.start(cursor, offset)
     # Archived documents are kept, but out of the way, reachable via the
     # Library's Shelved filter (routes_library._shelved), not this list.
     live = Document.archived_at.is_(None)
@@ -396,7 +400,70 @@ def list_documents(
     )
     rows = session.scalars(query)
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     return [_summary(d) for d in rows]
+
+
+#: How many documents and how many headings per document the Library's
+#: Contents index reads. An index of a notebook is for finding your place; a
+#: document with four hundred headings is a book, and its outline is in the
+#: editor.
+OUTLINE_DOCUMENTS = 500
+OUTLINE_HEADINGS = 40
+_HEADING_LINE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
+
+
+def _document_headings(content: str) -> list[dict]:
+    """`{line, level, text}` for each markdown heading, `line` zero-based (the
+    editor's `jumpToDocLine` takes that), fenced code skipped so a `# comment`
+    in a code block is not a section."""
+    found: list[dict] = []
+    fenced = False
+    for index, line in enumerate((content or "").split("\n")):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        match = _HEADING_LINE.match(line)
+        if match and match.group(2).strip():
+            found.append({"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]})
+            if len(found) >= OUTLINE_HEADINGS:
+                break
+    return found
+
+
+@router.get("/outline")
+def documents_outline(session: Session = Depends(get_session)) -> list[dict]:
+    """Every live document with its headings, for the Library's Contents index
+    (INBOX 445 (1)): categories hold notes, and documents hold sections.
+
+    One request rather than one `GET /documents/{id}` per document, because the
+    list deliberately never carries content (`_summary`); the headings are the
+    only part of it this index needs, so only they are sent. Markdown only: a
+    code file's "headings" are comments.
+    """
+    rows = session.scalars(
+        select(Document)
+        .where(Document.archived_at.is_(None))
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(OUTLINE_DOCUMENTS)
+    )
+    out = []
+    for document in rows:
+        kind = filetypes.get(document.file_type)
+        out.append(
+            {
+                "id": document.id,
+                "title": document.title,
+                "created_at": document.created_at.isoformat(),
+                "updated_at": document.updated_at.isoformat(),
+                "file_type": kind.ext,
+                "headings": _document_headings(document.content) if kind.previewable else [],
+            }
+        )
+    return out
 
 
 @router.post("", status_code=201)
@@ -450,7 +517,7 @@ def import_document(
         raise HTTPException(
             status_code=415,
             detail=(
-                f"Can't read a {suffix or 'file'}, this takes documents, "
+                f"Can't read a {suffix or 'file'}. This takes documents, "
                 "spreadsheets, PDFs, and text or code files."
             ),
         )
@@ -466,7 +533,7 @@ def import_document(
                 size += len(chunk)
                 if size > MAX_IMPORT_BYTES:
                     raise HTTPException(
-                        status_code=413, detail="File is larger than 50 MB"
+                        status_code=413, detail="That file is larger than 50 MB."
                     )
                 out.write(chunk)
         # The scanned-PDF fallback, same as the file viewer's. Importing a
@@ -637,45 +704,52 @@ def _record_document_revision(session: Session, document: Document, source: str 
 
 @router.delete("/{document_id}")
 def delete_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """To the recycle bin (WORLD_CLASS_PLAN 5 item 10), as a note goes: the
+    document, its history, its notes and its reminders all stay, hidden, until
+    it is restored or purged (`entry/bin.py`). It used to be the one thing in
+    the app deleted outright, and its Undo made a new document with a new id."""
     document = _existing(session, document_id)
+    document.deleted_at = utcnow()
     log_action(session, "deleted", "document", document.id, document.title[:80])
-    #: **The history goes with the document.** `DocumentRevision` and
-    #: `DocumentAiEdit` both hold a real foreign key to `documents.id`, and
-    #: there is no ORM cascade on either, deleting a document that had been
-    #: edited raised `FOREIGN KEY constraint failed` and the delete failed
-    #: outright. Caught by `test_documents_api.py::test_create_read_update_delete`
-    #: the moment revisions started being written, which is the argument for
-    #: running the whole suite rather than the tests for the thing you touched.
-    #:
-    #: Deleted rather than orphaned deliberately: a document's history is
-    #: about *that document*, and keeping the text of something the user asked
-    #: to delete would be the app quietly retaining what it was told to
-    #: destroy. The bin covers "I did not mean that" for the document itself.
-    #: **All four tables that point at a document, not two.** The comment
-    #: above was written when revisions and AI edits were the only ones, and
-    #: two more have been added since: `DocumentLink` (the notes attached to
-    #: this document, the "documents and notes need to be more integrated"
-    #: feature) and `DocumentBookmark` (its saved links). Both hold a real
-    #: foreign key with no cascade, so a document with a note attached to it
-    #: could not be deleted **at all**: the delete raised `FOREIGN KEY
-    #: constraint failed` and the document stayed. Measured on a fresh
-    #: notebook: attach one note, press delete, 500 and the document is still
-    #: there. The feature the owner asked for was what made a document
-    #: undeletable.
-    #:
-    #: This list is the whole of `grep 'ForeignKey("documents.id")'` in
-    #: `core/database.py`, checked rather than remembered, which is the only
-    #: way it stops going stale a third time.
-    for model, column in (
-        (DocumentRevision, DocumentRevision.document_id),
-        (DocumentAiEdit, DocumentAiEdit.document_id),
-        (DocumentLink, DocumentLink.document_id),
-        (DocumentBookmark, DocumentBookmark.document_id),
-    ):
-        session.query(model).filter(column == document.id).delete(synchronize_session=False)
-    session.delete(document)
     session.commit()
-    return {"deleted": True}
+    return {"deleted": True, "binned": True}
+
+
+def _binned(session: Session, document_id: int) -> Document:
+    from memorymap.entry import bin as other_bin
+
+    with other_bin.including_binned(session):
+        document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="That document could not be found.")
+    return document
+
+
+@router.post("/{document_id}/restore")
+def restore_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """Out of the bin, with its id and everything that pointed at it."""
+    document = _binned(session, document_id)
+    if document.deleted_at is not None:
+        document.deleted_at = None
+        log_action(session, "restored", "document", document.id, document.title[:80])
+        session.commit()
+    return _summary(document)
+
+
+@router.delete("/{document_id}/purge")
+def purge_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """For good. Only a binned document, as only a binned note: a live one
+    goes to the bin first, so no single press destroys a document."""
+    from memorymap.entry import bin as other_bin
+
+    document = _binned(session, document_id)
+    if document.deleted_at is None:
+        raise HTTPException(status_code=409, detail="Only a document in the bin can be deleted for good.")
+    log_action(session, "purged", "document", document.id, document.title[:80])
+    with other_bin.including_binned(session):
+        other_bin.purge_document(session, document)
+        session.commit()
+    return {"purged": document_id}
 
 
 @router.put("/{document_id}/archive")
@@ -721,7 +795,7 @@ def attach_note(
     document = _existing(session, document_id)
     entry = get_entry(session, body.entry_id)
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise HTTPException(status_code=404, detail="That note could not be found.")
     link_document(session, document.id, entry.id)
     return _full(document, session)
 
@@ -751,141 +825,6 @@ def detach_note(
 #: every document one, which is the half-built shape this plan exists to stop.
 #: One scan here answers for both kinds and defines "a mention" exactly once.
 
-#: How far either side of a hit the context may reach before it gives up
-#: looking for a sentence boundary. A backlink row is two lines in a 280px
-#: sidebar; more than this is a paragraph nobody reads in a panel.
-BACKLINK_CONTEXT_CHARS = 180
-#: Hits shown per source. A note that names this document eight times has said
-#: one thing, not eight.
-BACKLINK_HITS_PER_SOURCE = 3
-#: Sources scanned and rows returned. A local notebook is small; an imported
-#: vault is not, and this runs on every document open.
-BACKLINK_SOURCES_MAX = 400
-BACKLINK_ROWS_MAX = 60
-#: A title shorter than this is never searched for as an *unlinked* mention:
-#: "AI", "Q3" or "Ops" would match a third of the notebook and every row would
-#: be noise. A linked mention is an exact `[[name]]` and is found at any
-#: length, which is why the guard sits on one half and not the other.
-MENTION_MIN_TITLE_CHARS = 4
-
-#: The markdown a line opens with, dropped from the front of a context line so
-#: a backlink from a bullet list does not read as "- - the sentence".
-_CONTEXT_LEAD = re.compile(r"(?:[#>]+\s*|[-*+]\s+|\d{1,3}[.)]\s+)+")
-
-
-def _sentence_around(text: str, start: int, end: int) -> tuple[str, int, int]:
-    """The sentence a hit sits in, and where the hit is inside that sentence.
-
-    Returns `(context, hit_start, hit_end)` with the offsets relative to the
-    context, so the browser can mark the hit without searching the string
-    again: searching it again is how the second occurrence of a word gets
-    marked instead of the first.
-    """
-    floor = max(0, start - BACKLINK_CONTEXT_CHARS)
-    left = floor
-    index = start - 1
-    while index >= floor:
-        char = text[index]
-        if char == "\n":
-            left = index + 1
-            break
-        if char in ".!?" and (index + 1 >= len(text) or text[index + 1] in " \n"):
-            left = index + 1
-            break
-        index -= 1
-
-    ceiling = min(len(text), end + BACKLINK_CONTEXT_CHARS)
-    right = ceiling
-    index = end
-    while index < ceiling:
-        char = text[index]
-        if char == "\n":
-            right = index
-            break
-        if char in ".!?" and (index + 1 >= len(text) or text[index + 1] in " \n"):
-            right = index + 1
-            break
-        index += 1
-
-    context = text[left:right]
-    hit_start, hit_end = start - left, end - left
-
-    # Tidy the left edge, but never past the hit itself: a document whose only
-    # mention is inside its own heading would otherwise lose the hit with the
-    # `#`.
-    drop = len(context) - len(context.lstrip())
-    lead = _CONTEXT_LEAD.match(context[drop:])
-    if lead and drop + lead.end() <= hit_start:
-        drop += lead.end()
-    context = context[drop:]
-    hit_start -= drop
-    hit_end -= drop
-    trimmed = context.rstrip()
-    hit_end = min(hit_end, len(trimmed)) if hit_end > len(trimmed) else hit_end
-    context = trimmed
-
-    # An ellipsis only where the text really was cut mid-sentence, not where a
-    # sentence or a line ended on its own.
-    if left > 0 and left == floor:
-        context = "…" + context
-        hit_start += 1
-        hit_end += 1
-    if right < len(text) and right == ceiling:
-        context = context + "…"
-    return context, hit_start, hit_end
-
-
-def _backlink_spans(content: str, title: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
-    """`(linked, unlinked)` spans of this title in one source's text.
-
-    A source with a real link is never listed under unlinked mentions as
-    well: the panel's second list means "not connected yet", and a note that
-    appears in both says the opposite of what each list is for.
-    """
-    wanted = title.lower()
-    wiki: list[tuple[int, int]] = []
-    linked: list[tuple[int, int]] = []
-    for match in WIKI_LINK.finditer(content):
-        wiki.append(match.span())
-        if match.group(1).strip().lower() == wanted:
-            linked.append(match.span())
-    if linked or len(title) < MENTION_MIN_TITLE_CHARS:
-        return linked, []
-    # `(?<![\w\[])` and `(?![\w\]])` keep "Roadmap" out of "Roadmaps" and out
-    # of `[[Roadmap]]`; the `wiki` overlap check is what keeps it out of
-    # `[[Roadmap for 2027]]`, which no lookaround can see.
-    pattern = re.compile(rf"(?<![\w\[]){re.escape(title)}(?![\w\]])", re.IGNORECASE)
-    unlinked = [
-        match.span()
-        for match in pattern.finditer(content)
-        if not any(start < match.end() and match.start() < end for start, end in wiki)
-    ]
-    return linked, unlinked
-
-
-def _backlink_rows(
-    kind: str, source_id: int, label: str, content: str, spans: list[tuple[int, int]]
-) -> list[dict]:
-    rows = []
-    for start, end in spans[:BACKLINK_HITS_PER_SOURCE]:
-        context, hit_start, hit_end = _sentence_around(content, start, end)
-        rows.append(
-            {
-                "kind": kind,
-                "id": source_id,
-                "title": label,
-                "context": context,
-                "hit_start": hit_start,
-                "hit_end": hit_end,
-                # Offsets in the *source's* text, which is what the "Link"
-                # action rewrites. Checked against the title again before any
-                # write: a source edited in another tab must not have a
-                # sentence of it replaced from a stale offset.
-                "start": start,
-                "end": end,
-            }
-        )
-    return rows
 
 
 def _backlinks(session: Session, document: Document) -> dict:
@@ -1086,12 +1025,14 @@ def export_docx(document_id: int, session: Session = Depends(get_session)) -> Re
     if not docexport.docx_available():
         raise HTTPException(
             status_code=501,
-            detail="This install has no Word exporter: python-docx is not "
-            "installed. Turn it on in Settings, optional extras, "
+            detail="This install has no Word exporter yet. Turn it on in "
+            "Settings, Packages, "
             "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
             "are available now.",
         )
-    data = docexport.to_docx(document.title, document.content or "")
+    #: Its pictures come from the media folder (FEAT-18), as the bundle's do.
+    media_dir = deps.get_config().data_dir / "media"
+    data = docexport.to_docx(document.title, document.content or "", media_dir=media_dir)
     return Response(
         content=data,
         media_type=(
@@ -1143,7 +1084,7 @@ def ai_edit(
         }
 
     if not target.strip():
-        raise HTTPException(status_code=400, detail="There's nothing to edit yet")
+        raise HTTPException(status_code=400, detail="There's nothing to edit yet.")
 
     if body.verb == "remove":
         # A selection alone already says what to remove, asked for
@@ -1342,7 +1283,7 @@ def document_revision(
     _existing(session, document_id)
     row = session.get(DocumentRevision, revision_id)
     if row is None or row.document_id != document_id:
-        raise HTTPException(status_code=404, detail="No revision with that id")
+        raise HTTPException(status_code=404, detail="That revision could not be found.")
     return {
         "id": row.id,
         "title": row.title,
@@ -1366,7 +1307,7 @@ def restore_document_revision(
     document = _existing(session, document_id)
     row = session.get(DocumentRevision, revision_id)
     if row is None or row.document_id != document_id:
-        raise HTTPException(status_code=404, detail="No revision with that id")
+        raise HTTPException(status_code=404, detail="That revision could not be found.")
     #: **Read before writing, and this is not a style preference.** The
     #: snapshot below coalesces into the most recent revision when one is
     #: recent enough: and on the common path ("I rewrote this, undo that")
@@ -1487,9 +1428,9 @@ def revert_ai_edit(document_id: int, entry_id: int, session: Session = Depends(g
     itself, and a revert can itself be reverted.
     """
     document = _existing(session, document_id)
-    entry = deps.get_or_404(session, DocumentAiEdit, entry_id, "No AI edit with that id")
+    entry = deps.get_or_404(session, DocumentAiEdit, entry_id, "That AI edit could not be found.")
     if entry.document_id != document_id:
-        raise HTTPException(status_code=404, detail="No AI edit with that id")
+        raise HTTPException(status_code=404, detail="That AI edit could not be found.")
 
     reverted = DocumentAiEdit(
         document_id=document_id,

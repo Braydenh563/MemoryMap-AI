@@ -92,7 +92,7 @@ def test_the_name_did_not_cost_the_prompt_budget():
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 #: Vendored code is not this app's copy.
-COPY_FILES = sorted(p for p in FRONTEND.glob("*.js")) + [FRONTEND / "index.html"]
+COPY_FILES = sorted(p for p in (FRONTEND / "js").glob("*.js")) + [FRONTEND / "index.html"]
 #: `\s+`, not a space: two of the three hits this lint found on its first run
 #: were a line wrap, "reaches the\n    AI's instructions", which a literal
 #: space would have walked straight past in exactly the copy a person reads.
@@ -238,7 +238,7 @@ def test_the_frontend_spells_the_name_once():
     be checked against the backend's own constant below.
     """
     app = app_js_text()
-    settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
+    settings = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
     assert f'const AI_NAME = "{AI_NAME}"' in app
     assert "const AI_NAME" not in settings
     assert "const GUIDE_NAME = AI_NAME;" in settings

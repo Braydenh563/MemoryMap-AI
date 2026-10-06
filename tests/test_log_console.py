@@ -294,7 +294,8 @@ def test_the_console_does_not_authenticate_through_the_query_string():
     URL would write it into the very log being streamed."""
     source = _settings_js()
     body = _function_body(source, "startLogStream")
-    assert "X-Auth-Token" in body
+    # Through `api.stream` (F5), which sends the token as a header.
+    assert "api.stream(" in body or "X-Auth-Token" in body or "authHeaders()" in body
     assert "token=" not in body
 
 
@@ -313,7 +314,7 @@ def _app_js() -> str:
 def _settings_js() -> str:
     from memorymap.api.app import FRONTEND_DIR
 
-    return (FRONTEND_DIR / "settings.js").read_text(encoding="utf-8")
+    return (FRONTEND_DIR / "js" / "settings.js").read_text(encoding="utf-8")
 
 
 def _function_body(source: str, name: str) -> str:

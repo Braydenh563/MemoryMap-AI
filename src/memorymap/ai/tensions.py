@@ -66,6 +66,7 @@ from datetime import datetime
 from memorymap.ai import model_manager as model_manager_module
 from memorymap.ai import ollama_client as ollama_client_module
 from memorymap.core.database import Entry
+from memorymap.entry.properties import strip as strip_properties
 
 logger = logging.getLogger("memorymap.ai.tensions")
 
@@ -152,7 +153,7 @@ _SYSTEM = (
 
 def _excerpt(text: str) -> str:
     """A single-paragraph excerpt of a note, trimmed for the prompt."""
-    flat = re.sub(r"\s+", " ", (text or "")).strip()
+    flat = re.sub(r"\s+", " ", strip_properties(text or "")).strip()
     if len(flat) <= EXCERPT_CHARS:
         return flat
     return flat[:EXCERPT_CHARS].rsplit(" ", 1)[0] + "…"
@@ -272,3 +273,282 @@ def order_by_time(a: Entry, b: Entry) -> tuple[Entry, Entry] | None:
     if gap is None or gap < MIN_GAP_DAYS:
         return None
     return earlier, later
+
+
+# --- the derived tensions table (WORLD_CLASS_PLAN B4) --------------------------
+#
+# A scan's findings used to live only in the response that carried them: the
+# Tensions widget could say how many pairs had been accepted and nothing else,
+# and finding them again meant asking the model again. The table below keeps
+# them, but as a *view*: every row is rebuilt from the events and rows that
+# are kept elsewhere, so a rebuild from nothing gives the same table (the B4
+# gate), and nothing here is the only copy of anything.
+
+#: The events this kernel writes, all `entity_type="tension"` so the audit
+#: log's entity index serves "the newest tension event" without a scan, and
+#: so none of them shows up in a note's own history as if it were an edit.
+EVENT_TYPE = "tension"
+FOUND = "tension_found"
+ACCEPTED = "tension_accepted"
+DISMISSED = "tension_dismissed"
+
+#: The order a pair's findings are ranked in when two sources found it: the
+#: earliest finding wins, and on the same instant a scan (which a person ran)
+#: before the night shift, before a bare link.
+_SOURCE_RANK = {"scan": 0, "night": 1, "link": 2}
+
+
+def pair_key(a: int, b: int) -> str:
+    """`"low:high"`: one pair, one key, whichever side is named first. The
+    same shape as `routes_entries._tension_key` and the dismissed list."""
+    low, high = sorted((int(a), int(b)))
+    return f"{low}:{high}"
+
+
+def record_event(session, action: str, earlier_id: int, later_id: int, **extra) -> None:  # noqa: ANN001, ANN003
+    """One tension event, in the caller's transaction: found, accepted or
+    dismissed. The payload names both notes; a finding adds its reason, its
+    model and its confidence, which is everything a rebuild needs."""
+    from memorymap.core import events
+
+    payload = {"earlier_id": int(earlier_id), "later_id": int(later_id), "pair": pair_key(earlier_id, later_id)}
+    payload.update(extra)
+    actor = f"ai:{extra.get('model') or 'tensions'}"[:60] if action == FOUND else None
+    events.record(session, action, EVENT_TYPE, int(later_id), detail=payload["pair"], payload=payload, actor=actor)
+
+
+class _AllSpaces:
+    """Every space's rows for the length of a rebuild. The table is one table
+    for the notebook; a rebuild run from a request in one space must not
+    quietly drop another space's links (`EntryLink` is space-scoped by the
+    session's filter, `database._add_workspace_filter`)."""
+
+    def __init__(self, session) -> None:  # noqa: ANN001
+        self.session = session
+        self.saved: tuple = (None, None)
+
+    def __enter__(self):  # noqa: ANN204
+        self.saved = (self.session.info.pop("workspace_id", None), self.session.info.pop("hidden_workspaces", None))
+        return self
+
+    def __exit__(self, *exc) -> None:  # noqa: ANN002
+        workspace, hidden = self.saved
+        if workspace is not None:
+            self.session.info["workspace_id"] = workspace
+        if hidden is not None:
+            self.session.info["hidden_workspaces"] = hidden
+
+
+def sources_version(session) -> tuple:  # noqa: ANN001
+    """What the table was built from, in a few indexed aggregates: the newest
+    tension event, the tension facts (and how many are tombstoned), and the
+    `contradicts` links. Any change to a source moves it."""
+    from sqlalchemy import func, select
+
+    from memorymap.core import deps
+    from memorymap.core.database import AuditLog, DerivedFact, EntryLink
+
+    with _AllSpaces(session):
+        return (
+            str(deps.get_config().data_dir),
+            session.scalar(select(func.max(AuditLog.id)).where(AuditLog.entity_type == EVENT_TYPE)),
+            session.scalar(select(func.count(DerivedFact.id)).where(DerivedFact.kind == "tension")) or 0,
+            session.scalar(select(func.max(DerivedFact.id)).where(DerivedFact.kind == "tension")),
+            session.scalar(
+                select(func.count(DerivedFact.id)).where(
+                    DerivedFact.kind == "tension", DerivedFact.deleted_at.is_not(None)
+                )
+            )
+            or 0,
+            session.scalar(select(func.count(EntryLink.id)).where(EntryLink.link_type == "contradicts")) or 0,
+            session.scalar(select(func.max(EntryLink.id)).where(EntryLink.link_type == "contradicts")),
+        )
+
+
+def _finding(key: str, earlier: int, later: int, **fields) -> dict:  # noqa: ANN003
+    row = {"pair": key, "earlier_id": earlier, "later_id": later}
+    row.update(fields)
+    return row
+
+
+def derive(session) -> list[dict]:  # noqa: ANN001, C901
+    """The table's rows, from the sources alone, in pair order. Reads and
+    returns, so `rebuild` and the determinism test share it."""
+    import json
+
+    from sqlalchemy import select
+
+    from memorymap.core.database import AuditLog, DerivedFact, Entry, EntryLink
+
+    findings: dict[str, list[tuple]] = {}
+    accepted_events: set[str] = set()
+    dismissed: set[str] = set()
+    linked: dict[str, EntryLink] = {}
+
+    with _AllSpaces(session):
+        written = dict(session.execute(select(Entry.id, Entry.created_at)).all())
+
+        def ordered(a: int, b: int) -> tuple[int, int]:
+            at_a, at_b = written.get(a), written.get(b)
+            if at_a is None or at_b is None or at_a == at_b:
+                return (min(a, b), max(a, b))
+            return (b, a) if at_b < at_a else (a, b)
+
+        # 1. The events, oldest first.
+        for event in session.scalars(
+            select(AuditLog).where(AuditLog.entity_type == EVENT_TYPE).order_by(AuditLog.id)
+        ):
+            body = event.payload or {}
+            try:
+                a, b = int(body["earlier_id"]), int(body["later_id"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            key = pair_key(a, b)
+            if event.action == FOUND:
+                findings.setdefault(key, []).append((
+                    event.created_at, _SOURCE_RANK["scan"], event.id,
+                    _finding(
+                        key, a, b, reason=str(body.get("reason") or ""), model=str(body.get("model") or "local"),
+                        confidence=float(body.get("confidence") or 0.0), computed_at=event.created_at,
+                        source="scan", source_id=None, event_id=event.id,
+                    ),
+                ))
+            elif event.action == ACCEPTED:
+                accepted_events.add(key)
+                dismissed.discard(key)
+            elif event.action == DISMISSED:
+                dismissed.add(key)
+
+        # 2. The night shift's tension facts (a tombstone is a dismissal).
+        for fact in session.scalars(
+            select(DerivedFact).where(DerivedFact.kind == "tension").order_by(DerivedFact.id)
+        ):
+            try:
+                other = int((json.loads(fact.payload or "{}") or {})["other_entry_id"])
+                reason = str((json.loads(fact.payload or "{}") or {}).get("reason") or "")
+            except (KeyError, TypeError, ValueError):
+                continue
+            if other == fact.entry_id:
+                continue
+            key = pair_key(fact.entry_id, other)
+            earlier, later = ordered(other, fact.entry_id)
+            #: The version it read: the later note's newest event at the time.
+            event_id = session.scalar(
+                select(AuditLog.id)
+                .where(
+                    AuditLog.entity_type == "entry",
+                    AuditLog.entity_id == later,
+                    AuditLog.created_at <= fact.computed_at,
+                )
+                .order_by(AuditLog.id.desc())
+                .limit(1)
+            )
+            findings.setdefault(key, []).append((
+                fact.computed_at, _SOURCE_RANK["night"], fact.id,
+                _finding(
+                    key, earlier, later, reason=reason, model=fact.model or "local",
+                    confidence=float(fact.confidence or 0.0), computed_at=fact.computed_at,
+                    source="night", source_id=fact.id, event_id=event_id,
+                ),
+            ))
+            if fact.deleted_at is not None:
+                dismissed.add(key)
+
+        # 3. The links: a `contradicts` link is the accepted state, whoever made it.
+        for link in session.scalars(
+            select(EntryLink).where(EntryLink.link_type == "contradicts").order_by(EntryLink.id)
+        ):
+            linked.setdefault(pair_key(link.source_entry_id, link.target_entry_id), link)
+        for key, link in linked.items():
+            if key in findings:
+                continue
+            earlier, later = ordered(link.source_entry_id, link.target_entry_id)
+            event_id = None
+            for event in session.scalars(
+                select(AuditLog)
+                .where(
+                    AuditLog.entity_type == "entry",
+                    AuditLog.entity_id == link.source_entry_id,
+                    AuditLog.action == "linked",
+                )
+                .order_by(AuditLog.id)
+            ):
+                if ((event.payload or {}).get("after") or {}).get("link_id") == link.id:
+                    event_id = event.id
+                    break
+            findings[key] = [(
+                link.created_at, _SOURCE_RANK["link"], link.id,
+                _finding(
+                    key, earlier, later, reason="", model="person", confidence=1.0,
+                    computed_at=link.created_at, source="link", source_id=link.id, event_id=event_id,
+                ),
+            )]
+
+    rows = []
+    for key in sorted(findings, key=lambda k: tuple(int(x) for x in k.split(":"))):
+        first = min(findings[key], key=lambda f: (f[0] is None, f[0] or datetime.min, f[1], f[2]))[3]
+        if key in linked:
+            status = "accepted"
+        elif key in dismissed or key in accepted_events:
+            # Accepted once and the link since taken away is the person
+            # changing their mind; it is not offered again either.
+            status = "dismissed"
+        else:
+            status = "open"
+        rows.append({**first, "status": status})
+    return rows
+
+
+#: The sources version the table was last built from, per process. A note of
+#: "is the table current", not a copy of the table: the table is in the
+#: database.
+_built: dict[str, bool] = {}
+
+
+def rebuild(session) -> int:  # noqa: ANN001
+    """Empty the table and fill it from the sources. Returns the row count."""
+    from memorymap.core.database import DerivedTension
+
+    rows = derive(session)
+    session.query(DerivedTension).delete(synchronize_session=False)
+    session.add_all(DerivedTension(**row) for row in rows)
+    session.flush()
+    _built.clear()
+    _built[str(sources_version(session))] = True
+    return len(rows)
+
+
+def refresh(session) -> None:  # noqa: ANN001
+    """Rebuild when a source moved since the last build, else nothing."""
+    if not _built.get(str(sources_version(session))):
+        rebuild(session)
+
+
+def listing(session, *, status: str | None = "open", limit: int = 20) -> tuple[list, dict[str, int]]:  # noqa: ANN001
+    """The rows a person can see (both notes live, not private, in this
+    space), newest finding first, and the count per status."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import aliased
+
+    from memorymap.core.database import DerivedTension, Entry
+
+    refresh(session)
+    earlier, later = aliased(Entry), aliased(Entry)
+    visible = (
+        select(DerivedTension)
+        .join(earlier, earlier.id == DerivedTension.earlier_id)
+        .join(later, later.id == DerivedTension.later_id)
+        .where(
+            earlier.is_deleted.is_(False),
+            earlier.is_private.is_(False),
+            later.is_deleted.is_(False),
+            later.is_private.is_(False),
+        )
+    )
+    every = list(session.scalars(visible))
+    counts = {"open": 0, "accepted": 0, "dismissed": 0}
+    for row in every:
+        counts[row.status] = counts.get(row.status, 0) + 1
+    chosen = [row for row in every if status is None or row.status == status]
+    chosen.sort(key=lambda r: (r.computed_at is not None, r.computed_at or datetime.min, r.id), reverse=True)
+    return chosen[:limit], counts

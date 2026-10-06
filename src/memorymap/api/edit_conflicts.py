@@ -57,12 +57,51 @@ def refuse_if_stale(
         return
     if content_hash(current_text) == base_hash or (current_text or "") == new_text:
         return
+    _refuse(409, current, noun)
+
+
+#: The error's machine name for a refused `If-Match` (412), the HTTP form.
+PRECONDITION_FAILED = "precondition_failed"
+
+
+def entity_tag(text_hash: str) -> str:
+    """A note's version as an HTTP entity tag (WORLD_CLASS_PLAN B7).
+
+    Strong, quoted, and the same hash as `content_hash` so the two ways of
+    asking "is it still this version" (`base_hash` in a body, `If-Match` on a
+    request) can never disagree about the answer.
+    """
+    return f'"{text_hash}"'
+
+
+def refuse_unless_match(
+    if_match: str | None,
+    *,
+    current_hash: str,
+    current: Callable[[], Any],
+    noun: str,
+) -> None:
+    """Raise 412 when `If-Match` names versions none of which is the current one.
+
+    No header, or `*`, is no precondition. A weak tag (`W/"..."`) never
+    matches, as RFC 9110 has it for `If-Match`, since a weak tag cannot
+    promise the bytes are the same.
+    """
+    if not if_match or not if_match.strip() or if_match.strip() == "*":
+        return
+    wanted = {tag.strip() for tag in if_match.split(",") if tag.strip()}
+    if entity_tag(current_hash) in wanted:
+        return
+    _refuse(412, current, noun, code=PRECONDITION_FAILED)
+
+
+def _refuse(status: int, current: Callable[[], Any], noun: str, code: str = EDIT_CONFLICT) -> None:
     body = current()
     body = body.model_dump(mode="json") if hasattr(body, "model_dump") else body
     raise HTTPException(
-        status_code=409,
+        status_code=status,
         detail={
-            "code": EDIT_CONFLICT,
+            "code": code,
             "message": f"This {noun} was changed in another window since you started editing it.",
             "current": body,
         },

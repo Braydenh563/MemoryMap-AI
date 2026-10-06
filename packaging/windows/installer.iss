@@ -13,12 +13,25 @@
 ; prompt at all.
 ;
 ; Local build/test (from a Windows machine, Inno Setup installed):
-;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=<__version__> packaging\windows\installer.iss
 
 #define MyAppName "MemoryMap AI"
-#define MyAppVersion GetEnv("MEMORYMAP_VERSION")
-#if MyAppVersion == ""
-  #define MyAppVersion "0.1.0"
+
+; **The version is src\memorymap\__init__.py's `__version__`, never typed
+; here.** It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0"
+; fallback, so a build whose environment forgot the variable was an installer
+; that called itself 0.1.0 in Add/Remove Programs. The caller reads
+; `__version__` and passes it as /DMyAppVersion=<it> (both workflows do); a
+; build without it stops here rather than guessing. An ISPP line reader
+; (FileOpen/FileRead in a #sub) did the reading first and found nothing on
+; CI's Windows runner, so the reading moved to the caller, where it is one
+; tested line of PowerShell. release.yml also passes MEMORYMAP_VERSION from
+; the tag, and a tag that disagrees with the code stops the build.
+#ifndef MyAppVersion
+  #error Pass /DMyAppVersion=<__version__ from src\memorymap\__init__.py> to ISCC
+#endif
+#if GetEnv("MEMORYMAP_VERSION") != "" && GetEnv("MEMORYMAP_VERSION") != MyAppVersion
+  #error MEMORYMAP_VERSION (the release tag) does not match __version__ in src\memorymap\__init__.py
 #endif
 #define MyAppPublisher "MemoryMap AI"
 #define MyAppURL "https://github.com/Braydenh563/MemoryMap-AI"
@@ -70,6 +83,17 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
+[InstallDelete]
+; **An upgrade replaces the bundle, it does not merge into it.** [Files]
+; only adds and overwrites, so every file an older build had and this one
+; does not (a module that moved, a DLL from a different PyInstaller or
+; Python, a frontend file that was renamed) stayed in the install folder
+; for good. Windows searches the program's own folder for DLLs, so a stale
+; one there can be loaded in place of the bundle's. _internal is
+; PyInstaller's folder and holds nothing of the person's (the notes are in
+; %APPDATA%), so it goes whole before the new one is copied in.
+Type: filesandordirs; Name: "{app}\_internal"
+
 [Files]
 ; Everything PyInstaller's COLLECT step produced, recursively — the exe
 ; plus every DLL, the bundled frontend/ folder, and its own Python runtime.
@@ -109,6 +133,11 @@ Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAp
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-extras {code:GetSelectedExtras}"; StatusMsg: "Installing the optional packages you picked..."; Flags: runhidden waituntilterminated runasoriginaluser; Check: HasSelectedExtras
 ; Launch the app after installation (existing behaviour).
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent
+; The in-app updater's silent install reopens the app it closed: it passes
+; /RELAUNCH=1 (routes_update.py), and only a silent install honours it, so a
+; scripted fleet install (/VERYSILENT alone) never opens a window on a
+; machine nobody is sitting at. runasoriginaluser: the person's own account.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 
 [UninstallDelete]
 ; The app's own data (notes, attachments, preferences) lives under the
@@ -126,6 +155,10 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch
 ; database always went to AppData. Only the two folders by name, so anything
 ; else someone put there stays.
 Type: filesandordirs; Name: "{app}\data\webview"
+; Anything the running app wrote inside its own bundle (a bytecode cache, a
+; file an extra unpacked) is not in the uninstall log; the folder is ours
+; whole, so it goes whole, and the install folder is left empty.
+Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\data\logs"
 Type: dirifempty; Name: "{app}\data"
 
@@ -315,25 +348,44 @@ begin
   Result := (GetSelectedExtras('') <> '');
 end;
 
+function ShouldRelaunch: Boolean;
+{ Check function for the relaunch [Run] entry. Silent only: an interactive
+  install has the "Launch now" checkbox for this. }
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;
+
 // The optional packages on uninstall (the owner, 2026-09-24: "yes" to
 // offering to delete them). They live beside the notebook in the user's
 // AppData, and search by meaning alone can be about 2 GB, so a program that
 // is gone should not quietly keep them. Asked, never assumed: a reinstall
 // would find them again, and a silent uninstall (the updater's) keeps them.
 // The notebook itself is never touched.
+//
+// Two folders, not one: pip's packages go in python-extras, and the extras
+// the app downloads itself (Pyodide, needle's 36 MB model) go in extras
+// (core/extra_downloads.py). Only the first was asked about, so "yes" left
+// the downloads behind with the program gone.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Extras: String;
+  Downloads: String;
 begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
   Extras := ExpandConstant('{userappdata}\{#MyAppName}\python-extras');
-  if not DirExists(Extras) then
+  Downloads := ExpandConstant('{userappdata}\{#MyAppName}\extras');
+  if (not DirExists(Extras)) and (not DirExists(Downloads)) then
     Exit;
   if UninstallSilent then
     Exit;
   if MsgBox('Also delete the optional packages you downloaded (such as search by meaning)?'
       + #13#10 + #13#10 + 'Your notes are kept either way.',
       mbConfirmation, MB_YESNO) = IDYES then
-    DelTree(Extras, True, True, True);
+  begin
+    if DirExists(Extras) then
+      DelTree(Extras, True, True, True);
+    if DirExists(Downloads) then
+      DelTree(Downloads, True, True, True);
+  end;
 end;

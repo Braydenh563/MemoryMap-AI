@@ -201,3 +201,45 @@ def test_a_read_only_answer_is_never_warned_about(ai_client, fake_ollama):
     events = _events(ai_client, "what did I write about beans", use_tools=True)
     text = "".join(e["delta"] for e in events if e["type"] == "answer")
     assert "Heads up" not in text
+
+
+def test_a_passive_claim_on_a_turn_that_wrote_is_checked():
+    """INBOX 527, Qwen2.5-1.5B: asked to pin, it created a duplicate and wrote
+    "has been created and pinned". The create was real, the pin was not."""
+    answer = "Your dentist appointment note has been created and pinned for easy reference."
+    assert agent.unsupported_claims(answer, {"create_note"}) == ["pinned a note"]
+    assert agent.unsupported_claims("Your reminder has been set for 9am.", {"create_note"}) == [
+        "set a reminder"
+    ]
+    assert agent.unsupported_claims("Your note has been tagged urgent.", {"tag_note"}) == []
+
+
+@pytest.mark.parametrize(
+    "answer, ran",
+    [
+        # Qwen2.5-3B, 2026-10-05 (`harness_probe.py`, "Pin my dentist note"):
+        # the pin ran, the answer said it, and "added" read as a saved note.
+        # The heads-up and a retry followed, and the turn ended contradicting
+        # itself ("the note was not saved to Favourites").
+        ("Your dentist note has been added to Favourites.", {"pin_note"}),
+        ("I've added it to your favourites.", {"pin_note"}),
+        ("I removed the plumber note from Favourites.", {"pin_note"}),
+        ("I've added the 'urgent' tag to your plumber note.", {"tag_note"}),
+        ("I added 'bring a rain jacket' to your Snowdon trip note.", {"edit_note"}),
+    ],
+)
+def test_added_to_favourites_or_a_tag_or_a_note_is_the_act_that_ran(answer, ran):
+    assert agent.unsupported_claims(answer, ran) == []
+
+
+def test_the_same_words_with_nothing_run_are_still_claims():
+    assert agent.unsupported_claims("Your dentist note has been added to Favourites.", {"create_note"}) == [
+        "pinned a note"
+    ]
+    assert agent.unsupported_claims("I've added the 'urgent' tag to your note.", set()) == ["tagged a note"]
+
+
+def test_a_passive_description_on_a_plain_answer_is_left_alone():
+    """"has been tagged" also describes a note as it is; with nothing written
+    this turn it is not read as a claim."""
+    assert agent.unsupported_claims("Your plumber note has been tagged urgent since May.", set()) == []

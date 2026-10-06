@@ -150,7 +150,7 @@ def test_media_src_puts_no_credential_in_the_url():
 
 def test_no_frontend_file_builds_a_token_query():
     offenders = []
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             code = line.split("//", 1)[0]
             if re.search(r"[?&]token=", code):

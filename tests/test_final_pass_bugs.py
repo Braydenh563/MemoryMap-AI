@@ -10,9 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LIGHTBOX = (ROOT / "frontend" / "lightbox-view.js").read_text(encoding="utf-8")
-CATEGORIES = (ROOT / "frontend" / "categories-panel.js").read_text(encoding="utf-8")
-AV = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+LIGHTBOX = (ROOT / "frontend" / "js" / "lightbox-view.js").read_text(encoding="utf-8")
+CATEGORIES = (ROOT / "frontend" / "js" / "categories-panel.js").read_text(encoding="utf-8")
+AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
 
 def _fn(src: str, name: str) -> str:
@@ -34,8 +34,8 @@ def test_a_split_is_sent_once_and_survives_a_note_without_text() -> None:
     # Two presses of Move to new category asked the server to split notes
     # already moved; a note with no `content` (an image) threw while the
     # sheet was being built, so it never opened.
-    assert "if (apply.disabled) return;" in CATEGORIES and "apply.disabled = false;" in CATEGORIES
-    assert 'String(entry.content || "").slice(0, 240)' in CATEGORIES
+    assert "if (apply.disabled) return;" in CATEGORIES and "setBusy(apply, false);" in CATEGORIES
+    assert 'String(entry.content || ""))' in CATEGORIES and '.slice(0, 240)' in CATEGORIES
     assert "entry.content.slice(" not in CATEGORIES
 
 
@@ -46,10 +46,13 @@ def test_a_companion_shown_again_starts_fresh() -> None:
     gone = _fn(AV, "nameMarkBuddyGone")
     for part in ('nmb.act = "";', "clearTimeout(nmb.poutTimer);", "for (const t of nmb.poseSteps || []) clearTimeout(t);", "nmb.wokeAt = 0;"):
         assert part in gone, part
-    assert "if (!buddy.isConnected) return;\n        buddy.classList.remove(\"nmb-grumpy\");" in AV
+    # The click's poke is a closure now (INBOX 443: a double-click is not
+    # two pokes), one level deeper.
+    assert "if (!buddy.isConnected) return;\n          buddy.classList.remove(\"nmb-grumpy\");" in AV
+    assert "nmb.visit = null;" in gone
 
 
-NAV = (ROOT / "frontend" / "navigation.js").read_text(encoding="utf-8")
+NAV = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
 
 
 def test_a_declined_leave_puts_the_history_step_back() -> None:
@@ -64,7 +67,7 @@ def test_a_declined_leave_puts_the_history_step_back() -> None:
     assert "tabHistory.index = from;" in walk and "history.go(from - next);" in walk
 
 
-CONFLICT = (ROOT / "frontend" / "edit-conflict.js").read_text(encoding="utf-8")
+CONFLICT = (ROOT / "frontend" / "js" / "edit-conflict.js").read_text(encoding="utf-8")
 
 
 def test_compare_is_drawn_once_however_often_it_is_pressed() -> None:

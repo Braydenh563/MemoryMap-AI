@@ -45,25 +45,25 @@ FRONTEND = ROOT / "frontend"
 def _boot_scripts() -> list[str]:
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     names = []
-    for src in re.findall(r'<script src="/([A-Za-z0-9._-]+\.js)', html):
-        if (FRONTEND / src).exists():
+    for src in re.findall(r'<script src="/js/([A-Za-z0-9._-]+\.js)', html):
+        if (FRONTEND / "js" / src).exists():
             names.append(src)
     return names
 
 
 def _lazy_files() -> dict[str, list[str]]:
     """`LAZY_MODULES` as written in app.js: bundle name to its files."""
-    source = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    source = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     block = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", source, re.S)
     assert block, "LAZY_MODULES not found in app.js; has the loader moved?"
     out: dict[str, list[str]] = {}
     for name, files in re.findall(r"^\s*(\w+):\s*\[(.*?)\],", block.group(1), re.M | re.S):
-        out[name] = re.findall(r'"/([A-Za-z0-9._-]+\.js)"', files)
+        out[name] = re.findall(r'"/js/([A-Za-z0-9._-]+\.js)"', files)
     return out
 
 
 def _entry_points() -> dict[str, set[str]]:
-    source = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    source = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     block = re.search(r"const LAZY_ENTRY_POINTS = \{(.*?)\n\};", source, re.S)
     assert block, "LAZY_ENTRY_POINTS not found in app.js"
     out: dict[str, set[str]] = {}
@@ -99,6 +99,59 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: WORLD_CLASS_PLAN section 17 row 4: called inside
+    #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
+    #: has loaded by the time the call runs.
+    #: nav-history.js (INBOX 654): `openNavHistoryMenu` awaits
+    #: `ensureModule("navHistory")` and returns when it failed, so the render
+    #: runs only once the bundle is in.
+    "renderNavHistoryMenu": "navHistory, called by openNavHistoryMenu after awaiting ensureModule('navHistory')",
+    "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
+    #: The Escape handler (settings-wiring.js) closes the welcome card only
+    #: when `#onboarding-overlay` is showing, and the only thing that shows it
+    #: is `openOnboarding`, whose stand-in loads the bundle first.
+    #: The same for the palette: `closePalette` is called (Escape, the chord's
+    #: toggle, a chord that closes overlays) only while `#palette-overlay` is
+    #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
+    "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
+    #: `openNoteEditor` drops the copy of an edit kept on this device
+    #: (note-edit-panels.js). Only that bundle writes one, so before it loads
+    #: there is nothing this session kept to drop; a copy from an earlier
+    #: session is still unsaved work, offered back when the bundle arrives.
+    "forgetNoteEditLocally": "notePanels, only its own edit form keeps a copy, and an older copy is meant to survive",
+    "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
+    #: Capture's staged-files list asks the clear button to re-sync when it
+    #: redraws (audit 2026-10-05, FE-18). Before the fieldClear bundle is in,
+    #: there is no button wiring to sync, and the bundle syncs every button
+    #: itself the moment it loads, so a no-op here loses nothing.
+    "fieldClearSyncAll": "fieldClear, which syncs every button itself when it loads",
+    #: dash-boards.js (INBOX 553(d)): `renderBoardsWidget` awaits
+    #: `ensureModule("dashBoards")` on the line and calls only when it loaded.
+    "dashRenderBoards": "dashBoards, awaited by renderBoardsWidget on the same line",
+    #: atlas-life.js: `atlasFigure` calls these in the `.then` of
+    #: `ensureModule("atlasLife")`, and only when it loaded; `atlasTailWake`
+    #: (atlas.js) reaches `atlasTailFrame` only through a tail that
+    #: `atlasTailAttach` made, which is in the same bundle.
+    "atlasTailAttach": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRingLoops": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasPropLoops": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRigLowerAttach": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRigLower": "atlasLife, called by the rig only once rig.lower exists, which atlasRigLowerAttach (same bundle) makes",
+    "atlasTailFrame": "atlasLife, reached only through a tail atlasTailAttach (same bundle) made",
+    #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
+    #: before it shows any section, and every call below runs from a section
+    #: that is on screen or a search field inside the open dialog. With the
+    #: bundle absent (a failed fetch) Settings keeps its nav, the section filter
+    #: and the arrow keys, and these index and result extras are simply not
+    #: drawn, which is the intended degradation.
+    "settingsIndexWatchSection": "settingsUi, awaited by openSettingsModal before a section is shown",
+    "renderHelpTopics": "settingsUi, awaited by openSettingsModal on the line before the call",
+    "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
+    "settingResultsKey": "settingsUi, called from the search field inside the open dialog",
+    "renderSuggested": "settingsUi, called from the status poll only while Settings is open (renderSettings), and Settings awaits the bundle first",
+    #: The installed models moved beside it (op4-1005): the same poll branch,
+    #: the same reason; the box is hidden until a call draws it.
+    "renderInstalledModels": "settingsUi, beside renderSuggested in the same status-poll branch, and Settings awaits the bundle first",
     #: editConflictPrompt's Compare awaits `ensureModule("library")` on the
     #: line before, so the diff builder is in the page when it is called.
     "docRenderDiff": "library, called by editConflictPrompt only after it awaits ensureModule('library')",
@@ -125,12 +178,23 @@ REACHED_AFTER_LOAD = {
     "openLibraryItem": "library, called from a row the Library itself drew",
     "renderDocPreview": "library, called from the document editor's own update path",
     "mountNoteSurface": "library, called once the note engine setting has loaded it",
+    #: focusCaptureBox (capture-ask.js): with the bundle absent no editor view
+    #: is mounted over the capture box, so focusing the textarea itself, the
+    #: guarded fallback, is the right thing rather than a silent no-op.
+    #: setNoteSource (wiring.js): only a mounted box can be switched, and a box
+    #: mounts only with the bundle in; one mounted later reads the choice.
+    "setNoteSurfaceSource": "library, a mounted editor view exists only once the bundle is in; a later mount reads the remembered choice",
+    "noteSurfaceFor": "library, a mounted editor view exists only once the bundle is in; without it the textarea fallback runs",
     "docSurfaceById": "library, called from the document editor's own handlers",
     "docPaletteCommands": "library, the palette asks only once documents.js is in",
     "docEventFromCm": "library, only ever true when CodeMirror is mounted",
     "gcRequestDraw": "graph, the canvas renderer's own frame loop",
     "gcStop": "graph, the canvas renderer's own teardown",
     "renderDocShortcutSheet": "library, the document editor's own sheet",
+    "wbPaletteCommands": "library, the palette's board group: with the bundle absent no board is open, so no board command applies and the guard's empty list is the right answer",
+    "renderWbShortcutSheet": "library, the board's section of the sheet, which says to open a board once while the bundle is absent",
+    "wbCommandsLive": "library, asks whether a board is on screen; with the bundle absent none is, so the guard's false is the right answer",
+    "wbOpenHelpSheet": "library, called by '?' only when wbCommandsLive() says a board is on screen, which needs the bundle in; otherwise the app's sheet opens",
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
     "hideDocComplete": "library, the document editor's word list; with the bundle absent there is no list on screen to hide, so the guard's no-op is the right answer",
     "docMathRender": "library; `mdMathElement` (app.js) shows the formula's source when it is absent and calls `ensureModule(\"library\")` to redraw the block once the bundle lands, so the guard is a first frame, not a silent no-op",
@@ -164,12 +228,12 @@ def test_no_boot_file_silently_depends_on_a_lazy_bundle():
 
     boot_defined: set[str] = set()
     for name in boot:
-        boot_defined |= _declared_anywhere(FRONTEND / name)
+        boot_defined |= _declared_anywhere(FRONTEND / "js" / name)
 
     lazy_defined: dict[str, str] = {}
     for bundle, files in lazy.items():
         for file_name in files:
-            for symbol in _top_level_functions(FRONTEND / file_name):
+            for symbol in _top_level_functions(FRONTEND / "js" / file_name):
                 lazy_defined.setdefault(symbol, bundle)
 
     candidates = {s: b for s, b in lazy_defined.items() if s not in boot_defined}
@@ -178,7 +242,7 @@ def test_no_boot_file_silently_depends_on_a_lazy_bundle():
 
     unaccounted: list[str] = []
     for name in boot:
-        lines = (FRONTEND / name).read_text(encoding="utf-8").split("\n")
+        lines = (FRONTEND / "js" / name).read_text(encoding="utf-8").split("\n")
         for number, line in enumerate(lines, 1):
             if line.lstrip().startswith(("//", "*", "/*")):
                 continue
@@ -254,7 +318,7 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
 
     The second is the general fix and this test holds it in place too.
     """
-    nav = (FRONTEND / "navigation.js").read_text(encoding="utf-8")
+    nav = (FRONTEND / "js" / "navigation.js").read_text(encoding="utf-8")
     assert "lazyPage.inert = true" in nav and "lazyPage.inert = false" in nav, (
         "switchTab no longer keeps a lazy tab's page inert while its bundle loads; "
         "every control drawn on that page is then live before its code exists"
@@ -265,11 +329,11 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
     boot = _boot_scripts()
     boot_defined: set[str] = set()
     for name in boot:
-        boot_defined |= _declared_anywhere(FRONTEND / name)
+        boot_defined |= _declared_anywhere(FRONTEND / "js" / name)
     lazy_only: dict[str, str] = {}
     for bundle, files in lazy.items():
         for file_name in files:
-            for symbol in _top_level_functions(FRONTEND / file_name):
+            for symbol in _top_level_functions(FRONTEND / "js" / file_name):
                 if symbol not in boot_defined and symbol not in entries.get(bundle, set()):
                     lazy_only.setdefault(symbol, bundle)
     call = re.compile(r"(?<![\w$.])(" + "|".join(sorted(map(re.escape, lazy_only))) + r")\s*\(")
@@ -279,7 +343,7 @@ def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
     offenders: list[str] = []
     checked = 0
     for name in boot:
-        lines = (FRONTEND / name).read_text(encoding="utf-8").split("\n")
+        lines = (FRONTEND / "js" / name).read_text(encoding="utf-8").split("\n")
         i = 0
         while i < len(lines):
             match = LISTENER.match(lines[i])
@@ -322,6 +386,6 @@ def test_the_graph_canvas_is_not_desynchronized():
     until a menu over it forced ordinary compositing."""
     from pathlib import Path
 
-    source = (Path(__file__).resolve().parent.parent / "frontend" / "graph-canvas.js").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8")
     code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("//"))
     assert "desynchronized" not in code

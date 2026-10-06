@@ -19,6 +19,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from memorymap.core.logbuffer import safe_value
 from memorymap.core.subproc import NO_WINDOW
 from memorymap.search import searxng_manager, websearch
 from memorymap.search.searxng_install import _install_state, is_checkout
@@ -151,7 +152,13 @@ def _start_source(data_dir: Path) -> dict:
         # that harder to read, not easier.
         handle = output.open("w", encoding="utf-8")
     except OSError as exc:
-        raise SearxngError(f"Couldn't open {output.name} to record output: {exc}") from exc
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't open %s to record output: %s", output, safe_value(str(exc), 300)
+        )
+        raise SearxngError(
+            "Couldn't start SearXNG because its log file couldn't be written. "
+            "Check that the data folder can be written to."
+        ) from exc
     try:
         process = subprocess.Popen(  # noqa: S603  # fixed args, no shell
             [str(searxng_manager._venv_python(data_dir)), "-m", "searx.webapp"],
@@ -170,7 +177,12 @@ def _start_source(data_dir: Path) -> dict:
             creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise SearxngError(f"Couldn't start SearXNG: {exc}") from exc
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't start SearXNG: %s", safe_value(str(exc), 300)
+        )
+        raise SearxngError(
+            "Couldn't start SearXNG. Reinstalling it from Settings, Web search usually fixes this."
+        ) from exc
     finally:
         # The child holds its own duplicate of the descriptor, so closing
         # this one doesn't cut off its output, it just stops us leaking one
@@ -190,7 +202,10 @@ def _stop_source(data_dir: Path) -> dict:
     try:
         _terminate(pid)
     except OSError as exc:
-        raise SearxngError(f"Couldn't stop SearXNG: {exc}") from exc
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't stop SearXNG: %s", safe_value(str(exc), 300)
+        )
+        raise SearxngError("Couldn't stop SearXNG. Closing MemoryMap will stop it.") from exc
     # Give it a moment to close its socket before anything rebinds the port.
     for _ in range(20):
         if not _alive(pid):
@@ -207,7 +222,7 @@ def _start_from_source(data_dir: Path, on_ready=None) -> dict:
         raise SearxngError(error)
     if _install_state["running"]:
         raise SearxngError(
-            f"Still setting SearXNG up, {_install_state['step']} "
+            "SearXNG is still being set up. "
             + (
                 "It will start on its own when the install finishes."
                 if _install_state.get("auto_start")
@@ -217,12 +232,11 @@ def _start_from_source(data_dir: Path, on_ready=None) -> dict:
     if not searxng_manager.source_installed(data_dir):
         searxng_manager.install_source(data_dir, on_ready=on_ready)
         raise SearxngError(
-            "Setting SearXNG up in its own virtualenv. This takes a few minutes "
-            "the first time"
+            "SearXNG is being set up. This takes a few minutes the first time. "
             + (
-                ", and it will start on its own when the install finishes."
+                "It will start on its own when the install finishes."
                 if on_ready is not None
-                else "; press Start again when it's done."
+                else "Press Start again when it's done."
             )
         )
     if searxng_manager._source_state(data_dir) == "running" and websearch.probe_searxng(base_url()):
@@ -239,26 +253,44 @@ def _start_from_source(data_dir: Path, on_ready=None) -> dict:
         _settle_on(port)
         result = searxng_manager._start_source(data_dir)
         pid = _read_pid(data_dir)
+        #: An install beginning mid-wait ends the wait: a reinstall wipes the
+        #: virtualenv this process runs from, so waiting out the full window
+        #: only to blame SearXNG for writing no output (BACKLOG 8b) helps
+        #: nobody. The poll is two seconds, so this is noticed within one.
         if searxng_manager._wait_until_ready(
             SOURCE_START_TIMEOUT,
-            still_starting=lambda: pid is not None and _alive(pid),
+            still_starting=lambda: (
+                pid is not None and _alive(pid) and not _install_state["running"]
+            ),
         ):
             return result
         # Read what it said *before* stopping it, a SIGTERM adds its own
         # lines, and the interesting ones are the earlier ones.
         said = searxng_manager.recent_output(data_dir)
         searxng_manager._stop_source(data_dir)
+        if _install_state["running"]:
+            raise SearxngError(
+                "SearXNG was being reinstalled while it started, so this start "
+                "was stopped. Press Start again when the install finishes."
+            )
         if _port_clash(said):
             if remaining:
                 logging.getLogger("memorymap.searxng").info(
                     "Port %s was taken after all, trying %s.", port, remaining[0]
                 )
                 continue
+            logging.getLogger("memorymap.searxng").warning(
+                "Every port was taken (%s); MEMORYMAP_SEARXNG_PORT chooses another.",
+                ", ".join(str(p) for p in tried),
+            )
+            #: The way out stays in the message, not only the log (the test
+            #: name says it: "names them all and the way out"): a person with
+            #: every port taken needs to know a port can be chosen.
             raise SearxngError(
-                "Every port MemoryMap knows to try was taken: "
-                + ", ".join(str(p) for p in tried)
-                + ". Set MEMORYMAP_SEARXNG_PORT to a free one and press Start "
-                "again."
+                "Every port MemoryMap tried for SearXNG was already in use "
+                f"({', '.join(str(p) for p in tried)}). Free one of them, or "
+                "choose another port with the MEMORYMAP_SEARXNG_PORT setting, "
+                "and press Start again."
             )
         logging.getLogger("memorymap.searxng").warning(
             "SearXNG didn't answer within %ss. Its own output was:\n%s",
@@ -266,13 +298,19 @@ def _start_from_source(data_dir: Path, on_ready=None) -> dict:
             said or "(nothing: it wrote no output at all)",
         )
         if said:
+            #: SearXNG's own last line, quoted: capturing its output exists so
+            #: the message stops guessing ("a failed start quotes what SearXNG
+            #: said", a decision kept through the wording sweep). One line,
+            #: clipped, in quotes as its words, with the full log named.
+            last = next((ln.strip() for ln in reversed(said.splitlines()) if ln.strip()), "")
+            if len(last) > 160:
+                last = last[:159] + "\u2026"
             raise SearxngError(
-                "SearXNG started but never answered. It said:\n\n"
-                f"{said}\n\n"
-                f"The full log is at {log_path(data_dir)}."
+                "SearXNG started but never answered. The last thing it said "
+                f"was \u201c{last}\u201d. Its full log is at {log_path(data_dir)}."
             )
         raise SearxngError(
             "SearXNG started but wrote nothing and never answered, which "
-            "usually means the process died immediately. Check that port "
-            f"{host_port()} is free. The log is at {log_path(data_dir)}."
+            "usually means it stopped straight away. Check that port "
+            f"{host_port()} is free. Its log is at {log_path(data_dir)}."
         )

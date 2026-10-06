@@ -15,7 +15,7 @@ FRONTEND = ROOT / "frontend"
 
 
 def read(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    return (FRONTEND / "js" / name).read_text(encoding="utf-8")
 
 
 def function_body(source: str, name: str) -> str:

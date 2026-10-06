@@ -74,6 +74,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # default for the same reason the check itself is: this is opt-in, not
     # opt-out, the first time.
     "auto_update_enabled": False,
+    # **Ask once** (the owner, 2026-10-05, WORLD_CLASS_PLAN 12, "Decisions
+    # made"): has the person answered "check for updates automatically?" yet,
+    # in the terminal (start.sh) or in the app. Until it is True the launchers
+    # leave the checkout alone and nothing about updating touches the
+    # network; the answer sets the two switches above and this, once. Turning
+    # either switch in Settings is an answer too (`update_preferences`).
+    "update_choice_made": False,
     # "stable" (tagged GitHub releases) or "main" (asked for directly: track
     # the main branch and update on every push to it). "main" is accepted as
     # a real, storable choice, the Settings toggle isn't fake, but
@@ -229,6 +236,23 @@ def resolved_data_dir() -> Path:
     return Path(os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()).resolve()
 
 
+def _owner_only(folder: Path) -> None:
+    """The notebook folder readable by its owner alone (SEC-13, security audit
+    2026-10-05): the database, its WAL, backups and uploads were 0644 in a
+    0755 folder, so any account on a shared Unix machine could copy them.
+    0700 on the folder closes everything under it, whatever each file's own
+    mode. Only for a folder that is a notebook (new, empty, or holding the
+    database), never one somebody pointed the app at that is something else.
+    Best effort: a filesystem without Unix modes just keeps its own rules."""
+    if os.name != "posix":
+        return
+    try:
+        if folder.stat().st_mode & 0o077:
+            folder.chmod(0o700)
+    except OSError:
+        pass  # not ours to change (another owner, a read-only mount)
+
+
 class ConfigManager:
     """Knows the app's folders, files, and saved preferences."""
 
@@ -238,7 +262,14 @@ class ConfigManager:
         self.data_dir = Path(
             data_dir or os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()
         ).resolve()
+        notebook = (
+            not self.data_dir.exists()
+            or (self.data_dir / "memorymap.db").exists()
+            or not any(self.data_dir.iterdir())  # made empty for the app to fill
+        )
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        if notebook:
+            _owner_only(self.data_dir)
 
         self.db_path = self.data_dir / "memorymap.db"
         self.preferences_path = self.data_dir / "preferences.json"
@@ -270,19 +301,11 @@ class ConfigManager:
         # touched the setting themselves.
         source_install = not getattr(sys, "frozen", False)
         prefs["update_channel"] = "main" if source_install else "stable"
-        # **The same default, for the same install, for the switch beside it**
-        # (INBOX 221). The launchers now read `auto_update_enabled` and do
-        # nothing at all when it is off, which is what the owner asked for and
-        # what the switch has always claimed. That makes the *default* load-
-        # bearing in a way it was not: leaving it False for a source checkout
-        # would silently stop `git pull` on every clone in existence, which is
-        # a behaviour change nobody asked for and would read as the launcher
-        # breaking. So a source checkout defaults to on, which is exactly what
-        # it has always done, and the switch is now what turns it off. A
-        # packaged Windows install keeps the default off for the reason
-        # written against `auto_update_enabled` itself: downloading and
-        # running an installer unasked is a different size of consequence.
-        prefs["auto_update_enabled"] = source_install
+        # `auto_update_enabled` used to default on for a source checkout
+        # (INBOX 221), so the launchers pulled on every launch of a clone
+        # nobody had asked. The owner's decision of 2026-10-05, "Ask once":
+        # off for every install until the person answers, which
+        # `update_choice_made` records (routes_update.record_update_choice).
         if self.preferences_path.exists():
             try:
                 prefs.update(json.loads(self.preferences_path.read_text()))
@@ -323,6 +346,19 @@ class ConfigManager:
         """
         self._preferences[key] = value
         atomic_write_json(self.preferences_path, self._preferences)
+
+
+def days_from_today(day, today) -> str:  # noqa: ANN001
+    """'8 days ago', 'today', 'in 3 days': a resolved date said relative to the
+    reader's today, for every prompt that hands a model a note's time words
+    (INBOX 441: a two-week-old note's "this Friday" read as this week's). A
+    small model computes weekday distances badly; it reads this correctly."""
+    gap = (day - today).days
+    if gap == 0:
+        return "today"
+    if gap in (1, -1):
+        return "tomorrow" if gap == 1 else "yesterday"
+    return f"in {gap} days" if gap > 0 else f"{-gap} days ago"
 
 
 def user_now(config: "ConfigManager") -> datetime:

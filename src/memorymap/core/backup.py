@@ -8,10 +8,13 @@ ones are pruned so the folder can't grow forever.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+
+from memorymap.core.logbuffer import safe_value
 
 KEEP_BACKUPS = 10
 # "Scheduled": a fresh backup is taken at startup when the newest one is
@@ -71,6 +74,53 @@ def list_backups(data_dir: Path) -> list[dict]:
     return entries
 
 
+#: The full-text tables a note's words are tokenised into. Both are FTS5,
+#: and FTS5 deletes by writing a marker: the old tokens stay in the segment
+#: blobs until a merge rewrites them.
+FTS_TABLES = ("entries_fts", "search_index")
+
+
+def optimize_fts(connection) -> None:  # noqa: ANN001  # SQLAlchemy or sqlite3 connection
+    """Merge every FTS5 segment into one, which drops the tokens of deleted
+    rows for good (SEC-03, security audit 2026-10-05). Takes a SQLAlchemy
+    connection (the live database, `manager.scrub_private_leftovers`) or a
+    plain sqlite3 one (a backup copy)."""
+    run = getattr(connection, "exec_driver_sql", None) or connection.execute
+    for table in FTS_TABLES:
+        found = run(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchone()
+        if found:
+            run(f"INSERT INTO {table}({table}) VALUES('optimize')")  # noqa: S608  # a fixed name
+
+
+def strip_leftovers(target: sqlite3.Connection) -> None:
+    """Clean a fresh copy of the database before it leaves as a backup: the
+    FTS merge above, then VACUUM, which rewrites the file from live rows only,
+    so no freed page or stale cell carries a private note's old words
+    (SEC-03). For notebooks whose notes went private before the live
+    database was scrubbed on the spot; costs about one more copy."""
+    optimize_fts(target)
+    target.commit()
+    target.execute("VACUUM")
+
+
+def snapshot(db_path: Path, destination: Path) -> None:
+    """A consistent, cleaned copy of the live database at `destination`:
+    SQLite's backup API (which reads through the WAL, unlike a file copy),
+    then `strip_leftovers`."""
+    source = sqlite3.connect(db_path)
+    try:
+        target = sqlite3.connect(destination)
+        try:
+            source.backup(target)
+            strip_leftovers(target)
+        finally:
+            target.close()
+    finally:
+        source.close()
+
+
 def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
     """Take one consistent snapshot and prune old ones.
 
@@ -100,15 +150,7 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
     #: is never listed, restored or counted against retention.
     partial = destination.with_name(f"{destination.name}.partial")
     try:
-        source = sqlite3.connect(db_path)
-        try:
-            target = sqlite3.connect(partial)
-            try:
-                source.backup(target)
-            finally:
-                target.close()
-        finally:
-            source.close()
+        snapshot(db_path, partial)
         os.replace(partial, destination)
     except BaseException:
         for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):
@@ -155,10 +197,13 @@ def _sweep_partials(data_dir: Path) -> None:
             continue
 
 
-def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path | None:
-    """Startup hook: back up unless a recent backup already exists."""
+def backup_is_due(db_path: Path, data_dir: Path) -> bool:
+    """Whether the startup backup should run: there is a database, and no
+    backup newer than `BACKUP_EVERY_HOURS`. Split out so the caller can open
+    the "last run" record only for a backup that is actually taken (INBOX
+    438): a start that skips it is not a run."""
     if not db_path.exists():
-        return None
+        return False
     newest = next(iter(backup_files(data_dir)), None)
     if newest is not None:
         age_hours = (
@@ -166,8 +211,26 @@ def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Pa
             - datetime.fromtimestamp(newest.stat().st_mtime, tz=timezone.utc)
         ).total_seconds() / 3600
         if age_hours < BACKUP_EVERY_HOURS:
-            return None
+            return False
+    return True
+
+
+def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path | None:
+    """Startup hook: back up unless a recent backup already exists."""
+    if not backup_is_due(db_path, data_dir):
+        return None
     return backup_now(db_path, data_dir, keep)
+
+
+logger = logging.getLogger(__name__)
+
+#: What the person reads when a backup fails its integrity check; the check's
+#: own output goes to the log, where it can be of use to somebody who can act
+#: on it.
+DAMAGED_BACKUP = (
+    "That backup is damaged, so it was not restored. Your current notes "
+    "have not been touched."
+)
 
 
 def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> None:
@@ -178,7 +241,17 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
     taken before overwriting, so even a restore is undoable."""
     source_path = backups_dir(data_dir) / Path(name).name  # no traversal
     if not source_path.is_file():
-        raise FileNotFoundError(f"No backup named {name}")
+        raise FileNotFoundError("That backup could not be found.")
+    restore_file(source_path, db_path, data_dir, keep, label=name)
+
+
+def restore_file(
+    source_path: Path, db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, label: str | None = None
+) -> None:
+    """`restore_backup` for a database file wherever it is (a backup's own,
+    or one unpacked from an imported zip): the same safety snapshot, the same
+    check on a temp copy before the atomic swap."""
+    name = label or source_path.name
     if db_path.exists():
         backup_now(db_path, data_dir, keep)  # the pre-restore safety copy
 
@@ -210,11 +283,13 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
             except sqlite3.DatabaseError as exc:
                 # Some corruption fails inside the check itself rather than
                 # coming back as a non-"ok" row; both mean the same thing.
-                raise ValueError(f"Backup {name} failed integrity check: {exc}") from exc
+                logger.warning("Backup %s failed its integrity check: %s", safe_value(name, 120), exc)
+                raise ValueError(DAMAGED_BACKUP) from exc
         finally:
             checker.close()
         if row is None or row[0] != "ok":
-            raise ValueError(f"Backup {name} failed integrity check: {row}")
+            logger.warning("Backup %s failed its integrity check: %s", safe_value(name, 120), row)
+            raise ValueError(DAMAGED_BACKUP)
         #: **"ok" is not the same as "has anything in it."** An empty file is
         #: a valid SQLite database with no tables, and passes the check
         #: above; restoring one replaces the notebook with nothing and the
@@ -230,7 +305,7 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
             checker.close()
         if not tables:
             raise ValueError(
-                f"Backup {name} is empty, so restoring it would replace your "
+                "That backup is empty, so restoring it would replace your "
                 "notebook with nothing. It was most likely written when this "
                 "computer was out of disk space."
             )

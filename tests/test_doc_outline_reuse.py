@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _render_outline() -> str:
-    src = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    src = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     start = src.index("function renderDocOutline() {")
     return src[start : src.index("\n}\n", start)]
 

@@ -78,7 +78,7 @@ QUALIFIERS = re.compile(
 
 COPY = [
     *app_js_files(),
-    ROOT / "frontend" / "dashboard.js",
+    ROOT / "frontend" / "js" / "dashboard.js",
     ROOT / "frontend" / "index.html",
     ROOT / "src" / "memorymap" / "api" / "routes_websearch.py",
     ROOT / "src" / "memorymap" / "api" / "routes_settings.py",

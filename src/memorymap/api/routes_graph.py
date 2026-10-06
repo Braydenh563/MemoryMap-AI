@@ -10,21 +10,26 @@ Nodes are non-deleted entries; edges come from three places:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import threading
+from typing import Annotated
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 from memorymap.core import deps
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, EntryProperty, NoteType
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
+from memorymap.entry import topics as topic_finder
 from memorymap.search import search_manager
 
 router = APIRouter(tags=["graph"])
@@ -53,6 +58,11 @@ SIMILARITY_EDGE_THRESHOLD = 0.55
 # A hard cap keeps a dense notebook from becoming a hairball (and the
 # O(n²) comparison from mattering, it's personal-notebook scale).
 MAX_SIMILARITY_EDGES = 200
+#: GRAPH_PLAN 518 (4): each note's closest matches, kept by `similar_pairs`
+#: as it goes. The map draws two per note (`gcPruneSimilarity`); every pair
+#: above the cutoff was up to n^2/2 tuples (an embedding model scores most of
+#: a notebook as a little alike) before the cap above threw all but 200 away.
+SIMILAR_PER_NODE = 4
 
 
 # --- caching the two expensive derivations (ROADMAP §40, items 4 and 5) ----------
@@ -73,13 +83,15 @@ MAX_SIMILARITY_EDGES = 200
 # forgotten one serves a stale graph indefinitely. `updated_at` moves on any
 # note edit, and the two counts move on anything created or destroyed.
 #
-# The known gap, stated rather than papered over: adding and removing one link
-# between two requests leaves the counts identical, so that single case serves
-# one stale render. The alternative is a `max(updated_at)` on links too, and a
-# stale centrality value for one frame is not worth another aggregate on every
-# graph load.
+# A link removed and another added between two requests leaves the count
+# identical, so the newest link's time is in it too (GRAPH_PLAN 518 (3)): any
+# add moves it, any removal moves the count. Not the newest id: SQLite hands
+# a deleted top id to the next row, so remove-then-add kept it (measured).
 _cache_lock = threading.Lock()
 _cache: dict[str, tuple] = {}
+#: KG6: topic summaries by their members and versions, newest last, capped.
+_summaries: dict[tuple, str] = {}
+SUMMARY_CACHE_MAX = 200
 
 
 def _graph_fingerprint(session: Session) -> tuple:
@@ -91,9 +103,15 @@ def _graph_fingerprint(session: Session) -> tuple:
         # backup or pointing MEMORYMAP_DATA_DIR somewhere else could be served
         # the previous notebook's centrality.
         str(deps.get_config().data_dir),
+        # Which space. Every count below is already narrowed to it (the
+        # session's workspace filter), but two spaces with equal counts and
+        # an equal newest edit would otherwise share one centrality.
+        str(session.info.get("workspace_id") or ""),
+        tuple(sorted(session.info.get("hidden_workspaces") or ())),
         session.scalar(select(func.count(Entry.id)).where(live)) or 0,
         session.scalar(select(func.max(Entry.updated_at)).where(live)),
         session.scalar(select(func.count(EntryLink.id))) or 0,
+        session.scalar(select(func.max(EntryLink.created_at))),
     )
 
 
@@ -118,6 +136,44 @@ def reset_graph_cache() -> None:
     """Drop everything. For the tests, and for a data restore."""
     with _cache_lock:
         _cache.clear()
+        _text_memo.clear()
+        _summaries.clear()
+
+
+#: GRAPH_PLAN 518 (2): each note's label and word count, per version of the
+#: note. `/graph` read and cleaned every note's whole text on every call (90 ms
+#: at 2,018 notes); the rest of a node is columns. Keyed by notebook and id,
+#: checked against `updated_at` (any edit moves it); a private note is never
+#: kept, its text depends on whether the vault is open.
+_text_memo: dict[tuple[str, int], tuple] = {}
+
+
+def _note_texts(entries: list) -> dict[int, tuple[str, int]]:
+    """{id: (preview, words)} for these notes, reading only what changed."""
+    notebook = str(deps.get_config().data_dir)
+    out: dict[int, tuple[str, int]] = {}
+    fresh: dict[tuple[str, int], tuple] = {}
+    with _cache_lock:
+        memo = dict(_text_memo)
+    for e in entries:
+        key = (notebook, e.id)
+        hit = memo.get(key)
+        if hit is not None and hit[0] == e.updated_at and not e.is_private:
+            out[e.id] = hit[1]
+        else:
+            text = manager.readable_content(e)
+            out[e.id] = (_preview(text), _word_count(text))
+            if not e.is_private:
+                fresh[key] = (e.updated_at, out[e.id])
+                continue
+        if hit is not None:
+            fresh[key] = hit
+    with _cache_lock:
+        # Only this notebook's live notes stay, so a deleted note's text goes.
+        for key in [k for k in _text_memo if k[0] == notebook]:
+            del _text_memo[key]
+        _text_memo.update(fresh)
+    return out
 
 
 # Registered rather than imported by the container. `deps.reset_app_state`
@@ -134,6 +190,7 @@ _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
 # label reading literally "Review > [!tip] Remem…", reported directly, and
 # the fix is the callout equivalent of what _HEADING_MD already does for `#`.
 _CALLOUT_MD = re.compile(r"^\s{0,3}>\s*\[!\w+\]\s*", re.M)
+_WIKI_LINK = re.compile(r"\[\[([^\[\]]{1,120})\]\]")
 
 
 def _preview(text: str, length: int = 40) -> str:
@@ -144,13 +201,30 @@ def _preview(text: str, length: int = 40) -> str:
     ("**Seraphine…") instead of the note. Inline marker stripping is
     `manager.strip_inline_markdown`, heading/wiki-link handling stays here
     since those are specific to what a graph label is for.
+
+    The first line with words in it (INBOX 446 (5)): every line used to be
+    joined, so "# Tomato soup" over a paragraph was labelled "Tomato soup A
+    few lin…", its title run into its body, while a longer title happened
+    to clip before the body and read correctly. A line that strips to
+    nothing (a picture, a bare rule) is passed over for the next one.
     """
-    text = _HEADING_MD.sub("", text)
-    text = _CALLOUT_MD.sub("", text)
-    text = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", text)
-    text = manager.strip_inline_markdown(text)
-    text = " ".join(text.split())
-    return text if len(text) <= length else text[: length - 1] + "…"
+    from memorymap.entry.properties import strip as strip_properties
+
+    #: KG4: a note's properties block is never its label.
+    for line in strip_properties(text).splitlines():
+        words = _preview_line(line)
+        if words:
+            return words if len(words) <= length else words[: length - 1] + "…"
+    return ""
+
+
+def _preview_line(line: str) -> str:
+    """One line as plain words: the marker stripping `_preview` applies."""
+    line = _HEADING_MD.sub("", line)
+    line = _CALLOUT_MD.sub("", line)
+    line = _WIKI_LINK.sub(lambda m: manager.wiki_shown(m.group(1)), line)
+    line = manager.strip_inline_markdown(line)
+    return " ".join(line.split())
 
 
 def _similarity_edges(
@@ -171,37 +245,84 @@ def _similarity_edges(
     backend = deps.get_embeddings().backend_id()
     fingerprint = (*_graph_fingerprint(session), backend)
 
+    #: **One sweep, over the map's notes, whoever asks** (GRAPH_PLAN, 2026-10-05).
+    #: The build used to read the caller's `node_ids` while the slot's key did
+    #: not, so the map (no drafts, no boards) and focus mode (every live note)
+    #: were served each other's sweep, whichever came first. The sweep is now
+    #: over the notes a similarity line means something for (live, not a
+    #: draft, not a board, whose text is its title), and each caller keeps the
+    #: pairs inside its own set: one sweep per version of the notebook, and
+    #: the same answer in any order.
     def build() -> list[tuple[int, int, float]]:
+        wanted = set(
+            session.scalars(
+                select(Entry.id).where(
+                    Entry.is_deleted == False,  # noqa: E712
+                    Entry.is_draft == False,  # noqa: E712
+                    Entry.is_board == False,  # noqa: E712
+                )
+            )
+        )
         records = session.scalars(
             select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
         )
         vectors = {
             r.entry_id: bytes_to_vector(r.embedding)
             for r in records
-            if r.entry_id in node_ids
+            if r.entry_id in wanted
         }
-        return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD)
+        return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD, per_node=SIMILAR_PER_NODE)
 
     # Already sorted best-first, so the cap below keeps the strongest edges.
     scored = [
         {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
         for a, b, score in _cached("similarity", fingerprint, build)
-        if frozenset((a, b)) not in taken
+        if a in node_ids and b in node_ids and frozenset((a, b)) not in taken
     ]
     return scored[:MAX_SIMILARITY_EDGES]
 
 
-def _centrality(session: Session, index: paths.Connections, similarity: bool) -> dict:
-    """PageRank over the whole graph, once per version of the notebook.
+def _centrality(session: Session, similarity: bool, maps: bool) -> dict:
+    """PageRank over the map's own picture, once per version of the notebook.
 
-    `similarity` is in the key because similarity edges change the graph, so
-    they change every node's rank: the same notebook scores differently with
-    the edges on and off, and both answers are correct for their own picture.
+    **One number per note, the map's** (GRAPH_PLAN, "Decision made,
+    2026-10-05: one PageRank, the map's"). `/graph` and `/graph/local` used to
+    hand this their own index and share one slot keyed only by the notebook
+    and the similarity switch, but the two indexes were different graphs (the
+    map leaves drafts out, and boards unless Maps is on; focus mode indexed
+    every live note), so whichever call came first was served to the other,
+    and turning Maps on was served the no-maps ranking. Now the graph ranked
+    is always the map's: live, non-draft notes, boards only with `maps`, their
+    links, threads and shared tags, and similarity edges when `similarity` is
+    on, built here from columns (`paths.build_light`) and never from a
+    caller's index. A note is the same size in focus mode as on the map.
+
+    Not a PageRank of the focus neighbourhood: centrality is a global
+    property, and a local one would make the centre of every focus view its
+    biggest dot whatever the notebook says about it.
     """
-    fingerprint = (*_graph_fingerprint(session), similarity)
-    return _cached("centrality", fingerprint, lambda: paths.pagerank(index))
+    use_similarity = similarity and not deps.get_config().get_preference("battery_efficient_mode")
+    fingerprint = (*_graph_fingerprint(session), use_similarity, maps)
+    if use_similarity:
+        fingerprint = (*fingerprint, deps.get_embeddings().backend_id())
 
+    def build() -> dict:
+        extra: list[dict] = []
+        if use_similarity:
+            ids = set(
+                session.scalars(
+                    select(Entry.id).where(
+                        Entry.is_deleted == False,  # noqa: E712
+                        Entry.is_draft == False,  # noqa: E712
+                        *(() if maps else (Entry.is_board == False,)),  # noqa: E712
+                    )
+                )
+            )
+            extra = _similarity_edges(session, ids, set())
+        index = paths.build_light(session, extra_edges=extra, drafts=False, boards=maps)
+        return paths.pagerank(index)
 
+    return _cached(f"centrality_{int(use_similarity)}_{int(maps)}", fingerprint, build)
 
 
 @router.get("/graph/match")
@@ -220,6 +341,12 @@ def graph_match(q: str = Query(default="", max_length=200), session: Session = D
         return {"ids": []}
     hits = search_manager.keyword_search(session, words, limit=5000)
     return {"ids": [entry.id for entry in hits]}
+
+#: Co-mention edges between entities (KG5): named together this often, in
+#: notes naming no more than the cap.
+COMENTION_MIN = 2
+COMENTION_NOTE_CAP = 12
+
 
 def _add_entity_nodes(
     session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
@@ -254,16 +381,36 @@ def _add_entity_nodes(
                     "preview": entity.name,
                     "category": "Entity",
                     "created_at": entity.created_at.isoformat(),
+                    "entity_kind": entity.kind,
                 }
             )
+        by_note: dict[int, list[int]] = {}
         for mention in mentions:
             if mention.entity_id in entities:
+                by_note.setdefault(mention.entry_id, []).append(mention.entity_id)
                 edges.append(
                     {
                         "source": f"entity:{mention.entity_id}",
                         "target": mention.entry_id,
                         "kind": "entity",
                     }
+                )
+        # GRAPH_PLAN KG5: two entities named together in two notes or more
+        # are joined, weighted by how many. Once is coincidence ("thanks Sam,
+        # Priya and Jo"); a note naming more than twelve says nothing about
+        # any one pair and costs the most, so it is left out.
+        together: dict[tuple[int, int], int] = {}
+        for named in by_note.values():
+            named = sorted(set(named))
+            if len(named) > COMENTION_NOTE_CAP:
+                continue
+            for i, a in enumerate(named):
+                for b in named[i + 1:]:
+                    together[(a, b)] = together.get((a, b), 0) + 1
+        for (a, b), count in together.items():
+            if count >= COMENTION_MIN:
+                edges.append(
+                    {"source": f"entity:{a}", "target": f"entity:{b}", "kind": "comention", "weight": count}
                 )
 
 
@@ -413,9 +560,183 @@ def _add_map_edges(
                 edges.append({"source": board_id, "target": ref_id, "kind": "map"})
 
 
+def _add_tag_nodes(nodes: list[dict], edges: list[dict]) -> None:
+    """GRAPH_PLAN 514 (2): each tag a node (`tag:<name>`), joined to its notes."""
+    seen: dict[str, dict] = {}
+    for node in [n for n in nodes if n.get("kind") == "note"]:
+        for tag in dict.fromkeys(t.strip() for t in node["tags"] if t.strip()):
+            key = f"tag:{tag.lower()}"
+            if key not in seen:
+                seen[key] = {"id": key, "type": "tag", "preview": f"#{tag}", "category": "Tag", "created_at": node["created_at"]}
+            elif node["created_at"] < seen[key]["created_at"]:
+                seen[key]["created_at"] = node["created_at"]
+            edges.append({"source": key, "target": node["id"], "kind": "tagged"})
+    nodes.extend(seen.values())
+
+
+def _add_unresolved_nodes(
+    session: Session, entries: list, nodes: list[dict], edges: list[dict]
+) -> None:
+    """GRAPH_PLAN 514 (3): a `[[name]]` no note answers to, as a faint node.
+
+    Resolved the way `manager.find_by_wiki_name` resolves (a vault file's
+    stem, or a note's opening line starting with the name; private notes are
+    never targets), against one in-memory index rather than two queries per
+    link: the name's place in the sorted openings says whether one starts
+    with it.
+    """
+    from bisect import bisect_left
+
+    live = session.execute(
+        select(Entry.content, Entry.source_path).where(
+            Entry.is_deleted == False, Entry.is_private == False  # noqa: E712
+        )
+    ).all()
+    openings = sorted(manager.wiki_opening(content) for content, _ in live)
+    stems = {
+        (path or "").rsplit("/", 1)[-1].lower().removesuffix(".md").removesuffix(".markdown")
+        for _, path in live
+        if path
+    }
+    ghosts: dict[str, dict] = {}
+    for entry in entries:
+        for name in manager.wiki_link_targets(manager.readable_content(entry)):
+            wanted = name.strip().lower()
+            at = bisect_left(openings, wanted)
+            if wanted in stems or (at < len(openings) and openings[at].startswith(wanted)):
+                continue
+            key = f"unresolved:{wanted}"
+            if key not in ghosts:
+                ghosts[key] = {
+                    "id": key, "type": "unresolved", "preview": name.strip(),
+                    "category": "Unresolved", "created_at": entry.created_at.isoformat(),
+                }
+            edges.append({"source": entry.id, "target": key, "kind": "unresolved"})
+    nodes.extend(ghosts.values())
+
+
+def _add_attachment_nodes(
+    session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
+) -> None:
+    """GRAPH_PLAN 514 (6): each file or picture on a note, as its own node."""
+    rows = session.scalars(
+        select(Attachment)
+        .where(Attachment.entry_id.in_(node_ids))
+        .order_by(Attachment.created_at.desc())
+        .limit(GRAPH_DOCUMENT_CAP)
+    )
+    for row in rows:
+        key = f"attachment:{row.id}"
+        nodes.append(
+            {
+                "id": key, "type": "attachment", "preview": row.filename, "mime": row.mime,
+                "category": "Attachment", "created_at": row.created_at.isoformat(),
+            }
+        )
+        edges.append({"source": key, "target": row.entry_id, "kind": "attachment"})
+
+
 def _word_count(text: str | None) -> int:
     """Words in a note's text, for the map's size-by-length rule."""
     return len((text or "").split())
+
+
+#: What `/graph` reads of a note: the node's fields, the label's text (the
+#: memo below decides whether it is read), and what the opt-in layers need
+#: (a board's settings, a vault file's path for unwritten links).
+_GRAPH_COLUMNS = (
+    Entry.id,
+    Entry.content,
+    Entry.tags,
+    Entry.workspace_id,
+    Entry.category_id,
+    Entry.created_at,
+    Entry.updated_at,
+    Entry.access_count,
+    Entry.pinned,
+    Entry.graph_pin_x,
+    Entry.graph_pin_y,
+    Entry.parent_id,
+    Entry.is_board,
+    Entry.is_private,
+    Entry.board_settings,
+    Entry.source_path,
+)
+
+
+def _payload_key(session: Session, similarity: bool, include_maps: bool, include_tags: bool) -> tuple:
+    """Everything the default `/graph` payload is made of, as one digest.
+
+    GRAPH_PLAN "Still open": the payload at 5,000 notes is 0.7 to 1.0 s warm
+    and 3 MB, and the fingerprint the centrality cache uses (counts and the
+    newest edit) misses what moves a node without editing a note: a pin, an
+    access count, an attachment, a note put on a map, a link's reason, the
+    vault opening. So every column the payload reads is hashed instead, row
+    by row: a few small-column reads against the build's dozen queries, the
+    content itself left out because `updated_at` moves with it. Read through
+    the ORM so the space filter applies, as the payload's own reads do.
+    """
+    from memorymap.core import vault
+    from memorymap.core.database import Category, WhiteboardObject
+
+    digest = hashlib.blake2b(digest_size=16)
+
+    def feed(rows) -> None:  # noqa: ANN001
+        for row in rows:
+            digest.update(repr(tuple(row)).encode())
+        digest.update(b"|")
+
+    feed(
+        session.execute(
+            select(
+                Entry.id, Entry.updated_at, Entry.access_count, Entry.pinned, Entry.graph_pin_x,
+                Entry.graph_pin_y, Entry.category_id, Entry.tags, Entry.is_private, Entry.workspace_id,
+                Entry.parent_id, Entry.is_board, Entry.board_settings, Entry.source_path, Entry.created_at,
+            )
+            .where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
+            .order_by(Entry.id)
+        )
+    )
+    feed(session.execute(select(Category.id, Category.name).order_by(Category.id)))
+    feed(
+        session.execute(
+            select(
+                EntryLink.id, EntryLink.source_entry_id, EntryLink.target_entry_id, EntryLink.reason,
+                EntryLink.reason_confidence, EntryLink.link_type,
+            ).order_by(EntryLink.id)
+        )
+    )
+    feed(session.execute(select(Attachment.entry_id).distinct().order_by(Attachment.entry_id)))
+    feed(
+        session.execute(
+            select(WhiteboardObject.id, WhiteboardObject.board_id, WhiteboardObject.data)
+            .where(WhiteboardObject.kind == "note")
+            .order_by(WhiteboardObject.id)
+        )
+    )
+    digest.update(repr(sorted(manager.relation_types(session).items())).encode())
+    config = deps.get_config()
+    with_similarity = similarity and not config.get_preference("battery_efficient_mode")
+    if with_similarity:
+        feed(session.execute(select(func.count(EmbeddingRecord.id), func.max(EmbeddingRecord.created_at))))
+        #: Vectors from two models live in different spaces: a switch is a new
+        #: payload though no note changed.
+        digest.update(str(deps.get_embeddings().backend_id()).encode())
+    #: A note type's name and colour paint the "Note type" rule (`type_colours`).
+    feed(session.execute(select(NoteType.id, NoteType.name, NoteType.colour).order_by(NoteType.id)))
+    vault_key = vault.key()
+    return (
+        _graph_fingerprint(session),
+        digest.hexdigest(),
+        with_similarity,
+        include_maps,
+        include_tags,
+        # A node's `age_days` counts from today.
+        datetime.now(timezone.utc).date().isoformat(),
+        # A private note's label is its text while this request may read it,
+        # a placeholder otherwise; a new key reads differently again.
+        hashlib.blake2b(vault_key, digest_size=8).hexdigest() if vault_key else None,
+    )
 
 
 @router.get("/graph")
@@ -424,16 +745,62 @@ def graph(
     include_entities: bool = False,
     include_documents: bool = False,
     include_maps: bool = False,
+    include_tags: bool = False,
+    include_unresolved: bool = False,
+    include_attachments: bool = False,
+    slim: bool = False,
     session: Session = Depends(get_session),
-) -> dict:
+) -> Response:
+    """The notebook as nodes and edges, served from a cache of the encoded
+    payload while nothing it is made of has moved (`_payload_key`).
+
+    Only the common shape is cached: entities, documents, unresolved links
+    and attachments as nodes read tables the key does not hash, so a request
+    for any of them is built every time, as before.
+    """
+    build = lambda: _build_graph(  # noqa: E731
+        similarity=similarity,
+        include_entities=include_entities,
+        include_documents=include_documents,
+        include_maps=include_maps,
+        include_tags=include_tags,
+        include_unresolved=include_unresolved,
+        include_attachments=include_attachments,
+        slim=slim,
+        session=session,
+    ).body
+    if include_entities or include_documents or include_unresolved or include_attachments:
+        return Response(content=build(), media_type="application/json")
+    key = _payload_key(session, similarity, include_maps, include_tags)
+    body = _cached(f"payload:{bool(similarity)}:{include_maps}:{include_tags}:{slim}", key, build)
+    return Response(content=body, media_type="application/json")
+
+
+def _build_graph(
+    similarity: bool = False,
+    include_entities: bool = False,
+    include_documents: bool = False,
+    include_maps: bool = False,
+    include_tags: bool = False,
+    include_unresolved: bool = False,
+    include_attachments: bool = False,
+    session: Session | None = None,
+    slim: bool = False,
+) -> JSONResponse:
     # A draft is unfinished by definition, and the Notes tab already keeps
     # every draft out of the notebook it draws from, the graph is a map of
     # your notes and their connections, not a staging area, and a half-typed
     # draft has nothing worth connecting yet. Reported directly alongside the
     # same gap in Library (routes_library.py's `_notes()`).
+    #: **Columns, not notes** (GRAPH_PLAN, 2026-10-05, measured at 5,000
+    #: notes): every field a node or an opt-in layer reads, as plain rows. The
+    #: whole `Entry` objects this loaded (and the 10,000 `EntryLink` objects
+    #: below) were half of a warm call's time in the ORM's instance
+    #: bookkeeping alone; a row answers `e.id`, `e.content`, `e.is_board` the
+    #: same way, so every helper below takes it unchanged.
     entries = list(
-        session.scalars(
-            select(Entry).where(
+        session.execute(
+            select(*_GRAPH_COLUMNS).where(
                 Entry.is_deleted == False,  # noqa: E712
                 Entry.is_draft == False,  # noqa: E712
             )
@@ -482,10 +849,34 @@ def graph(
         if isinstance(ref_id, int) and board_id is not None:
             maps_of.setdefault(ref_id, []).append(board_id)
     now = datetime.now(timezone.utc)
+    #: Each note's label and word count, read once per version (`_note_texts`).
+    labels = _note_texts(entries)
+    #: WORLD_CLASS_PLAN row 10 (D5): a note's type, for the "Note type" colour
+    #: rule, read from the properties index KG4 keeps (one query, the `type`
+    #: key's first value per note), never by parsing every note's block. A
+    #: private note has no index rows, so it carries none.
+    #: A note may spell its type in its own case ("type: book"); the node
+    #: carries the type's own name when Note types has it, so "book" and
+    #: "Book" are one colour and one legend row, not two.
+    type_colours: dict[str, str] = {}
+    canonical: dict[str, str] = {}
+    for name, colour in session.execute(select(NoteType.name, NoteType.colour)):
+        canonical[name.casefold()] = name
+        if colour:
+            type_colours[name] = colour
+    type_of: dict[int, str] = {}
+    for entry_id, value in session.execute(
+        select(EntryProperty.entry_id, EntryProperty.value)
+        .where(EntryProperty.key == "type")
+        .order_by(EntryProperty.id)
+    ):
+        if entry_id in node_ids and value:
+            type_of.setdefault(entry_id, canonical.get(value.casefold(), value))
     nodes = [
         {
             "id": e.id,
             "kind": "note",
+            "note_type": type_of.get(e.id),
             "tags": _tags_of(e),
             "space_id": e.workspace_id,
             "has_file": e.id in with_files,
@@ -497,7 +888,7 @@ def graph(
             # own docstring as one of the places that must not break on a
             # private note: it decrypts while the vault is open and hands back
             # "Private note: unlock to read it." while it is locked.
-            "preview": _preview(manager.readable_content(e)),
+            "preview": labels[e.id][0],
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,
             "pinned": e.pinned,
@@ -533,7 +924,7 @@ def graph(
             # note's length in words, through the same readable text as the
             # preview so a private note is counted as its placeholder while
             # locked, and when it was last edited.
-            "words": _word_count(manager.readable_content(e)),
+            "words": labels[e.id][1],
             "updated_at": (e.updated_at or e.created_at).isoformat(),
         }
         for e in entries
@@ -542,7 +933,17 @@ def graph(
     edges: list[dict] = []
     taken: set[frozenset[int]] = set()  # pairs already connected
 
-    for link in session.scalars(select(EntryLink)):
+    types = manager.relation_types(session)
+    for link in session.execute(
+        select(
+            EntryLink.id,
+            EntryLink.source_entry_id,
+            EntryLink.target_entry_id,
+            EntryLink.reason,
+            EntryLink.reason_confidence,
+            EntryLink.link_type,
+        )
+    ):
         if link.source_entry_id in node_ids and link.target_entry_id in node_ids:
             pair = frozenset((link.source_entry_id, link.target_entry_id))
             if pair not in taken:
@@ -573,6 +974,12 @@ def graph(
                         "link_type": link.link_type,
                     }
                 )
+                #: KG3: a typed link carries its name and inverse, for the
+                #: map's words; an untyped one carries nothing more.
+                kind = types.get(link.link_type or "")
+                if kind:
+                    edges[-1]["type_name"] = kind["name"]
+                    edges[-1]["type_inverse"] = kind["inverse"]
 
     for e in entries:
         if e.parent_id is not None and e.parent_id in node_ids:
@@ -586,8 +993,9 @@ def graph(
     if with_similarity:
         edges.extend(_similarity_edges(session, node_ids, taken))
 
-    index = paths.build(session, extra_edges=edges, entries=entries)
-    centrality_scores = _centrality(session, index, with_similarity)
+    #: The map's PageRank, shared with focus mode (`_centrality`); a warm call
+    #: no longer builds an index at all.
+    centrality_scores = _centrality(session, similarity, include_maps)
 
     # Stable category order so the frontend assigns stable colours.
     # Phase 5: degree per node, from the edges this payload carries, so a
@@ -651,8 +1059,140 @@ def graph(
     #: to change.
     if include_maps:
         _add_map_edges(session, entries, nodes, edges, node_ids, taken)
+    # GRAPH_PLAN 514: opt-in, prefixed ids, outside centrality, as above.
+    if include_tags:
+        _add_tag_nodes(nodes, edges)
+    if include_unresolved:
+        _add_unresolved_nodes(session, entries, nodes, edges)
+    if include_attachments:
+        _add_attachment_nodes(session, nodes, edges, node_ids)
 
-    return {"nodes": nodes, "edges": edges, "categories": categories}
+    #: A type's own colour, so "Note type" paints a Person the colour the
+    #: person gave Person rather than the next one in the scheme.
+    type_colours = {row.name: row.colour for row in session.scalars(select(NoteType)) if row.colour}
+    # **Encoded here, on the worker thread** (audit 2026-10-05, ARCH-14).
+    # A sync route's returned dict is encoded by FastAPI on the event loop
+    # (py-spy: `serialize_response`), so a 2.4 MB graph at 5,000 notes held
+    # every other request while it was turned into JSON. A response built
+    # in the route is encoded where the route runs; `jsonable_encoder` is
+    # what FastAPI would have applied, so the body is byte for byte the same.
+    #: `type_colours`, read with the types above: a type's own colour (Note
+    #: types), so the "Note type" rule paints a Meeting the colour the person
+    #: gave it; a type without one falls to the calm scheme in the page.
+    if slim:
+        _slim(nodes, edges)
+    payload = {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
+    #: **As it is first** (GRAPH_PLAN, the first build after a change). The
+    #: payload is plain dicts, lists, strings and numbers, which
+    #: `jsonable_encoder` walked value by value only to hand back unchanged:
+    #: 213,459 calls, 0.96 s of a 1.95 s cold build at 5,000 notes (cProfile).
+    #: `JSONResponse` encodes it as it stands, the same bytes; a value JSON
+    #: cannot take (a date an optional layer left as an object) falls back to
+    #: the encoder, as before.
+    try:
+        return JSONResponse(payload)
+    except (TypeError, ValueError):
+        return JSONResponse(jsonable_encoder(payload))
+
+
+#: **The slim payload** (`/graph?slim=1`, the map's own read; GRAPH_PLAN
+#: "Still open after KG1 to KG9", a slimmer node). Measured at 5,000 notes
+#: (`scratchpad/kg1005_graph_bench.py`): 3.1 MB, of which about a third was
+#: a value every note carries at its default and an unreasoned link's three
+#: nulls, plus timestamps to the microsecond. A note node leaves out each key
+#: at its default (the map's `graphFill`, graph.js, puts them back on
+#: arrival, so nothing after the fetch reads a different shape), its times
+#: are to the second and its centrality to six figures. Only note nodes and
+#: link edges: an entity's, a document's or a tag's node keeps its own keys.
+_NOTE_DEFAULTS = {
+    "kind": "note",
+    "note_type": None,
+    "graph_pin_x": None,
+    "graph_pin_y": None,
+    "parent_id": None,
+    "has_file": False,
+    "pinned": False,
+    "map_ids": [],
+    "tags": [],
+    "access_count": 0,
+}
+_LINK_DEFAULTS = ("reason", "reason_confidence", "link_type")
+
+
+def _slim(nodes: list[dict], edges: list[dict]) -> None:
+    for node in nodes:
+        if node.get("kind") != "note":
+            continue
+        for key, default in _NOTE_DEFAULTS.items():
+            if key in node and node[key] == default and type(node[key]) is type(default):
+                del node[key]
+        for key in ("created_at", "updated_at"):
+            if isinstance(node.get(key), str) and "." in node[key]:
+                head, _, tail = node[key].partition(".")
+                node[key] = head + tail.lstrip("0123456789")
+        if isinstance(node.get("centrality"), float):
+            node["centrality"] = float(f"{node['centrality']:.6g}")
+    for edge in edges:
+        if edge.get("kind") == "link":
+            for key in _LINK_DEFAULTS:
+                if key in edge and edge[key] is None:
+                    del edge[key]
+
+def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
+    """The live notes with these ids, read in chunks (SQLite's variable cap)."""
+    wanted = list(ids)
+    found: dict[int, Entry] = {}
+    for start in range(0, len(wanted), 500):
+        rows = session.scalars(
+            select(Entry).where(Entry.id.in_(wanted[start : start + 500]), Entry.is_deleted == False)  # noqa: E712
+        )
+        found.update((e.id, e) for e in rows)
+    return found
+
+
+def _local_topology(session: Session, similarity: bool) -> tuple[paths.Connections, dict, bool]:
+    """Who is joined to whom, and which way each line runs, once per version.
+
+    BACKLOG 29b item 4: focus mode loaded every note as an ORM object, built
+    the whole notebook's index and walked every link again for direction, on
+    every call, to draw a dozen notes. This is the same index built from
+    columns only (`paths.build_light`) and kept like centrality and the
+    similarity sweep are: one slot per `similarity` setting, keyed by the
+    notebook fingerprint (and the embedding model when similarity is on, its
+    edges being a function of both). A call then reads only the notes it draws.
+
+    Neither the index nor the direction map is touched after it is built, so
+    one value can be handed to concurrent requests.
+    """
+    use_similarity = similarity and not deps.get_config().get_preference("battery_efficient_mode")
+    key = (*_graph_fingerprint(session), use_similarity)
+    if use_similarity:
+        key = (*key, deps.get_embeddings().backend_id())
+
+    def build() -> tuple[paths.Connections, dict, bool]:
+        extra_edges: list[dict] = []
+        if use_similarity:
+            node_ids = set(
+                session.scalars(select(Entry.id).where(Entry.is_deleted == False))  # noqa: E712
+            )
+            extra_edges = _similarity_edges(session, node_ids, set())
+        index = paths.build_light(session, extra_edges=extra_edges)
+        #: Which way each link and thread runs. The index keeps one step per
+        #: direction, so the stored row says which end wrote it (a thread runs
+        #: from the note to its reply, as on `/graph`); tags and similarity
+        #: have no direction and pass either switch.
+        directed: dict[frozenset, tuple[int, int]] = {}
+        for source, target in session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id)
+        ):
+            directed.setdefault(frozenset((source, target)), (source, target))
+        for entry in index.entries.values():
+            if entry.parent_id in index.entries and entry.parent_id != entry.id:
+                directed.setdefault(frozenset((entry.parent_id, entry.id)), (entry.parent_id, entry.id))
+        return index, directed, bool(extra_edges)
+
+    return _cached(f"local_topology_{use_similarity}", key, build)
+
 
 @router.get("/graph/local/{entry_id}")
 def graph_local(
@@ -666,81 +1206,103 @@ def graph_local(
     # asks for more than 2-3 today.
     depth: int = Query(default=2, ge=1, le=6),
     similarity: bool = False,
+    # GRAPH_PLAN 514 (1), Obsidian's local graph switches: follow links into
+    # the note, out of it, and draw the lines between notes at one distance.
+    incoming: bool = True,
+    outgoing: bool = True,
+    neighbours: bool = True,
     session: Session = Depends(get_session)
 ) -> dict:
     """Focus Mode API: Gets the local neighborhood up to N degrees."""
-    config = deps.get_config()
-    extra_edges = []
-
-    if similarity and not config.get_preference("battery_efficient_mode"):
-        node_ids = set(
-            session.scalars(
-                select(Entry.id).where(Entry.is_deleted == False)  # noqa: E712
-            )
-        )
-        extra_edges = _similarity_edges(session, node_ids, set())
-
-    index = paths.build(session, extra_edges=extra_edges)
+    index, directed, _with_similarity = _local_topology(session, similarity)
 
     if entry_id not in index.entries:
         return {"nodes": [], "edges": [], "categories": []}
-        
-    # BFS up to `depth`
-    visited = {entry_id}
+
+    def oriented(a: int, b: int, kind: str) -> tuple[int, int]:
+        if kind not in ("link", "thread"):
+            return (a, b)
+        return directed.get(frozenset((a, b)), (a, b))
+
+    def allowed(a: int, ends: tuple[int, int], kind: str) -> bool:
+        if kind not in ("link", "thread"):
+            return incoming or outgoing
+        return outgoing if ends[0] == a else incoming
+
+    # BFS up to `depth`, keeping each note's distance from the centre.
+    distance = {entry_id: 0}
     queue = [entry_id]
     edges = []
     taken = set()
-    
-    for _ in range(depth):
+
+    for level in range(depth):
         next_queue = []
         for n in queue:
             for neighbor, step in index.neighbours(n).items():
+                ends = oriented(n, neighbor, step.kind)
+                if not allowed(n, ends, step.kind):
+                    continue
                 pair = frozenset((n, neighbor))
                 if pair not in taken:
                     taken.add(pair)
-                    edges.append({
-                        "source": n,
-                        "target": neighbor,
-                        "kind": step.kind
-                    })
-                if neighbor not in visited:
-                    visited.add(neighbor)
+                    edges.append({"source": ends[0], "target": ends[1], "kind": step.kind})
+                if neighbor not in distance:
+                    distance[neighbor] = level + 1
                     next_queue.append(neighbor)
         queue = next_queue
         if not queue:
             break  # nothing left to expand, further iterations would be no-ops
 
-    category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
+    visited = set(distance)
+    if neighbours:
+        # The lines between notes at one distance that the walk never crossed
+        # (two notes on the outer ring), whichever way they run.
+        for n in visited:
+            for neighbor, step in index.neighbours(n).items():
+                pair = frozenset((n, neighbor))
+                if neighbor in visited and pair not in taken and distance[n] == distance[neighbor]:
+                    taken.add(pair)
+                    ends = oriented(n, neighbor, step.kind)
+                    edges.append({"source": ends[0], "target": ends[1], "kind": step.kind})
+    else:
+        edges = [e for e in edges if distance[e["source"]] != distance[e["target"]]]
+
+    # The only notes read in full: the ones drawn (the index holds columns,
+    # not text).
+    drawn = _load_entries(session, visited)
+    category_names = manager.bulk_category_names(session, list(drawn.values()))
     nodes = [
         {
             "id": e_id,
-            "preview": _preview(manager.readable_content(index.entries[e_id])),
-            "category": category_names.get(index.entries[e_id].category_id, manager.UNCATEGORISED),
-            "access_count": index.entries[e_id].access_count,
-            "pinned": index.entries[e_id].pinned,
+            "preview": _preview(manager.readable_content(drawn[e_id])),
+            "category": category_names.get(drawn[e_id].category_id, manager.UNCATEGORISED),
+            "access_count": drawn[e_id].access_count,
+            "pinned": drawn[e_id].pinned,
             # Same pin-restore field as the top-level /graph, see that
             # endpoint's own comment. Focus Mode is the other real place a
             # double-click pin can be made or seen, so it needs the same
             # persistence, not just the top-level map.
-            "graph_pin_x": index.entries[e_id].graph_pin_x,
-            "graph_pin_y": index.entries[e_id].graph_pin_y,
-            "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
+            "graph_pin_x": drawn[e_id].graph_pin_x,
+            "graph_pin_y": drawn[e_id].graph_pin_y,
+            "parent_id": drawn[e_id].parent_id if drawn[e_id].parent_id in visited else None,
             # See the other node-list above: `created_at` is already
             # timezone-aware (`core/database.DateTime` guarantees it), so
             # `+ "Z"` on top of `.isoformat()`'s own `+00:00` produced an
             # unparseable double-suffixed string in JavaScript.
-            "created_at": index.entries[e_id].created_at.isoformat(),
+            "created_at": drawn[e_id].created_at.isoformat(),
             # The size rule's numbers, as on the whole map (see `graph`).
-            "words": _word_count(manager.readable_content(index.entries[e_id])),
-            "updated_at": (index.entries[e_id].updated_at or index.entries[e_id].created_at).isoformat(),
+            "words": _word_count(manager.readable_content(drawn[e_id])),
+            "updated_at": (drawn[e_id].updated_at or drawn[e_id].created_at).isoformat(),
         }
         for e_id in visited
+        if e_id in drawn
     ]
     
-    centrality_scores = _centrality(session, index, bool(extra_edges))
+    #: The map's numbers, not this neighbourhood's (`_centrality`).
+    centrality_scores = _centrality(session, similarity, False)
     for n in nodes:
         n["centrality"] = centrality_scores.get(n["id"], 0)
-        
+
     categories = sorted({n["category"] for n in nodes})
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
@@ -757,7 +1319,10 @@ def _path_node(entry: Entry, category_names: dict[int | None, str]) -> dict:
 
 
 @router.get("/graph/structure")
-def graph_structure(session: Session = Depends(get_session)) -> dict:
+def graph_structure(
+    topics: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> dict:
     """The shape of the notebook: clusters, hubs and orphans (§9).
 
     One call, because all three come off the same index and the view wants them
@@ -768,7 +1333,129 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
     # GRAPH_PLAN Phase 5: computed once per version of the notebook. The
     # colour rule "cluster" asks for this on every render, and community
     # detection over a big notebook is the slowest thing the graph does.
-    return _cached("structure", _graph_fingerprint(session), lambda: _build_structure(session))
+    fingerprint = _graph_fingerprint(session)
+    structure = _cached("structure", fingerprint, lambda: _build_structure(session))
+    if not topics:
+        return structure
+    #: GRAPH_PLAN KG6: named topics inside the islands, asked for separately
+    #: so the colour rule "cluster" pays nothing for them.
+    found = _cached("topics", fingerprint, lambda: _build_topics(session))
+    #: INBOX 547: the names the person gave, laid over after the cache, so a
+    #: rename shows at once without recomputing a single topic.
+    named = topic_finder.apply_names(
+        found["topics"], deps.get_config().get_preference(TOPIC_NAMES_KEY, [])
+    )
+    return {**structure, **found, "topics": named}
+
+
+#: The preference holding renamed topics: `[{"ids": [...], "name": "..."}]`.
+TOPIC_NAMES_KEY = "graph_topic_names"
+
+
+class TopicNameBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+    name: str = Field(default="", max_length=80)
+
+
+@router.put("/graph/topics/name")
+def name_topic(body: TopicNameBody) -> dict:
+    """Give a topic a name of your own, or clear it to get the found one back
+    (INBOX 547). Stored by the topic's notes, which are all a recomputed
+    topic can be recognised by (`topics.apply_names`)."""
+    name = " ".join(body.name.split())
+    config = deps.get_config()
+    stored = config.get_preference(TOPIC_NAMES_KEY, [])
+    config.set_preference(TOPIC_NAMES_KEY, topic_finder.store_name(stored, body.ids, name))
+    return {"name": name}
+
+
+class TopicSummaryBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+    name: str = Field(default="", max_length=200)
+    terms: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=10)
+
+
+@router.post("/graph/topics/summary")
+def topic_summary(body: TopicSummaryBody, session: Session = Depends(get_session)) -> dict:
+    """One sentence about a topic's notes, on demand (GRAPH_PLAN KG6).
+
+    The local model reads the titles and opening lines of a dozen of its
+    readable notes; the answer is cached by the members and their versions,
+    so an edit to one asks again and nothing else does. With no model, or a
+    model that fails, the answer is the terms the notes share
+    (`topics.terms_sentence`), never an error, and that answer is not cached,
+    so the model is asked again next time. Cancelling is the browser's: an
+    abandoned request still caches what it got, for the next ask.
+    """
+    rows = list(
+        session.scalars(select(Entry).where(Entry.id.in_(body.ids), Entry.is_deleted.is_(False)))
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Those notes could not be found.")
+    readable = sorted((e for e in rows if not e.is_private), key=lambda e: e.id)
+    key = tuple((e.id, str(e.updated_at or e.created_at)) for e in readable)
+    fallback = topic_finder.terms_sentence(len(rows), body.terms)
+    with _cache_lock:
+        hit = _summaries.get(key)
+    if hit:
+        return {"summary": hit, "source": "model", "cached": True}
+    ollama = deps.get_ollama()
+    if not readable or not ollama.is_running():
+        return {"summary": fallback, "source": "terms", "cached": False}
+    lines = []
+    for entry in readable[: topic_finder.SUMMARY_NOTES]:
+        text = " ".join(manager.readable_content(entry).split())
+        lines.append(f"- {text[: topic_finder.SUMMARY_CHARS]}")
+    hint = f"They share: {', '.join(body.terms[:5])}.\n" if body.terms else ""
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": topic_finder.SUMMARY_SYSTEM},
+                {"role": "user", "content": f"{hint}The notes:\n" + "\n".join(lines)},
+            ],
+        )
+        summary = " ".join(str(reply.get("content") or "").split()).strip("\"' ")
+    except Exception:  # noqa: BLE001  # any model failure reads as "no model"
+        summary = ""
+    if not summary:
+        return {"summary": fallback, "source": "terms", "cached": False}
+    summary = summary[:300]
+    with _cache_lock:
+        _summaries[key] = summary
+        while len(_summaries) > SUMMARY_CACHE_MAX:
+            _summaries.pop(next(iter(_summaries)))
+    return {"summary": summary, "source": "model", "cached": False}
+
+
+_TITLE_WORD = re.compile(r"[^\W\d_][\w'-]{3,}")
+
+
+def _build_topics(session: Session) -> dict:
+    """`entry/topics.build` over the same index as the clusters, with each
+    readable note's tags, entities and title words as the naming terms. A
+    private note is in a topic (its links are not secret) and lends no word."""
+    from memorymap.core.database import Entity, EntityMention
+    from memorymap.search.query import STOPWORDS
+
+    index = paths.build(session)
+    terms_of: dict[int, set[tuple[str, str]]] = {}
+    for entry in index.entries.values():
+        if entry.is_private:
+            continue
+        terms = {("tag", tag.lower()) for tag in _tags_of(entry)}
+        for word in _TITLE_WORD.findall(manager.plain_label(entry.content, 80).lower()):
+            if word not in STOPWORDS:
+                terms.add(("word", word))
+        terms_of[entry.id] = terms
+    for name, entry_id in session.execute(
+        select(Entity.name, EntityMention.entry_id).join(Entity, Entity.id == EntityMention.entity_id)
+    ):
+        if entry_id in terms_of and name and name.strip():
+            terms_of[entry_id].add(("entity", name.strip()))
+    found = topic_finder.build(index, terms_of)
+    topic_of = {str(node): topic["id"] for topic in found for node in topic["ids"]}
+    return {"topics": found, "topic_of": topic_of}
 
 
 def _build_structure(session: Session) -> dict:
@@ -929,6 +1616,8 @@ def graph_path(
         session, [index.entries[note_id] for note_id in everywhere]
     )
 
+    also = _hop_reasons(session, index, [(step.source, step.target) for one in chains for step in one])
+
     def rendered(one: list) -> dict:
         order = [source] + [step.target for step in one]
         return {
@@ -943,6 +1632,7 @@ def graph_path(
                     "target": step.target,
                     "kind": step.kind,
                     "how": step.how,
+                    "also": also.get((step.source, step.target), []),
                 }
                 for step in one
             ],
@@ -964,6 +1654,48 @@ def graph_path(
         #: …and all of them, best first. Always at least one element when
         #: `found` is true, so the UI has one shape to render rather than two.
         "routes": routes_out,
+    }
+
+
+def _hop_reasons(session: Session, index: paths.Connections, pairs: list[tuple[int, int]]) -> dict:
+    """GRAPH_PLAN KG8: every structural reason each hop's two notes relate,
+    beside the edge the route took (`relations.explain_pair`, the sentences
+    the link suggestions use). Nothing for a hop with a private end: its tags
+    and entities come from its text."""
+    from memorymap.ai import relations
+    from memorymap.core.database import Entity, EntityMention
+
+    readable = {
+        node: entry for node, entry in index.entries.items() if not entry.is_private
+    }
+    wanted = {node for pair in pairs for node in pair if node in readable}
+    if not wanted:
+        return {}
+    notes = {
+        node: relations.NoteFacts(
+            label=manager.plain_label(entry.content, 40) or "Untitled note",
+            tags=frozenset(tag.lower() for tag in _tags_of(entry)),
+        )
+        for node, entry in readable.items()
+    }
+    neighbours: dict[int, set[int]] = {}
+    for node, steps in index.edges.items():
+        for other, step in steps.items():
+            if step.kind in ("link", "thread"):
+                neighbours.setdefault(node, set()).add(other)
+    entity_ids = set(session.scalars(select(EntityMention.entity_id).where(EntityMention.entry_id.in_(wanted))))
+    entity_notes: dict[str, set[int]] = {}
+    if entity_ids:
+        for name, entry_id in session.execute(
+            select(Entity.name, EntityMention.entry_id)
+            .join(Entity, Entity.id == EntityMention.entity_id)
+            .where(EntityMention.entity_id.in_(entity_ids))
+        ):
+            entity_notes.setdefault((name or "").strip(), set()).add(entry_id)
+    return {
+        (a, b): relations.explain_pair(a, b, notes, neighbours, entity_notes)
+        for a, b in pairs
+        if a in readable and b in readable
     }
 
 

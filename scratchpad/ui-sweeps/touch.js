@@ -69,8 +69,12 @@ const SURFACES = [
     open: '#library-subtabs button[data-target="library-view-links"]' },
   { tab: 'library', label: 'Lib Contents', sel: '[data-dock-name="library-contents"]',
     open: '#library-subtabs button[data-target="library-view-contents"]' },
-  { tab: 'notes', label: 'Settings sheet', sel: '#settings-modal .modal-card',
-    open: '#settings-btn', close: '#settings-close' },
+  // One row per section worth a finger: the sheet shows a single section at a
+  // time, so "Settings" measured one section's controls and said nothing of the
+  // rest.
+  ...['general', 'models', 'appearance', 'preferences', 'data', 'privacy', 'account'].map((section) => ({
+    tab: 'notes', label: `Settings ${section}`, sel: `#settings-modal #settings-${section}`,
+    openFn: `openSettingsModal('${section}')`, close: '#settings-close' })),
 ];
 
 (async () => {
@@ -81,7 +85,17 @@ const SURFACES = [
     hasTouch: true,
     isMobile: true,
   });
-  await ctx.addInitScript(() => { try { localStorage.setItem('theme', 'light'); } catch (e) {} });
+  // The companion's one-time nudge is a toast that lands over the bottom of
+  // whatever is open (it read as "covered" on six Settings controls); lib.js
+  // marks it seen for every other sweep, and so does this one.
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem('theme', 'light');
+      localStorage.setItem('onboardingDone', '1');
+      localStorage.setItem('tourDone', '1');
+      localStorage.setItem('nm-buddy-hint', 'done');
+    } catch (e) {}
+  });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -89,6 +103,11 @@ const SURFACES = [
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
   await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
+  //: The opening curtain (lib.js, INBOX 577): the lock stays up, "Opening…",
+  //: while the first tab draws; read as a failed unlock, the field was
+  //: filled again as it faded and the fill timed out (qa-1005, light 390).
+  await page.waitForFunction(() => !document.documentElement.classList.contains('shell-curtain')
+    && !document.querySelector('#lock-overlay.lock-leaving'), null, { timeout: 15000, polling: 100 }).catch(() => {});
   if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
   }
@@ -104,10 +123,27 @@ const SURFACES = [
   if (!media.hoverNone) errors.push('the context is not reporting (hover: none) — the hover gating is not being exercised');
 
   let failures = 0;
+  // ONLY="Settings|Dashboard" runs the rows whose label matches, for a quick pass.
+  const only = process.env.ONLY ? new RegExp(process.env.ONLY, 'i') : null;
   for (const surface of SURFACES) {
-    await page.click(`[data-tab="${surface.tab}"]`).catch(() => {});
+    if (only && !only.test(surface.label)) continue;
+    // A tab with no visible button in the bar (Dashboard, Timeline and
+    // Reminders live behind the phone's More sheet below 600) cannot be
+    // clicked, and the old `.catch(() => {})` swallowed that: the page stayed on
+    // the previous tab, the surface was `display: none`, and the row measured
+    // "0 controls" and passed. A visible button is clicked as a finger would;
+    // otherwise the app's own `switchTab` is what the More sheet calls.
+    const viaBar = await page.isVisible(`#tab-bar [data-tab="${surface.tab}"]`).catch(() => false);
+    if (viaBar) await page.click(`#tab-bar [data-tab="${surface.tab}"]`);
+    else await page.evaluate((name) => switchTab(name), surface.tab);
     await page.waitForTimeout(600);
-    if (surface.open) {
+    if (surface.openFn) {
+      // The settings sheet's opener (#settings-btn) is inside the phone's
+      // header kebab below 600, so it is opened through the function the kebab
+      // row calls.
+      await page.evaluate((src) => { (0, eval)(src); }, surface.openFn);
+      await page.waitForTimeout(900);
+    } else if (surface.open) {
       await page.click(surface.open).catch(() => {});
       await page.waitForTimeout(700);
     }
@@ -131,17 +167,19 @@ const SURFACES = [
 
       const name = (e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : '.' + [...e.classList].slice(0, 2).join('.')}`;
 
-      // A switch, a radio and a slider are deliberately small, and the app's
+      // A switch and a radio are deliberately small, and the app's
       // own decision (06-timeline-dialogs.css, the `.checkbox-label` note) is
       // that the *label* around them is the hit area: a global floor on the
       // input itself turned every switch into a slab with its knob adrift,
       // and was reported with a screenshot within the hour. So measure what a
-      // person actually aims at. Only these three: every other control is its
+      // person actually aims at. Only these two: every other control is its
       // own target, and substituting a label for a button would hide a real
-      // finding behind a roomy row.
+      // finding behind a roomy row. A *slider* is its own target too: a tap on
+      // its label focuses it and moves nothing, and measuring the label let a
+      // 6.8x16px Settings slider pass as "How alike", 71x22.
       const target = (e) => {
         const kind = (e.getAttribute('type') || '').toLowerCase();
-        if (e.tagName !== 'INPUT' || !['checkbox', 'radio', 'range'].includes(kind)) return e;
+        if (e.tagName !== 'INPUT' || !['checkbox', 'radio'].includes(kind)) return e;
         return e.closest('label') || document.querySelector(`label[for="${CSS.escape(e.id)}"]`) || e;
       };
 
@@ -193,6 +231,7 @@ const SURFACES = [
         }
         let hit = document.elementFromPoint(x, y);
         let reached = hit && (control.contains(hit) || hit.contains(control));
+        const firstHit = hit ? name(hit) : 'nothing';
         if (!reached) {
           // Second chance, and it is not a weakening: a control near the end
           // of a scroll container cannot be centred, so `scrollIntoView` puts
@@ -211,7 +250,23 @@ const SURFACES = [
           }
         }
         if (!reached) {
-          covered.push(`${name(control)} at ${x},${y} hits ${hit ? name(hit) : 'nothing'}`);
+          // Third and last chance: a *sticky* strip (the settings sheet's
+          // section tabs) is not part of `innerHeight`, so a control inside the
+          // viewport can sit under it at its first position, and `block: 'start'`
+          // above scrolls it straight under that same strip. Centred is where a
+          // person's own scroll leaves it, clear of a header at the top and
+          // the bottom bar alike; a control covered here too is covered for real.
+          control.scrollIntoView({ block: 'center', inline: 'center' });
+          const mid = control.getBoundingClientRect();
+          const mx = Math.round(mid.left + mid.width / 2);
+          const my = Math.round(mid.top + mid.height / 2);
+          if (mx >= 0 && my >= 0 && mx <= innerWidth && my <= innerHeight) {
+            hit = document.elementFromPoint(mx, my);
+            reached = hit && (control.contains(hit) || hit.contains(control));
+          }
+        }
+        if (!reached) {
+          covered.push(`${name(control)} at ${x},${y} hits ${firstHit}, then ${hit ? name(hit) : 'nothing'} then centred (on top: ${(hit && (hit.closest('.toast, [role=status], dialog, .modal-overlay, nav, .dock') || hit).textContent || '').trim().replace(/\s+/g, ' ').slice(0, 50)})`);
         }
       }
       return { count: controls.length, small, covered, shared };
@@ -224,6 +279,13 @@ const SURFACES = [
 
     if (result.missing) {
       console.log(`${surface.label.padEnd(16)} NOT FOUND (${surface.sel})`);
+      failures += 1;
+      continue;
+    }
+    // A row that measured nothing is a failure, not a pass: that is how
+    // Dashboard, Timeline, Reminders and Settings sat at "0 controls" green.
+    if (result.count === 0) {
+      console.log(`${surface.label.padEnd(16)} 0 controls MEASURED (the surface did not open or is hidden)`);
       failures += 1;
       continue;
     }

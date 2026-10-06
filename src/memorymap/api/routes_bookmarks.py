@@ -7,6 +7,8 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
@@ -25,6 +27,10 @@ class BookmarkCreate(BaseModel):
     title: str = Field(default="", max_length=200)
     note: str = Field(default="", max_length=2000)
     group_name: str = Field(default="", max_length=120)
+    #: Carried on create so an Undo of a delete can put a link back exactly as
+    #: it was, pin and read state included.
+    pinned: bool = False
+    is_read: bool = False
 
 
 class BookmarkUpdate(BaseModel):
@@ -32,15 +38,16 @@ class BookmarkUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     note: str | None = Field(default=None, max_length=2000)
     pinned: bool | None = None
+    is_read: bool | None = None
     group_name: str | None = Field(default=None, max_length=120)
 
 
-#: The same allowlist `safeHref()` in frontend/app.js applies to markdown
+#: The same allowlist `safeHref()` in frontend/js/app.js applies to markdown
 #: links (`tests/test_markdown_link_schemes.py`): web, mail, phone. A bare
 #: host with no scheme at all ("google.com") is not on this list because it
 #: never reaches it, see below.
 ALLOWED_URL_SCHEMES = ("http", "https", "mailto", "tel")
-#: Same shape as the scheme frontend/notes-list.js's `safeHref()` looks for
+#: Same shape as the scheme frontend/js/notes-list.js's `safeHref()` looks for
 #: (`^[a-z][a-z0-9+.-]*:`): anything before the first colon that reads as a
 #: URI scheme, case-insensitively.
 _SCHEME_RE = re.compile(r"^([a-z][a-z0-9+.-]*):", re.IGNORECASE)
@@ -62,7 +69,7 @@ def _normalise_url(raw: str) -> str:
     """
     url = raw.strip()
     if not url:
-        raise HTTPException(status_code=422, detail="A bookmark needs a URL")
+        raise HTTPException(status_code=422, detail="A bookmark needs a web address.")
     match = _SCHEME_RE.match(url)
     if not match:
         return f"https://{url}"
@@ -71,7 +78,7 @@ def _normalise_url(raw: str) -> str:
         allowed = ", ".join(f"{s}:" for s in ALLOWED_URL_SCHEMES)
         raise HTTPException(
             status_code=422,
-            detail=f"URL scheme '{scheme}:' is not allowed. Allowed schemes: {allowed}.",
+            detail=f"Addresses starting with '{scheme}:' are not allowed. Pick one that starts with: {allowed}.",
         )
     return url
 
@@ -83,6 +90,7 @@ def _to_out(bookmark: Bookmark, duplicate_of: int | None = None) -> dict:
         "title": bookmark.title,
         "note": bookmark.note,
         "pinned": bookmark.pinned,
+        "is_read": bool(bookmark.is_read),
         "group_name": bookmark.group_name,
         "created_at": bookmark.created_at.isoformat(),
     }
@@ -97,7 +105,7 @@ def _to_out(bookmark: Bookmark, duplicate_of: int | None = None) -> dict:
 
 
 def _existing(session: Session, bookmark_id: int) -> Bookmark:
-    return deps.get_or_404(session, Bookmark, bookmark_id, "Bookmark not found")
+    return deps.get_or_404(session, Bookmark, bookmark_id, "That bookmark could not be found.")
 
 
 #: One page of saved links. A notebook's bookmarks grow with use and nothing
@@ -110,6 +118,7 @@ def list_bookmarks(
     response: Response,
     limit: int = Query(default=BOOKMARKS_PAGE_SIZE, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """Pinned first, then newest first within each group, one page at a time.
@@ -118,6 +127,7 @@ def list_bookmarks(
     the same second could otherwise swap places between two pages and hide one
     of them, which is the bug a paged list without a stable sort always has.
     """
+    offset = paging.start(cursor, offset)
     total = session.scalar(select(func.count(Bookmark.id))) or 0
     rows = session.scalars(
         select(Bookmark)
@@ -126,6 +136,7 @@ def list_bookmarks(
         .offset(offset)
     )
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     return [_to_out(b) for b in rows]
 
 
@@ -138,6 +149,8 @@ def create_bookmark(body: BookmarkCreate, session: Session = Depends(get_session
         title=body.title.strip(),
         note=body.note.strip(),
         group_name=body.group_name.strip(),
+        pinned=body.pinned,
+        is_read=body.is_read,
     )
     session.add(bookmark)
     session.flush()
@@ -159,6 +172,8 @@ def update_bookmark(
         bookmark.note = body.note.strip()
     if body.pinned is not None:
         bookmark.pinned = body.pinned
+    if body.is_read is not None:
+        bookmark.is_read = body.is_read
     if body.group_name is not None:
         bookmark.group_name = body.group_name.strip()
     session.commit()

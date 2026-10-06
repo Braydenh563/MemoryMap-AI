@@ -21,6 +21,7 @@ import http.client
 import json
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -65,16 +66,80 @@ def _setup(client) -> dict:
 
 def test_it_is_off_by_default_and_binds_loopback(app_state):
     assert netbind.lan_enabled(app_state) is False
-    assert netbind.bind_host(app_state) == "127.0.0.1"
+    assert netbind.bind_host(app_state, has_password=True) == "127.0.0.1"
 
 
 def test_only_a_literal_true_turns_it_on(app_state):
     """A hand-edited preferences file must not open the notebook by accident."""
     for value in ("yes", 1, "true", [True]):
         app_state.set_preference(netbind.LAN_PREF, value)
-        assert netbind.bind_host(app_state) == "127.0.0.1", value
+        assert netbind.bind_host(app_state, has_password=True) == "127.0.0.1", value
     app_state.set_preference(netbind.LAN_PREF, True)
-    assert netbind.bind_host(app_state) == "0.0.0.0"
+    # Every interface: IPv4 and IPv6 on one socket where the machine has
+    # both, IPv4 alone where it has no IPv6 (this sandbox).
+    assert netbind.bind_host(app_state, has_password=True) == ("::" if netbind.dual_stack() else "0.0.0.0")
+
+
+# --- IPv6 (WORLD_CLASS_PLAN §12, row 2) -------------------------------------------
+
+
+def test_without_dual_stack_lan_mode_binds_ipv4(app_state, monkeypatch):
+    app_state.set_preference(netbind.LAN_PREF, True)
+    monkeypatch.setattr(netbind, "dual_stack", lambda: False)
+    assert netbind.bind_host(app_state, has_password=True) == "0.0.0.0"
+    monkeypatch.setattr(netbind, "dual_stack", lambda: True)
+    assert netbind.bind_host(app_state, has_password=True) == "::"
+    assert netbind.is_loopback_bind("::") is False
+
+
+def test_only_the_dual_stack_host_gets_a_socket_of_its_own():
+    assert netbind.listening_socket("127.0.0.1", 0) is None
+    assert netbind.listening_socket("0.0.0.0", 0) is None
+
+
+def test_an_ipv4_client_on_the_dual_stack_socket_is_still_this_computer():
+    """On the dual-stack socket IPv4 arrives as `::ffff:a.b.c.d`, and Python
+    does not call `::ffff:127.0.0.1` loopback: the guard reads the IPv4 inside."""
+    assert netbind.arrived_on_loopback(("::ffff:127.0.0.1", 8000)) is True
+    assert netbind.arrived_on_loopback(("::1", 8000)) is True
+    assert netbind.arrived_on_loopback(("[::1]", 8000)) is True
+    assert netbind.arrived_on_loopback(("::ffff:192.168.1.5", 8000)) is False
+    assert netbind.arrived_on_loopback(("2001:db8::5", 8000)) is False
+    assert netbind.arrived_on_loopback(("fd12:3456::7", 8000)) is False
+
+
+def test_ipv6_addresses_are_listed_bracketed_and_never_link_local(monkeypatch, app_state):
+    def fake_getaddrinfo(host, port, family=0, *args, **kwargs):
+        if family == socket.AF_INET6:
+            return [
+                (family, 1, 6, "", ("fe80::1%eth0", 0, 0, 2)),
+                (family, 1, 6, "", ("::1", 0, 0, 0)),
+                (family, 1, 6, "", ("2001:db8::5", 0, 0, 0)),
+                (family, 1, 6, "", ("fd12:3456::7", 0, 0, 0)),
+                (family, 1, 6, "", ("::ffff:192.168.1.9", 0, 0, 0)),
+            ]
+        return [(socket.AF_INET, 1, 6, "", ("192.168.1.9", 0))]
+
+    monkeypatch.setattr(netbind.socket, "getaddrinfo", fake_getaddrinfo)
+    monkeypatch.setattr(netbind.sys, "platform", "test")
+    assert netbind.lan_addresses(include_v6=True) == ["192.168.1.9", "2001:db8::5", "fd12:3456::7"]
+    assert netbind.lan_addresses(include_v6=False) == ["192.168.1.9"]
+    assert netbind.url_host("2001:db8::5") == "[2001:db8::5]"
+    assert netbind.url_host("192.168.1.9") == "192.168.1.9"
+    monkeypatch.setattr(netbind, "lan_addresses", lambda include_v6=None: ["192.168.1.9", "2001:db8::5"])
+    app_state.set_preference(netbind.LAN_PREF, True)
+    netbind.set_current("::")
+    # LAN mode is HTTPS on its own port (8443 beside 8000; core/lancert.py).
+    assert netbind.describe(app_state, 8000)["addresses"] == [
+        "https://192.168.1.9:8443",
+        "https://[2001:db8::5]:8443",
+    ]
+
+
+def test_a_bracketed_ipv6_host_header_names_this_computer():
+    assert netbind.host_allowed("[::1]:8000")
+    assert netbind.host_allowed("[2001:db8::5]:8000")
+    assert not netbind.host_allowed("evil.example:8000")
 
 
 def test_turning_it_on_needs_the_current_password(client, app_state):
@@ -144,10 +209,13 @@ def test_host_names_that_are_this_computer():
     assert not netbind.host_allowed("evil.example")
 
 
-def test_the_guard_runs_only_when_listening_beyond_this_computer(client):
-    """On loopback a rebinding page can reach only what the Origin check and
-    the lock already cover (and the test client's own Host is a name)."""
+def test_the_guard_judges_every_real_socket(client):
+    """The in-process test client (its scope names `testserver`, never a
+    number) is not judged; a request on a numbered address is, loopback
+    included (SEC-05)."""
+    _setup(client)
     assert client.get("/health", headers={"Host": "evil.example"}).status_code == 200
+    assert _local(client).get("/health", headers={"Host": "evil.example"}).status_code == 421
     netbind.set_current("0.0.0.0")
     refused = client.get("/health", headers={"Host": "evil.example"})
     assert refused.status_code == 421
@@ -182,7 +250,7 @@ def _through_host_check(server: tuple, host: str | None) -> tuple[int | None, bo
     return status, bool(ran)
 
 
-def test_the_guard_keys_on_the_address_the_request_arrived_at():
+def test_the_guard_keys_on_the_address_the_request_arrived_at(monkeypatch):
     """`set_current` is the launcher's word (review, 2026-09-26): a server
     started any other way on 0.0.0.0 (`uvicorn --host 0.0.0.0`, the sweeps'
     serve.sh, a container) never called it, so the guard stayed off while
@@ -192,6 +260,9 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at():
     said, and one that came in on loopback never does. Off loopback a
     request with no Host at all is refused too: HTTP/1.1 requires one, so
     nothing legitimate on the network omits it."""
+    from memorymap.core import security
+
+    monkeypatch.setattr(security, "_notebook_has_password", lambda: True)
     netbind.set_current(netbind.LOOPBACK)
     lan = ("192.168.1.9", 8000)
     assert _through_host_check(lan, "evil.example") == (421, False)
@@ -200,8 +271,13 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at():
     assert _through_host_check(lan, "LOCALHOST:8000") == (None, True)
     assert _through_host_check(lan, "evil.example.:8000") == (421, False)
     assert _through_host_check(lan, None) == (421, False)
-    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (None, True)
-    assert _through_host_check(("::1", 8000), "evil.example") == (None, True)
+    # On loopback too since SEC-05 (audit 2026-10-05): a rebinding page
+    # arrives on 127.0.0.1 naming its own domain. A local tool that sends no
+    # Host at all is still served.
+    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (421, False)
+    assert _through_host_check(("::1", 8000), "evil.example") == (421, False)
+    assert _through_host_check(("127.0.0.1", 8000), "localhost:8000") == (None, True)
+    assert _through_host_check(("127.0.0.1", 8000), None) == (None, True)
     # The test client's own scope names the server rather than numbering it.
     assert _through_host_check(("testserver", 80), "evil.example") == (None, True)
 
@@ -229,6 +305,8 @@ def _free_port() -> int:
 
 
 def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Path]:
+    """The real launcher. The HTTPS port other devices use is `port + 1000`,
+    pinned through `MEMORYMAP_LAN_PORT` (see `_lan_port`)."""
     data = tmp_path / "data"
     data.mkdir(parents=True, exist_ok=True)
     (data / "preferences.json").write_text(json.dumps(preferences))
@@ -239,6 +317,7 @@ def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Pa
         "PYTHONPATH": str(ROOT / "src"),
         "MEMORYMAP_DATA_DIR": str(data),
         "MEMORYMAP_PORT": str(port),
+        "MEMORYMAP_LAN_PORT": str(_lan_port(port)),
     }
     proc = subprocess.Popen(  # noqa: S603  # our own launcher, fixed argv
         [sys.executable, "-m", "memorymap"],
@@ -272,14 +351,29 @@ def _stop(proc: subprocess.Popen) -> None:
         proc.wait(timeout=5)
 
 
-class _Http:
-    """http.client, never a proxy: the point is which socket the server sees."""
+def _lan_port(port: int) -> int:
+    """`_free_port` hands out ports below 61000 on Linux, so this fits."""
+    return port + 1000 if port + 1000 < 65536 else port - 1000
 
-    def __init__(self, address: str, port: int) -> None:
-        self.address, self.port = address, port
+
+class _Http:
+    """http.client, never a proxy: the point is which socket the server sees.
+
+    With `cafile`, HTTPS verified against the notebook's own certificate and
+    nothing else: the address has to be in its names (the SAN), or the
+    handshake fails, which is the test of the names."""
+
+    def __init__(self, address: str, port: int, cafile: Path | None = None) -> None:
+        self.address, self.port, self.cafile = address, port, cafile
+
+    def _connection(self):
+        if self.cafile is None:
+            return http.client.HTTPConnection(self.address, self.port, timeout=30)
+        context = ssl.create_default_context(cafile=str(self.cafile))
+        return http.client.HTTPSConnection(self.address, self.port, timeout=30, context=context)
 
     def call(self, method: str, path: str, body=None, headers=None, host=None):
-        conn = http.client.HTTPConnection(self.address, self.port, timeout=30)
+        conn = self._connection()
         try:
             sent = {"Host": host or f"{self.address}:{self.port}", **(headers or {})}
             payload = None
@@ -307,20 +401,42 @@ def network_address():
 
 
 def test_lan_mode_end_to_end(tmp_path, network_address):
-    proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True, "web_search_enabled": True})
+    # SEC-01: with the switch on but no password yet, the launcher listens
+    # on this computer only; the password is set here, then it restarts.
+    prefs = {netbind.LAN_PREF: True, "web_search_enabled": True}
+    proc, port, log = _start(tmp_path, prefs)
     try:
-        lan = _Http(network_address, port)
+        with pytest.raises(OSError):
+            _Http(network_address, port).call("GET", "/auth/status")
+        status, _, _ = _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})
+        assert status == 200
+    finally:
+        _stop(proc)
+    proc, port, log = _start(tmp_path, prefs)
+    try:
+        cert = tmp_path / "data" / "lan-tls" / "cert.pem"
+        lan = _Http(network_address, _lan_port(port), cafile=cert)
         here = _Http("127.0.0.1", port)
+
+        # The network gets HTTPS only (the owner, 2026-10-05; SEC-08): the
+        # plain http port answers on this computer alone, and the HTTPS one
+        # refuses a plain request.
+        with pytest.raises(OSError):
+            _Http(network_address, port).call("GET", "/health")
+        with pytest.raises((OSError, http.client.HTTPException)):
+            _Http(network_address, _lan_port(port)).call("GET", "/health")
 
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")
-        assert status == 200 and body["setup_required"] is True
-        status, body, _ = here.call("POST", "/auth/setup", {"password": PASSWORD})
+        assert status == 200 and body["setup_required"] is False
+        status, body, _ = here.call("POST", "/auth/unlock", {"password": PASSWORD})
         assert status == 200
         owner = {"X-Auth-Token": body["token"]}
         status, receipt, _ = here.call("GET", "/privacy/receipt", headers=owner)
         assert receipt["listening"]["other_devices"] is True
-        assert any(network_address in url for url in receipt["listening"]["addresses"])
+        assert f"https://{network_address}:{_lan_port(port)}" in receipt["listening"]["addresses"]
+        status, state, _ = here.call("GET", "/auth/lan-access", headers=owner)
+        assert state["certificate"]["fingerprint"] in log.read_text()
 
         # A device on the network is never let in without the password, even
         # with sign-in off for this computer.
@@ -334,15 +450,14 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert here.call("POST", "/auth/auto-session")[0] == 200
         assert lan.call("GET", "/entries")[0] == 401
 
-        # The media cookie, not the session token, opens pictures; on plain
-        # http to a network address it cannot be Secure (the browser would
-        # drop it), and it is HttpOnly and SameSite=Strict.
+        # The media cookie, not the session token, opens pictures; over
+        # HTTPS it is Secure, as well as HttpOnly and SameSite=Strict.
         status, body, headers = lan.call("POST", "/auth/unlock", {"password": PASSWORD})
         assert status == 200
         phone = body["token"]
         cookies = [value for name, value in headers if name.lower() == "set-cookie"]
         assert cookies and all("httponly" in c.lower() and "samesite=strict" in c.lower() for c in cookies)
-        assert not any("secure" in c.lower() for c in cookies)
+        assert all("; secure" in c.lower() for c in cookies)
         ticket = cookies[0].split(";", 1)[0]
         assert lan.call("GET", f"/media/nothing.png?token={phone}")[0] == 401
         assert lan.call("GET", "/media/nothing.png", headers={"Cookie": ticket})[0] == 404
@@ -365,7 +480,7 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert not [d for d in receipt["destinations"] if d["host"] == "10.0.0.1"]
 
         # DNS rebinding: a name that is not this computer is refused.
-        assert lan.call("GET", "/health", host=f"evil.example:{port}")[0] == 421
+        assert lan.call("GET", "/health", host=f"evil.example:{_lan_port(port)}")[0] == 421
         assert lan.call("GET", "/health")[0] == 200
 
         # Wrong guesses from the network do not lock out this computer.
@@ -389,3 +504,94 @@ def test_without_the_switch_the_network_cannot_connect(tmp_path, network_address
             _Http(network_address, port).call("GET", "/health")
     finally:
         _stop(proc)
+
+
+@pytest.mark.skipif(not netbind.dual_stack(), reason="this machine has no dual-stack IPv6 (the sandbox has no IPv6 at all)")
+def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
+    """The plan's own test: the real launcher with LAN mode on, reached once
+    over `[::1]` and once over IPv4, the same server both times."""
+    # No password yet means loopback only (SEC-01): set one, then restart.
+    proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
+    try:
+        assert _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})[0] == 200
+    finally:
+        _stop(proc)
+    proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
+    try:
+        # The dual-stack socket is the HTTPS one (loopback http is 127.0.0.1).
+        cert = tmp_path / "data" / "lan-tls" / "cert.pem"
+        here_v6 = _Http("::1", _lan_port(port), cafile=cert)
+        here_v4 = _Http("127.0.0.1", _lan_port(port), cafile=cert)
+        status, body, _ = here_v6.call("GET", "/auth/status", host=f"[::1]:{_lan_port(port)}")
+        assert status == 200 and body["setup_required"] is False
+        status, body, _ = here_v4.call("POST", "/auth/unlock", {"password": PASSWORD})
+        assert status == 200
+        owner = {"X-Auth-Token": body["token"]}
+        # Both arrive on loopback: [::1] is, and 127.0.0.1 arrives as
+        # ::ffff:127.0.0.1, which the guard reads as loopback too.
+        assert here_v6.call("POST", "/auth/auto-session", host=f"[::1]:{_lan_port(port)}")[0] in (200, 403)
+        status, receipt, _ = here_v6.call(
+            "GET", "/privacy/receipt", headers=owner, host=f"[::1]:{_lan_port(port)}"
+        )
+        assert status == 200
+        assert receipt["listening"]["other_devices"] is True
+        assert receipt["listening"]["host"] == "::"
+    finally:
+        _stop(proc)
+    assert "token=" not in log.read_text().replace("token=[redacted]", "")
+
+
+# --- SEC-01: a reset never leaves an open notebook on the network --------------------
+
+
+def _lan(client) -> TestClient:
+    """A request that arrived on a network address, as a phone's would: the
+    ASGI scope's `server` is taken from the base URL."""
+    return TestClient(client.app, base_url="http://192.168.1.9:8795", client=("192.168.1.50", 50000))
+
+
+def test_no_password_means_loopback_whatever_the_switch_says(app_state):
+    """SEC-01 (audit 2026-10-05): `--reset-password` deletes the user row and
+    the next launch bound 0.0.0.0 with nothing to ask for."""
+    app_state.set_preference(netbind.LAN_PREF, True)
+    assert netbind.bind_host(app_state, has_password=False) == "127.0.0.1"
+    assert netbind.bind_host(app_state, has_password=True) != "127.0.0.1"
+
+
+def test_reset_password_turns_lan_mode_off(app_state, monkeypatch, capsys):
+    from memorymap import __main__ as launcher
+    from memorymap.core import deps
+    from memorymap.core.database import User
+
+    with deps.get_db().session() as session:
+        session.add(User(username="owner", password_hash="x"))
+        session.commit()
+    app_state.set_preference(netbind.LAN_PREF, True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "RESET")
+    assert launcher._reset_password() == 0
+    assert netbind.lan_enabled(app_state) is False
+    assert "other devices" in capsys.readouterr().out.lower()
+
+
+def test_without_a_password_the_network_gets_nothing(client):
+    """Even on a server bound to the network some other way (uvicorn
+    --host 0.0.0.0, a container), a request that arrives off loopback before
+    a password exists is refused: no notes, no status, no claiming the
+    notebook with /auth/setup."""
+    lan = _lan(client)
+    for method, path, body in (
+        ("GET", "/entries?limit=5", None),
+        ("GET", "/auth/status", None),
+        ("POST", "/auth/setup", {"password": PASSWORD}),
+        ("GET", "/health", None),
+        ("GET", "/", None),
+    ):
+        response = lan.request(method, path, json=body)
+        assert response.status_code == 403, (path, response.status_code)
+    # This computer is still served, and once a password exists the network
+    # gets the ordinary lock screen.
+    assert _local(client).get("/auth/status").json()["setup_required"] is True
+    _setup(client)
+    assert lan.get("/auth/status").status_code == 200
+    assert lan.get("/entries?limit=5").status_code == 401
+

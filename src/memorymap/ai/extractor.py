@@ -50,6 +50,7 @@ from memorymap.ai.links import _clean_reason, _is_vague_reason
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.entry import manager
+from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import search_manager
 
 logger = logging.getLogger("memorymap.ai.extractor")
@@ -132,7 +133,10 @@ def _extract_json_object(text: str) -> dict:
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end <= start:
         raise ValueError(f"no JSON object in reply: {text!r}")
-    parsed = json.loads(text[start : end + 1])
+    try:
+        parsed = json.loads(text[start : end + 1])
+    except RecursionError as exc:
+        raise ValueError("reply JSON is nested too deeply") from exc
     if not isinstance(parsed, dict):
         raise ValueError("reply JSON is not an object")
     return parsed
@@ -210,7 +214,7 @@ def merge_near_duplicates(
 
 
 def _short_preview(text: str, length: int = 120) -> str:
-    plain = manager.WIKI_LINK.sub(r"\1", text or "")
+    plain = manager.wiki_plain(strip_properties(text).lstrip())
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 

@@ -17,6 +17,16 @@ from pathlib import Path
 
 from memorymap.core import launch_status, startup_status
 
+# **A packaged build writes no bytecode into its own folder.** The bundle's
+# modules are precompiled, but Alembic runs `migrations/env.py` and every
+# revision from the files beside the exe, and the frozen interpreter cached
+# each one in `_internal\migrations\__pycache__` (measured on a build of the
+# Windows spec, on the first start with a working alembic.ini). The
+# uninstaller removes only what it installed, so the install folder outlived
+# every uninstall; and a per-machine install folder is not writable anyway.
+if getattr(sys, "frozen", False):
+    sys.dont_write_bytecode = True
+
 logger = logging.getLogger("memorymap.launcher")
 
 HOST = "127.0.0.1"  # local only: this is a private app
@@ -470,18 +480,25 @@ def _run_server() -> None:
     from memorymap.core import deps, netbind
 
     app = create_app()
-    # LAN mode (core/netbind.py): 0.0.0.0 only when "Allow other devices on
-    # this network" was turned on with the password; 127.0.0.1 otherwise.
-    # Everything else in this file keeps talking to the server on HOST, which
-    # a 0.0.0.0 bind answers too.
-    bind = netbind.bind_host(deps.get_config())
-    netbind.set_current(bind)
-    if bind != HOST:
+    # LAN mode (core/netbind.py): a second, HTTPS listener on every interface
+    # only when "Allow other devices on this network" was turned on with the
+    # password (`_serve_with_lan`). This computer always has plain http on
+    # HOST:PORT, which everything else in this file talks to.
+    config = deps.get_config()
+    has_password = _password_exists(deps.get_db())
+    bind = netbind.bind_host(config, has_password=has_password)
+    if netbind.lan_enabled(config) and not has_password:
+        # SEC-01: never an open notebook on the network. The switch stays as
+        # it is; it takes effect once a password is set and the app restarts.
         logger.warning(
-            "Other devices on this network can reach this notebook (with the password): %s",
-            ", ".join(f"http://{a}:{PORT}" for a in netbind.lan_addresses()) or bind,
+            "Other devices on this network are not let in until a password is set: "
+            "listening on this computer only."
         )
-    uvicorn.run(app, host=bind, port=PORT, log_level="info")
+    if bind == HOST:
+        netbind.set_current(bind)
+        uvicorn.run(app, host=bind, port=PORT, log_level="info")
+    else:
+        _serve_with_lan(uvicorn, app, config, bind)
     # **The process used to sit here for 5 to 9 seconds after "Finished
     # server process" was already logged** (INBOX 423i). Every synchronous
     # route in this app (almost all of them: `def`, not `async def`) is run
@@ -505,6 +522,109 @@ def _run_server() -> None:
     # microseconds of work, not a wait. `join(1.0)` bounds this function's
     # own worst case rather than trusting that to be instant everywhere.
     _stop_lingering_worker_threads()
+
+
+def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
+    """LAN mode: plain http on loopback as always, HTTPS for the network.
+
+    The owner, 2026-10-05: "Yes, self-signed HTTPS" (WORLD_CLASS_PLAN 12,
+    "Decisions made"; SEC-08). This computer keeps `http://127.0.0.1:PORT`,
+    which the launcher's health checks, the desktop window and every saved
+    tab use, and a browser treats as trustworthy anyway. Other devices get
+    TLS on `netbind.lan_port(PORT)` (8443 beside 8000) with the certificate
+    `core/lancert.py` made on this computer: two listeners, one app, one event
+    loop, because one socket cannot speak both and a wildcard bind beside a
+    loopback bind on the same port conflicts on Linux.
+
+    If the HTTPS port is taken, the notebook stays on this computer only and
+    says so, rather than failing to start.
+    """
+    import asyncio
+    import contextlib
+    import socket as socket_module
+
+    from memorymap.core import lancert, netbind
+
+    lan_port = netbind.lan_port(PORT)
+    info = lancert.ensure(config.data_dir)
+    #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
+    #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
+    #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
+    sock = netbind.listening_socket(bind, lan_port)
+    if bind == netbind.ALL_INTERFACES_V6 and sock is None:
+        bind = netbind.ALL_INTERFACES
+    if sock is None:
+        try:
+            sock = socket_module.create_server((bind, lan_port))
+        except OSError as exc:
+            logger.warning(
+                "Other devices can't reach this notebook: port %s is taken (%s). "
+                "Listening on this computer only.", lan_port, exc,
+            )
+            netbind.set_current(HOST)
+            uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+            return
+    netbind.set_current(bind)
+    netbind.set_lan_port(lan_port)
+    addresses = ", ".join(
+        f"https://{netbind.url_host(a)}:{lan_port}"
+        for a in netbind.lan_addresses(include_v6=sock.family == socket_module.AF_INET6)
+    ) or bind
+    # Printed, not only logged: the terminal is where the person starting the
+    # app looks, and the fingerprint is what they compare on the phone.
+    print(
+        f"Other devices on this network can open this notebook (with the password, over HTTPS): {addresses}\n"
+        f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
+        flush=True,
+    )
+
+    class _NoSignals(uvicorn.Server):
+        """The second listener leaves Ctrl+C and SIGTERM to the first, which
+        `serve_both` then passes on, so one signal ends both."""
+
+        def capture_signals(self):  # noqa: ANN202
+            return contextlib.nullcontext()
+
+    local = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT, log_level="info"))
+    lan_config = uvicorn.Config(
+        app,
+        host=bind,
+        port=lan_port,
+        log_level="info",
+        lifespan="off",  # the app starts and stops once, with the first listener
+        ssl_certfile=str(info.cert_path),
+        ssl_keyfile=str(info.key_path),
+    )
+    lan_config.load()
+    # "Regenerate certificate" in Settings reaches this context (lancert.reload).
+    lancert.set_live_context(lan_config.ssl)
+    lan = _NoSignals(lan_config)
+
+    async def serve_both() -> None:
+        first = asyncio.ensure_future(local.serve())
+        while not local.started and not first.done():
+            await asyncio.sleep(0.05)
+        if first.done():
+            sock.close()
+            #: Done already, so its result is ready: re-raise whatever stopped
+            #: the local server rather than start the LAN one.
+            first.result()
+            return
+        second = asyncio.ensure_future(lan.serve(sockets=[sock]))
+        while not first.done() and not second.done():
+            if local.should_exit or lan.should_exit:
+                local.should_exit = lan.should_exit = True
+            await asyncio.sleep(0.2)
+        local.should_exit = lan.should_exit = True
+        await asyncio.gather(first, second, return_exceptions=True)
+
+    try:
+        asyncio.run(serve_both())
+    except KeyboardInterrupt:
+        logger.debug("server stopped by Ctrl+C")
+    finally:
+        lancert.set_live_context(None)
+        netbind.set_lan_port(None)
 
 
 def _stop_lingering_worker_threads(timeout: float = 1.0) -> None:
@@ -572,15 +692,37 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
     return False
 
 
+def _bootloader_splash():
+    """`pyi_splash`, when the bootloader really opened a splash, else None.
+
+    **The environment variable is checked before the import, not after.**
+    PyInstaller bundles `pyi_splash` into any build whose code names it, with
+    or without a `Splash` in the spec, and importing it where the bootloader
+    made no splash prints a traceback ("The environment does not allow
+    connecting to the splash screen", `KeyError: '_PYI_SPLASH_IPC'`) on the
+    way to failing. This spec has had no splash since 0.3.3, so every launch
+    of the packaged app wrote that traceback into `desktop-stdio.log`, twice,
+    the first thing anyone reading a support bundle saw (measured on the
+    Linux build of the Windows spec). `_PYI_SPLASH_IPC` is what the
+    bootloader sets when it has a splash to talk to.
+    """
+    if "_PYI_SPLASH_IPC" not in os.environ:
+        return None
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except Exception:  # noqa: BLE001  # ImportError, or the module's own failure
+        return None
+    return pyi_splash
+
+
 def _splash_status(text: str) -> None:
     """Say what the app is doing on the packaged exe's bootloader splash.
 
     The splash is a still card (memorymap.spec); this line under its rule is
     the part that moves, so a slow first launch reads as work, not a hang.
     Does nothing outside a PyInstaller build made with a splash."""
-    try:
-        import pyi_splash  # type: ignore[import-not-found]
-    except ImportError:
+    pyi_splash = _bootloader_splash()
+    if pyi_splash is None:
         return
     try:
         pyi_splash.update_text(text)
@@ -597,9 +739,8 @@ def _close_bootloader_splash() -> None:
     once the app window is shown rather than when it is created: between the
     two there is nothing on screen, which is the gap the splash is for.
     """
-    try:
-        import pyi_splash  # type: ignore[import-not-found]
-    except ImportError:
+    pyi_splash = _bootloader_splash()
+    if pyi_splash is None:
         return
     try:
         pyi_splash.close()
@@ -724,7 +865,9 @@ def _mark_start_step_done(window) -> None:
 
 def _port_holder(port: int) -> str:
     """Who has `port` on HOST: "free", "memorymap" (another copy of this
-    app, which answers `/health` with its name) or "other".
+    app on this launch's data directory, which answers `/health` with its
+    name and `/instance` with the folder) or "other" (anything else, a
+    MemoryMap on a different data directory included).
 
     A bind first, not a connect: on Windows a connect to a closed local port
     is retried for about two seconds before it is refused, and this runs on
@@ -755,8 +898,25 @@ def _port_holder(port: int) -> str:
         except OSError:
             return "free"
     if isinstance(body, dict) and body.get("app") == "MemoryMap AI":
-        return "memorymap"
+        return "memorymap" if _serves_this_notebook(port) else "other"
     return "other"
+
+
+def _serves_this_notebook(port: int) -> bool:
+    """Whether the MemoryMap on `port` serves *this* launch's data directory
+    (WORLD_CLASS 423 g). `/health` only carries the app's name, so a second
+    copy pointed at a different folder used to be taken for this one and the
+    window opened onto the wrong notebook. `/instance` reports a hash of the
+    resolved folder (lower-cased on Windows). A server too old to have the
+    route says nothing, and is still given the benefit of the doubt, which is
+    what every launch did before."""
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    theirs = instance_lock.served_data_dir_id(port, HOST)
+    if theirs is None:
+        return True
+    return theirs == instance_lock.data_dir_id(resolved_data_dir())
 
 
 def _desktop_port() -> int:
@@ -815,6 +975,27 @@ def _wait_for_server_with_progress(window, timeout: float = 45.0) -> bool:
     return False
 
 
+def _claim_notebook() -> None:
+    """Choose the server's port and write `instance.lock`, before any window.
+
+    **Why here.** The claim used to be made in `_boot_and_swap`, after the
+    window was on screen and the server thread was about to start: a second
+    double-click inside that gap read "no lock" and started a second server
+    on the same SQLite file (the very thing the lock exists to stop). The
+    check in `_run_desktop` and this claim now have only the relaunch
+    decision and the WebView2 probe between them, both without a window or
+    an import of the app. A copy that arrives in the remaining gap sees the
+    lock as "starting" (live pid, silent port) and waits for it.
+    """
+    global PORT
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    PORT = _desktop_port()
+    os.environ["MEMORYMAP_PORT"] = str(PORT)
+    instance_lock.claim(resolved_data_dir(), PORT)
+
+
 def _boot_and_swap(window) -> None:
     """Runs on pywebview's own post-start background thread (`func=` below)
     once the loading window is already on screen. Starts the real server,
@@ -827,19 +1008,14 @@ def _boot_and_swap(window) -> None:
     window's whole lifecycle rather than opening a second one and tearing
     down the first: simpler, and no flicker from a close/reopen.
     """
-    global PORT
     os.environ["MEMORYMAP_DESKTOP"] = "1"
-    PORT = _desktop_port()
-    os.environ["MEMORYMAP_PORT"] = str(PORT)
-    # **This process now holds the notebook** (core/instance_lock.py): the
-    # port is final, so a second launch can find this server, and the focus
-    # handler is how that launch brings this window forward instead of
-    # starting a second server on the same data directory. Released by
-    # `_run_desktop` once the window is really gone.
+    # The port was chosen and the lock claimed by `_claim_notebook`, before
+    # this window existed; the focus handler is how a second launch brings
+    # *this* window forward instead of starting a second server on the same
+    # data directory. Released by `_run_desktop` once the window is really
+    # gone.
     from memorymap.core import instance_lock
-    from memorymap.core.config import resolved_data_dir
 
-    instance_lock.claim(resolved_data_dir(), PORT)
     instance_lock.set_focus_handler(lambda: _bring_forward(window))
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
@@ -1014,6 +1190,7 @@ def restart_in_console_mode(hidden: bool) -> bool:
     process = _spawn_desktop(hidden)
     if process is None:
         return False
+    _stop_background_work()
     os._exit(0)
     return True  # unreachable: os._exit() never returns; keeps every path explicit
 
@@ -1242,6 +1419,46 @@ def _stop_background_work() -> None:
         bgtasks.stop_all()
     except Exception as exc:  # noqa: BLE001  # best effort on the way out
         logger.warning("couldn't stop background work before exiting: %s", exc)
+    # **And the notebook's lock is let go.** Every caller ends the process
+    # with `os._exit` or an exec, which skip the `finally` in `_run_desktop`
+    # that releases it, so Quit, Restart and the console-mode switch all left
+    # `instance.lock` naming a dead pid. A restart's new process could find
+    # it still "live" (the old server answers until the exit lands) and open
+    # a window onto a server that was going away; and Windows reuses pids
+    # quickly, so a lock left behind could read as "starting" for up to
+    # BOOT_GRACE_SECONDS. Released only if it is still this process's own.
+    try:
+        from memorymap.core import instance_lock
+
+        instance_lock.release()
+    except Exception as exc:  # noqa: BLE001  # best effort on the way out
+        logger.warning("couldn't release the instance lock before exiting: %s", exc)
+
+
+def _replace_process(argv: list[str]) -> None:
+    """Start `argv` in place of this process: `os.execv` where that is what
+    it says, a new process and an exit on Windows.
+
+    **Windows has no exec.** CPython's `os.execv` there starts a new process
+    and ends this one, and it hands the C runtime the arguments joined with
+    spaces, **unquoted** (a documented, never-fixed CPython behaviour). The
+    installed app lives in `...\Programs\MemoryMap AI\MemoryMap AI.exe`, so
+    the restarted process read its own path as three arguments, argparse
+    exited on "unrecognized arguments: AI\MemoryMap AI.exe", and the tray's
+    Restart closed the app with nothing coming back (a source checkout under
+    a folder with a space did the same). `subprocess.Popen` quotes each
+    argument; this process then exits, as `execv` would have made it.
+    """
+    if sys.platform == "win32":
+        import subprocess
+
+        flags = 0
+        if getattr(sys, "frozen", False):
+            flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            argv = [sys.executable, *argv[1:]]
+        subprocess.Popen(argv, close_fds=True, cwd=os.getcwd(), creationflags=flags)  # noqa: S603
+        os._exit(0)
+    os.execv(sys.executable, argv)
 
 
 def _webview2_runtime_missing() -> bool:
@@ -1523,6 +1740,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         _warn_webview2_missing()
         return
 
+    _claim_notebook()
     _splash_status("Opening the window...")
     window = webview.create_window(
         "MemoryMap AI",
@@ -1865,6 +2083,7 @@ def _start_tray(
         if process is None:
             return  # nothing to relaunch into; the ShowWindow attempt above is all there is
 
+        _stop_background_work()
         icon.stop()
         window.destroy()
         os._exit(0)
@@ -1951,10 +2170,14 @@ def _start_tray(
         # arguments", and the packaged app has no console to print that to:
         # the user clicks Restart, the window closes, and nothing comes back.
         argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
+        # A Restart is not a repair: launched from the Start Menu's "Repair
+        # MemoryMap AI", the argv carries --reinstall, and restarting with it
+        # cleared the window's saved sign-in and theme a second time.
+        argv = [argv[0], *(arg for arg in argv[1:] if arg != "--reinstall")]
         _stop_background_work()
         icon.stop()
         window.destroy()
-        os.execv(sys.executable, argv)
+        _replace_process(argv)
 
     def _quit(icon, item) -> None:
         # **Before the hard exit below, not after it, there is no after.**
@@ -2110,6 +2333,19 @@ def _export_markdown(destination: str) -> int:
     return 0
 
 
+def _password_exists(db) -> bool:  # noqa: ANN001  # a DatabaseManager
+    """Whether the notebook has a password (a user row). Read at launch so
+    LAN mode never binds beyond loopback without one (SEC-01)."""
+    from memorymap.core.database import User
+    from sqlalchemy import select
+
+    try:
+        with db.session() as session:
+            return session.scalar(select(User.id).limit(1)) is not None
+    except Exception:  # noqa: BLE001  # an unreadable DB: the safe answer is "no"
+        return False
+
+
 def _reset_password() -> int:
     """Forgotten password: clear the credential so setup runs again.
 
@@ -2126,7 +2362,7 @@ def _reset_password() -> int:
       password, so without it they cannot be decrypted by anyone, including
       this command. Clearing the credential strands them permanently.
     """
-    from memorymap.core import deps
+    from memorymap.core import deps, netbind
     from memorymap.core.database import Entry, User, Vault
     from sqlalchemy import func, select
 
@@ -2165,6 +2401,13 @@ def _reset_password() -> int:
                 return 1
 
         session.delete(user)
+        # SEC-01: with no password the notebook must not stay reachable from
+        # the network, so the reset turns "Allow other devices" off. The
+        # launcher refuses to bind beyond loopback without a password anyway;
+        # this makes the switch say what the server does.
+        lan_was_on = netbind.lan_enabled(config)
+        if lan_was_on:
+            config.set_preference(netbind.LAN_PREF, False)
         # The wrapped key is useless once its password is gone; leaving it
         # would make the next setup silently reuse a vault it cannot open.
         for row in session.scalars(select(Vault)):
@@ -2172,6 +2415,11 @@ def _reset_password() -> int:
         session.commit()
 
     print("\nPassword cleared. Start the app and it will ask you to set a new one.")
+    if lan_was_on:
+        print(
+            "Other devices on this network can no longer open this notebook. "
+            "Turn that back on in Settings once a new password is set."
+        )
     if private_count:
         print("The private notes that were encrypted with the old password are gone.")
     return 0
@@ -2193,7 +2441,7 @@ def _repair_install() -> None:
     purpose, so settings and theme survive between ordinary launches, and
     that is also the one thing CLAUDE.md's own trap note records as having
     cost a full session's worth of "my bugs are still there" reports before
-    the cache-busting fix (`RevalidatedStatic`, `_BOOT_TOKEN`) landed.
+    the cache-busting fix (`RevalidatedStatic`, now a content hash per asset URL) landed.
     Clearing it is the same safety net that fix already relies on working,
     just reachable without a terminal.
 
@@ -2214,6 +2462,24 @@ def _repair_install() -> None:
         print(f"Repaired: cleared the cached window profile at {storage}.")
     else:
         print("Repaired: nothing cached to clear.")
+
+
+def _capture() -> int:
+    """`memorymap --capture`: open the one-line capture window onto the copy
+    of MemoryMap already running on this notebook (WORLD_CLASS_PLAN H9, quick
+    capture from anywhere). Bound to a key in the system's own keyboard
+    settings, it is a global capture hotkey with no hook of this app's in the
+    operating system and no new dependency: the window is a page in the
+    person's own browser, signed in with the app's own token.
+    """
+    import webbrowser
+
+    state, running = _existing_instance()
+    if state != "live":
+        print("MemoryMap is not running on this notebook. Start it, then capture again.")
+        return 1
+    webbrowser.open(f"http://{HOST}:{running.port}/capture.html", new=1)
+    return 0
 
 
 def main() -> None:
@@ -2243,6 +2509,12 @@ def main() -> None:
         "normally (what the installer's \"Repair MemoryMap AI\" shortcut runs; "
         "notes and preferences are never touched)",
     )
+    parser.add_argument(
+        "--capture",
+        action="store_true",
+        help="open a one-line capture window on the running MemoryMap and exit "
+        "(bind it to a key in your system's keyboard settings)",
+    )
     # Internal: set by _maybe_relaunch_hidden's own pythonw.exe relaunch to
     # mark "this already is the console-less process," so it doesn't try to
     # relaunch itself again. Not something a person should ever type, hence
@@ -2263,6 +2535,9 @@ def main() -> None:
     # Only the desktop window takes the bootloader splash down when it shows;
     # every other mode of a packaged build closes it here, or it would stay on
     # screen for as long as the process runs.
+    if args.capture:
+        _close_bootloader_splash()
+        raise SystemExit(_capture())
     if args.export:
         _close_bootloader_splash()
         raise SystemExit(_export_markdown(args.export))
@@ -2270,7 +2545,20 @@ def main() -> None:
         _close_bootloader_splash()
         raise SystemExit(_reset_password())
     if args.reinstall:
-        _repair_install()
+        # **Not under a running copy.** The profile is the open window's
+        # live WebView2 folder: on Windows its files are locked, so
+        # `rmtree(ignore_errors=True)` deleted the unlocked half and left a
+        # profile that was neither the old one nor a fresh one, and the
+        # launch then only brought the running window forward. Quit first,
+        # then Repair, is the order that works, and the window says so.
+        state, _running = _existing_instance()
+        if state in ("live", "starting"):
+            print(
+                "MemoryMap is open, so its window cache is in use and was not "
+                "cleared. Quit it from the tray icon, then run Repair again."
+            )
+        else:
+            _repair_install()
     if args.desktop:
         _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:

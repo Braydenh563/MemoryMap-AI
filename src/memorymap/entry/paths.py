@@ -161,10 +161,59 @@ def build(
         if not include_private:
             query = query.where(Entry.is_private == False)  # noqa: E712
         entries = list(session.scalars(query))
+    return _connect(session, entries, extra_edges)
+
+
+def build_light(
+    session: Session,
+    extra_edges: list[dict] | None = None,
+    drafts: bool = True,
+    boards: bool = True,
+) -> Connections:
+    """`build` over three columns instead of whole notes.
+
+    Focus mode and PageRank need who is joined to whom, not what anyone wrote:
+    `id`, `parent_id` and `tags` are all `_connect` reads of a note, so this
+    asks the database for those and never materialises an `Entry` (its text,
+    its attributes, its identity-map slot). `Connections.entries` holds the
+    column rows here, so a caller that wants a note's content loads that note
+    itself, for the dozen it draws and not the thousands it indexed. Private
+    notes are in, as in `build`'s default.
+
+    `drafts` and `boards` False leave those notes out, for the map's own
+    picture (`routes_graph._centrality`: the whole map draws no draft, and a
+    board only with Maps on), so a rank is never lent through a note the map
+    does not show.
+    """
+    query = select(Entry.id, Entry.parent_id, Entry.tags).where(Entry.is_deleted == False)  # noqa: E712
+    if not drafts:
+        query = query.where(Entry.is_draft == False)  # noqa: E712
+    if not boards:
+        query = query.where(Entry.is_board == False)  # noqa: E712
+    rows = list(session.execute(query))
+    return _connect(session, rows, extra_edges)
+
+
+def _connect(session: Session, entries: list, extra_edges: list[dict] | None) -> Connections:
+    """The indexing both builders share. `entries` need only carry `id`,
+    `parent_id` and `tags`, which an `Entry` and a column row both do."""
     index = Connections(entries)
     known = index.entries
 
-    for link in session.scalars(select(EntryLink)):
+    #: **Five columns, not ten thousand objects** (GRAPH_PLAN, the first build
+    #: after a change): the map's PageRank built every link as an `EntryLink`
+    #: instance, 0.39 s of ORM bookkeeping at 5,000 notes (cProfile), to read
+    #: the five fields below. A row answers them by the same names, and the
+    #: reason still comes through its column type (`LinkReason`), sealed or
+    #: not exactly as before.
+    links = select(
+        EntryLink.source_entry_id,
+        EntryLink.target_entry_id,
+        EntryLink.reason,
+        EntryLink.reason_confidence,
+        EntryLink.link_type,
+    )
+    for link in session.execute(links):
         if link.source_entry_id in known and link.target_entry_id in known:
             # A link's own reason, when someone gave one, is a better answer
             # to "how are these connected?" than the generic "linked to", 

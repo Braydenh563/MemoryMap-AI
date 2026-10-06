@@ -1,18 +1,26 @@
 # MemoryMap AI: Architecture & Project Guide
 
-> A single place to understand *what MemoryMap AI is, how it's built, and where
-> everything lives.* Read this once and you'll be able to find your way around
-> the whole codebase.
+> What MemoryMap AI is, how it is built, and where everything lives. Read this
+> once and you can find your way around the codebase.
+>
+> To install and use the app, see [INSTALL.md](INSTALL.md) and the
+> [README](../README.md).
 
 ---
 
-## 1. What it is, in one paragraph
+## 1. What it is
 
 MemoryMap AI is a **100% offline, local-first personal notebook**. You type a
 thought; a local AI files it into a category automatically. Later you ask a
 question in plain English and get back **both** a conversational answer **and**
 the raw notes that matched. Everything (your notes, the search index, the AI
-models) runs on your own machine. Nothing is ever sent to the cloud.
+models) runs on your own machine, and nothing is sent to the cloud.
+
+Around that loop sit seven tabs (Dashboard, Notes, Chat, Graph, Library,
+Timeline, Reminders), a long-form document editor reached through the Library,
+boards and mind maps, an assistant called Atlas that can act on the notebook
+through a registry of tools (§7), and Settings. A **space** is a separate
+notebook inside the same app.
 
 The core loop:
 
@@ -24,23 +32,28 @@ capture text → AI categorises it → store it → ask a question → chat answ
 
 These are the constraints that shaped every decision. When in doubt, they win.
 
-1. **Offline-first, always.** No feature may depend on a cloud service. The one
-   opt-in exception is web search, which is off by default and clearly marked.
-   When it *is* on it is built to reveal as little as possible: an ordinary
+1. **Offline-first, always.** No feature may depend on a cloud service. Two
+   opt-in features can reach the internet, web search and the update check:
+   web search is off by default, the update check waits for the answer to a
+   question the first start asks once, and both are clearly marked. The rest is a short list of
+   one-off downloads that you start (a model, an optional package) or that the
+   search model makes on first use; [PRIVACY.md](PRIVACY.md) lists them all and
+   Settings, Privacy records every connection the app makes. When web search
+   *is* on it is built to reveal as little as possible: an ordinary
    browser User-Agent rather than one naming the app, no cookie jar, no
    Referer, DNT/Sec-GPC set, POST so queries stay out of request lines, and
    tracking parameters stripped from result URLs. It has its own settings
-   screen (`settings-websearch`), not a corner of Preferences, because
+   screen (`settings-websearch`), not a corner of the Profile pane, because
    every message that has to explain it points there by name.
 2. **Degrade gracefully.** If the AI (Ollama) is down, the app still works:
    new notes are filed as `Uncategorised`, search falls back to keywords, and a
-   status dot in the header says what the AI is doing. **Saving a note must
+   status bar at the foot of the window says what the AI is doing. **Saving a note must
    never fail because the AI is unavailable.**
 3. **Your data is yours, in plain files.** SQLite + JSON on disk, in a folder
    you can back up, inspect, or delete. Full JSON/CSV/Markdown export built in.
 4. **Additive schema migrations.** The database upgrades itself at startup by
    adding new columns in place. Users never delete their database to update.
-   (Alembic is deliberately deferred until a column rename/removal is needed.)
+   (Alembic sits behind that for a rename or drop; see the Migrations note in §8.)
 5. **Single source of truth for shared state.** Exactly one `ConfigManager` and
    one `DatabaseManager` per process, created in `core/deps.py`. Nothing else
    constructs them.
@@ -84,7 +97,7 @@ These are the constraints that shaped every decision. When in doubt, they win.
 │  core/: config · database (SQLite) · deps (singletons) ·      │
 │          backup · logbuffer                                   │
 │  data/ (gitignored): memorymap.db · preferences.json ·        │
-│                       uploads/ · backups/                     │
+│                       uploads/ · backups/ · logs/             │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -119,14 +132,18 @@ the UI.
 
 ## 5. Directory map
 
-Checked against the tree on 2026-09-14. One line per module; the first
+Checked against the tree on 2026-10-05. One line per module; the first
 line of each module's docstring says the same thing at greater length.
 
 ```
 MemoryMap-AI/
 ├── src/memorymap/
-│   ├── __main__.py          # entry point: `python -m memorymap [--desktop]`
+│   ├── __main__.py          # entry point: `python -m memorymap [--desktop |
+│   │                        #   --export | --reset-password | --capture |
+│   │                        #   --reinstall]`
 │   ├── __init__.py          # __version__
+│   ├── mcp_server.py        # `python -m memorymap.mcp_server`: a stdio MCP
+│   │                        #   server over the non-destructive tools
 │   ├── core/                # the machine: config, database, jobs, security
 │   │   ├── config.py        # paths + user preferences (ConfigManager)
 │   │   ├── database.py      # SQLAlchemy models + additive auto-migrator
@@ -134,57 +151,74 @@ MemoryMap-AI/
 │   │   │                    #   + store_quietly(): best-effort embed
 │   │   ├── events.py        # the event log: every change is a fact, the
 │   │   │                    #   tables are views (WORLD_CLASS_PLAN B1)
+│   │   ├── jobs.py          # the one bounded worker pool: two lanes (cpu for
+│   │   │                    #   Tesseract and extractors, one worker for the
+│   │   │                    #   model), every *_in_background enqueues
+│   │   ├── jobstore.py      # the durable half: a `jobs` row per queued
+│   │   │                    #   reading or filing, leased and heartbeated
+│   │   │                    #   while it runs, resumed at launch after a
+│   │   │                    #   quit or a kill; GET /jobs, /jobs/stream
+│   │   ├── jobruns.py       # when each kind of job last ran and how it went:
+│   │   │                    #   one `job_runs` row per kind, written through
+│   │   │                    #   `job_run(kind)`, read by GET /jobs/last-runs
 │   │   ├── bgtasks.py       # quitting background work: one job, or all
+│   │   ├── taskhistory.py   # "recently finished" (in memory) for Settings >
+│   │   │                    #   Background tasks
 │   │   ├── filejobs.py      # which files the models are reading right now
 │   │   ├── media_process.py # where OCR, captioning and vision OCR are
 │   │   │                    #   triggered for an upload
-│   │   ├── ocr.py           # local Tesseract OCR for uploaded images
+│   │   ├── ocr.py           # local Tesseract OCR; `engine_status` reports
+│   │   │                    #   program, Python part, version and language
 │   │   ├── pdfpages.py      # a PDF page -> a PNG (optional `pdfpages` extra)
 │   │   ├── docview.py       # any file -> its text (the viewer + import path)
+│   │   ├── docmeta.py       # a document's frontmatter, read for the list
 │   │   ├── docexport.py     # a document's markdown -> a file to hand on
 │   │   ├── filetypes.py     # the one table of document types
+│   │   ├── syntaxcheck.py   # syntax diagnostics for code documents
 │   │   ├── backup.py        # daily local snapshot + restore
+│   │   ├── backup_bundle.py # the full backup: one zip, optionally sealed with
+│   │   │                    #   a password (`.mmenc`), and its restore
+│   │   ├── diskspace.py     # what the app does when the disk fills
 │   │   ├── extras.py        # the ALLOWLIST of pip-installable extras
+│   │   ├── extra_downloads.py # the pinned-download kind of extra (needle, Pyodide)
 │   │   ├── embedmodels.py   # the same shape for embedding models
+│   │   ├── hardware.py      # this computer's memory, for the Models fit badges
+│   │   ├── readings.py      # every reading of a file, in one shape
+│   │   ├── imagesize.py     # an image's width and height from its header
+│   │   ├── model_gate.py    # interactive model calls go before background ones
+│   │   ├── usage.py         # the local usage ledger: which features you use
 │   │   ├── security.py      # OriginCheckMiddleware, backend-URL local lock
+│   │   ├── egress.py · privacy_http.py # every outbound connection recorded;
+│   │   │                    #   the HTTP that keeps the privacy promises
+│   │   ├── webclip.py       # the web clipper: one page, fetched once, kept
+│   │   ├── netbind.py       # which address the server listens on
+│   │   ├── lancert.py       # the self-signed certificate LAN mode serves
+│   │   ├── instance_lock.py # one running server per data directory
 │   │   ├── vault.py         # the private-note key, derived + held in memory
 │   │   ├── crypto.py        # scrypt key derivation, encrypt/decrypt
 │   │   ├── atomic_io.py     # temp-file + fsync + rename for preferences.json
 │   │   ├── logbuffer.py     # in-memory log capture + safe_value()
+│   │   ├── subproc.py       # spawn a child process without a console
+│   │   ├── quit_hook.py · window_hook.py # how the launcher quits the app and
+│   │   │                    #   toggles full screen for the desktop window
 │   │   ├── launch_status.py # the launcher's status file, parsed
 │   │   ├── startup_status.py# the current boot phase, for the lock screen
-│   │   ├── taskhistory.py   # "recently finished" for Settings > Background
 │   │   └── media_gc.py      # sweeps orphaned /media uploads
 │   ├── entry/               # notes
 │   │   ├── manager.py       # create/read/update/soft-delete, links, audit
-│   │   ├── pdfpages.py      # a PDF page -> a PNG, so a model can read a scan.
-│   │   │                    #   Optional (the `pdfpages` extra); returns []
-│   │   │                    #   rather than raising when it is not installed
-│   │   ├── filetypes.py     # the one table of document types: comment
-│   │   │                    #   markers, indent, whether it renders
-│   │   ├── extras.py        # the ALLOWLIST of pip-installable optional
-│   │   │                    #   extras. The request names an entry here; the
-│   │   │                    #   package spec is never client text
-│   │   ├── embedmodels.py   # the same shape for embedding models: an
-│   │   │                    #   allowlist, their real size in the HuggingFace
-│   │   │                    #   cache, and download / re-download / remove
-│   │   ├── logbuffer.py     # in-memory log capture + safe_value() for
-│   │   │                    #   anything untrusted going into a log line
-│   │   ├── security.py      # OriginCheckMiddleware, backend-URL local-only lock
-│   │   ├── vault.py         # the private-note encryption key, derived + held in memory
-│   │   ├── crypto.py        # scrypt key derivation, encrypt/decrypt primitives
-│   │   ├── atomic_io.py     # temp-file + fsync + rename writes for preferences.json
-│   │   ├── jobs.py          # the one bounded worker pool: two lanes (cpu for
-│   │   │                    #   Tesseract and extractors, one worker for the
-│   │   │                    #   model), every *_in_background enqueues
-│   │   ├── taskhistory.py   # "recently finished" record for Settings -> Background tasks
-│   │   └── media_gc.py      # sweeps orphaned /media uploads nothing references any more
-│   ├── entry/
-│   │   ├── manager.py       # create/read/soft-delete entries, audit log
+│   │   ├── tagnames.py      # the one rule for what a list of tags may hold
+│   │   ├── app_import.py    # Notion, Obsidian, Evernote and Apple Notes in
+│   │   ├── properties.py    # a note's `---` properties block (KG4)
 │   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
 │   │   ├── duplicates.py    # near-duplicate finder + AI merge
+│   │   ├── highlights.py    # `==words==` highlights: text in a note, not rows
+│   │   ├── opens.py         # how often each note is opened, a row per day
+│   │   ├── bin.py           # the recycle bin for documents and reminders
+│   │   ├── query.py         # live queries over the notebook's structure (KG7)
 │   │   ├── importer.py      # uploaded document -> markdown (markitdown)
+│   │   ├── mentions.py      # backlinks with their sentence, unlinked mentions (KG1)
 │   │   ├── paths.py         # the shortest chain between two notes
+│   │   ├── topics.py        # named subjects inside each cluster (KG6)
 │   │   └── staleness.py     # notes nobody has touched, nothing points at
 │   ├── ai/                  # everything that talks to a model
 │   │   ├── provider.py      # what every backend must answer (§6)
@@ -192,18 +226,36 @@ MemoryMap-AI/
 │   │   ├── openai_client.py # /v1/chat/completions: LM Studio, llama.cpp,
 │   │   │                    #   Jan, vLLM
 │   │   ├── model_manager.py # list/pull models, pick chat/embedding backend
+│   │   ├── model_cards.py   # what a Settings model card says: size, memory
+│   │   │                    #   needed, good for, whether it fits (`decorate`)
 │   │   ├── sampling.py      # sampling parameters: model default, task, yours
 │   │   ├── presets.py       # quick/normal/detailed (§11)
 │   │   ├── context.py       # sizes one turn against the model's window
 │   │   ├── budget.py        # the per-run budget: tokens and seconds
 │   │   ├── embeddings.py    # embedding service + background warm-up
+│   │   ├── provider_http.py # `requests` for the backends, redirects held
 │   │   ├── janitor.py       # prompt: file a note into a category
+│   │   ├── lexical_filing.py# filing with no model: the notebook's own words
+│   │   │                    #   pick the category (`suggest_categories`) and
+│   │   │                    #   the tags (`suggest_tags`)
 │   │   ├── librarian.py     # prompt: answer from retrieved notes
 │   │   ├── grounding.py · intent.py · drafter.py · followups.py
 │   │   │                    #   what is being asked, grounding the answer,
 │   │   │                    #   drafting it, what to ask next
 │   │   ├── agent.py         # the tool-calling loop (§7)
+│   │   ├── answer_trim.py   # strips the padding a model puts round an answer
+│   │   ├── fence.py         # text from outside, fenced as quoted data
+│   │   ├── source_check.py  # verify an agent answer against its sources
+│   │   ├── when.py          # a time in your words, resolved by the app
+│   │   ├── timetravel.py    # time travel over meaning
+│   │   ├── questions.py     # open questions: the list and its states
+│   │   ├── margin.py        # the margin reader: a second reader in the editor
+│   │   ├── inbox.py         # the suggestions inbox's recognisers (KG9)
+│   │   ├── bench.py         # the model bench: which model is best here
+│   │   ├── skill_folder.py  # a skill is a Markdown file in a folder
 │   │   ├── tools/           # the agent's tool registry, one file per area
+│   │   │                    #   (`contracts.py` checks each tool's before and
+│   │   │                    #   after; `board_edit.py` edits a board)
 │   │   ├── toolwords.py     # which tools a request plausibly needs
 │   │   ├── cards.py         # tool results as typed cards, not prose
 │   │   ├── skills.py · skill_runner.py # what a skill is; running one (§7b)
@@ -217,39 +269,110 @@ MemoryMap-AI/
 │   │   ├── passive_capture.py # an offhand mention in chat -> a note to review
 │   │   ├── extractor.py     # free text -> AI-drafted, linked notes
 │   │   ├── links.py         # the reason two notes are linked
+│   │   ├── relations.py     # pairs worth linking, every reason with its confidence (KG2)
 │   │   ├── entities.py      # people, places, things (opt-in)
 │   │   ├── reminder_parser.py # "call mum tomorrow evening" -> a due_at
 │   │   ├── captioning.py · vision_ocr.py · docreader.py # an image read
 │   │   │                    #   three ways; a document read as it lands
 │   │   ├── help_chat.py     # the in-app guide: app knowledge only, no notes
+│   │   │                    #   (`help_topics_more.py` holds part two)
+│   │   ├── extractive.py    # an answer with no model: the notes' own words
+│   │   ├── needle_provider.py · tool_fallback.py · offline.py # tool calling
+│   │   │                    #   with no model server; who answers a tool turn
+│   │   │                    #   when the chosen provider is down; what would
+│   │   │                    #   make the AI work, said from what is true
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
 │   │   ├── engine.py        # one search, three signals, every hit explained
 │   │   ├── index.py         # one index over every kind (B3)
 │   │   ├── search_manager.py# the entry point the routes call
 │   │   ├── query.py         # search-operator parsing (tag:, cat:, is:pinned)
-│   │   ├── websearch.py     # opt-in web search, the ONE feature that leaves
-│   │   │                    #   the machine
-│   │   └── searxng_*.py     # install/start/stop a local SearXNG
+│   │   ├── chunks.py        # paragraph vectors, held in memory
+│   │   ├── websearch.py     # opt-in web search and the reader: every request
+│   │   │                    #   made for a search
+│   │   └── searxng_*.py     # a local SearXNG: manager, install (from source),
+│   │                        #   docker, process, settings
 │   └── api/
 │       ├── app.py           # builds the FastAPI app, mounts the frontend
 │       ├── schemas.py       # Pydantic request/response models
+│       ├── paging.py        # cursor pagination, one contract for every list
+│       ├── versioning.py    # `/api/v1`: the notebook as a versioned service
+│       ├── edit_conflicts.py# two windows, one note: the optimistic save check
+│       ├── asset_strip.py   # comments out of CSS and JS, at serve time only
+│       ├── run_sandbox.py   # the sandbox a code document's Run button uses
 │       └── routes_*.py      # one router per feature area (see §6)
 ├── frontend/                # vanilla HTML/CSS/JS, served as-is, no build
 │   ├── index.html           # the whole shell; every id is load-bearing
+│   ├── js/                  # every script named below, except sw.js (a service
+│   │                        #   worker only controls pages under its own path,
+│   │                        #   so it stays here at the root)
+│   ├── capture.html · clip.html # two small pages: `--capture`'s one-line
+│   │                        #   window and the web clipper's window (their
+│   │                        #   scripts are js/capture.js and js/clip.js)
+│   ├── board-library/       # the whiteboard's built-in object library data
 │   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
 │   │                        #   and the guard that reports a boot failure
-│   ├── app.js … spaces-find.js # the shell, notes, chat and settings glue:
-│   │                        #   23 classic scripts, one file until 2026-09-26,
-│   │                        #   in index.html's order (app.js first: api,
-│   │                        #   auth, the lazy loader); each file's header
-│   │                        #   says what it holds
-│   ├── agent-activity.js    # Agent Activity's list of runs
+│   ├── app.js … agent-activity.js # the shell, notes, chat and settings
+│   │                        #   glue: 27 classic scripts, one file until
+│   │                        #   2026-09-26, in index.html's order (app.js
+│   │                        #   first: api, auth, the lazy loader;
+│   │                        #   agent-activity.js, Agent Activity's list of
+│   │                        #   runs, last); each file's header says what it
+│   │                        #   holds
+│   ├── icon-picker.js       # the one emoji and icon picker (with
+│   │                        #   css/icon-picker.css); lazy, on first use
+│   ├── nav-history.js       # the rows of the status bar's Back and Forward
+│   │                        #   list (with css/nav-history-lazy.css); lazy
+│   ├── chord-guide.js · batch-space.js · note-templates.js · companion-menu.js
+│   │   · vault-unlock.js · help-chat.js · pick-row.js · drag-edge.js
+│   │                        #   lazy, each out of a boot script: the key
+│   │                        #   chord's panel, a selection's Move to space, the
+│   │                        #   Capture box's template picker, the companion's
+│   │                        #   menu, Unlock private notes, the Guide's chat,
+│   │                        #   an Attach picker row, a drag-selection's edge
+│   │                        #   scroll
+│   ├── atlas-life.js · atlas-motion.js # Atlas's tail, ring loops and blink;
+│   │                        #   lazy, the figure draws whole without them
+│   ├── ask-chart.js · whiteboard-history.js # a chart from a counting
+│   │                        #   question; a board's time machine; lazy
+│   ├── settings-packages.js # Settings, Packages: the extras and their bundles;
+│   │                        #   loaded when the section opens
+│   ├── quick-note.js        # Quick note (Alt+N) and the offline note
+│   │                        #   outbox; lazy, fetched a few seconds after boot
+│   ├── tag-manager.js · chip-menus.js · tag-suggest.js # the tag manager and
+│   │                        #   bulk tag dialog, the menus a category or tag
+│   │                        #   chip opens, the tags field's own list; lazy
+│   ├── categories-panel.js · note-history.js · ask-history.js # lazy panels
+│   ├── lightbox-view.js · edit-conflict.js · attachment-actions.js
+│   │                        #   lazy: the image viewer, the two-windows edit
+│   │                        #   check, an attachment card's click
+│   ├── ocr-engine.js        # the OCR workspace's Tesseract status line; lazy
+│   ├── settings-data.js · settings-find.js · settings-models.js # lazy parts
+│   │                        #   of Settings (data, search, model cards)
+│   ├── settings-controls.js # every listener inside the Settings window; the first
+│   │                        #   openSettingsModal awaits it
+│   ├── reveal-targets.js · onboarding.js · update-dialogs.js · app-palette.js
+│   │                        # lazy: catalogue deep links, welcome card, update check
+│   │                        #   and dialogs, the Ctrl/Cmd-K palette's window
+│   ├── note-panels.js · note-edit-panels.js · attach-to.js # lazy: a note card's
+│   │                        #   menu panels and the edit form's two panels (one
+│   │                        #   bundle), the put-on-a-board and add-to-document pickers
 │   ├── settings.js          # Settings, appearance, whether the background art runs
 │   ├── bg-art.js            # the background art: its styles and its runtime
 │   ├── dashboard.js         # the dashboard's widgets
 │   ├── timeline.js          # the Timeline tab: feed, table, scrubber
 │   ├── library.js           # Library: files, images, the OCR workspace
+│   ├── undo-store.js · margin-reader.js # lazy with the Library: the stored undo
+│   │                        #   histories both editors read; the margin reader
+│   ├── suggestions-inbox.js · entity-page.js · link-types.js · note-properties.js
+│   │                        #   lazy: the suggestions inbox, an entity's page,
+│   │                        #   kinds of link, a note's properties
+│   ├── model-bench.js · web-clip.js · app-import.js · usage-ledger.js
+│   │                        #   lazy Settings groups: the model bench, the web
+│   │                        #   clipper, import from another app, the usage
+│   │                        #   ledger
+│   ├── field-clear.js · assistant-avatar.js · quick-access.js · notes-rail-spy.js
+│   │                        #   · dash-boards.js · tag-suggest.js: small lazy pieces
 │   ├── documents.js · editor.js # the long-form editor and its CodeMirror
 │   ├── documents-code.js · documents-prose.js # its code tools and
 │   │                        #   prose tools, loaded before documents.js
@@ -258,65 +381,96 @@ MemoryMap-AI/
 │   ├── whiteboard.js        # boards, and the concept map of cards
 │   ├── whiteboard-map.js    # mind maps: nodes, edges, tidy, themes,
 │   │                        #   loaded before whiteboard.js
+│   ├── whiteboard-commands.js · whiteboard-format.js · whiteboard-library.js ·
+│   │   whiteboard-interchange.js # the board's command table, Format panel,
+│   │                        #   object library, and Mermaid/SVG/outline in and out
 │   ├── sw.js · manifest.webmanifest # PWA
 │   ├── css/                 # eleven files, 00-tokens-shell to 10-responsive;
-│   │                        #   index.html's <link> order is load-bearing
+│   │                        #   index.html's <link> order is load-bearing; and
+│   │                        #   three lazy sheets (icon-picker, library-lazy,
+│   │                        #   nav-history-lazy) fetched with their scripts
 │   └── vendor/              # d3 v7, p5, CodeMirror, Phosphor icons, the
 │                            #   spelling wordlist: local, never a CDN
 ├── tests/                   # pytest; every AI call faked (tests/fakes.py)
 ├── tests-e2e/               # the Playwright smoke suite CI runs
+├── migrations/              # Alembic's chain, behind the additive migrator
 ├── scratchpad/              # measurement scripts: ui-sweeps/, the fake
 │                            #   OpenAI server, the INBOX tools, llama-dev.sh
-├── scripts/                 # gate.sh, the merge gate in one command
-├── docs/                    # you are here; roadmap/ holds the plans
-├── packaging/               # the Windows installer and the Linux zip
+├── scripts/                 # gate.sh, the merge gate in one command; the board
+│                            #   library builder and the eval and scale scripts
+├── docs/                    # you are here; roadmap/ holds the plans, screenshots/
+│                            #   the README's pictures, index.html the docs site
+├── packaging/               # the Windows installer and the Linux package
 ├── .github/                 # CI, CodeQL, Dependabot, issue/PR templates
-├── start.sh · start.bat · start-desktop.sh · start-desktop.bat
+├── start.sh · start.bat · start-desktop.sh · start-desktop.bat · uninstall.sh · uninstall.bat
 ├── requirements.txt · pyproject.toml · pytest.ini · alembic.ini
 ├── .env.example             # copy to .env to relocate data / set OLLAMA_URL
-└── README.md · LICENSE · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
+└── README.md · LICENSE · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md · IDEAS.md
+    CLAUDE.md (the operating manual for any session, human or model)
 ```
 
 ## 6. The API surface
 
-The app is a FastAPI server. Every router except `/auth` and `/health` sits
-behind the single-user **unlock gate** (`routes_auth.require_unlock`). Routers
-are grouped by feature area:
+The app is a FastAPI server. Every router except `/auth`, `/health` and the
+few open routes the sign-in page needs sits behind the single-user **unlock
+gate** (`routes_auth.require_unlock`). Routers are grouped by feature area:
 
 | Router | Prefix | Responsibility |
 | --- | --- | --- |
 | `routes_auth` | `/auth` | first-run password setup, unlock, lock, change password, account state |
-| `routes_entries` | `/entries` | create/read/edit/soft-delete notes, links, related, restore |
+| `routes_entries` | `/entries` | create/read/edit/soft-delete notes, links, related, restore. `POST /entries` takes an optional `client_key`: the offline outbox's resend of a save whose answer was lost returns the first note instead of making a second (`_already_delivered`, in memory, 512 keys). `POST /entries/{id}/suggested-tags` takes or discards the tags filing suggested |
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
 | `routes_ask_history` | `/ask-history` | the Ask tab's past question/answer turns, independent of saved chats |
-| `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
+| `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model; `GET /models/suggested` (cards decorated by `ai/model_cards.py` with size, memory and fit), `GET /models/hardware` (`core/hardware.py`), `POST /models/inspect` |
 | `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, logs, optional extras (`/extras`), embedding models (`/embedding-models`) |
 | `routes_update` | `/update` | check GitHub for a newer release and apply it in place, instead of sending the user back through a browser to redownload the installer |
 | `routes_websearch` | `/websearch` | web search provider selection + SearXNG install/start/status lifecycle, split out of `routes_settings` |
 | `routes_backups` | `/`, `/backups` | `GET /storage` (where the data lives, how big it is) + daily local backup list/create/restore/delete |
 | `routes_spaces` | `/spaces` | separate note "spaces" (workspaces) within the one notebook |
-| `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
+| `routes_documents` | `/documents` | long-form markdown documents, export, AI edit; `GET /documents/outline` is every live document with its headings and `created_at`, one request, for the Library's Contents tree |
 | `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
 | `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
-| `routes_files` | `/`, `/media` | attachments upload/download/delete. `media_router` (`/media`, pasted/dropped inline images) is a second router from the same file, gated by `require_unlock_media` rather than the ordinary unlock dependency: it accepts a query-param token, since an `<img src>` cannot carry a header |
-| `routes_tags` | `/tags` | list/rename/delete tags |
-| `routes_categories` | `/categories` | list/rename/merge/delete categories |
+| `routes_files` | `/`, `/media` | attachments upload/download/delete; `GET /ocr-readers` says what can read a page (vision model, OCR model, and the Tesseract `engine` status). `media_router` (`/media`, pasted/dropped inline images) is a second router from the same file, gated by `require_unlock_media` rather than the ordinary unlock dependency: it accepts a query-param token, since an `<img src>` cannot carry a header |
+| `routes_tags` | `/tags` | list, rename, merge, delete (several names at once), `POST /tags/bulk` (add or remove tags on many notes) and `POST /tags/restore` (the one Undo); each is one transaction with a revision and an event per note |
+| `routes_categories` | `/categories` | list/rename/merge/delete categories, and a category's chosen colour |
 | `routes_graph` | `/` | force-directed graph data + link suggestions |
 | `routes_insights` | `/insights` | dashboard: stats, most-accessed, on-this-day, digest |
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
-| `routes_bookmarks` | `/bookmarks` | saved links to somewhere outside the notebook, same shape as reminders, no AI involved |
+| `routes_bookmarks` | `/bookmarks` | saved links to somewhere outside the notebook, same shape as reminders, no AI involved; a link can be read, pinned and noted, and pages tile one order (pinned first) |
 | `routes_voice` | `/voice` | local Whisper transcription |
-| `routes_help` | `/help` | the Help tab's mini AI chat (`POST /help/ask`), app guidance only, no persisted history |
+| `routes_help` | `/help` | the Guide's chat (`POST /help/ask`), app guidance only, no persisted history |
 | `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
-| `routes_tasks` | `/tasks` | what is running in the background right now |
+| `routes_tasks` | `/tasks` | what is running in the background right now (`GET /tasks`), and `GET /jobs/last-runs`: when each kind of job last ran and how it went, one entry per kind in `jobruns.KINDS`, from the database so it survives a restart; `GET /jobs` and the server-sent `GET /jobs/stream`, the durable job rows (`core/jobstore.py`), and `POST /jobs/{id}/cancel` for a queued one |
 | `routes_library` | `/library` | **everything you have made, in one list**: notes, documents, chats, files, tags, bin, activity, assembled server-side |
 | `routes_whiteboard` | `/whiteboard` | note cards and freehand sketches on a pannable canvas (§39C). A *board* is itself an entry, so it is searchable and filable like anything else; `board_id IS NULL` is the unnamed scratch board |
 | `routes_debug` | `/debug` | `GET /debug/health`: one cheap, under-20ms read across data that already exists elsewhere (running jobs, task history, the log), for "is this notebook okay" in one glance |
+| `routes_search` | `/search` | one search over every kind of thing (WORLD_CLASS_PLAN B3) |
+| `routes_learned` · `routes_night` · `routes_resurface` | `/learned`, `/night`, `/resurface` | what the notebook worked out for itself (facts you can correct), the night pass on demand, three notes a day slipping out of reach |
+| `routes_mentions` | `/entries/{id}/backlinks`, `/entries/{id}/mentions/link` | a note's backlinks with their sentence and its unlinked mentions, one click to a [[link]] (GRAPH_PLAN KG1; the scanner is `entry/mentions.py`, shared with documents) |
+| `routes_inbox` | `/suggestions`, `/suggestions/merges/*`, `/suggestions/types/*` | the suggestions inbox's entity merges and link types (`ai/inbox.py`), and every decision on them as a correction (GRAPH_PLAN KG9) |
+| `routes_entities` | `/entities`, `/entities/{id}`, `/entities/{id}/merge` | the entity layer: the list, an entity's page (mentions in context, co-mentions, dates), kind, rename, other names and a merge by hand (GRAPH_PLAN KG5) |
+| `routes_relations` | `/relation-types`, `/relation-types/{key}` | kinds of link: the six built-ins (code) and a person's own (`RelationType`), each with its name from the other end; a deleted kind leaves its links untyped (GRAPH_PLAN KG3) |
+| `routes_properties` | `/entries/{id}/properties`, `/note-types` | a note's properties (the `---` block in its text, `entry/properties.py`; `EntryProperty` is the index) and note types with fields (GRAPH_PLAN KG4) |
+| `routes_import` | `/import/app` | notes from Notion, Obsidian, Evernote or Apple Notes; the readers and the writer are `entry/app_import.py` |
+| `routes_questions` | `/questions` | open questions: the list and its states |
+| `routes_editor` | `/editor` | `POST /editor/read`: the margin reader's one route |
+| `routes_vision` | `/review-queue`, `/most-opened`, `/tidy-proposals`, `/charts/question` | the original vision's open rows: the review queue, most opened notes, tidy proposals and a chart from a counting question |
+| `routes_board_history` | `/whiteboard/history` | a board's time machine: its event log, one event, and restoring the board or the selection to a moment |
+| `routes_map_suggest` · `routes_map_from_notes` | `/whiteboard/boards/{id}/nodes/{id}/suggest` and `/branches` and `/summary`, `/whiteboard/maps/from-notes` | grow a map topic from the notebook, and make a mind map from the graph's own structure |
+| `routes_bench` | `/models/bench` | run the model bench and read its report |
+| `routes_usage` | `/usage`, `/capture` | the local usage ledger's door, and `GET /capture/command`, the exact `--capture` command line for this install |
+| `routes_capabilities` | `/capabilities` | what this install can do, asked once |
+| `routes_board_library` | `/board-library` | the whiteboard's object library: built-in sets, favourites, your own saved pieces |
+| `routes_privacy` | `/privacy` | the privacy receipt: what left this machine, from the app's own egress record |
+| `routes_webclip` | `/links` | `POST /links/clip`: keep a web page as a note, only while the web is allowed |
 | system | `/health` | liveness + version (open, no unlock) |
 
-Interactive API docs live at `http://localhost:8000/docs` when the app is
-running.
+There is no interactive API explorer: FastAPI's `/docs` and `/redoc` load their
+scripts from a CDN, which the app's own Content-Security-Policy refuses, and the
+schema would list every route to anyone who could reach the port. The schema is
+served at `/openapi.json` behind the unlock, for tooling that sends the
+`X-Auth-Token` header.
 
 **`POST /chat/stream` is NDJSON over a plain POST, and that is a decision, not
 an oversight.** It was rewritten as a WebSocket once and reverted, for four
@@ -355,8 +509,11 @@ job is not a task, and a screen that accumulates them is the Logs screen.
 `ai/tools/` (a package now: `__init__.py` plus `categories.py`,
 `documents.py`, `files.py`, `whiteboard.py`, `_common.py`, split out once the
 registry outgrew one file) defines a registry the chat model can call:
-**58 tools**. Read-only tools run inline; the **destructive** ones (marked
-⚠️ below) emit a confirmation event to the UI instead of executing.
+**65 tools**. Read-only tools run inline; the **destructive** ones (marked
+⚠️ below) emit a confirmation event to the UI instead of executing. The
+registry's `destructive` flag is the one list: a change after a turn has read
+text from outside (a web page, a clipped or imported note) waits for the same
+confirmation (SEC-02).
 
 *Reading the notebook:* `search_notes` · `get_note` · `list_notes` ·
 `count_notes` · `list_tags` · `list_categories` · `summarize_notes` ·
@@ -370,7 +527,7 @@ uploads, photos, scans and attachments, by name, caption or the text read
 out of them, which notes never contain
 
 *Writing:* `create_note` · `edit_note` · `tag_note` · `pin_note` · `link_notes` ·
-`unlink_notes` ⚠️ · `restore_note` · `rename_tag` · `delete_note` ⚠️ ·
+`unlink_notes` · `restore_note` · `rename_tag` · `delete_note` ⚠️ ·
 `delete_tag` ⚠️ · `audit_link_reasons`
 
 *Categories:* `create_category` · `rename_category` · `merge_categories` ⚠️ ·
@@ -385,6 +542,12 @@ records which notes came from where, or which two notes an unlinked pair was.
 *Whiteboard (§37G):* `add_whiteboard_card` · `add_whiteboard_link` ·
 `read_whiteboard` · `search_whiteboard` · `generate_diagram`: lay out a
 whole diagram from a set of notes in one call
+
+*Editing a board (FEAT-12):* `add_board_shape`: a rectangle, ellipse, diamond or
+frame; `list_library` and `place_library_item`: search the board's object
+library and place from it; `edit_board_item` ⚠️ (words, line colour, fill) ·
+`move_board_item` ⚠️ · `delete_board_item` ⚠️, each returning an Undo, and
+`restore_board_item`, the call that Undo makes
 
 *Mind maps* (a board that is a tree, `ai/tools/whiteboard.py` alongside the
 whiteboard tools above): `create_mindmap` · `read_mindmap` ·
@@ -477,7 +640,7 @@ is a fixed number:
    plausibly needs and returns ~8–12 tools. Keyword-driven rather than another
    model call: a round-trip to decide what to send would cost more than it
    saves, and a deterministic rule can be read, tested and argued with.
-   Settings → Tools can switch this off (`tool_focus: "all"`).
+   Settings → Tools it can use can switch this off (`tool_focus: "all"`).
 2. **Room**: `tools.within_budget` then fits whatever survives to the window
    the model *reports* (`ollama_client.usable_context`, from `/api/show`),
    spending at most `TOOL_SCHEMA_WINDOW_SHARE` of it on schemas. Anything that
@@ -537,7 +700,7 @@ case no turn has sent since the per-turn trim existed.
 Why any of this matters: Ollama defaults to a 4096-token window and drops
 overflow from the *front*, so a 3B model that overflows loses the system prompt
 and stops knowing it has tools, which presents as "the AI won't use tools"
-rather than as anything to do with length. Settings → Tools
+rather than as anything to do with length. Settings → Tools it can use
 (`disabled_tools`) is the user-facing escape hatch, and it filters at
 `ollama_tools()`, the wire, not just at execution.
 
@@ -553,7 +716,7 @@ question. Two rules keep it honest: a request that sounds like a job but does
 not say which one ("tidy up my notes") gets **everything**, and the focus is
 an *economy, not a policy*: unlike a skill's allowlist it never stops a tool
 from running, so a cue that fails to fire costs tokens, not abilities.
-Settings → Tools has the switch (`tool_focus`), because the honest failure of
+Settings → Tools it can use has the switch (`tool_focus`), because the honest failure of
 a keyword rule is a phrasing it does not know.
 
 **Two more rules hold the budget, and both are easy to break by accident:**
@@ -593,7 +756,7 @@ Three things are worth knowing before changing anything here:
    not only a prompt. It is also §11a's win: the full registry is ~10,200
    characters of schema on *every round*; "Auto-tag my notes" ships 1,963.
    The user's own switches still win, so a skill can't re-enable a tool turned
-   off in Settings → Tools.
+   off in Settings → Tools it can use.
 2. **Naming the tools in the instruction text is deliberate**, on top of
    narrowing the wire. The reported failure was a model that had tools and
    didn't know it was meant to act; telling a 3B model "use `tag_note`" is
@@ -644,7 +807,7 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 
 - **users**: single-user unlock (one bcrypt-hashed password). Exactly one
   row: separate notebooks are separate `MEMORYMAP_DATA_DIR`s, not separate
-  accounts. The password can be changed from Settings → Account, which
+  accounts. The password can be changed from Settings → Account & security, which
   re-wraps the vault key onto the new password *before* replacing the hash:
   the other order would strand every private note.
 - **vault**: the data key for private notes, wrapped with a key derived from
@@ -652,12 +815,38 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   private notes: everything else is plain rows. `--reset-password` clears the
   credential and says exactly what that costs before it does.
 - **categories**: named buckets; each has an embedding centroid used for the
-  janitor's cheap-match path.
+  janitor's cheap-match path, and a nullable `colour` (a palette key or
+  `#rrggbb`; NULL is the name-based automatic colour).
 - **entries**: the notes themselves: `content`, `category_id`, JSON `tags`,
   `ai_confidence` (0–100), `access_count`, `parent_id` (train-of-thought
   threads), `pinned`, `user_filed` (user chose the category → janitor keeps
   hands off), timestamps, and soft-delete (`is_deleted` / `deleted_at`).
+  Also on an entry: `suggested_tags` and `discarded_tags` (JSON lists):
+  the tags filing offered, shown on the card as "+ tag", and the ones a
+  person refused so no later pass offers them again on that note (`_keep_suggestions`
+  in `routes_entries.py` fills the first at filing: the model's tag pass when
+  the model filed the note, otherwise `ai/lexical_filing.suggest_tags`, which
+  only ever offers tags the person already uses); and `edited_at`, which moves only when a person changes the
+  text, tags or category (`updated_at` also moves on every open, so it
+  cannot sort by "recently edited").
 - **entry_links**: user- or AI-made connections between two entries (the graph).
+  **Privacy of a link:** `reason` is free text about the two notes, so on a link
+  with a private end it is stored encrypted (`mmenc1:`, the note's own key) and
+  left out of the activity log's text; the column type (`database.LinkReason`)
+  decrypts on load while the vault is open and reads `None` while it is locked,
+  so no reader learns about ciphertext. `set_private` seals the reasons already
+  on a note's links and redacts the old "linked" rows, un-private restores them
+  unless the other end is still private, and `/rotate-vault-key` moves them with
+  the notes (`manager.rekey_private_extras`, which also moves the version
+  snapshots and event payloads, left under the old key before).
+  **Decision, 2026-10-04: a private note's tags stay in the clear**, in
+  `entries.tags` and in `entry_revisions.tags` (a copy of the same list). The
+  note list, the filter chips and the tag cloud show a private note's tags by
+  design, so hiding them in the database would hide nothing a reader of the
+  app cannot already see and would break tag filtering; what the privacy
+  promises cover is the *text*, the embedding and the dates. Anyone who wants a
+  tag kept out should not put it on a private note. `tests/test_private_link_reason.py`
+  pins this.
 - **derived_facts**: what the app worked out about a note rather than what
   anybody wrote (`ai/facts.py`, WORLD_CLASS_PLAN 15 I1 and I9): a claim the
   note makes or a question it leaves open, with the span it came from, the
@@ -670,13 +859,16 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 - **whiteboard_nodes / whiteboard_sketches**: a note card, or a freehand
   stroke list, placed at an `(x, y, z)` on a board (§39C). `board_id` points at
   an *entry*, so a board is a note and inherits searching, tagging and filing;
-  `NULL` is the unnamed scratch board. **Known gap:** deleting an entry leaves
-  its cards behind: there is no cascade and no sweep yet.
+  `NULL` is the unnamed scratch board. Deleting an entry leaves its cards for the
+  background pass to sweep (`autonomous.clean_orphaned_board_cards`), the way
+  `embeddings.clean_orphaned_vectors` sweeps vectors. A board's own shapes and
+  connectors are `whiteboard_objects`, and its saved pieces `board_libraries`,
+  `board_library_items` and `board_library_marks`.
 - **user_preferences**: the memory stream (§39B): standing instructions the
   model wrote for itself with `save_user_preference`, replayed into its system
   prompt on every later turn. `active` exists so one can be switched off, and
-  **nothing sets it yet**: there is no UI for this table, which is the top
-  open item in §40.
+  Settings → What it remembers lists the rows, says how much of them reaches the
+  model, and lets each be edited, switched off or forgotten (`/memory`).
 - **embeddings**: per-entry vectors, stored as raw `float32` bytes.
 - **attachments**: uploaded files, kept in `data/uploads/`.
 - **conversations**: saved chat threads. Messages are one JSON column of flat
@@ -710,11 +902,56 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 - **reminders**: lightweight reminders the agent can set. Stored UTC-aware:
   SQLite drops timezones and JavaScript parses a naive date-time as *local*,
   which read as a reminder being hours overdue the moment it was set.
-- **audit_log**: every meaningful action, shown in Settings → Activity.
+- **audit_log**: every meaningful action, shown in the Library's Activity view.
+- **spaces**: the notebooks inside the notebook; a note, document, chat and tag
+  belongs to one (`workspace_scoped_models`).
+- **entities · entity_mentions · relation_types · entry_properties · note_types**:
+  the entity layer, kinds of link, and a note's properties and types (the
+  knowledge-graph plan, KG3 to KG5).
+- **ask_turns · page_reads · document_ai_edits · document_revisions ·
+  note_scores · tensions · night_runs · media_uploads · chunk_vectors**: the Ask
+  tab's history, the OCR workspace's page reads, a document's AI edits and its
+  revisions, what the night pass computed, and the upload and paragraph-vector
+  indexes.
+- **job_runs**: one row per *kind* of job (not per run): `kind` (primary
+  key), `started_at`, `finished_at`, `status` (running, ok, failed,
+  cancelled), a one-line `result` or `error`, and `duration_ms`. Written
+  only through `core/jobruns.job_run(kind)` from the search rebuild, the
+  embeddings backfill, backups (manual and daily), the duplicate scan,
+  imports, the night shift, the autonomous pass, resurfacing, link reasons
+  and the other kinds in `jobruns.KINDS`; read by `GET /jobs/last-runs`.
+  A bookkeeping failure never fails the job. `core/taskhistory.py` is the
+  other half: what *stopped* since this process started, in memory.
+- **jobs** (WORLD_CLASS_PLAN B2): one row per queued piece of pool work
+  whose kind has a named handler in `core/jobstore.HANDLERS` (OCR,
+  captions, the vision reads, document reads, filing): `kind`, JSON
+  `payload` (never code), `state` (queued, running, done, failed,
+  cancelled), `attempts`, and the lease (`owner`, `lease_until`,
+  `heartbeat`). Launch resumes queued rows and running rows whose lease
+  lapsed, at most three tries each; finished rows are pruned after a week.
+- **bookmarks** carry `is_read` (a saved link you have been through).
+  **entry_bookmarks** and **document_bookmarks** are the plain join rows that
+  let a note or a document reference one.
+- **entry_opens**: how often each note is opened, a row per note per day
+  (`entry/opens.py`), which is what "most opened this month" reads.
 
 **Migrations:** `database.py` runs an additive auto-migrator at startup: new
 columns are added to existing databases in place. You never delete your data to
-upgrade. Rename/removal-style migrations are out of scope until genuinely needed.
+upgrade. A new table (like `job_runs`) is made by `create_all`. Alembic
+(`migrations/versions/`) sits behind that for a rename or a drop: a database
+with no `alembic_version` is stamped to head, one already stamped is upgraded.
+One linear chain, a single head: `8a8a14407cc0` (baseline) → `b2f1c9d4e7a3`
+(audit actor and payload) → `c7e4a1f60b58` (audit entity index) →
+`d3b7c2a91e45` (ask turn grounding) → `e6f2a9c4b1d7` (`entries.edited_at`) →
+`e5a9d1c3b7f2` (`categories.colour`) → `f4c8a2d6b1e9` (`bookmarks.is_read`) →
+`a7d3e9c1f5b4` (link origin) → `b8e4f2a6c9d1` (entity kinds and aliases) →
+`c3f7a9e2d5b8` (relation types and link properties) → `d9b2e6f4a1c7` (note
+properties and types) → `e5a1c8f3b7d2` (locked board items) → `f3c7a9e1d5b8`
+(board comments) → `a7d3e9c1f5b2` (`entries.client_key`) → `b7e3d1f9a2c4`
+(the board library) → `a4c9e2f7b1d3` (`reminders.document_id`) → `b7e3d1a9c5f2`
+(the bin for documents and reminders) → `c2f8a6d4e9b1` (`entry_opens`) →
+**`b4e8d2a6f1c9`** (`entries.map_topic`, the head). `tests/test_alembic_baseline.py`
+holds it; the stamp step is skipped under pytest.
 
 ### Why SQLite holds the notes (a decision, with its limits)
 
@@ -820,9 +1057,12 @@ actually large in practice; nothing today prunes `entry_revisions` or
 
 ## 8b. Anything that leaves the machine
 
-One module, `search/websearch.py`, owns every outbound request, and it has
-three rules that are easy to break by accident. All three have already been
-broken once.
+One module, `search/websearch.py`, owns every request made for a web search or
+a page read, and it has three rules that are easy to break by accident. All
+three have already been broken once. The other places that reach the network
+(model downloads, optional packages, the update check) are listed in
+[PRIVACY.md](PRIVACY.md), and `core/egress.py` records every connection the
+process makes for Settings, Privacy, so a new one cannot skip the record.
 
 **Which engine answers is the user's choice, read in one place.** The
 `search_provider` preference is `auto` | `searxng` | `duckduckgo`
@@ -924,8 +1164,13 @@ its JSON API, and `websearch.probe_searxng` returns True against it.
   `active_embedding_model`. Optionally switch the backend to an
   Ollama embedding model; notes re-index automatically with a progress bar.
 - **Voice (optional):** local Whisper via `faster-whisper` for the 🎙 buttons.
+- **Other backends:** `ai/openai_client.py` speaks the OpenAI dialect for LM
+  Studio, llama.cpp's `llama-server`, Jan and vLLM, and `ai/needle_provider.py`
+  picks tools with a small built-in model when no server is running. Reading
+  text in images and scanned PDFs goes through the Reading text model (a
+  dedicated OCR model, else a vision model); see `ai/vision_ocr.py`.
 - **Warm-up:** embeddings load in a background thread at startup so the first
-  request isn't slow; the header pill tracks *ready / warming up / rebuilding
+  request isn't slow; the status bar tracks *ready / warming up / rebuilding
   index / off.*
 
 Everything AI-related is designed to be *absent*: the app is fully usable with
@@ -936,18 +1181,19 @@ Ollama stopped and no optional extras installed.
 A single-page app in **vanilla HTML/CSS/JS: no framework, no build step.**
 Served as static files by the same FastAPI server (so no CORS is needed). It
 is also a **PWA** (`manifest.webmanifest` + `sw.js`) with a mobile pass, a
-command palette (Ctrl/Cmd-K), a graph of the notebook in three layouts: a
+command palette (Ctrl/Cmd-K), a graph of the notebook in four layouts: a
 force-directed **web**, a **tree** (notebook → category → note, replies
-branching off the note they answer) and a **radial tree**, drawn with D3
+branching off the note they answer), a **radial tree** and an **arc**
+diagram, drawn with D3
 vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored,
 loaded on demand by `ensureP5` the first time something draws). No asset
 is ever loaded from a CDN, consistent with the offline-first rule. The
 JavaScript is split by surface (`dashboard.js`, `timeline.js`,
 `library.js`, `documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
-and the 22 files after it hold the shell and everything shared, cut on
+and the 26 files after it hold the shell and everything shared, cut on
 2026-09-26 from one 50,000-line file into contiguous ranges kept in the old
 order, so a file may call into the ones above it while the page loads and
-never into one below (`tests/test_frontend_load_order.py`; tests read the 23
+never into one below (`tests/test_frontend_load_order.py`; tests read the 27
 as one text through `tests/_app_js.py`). The two biggest lazy surfaces are split
 further by concern: `documents-code.js` and `documents-prose.js` hold the
 document editor's code and prose tools, and `whiteboard-map.js` the mind map
@@ -955,23 +1201,29 @@ layer; each loads in the Library bundle *before* the file it came out of
 (`documents.js`, `whiteboard.js`), because its own top level reads nothing from
 that file while that file's top-level wiring names its functions (`LAZY_MODULES` in
 `app.js`). Every local CSS and JS URL carries
-`?v=<version>` plus a per-process boot token, so no browser or desktop
-window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
+`?v=<version>-<hash of that file>`, spliced into the served page, so no
+browser or desktop window can keep a stale file and an unchanged one stays
+cached across launches; lazy scripts and workers read their stamps from the
+page's `<meta name="asset-stamps">`. What is served has its comments
+stripped (`api/asset_strip.py`); the files on disk keep them
+(`RevalidatedStatic` in `api/app.py`).
 
 ### The scripts, their order, and the one scope they share
 
-Forty-six JavaScript files, in four kinds (0.3.3):
+A hundred and seven JavaScript files in `frontend/js/`, in five kinds (38 load at boot; `d3` is fetched from `vendor/` with the Graph bundle, not at boot; checked 2026-10-06):
 
 | Kind | Files | Loaded |
 | --- | --- | --- |
 | Before first paint | `boot-guard.js`, `theme-boot.js` | in `<head>`, so the theme and the boot-failure guard apply before anything draws |
-| The app's own code | `app.js`, `note-cards.js`, `menus.js`, `lightbox.js`, `selection.js`, `notes-list.js`, `capture-ask.js`, `chat.js`, `chat-agent.js`, `chat-attach.js`, `sheets-selects.js`, `skills.js`, `shell-reminders.js`, `markdown.js`, `navigation.js`, `settings-panes.js`, `media.js`, `status.js`, `ai-tools.js`, `phone-shell.js`, `wiring.js`, `settings-wiring.js`, `spaces-find.js`, `agent-activity.js` | at the end of `<body>`, in this order |
-| The boot surfaces | `avatars.js`, `atlas.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js`, `tour.js` | straight after, in this order |
-| Lazy bundles | `graph.js` and `graph-canvas.js` (the Graph tab); `documents-code.js`, `documents-prose.js`, `documents.js`, `whiteboard-map.js`, `whiteboard.js`, `library.js` (Library and Documents) | on the first visit to the tab, by `ensureModule` from `LAZY_MODULES` in `app.js` |
+| The app's own code | `app.js`, `prefs.js`, `store.js`, `note-cards.js`, `menus.js`, `lightbox.js`, `selection.js`, `notes-list.js`, `capture-ask.js`, `chat.js`, `chat-agent.js`, `chat-attach.js`, `sheets-selects.js`, `skills.js`, `shell-reminders.js`, `markdown.js`, `navigation.js`, `router.js`, `settings-panes.js`, `media.js`, `status.js`, `ai-tools.js`, `phone-shell.js`, `wiring.js`, `settings-wiring.js`, `spaces-find.js`, `agent-activity.js` | at the end of `<body>`, in this order |
+| The boot surfaces | `avatars.js`, `atlas.js`, `rich-picker.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js` | straight after, in this order |
+| Lazy bundles | `graph.js` and `graph-canvas.js` (the Graph tab); `undo-store.js`, `documents-code.js`, `documents-prose.js`, `documents.js`, `margin-reader.js`, `whiteboard-map.js`, `whiteboard.js`, `whiteboard-commands.js`, `whiteboard-library.js`, `whiteboard-format.js`, `whiteboard-interchange.js`, `library.js` (Library and Documents) | on the first visit to the tab, by `ensureModule` from `LAZY_MODULES` in `app.js` |
+| Lazy pieces | one entry each in `LAZY_MODULES`: `lightbox-view.js`, `edit-conflict.js`, `categories-panel.js`, `tag-manager.js`, `chip-menus.js`, `note-history.js`, `ask-history.js`, `settings-data.js`, `settings-find.js` + `settings-models.js` (`settingsUi`), `tag-suggest.js`, `attachment-actions.js`, `ocr-engine.js`, `quick-note.js`, `field-clear.js`, `assistant-avatar.js`, `quick-access.js`, `notes-rail-spy.js`, `dash-boards.js`, `suggestions-inbox.js` + `entity-page.js` + `link-types.js` + `note-properties.js` (`inbox`), `model-bench.js`, `web-clip.js`, `app-import.js`, `usage-ledger.js`, and (2026-10-05) `reveal-targets.js`, `onboarding.js`, `update-dialogs.js`, `app-palette.js`, `note-panels.js` + `note-edit-panels.js` (`notePanels`), `attach-to.js`, `settings-controls.js` (no entry points: `openSettingsModal` awaits it on the first open), and, from the boot-budget moves, `tour.js` (the guided tour, when one starts or Settings, Help opens), `icon-picker.js` (the one emoji and icon picker), `nav-history.js` (the Back and Forward list's rows), `settings-packages.js`, `help-chat.js` (the Guide), `chord-guide.js`, `batch-space.js`, `note-templates.js`, `companion-menu.js`, `vault-unlock.js`, `pick-row.js`, `drag-edge.js`, `atlas-life.js` and `atlas-motion.js`, `ask-chart.js` (with `ask-history.js`), and `whiteboard-history.js` (with the boards) | on first use through `LAZY_ENTRY_POINTS`, to keep the boot scripts under their gzip budget; `quick-note.js` is fetched a few seconds after boot, because its outbox is for the moment the server is gone and a script cannot be fetched then |
 
-Plus three that are not page scripts: `sw.js` (the service worker),
+Plus five that are not scripts of the main page: `sw.js` (the service worker),
 `graph-worker.js` and `harper-worker.js` (web workers for the graph's layout
-and the grammar checker).
+and the grammar checker), and `capture.js` and `clip.js` (the scripts of
+`capture.html` and `clip.html`).
 
 **Every one is a classic script, not a module, and they share one global
 scope.** A top-level `function` or `const` in any of them is a global the
@@ -1010,12 +1262,12 @@ top-level read of a later file's constant, and on a lazy name read at load
 with no stand-in; `tests/test_lazy_bundle_calls.py` covers the lazy bundles.
 `scratchpad/appjs-map.js --check FROM TO [AFTER]` answers the same question
 for a range of lines before it moves. The app's own code was one 50,000-line
-`app.js` until 0.3.3; it was cut into the 23 files above as contiguous
+`app.js` until 0.3.3; it was cut into the 27 files above as contiguous
 ranges in their old order, so every reference that was backward stayed
 backward (`docs/roadmap/archive/agent-remaining/appjs-split.md`). A test
 that means "the app's code" reads all of them as one text through
 `tests/_app_js.py`. To find a function's file:
-`grep -n "^function name" frontend/*.js`.
+`grep -n "^function name" frontend/js/*.js`.
 
 ### Driving it in a browser
 
@@ -1035,8 +1287,9 @@ focused element's `offsetParent`) catches far more than a screenshot.
 
 ### Invariants worth knowing
 
-1. **The Notes tab has sub-tabs** (`capture` / `ask` / `browse`) and remembers
-   the last one in `localStorage`. Anything that focuses or scrolls to an
+1. **The Notes tab has sub-tabs** (`browse`, `capture`, `writing-room`, `ask` and
+   `questions`: Your notes, Capture, Writing room, Ask and Questions) and
+   remembers the last one in `localStorage`. Anything that focuses or scrolls to an
    element there must call `showNotesSection(...)` first: focusing inside a
    `display: none` section silently does nothing, and the control reads as
    dead. This has caused the same bug four separate times.
@@ -1055,7 +1308,7 @@ focused element's `offsetParent`) catches far more than a screenshot.
    accent is written as an inline custom property so it wins. Two rules of
    equal specificity would otherwise be decided by source order.
 5. **The header degrades in a fixed order** as the window narrows: wordmark,
-   then the status pill, then tab padding, then the tabs scroll. Its buttons
+   then tab padding, then the tabs scroll. Its buttons
    never shrink. Breakpoints here are measured, not guessed: the desktop
    shell's window is 1200x800, which is less viewport than it sounds on a
    scaled display.
@@ -1098,10 +1351,15 @@ focused element's `offsetParent`) catches far more than a screenshot.
 
 ## 11. Configuration
 
-Three knobs, all optional, via `.env` (copy from `.env.example`):
+A few knobs, all optional, via the environment or `.env` (copy from
+`.env.example`). [INSTALL.md](INSTALL.md) has the full table; the ones that shape
+the architecture:
 
 - `MEMORYMAP_DATA_DIR`: where the database, preferences, uploads, and backups
-  live (default `data/`).
+  live (default `data/` beside a source checkout; the per-user app folder for a
+  packaged build, `core/config.py`'s `_default_data_dir`).
+- `MEMORYMAP_PORT` (default 8000) and `MEMORYMAP_LAN_PORT` (default 8443, the
+  HTTPS port other devices use when LAN mode is on; `core/netbind.py`).
 - `OLLAMA_URL`: where the local Ollama server listens (default
   `http://localhost:11434`).
 - `MEMORYMAP_SEARXNG_PORT`: the port to run a managed SearXNG on (default
@@ -1112,12 +1370,12 @@ Three knobs, all optional, via `.env` (copy from `.env.example`):
 
 User-facing preferences (chat model, embedding backend, recycle-bin days, answer
 style, optional AI profile, …) live in `data/preferences.json`, managed by
-`ConfigManager` and editable from the Preferences screen.
+`ConfigManager` and edited from the Settings panes.
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest` (294 files, 3,500+ tests, ten to
-  fifteen minutes). Uses a throwaway database and fakes every AI call
+- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 830 files, 7,200+ tests,
+  under nine minutes on four cores and about 25 serially). Uses a throwaway database and fakes every AI call
   (`tests/fakes.py` + `tests/conftest.py`), so it is fully offline. The
   routine local gate is `bash scripts/gate.sh --changed` (the lint set,
   `node --check`, ruff, and the tests that name the files you changed);
@@ -1144,8 +1402,11 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   `tests/test_skills_evals.py::test_the_evals_seam_is_the_only_thing_that_reaches_the_runner`
   asserts rather than trusting.
 - **CI** (`.github/workflows/ci.yml`): lint with ruff, then run the full test
-  suite on Python 3.11 / 3.12 / 3.13 and the Playwright smoke suite in
-  `tests-e2e/`. No GPU, no Ollama, no models required.
+  suite on Python 3.11 / 3.12 / 3.13, the tests that need the PDF rasteriser in
+  their own job, and the Playwright smoke suite in `tests-e2e/`. No GPU, no
+  Ollama, no models required. `package-check.yml` builds and smoke-tests the
+  frozen Windows app and the installer before release day, and `release.yml`
+  publishes them ([RELEASING.md](RELEASING.md)).
 - **CodeQL** (`.github/workflows/codeql.yml`): static security analysis on push,
   PR, and weekly.
 - **Dependabot** (`.github/dependabot.yml`): weekly dependency + Action bumps.
@@ -1159,8 +1420,9 @@ python -m memorymap            # → http://localhost:8000
 python -m memorymap --desktop  # same app in its own window (needs pywebview)
 ```
 
-On first run you choose a password (bcrypt-hashed, stays local). See the
-[README](../README.md) for the full walkthrough of each screen.
+On first run you choose a password (bcrypt-hashed, stays local). The launcher
+scripts, the installers and the command-line options are in
+[INSTALL.md](INSTALL.md); the [README](../README.md) tours each screen.
 
 ### What runs when nothing is happening
 
@@ -1265,7 +1527,9 @@ not an import string, and uvicorn cannot fork that); running `uvicorn` against
 the factory directly can, and is the case the check exists for.
 
 More workers is also not the lever for speed here. The slow paths are Ollama
-and embedding, and both already run off the request thread.
+and embedding. A deferred filing (`defer_filing`) runs both off the request
+thread; a plain save and an edit still embed on the request (corrected
+2026-10-05, audit ARCH-02: this line said both were always off it).
 
 ## 14. Where to look when you want to…
 
@@ -1278,7 +1542,7 @@ and embedding, and both already run off the request thread.
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py`: one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
-| Change the UI | `frontend/app.js` and the files after it (`grep -n "^function name" frontend/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
+| Change the UI | `frontend/js/app.js` and the files after it (`grep -n "^function name" frontend/js/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
 | Add a graph layout | `layoutHierarchy` in `graph.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
 | Add a theme or palette | `THEME_PRESETS` in `settings.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
 | Change what the Timeline plots | `api/routes_timeline.py`: a note sits at what it is *about* when it says so |
@@ -1291,8 +1555,14 @@ and embedding, and both already run off the request thread.
 | Change what a skill can be | `ai/skills.py`: `normalise` is the one validator both the editor and `save_skill` go through |
 | Add a built-in skill | `skills.BUILTIN_SKILLS`, not `app.js`; name its tools (§7b) |
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
-| Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
+| Work out why SearXNG won't start | `searxng/searxng.log` in the data folder, surfaced in Settings → Web search |
+| Expose a tool to another program | `mcp_server.py`: it lists only non-destructive, enabled tools, so a new destructive tool needs no change there |
 | Add a background job | `core/jobs.enqueue(kind, func, ...)` with a lane in `KIND_LANES`, never a `Thread` of its own; `api/routes_tasks.collect()` already draws what the pool holds, so the panel needs nothing |
+| Show when a job last ran | wrap the job in `with jobruns.job_run("kind") as run:` (`core/jobruns.py`), set `run.result`, and add the kind to `jobruns.KINDS` for its wording; `GET /jobs/last-runs` and Settings → Background tasks (its Background jobs list) pick it up. Never write a `JobRun` row by hand |
+| Change how a note is filed with no model | `ai/lexical_filing.py` (`suggest_categories`, `suggest_tags`); the janitor and `_keep_suggestions` in `routes_entries.py` call it |
+| Change a Settings model card (size, fit, good for) | `ai/model_cards.py` `decorate`, with `core/hardware.py` for the memory figure |
+| Change what happens when a note is saved with the server away | `frontend/js/quick-note.js` (the outbox, `client_key`) and `_already_delivered` in `routes_entries.py` |
+| Add a lazily loaded script | a `LAZY_MODULES` entry in `app.js`, a stand-in in `LAZY_ENTRY_POINTS`, and its name in `LAZY_PIECES` in `tests/_app_js.py` |
 | Add a kind to the Library | `api/routes_library.py`: one builder function, and `app.js` needs no change |
 | Make something installable | `core/extras.py`'s allowlist, never a package name from a request. `unavailable` greys it out *and* refuses it server-side |
 | Add an embedding model | `core/embedmodels.py`'s allowlist. The `org/name` → `models--org--name` flattening is the traversal defence, not formatting |

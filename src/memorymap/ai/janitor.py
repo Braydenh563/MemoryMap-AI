@@ -26,12 +26,13 @@ import json
 import logging
 import threading
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian
-from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
+from memorymap.ai import filing_certainty, learning, lexical_filing, librarian
+from memorymap.ai.embeddings import EmbeddingService, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 
@@ -48,9 +49,9 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 # attempt, "no AI available") never touches a vector and must not pay to load
 # one.
 from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry
+from memorymap.core.database import Category, Entry
 from memorymap.core.logbuffer import safe_value
-from memorymap.entry.manager import UNCATEGORISED
+from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED, record_filing
 
 # Above this cosine similarity we trust the embedding match and skip
 # the LLM entirely. Below it, the call is worth its cost.
@@ -67,6 +68,21 @@ KNN_MIN_SIMILARITY = 0.42
 # The winner needs a clear majority of the weighted vote. A split is exactly
 # the case where asking the model earns its cost.
 KNN_MIN_SHARE = 0.55
+# **A short note needs a close relative before meaning may file it** (BACKLOG
+# section 8, "ai is cool" filed under Sketches). A one-to-three word note's
+# vector is mostly the model's baseline, and the baseline sits above both bars
+# above: measured with BAAI/bge-small-en-v1.5 over a hundred-note, ten-category
+# notebook (`scratchpad/filing_short_eval.py`), all 20 short notes that belong
+# nowhere ("ai is cool", "hello", "remember this") were filed by meaning, and a
+# centroid at 0.60 or a neighbour at 0.42 is cleared by anything. What does
+# separate them is the nearest filed note: 0.68 to 0.93 (median 0.83) for short
+# notes that have a home, 0.55 to 0.75 (median 0.64) for those that do not. At
+# 0.72, 59 of the 60 short notes with a home are still filed and 3 of the 20
+# without one are. Measured on one embedding model; another backend's scale
+# differs, and there a short note falls through to the notebook's own words
+# (`lexical_filing`), which is the safe side.
+SHORT_NOTE_WORDS = 4
+SHORT_NOTE_MIN_NEIGHBOUR = 0.72
 
 SYSTEM_PROMPT = (
     "You are the filing assistant of a personal notebook. Given a note, "
@@ -102,6 +118,16 @@ AI_METHODS = ("semantic-match", "semantic-neighbours", "llm")
 
 def is_ai_method(method: str) -> bool:
     return str(method or "") in AI_METHODS
+
+
+def settled_state(method: str) -> str:
+    """`filing_state` once a filing decision lands: `auto` when the AI chose,
+    `words` when the notebook's own words did, `done` when nothing decided."""
+    if is_ai_method(method):
+        return AUTO_FILED
+    if method == "words":
+        return WORDS_FILED
+    return "done"
 
 
 def categorise(
@@ -167,7 +193,8 @@ def categorise(
             return semantic
 
     category, confidence, method = _ask_llm(
-        session, content, model_manager, ollama, on_late=on_late_llm, deadline=model_deadline
+        session, content, model_manager, ollama, on_late=on_late_llm, deadline=model_deadline,
+        exclude_entry_id=exclude_entry_id,
     )
     if method == "timeout":
         # The model is still answering and its answer will be applied when
@@ -194,6 +221,18 @@ def categorise(
     if semantic is not None:
         return semantic
 
+    #: **No model and nothing by meaning: the notebook's own words**
+    #: (INBOX 434). Learned from the notes already filed, the moves made by
+    #: hand and the categories' names, and abstaining when it is not sure.
+    words = lexical_filing.lexical_category(session, content, exclude_entry_id=exclude_entry_id)
+    if words is not None:
+        logger.info(
+            "janitor: filed by your notebook's words -> '%s' (%d%%)",
+            safe_value(words.name, 60),
+            words.confidence,
+        )
+        return words.name, words.confidence, "words"
+
     # Still "filed by <method>", even when the method is 'none'. Reversing the
     # order above briefly replaced this with a differently-worded line, which
     # broke the one thing every filing decision is supposed to leave behind:
@@ -210,6 +249,82 @@ def categorise(
     return category, confidence, method
 
 
+#: Notes this process has already given a second opinion and that the model
+#: still could not decide, so the pass moves on to the next ones instead of
+#: asking about the same twenty every tick. In memory on purpose: a restart is
+#: a fresh chance, and a stuck note costs one prompt, not a loop.
+_review_tried: set[int] = set()
+
+
+def review_words_filed(
+    session: Session,
+    embeddings: EmbeddingService,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = 20,
+) -> dict[str, int]:
+    """The second half of filing by the notebook's own words (BACKLOG 76).
+
+    A note filed while no model was available carries `filing_state ==
+    "words"` and is a best guess. Once a model is back, the background pass
+    gives each such note a real second opinion: the same `categorise` a new
+    note gets, which asks the model first. Where the model files it
+    somewhere else the note moves (a `filed` event by `system:filing`, which
+    "undo auto-filing" can put back); where it agrees, the note is marked as
+    the AI's (`auto`), so a later move by hand reads as a correction, exactly
+    as for any other AI filing. Where the model could not decide, the note
+    stays `words` and is not asked again this run.
+
+    A note the person filed themselves, a private note (no model reads one)
+    and a binned note are never touched. Returns what happened, counted:
+    `looked`, `moved`, `confirmed`.
+    """
+    result = {"looked": 0, "moved": 0, "confirmed": 0}
+    if not ollama.is_running():
+        return result
+    query = (
+        select(Entry)
+        .where(
+            Entry.filing_state == WORDS_FILED,
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.user_filed == False,  # noqa: E712
+        )
+        .order_by(Entry.id)
+    )
+    for entry in session.scalars(query):
+        if result["looked"] >= limit:
+            break
+        if entry.id in _review_tried:
+            continue
+        result["looked"] += 1
+        try:
+            category, confidence, method = categorise(
+                session,
+                entry.content,
+                embeddings,
+                model_manager,
+                ollama,
+                exclude_entry_id=entry.id,
+            )
+        except Exception:  # noqa: BLE001 - one note's failure never stops the pass
+            logger.warning("janitor: second opinion failed for a words-filed note", exc_info=True)
+            _review_tried.add(entry.id)
+            continue
+        if not is_ai_method(method):
+            _review_tried.add(entry.id)
+            continue
+        moved = record_filing(
+            session, entry, category,
+            by=filed_by_label(method, confidence, model_manager, embeddings),
+        )
+        entry.ai_confidence = confidence
+        entry.filing_state = settled_state(method)
+        result["moved" if moved else "confirmed"] += 1
+    session.commit()
+    return result
+
+
 def _semantic_category(
     session: Session,
     content: str,
@@ -223,11 +338,20 @@ def _semantic_category(
     `ai_first_filing` is off. Two copies would be two chances for the
     orderings to drift apart.
     """
+    # One read of the filed vectors for both passes below, and the categories
+    # the person has corrected notes like this one out of (I7's consumer:
+    # `learning.centroid_excluded` was claimed built with no caller, ARCH-08).
+    labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    if _too_short_to_trust(content, embeddings, labelled):
+        logger.info("janitor: too short and too far from any filed note to file by meaning")
+        return None
+    excluded = learning.excluded_categories(session, content)
     match = _best_centroid_match(
-        session, content, embeddings, exclude_entry_id=exclude_entry_id
+        session, content, embeddings, exclude_entry_id=exclude_entry_id,
+        labelled=labelled, excluded=excluded,
     )
     if match is not None and match.similarity >= CONFIDENT_MATCH:
-        confidence = min(100, round(match.similarity * 100))
+        confidence = min(filing_certainty.CAP, round(match.similarity * 100))
         logger.info(
             "janitor: filed by semantic match -> '%s' (%d%%)",
             safe_value(match.name, 60),
@@ -241,7 +365,8 @@ def _semantic_category(
     # between them, resembling neither. Individual neighbours don't average
     # away like that.
     neighbours = _knn_match(
-        session, content, embeddings, exclude_entry_id=exclude_entry_id
+        session, content, embeddings, exclude_entry_id=exclude_entry_id,
+        labelled=labelled, excluded=excluded,
     )
     if neighbours is not None:
         logger.info(
@@ -253,44 +378,122 @@ def _semantic_category(
     return None
 
 
+def _too_short_to_trust(content: str, embeddings: EmbeddingService, labelled: "_Labelled | None") -> bool:
+    """True for a note under `SHORT_NOTE_WORDS` words whose nearest filed note
+    (a private one never counts, as in `_knn_match`) is under
+    `SHORT_NOTE_MIN_NEIGHBOUR` close. False when there is nothing to judge."""
+    if labelled is None or not labelled.names or len((content or "").split()) >= SHORT_NOTE_WORDS:
+        return False
+    vector = embeddings.embed_text(content)
+    if vector is None:
+        return False
+    import numpy as np
+
+    rows = labelled.rows[~labelled.private]
+    norm = float(np.linalg.norm(vector))
+    if rows.shape[0] == 0 or norm == 0.0 or rows.shape[1] != vector.shape[0]:
+        return False
+    return float((rows @ (vector.astype("float32") / norm)).max()) < SHORT_NOTE_MIN_NEIGHBOUR
+
+
+@dataclass
+class _Labelled:
+    """Every filed note's vector beside its category, for one filing call."""
+
+    names: list[str]
+    #: One unit-length row per name (numpy, imported lazily like the rest).
+    rows: Any
+    #: Which rows are private notes, as a boolean array.
+    private: Any
+
+
+def _labelled_vectors(
+    session: Session, embeddings: EmbeddingService, exclude_entry_id: int | None = None
+) -> _Labelled | None:
+    """The filed notes' vectors, from the search engine's matrix.
+
+    **Not from the table.** This used to select every stored vector as a blob
+    and decode each one, on every save, twice (once for the centroids, once
+    for the neighbours): 539 ms of a 1,415 ms save at 610 notes (audit
+    2026-10-05, ARCH-02), beside a matrix in the search engine that already
+    holds every one of them decoded, unit length and kept in step with every
+    write. What is read here per save is one small query, each filed note's
+    id and category, and the rows are a slice of that matrix.
+
+    Only vectors of the current backend count (the matrix is per backend),
+    never Uncategorised (filing must not gravitate into the junk drawer).
+    """
+    from memorymap.search import engine as search_engine
+
+    import numpy as np
+
+    query = (
+        select(Entry.id, Category.name, Entry.is_private)
+        .join(Category, Entry.category_id == Category.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Category.name != UNCATEGORISED,
+        )
+    )
+    if exclude_entry_id is not None:
+        query = query.where(Entry.id != exclude_entry_id)
+    filed = session.execute(query).all()
+    if not filed:
+        return None
+    matrix = search_engine.current_matrix(session, embeddings.backend_id())
+    if matrix is None:
+        return None
+    ids = [entry_id for entry_id, _name, _private in filed]
+    found = search_engine.rows_for(matrix, ids)
+    if found is None:
+        return None
+    positions, rows = found
+    names = [filed[i][1] for i in positions]
+    private = np.array([bool(filed[i][2]) for i in positions], dtype=bool)
+    return _Labelled(names=names, rows=rows, private=private)
+
+
 def _best_centroid_match(
     session: Session,
     content: str,
     embeddings: EmbeddingService,
     exclude_entry_id: int | None = None,
+    labelled: _Labelled | None = None,
+    excluded: set[str] | None = None,
 ) -> CentroidMatch | None:
     """Compare the note's vector to the average vector (centroid) of each
-    existing category. Only vectors from the current backend count."""
+    existing category. Only vectors from the current backend count.
+
+    `excluded` are the categories the person has corrected notes like this
+    one away from (`learning.excluded_categories`, WORLD_CLASS_PLAN I7):
+    never the answer, however close."""
     note_vector = embeddings.embed_text(content)
     if note_vector is None:
         return None
-
-    query = (
-        select(Category.name, EmbeddingRecord.embedding)
-        .join(Entry, Entry.category_id == Category.id)
-        .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
-        .where(
-            Entry.is_deleted == False,  # noqa: E712
-            EmbeddingRecord.model_version == embeddings.backend_id(),
-            Category.name != UNCATEGORISED,  # never gravitate INTO the junk drawer
-        )
-    )
-    if exclude_entry_id is not None:
-        query = query.where(Entry.id != exclude_entry_id)
-    rows = session.execute(query).all()
-    if not rows:
+    if labelled is None:
+        labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    if labelled is None or not labelled.names:
         return None
 
     import numpy as np
 
-    vectors_by_category: dict[str, list[np.ndarray]] = {}
-    for name, blob in rows:
-        vectors_by_category.setdefault(name, []).append(bytes_to_vector(blob))
+    if labelled.rows.shape[1] != note_vector.shape[0]:
+        return None
+    order = sorted(set(labelled.names))
+    index = {name: i for i, name in enumerate(order)}
+    groups = np.array([index[name] for name in labelled.names])
+    # A masked sum per category. Measured at 5,000 vectors: 3 to 12 ms, where
+    # `np.add.at` (an unbuffered per-row loop) took 670 ms and a product with
+    # a membership matrix 400 to 1,300 ms on a loaded machine (BLAS threads).
+    centroids = np.stack(
+        [labelled.rows[groups == i].mean(axis=0) for i in range(len(order))]
+    )
 
     best: CentroidMatch | None = None
-    for name, vectors in vectors_by_category.items():
-        centroid = np.mean(vectors, axis=0)
-        similarity = cosine_similarity(note_vector, centroid)
+    for name, centroid in zip(order, centroids):
+        if excluded and name in excluded:
+            continue
+        similarity = cosine_similarity(note_vector, centroid.astype("float32"))
         if best is None or similarity > best.similarity:
             best = CentroidMatch(name=name, similarity=similarity)
     return best
@@ -301,6 +504,8 @@ def _knn_match(
     content: str,
     embeddings: EmbeddingService,
     exclude_entry_id: int | None = None,
+    labelled: _Labelled | None = None,
+    excluded: set[str] | None = None,
 ) -> NeighbourMatch | None:
     """Vote among the k most similar individual notes.
 
@@ -308,51 +513,41 @@ def _knn_match(
     so one very close note outweighs three vague ones. Returns None unless the
     nearest note is genuinely close *and* the winner takes a clear majority, 
     a split vote is the case where asking the model is worth its cost.
+    `excluded` categories have no vote (see `_best_centroid_match`).
     """
     note_vector = embeddings.embed_text(content)
     if note_vector is None:
         return None
-
-    query = (
-        select(Category.name, EmbeddingRecord.embedding)
-        .join(Entry, Entry.category_id == Category.id)
-        .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
-        .where(
-            Entry.is_deleted == False,  # noqa: E712
-            # Private notes are excluded from everything the AI touches, and
-            # filing is no exception: a category chosen by a private note's
-            # neighbours would leak what that note is about.
-            Entry.is_private == False,  # noqa: E712
-            EmbeddingRecord.model_version == embeddings.backend_id(),
-            Category.name != UNCATEGORISED,
-        )
-    )
-    if exclude_entry_id is not None:
-        query = query.where(Entry.id != exclude_entry_id)
-    rows = session.execute(query).all()
-    if not rows:
+    if labelled is None:
+        labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    if labelled is None or not labelled.names:
         return None
 
-    # Was a Python loop calling `cosine_similarity` once per candidate note, 
-    # every save paid an unvectorized per-row cost that `embeddings.similar_pairs`
-    # already avoids for the equivalent all-pairs comparison. One query vector
-    # against N candidates is a single matrix-vector product, not a block sweep
-    # (no N² blow-up to guard against the way `similar_pairs` does).
     import numpy as np
 
-    names = [name for name, _blob in rows]
-    matrix = np.stack([bytes_to_vector(blob) for _name, blob in rows]).astype("float32")
+    # Private notes are excluded from everything the AI touches, and filing
+    # is no exception: a category chosen by a private note's neighbours would
+    # leak what that note is about.
+    keep = ~labelled.private
+    if excluded:
+        keep &= np.array([name not in excluded for name in labelled.names], dtype=bool)
+    if not keep.any():
+        return None
+    if keep.all():
+        # The usual case: nothing to leave out, so no copy of every row.
+        names, matrix = labelled.names, labelled.rows
+    else:
+        names = [name for name, kept in zip(labelled.names, keep) if kept]
+        matrix = labelled.rows[keep]
+    if matrix.shape[1] != note_vector.shape[0]:
+        return None
+    # One query vector against N candidates is a single matrix-vector
+    # product; the matrix's rows are already unit length.
     query_vec = note_vector.astype("float32")
     query_norm = float(np.linalg.norm(query_vec))
     if query_norm == 0.0:
         return None  # every pair would score 0, same as the old per-row path
-    row_norms = np.linalg.norm(matrix, axis=1)
-    similarities = np.divide(
-        matrix @ query_vec,
-        row_norms * query_norm,
-        out=np.zeros(len(rows), dtype="float32"),
-        where=row_norms != 0,
-    )
+    similarities = matrix @ (query_vec / query_norm)
 
     order = np.argsort(-similarities)[:KNN_NEIGHBOURS]
     scored = [(float(similarities[i]), names[i]) for i in order]
@@ -377,7 +572,7 @@ def _knn_match(
     # Confidence reflects both how close the neighbours are and how much they
     # agree: a unanimous vote among distant notes shouldn't read as certain.
     confidence = round(min(1.0, scored[0][0]) * share * 100)
-    return NeighbourMatch(name=name, confidence=max(1, min(100, confidence)))
+    return NeighbourMatch(name=name, confidence=max(1, min(filing_certainty.CAP, confidence)))
 
 
 def _ask_llm(
@@ -387,6 +582,7 @@ def _ask_llm(
     ollama: OllamaClient,
     on_late=None,  # noqa: ANN001
     deadline: float | None = None,
+    exclude_entry_id: int | None = None,
 ) -> tuple[str, int, str]:
     if not ollama.is_running():
         return UNCATEGORISED, 0, "none"
@@ -401,7 +597,7 @@ def _ask_llm(
     # categories (Brief 13). Filing the same kind of note into the same wrong
     # place every week, with the user moving it every week, is the reported
     # failure this answers.
-    user_prompt = librarian.filing_prompt(session, content, existing)
+    user_prompt = librarian.filing_prompt(session, content, existing, exclude_entry_id=exclude_entry_id)
     try:
         reply = _chat_within_deadline(
             ollama,
@@ -421,7 +617,17 @@ def _ask_llm(
         category = str(data["category"]).strip()
         if not category:
             raise ValueError("empty category")
-        return category, _confidence_of(data), "llm"
+        raw = _confidence_of(data)
+        confidence = filing_certainty.calibrated(
+            session, content, category, raw, "llm", exclude_entry_id=exclude_entry_id
+        )
+        # The model's own number is kept in the log only: it is how a small
+        # model phrases itself, not a probability (`filing_certainty`).
+        logger.info(
+            "janitor: the model said %d%% for '%s'; shown as %d%%",
+            raw, safe_value(category, 60), confidence,
+        )
+        return category, confidence, "llm"
     except TimeoutError:
         # Logged where the deadline passed. "timeout" only when an answer is
         # still coming to someone (`on_late`); `categorise` turns it back
@@ -492,7 +698,9 @@ def filed_by_label(method: str, confidence: int, model_manager=None, embeddings=
             return f"meaning ({embeddings.active_model()}), {confidence}% sure"
     except Exception:  # noqa: BLE001 - a label never fails a filing
         logger.debug("janitor: couldn't name the filer", exc_info=True)
-    return {"none": "the keyword fallback", "user": "you"}.get(method, method)
+    if method == "words":
+        return f"your notebook's own words, {confidence}% sure"
+    return {"none": "nothing (no model)", "user": "you"}.get(method, method)
 
 
 def filing_deadline() -> float:
@@ -611,7 +819,10 @@ def _extract_json(text: str) -> dict:
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end <= start:
         raise ValueError(f"no JSON object in reply: {text!r}")
-    parsed = json.loads(text[start : end + 1])
+    try:
+        parsed = json.loads(text[start : end + 1])
+    except RecursionError as exc:
+        raise ValueError("reply JSON is nested too deeply") from exc
     if not isinstance(parsed, dict):
         raise ValueError("reply JSON is not an object")
     return parsed

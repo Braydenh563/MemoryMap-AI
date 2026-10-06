@@ -9,6 +9,7 @@ see it: the packaged Windows app, which has no console to print an error to.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 from pathlib import Path
 from tests._app_js import frontend_text
@@ -55,7 +56,40 @@ def test_the_fixed_argv_parses_in_both_install_types():
 def test_restart_branches_on_frozen():
     block = SOURCE.split("def _restart(")[1].split("def ")[0]
     assert 'getattr(sys, "frozen", False)' in block
-    assert "os.execv(sys.executable, argv)" in block
+    assert "_replace_process(argv)" in block
+    # A Restart from a Repair launch must not repair again.
+    assert '!= "--reinstall"' in block
+
+
+def test_restart_never_hands_windows_an_unquoted_argv(monkeypatch):
+    """CPython's `os.execv` on Windows joins the arguments with spaces and
+    quotes none of them, so `...\\MemoryMap AI\\MemoryMap AI.exe` came back
+    as three arguments and argparse exited: the tray's Restart closed the
+    installed app and nothing returned. On Windows the new process is a
+    `Popen` (which quotes), then this one exits."""
+    import subprocess
+
+    from memorymap import __main__ as launcher
+
+    started: list = []
+    monkeypatch.setattr(launcher.sys, "platform", "win32")
+    monkeypatch.setattr(launcher.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(subprocess, "Popen", lambda argv, **kw: started.append((argv, kw)))
+
+    class Exited(Exception):
+        pass
+
+    def fake_exit(code):
+        raise Exited(code)
+
+    monkeypatch.setattr(launcher.os, "_exit", fake_exit)
+    monkeypatch.setattr(launcher.os, "execv", lambda *a: started.append(("execv", a)))
+    with contextlib.suppress(Exited):
+        launcher._replace_process(["C:\\Users\\Jos\u00e9\\MemoryMap AI\\MemoryMap AI.exe", "--desktop"])
+    assert len(started) == 1 and started[0][0] != "execv", started
+    argv, kwargs = started[0]
+    assert argv == [launcher.sys.executable, "--desktop"]
+    assert kwargs["creationflags"] & 0x00000008  # detached from this process
 
 
 # --- the menu items ------------------------------------------------------------
@@ -158,7 +192,7 @@ def test_quit_and_restart_stop_background_work_before_exiting():
         # `rindex`, not `index`: the comment above the call names it too, and
         # matching the prose instead of the code is how this test would pass
         # for a version that stops nothing.
-        exit_call = "os._exit(0)" if callback == "_quit" else "os.execv"
+        exit_call = "os._exit(0)" if callback == "_quit" else "_replace_process(argv)"
         assert block.index("_stop_background_work()") < block.rindex(exit_call), callback
 
 

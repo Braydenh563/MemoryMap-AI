@@ -95,11 +95,16 @@ def test_greeting_uses_ai_when_available(ai_client, fake_ollama):
 
 def test_greeting_keeps_its_terminal_mark_separate(ai_client, fake_ollama):
     """The mark is returned apart from the phrase so a name can slot in
-    before it: "Rise and shine, Sam!" rather than "Rise and shine!, Sam"."""
+    before it: "How did you sleep, Sam?" rather than "How did you sleep?, Sam".
+    An exclamation mark comes back as a full stop (the copy carries none)."""
+    fake_ollama.librarian_reply = "How did you sleep?"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "How did you sleep"
+    assert body["punctuation"] == "?"
     fake_ollama.librarian_reply = "Rise and shine!"
     body = ai_client.get("/insights/greeting?block=morning").json()
     assert body["greeting"] == "Rise and shine"
-    assert body["punctuation"] == "!"
+    assert body["punctuation"] == "."
 
 
 def test_greeting_is_sentence_cased(ai_client, fake_ollama):
@@ -124,7 +129,7 @@ def test_greeting_weaves_in_the_saved_name(ai_client, fake_ollama, monkeypatch):
     fake_ollama.librarian_reply = "Morning, Brayden!"
     body = ai_client.get("/insights/greeting?block=morning").json()
     assert body["greeting"] == "Morning, Brayden"
-    assert body["punctuation"] == "!"
+    assert body["punctuation"] == "."
     assert body["append_name"] is False  # model handled it; don't add it twice
     # The name reached the prompt from preferences, not from the client.
     assert "Brayden" in fake_ollama.chat_calls[-1][0]["content"]
@@ -245,10 +250,10 @@ def test_greeting_rejects_a_rambling_model_reply(ai_client, fake_ollama):
 def test_greeting_strips_quotes_and_trailing_punctuation(ai_client, fake_ollama):
     fake_ollama.librarian_reply = '"Welcome back!"'
     body = ai_client.get("/insights/greeting?block=morning").json()
-    # Quotes gone, phrase clean, and the "!" preserved for the sentence end.
+    # Quotes gone, phrase clean, and the "!" made a full stop.
     assert body == {
         "greeting": "Welcome back",
-        "punctuation": "!",
+        "punctuation": ".",
         "append_name": False,
         "source": "ai",
     }
@@ -337,6 +342,34 @@ def test_dashboard_layout_roundtrip(client):
     # Both width encodings default to empty and round-trip.
     assert saved["wide"] == []
     assert saved["sizes"] == {}
+
+
+def test_the_activity_counts_do_not_read_every_note_body(client):
+    """Performance pass, 2026-10-03 (INBOX 441, item 6). `/insights/stats` and
+    `/insights/heatmap` run at every unlock and only need a note's day, but
+    loaded each recent note as a whole object, its text included: 5,000 recent
+    notes cost 208 ms and 204 ms of object building apiece. A statement that
+    reads `entries.content` is the regression."""
+    from sqlalchemy import event
+
+    from memorymap.core import deps
+
+    for i in range(3):
+        client.post("/entries", json={"content": f"a note about gardens {i}"})
+    seen: list[str] = []
+
+    def _record(_conn, _cursor, statement, *_args, **_kwargs):
+        seen.append(statement)
+
+    engine = deps.get_db().engine
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        assert client.get("/insights/heatmap").json()["total"] == 3
+        assert sum(client.get("/insights/stats").json()["per_day"]) == 3
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+    reading_bodies = [s for s in seen if "entries.content" in s]
+    assert not reading_bodies, reading_bodies
 
 
 def test_dashboard_layout_wide_widgets_persist(client):

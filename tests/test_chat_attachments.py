@@ -309,3 +309,44 @@ def test_a_note_with_no_attachments_gets_no_attachment_reading(session):
     session.add(entry)
     session.commit()
     assert _attachment_readings(session, entry.id) == ""
+
+
+def _prompt_text(fake_ollama) -> str:
+    return "\n".join(str(m.get("content", "")) for m in fake_ollama.chat_calls[-1])
+
+
+def test_a_retrieved_note_that_is_mostly_a_picture_brings_its_reading(
+    ai_client, fake_ollama, session
+):
+    """INBOX 491: "I asked what the contents were in the note where the stuff
+    was mostly in the image and the ai didnt read that." Only hand-attached
+    notes carried their pictures' readings, so a retrieved note that was one
+    screenshot of typed ideas reached the model as a link."""
+    from memorymap.core.database import MediaUpload
+
+    session.add(
+        MediaUpload(
+            filename="ideas123.png",
+            original_name="image.png",
+            ocr_text="Offline banner in the status bar. Note spaces like Apple Notes folders.",
+        )
+    )
+    session.commit()
+    ai_client.post(
+        "/entries", json={"content": "Some feature ideas I had:\n\n![image.png](/media/ideas123.png)"}
+    )
+    ai_client.post("/chat", json={"question": "what are my feature ideas?"})
+    assert "Note spaces like Apple Notes folders" in _prompt_text(fake_ollama)
+
+
+def test_a_retrieved_note_with_words_of_its_own_does_not(ai_client, fake_ollama, session):
+    """The budget half: a note that says plenty itself keeps its allowance for
+    its own words, not for an incidental picture."""
+    from memorymap.core.database import MediaUpload
+
+    session.add(MediaUpload(filename="side123.png", original_name="side.png", ocr_text="SIDEBAR READING"))
+    session.commit()
+    words = "Feature ideas for the timeline, written out in full. " * 8
+    ai_client.post("/entries", json={"content": f"{words}\n\n![](/media/side123.png)"})
+    ai_client.post("/chat", json={"question": "what are my feature ideas for the timeline?"})
+    assert "SIDEBAR READING" not in _prompt_text(fake_ollama)

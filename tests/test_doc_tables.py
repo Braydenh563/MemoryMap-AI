@@ -32,7 +32,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"
 
 #: The marker *lines*, not the bare names: documents.js's own comment above
 #: the region says what the markers are for, so the names appear twice in the

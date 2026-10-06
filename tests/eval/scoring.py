@@ -33,7 +33,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import cards, tools
+from memorymap.ai import bench, cards, tools
 from tests.eval.fixture import Notebook
 from tests.eval.golden import Ask
 
@@ -86,12 +86,9 @@ def score_citation(session: Session, case: Ask, book: Notebook) -> tuple[float, 
             for group in cards.result_cards(case.tool, result)
             for item in group["items"]
         }
-        missing = [pair for pair in wanted if pair not in got]
-        if missing:
-            return (len(wanted) - len(missing)) / len(wanted), (
-                f"did not cite {missing} (cited: {sorted(got)})"
-            )
-        return 1.0, ""
+        # The one definition, shared with the model bench (ai/bench.py), so
+        # the harness CI runs and the bench a person runs cannot drift.
+        return bench.citation_score(set(wanted), got)
     if case.check is not None:
         try:
             return (1.0 if case.check(result, book) else 0.0), ("" if case.check(result, book) else "the answer was wrong")

@@ -1,8 +1,8 @@
-# The professional-grade plan — whiteboard, documents, backend, agent harness
+# The professional-grade plan: whiteboard, documents, backend, agent harness
 
 > **Mostly built; the rest is folded in.** Rows marked Built are done; the open rows are now [BACKLOG.md §116](BACKLOG.md) and [WORLD_CLASS_PLAN.md](WORLD_CLASS_PLAN.md) §8 and §11, which is the order to work them in. Do not start work from this file.
 
-**Read after [`../ROADMAP.md`](../ROADMAP.md) and [`HANDOVER.md`](HANDOVER.md). The findings behind this plan — bugs, schema, per-surface gaps — are in [`AUDIT.md`](AUDIT.md).**
+**Read after [`../ROADMAP.md`](../ROADMAP.md) and [`HANDOVER.md`](HANDOVER.md). The findings behind this plan, bugs, schema, per-surface gaps, are in [`AUDIT.md`](AUDIT.md).**
 Asked for directly: *"make the documents text editor be the best one existing,
 and same for the whiteboard. refine the backends, functionality and ui ux for
 both... the app needs to shine and be usable professionally... make sure the
@@ -11,11 +11,11 @@ BACKEND. MAKE IT THE ULTIMATE APP AND AGENT HARNESS... IF IT IS TOO MUCH, LAY
 OUT THE FULL SCOPED PLAN FOR OPUS AND SONNET TO FOLLOW."*
 
 This is that plan. Every item names the file it lands in, what "done" means,
-and how to *measure* it — this repo's own rule (CLAUDE.md) is that a UI claim
+and how to *measure* it, this repo's own rule (CLAUDE.md) is that a UI claim
 without a measurement is a guess. Items are ordered by value ÷ risk within each
 section; sections are ordered by what a working professional hits first.
 
-Related, already settled — do not rebuild (HISTORY.md, HANDOVER.md):
+Related, already settled: do not rebuild (HISTORY.md, HANDOVER.md):
 Select/Hand/Lasso peers with Select as home; the contextual style panel; panels
 clearing each other by measured size (`--wb-h-*`); copy/paste style; hand-tool
 click selects; text-box drag; the Files rows; space-delete cascade; force
@@ -38,7 +38,7 @@ model. Every idle cost competes with inference.
 | P6 | **Built** (`size_bytes` stored at upload, backfilled once; the attachment gallery reads the column). **Backend: never stat the disk in a list.** `size_bytes` now stats every upload on `GET /media` (added by request). Store it on upload and backfill once in a migration. | `routes_files.py` (`list_media`), `alembic/` | `/media` with 2,000 uploads <50ms. |
 | P7 | **Embeddings off the request thread.** Confirm every embed happens in the background task queue, never inline in `POST /entries`. | `core/`, `ai/` | `POST /entries` p95 <80ms with the fake embedding backend disabled. |
 
-## 1. Whiteboard — to the level of Miro / FigJam / tldraw
+## 1. Whiteboard: to the level of Miro / FigJam / tldraw
 
 Structure is now right (peers, contextual panel, measured clearance). What
 separates "works" from "professional" is fluency: the things you do fifty
@@ -48,17 +48,17 @@ times an hour must be one gesture.
 |---|------|-------|---------------------|
 | W1 | **Multi-select marquee + shift-click on *everything*, with a group bounding box and 8 handles.** Marquee/lasso exist; group resize/rotate of a multi-selection does not. | `whiteboard.js` (`wbMultiSelection`, `nodeResizeDrag`) | Select 3 shapes, drag a corner: all three scale about the group centre. |
 | W2 | **Smart connectors.** Links snap to the nearest of 4 anchor points on a card and re-route around the card they leave. Curved links get a midpoint handle. | `whiteboard.js` (`wbLinkPathD`, link drag) | Drag a card; its links stay attached at the anchor, never through the card body. |
-| W3 | **Sticky notes as a first-class object** (colour presets, auto-sizing text, `N` shortcut). Today "text box" is the only text object and it is not a sticky. | `index.html` tools, `whiteboard.js` objects (`kind: "sticky"`), backend `WhiteboardObject.data` (no schema change) | Press N, click, type — a yellow sticky appears sized to its text. |
-| W4 | **Frames/sections** — a titled rectangle that moves its contents with it and appears in the navigator and the board outline. | `WhiteboardObject kind:"frame"`, `wbApplyBulkMove` | Drag a frame: children move; export "this frame only" works. |
+| W3 | **Sticky notes as a first-class object** (colour presets, auto-sizing text, `N` shortcut). Today "text box" is the only text object and it is not a sticky. | `index.html` tools, `whiteboard.js` objects (`kind: "sticky"`), backend `WhiteboardObject.data` (no schema change) | Press N, click, type, a yellow sticky appears sized to its text. |
+| W4 | **Frames/sections**: a titled rectangle that moves its contents with it and appears in the navigator and the board outline. | `WhiteboardObject kind:"frame"`, `wbApplyBulkMove` | Drag a frame: children move; export "this frame only" works. |
 | W5 | **Already built** (`wbAlignSelection`/distribute exist). **Alignment and distribution toolbar for multi-selections** (align L/C/R/T/M/B, distribute H/V, tidy-up). The properties panel already shows a multi-select row; put the six buttons there. | `wbUpdatePropertiesPanel` multi branch | Six buttons, each verified against computed bboxes in a Playwright test. |
 | W6 | **Partly built** (`[`/`]` z-order exists; flip and the sheet assertions are open). **Keyboard completeness**: arrow nudge exists; add Ctrl+D duplicate, Ctrl+G/Shift+G group (exists), `[`/`]` z-order, `Ctrl+Shift+H/V` flip, `Escape` cascades (edit → selection → tool). Publish them in the `?` sheet. | `whiteboard.js` keydown (line ~4092) | Every shortcut in the `?` sheet has a Playwright assertion. |
-| W7 | **Board-level undo that survives reload** — the undo stack is in-memory. Persist the last 50 entries per board in `localStorage` keyed by board id. | `wbUndoStack` | Move a card, reload, Ctrl+Z restores it. |
+| W7 | **Board-level undo that survives reload**, the undo stack is in-memory. Persist the last 50 entries per board in `localStorage` keyed by board id. | `wbUndoStack` | Move a card, reload, Ctrl+Z restores it. |
 | W8 | **Minimap always available, not a toggle** in fullscreen; collapsible corner. | navigator code | Fullscreen shows the minimap by default at ≥1280px. |
 | W9 | **Touch and pen**: two-finger pan/zoom, single-finger draw with a pen, palm rejection via `pointerType`. | `wbZoomFilter`, drawing handlers | On a touch device (or Playwright touch emulation) drawing with `pointerType:"pen"` while a `touch` pointer rests does not pan. |
 | W10 | **Export**: PNG at 2× and SVG of the *selection*, with the board background optional. Export menu exists for the whole board. | `wb-export-menu` | Selection export produces a file whose bbox equals the selection's. |
-| W11 | **AI on the board** (the genuinely new part): "Summarise this frame into a note", "Turn these stickies into a mind map", "Explain the connection between A and B" — each a properties-panel action on the selection, calling the existing agent tools. Stream the result into a new card beside the selection. | `wbUpdatePropertiesPanel`, `ai/tools/whiteboard.py` (new: `summarise_selection`, `cluster_items`) | Works with the fake transport in tests; the card appears with a "Made by <model>" byline. |
+| W11 | **AI on the board** (the genuinely new part): "Summarise this frame into a note", "Turn these stickies into a mind map", "Explain the connection between A and B", each a properties-panel action on the selection, calling the existing agent tools. Stream the result into a new card beside the selection. | `wbUpdatePropertiesPanel`, `ai/tools/whiteboard.py` (new: `summarise_selection`, `cluster_items`) | Works with the fake transport in tests; the card appears with a "Made by <model>" byline. |
 
-## 2. Documents — to the level of Obsidian / Typora / iA Writer
+## 2. Documents: to the level of Obsidian / Typora / iA Writer
 
 The editor has the Obsidian half (live preview, slash commands, `[[` links,
 outline, backlinks) and the Notion half (typed blocks, AI edit). What is
@@ -67,18 +67,18 @@ missing is *editor feel* and *document structure*.
 | # | Item | Where | Done when / measure |
 |---|------|-------|---------------------|
 | D1 | **Built** (one header row, strip collapsed by default; chrome 171 → 89px). **One header row, not five.** Title · format · view segment · save state · ⋯ in a single 2.375rem row; the formatting strip collapsed by default and revealed on selection (Medium/Notion-style floating toolbar) or with `Ctrl+/`. | `index.html` `.doc-dock`, `05-sidebars-themes.css` `.doc-toolbar` | Chrome above the first line of text ≤ 2 rows at 1280px (measure `#doc-panes`'s top offset: today 171px of chrome; target ≤ 96px). |
-| D2 | **Already built** (`#selection-bar` in editor.js — audited, its Live-view placement fixed; 2.8 ms to appear). **Selection-driven floating toolbar** (bold/italic/link/heading/quote/code/AI) that appears above a selection in Live and Source. | `documents.js` (new `docFloatingToolbar`) | Select a word: toolbar appears within 1 frame, positioned by `getBoundingClientRect`, clamped to the pane (the same `clampToolbarMenu` rules). |
+| D2 | **Already built** (`#selection-bar` in editor.js: audited, its Live-view placement fixed; 2.8 ms to appear). **Selection-driven floating toolbar** (bold/italic/link/heading/quote/code/AI) that appears above a selection in Live and Source. | `documents.js` (new `docFloatingToolbar`) | Select a word: toolbar appears within 1 frame, positioned by `getBoundingClientRect`, clamped to the pane (the same `clampToolbarMenu` rules). |
 | D3 | **Built** (document-local stack across Live and Source, 200 entries, 500 ms coalescing; `scratchpad/ui-sweeps/editor.js` 35/35). **Real undo/redo with a document-local stack** across Live *and* Source (browser undo breaks on mode switch). | `documents.js` | Type in Live, switch to Source, Ctrl+Z undoes the Live edit. |
 | D4 | **Tables**: `/table`, Tab between cells, row/column add/remove from a cell menu, live-rendered. | `documents.js` slash menu, renderer | A 3×3 table survives a Live→Source→Live round trip byte-exact. |
 | D5 | **Already built** (`#doc-find-bar`, replace one/all). **Find & replace** inside the document (`Ctrl+H`), regex optional, with match count and highlight in both modes. | `documents.js` | 200 matches highlighted <50ms. |
 | D6 | **Headings navigation**: outline exists; add drag-to-reorder sections in the outline (moves the whole section's text). | `doc-outline` | Drag H2 "B" above "A": document text reorders; undo restores. |
 | D7 | **Callouts, footnotes, task lists with progress, math (KaTeX-free: render `$…$` with a small in-repo MathML shim)**. Collapsible callouts exist. | renderer | Each construct has a render test in `tests/test_markdown_*.py`. |
-| D8 | **Version history UI on the document** — revisions are stored; show a right-hand timeline with diff view and "restore". | `documents.js`, `GET /documents/{id}/revisions` | Restore any of 10 revisions; diff highlights inserted/removed lines. |
+| D8 | **Version history UI on the document**, revisions are stored; show a right-hand timeline with diff view and "restore". | `documents.js`, `GET /documents/{id}/revisions` | Restore any of 10 revisions; diff highlights inserted/removed lines. |
 | D9 | **Typewriter/focus mode and reading stats** (words, reading time exist; add "focus current paragraph"). | `documents.js`, CSS | Toggle dims all but the caret's paragraph. |
 | D10 | **Already built** (`{{date}}`/`{{title}}` templates in documents.js). **Templates**: new-document-from-template (meeting, spec, decision record, weekly review) stored as documents tagged `template`. | `routes_documents.py` (`?template=`), Library "New" menu | New → Template → document created with `{{date}}` filled. |
-| D11 | **AI inside the editor, professionally**: inline "rewrite / shorten / expand / fix grammar" on selection with a diff preview and accept/reject per hunk — never silently replacing text. `POST /documents/{id}/ai-edit` exists; add a `dry_run` that returns a unified diff. | `documents.js`, `routes_documents.py` | Accept one hunk of three: only that hunk applies. |
+| D11 | **AI inside the editor, professionally**: inline "rewrite / shorten / expand / fix grammar" on selection with a diff preview and accept/reject per hunk, never silently replacing text. `POST /documents/{id}/ai-edit` exists; add a `dry_run` that returns a unified diff. | `documents.js`, `routes_documents.py` | Accept one hunk of three: only that hunk applies. |
 
-## 3. Backend — fix and redesign
+## 3. Backend: fix and redesign
 
 The API works. It is not yet *designed*: three code paths do the same job
 (media vs attachment vs sketch), errors surface as bare 500s, and long jobs
@@ -94,9 +94,9 @@ block requests.
 | B6 | **Migrations you can trust.** Alembic exists; add a startup check that refuses to boot on an unknown schema version and a `--migrate` flag, plus a pre-migration backup of `memorymap.db`. | `core/database.py`, `main.py` | Downgrade the db by hand → app refuses with a clear message and a backup path. |
 | B7 | **Workspace scoping as middleware, not ambient session state.** The `X-Workspace-ID` filter lives in a SQLAlchemy event; `impersonate_workspace` exists because it gets in the way. Move scoping into an explicit `Scope` dependency every route declares. | `core/deps.py`, all routes | `grep -c impersonate_workspace src/` → 0. |
 | B8 | **Backups and export as a product feature.** Nightly zip of db + media to a user-chosen folder; one-click restore; per-space export. | `core/backup.py` (new), Settings | Restore into a fresh data dir reproduces the notebook byte-for-byte. |
-| B9 | **Built** (`GET /debug/health`; Settings › About Health block with latency p50/p95). **Observability that costs nothing.** A `/debug/health` with db size, job queue depth, model latency p50/p95 (from `taskhistory`), and the last 20 errors — surfaced in Settings › About. | `routes_models.py` or new | Page renders in <20ms. |
+| B9 | **Built** (`GET /debug/health`; Settings › About Health block with latency p50/p95). **Observability that costs nothing.** A `/debug/health` with db size, job queue depth, model latency p50/p95 (from `taskhistory`), and the last 20 errors, surfaced in Settings › About. | `routes_models.py` or new | Page renders in <20ms. |
 
-## 4. Agent harness — "the ultimate agent harness"
+## 4. Agent harness: "the ultimate agent harness"
 
 The harness works with small local models (HISTORY §8, §110). To be the
 harness people build on:
@@ -108,24 +108,24 @@ harness people build on:
 | A3 | **Memory with provenance.** The agent's "what I know about you" is a set of notes tagged `memory` with the turn that created each; a Settings page lists and deletes them. Never silent. | `ai/memory.py` (new), Settings | Every memory line shows "from chat <title>, <date>". |
 | A4 | **Skills as files.** The Skills library exists; let a skill be a markdown file in `data/skills/` with frontmatter (name, trigger, tools allowed), hot-reloaded. | `ai/skills.py` | Drop a file in; it appears in the library without restart. |
 | A5 | **Budgets and interruption.** Per-turn token/time budget in Settings; a Stop that actually cancels the model call (Ollama supports it) and rolls back partial tool writes via the undo stack. | `ai/agent.py`, `ai/ollama_client.py` | Stop at 2s: no note was created; the chat shows "stopped". |
-| A6 | **Built** (`tests/eval/`, 33 golden asks, score 1.000 in CI; `scripts/eval.py` for a real model — never run against one). **Eval harness in-repo.** 30 golden asks over a fixture notebook, scored on tool choice and citation correctness, run in CI against the fake transport and locally against a real model with `make eval`. | `tests/eval/` | CI prints a score; a regression fails the build. |
+| A6 | **Built** (`tests/eval/`, 33 golden asks, score 1.000 in CI; `scripts/eval.py` for a real model, never run against one). **Eval harness in-repo.** 30 golden asks over a fixture notebook, scored on tool choice and citation correctness, run in CI against the fake transport and locally against a real model with `make eval`. | `tests/eval/` | CI prints a score; a regression fails the build. |
 | A7 | **MCP in and out.** Expose the notebook's tools as an MCP server (stdio) so Claude Code / other agents can use this notebook; allow attaching external MCP servers as tools. | `ai/mcp_server.py`, `ai/mcp_client.py` | `claude mcp add memorymap …` lists `search_notes`, `get_document`, … |
 
 ## 5. Ship order (suggested sprints, each ends green + measured)
 
-1. **P1, P2, P5, B3** — smoothness and no bare 500s. One session.
-2. **D1, D2, D3, D5** — the editor feels professional. One session.
-3. **W1, W2, W5, W6** — the whiteboard is fluent. One session.
-4. **B2, B1** — the job queue, then the one file model. Two sessions; B1 is the risky one, do it behind the new `/files` router with the old routes kept until every test moves.
-5. **A1, A2, A6** — the harness becomes measurable. One session.
-6. **W3, W4, W11, D4, D8, D11** — the features that make it *unique*. Two sessions.
-7. **B4, B5, B7, B8, A3–A5, A7** — scale and openness.
+1. **P1, P2, P5, B3**, smoothness and no bare 500s. One session.
+2. **D1, D2, D3, D5**, the editor feels professional. One session.
+3. **W1, W2, W5, W6**, the whiteboard is fluent. One session.
+4. **B2, B1**: the job queue, then the one file model. Two sessions; B1 is the risky one, do it behind the new `/files` router with the old routes kept until every test moves.
+5. **A1, A2, A6**: the harness becomes measurable. One session.
+6. **W3, W4, W11, D4, D8, D11**, the features that make it *unique*. Two sessions.
+7. **B4, B5, B7, B8, A3–A5, A7**, scale and openness.
 
 Every sprint: run the full suite, `ruff check .`, `node --check` on every
 touched JS, one Playwright measurement per UI claim, and a HANDOVER.md entry
 that says what was *not* verified.
 
-## 6. Semantic search and the knowledge graph — "the ultimate upgrade"
+## 6. Semantic search and the knowledge graph, "the ultimate upgrade"
 
 Asked for directly. Today: keyword `ILIKE` scans everywhere, an optional
 embedding backend (absent on the default install), a graph drawn from explicit
@@ -142,13 +142,13 @@ were offline, one process, and honest about a CPU-only laptop.
 | S5 | **Communities and a time axis.** Louvain/label-propagation over the fused graph (pure Python, cached per notebook version) colours clusters; a time slider fades nodes by last edit. | `core/graph.py` | 2k-node graph clusters in <2s, cached until the next mutation. |
 | S6 | **Graph as a query surface.** Click a cluster → "what is this about?" (the agent summarises the cluster's notes); select two nodes → "path between" (Yen's already exists) and "explain the connection". | `graph.js`, agent tools | Works with the fake transport in tests. |
 | S7 | **Backlinks and unlinked mentions everywhere** (Obsidian's killer feature): every note/document panel lists notes that mention its title without linking, with one-click "link it". | `routes_entries.py /connections`, panels | FTS query on the title; test with three unlinked mentions. |
-| S8 | **Index health in Settings**: chunk count, embedded %, model, last run, "rebuild" — and never a silent rebuild on boot. | Settings › Search | Numbers match the tables. |
+| S8 | **Index health in Settings**: chunk count, embedded %, model, last run, "rebuild", and never a silent rebuild on boot. | Settings › Search | Numbers match the tables. |
 
 ## 7. Startup and thermal behaviour (reported: "fan noticeably speeds up when starting")
 
-Not yet measured — measure first, then fix. Candidates, in order of likelihood:
+Not yet measured: measure first, then fix. Candidates, in order of likelihood:
 
-1. **Embedding/index rebuild on boot** — grep `startup`/`lifespan` handlers in `api/app.py` and `core/` for anything that walks every entry.
+1. **Embedding/index rebuild on boot**, grep `startup`/`lifespan` handlers in `api/app.py` and `core/` for anything that walks every entry.
 2. **Model warm-up / `/api/show` per installed model** on the first `/models/status` (HANDOVER records this tripping a 5s abort).
 3. **Four poll loops starting at once** (PLAN P1).
 4. **Media GC / orphan scan** on boot.
@@ -157,7 +157,7 @@ Measure: `py-spy top --pid <uvicorn>` for the first 60s after launch, and Chrome
 
 ---
 
-# Part II — every other tab, sub-tab, utility and ability
+# Part II: every other tab, sub-tab, utility and ability
 
 Asked for directly: *"do the cutting edge professional plan for every other
 feature and the rest of the application, all the tabs, subtabs, utilities,
@@ -178,8 +178,8 @@ do this, and what is the one measurement that proves we match it.*
 | # | Item | Done when / measure |
 |---|------|---------------------|
 | H1 | **Widgets are the dashboard; the dashboard is not a page of cards.** Today: a fixed set of widgets plus a widgets menu (HISTORY §75). Move to a 12-column drag/resize grid (react-grid-layout semantics, no library: pointer events + CSS grid areas), layouts saved per space. | Drag "Reminders" to the right column, resize to 6 cols, reload: identical. |
-| H2 | **Widget catalogue with previews** — each widget declares `{id, title, minSize, dataSource}`; the menu shows a live miniature. | Every widget in `dashboard.js` has a catalogue entry; adding one needs no menu edit. |
-| H3 | **"Today" as the default first widget**: due reminders, notes touched today, unread notifications, the last chat — one glance, one row. | First paint <150ms from cached data; refreshes via the one poll loop (P1). |
+| H2 | **Widget catalogue with previews**, each widget declares `{id, title, minSize, dataSource}`; the menu shows a live miniature. | Every widget in `dashboard.js` has a catalogue entry; adding one needs no menu edit. |
+| H3 | **"Today" as the default first widget**: due reminders, notes touched today, unread notifications, the last chat, one glance, one row. | First paint <150ms from cached data; refreshes via the one poll loop (P1). |
 | H4 | **Stats that mean something**: streak, notes/week sparkline, top categories drift, "unlinked notes" count with a fix-it link. | Sparklines are inline SVG built from `/insights`; no chart library. |
 | H5 | **Keyboard**: `1–9` jumps to widget N when the dashboard has focus; widgets are `role="region"` with labels. | Playwright: press 3 → focus inside widget 3. |
 
@@ -193,19 +193,19 @@ do this, and what is the one measurement that proves we match it.*
 | N4 | **Bulk actions bar** on select: move to space, add tag, pin, archive, delete, "ask the AI about these". Exists partly; make it one bar with keyboard (Shift+↑/↓ extends selection). | Every bulk action has a Playwright test. |
 | N5 | **Inline expand, not navigate**: a row opens in place with the full editor (Notion-style), `Esc` closes, `Ctrl+Enter` saves. | Open/close a row without the list scroll position changing. |
 | N6 | **Saved filters as sidebar items** (they exist as "Save filter"): show them in the left rail with counts; `is:unlinked`, `has:file`, `cat:`, `tag:`, `before:`/`after:` all documented in the `?` hint. | Each filter token has a test in `test_search_syntax.py`. |
-| N7 | **Private notes**: lock icon, blur on lock screen, excluded from search/embeddings unless unlocked (exists) — add per-note passphrase option and an audit line in Settings › Data of what is private. | Private note never appears in `/library`, `/graph`, `/insights`, agent tools (tests exist; add graph/insights). |
+| N7 | **Private notes**: lock icon, blur on lock screen, excluded from search/embeddings unless unlocked (exists): add per-note passphrase option and an audit line in Settings › Data of what is private. | Private note never appears in `/library`, `/graph`, `/insights`, agent tools (tests exist; add graph/insights). |
 
 ## 10. Chat and the agent surface
 
 | # | Item | Done when / measure |
 |---|------|---------------------|
-| C1 | **Every tool result is a card** with its real actions (open, pin, add to document, undo) — PLAN A1 — and a "used N sources" strip that expands to citations with highlighted spans. | No tool result renders as a bare paragraph. |
+| C1 | **Every tool result is a card** with its real actions (open, pin, add to document, undo), PLAN A1, and a "used N sources" strip that expands to citations with highlighted spans. | No tool result renders as a bare paragraph. |
 | C2 | **Composer**: multi-line by default, `/` commands, `@` mentions for notes/documents/boards/files (the universal picker, ROADMAP row 5), drag-drop files, paste image → attached with caption+OCR queued (exists) and a visible job chip. | `@` picker is one component used by chat, capture and documents. |
 | C3 | **Conversation management**: pin, rename (fixed), fork from a turn, export as markdown, "turn this answer into a note/document" one click. | Fork creates a new conversation with turns ≤ N copied. |
-| C4 | **Streaming that never stalls or dies** (HISTORY records three fixes) — add a heartbeat: if no token in 20s show "still thinking" with the model's tokens/s; Stop cancels server-side (A5). | Kill Ollama mid-stream: the UI shows a clear error within 5s, never a spinner forever. |
-| C5 | **Model panel**: current model, context used / max as a bar, tools enabled, persona — in the header, one click to change. Exists in parts; unify. | Context bar updates per turn from the server's own count. |
+| C4 | **Streaming that never stalls or dies** (HISTORY records three fixes), add a heartbeat: if no token in 20s show "still thinking" with the model's tokens/s; Stop cancels server-side (A5). | Kill Ollama mid-stream: the UI shows a clear error within 5s, never a spinner forever. |
+| C5 | **Model panel**: current model, context used / max as a bar, tools enabled, persona, in the header, one click to change. Exists in parts; unify. | Context bar updates per turn from the server's own count. |
 | C6 | **Ask history** as a sidebar filter (exists), plus "ask again with the current notebook" and diffing the two answers. | |
-| C7 | **Popup agent (Ctrl+K)** = command palette + agent in one input: commands first, then "ask the notebook", results navigable (exists), actions inline. Keyboard-only end to end. | Playwright: open, type, arrow, Enter, Esc — never touches the mouse. |
+| C7 | **Popup agent (Ctrl+K)** = command palette + agent in one input: commands first, then "ask the notebook", results navigable (exists), actions inline. Keyboard-only end to end. | Playwright: open, type, arrow, Enter, Esc, never touches the mouse. |
 
 ## 11. Graph
 
@@ -221,24 +221,24 @@ do this, and what is the one measurement that proves we match it.*
 
 | Sub-tab | Item | Done when / measure |
 |---|------|---------------------|
-| All | **One list component** for All/Documents/Boards/Links/Contents (row, card, table density modes; sort; filters; multi-select; kebab) — today each sub-tab has its own renderer with drift (HISTORY §81/§90/§91 were all drift bugs). | One `LibraryList` in `library.js`; each sub-tab is a data source + column spec. |
+| All | **One list component** for All/Documents/Boards/Links/Contents (row, card, table density modes; sort; filters; multi-select; kebab): today each sub-tab has its own renderer with drift (HISTORY §81/§90/§91 were all drift bugs). | One `LibraryList` in `library.js`; each sub-tab is a data source + column spec. |
 | All | **`Entry.kind`** (AUDIT B6) drives the type filter instead of content sniffing. | |
 | Documents | Table view with title, words, updated, links, "in board"; inline rename; open in split with the current document. | |
 | Boards & maps | Thumbnail = a real rendered snapshot (PNG stored on save, not re-drawn); duplicate/template a board; "recent boards" in the whiteboard's own board picker. | Thumbnail load is one `<img>`, not a live render. |
 | Images | Justified grid (Google Photos rows), date groups, lightbox with keyboard, "find similar" via embeddings (S2), bulk caption/OCR via the job queue with one progress bar. | |
 | Files | Rows exist; add: column sort, type/size/read-state filters as chips, "open in reader" primary, "extract to notes" (page range → notes), duplicate detection by `sha256` (B9). | |
 | AI Skills | Skills as files (A4) with a preview, enable/disable, "run on selection"; the library shows which skill produced which note. | |
-| Links | Bookmark rows with favicon, reader-mode cache (offline copy of the page text — it's a local-first app), "cite in note", dead-link check on demand. | |
-| Contents | This is the "everything" table: make it the power view — column picker, group by, export CSV/JSON of the current view. | |
+| Links | Bookmark rows with favicon, reader-mode cache (offline copy of the page text, it's a local-first app), "cite in note", dead-link check on demand. | |
+| Contents | This is the "everything" table: make it the power view, column picker, group by, export CSV/JSON of the current view. | |
 
 ## 13. Timeline
 
 | # | Item | Done when / measure |
 |---|------|---------------------|
 | T1 | **Virtualised, date-grouped, with a scrubber** (year → month → day) and a density heatmap in the scrubber. | 10k items scroll at 60fps. |
-| T2 | **Everything is an event**: notes, documents (created/edited), files, boards, reminders due/done, chats, meetings — toggleable kinds, one colour per kind, consistent with Graph and Dashboard. | |
+| T2 | **Everything is an event**: notes, documents (created/edited), files, boards, reminders due/done, chats, meetings, toggleable kinds, one colour per kind, consistent with Graph and Dashboard. | |
 | T3 | **"On this day" and "a week ago"** rows; jump-to-date; range select → "summarise this week". | |
-| T4 | Popups show every attachment (fixed) — make the popup the same card component the Library uses. | |
+| T4 | Popups show every attachment (fixed): make the popup the same card component the Library uses. | |
 
 ## 14. Reminders
 
@@ -247,21 +247,21 @@ do this, and what is the one measurement that proves we match it.*
 | R1 | **Natural-language input** ("tomorrow 9am", "every Monday", "in 2 weeks") parsed locally (chrono-style, in-repo, no dependency); recurrence stored as RFC 5545 RRULE. | 30 phrases in a test table parse to the expected UTC instants. |
 | R2 | **Reminder ↔ notification ↔ note are one thing**: a reminder notification's Done completes the reminder (AUDIT B13); a reminder created from a note links back. | |
 | R3 | **Views**: Today / Upcoming / Overdue / Done, calendar month view, drag to reschedule. | |
-| R4 | **OS notifications that fire while the app is open only** (it has no background process) — say so once in Settings, and offer an `.ics` export so a real calendar can carry them. | `.ics` validates; Google/Apple Calendar import shows the recurrence. |
+| R4 | **OS notifications that fire while the app is open only** (it has no background process), say so once in Settings, and offer an `.ics` export so a real calendar can carry them. | `.ics` validates; Google/Apple Calendar import shows the recurrence. |
 
-## 15. Settings — section by section
+## 15. Settings: section by section
 
 | Section | Item |
 |---|------|
 | Account | Password change with current-password check; auto-lock timeout; "what is stored where" summary; lock-screen attempt counter fix (AUDIT E9). |
-| Appearance | Theme, density, font, accent — all previewed live in a sample card; reduced-motion honoured globally (E12); `APPEARANCE_DEFAULTS` completeness lint (the NaN-border bug in CLAUDE.md) as a test. |
+| Appearance | Theme, density, font, accent, all previewed live in a sample card; reduced-motion honoured globally (E12); `APPEARANCE_DEFAULTS` completeness lint (the NaN-border bug in CLAUDE.md) as a test. |
 | Preferences | Default view per tab, editor defaults (toolbar collapsed, width, spellcheck), capture defaults (auto-file on/off), language. |
 | Models | Installed models with capabilities (vision/OCR/embedding) as badges; pull with progress via the job queue; per-task model choice (chat, vision, OCR, embedding, caption) in one table; latency p50/p95 from `taskhistory` next to each. |
 | Tools | Per-tool on/off exists; add per-tool "ask before writing" and a dry-run log. |
 | Skills / Personas / Templates | Files on disk (A4), editable in the Documents editor, import/export as a zip. |
 | Web search | Provider, allowlist/denylist, "offline only" master switch that greys every network feature and says so in the status bar. |
 | Memory | Every memory line with provenance and delete (A3). |
-| Tasks | The job queue (B2) — running, queued, failed with retry; cancel. |
+| Tasks | The job queue (B2): running, queued, failed with retry; cancel. |
 | Data | Backup now / schedule / restore (B8); export space as markdown+files; import (Obsidian vault exists, add Notion/Apple Notes/Evernote `.enex`); storage breakdown by kind; "rebuild search index" (S8). |
 | Logs | Tail of the app log with level filter and "copy for a bug report" that redacts note text. |
 | Shortcuts | Editable (exists); conflicts detected; printable cheat sheet. |
@@ -295,7 +295,7 @@ do this, and what is the one measurement that proves we match it.*
 ## 18. Order for Part II (after Part I sprints 1–3)
 
 1. §15 Settings › Models/Tasks/Data + U6 notifications rows (they expose the job queue and the notification table already built in Part I).
-2. §9 N1 one editor + C2 `@` picker (one component, three mounts) — the single biggest consistency win.
+2. §9 N1 one editor + C2 `@` picker (one component, three mounts), the single biggest consistency win.
 3. §12 one `LibraryList` + `Entry.kind`.
 4. §14 R1/R2 reminders NLP + unification; §13 T1/T2 timeline.
 5. §8 dashboard grid; §11 G2 graph rendering; U1/U3.

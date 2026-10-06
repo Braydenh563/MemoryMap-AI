@@ -47,7 +47,7 @@ def _transcribe_upload(
     if len(data) > max_bytes:
         raise HTTPException(status_code=413, detail=over_limit_detail)
     if not data:
-        raise HTTPException(status_code=400, detail="The recording is empty")
+        raise HTTPException(status_code=400, detail="The recording is empty.")
 
     suffix = Path(file.filename or "clip.webm").suffix[:8] or ".webm"
     # delete=True keeps the file open under this handle for the `with` block's
@@ -70,8 +70,10 @@ def _transcribe_upload(
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:  # a bad clip must not 500 mysteriously
+            logging.getLogger("memorymap.voice").warning("transcription failed", exc_info=True)
             raise HTTPException(
-                status_code=422, detail=f"Couldn't transcribe that recording: {exc}"
+                status_code=422,
+                detail="Couldn't transcribe that recording. Try recording it again.",
             ) from exc
     finally:
         Path(clip.name).unlink(missing_ok=True)
@@ -84,7 +86,7 @@ def _transcribe_upload(
 @router.post("/transcribe")
 def transcribe(file: UploadFile, session: Session = Depends(get_session)) -> dict:
     return _transcribe_upload(
-        file, session, MAX_AUDIO_BYTES, "Recording is larger than 25 MB"
+        file, session, MAX_AUDIO_BYTES, "That recording is larger than 25 MB."
     )
 
 
@@ -97,7 +99,7 @@ def transcribe_meeting(file: UploadFile, session: Session = Depends(get_session)
         file,
         session,
         MAX_MEETING_AUDIO_BYTES,
-        "Recording is larger than 300 MB",
+        "That recording is larger than 300 MB.",
     )
 
 

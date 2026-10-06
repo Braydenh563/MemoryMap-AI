@@ -101,6 +101,8 @@ pytest-xdist>=3.8.0,<4.0
 #     — also needs the `tesseract` system binary on PATH, which pip cannot
 #     install (apt/brew/choco install tesseract-ocr, or see INSTALL.md);
 #     without it this degrades to "no OCR text", never a failed upload.
+#   pip install rapidocr_onnxruntime   # a second OCR reader with no system
+#     program to install; used only when Tesseract isn't ready (core/ocr.py).
 #   pip install pypdfium2 Pillow # read scanned PDFs (core/pdfpages.py): turns
 #     pages with no text layer into images a vision/OCR model can read;
 #     without it a scanned PDF is only ever reported as one.

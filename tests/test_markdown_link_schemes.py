@@ -17,7 +17,7 @@ def test_markdown_links_go_through_the_scheme_allow_list():
     # cuts the maths out first and calls it (INBOX 423c).
     body = src[src.index("function appendInlineRun(") :]
     body = body[: body.index("\nfunction ", 1)]
-    assert "a.href = safeHref(linkUrl)" in body, "the markdown link anchor must use safeHref"
+    assert "a.href = safeHref(linkTarget)" in body, "the markdown link anchor must use safeHref"
     assert "a.href = linkUrl" not in body
 
 
@@ -36,6 +36,6 @@ def test_a_bookmark_row_goes_through_the_same_allow_list():
     database. `library.js` sets `link.href` straight from the saved URL;
     it must run it through the same `safeHref()` the markdown renderer
     uses, not a second, possibly-different check."""
-    src = (FRONTEND / "library.js").read_text(encoding="utf-8")
+    src = (FRONTEND / "js" / "library.js").read_text(encoding="utf-8")
     assert "link.href = safeHref(bookmark.url)" in src
     assert "link.href = bookmark.url" not in src

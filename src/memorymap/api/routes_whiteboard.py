@@ -22,16 +22,20 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from collections import OrderedDict
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
-from sqlalchemy import func, select
+
+from memorymap.api import paging
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps, events
-from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
+from memorymap.core.database import LIKE_ESCAPE, Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import apply_title, extract_title, update_entry
 
@@ -39,15 +43,11 @@ router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 
 #: An image object's `data.url`, as an allowlist rather than a prefix check.
 #:
-#: **A `startswith("/media/")` test is not enough, and the difference is a
-#: file-deletion vulnerability.** `delete_object` removes the backing file
-#: when an image object goes, and `/media/../../../etc/passwd` passes a
-#: prefix check while resolving well outside the media folder, so the
-#: delete would unlink an arbitrary path. Matching the exact shape
-#: `upload_media` actually produces (a uuid4 hex plus a short suffix) closes
-#: it at the door, and `_media_path` below refuses to resolve outside the
-#: folder as well, because one check standing between a stored string and
-#: `unlink()` is one check too few.
+#: **A `startswith("/media/")` test is not enough.** A purge removes an image
+#: object's file, and `/media/../../../etc/passwd` passes a prefix check while
+#: resolving well outside the media folder. Matching the exact shape
+#: `upload_media` produces (a uuid4 hex plus a short suffix) closes it at the
+#: door; the purge (`manager`) checks containment again.
 MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 #: A sketch is a path list, not an image. Big enough for a page of scribble,
@@ -57,6 +57,14 @@ MAX_SKETCH_CHARS = 400_000
 #: A text box's own content. Generous: this is a whiteboard note, not a tweet
 #:, but still bounded for the same reason every other free-text field here is.
 MAX_OBJECT_TEXT_CHARS = 20_000
+#: The longest note a topic can hold behind it (MINDMAP_PLAN.md decision 18).
+#: A note is a paragraph or a few, not a document: a longer text belongs in a
+#: notebook note the topic points at, which the map already does.
+MAX_TOPIC_NOTE_CHARS = 10_000
+#: A comment thread on an item (WHITEBOARD_PLAN decision 17): a remark, not a
+#: note, and a thread a person reads in one popover.
+MAX_COMMENT_CHARS = 2_000
+MAX_COMMENTS_PER_ITEM = 100
 
 #: What a board *is*. A map is a board with tree semantics turned on
 #: (MINDMAP_PLAN.md §4, option B), the same rows, the same endpoints, one
@@ -79,6 +87,13 @@ DEFAULT_BOARD_TYPE = "board"
 #: these is the only compatibility question, and it gets the default.
 BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
 DEFAULT_BOARD_LAYOUT = "free"
+#: **A map made from text starts laid out** (audit FEAT-05, 2026-10-05). The
+#: import and the accepted AI proposal used the board default, Free, while a
+#: map made by hand (`createNewBoard`) and the AI's `create_mindmap` start in
+#: tree-right: so the first Tab on an imported map piled new topics onto old
+#: ones, 240 overlapping pairs over 101 topics. One default for every map
+#: door.
+DEFAULT_MAP_LAYOUT = "tree-right"
 
 #: **The map's own theme** (MINDMAP_PLAN.md §13e, the owner: "the
 #: customisation features are lacking severely"). §13.4 measured the gap
@@ -102,6 +117,14 @@ DEFAULT_BOARD_LAYOUT = "free"
 #: The value `None` means "this map says nothing, use the app's default",
 #: which is what every map has today: a theme that stores nothing draws
 #: exactly the map that was drawn before this existed.
+#:
+#: **`palette` and `font` joined later, and they are the map's, not a
+#: topic's** (§13e's remainder, decision 8). A branch palette is the answer
+#: to `color` at map level: not one value but the list a first-level branch
+#: claims its colour from, so it is a name here (`MAP_BRANCH_PALETTES`) and
+#: the one list both drawings read. A font is the face every topic and line
+#: label on the map is set in; no topic has a face of its own, so it never
+#: resolves onto a topic (`MAP_LEVEL_THEME_FIELDS`).
 MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "font_size": int,
     "align": frozenset({"left", "center", "right"}),
@@ -113,6 +136,58 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_dashed": bool,
     "edge_width": frozenset({"thin", "thick"}),
     "edge_arrow": frozenset({"on", "off"}),
+    "palette": frozenset({"deep", "soft", "vivid", "bold", "paired", "bright", "earth"}),
+    "font": frozenset({"serif", "mono", "wide"}),
+    #: **The hierarchy preset** (MINDMAP_PLAN.md decision 39): how the centre,
+    #: the main branches and everything deeper draw. Classic is the default
+    #: and is stored as no value; the frontend holds what each one draws
+    #: (`WB_MAP_HIERARCHIES`), as it holds the fonts' stacks.
+    "hierarchy": frozenset({"outline", "boxed", "flat"}),
+    #: **A look per level** (decision 40): `{"0": {...}, "1": {...}, "2":
+    #: {...}}`, each holding `MAP_LEVEL_FIELDS`. Cleaned by `_clean_levels`,
+    #: and replaced whole by a patch, so Undo puts the whole set back.
+    "levels": dict,
+}
+
+#: The fields one level of a map can set (decision 40), and their values.
+#: `fill` is a level's own word set: `solid`, `tint` or `none`. A `False` is
+#: kept: a level saying "not bold" against a preset that says bold is a choice.
+MAP_LEVEL_FIELDS: dict[str, frozenset | type] = {
+    "font_size": int,
+    "bold": bool,
+    "italic": bool,
+    "shape": frozenset({"pill", "rect", "ellipse", "none", "rounded"}),
+    "spine": frozenset({"dashed", "none", "solid"}),
+    "fill": frozenset({"solid", "tint", "none"}),
+    "edge_width": frozenset({"thin", "thick", "normal"}),
+}
+MAP_LEVELS = ("0", "1", "2")
+
+#: The theme fields that describe the map as a whole rather than how it draws
+#: one topic: never filled in under a topic's style (`_themed_style`), so an
+#: export never writes them onto a node and a re-import never reads them back
+#: as a topic's own choice.
+MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font", "hierarchy", "levels"})
+
+#: **A stored name for the app's own default, per themed select** (decision
+#: 9's narrow case, built). Every select in the topic strip stores the app's
+#: default as no value at all, which on a themed map means "follow the map":
+#: so a topic could be pulled back to the map's look or to another named
+#: value, never to the app's own. Each name here is a value a topic can carry
+#: that draws exactly what no value draws on an unthemed map, and, being a
+#: value, beats the theme the way any choice a topic carries does. `curve`
+#: was already one; the other five are new words, which is why the exports
+#: write them as the absence they mean (`_without_pins`) and the canvas
+#: paints them as no attribute at all (`wbMapDrawn`, whiteboard-map.js).
+#: `0` for the size because the field is a number: no text is drawn at 0px,
+#: and every reader that writes a size already treats a falsy one as unset.
+MAP_APP_DEFAULT_PINS: dict[str, object] = {
+    "font_size": 0,
+    "align": "auto",
+    "shape": "rounded",
+    "spine": "solid",
+    "edge_width": "normal",
+    "edge_style": "curve",
 }
 
 #: The bounds on a themed text size, the same two numbers the per-topic field
@@ -127,11 +202,44 @@ MAP_THEME_FONT_RANGE = (8, 96)
 #: and `delete_object` unlinks it, which is the opposite rule.
 MAP_REFERENCE_KINDS = {"note", "document", "file", "link"}
 
+#: A Phosphor glyph's name, the pattern `data.icon` had before it also took an
+#: emoji (MINDMAP_PLAN.md decision 45).
+ICON_NAME_RE = re.compile(r"^[a-z0-9-]{1,40}$")
+
+#: The joiners and selectors an emoji sequence is made of beside its
+#: pictographs: the zero-width joiner, the variation selectors and the keycap.
+_EMOJI_JOINERS = {0x200D, 0xFE0E, 0xFE0F, 0x20E3}
+
+
+def _is_one_emoji(value: str) -> bool:
+    """Whether `value` is one emoji (pictographs and what joins them), not text.
+
+    Short (16 code points covers the longest family or flag sequence), with no
+    ASCII and no control, format or private character but the joiners an
+    emoji uses: so a label, markup or an invisible run cannot ride in as an
+    "icon". The glyph is drawn with `textContent`, so this guards meaning
+    rather than being the only thing between a value and the page."""
+    if not value or len(value) > 16:
+        return False
+    for char in value:
+        point = ord(char)
+        if point in _EMOJI_JOINERS or 0x1F3FB <= point <= 0x1F3FF or 0xE0020 <= point <= 0xE007F:
+            continue
+        pictograph = 0x2100 <= point <= 0x2BFF or 0x1F000 <= point <= 0x1FAFF or point in (0x203C, 0x2049, 0x3030, 0x303D, 0x3297, 0x3299)
+        if not pictograph or unicodedata.category(char) in {"Cc", "Cf", "Co", "Cn"}:
+            return False
+    return True
+
 #: A topic is text that exists only in the map. It is the one node kind with
 #: nothing behind it, which is why deleting the map deletes it.
 MAP_TOPIC_KIND = "topic"
 
-VALID_OBJECT_KINDS = {"image", "text", MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
+#: A frame (WHITEBOARD_PLAN decision 14): a titled region of a board that
+#: carries what lies inside it when it moves. Its title is `content`; it owns
+#: nothing, so deleting it leaves what it held where it is.
+FRAME_KIND = "frame"
+
+VALID_OBJECT_KINDS = {"image", "text", FRAME_KIND, MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
 
 
 #: A card/sketch/object's own persisted group, asked for directly (Ctrl+G).
@@ -139,6 +247,19 @@ VALID_OBJECT_KINDS = {"image", "text", MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
 #: one group spans three different tables, so there's no single row for it
 #: to reference. 40 chars is a UUID with room to spare.
 GROUP_ID_MAX_LEN = 40
+
+
+class WhiteboardComment(BaseModel):
+    """One comment in an item's thread (WHITEBOARD_PLAN decision 17). The id
+    and the time are the client's: a notebook has one author and one clock."""
+
+    id: str = Field(min_length=1, max_length=40)
+    text: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
+    at: str = Field(default="", max_length=40)
+
+
+#: A thread: `None` (or empty) is no thread.
+CommentThread = Annotated[list[WhiteboardComment], Field(max_length=MAX_COMMENTS_PER_ITEM)]
 
 
 class WhiteboardNodeBase(BaseModel):
@@ -155,6 +276,13 @@ class WhiteboardNodeBase(BaseModel):
     #: ("rotations"); `None` renders identically to 0.
     rotation: float | None = Field(default=None, ge=-360, le=360)
     group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
+    #: Decision 15: locked in place. False on every card made before it.
+    locked: bool = False
+    #: Decision 17: the card's thread. Left out of a PUT, the stored one stays
+    #: (`_apply_node`), so a client that predates it cannot wipe it.
+    comments: CommentThread | None = None
+    #: Hidden by the Layers tab's eye (WHITEBOARD_PLAN decision 27).
+    hidden: bool = False
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -186,8 +314,26 @@ class WhiteboardObjectData(BaseModel):
 
     url: str | None = Field(default=None, max_length=300)
     content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
+    #: Locked in place (WHITEBOARD_PLAN decision 15). View state on a row that
+    #: already carries a blob, like `pinned` below, so it earns no column.
+    locked: bool | None = None
+    #: The item's comment thread (WHITEBOARD_PLAN decision 17).
+    comments: CommentThread | None = None
+    #: Hidden by the Layers tab's eye, and its own name there (decision 27).
+    hidden: bool | None = None
+    name: str | None = Field(default=None, max_length=80)
+    #: Where a placed library item came from (decision 25): `{id, version}`
+    #: or `{builtin}`. Kept, never followed.
+    library_ref: dict | None = None
+    #: A frame's place in the presentation (decision 22, the Pages tab).
+    page: int | None = Field(default=None, ge=1, le=100000)
+    #: The Format panel's opacity and shadow (WHITEBOARD_PLAN decision 19).
+    alpha: float | None = Field(default=None, ge=0.05, le=1)
+    shadow: bool | None = None
     color: str | None = Field(default=None, max_length=20)
-    font_size: int | None = Field(default=None, ge=8, le=200)
+    #: 0 is a topic's pin to the app's own size against a map's theme
+    #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
+    font_size: int | None = Field(default=None, ge=0, le=200)
     #: A text box's own fill/border: asked for directly (the properties
     #: panel). Images have no use for either; left `None` there.
     bg: str | None = Field(default=None, max_length=20)
@@ -198,7 +344,7 @@ class WhiteboardObjectData(BaseModel):
     #: schema does not name is dropped silently by Pydantic, which is exactly
     #: how the first attempt at this looked like a frontend bug: the toggle
     #: flipped, the PUT succeeded, and the value came back missing.
-    align: str | None = Field(default=None, pattern="^(left|center|right)$")
+    align: str | None = Field(default=None, pattern="^(left|center|right|auto)$")
     md: bool | None = None
     #: A map reference node's target: the note / document / file / bookmark id
     #: this node stands for. Only meaningful for `MAP_REFERENCE_KINDS`; a
@@ -231,11 +377,15 @@ class WhiteboardObjectData(BaseModel):
     #: units, rather than adding a second way to say the same thing.
     bold: bool | None = None
     italic: bool | None = None
-    #: A Phosphor icon name without the `ph-` prefix. The pattern is the
-    #: whole guard: this string is written straight into a class attribute on
-    #: the node, so anything but the character set Phosphor's own names use
-    #: has no business arriving here.
-    icon: str | None = Field(default=None, max_length=40, pattern=r"^[a-z0-9-]+$")
+    #: A Phosphor icon name without the `ph-` prefix, or one emoji
+    #: (MINDMAP_PLAN.md decision 45). `_icon_name_or_emoji` is the whole
+    #: guard: a name is written straight into a class attribute on the node,
+    #: so anything but the character set Phosphor's own names use has no
+    #: business arriving as one, and an emoji is drawn as text, never markup.
+    icon: str | None = Field(default=None, max_length=40)
+    #: **An emoji placed on the canvas as a sticker** (decision 44): a text
+    #: object drawn as its glyph alone, sized to its box, with no card.
+    sticker: bool | None = None
     #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
     #: Five values and not the plan's eight: `None` is the rounded card this
     #: map has always drawn, and `pill`, `rect`, `ellipse` and `none` are the
@@ -248,7 +398,7 @@ class WhiteboardObjectData(BaseModel):
     #: offered to every topic rather than only to a core one: a shape that
     #: appears and disappears from the picker depending on another toggle is
     #: a second rule to remember, and the three shapes are all just a radius.
-    shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none)$")
+    shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none|rounded)$")
     #: **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core
     #: idea, with its own shape set and a heavier weight"). A mark on the
     #: node, not a third tier in the data model: §12.0 refused a "sub core"
@@ -258,12 +408,44 @@ class WhiteboardObjectData(BaseModel):
     #: both XML exports can write: the node draws heavier and says "start
     #: here", and a map that loses the flag still has every node it had.
     core: bool | None = None
+    #: **A topic that is a task** (MINDMAP_PLAN.md §12.2 item 4's first
+    #: slice, decision 15): `open` or `done`, absent for a topic that is not
+    #: one. One field with two values rather than two flags, so "done but not
+    #: a task" cannot be stored. Content, not a look: the map theme never sets
+    #: it and the styling reset never clears it (`MAP_CONTENT_FIELDS`).
+    task: str | None = Field(default=None, pattern="^(open|done)$")
+    #: **A note behind a topic** (MINDMAP_PLAN.md §12.2 item 5, decision 18):
+    #: plain text, shown on demand from a marker on the topic. Content, like
+    #: `task`: no theme sets it and no reset clears it (`MAP_CONTENT_FIELDS`).
+    note: str | None = Field(default=None, max_length=MAX_TOPIC_NOTE_CHARS)
+    #: **A boundary round this topic's branch** (MINDMAP_PLAN.md decision 19)
+    #: and the words over it. Content, like `note`.
+    boundary: str | None = Field(default=None, pattern="^(rounded|dashed|cloud)$")
+    boundary_label: str | None = Field(default=None, max_length=80)
+    #: **A summary of a run of siblings** starting here (decision 20): the
+    #: words, and how many siblings the run takes, this topic first.
+    summary: str | None = Field(default=None, max_length=80)
+    summary_span: int | None = Field(default=None, ge=1, le=100)
+    #: **Markers** (MINDMAP_PLAN decision 34): a priority 1 to 5, how far
+    #: along it is (0 to 100, the menu offers quarters), a flag, and up to six
+    #: Phosphor glyph names drawn before the label. Content, not a look: a
+    #: reset of the map's looks keeps them.
+    priority: int | None = Field(default=None, ge=1, le=5)
+    progress: int | None = Field(default=None, ge=0, le=100)
+    flag: bool | None = None
+    markers: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]{1,40}$")]] | None = Field(
+        default=None, max_length=6
+    )
+    #: **A due date** (§12.2 item 4, decision 37): a calendar day, no time,
+    #: so a topic is due on a day wherever the map is opened. Content, like
+    #: the markers; a reminder is made from it on request, never by itself.
+    due: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
     #: one whose topic was set back to solid are the same map, and neither
     #: should carry the field into an export.
-    spine: str | None = Field(default=None, pattern="^(dashed|none)$")
+    spine: str | None = Field(default=None, pattern="^(dashed|none|solid)$")
     #: **A tint of the topic's colour across its whole card** (the owner:
     #: "the option to fill an individual node or have it cascade to its
     #: children as well"). `self` fills this topic, `branch` fills it and
@@ -271,7 +453,9 @@ class WhiteboardObjectData(BaseModel):
     #: branch; unfilled is the absence of the field. The cascade is worked out
     #: when the map is drawn (`wbMapFills`), the way branch colour is, so a
     #: topic added to a filled branch later is filled too.
-    fill: str | None = Field(default=None, pattern="^(self|branch|none)$")
+    #: `solid` (MINDMAP_PLAN.md §14) is this topic filled in its branch
+    #: colour with the ink that reads on it, the look a centre has by default.
+    fill: str | None = Field(default=None, pattern="^(self|branch|none|solid)$")
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -306,7 +490,7 @@ class WhiteboardObjectData(BaseModel):
     #: ribbon carries its direction in its taper and draws no head, a plain
     #: stroke has had one since the branch-direction report, so "unset" means
     #: "whatever this line shape does" and the two words are the override.
-    edge_width: str | None = Field(default=None, pattern="^(thin|thick)$")
+    edge_width: str | None = Field(default=None, pattern="^(thin|thick|normal)$")
     edge_arrow: str | None = Field(default=None, pattern="^(on|off)$")
     #: **Where the line into this topic bends** (MINDMAP_PLAN.md §12.1 item
     #: 5's third, "the control points on a curve drag to reshape it"). On the
@@ -345,6 +529,39 @@ class WhiteboardObjectData(BaseModel):
     #: file somebody was sent is exactly the door an off-origin url would come
     #: through.
     image: str | None = Field(default=None, max_length=300)
+    #: A topic's place among its siblings (INBOX 445). Absent means the
+    #: topic's own id, so creation order is still the order of every map made
+    #: before this field existed; moving a topic up or down gives it a value
+    #: between its neighbours' keys. A key, not a rank, so one move writes one
+    #: or two rows rather than renumbering the whole branch.
+    order: float | None = Field(default=None, ge=-1e12, le=1e12)
+
+    @field_validator("markers", mode="before")
+    @classmethod
+    def _markers_from_attribute(cls, value):
+        """An export writes the list as one comma-joined attribute
+        (`_markers="star,warning"`); read back, it is a list again."""
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
+
+    @field_validator("icon")
+    @classmethod
+    def _icon_name_or_emoji(cls, value: str | None) -> str | None:
+        if not value:
+            return value
+        if ICON_NAME_RE.match(value) or _is_one_emoji(value):
+            return value
+        raise ValueError("An icon is a Phosphor name or one emoji")
+
+    @field_validator("font_size")
+    @classmethod
+    def _size_or_pin(cls, value: int | None) -> int | None:
+        """8 to 200, or 0 for "the app's own size" (decision 9). Anything in
+        between is a map nobody can read, refused as it always was."""
+        if value is not None and 0 < value < 8:
+            raise ValueError("A text size is 8 or more")
+        return value
 
     @field_validator("image")
     @classmethod
@@ -482,11 +699,12 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
     if body.kind == "image":
         if not body.data.url or not MEDIA_URL_RE.match(body.data.url):
             raise HTTPException(
-                status_code=422, detail="An image object needs a /media/... url"
+                status_code=422,
+                detail="An image has to be one that was uploaded to MemoryMap first.",
             )
-    elif body.kind in ("text", MAP_TOPIC_KIND) and body.data.content is None:
+    elif body.kind in ("text", FRAME_KIND, MAP_TOPIC_KIND) and body.data.content is None:
         raise HTTPException(
-            status_code=422, detail=f"A {body.kind} object needs content"
+            status_code=422, detail=f"A {body.kind} item needs some content."
         )
     elif body.kind in MAP_REFERENCE_KINDS and body.data.ref_id is None:
         # A reference node with nothing to reference is the map equivalent of
@@ -495,31 +713,16 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
         # the UI what it was ever meant to be.
         raise HTTPException(
             status_code=422,
-            detail=f"A {body.kind} node needs a ref_id, the id of the {body.kind} it stands for",
+            detail=f"A {body.kind} node needs to point at an existing {body.kind}.",
         )
-
-
-def _media_path(url: str):
-    """The file behind a `/media/...` url, or None if it isn't safely inside
-    the media folder.
-
-    Second of the two checks (`MEDIA_URL_RE` is the first, on the way in).
-    This one is what makes the delete safe even for a row written before
-    that pattern existed, or by some future writer that forgets it: resolve
-    the path and confirm the media folder is genuinely a parent, rather than
-    trusting the string it came from.
-    """
-    if not MEDIA_URL_RE.match(url):
-        return None
-    media_dir = (deps.get_config().data_dir / "media").resolve()
-    candidate = (media_dir / url.removeprefix("/media/")).resolve()
-    return candidate if candidate.is_relative_to(media_dir) else None
 
 
 class WhiteboardStateOut(BaseModel):
     nodes: list[WhiteboardNodeOut]
     sketches: list[WhiteboardSketchOut]
     objects: list[WhiteboardObjectOut] = []
+    #: The board's look (decision 24), so opening a board draws it at once.
+    background: dict = {}
 
 
 def _board_filter(model, board_id: int | None):
@@ -532,14 +735,25 @@ def _board_filter(model, board_id: int | None):
     return model.board_id.is_(None) if board_id is None else model.board_id == board_id
 
 
-def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int) -> int:
+def _forget_links_to(
+    db: Session,
+    board_id: int | None,
+    kind: str,
+    item_id: int,
+    into: list[dict] | None = None,
+) -> int:
     """Delete the link sketches on a board whose either end was the item just
     deleted. Links live as sketch rows whose JSON `data` names their ends
     (`sourceId`/`targetId` plus a `sourceKind`/`targetKind` of "node",
     "object" or "sketch", "node" when absent); the frontend already skips a
     link whose end is gone, so without this a deleted card left an invisible
     orphan row behind forever. One linear pass over the board's sketches: 
-    boards are hundreds of rows, not millions. Returns how many went."""
+    boards are hundreds of rows, not millions. Returns how many went.
+
+    `into`, when given, collects each removed link as a sketch row
+    (`WhiteboardSketchOut`) first. A branch deleted from a map hands those
+    back with its topics, because a link to a topic is half of what a restore
+    has to put back (INBOX 445, found by the second audit)."""
     rows = db.scalars(select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))).all()
     gone = 0
     for row in rows:
@@ -559,6 +773,8 @@ def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int)
             (data.get("targetId"), data.get("targetKind") or "node"),
         )
         if any(end_id == item_id and end_kind == kind for end_id, end_kind in ends):
+            if into is not None and all(link["id"] != row.id for link in into):
+                into.append(WhiteboardSketchOut.model_validate(row).model_dump())
             db.delete(row)
             gone += 1
     return gone
@@ -567,7 +783,7 @@ def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int)
 def _require_entry(session: Session, entry_id: int) -> Entry:
     entry = session.get(Entry, entry_id)
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No note with id {entry_id}")
+        raise HTTPException(status_code=404, detail="That note could not be found.")
     return entry
 
 
@@ -592,7 +808,7 @@ def _require_board(session: Session, board_id: int | None) -> None:
         return
     entry = session.get(Entry, board_id)
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+        raise HTTPException(status_code=404, detail="That board could not be found.")
     if not entry.is_board:
         entry.is_board = True
         session.commit()
@@ -619,6 +835,7 @@ def get_whiteboard_state(
         nodes=list(nodes),
         sketches=list(sketches),
         objects=[_object_to_out(o) for o in objects],
+        background=_board_background(db.get(Entry, board_id)) if board_id else {},
     )
 
 
@@ -744,13 +961,19 @@ def _clean_theme(raw: object) -> dict:
         value = raw.get(field)
         if value is None or value is False or value == "":
             continue
+        if allowed is dict:
+            levels = _clean_levels(value)
+            if levels:
+                theme[field] = levels
+            continue
         if allowed is bool:
             theme[field] = True
             continue
         if allowed is int:
             try:
                 number = int(value)
-            except (TypeError, ValueError):
+            #: OverflowError: JSON's `1e999` is infinity, which has no int.
+            except (TypeError, ValueError, OverflowError):
                 continue
             low, high = MAP_THEME_FONT_RANGE
             if low <= number <= high:
@@ -759,6 +982,40 @@ def _clean_theme(raw: object) -> dict:
         if isinstance(value, str) and value in allowed:
             theme[field] = value
     return theme
+
+
+def _clean_levels(raw: object) -> dict:
+    """A map's per-level looks, reduced to `MAP_LEVELS` and `MAP_LEVEL_FIELDS`.
+    Dropped rather than refused, for `_clean_theme`'s reason; a level left
+    with nothing is left out."""
+    if not isinstance(raw, dict):
+        return {}
+    levels: dict = {}
+    for level in MAP_LEVELS:
+        look = raw.get(level)
+        if not isinstance(look, dict):
+            continue
+        clean: dict = {}
+        for field, allowed in MAP_LEVEL_FIELDS.items():
+            value = look.get(field)
+            if value is None or value == "":
+                continue
+            if allowed is bool:
+                if isinstance(value, bool):
+                    clean[field] = value
+            elif allowed is int:
+                try:
+                    number = int(value)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                low, high = MAP_THEME_FONT_RANGE
+                if low <= number <= high:
+                    clean[field] = number
+            elif isinstance(value, str) and value in allowed:
+                clean[field] = value
+        if clean:
+            levels[level] = clean
+    return levels
 
 
 def _board_theme(entry: Entry | None) -> dict:
@@ -820,8 +1077,145 @@ def _themed_style(style: dict, theme: dict) -> dict:
         return style
     filled = dict(style)
     for field, value in theme.items():
+        if field in MAP_LEVEL_THEME_FIELDS:
+            continue
         filled.setdefault(field, value)
     return filled
+
+
+def _without_pins(style: dict) -> dict:
+    """A node's style with every app-default pin written as the absence it
+    means. For the exports: a file has no word for "the app's own, against a
+    theme", and `curve` alone of the pins was a value any reader knew, so it
+    is the one left in."""
+    out = dict(style)
+    for field, value in MAP_APP_DEFAULT_PINS.items():
+        if field != "edge_style" and field in out and out[field] == value:
+            del out[field]
+    return out
+
+
+def _board_numbered(entry: Entry | None) -> bool:
+    """Whether this map numbers its branches (MINDMAP_PLAN.md decision 17).
+
+    A sibling of `type`, `layout` and `theme` in the settings blob, and not a
+    field of the theme: the theme is what a topic follows when it says
+    nothing, and a number is not something one topic can decline, it is the
+    topic's place in the outline. Anything but a stored `true` is off, so
+    every map made before this reads exactly as it did.
+    """
+    if entry is None:
+        return False
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("numbered") is True
+
+
+def _store_board_numbered(entry: Entry, numbered: bool) -> None:
+    """`_store_board_theme`'s read-modify-write, for its reason: the blob is
+    a family, and replacing it would clear the type, layout and theme."""
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    if numbered:
+        existing["numbered"] = True
+    else:
+        existing.pop("numbered", None)
+    entry.board_settings = json.dumps(existing)
+
+
+#: A colour the board is drawn on: `#rrggbb` only, because it is written into
+#: a CSS custom property, and anything wider would be a way to inject a rule.
+BOARD_BG_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+class BoardBackground(BaseModel):
+    """A board's look (WHITEBOARD_PLAN decision 24, FEAT-06): a colour, an
+    image from this notebook's uploads, or both. A patch: a field sent as
+    `null` is removed, a field not sent is kept."""
+
+    color: str | None = Field(default=None, max_length=7)
+    image: str | None = Field(default=None, max_length=300)
+
+    @field_validator("color")
+    @classmethod
+    def _hex_colour(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not BOARD_BG_COLOR_RE.match(value):
+            raise ValueError("A background colour is #rrggbb")
+        return value.lower()
+
+    @field_validator("image")
+    @classmethod
+    def _own_upload(cls, value: str | None) -> str | None:
+        """An upload of this notebook's or nothing, the topic picture's rule:
+        an outside address would make a board call out of an offline app."""
+        if value is None:
+            return None
+        text = value.strip()
+        if not MEDIA_URL_RE.match(text):
+            raise ValueError("A background image has to be a /media/... upload from this notebook")
+        return text
+
+
+def _board_background(entry: Entry | None) -> dict:
+    """The board's stored background, only the fields that hold a value."""
+    if entry is None:
+        return {}
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return {}
+    stored = parsed.get("background") if isinstance(parsed, dict) else None
+    if not isinstance(stored, dict):
+        return {}
+    out = {}
+    color, image = stored.get("color"), stored.get("image")
+    if isinstance(color, str) and BOARD_BG_COLOR_RE.match(color):
+        out["color"] = color
+    if isinstance(image, str) and MEDIA_URL_RE.match(image):
+        out["image"] = image
+    return out
+
+
+def _store_board_background(entry: Entry, patch: BoardBackground) -> dict:
+    """Merge the fields sent into the stored background, the read-modify-write
+    of the whole settings family (`_store_board_theme`'s reason)."""
+    merged = _board_background(entry)
+    for field in patch.model_fields_set:
+        value = getattr(patch, field)
+        if value is None:
+            merged.pop(field, None)
+        else:
+            merged[field] = value
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    if merged:
+        existing["background"] = merged
+    else:
+        existing.pop("background", None)
+    entry.board_settings = json.dumps(existing)
+    return merged
+
+
+def _is_link_sketch():
+    """A connector, read off the sketch's stored JSON without parsing it: the
+    client writes `{"type":"link-…"}` (`JSON.stringify`, no space) and the AI
+    tools `json.dumps` (a space), so both spellings are matched."""
+    return or_(
+        WhiteboardSketch.data.like('%"type":"link-%', escape=LIKE_ESCAPE),
+        WhiteboardSketch.data.like('%"type": "link-%', escape=LIKE_ESCAPE),
+    )
 
 
 class BoardOut(BaseModel):
@@ -830,6 +1224,11 @@ class BoardOut(BaseModel):
     title: str
     node_count: int
     sketch_count: int
+    #: How many of `sketch_count` are connectors between items (a sketch whose
+    #: data is a `link-*` type) rather than drawings. The dashboard and the
+    #: Library said "3 cards · 2 sketches" for a map of three cards and two
+    #: lines (audit 2026-10-05, UX-06): a person drew no sketches.
+    link_count: int = 0
     object_count: int = 0
     #: When the board last changed: the later of its note's own edit and the
     #: last card, sketch or object written on it, since drawing on a board
@@ -840,6 +1239,8 @@ class BoardOut(BaseModel):
     #: "board" (a free canvas) or "map" (tree semantics). See BOARD_TYPES.
     type: str = DEFAULT_BOARD_TYPE
     layout: str = DEFAULT_BOARD_LAYOUT
+    #: The board's look, `{color, image}` (decision 24); `{}` is the theme's.
+    background: dict = {}
     #: A miniature of where things actually sit on this board: up to
     #: Up to `PREVIEW_POINTS` items, `{x, y, kind, label}`, each position
     #: normalised into 0..1 against the board's own bounding box. The
@@ -958,7 +1359,7 @@ PREVIEW_LABEL_CHARS = 28
 #: What a thing is drawn at on the canvas when it has no size of its own,
 #: so a thumbnail draws the same picture the board does. These mirror
 #: `WB_CARD_DEFAULT_SIZE`, `WB_MAP_NODE_W/H` and the sketch's own box in
-#: frontend/whiteboard.js; a card's width and height are nullable columns and
+#: frontend/js/whiteboard.js; a card's width and height are nullable columns and
 #: a sketch has none at all, so without a figure here every one of them would
 #: have to be drawn as a point.
 PREVIEW_DEFAULT_SIZES = {
@@ -993,9 +1394,52 @@ MAP_BRANCH_PALETTE = [
     "#bab0ab",
 ]
 
+#: **Every palette a map can pick, and the only copy of any of them**
+#: (MINDMAP_PLAN.md decision 8). The canvas used to take its colours from
+#: d3 at runtime while this file kept a copy for the thumbnail, so a second
+#: palette would have been two more lists to keep in step. Now `/tree` hands
+#: the canvas the resolved list (`MapTreeOut.palette`) and the thumbnail reads
+#: the same name, so the two drawings cannot disagree. `classic` is the one
+#: every map had (Tableau 10); the other three are d3's own categorical
+#: schemes, copied: Dark2, Set2 and Category10.
+MAP_BRANCH_PALETTES: dict[str, list[str]] = {
+    "classic": MAP_BRANCH_PALETTE,
+    "deep": ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666"],
+    "soft": ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3"],
+    "vivid": [
+        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    ],
+    #: The four added 2026-10-05 (§12.2 item 7: eight curated palettes).
+    #: Set1 without its yellow, Paired without its pale green, d3's
+    #: Observable10, and the dark ends of ColorBrewer's BrBG, PRGn and PiYG:
+    #: each colour at least 1.6:1 on white, so a 3px branch never vanishes
+    #: (`test_every_palette_colour_is_a_line_on_the_light_paper`).
+    "bold": ["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#a65628", "#f781bf", "#999999"],
+    "paired": [
+        "#1f78b4", "#33a02c", "#e31a1c", "#ff7f00", "#6a3d9a",
+        "#b15928", "#a6cee3", "#fb9a99", "#fdbf6f", "#cab2d6",
+    ],
+    "bright": [
+        "#4269d0", "#efb118", "#ff725c", "#6cc5b0", "#3ca951",
+        "#ff8ab7", "#a463f2", "#97bbf5", "#9c6b4e", "#9498a0",
+    ],
+    "earth": [
+        "#8c510a", "#35978f", "#762a83", "#c51b7d", "#4d9221",
+        "#bf812d", "#01665e", "#9970ab", "#b35806", "#542788",
+    ],
+}
+
+
+def _board_palette(theme: dict) -> list[str]:
+    """The branch colours a themed map draws, `classic` when it picked none."""
+    return MAP_BRANCH_PALETTES.get(theme.get("palette") or "classic", MAP_BRANCH_PALETTE)
+
 
 def _map_branch_colors(
-    parents: dict[int, int | None], own: dict[int, str | None]
+    parents: dict[int, int | None],
+    own: dict[int, str | None],
+    palette: list[str] | None = None,
 ) -> dict[int, str]:
     """Every map node's branch colour, by object id: Coggle's rule, which the
     canvas already follows.
@@ -1012,6 +1456,7 @@ def _map_branch_colors(
     whose parent is missing is treated as a root, which is what every other
     reader of `parent_id` does.
     """
+    palette = palette or MAP_BRANCH_PALETTE
     children: dict[int | None, list[int]] = {}
     for node_id, parent_id in parents.items():
         key = parent_id if parent_id in parents else None
@@ -1034,7 +1479,7 @@ def _map_branch_colors(
             # takes a new colour: the client decides this by asking whether
             # the colour handed down was null, which is true for exactly one
             # generation, a root's own children.
-            colour = MAP_BRANCH_PALETTE[branch % len(MAP_BRANCH_PALETTE)]
+            colour = palette[branch % len(palette)]
             branch += 1
         if colour is None:
             colour = inherited
@@ -1255,7 +1700,7 @@ PREVIEW_ASPECT_RANGE = (0.5, 3.0)
 
 
 def _board_preview(
-    db: Session, board_id: int | None
+    db: Session, board_id: int | None, palette: list[str] | None = None
 ) -> tuple[list[dict], list[dict], float]:
     """Everything placed on one board, as a thumbnail: `(items, edges, aspect)`.
 
@@ -1393,7 +1838,7 @@ def _board_preview(
     # canvas is colour-coded by branch. The rule is Coggle's and the canvas
     # already implements it; see `_map_branch_colors`.
     if tree_parents:
-        branch_colors = _map_branch_colors(tree_parents, own_colors)
+        branch_colors = _map_branch_colors(tree_parents, own_colors, palette)
         rows = [
             (
                 x,
@@ -1522,7 +1967,13 @@ def _preview_fields(db: Session, board_id: int | None) -> dict:
     Twenty boards of a few hundred items each is twenty of those, per visit,
     for a picture that changes only when the board does.
     """
-    key = _preview_fingerprint(db, board_id)
+    #: The map's palette is in the key (decision 8): picking one changes the
+    #: board's settings and no row on it, so a key of the rows alone would
+    #: serve the old colours until something else on the board moved.
+    palette_name = (
+        _board_theme(db.get(Entry, board_id)).get("palette") if board_id else None
+    ) or "classic"
+    key = (*_preview_fingerprint(db, board_id), palette_name)
     cached = _PREVIEW_CACHE.get(key)
     if cached is not None:
         PREVIEW_CACHE_STATS["hits"] += 1
@@ -1532,7 +1983,9 @@ def _preview_fields(db: Session, board_id: int | None) -> dict:
         items, edges, aspect = cached
     else:
         PREVIEW_CACHE_STATS["misses"] += 1
-        items, edges, aspect = _board_preview(db, board_id)
+        items, edges, aspect = _board_preview(
+            db, board_id, MAP_BRANCH_PALETTES.get(palette_name, MAP_BRANCH_PALETTE)
+        )
         _PREVIEW_CACHE[key] = (items, edges, aspect)
         while len(_PREVIEW_CACHE) > PREVIEW_CACHE_LIMIT:
             _PREVIEW_CACHE.popitem(last=False)
@@ -1562,6 +2015,7 @@ def list_boards(
     type: str | None = None,
     limit: int = Query(default=BOARDS_PAGE_SIZE, ge=1, le=BOARDS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     db: Session = Depends(get_session),
 ) -> list[BoardOut]:
     """Boards actually in use, not, as the client used to build this list
@@ -1598,10 +2052,11 @@ def list_boards(
     per board, and it now runs for the rows in the page rather than for every
     board in the notebook.
     """
+    offset = paging.start(cursor, offset)
     if type is not None and type not in BOARD_TYPES:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown board type {type!r}: expected " + " or ".join(sorted(BOARD_TYPES)),
+            detail="Pick one of these board types: " + ", ".join(sorted(BOARD_TYPES)) + ".",
         )
     node_counts = dict(
         db.execute(
@@ -1622,6 +2077,13 @@ def list_boards(
             select(WhiteboardObject.board_id, func.count())
             .where(WhiteboardObject.board_id.is_not(None))
             .group_by(WhiteboardObject.board_id)
+        ).all()
+    )
+    link_counts = dict(
+        db.execute(
+            select(WhiteboardSketch.board_id, func.count())
+            .where(WhiteboardSketch.board_id.is_not(None), _is_link_sketch())
+            .group_by(WhiteboardSketch.board_id)
         ).all()
     )
     #: The last write to anything on each board, keyed like the counts
@@ -1681,6 +2143,7 @@ def list_boards(
             settings[entry.id] = (board_type, layout)
             page_rows.append(entry)
     response.headers["X-Total-Count"] = str(len(page_rows))
+    paging.finish(response, offset, limit, len(page_rows))
     boards = []
     for entry in page_rows[offset:offset + limit]:
         if entry is None:
@@ -1694,6 +2157,10 @@ def list_boards(
                     title="Default board",
                     node_count=default_nodes,
                     sketch_count=default_sketches,
+                    link_count=db.scalar(
+                        select(func.count()).select_from(WhiteboardSketch)
+                        .where(WhiteboardSketch.board_id.is_(None), _is_link_sketch())
+                    ) or 0,
                     object_count=default_objects,
                     updated_at=touched.get(None),
                     **_preview_fields(db, None),
@@ -1708,6 +2175,7 @@ def list_boards(
                 title=title,
                 node_count=node_counts.get(entry.id, 0),
                 sketch_count=sketch_counts.get(entry.id, 0),
+                link_count=link_counts.get(entry.id, 0),
                 object_count=object_counts.get(entry.id, 0),
                 updated_at=max(
                     (t for t in (entry.updated_at, touched.get(entry.id)) if t is not None),
@@ -1715,6 +2183,7 @@ def list_boards(
                 ),
                 type=board_type,
                 layout=layout,
+                background=_board_background(entry),
                 **_preview_fields(db, entry.id),
             )
         )
@@ -1733,6 +2202,7 @@ def list_images(
     response: Response,
     limit: int = Query(default=BOARDS_PAGE_SIZE, ge=1, le=BOARDS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     db: Session = Depends(get_session),
 ) -> list[BoardImageOut]:
     """A page of the image objects across every board, asked for directly
@@ -1743,7 +2213,7 @@ def list_images(
 
     **Superseded in the Library by `/media`**, which lists every uploaded
     file rather than only the ones that happen to be on a board, so nothing
-    in `frontend/*.js` names this any more (INBOX 261, found by
+    in `frontend/js/*.js` names this any more (INBOX 261, found by
     `scratchpad/probe_dead_routes.py`). Kept as the board-scoped view, which
     `/media` does not offer; this paragraph is here so the next scan does not
     re-open the question.
@@ -1760,6 +2230,7 @@ def list_images(
     `X-Total-Count` bigger than the number of rows a caller can ever collect,
     and `apiPagedList` walks until it has that many: it would never stop.
     """
+    offset = paging.start(cursor, offset)
     rows = db.execute(
         select(WhiteboardObject.id, WhiteboardObject.board_id, WhiteboardObject.data)
         .where(WhiteboardObject.kind == "image")
@@ -1774,6 +2245,7 @@ def list_images(
         if url:
             usable.append((obj_id, board_id, url))
     response.headers["X-Total-Count"] = str(len(usable))
+    paging.finish(response, offset, limit, len(usable))
     page = usable[offset:offset + limit]
     if not page:
         return []
@@ -1860,7 +2332,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
     # separately: the title has to come from the board note's own heading,
     # which is where a board's title lives (see `rename_board`).
     _require_board(db, board_id)
-    source = deps.get_or_404(db, Entry, board_id, "Board not found")
+    source = deps.get_or_404(db, Entry, board_id, "That board could not be found.")
     title = extract_title(source.content) or "Untitled board"
     copy = Entry(content=f"# {title} (copy)", is_board=True)
     # A copy of a map is a map. Copying the settings blob wholesale (rather
@@ -1889,6 +2361,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
                 z=node.z,
                 width=node.width,
                 height=node.height,
+                comments=node.comments,
             )
         )
 
@@ -1962,6 +2435,11 @@ class BoardRename(BoardTypeMixin):
     #: this is a look, and a picker one version ahead should leave a map
     #: plainer rather than unsaveable.
     theme: dict | None = None
+    #: Number the map's branches by their place in the outline, 1, 1.1, 1.2
+    #: (MINDMAP_PLAN.md decision 17). `None` leaves it as it is.
+    numbered: bool | None = None
+    #: A patch on the board's look (decision 24). `None` leaves it as it is.
+    background: BoardBackground | None = None
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
@@ -1986,7 +2464,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     """
     entry = db.get(Entry, board_id) if board_id > 0 else None
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+        raise HTTPException(status_code=404, detail="That board could not be found.")
     entry.is_board = True
     if body.type is not None or body.layout is not None:
         before = dict(zip(("type", "layout"), _board_settings(entry)))
@@ -2018,6 +2496,30 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
                 f"map theme, {len(stored_theme)} field" + ("" if len(stored_theme) == 1 else "s"),
                 payload={"after": stored_theme, "before": before_theme},
             )
+    if body.numbered is not None:
+        before_numbered = _board_numbered(entry)
+        _store_board_numbered(entry, body.numbered)
+        if body.numbered != before_numbered:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "branches numbered" if body.numbered else "branches not numbered",
+                payload={"after": {"numbered": body.numbered}, "before": {"numbered": before_numbered}},
+            )
+    if body.background is not None:
+        before_background = _board_background(entry)
+        stored_background = _store_board_background(entry, body.background)
+        if stored_background != before_background:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "background",
+                payload={"after": stored_background, "before": before_background},
+            )
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2041,11 +2543,23 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         title=title,
         node_count=node_count,
         sketch_count=sketch_count,
+        link_count=db.scalar(
+            select(func.count()).select_from(WhiteboardSketch)
+            .where(WhiteboardSketch.board_id == board_id, _is_link_sketch())
+        ) or 0,
         object_count=object_count,
         type=board_type,
         layout=layout,
+        background=_board_background(entry),
         **_preview_fields(db, board_id),
     )
+
+
+def _apply_comments(node: WhiteboardNode, node_in: WhiteboardNodeBase) -> None:
+    """A card's thread (decision 17), written only when the body names it: a
+    PUT that leaves it out keeps what is stored, and an empty list is none."""
+    if "comments" in node_in.model_fields_set:
+        node.comments = [c.model_dump() for c in node_in.comments or []] or None
 
 
 @router.post("/nodes", response_model=WhiteboardNodeOut)
@@ -2070,6 +2584,9 @@ def create_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    node.locked = node_in.locked
+    node.hidden = node_in.hidden
+    _apply_comments(node, node_in)
     if existing is None:
         db.add(node)
         db.flush()  # so the event can name the card's id
@@ -2095,7 +2612,7 @@ def create_node(
 def update_node(
     node_id: int, node_in: WhiteboardNodeBase, db: Session = Depends(get_session)
 ) -> WhiteboardNode:
-    node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
+    node = deps.get_or_404(db, WhiteboardNode, node_id, "That node could not be found.")
     _require_entry(db, node_in.entry_id)
     _require_board(db, node_in.board_id)
     before = _node_state(node)
@@ -2106,6 +2623,9 @@ def update_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    node.locked = node_in.locked
+    node.hidden = node_in.hidden
+    _apply_comments(node, node_in)
     events.record(
         db,
         "edited",
@@ -2125,7 +2645,7 @@ def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
     # 404 rather than a cheerful "ok": deleting something that isn't there
     # is how a client finds out its board is stale, and swallowing it left
     # ghost cards on screen until a reload.
-    node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
+    node = deps.get_or_404(db, WhiteboardNode, node_id, "That node could not be found.")
     events.record(
         db,
         "deleted",
@@ -2167,7 +2687,7 @@ def create_sketch(
 def update_sketch(
     sketch_id: int, sketch_in: WhiteboardSketchBase, db: Session = Depends(get_session)
 ) -> WhiteboardSketch:
-    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
+    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "That sketch could not be found.")
     _require_board(db, sketch_in.board_id)
     before = _sketch_state(sketch)
     sketch.data = sketch_in.data
@@ -2190,7 +2710,7 @@ def update_sketch(
 @router.delete("/sketches/{sketch_id}")
 @events.writes("whiteboard_sketch", "deleted")
 def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
-    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
+    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "That sketch could not be found.")
     events.record(
         db,
         "deleted",
@@ -2265,7 +2785,7 @@ def create_object(
 def update_object(
     object_id: int, body: WhiteboardObjectBase, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
-    obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
+    obj = deps.get_or_404(db, WhiteboardObject, object_id, "That item could not be found.")
     _require_board(db, body.board_id)
     _require_object_data(body)
     # The kind an object was created as doesn't change: an image resized or
@@ -2273,7 +2793,7 @@ def update_object(
     # text box", so treating a mismatched kind here as a client bug rather
     # than silently reinterpreting the row is the safer failure.
     if body.kind != obj.kind:
-        raise HTTPException(status_code=422, detail="An object's kind can't change")
+        raise HTTPException(status_code=422, detail="You can't change what kind of item that is.")
     before = _object_state(obj)
     obj.data = body.data.model_dump_json(exclude_none=True)
     obj.board_id = body.board_id
@@ -2310,7 +2830,7 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
     An ordinary object has no children, so this is exactly what it always
     was for a text box or an image.
     """
-    obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
+    obj = deps.get_or_404(db, WhiteboardObject, object_id, "That item could not be found.")
     doomed = _subtree(db, obj)
     deleted = [_object_to_out(row).model_dump() for row in doomed]
     # One event with the id list, the same shape a purge of notes records
@@ -2331,10 +2851,14 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
             "subtree": [_object_state(row) for row in doomed],
         },
     )
+    #: The cross-links that went with them, as sketch rows, so Undo can draw
+    #: them again between the restored topics (a link to a topic outside the
+    #: branch keeps its far end, which still exists). Empty for a text box.
+    links: list[dict] = []
     for row in doomed:
-        _delete_one_object(db, row)
+        _delete_one_object(db, row, links)
     db.commit()
-    return {"status": "ok", "deleted": deleted}
+    return {"status": "ok", "deleted": deleted, "links": links}
 
 
 def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
@@ -2368,36 +2892,17 @@ def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
     return found
 
 
-def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
-    """The per-row half of `delete_object`: forget its links, unlink its file
-    if it owned one, remove the row. Does not commit: a subtree is one
-    delete, so it is one transaction."""
-    _forget_links_to(db, obj.board_id, "object", obj.id)
-    if obj.kind == "image":
-        # The only thing that ever pointed at this file, best-effort, the
-        # same rule `_hard_delete` already follows for an attachment's own
-        # file: the row goes either way, a stubborn file must not block it.
-        # `_media_path` returns None for anything that isn't provably inside
-        # the media folder, so a hand-edited or legacy row cannot turn this
-        # into "delete any file on disk".
-        try:
-            path = _media_path(json.loads(obj.data).get("url", "") or "")
-            if path is not None:
-                path.unlink(missing_ok=True)
-        except (OSError, ValueError) as exc:
-            # `int(obj.id)` rather than anything that came off the request.
-            # FastAPI already rejects a non-integer path parameter with a 422
-            # before any of this runs, so it cannot carry the newline a forged
-            # log line would need, but a path parameter reaching a log record
-            # is a flow CodeQL flags on principle (py/log-injection), and the
-            # explicit conversion keeps that guarantee true even if the
-            # signature is ever loosened to a str.
-            logging.getLogger("memorymap.whiteboard").warning(
-                "couldn't delete the file for whiteboard image %s (%s); "
-                "removing the record anyway",
-                int(obj.id),
-                type(exc).__name__,
-            )
+def _delete_one_object(
+    db: Session, obj: WhiteboardObject, links: list[dict] | None = None
+) -> None:
+    """The per-row half of `delete_object`: forget its links, remove the row.
+    Does not commit: a subtree is one delete, so it is one transaction.
+
+    **An image's file is kept** (INBOX 537): Undo re-makes the object from its
+    row, and with the file unlinked it came back as a broken picture. The
+    orphaned-media cleanup (`core.media_gc`, which reads every board object's
+    data) reclaims it once nothing points at it; a purge still removes it."""
+    _forget_links_to(db, obj.board_id, "object", obj.id, links)
     db.delete(obj)
 
 
@@ -2442,8 +2947,9 @@ def _map_kind_ok(kind: str) -> None:
         raise HTTPException(
             status_code=422,
             detail=(
-                f"Unknown map node kind {kind!r}: expected "
+                "Pick one of these node kinds: "
                 + ", ".join(sorted({MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS))
+                + "."
             ),
         )
 
@@ -2467,7 +2973,7 @@ def _require_reference(db: Session, kind: str, ref_id: int | None) -> None:
     from memorymap.core.database import Attachment, Bookmark, Document
 
     if ref_id is None:
-        raise HTTPException(status_code=422, detail=f"A {kind} node needs a ref_id")
+        raise HTTPException(status_code=422, detail=f"A {kind} node needs to point at an existing {kind}.")
     if kind == "note":
         _require_entry(db, ref_id)
         return
@@ -2477,7 +2983,7 @@ def _require_reference(db: Session, kind: str, ref_id: int | None) -> None:
         "link": (Bookmark, "bookmark"),
     }[kind]
     if db.get(model, ref_id) is None:
-        raise HTTPException(status_code=404, detail=f"No {label} with id {ref_id}")
+        raise HTTPException(status_code=404, detail=f"That {label} could not be found.")
 
 
 def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) -> str:
@@ -2585,6 +3091,17 @@ MAP_STYLE_FIELDS = (
     "edge_bend",
     "edge_slide",
     "image",
+    "task",
+    "note",
+    "boundary",
+    "boundary_label",
+    "summary",
+    "summary_span",
+    "priority",
+    "progress",
+    "flag",
+    "markers",
+    "due",
 )
 
 
@@ -2678,14 +3195,31 @@ def _map_objects(db: Session, board_id: int | None) -> list[WhiteboardObject]:
     """Every object on a board, oldest first, creation order, which is the
     order a person built the map in and the only one an outline can be read
     in without surprises. Position decides where a node is *drawn*; it does
-    not decide what the map says."""
-    return list(
+    not decide what the map says.
+
+    **Unless a topic was moved among its siblings** (INBOX 445): then its
+    `data.order` is its key instead of its id, which is what `wbMapIndex`
+    sorts by on the canvas, so the tree, every export and the agent's outline
+    read the siblings in the order the person put them. Only siblings are
+    ever compared, because `_build_tree` appends children in this list's
+    order."""
+    objects = list(
         db.scalars(
             select(WhiteboardObject)
             .where(_board_filter(WhiteboardObject, board_id))
             .order_by(WhiteboardObject.id)
         )
     )
+    return sorted(objects, key=_sibling_key)
+
+
+def _sibling_key(obj: WhiteboardObject) -> tuple[float, int]:
+    try:
+        order = json.loads(obj.data or "{}").get("order")
+    except (TypeError, ValueError, AttributeError):
+        order = None
+    is_number = isinstance(order, (int, float)) and not isinstance(order, bool)
+    return (float(order) if is_number else float(obj.id), obj.id)
 
 
 def _cross_links(db: Session, board_id: int | None, node_ids: set[int]) -> list[dict]:
@@ -2740,6 +3274,14 @@ class MapTreeOut(BaseModel):
     #: canvas makes before it draws, and a theme that arrived one request
     #: later would paint the map twice.
     theme: dict = {}
+    #: Whether the map numbers its branches (decision 17), for the same
+    #: reason the theme rides here: the canvas draws the numbers on its first
+    #: paint or it draws the map twice.
+    numbered: bool = False
+    #: The branch colours this map draws, resolved from the theme's `palette`
+    #: (decision 8): the canvas reads these rather than keeping its own list,
+    #: so it and the thumbnail are drawn from one copy.
+    palette: list[str] = []
 
 
 def _board_entry(db: Session, board_id: int) -> Entry:
@@ -2747,7 +3289,7 @@ def _board_entry(db: Session, board_id: int) -> Entry:
     `board_id=0` and negative ids can't resolve to a real note either."""
     entry = db.get(Entry, board_id) if board_id > 0 else None
     if entry is None or entry.is_deleted:
-        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+        raise HTTPException(status_code=404, detail="That board could not be found.")
     return entry
 
 
@@ -2773,6 +3315,8 @@ def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
         roots=_build_tree(db, objects),
         cross_links=_cross_links(db, board_id, {obj.id for obj in objects}),
         theme=_board_theme(entry),
+        numbered=_board_numbered(entry),
+        palette=_board_palette(_board_theme(entry)),
     )
 
 
@@ -2845,7 +3389,7 @@ def create_map_node(
         if parent is None or parent.board_id != board_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"No node with id {body.parent_id} on this board",
+                detail="That node is not on this board.",
             )
 
     if body.x is not None and body.y is not None:
@@ -2879,6 +3423,77 @@ def create_map_node(
     db.commit()
     db.refresh(obj)
     return _object_to_out(obj)
+
+
+class MapOutlinePaste(BaseModel):
+    #: The topic the outline goes under, or None for new trunks.
+    parent_id: int | None = None
+    text: str = Field(min_length=1, max_length=MAX_IMPORT_CHARS)
+
+
+#: A numbered line's number, taken off so it reads as a bullet.
+_PASTE_NUMBERED = re.compile(r"^(\s*)\d+[.)]\s+")
+
+
+def _outline_from_paste(text: str) -> str:
+    """Plain pasted text as the bullet outline `_parse_markdown_outline`
+    reads: a line keeps its indentation and becomes a bullet, a numbered
+    line loses its number, and a heading line becomes a bullet too (pasted
+    text names no map, so a heading is a topic like any other)."""
+    out = []
+    for raw in text.replace("\r\n", "\n").split("\n"):
+        if not raw.strip():
+            continue
+        line = _PASTE_NUMBERED.sub(r"\1- ", raw.rstrip())
+        stripped = line.lstrip()
+        indent = line[: len(line) - len(stripped)]
+        if stripped.startswith("#"):
+            stripped = "- " + stripped.lstrip("#").strip()
+        elif stripped[0] not in "-*+" or not stripped[1:2].isspace():
+            stripped = "- " + stripped
+        out.append(indent + stripped)
+    return "\n".join(out)
+
+
+@router.post(
+    "/boards/{board_id}/nodes/outline",
+    response_model=list[WhiteboardObjectOut],
+    status_code=201,
+)
+def paste_map_outline(
+    board_id: int, body: MapOutlinePaste, db: Session = Depends(get_session)
+) -> list[WhiteboardObjectOut]:
+    """**Text pasted onto a map becomes a branch** (audit FEAT-09,
+    2026-10-05). An indented list from anywhere (a note, a document, another
+    mind mapper's outline) comes in under the selected topic as topics, one
+    per line and nested by indentation, in one transaction, so the client
+    records it as one Undo step. The same outline reader the Markdown import
+    uses, so a paste and an import cannot disagree about what a line means.
+    """
+    _require_board(db, board_id)
+    parent = None
+    if body.parent_id is not None:
+        parent = db.get(WhiteboardObject, body.parent_id)
+        if parent is None or parent.board_id != board_id:
+            raise HTTPException(status_code=404, detail="That node is not on this board.")
+    _, parsed = _parse_markdown_outline(_outline_from_paste(body.text))
+    if not parsed:
+        raise HTTPException(status_code=422, detail="There is nothing to add: the text has no lines.")
+    # The top lines hang off the topic they were pasted onto (`under`).
+    created = _place_map_nodes(db, board_id, parsed, under=parent)
+    for obj in created:
+        events.record(
+            db,
+            "created",
+            "whiteboard_object",
+            obj.id,
+            f"{obj.kind} on map {board_id}",
+            payload={"after": _object_state(obj)},
+        )
+    db.commit()
+    for obj in created:
+        db.refresh(obj)
+    return [_object_to_out(obj) for obj in created]
 
 
 class MapNodeMove(BaseModel):
@@ -2935,7 +3550,7 @@ def move_map_node(
     node = db.get(WhiteboardObject, node_id)
     if node is None or node.board_id != board_id:
         raise HTTPException(
-            status_code=404, detail=f"No node with id {node_id} on this board"
+            status_code=404, detail="That node is not on this board."
         )
 
     before = _object_state(node)
@@ -2945,18 +3560,18 @@ def move_map_node(
         if body.parent_id == node.id:
             raise HTTPException(
                 status_code=422,
-                detail="A node can't be its own parent, that makes it a descendant of itself.",
+                detail="A node can't be its own parent.",
             )
         parent = db.get(WhiteboardObject, body.parent_id)
         if parent is None or parent.board_id != board_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"No node with id {body.parent_id} on this board",
+                detail="That node is not on this board.",
             )
         if _is_descendant(db, node.id, parent.id, board_id):
             raise HTTPException(
                 status_code=422,
-                detail="That would make the node a descendant of itself, move the branch out first.",
+                detail="That would make the node a descendant of itself. Move the branch out first.",
             )
         node.parent_id = parent.id
     events.record(
@@ -3077,7 +3692,7 @@ def move_map_nodes(
     missing = sorted(seen_ids - set(nodes))
     if missing:
         raise HTTPException(
-            status_code=404, detail=f"No node with id {missing[0]} on this board"
+            status_code=404, detail="That node is not on this board."
         )
 
     parents = _parent_map(db, board_id)
@@ -3089,12 +3704,12 @@ def move_map_nodes(
             if move.parent_id == move.id:
                 raise HTTPException(
                     status_code=422,
-                    detail="A node can't be its own parent, that makes it a descendant of itself.",
+                    detail="A node can't be its own parent.",
                 )
             if move.parent_id not in parents:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"No node with id {move.parent_id} on this board",
+                    detail="That node is not on this board.",
                 )
         parents[move.id] = move.parent_id
         reparented.add(move.id)
@@ -3104,8 +3719,8 @@ def move_map_nodes(
         raise HTTPException(
             status_code=422,
             detail=(
-                f"That would make node {offender} a descendant of itself, "
-                "move the branch out first."
+                f"That would make node {offender} a descendant of itself. "
+                "Move the branch out first."
             ),
         )
 
@@ -3163,7 +3778,10 @@ class MapClearStyleOut(BaseModel):
 #: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
-MAP_CONTENT_FIELDS = frozenset({"image"})
+MAP_CONTENT_FIELDS = frozenset({
+    "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
+    "priority", "progress", "flag", "markers", "due",
+})
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
 
@@ -3294,7 +3912,70 @@ def _export_tree(root_element, roots: list[dict], build) -> None:
             stack.append((below, depth + 1, child))
 
 
-def _export_markdown(title: str, roots: list[dict]) -> str:
+def _outline_numbers(roots: list[dict]) -> dict:
+    """Every topic's place in the outline, `{node_id: "1.2"}` (MINDMAP_PLAN.md
+    decision 17).
+
+    A root is the map's subject and has no number; its children are 1, 2, 3
+    and theirs 1.1, 1.2, each root counting from 1 again. No trailing dot:
+    `- 2. Write` is an ordered list inside a bullet to every Markdown reader,
+    which would draw the number twice. Sibling order is the tree's, which is
+    `_sibling_key`'s and so the canvas's (`wbMapNumbers`). Iterative and
+    seen-guarded, the rule every walk in this file keeps.
+    """
+    numbers: dict = {}
+    seen: set = set()
+    stack: list[tuple[str, dict]] = [("", root) for root in reversed(roots)]
+    while stack:
+        prefix, node = stack.pop()
+        if node["id"] in seen:
+            continue
+        seen.add(node["id"])
+        children = node.get("children") or []
+        for position in range(len(children), 0, -1):
+            child = children[position - 1]
+            number = f"{prefix}.{position}" if prefix else str(position)
+            numbers.setdefault(child["id"], number)
+            stack.append((number, child))
+    return numbers
+
+
+#: A number at the start of an imported line, `1.2 Text`: what a numbered
+#: map's Markdown export writes, and read back only when every topic's number
+#: is its own place (`_strip_outline_numbers`).
+_OUTLINE_NUMBER = re.compile(r"^(\d+(?:\.\d+)*)\s+(?=\S)")
+
+
+def _strip_outline_numbers(roots: list[dict]) -> bool:
+    """Take the numbers off an imported outline whose every topic starts with
+    its own place in it, and say whether it did (decision 17).
+
+    All or nothing, and only when they match: a topic called "2024 plan" in
+    the first place is a name, not a number, and neither is a list numbered
+    by hand in some other scheme. A file this app wrote matches by
+    construction, so the map comes back numbered rather than with "1.1"
+    typed into every topic, and exporting it again does not number it twice.
+    """
+    expected: list[tuple[dict, str]] = []
+    stack: list[tuple[str, dict]] = [("", root) for root in roots]
+    while stack:
+        prefix, node = stack.pop()
+        for position, child in enumerate(node.get("children") or [], start=1):
+            number = f"{prefix}.{position}" if prefix else str(position)
+            expected.append((child, number))
+            stack.append((number, child))
+    if not expected:
+        return False
+    for node, number in expected:
+        found = _OUTLINE_NUMBER.match(node.get("text") or "")
+        if not found or found.group(1) != number:
+            return False
+    for node, _ in expected:
+        node["text"] = node["text"][_OUTLINE_NUMBER.match(node["text"]).end():]
+    return True
+
+
+def _export_markdown(title: str, roots: list[dict], numbered: bool = False) -> str:
     """`# Title`, then a two-space-per-level bullet outline.
 
     A reference node carries what it points at on the same line, `- Sources
@@ -3313,13 +3994,67 @@ def _export_markdown(title: str, roots: list[dict]) -> str:
     rows = _outline_rows(roots)
     if rows:
         lines.append("")
+    #: A numbered map's numbers (decision 17) are written into the line,
+    #: after a task's box (which has to follow the marker to be one) and
+    #: before the text, because a number is the one part of a map's look an
+    #: outline pasted anywhere still means something by.
+    numbers = _outline_numbers(roots) if numbered else {}
     for depth, node in rows:
         text = node["text"] or "(untitled)"
         suffix = ""
         if node["kind"] != MAP_TOPIC_KIND and node["ref_id"] is not None:
             suffix = f" ({node['kind']} {node['ref_id']})"
-        lines.append(f"{'  ' * depth}- {text}{suffix}")
+        box = _MARKDOWN_TASK_BOX.get((node.get("style") or {}).get("task"), "")
+        number = numbers.get(node["id"])
+        number = f"{number} " if number else ""
+        lines.append(f"{'  ' * depth}- {box}{number}{text}{suffix}")
+        note = (node.get("style") or {}).get("note")
+        if note:
+            lines.extend(_markdown_note_lines(note, depth))
+    while lines and not lines[-1]:
+        lines.pop()
     return "\n".join(lines) + "\n"
+
+
+def _export_text(roots: list[dict]) -> str:
+    """The plain-text outline (§12.2 item 10): one topic per line, a tab per
+    level, nothing else. No title line, because a plain outline has no word
+    for one and a first line would come back as a topic: the file's name is
+    the map's, and the import is sent it. No bullets, numbers, boxes or
+    notes: this is the format for pasting into something that knows nothing
+    about lists, and `_outline_from_paste` reads it back."""
+    lines = [f"{chr(9) * depth}{node['text'] or '(untitled)'}" for depth, node in _outline_rows(roots)]
+    return "\n".join(lines) + "\n"
+
+
+#: **A note is an indented paragraph under its bullet** (MINDMAP_PLAN.md
+#: decision 18): a blank line, the note at the bullet's content column, a
+#: blank line. Every Markdown reader draws that as a paragraph inside the
+#: list item, which is what a note behind a topic is, and
+#: `_parse_markdown_outline` reads it back. A note line that would read as a
+#: bullet or a heading is escaped with a backslash, which a reader draws as
+#: the character and the import takes off again.
+_MARKDOWN_NOTE_ESCAPE = re.compile(r"^([\\\-*+#])")
+
+
+def _markdown_note_lines(note: str, depth: int) -> list[str]:
+    pad = "  " * depth + "  "
+    out = [""]
+    for line in str(note).strip().splitlines():
+        line = line.rstrip()
+        out.append(pad + _MARKDOWN_NOTE_ESCAPE.sub(r"\\\1", line) if line else "")
+    out.append("")
+    return out
+
+
+#: **A task is the one thing a node carries that Markdown has a word for**
+#: (MINDMAP_PLAN.md decision 15): `- [ ]` and `- [x]` are the task-list items
+#: every Markdown reader in common use draws as a checkbox, so writing them
+#: keeps this file's promise (paste it anywhere) rather than breaking it the
+#: way a bold marker or an icon name would, and `_parse_markdown_outline`
+#: reads them back.
+_MARKDOWN_TASK_BOX = {"open": "[ ] ", "done": "[x] "}
+_MARKDOWN_TASK_ITEM = re.compile(r"^\[([ xX])\]\s+")
 
 
 #: How this map's three line shapes are spelled in FreeMind's own `<edge
@@ -3375,6 +4110,20 @@ _FREEMIND_PRIVATE = {
     "edge_slide": "_edge_slide",
     "image": "_image",
     "align": "_align",
+    #: A task (decision 15): FreeMind's built-in icons have a tick but no
+    #: empty box, so an open task has no native spelling; private, like the
+    #: rest of this list.
+    "task": "_task",
+    #: A note (decision 18). FreeMind's own is `<richcontent TYPE="NOTE">`,
+    #: whose body is HTML, which this file neither writes nor reads (see
+    #: `_parse_freemind`); the attribute keeps the text plain both ways.
+    "note": "_note",
+    #: Decisions 19 and 20: FreeMind's own `<cloud>` is one shape with no
+    #: label, and it has no summary at all, so both ride as private ones.
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
+    #: Markers (decision 34): neither format has a place for them that the
+    #: other reads, so all four ride as private attributes.
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -3399,6 +4148,14 @@ _OPML_PRIVATE = {
     "edge_bend": "_edge_bend",
     "edge_slide": "_edge_slide",
     "image": "_image",
+    "task": "_task",
+    #: `_note` is the spelling OmniOutliner and Workflowy already write, so
+    #: this one reaches another outliner as a note rather than being dropped.
+    "note": "_note",
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
+    #: Markers (decision 34): neither format has a place for them that the
+    #: other reads, so all four ride as private attributes.
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
 }
 
 
@@ -3410,10 +4167,14 @@ def _xml_attribute(value) -> str:
         return "true"
     if value is False:
         return "false"
+    if isinstance(value, (list, tuple)):
+        return ",".join(str(part) for part in value)
     return str(value)
 
 
-def _export_opml(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
+def _export_opml(
+    title: str, roots: list[dict], cross_links: list[dict] | None = None, numbered: bool = False
+) -> str:
     """OPML 2.0: the interchange format every mindmapper reads.
 
     Built with ElementTree rather than by formatting strings, so that a topic
@@ -3430,9 +4191,15 @@ def _export_opml(title: str, roots: list[dict], cross_links: list[dict] | None =
     links_from: dict = {}
     for link in cross_links or []:
         links_from.setdefault(link.get("from_id"), []).append(link.get("to_id"))
+    #: A numbered map (decision 17): `_number` on each outline, private like
+    #: `_kind` and `_task`, so another reader keeps clean text and this one
+    #: reads the map back numbered.
+    numbers = _outline_numbers(roots) if numbered else {}
 
     def build(parent_element, node: dict):
         attrs = {"text": node["text"] or "(untitled)"}
+        if node["id"] in numbers:
+            attrs["_number"] = numbers[node["id"]]
         if node["kind"] != MAP_TOPIC_KIND:
             # `_kind`/`_ref`, not `type`/`ref`: OPML's own `type` attribute
             # already means something else (how a reader should treat the
@@ -3495,9 +4262,11 @@ def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | No
 
     **A `.mm` file has exactly one root.** A map here may have several, which
     is a real shape (two unrelated trunks on one board), so a multi-root map is
-    exported under one node named after the map rather than as several
-    documents or as a file only this app can read back. A single-root map is
-    written as itself, so the common case round-trips unchanged.
+    exported under one node named after the map (marked `_wrapper`, so this
+    app's import takes it off again) rather than as several documents or as a
+    file only this app can read back. A single-root map is written as itself,
+    so the common case round-trips unchanged; its name rides on `<map
+    _title>` when it differs from the central topic.
 
     `_kind`/`_ref` ride along for the same reason they do in the OPML export:
     FreeMind ignores attributes it does not know, and they are what lets a
@@ -3568,7 +4337,15 @@ def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | No
 
     under = document
     if len(roots) != 1:
-        under = ET.SubElement(document, "node", {"TEXT": title})
+        #: `_wrapper` marks the trunk this export invented, so the import
+        #: (`_parse_freemind`) takes it back off and the map's own roots come
+        #: back as roots. FreeMind ignores the attribute and draws the trunk.
+        under = ET.SubElement(document, "node", {"TEXT": title, "_wrapper": "map"})
+    elif title and title != (roots[0].get("text") or ""):
+        #: A one-root map whose name differs from its central topic keeps its
+        #: name in a private attribute on `<map>` (audit FEAT-01): the root
+        #: node is the central topic now, so it can no longer carry the name.
+        document.set("_title", title)
     _export_tree(under, roots, build)
     #: **The cross-links, in FreeMind's own element** (MINDMAP_PLAN.md §13d).
     #: `<arrowlink>` is a child of the node the link starts at and names the
@@ -3600,6 +4377,7 @@ EXPORT_FORMATS = {
     "markdown": ("text/markdown", "md"),
     "opml": ("text/x-opml", "opml"),
     "freemind": ("application/x-freemind", "mm"),
+    "text": ("text/plain", "txt"),
 }
 
 
@@ -3616,8 +4394,9 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     if format not in EXPORT_FORMATS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown export format {format!r}: expected one of "
-            + ", ".join(sorted(EXPORT_FORMATS)),
+            detail="Pick one of these export formats: "
+            + ", ".join(sorted(EXPORT_FORMATS))
+            + ".",
         )
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
@@ -3630,13 +4409,20 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     #: taken from. Resolved here and nowhere else: `/tree` deliberately keeps
     #: reporting what each node actually carries, because that is what the
     #: strip has to show as set or unset.
+    #: Every map now, not only a themed one, because a pin is written as the
+    #: absence it means on any map (`_without_pins`). Seen-guarded: a ring
+    #: in `parent_id` stays a ring in `children` here, and an unguarded walk
+    #: of it never ends (`test_a_ring_in_the_tree_does_not_hang_an_export`).
     theme = _board_theme(entry)
-    if theme:
-        stack = list(roots)
-        while stack:
-            node = stack.pop()
-            node["style"] = _themed_style(node.get("style") or {}, theme)
-            stack.extend(node.get("children") or [])
+    stack = list(roots)
+    styled: set[int] = set()
+    while stack:
+        node = stack.pop()
+        if id(node) in styled:
+            continue
+        styled.add(id(node))
+        node["style"] = _without_pins(_themed_style(node.get("style") or {}, theme))
+        stack.extend(node.get("children") or [])
     media, suffix = EXPORT_FORMATS[format]
     #: **Markdown carries no cross-links, deliberately** (MINDMAP_PLAN.md
     #: §13d's decision). This format's whole promise is in `_export_markdown`'s
@@ -3645,14 +4431,20 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     #: reason. A "Cross-links" section after the outline would also be read
     #: straight back in by `_parse_markdown_outline`, which reads indentation
     #: and nothing else, so one map's two links would come back as two topics.
+    numbered = _board_numbered(entry)
     if format == "markdown":
-        text = _export_markdown(title, roots)
+        text = _export_markdown(title, roots, numbered)
+    elif format == "text":
+        text = _export_text(roots)
+    elif format == "opml":
+        links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
+        text = _export_opml(title, roots, links, numbered)
     else:
         #: Read only for the two formats that can carry them, so a Markdown
         #: export does not pay for a scan of every sketch on the board to find
         #: something it is going to drop.
         links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
-        text = (_export_opml if format == "opml" else _export_freemind)(title, roots, links)
+        text = _export_freemind(title, roots, links)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer
@@ -3688,7 +4480,7 @@ class MapImport(BaseModel):
 #: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
 #: MindMeister all write, which is what section 4's list meant by "an existing
 #: map can come in".
-IMPORT_FORMATS = ("markdown", "opml", "freemind")
+IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind", "text")
 
 
 def _parse_xml_document(content: str, label: str):
@@ -3720,20 +4512,30 @@ def _parse_xml_document(content: str, label: str):
     except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
         raise HTTPException(
             status_code=503,
-            detail=f"{label} import needs the defusedxml package: pip install defusedxml",
+            detail=(
+                f"{label} import needs a safe XML reader (the defusedxml package), "
+                "which is missing from this install. Install it, then restart MemoryMap."
+            ),
         ) from exc
 
     lowered = content.lower()
     if "<!doctype" in lowered or "<!entity" in lowered:
         raise HTTPException(
             status_code=422,
-            detail=f"That {label} declares a document type. Remove the <!DOCTYPE ...> line and try again.",
+            detail=(
+                f"That {label} file declares a document type, which is not allowed. "
+                "Remove that line and try again."
+            ),
         )
     try:
         return ET.fromstring(content)
     except (ET.ParseError, DefusedXmlException) as exc:
+        # The parser's own text names a line and column of the file, which is
+        # for the log; the person needs to know the file is the problem.
+        logging.getLogger("memorymap.whiteboard").warning("couldn't parse a %s file", label, exc_info=True)
         raise HTTPException(
-            status_code=422, detail=f"That isn't valid {label}: {exc}"
+            status_code=422,
+            detail=f"That isn't valid {label}. Check that the file is complete and try again.",
         ) from exc
 
 
@@ -3837,11 +4639,12 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
     """FreeMind `.mm` in, `(title, nested {text, children})` out.
 
     The format is one `<node TEXT="...">` inside another, and the document's
-    single root node *is* its title: so the root's own text names the map and
-    its children become the map's roots, which is the shape `_export_freemind`
-    writes and the shape Freeplane and Coggle export. A file with several
-    top-level nodes (not legal FreeMind, but files are files) keeps all of
-    them and takes no title from them.
+    single root node is the map's central topic, the shape Freeplane, XMind
+    and Coggle export; its text also names the map unless `<map _title>`
+    does. The one exception is the trunk `_export_freemind` writes over a
+    multi-root map, marked `_wrapper`, which is taken back off. A file with
+    several top-level nodes (not legal FreeMind, but files are files) keeps
+    all of them and takes no title from them.
 
     Text can also live in a `<richcontent>` element rather than in `TEXT`.
     That body is HTML, and rendering someone else's HTML into a node is not a
@@ -3879,12 +4682,21 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
         return out
 
     tops = root.findall("node")
-    if len(tops) == 1:
-        # The one legal shape: the document's root node names the map, and the
-        # map's own roots are its children.
+    named = (root.get("_title") or "").strip()
+    if len(tops) == 1 and tops[0].get("_wrapper") == "map":
+        # The trunk `_export_freemind` invented for a multi-root map: its text
+        # is the map's name and its children are the map's own roots.
         title = (tops[0].get("TEXT") or "").strip()
-        return title, walk(tops[0], 0)
-    return "", walk(root, 0)
+        return named or title, walk(tops[0], 0)
+    if len(tops) == 1:
+        # The one legal shape, and **the single root is the central topic**
+        # (audit FEAT-01, 2026-10-05; this reversed the older reading, which
+        # took it as the map's name and dropped it, so every `.mm` from
+        # Freeplane or XMind arrived as loose trunks). The map is named after
+        # it unless the file names itself.
+        title = (tops[0].get("TEXT") or "").strip()
+        return named or title, walk(root, 0)
+    return named, walk(root, 0)
 
 
 def _parse_opml(content: str) -> tuple[str, list[dict]]:
@@ -3931,12 +4743,102 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
                     "style": _opml_style(child),
                     "ref": (child.get("_id") or "").strip(),
                     "links": (child.get("_links") or "").split(),
+                    "numbered": bool((child.get("_number") or "").strip()),
                     "children": walk(child, depth + 1),
                 }
             )
         return out
 
     return title, walk(body, 0)
+
+
+#: An XMind file's map, uncompressed, at most: a map of MAX_IMPORT_NODES
+#: topics is well under this, and a zip that says it unpacks to more is a
+#: zip bomb, not a mind map.
+MAX_XMIND_JSON_BYTES = 8_000_000
+
+
+def _parse_xmind(content: str) -> tuple[str, list[dict]]:
+    """An XMind (Zen and later) `.xmind` in, `(title, [the central topic])` out.
+
+    The file is a zip; the client sends it base64 encoded. Its map is
+    `content.json`: a list of sheets, each with a `rootTopic` whose children
+    are `children.attached`. The first sheet comes in, its central topic as
+    the map's root (and its name), the rest under it as they were in XMind.
+    A topic's plain notes come in as
+    its note. XMind 8's older `content.xml` is refused with a sentence saying
+    how to get the newer file, rather than guessed at.
+    """
+    import base64
+    import binascii
+    import io
+    import zipfile
+
+    try:
+        raw = base64.b64decode(content, validate=True)
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except (binascii.Error, ValueError, zipfile.BadZipFile) as err:
+        raise HTTPException(status_code=422, detail="That is not an XMind file (it should be a .xmind archive).") from err
+    names = set(archive.namelist())
+    if "content.json" not in names:
+        detail = (
+            "That XMind file is in the older XMind 8 format. Open it in XMind and save it again, then import it."
+            if "content.xml" in names
+            else "That XMind file has no map in it."
+        )
+        raise HTTPException(status_code=422, detail=detail)
+    info = archive.getinfo("content.json")
+    if info.file_size > MAX_XMIND_JSON_BYTES:
+        raise HTTPException(status_code=422, detail="That XMind map is too large to import: split it up first.")
+    try:
+        sheets = json.loads(archive.read("content.json").decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as err:
+        raise HTTPException(status_code=422, detail="That XMind file's map could not be read.") from err
+    sheet = sheets[0] if isinstance(sheets, list) and sheets else {}
+    root = sheet.get("rootTopic") if isinstance(sheet, dict) else None
+    if not isinstance(root, dict):
+        raise HTTPException(status_code=422, detail="That XMind file has no map in it.")
+    counted = [0]
+
+    def walk(topic: dict, depth: int) -> list[dict]:
+        out: list[dict] = []
+        if depth >= MAX_IMPORT_DEPTH:
+            return out
+        children = (topic.get("children") or {}).get("attached") or []
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            counted[0] += 1
+            if counted[0] > MAX_IMPORT_NODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
+                )
+            note = ((child.get("notes") or {}).get("plain") or {}).get("content")
+            out.append(
+                {
+                    "text": str(child.get("title") or "").strip()[:MAX_OBJECT_TEXT_CHARS],
+                    "style": _clean_import_style({"note": note}),
+                    "ref": str(child.get("id") or ""),
+                    "links": [],
+                    "children": walk(child, depth + 1),
+                }
+            )
+        return out
+
+    #: **The central topic stays a topic** (the features audit, FEAT-01: a
+    #: FreeMind file lost its centre this way, and an XMind map without its
+    #: central idea is N loose trunks). It also names the map.
+    title = str(root.get("title") or sheet.get("title") or "").strip()
+    note = ((root.get("notes") or {}).get("plain") or {}).get("content")
+    centre = {
+        "text": title[:MAX_OBJECT_TEXT_CHARS],
+        "style": _clean_import_style({"note": note}),
+        "ref": str(root.get("id") or ""),
+        "links": [],
+        "children": walk(root, 1),
+    }
+    return title, [centre]
 
 
 def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
@@ -3953,17 +4855,36 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
     #: seen: the standard outline-parsing stack.
     stack: list[tuple[int, dict]] = []
     counted = 0
+    #: A blank line since the last note line, so a note's paragraphs come
+    #: back as paragraphs (decision 18).
+    blank = False
     for raw in content.splitlines():
         line = raw.rstrip()
         stripped = line.lstrip()
         if not stripped:
+            blank = True
             continue
         if stripped.startswith("#"):
             if not title:
                 title = stripped.lstrip("#").strip()
             continue
         if stripped[0] not in "-*+":
+            #: **Text indented under a bullet is that topic's note**
+            #: (decision 18): what `_export_markdown` writes, and what a
+            #: paragraph under a hand-written bullet means. Anything else
+            #: that is not a bullet is not part of the outline, as before.
+            prefix = line[: len(line) - len(stripped)]
+            if stack and len(prefix) + prefix.count("\t") > stack[-1][0]:
+                owner = stack[-1][1]
+                lines = owner.setdefault("note_lines", [])
+                if lines and blank:
+                    lines.append("")
+                lead = len(line) - len(line.lstrip(" "))
+                text = line[min(lead, stack[-1][0] + 2):].lstrip("\t")
+                lines.append(_MARKDOWN_NOTE_UNESCAPE.sub(r"\1", text))
+            blank = False
             continue
+        blank = False
         text = stripped[1:].strip()
         if not text:
             continue
@@ -3978,6 +4899,10 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
         prefix = line[: len(line) - len(stripped)]
         indent = len(prefix) + prefix.count("\t")
         node: dict = {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": []}
+        task = _MARKDOWN_TASK_ITEM.match(text)
+        if task and text[task.end():].strip():
+            node["text"] = text[task.end():][:MAX_OBJECT_TEXT_CHARS]
+            node["style"] = {"task": "open" if task.group(1) == " " else "done"}
         while stack and stack[-1][0] >= indent:
             stack.pop()
         if stack and len(stack) < MAX_IMPORT_DEPTH:
@@ -3986,7 +4911,17 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
             roots.append(node)
             stack = []
         stack.append((indent, node))
+    for node in _flatten_parsed(roots):
+        lines = node.pop("note_lines", None)
+        note = "\n".join(lines or []).strip()
+        if note:
+            node["style"] = {**(node.get("style") or {}), "note": note[:MAX_TOPIC_NOTE_CHARS]}
     return title, roots
+
+
+#: The backslash `_markdown_note_lines` put in front of a note line that
+#: would have read as a bullet or a heading, taken off again.
+_MARKDOWN_NOTE_UNESCAPE = re.compile(r"^\\([\\\-*+#])")
 
 
 def _place_map_nodes(
@@ -3994,6 +4929,7 @@ def _place_map_nodes(
     board_id: int,
     parsed: list[dict],
     reference_for=None,
+    under: WhiteboardObject | None = None,
 ) -> list[WhiteboardObject]:
     """Write a parsed outline onto a board as map nodes, returning them.
 
@@ -4021,7 +4957,13 @@ def _place_map_nodes(
 
     def place(nodes: list[dict], parent: WhiteboardObject | None, depth: int) -> None:
         for node in nodes:
-            reference = reference_for(node["text"]) if reference_for else None
+            #: A node built from a note already says which (the map made
+            #: from the graph's notes, `routes_map_from_notes`), and that is
+            #: not a guess from its text.
+            if node.get("note"):
+                reference = ("note", node["note"])
+            else:
+                reference = reference_for(node["text"]) if reference_for else None
             kind, ref_id = reference if reference else (MAP_TOPIC_KIND, None)
             data: dict = {"content": node["text"]}
             if ref_id is not None:
@@ -4030,12 +4972,16 @@ def _place_map_nodes(
             # by `_clean_import_style`. A Markdown outline and an AI proposal
             # carry no style at all, which is why this is a `get`.
             data.update(node.get("style") or {})
+            #: Under an existing topic (a pasted outline), the ladder starts
+            #: beside it; the client's tidy lays it out properly after.
+            ox = float(under.x) + MAP_COL if under is not None else 0.0
+            oy = float(under.y) if under is not None else 0.0
             obj = WhiteboardObject(
                 board_id=board_id,
                 kind=kind,
                 data=json.dumps(data),
-                x=float(depth) * MAP_COL,
-                y=float(row[0]) * MAP_ROW,
+                x=ox + float(depth) * MAP_COL,
+                y=oy + float(row[0]) * MAP_ROW,
                 z=1,
                 parent_id=parent.id if parent is not None else None,
             )
@@ -4045,7 +4991,7 @@ def _place_map_nodes(
             created.append(obj)
             place(node["children"], obj, depth + 1)
 
-    place(parsed, None, 0)
+    place(parsed, under, 0)
     return created
 
 
@@ -4324,7 +5270,7 @@ def _record_map_creation(
         board_id,
         detail,
         payload={
-            "after": events.board_state(name, "map", DEFAULT_BOARD_LAYOUT),
+            "after": events.board_state(name, "map", DEFAULT_MAP_LAYOUT),
             "nodes": len(created),
             **extra,
         },
@@ -4377,7 +5323,7 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
 
     name = body.name.strip()[:100] or "Generated map"
     entry = Entry(content=f"# {name}", is_board=True)
-    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    _store_board_settings(entry, "map", DEFAULT_MAP_LAYOUT)
     db.add(entry)
     db.flush()
     created = _place_map_nodes(db, entry.id, parsed, reference_for)
@@ -4398,9 +5344,20 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
         sketch_count=0,
         object_count=len(created),
         type="map",
-        layout=DEFAULT_BOARD_LAYOUT,
+        layout=DEFAULT_MAP_LAYOUT,
         **_preview_fields(db, entry.id),
     )
+
+
+def _flatten_parsed(parsed: list[dict]) -> list[dict]:
+    """Every node of a parsed outline, iteratively."""
+    out: list[dict] = []
+    stack = list(parsed)
+    while stack:
+        node = stack.pop()
+        out.append(node)
+        stack.extend(node.get("children") or [])
+    return out
 
 
 @router.post("/boards/import", response_model=BoardOut, status_code=201)
@@ -4418,11 +5375,26 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         "opml": _parse_opml,
         "freemind": _parse_freemind,
         "markdown": _parse_markdown_outline,
+        "xmind": _parse_xmind,
+        #: A plain indented outline (§12.2 item 10) is what a paste is, so it
+        #: is read the way a paste is read (decision 29), and a single top
+        #: line names the map when the client sent no name.
+        "text": lambda content: _parse_markdown_outline(_outline_from_paste(content)),
     }
     title, parsed = parsers[body.format](body.content)
+    if body.format == "text" and len(parsed) == 1:
+        title = parsed[0]["text"]
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
     entry = Entry(content=f"# {name}", is_board=True)
-    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    _store_board_settings(entry, "map", DEFAULT_MAP_LAYOUT)
+    #: A numbered map's file comes back numbered (decision 17): OPML says so
+    #: on its outlines, and Markdown when every topic starts with its place.
+    if body.format == "markdown":
+        numbered = _strip_outline_numbers(parsed)
+    else:
+        numbered = any(node.get("numbered") for node in _flatten_parsed(parsed))
+    if numbered:
+        _store_board_numbered(entry, True)
     db.add(entry)
     db.flush()  # the nodes need the board's id before they can point at it
 
@@ -4445,6 +5417,6 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         sketch_count=0,
         object_count=len(created),
         type="map",
-        layout=DEFAULT_BOARD_LAYOUT,
+        layout=DEFAULT_MAP_LAYOUT,
         **_preview_fields(db, entry.id),
     )

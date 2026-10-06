@@ -140,6 +140,18 @@ def _model_dir(model: EmbedModel) -> Path:
     return cache_root() / ("models--" + model.repo.replace("/", "--"))
 
 
+def is_downloaded(repo: str) -> bool:
+    """Whether `repo` has weights in the cache: a snapshot holding a model
+    file, not merely the folder an interrupted first request left behind."""
+    snapshots = cache_root() / ("models--" + repo.replace("/", "--")) / "snapshots"
+    if not snapshots.is_dir():
+        return False
+    for path in snapshots.rglob("*"):
+        if path.suffix in (".safetensors", ".bin") and path.name.startswith(("model", "pytorch_model")):
+            return True
+    return False
+
+
 def _dir_size(path: Path) -> int:
     total = 0
     for entry in path.rglob("*"):
@@ -327,7 +339,7 @@ def start(model_id: str) -> tuple[bool, str]:
     if not can_download():
         return False, (
             "Downloading a model needs the huggingface_hub library, which "
-            "arrives with “Search by meaning” in Optional extras. Install "
+            "arrives with “Search by meaning” in Settings, Packages. Install "
             "that first."
         )
     with _lock:

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memorymap"
-version = "0.3.32"
+version = "0.4.0"
 description = "MemoryMap AI — a 100% offline, local-first AI notebook"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,10 +27,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Braydenh563/MemoryMap-AI-v0"
-Repository = "https://github.com/Braydenh563/MemoryMap-AI-v0"
-Issues = "https://github.com/Braydenh563/MemoryMap-AI-v0/issues"
-Changelog = "https://github.com/Braydenh563/MemoryMap-AI-v0/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Braydenh563/MemoryMap-AI"
+Repository = "https://github.com/Braydenh563/MemoryMap-AI"
+Issues = "https://github.com/Braydenh563/MemoryMap-AI/issues"
+Changelog = "https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md"
 
 [project.scripts]
 memorymap = "memorymap.__main__:main"

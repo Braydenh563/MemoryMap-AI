@@ -15,7 +15,7 @@ A `ReferenceError` is the one class of frontend defect that can be found
 without running anything, because the app's files are classic scripts
 sharing one global scope (index.html loads them in order, and the surface
 bundles are fetched into that same scope later). So the union of every
-declaration across `frontend/*.js` is the namespace, and a bare `name(`
+declaration across `frontend/js/*.js` is the namespace, and a bare `name(`
 that resolves nowhere in it is a crash waiting for whoever opens that
 screen.
 
@@ -59,14 +59,14 @@ KEYWORDS = frozenset(
 #: check is that an unknown name is treated as a mistake.
 KNOWN_GLOBALS = frozenset(
     """
-    Array ArrayBuffer AudioContext BigInt Blob Boolean BroadcastChannel CSS
-    CSSStyleSheet CustomEvent DataView Date DOMParser Error EvalError Event MouseEvent
+    Array ArrayBuffer AudioContext BigInt Blob Boolean BroadcastChannel CSS ClipboardItem
+    CSSStyleSheet CustomEvent DataView Date DOMMatrix DOMParser Error EvalError Event MouseEvent
     EventSource File FileReader Float32Array Float64Array FormData Function
-    InputEvent
+    InputEvent KeyboardEvent
     Headers Image Infinity Int32Array Intl IntersectionObserver JSON Map Math
     MediaRecorder MutationObserver NaN Notification Number Object Option Path2D
     Performance PerformanceObserver Promise Proxy Range RangeError
-    ReferenceError Reflect RegExp Request ResizeObserver Response ScrollTimeline Set
+    ReadableStream ReferenceError Reflect RegExp Request ResizeObserver Response ScrollTimeline Set
     SpeechSynthesisUtterance String Symbol SyntaxError TextDecoder TextEncoder
     TypeError URIError URL URLSearchParams Uint8Array Uint32Array WeakMap
     WeakRef WeakSet Worker XMLHttpRequest XMLSerializer AbortController
@@ -268,7 +268,7 @@ SCREAMING = re.compile(r"(?<![\w$.?])([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b")
 def _sources() -> dict[str, str]:
     return {
         path.name: _strip(path.read_text(encoding="utf-8"))
-        for path in sorted(FRONTEND.glob("*.js"))
+        for path in sorted((FRONTEND / "js").glob("*.js"))
     }
 
 
@@ -342,7 +342,7 @@ TOP_LEVEL = re.compile(
 
 def _top_level_declarations() -> dict[str, list[str]]:
     owners: dict[str, list[str]] = {}
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         if path.name in WORKER_FILES:
             continue
         text = _strip(path.read_text(encoding="utf-8"))

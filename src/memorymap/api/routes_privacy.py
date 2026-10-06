@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends
 
-from memorymap.core import egress, netbind
+from memorymap.core import egress, netbind, security
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import DEFAULT_BASE_URLS, get_config
 
@@ -71,7 +71,7 @@ def _model_server(config: ConfigManager) -> dict:
         )
     return {
         "provider": provider,
-        "url": url,
+        "url": security.without_userinfo(url),  # never a typed password (SEC-12)
         "host": host,
         "port": port,
         "scope": scope,

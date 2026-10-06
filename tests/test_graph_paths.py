@@ -487,3 +487,24 @@ def test_the_graph_never_labels_a_note_with_its_ciphertext(client, session, monk
     body = client.get("/graph").json()
     label = next(n["preview"] for n in body["nodes"] if n["id"] == note.id)
     assert label.startswith("the plain words")
+
+
+def test_the_index_reads_links_as_columns_not_objects(session):
+    """GRAPH_PLAN, the first build after a change: `_connect` built every
+    link as an `EntryLink` instance (0.39 s at 5,000 notes) to read five
+    fields. It reads the five columns; the phrases a reason makes are the
+    same, a deduced one included."""
+    import inspect
+
+    a = Entry(content="one")
+    b = Entry(content="two")
+    session.add_all([a, b])
+    session.flush()
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id, reason="same trip", reason_confidence=0.8))
+    session.commit()
+    index = paths.build_light(session)
+    step = index.neighbours(a.id)[b.id]
+    assert step.kind == "link" and "same trip, 80% confidence, deduced" in str(step)
+    source = inspect.getsource(paths._connect)
+    assert "session.scalars(select(EntryLink))" not in source
+    assert "EntryLink.reason_confidence" in source

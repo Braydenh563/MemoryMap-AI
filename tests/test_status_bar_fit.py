@@ -44,3 +44,25 @@ def test_a_tool_row_fills_its_grid_cell_and_keeps_its_lines_packed():
     widgets = (CSS / "03-dashboard-widgets.css").read_text(encoding="utf-8")
     assert "display: grid;" in _rule(widgets, "#tool-list li")
     assert "align-content: start;" in _rule(widgets, ".tool-row.setting-check")
+
+
+def test_below_1024_the_bar_keeps_slack_for_a_running_job():
+    # 2026-10-03, errors.js at 820: the filing model warming up (a spinner,
+    # "1 running") put Redo at 854 in an 820 window. Below 1024 the key hint
+    # goes, and Ask, Guide, Find, reminders and the running count keep their
+    # icon and number; the words stay readable to a screen reader (clipped,
+    # never `display: none`). Measured after, with a 209px job: 0px over at
+    # 1023, 820 and 721.
+    block = SHELL[SHELL.index("@media (max-width: 1023.98px) {") :]
+    block = block[: block.index("\n}\n")]
+    assert "#status-command .status-key {\n    display: none;" in block
+    # INBOX 618: Agent, Guide and Find are icons at every width now
+    # (tests/test_bars_618.py), so only the two counts' words go here.
+    for selector in (
+        "#status-reminders > b + span",
+        "#status-activity > b + span",
+    ):
+        assert selector in block, selector
+    hidden = block[block.index("#status-activity > b + span {") :]
+    hidden = hidden[: hidden.index("}")]
+    assert "clip-path: inset(50%);" in hidden and "display: none" not in hidden

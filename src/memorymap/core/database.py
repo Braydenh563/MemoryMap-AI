@@ -14,6 +14,7 @@ need a real migration tool, so don't do those casually.
 from __future__ import annotations
 
 import importlib
+import json
 import logging
 import os
 import sys
@@ -203,6 +204,25 @@ def _add_workspace_filter(execute_state):
                     )
                 )
 
+#: `session.info` key that lets a block read binned documents and reminders
+#: (`entry/bin.including_binned`).
+INCLUDE_BINNED = "include_binned"
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _hide_binned(execute_state):
+    """A binned document or reminder is out of every read (WORLD_CLASS_PLAN
+    5 item 10): the bin's own routes ask for them with `including_binned`.
+    Selects only: a bulk UPDATE or DELETE that names them by id still reaches
+    them, which is what a purge's clean-up needs."""
+    if not execute_state.is_select or execute_state.session.info.get(INCLUDE_BINNED):
+        return
+    execute_state.statement = execute_state.statement.options(
+        with_loader_criteria(Document, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
+        with_loader_criteria(Reminder, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
+    )
+
+
 @event.listens_for(Session, "before_flush")
 def _set_workspace(session, flush_context, instances):
     workspace_id = session.info.get("workspace_id")
@@ -265,6 +285,13 @@ class Category(Base, WorkspaceMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    #: The colour the person chose for this category (INBOX 441 (4)): a palette
+    #: key the swatch picker offers ("teal") or a `#rrggbb` hex, validated in
+    #: `routes_categories.py`. NULL is "automatic": every surface then draws
+    #: the colour it always did. Kept on the row, not in preferences, so a
+    #: rename keeps it, a merge keeps the target's and a delete drops it with
+    #: no clean-up pass. `_rebuild_categories_unique_constraint` copies it.
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -280,6 +307,11 @@ class Entry(Base, WorkspaceMixin):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    #: Tags offered when the note was filed, kept for the person to take or
+    #: discard (INBOX 440), and the ones they discarded, never offered again.
+    #: JSON string arrays like `tags`; additive, so old rows backfill to [].
+    suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
+    discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 
@@ -325,6 +357,25 @@ class Entry(Base, WorkspaceMixin):
     #: opened *since the app learned to remember* has no opening to report,
     #: and every reader below falls back to `updated_at` for it.
     last_opened_at: Mapped[datetime | None] = mapped_column(SaDateTime, default=None)
+    #: **When a person last changed what the note says**: its text (and so
+    #: its title), its tags or its category. Not `updated_at`, which has
+    #: `onupdate=utcnow` and so moves when the note is merely opened (the
+    #: open bumps `access_count`) or filed by the AI: a list sorted by that
+    #: reorders itself on every click. Set by `manager.mark_edited` at each
+    #: per-note edit path and nowhere else; never on view, filing, pinning,
+    #: a privacy toggle or a notebook-wide tag or category rename. Null on
+    #: a note never edited since it was written (and on every row older than
+    #: the column), so a reader sorts by `edited_at` falling back to
+    #: `created_at`. This module's UTC `DateTime`, not the plain one: the
+    #: plain type reads back naive, so the PUT response and a later GET
+    #: disagreed by the "Z" (measured while writing its test).
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: The offline queue's own name for the save that made this note
+    #: (`EntryCreate.client_key`), so a resend whose answer was lost is the
+    #: same note, after a restart too, and two resends at once cannot both
+    #: create: unique where set (`_UNIQUE_INDEXES`). Audit 2026-10-05,
+    #: ARCH-23; INBOX 434 named the restart half.
+    client_key: Mapped[str | None] = mapped_column(String(80), default=None)
     # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs, the FK
     # constraint only exists on freshly created databases.)
@@ -391,6 +442,14 @@ class Entry(Base, WorkspaceMixin):
     # stays visible regardless (its counts are still nonzero), so nothing
     # already in someone's board list disappears from this change.
     is_board: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: A note made by a map gesture: a concept map's root, or a card that Tab
+    #: or Enter added on a board (audit 2026-10-05, UX-06). It is a real note
+    #: (the card reads its text from it, search and Ask find it), but a map of
+    #: forty topics used to put forty one-word rows at the top of Notes and in
+    #: Recently added. Those two lists leave it out; nothing else changes.
+    #: Scalar default so the additive auto-migrator backfills every existing
+    #: row as an ordinary note; the Alembic step marks the old ones.
+    map_topic: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Board-level settings, as a small JSON object, for a note being used as
     #: a board: `{"type": "board"|"map", "layout": "free"|"tree-right"|
     #: "tree-left"|"tree-both"|"tree-down"|"radial"}`. NULL: the overwhelmingly common case, since
@@ -467,6 +526,22 @@ class Entity(Base):
     # within one pass so the same note doesn't create the same entity twice.
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: GRAPH_PLAN KG5: person, place, project, organisation or thing
+    #: (`ENTITY_KINDS`); null where nothing said, which every entity found
+    #: before this column existed is.
+    kind: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: Other names for the same thing, a JSON list of strings: a merged
+    #: entity's name lands here, so extraction finding it again lands on the
+    #: survivor rather than making the duplicate a second time.
+    aliases: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    #: Set on the entity a merge emptied: its mentions moved to this id. The
+    #: row stays so an old name resolves; nothing lists it (it has no mentions).
+    merged_into: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+#: The kinds an entity can be (GRAPH_PLAN KG5). Closed, like LINK_TYPES: the
+#: graph colours by it and the extraction prompt has to choose one.
+ENTITY_KINDS = ("person", "place", "project", "organisation", "thing")
 
 
 class EntityMention(Base):
@@ -478,6 +553,80 @@ class EntityMention(Base):
     entity_id: Mapped[int] = mapped_column(ForeignKey("entities.id"))
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class LinkReason(TypeDecorator):
+    """`entry_links.reason`: plain text, or ciphertext on a link touching a
+    private note, read back as plain text while the vault is open.
+
+    A reason a person types ("because it names my doctor") is a sentence
+    about the notes it joins, so on a link with a private end it is stored
+    encrypted, like the note's content (`manager.create_link`,
+    `set_link_reason`, `set_private` do the writing). Decrypting here, on
+    load, means every reader of `link.reason` (the graph, the tools, the
+    connections list) gets the text while unlocked and `None` while locked,
+    without each one learning about ciphertext. Nothing is encrypted on the
+    way in: whether a link is private is a fact about two other rows, which
+    a column type cannot see.
+    """
+
+    impl = Text
+    cache_ok = True
+    #: Set by `core.vault` when it loads (`set_key_source`), so this module
+    #: never imports the vault, which imports this one for its `Vault` row.
+    #: Until then no vault can be open, and no key is exactly what it says.
+    key_source = staticmethod(lambda: None)
+
+    def process_result_value(self, value, dialect):
+        if not value:
+            return value
+        from memorymap.core import crypto
+
+        if not crypto.is_encrypted(value):
+            return value
+        key = LinkReason.key_source()
+        if key is None:
+            return None
+        try:
+            return crypto.decrypt(key, value)
+        except crypto.DecryptionError:
+            return None
+
+
+class LinkProps(TypeDecorator):
+    """`entry_links.props`: a JSON object, or a JSON string of ciphertext on a
+    link touching a private note, read back as the object while the vault is
+    open and as `None` while it is locked.
+
+    Props are short values a person wrote about the two notes, so they get
+    `LinkReason`'s treatment (sweep 1004; GRAPH_PLAN KG decisions). The same
+    division of labour: `manager` decides what to seal and writes the stored
+    form, this type only reads it, so every reader of `link.props` is
+    unchanged. The sealed form is the encrypted `json.dumps` of the object,
+    stored as a JSON string, which a plain object can never be mistaken for.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self):
+        super().__init__(none_as_null=True)
+
+    def process_result_value(self, value, dialect):
+        if not isinstance(value, str):
+            return value
+        from memorymap.core import crypto
+
+        if not crypto.is_encrypted(value):
+            return value
+        key = LinkReason.key_source()
+        if key is None:
+            return None
+        try:
+            parsed = json.loads(crypto.decrypt(key, value))
+        except (crypto.DecryptionError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
 
 
 class EntryLink(Base, WorkspaceMixin):
@@ -495,7 +644,7 @@ class EntryLink(Base, WorkspaceMixin):
     # both about scheduling", user-reported). Nullable rather than an empty
     # string default so "no reason given" and "reason is blank" aren't the
     # same row on old links backfilled by the auto-migrator.
-    reason: Mapped[str | None] = mapped_column(Text, default=None)
+    reason: Mapped[str | None] = mapped_column(LinkReason, default=None)
     # How sure `create_link` was of a reason it deduced itself, 0..1, set
     # only when the reason above came from embedding similarity rather than
     # from a person or the AI saying it in words. A human- or model-given
@@ -517,6 +666,70 @@ class EntryLink(Base, WorkspaceMixin):
     # open set of synonyms. The free-text half of "why" already exists and is
     # `reason` above; this is the part that has to be machine-readable.
     link_type: Mapped[str | None] = mapped_column(String(24), default=None)
+    #: Where the link came from (GRAPH_PLAN 518): "wiki" when a `[[name]]` in
+    #: the source's text made it, so taking the name out takes the link away;
+    #: null for a link a person or Atlas made, which only they remove.
+    #: `link_type` is the meaning and must not carry this.
+    origin: Mapped[str | None] = mapped_column(String(8), default=None)
+    #: GRAPH_PLAN KG3: properties on the link itself (a JSON object of short
+    #: scalar values: "count": 4, "since": "2026"), null for none.
+    props: Mapped[dict | None] = mapped_column(LinkProps(), default=None)
+
+
+class RelationType(Base):
+    """A kind of link a person added (GRAPH_PLAN KG3): "Part of" with its
+    inverse "Has part". The six built-ins (`LINK_TYPES`) stay in code, so a
+    notebook with none of these rows behaves exactly as before; `key` is what
+    `EntryLink.link_type` stores."""
+
+    __tablename__ = "relation_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(24), unique=True)
+    name: Mapped[str] = mapped_column(String(60))
+    #: What the link is called from its other end; null means the same name.
+    inverse: Mapped[str | None] = mapped_column(String(60), default=None)
+    directed: Mapped[bool] = mapped_column(Boolean, default=True)
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class EntryProperty(Base):
+    """One value of one property of one note (GRAPH_PLAN KG4): an index of
+    the `---` block at the top of the note's text, which is the truth, rebuilt
+    on every save (`manager.reindex_properties`). A list property is a row per
+    value. `number` and `date` are the value read as one, when it reads, so a
+    query can compare them; a private note has no rows at all."""
+
+    __tablename__ = "entry_properties"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    key: Mapped[str] = mapped_column(String(60), index=True)
+    value: Mapped[str] = mapped_column(String(300), default="")
+    number: Mapped[float | None] = mapped_column(Float, default=None)
+    date: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+#: What a note type's field can hold (KG4): the shape a value is read as and
+#: the control the property table draws for it.
+NOTE_FIELD_KINDS = ("text", "number", "date", "note", "list", "checkbox")
+
+
+class NoteType(Base):
+    """A kind of note with its own fields (KG4): "Meeting" with attendees and
+    a date. A note is of a type when its properties say `type: Meeting`; a
+    new note of a type starts with the type's fields in its block."""
+
+    __tablename__ = "note_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    icon: Mapped[str | None] = mapped_column(String(30), default=None)
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: `[{"name": ..., "kind": one of NOTE_FIELD_KINDS}]`, in order.
+    fields: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 #: The kinds of connection a link can carry, and what each one means.
@@ -531,6 +744,17 @@ LINK_TYPES: dict[str, str] = {
     "supports": "Supports: this is evidence for that",
     "contradicts": "Contradicts: these disagree",
     "example_of": "Example of: this is an instance of that",
+}
+
+#: Each built-in's name from its other end (GRAPH_PLAN KG3), and whether it
+#: has a direction at all: "related" and "contradicts" read the same both ways.
+LINK_TYPE_INVERSES: dict[str, str | None] = {
+    "related": None,
+    "continues": "Continued by",
+    "context": "Explained by",
+    "supports": "Supported by",
+    "contradicts": None,
+    "example_of": "Has example",
 }
 
 # ROADMAP §87.5's first slice, using only what a link already stores, no new
@@ -585,6 +809,54 @@ class EmbeddingRecord(Base):
     dim: Mapped[int] = mapped_column(Integer)
     model_version: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ChunkVector(Base):
+    """One vector per paragraph of a long note (WORLD_CLASS_PLAN §14 item 3,
+    row 6).
+
+    One vector per note loses a long note: a paragraph about the boiler in a
+    page about the house is a twentieth of the note's vector, and a question
+    about the boiler scores the whole page as barely related. A note of two
+    or more paragraphs (`embeddings.paragraph_chunks`) gets a row per
+    paragraph here as well; a short note has none, since its one paragraph is
+    the note and its vector already exists.
+
+    **`embedding_id` is the note vector these rows were cut beside.** Ten
+    places delete a note's `EmbeddingRecord` (purge, private, re-embed, the
+    category re-embed, restore), mostly with bulk statements no hook sees.
+    Rather than teach every one of them about this table, a chunk only counts
+    while the note's live vector is the one it was stored with
+    (`search/chunks.py`): a deleted or replaced note vector retires its
+    chunks at once, whoever deleted it. `store_for_entry` and the orphan pass
+    remove the rows themselves.
+
+    **No foreign key on `entry_id`, on purpose.** Foreign keys are enforced
+    here, and the entry hard-delete paths (purge, the bin, a workspace delete)
+    each list the side tables they clear first; a key here would make every
+    one of them fail until it learned this table's name. A row whose note is
+    gone is already inert by the `embedding_id` rule, and
+    `clean_orphaned_vectors` deletes it. `set_private` deletes them at once,
+    because a vector derived from the text is what the encryption hides.
+
+    `start`/`end` are offsets into the note's content as it was embedded, the
+    paragraph anchor a grounded sentence points at. `digest` lets a re-save
+    reuse the vectors of the paragraphs that did not change, so editing one
+    paragraph of a long note embeds one paragraph.
+    """
+
+    __tablename__ = "chunk_vectors"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    embedding_id: Mapped[int] = mapped_column(Integer)
+    ordinal: Mapped[int] = mapped_column(Integer)
+    start: Mapped[int] = mapped_column(Integer)
+    end: Mapped[int] = mapped_column(Integer)
+    digest: Mapped[str] = mapped_column(String(32))
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    dim: Mapped[int] = mapped_column(Integer)
+    model_version: Mapped[str] = mapped_column(String(200))
 
 
 class Attachment(Base, WorkspaceMixin):
@@ -738,6 +1010,11 @@ class Bookmark(Base, WorkspaceMixin):
     # hierarchy: without a second data model. Scalar default so the
     # additive auto-migrator backfills existing rows to "" (ungrouped).
     group_name: Mapped[str] = mapped_column(String(120), default="")
+    #: A link you have been through. Set when it is opened from the list or
+    #: ticked by hand; an "Unread" filter is the reading list a saved link is
+    #: usually for. Scalar default so the additive auto-migrator backfills
+    #: existing rows to unread.
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -784,6 +1061,10 @@ class Reminder(Base, WorkspaceMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    #: WORLD_CLASS_PLAN 1.3 (row 15): a reminder about a document. A board or
+    #: a map is an `Entry`, so `entry_id` already covers those; a document is
+    #: its own table. At most one of the two is set (`routes_reminders`).
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), default=None, index=True)
     text: Mapped[str] = mapped_column(String(500))
     due_at: Mapped[datetime] = mapped_column(DateTime)
     done: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -791,6 +1072,9 @@ class Reminder(Base, WorkspaceMixin):
     priority: Mapped[str] = mapped_column(String(10), default="normal")  # low|normal|high
     recurring: Mapped[str] = mapped_column(String(10), default="none")  # none|daily|weekly|monthly
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
+    #: Hidden from every read by `_hide_binned`.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class NoteScore(Base, WorkspaceMixin):
@@ -863,8 +1147,8 @@ class DerivedFact(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
-    #: `claim` or `question` today; `tension`, `duplicate`, `entity` and
-    #: `date` are the kinds I1's later passes add to the same table.
+    #: `claim`, `question`, `tension` or `answered` (`facts.KINDS`);
+    #: `duplicate`, `entity` and `date` are the kinds still to come.
     kind: Mapped[str] = mapped_column(String(20), index=True)
     text: Mapped[str] = mapped_column(Text)
     span_start: Mapped[int] = mapped_column(Integer, default=0)
@@ -882,6 +1166,54 @@ class DerivedFact(Base):
     #: card and its review list can speak about one pass. Null on rows from
     #: before runs were recorded; they still list under /learned.
     run_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
+    #: JSON, for the pair kinds (`tension`, `answered`): the other side's
+    #: fact, note, words and span, the pair key that stops a dismissed pair
+    #: being found again, and the model's one-line reason. Null for a claim
+    #: or a question, which are one sentence of one note.
+    payload: Mapped[str | None] = mapped_column(Text, default=None)
+
+
+class DerivedTension(Base):
+    """One pair of notes that disagree, as the notebook knows it now
+    (WORLD_CLASS_PLAN B4: the derived tensions table).
+
+    **A view, never a source.** Every row is rebuilt by `ai/tensions.rebuild`
+    from three things that are each kept elsewhere: the tension events
+    (`AuditLog`, `entity_type="tension"`: found by a scan, accepted,
+    dismissed), the night shift's tension facts (`DerivedFact`), and the
+    `contradicts` links. Dropping the table loses nothing, and rebuilding it
+    from scratch gives the same rows (the B4 gate). It exists so the
+    Tensions widget can list what was found without asking a model again:
+    before it, a scan's findings lived only in the response that carried them.
+
+    `event_id` is the event the row cites (B4: "every derived row cites its
+    source event"): the scan's own event, the link's creation, or for a night
+    finding the later note's newest event at the time it was read. `pair` is
+    `"low:high"` by note id, so one pair is one row whichever side found it.
+
+    Not workspace-scoped and not filtered here: the listing joins both notes,
+    so a note made private, binned or in another space hides its pairs the
+    moment that happens, with nothing here to keep in step.
+    """
+
+    __tablename__ = "tensions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pair: Mapped[str] = mapped_column(String(40), unique=True)
+    earlier_id: Mapped[int] = mapped_column(Integer, index=True)
+    later_id: Mapped[int] = mapped_column(Integer, index=True)
+    #: `open`, `accepted` (a `contradicts` link joins them) or `dismissed`.
+    status: Mapped[str] = mapped_column(String(12), default="open", index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    #: Who decided it: a model's name, `local` (the night shift's rule), or
+    #: `person` for a link someone made by hand.
+    model: Mapped[str] = mapped_column(String(80), default="local")
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: `scan`, `night` or `link`: which source the row's finding came from.
+    source: Mapped[str] = mapped_column(String(12), default="scan")
+    source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    event_id: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
 class NightRun(Base):
@@ -931,6 +1263,27 @@ class EntryRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryOpen(Base):
+    """How often a note was opened on one day (WORLD_CLASS_PLAN section 17
+    row 5, "most opened this month").
+
+    `Entry.access_count` is all time, and "this month" cannot be read off a
+    running total, so each open adds one to its day's row (`entry.opens.
+    record_open`). A row per note per day, not per open: the dashboard asks
+    for thirty days at a time, and a year of daily reading is a few thousand
+    rows rather than a few hundred thousand.
+    """
+
+    __tablename__ = "entry_opens"
+    __table_args__ = (UniqueConstraint("entry_id", "day", name="uq_entry_opens_entry_day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    #: The UTC day, as `YYYY-MM-DD`, so a range is a string comparison.
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class EntryDate(Base):
     """What a relative time phrase in a note meant, on the day it was written.
 
@@ -977,6 +1330,9 @@ class Document(Base, WorkspaceMixin):
     # Same "kept, out of the way" column as Entry.archived_at/
     # Conversation.archived_at (BACKLOG §30b): never implies deletion.
     archived_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
+    #: Hidden from every read by `_hide_binned`; a purge is the hard delete.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -1210,6 +1566,18 @@ class WhiteboardNode(Base, WorkspaceMixin):
     #: foreign key to anything: a group spans three different tables (nodes,
     #: sketches, objects), so there is no one row for it to point at.
     group_id: Mapped[str | None] = mapped_column(String(40), default=None, index=True)
+    #: Locked in place (WHITEBOARD_PLAN decision 15): the board lets the
+    #: pointer through it until it is unlocked. A column here because a card
+    #: has no data blob; a sketch and an object keep the flag in theirs.
+    locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: A comment thread on the card (WHITEBOARD_PLAN decision 17), a JSON list
+    #: of `{id, text, at}`; a sketch and an object keep theirs in their data.
+    comments: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    #: Hidden from the board by the Layers tab's eye (WHITEBOARD_PLAN decision
+    #: 27): drawn nowhere, exported nowhere, skipped by search and the Tab
+    #: walk. A column here because a card has no data blob; a sketch and an
+    #: object keep the flag in theirs.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -1294,6 +1662,60 @@ class WhiteboardObject(Base, WorkspaceMixin):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
+class BoardLibrary(Base):
+    """A library of reusable board items (WHITEBOARD_PLAN decision 25): the
+    person's own "Yours", one made by hand, or one brought in from a file.
+    Notebook-wide rather than per space, like the app's settings: a saved
+    flowchart shape is a tool, not a note. The built-in sets are static files
+    (`frontend/board-library/`), never rows, so an upgrade can improve them."""
+
+    __tablename__ = "board_libraries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    #: "yours" (the default one), "custom" (made by hand) or "imported".
+    kind: Mapped[str] = mapped_column(String(12), default="custom")
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class BoardLibraryItem(Base):
+    """One saved thing: a selection, a shape, a style or palette, a preset, a
+    branch or a whole board as a template. Placing one makes independent rows
+    that remember `library_ref` (decision 25), so a later edit here never
+    reaches a board. `deleted_at` is the library's bin, with Undo."""
+
+    __tablename__ = "board_library_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    library_id: Mapped[int] = mapped_column(ForeignKey("board_libraries.id"), index=True)
+    #: element | shape | style | palette | preset | branch | template
+    kind: Mapped[str] = mapped_column(String(12))
+    name: Mapped[str] = mapped_column(String(120))
+    tags: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    payload: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), default=None)
+    favourite: Mapped[bool] = mapped_column(Boolean, default=False)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None, index=True)
+
+
+class BoardLibraryMark(Base):
+    """Favourite and recent for a built-in entry, which has no row of its own:
+    keyed `"<set>/<key>"`."""
+
+    __tablename__ = "board_library_marks"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    favourite: Mapped[bool] = mapped_column(Boolean, default=False)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
 class MediaUpload(Base, WorkspaceMixin):
     """Every file `/media/upload` has ever produced: an image pasted or
     dropped into a *note's* own markdown, unlike a whiteboard image object
@@ -1364,6 +1786,76 @@ class MediaUpload(Base, WorkspaceMixin):
     #: `list_media` backfills any NULL it finds once, from a real `stat()`,
     #: and never stats again after that.
     size_bytes: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+class JobRun(Base):
+    """The last run of each kind of background or on-demand job (INBOX 438).
+
+    **One row per `kind`, not one per run.** The question this answers is
+    "when did the search index last rebuild, and did it work?", which is a
+    lookup by kind; a history of every run is `core/taskhistory.py`'s ring
+    and the audit log's job, and a table that grows by one row per upload
+    would need a cleanup job this one does not. Written only through
+    `core/jobruns.py`'s `job_run`, so every job reports the same shape.
+
+    `status` is "running", "ok", "failed" or "cancelled". A person stopping a
+    job is not a failure, and reporting it in red teaches people to ignore
+    red. `result` is the one-line success summary ("indexed 412 notes") and
+    `error` the one-line reason a run failed; at most one of them is set.
+    """
+
+    __tablename__ = "job_runs"
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    status: Mapped[str] = mapped_column(String(12), default="running")
+    result: Mapped[str] = mapped_column(String(400), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    duration_ms: Mapped[float | None] = mapped_column(Float, default=None)
+
+
+class DurableJob(Base):
+    """One piece of queued background work that outlives the process
+    (WORLD_CLASS_PLAN B2). Written only through `core/jobstore.py`.
+
+    **One row per job, unlike `JobRun`'s one per kind**: the question here
+    is "what was still to do when the app closed", which is a row per thing
+    to do. Finished rows are pruned at launch (`jobstore.prune`), so the
+    table holds the work in hand plus a short tail of what ended.
+
+    `state` is "queued", "running", "done", "failed" or "cancelled". A row
+    is *running* only while `owner` (a process token) holds an unexpired
+    `lease_until`, which its heartbeat renews; a running row whose lease has
+    lapsed belongs to a process that is gone, and is queued again.
+    `payload` is the JSON arguments of the handler `kind` names in
+    `jobstore.HANDLERS`, never code. No `workspace_id`: a job's arguments
+    name rows by id, and the handler re-establishes the space itself, as
+    `_file_entry_in_background` already does.
+
+    A new table, so `create_all` builds it (and its indexes) on every
+    notebook, old and new: no migration is needed, the same as `job_runs`.
+    """
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    name: Mapped[str] = mapped_column(String(200), default="")
+    state: Mapped[str] = mapped_column(String(12), default="queued", index=True)
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    #: The pool's dedupe key as JSON, so a resumed job still dedupes against
+    #: a fresh request for the same picture.
+    dedupe_key: Mapped[str | None] = mapped_column(String(300), default=None)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    owner: Mapped[str] = mapped_column(String(64), default="")
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    heartbeat: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    result: Mapped[str] = mapped_column(String(400), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class UserPreference(Base):
@@ -1598,6 +2090,7 @@ class DatabaseManager:
         self._backfill_inherited_workspaces()
         self._ensure_fts5()
         self._ensure_indexes()
+        self._ensure_readings_view()
         # See _ensure_alembic_baseline's own docstring for why this is
         # skipped under pytest: a throwaway per-test database has nothing
         # to gain from being stamped, and the constructor runs in most of
@@ -1880,7 +2373,100 @@ class DatabaseManager:
         # then throws it away. The index is the half that makes the LIMIT
         # mean something.
         ("ix_note_scores_rank", "note_scores (score DESC, entry_id DESC)"),
+        # The foreign keys a note is looked up by that still carried no index
+        # (the performance pass, 2026-10-03, INBOX 441). Each is "this note's
+        # ...": its replies (`entries.parent_id`), the boards it is on and a
+        # board's cards (`whiteboard_nodes`), a board's sketches, its
+        # reminders and its bookmarks. SQLite also reads the child column of
+        # every foreign key on every delete of the parent, so with
+        # `foreign_keys=ON` an unindexed one is a table scan per deleted note.
+        # Measured on 5,000 notes with 4,000 board cards and 1,500 reminders:
+        # 900 lookups by these columns, 604 ms unindexed, 2.9 ms indexed.
+        ("ix_entries_parent", "entries (parent_id)"),
+        ("ix_whiteboard_nodes_entry", "whiteboard_nodes (entry_id)"),
+        ("ix_whiteboard_nodes_board", "whiteboard_nodes (board_id)"),
+        ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
+        ("ix_reminders_entry", "reminders (entry_id)"),
+        ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
+        # **The all-spaces orders** (WORLD_CLASS_PLAN 19.3, the whole
+        # `EXPLAIN QUERY PLAN` pass, 2026-10-05: scratchpad/
+        # plat1005_query_plans.py over every GET route at 5,000 notes). Every
+        # composite above leads with `workspace_id`, and they were measured
+        # with one space selected. The page's default is "All spaces", which
+        # sends no equality on `workspace_id` (`_add_workspace_filter` adds
+        # nothing, or a NOT IN for hidden spaces), so not one of them could
+        # serve an ORDER BY in the view most people are in: SQLite sorted.
+        #
+        # **Keyed by the ORDER BY alone, not by `is_deleted` first.** The
+        # first cut put `is_deleted` in front, the way the scoped ones are
+        # built, and measured worse elsewhere: with no `ANALYZE` statistics
+        # SQLite takes an equality on an indexed column as selective, so
+        # every "live notes, by id" scan (duplicates 69.6 to 98.1 ms, a
+        # note's connections 31.9 to 40.0) switched from reading the table
+        # in rowid order to an index lookup plus a sort. An index on the
+        # order alone is only chosen where it removes a sort; the filters are
+        # checked on the walk, and the rows they drop are few (the bin and
+        # the archive are a few percent of a notebook). Before and after,
+        # each statement alone, at 5,000 notes:
+        # the notes list's first page, the Library and link suggestions
+        # (24.98 ms, "USE TEMP B-TREE FOR ORDER BY");
+        ("ix_entries_order_all", "entries (pinned DESC, created_at DESC, id DESC)"),
+        # the bin and the archive (5.10 and 4.12 ms, sorting). **Partial**,
+        # holding only binned or archived rows, and that is load-bearing: a
+        # whole-table index on `archived_at` was taken by the notes list's
+        # `archived_at IS NULL` as an equality lookup (SQLite plans `IS NULL`
+        # like `= ?`), which put the sort back on the main list (40.2 ms);
+        # one only the bin's and the archive's own WHERE can match cannot be.
+        ("ix_entries_deleted_order", "entries (deleted_at DESC, id DESC) WHERE is_deleted = 1"),
+        ("ix_entries_archived_order", "entries (archived_at DESC, id DESC) WHERE archived_at IS NOT NULL"),
+        # the Timeline's page and the Dashboard's counts since a date (35.79
+        # and 15.15 ms, a range on `created_at` read by scanning every note);
+        ("ix_entries_created_order", "entries (created_at DESC, id DESC)"),
+        # the Library's activity rows, newest first over the whole event log
+        # (76.62 ms at 20,000 events, "SCAN audit_log" and a sort), and the
+        # lookups by action (corrections, the link-reason backfill);
+        ("ix_audit_log_recent", "audit_log (created_at DESC, id DESC)"),
+        ("ix_audit_log_action", "audit_log (action, id DESC)"),
+        # and the other lists' pages: uploads (5.52 ms at 5,000), documents
+        # (5.08 ms at 1,000), chats and reminders.
+        ("ix_media_uploads_order", "media_uploads (created_at DESC, id DESC)"),
+        ("ix_documents_order", "documents (updated_at DESC, id DESC)"),
+        # the Timeline's documents since a date (13.38 ms at 1,000) and the
+        # Dashboard's most-opened notes (7.17 ms, sorting every live note);
+        ("ix_documents_created_order", "documents (created_at DESC, id DESC)"),
+        ("ix_entries_accessed_order", "entries (access_count DESC, id DESC)"),
+        ("ix_conversations_order", "conversations (pinned DESC, updated_at DESC, id DESC)"),
+        ("ix_reminders_due_order", "reminders (due_at, id)"),
+        # The chat list in one space: `pinned DESC, updated_at DESC, id DESC`
+        # over the unarchived, which `(workspace_id, updated_at DESC)` above
+        # never matched (audit 2026-10-05, ARCH-05); the all-spaces shape is
+        # `ix_conversations_order`.
+        (
+            "ix_conversations_live_pinned",
+            "conversations (workspace_id, archived_at, pinned DESC, updated_at DESC, id DESC)",
+        ),
     )
+
+    #: Unique indexes, partial where the column is optional: the same
+    #: additive `IF NOT EXISTS` convention as `_INDEXES`.
+    _UNIQUE_INDEXES: tuple[tuple[str, str], ...] = (
+        ("uq_entries_client_key", "entries (client_key) WHERE client_key IS NOT NULL"),
+    )
+
+    def _ensure_readings_view(self) -> None:
+        """Every reading of a file as one `readings` view (F10, `core/readings.py`).
+
+        Replaced when its definition changes, so a column added to it reaches
+        a notebook made before; a failure is logged and the app starts, since
+        nothing writes through the view and only the readings route reads it.
+        """
+        from memorymap.core import readings
+
+        try:
+            with self.engine.begin() as connection:
+                readings.ensure_view(connection)
+        except Exception:  # noqa: BLE001  # a read model must never stop the app opening
+            logging.getLogger("memorymap.db").warning("could not create the readings view", exc_info=True)
 
     def _ensure_indexes(self) -> None:
         """Create the composite indexes the hot list queries need.
@@ -1899,6 +2485,10 @@ class DatabaseManager:
             for name, definition in self._INDEXES:
                 connection.exec_driver_sql(
                     f"CREATE INDEX IF NOT EXISTS {name} ON {definition}"
+                )
+            for name, definition in self._UNIQUE_INDEXES:
+                connection.exec_driver_sql(
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {definition}"
                 )
 
     #: Rows whose space has to be *inherited* rather than defaulted, as
@@ -1973,6 +2563,7 @@ class DatabaseManager:
                     " id INTEGER NOT NULL PRIMARY KEY,"
                     " name VARCHAR(100) NOT NULL,"
                     " description TEXT,"
+                    " colour VARCHAR(16),"
                     " created_at DATETIME,"
                     " workspace_id VARCHAR DEFAULT 'default' NOT NULL,"
                     " CONSTRAINT uq_categories_workspace_name UNIQUE (workspace_id, name)"
@@ -1980,8 +2571,8 @@ class DatabaseManager:
                 )
                 connection.exec_driver_sql(
                     'INSERT INTO "categories_rebuilt" '
-                    " (id, name, description, created_at, workspace_id)"
-                    " SELECT id, name, description, created_at,"
+                    " (id, name, description, colour, created_at, workspace_id)"
+                    " SELECT id, name, description, colour, created_at,"
                     "        COALESCE(workspace_id, 'default') FROM categories"
                 )
                 connection.exec_driver_sql('DROP TABLE "categories"')

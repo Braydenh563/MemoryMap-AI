@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import embeddings as embeddings_module
-from memorymap.ai import sampling
+from memorymap.ai import model_cards, sampling
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import (
     FOLLOW_CHAT_MODEL,
@@ -24,9 +24,11 @@ from memorymap.ai.model_manager import (
     SUGGESTED_MODELS,
 )
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.core import deps, ocr, security
+from memorymap.core import deps, hardware, ocr, security
 from memorymap.core.deps import get_session
+from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import log_action
+from memorymap.search import search_manager
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -97,11 +99,84 @@ def _installed_models(running: bool) -> list[dict]:
         return []
     try:
         return [
-            {"name": m.get("name", ""), "size": m.get("size", 0)}
+            {"name": m.get("name", ""), "size": m.get("size", 0), "uses": model_cards.installed_uses(m)}
             for m in deps.get_ollama().list_models()
         ]
     except OllamaError:
         return []
+
+
+#: How long a poll waits on the runner's model list when it already has an
+#: answer to fall back on. Short on purpose: the browser gives the whole poll
+#: 8s, and the list is one call on Ollama (5s timeout) and up to two on an
+#: OpenAI-dialect server (5s each), made while that same runner may be busy
+#: loading a model (the filing model warms at every launch).
+INSTALLED_REFRESH_BUDGET = 2.5
+
+
+class _ListFlight:
+    """One model-list request to the runner, in flight on its own thread."""
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.result: list[dict] | None = None  # None: the runner did not answer
+        self.error: BaseException | None = None
+
+
+_installed_lock = threading.Lock()
+_installed_known: dict[tuple[str, str], list[dict] | None] = {}
+_installed_flights: dict[tuple[str, str], _ListFlight] = {}
+
+
+def _installed_or_last_known(client) -> list[dict] | None:  # noqa: ANN001
+    """The runner's installed models: None when it is not answering.
+
+    The poll used to make this call itself, so a runner that was merely busy
+    (loading the filing model at launch, generating) held the poll for its
+    own timeout, 5s or 10s, against the browser's 8s: `GET /models/status:
+    signal timed out`, twice in the owner's first minute. The call now runs on
+    its own thread, one at a time per runner. A poll waits for it only as long
+    as `INSTALLED_REFRESH_BUDGET` when it already knows an answer, and serves
+    that answer otherwise; the refresh still lands for the next poll. With no
+    answer known yet (the first poll after a start, or a changed address) it
+    waits for the call, as it always did. The budget only hides lateness: a
+    runner that refuses the connection answers at once, and is reported down
+    on that poll.
+    """
+    key = (type(client).__name__, str(getattr(client, "base_url", "")))
+    with _installed_lock:
+        flight = _installed_flights.get(key)
+        if flight is None:
+            flight = _installed_flights[key] = _ListFlight()
+            threading.Thread(
+                target=_run_list_flight, args=(client, key, flight), name="models-list", daemon=True
+            ).start()
+        has_known = key in _installed_known
+        last_known = _installed_known.get(key)
+    flight.done.wait(INSTALLED_REFRESH_BUDGET if has_known else None)
+    if not flight.done.is_set():
+        return last_known
+    if flight.error is not None:
+        raise flight.error
+    return flight.result
+
+
+def _run_list_flight(client, key: tuple[str, str], flight: _ListFlight) -> None:  # noqa: ANN001
+    try:
+        flight.result = [
+            {"name": m.get("name", ""), "size": m.get("size", 0), "uses": model_cards.installed_uses(m)}
+            for m in client.list_models()
+        ]
+    except OllamaError:
+        flight.result = None
+    except Exception as exc:  # noqa: BLE001 - handed to the poll that waits, as a direct call would
+        flight.error = exc
+    finally:
+        with _installed_lock:
+            if flight.error is None:
+                _installed_known[key] = flight.result
+            _installed_flights.pop(key, None)
+        flight.done.set()
 
 
 def _name_matches(wanted: str, installed: list[dict]) -> bool:
@@ -161,7 +236,11 @@ def _warm_capabilities(client, model: str) -> None:
             with _warming_lock:
                 _warming.discard(model)
 
-    threading.Thread(target=run, name=f"capabilities-{model}", daemon=True).start()
+    # On the pool (F7): a short call to the model server, no session, no
+    # result to wait for; the next status poll reads what it learned.
+    from memorymap.core import jobs
+
+    jobs.enqueue("model-info", run, name=model)
 
 
 
@@ -203,8 +282,24 @@ def warm_filing() -> dict:
     jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
     return {"status": "ok"}
 
+def _embedding_coverage(session: Session) -> dict:
+    """How many live notes search by meaning can find, out of how many there
+    are: the "how well" half of INBOX 431 (3). Two counts on the poll that
+    already runs; the space filter applies as it does to every query."""
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import EmbeddingRecord, Entry
+
+    live = (Entry.is_deleted == False) & (Entry.is_draft == False)  # noqa: E712
+    total = session.scalar(select(func.count(Entry.id)).where(live)) or 0
+    indexed = session.scalar(
+        select(func.count(EmbeddingRecord.id)).join(Entry, Entry.id == EmbeddingRecord.entry_id).where(live)
+    ) or 0
+    return {"indexed": int(indexed), "total": int(total)}
+
+
 @router.get("/status")
-def status() -> dict:
+def status(session: Session = Depends(get_session)) -> dict:
     """One call that tells the UI everything: is Ollama up, what's
     installed, what's active, and whether any job is running."""
     ollama = _CachedCapabilities(deps.get_ollama())
@@ -219,15 +314,9 @@ def status() -> dict:
     # trusting that margin. That mismatch read as "AI unavailable" on a
     # backend that is genuinely up but momentarily slow to answer, one
     # round-trip now serves both purposes.
-    try:
-        installed = [
-            {"name": m.get("name", ""), "size": m.get("size", 0)}
-            for m in ollama.list_models()
-        ]
-        running = True
-    except OllamaError:
-        installed = []
-        running = False
+    known = _installed_or_last_known(ollama)
+    installed = known if known is not None else []
+    running = known is not None
     chat_model = manager.chat_model()
     utility_resolved, utility_reason = manager.utility_resolution()
     # Resolved once. It walks the installed models asking each whether it can
@@ -243,11 +332,23 @@ def status() -> dict:
     local_only = bool(config.get_preference("local_only_ai", True))
     _, privacy_note, is_local = security.check_backend_url(ollama.base_url)
 
+    #: Section 21 row 12: nothing answered, at an address the person set.
+    #: The default address unanswered is a server not started ("isn't
+    #: running"); a custom one is as likely a typo, so the line names it.
+    default_url = deps.DEFAULT_BASE_URLS.get(provider, "")
+    custom = (ollama.base_url or "").rstrip("/") != default_url.rstrip("/")
+    unreachable_hint = (
+        f"Nothing answered at {ollama.base_url}. Check the address, and that the server is running."
+        if not running and custom
+        else None
+    )
+
     return {
         # Named for Ollama because the whole UI is, and it means "the chat
         # backend is answering", which is the question the pill asks whoever
         # is answering it.
         "ollama_running": running,
+        "unreachable_hint": unreachable_hint,
         # Which dialect is actually in use (§6), so the UI can say so rather
         # than claiming Ollama when the answers came from LM Studio.
         "provider": provider,
@@ -346,6 +447,9 @@ def status() -> dict:
         "embedding_warming_failed": embeddings_module.warmup_failed(),
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
+        "embedding_coverage": _embedding_coverage(session),
+        #: How the last search found its notes (`search_manager.last_search`).
+        "last_search": search_manager.last_search(),
         #: How many notes have arrived or gone in bulk since the index was
         #: last rebuilt: asked for as "suggest rebuilding the search index
         #: upon large changes". The status poll already runs; a second
@@ -359,7 +463,10 @@ def status() -> dict:
         # core/ocr.py's own module docstring) just silently produced nothing,
         # with no way to tell "it ran and found no text" from "it never ran
         # at all". A `shutil.which` check, cheap enough for every poll.
-        "tesseract_available": ocr.tesseract_available(),
+        #: Any local engine (RapidOCR reads where Tesseract is not ready,
+        #: `ocr.engine`); the key keeps the name the frontend reads.
+        "tesseract_available": ocr.local_available(),
+        "ocr_engine": ocr.engine_name(),
     }
 
 
@@ -384,7 +491,11 @@ def model_spec(name: str = "") -> dict:
     try:
         return client.model_spec(model)
     except OllamaError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logging.getLogger(__name__).warning("model details for %s failed", safe_value(model, 80), exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't read that model's details. Check that the AI is running and the model is installed.",
+        ) from exc
 
 
 class SamplingBody(BaseModel):
@@ -489,13 +600,56 @@ def suggested() -> dict:
     except Exception:  # noqa: BLE001  # the backend being off is not an error here
         installed = {}
 
-    def described(entry: dict) -> dict:
+    #: The card's numbers (INBOX 444): the memory a model asks for, what it is
+    #: good at, the group's starting pick, and whether it fits this computer.
+    total_gb = hardware.total_memory_gb()
+
+    def described(kind: str, entry: dict) -> dict:
+        entry = model_cards.decorate(kind, entry, total_gb)
         real = installed.get(entry["name"])
         if real:
             return {**entry, "size": _human_bytes(real), "size_source": "measured"}
         return {**entry, "size_source": "approximate"}
 
-    return {kind: [described(m) for m in models] for kind, models in SUGGESTED_MODELS.items()}
+    return {kind: [described(kind, m) for m in models] for kind, models in SUGGESTED_MODELS.items()}
+
+
+@router.get("/hardware")
+def hardware_memory() -> dict:
+    """This computer's memory, for the cards' fit badges. None when unknown."""
+    return {"ram_gb": hardware.total_memory_gb()}
+
+
+class InspectBody(BaseModel):
+    name: str = Field(max_length=2000)
+
+
+def _installed_names() -> set[str]:
+    try:
+        return {str(m.get("name", "")) for m in deps.get_ollama().list_models()}
+    except Exception:  # noqa: BLE001  # the backend being off is not an error here
+        return set()
+
+
+@router.post("/inspect")
+def inspect_model(body: InspectBody) -> dict:
+    """Say what a typed model name is before anything is downloaded.
+
+    "Download another model" (Settings, Models): the person types a tag or
+    pastes a Hugging Face link and is told what it is, where it comes from and
+    whether it is already here. Pure validation, no registry lookup: the app
+    draws its settings offline, and a well-formed name that does not exist is
+    answered by Ollama itself when the download starts.
+    """
+    info = model_cards.inspect_model_name(body.name)
+    if not info["valid"]:
+        return info
+    name = info["name"]
+    names = _installed_names()
+    info["installed"] = name in names or (":" not in name and f"{name}:latest" in names)
+    known = next((m for models in SUGGESTED_MODELS.values() for m in models if m["name"] == name), None)
+    info["suggested"] = {"size": known["size"], "purpose": known["purpose"]} if known else None
+    return info
 
 
 def _human_bytes(count: int) -> str:
@@ -511,12 +665,12 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
     ollama = deps.get_ollama()
     if not ollama.is_running():
         raise HTTPException(
-            status_code=409, detail=f"{_backend_label()} isn't running"
+            status_code=409, detail=f"{_backend_label()} isn't running. Start it and try again."
         )
     if not _name_matches(body.name, _installed_models(True)):
         raise HTTPException(
             status_code=400,
-            detail=f"'{body.name}' isn't available on {_backend_label()}",
+            detail=f"'{body.name}' isn't available on {_backend_label()}.",
         )
     deps.get_model_manager().set_chat_model(body.name)
     log_action(session, "edited", "preferences", detail=f"chat_model={body.name}")
@@ -534,7 +688,7 @@ def set_utility_model(body: UtilityModelBody, session: Session = Depends(get_ses
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     deps.get_model_manager().set_utility_model(name)
     log_action(session, "edited", "preferences", detail=f"utility_model={name or '(chat)'}")
@@ -551,7 +705,7 @@ def set_vision_model(body: VisionModelBody, session: Session = Depends(get_sessi
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     deps.get_model_manager().set_vision_model(name)
     log_action(session, "edited", "preferences", detail=f"vision_model={name or '(auto)'}")
@@ -572,7 +726,7 @@ def set_ocr_model(body: VisionModelBody, session: Session = Depends(get_session)
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     deps.get_model_manager().set_ocr_model(name)
     log_action(session, "edited", "preferences", detail=f"ocr_model={name or '(vision)'}")
@@ -606,7 +760,7 @@ def set_feature_model(
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't available on {_backend_label()}",
+                detail=f"'{name}' isn't available on {_backend_label()}.",
             )
     try:
         deps.get_model_manager().set_feature_model(body.feature, name)
@@ -722,9 +876,9 @@ def cancel_job(kind: str, name: str = "") -> dict:
     elif kind == "pull":
         stopped = jobs.cancel_pull(name)
     else:
-        raise HTTPException(status_code=400, detail=f"Unknown job kind '{kind}'")
+        raise HTTPException(status_code=400, detail=f"'{kind}' is not a job that can be cancelled.")
     if not stopped:
-        raise HTTPException(status_code=404, detail="No such job is running")
+        raise HTTPException(status_code=404, detail="That job is not running.")
     return {"cancelling": True, "kind": kind, "name": name}
 
 
@@ -735,10 +889,10 @@ def set_embedding_backend(
     """Switch how notes are embedded, then re-index everything, vectors
     from different models must never be compared (§6.5)."""
     if body.backend == "ollama" and not body.model:
-        raise HTTPException(status_code=400, detail="Pick an Ollama embedding model")
+        raise HTTPException(status_code=400, detail="Pick an Ollama embedding model.")
     current = jobs.reindex_status()
     if current is not None and current["status"] == "running":
-        raise HTTPException(status_code=409, detail="A re-index is already running")
+        raise HTTPException(status_code=409, detail="A re-index is already running.")
 
     deps.get_model_manager().set_embedding_backend(body.backend, body.model)
     log_action(
@@ -786,7 +940,7 @@ def rebuild_search_index() -> dict:  # noqa: D401  # see the long docstring belo
     """
     current = jobs.reindex_status()
     if current is not None and current["status"] == "running":
-        raise HTTPException(status_code=409, detail="A re-index is already running")
+        raise HTTPException(status_code=409, detail="A re-index is already running.")
     embeddings = deps.get_embeddings()
     # Same reset as the backend switch: a cached failure from an earlier run
     # would otherwise make a deliberate rebuild sit behind the retry cooldown
@@ -808,7 +962,7 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     ollama = deps.get_ollama()
     if not ollama.is_running():
         raise HTTPException(
-            status_code=409, detail=f"{_backend_label()} isn't running"
+            status_code=409, detail=f"{_backend_label()} isn't running. Start it and try again."
         )
     manager = deps.get_model_manager()
     in_use = {manager.chat_model()}
@@ -825,7 +979,10 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     try:
         ollama.delete(body.name)
     except OllamaError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logging.getLogger(__name__).warning("removing model %s failed", safe_value(body.name, 80), exc_info=True)
+        raise HTTPException(
+            status_code=502, detail="Couldn't remove that model. Check that the AI is running, then try again."
+        ) from exc
     log_action(session, "deleted", "model", detail=body.name)
     session.commit()
     return {"deleted": True, "name": body.name}
@@ -833,12 +990,19 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
 
 @router.post("/pull")
 def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
+    #: A pasted Hugging Face link becomes ``hf.co/owner/repo:QUANT``, and a name
+    #: Ollama could not pull is refused here with the reason, not by a failed
+    #: download (`model_cards.inspect_model_name`).
+    info = model_cards.inspect_model_name(body.name)
+    if not info["valid"]:
+        raise HTTPException(status_code=422, detail=info["error"])
+    body.name = info["name"]
     if not deps.get_ollama().is_running():
         raise HTTPException(
-            status_code=409, detail=f"{_backend_label()} isn't running"
+            status_code=409, detail=f"{_backend_label()} isn't running. Start it and try again."
         )
     if not jobs.start_pull(deps.get_ollama(), body.name):
-        raise HTTPException(status_code=409, detail=f"Already downloading {body.name}")
+        raise HTTPException(status_code=409, detail=f"{body.name} is already downloading.")
     log_action(session, "downloaded", "model", detail=body.name)
     session.commit()
-    return {"pull_started": True, "name": body.name}
+    return {"pull_started": True, "name": body.name, "source": info["source"]}

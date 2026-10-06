@@ -54,19 +54,19 @@ def _page_references() -> set[str]:
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     for url in re.findall(r'(?:src|href)="(/[^"#?]+)', html):
         found.add(url.lstrip("/"))
-    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     lazy = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", app, re.S)
     assert lazy, "LAZY_MODULES moved; this test reads it by name"
-    for url in re.findall(r'"(/[a-z0-9-]+\.js)"', lazy.group(1)):
+    for url in re.findall(r'"(/js/[a-z0-9-]+\.js)"', lazy.group(1)):
         found.add(url.lstrip("/"))
-    for script in FRONTEND.glob("*.js"):
+    for script in (FRONTEND / "js").glob("*.js"):
         text = script.read_text(encoding="utf-8")
         for url in re.findall(
-            r"[\"'`](/(?:vendor/[^\"'`?$]+|[a-z0-9-]+\.(?:js|wasm|css|json|webmanifest|png|svg|ico)))[\"'`?]",
+            r"[\"'`](/(?:vendor/[^\"'`?$]+|(?:js/)?[a-z0-9-]+\.(?:js|wasm|css|json|webmanifest|png|svg|ico)))[\"'`?]",
             text,
         ):
             found.add(url.lstrip("/"))
-        for rel in re.findall(r'^import .* from "\./([^"]+)";', text, re.M):
+        for rel in re.findall(r'^import .* from "\.\./([^"]+)";', text, re.M):
             found.add(rel)
     manifest = (FRONTEND / "manifest.webmanifest").read_text(encoding="utf-8")
     for url in re.findall(r'"src":\s*"(/[^"]+)"', manifest):
@@ -94,12 +94,12 @@ def test_the_reference_walk_finds_the_files_it_exists_for():
     """A walk that silently matched nothing would pass everything below."""
     refs = _page_references()
     for expected in (
-        "app.js",
-        "documents-code.js",
-        "documents-prose.js",
-        "whiteboard-map.js",
-        "harper-worker.js",
-        "graph-worker.js",
+        "js/app.js",
+        "js/documents-code.js",
+        "js/documents-prose.js",
+        "js/whiteboard-map.js",
+        "js/harper-worker.js",
+        "js/graph-worker.js",
         "sw.js",
         "vendor/harper/harper_wasm_slim_bg.wasm",
         "vendor/harper/BinaryModule-BmeyZWwZ.js",
@@ -219,6 +219,25 @@ def test_a_silent_install_downloads_nothing_it_was_not_asked_for():
     body = body[: body.index("\nend;")]
     assert "if WizardSilent then" in body
     assert "{param:EXTRAS|}" in body
+
+
+def test_a_silent_update_reopens_the_app_it_closed():
+    """The updater's /VERYSILENT install skipped the "Launch now" entry
+    (skipifsilent), so the app closed for an update and stayed closed. The
+    updater now passes /RELAUNCH=1 and a [Run] entry honours it, silent
+    installs only: a scripted /VERYSILENT alone must not open a window."""
+    text = ISS_PATH.read_text(encoding="utf-8")
+    run = text[text.index("[Run]") : text.index("[UninstallDelete]")]
+    entries = [line for line in run.splitlines() if "Check: ShouldRelaunch" in line]
+    assert len(entries) == 1, "exactly one relaunch entry"
+    assert "skipifsilent" not in entries[0] and "nowait" in entries[0]
+    assert "runasoriginaluser" in entries[0]
+    body = _code_section()
+    body = body[body.index("function ShouldRelaunch") :]
+    body = body[: body.index("\nend;")]
+    assert "WizardSilent" in body and "{param:RELAUNCH|0}" in body
+    updater = (ROOT / "src" / "memorymap" / "api" / "routes_update.py").read_text(encoding="utf-8")
+    assert '"/RELAUNCH=1"' in updater
 
 
 def test_the_installer_only_runs_where_the_exe_can():

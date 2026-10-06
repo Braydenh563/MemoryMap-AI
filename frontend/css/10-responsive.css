@@ -68,7 +68,6 @@
   #tab-bar button {
     min-height: var(--target-min);
   }
-
 }
 
 /* --- band 2 (820 to 1200): the tabs keep their names, set small ----------
@@ -264,183 +263,86 @@ header#top-bar[data-scrolled="1"],
 .notes-subtabs[data-scrolled="1"],
 .library-subtabs[data-scrolled="1"] {
   box-shadow:
-    var(--shadow-sm),
+    inset 0 -1px 0 var(--border),
     0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
 }
 
-/* `transition` is a shorthand, so this is only safe because none of the four
-   declares one: checked in the stylesheets and confirmed in the browser,
-   where each of them computed to no transition before this rule. A fifth bar
-   added to the effect later needs the same check, or its own transition goes
-   silently missing.
+/* The edge appears at once: a shadow's size is never animated (the motion
+   pass, 2026-10-05; `tests/test_cheap_animations.py`). */
 
-   Under Reduce motion the edge still appears; it just stops being animated
-   about it, which is the rule DESIGN.md states for every one of these. */
-header#top-bar,
-.dock,
-.notes-subtabs,
-.library-subtabs {
-  transition: box-shadow var(--motion-base) var(--ease-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  header#top-bar,
-  .dock,
-  .notes-subtabs,
-  .library-subtabs {
-    transition: none;
-  }
-}
-
-/* --- Phase 10, INBOX 103: a menu opens out of the control that opened it --
-
+/* --- motion: a menu or popover grows from what opened it (INBOX 103, 2026-10-05)
    DESIGN.md rule 12, from the HIG: controls "fluidly morph into menus and
-   popovers", and rule 6: "an action sheet originates from the element that
-   initiates the action". A menu that simply appears has no relationship to
-   the button you pressed; one that grows out of that button's corner is the
-   same object continuing.
+   popovers"; an action sheet "originates from the element that initiates
+   the action". A menu, a dock menu and a help popover fade in and grow from
+   0.96 to full size out of the corner nearest their opener over `--ui-base`;
+   a menu closes back the same way, faster, over `--ui-exit`.
 
-   **A clip, not a scale, and the reason is a measurement rather than
-   taste.** `openActionMenu` (menus.js) reads `menu.getBoundingClientRect()` in
-   the same turn it removes `.hidden`, twice: once to decide whether the menu
-   would spill past its scroll parent and flip upward, and again inside
-   `escapeMenuIfClipped`, which reparents a clipped menu to the body and
-   positions it from those coordinates. A transform is included in that rect,
-   so a menu scaling in from 0.92 would be measured at 92% of itself and
-   placed accordingly, permanently. `clip-path` changes nothing about the
-   box; it only decides which of it is painted.
-
-   The circle grows from the opener's own corner: `.action-menu` is anchored
-   `right: 0; top: calc(100% + 4px)` under its opener, so the top-right
-   corner *is* the button, and the flipped variant's origin moves to the
-   bottom with it. 140% is the diagonal of a box, so the last frame is a
-   whole menu rather than a clipped rectangle. */
-@keyframes menu-open-from-opener {
+   **Opacity and scale, and the scale starts 1ms late, which is the point.**
+   `openActionMenu` and its siblings (menus.js) measure the menu in the same
+   turn they show it, to flip it, escape a clipping box or place it on
+   `<body>`, and a transform is part of that measure: a menu measured at 96%
+   would be placed 4% wrong, for good (why this was a `clip-path` circle
+   before). A 1ms delay with no backwards fill leaves the box at full size
+   for every measure taken before the first frame, while the fade, which
+   moves nothing, already has it at 0 opacity; the grow then runs from the
+   second frame. */
+@keyframes ui-fade {
   from {
     opacity: 0;
-    clip-path: circle(0% at var(--menu-origin-x) var(--menu-origin-y));
-  }
-
-  to {
-    opacity: 1;
-    clip-path: circle(140% at var(--menu-origin-x) var(--menu-origin-y));
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-
-  .action-menu:not(.hidden),
-  .dock-menu[open] > .dock-menu-list {
-    /* Declared here rather than as a `var()` fallback: a fallback on a token
-       that is declared somewhere is dead code, and `test_style_scale.py`
-       says so by name. */
-    --menu-origin-x: 100%;
-    --menu-origin-y: 0%;
-    animation: menu-open-from-opener var(--motion-base) cubic-bezier(0.2, 0.9, 0.3, 1);
-  }
-
-  /* Flipped upward, so it grew out of the bottom of the button instead. */
-  .action-menu.action-menu-flip:not(.hidden) {
-    --menu-origin-y: 100%;
-  }
-
-  /* A dock's `<details>` menu hangs under the left edge of its summary. */
-  .dock-menu[open] > .dock-menu-list {
-    --menu-origin-x: 0%;
+@keyframes ui-grow {
+  from {
+    scale: 0.96;
   }
 }
 
-/* --- INBOX 60: the dashboard's start band uses its own width --------------
-
-   The owner: the band is "all left-aligned in a band with most of its width
-   empty". Measured at 1440x900 with `scratchpad/ui-sweeps/dashstart.js`
-   before this: the "Start something" row filled its 1408px, the "Jump to"
-   row used 476px of it and left 932px empty, and the four stat tiles used
-   573px and left 835px. Two thirds of two rows was nothing.
-
-   The answer is not more pills naming tabs. That was tried and undone with
-   its reason recorded in dashboard.js: the dashboard ended up showing its
-   own navigation three times. It is to let the rows own the width they are
-   already given, and to spend the space the stats had on the one thing four
-   numbers cannot say, which is the shape of the fortnight. */
-/* Everything that stretches is behind `min-width: 600px`, and that is not
-   caution: the phone band gives `.launch-row > *` a `flex: 0 0 auto` so the
-   rows scroll sideways instead of squeezing, and this file loads after the
-   file that says so. A stretched pill there would undo the phone's own
-   design, which belongs to Phase 11 rather than to this change. */
-@media (min-width: 600px) {
-
-  .dash-stats > .stat-tile {
-    /* Equal columns, and `0` basis so a longer label does not buy its tile a
-       wider share of the row than the tile beside it. */
-    flex: 1 1 0;
-  }
-
-  .dash-stats > .stat-spark {
-    /* Twice a tile: it is a chart, and fourteen bars in a tile's width is a
-       texture rather than a reading. */
-    flex: 2 1 0;
-  }
-
-  /* The navigation row: three constants and, when there is one, a Continue
-     pill in front of them. They share the row rather than huddling at its
-     left edge, and they keep their reading order. */
-  .launch-row-go > .quick-link {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  /* Continue is the one pill whose text is a note's own first line, so it is
-     the one that needs room; the three beside it are two words each. */
-  .launch-row-go > .quick-link-continue {
-    flex: 2 1 0;
-  }
+.action-menu:not(.hidden),
+.dock-menu[open] > .dock-menu-list,
+.help-popover {
+  --menu-origin-x: 100%;
+  --menu-origin-y: 0%;
+  transform-origin: var(--menu-origin-x) var(--menu-origin-y);
+  animation: ui-fade var(--ui-base) var(--ease-out), ui-grow var(--ui-base) var(--ease-out) 1ms;
 }
 
-/* Not written as `.dash-stats > .stat-spark`: `test_style_scale.py` reads
-   any rule whose selector *starts* with a page container's name as that
-   container setting its own outer inset, and `.dash-stats` is one of them.
-   The class is unique to this chart, so the descendant part buys nothing. */
-.stat-spark {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  background: var(--card);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  min-width: 0;
+/* Flipped upward, so it grows out of the bottom of the button instead. */
+.action-menu.action-menu-flip:not(.hidden) {
+  --menu-origin-y: 100%;
 }
 
-.stat-spark-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-1);
-  flex: 1 1 auto;
-  /* The row's own height decides the chart's, so the strip does not grow:
-     INBOX 60 asks for the band's height to be unchanged. */
-  align-self: stretch;
-  min-width: 0;
+/* A dock's `<details>` menu and a select's list hang under their opener's
+   left edge; a help popover from its caret, above or below. */
+.dock-menu[open] > .dock-menu-list,
+.action-menu.action-menu-start {
+  --menu-origin-x: 0%;
 }
 
-.stat-spark-bars > span {
-  flex: 1 1 0;
-  min-width: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  opacity: 0.75;
+.help-popover {
+  --menu-origin-x: var(--help-caret-x);
 }
 
-.stat-spark-bars > span.empty {
-  background: var(--divider);
-  opacity: 1;
+.help-popover.help-popover-above {
+  --menu-origin-y: 100%;
 }
 
-.stat-spark-label {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  white-space: nowrap;
+/* **The way out** (perfpolish: "menus leave instantly though they enter
+   with a reveal"; the motion pass gave it the grow's path back). Every close
+   path (the opener again, Escape, a press outside, `closeActionMenus`) is
+   one class, `.hidden`, so the exit is CSS and none of them changed:
+   `display` is transitioned as a discrete property, so the menu stays drawn
+   for `--ui-exit` while it fades and shrinks back toward its opener, taking
+   no press. The transition is on the closed state only, so opening runs
+   none (the grow above is an animation that starts late on purpose). A menu
+   moved to the body goes home after the exit (`afterMenuExit`, menus.js),
+   because moving a node cancels a transition. */
+.action-menu.hidden {
+  opacity: 0;
+  scale: 0.96;
+  pointer-events: none;
+  transition: opacity var(--ui-exit) var(--ease-out), scale var(--ui-exit) var(--ease-out),
+    display var(--ui-exit) linear allow-discrete;
 }
 
 /* --- dark glass reads flatter, and here is which half of it does ----------
@@ -585,140 +487,25 @@ header#top-bar,
 }
 
 /* --- the quick-nav chord's guide -----------------------------------------
-
-   The owner, with a screenshot: "when I press 'm' for the quick nav, the
-   popup notification is broken visually. also I want it to be more of a whole
-   screen subtle but noticable guide like with the zoom visual thingo."
-
-   It was a `.toast`: a corner notification sized for one sentence, holding
-   ten key-and-label pairs in a row that wrapped mid-pair, which is why "m"
-   and "then" ended up on separate lines beside the chips. And a notification
-   is the wrong kind of thing for it: a toast says something happened, while
-   this is the app waiting for your next keystroke, which is a mode.
-
-   So it takes the HUD's idiom (`.hud`, 07-whiteboard-misc.css: centred,
-   accent-edged, momentary, never interactive) at the size this content needs,
-   over a scrim that dims the page just enough to say the next key means
-   something.
-
-   **The scrim stays click-through-to-close; the rows do not.** This block used
-   to say "`pointer-events: none` throughout: a guide that eats the click you
-   were about to make is worse than no guide at all", which was an argument
-   about a guide sitting beside your work. This one dims the page and holds the
-   next keystroke, so there is no click it could steal that was meant for
-   something else, and the rows are drawn as pills with a key chip in them,
-   which is the shape of a control. The owner: "also make these popup options
-   when I press m, actual clickable nav buttons". A click on the dimmed page
-   still means "not this", the same as Escape and a second `m`. */
+   A mode, not a notification (it was a `.toast` whose pairs wrapped
+   mid-pair): centred over a scrim that says the next key means something.
+   The scrim lets clicks through; the panel takes them, since its rows are
+   buttons (the owner: "make these popup options when I press m, actual
+   clickable nav buttons"). The panel itself is in 08-consistency.css. */
 .chord-guide {
   position: fixed;
   inset: 0;
-  /* **Above every surface it is meant to navigate out of** (the owner,
-     2026-09-21: "the 'm' navigation overlay doesnt show infront of
-     everything and goes behind the settings modal and possibly other popups
-     as well"). The handler already outranks the overlay guard on purpose, so
-     the chord works while Settings is open; at `z-index: 95` the guide it
-     draws was then painted underneath the modal it was letting you leave.
-     Modals sit at 1040 to 1050, the highest fixed layer in the app is 3000,
-     so this goes above both: it is momentary, it is a mode, and nothing is
-     meant to cover it. */
+  /* Above every surface it is meant to navigate out of (modals sit at 1040
+     to 1050, the highest fixed layer at 3000): the chord works while
+     Settings is open, so its guide must not draw under it. */
   z-index: 3100;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-6);
-  /* Subtle, the word the report used: enough to lift the guide off whatever
-     is behind it, not enough to read as a modal that has taken over. */
-  background: color-mix(in srgb, var(--scrim) 55%, transparent);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: var(--glass-filter-clear);
+  -webkit-backdrop-filter: var(--glass-filter-clear);
   pointer-events: none;
-}
-
-/* `.lightbox-close` is `position: fixed`, so it places itself in the
-   viewport corner independent of `.chord-guide`'s own flex centring; this
-   is the one thing that recipe does not already carry, since it has never
-   before sat inside a `pointer-events: none` ancestor. */
-.chord-guide-close {
-  pointer-events: auto;
-}
-
-.chord-guide-lead {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--ink);
-  font-size: var(--text-h3);
-  font-weight: 700;
-}
-
-.chord-guide-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.chord-guide-title {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.chord-guide-list {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-3);
-  max-width: min(52rem, 90vw);
-}
-
-/* One pair per chip, so a key and its destination can never be split across
-   a line break: the exact fault in the screenshot. */
-.chord-guide-row {
-  /* A real `<button>` now, so the base button rule has to be undone where it
-     disagrees with this pill: it is not the app's filled control, it carries
-     its own accent edge and glow, and its label is a destination rather than a
-     verb the button rule sizes for. */
-  pointer-events: auto;
-  cursor: pointer;
-  font: inherit;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--modal-bg-opaque);
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: var(--shadow-lg), 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--ink);
-  font-weight: 600;
-  white-space: nowrap;
-  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
-}
-
-/* Hover and focus say the same thing, because half the point of this sheet is
-   that it is reachable both ways. */
-.chord-guide-row:hover,
-.chord-guide-row:focus-visible {
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.chord-guide-row:active {
-  transform: translateY(0);
-}
-
-@media (max-width: 819.98px), (pointer: coarse) {
-  /* Measured at 43px, a pixel under the floor, which only matters now that
-     these are things a finger is meant to land on. */
-  .chord-guide-row {
-    min-height: var(--target-min);
-  }
 }
 
 /* The heatmap's gap was costing more than its cells (the owner: "the heatmap
@@ -731,14 +518,7 @@ header#top-bar,
   gap: 1px;
 }
 
-/* The chart is the first thing to go when there is no width to spend on it:
-   at phone widths the strip is already a sideways scroller of four numbers,
-   and a fifth item that is only a shape would be scrolled past. */
 @media (max-width: 599.98px) {
-
-  .stat-spark {
-    display: none;
-  }
 
   /* The rule that hid the agent's wand and the Guide's '?' here is gone with
      the buttons: measured at 390 with them in the header, the bar's
@@ -781,7 +561,27 @@ header#top-bar,
   }
 
   #tab-documents #doc-view-seg button {
-    min-height: 2.75rem;
+    min-height: calc(2.75rem - 0.5rem);
+  }
+}
+
+/* **The segment grows with its buttons, not past them** (INBOX 568, the
+   owner: "the document editor edit/read pill is overflowing at the bottom
+   and those elements arent aligned"). Below 820 every `button.small` takes
+   a 44px floor for a finger, and `.doc-dock .seg` kept its desktop
+   `height: var(--control-h)` (32px), so Edit and Read stood 44px tall in a
+   32px well and hung 16px out of its foot, centred 10px below the chevron,
+   AI and focus buttons beside them. From the 819.98px band down the well is
+   the finger's 44px and
+   its buttons that less its 0.25rem padding each side, so the pill sits in
+   it and shares the row's centre line. */
+@media (max-width: 819.98px) {
+  #tab-documents #doc-view-seg {
+    height: 2.75rem;
+  }
+
+  #tab-documents #doc-view-seg > button {
+    min-height: calc(2.75rem - 0.5rem);
   }
 }
 
@@ -824,11 +624,6 @@ header#top-bar,
   .dock .dock-find {
     flex-wrap: wrap;
   }
-
-  .dock-chip-row .library-chip {
-    min-width: var(--target-min);
-    justify-content: center;
-  }
 }
 
 /* --- `.seg-multi`'s word, and the width that decides it -------------------
@@ -852,15 +647,6 @@ header#top-bar,
    Not `display: none`: the segment's accessible name is its text, and a
    hidden name is a button a screen reader announces as "button". */
 @media (max-width: 1199.98px) {
-
-  .seg-multi .seg-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 
   /* Square, so four icons read as four cells of one well rather than four
      pills with air between them. */
@@ -970,7 +756,7 @@ header#top-bar,
        targets. What shrinks here is a real box with real content in it, so
        it is a real layout change.
        The reduced-motion block in this file turns every transition off. */
-    transition: height var(--motion-slow) var(--ease-out);
+    transition: height var(--ui-slow) var(--ease-out);
   }
 
   /* Four parts to the strip against one to More is five equal columns: the
@@ -1135,6 +921,16 @@ header#top-bar,
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
 }
 
+/* **The way out** (a sheet used to vanish in one frame, where a menu fades).
+   `openSheet` adds `.sheet-leaving` and removes the overlay once --ui-exit
+   has run (`close` reads the computed duration, so it is 0 and the removal is
+   at once with Interface animations off). Opacity and a short drop only: no
+   layout. It takes no press while it leaves. */
+.sheet-overlay { transition: opacity var(--ui-exit) var(--ease-out); }
+.sheet-overlay .sheet-card { transition: transform var(--ui-exit) var(--ease-out); }
+.sheet-overlay.sheet-leaving { opacity: 0; pointer-events: none; }
+.sheet-overlay.sheet-leaving .sheet-card { transform: translateY(var(--space-4)); }
+
 /* Two classes: `.card h2` (a class and a tag) out-ranked a bare
    `.sheet-title` and kept its 9.6px bottom margin, so every sheet's title
    sat 4.8px above its X (sheetheads.js: New reminder, a category split). */
@@ -1162,7 +958,7 @@ header#top-bar,
    Above a phone the sheet keeps its direction (it still rises from the
    bottom edge) and takes a reading width, centred, the way a tablet sheet
    does. The corner sheet (Atlas) has its own geometry and is left alone. */
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .sheet-card:not(.sheet-card-corner) {
     max-width: 34rem;
     margin-inline: auto;
@@ -1257,6 +1053,35 @@ header#top-bar,
   #settings-modal > .modal-card > .row.space-between {
     flex: 0 0 auto;
   }
+
+  /* INBOX 464: the head wrapped at 390 as well once the profile button
+     joined it (title y=31, Close y=64, a 78px head; the Close was no longer
+     in the corner, where every dialog keeps it). On a phone the section
+     picker is a select whose first entry is Profile, so the face in the
+     head is a second door to the same room; it goes, and the head is one
+     row again. Back and Forward go too: 105px of history in a 308px head
+     (278 at 360), beside a select that reaches every section in one step;
+     with them the head still wrapped at 360 everywhere and at 390 on
+     Appearance, where Peek joins it (measured: Close at y=64 both times). */
+  #settings-profile-btn,
+  #settings-modal-nav {
+    display: none;
+  }
+}
+
+/* Below 380, Peek keeps its eye and gives up its word (the word stays the
+   button's name), so Appearance's head is one row at 360 and 320 too. */
+@media (max-width: 379.98px) {
+  #settings-peek {
+    width: var(--target-min);
+    padding: 0;
+    font-size: 0;
+  }
+
+  #settings-peek > .ph {
+    margin: 0;
+    font-size: var(--text-body);
+  }
 }
 
 /* --- Phase 11 item 9: 44px targets, the ones the docks sweep cannot see ----
@@ -1335,16 +1160,16 @@ header#top-bar,
     min-width: 0;
   }
 
-  .dock .dock-identity > :is(h1, h2, h3, .dock-context) {
+  .dock .dock-identity > :is(h1, h2, h3, .dock-chip) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* The context line gives way before the name does ("17 notes · by date"
+  /* The count gives way before the name does ("17 notes · by date"
      beside "Timeline" ran 68px into the Options menu at 390). */
-  .dock .dock-identity > .dock-context {
+  .dock .dock-identity > .dock-chip {
     flex: 0 1000 auto;
   }
 }
@@ -1432,8 +1257,32 @@ header#top-bar,
 
   #top-bar .header-cluster-end {
     margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  /* **The bar's targets are 44 CSS pixels, not 2.75rem** (OPEN.md, from the
+     last round: at 360 with Text size Large and Density Spacious the shell
+     was 368px wide and every tab scrolled sideways by 8px). The floor is a
+     rem, so Large text (18px root) made it 49.5px, and the phone header holds
+     six of them (the space switcher, Back, Undo, the AI dot, the bell, More)
+     beside a switcher wider than a square: 353px of controls in the 331 a
+     360 window leaves. A finger does not grow with the caption size, and 44
+     is the floor the band is built on; Small and Normal were already at or
+     under it, so only Large changes. The dock's own five columns are
+     proportional and were never the cause: they only followed the layout
+     viewport the header had stretched. Measured with `shellwidth.js`. */
+  header#top-bar {
+    --target-min: min(2.75rem, 44px);
+    /* The same cap on the height the bar's squares are levelled to, which
+       is also their minimum width (05-sidebars-themes.css, `icon-only`). */
+    --header-control-h: min(calc(var(--control-h-body) + 0.5rem), 44px);
   }
 }
+
+/* The below-360 half of this fix (the bar's padding and gaps step down, the
+   targets never do) lives in 07-whiteboard-misc.css's one `max-width: 359.98px`
+   query: test_breakpoints.py allows exactly one of that width. */
 
 /* --- Phase 11 item 12: the status bar on a tablet is a touch bar ------------
    From 600 to 819 the pointer is a finger (this file's band 2 rule), and the
@@ -1444,7 +1293,7 @@ header#top-bar,
    where a tablet app keeps these), but as a touch bar: items at the band's
    44px floor, the three doorways as icons (their words are on hover, which a
    finger does not have, and in their titles), and the notebook count and the
-   palette's keyboard hint gone, as they already are below 720. At 768 that
+   palette's keyboard hint gone, as they already are below 600. At 768 that
    is about 520px of controls in 742. */
 @media (min-width: 600px) and (max-width: 819.98px), (min-width: 600px) and (pointer: coarse) {
 
@@ -1681,7 +1530,7 @@ header#top-bar,
      07-whiteboard-misc.css's 819.98px band for the full reason. Below 600
      there is no rail at all (`.dock-nav` is the only way in), so this
      clearance goes back to zero exactly like the rule above. */
-  .skills-split > main:has(+ #skills-sidebar) {
+  .skills-split > .tab-main:has(+ #skills-sidebar) {
     padding-left: 0;
   }
 
@@ -1709,11 +1558,62 @@ header#top-bar,
      that was left 34px for 148px of text when they first did is two lines,
      the name over the model, and ellipsises (item 12's block below). */
 
-  .dock .dock-find > input[type="search"],
-  .dock .dock-find > .library-search {
+  .dock .dock-find > .dock-search {
     flex: 1 1 0;
     min-width: 0;
+    max-width: none;
     width: auto;
+  }
+
+  /* The categories drawer is a list of rows, not the chip cloud the 720 and
+     820 bands drew for a stacked sidebar. Measured at 390 before: rows
+     wrapped as pills in two columns, the long name's pill 727px wide in a
+     320px sheet (list scrollWidth 743 against 318), All, Drafts and
+     Favourites 30px tall, and every row's ⋯ 17px above its row: the hover
+     overlay's `translateY(-50%)` outlived its `position: absolute` under
+     `(hover: none)`. One column, names ellipsised (the base `#sidebar li`
+     rule), the ⋯ in the row's flow and pressable, every row a touch target. */
+  #sidebar ul#category-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  #sidebar ul#category-list > li {
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: var(--target-min);
+    padding-block: 0;
+    background: transparent;
+    border-radius: var(--radius-md);
+  }
+
+  #sidebar ul#category-list > li.active {
+    background: var(--accent-soft);
+  }
+
+  /* A row with no ⋯ (All, Drafts, Favourites) keeps its count in the same
+     column as the rest: the row's end padding, the gap and the ⋯'s width. */
+  #sidebar ul#category-list > li:not(:has(.category-actions)) {
+    padding-inline-end: calc(0.5rem + 0.6rem + var(--target-min));
+  }
+
+  @media (hover: hover) {
+    #sidebar ul#category-list > li:hover {
+      background: var(--accent-soft);
+    }
+  }
+
+  #category-list li .category-actions {
+    flex: 0 0 auto;
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #category-list li:has(.category-actions) .count {
+    opacity: 1;
   }
 }
 
@@ -1741,7 +1641,7 @@ header#top-bar,
   }
 
   .entry-list li.is-settling > * {
-    transition: transform var(--motion-base) var(--ease-out);
+    transition: transform var(--ui-base) var(--ease-out);
   }
 
   .entry-list li::before,
@@ -1828,25 +1728,17 @@ header#top-bar,
     padding-top: var(--space-4);
   }
 
+  /* No auto margin: the time before it has one (08-consistency.css), and
+     two in one row split the room, which moved the time on every card. */
   #entry-list > li .entry-actions {
     position: static;
-    margin-left: auto;
+    margin-left: 0;
     background: none;
     opacity: 1;
   }
 
   #entry-list > li .entry-actions > :not(.menu-wrap) {
     display: none;
-  }
-
-  /* The desktop clamp (06-timeline-dialogs.css) dropped from 8 to 1 line
-     (note-cards.js's own LONG_NOTE_LINES, "at least 4 note cards above the
-     fold"), tighter than this band's own value used to be: matching rather
-     than removing the rule, so a phone that later wants its own value
-     again has one already here to change. */
-  #entry-list > li .entry-content.entry-clamped {
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
   }
 
   /* The list is the page: the card that framed it on a desktop is a second
@@ -1863,7 +1755,7 @@ header#top-bar,
     padding-block: 0;
   }
 
-  #tab-notes .layout > main {
+  #tab-notes .layout > .tab-main {
     padding-right: 0;
   }
 }
@@ -1876,14 +1768,14 @@ header#top-bar,
    390: 166px for an opener, a title, a search box and three icons), because
    the actions zone was sent to a row of its own and its hairline divider
    was drawn at the start of every row it wrapped to. Now the actions share
-   the title's row and the find zone takes the second; a zone divider is a
-   boundary on one line, so on a phone, where the zones stack, there is
-   none. */
+   the title's row and the find zone takes the second. No zone draws a
+   divider at any width now (INBOX 621); on a phone, where the zones stack,
+   the gap between them is the tighter `--space-4` the phone docks were
+   measured at. */
 @media (max-width: 599.98px) {
 
-  .dock > * + * {
-    border-left: 0;
-    padding-left: 0;
+  .dock {
+    column-gap: var(--space-4);
   }
 
   /* Never wider than the dock: a zone of many actions (the Writing room's,
@@ -1971,12 +1863,30 @@ header#top-bar,
 
 @media (max-width: 599.98px) {
 
+  /* **Over the sheets, which are drawn one layer above whatever opened them.**
+     `openSheet` (phone-shell.js) takes the opener's highest ancestor layer
+     plus one, so a sheet opened from a menu (the pointer menu host, 2600) is
+     at 2601 and the toast box at 1050 was behind it: what the sheet's own
+     action had just done was confirmed under the sheet that did it. Measured
+     at 390x844 (`scratchpad/ui-sweeps/toastsheet.js`, `elementFromPoint` at
+     the toast's centre): covered when the opener sat at 1050 or higher,
+     at 1050 and every layer above it. 2700 clears the highest opener and stays under the boot splash
+     (3000); `tests/test_toast_over_sheets.py` holds both ends. */
   #toast-box {
+    z-index: 2700;
     align-items: stretch;
   }
 
   #toast-box > .toast {
     max-width: none;
+  }
+
+  /* Above the floating + too, not over it: measured at 390 on Notes, the
+     toast box stood on the tab bar (bottom 64px) and the New note button's
+     centre (y 752) answered the toast. The page's own fab sets the line:
+     its offset (07-whiteboard-misc.css's `.dock-fab`), its height, a step. */
+  body:not(:has(#tab-chat:not(.hidden))):has(.tab-page:not(.hidden) > .dock-fab) #toast-box {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5) + env(safe-area-inset-bottom, 0px) + var(--target-min) + var(--space-2));
   }
 
   .agent-monitor {
@@ -2000,18 +1910,18 @@ header#top-bar,
   }
 }
 
-/* **An open board is the page on a phone.** What a phone opens a board for
-   is to look at it and move around it, so while one is open (the canvas
-   view, not the list of boards) the Library's sub-tab strip goes, 52px of a
-   604px canvas, and comes back with "Boards", the bar's own way out. The
-   map's gesture hint names two keys (Tab and Enter) that a phone does not
-   have; there the + handles on a selected node are the gesture, and they
-   are already 44px. */
-@media (max-width: 599.98px) {
-
-  #tab-library:has(#library-view-whiteboard:not(.hidden) #wb-canvas-view:not(.hidden)) #library-subtabs {
-    display: none;
-  }
+/* **An open board or map is a full editor, like a document: the Library's
+   sub-tab strip goes** (INBOX 476: "the library submenu bar shows on the
+   whiteboard and mindmap but not on the documents editor"). The document
+   editor is its own page and never showed the strip; a board lives inside the
+   Library, so the strip is hidden while the canvas view (not the list of
+   boards) is open, at every width. "Boards", the bar's own button, is the way
+   back, and it brings the strip with it. It was phone-only first (52px of a
+   604px canvas); a desktop board takes the same row for itself now. The
+   map's gesture hint names two keys a phone does not have; there the +
+   handles on a selected node are the gesture, and they are already 44px. */
+#tab-library:has(#library-view-whiteboard:not(.hidden) #wb-canvas-view:not(.hidden)) #library-subtabs {
+  display: none;
 }
 
 @media (max-width: 599.98px) and (pointer: coarse) {
@@ -2110,6 +2020,15 @@ header#top-bar,
   }
 }
 
+/* ...and from 1100 up, where the form is on the page, "New reminder" only
+   put the caret in it: a second filled "add" 200px under the form's own Add,
+   two primaries for one action on one screen (INBOX 437 (4)). */
+@media (min-width: 1100px) {
+  #reminders-new {
+    display: none;
+  }
+}
+
 .reminder-compose-card > #reminder-compose {
   margin: 0;
   padding: 0;
@@ -2132,9 +2051,17 @@ header#top-bar,
    and becomes the sheet's plain content; its own `.dialog-head` is hidden
    by the JS that moves it in, the sheet's head already carries a title and
    a Close. */
+/* One height for every source here too: a sheet sized to its content jumped
+   by a third between Notes and Maps. */
+.sheet-card.attach-card {
+  height: 66dvh;
+}
+
 .attach-card > #note-picker-panel {
   position: static;
+  flex: 1 1 auto;
   width: auto;
+  height: auto;
   max-height: none;
   /* The card's own `max-height: 66dvh` bounds the sheet; without this a
      nested flex column defaults to `min-height: auto`, which sizes to its
@@ -2304,7 +2231,6 @@ header#top-bar,
   }
 }
 
-
 /* --- Phase 11 item 4: the graph's controls are one sheet on a phone --------
 
    Measured at 390x844 before this: the gear's floating panel opened at
@@ -2364,11 +2290,11 @@ header#top-bar,
     min-height: var(--target-min);
   }
 
-  /* One way in, and it is the gear. The two `<details>` keep their markup
-     (what is in them moves into the sheet and comes back), so they are
-     hidden rather than emptied: an opener whose menu is somewhere else
-     opens nothing. */
-  #graph-view-menu,
+  /* One way in, and it is the gear. The ⋯ menu keeps its markup (what is in
+     it moves into the sheet and comes back), so it is hidden rather than
+     emptied: an opener whose menu is somewhere else opens nothing. The View
+     menu that used to be hidden here is gone: its rows are the first section
+     of the gear's panel at every width (WORLD_CLASS_PLAN 507). */
   #graph-more-menu {
     display: none;
   }
@@ -2402,6 +2328,24 @@ header#top-bar,
     display: none;
   }
 
+  /* A phone has no side to dock to (INBOX 596): docked at the side, the
+     collapsed picker stood at the top left, where the open sidebar's sheet
+     is drawn over the board, and the sheet covered it (7,554px² at 390,
+     `elementFromPoint` at its centre hit the Library). Below 600 the dock is
+     the bottom strip whichever way it is docked, and the switch goes. */
+  .whiteboard-floating-panel.bottom-center[data-dock="side"] {
+    inset: auto 0 0;
+    width: auto;
+    max-height: none;
+    flex-direction: row;
+    border-radius: 0;
+    border-width: 1px 0 0;
+  }
+
+  #wb-dock-toggle {
+    display: none;
+  }
+
   #wb-tools-opener {
     display: inline-flex;
     align-items: center;
@@ -2431,7 +2375,6 @@ header#top-bar,
     min-height: var(--target-min);
     min-width: var(--target-min);
   }
-
 }
 
 /* --- the board's bar takes the floor of the whole touch band, not just 600 --
@@ -2511,6 +2454,15 @@ header#top-bar,
     min-width: var(--target-min);
   }
 
+  /* And the track grows round them: `.ocr-head .seg` is `height:
+     var(--control-h)` (32px), so the 44px segments stood 6px below their
+     neighbours and 12px past their own track (`wbtopbar.js`, the OCR head at
+     390). */
+  .sheet-card-page .ocr-toolbar .seg-compact {
+    height: auto;
+    min-height: var(--target-min);
+  }
+
   /* Find, over the reading: a 343x20 box at this width, the one control in
      the reader that is neither in the head nor in the toolbar. */
   .sheet-card-page .ocr-find-input {
@@ -2532,9 +2484,9 @@ header#top-bar,
 }
 
 /* --- The surface model pickers on a phone ---------------------------------
-   Write with Atlas and Ask carry their model picker in their header now (a
+   Writing room and Ask carry their model picker in their header now (a
    choice about the surface, not the request). On a phone the header has no
-   room for it beside its buttons: measured at 390, the Write with Atlas
+   room for it beside its buttons: measured at 390, the Writing room
    dock's picker and Ask's History button were pushed off screen. Below 600
    the picker takes its own full-width line under the header's buttons. */
 @media (max-width: 599.98px) {
@@ -2558,7 +2510,6 @@ header#top-bar,
     min-width: 0;
   }
 }
-
 
 /* --- the lightbox on a phone (INBOX 430) ------------------------------------
    "The lightbox on phone needs a better layout": at 390 the action row
@@ -2672,6 +2623,13 @@ header#top-bar,
     white-space: nowrap;
   }
 
+  /* A phone's formatting is the bar at the thumb (below), always there in
+     Edit, so the dock's way back to the desktop strip (INBOX 574) would be a
+     second row of chrome for nothing. */
+  #doc-format-show {
+    display: none;
+  }
+
   #tab-documents .doc-phone-bar {
     bottom: max(
       calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px)),
@@ -2681,8 +2639,40 @@ header#top-bar,
     padding-bottom: var(--space-1);
   }
 
+  /* **The page stops where the bar starts.** The bar is fixed, so nothing in
+     the page's flow knows it is there: measured at 390x844 before this rule,
+     the card ran to y=778 under a bar at 733 to 786, so the status line (743
+     to 765) was drawn behind the bar and never seen, while the editor carried
+     a 56px pad of its own and stopped 72px above the bar, a white band with
+     nothing in it. The card's margin is the bar's own height (a 44px target,
+     its `--space-1` padding top and bottom, its 1px rule), so the status line
+     sits just above the bar and the writing runs down to it. Not while
+     reading, and not with the focus panel open: the bar is not drawn then. */
+  #tab-documents:not(:has(#doc-panes.reading)):not(.doc-focus-sidebar) .doc-main {
+    margin-bottom: calc(44px + 2 * var(--space-1) + 1px);
+  }
+
   #tab-documents:has(#doc-panes.reading) .doc-phone-bar {
     display: none;
+  }
+
+  /* **The first line under the chrome** (UI_MODERNISATION_PLAN Phase 11
+     item 12: chrome at most 25% of the height, 211px here). Measured at
+     390x844 in Read, the phone's default view: the first line at y=255,
+     under the top bar (0 to 58), the dock's two rows (80 to 174), the
+     pane's 24px pad and the document's name again as a heading (207 to
+     248), which the head row already shows. On a phone the head row is the
+     name and the pane pads as the card does: the line is at 199. */
+  #doc-panes.reading > #doc-preview {
+    padding: var(--space-6);
+  }
+
+  #doc-preview > .doc-preview-title {
+    display: none;
+  }
+
+  #doc-preview > .doc-preview-title + * {
+    margin-top: 0;
   }
 }
 
@@ -2713,6 +2703,177 @@ header#top-bar,
 
 @media (min-width: 600px) and (max-height: 720px) {
   #tab-documents .doc-hint {
+    display: none;
+  }
+}
+
+/* **A very short window scrolls its strips away** (WCAG 1.4.10, INBOX 433:
+   zoom.js at 400%, 320 by 256). A sticky sub-tab strip kept 52px of a
+   170px list for itself, and a control the keyboard reached could only sit
+   under it. Below 420px tall the strips scroll with the page like
+   everything else; the floating New note stays in its dock at this height
+   too (phone-shell.js `PHONE_FAB`). */
+@media (max-height: 420px) {
+  .notes-subtabs,
+  .library-subtabs {
+    position: static;
+  }
+
+  /* **And Chat stops being a fixed-height pane** (INBOX 433, zoom.js at 200%,
+     640 by 400). The card is the page's height and the dock alone is taller
+     than what is left, so the message list was squeezed to its 6rem floor
+     with its welcome scrolled under the sticky head and the dock: the "Try
+     asking" chips and Ask Atlas took the keyboard's focus out of sight.
+     Below 420px tall the card flows like any page, the list at its own
+     height and the head scrolling away with it, and the tab scrolls. */
+  #tab-chat,
+  #tab-chat > .layout {
+    display: block;
+  }
+
+  #chat-main {
+    height: auto;
+  }
+
+  #tab-chat #chat-messages {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  #tab-chat .chat-toolbar {
+    position: static;
+  }
+
+  /* The Timeline's feed keeps its own scroll (it loads more from it), but
+     not at the dock's leftovers: at 400% (320 by 256) the dock took 158px of
+     a 144px page and the feed got 0px, every row unreachable but by Tab. With
+     a floor of its own the card grows past the page, the page scrolls the
+     dock away, and the feed has most of the window. */
+  #tab-timeline .timeline-scroll {
+    min-height: min(16rem, 70dvh);
+  }
+
+  /* The map is a surface you look at, so it keeps a usable height and the
+     page scrolls to it, rather than shrinking to what the chrome leaves: at
+     200% (640 by 400) the card was 218px, the zoom strip (178px of touch
+     buttons) rose under the wrapped dock, and the minimap sat on the legend.
+     26rem holds the dock, the strip and the legend apart; the minimap, an
+     overview of a map that is itself smaller than a phone's, goes. */
+  #graph-card {
+    min-height: 26rem;
+  }
+
+  #graph-minimap {
+    display: none;
+  }
+}
+
+/* --- the Dashboard's dock on a phone (INBOX 436) ----------------------------
+   No identity zone, so the row is the search doorway and the ⋯. One line,
+   the search first and the menu at its end: the docks with a title put their
+   actions beside it and the search on the row under, which here left a lone
+   ⋯ on a 44px row of its own above the field (measured at 390: the dock
+   114px tall). */
+@media (max-width: 599.98px) {
+  .dock[data-dock-name="dashboard"] {
+    flex-wrap: nowrap;
+  }
+
+  .dock[data-dock-name="dashboard"] > .dock-find {
+    order: 0;
+    flex: 1 1 0;
+  }
+
+  .dock[data-dock-name="dashboard"] > .dock-actions {
+    flex: 0 0 auto;
+  }
+
+  /* Customise keeps its glyph on a phone (INBOX 488); the word stays its
+     accessible name through the button's own label. */
+  .dash-customise .dock-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .dash-customise .ph-lead:has(~ .dock-word) {
+    translate: none;
+  }
+
+  .dash-customise .menu-wrap > button {
+    width: var(--control-h);
+    padding-inline: 0;
+    justify-content: center;
+    color: var(--muted);
+  }
+
+  /* An icon-only button's glyph is the button's own colour, as the ⋯
+     beside it, not the accent a glyph before a word takes. */
+  .dash-customise .menu-wrap > button > .ph-lead {
+    margin: 0;
+    color: inherit;
+  }
+}
+
+/* **The skill library's kind segment on a phone** (INBOX 437 (4), touch.js).
+   Its dock has no ... menu, so the arrange fold above never takes the zone,
+   and at 390 the three segments (All, Yours, Built-in, each with a count)
+   wrapped inside a one-row well: Built-in fell out of it and lay over the
+   search field (`elementFromPoint` at its centre was #skills-search). The
+   zone's box steps aside so the segment can take a row of its own and the
+   sort shares the next with New skill and help; the segment's cells share
+   their row, on the touch floor like a `.seg-multi`. Since INBOX 599 each
+   cell is its glyph and count, as on a narrow desktop dock. */
+@media (max-width: 599.98px) {
+  .dock[data-dock-name="library-skills"] > .dock-arrange {
+    display: contents;
+  }
+
+  /* New note floats over the edit form's Save otherwise (INBOX 606). */
+  .tab-page:has(.note-edit-surface) > .dock-fab {
+    display: none;
+  }
+
+  /* An icon picker since INBOX 599: its square, not a stretched field. */
+  .dock[data-dock-name="library-skills"] .select-shell:has(> #skills-sort) {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .dock #skills-kind {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    height: var(--target-min);
+    padding: 0;
+  }
+
+  .dock #skills-kind > button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+
+}
+
+/* --- the palette on a touch screen (INBOX 464) ------------------------------
+   Its foot ("↑↓ to choose · Enter to run · Esc to close · ? for shortcuts")
+   and every row's key chip ("M D") describe a keyboard a phone does not have:
+   measured at 390, one hint line and 20 chips, while the field's own words
+   ran 20px past its box (323px of placeholder in 303px). The copy is shorter
+   at every width (index.html) and the keyboard's words go where there is no
+   keyboard. `pointer: coarse` as well as `hover: none`, so a tablet with a
+   trackpad keeps them. */
+@media (hover: none) and (pointer: coarse) {
+  .palette-hint,
+  .rich-picker-keys {
     display: none;
   }
 }

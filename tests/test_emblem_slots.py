@@ -25,7 +25,7 @@ def test_every_emblem_slot_has_an_element() -> None:
     ids = re.findall(r'\["([a-z-]+)",\s*\d+', block)
     assert ids, "EMBLEM_SLOTS not found"
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
-    scripts = "".join(p.read_text(encoding="utf-8") for p in FRONTEND.glob("*.js"))
+    scripts = "".join(p.read_text(encoding="utf-8") for p in (FRONTEND / "js").glob("*.js"))
     missing = [
         slot for slot in ids
         if f'id="{slot}"' not in html and not re.search(rf'\.id = "{slot}"', scripts)

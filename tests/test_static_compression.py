@@ -31,7 +31,7 @@ from tests._app_js import APP_JS, app_js_files
 def test_a_stamped_asset_is_immutable_and_gzipped(client):
     """`/app.js?v=<version>` is the real request the browser makes."""
     with client.stream(
-        "GET", f"/app.js?v={__version__}", headers={"Accept-Encoding": "gzip"}
+        "GET", f"/js/app.js?v={__version__}", headers={"Accept-Encoding": "gzip"}
     ) as response:
         assert response.status_code == 200
         assert response.headers.get("content-encoding") == "gzip"
@@ -56,14 +56,47 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #:   on a cold load. Splitting costs a little here (each file starts gzip's
 #:   window empty), so this is rewritten to the measured total plus 2% at each
 #:   step, and after the split only ever downward.
-APP_JS_CAP = 43_000
-PIECE_CAP = 64_000
-TOTAL_CAP = 794_000
+#:
+#: **2026-10-05, comments stripped at serve time** (audit FE-01,
+#: `api/asset_strip.py`): the same 25 files went from 792,475 bytes to
+#: 335,400 on the wire, app.js from 42,710 to 14,778, the largest piece
+#: (notes-list.js) to 27,423 (a comment's lines are left empty, so line
+#: numbers match the source; that costs about 2% over removing them). The
+#: caps are those numbers plus 2%; the per-piece bound is the plan's 64 KB
+#: scaled by the same strip, rounded. What is measured is code now, not
+#: prose: a comment costs nothing here.
+#:
+#: **Re-measured on the merged tree, 2026-10-05.** The 15,070 above was set on
+#: the frontend branch alone, while the boot split (merged the same hour) had
+#: moved seven surfaces out of app.js and registered them in its lazy table;
+#: together app.js measured 15,132 bytes. The cap is that plus 2%, the rule
+#: this comment states, and it only goes down from here.
+#:
+#: **2026-10-05, search-boot-1005.** The Settings window's handlers that only
+#: its listeners call, the "m" chord's guide, and the pickers, menus and
+#: checkers that one lazy file alone uses moved into that file: app.js
+#: 15,221 (cap was 15,435), total 323,086 (cap was 342,100),
+#: both measured by this test's client. Caps are the measure rounded up.
+#: **Merged into the integration branch the same day**: app.js 14,207, total
+#: 322,228 after the note edit form (renderEditForm, now note-edit-panels.js
+#: behind a stand-in) and eight one-caller helpers moved to their lazy files.
+#: Caps are the measure rounded up to the next 100.
+APP_JS_CAP = 14_300
+PIECE_CAP = 32_000
+#: After claude/notes-flow-rebuild 143b240 merged: total 321,331 (the
+#: embedding models list into settings-packages.js), app.js unchanged.
+#: And after 88227db (621, 622): 321,097.
+#: And after the Atlas merge, with addSkill in settings-controls.js: 320,986.
+#: And with the s2 agent's list drag-select edge scroll (+489) and Link all
+#: above 70% (+152): 321,487, a raise the next agent undid by moving the edge
+#: scroll to drag-edge.js and `noteEditToolbar` to note-edit-panels.js (both
+#: lazy): 320,244.
+TOTAL_CAP = 320_300
 
 
 def _served_gzip_size(client, name: str) -> int:
     with client.stream(
-        "GET", f"/{name}?v={__version__}", headers={"Accept-Encoding": "gzip"}
+        "GET", f"/js/{name}?v={__version__}", headers={"Accept-Encoding": "gzip"}
     ) as response:
         assert response.status_code == 200, name
         assert response.headers.get("content-encoding") == "gzip", name
@@ -108,6 +141,16 @@ def test_the_app_scripts_stay_under_the_ratchet(client):
     # notes-list.js at 50,207, and 777,805 together, 26,672 bytes (3.6%) more
     # than the one file, which is what 23 gzip streams that each start with
     # an empty window cost. APP_JS_CAP now only ever goes down.
+    #
+    # **2026-10-05, the first cut of that total.** 792,754 bytes (cap 794,000,
+    # notes-list.js 63,548 of the 64,000 piece bound) came down to 758,418 with
+    # notes-list.js at 57,929, by moving code only a gesture reaches into lazy
+    # files: the catalogue's deep links, the welcome card, the update dialogs,
+    # the palette's window, a note card's menu panels, the edit form's two
+    # panels, the inline "put on a board" pickers, and the 110 listeners inside
+    # the Settings window (settings-controls.js, awaited by the first
+    # `openSettingsModal`). The cap is that total plus 2%, 774,000. It is a cap:
+    # it goes down after a split and is never raised.
     sizes = {path.name: _served_gzip_size(client, path.name) for path in app_js_files()}
     assert sizes[APP_JS.name] < APP_JS_CAP, (
         f"gzipped app.js is {sizes[APP_JS.name]} bytes, expected under {APP_JS_CAP}"
@@ -123,7 +166,7 @@ def test_the_app_scripts_stay_under_the_ratchet(client):
 def test_an_unstamped_asset_is_not_immutable(client):
     """No `?v=` means the URL can be reused across a release, so it keeps
     asking the browser to revalidate rather than promising it never will."""
-    response = client.get("/app.js", headers={"Accept-Encoding": "gzip"})
+    response = client.get("/js/app.js", headers={"Accept-Encoding": "gzip"})
     assert response.status_code == 200
     cache_control = response.headers.get("cache-control", "")
     assert "immutable" not in cache_control
@@ -141,7 +184,7 @@ def test_vendored_assets_stay_revalidated_too(client):
 
 def test_a_query_string_that_only_contains_v_as_a_substring_is_not_stamped(client):
     """`?vv=1` or `?rev=1` must not be mistaken for the app's own `?v=` stamp."""
-    response = client.get("/app.js?vv=1", headers={"Accept-Encoding": "gzip"})
+    response = client.get("/js/app.js?vv=1", headers={"Accept-Encoding": "gzip"})
     assert response.headers.get("cache-control") == "no-cache"
 
 

@@ -16,7 +16,7 @@ from tests._app_js import app_js_text
 def _draft_code():
     text = app_js_text()
     start = text.index('$("entry-content").addEventListener("input"')
-    end = text.index("renderEntryAttachmentChips();", text.index('localStorage.getItem("captureDraft")'))
+    end = text.index("renderEntryAttachmentChips();", text.index('prefs.get("captureDraft", null)'))
     return text[start:end]
 
 
@@ -29,7 +29,7 @@ def test_a_blank_draft_is_not_saved():
 
 def test_a_blank_draft_is_not_restored():
     code = _draft_code()
-    restore = code[code.index('localStorage.getItem("captureDraft")') :]
+    restore = code[code.index('prefs.get("captureDraft", null)') :]
     guard = restore.index("if (!draft.trim())")
     assert guard < restore.index("box.value = draft"), "blank drafts must be dropped before the box is filled"
     assert 'localStorage.removeItem("captureDraft")' in restore[guard : guard + 200]

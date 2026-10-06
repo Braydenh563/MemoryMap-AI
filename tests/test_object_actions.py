@@ -12,8 +12,8 @@ from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 APP = app_js_text()
-LIBRARY = (FRONTEND / "library.js").read_text(encoding="utf-8")
-BOARDS = (FRONTEND / "whiteboard.js").read_text(encoding="utf-8")
+LIBRARY = (FRONTEND / "js" / "library.js").read_text(encoding="utf-8")
+BOARDS = (FRONTEND / "js" / "whiteboard.js").read_text(encoding="utf-8")
 
 
 def _block(source: str, start: str, end: str) -> str:
@@ -33,6 +33,18 @@ def test_library_notes_and_documents_reach_the_chat():
     assert 'askAtlasAboutThing("document"' in document
     assert 'askAtlasAboutThing("note"' in note
     assert "showNoteInGraph(item.id)" in note
+
+
+def test_a_library_document_reaches_the_graph():
+    """WORLD_CLASS_PLAN 1.3: the graph draws a document as `document:<id>`
+    while its Documents switch is on, so the door turns the switch on and
+    looks for that node, not the bare id a note has."""
+    document = _block(LIBRARY, 'if (item.kind === "document") {', 'if (item.kind === "archived") {')
+    assert "showNoteInGraph(item.id, { document: true })" in document
+    assert "ph:graph Show in graph" in document
+    door = _block(APP, "async function showNoteInGraph(", "focusGraphNode(node);")
+    assert "document:" in door
+    assert '$("graph-documents")' in door
 
 
 def test_a_board_or_map_card_reaches_the_chat():

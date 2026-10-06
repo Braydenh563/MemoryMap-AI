@@ -1,6 +1,6 @@
 """The Library's second pass and the list conventions it brought, held.
 
-docs/roadmap/agent-remaining/pass2.md. Two kinds of check:
+docs/roadmap/archive/agent-remaining/pass2.md. Two kinds of check:
 
 - `libraryTitleAndPreview` is pure string work, so it runs in node against
   the cases that were measured wrong on a seeded notebook: an untitled note
@@ -25,7 +25,7 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-LIBRARY_JS = ROOT / "frontend" / "library.js"
+LIBRARY_JS = ROOT / "frontend" / "js" / "library.js"
 def _function_source(text: str, name: str) -> str:
     start = text.find(f"function {name}(")
     assert start != -1, f"{name} is missing"
@@ -126,7 +126,7 @@ def test_selection_keys_stand_down_inside_a_field():
 # by trace"; the trace is scratchpad/ui-sweeps/scrolltrace.js) -------------
 
 CONSISTENCY_CSS = ROOT / "frontend" / "css" / "08-consistency.css"
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"
 
 
 def test_the_page_scrollers_ask_for_compositor_scrolling():

@@ -18,9 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 #: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
 #: on 2026-09-24, and these tests read it wherever it lives.
 APP = app_js_text() + "\n" + (
-    ROOT / "frontend" / "palette.js"
+    ROOT / "frontend" / "js" / "palette.js"
 ).read_text(encoding="utf-8")
-SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+#: The Guide's chat moved from settings.js to help-chat.js (a lazy bundle).
+SETTINGS = "".join((ROOT / "frontend" / "js" / n).read_text(encoding="utf-8") for n in ("settings.js", "help-chat.js"))
 
 
 def _body(source: str, head: str) -> str:
@@ -50,11 +51,12 @@ def test_the_notice_carries_a_way_back_that_survives_storage():
     assert "const action = { panel, answer:" in body, "plain data: it is stored in localStorage"
     assert "onOpen: () => reopenAnswerPanel(action)" in body
     notice = _body(APP, "function agentActivityNotice(")
-    assert "toastAction(message, \"Open\", onOpen)" in notice
+    # Already recorded above it, so the toast does not record it twice.
+    assert "toastAction(message, \"Open\", onOpen, { record: false })" in notice
     assert "notificationsMuted()" in notice, "the mute still binds"
 
 
 def test_the_bell_row_reopens_the_panel():
-    start = APP.index("item.action && (item.action.tab || item.action.exports || item.action.panel")
-    block = APP[start : start + 700]
-    assert "reopenAnswerPanel(item.action)" in block
+    go = _body(APP, "async function runNotificationGo(")
+    assert "if (action.panel) return reopenAnswerPanel(action);" in go
+    assert "action.panel" in _body(APP, "function notificationGoes(")

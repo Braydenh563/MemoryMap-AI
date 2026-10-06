@@ -71,7 +71,9 @@ the tab draws a colour, a font or a card that the rest of the app does not.
 4. **Density follows the bucket.** Day: full row (title, snippet, tags,
    time). Week: title, time, tags. Month and year: title and date only,
    two columns above 1024. The scale select stays; "auto" is added and is
-   the default (day under 60 notes in range, week under 400, else month).
+   the default: the finest of day, week and month with at most 120 headers
+   and, past one screen of them, a median of two items per header and at most
+   60% of its calendar span empty (measured; HISTORY, "the auto scale").
 5. **Bands become a filter, not lanes.** Grouping by category, tag or
    thread produced lanes that were mostly empty; the same choice now
    colours the row's kind marker and offers itself as a chip filter in the
@@ -94,6 +96,20 @@ the tab draws a colour, a font or a card that the rest of the app does not.
    call. `MAX_NOTES` goes; pagination replaces it.
 10. **Tokens only.** Kind colours come from the category tokens the
     Library chips use; no `schemeTableau10`.
+11. **Zoom is the bucket, never the page** (2026-10-05, from section 8's
+    Photos note; recommendation taken). Ctrl and the wheel, or a pinch,
+    steps day, week, month, year, one step per gesture; + and - on a row do
+    the same for the keyboard; the focused or topmost row keeps its place.
+    The step lands in the Bucket by select, so it is remembered like a
+    choice made there.
+12. **On this day is a time range, not a dock control** (2026-10-05, from
+    section 8's Day One note; recommendation taken). The dock is at its
+    seven-control ceiling and the strip under it walks days; a range is what
+    the choice is. The server filters (`/timeline?on=MM-DD&tz=`), in the
+    reader's own day, today left out: the Dashboard widget's rule.
+13. **Date ranges as spans are not built** (EntryDate ranges in the feed):
+    a feed row is one moment by decision 3, and no measured notebook here
+    holds ranged notes; left until one does.
 
 ## 5. Phases
 
@@ -112,8 +128,12 @@ against a 2,048-note seed (`scratchpad/ui-sweeps/timelinepaging.js`).
 ### Phase 4: kinds and the journal: **built 2026-09-13**, see
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
 (`scratchpad/ui-sweeps/timelinekinds.js`), with the daily note defined as a
-convention rather than a store, and D6's calendar strip, `Ctrl+D` and streak
-still open in WORLD_CLASS_PLAN.
+convention rather than a store; D6's calendar strip and `Ctrl+D` are built
+too (WORLD_CLASS_PLAN D6).
+
+### Section 8's two cheap additions: **built 2026-10-05**, see
+[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-10-05 (TIMELINE_PLAN,
+zoom and On this day)". Decisions 11 to 13. Every phase of this plan is built.
 
 ## 6. Consistency rules
 
@@ -147,13 +167,9 @@ in one line each:
   as well below 820; the title measures 375px at 1024, 176px at 820 and 242px
   at 700, with no horizontal scroll at any width.
 
-Still open from this section: **the "auto" scale thresholds** (day under 60
-notes in range, week under 400, decision 4) are still the first guess. They
-were not tuned here because the seed is a shape rather than a notebook: what
-decides whether a day bucket reads well is how much a person writes in a day,
-and inventing that is how a measurement becomes a preference wearing a
-number. Next step: the owner's own notebook, or the same probe pointed at a
-restored backup.
+The "auto" scale thresholds: tuned 2026-10-04 on a copy of a 2,077-note
+notebook plus four synthetic shapes; the account is in
+[HISTORY.md](HISTORY.md), "Moved from the plans, 2026-10-04 (the auto scale)".
 
 ## 8. Research: what the reference products do, and what it changes here
 

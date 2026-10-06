@@ -16,7 +16,8 @@ FRONTEND = ROOT / "frontend"
 
 
 def _text(name: str) -> str:
-    return (FRONTEND / name).read_text(encoding="utf-8")
+    folder = FRONTEND / "js" if name.endswith(".js") else FRONTEND
+    return (folder / name).read_text(encoding="utf-8")
 
 
 def test_the_first_paint_and_the_settings_make_the_same_call():
@@ -27,7 +28,7 @@ def test_the_first_paint_and_the_settings_make_the_same_call():
     assert 'localStorage.getItem("density")' in boot, "a chosen density no longer wins at first paint"
     body = settings[settings.index("function effectiveDensity(") :]
     body = body[: body.index("\n}\n")]
-    assert 'localStorage.getItem("density")' in body and '"compact"' in body
+    assert 'prefs.get("density", null)' in body and '"compact"' in body
 
 
 def test_auto_is_a_choice_in_appearance_and_clears_the_setting():

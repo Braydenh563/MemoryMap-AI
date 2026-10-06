@@ -31,7 +31,7 @@ FETCH = re.compile(r"""fetch\(\s*(["'`])(/[^"'`]*)""")
 
 
 def _raw_fetches():
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         text = path.read_text(encoding="utf-8")
         for match in FETCH.finditer(text):
             route = match.group(2)
@@ -48,7 +48,7 @@ def test_every_raw_fetch_to_a_locked_route_sends_the_auth_token():
     missing = [
         f"{name}:{line} fetch({route!r})"
         for name, line, route, window in _raw_fetches()
-        if "X-Auth-Token" not in window
+        if "X-Auth-Token" not in window and "authHeaders()" not in window
     ]
     assert not missing, "raw fetch without X-Auth-Token (use api() or add the header):\n" + "\n".join(missing)
 
@@ -56,5 +56,8 @@ def test_every_raw_fetch_to_a_locked_route_sends_the_auth_token():
 def test_the_lint_sees_the_fetches_it_is_for():
     """A regex that matches nothing passes for the wrong reason."""
     routes = {route for _, _, route, _ in _raw_fetches()}
-    assert "/help/ask/stream" in routes
-    assert "/chat/stream" in routes
+    # The two streams it was written for went through `api.stream` on
+    # 2026-10-05 (F5, `tests/test_no_bare_fetch.py`); the raw fetches left
+    # are the sign-in calls (the media session went through `api()` too, in
+    # shell-reminders.js's `refreshMediaSession`).
+    assert "/auth/auto-session" in routes

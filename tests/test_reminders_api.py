@@ -84,6 +84,18 @@ def test_a_reminder_cannot_be_set_in_the_past(client):
     assert client.get("/reminders").json()[0]["due_at"] == reminder["due_at"]
 
 
+def test_undo_puts_back_an_overdue_or_done_reminder(client):
+    """INBOX 537: Undo re-makes a deleted reminder, and the past-date rule
+    refused every overdue or completed one, so their Undo failed. `restore`
+    is that Undo's door: the old due time and the done mark come back."""
+    past = (utcnow() - timedelta(hours=1)).isoformat()
+    back = client.post("/reminders", json={"text": "was overdue", "due_at": past, "restore": True, "done": True})
+    assert back.status_code == 201, back.text
+    assert back.json()["done"] is True
+    # Without it the rule still holds.
+    assert client.post("/reminders", json={"text": "late", "due_at": past}).status_code == 422
+
+
 def test_reminder_for_missing_entry_404s(client):
     due = (utcnow() + timedelta(hours=1)).isoformat()
     response = client.post("/reminders", json={"text": "x", "due_at": due, "entry_id": 99})
@@ -154,7 +166,7 @@ def test_magic_add_parses_and_creates(ai_client, fake_ollama):
     fake_ollama.librarian_reply = (
         '{"text": "call mum", "due_at": "2030-01-02T18:00", "priority": "high"}'
     )
-    created = ai_client.post("/reminders/parse", json={"text": "call mum tomorrow evening"}).json()
+    created = ai_client.post("/reminders/parse", json={"text": "call mum after the game"}).json()
     assert created["text"] == "call mum"
     assert created["priority"] == "high"
     assert created["due_at"].startswith("2030-01-02T18:00")
@@ -177,7 +189,7 @@ def test_magic_add_resolves_times_on_the_users_clock(ai_client, fake_ollama):
     # UTC+13 (New Zealand in summer): 6pm local is 05:00 UTC the same day.
     created = ai_client.post(
         "/reminders/parse",
-        json={"text": "call mum tomorrow evening", "tz_offset_minutes": 780},
+        json={"text": "call mum after the game", "tz_offset_minutes": 780},
     ).json()
     assert created["due_at"].startswith("2030-01-02T05:00")
 

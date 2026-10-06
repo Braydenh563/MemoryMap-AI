@@ -20,11 +20,11 @@ const { boot } = require('./lib.js');
   if (read.strip) findings.push('the formatting strip shows on a phone');
   // Edit: the page, with the selection bar above the keyboard.
   await page.click('#doc-view-seg button[data-doc-view-group="edit"]'); await page.waitForTimeout(800);
-  const edit = await page.evaluate(() => { const bar = document.getElementById('doc-phone-bar'); const b = bar.getBoundingClientRect(); const buttons = [...bar.querySelectorAll('button')].filter((x) => x.getBoundingClientRect().width > 0); return { view: docView, editor: !!document.querySelector('.doc-main .cm-editor') && document.querySelector('.doc-main .cm-editor').getBoundingClientRect().height > 0, strip: (() => { const s = document.querySelector('.doc-toolbar'); return !!s && s.getBoundingClientRect().height > 0; })(), barShown: b.height > 0, barBottom: Math.round(b.bottom), buttons: buttons.length, minH: Math.min(...buttons.map((x) => Math.round(x.getBoundingClientRect().height))) }; });
+  const edit = await page.evaluate(() => { const bar = document.getElementById('doc-phone-bar'); const b = bar.getBoundingClientRect(); const buttons = [...bar.querySelectorAll('button')].filter((x) => x.getBoundingClientRect().width > 0); return { view: docView, editor: !!document.querySelector('.doc-main .cm-editor') && document.querySelector('.doc-main .cm-editor').getBoundingClientRect().height > 0, strip: (() => { const s = document.querySelector('.doc-toolbar'); return !!s && s.getBoundingClientRect().height > 0; })(), barShown: b.height > 0, barBottom: Math.round(b.bottom), buttons: buttons.length, minH: Math.min(...buttons.map((x) => Math.round(x.getBoundingClientRect().height))), floor: (() => { const dock = document.getElementById('phone-tab-dock'); const r = dock && dock.getBoundingClientRect(); return r && r.height > 0 ? Math.round(r.top) : window.innerHeight; })() }; });
   console.log('edit', JSON.stringify(edit));
   if (!edit.editor || edit.view === 'rendered') findings.push('Edit did not open the editor');
   if (edit.strip) findings.push('the formatting strip shows while editing on a phone');
-  if (!edit.barShown || edit.buttons < 6 || edit.minH < 44 || edit.barBottom !== 844) findings.push('the selection bar is not above the keyboard edge: ' + JSON.stringify(edit));
+  if (!edit.barShown || edit.buttons < 6 || edit.minH < 44 || Math.abs(edit.barBottom - edit.floor) > 1) findings.push('the selection bar is not above the keyboard edge: ' + JSON.stringify(edit));
   // The outline is in the sidebar sheet.
   await page.click('.doc-dock > .dock-nav > button'); await page.waitForTimeout(600);
   // The sheet is the sidebar, whose tabs are the documents list and the

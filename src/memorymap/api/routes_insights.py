@@ -18,7 +18,7 @@ from memorymap.ai import librarian
 from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
-from memorymap.core.config import user_now
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.database import Category, Entry, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
@@ -48,8 +48,11 @@ def stats(session: Session = Depends(get_session)) -> dict:
 
     # Entries per day for the activity strip, oldest day first.
     start = utcnow() - timedelta(days=ACTIVITY_DAYS - 1)
+    #: The day is all this reads, so it asks for the day: loading each note
+    #: whole (its text and every other column, as an object) was 204 ms on
+    #: 5,000 recent notes and is nothing as a bare column.
     recent = session.scalars(
-        select(Entry).where(
+        select(Entry.created_at).where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_draft == False,  # noqa: E712
             Entry.is_board == False,  # noqa: E712
@@ -58,8 +61,8 @@ def stats(session: Session = Depends(get_session)) -> dict:
     )
     per_day = [0] * ACTIVITY_DAYS
     today = utcnow().date()
-    for entry in recent:
-        offset = (today - entry.created_at.date()).days
+    for created_at in recent:
+        offset = (today - created_at.date()).days
         if 0 <= offset < ACTIVITY_DAYS:
             per_day[ACTIVITY_DAYS - 1 - offset] += 1
 
@@ -68,6 +71,10 @@ def stats(session: Session = Depends(get_session)) -> dict:
         "categories": [{"name": name, "count": count} for name, count in by_category],
         "per_day": per_day,
         "days": ACTIVITY_DAYS,
+        #: The review queue's size (WORLD_CLASS_PLAN section 17, row 1), for
+        #: the Categories widget's line; the queue itself is the Notes filter
+        #: `is:review`.
+        "to_review": manager.review_queue_count(session),
     }
 
 
@@ -97,12 +104,12 @@ GREETING_PROMPT = (
     "Write ONE short greeting for someone opening their personal notebook app. "
     "It is currently {block}. Make it {flavour}. Rules: 2 to 7 words, no name, "
     "no quotation marks, no emoji, and do not mention the app by name. It may "
-    "be a question. End it with a full stop, question mark or exclamation "
-    "mark. Reply with the greeting only."
+    "be a question. End it with a full stop or a question mark. Reply with "
+    "the greeting only."
 )
 
 # When the user has set a display name we usually ask the model to weave it in,
-# so the greeting reads naturally ("Morning, Sam!") instead of always being a
+# so the greeting reads naturally ("Morning, Sam.") instead of always being a
 # phrase with a name bolted on. The name comes from preferences, never
 # hardcoded. Not every greeting uses it, so it doesn't get repetitive.
 GREETING_PROMPT_NAMED = (
@@ -110,16 +117,18 @@ GREETING_PROMPT_NAMED = (
     "notebook app. It is currently {block}. Make it {flavour}. Rules: 2 to 8 "
     "words, use the name {name} exactly once and spell it exactly as given, no "
     "quotation marks, no emoji, and do not mention the app by name. It may be a "
-    "question. End it with a full stop, question mark or exclamation mark. "
-    "Reply with the greeting only."
+    "question. End it with a full stop or a question mark. Reply with the "
+    "greeting only."
 )
 
 # How often a greeting addresses the user by name when one is set.
 NAME_USE_CHANCE = 0.75
 
 # The greeting is stored without its final mark so the display name can be
-# appended cleanly ("Good morning" + ", Sam" + "!"). The mark travels
-# separately in `punctuation`.
+# appended cleanly ("Good morning" + ", Sam" + "."). The mark travels
+# separately in `punctuation`. An exclamation mark comes back as a full stop:
+# the app's copy carries none (CLAUDE.md, standing order 6), and a small model
+# reaches for one whether or not it is asked to (INBOX 472).
 _TERMINAL_MARKS = ".!?"
 
 
@@ -128,11 +137,11 @@ def _clean_greeting(raw: str) -> tuple[str, str] | None:
     text = (raw or "").strip().splitlines()[0] if (raw or "").strip() else ""
     text = text.strip().strip("\"'`*").strip()
     mark = "."
-    # Remember an exclamation/question so the greeting keeps its tone, then
-    # strip trailing punctuation so a name can be appended after it.
+    # Remember a question so the greeting keeps its tone, then strip trailing
+    # punctuation so a name can be appended after it.
     while text and text[-1] in _TERMINAL_MARKS + ",;:":
-        if text[-1] in _TERMINAL_MARKS:
-            mark = text[-1]
+        if text[-1] == "?":
+            mark = "?"
         text = text[:-1].rstrip()
     # A little headroom over the prompt's word limit, since a woven-in name
     # costs a word or two.
@@ -338,8 +347,10 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
     today = utcnow().date()
     start = today - timedelta(days=HEATMAP_DAYS - 1)
     counts = [0] * HEATMAP_DAYS
+    #: Only the day, as a column (see `stats`): 208 ms became a few on 5,000
+    #: notes created within the year.
     rows = session.scalars(
-        select(Entry).where(
+        select(Entry.created_at).where(
             Entry.is_deleted == False,  # noqa: E712
             # Notes only, the one count the rest of the app shows (boards
             # and drafts are Entry rows too: the heatmap said 77 beside 40).
@@ -348,8 +359,8 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
             Entry.created_at >= utcnow() - timedelta(days=HEATMAP_DAYS),
         )
     )
-    for entry in rows:
-        offset = (entry.created_at.date() - start).days
+    for created_at in rows:
+        offset = (created_at.date() - start).days
         if 0 <= offset < HEATMAP_DAYS:
             counts[offset] += 1
     return {
@@ -379,7 +390,7 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
 
     **Not called by this app's own frontend, and that is a decision, not an
     oversight** (INBOX 261, found by `scratchpad/probe_dead_routes.py`, which
-    lists every route no `frontend/*.js` names). The dashboard's widget
+    lists every route no `frontend/js/*.js` names). The dashboard's widget
     filters `allEntries` in the browser: one fewer request, and correct once
     the notebook has finished paging in. This stays for anything that talks
     to the app over HTTP rather than through the bundled page, and this
@@ -402,6 +413,10 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
                 Entry.created_at <= now - timedelta(days=28),
                 func.strftime("%d", Entry.created_at) == f"{now.day:02d}",
             )
+            #: The five it answers with, read as five (ARCH-13): every match
+            #: was hydrated, about a thirtieth of the notebook, to keep five.
+            .order_by(Entry.id)
+            .limit(5)
         )
     )
     matches = []
@@ -492,12 +507,18 @@ def _digest_notes(session: Session) -> list[dict]:
         )
     )
     category_names = manager.bulk_category_names(session, entries)
-    zone = user_now(deps.get_config()).tzinfo
+    now = user_now(deps.get_config())
+    zone = now.tzinfo
+    time_words = manager.entry_dates_bulk(session, [e.id for e in entries])
     return [
         {
             "content": e.content,
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "written": _written_label(e.created_at, zone),
+            "dates": [
+                f'"{d.phrase}" meant {d.at:%A} {d.at.day} {d.at:%B %Y}, {days_from_today(d.at.date(), now.date())}'
+                for d in time_words.get(e.id, [])
+            ],
         }
         for e in entries
     ]

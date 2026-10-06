@@ -1,0 +1,92 @@
+"""Speculative retrieval (WORLD_CLASS_PLAN H9, row 27): a typing pause in Ask
+or chat warms the question's vector, so Enter does not wait for the
+embedding model."""
+
+from __future__ import annotations
+
+import time
+from pathlib import Path
+
+from memorymap.core import deps
+from memorymap.search import search_manager
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class SlowCountingEmbeddings:
+    """The test fakes' keyword vectors, slowed to a real model's pace and counted."""
+
+    def __init__(self, inner, delay: float = 0.2):
+        self.inner = inner
+        self.delay = delay
+        self.calls: list[str] = []
+
+    def __getattr__(self, name):
+        return getattr(self.inner, name)
+
+    def embed_text(self, text):
+        self.calls.append(text)
+        time.sleep(self.delay)
+        return self.inner.embed_text(text)
+
+
+def test_a_warmed_question_is_not_embedded_again(ai_client, session, fake_embeddings):
+    slow = SlowCountingEmbeddings(fake_embeddings)
+    assert search_manager.warm(session, "what did I buy at the shopping trip", slow) is True
+    assert len(slow.calls) == 1
+    began = time.perf_counter()
+    search_manager.retrieve(session, "what did I buy at the shopping trip", slow)
+    elapsed = time.perf_counter() - began
+    assert len(slow.calls) == 1, slow.calls
+    # The 200 ms the model would have taken is not spent after Enter.
+    assert elapsed < slow.delay
+
+
+def test_the_route_warms_and_never_fails(ai_client, monkeypatch):
+    warm_1 = ai_client.post("/search/warm", json={"q": "groceries for the week ahead"}).json()
+    assert warm_1 == {"warmed": True}
+    warm_2 = ai_client.post("/search/warm", json={"q": "hi"}).json()
+    assert warm_2 == {"warmed": False}
+
+    def broken():
+        raise RuntimeError("no embeddings")
+
+    monkeypatch.setattr(deps, "get_embeddings", broken)
+    warm_3 = ai_client.post("/search/warm", json={"q": "groceries for the week ahead"}).json()
+    assert warm_3 == {"warmed": False}
+
+
+def test_the_boxes_send_their_words_on_a_pause():
+    js = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
+    assert '"/search/warm"' in js
+    assert 'box?.id !== "question" && box?.id !== "chat-input"' in js
+
+
+def test_a_model_not_yet_loaded_starts_loading_in_the_background(session):
+    """Measured on a fresh install: the first question paid the embedding
+    model's cold load. Focus in the box now starts it, without waiting."""
+
+    class Cold:
+        def __init__(self):
+            self.calls = []
+
+        def is_ready(self):
+            return False
+
+        def backend_id(self):
+            return "cold"
+
+        def embed_text(self, text):
+            self.calls.append(text)
+            time.sleep(0.05)
+            return None
+
+    cold = Cold()
+    began = time.perf_counter()
+    assert search_manager.warm(session, "", cold) is False
+    assert time.perf_counter() - began < 0.05
+    for _ in range(100):
+        if cold.calls:
+            break
+        time.sleep(0.01)
+    assert cold.calls == ["warm up"]

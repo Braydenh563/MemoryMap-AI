@@ -8,8 +8,8 @@ than the picture that was saved. Measured live with
 `scratchpad/ui-sweeps/graphviewpos.js` (needs a running app; this file is
 the static guard the Python suite can run on its own).
 
-The fix is the one on record: `graphCaptureView` (frontend/graph.js) stores
-each visible node's x/y, and `renderGraphCanvas` (frontend/graph-canvas.js,
+The fix is the one on record: `graphCaptureView` (frontend/js/graph.js) stores
+each visible node's x/y, and `renderGraphCanvas` (frontend/js/graph-canvas.js,
 the default renderer; the SVG one is a dev-only fallback slated for
 deletion) seeds the simulation with them. The decision made alongside it,
 2026-09-21: a restored arrangement holds, it does not re-settle, and only
@@ -25,8 +25,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "graph.js"
-GRAPH_CANVAS = Path(__file__).resolve().parents[1] / "frontend" / "graph-canvas.js"
+GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "js" / "graph.js"
+GRAPH_CANVAS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "graph-canvas.js"
 
 
 def _text(path: Path) -> str:

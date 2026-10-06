@@ -51,12 +51,12 @@ const VIEWPORT = (() => {
   await page.waitForTimeout(600);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(900);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", `Theme map ${tag}`);
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.fill("#wb-template-name", `Theme map ${tag}`);
+  await page.click('#wb-template-kind button[data-value="map"]');
   await page.waitForTimeout(150);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2600);
 
   // Three branches, so the branch palette is actually exercised — the root

@@ -327,3 +327,63 @@ def test_the_msi_carries_the_same_repair_shortcut_as_the_exe_installer():
     homes = [c for c in components if shortcut in list(c)]
     assert homes and ordinary[0] in list(homes[0]), "the Repair shortcut is not beside the ordinary one"
 
+
+def _release_notes(changelog_dir: Path, version: str, tmp_path: Path) -> str:
+    """The notes step's own script, run in bash on `changelog_dir`'s
+    CHANGELOG.md (read only), and the `notes` output it writes."""
+    import subprocess
+    import textwrap
+
+    step = WORKFLOW[WORKFLOW.index("Extract changelog entry for this version") :]
+    block = step[step.index("run: |\n") + len("run: |\n") : step.index("\n      - name:")]
+    script = textwrap.dedent(block).replace("${{ needs.resolve-version.outputs.version }}", version)
+    output = tmp_path / "github_output"
+    subprocess.run(
+        ["bash", "-c", script],
+        cwd=changelog_dir,
+        env={"GITHUB_OUTPUT": str(output), "GITHUB_REPOSITORY": "o/r", "PATH": "/usr/bin:/bin"},
+        check=True,
+    )
+    lines = output.read_text(encoding="utf-8").splitlines()
+    delim = lines[0].split("<<", 1)[1]
+    assert lines[-1] == delim
+    return "\n".join(lines[1:-1])
+
+
+def test_the_release_notes_are_the_versions_changelog_section(tmp_path):
+    """The notes step's awk range ended on its own start line (`## [x]`
+    matches `/^## /`), so the notes were always empty and every release fell
+    back to GitHub's generated list (the final scan, 2026-10-06). Run here
+    on the real CHANGELOG against a version that is in it."""
+    notes = _release_notes(ROOT, "0.3.32", tmp_path)
+    assert notes.lstrip().startswith("### Added"), notes[:200]
+    assert "A saved bookmark can be linked" in notes
+    assert "## [0.3.31]" not in notes and "## [0.3.32]" not in notes
+
+
+def test_no_typed_input_is_spliced_into_a_script():
+    """`${{ inputs.* }}` inside `run:` is substituted before the shell parses
+    the script, so a typed value is code there (the final scan, 2026-10-06).
+    Inputs go through `env:` instead."""
+    for block in WORKFLOW.split("run: |")[1:]:
+        script = block.split("\n      - ")[0]
+        assert "${{ inputs." not in script and "${{ github.event.inputs" not in script, script[:200]
+    assert "INPUT_VERSION: ${{ inputs.version }}" in WORKFLOW
+
+
+def test_a_long_release_section_is_cut_under_githubs_body_cap(tmp_path):
+    """GitHub refuses a release body over 125,000 characters, which would
+    fail the release itself; 0.4.0's section is about 278,000. The notes are
+    cut at a line end under the cap and point at the full file."""
+    bullets = "".join(f"- change number {n}, with é and words enough to be long\n" for n in range(6000))
+    (tmp_path / "CHANGELOG.md").write_text(
+        f"# Changelog\n\n## [9.9.9] - 2026-10-06\n\n### Fixed\n\n{bullets}\n## [9.9.8]\n\n- old\n",
+        encoding="utf-8",
+    )
+    notes = _release_notes(tmp_path, "9.9.9", tmp_path)
+    assert 100_000 < len(notes) < 125_000
+    assert notes.endswith("The full list is in [CHANGELOG.md](https://github.com/o/r/blob/v9.9.9/CHANGELOG.md).")
+    body = notes.rsplit("\n\n", 1)[0]
+    assert body.splitlines()[-1].endswith("enough to be long"), "cut mid-line"
+    assert "- old" not in notes
+

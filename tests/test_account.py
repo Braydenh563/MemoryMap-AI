@@ -279,7 +279,7 @@ def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
     # names the wait so the owner knows it is a throttle, not a lockout.
     refused = client.post("/auth/unlock", json={"password": "first-pass"})
     assert refused.status_code == 429
-    assert "try again" in refused.json()["detail"]
+    assert "try again" in refused.json()["detail"].lower()
 
 
 def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
@@ -307,7 +307,7 @@ def test_full_auth_flow(client):
     assert client.get("/auth/status").json() == {"setup_required": True, "auto_session": False}
     assert client.post("/entries", json={"content": "pre-password note"}).status_code == 201
 
-    token = client.post("/auth/setup", json={"password": "hunter2"}).json()["token"]
+    token = client.post("/auth/setup", json={"password": "hunter22"}).json()["token"]
     assert client.get("/auth/status").json() == {"setup_required": False, "auto_session": False}
 
     # Once a password exists the data routes lock without a token…
@@ -320,7 +320,7 @@ def test_full_auth_flow(client):
 
     # Wrong password rejected; right password issues a fresh token.
     assert client.post("/auth/unlock", json={"password": "wrong"}).status_code == 401
-    token2 = client.post("/auth/unlock", json={"password": "hunter2"}).json()["token"]
+    token2 = client.post("/auth/unlock", json={"password": "hunter22"}).json()["token"]
 
     # Locking kills that token.
     client.post("/auth/lock", headers={"X-Auth-Token": token2})

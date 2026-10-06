@@ -34,11 +34,11 @@ async function newBoard(page, name) {
   await page.waitForTimeout(500);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(700);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", name);
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", name);
+  await page.click('#wb-template-kind button[data-value="map"]');
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
 }
@@ -59,6 +59,8 @@ const ACTION_OF_ID = {
   "wb-map-bold": "look-bold",
   "wb-map-italic": "look-italic",
   "wb-map-core": "look-core",
+  //: The fill switch (a9973cf) is a look; this table did not know it yet.
+  "wb-map-fill": "look-fill",
   "wb-map-text-size": "look-size",
   "wb-map-align": "look-align",
   "wb-map-strip-color": "look-colour",

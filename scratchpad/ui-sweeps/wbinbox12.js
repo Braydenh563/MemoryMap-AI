@@ -28,10 +28,10 @@ async function newBoard(page, name) {
   await page.waitForTimeout(500);
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(700);
-  await page.click("#wb-boards-new");
+  await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", name);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", name);
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
 }
@@ -62,11 +62,15 @@ async function newBoard(page, name) {
 
   // --- the eleven arrange actions ------------------------------------------
   const arrange = await page.evaluate(() => {
-    const group = document.querySelector('.wb-context-group[data-wb-ctx="arrange"]');
+    //: The arrange controls are four groups now (hold together, line up,
+    //: space out, same size), each `data-wb-ctx="arrange"`: read all of them,
+    //: not the first, which held only Group and Ungroup and made this check
+    //: report ten controls missing that were on the bar.
+    const groups = [...document.querySelectorAll('.wb-context-group[data-wb-ctx="arrange"]')];
     const order = document.querySelector('.wb-context-group[data-wb-ctx="order"]');
     const shown = (el) => el && !el.classList.contains("hidden") && el.getBoundingClientRect().height > 0;
     const ids = (el) => (shown(el) ? [...el.querySelectorAll("button")].map((b) => b.id) : []);
-    return { arrange: ids(group), order: ids(order), arrangeShown: shown(group), orderShown: shown(order) };
+    return { arrange: groups.flatMap(ids), order: ids(order), arrangeShown: groups.some(shown), orderShown: shown(order) };
   });
   const want = [
     "wb-multi-group", "wb-multi-ungroup",

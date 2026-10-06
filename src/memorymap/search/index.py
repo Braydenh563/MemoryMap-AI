@@ -59,6 +59,8 @@ from sqlalchemy import event, select, text
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session, object_session
 
+from memorymap.entry.properties import strip as strip_properties
+
 logger = logging.getLogger("memorymap.search.index")
 
 #: The kinds the engine can return, and the kinds `kind:` accepts. The spec
@@ -519,7 +521,9 @@ def counts(session: Session) -> dict[str, int]:
 
 
 def _first_line(text_value: str | None, limit: int = 120) -> str:
-    for line in (text_value or "").splitlines():
+    # A note opening with properties is named by what follows them (KG4); the
+    # fence line itself ("---") was a result's title.
+    for line in strip_properties(text_value or "").splitlines():
         stripped = line.strip().lstrip("#").strip()
         if stripped:
             return stripped[:limit]
@@ -751,7 +755,8 @@ def _register_all() -> None:
 
 
 def _document_row(doc) -> Row | None:  # noqa: ANN001
-    if doc is None:
+    #: A binned document is out of search until it is restored (5 item 10).
+    if doc is None or getattr(doc, "deleted_at", None) is not None:
         return None
     flags = ["archived"] if getattr(doc, "archived_at", None) else []
     return Row(
@@ -774,14 +779,12 @@ def _attachment_row(att) -> Row | None:  # noqa: ANN001
     """
     if att is None:
         return None
-    parts = [
-        getattr(att, "caption", None),
-        getattr(att, "ocr_text", None),
-        getattr(att, "vision_ocr_text", None),
-    ]
+    from memorymap.core import readings
+
     return Row(
         title=att.filename or "",
-        body="\n".join(part for part in parts if part),
+        # Every reading, pages included (F10, `core/readings.text_of`).
+        body=readings.text_of(att, "attachment"),
         tags=getattr(att, "mime", "") or "",
         space=getattr(att, "workspace_id", "default") or "default",
         written=_written(getattr(att, "created_at", None)),
@@ -791,10 +794,13 @@ def _attachment_row(att) -> Row | None:  # noqa: ANN001
 def _media_row(media) -> Row | None:  # noqa: ANN001
     if media is None:
         return None
-    parts = [getattr(media, "caption", None), getattr(media, "ocr_text", None)]
+    from memorymap.core import readings
+
     return Row(
         title=getattr(media, "original_name", "") or "",
-        body="\n".join(part for part in parts if part),
+        # Every reading (F10): the vision model's reading of an upload, and
+        # its pages, were the two the search could not find words in.
+        body=readings.text_of(media, "upload"),
         space=getattr(media, "workspace_id", "default") or "default",
         written=_written(getattr(media, "created_at", None)),
     )
@@ -815,7 +821,7 @@ def _bookmark_row(mark) -> Row | None:  # noqa: ANN001
 
 
 def _reminder_row(rem) -> Row | None:  # noqa: ANN001
-    if rem is None:
+    if rem is None or getattr(rem, "deleted_at", None) is not None:
         return None
     flags = ["done"] if getattr(rem, "done", False) else ["open"]
     if getattr(rem, "priority", "") == "high":

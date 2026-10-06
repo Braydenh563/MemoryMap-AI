@@ -14,9 +14,9 @@ const print=(label,r)=>{const rows=Object.entries(r.buttons).sort((a,b)=>b[1].n-
   const {browser,page,OUT}=await boot();
   await page.click('[data-tab="library"]');await page.waitForTimeout(600);
   await page.click('[data-target="library-view-whiteboard"]');await page.waitForTimeout(700);
-  const nb=await page.$('#wb-boards-new'); if(nb&&await nb.isVisible()){await nb.click();await page.waitForTimeout(800);
-    // A name prompt opens as a confirm dialog; accept it with whatever it offers.
-    const ok=await page.$('.confirm-overlay button:not(.ghost), .confirm-overlay .confirm-ok, .confirm-overlay button'); if(ok){await ok.click();await page.waitForTimeout(1200);}}
+  const nb=await page.$('#wb-boards-new'); if(nb){await page.evaluate(()=>document.getElementById('wb-boards-new').click());await page.waitForTimeout(800);
+    // The New board dialog opens on Blank with a name filled in: Create.
+    const ok=await page.$('#wb-template-create'); if(ok){await ok.click();await page.waitForTimeout(1200);}}
   await page.screenshot({path:OUT+'/surf-whiteboard.png'});
   print('whiteboard', await page.evaluate(sig('.tab-page:not(.hidden)')));
   await page.keyboard.press('Escape');await page.waitForTimeout(300);

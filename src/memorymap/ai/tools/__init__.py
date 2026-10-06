@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
-from datetime import datetime
 from typing import Callable
 
 from datetime import timedelta
@@ -25,10 +25,12 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
+from memorymap.ai.provider import set_write_tools
 from memorymap.core import deps, events
 from memorymap.core.database import LIKE_ESCAPE, Category, Entry, Reminder, like_escape
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
+from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import search_manager
 
 
@@ -36,6 +38,7 @@ from memorymap.search import search_manager
 # external use (tools.MAX_LIST_LIMIT, tools._require_note, ...), and an
 # explicit list is what lets ruff (and a reader) tell a real name from a
 # typo instead of flagging all ~220 uses below as "may be undefined".
+from . import _common, contracts
 from ._common import (  # noqa: F401
     DEFAULT_CONTEXT_TOKENS,
     DEFAULT_LIST_LIMIT,
@@ -160,7 +163,7 @@ def _graph_summary(session: Session, entry: Entry, how: str, hops: int, via: int
     text = _readable(entry)
     summary = {
         "id": entry.id,
-        "preview": _clip(text, GRAPH_PREVIEW_CHARS),
+        "preview": _clip(strip_properties(text).lstrip(), GRAPH_PREVIEW_CHARS),
         "category": manager.category_name_for(session, entry),
         "how": how,
         "hops": hops,
@@ -512,7 +515,7 @@ def _path_between(session: Session, args: dict) -> dict:
             {
                 "id": note_id,
                 "preview": _clip(
-                    _readable(index.entries[note_id]), GRAPH_PREVIEW_CHARS
+                    strip_properties(_readable(index.entries[note_id])).lstrip(), GRAPH_PREVIEW_CHARS
                 ),
                 "category": manager.category_name_for(session, index.entries[note_id]),
             }
@@ -565,7 +568,7 @@ def _notebook_structure(session: Session, args: dict) -> dict:
         entry = index.entries[note_id]
         out = {
             "id": note_id,
-            "preview": _clip(_readable(entry), GRAPH_PREVIEW_CHARS),
+            "preview": _clip(strip_properties(_readable(entry)).lstrip(), GRAPH_PREVIEW_CHARS),
         }
         out.update(extra or {})
         return out
@@ -998,6 +1001,15 @@ from .whiteboard import (  # noqa: E402
     _read_whiteboard,
     _search_whiteboard,
 )
+from .board_edit import (  # noqa: E402
+    _add_board_shape,
+    _delete_board_item,
+    _edit_board_item,
+    _list_library,
+    _move_board_item,
+    _place_library_item,
+    _restore_board_item,
+)
 
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
@@ -1212,6 +1224,11 @@ def _delete_skill(session: Session, args: dict) -> dict:
     if len(remaining) == len(stored):
         if any(name == shipped["name"] for shipped in skills.builtins()):
             raise ToolError(f"“{name}” is a built-in skill and can't be deleted")
+        if any(name == own["name"] for own in skills.folder_skills(config)[0]):
+            # The person's own file (B8): the app does not delete it for them.
+            raise ToolError(
+                f"“{name}” comes from a file in the skills folder; delete the file to remove it"
+            )
         raise ToolError(f"There's no saved skill called “{name}”")
     config.set_preference("skills", remaining)
     return {"name": name, "label": f"ph:lightning Deleted the “{name}” skill"}
@@ -1261,6 +1278,8 @@ def _edit_note(session: Session, args: dict) -> dict:
     undo = _undo_edit(session, entry)  # before the write, or it undoes nothing
     content = args.get("content")
     content_changed = content is not None and str(content) != entry.content
+    before_category = manager.category_name_for(session, entry)
+    before_tags = manager.entry_tags(entry)
     manager.update_entry(
         session,
         entry,
@@ -1271,7 +1290,31 @@ def _edit_note(session: Session, args: dict) -> dict:
     if content_changed:
         _refresh_embedding(session, entry)
     result = _note_summary(session, entry)
-    result["label"] = f"ph:note-pencil Updated note #{entry.id}"
+    #: What changed, and the category it is still in when that did not
+    #: (Qwen2.5-3B, 2026-10-05: "Move the plumber note to Home" sent the
+    #: name as a tag and then answered "moved from Work to Home" off a label
+    #: that said only "Updated note #1"). The truth goes back with the call.
+    after_category = result["category"]
+    changed = [
+        name
+        for name, moved in (
+            ("content", content_changed),
+            ("category", after_category != before_category),
+            ("tags", result["tags"] != before_tags),
+        )
+        if moved
+    ]
+    result["changed"] = changed
+    parts = []
+    if "category" in changed:
+        parts.append(f"moved from {before_category} to {after_category}")
+    if "tags" in changed:
+        parts.append(f"tags now {', '.join(result['tags']) or 'none'}")
+    if "content" in changed:
+        parts.append("text rewritten")
+    if "category" not in changed:
+        parts.append(f"still in {after_category}")
+    result["label"] = f"ph:note-pencil Updated note #{entry.id}: {'; '.join(parts)}"
     result["undo"] = undo
     return result
 
@@ -1308,7 +1351,10 @@ def _tag_note(session: Session, args: dict) -> dict:
         raise ToolError("Must provide at least one note_id")
 
     add_tags = args.get("add") or []
-    remove_tags = {str(r) for r in args.get("remove") or []}
+    #: Folded: a tag is one tag to the person whatever its case (as in the
+    #: manager's `edit_tags_on_notes`); "remove urgent" left "Urgent" on the
+    #: note while the label said it was gone (caught by the B5 postcondition).
+    remove_tags = {str(r).casefold() for r in args.get("remove") or []}
 
     results = []
     undos = []
@@ -1329,10 +1375,10 @@ def _tag_note(session: Session, args: dict) -> dict:
 
         undos.append(_undo_edit(session, entry))
         tags = manager.entry_tags(entry)
+        tags = [t for t in tags if t.casefold() not in remove_tags]
         for tag in add_tags:
-            if str(tag) not in tags:
+            if str(tag).casefold() not in {t.casefold() for t in tags}:
                 tags.append(str(tag))
-        tags = [t for t in tags if t not in remove_tags]
         manager.update_entry(session, entry, tags=tags)
 
         tagged.append(entry.id)
@@ -1379,6 +1425,57 @@ def _pin_note(session: Session, args: dict) -> dict:
     return result
 
 
+#: The most a `link_type` description may cost on the wire. Prompt text is
+#: budgeted (`agent.PROSE_BUDGET_CHARS`) and this one is read on every round
+#: of any turn that offers `link_notes`, so a notebook with sixty relation
+#: types cannot be allowed to put sixty names in front of a 3B model.
+LINK_TYPE_DESCRIPTION_CHARS = 420
+
+_LINK_TYPE_LEAD = (
+    "Optional kind of link, read as note_id <kind> the other note. One of: "
+)
+_LINK_TYPE_TAIL = ". Leave it out when unsure."
+
+
+def link_type_description(types: dict[str, dict]) -> str:
+    """The `link_type` parameter's text for these relation types
+    (`manager.relation_types`): the built-ins first, then the person's own,
+    cut to `LINK_TYPE_DESCRIPTION_CHARS` with a count of what was left out."""
+    keys = list(types)
+    room = LINK_TYPE_DESCRIPTION_CHARS - len(_LINK_TYPE_LEAD) - len(_LINK_TYPE_TAIL)
+    shown: list[str] = []
+    used = 0
+    for key in keys:
+        cost = len(key) + (2 if shown else 0)
+        # Keep room for "(+99 more)" so the count itself cannot overflow.
+        if used + cost > room - 12 and len(shown) < len(keys):
+            break
+        shown.append(key)
+        used += cost
+    text = ", ".join(shown)
+    left = len(keys) - len(shown)
+    if left:
+        text += f" (+{left} more)"
+    return f"{_LINK_TYPE_LEAD}{text}{_LINK_TYPE_TAIL}"
+
+
+def _resolve_link_type(session: Session, wanted: object) -> str | None:
+    """The key of the relation type the model named, by key or by name in any
+    case ("Part of" for `part_of`); None when none was named. An unknown one
+    is a ToolError that lists what exists, so the retry is one call."""
+    text = " ".join(str(wanted or "").split())
+    if not text:
+        return None
+    types = manager.relation_types(session)
+    folded = text.casefold()
+    snake = folded.replace(" ", "_").replace("-", "_")
+    for key, row in types.items():
+        if folded in (key.casefold(), str(row.get("name") or "").casefold()) or snake == key.casefold():
+            return key
+    listed = link_type_description(types).removeprefix(_LINK_TYPE_LEAD).removesuffix(_LINK_TYPE_TAIL)
+    raise ToolError(f"There is no kind of link called “{_clip(text, 40)}”. Use one of: {listed}.")
+
+
 def _link_notes(session: Session, args: dict) -> dict:
     source = _require_note(session, args)
     other_ids = _requested_ids(args, "other_note_id", "other_note_ids")
@@ -1390,6 +1487,7 @@ def _link_notes(session: Session, args: dict) -> dict:
     # rather than just *that*. Applied to every target in this call; a model
     # linking notes for different reasons in one turn makes separate calls.
     reason = str(args.get("reason") or "").strip() or None
+    link_type = _resolve_link_type(session, args.get("link_type"))
 
     linked = []
     for target_id in other_ids:
@@ -1402,7 +1500,7 @@ def _link_notes(session: Session, args: dict) -> dict:
         target = _require_note(session, {"note_id": target_id})
         if target.is_deleted:
             continue
-        link = manager.create_link(session, source, target, reason=reason)
+        link = manager.create_link(session, source, target, reason=reason, link_type=link_type)
         if link is not None:
             linked.append(target.id)
 
@@ -1500,15 +1598,37 @@ def _restore_note(session: Session, args: dict) -> dict:
 
 
 def _set_reminder(session: Session, args: dict) -> dict:
+    """A reminder at a time the app works out (INBOX 527; AGENT_SKILLS_REFORM,
+    decided 2026-09-21): `when` is the user's own words, resolved by
+    `ai/when.py` against their clock; `due_at` stays as an escape hatch. Both
+    without an offset mean the user's local time. Measured before: `due_at`
+    "2026-10-05T09:00" was stored as 09:00 UTC, 19:00 for a user at UTC+10.
+    """
+    from memorymap.ai import when as when_words
+    from memorymap.core.config import user_now
+
     text = str(args["text"]).strip()
     if not text:
         raise ToolError("The reminder text is empty")
-    try:
-        due_at = datetime.fromisoformat(str(args["due_at"]))
-    except ValueError as exc:
+    now = user_now(deps.get_config())
+    said = str(args.get("when") or "").strip()
+    exact = str(args.get("due_at") or "").strip()
+    due_at = when_words.resolve(said, now) if said else None
+    if due_at is None and exact:
+        due_at = when_words.resolve(exact, now)
+    if due_at is None:
         raise ToolError(
-            "due_at must be an ISO date-time like 2026-07-19T09:00"
-        ) from exc
+            f"Couldn't read '{said or exact}' as a time. Put the user's own "
+            "words in `when`, like 'tomorrow at 9am', 'in 20 minutes' or "
+            "'Friday evening'."
+            if said or exact
+            else "Say when in `when`, in the user's words, like 'tomorrow at 9am'."
+        )
+    if due_at < now - timedelta(minutes=1):
+        raise ToolError(
+            f"{due_at.strftime('%A %d %B %H:%M')} has already passed. Ask the "
+            "user for a time that has not happened yet."
+        )
     entry_id = args.get("note_id")
     if entry_id is not None:
         _require_note(session, {"note_id": entry_id})  # validates it exists
@@ -1525,7 +1645,10 @@ def _set_reminder(session: Session, args: dict) -> dict:
         "id": reminder.id,
         "text": text,
         "due_at": due_at.isoformat(),
-        "label": f"⏰ Set a reminder for {due_at.strftime('%d %b %Y %H:%M')}",
+        #: Said back in words, so the answer repeats the app's reading of the
+        #: time rather than the model's own arithmetic.
+        "due": due_at.strftime("%A %d %B %Y, %H:%M"),
+        "label": f"⏰ Set a reminder for {due_at.strftime('%a %d %b %Y %H:%M')}",
     }
 
 
@@ -1590,7 +1713,12 @@ def _complete_reminder(session: Session, args: dict) -> dict:
 
 
 def _rename_tag(session: Session, args: dict) -> dict:
-    changed = manager.rename_tag(session, str(args["old"]), str(args["new"]))
+    try:
+        changed = manager.rename_tag(session, str(args["old"]), str(args["new"]))
+    except ValueError as exc:
+        # A blank new name: told to the model as a tool error it can fix,
+        # not raised as a crash of the whole turn.
+        raise ToolError(str(exc)) from exc
     return {
         "entries_changed": changed,
         "label": f"ph:tag Renamed tag “{args['old']}” → “{args['new']}” ({changed} notes)",
@@ -1635,6 +1763,40 @@ def _web_search(session: Session, args: dict) -> dict:
 READ_URL_MAX_CHARS = 6000
 
 
+#: How many web reads one round may run side by side.
+PREFETCH_WORKERS = 4
+
+
+def prefetch_web(calls: list[tuple[str, dict]]) -> None:
+    """Run these `web_search` / `read_url` calls' network halves in parallel,
+    filling `websearch`'s caches so the calls themselves, run afterwards in
+    order, are answered from memory (INBOX 527; see `agent._prefetch_outbound`).
+    Nothing here raises: a failed fetch is simply not cached, and the real
+    call meets the same failure and reports it the ordinary way.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
+        return
+    searxng_url, provider = websearch.settings_from(config)
+
+    def one(call: tuple[str, dict]) -> None:
+        name, args = call
+        try:
+            if name == "read_url" and str(args.get("url") or "").strip():
+                websearch.prefetch_readable(str(args["url"]).strip())
+            elif name == "web_search" and str(args.get("query") or "").strip():
+                websearch.search_web(str(args["query"]), limit=5, searxng_url=searxng_url or None, provider=provider)
+        except Exception:  # noqa: BLE001  # the real call reports it
+            return
+
+    with ThreadPoolExecutor(max_workers=min(PREFETCH_WORKERS, len(calls))) as pool:
+        list(pool.map(one, calls))
+
+
 def _read_url(session: Session, args: dict) -> dict:
     """Fetch one web page and hand back its readable text.
 
@@ -1656,7 +1818,7 @@ def _read_url(session: Session, args: dict) -> dict:
     if not url:
         raise ToolError("No URL was given")
     try:
-        page = websearch.fetch_readable(url)
+        page = websearch.fetch_readable_cached(url)
     except websearch.WebSearchError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -2012,7 +2174,7 @@ def summarise_turns(turns: list[tuple[str, str]]) -> dict:
     if not summary:
         # Better to say nothing happened than to hand back an empty summary
         # the caller would send in place of real turns.
-        raise ToolError("The model returned an empty summary, try again.")
+        raise ToolError("The AI returned an empty summary. Try again.")
     return {
         "summary": summary,
         "turns": len(turns),
@@ -2077,7 +2239,7 @@ def validate_make_plan(arguments: dict) -> dict:
     """
     goal = " ".join(str(arguments.get("goal") or "").split())
     if not goal:
-        raise ToolError("make_plan needs a goal: the whole job in one sentence.")
+        raise ToolError("A plan needs a goal: the whole job in one sentence.")
     steps = _plan_steps(arguments.get("steps"))
     if len(steps) < MIN_PLAN_STEPS:
         raise ToolError(
@@ -2507,8 +2669,9 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "since": {
                         "type": "string",
-                        "description": "Only notes from the last N days, or since "
-                        "an ISO date like 2026-07-01 (optional)",
+                        "description": "Only notes from a window in the user's "
+                        "words: 'this week', 'since Friday', 'last month', or "
+                        "a number of days (optional)",
                     },
                     "limit": {
                         "type": "integer",
@@ -2548,8 +2711,9 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "since": {
                         "type": "string",
-                        "description": "Only count notes from the last N days, "
-                        "or since an ISO date like 2026-07-01 (optional)",
+                        "description": "Only count notes from a window in the "
+                        "user's words: 'this week', 'since Friday', 'last "
+                        "month', or a number of days (optional)",
                     },
                 },
             },
@@ -2895,6 +3059,124 @@ TOOLS: dict[str, ToolSpec] = {
             },
             _link_map_nodes,
         ),
+        #: Editing what is on a board (FEAT-12, WHITEBOARD_PLAN decision 29):
+        #: move, edit and delete ask the person first, like every other tool
+        #: that changes their own work; each returns an undo.
+        ToolSpec(
+            "move_board_item",
+            "Move one item on a board so its top-left corner is at x, y (board "
+            "units). kind is 'card', 'object' (text box, sticky or frame) or "
+            "'shape'; read_whiteboard gives each item's kind, id and corner.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "description": "'card', 'object' or 'shape'"},
+                    "item_id": {"type": "integer", "description": "The item's id from read_whiteboard"},
+                    "x": {"type": "number", "description": "New left edge"},
+                    "y": {"type": "number", "description": "New top edge"},
+                },
+                "required": ["kind", "item_id", "x", "y"],
+            },
+            _move_board_item,
+            destructive=True,
+        ),
+        ToolSpec(
+            "edit_board_item",
+            "Change a text box's, sticky's, frame's or shape's words, line "
+            "colour or fill, e.g. 'make the risks red'. A card shows its note: "
+            "edit the note instead.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "description": "'object' or 'shape'"},
+                    "item_id": {"type": "integer", "description": "The item's id from read_whiteboard"},
+                    "text": {"type": "string", "description": "New words (optional)"},
+                    "color": {"type": "string", "description": "Line or text colour, like #cc3333 (optional)"},
+                    "fill": {"type": "string", "description": "Fill colour, like #ffee99 (optional)"},
+                },
+                "required": ["kind", "item_id"],
+            },
+            _edit_board_item,
+            destructive=True,
+        ),
+        ToolSpec(
+            "delete_board_item",
+            "Take one item off a board (its connectors go with it). A card's "
+            "note stays in the notebook. The app asks the person first.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "description": "'card', 'object' or 'shape'"},
+                    "item_id": {"type": "integer", "description": "The item's id from read_whiteboard"},
+                },
+                "required": ["kind", "item_id"],
+            },
+            _delete_board_item,
+            destructive=True,
+        ),
+        ToolSpec(
+            "restore_board_item",
+            "Put back a board item delete_board_item took off: pass the item "
+            "text its undo gave. Only for undoing a delete.",
+            {
+                "type": "object",
+                "properties": {"item": {"type": "string", "description": "The undo's item text"}},
+                "required": ["item"],
+            },
+            _restore_board_item,
+        ),
+        ToolSpec(
+            "add_board_shape",
+            "Draw a rectangle, ellipse or diamond with words in it, or a frame "
+            "(a titled region), on a board at x, y with a width and height.",
+            {
+                "type": "object",
+                "properties": {
+                    "board_id": {"type": "integer", "description": "The board's id; omit for the default board"},
+                    "shape": {"type": "string", "description": "'rect', 'ellipse', 'diamond' or 'frame'"},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "width": {"type": "number"},
+                    "height": {"type": "number"},
+                    "text": {"type": "string", "description": "Words in the shape, or the frame's title"},
+                    "color": {"type": "string", "description": "Line colour, like #335599 (optional)"},
+                    "fill": {"type": "string", "description": "Fill colour (optional)"},
+                },
+                "required": ["shape"],
+            },
+            _add_board_shape,
+        ),
+        ToolSpec(
+            "list_library",
+            "Find shapes, flowchart symbols, arrows, frames (Kanban, SWOT, "
+            "retrospective), icons and the person's own saved items in the "
+            "board's object library, by a word. Gives each a ref for "
+            "place_library_item.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "A word, like decision, kanban or star"},
+                    "limit": {"type": "integer", "description": "How many (default 12, at most 30)"},
+                },
+            },
+            _list_library,
+        ),
+        ToolSpec(
+            "place_library_item",
+            "Place a library item (a ref from list_library) on a board, centred "
+            "at x, y. It becomes an ordinary copy on the board.",
+            {
+                "type": "object",
+                "properties": {
+                    "ref": {"type": "string", "description": "From list_library, like builtin:flowchart/decision"},
+                    "board_id": {"type": "integer", "description": "The board's id; omit for the default board"},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                },
+                "required": ["ref"],
+            },
+            _place_library_item,
+        ),
         ToolSpec(
             "search_chat_history",
             "Look through earlier conversations with the user, including "
@@ -3157,7 +3439,7 @@ TOOLS: dict[str, ToolSpec] = {
                         "items": {"type": "integer"},
                         "description": "IDs of multiple notes to tag (optional)",
                     },
-                    "add": {"type": "array", "items": {"type": "string"}},
+                    "add": {"type": "array", "items": {"type": "string"}, "description": "Tags to add"},
                     "remove": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": [],
@@ -3177,7 +3459,7 @@ TOOLS: dict[str, ToolSpec] = {
                 "type": "object",
                 "properties": {
                     "note_id": _NOTE_ID,
-                    "pinned": {"type": "boolean", "description": "false to unpin"},
+                    "pinned": {"type": "boolean", "description": "Leave out to pin; false only to unpin"},
                 },
                 "required": ["note_id"],
             },
@@ -3202,6 +3484,12 @@ TOOLS: dict[str, ToolSpec] = {
                             "Optional: why these notes are connected, in a few words "
                             "(e.g. 'both about scheduling'). Shown on the graph and in "
                             "Trace. Skip it when the connection is obvious."
+                        ),
+                    },
+                    "link_type": {
+                        "type": "string",
+                        "description": link_type_description(
+                            {key: {} for key in manager.LINK_TYPES}
                         ),
                     },
                 },
@@ -3259,15 +3547,19 @@ TOOLS: dict[str, ToolSpec] = {
             #: reminder Atlas makes while reading a note is exactly the case
             #: the link is for, and "optionally attached to a note" does not
             #: tell a small model that.
-            "Create a reminder. When the reminder comes out of a note you "
+            "Create a reminder; put when in the user's own words. If it comes out of a note you "
             "have just read, pass that note's id so the two stay joined.",
             {
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "What to remind about"},
+                    "when": {
+                        "type": "string",
+                        "description": "The user's words, e.g. 'tomorrow 9am', 'in 20 minutes'",
+                    },
                     "due_at": {
                         "type": "string",
-                        "description": "ISO date-time, e.g. 2026-07-19T09:00",
+                        "description": "An exact ISO date-time, only if you have one",
                     },
                     "note_id": {
                         "type": "integer",
@@ -3279,7 +3571,7 @@ TOOLS: dict[str, ToolSpec] = {
                         "description": "Priority (optional, defaults to normal)",
                     },
                 },
-                "required": ["text", "due_at"],
+                "required": ["text"],
             },
             _set_reminder,
         ),
@@ -3443,6 +3735,12 @@ WRITE_TOOLS = {
     "create_mindmap",
     "add_map_node",
     "link_map_nodes",
+    "move_board_item",
+    "edit_board_item",
+    "delete_board_item",
+    "restore_board_item",
+    "add_board_shape",
+    "place_library_item",
     # The category tools write too (INBOX 431 (e)): left out, a turn that
     # merged two categories counted as having written nothing, so the
     # claimed-a-save net could fire on it, and a skill that only tidied
@@ -3452,6 +3750,7 @@ WRITE_TOOLS = {
     "merge_categories",
     "delete_category",
 }
+set_write_tools(WRITE_TOOLS)
 
 
 # --- which tools a turn is offered (roadmap §11a) --------------------------------
@@ -3570,7 +3869,13 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("edit_note", "pin_note"),
         (
             "edit", "change", "update", "rewrite", "fix", "correct", "amend",
+            "append",
             "pin", "unpin", "reword", "shorten", "expand",
+            # Filing one note is `edit_note`'s `category`, not a category
+            # tool (H4, Qwen2.5-3B): "File the dentist note under Health" was
+            # offered only the category tree's four tools and called
+            # `count_notes`, the one thing on offer that seemed near it.
+            "file ", "filed ", "move ",
         ),
     ),
     (
@@ -3623,6 +3928,8 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             # tools and not the map tools is the worst of both, the model
             # answers by placing cards on a canvas instead.
             "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+            "move_board_item", "edit_board_item", "delete_board_item", "add_board_shape",
+            "list_library", "place_library_item",
         ),
         (
             "whiteboard", "board", "canvas", "diagram", "mind map", "mindmap",
@@ -3711,6 +4018,19 @@ def is_follow_through(question: str) -> bool:
     return any(cue in text for cue in FOLLOW_THROUGH)
 
 
+#: "add …/put …/write … to/in/into my|the|that … note": an edit.
+_ADD_TO_NOTE = re.compile(
+    r"\b(?:add|put|write|stick|include)\b[^.?!\n]{1,80}?\b(?:to|in|into|onto)\s+(?:my|the|that|this)\b[^.?!\n]{0,40}?\bnote\b",
+    re.IGNORECASE,
+)
+
+
+def adds_to_a_named_note(question: str) -> bool:
+    """Whether a request adds to a note it names ("put X in my Y note"), so
+    the write it wants is an edit, never a new note."""
+    return bool(_ADD_TO_NOTE.search(question or ""))
+
+
 def focus_for(question: str, recent: str = "") -> list[str] | None:
     """The tools worth offering for this question, or None for all of them.
 
@@ -3770,6 +4090,11 @@ def focus_detail(question: str, recent: str = "") -> toolwords.Focus:
             if asking and name in WRITE_TOOLS:
                 continue
             wanted.append(name)
+
+    # "Add X to my Y note" is an edit, and no single cue word says so (INBOX
+    # 527: Qwen2.5-1.5B, offered no edit_note, rewrote the note in prose).
+    if not asking and _ADD_TO_NOTE.search(asked):
+        wanted.append("edit_note")
 
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-
@@ -3883,7 +4208,7 @@ def _example_value(field: dict):
     return _EXAMPLE_VALUES.get(kind, "…")
 
 
-def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
+def ollama_tools(allowed: list[str] | None = None, session: Session | None = None) -> list[dict]:
     """The registry in the shape Ollama's /api/chat 'tools' field wants,
     minus any the user disabled, a model can't be tempted by a tool it
     never hears about.
@@ -3895,7 +4220,7 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
     off in Settings → Tools.
     """
     wanted = set(allowed) if allowed else None
-    return [
+    offered = [
         {
             "type": "function",
             "function": {
@@ -3907,6 +4232,30 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
         for spec in TOOLS.values()
         if tool_enabled(spec.name) and (wanted is None or spec.name in wanted)
     ]
+    return with_relation_types(offered, session) if session is not None else offered
+
+
+def with_relation_types(offered: list[dict], session: Session) -> list[dict]:
+    """`link_notes` described with this notebook's own kinds of link (KG3):
+    a copy of that one schema, so the registry stays what it was."""
+    for index, spec in enumerate(offered):
+        function = spec.get("function") or {}
+        props = (function.get("parameters") or {}).get("properties") or {}
+        if function.get("name") != "link_notes" or "link_type" not in props:
+            continue
+        try:
+            kinds = manager.relation_types(session)
+        except Exception:  # noqa: BLE001
+            # A session that cannot list kinds (a test double, a closed
+            # session) keeps the registry's own description: the built-ins.
+            continue
+        text = link_type_description(kinds)
+        parameters = {
+            **function["parameters"],
+            "properties": {**props, "link_type": {**props["link_type"], "description": text}},
+        }
+        offered = [*offered[:index], {**spec, "function": {**function, "parameters": parameters}}, *offered[index + 1 :]]
+    return offered
 
 
 # --- fitting the registry to the model that will read it -------------------------
@@ -4112,6 +4461,18 @@ def tool_catalog() -> list[dict]:
             "enabled": tool_enabled(spec.name),
             "online": spec.name in ("web_search", "read_url"),
             "counts": spec.name in COUNTING_TOOLS,
+            #: The Settings list's group (CHAT_PLAN, INBOX 71): what a tool
+            #: does to the notebook, the one question a person switching it
+            #: off is asking.
+            "group": (
+                "online"
+                if spec.name in ("web_search", "read_url")
+                else "confirm"
+                if spec.destructive
+                else "write"
+                if spec.name in WRITE_TOOLS
+                else "read"
+            ),
         }
         for spec in TOOLS.values()
     ]
@@ -4125,7 +4486,28 @@ def confirm_label(name: str, arguments: dict) -> str:
         return f"Remove the tag “{arguments.get('name', '?')}” from every note"
     if name == "delete_skill":
         return f"Delete the saved skill “{arguments.get('name', '?')}”"
-    return f"Run {name}"
+    if name == "move_board_item":
+        return f"Move {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} on the board"
+    if name == "edit_board_item":
+        return f"Change {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} on the board"
+    if name == "delete_board_item":
+        return f"Take {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} off the board"
+    #: The writes and reaches-out that park once a turn has read text from
+    #: outside (SEC-02): the card says what will happen, not the tool's name.
+    if name == "edit_note":
+        return f"Change note #{arguments.get('note_id', '?')}"
+    if name == "create_note":
+        return "Make a new note"
+    if name == "save_skill":
+        return f"Save the skill “{arguments.get('name', '?')}”"
+    if name == "set_reminder":
+        return "Set a reminder"
+    if name == "read_url":
+        return f"Open {arguments.get('url', 'a web page')}"
+    if name == "web_search":
+        return f"Search the web for “{arguments.get('query', '?')}”"
+    words = name.replace("_", " ")
+    return f"{words[:1].upper()}{words[1:]}"
 
 
 def _ai_actor(name: str, model: str | None) -> str:
@@ -4138,15 +4520,212 @@ def _ai_actor(name: str, model: str | None) -> str:
     return actor
 
 
+#: Words read as a boolean (INBOX 527). Before `check_arguments`, `pin_note`
+#: read the string "false" as true.
+_TRUE_WORDS = frozenset({"true", "yes", "y", "on", "1"})
+_FALSE_WORDS = frozenset({"false", "no", "n", "off", "0", "none", ""})
+_INT_TEXT = re.compile(r"#?-?\d{1,12}")
+
+
+def _fold_key(key: str) -> str:
+    """`noteId`, `Note-ID`, `note id` -> `note_id`."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(key))
+    return re.sub(r"[^a-z0-9]+", "_", spaced.lower()).strip("_")
+
+
+def _coerce_array(value: object, schema: dict) -> tuple[object, bool]:
+    items = schema.get("items") or {}
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                value = json.loads(text)
+            except (ValueError, RecursionError):  # a runaway "[[[[" is a bad argument
+                return value, False
+        elif items.get("type") == "string":
+            value = [part.strip() for part in text.split(",") if part.strip()]
+        else:
+            value = [value]
+    if not isinstance(value, list):
+        value = [value]
+    if not items.get("type"):
+        return value, True
+    out = []
+    for item in value:
+        coerced, ok = _coerce(item, items)
+        if not ok:
+            return value, False
+        out.append(coerced)
+    return out, True
+
+
+def _coerce(value: object, schema: dict) -> tuple[object, bool]:
+    """(value as the schema's type, True), or (value, False) when it cannot be
+    read as that type without guessing."""
+    kind = schema.get("type")
+    if kind == "integer":
+        if isinstance(value, bool):
+            return value, False
+        if isinstance(value, int):
+            return value, True
+        if isinstance(value, float) and value.is_integer():
+            return int(value), True
+        if isinstance(value, str) and _INT_TEXT.fullmatch(value.strip()):
+            return int(value.strip().lstrip("#")), True
+        return value, False
+    if kind == "number":
+        if isinstance(value, bool):
+            return value, False
+        # Finite only: "nan" and "inf" parse as floats, and a handler that
+        # compares or divides by one misbehaves without saying so (sweep 1004).
+        if isinstance(value, int):
+            return value, True
+        if isinstance(value, float):
+            return (value, True) if math.isfinite(value) else (value, False)
+        try:
+            number = float(str(value).strip())
+        except ValueError:
+            return value, False
+        return (number, True) if math.isfinite(number) else (value, False)
+    if kind == "boolean":
+        if isinstance(value, bool):
+            return value, True
+        word = str(value).strip().lower()
+        if word in _TRUE_WORDS or word in _FALSE_WORDS:
+            return word in _TRUE_WORDS, True
+        return value, False
+    if kind == "string":
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            value = str(value)
+        if not isinstance(value, str):
+            return value, False
+        enum = schema.get("enum")
+        if enum and value not in enum:
+            folded = {str(e).lower(): e for e in enum}
+            hit = folded.get(value.strip().lower())
+            return (hit, True) if hit is not None else (value, False)
+        return value, True
+    if kind == "array":
+        return _coerce_array(value, schema)
+    if kind == "object":
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except (ValueError, RecursionError):  # a runaway nesting is a bad argument
+                return value, False
+        return value, isinstance(value, dict)
+    return value, True
+
+
+def _describe_param(key: str, schema: dict) -> str:
+    """`note_id (integer)`, `tags (list of strings)`, `priority ('low' or ...)`."""
+    kind = schema.get("type", "value")
+    if kind == "array":
+        kind = f"list of {(schema.get('items') or {}).get('type', 'value')}s"
+    if schema.get("enum"):
+        kind = " or ".join(repr(e) for e in schema["enum"])
+    return f"{key} ({kind})"
+
+
+def example_arguments(name: str) -> str:
+    """One valid call's required arguments for `name`, as JSON: what a failed
+    call is shown, so the retry copies a shape rather than parses a rule."""
+    spec = TOOLS.get(name)
+    if spec is None:
+        return "{}"
+    props = spec.parameters.get("properties") or {}
+    samples = {"integer": 12, "number": 1, "boolean": True, "string": "...", "object": {}}
+    example: dict = {}
+    for key in spec.parameters.get("required") or []:
+        schema = props.get(key) or {}
+        if schema.get("enum"):
+            example[key] = schema["enum"][0]
+        elif schema.get("type") == "array":
+            example[key] = [samples.get((schema.get("items") or {}).get("type"), "...")]
+        else:
+            example[key] = samples.get(schema.get("type"), "...")
+    return json.dumps(example)
+
+
+#: Names a model reaches for that no spelling rule reaches: Qwen2.5-1.5B
+#: asked to tag a note looked for `tags` and, finding `add`, said it could
+#: not tag (INBOX 527).
+_PARAM_ALIASES = {"tags": "add", "tag": "add", "untag": "remove"}
+
+
+def _schema_key(key: str, props: dict, given: dict) -> str:
+    """The schema's own name for a key the model spelled its own way, or the
+    key unchanged. `id` folds to the tool's one `*_id` parameter only."""
+    if key in props:
+        return key
+    alias = _PARAM_ALIASES.get(_fold_key(key))
+    if alias in props and alias not in given:
+        return alias
+    by_fold = {_fold_key(k): k for k in props}
+    folded = _fold_key(key)
+    target = by_fold.get(folded) or by_fold.get(f"{folded}s") or by_fold.get(folded[:-1] if folded.endswith("s") else "")
+    ids = [k for k in props if k.endswith("_id")]
+    if target is None and folded == "id" and len(ids) == 1:
+        target = ids[0]
+    return target if target and target not in given else key
+
+
+def check_arguments(name: str, arguments: dict) -> tuple[dict, str | None]:
+    """(the arguments in the schema's names and types, None), or (them, the
+    one-line reason they cannot run), before any handler sees them (INBOX 527).
+
+    Measured before: 20 of 31 tools with a required parameter answered a
+    missing one with "the arguments were missing something", naming nothing,
+    and `get_note {"id": 1}` failed outright. Now a spelling is folded
+    (`noteId`, `id` for the one id parameter, `tag` for `tags`), a value is
+    read as its schema types it ("12", "false", one tag for a list, an enum in
+    any case), and every missing required parameter is named with its type
+    and an example call. A key the schema does not name is kept: a few
+    handlers read internal ones.
+    """
+    spec = TOOLS.get(name)
+    if spec is None or not isinstance(arguments, dict):
+        return dict(arguments or {}), None
+    props = spec.parameters.get("properties") or {}
+    args = {_schema_key(key, props, arguments): value for key, value in arguments.items()}
+    wrong = []
+    for key, schema in props.items():
+        if args.get(key) is None:
+            continue
+        coerced, ok = _coerce(args[key], schema)
+        if ok:
+            args[key] = coerced
+        else:
+            shown = json.dumps(args[key], default=str)[:40]
+            wrong.append(f"{_describe_param(key, schema)} not {shown}")
+    missing = [
+        _describe_param(key, props.get(key) or {})
+        for key in spec.parameters.get("required") or []
+        if args.get(key) in (None, "", [])
+    ]
+    problems = (["missing " + ", ".join(missing)] if missing else []) + (
+        ["wrong type: " + "; ".join(wrong)] if wrong else []
+    )
+    if not problems:
+        return args, None
+    return args, f"{name}: {'; '.join(problems)}. Example: {example_arguments(name)}"
+
+
 def execute_tool(
     session: Session,
     name: str,
     arguments: dict,
     context_tokens: int | None = None,
     model: str | None = None,
+    agent: str | None = None,
 ) -> dict:
     """Run one tool call. Errors come back as {"error": ...} so the
     agent loop can hand them to the model instead of crashing.
+
+    `agent` names an outside caller (the MCP server's client, H4); without
+    it, a call made inside a request that named one (`events.as_agent`) is
+    that agent's. Either way its writes are filed as `agent:<tool>@<who>`,
+    not as Atlas's.
 
     Only `ToolError` text is passed on, see that class. A `KeyError`, a
     `TypeError`, or a plain `ValueError` from inside a handler is something
@@ -4159,9 +4738,20 @@ def execute_tool(
     if spec is None:
         return {"error": f"Unknown tool '{name}'"}
     if not tool_enabled(name):
-        return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
+        return {"error": f"The '{name}' tool is turned off in Settings → Tools it can use"}
+    args, problem = check_arguments(name, dict(arguments or {}))
+    if problem:
+        # Logged like a handler's argument failure, so Settings → Logs shows
+        # what the model sent; the text is the app's own, safe to hand back.
+        logging.getLogger("memorymap.tools").warning("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
+        return {"error": problem}
+    # WORLD_CLASS_PLAN B5: what must be true of the notebook first, checked
+    # here rather than trusted to the model (`contracts.py` says which).
+    problem = contracts.precondition(session, name, args)
+    if problem:
+        logging.getLogger("memorymap.tools").info("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
+        return {"error": problem}
     try:
-        args = dict(arguments or {})
         if context_tokens is not None:
             args["__context_tokens__"] = context_tokens
         # Every write the handler makes, however deep in the managers it
@@ -4170,8 +4760,19 @@ def execute_tool(
         # handler: a handler that forgot would silently file the AI's edit
         # as something the user typed, which is the one question the event
         # log exists to answer.
-        with events.acting_as(_ai_actor(name, model)):
-            result = spec.handler(session, args)
+        outside = _common.outside_seen()
+        flag_token = outside.set([False])
+        try:
+            outsider = agent or events.current_agent()
+            actor = events.agent_actor(name, outsider) if outsider else _ai_actor(name, model)
+            with events.acting_as(actor):
+                result = spec.handler(session, args)
+            # SEC-02: the call put a clipped or imported note's words in front
+            # of the model; the agent taints the turn on this, as for a web read.
+            if outside.get()[0] and isinstance(result, dict) and "error" not in result:
+                result["from_outside"] = True
+        finally:
+            outside.reset(flag_token)
     except ToolError as exc:
         # An explanation the handler wrote on purpose, safe to hand back.
         session.rollback()
@@ -4208,6 +4809,14 @@ def execute_tool(
             exc_info=True,
         )
         return {"error": f"{name}: something went wrong running this tool. Try a different approach."}
+    # ...and what the call claimed, re-read from the rows. A label is not a
+    # change: a claim that did not hold goes back as an error, so neither the
+    # model nor the skill verifier reports it as done.
+    if isinstance(result, dict) and "error" not in result:
+        broken = contracts.postcondition(session, name, args, result)
+        if broken:
+            logging.getLogger("memorymap.tools").warning("tool %s: %s", safe_value(name, 40), safe_value(broken, 200))
+            return {"error": broken}
     manager.log_action(
         session,
         "ai_tool",

@@ -7,6 +7,856 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-06
+
+### Highlights
+
+- Capture and filing, checked end to end: a note typed in Capture is saved, filed and findable after a reload, with or without an AI model. 49 browser tests now run on every change, including the flows that were broken in 0.3.32.
+- Works fully with no AI model: filing by your notebook's own words, search, Ask with cited sources, reminders from plain words, and clear next steps wherever a model would help.
+- Filing certainty you can trust: a model's pick never reads 100%, drops when your notes disagree, and offers other categories to tap when it is unsure.
+- Nothing lost: unsaved edits to a note or a document survive a reload or a closed window and are offered back; deletes go to the bin or can be undone.
+- Mind maps: a real hierarchy by default (a central topic, main branches, leaves), four looks, per-level styles, copy and paste style, and topic icons.
+- An emoji and icon library: 1,500 icons and nearly 500 emoji, placed as stickers on boards and maps or inserted from the editors' toolbars.
+- Whiteboard: drag an item onto a delete target to remove it (with Undo); links follow an item while it turns.
+- The Writing room (was Write with Atlas), chat progress that says what Atlas is doing, refreshed Atlas avatars, and a clearer "AI off" status.
+- Interface animations: subtle, cheap motion (a sliding tab indicator, menus that grow from their button, toasts that slide in), with its own switch in Appearance.
+- The document editor: a current-line highlight with line numbers, and whole-line copy and cut, as in VS Code.
+- Security: HTTPS for other devices on your network, a stronger password rule, private notes kept out of saved answers, backups and the search index, and nothing touches the network until you allow update checks.
+- Windows: the installer and packaged app were audited (17 fixes), and every build now installs, upgrades over the last release and uninstalls in CI.
+- A new GitHub Pages site and fresh README screenshots.
+
+### Security
+
+- Agent mode: a very long question with a long dotted run in it (a pasted list of versions or addresses) no longer stalls the turn before it starts; the check for sites you named took over a minute on 64,000 characters and now reads it in one pass (the final scan, 2026-10-06).
+- Import from other apps: an Evernote or Notion export can no longer stall the import with a crafted run of unclosed tags, brackets or spaces; five of the patterns that read it backtracked quadratically (2 to 10 seconds on 20 to 180 KB, so minutes on a 200 MB export) and now read in one pass (the final scan, 2026-10-06).
+- Agent mode: once a turn has read text from outside, opening a page still waits for your confirm, except the exact address a web search returned in that turn or a page on a site you named in your question; the same page with something added (a query string, a longer path) or a name that only ends like your site still asks. Research turns no longer stack a confirm card per page, and a page still cannot send your notes anywhere by itself (SEC-02's last step, audit 2026-10-05).
+- Passwords: a new password (setting one up, or changing it) needs at least 8 characters, and one that is still easy to guess (a common choice, 12345678, one kind of character in a short one) is accepted with a warning that says why; a password set before this keeps opening the notebook. Before, a 4-character PIN was allowed, and a copy of the notebook file guesses that offline in minutes (SEC-17, audit 2026-10-05).
+- Private notes: making a note private now also redacts every saved Ask answer and chat reply that cited it, or repeats six or more of its words in a row (an agent's tool step and its thinking included); the answer says its words were removed and your question stays. Before, an answer that quoted the note kept its words readable in Ask history, the conversation and the database file (SEC-14, audit 2026-10-05).
+- Import a folder: running it again is safe. A file whose place in the folder and whose text are already a note is passed over (a note made private since is matched by its place alone), so importing again finishes an import that was cut off instead of doubling every note, and the activity line says how many were already in; one file that fails no longer stops the files after it (SEC-10, audit 2026-10-05).
+- Other devices: the network is served over HTTPS now, with a certificate made on this computer the first time the switch is on (no network, kept in the data folder, owner-only), on its own port, 8443 beside the usual 8000; this computer keeps plain http. Settings, Account and security shows the certificate's SHA-256 fingerprint to compare with the one-time warning a phone shows, and Regenerate certificate makes a new one without a restart. Before, the password and the session token crossed the network in the clear (SEC-08, the owner's decision of 2026-10-05).
+- Updates: the first start asks once whether to check for updates automatically (in the terminal for start.sh, in the app otherwise, the packaged app included) and remembers the answer; until then nothing about updating touches the network, the launchers' pull and the doctor's remote check included. Before, a copy started with start.sh or start.bat ran a pull on every launch unasked. Settings, About's button is now Check for updates and checks once even with the switch off (the owner's decision, 2026-10-05).
+- Other devices: `--reset-password` turns "Allow other devices on this network" off, the launcher listens on this computer only while no password is set, and a request that arrives from the network before a password exists is refused (403), however the server was started; before, a reset with the switch on reopened the whole notebook to the network with no password (SEC-01, audit 2026-10-05). The help says the traffic is plain http, for networks you trust (SEC-08).
+- Agent mode: a note clipped from the web or brought in by an import, and an imported document, now count as text from outside, like a web page: once a turn has read one (by a tool, or because it was retrieved for the question), every change to the notebook (edit, create, save a skill, set a reminder, rename) and every web request waits for your confirm, and the card says what it will do; before, only destructive tools and web requests after a web search asked, so a clipped page could steer the agent into rewriting a skill or a note unasked (SEC-02, audit 2026-10-05).
+- Private notes: making a note private now merges the search index so none of its words stay in the database file or its write-ahead log, and every backup and the Export backup zip is a cleaned snapshot, which also strips words an older version left behind; before, a private note's vocabulary (a PIN, a place) was readable with strings in every backup (SEC-03, audit 2026-10-05). The Export backup zip also stops missing changes still in the write-ahead log.
+- Sign-in: a wrong current password in Change password and Re-encrypt private notes now counts against the same wait as a wrong unlock (SEC-04); a request that names another site's domain is refused on this computer too, not only from the network, so a DNS-rebinding page can no longer lock you out or close your private notes, Lock does nothing without a live session, and Origin null is refused on the sign-in routes (SEC-05); a request body is capped at 1 MB until signed in, before it is read (SEC-06); a password over 72 bytes (a long passphrase, 25 emoji) works instead of failing with an error, and one over 1,024 characters is refused (SEC-09).
+- Backups: restoring one now signs every session out and asks for the password, so the restored private notes open with the key that came with them; before, a restore across a key rotation left new private notes unreadable after the next restart (SEC-07).
+- Attachments are served as downloads unless they are pictures or PDFs, sandboxed, so an uploaded script can never run in the app (SEC-11); a user name and password typed into the model server address stay out of the support bundle and the privacy receipt (SEC-12); on Linux and macOS the notebook folder is readable by its owner only (SEC-13).
+- A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
+
+### Changed
+- Tags: a tag typed and entered before the tag list had loaded no longer opens the list afterwards over the note form's Save changes, where a press meant for Save took a tag nobody chose.
+- Dictate with the voice add-on not installed, Compress on a chat with nothing to compress yet, and Add on an empty reminder now say so as a plain message instead of an error with Report this.
+- Documents: words typed just before a reload or a closed window (inside the 1.2 s autosave pause, or after a save the server refused) are kept on this device, and the next open of that document offers them back with Put them back.
+- Documentation checked against the code, file by file (README, INSTALL, MODELS, PRIVACY, TROUBLESHOOTING, ARCHITECTURE, CONTRIBUTING, DESIGN): the README lists this release's features (the Writing room, Interface animations, the emoji and icon library and stickers, mind map levels and looks, drag to delete, chat progress phases, whole-line copy, the active line, the Back and Forward list, HTTPS for other devices, the first-start update question); INSTALL, PRIVACY and CONTRIBUTING say the update check asks once at first start; MODELS names the suggested-download groups and fit labels the app shows; TROUBLESHOOTING gains the certificate warning on another device; ARCHITECTURE's directory map, router table, script counts (107 files, 38 at boot), graph layouts, tables and migration head match the tree; DESIGN's tokens and class names that no longer exist are gone (INBOX 645).
+- README screenshots retaken again, all 22, from a fresh showcase notebook (75 notes, the mind map now with icons and a look per level): the first-start update question no longer sits over the dashboard, and `readmeshots.js` counts toasts, skeletons and open dialogs at each capture (INBOX 645).
+- The project website (GitHub Pages) is rebuilt as one static landing page in the app's own look, light and dark: what MemoryMap is, the capture, filing and ask loop, a tour of the screenshots, privacy and offline, install, models, questions people ask, and links to the release, the source, issues and every policy on GitHub. It no longer loads the documents from the repository, which often failed, and names no version, date or count, so it does not go stale (INBOX 645).
+- Back and forward list: each row is an icon for its kind (note, document, board, map, tab), the title as plain text (markdown and file names gone; an image-only note is titled by its caption or "Image"), a small lazy thumbnail when a note opens with a picture, and the tab or sub-tab in muted text beneath; consecutive identical rows fold into one (Back and Forward still walk the exact history). The rows moved into a lazy bundle, so the boot JS is 418 bytes lighter (588,744 to 588,326 gzipped).
+- Motion: Settings, Appearance, Effects & accessibility has Interface animations, on by default: the short, cheap animations of the interface play even with Reduce motion or the system's reduced-motion setting on, and turning it off makes every one of them instant (Reduce motion now stills the large movement only: Atlas, the background art, the graph and the whiteboard). One sliding marker for every tab strip: the top bar, the sub-tabs, every segmented control, the Settings sections and a pane's groups slide to the chosen option and land on it after a resize. Buttons and chips press in, menus and help popovers grow from what opened them and close back faster, dialogs and sheets leave the way they came, a page or Notes section fades in a little quicker, lists settle in where their placeholders were, toasts arrive from the bottom and the others slide to make room, focus rings and hovers ease in; no interface animation moves a shadow, a size or a position property. The guided tour's script now loads when a tour starts or Settings, Help opens, 11 KB less at start-up.
+- Notes and documents: Emoji or icon in the note toolbar, the document's Insert menu and the / menu opens the same picker and puts the choice at the caret, an emoji as itself and a Phosphor icon as `:ph-name:`, which the reading view draws as the icon (never inside code). Before, the only way to an emoji was the document editor's `:shortcode:` completion, and no icon could go in text at all (INBOX 642, MINDMAP_PLAN decision 46; mc1-editoricons.js 7/7).
+- Boards and maps: Insert, Emoji and icons… opens the icon and emoji picker and keeps it open: a press places one in the middle of the view, a drag places it under the pointer. An emoji lands as a sticker (no card, its glyph sized to its box, exported as itself), a Phosphor icon as the library's vector icon you can recolour, and either dropped on a map topic becomes its icon; each is one Undo step (INBOX 642, MINDMAP_PLAN decision 44, WHITEBOARD_PLAN 37; mc1-stickers.js 8/8).
+- Mind maps: a topic's icon can be any of the 1,530 vendored Phosphor icons or one of about 470 emoji, from the one icon and emoji picker (the Text menu's More icons and emoji…): search, a Recent row, Emoji and Icons, arrows and Enter, Escape back to the button; an emoji is drawn as itself and kept in the OPML and FreeMind exports. Before, a topic could wear one of 11 icons and no emoji (INBOX 641, 642; MINDMAP_PLAN decisions 43, 45; mc1-iconpicker.js 12/12). The picker is a lazy module, so nothing loads until it is opened.
+- Mind maps: View, How this map looks picks the hierarchy (Classic, Outline, Boxed or Flat) and, under Centre, Main branches or Sub-topics, that level's size, bold, italic, box, edge bar, fill and line; a topic's menu has a Look group with Copy this topic's style and Paste style (Ctrl+Alt+C and V now reach topics, which they refused before), and Use this look for its level, which gives the topic's own look to every topic at its level (Illustrator's Redefine). Each is one Undo step (INBOX 641, MINDMAP_PLAN decisions 40 to 42; mc1-maplook.js 13/13).
+- Mind maps draw as a hierarchy: the centre is large, bold and filled in the accent (22px on a pill), each main branch bold at 17px on a tinted card with a thick line, deeper topics as before; a topic's own size, shape or fill still wins, a map-wide text size now reaches the deeper topics and leaves the centre alone, and Enter on the centre adds a main branch rather than a second centre. A topic's Fill offers Solid colour. Measured before: centre, branch and leaf all 13.6px at weight 400 (INBOX 641, MINDMAP_PLAN decisions 38, 39, 47; mc1-maplevels.js 13/13).
+- Package check (CI): the frozen Windows app is now proven on every lazily loaded script and stylesheet (read from app.js's LAZY_MODULES, so the list cannot drift), each with its MIME type, and on the API a packaged build can get wrong: search, a stats question answered without a model, the backup exports including the sealed bundle, and the Alembic stamp on a fresh data dir; no traceback in its output and nothing written into its own folder. It installs a second optional package (Pyodide, the app's own download path), upgrades over the latest published release and checks the note, version, schema, shortcuts and stale files, and checks the uninstaller removes the whole install folder. The release build runs the same smoke, and the check now runs for any change to the app, the frontend or the migrations.
+- Boot budget: the Attach picker's row (`pick-row.js`), "Unlock private notes" (`vault-unlock.js`), the skill editor's verify and tool readers and the Library's Remind me moved out of the boot scripts into the lazy files that use them; boot JS 588,744 to 587,342 bytes gzipped, app scripts 320,610 to 319,208.
+- Notes: an edit left unsaved in a note's form is kept on this device until Save or Cancel, so a reload answered Leave, or a closed desktop window, no longer loses it; the next start offers Open them. The Guide says so
+- Dashboard: the boards widget's New board waits for the boards' code, as Library, Create does now; both did nothing on a first visit since the Library tab began loading library.js alone (FE-03(c)), and both worked in 0.3.32
+- Ask: a question that names a category as where its notes are ("Summarise my notes in Health.", one Ask suggests itself, or "my Work notes") is answered from that category; it was answered from whatever matched the words, other categories included, with a model and without
+- Filing: when a slow model's answer replaces the words-based stand-in, the composer's line follows it (it said "Filed under Health" and nothing said the model then moved the note to Work), and a move is said in a toast with Put it back
+- Command palette: Take the guided tour (Ctrl+K, "tour") opens the tour from anywhere; it was reachable only from the Dashboard's first-run tile and Settings, Help. The Guide's tour topic says so
+- Import: Markdown files and folders now join up their [[wiki links]] as links (the Graph showed an imported vault with none until each note was saved again), and choosing the same files again adds only what is new, saying how many were already in
+- Graph: Concept maps landed on the Library's All view on a first visit to the Library instead of on the boards; it now waits for the Library before opening Boards & maps
+- Boards: Library, Create, New board and New mind map did nothing on a first visit to Boards (the button was pressed before the boards' code had bound it); they now open the board gallery and make the board
+- Documents: Library, Create, New document on a first visit opened the last document instead of making one, so a title and text typed there went into an existing document; it now makes the document, and a link to a document (#/docs/2) is no longer replaced by the newest one as the tab finishes loading
+- Library: Ctrl+K, Open the bin on a session that had not opened the Library yet showed "Nothing of this kind yet." under a full Everything count; a cross-fade render that was overtaken by the load no longer draws its empty list over the loaded one
+- E2E: the Playwright suite drives capture and filing end to end against a real server on a seeded 75-note notebook (filed by meaning with no model, tags, title, a picked category, search, timeline, graph, Undo and Redo, Quick note, paste), and a first-run project on a fresh data dir
+- Manuscript look: muted text is a shade darker, so it reads at 4.5:1 or better on Settings' cards; 17 labels and facts in Search and index, Account, Skills and Tools were at 4.33 to 4.47:1 (qa-1005, contrast.js LOOK=manuscript: 17 to 0).
+- Settings, Logs: the filter hint reads "Filter logs", which fits the field on a phone ("Filter records…" was cut off at 390; qa-1005, qa1005-polish.js placeholders).
+- Notes: opening a note for editing in the first seconds after the app opens (or on a slow disk) holds the note's place with placeholders while the form loads; before, the card dropped to an empty 15px strip and every note under it jumped up and back (qa-1005).
+- Notes on a phone: a card's connection pills keep to one line, their words cut with an ellipsis, as Ask's results already did; at 390 they wrapped to two small lines inside a one-line pill (qa-1005, qa1005-polish.js linkpills).
+- Settings: a text field in a settings row wraps onto its own line rather than shrinking; on a phone the server address field was 62px wide and five hints were cut off, one at desktop width too ("Optional, 8 or more character"); a template's description hint is shorter (qa-1005, qa1005-polish.js placeholders: 6 to 0).
+- Settings: a status line with nothing to say takes no room; nine cards (Models' backend card, three in Tools, Web search, three in Import and export) ended on 27px of empty paragraph margin (qa-1005, qa1005-polish.js settingspad: 9 to 0).
+- Notes: between 1100 and 1170 wide the notes bar no longer lays its Filter menu under the sort picker ("FiNewest first"); it wraps its actions to a second row instead, and stays one row at 1184 and wider (qa-1005, qa1005-polish.js dockoverlap: 1 to 0).
+- Library: the Cards and Rows switch shows your choice the moment the tab opens, and Boards & maps shows placeholders while its editors load; before, the switch had neither pressed until the list answered and the sub-tab was blank until the boards' bundle arrived (qa-1005, qa1005-polish.js with both held 3s: 0 and 0, then 1 and 4).
+- Notes: a task line in a note card draws as a box (ticked ones muted and struck through), as the note page and documents draw it; before, the card showed the line as written, dash and brackets included (qa-1005, qa1005-polish.js).
+- Chat, Notes and Library empty states: the Ask Atlas offer is set apart by space, not by a short hairline floating in the middle of the centred welcome (qa-1005, qa1005-polish.js: 3 rules to 0).
+- Reminders: a hovered reminder's actions now cover its time whole; on a reminder linked to a note (two lines) the strip sat 11px low and the top half of the time showed above it (qa-1005, qa1005-polish.js: 6 rows to 0).
+- Notes and Library: a drag-selection begun in the first seconds after the app opens (or on a slow disk) now scrolls the list at its edge like every later one; before, the edge scroll's file had not arrived and the first drag scrolled 0px (qa-1005, measured 756px with the file held back 1.5s).
+- Menus: every menu now fades out over 120ms instead of vanishing (one CSS transition on the hidden state, so the opener, Escape, a press outside and every other close path get it); a menu that was moved out of a clipping scroller goes home after the fade; reduced motion keeps the instant hide.
+- Maps: a topic the render pass did not repaint no longer takes the server's placeholder height into the size cache, so pans, rings and edge ends computed from a topic's size land on its box (they were 12px off at 390 and 38px at 1440 after a state fetch); mapstrip.js holds it to 4px.
+- Sweeps: left1005-frametitle.js measures nested frames at a phone's fitted zoom (the outer title's words always reach the outer frame) and resets its board before its last drag, which the edge auto-pan had been taking.
+- Write with Atlas on a phone: the what-to-write select takes its own line, so it and tone and length show their values (they were cut to 16px in one row of four controls); phonecapture.js and tablefullclose.js measure the Writing Room and the table full view at 390.
+- Sketch pad: below 820px the ink dots keep their gap, so no two colour targets overlap (six pairs did at 700 with Large text and Spacious); the bar's one allowed second row is 820 with Large text and Spacious, and sketchbar.js now measures ten widths.
+- Sweeps: contrast.js now reads a board and a map (open, every item selected, each sidebar tab) at 1440 and 390 in both themes; none fails, the sticky's drag grip included.
+- Gate: scripts/gate.sh --staged lints the staged index once instead of the working tree and then the index (the same lint set twice); with nothing staged it lints the working tree, so it never runs zero lints (tests/test_gate_staged_once.py).
+- Graph: the zoom strip's four buttons (Full screen included) are checked to be what a finger hits at 390, clear of the New note button; the report of Full screen sitting under a small button no longer reproduces.
+- Empty lines: the last nine (Documents' list, outline and two histories, Chat's saved chats, Ask's history, the graph pane, the board's overview and Format panel) are the one empty-line recipe, so every short "nothing here yet" line is one size, ink and margin; the lint's waiting list is empty (`tests/test_ui_recipes.py`, `op5-1005.js` MODE=emptylines).
+- Mind maps: Branch colours offers eight palettes, four new (Bold, Paired, Bright, Earth), each colour at least 1.6:1 on white so a branch line never vanishes; MINDMAP_PLAN §12.1 closed (its open rows found built or superseded) and moved to HISTORY (`tests/test_map_theme_palette.py`).
+- Tests: the edit-embeds tests drain the shared job pool before and after each test (its dedupe key was shared by every test editing note 1), hold the embedder on its gate until released, and wait with 60 s ceilings.
+- Tests: the 5,000-entity merge-candidates speed check is measured in process CPU time, with the 1 s budget unchanged.
+- Tests: the extras install-history test polls for the history row, because the worker lowers the running flag a few statements before it records the row.
+- Tests: the relations cost test measures the 2k and 10k passes in process CPU time, so the five-times-the-notes, ten-times-the-time ratio no longer drifts with machine load.
+- Tests: the lexical-filing tests no longer fail on a loaded machine: the wait for the background filing pass has a 90 s ceiling and raises a clear error instead of returning a pending status, and the 800-note speed check is measured in process CPU time.
+- Tests: the debug-health tests no longer fail on a loaded machine: the running-job test holds the re-index on an Event and waits for the worker to enter it (it was a 5 s sleep raced against the request), and the 20 ms budget is measured in process CPU time with the budget and fastest-sample rule unchanged.
+- Sweeps and docs: `errors.js` runs a browser per width with `--disable-dev-shm-usage` and reports a renderer crash as a finding; `noteeditflow.js` and `noteedit616.js` seed their own bookmark and note so they pass on a fresh data dir; thirty-eight finished agent files left `docs/roadmap/agent-remaining/` for the archive, their open rows carried into `OPEN.md`.
+- Export activity: events about a private note stay out of the file after the note is purged too (a purge seals its events, dropping their text and flagging them private, and the export leaves flagged events out)
+- Settings: a status line that names a server address (Models, "Saved, but nothing is answering at ...") and a long Ask Atlas question in a help popover wrap inside the pane at 390 instead of running it sideways
+- Gzip caps back down: the list drag-select edge scroll moved whole into drag-edge.js and the note edit form's formatting strip into note-edit-panels.js (both lazy, one caller each), boot JS cap 589,600 to 588,400 and the scripts total 321,500 to 320,300; the edge scroll loads three seconds after boot, so a drag in the first seconds does not scroll at the edge
+- Settings, Background tasks: the optimisation pass's model override says which model its default means ("Same as utility model (currently ...)").
+- Settings, Models, Installed models: each model you have is a card like the suggested downloads, with its size on this computer and what it is in use for; its menu puts it to use, copies its name or removes it.
+- Appearance: a theme card's preview and swatch, and a setup snippet in Settings, round their corners inside their card's corner (concentric) at every corner setting.
+- Appearance and layout: the shadow strength slider now changes every shadow at every step in light and dark, every palette included, from none to the strongest, with 5% looking as before; in light, a text field is a shade deeper than a segmented control beside it, as in dark; the Ask results sit in one column below 1100px wide instead of two narrow ones; and a short "nothing here" line in the agent panel and Settings lists is one size and spacing everywhere.
+- Chat, Attach: a mind map's row shows the map's own shape, a PDF's row its first page (where pages can be drawn), and a document's row whether it is prose, a table or code, each in the same small tile as before.
+- Layout: from 600 to 719px wide the status bar and the dashboard's quick access now look as they do up to 819px (the tablet band), instead of switching to their phone sizes 120px early.
+- Docs: the no-em-dash lint now covers docs/**/*.md, docs/index.html and the root *.md files, and the 5,900 em-dashes it found are reworded (comma, colon, parentheses or full stop); the two changelogs stay identical.
+- Docs: MODELS.md now says `qwen3.5:35b-a3b` is about 21 GB and needs about 24 GB, as the in-app catalogue does (it said 24 GB and 32 GB); `tests/test_models_doc_sizes.py` pins every catalogue model's size and stated memory in that file to the catalogue.
+- Suggested links: Link all above 70% asks first, says how many pairs actually linked (Linked 3 of 4), and a pair whose link failed stays in the list; the Links help line and the Guide name it.
+- Settings at phone width: a setting's label no longer stands 114 to 202px tall above its control (39 rows, the gap above Tokens per step in Tools it can use); the stacked row sizes the label to its text.
+- Notes and Library: a text selection dragged within about 56px of the top or bottom of the list scrolls it, faster the closer to the edge (the browser alone covered only the last 20px); the selection follows (INBOX 608).
+- Startup: the note edit form, the full backup's save and restore and seven other helpers that only one lazily loaded file calls moved into that file (and, after the edit form's redesign merged, the embedding models list, the form's close and the Settings bar's New listener), and the edit form's bundle is fetched a few seconds after start so the first Edit does not wait; the scripts the app loads at start are 589,955 bytes gzipped (from 601,448 after the day's merges), and the boot, app.js, total and guard caps are lowered to the measure.
+- Settings, Packages: bundles of the packages one kind of work needs together (Documents, Vision, AI, Voice, Desktop, Code). A bundle's Install fetches the ones still missing, and its ⋯ reinstalls or removes them all; tick any packages to install, reinstall or remove them together from the selection bar. They run one after another as one background job with its progress in the activity panel, each package says how it went under its row, one that fails does not stop the rest, and Quit stops the rest. An installed package shows its version and its size on disk, and Reinstall and Remove are in its ⋯. Offline, an install says it could not reach PyPI rather than that the package does not exist (INBOX 595).
+- Documents, Download as .docx: pictures come along now. A picture on a line of its own keeps the width, alignment and caption you gave it (`![A river|400|center](...)`) and is fitted to the page; one in a sentence stays in its line; each keeps its alt text. A picture that is missing, on the web or in a format Word cannot hold stays as its words (FEAT-18).
+- Atlas's props move of their own while they show (INBOX 623): the lantern swings on its string and its star flickers, the bell sways, the offline link sparks, the music's cups pulse, the night moon rocks on its ear, the reading lenses catch the light, the book's pages lift and its stars twinkle, the map rocks and twinkles, the coil breathes, the startle's bubble wobbles and its "!" pops. Each moves about where it is held and holds still with Avatar animation off or under reduced motion.
+- Atlas, in its large view: the companion visiting it floats free in the middle of the view, clear of the card's edges, instead of hanging from its perch's edge or sitting on a drawn ledge, and sways and bobs on the view's two clocks between its acts; its perch's pose comes back with it when the view closes. An act is eased into over 0.3s, as it was already eased out of (INBOX 619).
+- Atlas: lying down and curled up, the whole figure turns as one; the lower body and her waist wisps no longer turn 16 to 42 degrees off the torso, which stayed nearly upright while the lower body lay half off it (INBOX 619).
+- Atlas: the torso and the lower body meet as one silhouette (INBOX 615, and 619 for her). The lower body moves inside the body's own sway and breath, and its own swing (the hem's wind, the walk, a pose's lean) is a shear about the join rather than a turn, so the waist stays under the torso while the hem moves; his cloak is a little narrower at the waist.
+- Atlas: its eyes never go blank. Changing to or from the heart eyes, the iris and the heart now cross over on one clock, on the companion and in its wake and doze; before, the companion's iris cut out at once while the heart faded in, leaving a white eye for up to half a second (INBOX 619).
+- Atlas, his look: a slimmer, athletic young-adult build to match hers (19 to 21): defined shoulders tapering in a V to a narrow waist (shoulders, waist and hips 17, 9.5 and 9.8 across where they were 18.6, 15.1 at the belly and 10), slimmer arms, and a cloak and tail that taper with it (INBOX 614).
+- Atlas: its tail grows out of its lower body (wide where it leaves, in the body's own colour, deepening into the galaxy along its length) and is alive: it bends along its whole length as a spine does, a wave running from root to tip, and changes what it does every few seconds at random (a lazy sway, a curl, a wrap, a flick, a wag when pleased, a trail on the move, a droop when low), each change eased and never the same twice running. The celestial rings sway their tilt, each on its own clock, with their dust running round them; the planets go round faster, and each planet's glow swells and its swirl of light turns. A poke in the large view now eases back into its idle motion instead of snapping still, and a companion drawn from a name keeps a gentle sway there between its acts. Her arms turn about her own shoulders, so her right arm no longer pulls away from her body as it moves. Double-click or double-tap the companion's resize handle to put it back to Medium (INBOX 600, 601, 612).
+- The bars at the top of every tab and Library view read as one quiet page head: the title with no divider after it, a count as plain muted words, a search box with a magnifier and no border until you type in it, the icon buttons together at the end and the one filled action last. The graph's display options are one aligned column with one head style, and Settings lists a long section's groups under its name in the sidebar (on a phone, in the section picker) instead of a strip that scrolled sideways; nothing in Settings scrolls sideways now.
+- Reminders: snoozing one (+1h, tomorrow, 10 minutes) has an Undo in its toast and in the status bar's pair, which puts the old time back even when it was already past; `PUT /reminders/{id}` takes `restore` for that (WORLD_CLASS_PLAN row 32).
+- Mind maps: Branches from my notes. On a topic, Add, Branches from my notes… (or Ctrl+K) suggests up to five children found in your own notes, each saying which note it came from; with a model running it names a topic for each, without one the notes' titles are the suggestions. Tick the ones to keep and Add makes them under the topic, each with its source in its note, as one Undo step (the features audit's FEAT-13; WHITEBOARD_PLAN decision 36).
+- Whiteboard: connection points, like draw.io's. With Select, pointing at a shape, card or text box shows where a connector can attach, on the shape itself: a diamond's tips and side middles, a triangle's corners and sides, an ellipse's compass points (they were its box's corners, off the shape); drag from one to draw an elbow connector with an arrow to whatever you let go on, or to a free end. Links made before keep their ends. Moving both things a connector joins now moves its bends with them, in the same Undo step (WHITEBOARD_PLAN decision 35).
+- Whiteboard: smart guides line a dragged item up with drawn shapes too (a flowchart's boxes are shapes, and had nothing to snap to), and the third box of a row snaps to the spacing the first two set, with the two gaps marked while you drag; Alt still turns every guide off (WHITEBOARD_PLAN decision 34).
+- Whiteboard: a board's History, a time machine (the features audit's W2). Board, History… puts a slider at the foot of the board: drag it back (or press Left, Home and End) and the board is drawn as it was at each moment, a moment being a run of changes up to two minutes long, with what it added, changed and removed; Put back restores the whole board, or only what was selected, as one Undo step and as a change in the history itself; Esc comes back to now. Nothing on the board can be changed while the past is shown. Items placed from the library now each have their own history, so they go back and forth like anything drawn by hand (WHITEBOARD_PLAN decision 33).
+- Whiteboard: a Mermaid flowchart's subgraphs come in as frames (they were left out). Each subgraph, nested or not, is a frame with its title round exactly its own shapes, laid out as one block so no other shape falls inside it; an edge to a subgraph joins its frame; the whole import is still one Undo. The Mermaid export writes the board's frames back out as subgraphs (WHITEBOARD_PLAN decision 32).
+- Whiteboard: bends on every connector, and line jumps (draw.io's). A straight or curved connector takes bends as an elbow does: drag the ring in the middle of a run (or double-click the line) to add one, drag a bend to move it, double-click it to take it out; a straight line runs through its bends, a curved one curves smoothly through them, and changing the line shape keeps them (WHITEBOARD_PLAN decision 30). A double-click or a click on the ring no longer drops a stray bend where it was. The Format panel's new Line jumps (arc, gap or sharp) makes a connector hop over every line under it where they cross, in the SVG export too (decision 31).
+- Skills: a new built-in, Write a document from a tag, asks which tag, reads every note under it and saves one document that draws on them (the notes themselves are never edited); run it from the skills above the chat box or ask for it in Chat. There are 21 built-in skills now.
+- Settings, Import & export: a full backup can be sealed with a password (it saves as a .mmenc file, AES-GCM with the same scrypt key the private notes use; empty keeps the plain .zip), and a new Restore a full backup group reads either kind back: a wrong password or a file that is not a notebook changes nothing, your current notebook is snapshotted first, and attached files are put back over the ones here without deleting any. Before, the full backup zip could be saved but nothing in the app could read it. Measured through the real controls at 1440 and 390, light and dark: three notes binned, a wrong password refused, the right one brings all three back.
+- Chat: an answer to a question about your notes is numbered as it streams, the way the Ask tab does it: each source number appears when the sentence it backs is finished, instead of all at once with the last word (`grounding_live` is read by the Chat tab's stream; the markers are put back after every live paint). Measured with a stand-in model at 1440 and 390: the first number lands about 1.8 seconds before the answer ends, where it landed with the last word.
+- Settings, About, Health: a Files on disk row says what attached files, pictures and backups weigh beside the database (`GET /storage` carries the three sizes, from a walk cached for a minute).
+- Library: a Highlights chip lists every passage you marked with ==words== (or a colour), one card each with the note it is in, and pressing one opens the note; search takes `has:highlight`, and a highlight is read the same way in both.
+- Filing: a note of one to three words is filed by meaning only when its nearest filed note is close (0.72), so "ai is cool" no longer lands in whichever category is least far; measured with the shipped embedding model, 59 of 60 short notes that have a home still file and 3 of 20 that have none do (it was all 20). Otherwise it falls to your notebook's own words, or the model.
+- Background tasks: notes that were filed by your notebook's own words while no model was available get a second opinion once one is back (20 a tick); the ones the model files elsewhere move, and the rest are marked as the AI's, so moving one by hand teaches the filer. Never a private, binned or hand-filed note.
+- Library, Activity: an Export activity button saves the activity log as a spreadsheet (time, actor, action, entity kind, entity id and title; never a payload value), oldest first, with events about private notes and the vault left out, every cell defanged against CSV formula injection (a leading `=`, `+`, `-`, `@`, tab or carriage return gets a `'` in front), `limit`/`offset` paging and `X-Total-Count`, and the export is itself logged; `GET /audit/export.csv`.
+- Settings: Personas, Skills and Templates have New persona, New skill and New template in the bar at the top of the pane, which opens the form, ends an edit in progress and puts the cursor in its Name field; on a phone it is a + on the title's row.
+- Quick sketch: more room under the title and close button, and a quieter toolbar, a soft tint with no border and no lines between its groups; the white ink dot has a ring so it shows on a light bar, and the black one on a dark bar (INBOX 620).
+- The top bar and the status bar, polished (INBOX 618). The spaces picker is a quiet control the shape of a tab, with no box; the tab you are on is marked by its fill alone, not also drawn heavier; the logo is a smaller tile; Quit is quieter than the other icons until you point at it. In the status bar the note and reminder counts are quiet, Agent, Guide and Find are icons (hover one for its name and keys) with Commands the one worded button, and back, forward and history sit with undo and redo as one group, without the line between them.
+- Notes: the edit form is redesigned again (INBOX 616). The title is large text with no box of its own; under it one line of properties, the category chip then the tags as small padded chips and Add tag, with no boxed field and no # icon; the formatting strip is one row of icons (Bold, Italic, Strikethrough and Code are icons now, not typed letters) that never folds into an empty band, the rest behind More, in Capture too; Related folds into one "3 suggested links" line until opened; the foot is Attach a link and the word count, then Cancel and Save. Attach a link works: it opens the bookmark picker, and the link you pick shows under the text as a reference. Before, it put a list into a panel that was hidden while the note had no reference, so the press showed nothing.
+- Scratchpad: 433 one-off sweeps, seed scripts and outputs deleted (1,394 tracked files to 963, 9.7 MB to 8.2 MB); git history keeps them. `scratchpad/cleanup_inventory.py` marks each file KEEP or DELETE, `scratchpad/README.md` states the rule and how to retire a sweep once its finding is here, and `tests/test_scratchpad_size.py` caps the tracked count at 1,003.
+- Dialogs: every dialog's buttons at the foot are one height and in one order (INBOX 599): Cancel or the other quiet choices first, the one filled action last, at the right. Before, eight dialogs (New space, Delete space, templates, Quick note, the word goal and others) drew their Cancel 40px and their action 38px beside the confirm box's 32px, and Extract to notes and Improve writing put the filled action first, at the left.
+- Notes: the edit form is one composition (INBOX 606). The title, the formatting strip and the text are one box, like the capture box; tags are chips you add with Enter or a comma and remove with a press; the category is its chip with a menu; Cancel and the filled Save sit at the right of the form's foot with Attach a link as an icon at its left; each related note has a quiet + to link it instead of a boxed Link button. Measured at 1440: Save was mid-row before Cancel, 3 boxed buttons under the form, 0 now; on a phone the New note button no longer floats over Save.
+- Startup: about 8 KB less script (gzipped) loads before the app is usable. The Settings window's save and apply handlers, the "m" chord's guide, the duplicate finder, the palette's notes rows, the code highlighter and the board and note pickers now load with the screen that alone uses them; nothing on screen changes. The size caps in the tests are lowered to the new measures.
+- Command palette: notes and documents come from the same search engine as Find anything, so a typo ("gardn") finds the note, a word inside a document finds the document (even before the Library has been opened), and notes past the page the browser holds are found. Typing still shows the in-memory matches at once; the engine's answer lands a moment later and leads the group.
+- Library search: the Semantic filter asks the same search engine as the Notes tab and Find anything (words, meaning and links ranked together) instead of a separate cosine-only list, so the three boxes agree on what a question finds. It still only adds notes to what the words matched.
+- Notes search: the filter understands has: (link, file, image, reminder), space: and kind:, asked of the same search engine as Find anything (before, each was read as a plain word and matched nothing); and the Semantic switch ranks through that engine too, shows the notes it found by meaning even when they share no word with the box, and keeps its best-first order under Newest first. Before, the list threw away its own semantic results unless they also contained the typed words.
+- Settings: every pane opens on one bar, like the Library's views (INBOX 599): the pane's title, its jump links (Your skills, Add your own, ...) and its ? in one row that stays at the top as you scroll, where before a large title sat over a separate strip of links. Background tasks has its title back, and the Logs title is the same size as the others (it was 12px).
+- Library: a document card's menu has Show in graph, which turns the graph's Documents switch on and centres the map on that document, the way a note's already did.
+- Library, AI skills: the dock is one row again down to a 1100 window (INBOX 599). The sort is an icon-and-caret button (the order is still on its tooltip and read aloud), and on a narrow window the All, Yours and Built-in segment shows each icon with its count; before, at 1100 and 820 the segment and a wide Yours first box fell to a second row (90px against 50).
+- Mind maps: import an XMind file (.xmind, XMind Zen and later): Import outline… reads its first sheet with its central topic as the map's root, and each topic's notes. An XMind 8 file is refused with how to get the newer one.
+- Whiteboard: a board in and out as text (W5). Insert, Mermaid or board SVG brings in a Mermaid flowchart (pasted or a .mmd file) as shapes and elbow connectors laid out by depth, or an SVG a board here exported, which now carries the board inside it, so it comes back as shapes and connectors rather than a picture. Export adds Outline (Markdown: each frame a heading over what is in it, in reading order) and Mermaid (a flowchart of what the connectors join).
+- Agent mode: the assistant edits boards (FEAT-12, WHITEBOARD_PLAN decision 29). Seven new tools: move_board_item, edit_board_item (words, line colour, fill) and delete_board_item ask first, like every other tool that changes your work, and each returns an Undo (a delete takes the item's connectors and its Undo puts both back); add_board_shape draws a rectangle, ellipse, diamond or frame; list_library and place_library_item search the board's object library and place from it. 65 tools in all.
+- Whiteboard: the mind map's Outline tab lists the map's topics as an indented tree in sibling order (Enter selects one on the map, Left goes to its parent); it was an empty tab. And an open Layers, Pages or Outline tab now follows the board as it changes, where before it showed the board as it was when the tab opened.
+- Whiteboard: Pages and the hover lock. The sidebar's new Pages tab lists the board's frames in presentation order (WHITEBOARD_PLAN decision 22: frames are the pages); drag a row or press Alt+Up and Alt+Down to reorder, which the presentation follows, Enter goes to the frame and P presents from it. A locked item now shows a faded lock while the pointer is on it, the first press on one says how to unlock it, and right-click on it offers Unlock this item first (INBOX 557a).
+- Whiteboard: every control on a selection's bar sits on one centre line. The Width box sat higher than everything beside it (the app's field margin, which the Size box had turned off for itself alone); now no number field on the bar carries a margin (INBOX 576).
+- Whiteboard: a Format panel, like draw.io's. Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens it on the right with three tabs: Style (line, width, pattern, fill, opacity, shadow, and a connector's line shape, ends and label place), Text (size, colour, bold, italic and alignment of a text box or of the words in a shape) and Arrange (X, Y, width, height and angle as numbers, flip, and the order, align, spacing, group and lock buttons from the board's command table). Every change is one undo step.
+- Whiteboard: elbow connectors. A connector's line shape (the bar's new Line shape, or the Format panel) can be curved, straight or elbow; an elbow turns only at right angles and goes round the two shapes it joins, a ring in the middle of each run drags in a bend, a bend drags or double-clicks away, and placed library items keep their bends. A connector's label slides along its line by the square at its edge. New ends: the entity-relationship marks (one, one and only one, zero or one, many, one or many, zero or many). With one shape or text box selected, the arrows round it (or Alt+Shift and an arrow) copy it that way and join the two. A selected connector now shows its bar, which it never did, and the bar keeps clear of the sidebar's rail.
+- Whiteboard: an object library, like draw.io's (INBOX 557, 558). The board's new sidebar (the Library button, or the rail on the board's left edge) has the Library, the Notes to drag in as cards, and the Layers. The Library holds built-in sets drawn for this app (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective, SWOT and a timeline lane, and 1,530 icons drawn as shapes so they export), with search, Favourites and Recent; click or Enter places a tile in the middle of the view, a drag puts it anywhere, Shift+Enter places it joined to the selection, and placing is one undo step. Save your own with Ctrl+Shift+S or right-click, Library: a selection with its links, a drawn shape, a style, a sticky or text preset, a palette of the selection's colours, a mind map branch, or Board, Save this board as a template; New board then opens a gallery of Blank, the built-in frames and your templates. Libraries export to a file and import with new ids; a picture not in this notebook is left out and counted. A placed item is an ordinary copy: a later change to the library never changes a board. Library pictures and board backgrounds are kept by media cleanup.
+- Whiteboard: Layers. The sidebar's Layers tab lists everything on the board in paint order, cards and text above the drawings, groups with their members; each row hides or shows (H), locks (L), renames (F2) and restacks by drag or Alt+Up and Alt+Down, and Enter selects it and brings it on screen. A hidden item is drawn nowhere, exported nowhere and skipped by search, Select all and Tab.
+- Whiteboard and mind map comments: a thread shows its comments and a quiet New comment button under them, which opens the box with Post and Cancel; Escape or Cancel folds it away, and it folds back after a post. A thread with no comments yet opens straight on the box (INBOX 570).
+- Whiteboard: paste text from any other app onto a board. A link becomes a link box, one line a text box, and several lines (a list, a column from a spreadsheet) a grid of stickies, selected and undone in one step; a picture pastes as before. Items copied on a board also reach the system clipboard as their words, so they paste into other apps (FEAT-09).
+- Whiteboard export: a PNG (or a copy to the image library) can be 1x, 2x or 3x the board's size, 2x by default, and can have a transparent background; the choice is remembered. Exported files are named after the board ("Launch plan.png", "Launch plan (selection).svg") instead of whiteboard-whole.png, and the PDF's print dialog offers the board's name (FEAT-14).
+- Whiteboard: a board's background colour and image are kept with the board, so they show the same in the desktop window, every browser and a backup, and Ctrl+Z undoes a change. Each board had shared one colour per browser, and the image was per browser too and was deleted by "clean up orphaned media"; a background set the old way moves onto its board the first time it is opened (FEAT-06).
+- Whiteboard help, redesigned (INBOX 566): "?" on a board, Board, Keys and controls, or the empty board's card opens one sheet of every key and gesture, in sections (Tools, Move around, Select and edit, Arrange, View, and Mind map on a map), with a search field; each row's words wrap beside a fixed column of key caps, so nothing overlaps or runs off the card at any width (measured at 1440, 1024 and 390, light and dark). The empty board's card is one line and a button instead of the key list that overflowed it.
+- Whiteboard: Bring forward and Send backward move one step (past the next item over or under it) instead of jumping to the front or back; Ctrl+] and Ctrl+[ bring to the front and send to the back, and a shape's order is now the order it is drawn in. The Arrange menu has all four, plus Same width, Same height, Group, Ungroup, Lock and Unlock all; Edit has Cut, Copy, Paste, Find, the item's text and Comment. Every board action is in the command palette (Ctrl+K, "This board") and in the shortcut sheet (?), from one table, so the words and keys agree everywhere (FEAT-07, FEAT-11, FEAT-19).
+
+- Line numbers, in Capture, the note edit form and the documents editor: no boxed column any more. The figures sit in the field's margin, a size under the text, muted and of one width, each on its line's baseline, and the line the caret is on is brighter while you type; a note box numbers its own lines once its editor opens, so a wrapped line keeps one number (INBOX 590).
+- Dashboard, Quick access: the first tile is highlighted by its position, not because it is New note, so whatever you put first is the one marked. Each tile's menu (Customise, Edit quick access) has Highlight: the accent, one of the twelve category colours, or No highlight; the choice is stored per user and Reset quick access clears it. Label and description keep 4.5:1 on every colour in both themes (INBOX 589).
+- Notifications: a pop-up's message and its button are one row with an 8px gap and one centre line (the reading toast's Show it touched its words, 0px), toasts are 24rem wide so a short message and its button fit one line, and every pop-up with a button (Undo, Open it, Show it, Go to it, Change) is kept in the bell with the same button: an opener finds its note, chat, document or board again by id after a restart, an Undo works only while it can still be undone and then says Expired. Each bell row is one grid: the unread dot (now in every look), the icon, the text, and the time where the read circle and remove cross appear on hover, all on the title's centre line (the controls sat 4px low and over the text) with 8px padding on every side (INBOX 584, 585).
+- The companion never sits on the air: when what it was sitting on, standing on or hanging from goes (a sub-tab's toolbar hidden with its view, a board or mind map panned or zoomed under it, a card redrawn), it moves to the nearest good perch within a moment, and what is drawn on a board, a map or the graph is never a perch. Before, on a mind map it stayed seated in the middle of the canvas after a zoom, and on the Library's AI skills on a toolbar that was no longer there (INBOX 582).
+- The companion's small animations hold still for the 400ms a tab or Settings takes to arrive, so the page's frames come first (INBOX 580).
+- Moving around the app is smoother: a tab arrives from 0.4 rather than from nothing (every switch used to show the bare window for three or four frames), every popup (Settings, the palettes, Find anything, a confirm) fades its backdrop in and rises a step into place, and the Graph, Library and Documents show one placeholder the size of the page while their code loads the first time, then fade in whole. Late parts no longer push the page: the Library's Images and Files empty line waits with the placeholders (it jumped 396px down and back on every switch), Chat's empty card waits for its starters, the Timeline's day strip keeps its height, and Settings' model line says Checking the models… until it knows (INBOX 580).
+- Opening the app is one calm sequence: the splash (or the lock screen, once the password is in, its button saying Opening…) stays up while the first tab draws and then fades once over a finished page, never longer than 1.5 seconds. Before, the splash cut out without its fade (and stayed in the page), the status bar jumped from under the header to the foot, and the dashboard's greeting, clock and line about your notebook pushed the page down twice as they arrived. The companion comes in after the curtain lifts, at its own size: its entrances no longer squash or grow it, and Atlas's hello nod no longer draws its head a third larger for a moment (the large, small, large the owner saw at every start; INBOX 577).
+- Mind maps: adding a topic with Tab or Enter is quicker on a big map (the redraw of one add at 300 topics went from 120 to 420ms to 20 to 60ms here); the name opens for typing before the rest of the map shifts, and a hidden style rule that restyled every icon in the app on each change is gone (audit FEAT-02, second pass).
+- Concept maps: a topic made with Tab or Enter (and a new map's root) is still a note that search and Ask find, but Notes and Recently added leave it out, so a forty-topic map no longer puts forty one-word rows at the top of both; the board picker counts what is on the board and keeps the count current as you add (a map counts topics), the Library and the dashboard say links rather than sketches for the lines between cards, and after Enter names a card, typing renames it instead of picking tools (UX-06, audit 2026-10-05).
+- Library: opening the Library tab fetches only the Library's own code; the document editor, the whiteboard and the graph library (about 900 KB gzipped) come with the first document or board you open, or the Boards sub-tab.
+- Layout: the six rules that switched at 900px wide (the header's space name and mark, the chat's answer and records columns, the writing room's two boxes, the documents layout) switch at 820px with the rest of the tablet layout, so a window between 820 and 900 keeps the desktop header.
+- Design checks: the button census is now a sweep that fails when a kind of button (icon-only, ghost, filled, segment, tab, chip) shows up at a height it has not had before, naming the control.
+- Code health: a lint finds every GET that returns a list (or a dict holding one) by what it returns, not by its name, and makes it take a page or say why its size does not grow; On this day reads the five notes it shows instead of every match.
+- Code health: the agent's tool dispatch, the app's start-up, the chat stream and the agent's wrap-up round are split into named steps with no change in behaviour (the longest went from 455, 354 and 334 lines to 302, about 80 and under 270).
+- Code health: the event spec's per-write drivers, the skill harness's folded run and the filing prompt seam moved from the app's modules into tests/ (about 290 lines the app shipped and never called), and an unused timeline cursor encoder is gone.
+- Startup: the graph library (d3) loads with the Graph tab or the Library instead of before the lock screen, and the app's emblem draws on a plain canvas, so the 1 MB p5 library loads only for the dashboard's art widget (about 330 KB gzipped off every launch).
+- Notes: a card's category, Add tags and references chips take a click 2px above and below the chip as well, so each is a 28px target on a desktop while it still looks 24px tall.
+- Suggested links: a note's name is read only for the notes a suggestion names (1.08 s to 371 ms warm at 5,000 notes).
+- Graph: opening the map again with nothing changed reuses the last picture instead of rebuilding it (737 to 149 ms at 5,000 notes); a pin, a visit count, an attachment, a note put on a map, a link's reason or locking the vault still rebuilds it.
+- Editing a note: the save returns before its new text is embedded for search by meaning; the vector is made a moment later on the model's own queue, from the newest text if you kept typing (a real embedding model took 200 to 400 ms of every autosave).
+- Speed at 5,000 notes: a page of reference counts reads only the notes the search index says hold a long label's words (1,112 to 214 ms); the Timeline sends its rows once, not twice, and counts its days in the database (323 to 163 KB, 132 to 100 ms); Find duplicates on a notebook of a few hundred common words compares notes by one matrix product instead of pair by pair (about 160 s to 4 to 7 s) and sends each note's first 1,000 characters rather than the whole text; Library previews read at most the first 4,000 characters of a note.
+- Checks: an animated `filter` or backdrop blur now has to say why above it, as an animated layout property already did (it repaints everything under the surface each frame); the graph node's hover glow, the one there is, says so.
+- The '?' in the Suggestions, Manage tags and Manage categories sheets opens its explanation again (it did nothing: the sheet was built after the page's '?' buttons were wired). Escape closes an open explanation first and the sheet on the next press.
+- Whiteboard: a frame's title can be grabbed at any zoom. Zoomed out to fit a phone it was about 7px tall and a drag aimed at it moved nothing; its hit area now stays at least a touch target tall on screen (44px at the fitted zoom), and the frame, what is inside it and anything selected move together by one amount.
+- More deletes have Undo, from their toast and from the status bar (undo-1005): a reference removed from a note you are editing (it comes back in its place in the list), a note type (with its id and fields), a kind of link (with its key, and every link it was on typed again unless you have given that link another kind since), a chat (whole: its turns, pin, archive and dates) and a space that was empty or whose contents were moved to another (every moved row goes back, and a category merged into the other space is made again with its notes). Deleting a space together with everything in it stays final. Deleting a kind of link now clears it from links in every space, not only the open one.
+- Chat, Web panel: each result's snippet marks the words the search was for (the query's own words without the little ones), built as text nodes so a snippet is never parsed as markup, with the same accent wash a note card's search match uses (BACKLOG section 13).
+- Library, Documents: the more menu has Import a file as a document, which turns a Word file, PDF, spreadsheet, Markdown or code file into an editable document through the existing import route, redraws the list and names any file it could not read; the '?', the Guide's import topic and `tests/test_library_docs_import.py` say so (BACKLOG section 99).
+- Settings, Web search: the '?' now lists what the code does with a search (a browser-like request that never names the app, no cookies kept between searches, the words sent in the request body and not the address, tracking parameters stripped from results, a self-hosted engine keeping the words on your network), and `tests/test_websearch_privacy_copy.py` holds each claim against the module (BACKLOG section 13).
+- Search: the startup backfill and the Settings re-index embed notes in batches of 16 through one batched encode (`EmbeddingService.store_for_entries`) instead of one note at a time, and check for a cancel between batches; the stored vectors are identical (BACKLOG section 11).
+- Docs: BACKLOG.md swept against the code: 97 open items struck as built with their file and line, 3 recorded as decided, 44 whiteboard, documents, graph and harness items pointed at their plans, and 93 given a one-line Next brief or marked as the owner's call; four small ones were built in the same pass (the Web search '?', batched embeddings, Import a file as a document, highlighted web snippets).
+- Agent mode: asking for notes from "this week", "since Friday" or "last month" is counted by the app on your calendar rather than worked out by the model; an edit says what changed and which category the note is still in, so the answer cannot claim a move that did not happen; a note filed under a category you already have is never offered a tool that renames or merges categories; "added to Favourites" is understood as the pin it is rather than flagged as an unsaved note. The Daily review skill no longer spends a step reading the clock.
+- Notes: Capture counts words and reading time instead of characters; Write with Atlas counts the words in each pane and sets the draft in the same font as your thoughts; Escape clears the Ask question (INBOX 63).
+- Chat and Ask: hovering a citation number now also says which words it matched on, so a number pointing at the wrong note shows the wrong words (INBOX 76). Settings, Tools it can use: the list is grouped as Reads your notebook, Changes your notebook, Asks you first and Reaches the web (INBOX 71).
+- Agent mode: every change the assistant makes is checked before and after. A link to a note that does not exist, a retag that changes nothing, or a category that is a misspelling of one you have ("Heath" beside "Health") is refused with a line saying what to use instead, and the notes are read back after each change so a change that did not hold is reported as not done rather than claimed (row 19). Removing a tag now works whatever its case. With Ollama, a small model's first round on an instruction is decoded as a tool call, as it already was with llama.cpp.
+- Under the hood (WORLD_CLASS_PLAN F1, F5, F12): every saved setting is read through one module that never throws on blocked or damaged browser storage and never hands a page a value of the wrong shape (a number that is not a number was how a missing setting once flattened every card); every request to the app goes through one door, so the chat, Guide and log streams, every upload and import, and the exports carry the same sign-in, space and error handling; the notes list has one owner the dashboard waits for instead of loading the same notes twice, and it pages by the server's cursor so a note saved during a long load is not listed twice.
+- Files (WORLD_CLASS_PLAN F10): every reading of a file (its caption, the OCR text, the vision model's reading and each page read in the OCR workspace) is one `readings` view and one route, `GET /files/readings`, and all of it is searchable: an upload read by the vision model, and any page read page by page, could not be found by its words before. Background work (F7): re-indexing the notebook runs on the job pool in a lane of its own, so it no longer holds captions and the filing of new notes behind it.
+- Speed (WORLD_CLASS_PLAN 19.3, 19.5): the whole `EXPLAIN QUERY PLAN` pass at 5,000 notes. In the All spaces view (the default) every list sorted its whole table, because each list index led with the space; twelve indexes on the lists' own orders take the sort away (the Library's activity 76.6 to 4.4 ms, the Timeline's page 35.8 to 0.2 ms, the Library's notes 36 to 0.2 ms). The activity panel lists the next ten waiting jobs of each kind and counts the rest in one row, so dropping 2,000 pictures no longer makes every poll 2,000 rows (347 KB).
+- Skills and other agents (B8, H4): a Markdown file saved in the notebook's skills folder is a skill, listed in Settings, Skills and the chat's Skills menu the next time it opens, without a restart (the file's name is the skill's name, a "## Steps" list its steps, front matter its description, tools and inputs), and Settings says which files did not load and why. The API is also served under `/api/v1` behind the same unlock, and a change made by an outside agent (an MCP client, or a request naming itself in `X-MemoryMap-Agent`) is filed under that agent's name in History and the activity list, not as yours or Atlas's.
+- API contract (WORLD_CLASS_PLAN B7): every paged list takes a `cursor` and answers with `X-Next-Cursor` while there is more, `offset` paging unchanged; the notes list's cursor is a keyset, so a note saved between two pages neither repeats a row nor hides one. A note read carries an `ETag`, and an edit or delete sent with `If-Match` for a version that is no longer current is refused with 412 and the current note, so an outside client cannot overwrite a change it never saw. `GET /capabilities` says what this install has (the transcriber, Tesseract, the Office importer, the embedding backend, the API version).
+- Settings, Search index: the search engine's problem line is a warning notice with its icon. Settings, Models: an address you set that nothing answers says so (Nothing answered at the address, check it) instead of the server isn't running. An available update says how big its download is before you press Update. Suggested links: Link all above 70% says one thing for the lot.
+- Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
+- Search and the local model (audit 2026-10-05): the finder and the palette find a note by meaning when no word matches, and through a typo ("gardn"), not only by keyword (ARCH-07, `tests/test_search_recall.py`). Background model work (captions, vision reading, filing jobs, the night and entity passes) waits between its calls while a chat answer streams, so a question waits at most for the one call in flight; follow-up suggestions are not asked for while the next question is already streaming (ARCH-09, ARCH-16 in part, `tests/test_model_gate.py`). A model server that is off fails within 5 s of connecting instead of after 10 minutes (ARCH-17). The context budget counts Chinese, Japanese and Korean text as about a token a character, so a CJK notebook no longer overfills the window and loses the system prompt (ARCH-15). Link suggestions and tensions keep each note's 12 best pairs, not every pair over the threshold (ARCH-11). Import cycles stepped round with `importlib` are counted by a ratchet lint, `tests/test_import_module_cycles.py` (ARCH-10).
+- API and data safety (audit 2026-10-05): `GET /entries` also pages by a cursor (`after`, `X-Next-Cursor`), so a note saved during the read neither repeats nor hides one; offsets still work and the client's switch is the frontend audit's FE-05 (ARCH-04). A request that does not validate answers the app's one error shape, a sentence, `code: invalid` and the fields, and never echoes what was sent; it echoed a password sent as a list (ARCH-12). The bin purge, the event-log compaction and the daily backup start on a thread once the server answers, not before the port opens (ARCH-19). A note sent twice by the offline queue is one note across a restart and two resends at once: `client_key` is a column with a unique index (ARCH-23, migration `a7d3e9c1f5b2`). Library's activity honours the search and the space and no longer loads whole audit rows (ARCH-24). `/export/backup` is an SQLite snapshot, the write-ahead log included, and carries `uploads/` (every attachment) beside `media/`; before, the newest notes and every attachment were missing (ARCH-18). `/graph` and `/changelog` are encoded on the worker thread, not the event loop (ARCH-14, ARCH-25).
+- People and things: merging two names has Undo, in the toast and on the undo stack, from an entity's page and from Suggestions, Names. Undo splits them back exactly: both names, their kinds and other names, every mention on the side it came from (the same rows, a dropped duplicate written back), and anything an earlier merge pointed at the folded name; Redo merges again (INBOX 553(a), `POST /entities/merges/{id}/undo`, `tests/test_entity_merge_undo.py`). Suggestions no longer loads every note to show a list (1.2 s at 5,000 notes for an empty one; audit ARCH-11).
+- "All spaces", the default view, lists from indexes: the notes list, the bin, the archive, documents, reminders, chats and media had indexes only for one selected space, so with All spaces SQLite sorted the whole table on every page (measured with EXPLAIN on the real statements; the chat list's pinned-first order sorted in a space too). The audit log is indexed by action and by date for the corrections and the Library's activity (audit ARCH-05, `tests/test_all_spaces_indexes.py`).
+- Saving a note no longer reads the notebook. Filing by your notebook's words and the kept tag suggestions use a corpus kept between saves and brought up to date by what changed (only edited notes are read and tokenised again), and filing by meaning takes its vectors from the search engine's matrix instead of decoding every stored vector; measured with embeddings up and no chat model, 400-word note, 5,000 notes: 4,300 ms p50 before, 390 to 615 ms after on a machine at load 10 to 13 (61 to 96 ms at 500 notes); `tests/test_save_cost_flat.py` holds the per-save work to a bound. Re-filing a note by hand now teaches filing with no model: two moves out of a category keep notes like it out of that category (WORLD_CLASS_PLAN I7's consumer, claimed built and unwired; the re-files `update_entry` records were also invisible to it). Private notes no longer feed the words filing learns from (audit ARCH-02, ARCH-08, ARCH-20). Search: `GET /search` (the finder and the palette) keeps to the space it is asked in, and "All spaces" leaves out spaces hidden from it (audit ARCH-03, `tests/test_search_spaces.py`).
+- Settings, Models: switching the chat backend keeps semantic search. The embedding service is re-pointed at the new client instead of rebuilt, so a loaded embedding model stays loaded (measured before: `embedding_ready` false and search keyword only until the next save, which then paid the 5 s cold load; audit ARCH-06, `tests/test_backend_switch_keeps_embeddings.py`).
+- Saving while the night pass or the entity pass is asking the model no longer fails: both passes commit before every model call and write each note in a short transaction of its own (measured before: every save during Run now answered 500 after 5.1 s, the busy timeout). A write that does lose the race answers 503 "The notebook is busy for a moment. Try again." instead of Something went wrong (audit ARCH-01, `tests/test_write_lock_during_passes.py`).
+- Layout (audit FE-11, FE-14, FE-19): a window exactly 600 or 720 pixels wide no longer gets both the narrow and the wide rules; the view toggles in every bar and a document's Edit and Read are the 28 pixel minimum tall (they were 24); the sidebar opener below 820 pixels is no longer cut off at the window's left edge; a Timeline row's cut-off preview shows in full on hover.
+- Failed actions are reported (audit FE-12): forgetting a memory, deleting a backup, pinning or deleting a question, clearing history or the server log, redoing a delete and deleting finished reminders now say why when they fail, and a contradiction is only reported linked or dismissed when it was. The dashboard and reminders read the server's times as UTC, as the rest of the app does (FE-16).
+- Reminders and the clear buttons (audit FE-08, FE-18): locking and unlocking no longer stacks another reminder poll each time (after four cycles an idle minute asked for reminders five times), and the clear buttons in Capture, Ask, Chat and the palettes follow their boxes without a once-a-second poll.
+- Graph (audit FE-04): a big map's layout ends. Past 1,500 notes it cools in 120 ticks instead of about 300, and any layout stops 20 seconds after the last thing that moved it (a drag or a reheat starts it again), where a 5,000-note map was still moving after 30 s with the tab at 44% of the main thread. A node under 4 pixels across on screen is drawn as one batched dot per colour instead of its sprite (4,983 of 5,001 at the fitted view); zoomed in, every node keeps its sprite.
+- Notes (audit FE-05): saving, binning, undoing, editing, publishing a draft, linking and a note's filing finishing re-read only the notes they touched (one GET /entries?ids= request) and patch them into the list, instead of re-reading the whole notebook. Measured at 5,000 notes: a save was 26 list requests and 16 s under load, now one 1-note request; the list, its count and the sidebar follow, and a patched list that disagrees with the server's count falls back to the full read. The list's clamp check measures every note before changing any.
+- Library (audit FE-03): opening the Library no longer starts the grammar checker. The load-time paint of an empty editor fetched the 15.9 MB grammar WASM, its worker and the 871 KB word list on every first visit; they now load when a document with text is opened (measured: Library visit fetches none of them; opening a document fetches all three and finds its mistakes).
+- Launch cost (audit FE-01, FE-02): the app's own scripts, stylesheets and page are served with their comments stripped (the files on disk keep them; a scanner, not a regex, proven by identical acorn token streams over every script), and each asset URL is stamped with a hash of its own file instead of a per-launch token. A relaunch now takes all 49 boot assets from the browser's cache (was 0 of 49); an edited file is still a new URL on the next page load. A cold load's assets went from about 2.4 MB to 772 KB; the app's 25 boot scripts from 792 to 329 KB gzipped. The grammar checker's WASM is gzipped once per version (8 MB instead of 15.9 MB on the wire).
+- Small things from the 2026-10-05 UX audit: on a phone a note's category reads whole (the time drops " · edited" first) (UX-13); no menu item shows a tooltip reading "undefined" (UX-14); the Guide sends you to Settings, Import & export, and every Guide badge names its Settings section as the nav does (UX-15); the Library says "words in documents" (UX-16); the status bar says "Notebook ready · AI off" and the first save with no model says it is filed by your other notes (UX-17); the notes dock stays under the sub-tabs as the list scrolls, on a wider screen (UX-18); Highlight in a colour offers the colours to pick (UX-19); the bin is "the bin" everywhere, with a glossary in DESIGN.md (UX-20); the Create dialog shows Ctrl+Shift chords only in the desktop window, where a browser does not take them (UX-21).
+- Status labels app-wide ("Built-in", "Installed", "In use for chat", a file's "Read · N words") are a tinted pill without an edge, matching the meta chips; their tone is the tint (INBOX 553 (c)).
+- Settings, Import & export: a download says so in a toast, the Recent exports list says where browser downloads go and refreshes after a desktop save, and the export and backup groups each say in one line what they are for; Dashboard, Weekly digest: with no model, a line under the button says why it is off, with the Settings link, where only a tooltip did (audit 2026-10-05, UX-11, UX-12).
+- Notes: the Connections column follows the note you are reading: the card you click, or else the one in view as you scroll, which wears a thin accent line at its left; the More menu's switch reads "Connections beside the note you're reading" (INBOX 571).
+- Notes list: Tab walks the controls of one card, the one the arrow keys are on, and then leaves the list; 27 notes were 281 Tab stops, now the card's own five to seven (audit 2026-10-05, UX-10).
+- Notes, Ask and the Guide: a selected question no longer brings up the writing popup (Highlight, Bold) over the tab bar after it is asked (audit 2026-10-05, UX-09).
+- Command palette (Ctrl+K): rows for the recycle bin (it opens the Library with Include the bin ticked), Questions, Ask, Undo and Redo, and each row answers to the words people type for it ("trash", "deleted", "backup", "restore", "theme"), where those found nothing (audit 2026-10-05, UX-08).
+- Ask and the agent: the status bar's wand says Agent, the name of the dialog it opens; with no model, Chat's suggestions say they open in Notes, Ask; the first starter is "What have I saved recently?", which Ask answers from the newest notes with no model (audit 2026-10-05, UX-07).
+- Library, Create: New mind map is a row of its own (it opens the board dialog on Mind map), and New concept map says what it makes, a board of note cards whose topics are saved as notes, instead of calling itself a mind map (audit 2026-10-05, UX-06, in part).
+- Documents: Enter (or Down at the end) in the title moves to the start of the body, as other editors do, from Read view too; it used to type the first line into the title (audit 2026-10-05, UX-05).
+- Search: a one-letter typo that finds nothing is searched as the nearest word in your notes, in Find anything (Ctrl+P) and Filter notes alike, and each says "showing results for" the word; Find anything no longer tells a notebook with notes that nothing is indexed yet when a search has no hits (audit 2026-10-05, UX-04).
+- Timeline and note cards: a day a note mentions sits on that day in every timezone (it was served as UTC midnight, so "on Friday" sat under Thursday 8:00 PM in New York) and reads All day; a time said with the day ("on Friday at 3pm") is kept and shown as written (audit 2026-10-05, UX-02).
+- Reminders: Magic add reads wall-clock times with no AI ("call mum tomorrow at 5pm", "dentist next Friday at 3pm", "pay rent on 1 November", "water plants tonight", "high priority"), so the dashboard's Remind me works on the default install; the wand is no longer disabled without a model, and the AI is asked only for a phrasing the rules miss (audit 2026-10-05, UX-01).
+- Mind maps: Write as a document (the board menu, or the command palette) turns a map into a new document: the central topic is its title, branches are headings, deeper topics lists, a topic's note the paragraph under it, and a card of the map at the top leads back to it.
+- Documents: a page break. The / menu's Page break (written \newpage on its own line) shows as a labelled dashed line, and what follows starts on a new page when you print, save as a PDF or download the HTML.
+- Dashboard: the Boards & maps widget draws the board or map with the most on it large, at its own shape: a small map at a readable size, a tall one in a taller card up to a limit and then fitted whole, its name under it, then the next four as rows (INBOX 553(d)).
+- Documents: a hidden formatting toolbar is easy to bring back: a Formatting button sits in the document's bar while it is hidden, Ctrl+Shift+X shows or hides it, the ⋯ menu says Show formatting toolbar, and the first time you hide it a note says where it went (INBOX 574).
+- Boards and mind maps: the cross-link tool's anchor dots no longer stay on a topic after you switch back to Select; deselecting, Undo, a tab switch or closing a menu clears them (INBOX 573).
+- Mind maps: a topic you have dragged into place (pinned, drawn with a dashed box) keeps the Edge bar the Shape menu says: a Solid bar is solid again instead of dashed like the box (INBOX 569).
+- Boards, mind maps and documents: Undo and Redo survive a reload. Each board, map and document keeps its last 100 steps on this computer, so closing the desktop window or reloading no longer takes Ctrl+Z away; locking the notebook clears them (INBOX 553(b)).
+- Mind maps: paste an indented or bulleted list (from a note, a document or another app) onto a selected topic and it becomes that topic's branch, one topic per line, nested by indentation; one Ctrl+Z takes it back (audit FEAT-09, the map half).
+- Mind maps: Tab and Enter open the new topic for typing at once instead of after the server and two redraws of the whole map (median 1,279ms to 320ms at 301 topics, measured back to back on the test box); a new topic and the name typed into it are one Undo step; after a name is committed the keys stay on the map and the name is read out; a laid-out map's topic menu no longer offers Bring to front and Send to back; and with a map open the command palette lists its commands (add, rename, fold, focus, tidy, layout, look, numbering, present, export). App-wide: three style rules that made every change to the page restyle all of it are rewritten (audit FEAT-02, 11, 15, 16, 17).
+- Documents: pasting from a web page, Word or Google Docs keeps the headings, bold and italics, lists, quotes, code and links (as Markdown) instead of flattening them to plain text; a link with an unsafe address keeps its words only, a code editor's copy stays plain, and Ctrl+Shift+V pastes plain text (audit FEAT-04).
+- Documents and notes: footnotes render in Read view, in a print or PDF and in the HTML export, not only in Live: `[^1]` is a raised number linked to its note, the notes are listed at the foot with a way back, and a comment exported as a footnote reads as one instead of as `[^c1]: remark` (audit FEAT-03).
+- Mind maps: a FreeMind `.mm` file's central topic comes in as the central topic, not as the map's name, so a one-root map round-trips and a Freeplane or XMind map keeps its centre; OPML, FreeMind and Markdown each bring a 101-topic map back whole. An imported map, or one made from your notes, opens in the tree-right layout and laid out, instead of in Free where the first Tab piled topics on each other (audit FEAT-01, FEAT-05).
+- Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
+- Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).
+- Dialogs: every dialog head is one row at every width, the title giving way with an ellipsis before its buttons would wrap onto a second line (measured on 42 heads at 390 and 1440; before, Where are my documents kept? and the dictionary put their X on a row of its own on a phone).
+- Documents, the dictionary: one head row at every width (Dictionary, its '?', Import, Export and the X as icons), the count opening the line under it, the search-field well (its glyph used to sit on the placeholder), and the switch rows drawn as switch rows instead of a switch over a small grey label; on a phone the spelling choice goes under its name. Dialogs app-wide: an on/off row in a small dialog is no longer drawn as a form label.
+- Documents, the Suggestions panel: one head row at every width (the name and its count, Fix N, Check with AI, a ⋯ with the Dictionary and the dock side, the X), measured one row down to the 240px right dock where it used to wrap; each finding is one row (the mark, the words over the reason in a narrow panel, then Accept and Ignore as quiet icons, Ignore last on every row), an opened row's answers sit under it rather than beside it, the candidates are quiet pills, Up and Down walk the rows and the focus moves to the next row after an Accept or Ignore; the empty state is one quiet line.
+- Dialogs: How are these connected, Manage this connection, Manage bookmark groups, Review the map before it is made, Export this board and a map's facts and look open on the same head as every other dialog (a 16px title and an X), instead of a small uppercase heading or none; the link kinds are quiet rows with the chosen one tinted, and a map's facts lose the extra filled Close.
+- Pickers: the dialogs that choose from your notebook (the mind map's Point a new node at, Add to a note, Make a map of these notes, Choose from your library) share one modern shell: a dialog head with its X, the search field with its glyph, and rows with an icon tile and the name over one line of facts (a note's category and when, a document's words, a file's size, a bookmark's site). Down and Up walk the rows and Enter takes one; the source tabs walk with the arrows and keep the list one height; the several-notes picker has the Attach picker's check rows and one filled button.
+- Timeline: the calendar strip under the dock is one header row. The month sits between its two arrows, and the seven days are one well across the rest of the row (it was a 448px column of bordered boxes with the arrows 230px from the month); today's number is filled, a dot marks a day with a page, and the days are one Tab stop the arrow keys walk, past either end a day at a time. On a phone the arrows take the row's ends and each day stacks its weekday over its number (46px wide at 390).
+- The app opens with 34 KB less script to download (gzipped, 792,754 to 758,418 bytes): the Settings window's own listeners, the catalogue's deep links, the welcome card, the update dialogs, the command palette's window, a note card's menu panels, the edit form's Similar and links panels and the put-on-a-board pickers now load the first time you use them. Nothing looks different; the first Settings open waits a few milliseconds for its file.
+- A face's large view is alive (INBOX 591): its weight shifts, its head sways and its arms drift on clocks that never line up, and its eyes and head turn to the pointer, as the companion's do; still but for its blink and breath under reduced motion. Measured over 2s: 7 of 40 parts move (3 before).
+- Atlas moves like a body (INBOX 540, 554, 556, 564, 575): each arm is a jointed chain, shoulder, elbow and wrist, that bends as one smooth outline, and every change of pose, act or mood eases there on springs timed by the size of the move (250 to 500ms), drawing back a little before a big one and settling past it, the shoulder a beat after the body, the elbow and the wrist after it; a wave lifts the forearm, the bell and the star map straighten the arm, folded and clasped arms bend at the elbow, and the arms swing in counter-phase while it travels; the head lags a change of pose and catches up; the hair trails the body's sway and a wave runs down both tails to the tip; the dress or cloak, the tails, the hair and the nebula stream each take a pose for what it is doing (resting, moving, sitting, lying, a gesture, thinking, happy, sad, startled), in a variant picked at random so repeats differ, blended with an overshoot and settle; his lower body is a cloak in her dress's celestial material; a blink is the lid coming down over the eye and back up, where a patch of skin with a heavy ink arc faded in and read as a thick brow; capped tips (the tails, his trail, the chin hand) are round instead of notched. With motion reduced, a pose changes at once and nothing idles.
+- Atlas, the feminine look: the fringe is five tapered locks with round tips over a smooth hairline, drawn with the hair's cap so no mood can open a gap; the astral wisps are tapered ribbons in nebula hues that fade at both ends, wrap behind the body and back round the front, with four-point glints that twinkle; the lower body keeps its shape as a dress that dissolves into light and motes at its end, with no outline; her figure is slimmer, her long hair four broad flowing locks with soft curls in place of a fan of spikes, her comet tail longer and feathered like her wings, and she breathes, floats and trails her dress on clocks of their own (still under Reduce motion). Both looks have a smaller, oval head with softer eyes, and arms that hang relaxed from the shoulder with a soft bend at the elbow, gestures rising from there; the masculine torso tapers from broad shoulders instead of being an egg (INBOX 550, 554, 555, 556, 559, 563, 564, 565, 567, 568).
+- Notes, Questions: Read notes now finds the questions your notes ask at once (the night pass, which otherwise runs only with background tasks on); the empty line says so (INBOX 551).
+- Whiteboard: right-click a frame's title, Export this frame…, to export the frame and everything inside it (locked items too) as a picture, PDF or SVG. A frame inside another moves with it.
+- Mind maps: View, Present branches shows a map full screen one branch at a time: the whole map first, then each branch fitted to the screen, with the same bar and keys as a board's Present frames (arrows, Space, Home, End; Escape puts everything back).
+- Mind maps: boundaries and summaries. A topic's menu (More, Branch) draws a boundary round its branch, rounded, dashed or as a cloud, in the branch colour and with a label if you like, and it grows, folds and moves with the branch; Summarise puts a brace beside one topic, or beside several selected side by side, with your words past its tip. Both undo, survive OPML and FreeMind exports and come out in the picture exports.
+- Whiteboard and mind maps: comments. Right-click a card, sticky, shape or topic and choose Comment… for a thread on it; a count on its corner opens the thread again, Enter posts, a trash deletes and Ctrl+Z takes either back. Kept with the item through moves, copies, undo and a duplicated board; not exported.
+- Graph topics can be renamed: the pencil on a topic's card gives it a name of your own, kept by its notes so it follows the topic through small changes, and the arrow brings the found name back (PUT /graph/topics/name). Library, Contents has By topic, a section per topic (INBOX 547).
+- More of the app has Undo (INBOX 537): merging duplicate notes (the words, tags and binned notes come back), generating or removing a note's title, changing a link's kind or properties, deleting several boards from the Library (they go to the recycle bin), and deleting a category from the keyboard. The audit of what has Undo and what does not is in WHITEBOARD_PLAN, "Undo coverage".
+- Undo and redo on boards and maps cover every change (INBOX 537): each board, map and document keeps its own history for the session, and Ctrl+Z or the status bar's pair walks the open one (the app's own stack everywhere else). A map gesture (fold, theme, numbering, layout, tidy, detach, remove keeping the branch, turn a line around, copy a branch, clear the map, reset every topic's style) is one step read off what it changed; a deleted topic comes back with its branch and under its parent; a deleted card, box or shape comes back with its links; a deleted selection and Clear board are one step each; a picture's file is kept so its Undo shows it; a branch dropped on a folded topic opens it rather than vanishing; a rename left open across an Undo can no longer write onto another topic. Deleting a board moves it to the recycle bin with Undo. Clearing completed reminders, and deleting an overdue or done one, can be undone.
+- Documents on a phone: in Read view the first line sits right under the head row (y=199 at 390x844, was 255): the document's name is not repeated as a heading under the row that already shows it, and the page's padding matches the card's. Desktop Read view still opens with the name.
+- Atlas, on a small model: "What tags and what categories am I using?" (two questions in one sentence) is read as a question, so the tag and category tools that change things are not offered for it; filing a note under a category that already exists no longer opens by offering to create the category; and when a request that must open with a tool call gets prose instead, the model is asked once more to call it (`tests/test_toolwords.py`, `tests/test_harness_tiers.py`, `tests/test_harness_robustness.py`).
+- Focus mode (the graph's local view): the neighbourhood of a note is drawn from an index of the notebook's connections that is kept until a note or link changes, instead of being rebuilt from every note on each open or refocus; measured on synthetic notebooks of 2,000 and 10,000 notes, a repeat call went from 129 ms and 1,032 ms to 13 ms and 23 ms (`tests/test_graph_local_scaling.py`).
+- Atlas, on a small model (under 8B): when a request must open with a tool call, the first round is offered only the tools that act and the searches that find the note named, so "Add X to my note" no longer opens with the clock and "Put X in my shopping note" no longer makes a new note (measured on a 3B: a right first tool 17 of 22 before, 20 of 22 after). A question's first round is offered no tool that changes anything, and "File the note under Health" is offered the note edit that sets its category.
+- Web search: pressing Start on SearXNG while a reinstall begins now stops at once and says it was being reinstalled, instead of waiting out three minutes and reporting that SearXNG wrote nothing.
+- Dialogs show one filled button at a time: the Documents AI panel's Replace with this, the OCR workspace's Save changes, the meeting recorder's Save as a note and Settings' embedding fix take the fill only when their step arrives (the button before them goes quiet); About's Install this version and Change keyboard shortcuts are quiet buttons.
+- Notes: the facts on a note's line (the dates it mentions, how sure the filing is, what points at it, reminders, a missing tag) no longer draw an outline, and the category chip lost its hairline; the ones you can press (the category, links, Add tags, the references count) still tone under the pointer.
+- Timeline: the month above the calendar strip opens a month calendar to jump past the seven days. Arrow keys, Home, End and Page Up and Down walk it, Escape gives the focus back, days after today are off, a dot marks a day with a page, and picking a day moves the strip to it and focuses it (nothing is written).
+- Help: the nine '?' buttons that still ran on the older hand-wired panel (Graph, Timeline, Notes' filter and capture, Skills, Boards, Media, Contents and Settings' search relevance) are the shared `data-help-for` popover now, and the Settings Logs dock has its own '?'. Same text, one code path; Escape on the Graph's '?' still leaves the map full screen. A lint fails if a hand-wired help panel comes back.
+- Timeline: a calendar strip above the feed shows the last seven days with a dot under each that has a page; pressing a day opens its note or document, or starts it in the composer with the date as the title (nothing is written until you save), and the arrows move a week. A note titled with its date now shows the day before and the day after as buttons under its title. Ctrl+D shares the same lookup, which asks `GET /entries/daily` before reading so an empty day is not a 404 (`scratchpad/ui-sweeps/daystrip.js`, `tests/test_daily_strip.py`).
+- Dashboard and Reminders: each dock now ends with a '?' that opens a short note on the page (the Dashboard's search, widgets and layout; the Reminders groups, the plain-words box and the calendar export), the same button every other tab's dock has; `tests/test_dock_help_507.py` fails on a dock without one (`scratchpad/ui-sweeps/dockhelp2.js`, 4 of 4 at 1440 and 390).
+- Command palette: Ctrl+K now lists Open today's note, Go back, Go forward and Reload the app, the four shortcuts that had no row; `tests/test_consistency_contract.py` fails on a tab or a shortcut the palette lacks, a card in a card, a glass in a glass, a menu row that paints a fill at rest, and a second filled button in a modal or a settings pane (5 existing dialogs and 13 chip rules are held at their count).
+- LAN mode answers over IPv6 as well as IPv4 where the computer has both: one dual-stack socket, so a phone on an IPv6 network can reach it too; the addresses Settings and the privacy receipt list include global and unique-local IPv6 ones in brackets (never link-local, which no browser can open).
+- Notes, Questions: every question your notes ask in passing, newest first, as Open, Answered or Dropped with a count on each. An answered one quotes the later sentence that answered it and opens its note; Mark answered asks which note answers it and links the two; Drop and Reopen move it back and forth. Ask about these answers from the notes with open questions only, and the Dashboard's While you were away card names the oldest open question.
+- Dashboard, While you were away: reading your notes on its own now also finds two claims in different notes that disagree (the rent is 900 in one and 950 in a later one) and a question a later note answers. Each row quotes the other sentence, opens the other note, and a disagreement can be linked as one; a dismissed pair is never found again. With no model it finds only a changed number or a 'not', and a later sentence that holds most of what the question asks.
+- Search by meaning reads long notes paragraph by paragraph: a note of two or more paragraphs stores a vector per paragraph and scores on the better of its own and its best paragraph's, so a question about one paragraph of a long note finds it (seeded 1,000 notes: recall@5 0.01 to 0.42). Old long notes get paragraphs at the next launch; editing one paragraph re-embeds only that one.
+- Chat and Ask: a source mark's preview says whether the passage supports the sentence or only partly, with three short bars for why it was chosen (Words, Meaning, Links). The end of Grounded in says how many sentences came from your notes and opens the evidence: each sentence beside the passage it came from, and No note says this beside the rest.
+- Dashboard: Recent activity's "Undo what Atlas did" row goes once the undo has put everything back, instead of staying to say "Already undone"; a later change by Atlas brings it back (`GET /events` names the events a restore reversed).
+- Dashboard: the While you were away card grows to fit the review list you open instead of scrolling inside a 320px box, so every finding and its Dismiss button can be reached; it still pages five at a time.
+- Mind maps on a phone: a selected topic's add and link buttons hang below the topic instead of over the left of its label, so pressing the start of a topic's text selects it rather than adding a child.
+- Privacy receipt: the ledger is written within a second of a connection instead of only when the receipt is opened and when the app quits, so an app that is killed or crashes no longer loses what it had seen (`tests/test_egress_ledger_writes.py` kills a process mid-run).
+- Background work survives a quit or a crash: the readings and filings an upload starts (text from images, captions, vision reads, document reads, filing) are kept in the notebook while they wait, and the next launch finishes what was left, three tries at most. A queued reading can be stopped from the activity panel. New `GET /jobs`, the server-sent `GET /jobs/stream`, and `POST /jobs/{id}/cancel` (WORLD_CLASS_PLAN B2, `tests/test_jobstore.py`).
+- Phone: a tap on a note in Select mode now only ticks it. It ticked the note and also opened its page over the list, so the next note could not be reached until Back was pressed. `tests/test_phone_select_mode_tap.py`, `scratchpad/ui-sweeps/deepflows.js` (the select flow).
+- Notes and documents: the `[[` picker offers the note you are naming first. It listed every note holding the words anywhere, newest first, cut to six, so with newer notes linking to "Alpha project" the picker's first row (the one Enter takes) was one of those and Alpha project itself was sixth or missing. Notes whose first line starts with the words come first, then ones whose first line holds them, then ones that only mention them. `tests/test_wiki_picker_ranking.py`.
+- Settings, Models: the "Advanced response settings" heading no longer drops its "?" onto a second line at phone width (the head stood 71px tall in a 44px row, so the chevron and the "?" sat on different lines from the words); the heading wraps in place instead. `scratchpad/ui-sweeps/deepflows.js` (fold headings, 0 of 21 sections spill at 390).
+- Settings, Profile and General: a switch pressed and then left for another section within a second is no longer put back. Those sections save 700 ms after the last change, and opening one reloaded the old values over the form before that save ran, which then saved the old values. `tests/test_prefs_pending_save_survives_pane_switch.py`.
+- Settings, Tools it can use: all 58 tools can now be switched off (the list held at most 50, so the 51st switch was refused and left looking off), and a refused save puts the switch back and says why instead of failing silently. `tests/test_agent_tools_api.py`, `tests/test_tool_switch_save.py`.
+- Settings: pressing a setting's words now toggles its switch. On every row with a long hint the words opened the help instead (the "?" came first in the row, and a label activates its first control), so only the small switch itself worked. `tests/test_setting_label_toggles.py`.
+- Dashboard: Recently added, the random-note widget and the unfinished-checklists list no longer print a note's `---` properties block as its words (`---` and the fields were the first thing shown for a note with properties). `tests/test_properties_never_in_previews.py`, `scratchpad/ui-sweeps/deepflows.js`.
+- Notes and documents: `[[Target|Shown]]` draws the shown words (it drew `Target|Shown`), opens the note or document named before the bar (it looked for one starting with the whole text and offered to create it), and a document's live view hides the target and bar like the brackets. Board references (`board:12|Title`) are unchanged. `tests/test_wiki_alias_frontend.py`.
+- Phone: Edit on an open note now opens the edit form. The note page (a full-screen sheet) stayed over the form, which was drawn in the list behind it, so Edit seemed to do nothing until Back was pressed; starting an edit now puts the page away first. `tests/test_phone_note_page_edit.py`.
+- Notes: in a note's edit form, Home, End and the up and down arrows now work in the title, tags and body fields. The notes list took those keys for moving between rows even from inside a field, so the caret never moved and the focus jumped to another note, and what was typed next was lost. `tests/test_entry_list_keys_in_fields.py`.
+- Mind maps: the topic strip no longer opens over the handle that bends the line into the selected topic (it did for 4 of 48 topics at 1440, on a radial map's inner rings and a tree's last branch); it slides clear to one side or opens under the topic instead, 0 of 192 at 1440, 1024, 820 and 390 (MINDMAP_PLAN 13b; `scratchpad/ui-sweeps/mapstripcover.js`).
+- Library, Boards and maps: each row of the New menu now says what it makes under its name ("An empty canvas you arrange by hand", "Topics branching from one central idea"), so the two kinds are told apart on a touch screen too, where a tooltip never shows (MINDMAP_PLAN INBOX 24; `.dock-menu-item-hint`, `scratchpad/ui-sweeps/boardsnew.js`).
+- Mind maps: View, How this map looks (was "How this map draws topics") now leads with the whole map's own two: Branch colours (Classic, Deep, Soft, Vivid) and Font (Serif, Monospace, Wide sans). The canvas and the Library thumbnail draw from one palette list on the server (`MAP_BRANCH_PALETTES`, sent with `/tree`), so they always agree, and the image export writes the map's font. On a map whose look sets a topic's box, bar, size, alignment or line, that topic's picker also offers the app's own default ("Rounded", "M"), which the topic then keeps against the map (MINDMAP_PLAN 13e, decisions 8 and 9; `tests/test_map_theme_palette.py`, `scratchpad/ui-sweeps/mappalette.js`).
+- Documents: with `type: Meeting` in a document's properties, the panel shows the Meeting type's fields the document has not written yet as empty rows, each with the control its kind needs (text, number, date, list, yes/no, another note); a row left empty adds nothing to the file, and a value goes in as one new line above the closing fence, leaving the other lines as they were. It read no note types before. `docFrontmatterTypeFields`, `tests/test_doc_type_fields.py`, `scratchpad/ui-sweeps/doctypeprops.js` (11/11 at 1440 and 390).
+- Phone: a toast fired while a bottom sheet is open is drawn over it. A sheet opened from a menu or another high layer is drawn one layer above that opener (up to 2601), and the toast box was at 1050, so the confirmation of what the sheet had just done sat behind it; below 600px the box is now at 2700. Measured at 390x844 with `elementFromPoint` at the toast's centre: covered at openers of 1050 and above (4 of 8 layers tried), answered in all 8 now (`scratchpad/ui-sweeps/toastsheet.js`, `tests/test_toast_over_sheets.py`).
+- Agent: the link tool now takes a kind of link (`link_type`) and accepts the built-in kinds and your own relation types, by key or by name; its description lists what exists in this notebook, capped at 420 characters with a count of the rest, and an unknown kind is refused with the list. It took no kind before, though two prompts told the model to link with 'contradicts'. `tests/test_agent_link_types.py`.
+- Notes: a note's `---` properties block no longer shows as its words in search snippets (and a result's title is the line after it, not `---`), the Library's note, bin, file and document card previews, a reminder's note line, a contradiction's excerpt, Ask cards, the agent's graph and whiteboard previews, the extractor's link previews, a remove-title and a generate-title (both left the block alone only by accident: the heading now goes after it), and five clips in the page (categories split list, graph remind, lightbox remind, similar-note row, the palette's note rows). `tests/test_properties_never_in_previews.py`.
+- Lint: `tests/test_select_focus.py` fails a `.focus()` or key listener on a page `<select>` (enhanceSelect moves both to its opener); 0 offences today (DOCUMENTS_PLAN's 2026-09-09 batch).
+- Documents on a phone: the status line (words, goal, suggestions) was drawn behind the formatting bar at the foot and never seen, and the editor stopped 72px above the bar with a blank band between; the page now ends where the bar begins (status line visible, writing down to it). The floating selection bar no longer repeats the foot bar's Bold, Italic, Heading and Link, so it fits a 390px window with Ask and Rewrite on screen (it ran 117px off the edge); on any other narrow surface it wraps rather than runs off. `docphonebar.js` (DOCUMENTS_PLAN 17 and 18's phone half, HISTORY "the documents phone pass").
+- Documents: a task's checkbox is drawn at the text's size (it was a 28px square on a desktop and 44px on a phone, growing its line and overlapping the next task's), with its press area kept at the app's target size beside it; Read's (disabled) task boxes too. `doctaskbox.js`.
+- Grammar check: a wiki link (`[[Another doc]]`) is no longer read as prose ("Use another on its own", offering "aNother"); a lint touching a link or an embed is dropped (`tests/test_prose_tools.py`).
+- Whiteboard and graph: zooming with Ctrl and a mouse wheel moved one notch to about 1.4x instead of 5x (two notches used to take a map from its normal size to the 4x ceiling); a trackpad pinch and the graph's plain wheel zoom are unchanged (`zoomWheelDelta`, `tests/test_zoom_wheel_delta.py`, `ctrlwheelzoom.js`).
+- Whiteboard: pictures on a board now appear in its exports. A PNG, a PDF and the copy added to your image library used to show an empty space where each picture was, and a saved .svg pointed at an address that only works inside the app; the pictures are now written into the file (`wbexportimage.js` sweep, `tests/test_wb_export_inline_images.py`).
+- Notes: while Atlas writes into the draft on the Write with AI page, the draft box can no longer be typed into (the lock only reached the hidden textbox behind the editor, so you could edit text that was about to be overwritten; `tests/test_note_surface_readonly.py`).
+- Notes: the formatting strip in a note's edit form listed each highlight and text colour twice (the copy of the capture strip kept its options and had them added again); each is listed once.
+- Chat: scrolling up inside a code block, table or thinking fold in an answer no longer stops the chat following the writing; only a wheel the chat pane itself would scroll lets go (`nestedTakesWheelUp`, `tests/test_chat_scroll_534.py`).
+- Timeline: the Auto bucket now picks the finest of day, week and month whose headers stay few (120 at most) and filled (a median of two items a header and under 60% of its calendar empty, once there is more than a screen of them), counted per scale instead of from active days: 3 months of a 2,077-note notebook reads by day (was week, 166 notes under one header), a sparse range reads by week (was day, 83% empty), two years of steady writing by week; no width scrolls sideways, worst first screen 51% empty, first paint is scale-independent (about 260ms on 2k notes in the sandbox). `timelineAutoScale`, `tests/test_timeline_auto_scale.py`, Guide text updated (TIMELINE_PLAN, HISTORY "the auto scale").
+- Speed: two text patterns could stall on a long run of spaces (20,000 spaces took 5 to 7 seconds): the one that splits a model's follow-up suggestions and the one that spots a table's divider line when exporting a document to Word. Both are linear now (under 0.02 s) and split and match exactly as before.
+- Duplicates: the scan is much faster and reads more of a large notebook. 60 notes went from about 196 ms to 8 to 15 ms; the scan used to give up after 500 notes (more than 25 s at that size) and now reads 5,000, so a notebook past 500 notes has its newer notes checked too (2,000 notes: about 0.7 s). Same groups and scores as before.
+- Connections: in Mentioned, not linked, the Link button is greyed out (with the reason on hover) for a note whose opening line has a square bracket in it, such as "Plan [v2]". It used to say "Linked", rewrite the sentence and store no link, because a [[link]] cannot hold a bracket. Names with # or | ("C# basics") link as before.
+- Privacy: what you search for no longer appears in the log. The access log, Settings log viewer and support bundle used to carry `GET /search?q=your words` in full; now the value of any query parameter that is not paging or a switch shows as `[redacted]` (the route and parameter names stay).
+- Privacy: "Tag and file with Atlas" on a private note is refused (it used to send the note's text to the model, or ciphertext while locked, and to the search index); Atlas does not read private notes.
+- Atlas: a tool argument typed as a number now refuses "nan" and "inf" (and any value too large to be a finite number) instead of passing them to the tool.
+- Atlas: a model reply made of thousands of nested brackets no longer escapes the background passes that read model JSON (note splitting, filing, remembered facts, reminder parsing); the pass fails quietly like any unreadable reply.
+- Privacy: opening a name (person, place, project) that only private notes ever mentioned now says it could not be found, as the list of names already did, instead of showing its name and aliases with no notes.
+- Privacy: the properties on a link that touches a private note (the short values you add to a link) are now encrypted like its reason: readable while unlocked, absent while locked, sealed when a linked note goes private, restored when it goes public again, and moved onto the new key when the encryption key is rotated. They were stored in plain text before.
+- Privacy: the reason on a link that touches a private note is now encrypted like the note and kept out of the activity log's text (you still read it while unlocked; it was stored in plain text before). Making a note private seals the reasons on its links, making it public again restores them, and rotating the encryption key now also moves a private note's history and link reasons onto the new key (they would have stopped opening). Tags stay visible on a private note by design.
+- Agent: after pinning or editing a note, a new note that copies it (or that carries the app's own quoting marks from the prompt) is refused rather than made, which a 3B model did twice in ten everyday requests; and a model under 8B is offered the tool that saves a preference only when the request is about you ("remember", "from now on", "call me"), since "Note down ..." and "Save this ..." were saved as preferences (AGENT_SKILLS_REFORM H4, INBOX 527).
+- Agent: "Show me" a picture that a note already found holds is no longer offered the board and map tools at all (a 3B model put the note on a whiteboard instead of showing the picture); asking to add or place it on a board still offers them. A note made with tags no longer gets "Heads up: I said I tagged a note" when the answer says it was tagged (AGENT_SKILLS_REFORM H4, INBOX 527).
+- Atlas, feminine look: the astral wisps show on a light page (drawn in the nebula's deeper violet there; median contrast against what is behind them 1.13 before, 1.33 now, the brightest tenth 1.40 before and 3.28 now, as the dark theme's 3.24), the waist and tail wisps now turn with the tail in every pose (lying down they floated beside the body), and the body's edge glow carries on down the tail instead of ending at the hips. The masculine look is pixel-identical.
+- Agent: what a turn asks of a model now comes from one table of three sizes, read from the model's name (under 3B, 3B to 8B, 8B and up; a name with no size is treated as large), in place of one under-8B switch. A model under 8B that writes on and on in a step where it could call a tool is cut short (about 600 tokens under 3B, twice that up to 8B) with a line saying so, where a 1.5B model once wrote for 948 s to the 2,048-token cap; note ids and match scores copied from the prompt ("(note id 3)", "similarity 0.54") come off the answer; and a picture question whose picture is in a note already found ("Show me the whiteboard sketch from the planning meeting") is no longer offered the board reading tools first, which a 1.5B model used instead of showing the picture (AGENT_SKILLS_REFORM H3, INBOX 527).
+- Agent: an answer is checked against what the turn read before it is final; a number (a count, a time, a date, an amount) or a name in it that no tool result, note or your own words contain gets a heads-up under the answer naming it, the way a claimed act that never ran already did. No second model round: on a twenty-answer set (twelve true), all twenty are called right and none of the true ones is flagged (AGENT_SKILLS_REFORM H2, INBOX 527).
+- Agent: a turn that takes more than one step now draws its own checklist above the answer, one row per round naming what it searched or read, ticked as each ends, then the answer; it is saved with the chat and shown again when the chat is reopened (it used to appear only for Plan first and skills, and a small model is never offered a plan). A skill run's checklist, which reopening a chat had been dropping, now comes back too (AGENT_SKILLS_REFORM H1, INBOX 527).
+- Atlas, feminine look: the Galaxy Seed Sower's body (INBOX 535, the owner: "I want the female bottom half and main body the feminine atlas to be more like this"). An hourglass torso (a small chest curve, a clear waist 0.73 of the chest and 0.55 of the hips, rounded hips) whose hips flow into one long, wide spectral tail sweeping out to one side and curling up to a soft point, as wide as the hips where it leaves them (over 80% of the hips where the torso fades into it, by the shape test), its inner side shaded the nebula's violet with galaxy sparkles; the comet tail is the second, thinner ribbon tail, now from the other hip. No gown, no ribbon tails, no waist band; fills only, nothing along either tail under 2px. The masculine look is pixel-identical.
+- Chat: Atlas only shows a picture when your question is about one; it no longer adds pictures to unrelated answers.
+- Graph: a Filter fold in the gear holds a chip per kind of link on the map (No kind, Supports, your own, each with its count): press one to take those links off the map and again to bring them back, kept between visits; and a chip per property value its notes carry (status: open, type: Meeting), which lights those notes (GRAPH_PLAN KG8, INBOX 528).
+- Notes filter: live queries over the notebook's structure. `type:meeting`, `prop:status=open` (also `!=`, and `> >= < <=` on numbers and dates, or `prop:status` for any value), `links:[[Kiln plan]]`, `rel:supports` (a kind's key or either of its names), `entity:"Sam Lee"` (or an alias), with `-` before any to leave those out, mixed freely with the filter's words and `tag:`. A bar over the list says how many match and shows the same notes as a Table (their properties as columns) or lit on the graph; a saved filter keeps the query. `GET /entries/query` (`entry/query.py`) (GRAPH_PLAN KG7, INBOX 528).
+- Notes: properties and note types. A note can carry properties at the top of its own text (`status: open`, between two `---` lines, as Obsidian writes them); the card shows them as a small table under the title and is still named by its heading. A note's ⋯ has Properties (add, change, remove, or pick a type; Save rewrites only those lines); Note types in the command palette makes a kind of note with fields (text, number, date, list, yes/no, another note) and a New note that starts with them. A vault's own frontmatter now imports as properties (category and tags still become the note's own), and a Markdown export writes one block. Properties are indexed for queries (`entry_properties`, never a private note's). `GET|PUT /entries/{id}/properties`, `/note-types`, migration d9b2e6f4a1c7 (GRAPH_PLAN KG4, INBOX 528).
+- Links: a link can say what kind it is, and each kind has a name from the other end: Supports reads Supported by from the note it points at, and you can add your own (Part of / Has part, Cites / Cited by). A link's ⋯ has Kind and properties (pick a kind, make a new one, or give the link properties such as count: 4); its chip and the Connections rows name the kind from that note's end; Kinds of link in the command palette renames or deletes your own (their links stay, with no kind). Kinds and properties are in the database, so a backup keeps them, and the JSON export now carries each link's kind, reason and properties. `/relation-types`, `PATCH /entries/{id}/links/{link_id}` takes `props`, migration c3f7a9e2d5b8 (GRAPH_PLAN KG3, INBOX 528).
+- Graph, Topic colour: a topic's legend entry opens its card (its name, how many notes, what they share) with Summarise, which asks your local model for one sentence about those notes, kept until one of them changes; Stop abandons the ask, and with no model the card says what the notes share instead. No note's name is placed over a topic's name plate any more. `POST /graph/topics/summary` (GRAPH_PLAN KG6, INBOX 528).
+- People and things: every person, place, project, organisation or thing Atlas finds in your notes now has a kind and a page: click one on the graph, or open People and things from the command palette. The page shows each note that names it with the sentence (the name marked), what it is named with, and the dates its notes mention; its ⋯ sets the kind, renames it, edits its other names and merges it into another, every mention following. On the graph, two named together in two notes or more are joined by a dotted line. Extraction asks the model for a kind and lands an old or other name on the entity it now belongs to. `GET /entities`, `GET|PATCH /entities/{id}`, `POST /entities/{id}/merge` (GRAPH_PLAN KG5, INBOX 528).
+- Suggestions: one sheet holds everything the notebook proposes and you decide, as four kinds with their counts: Links (the pairs Find links to add offered, with every reason), Tensions (the disagreement review, still started by hand), Names (one person or thing named two ways, "Sam" and "Sam Lee" or a near spelling; Merge moves every mention and keeps the other name as an alias, so extraction never makes it twice) and Link types (a link whose own sentence or reason says "for example", "continues", "evidence", "contradicts" or "background", with the words marked). It opens from Find links to add, the Graph's Suggest links, the Tensions widget and the command palette; it replaces the panel under the graph's toolbar and the Tensions dialog. Every accept and dismissal is a correction: a dismissed one never returns, and each kind of reason is trusted more or less from then on. A link accepted from its reasons keeps their confidence. `GET /suggestions`, `PATCH /entries/{id}/links/{link_id}` (a link's type), entities gain kind, aliases and merged_into (migration b8e4f2a6c9d1) (GRAPH_PLAN KG9, INBOX 528).
+- Chat: pictures appear in an answer only when they answer or illustrate the point, or when you ask for one.
+- Chat: the Attach panel draws over the chat's header instead of under it.
+- Sub-tab bars stay readable over a scrolled page; Quick access rows no longer keep an empty strip for their hidden move buttons.
+- Graph, Trace: each step of a route says how many other reasons its two notes relate ("linked to +2") and names them on hover: people or things both mention, a note both link with, a rare tag both carry; a step with a private note names none. `steps[].also` on `GET /graph/path` (GRAPH_PLAN KG8, INBOX 528).
+- Graph: a Topic colour rule finds the subjects inside each cluster (two subjects joined by one link are one cluster and two topics), draws each topic's outline with its name on a plate above it, and names it by the tag, person or title word its notes share more than the rest of the notebook; the legend lists the topics with those terms, and a click finds their notes. `GET /graph/structure?topics=1`, `entry/topics.py`, 10,000 notes in 170 ms (GRAPH_PLAN KG6, INBOX 528).
+- Links: Find links to add learns from you: linking a suggested pair or dismissing one records which reasons it was offered for, and each kind of reason (similar wording, people both name, a note both link with, a rare tag, the same sitting) is then trusted more or less in this notebook, between half and one and a half times, fading over a month like the app's other lessons (GRAPH_PLAN KG9, part one).
+- Links: Find links to add now finds pairs by structure as well as wording: people or things both notes name, a note both link with, a rare tag both carry, and written in the same sitting (support only); each reason shows under the pair with its own confidence and the chip is the combined one; it works with semantic search off; linking a pair found by structure keeps its reasons as the link's reason. `ai/relations.py`, 2k notes in 162 ms and 10k in 802 ms in the sandbox (GRAPH_PLAN KG2, INBOX 528).
+- Notes: a note's Connections (the column beside the list and the sheet) show the sentence each linking note says it in, and a new Mentioned, not linked group lists the notes and documents that name it without a link, each with its sentence and a Link button that turns those words into a [[link]] in one click (the server checks the words are still there first). `GET /entries/{id}/backlinks`, `POST /entries/{id}/mentions/link` (GRAPH_PLAN KG1, INBOX 528).
+- Glass: one clear (blur-only) recipe, the `--glass-filter-clear` token; seven panels that wrote the blur out take it (nothing changes on screen), and a lint now fails any new backdrop-filter that is neither it nor `--glass-filter` (UI Phase 10, item 102).
+- Top bar: the tab strip's layout (centred on the window, centred in the gap, or on its own row) is now decided from the current widths alone; it used to remember its previous mode with 8px of hysteresis, so the same width drew a different layout depending on which way the window had been resized (1500 wrapped where 1440 centred). Measured 1024 to 2560 and back: no width draws two modes and a strip that fits is never wrapped.
+- Agent, small model on an OpenAI-compatible server (llama.cpp, LM Studio): an instruction to change the notebook ("Make a note: ...", "Remind me ...", "Pin my ...") asks the server for a tool call on its first round, since a 1.5B model otherwise answered most of them in prose; questions are never forced, and a server that does not know the option is asked again without it (INBOX 527).
+- Agent: "Add bring a rain jacket to my Snowdon trip note" (and "put ... in my ... note", "append ...") is offered the note editor; it cued nothing, so a small model rewrote the note in its answer and saved nothing (INBOX 527).
+- Agent: a reply that says it did something no tool did ("I've made a new note for you") is now asked, once, to actually do it, naming the tool, and the heads-up that it did not happen is kept for when the retry fails too, checked against everything said in the turn (INBOX 527).
+- Agent: when no note matches the words of a question, the prompt no longer says the notebook looks empty; it says nothing matched and that count_notes and search_notes know more (Qwen2.5-1.5B, with four notes saved, answered "How many notes do I have?" with "There are no notes in your notebook") (INBOX 527).
+- Agent: tool calls the model asks for in the same reply no longer wait on each other: two web searches in one reply both run (the second was parked behind a confirm, as if the first page had asked for it; a call chosen after reading a page still asks first), and several pages asked for together are fetched side by side, so three pages take about as long as one (INBOX 527).
+- Agent: a tool result too big for what is left of the conversation is shortened to fit (long text clipped, then the list kept from the front, with a note saying what was cut) instead of being dropped whole with the tools taken away; on a 4k-window model one page of long notes used to end the turn's reading with nothing read (INBOX 527).
+- Agent: a turn that runs out of tool rounds now ends with an answer from what it found (one more round with the tools withdrawn), then the stop and Continue as before, where it used to end on "I stopped after 4 rounds" alone; a skill step still stops plainly so the run marks it stalled. With an OpenAI-compatible server (LM Studio, llama.cpp) the agent retries once when the server answers 5xx, as while a model loads, instead of ending the turn, and a round with no tools no longer sends an empty tool list that strict servers refuse (INBOX 527).
+- Agent reminders: set_reminder takes the time in your own words ("two hours before midnight", "tomorrow at 3", "Friday night", "in 20 minutes") and the app works out the date on your clock with no model involved, which is where a model once set "two hours before midnight" for the wrong night; a date-time without an offset is your local time (one was stored as UTC, so 9:00 fired at 19:00 at UTC+10); a time already past is refused with the reason; the prompt no longer teaches the model date arithmetic (INBOX 527; AGENT_SKILLS_REFORM, decided 2026-09-21).
+- Agent, with a small model (under 8B): the tools the request names are offered beside the fixed core, so "Pin my dentist note" can pin (on Qwen2.5-1.5B it was offered no pin tool and wrote a duplicate note instead); a long reply that says "I will call the tool to save the note" and calls nothing is asked once to do it; "has been created and pinned" on a turn that only created is caught as a claim the way "I pinned it" is; and the agent prompt now says which notes have pictures, so an answer with tools on can place [picture 2] as Chat and Ask already could (INBOX 527).
+- Agent: a tool call a small model writes slightly wrong now runs: JSON with a trailing comma, single quotes, Python's True, a code fence or a cut-off end is read as meant (0 of 5 slips were read before, 5 of 5 now); arguments are checked against the tool's schema before it runs, so a spelling like `id` or `noteId` reaches `note_id`, "12" is read as 12, "false" as false (pin_note read it as true) and one tag as a list; a missing argument is named with its type and an example call (11 of 31 tools named it before, 30 of 31 now, the other being web search switched off); JSON that cannot be read at all is said to be unreadable rather than run as empty (INBOX 527).
+- Chat and Ask: the model can place a picture inside its answer: it writes [picture 2] (or [picture 2.2] for the second) for a note that has pictures and the bubble draws it as a figure, at most 320px tall, in the picture's real shape, with its caption on one line, "From note 2: title" opening the note and a click opening the image viewer; an unknown note or number draws nothing and a half-written token never shows while the answer streams; with no token, a cited note whose pictures are the point (the question names a picture, or the note is mostly pictures) gets one figure after its first citation; three at most, and a reopened chat draws the same (INBOX 526; `picture_sizes` saved beside `picture_alts`).
+- Toasts: an error toast's Report this keeps its width (it was squeezed to 44px and its words ran out of the box at 390); on a window under 820px the message takes its own line with the buttons under it at the right, both 44px tall under touch.
+- Dashboard, Quick access: Add or arrange opens one list of every command with the ones on your dashboard checked and first, so what is added is visible; check or uncheck several, drag rows or press Alt+Up and Alt+Down (or the two small buttons) to order them, search to narrow the list, and Done saves everything at once (Cancel and Escape keep what was there); at eight, a ninth is refused with a warning line in the dialog, not an error toast (INBOX 524).
+- Sub-tabs: the Notes (Your notes, Capture, Write with Atlas, Ask), Library and document sidebar strips are one second-level recipe: words on the page with a 2px accent line under the chosen tab, no box or pill, one height (36px, 44 on touch), one 4px gap, one padding, and no icons on any of them; the top bar keeps its pills (INBOX 522).
+- Top bar: the tab well hugs its tabs in the layout that centres it between the two groups (at 1150 it was 630px round 503px of tabs, and the same stretched box showed on every boot until the first measure), centred by auto margins (INBOX 522).
+- Graph: Arrows (off by default) are sparks: a comet-tailed four-point star 70% along each link in its colour, on a soft glow with a white core, the line wider on its source half; pointing at a note sends a spark drifting along its links unless motion is reduced. 417-note map, three runs: +0.2 ms a frame at the fit, 0.0 at 2x (the glow and core drop out while more than 300 sparks are in view).
+- Links: a link a [[name]] made is remembered as one, so deleting the name deletes the link (others are never touched); renaming a note offers, in a toast, to rename the [[links]] other notes write to it. The graph reads each note's text once per edit (18.8 to 3.8 ms at 2,018 notes), sees a link swapped for another, and similarity keeps each note's four closest matches (2,000 notes: 10.7 s to 0.6 s; 10,000: 4.99 s and 144 MB, where every pair was 10.5M tuples).
+- Graph (514, parity with Obsidian's graph): Show adds Tags, Attachments and Unwritten links (a faint node per unanswered wiki name; a click writes that note); Display adds Arrows, Text fade and Link thickness; Physics adds Link force and takes Length by similarity and Group by category; focus mode gets a Focus section and the local map an Options fold, each with Depth 1 to 5 and Incoming, Outgoing and Neighbour links.
+- Graph: a Display fold in the gear panel holds Labels, Label backgrounds (new: off draws each name on a thin outline instead of a plate, still placed clear of lines), Curved links and Cluster glow; those switches now come back as they were left after a reload.
+- Notifications: no empty strip on the right of each row; the read circle and remove cross replace the time while a row is pointed at.
+- Settings, Help: hotkeys are drawn as keys, places such as Settings, Models and Library tab, Contents in bold, and control names and quoted phrases as small code chips (190, 139 and 47 across 96 topics), added when the page draws so the Guide's own text stays plain (INBOX 520).
+- Settings, Help: a search box at the top keeps only the topics that hold every word you type (title, keywords, text or place), opens them with the words marked, hides empty groups, says "Nothing in Help matches" when none do, and Esc clears it (INBOX 520).
+- Companion: perches on every Library sub-tab's dock or cards and hangs from an open board's or map's toolbar, never on an unpainted edge in mid-air; looks again on a sub-tab switch, a resize or content moving under it (INBOX 521, `scratchpad/ui-sweeps/perchall.js`).
+- Startup: the dashboard waits for its own script, so "renderDashboard is not defined" no longer appears on the lock screen.
+- Graph: a line between two notes lights under the pointer and a click on it opens a small card where you clicked: what it is (a link, a thread, a similarity, a map's line), its reason and how sure, the two notes (each opens), and for a link Edit reason and Remove (the owner: "I cant click on links to see their reason in the graph??"; 20 of 20 sampled line middles answer).
+- Top bar: the active tab's fill slides to the tab you choose (200ms, transform only) in every engine, by click, keyboard or a jump from elsewhere, and sits on it through a resize; none under reduced motion, and the phone's bottom tabs keep their colour mark.
+- Ask: the Matching records cards speak in the Notes list's voice: the text sits at the list's inset, the category is muted, the match reason is one quiet fact after the date instead of a green pill on its own row, links are the list's outlined muted pill on the text edge and one line, and the citation number is the same edged box on a plain card and on the cited one (INBOX 510).
+- Graph: names stand on a plate in the card's colour instead of a white outline over the lines, go to the first of eight places that crosses no line (label-line crossings 43 to 28 on a 60-note map), and the automatic category palette is calmer (78% saturation, same lightness); a chosen colour is unchanged (INBOX 493).
+- Graph: hovering a note fades the map instead of flipping it: the dimming of every other dot and link, the names that leave and arrive, the hovered note's ring and its similarity scores each ease over 180ms (measured, scratchpad/ui-sweeps/graphfade.js: largest single-frame step 1.0 with no frame between, now 0.15 to 0.2 over 7 to 8 frames); reduced motion stays instant.
+- Links: [[Name]] links to a note that opens with a "# Name" heading, and a link written before its note exists connects as soon as that note is saved.
+- Library: pressing the Library tab inside an open board or mind map goes back to the Library.
+- Models status: the poll no longer waits on a busy model runner; with an answer already known it waits at most 2.5s for the runner's model list, then serves the last one while the refresh finishes (a runner answering in 9s held the poll for 5s, now 2.5s), and a timed-out poll, shown as "slow", is no longer logged as a warning.
+- Logs: a surface read refused because the app is locked is no longer logged as `[notes] could not load: Locked` at every boot; real failures still are.
+- Companion: the enlarged view draws no bar behind a hanging companion's head (a stray grey line at a fixed height); the seat bar under a sitting one stays.
+- Atlas: the feminine look's waist band is gone; the body fades into the gown.
+- Chat and Ask: an answer grounded in a note with pictures or sketches shows up to three of them beside that note's numbered chip under Grounded in (INBOX 502); the chip opens the note, a picture opens in the image viewer, alt text is the picture's caption or the text read off it (`picture_alts`, sent with the results and saved with the turn). The model is told which notes have pictures, so it can point at one as the picture in note 2.
+- Chat and Ask: a question sent from a suggested follow-up shows a Follow-up of line above it, each earlier question in the chain as a link (INBOX 490). In Chat a link scrolls to that question and lights it, and the line is saved with the turn (`followup_of`) so a reopened chat keeps it; in Ask a link opens that earlier answer under the line. A typed question starts a new chain.
+- Manage tags and Manage categories do more (INBOX 504): sort by name, notes or most recently used (remembered); Used once (tags) and Empty (categories) narrow to the hardly used; names that look like one (case, spaces, hyphens, a plural) are offered as one Merge with Undo; the count after a name opens its notes; several categories take one colour, or are deleted with one question, each with one Undo. The panels are 40rem wide so the tool row and the footer fit on one line.
+- Library, Contents is redesigned as an outline (INBOX 496): one tool row (the filter and a Group by list, remembered between visits, with Expand all and Collapse all in the ⋯), groups that fold with a colour dot or glyph, the name and a quiet count, and one column of rows, each the note's picture or the kind's glyph with the title over one line of facts. The four grouping buttons, the sideways strip of jump chips and the three-column rows are gone; its styles are one block instead of four files.
+- Library, Boards and maps loads faster (INBOX 496): a preview's labels are measured on a canvas instead of forcing a page layout per label (65 layouts to 7 on a first visit to 34 boards, style and layout about 300ms to about 100ms), each visit asks for the board list once instead of twice, a second visit draws what it had at once, and the search, sort, kind chips and view switch redraw without asking the server.
+- Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
+- Graph: the View menu is gone; layout, colour, size, Trace and the legend are the first section of the gear's panel (Display options), so there is one way in. Pressing Legend no longer closes the panel it is in.
+- Library, Documents on a phone: Reload moves into the dock's more menu, so the new ? does not wrap the dock to a second row (114px, as before).
+- Library, Boards and maps: one New button in the top bar with Whiteboard and Mind map inside it, in place of the two create buttons (the sentence-case rows keep the same keyboard keys, the tour and the Guide say where they went).
+- Reminders: the add card has one worded Add. The sentence box's button is now the wand alone, named Add from this sentence.
+- Library: the All, Documents and Bookmarks sub-tabs end their top bar with a ? saying what the sub-tab holds, like Boards and maps, Images and Files already do.
+- Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.
+- Callouts in the Live view show their kind once: the icon (with a caret, the kind picker) and the title as the line's own text, no ">" or "[!note]" even with the caret on the line, and an empty body says what goes there ("Write the note"). The "/" menu no longer writes a stock question into the body, and the Guide has a Callouts entry.
+- The "m" guide is a command panel: Go to and Do as rows with an icon, the name and the key in one column of key chips, the tab you are on marked, the Close in its head and a hint line at its foot. Every key does what it did.
+- Chat: the Attach panel is redesigned: one height for every source, a count on each source's tab, rows with an icon or the file's own glyph, the name over one line of facts and a check that fills when the row is on, pictures as a grid, loading and empty states, and keys (arrows, Space, Enter is Done, Escape). The search no longer draws a second box over itself when it is not focused, Clear also takes off pictures, a note's picture is sent as the file it is, and a new document shows the next time the panel opens.
+- Notifications: one notification can be removed with the cross beside its read circle; a removed overdue reminder stays removed.
+- Tests: a ratchet (`tests/test_no_ui_emoji.py`) fails the build on any emoji, dingbat or pictograph in the UI's scripts, markup or stylesheets, with the documented data cases (Markdown shortcodes, math tables, emoji matchers, the colour-blind status marks) allowed by name; the inventory it came from is `scratchpad/emoji-icons-506.md` (INBOX 506).
+- Icons: one icon per action: deleting a backup or a saved look is the trash can (it was a cross), Rename is the plain pencil in the file menu, and the graph's Undo is the counter-clockwise arrow the rest of the app uses (INBOX 506).
+- Icons: the scroll-to-top and jump-to-newest buttons, the Models connection note, the live-log pill, the duplicate finder's Merge button, the callout fold chevron and one help line are Phosphor icons now, not typed arrows, dots and symbols (INBOX 506).
+- Icons: the marks drawn by CSS (plan-step ticks and crosses, retry, replan and paging marks, the chat title's pencil, the timeline's sort arrows, the active-item check in menus, the two disclosure carets) are Phosphor icons now, not typed characters, so they share the icon font's size, weight and alignment (INBOX 506).
+- Notes: a card's text sits further in from its edge and its metadata steps back: the category reads muted at the body weight and link chips are muted until pointed at, so the note's words lead.
+- The app emblem no longer throws "appearancePref is not defined" when drawn before Settings has loaded; every Settings helper it uses is checked first.
+- The repository no longer sends new issues to GitHub's AI models for a summary (the `summary.yml` workflow is gone); CodeQL, which is static analysis and free on a public repository, stays.
+- Timeline rail: each glyph is centred in its circle (INBOX 503, "the timeline icons on the left arent centred in the circles"). The 18.4px circle and 12.88px glyph box left a fractional gap that the two rounded on their own, so each kind of glyph sat off by its own amount. An even circle and glyph box (`round(..., 2px)`, with the old sizes where `round()` is unsupported) leave whole pixels. Measured on the painted ring, glyph ink against the circle's centre (`badgealign.js`): at 1x the note, map and document glyphs were 1.0px off and the bell and clock 0.5, now 0.5 at worst; at 2x the worst was 1.09 across and 1.0 down, now 0.64 and 0.5. At 3x a glyph still paints on a whole CSS pixel while the circle paints on the device's, so up to a pixel of per-row jitter stays.
+- Badges: the icon and the words sit on one centre line, and it is the badge's own (INBOX 503, "the text and icons are properly aligned and spaced", "vertically centred as well as aligned with each other"). A flex row centres boxes, and the words' line box is not where the eye reads them, so the old fixed drop on the icon was right for one chip and wrong for the rest. Every chip's words are now a `.ph-text` span trimmed to the x-height band (`text-box: trim-both ex alphabetic`), the icon is centred in its box, one `--space-1` gap (was 3.4, 3.6, 4 and 4.8px), and a `:where(.chip)` height floor keeps every height. Measured by ink at 3x, 1440 and 390, light and dark (`badgealign.js`, `badgesum.js`): the status labels ("Installed", "Fits", "In use for chat") had the icon 1.17px low against the words and the words 1.1px above the label's middle, now 0.28 and 0.44; the map chip's icon 1.5px low, now 0.17; the reminder chip 0.83, now 0.17; the repeat chip on a phone was 2.4px low in its own fill, now 0. Note-meta chips ("Tag with Atlas", "No tags yet") keep the icon within 0.17px of their words; their words sit about 0.2px further from the middle than before, because Chromium paints text on a whole CSS pixel. Where `text-box` is unsupported the old drop stands.
+- The app emblem no longer throws "ACCENTS is not defined" when it is drawn before Settings has loaded (the assistant avatar on the lock screen); it reads the page's accent colour instead.
+- Help: the Guide's troubleshooting topic and its manual steps send "looks out of date or broken after an update" to Settings, Import & export, Clear app cache (new keywords: out of date, clear cache, stale, after an update), and the Import and export topic names the App cache group (INBOX 487).
+- Settings, Data, Clear app cache (INBOX 487, "should there be a way to clear the cache??"): unregisters the service worker, empties Cache Storage, drops the server's compressed copies and reloads, with a toast first; nothing in the notebook is touched. The Reload the app button and Ctrl+Alt+R clear the same things. Found by it: the emblem loaded p5 at the first idle moment, so on a slow load `renderEmblem` threw on `ACCENTS` before settings.js had run; it now waits for the load event.
+- Server: `POST /system/clear-static-cache` (behind the unlock) deletes the compressed static-file copies in `<data dir>/cache/static-gz` and empties the in-memory copy; nothing in the notebook is touched. The server half of Settings, Data, Clear app cache (INBOX 487).
+- Dialogs: a head keeps its height when the card fills, so Find anything's hairline no longer crosses its title and buttons, and its search field has room under the head.
+- The Guide: Atlas's reply bubble is full width from the first frame instead of a narrow box that widened as the answer came in.
+- Chat and Ask read the text in a note's pictures when the note is mostly a picture, not only when it is attached by hand: a screenshot of typed ideas reached the model as a link, and each picture's reading may now run to 1,200 characters (was 240).
+- The Thinking fold is one panel when open, its summary the head, and the reasoning is set as Markdown (bold, lists) with the prompt's data markers taken out, in Chat, Ask, the palette and the Guide.
+- Chat: a reply's copy, regenerate and fork row can no longer show over the open Attach panel.
+- Help: the addresses topic says how to link to one thing (Copy app link in a note, document, board, mind map or chat menu, pasted into a note to open in the same window) and tells it from Copy wiki link; DESIGN.md's recipe index gets the Copy app link row (INBOX 483).
+- An address of this app pasted into a note or a document (a link or a bare address) renders as a link that opens the view in the same window, labelled with the view's title or "Note 12"; it must be this origin and page and a route the router opens, so other links keep their new-tab behaviour and the safe-scheme rules are unchanged. Ctrl+click on one in the document editor opens it in the same window too, and its right-click menu offers Copy link address (INBOX 483).
+- Copy app link (INBOX 483, "can there be easy ways to copy the address of various notes or objects"): a note's card menu (under Connect), a document (the Documents list, the Library rows and the editor's menu), a board or mind map (the gallery's menu and the open board's Board menu) and a chat (the list row and the header menu) each copy the address that opens it in the app; the existing "Copy [[link]]" rows are now "Copy wiki link", and the board gallery and chat row menus are grouped past five rows.
+- The router has one table of addressable objects (`ROUTE_OBJECTS`) behind `routeHash` and the new `routeHashFor(kind, id)`, and `copyObjectAddress(kind, id)` copies an object's full address (origin, path and hash) through the shared clipboard helper and toasts "Link copied" (INBOX 483, the helper the Copy app link rows use).
+- Notes: the x on a suggested tag, a link or any chip that ends in one is drawn as a cross centred on its target, quiet at rest, red with its disc on hover; it was a font glyph nudged by hand inside a grey disc.
+- The Library sub-tab bar hides while a whiteboard or mind map is open, at every width, as it never showed on the documents editor; the board's own Boards button brings the list and the bar back (INBOX 476)
+- The popup agent's head has room above its input: the head keeps the Find anything head's bottom padding and no longer shrinks under the starters, so the avatar stands 21px above the field instead of 5px (INBOX 475)
+- A note's connections row has a Show less after +N more links (it opened and could not close again), and a connection chip reads plain words: a link shows its text, no brackets, no URL, no ** or _ (INBOX 474)
+- Notes list: a long note's clamped preview shows 4 lines by default (3 compact, 5 spacious), up from 2 on desktop and 1 on a phone, through one `--note-preview-lines` token; blank lines still collapse while clamped (INBOX 473)
+- Companion: it comes on screen a way that suits where it lands and not the same way twice (INBOX 501, the owner: "it just kinda appears ... or even differences on how it gets there"). Each place has its ways (hanging: down from the bar or gathering out of starlight; the bottom bar: up over it or gathering; near a side: walking on, gliding in or gathering) and the last one is left out; the climb fades up over its first half (136 to 200ms before, 210 to 290ms now). Measured on the dashboard: the climb down five times in five before, two ways alternating now (`scratchpad/ui-sweeps/companionarrive.js`). Reduced motion still fades in where it is.
+- Companion: an act or a walk cut short eases back instead of snapping, and Atlas's expressions settle over 0.6s instead of 0.2s (INBOX 497, the owner: "less sudden beginning and stopping of actions"). Before, taking an act off mid-way put every part back at rest in one frame (7 to 22px, against 2 to 4px a frame while the act ran); now the parts are read where they are and eased back over 480ms, unless motion is reduced. `scratchpad/ui-sweeps/companionblend.js` measures it.
+- Atlas, feminine look: no thin strings rising from the lower body, and a soft sash at the waist (INBOX 480, the owner: "two wierd thin string like appendages coming from the feminine atlas lower body up top"). The strings were the ribbon tails' lit edges and pale streams; the tails are fills alone, and the waist the gown hangs from is a filled lilac band with a sheen and no outline, in every pose.
+- Companion: Atlas's pupils stay inside its eyes wherever the pointer is (INBOX 497, the owner: "the pupils basically go off the head and you can only see white eyes"). Four offsets added up on its iris (the generated faces' eye moves, its own look, the mood's pupil placement and the lean), measured at up to 3.3 times the pupil's room; now the aim is held inside a circle rather than a square, the generated faces' moves are not Atlas's, its look is scaled to the room, and the mood's own placement eases aside while it looks. `scratchpad/ui-sweeps/companioneyes.js` tests every point of each pupil against its white at four poses, both looks and six moods, the gaze at the 8 compass points and the window's corners: 0 outside (was 286 of 320 at calm).
+- Atlas, feminine look: her hair meets the brow as a side-swept fringe, not a night cap (INBOX 480, the owner: "it still looks like she's wearing a night cap"). The smooth dome's arc of a hairline and its parallel strand lines are gone; the hair parts off centre and sweeps across the brow in three soft locks of different lengths with the forehead showing between them, a fine shade up each notch, and a small star pinned at the parting. Masculine pixel-identical.
+- Atlas, feminine look: the gown flows into five broad ribbon tails instead of three thin folds that read as a tripod (INBOX 480, the owner: "less like a tripod and more like whispy ribbony/flowy tails", then "too thin and stick like ... seem like they sprout from th emiddle bottom"). Rooted across the dress's lower half and fading in over it, 7.4 to 9 across at the root, each sweeping out past the hem with a twist and a lifted wisp; a back tier in the nebula's lilac and a sheer front tier, each its own layer drifting on its own clock (6.3s and 8.1s, on their boxes, the compositor's) out of step with the gown. Poses, walks and gestures take them as the gown; companion cost within noise.
+- Atlas, feminine look: her lower body is a gown with a train, not a pale skirt of straight strands (INBOX 480). Close at the waist with a soft hip and a trumpet flare, its colour deepening from her skin's light to the nebula's violet at a hem of two slow waves, a sheer overskirt as a second tier, a train behind in the nebula's colours sweeping toward the comet tail, a lit hem, stars, and three fine folds of light that open with the flare. Every pose keeps its shape (sit pools, hang falls, float trails), the sway is the layer root's as before, the lower layer holds 13 elements where it held 25, and the masculine look is pixel-identical (companionshots.js).
+- Atlas, feminine look: the brow is one small star set in the swept hair at its peak, in a faint halo; the lit hairline, the dust at its roots and the circlet of dots on a thread, four arcs of light from wing to wing that read as a stray headband, are gone, and the hair meets the brow in a soft shade (INBOX 480). The masculine look is unchanged; `scratchpad/ui-sweeps/atlasgown.js` draws the brow close up and every pose.
+- Companion, large view: its speech line sits in its bubble again (INBOX 481); the bubble was a 15px box behind the first letter with a 132px line running out over the art, because the stage's `right` and the figure's `left: 100%` both applied. A bubble now takes its width from its words, wraps inside the window past 16rem, and `scratchpad/ui-sweeps/companionsay.js` measures every pose, both looks and the large view at 1440 and 390.
+- Chat: the '?' (About this chat) is in the dock with every other tab's help, before the ⋯, and stays there once a conversation has messages; it was in the empty welcome's corner and went with it (INBOX 479).
+- Library, Files: the search field is announced as "Search the files" (it kept the Images gallery's name on the sub-tab that shares it) (INBOX 479).
+- Boards and maps: the board picker in the top bar shows the board's name below 1216px wide, growing into the bar's free width up to 14rem and giving way first when the bar is full (it was capped at 8rem, "Board · ..." at 820 beside 89px of empty bar); nothing overflows at 1152, 1024, 820, 780 or 390 (INBOX 479).
+- Top bar, 600 to 1199: when the tabs take a row of their own, their well is drawn round the tabs and centred (446px at 820) instead of across the whole window (788px round 430px of tabs); the header's height is unchanged (INBOX 479).
+- Mind maps: the top bar's Map chip is a fact (the dock's quiet chip, as the Graph's count) rather than the filter chip's pressed state, which read as a toggle that did nothing; the tool rail is one height again, the layout picker and the Map section's '?' at the tools' 36px (were 28 and 32) (INBOX 479).
+- Settings: the head is the dialog head every popup wears; profile, guide, Back and Forward are 32px like Close (were 28px beside it) and the title takes the dialog title's voice (INBOX 479).
+- Top bar: the space picker wears every dock select's face (the field's inset ground, the 3:1 edge, a 400 label) instead of the tinted, bold quiet-button face that made it louder than the selected tab; Lock and Quit sit past a drawn seam, the status bar's own hairline with 8px either side, where they were 16px from Settings with nothing between. Every item stays 44px on one centre line.
+- Status bar: each glyph meets its word (INBOX 494). Measured by ink at 3x, glyph centre against the label's x-height centre: Ask was 1.83px high, Guide 1.67, the notebook count 1.17, the Ctrl K chip 0.83, reminders 0.67, Find 0.50; now every one within 0.5px, light and dark (`inkalign.js`).
+- Dashboard: arranging the page is its own control (INBOX 488). The dock is the search, Customise and the ⋯: Customise holds View, Widgets, Edit layout, Edit quick access and Reset quick access; the ⋯ keeps Continue, skills, Tools & features and Commands; the Quick access row's own ⋯ is gone, so no menu opens over another menu's button. On a phone Customise is its glyph beside the ⋯. The Guide's dashboard topic says the same.
+- Docks: a zone that wraps onto a line of its own no longer opens that line with the hairline that parts it from the zone before (7 docks at 640, 3 at 768 and 820; now 0), and a line that starts at the dock's edge lines up with the title above it; read from the layout by `markDockLineStarts` (phone-shell.js) without changing any zone's outer width, so no wrap moves (INBOX 479).
+- Developer sweeps: the dock and bar audit for INBOX 478 and 479 (`scratchpad/dock-audit-479.md`): every top and bottom bar control by control at 1440, 1024, 820 and 390, light and dark (`barinv479.js`), wrapped-line hairlines (`dockseams.js`) and the graph's corner (`graphcorner.js`); 14 findings ranked, a target layout per bar, and the de-vibe pass (`devibe.js` and `vibecheck.js` both 0).
+- Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.
+- The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)
+- Web search and SearXNG setup messages read as plain sentences: the transport's error, the command's own output, `virtualenv`, `setup.py`, `docker logs` and an environment variable name no longer reach the toast; each goes to the log, and the message points at Settings, Logs (INBOX 472, computed messages)
+- Library: Boards and maps selection ticks sync under the Maps and Boards chips (no card got a tick while one was on, so Select all and bulk Delete were dead); the tick sync and the gallery narrow through one function.
+- Settings: the Find duplicates slider keeps a real width at 390 (was 6.8x16px in a wrapped row; now a 221x44 line of its own) and takes the touch floor, 28px with a mouse. The touch sweep now measures Dashboard, Timeline, Reminders and seven Settings sections (they read 0 controls and passed), and measures a slider by its own box.
+- Notes: the empty state's Ask Atlas offer is one line at 390 ("Ask Atlas where notes go", 192x44; the two-line label was 332x46); the question it sends is unchanged.
+- Chat: the suggestion chips (and Ask's suggested and recent questions) take the touch floor: 44px tall under a coarse pointer or below 820, 28px with a mouse as before (were 28px at 390).
+- Chat, no model: the Try asking chips ask in Notes, Ask, which answers from the notes without a model; with the box closed they still sent to Chat, and "Summarise my notes" over two saved notes answered "I couldn't find any saved notes" (INBOX 472, first run)
+- Welcome, setup card: one mark (the stethoscope under the app's emblem is gone), four lines instead of six at 1440 (the first card's privacy sentence and "0.0 MB so far" are not repeated), no comma splice, and with no model running a Connect a model offer that opens Settings at Models (INBOX 472, first run)
+- Empty states say it once, as a title and one sentence: the empty dashboard's card is "How MemoryMap works" under a hero that says "No notes yet" (both said "Your notebook is empty," as comma splices), its footer is one line, the Library's All view titles "Nothing here yet" with its sentence under it (it was two bold sentences), and Bookmarks says what a bookmark is (INBOX 472, first run)
+- Dashboard, empty notebook: the start tiles draw the Quick access tile's two lines (label 600, description 400 at the small size); they were 900 and 600 a row below 600 and 400 (INBOX 472, first run)
+- The AI status dot with no model connected is a calm grey ring (the one Settings, Models draws beside "isn't running"), not an amber "!": on a phone it was a 44px amber circle in the top bar, the loudest thing on a new person's first screen; its popup now says Settings, Models connects one (INBOX 472, first run)
+- Graph: a notebook with no notes says "Nothing to map yet" with Capture a note; it said "Every note is hidden. All 0 notes are filtered out" with a button that could show nothing (INBOX 472, first run)
+- README: Meet Atlas is a title, a one-line headline, two sentences and Atlas delighted; What it does names this week's work (shape text and connector labels, map tasks, notes behind a topic and numbered branches, documents that reopen where you left them, faster starts, plain error messages) and Manage categories; the frontend's script count is 64 (INBOX 431 (g)).
+- README screenshots retaken in the dark theme from the showcase notebook: 22 pictures (the dashboard, Notes, Ask, Chat, the graph with dense clusters, a sparse web and loose notes, the Library and Activity, Timeline, Reminders, Documents and focus mode, a board with shape text and labelled connectors, a mind map with tasks, notes and numbered branches, the palette, Tools and features, Settings, Your look, the popup agent, the corner companion, a light and dark split, a phone, and Atlas delighted), each under 400 KB; `readmeshots.js` takes them all, `pngshrink.py` keeps the graph's colours when it reduces the palette (INBOX 431 (g)).
+- Chat: a turn answered fast no longer saves as two conversations; the save at the end waits for the agent round's checkpoint when one is still creating the conversation (the same question was listed twice, 43ms apart, one of them half a turn) (INBOX 431 (g)).
+- Library, Activity: a change to a board, a board item, a drawing, a bookmark, a model, your private notes, a recording, the search index or your notebook's data now reads in words ("Edited a board item"), where it read "Edited whiteboard_object" or "Edited board"; a test fails on any logged kind with no phrase (INBOX 431 (g)).
+- Developer sweeps: `seed-showcase.py` builds the README's notebook on a fresh data dir through the API: 75 notes in seven categories over seven weeks, 87 links (39 with a reason) in two dense clusters, a looser one, a sparse web and loose notes, reminders, three documents, a board with shape text and labelled connectors, a mind map with tasks, notes and numbered branches, and saved chats (INBOX 431 (g)).
+- Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
+- Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.
+- The dashboard greeting ends in a full stop or a question mark, never an exclamation mark, like the rest of the app's copy; an older cached greeting corrects itself on the next render.
+- A test now holds the wording of every server error message (tests/test_server_detail_wording.py): each one has to read as a sentence with a full stop, with no field name, path, dash or exclamation mark, because the toast shows it as written; the voice and update messages were tidied to pass (INBOX 472)
+- Error sentences, whiteboards and mind maps: the messages that named fields ("needs a ref_id", "/media/... url", "No node with id 12") and the XML import message that printed a <!DOCTYPE> tag now say what to do in plain words (INBOX 472)
+- Error sentences, models, settings, spaces and the timeline: a model that is not running now says to start it, a space name or icon that is not accepted says what to do instead of naming the field, and the timeline's bad-value messages read "Pick one of: ..." (INBOX 472)
+- Error sentences, files, reminders and the learned page: "File is missing from disk", "No upload with that id", "no such derived fact", "as_of must be YYYY-MM-DD" and the image-reading hints now read as sentences a person can act on ("No installed model can read images. Install or pick one in Settings"), and no longer name a field (INBOX 472)
+- Error sentences, notes, documents and chat: a missing note, document, bookmark, link, revision or conversation, a date written wrongly, a private note that needs unlocking, and a skill missing an input now each say what happened in a plain sentence with a full stop, and name no field ("boards must be one of", "action must be keep or fallback" became "Pick one of...") (INBOX 472)
+- Error sentences, sign-in and backups: what the server says when a request is refused (the app is locked, a wrong password, a throttled unlock, a missing backup, a bad bookmark address, a category that cannot move) is now a plain sentence with a full stop, and an unexpected failure says to try again and where the log is, instead of "Internal error" (INBOX 472)
+- The unlock check no longer queries the database on every request: once a password is known to exist it is remembered for ten seconds (only the yes, so the gate can only ever be stricter), 0.4 ms off each of the forty-odd requests a start makes.
+- Settings > About names the licence (GNU AGPL v3) under the version, and a version that cannot be read says so instead of "Version ?" (INBOX 472)
+- Copy: the start-up failure notice lost two escaped em-dashes, two toasts lost their exclamation marks, and the SearXNG settings line no longer says "JSON API" (INBOX 472)
+- Error messages read as sentences: a failed request no longer toasts a raw JSON list, "Internal error", "Not Found", "Failed to fetch" or "Upload failed (500)"; the plain wording comes from one function, and the raw text still goes to Settings > Logs (INBOX 472)
+- Faster starts and every request: each stylesheet and script is compressed once per version and kept on disk (the 448 KB stylesheet went from 22 to 46 ms per fetch to 4 to 6 ms, the first fetch after a restart included), and the two remaining `BaseHTTPMiddleware` layers are pure ASGI, 0.3 to 0.8 ms less on every request.
+- An Atlas look with legs no longer restyles the page through a leap or a glide: the two leg roots (`<svg>`, where Chromium never composites `rotate` and `scale`) sit in boxes like the body, tail, skirt and nebula, and the limb gestures turn the boxes. No shipped look draws legs yet; with them switched on, a leap's 2s window fell from 102ms and 59 style recalcs to 60ms and 36, frame for frame the same pixels.
+- The Atlas companion's pose, lean, variant and walk properties no longer restyle all 528 of its elements at a time: `--atl-lean-dir`, `--atl-v1`/`--atl-v2`, the pose's lean, scale and tail, the walk's tilt and way, and the figure's lie shift are registered not to inherit and written on the few elements that read them, so one change of `data-pose`, `data-lean` or `data-atlas-variant` costs 9, 4 and 4ms of style recalc (25, 16 and 15 before) and a walk's start restyles 52 elements, not 528. The large view's ledge no longer uses a `:has()` on the companion's `data-pose` (it made every pose change restyle 968 elements); the figure carries a copy of the pose instead. Every shot (looks, moods, lie and curl in all three variants, lean, four mid-float frames) matches the old pixels, and every computed arm, figure and lean value matches.
+- The Atlas companion's skirt gestures in a float or glide (the `rotate` limb loops on its `<svg>` root, never on the compositor) run on the same kind of box, so a float costs about half the style recalcs and a third fewer layouts (122ms to 69ms of recalc in the 2.6s window, 62 to 39 recalcs, 35 to 24 layouts).
+- The Atlas companion no longer restyles the page every frame at rest: the body's sway, the tail's and the nebula's flow ran as `rotate` and `translate` loops on `<svg>` roots, which Chromium never puts on the compositor, so each cost a style recalc per frame (108ms of every 2.6s idle, now 7ms). They run on a plain box around each root, and the figure looks the same, frame for frame.
+- Documents: a document reopens where you left it, the caret and the place you were reading, including after a reload (kept per document in this browser, the 60 most recent).
+- Documents: the breadcrumb above the writing follows what you are reading: scrolled away from the caret in a long document it names the section in view (the same one the outline marks), instead of staying on the caret's section.
+- Documents: in a long document, jumping to the middle (the scrollbar, a search hit) no longer leaves headings drawn as raw `###` text in the Live view; the view repaints when the parser catches up, which it used to do only on the next key or scroll.
+- Developer sweeps: switchdivider.js measures each Settings switch row's hairline against its group head; the INBOX 464 audit records items 9 to 20 as fixed, with their numbers.
+- Dashboard on a phone: the search field runs to its menu button with the bar's usual gap (it stopped 19px short).
+- Library, Bookmarks: the empty state no longer repeats the line under the bar; it is its title and Add a bookmark.
+- Settings, Data: importing markdown files, a folder or a document is one step: the button opens the picker and choosing starts the import, with Undo in the toast that moves exactly the imported notes to the recycle bin (it was choose, then a second Import button).
+- Reminders: Quick set takes the steppers' rounded shape, so the When row draws one corner instead of two.
+- Chat: the Ask Atlas offer in an empty chat is one line on a phone ("Ask Atlas what it can change"), and on a phone every Ask Atlas offer takes a button's corner rather than a pill, so a longer question no longer wraps into a capsule.
+- Library: Everything and Boards & maps count boards the same way; the empty default board no longer counts (or shows) as a board in one and not the other, and a notebook with no boards shows the New board empty state.
+- Folds in Settings, the help guide and task logs show the same caret as the Library's Contents and outlines, where they drew a small triangle of their own.
+- Settings: the line between two switch rows stops where its group head's underline does (it ran 9px past it on each side), and on a phone the Tools list no longer runs 4px past its pane.
+- Dashboard: a widget with nothing to show offers the one thing to do about it (Add a reminder, New board, Add a bookmark, Ask a question, Show untagged notes and so on), opening the tab it lives on first; eleven widgets were a sentence only.
+- Top tab bar: choosing a tab no longer nudges the tabs after it sideways; the selected label is drawn heavier without getting wider (it moved the rest by up to 6px).
+- Timeline: a row's title runs to the row's edge; long first lines were cut at 120 characters with most of the row still empty.
+- Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.
+- Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.
+- File pickers (Import markdown, Import a document and the rest) look like the Import button beside them: the same face, edge and weight, where they wore that button's hover colour and a near-invisible edge.
+- Library previews keep a document's or note's blocks apart: a heading, a list item or a table row is followed by a dot ("Goals · Ship the notebook redesign · Cut travel spend by 15%"), where they used to run on as one sentence.
+- Command palette on a phone: the keyboard hints and key chips are gone where there is no keyboard, and the field's prompt ("Search notes or run a command…") fits its box.
+- Settings on a phone: the head is one row again with Close in its corner, on every section and down to 320px (it wrapped onto a second line); the profile face and Back and Forward give way to the section picker, and below 380px Peek is its eye alone. Reminders' empty state no longer says "add one above" where nothing is above.
+- Settings: switches line up with the heads, labels and hints of their group; every switch row sat 9px inside that edge.
+- Settings: every section head after a pane's title now heads a group like the rest (Personas' Answer style, Dashboard greeting, Add your own and Share; Templates' and Skills' last; Web search's three), instead of sitting loose on the pane in a smaller voice.
+- Appearance, Assistant avatar now reaches Ask's answer, the writing room's draft and the guide's chat rows: each opens with the same reply head as Chat (the Atlas or app emblem face, then the name), repainted live when the setting changes.
+- Notes filed in the background settle in tens of milliseconds, not 1 to 4 seconds: the embedding of a note-sized text now runs on one torch thread (`MEMORYMAP_EMBED_THREADS` to change it), which was 2.2 s against 79 ms whenever the machine was busy.
+- Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.
+- Settings, Appearance, Atlas and faces (INBOX 463 (2)): Assistant avatar picks the face on the assistant's chat replies, the popup agent and the Atlas guide: Atlas (the default) or the app's animated emblem, still under Reduce motion. Open replies change as you choose; other personas keep their own faces.
+- Colour contrast (INBOX 464): a new sweep, `contrastui.js`, measures what `contrast.js` could not (icons, SVG icons, focus rings, field and select edges, selected states, chip edges; WCAG 1.4.11, 3:1). On the default look it found 79 failures at 1440 in light and 74 in dark; all are fixed through one token, `--control-edge`: text fields, select openers, date inputs and suggestion chips draw it, a selected segment and a chosen radio option are outlined as well as tinted, a field's hover edge is no weaker than its resting edge, the caret icons are no longer dimmed by opacity, a focused composer's edge is the accent text colour, and the palette's lit row shows its keycap and description in ink. High contrast makes the edge ink.
+- Motion (INBOX 459 (2)): switching tabs fades the new page in briefly instead of swapping it between two frames; instant with reduced motion on.
+- Motion (INBOX 459 (2)): folding a sidebar to its rail, or unfolding it, moves its contents toward or from the rail in a short fade instead of in one frame, and focus mode's Sidebar and Suggestions panels slide in from their edge.
+- Motion (INBOX 459 (2)): the chosen option's highlight now slides to the next one in every segmented control, the top bar's tabs, the Notes and Library sub-tabs and the Settings section list, instead of vanishing and reappearing; it is instant with reduced motion on.
+- Clear: Capture (with its title, tags and staged files), Quick note, Ask, Chat and the popup agent each get a quiet eraser button that shows only while the box holds something, and Undo puts the words back.
+- Manage categories: a category's note count is quiet text after its name ("Hobbies · 10") instead of a pill on every row.
+- Companion: the resize ring no longer shows on the companion in its enlarged view.
+- Documents: focus mode has a Sidebar button on its bar that opens the document list and outline as a panel on the left (Esc closes it); a reload in the session now also restores Tools and the idle fade, which an initialisation-order error had been dropping.
+- Companion (INBOX 455 (2), 469): it goes from place to place by the shape of the move: a walk along its ledge, a hop, shuffle or scoot for a small step, a leap with a crouch and an arc between ledges, a climb along and then up or down an edge hand over hand, a glide for long ways and a soft materialise past that; Atlas floats and glides. A new place chosen mid-move takes over at the speed it had (the hand-over frame went from 35px to under 15). Coming into a tab it walks or glides in from the side of the tab it left. Its arms swing as it walks, reach as it climbs, go out for balance on a leap and like wings on a glide, Atlas's hem trails, and a new act starts with a small lift of the arms. Reduce motion is still a short crossfade.
+- Companion (INBOX 462): a folded sidebar is no longer a perch. On Chat and Documents it used to sit on in the air over a row of the folded rail; folding the sidebar now sends it to the nearest perch it can be seen on, by the way it moves.
+- Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
+- Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.
+- Badges (INBOX 461 (1), 468): every status word is the one label recipe, an 11px word in a hairline box with its tone on the edge and icon: Packages' "Installed" and "Not ready yet", SearXNG's "Stopped" or "Running", Tesseract's state, a tool's "confirms first" and "online", the installed model's "in use", and a model card's "Fits", "Tight fit", "Installed" and "In use for chat" (they were four fills at 21 to 23px beside 19px labels). A suggested model card's labels are a row of their own above its actions, one line at 1440, 1100 and 390 (the foot had wrapped into up to three).
+- Notes (INBOX 455 (1)): a note's details line is one line on every card. Tags and suggestions that do not fit fold into one "+N" that lists them (a tag filters, a suggestion is taken), then the other facts keep only their icon; the time is always the line's last fact at its right edge (at 1100, 6 of 10 seeded cards wrapped and the time sat on a line of its own on some; now none, one date x per width at 1440, 1100, 820 and 390). The low-score warning sits beside the category.
+- Top bar: the logo, the space picker, the tab strip and the icon buttons share one 44px height on one centre line; between 1100 and 1439px the wordmark gives way so the tabs stay on one row.
+- Whiteboard: the Library panel's note rows light up under the pointer and show two lines cut at a word; an active button's icon (Library, and every pressed quiet button) takes its label's colour instead of fading into the accent.
+- Settings: a section's jump strip marks the heading you chose, even near the end of a short page where it used to mark the last one.
+- Dashboard: the Start something row is now Quick access: the same five tiles until you change it, then add any command from the palette (up to eight, with the line it already says), remove, drag to reorder or use Move left and Move right in a tile's menu, and Reset to default, all from the section's own menu; kept per user in preferences (INBOX 461).
+- Notes: a long note's folded preview shows two lines of its text again; blank lines after the title or between paragraphs had left it a lone "...".
+- Assistant bubbles (INBOX 457, 458): the popup agent's Thinking box sits under Atlas's name, not above it, and every thinking box (Chat, the popup agent, Ask, the Guide, Write with Atlas) is one fold: the same summary as the steps and sources folds, a rail, body text, a 12rem cap. The popup agent's bubble reads like Chat's (name, thinking, steps, answer, sources, facts, actions, with even 6px gaps); its copy and retry row no longer covers the sources; its sources are one list without duplicates, a row per note (title, category dot, date); its run facts are Chat's one muted line, a long model id cut short with the whole id on hover. Scrolling up while an answer streams now holds in the popup agent, Chat and the Guide until you come back to the bottom.
+- Notifications: every row is inset 8px on both sides, so the unread dot and the read toggle no longer sit on the panel's edges.
+- Attach picker (Chat's note button, INBOX 467): rows are the name over one muted line with the category as a dot and quiet text (it was a filled badge on the name's line), the footer is the dialog footer (count at the left, a ghost Clear and the one filled Done; the buttons were small), and it is padded and cornered like every other panel.
+- Popup windows and panels are one design (INBOX 456, measured on 42 surfaces at 1440 and 390, light and dark): every small dialog (new space, templates, document history, word goal, widgets, tensions, storage) opens with the dialog head and a Close; the skill runner's worded Cancel, the Extract, Writing dictionary, popup agent, Find anything, node popup, new-note popup, board overview, agent activity and tour closes are the same 32px icon button at the same corner (44 by touch), and every sheet's too; a head's title is 16px whatever tag carries it (the Quick note, popup agent and node popup titles were 12px uppercase, 700 or 14.7px); the notifications panel is 8px like every other panel (was 6.4px) and the five floating panels are padded one step (were 8 to 16px); small dialogs are one 34rem width (the storage dialog was 1332px) and sit as far from a phone's edge as the others (12px, now 24px); the dim behind every dialog is one token (it was four values), and Find anything dims the app like the popup agent instead of replacing it with the page gradient.
+- View toggles (Library, Notes, Timeline, Reminders): the selected segment sits inside its well with 4px all round; it was 4px down, flush on the well's bottom edge, and by touch it spilled 16px out.
+- Library, AI skills (INBOX 450): a card's facts are one row of equal-height boxes on one baseline (24px each; the plain chip and the two disclosures were 20 and 22px, 2px apart), "3 steps" and "4 tools" are toggles whose lists open under the row at the card's full width, so opening one no longer pushes the next fact onto a line of its own, and a tool is a code chip at the same height; what a skill asks for before it runs moves to its run line ("Never run · asks for 1 input"), so the facts fit a card on one line. The cards are dealt into columns in reading order, so a short card no longer stands over a gap to its taller neighbour's row and an open card no longer makes its neighbours tall and empty, and "Never run" sits 8px over the footer's line (was 16). The top bar is one row whenever the page has 58rem (at 1440 with a Windows scrollbar it was two, 90px, with New skill and '?' alone on the second; now 50px) and below that wraps on purpose: title, search, New skill and '?' first, the segment and the sort under them; its title says "AI skills", as the sub-tab does.
+- Top bar: the tabs are back to their first size (36px, 16px labels, a 4px well); the density pass had made them 32px with 13.6px labels.
+- Consistency pass, second round (INBOX 437 (4)): Settings' search field and section rows are on the panel's 32px control height (were 42 and 35, the nav column 84px shorter), a slider's reset, the zoom steppers and a backup's delete stand as tall as the field beside them (were 28 and 36), every page has at most one filled button (Import & export had five, Models five once a model is connected, Appearance four, Personas and What it learned two; a lint now holds it), and the theme cards are one height per grid (a lone Lagoon was 79px under rows of 96). On a phone a reminder is two lines, 82px (was 119): the tick spans both, the words and the time on the first, the snoozes, Edit and the menu (44px targets kept) on the second, starting under the words rather than under the tick. Library: Bookmarks no longer repeats the All chip's count on a line of its own (it says "Showing 2 of 4" only when narrowed), a link's facts stay on one line as they were meant to (a later rule's wrap had won; on a phone a row was 75px with the dot alone at a line's end, now 59), and on a phone its tick is the light 22px box of every other list rather than a 44px frame; Contents shows its jump bar from four groups, as Settings' own index does, instead of repeating two heads; an AI skill card spaces its parts by its one gap (207px, was 262) and its menu is Run's height; an image tile loses a 10px blank band under its name (146px, was 156); a Files row names the kind once on its facts line, not also under the glyph that spells it; the Boards grid ends on its card's padding (a 48px band, now 16). Notes: every name in the sidebar starts on one edge (All and the categories began 23px left of Drafts, Favourites and Tags; All has a glyph now and a category its colour dot, as on a note's chip), and the help '?' in the Capture, Write with Atlas and Ask heads is 32px like the head's other buttons (was 36). Documents: Read view no longer shows a document's name twice when its text already opens on it as a heading, and the hint under the editor no longer repeats the dock's "Saved". On a phone the AI skill library's All, Yours and Built-in segment no longer wraps out of its well over the search field: it takes its own row, and the sort shares the next with New skill.
+- Docs: the README, ARCHITECTURE, DESIGN, the roadmap and handover tables and CLAUDE.md's counts are checked against the code and current (INBOX 448 (2)): the README lists Quick note, the offline outbox, `#tags`, kept suggestions, the tag manager, category colours, job last-run status, the Library's bookmarks, Contents and AI skills pages, mind map keys, the OCR engine line and the accessibility work; ARCHITECTURE has `core/jobruns.py` and the `job_runs` table, `GET /jobs/last-runs`, the suggested tags, `client_key` on `POST /entries`, the lazy pieces, the migration head and a directory map that matches the tree; DESIGN has the pending note row, the toast yielding to focus and the row's centred actions; the plan tables say what is built (61 scripts, 5,700+ tests, `app.js` and 24 files after it).
+- Notes: a note held offline shows its title as the saved card will, rather than the raw `# Title` line.
+- Zoom (WCAG 2.2, INBOX 433): on a window under 420px tall (200% and 400% zoom) Chat flows as a page instead of squeezing its welcome under the composer, the Timeline's feed keeps a usable height (it had 0px at 400%), and the graph keeps a 26rem map with the minimap put away so the zoom strip, dock and legend no longer overlap; the AI status popup takes no clicks while it fades; Reminders' row actions sit on their own line below 600px instead of over the tick box; Chat's mode switch is no longer cut off in the touch band; the chat's hidden file field is no longer a Tab stop. zoom.js on Chat, Timeline, Graph, Notes, Documents and Reminders: 14 findings to 0 (11 on the first five, 3 on Reminders).
+- Consistency pass on Chat, Dashboard, Timeline, Reminders, Graph and two Settings sections (INBOX 437 (4)): Chat's message row is 36px like Capture and Ask (was 44) and its control strip, sidebar sort and More selects share the 32px control height (were 30 and 37), and the chosen chat's date line is no longer bold; the graph's zoom strip is 32px (was 34) and its options panel no longer cuts off the right column of switches; the Dashboard clock reads 8:11 like the Reminders one (was 08:11) and the name offer's two buttons are one height; today's day head on the Timeline is as tall as every other day (35px, was 47) and its count is the Graph's dock chip; Reminders' group counts are plain figures like every other group head, and from 1100px up the list no longer repeats the form's filled Add; Background jobs is a list of rows, not cards (659px, was 1,226), the file pickers match their buttons, and the four exports sit on one row with help that no longer repeats the line above it.
+- Toasts: a toast fades and lets clicks through while the focused control is under it (WCAG 2.4.11; at 200% and 400% zoom a lasting "3 reminders are due" hid the Tab stop on six tabs), and the toast box no longer swallows clicks beside a narrow toast below 1100px.
+- Bookmarks: pinned links lead every order but By site (the list's own sort used to discard the pin).
+- Background jobs: a failed run's last-run line says why in a few words ("No space left on device", "File exists"), not the operating system's text with an error number and the path of your folders.
+- Bookmarks: a test now holds that GET /bookmarks pages tile one order, pinned first across every page (it already did: the order is applied before the page is cut).
+- Library: Bookmarks, By site, groups a link with no host under what it is: mailto: links under "Email", other schemes (tel:, file:) under the scheme name, instead of a section named by the raw address. The By site sort uses the same key, so a group is always one run of rows.
+- Library: Contents, By month, puts each document under the month it was created in, with the notes of that month, instead of one "Documents" section after them (the other groupings keep that section). GET /documents/outline now carries `created_at`.
+- Notes: a note kept on this device while the server is away now shows in the notes list, at the top, as a card marked "Waiting to save" (no actions that need the server), and the card goes when the note is sent.
+- Lock: an open dialog or popover no longer stays readable over the lock screen (and no longer leaves its password field untypeable); it is put away while locked and comes back as it was after unlocking.
+- Mind map: Ctrl+D on a topic copies it as the next sibling with the same words and look, and undoing it selects the parent (it used to land as a loose top-level topic).
+- Backups: a manual backup that the disk refuses says why ("Couldn't save the backup: No space left on device.") instead of "Internal error".
+- Documents: the outline breadcrumb starts with a "Top" mark instead of repeating the title that sits in the dock just above it.
+- Mind map: Ctrl+Z after Delete on a branch brings its cross-links back (the delete response now returns the links it dropped), and the undo history no longer goes stale after a restore (ids are remapped); Shift+Tab is one undo step; undoing a create selects the parent; Tab adds a topic only after the map was clicked or keyed in, so it can leave the map (INBOX 445 (2)). Focus mode now keeps cross-linked topics in view.
+- Library: Bookmarks, Contents and AI skills rebuilt inside their purpose (INBOX 445 (1)). Bookmarks: a reading list (Unread and Pinned filters with counts, opening a link reads it), a kind tile per link, "By site" groups that fold, Details in place, a note field, Move to group, Mark read and Pin on the select bar, Undo on every delete, and every page of the list (the 201st link was unreachable). Contents: the notebook as an ARIA tree with documents and their headings under them (jump to the heading), Expand all and Collapse all, arrow-key navigation and a roving tab stop. AI skills: Yours or Built-in segment with counts, a sort, "Reads only" or "Changes notes", the last run's result, Duplicate and Delete with Undo, the background workers folded away. The Library sub-tabs are sized by their words, so the gaps between labels are all 34px (they were 34 to 67).
+- Background jobs: every job now shows when it last ran and how it went. Beside the control (Rebuild search index, Back up now, Find duplicates, the importers, Read my notes now, Run optimization now, Explain your existing links) a quiet line reads "Last run 2h ago · succeeded · 412 notes indexed", with the exact time and the duration on hover; a failure is the only red and says why; a running job shows the ring and "Running…". Settings, Background tasks has a new Background jobs list with every kind, the never-run ones included. The record is one row per kind in the database (so it survives a restart), written through one helper, `job_run`, from the search rebuild, the embeddings backfill, backups (manual and the daily one), the duplicate scan, imports, the night shift, the autonomous pass, resurfacing, link reasons, filing re-evaluation, model and package downloads, SearXNG setup, image captions and text reading. New route: GET /jobs/last-runs.
+- Notes: making one is faster and cannot lose words. Quick note (Alt+N, or the palette) opens over any tab and saves without leaving it: caret in under 70 ms, in the list 100 to 310 ms after Ctrl+Enter, Escape keeps the words for next time, Open in Capture moves them to the full composer. A note saved while the server is not answering (Capture, Save as draft, Quick note, the dashboard's Quick capture) is kept on this device and sent by itself when the server is back (it said "Failed to fetch" and was never sent; a notice above Capture counts what is waiting, with Try now), and a resend is saved once (`client_key` on POST /entries). `#word` in the text tags the note (`inline_tags`). An image pasted into Capture and a file dropped on it are kept (both vanished). The draft keeps its title and tags through a reload (only the words came back). New note from the palette no longer starts with a blank line. The graph's new note and the dashboard's Quick capture are saved at once and filed in the background, as Capture's are. A bare link pasted into Capture or Quick note offers its page as a note through the web clipper, only while the web is allowed.
+- Companion: it does what the app's AI is doing. While Atlas reads a note (Re-evaluate, Tag with Atlas, the tag offer, filing a new note, OCR) it puts its glasses on and gets its book out; while it writes (chat, Ask, Improve writing, a draft) it thinks; a caption is a look. When the work ends it nods, or holds up the note it filed, and a failure gets a puzzled face.
+- Companion: double-click it and the large view shows the companion itself, still doing what it was doing (reading, asleep, sitting on its ledge) until you poke it or the act ends; in there it plays every few seconds, follows the pointer with its eyes, perks up when you hover, says its lines now and then, and only blinks under reduced motion. The view's head is the dialog-head recipe (name and an icon Close) over one line of description.
+- Graph: a calmer, tidier shape. Notes of one category gather (of each dot's four nearest, 56% to 84% share its colour on a 60-note test map, as far as the links are category-shaped; a notebook whose links ignore categories keeps the old, looser layout); notes with no link take a seat on a ring that hugs the cluster, close beside their category (gap to the cluster, in typical spacings, 3.0 to 1.8); a link between two notes of one category wears that category's colour, a link with a reason is heavier, and links curve by default (Show, Curved links; turn it off to go back to straight lines); one dot size scale of 5 to 15 px with a softer glow; names are cut at a word and never end on a small word ("Fitness plan and the..." is "Fitness plan..."), the note under the pointer is named in full, and the busiest notes get ten more characters. The glide to the fitted view is instant for a reader who asked for less motion.
+- OCR workspace and Tesseract: one status line under the toolbar says whether Tesseract can read (program and Python part reported separately), its version, and the language it reads in (a remembered choice that every read obeys, including the background pass); when it cannot read it names the cause and offers Install with the installer's own progress, and a read that cannot run falls to the vision model (or says what to do) and names the engine that read it. Read again really reads again (it used to do nothing once a reading existed), the reading can be edited by hand and added to an existing note, the Packages row means "can read" and shows the same language, and an OCR error points at Settings, Packages.
+- Atlas's feminine look wears a flowing gown below the waist: one A-line with a softly waved hem and four folds on it, instead of five wavy ribbons hanging past a pointed hem (which read as tentacles); her comet tail is unchanged.
+- Tags: a tag manager (Notes ⋯ menu, Settings, the Tags row, the command palette): every tag with its note count, rename, merge into another tag, and remove from all notes, one or several at a time, each in one transaction with a revision and an event per note (so note history shows it) and one Undo. The Notes selection bar's Tags button adds tags to and removes tags from every selected note in one action. A tag chip's right-click or menu key opens Show notes, Rename in all notes, Remove from this note and Manage tags. A category chip now opens a small menu: Show notes in the category, Move to another category, Manage categories. New routes: POST /tags/merge, /tags/bulk and /tags/restore; /tags/delete takes several names.
+- The whole app is tighter and calmer: controls are 32px (were 36), the top bar 48px (was 56), interface text 14.7px where most of it inherited 16px, panels 16/20px inside, the greeting and its clock 24px; five note cards fit above the fold at 1440x900 instead of four, with a two-line preview. Toolbar buttons without a border read at a regular weight, and the dashboard's start tiles line up at the left.
+- Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
+
+### Fixed
+- Filing: a note's certainty is now Atlas's own estimate, not the model's raw number. A small model answered 100% for a dentist appointment it filed under Work; nothing a model or a word match picks now reads above 95%, a pick the notebook's own words disagree with is lowered (under 50% shows check this and offers the other categories as one-tap buttons beside the note box), and so is a pick for a category with few notes. A note you filed yourself says Filed by you and shows no percentage.
+- Notifications: about a hundred toasts for normal situations (Dictate without the voice add-on, Compress on an empty chat, Add on an empty reminder, a field left empty, nothing to export yet, a model or add-on that is off, a limit) were red with "Report this", which reads as a broken app; they are now plain toasts that ignore "mute notifications", and a failed request the server refuses with a 4xx shows plain too, so only a 5xx, a network failure or an exception keeps the red style and the report button. `toast(text, "info")` is the plain form; `tests/test_error_toasts.py` pins 100 calls and makes a new red toast with its own message name its fault.
+- Status bar: with no model connected, the AI status shows the app's AI sparkle with a slash through it, in the same neutral grey on the chip, where it was a hollow ring that said nothing; the card still reads "Notebook ready · AI off", and the ready, checking, warming and error states are unchanged (INBOX 656).
+- Chat, Ask, the popup agent, the Guide and persona rows: Atlas's small head (under 28px) is now a miniature of the current bust, both looks: the head mark's hair, cap and fringe, eyes with an iris, pupil and catchlight, the ears, and the neck and shoulders, where it was a bald egg with two solid ink eyes and a heavy outline (INBOX 650).
+- Packaged builds: both PyInstaller specs now leave any __pycache__ folder out of the bundle (migrations/ is copied whole, so a build machine that had run the app shipped stale bytecode there).
+- Internal, after the motion-polish and map and icon branches merged: the icon picker's stylesheet and script are one `LAZY_MODULES.iconPicker` bundle loaded with `ensureModule`, its tile hover follows the Interface animations switch, and the map's and picker's caches are one const each, so the lazy-CSS, motion-token and global-scope ratchets hold at their caps.
+- Windows start.bat: a folder name containing ! (Notes!, Hi!there) no longer breaks the launcher; the script's own path is read before delayed expansion is turned on, so MM_HOME, MM_SELF and the first cd keep the character. Reasoned and statically tested only, no Windows machine was available.
+- Windows updates: the in-app update now reopens MemoryMap AI by itself when the installer finishes (it passes /RELAUNCH=1 and only a silent install honours it, so a scripted /VERYSILENT install still opens nothing); before, the app closed for the update and stayed closed until the person opened it again. Reasoned and statically tested only, no Windows machine was available.
+- Windows: the Start Menu's Repair MemoryMap AI no longer half-deletes the window's cache under a running copy (WebView2 holds those files locked, so only the unlocked half went); with the app open it leaves the cache alone and says to quit first.
+- Windows uninstaller: answering yes to deleting the optional packages now deletes the ones the app downloaded itself too (Pyodide, the needle model, in the extras folder), not only the pip packages.
+- Windows installer: it reads its version from the app's own __version__ instead of a MEMORYMAP_VERSION variable with a hard-coded 0.1.0 fallback, and a release tag that disagrees with the code stops the release before anything is built. An upgrade removes the previous build's program files before copying the new ones, so no file an older version had (a moved module, a DLL from another Python) is left beside the new one, and the uninstaller removes anything the app wrote inside its own folder.
+- Windows launcher: start.bat --shortcut puts the shortcut on the Desktop you see when OneDrive has moved it (on by default on many new PCs), where it used to fail or land in a folder nobody looked at, and works from a folder whose path has an apostrophe (C:\Users\O'Brien); uninstall.bat --shortcuts looks in the same place.
+- Desktop window: an edited lazily loaded stylesheet (the Library's library-lazy.css) is fetched fresh. It was stamped with app.js's hash, a URL cached for a year, so a change to it alone kept the old rules in the window's long-lived cache; every stylesheet now carries its own hash in the page's stamp map.
+- Packaged app: /capabilities no longer offers 'python -m memorymap.mcp_server' as installed. The packaged app has no Python to run it with, so an outside client set up from that answer failed to start; it says so now, and the install guide says the MCP server runs from a source checkout.
+- Packaged app: optional packages install against the app's own version limits again (requirements.txt is bundled; the packaged build looked for it outside the bundle and installed unconstrained), and on the packaged Linux app a package with a compiled part (Export to Word, scanned PDFs) installs at all: pip was asked for wheels tagged linux_x86_64, which nobody publishes, and now also gets the manylinux tags this machine runs.
+- Packaged app: optional packages installed after setup find the standard library they need. The bundle carried only the standard modules the app itself imports, and search by meaning (transformers needs filecmp), scanned PDFs (ctypes.util) and others import more; the whole standard library is bundled now except Tk, the tests and IDLE, about 3 MB.
+- Packaged app: nothing is written inside the install folder any more. Once migrations ran, the frozen interpreter cached them as bytecode beside the exe, which no uninstall removed; a packaged build now writes no bytecode.
+- Windows: saving preferences or the instance lock no longer fails when an antivirus scan or a second launch has the file open for a moment. The rename Windows refuses then is tried again for up to about three seconds, and these files are always written as UTF-8.
+- Windows: the tray's Restart brings the installed app back. Python's exec on Windows passes the arguments unquoted, so the program's own path (MemoryMap AI\MemoryMap AI.exe) arrived as three arguments and the restarted app exited at once; it starts a new process now, and a Restart after the Repair shortcut no longer repairs again. Quit, Restart, the console switch and an update now let go of the notebook's lock before exiting, so the next launch never waits on a lock naming a dead or reused process.
+- Packaged app: no traceback in the log on every launch. The launcher asked for the bootloader's splash, which the build has not had since 0.3.3, and the module prints a traceback on its way to failing; it is asked for now only when the bootloader made one.
+- Packaged app: tool calling without Ollama (the needle extra) works in the installed build. Its provider is imported by name, which PyInstaller cannot see, so it was one of two app modules missing from the bundle (measured, 198 of 200); both specs now list every module of the app by file, and a test checks the list against every import by name.
+- Packaged app: the database is stamped and upgraded by Alembic again on a Japanese, Chinese or Korean Windows (and the frozen app under a C locale). alembic.ini carried one em dash, which Alembic reads in the system's own encoding, so the step failed before any migration ran; the file is plain ASCII now and a test keeps it so.
+- Test sweeps: the skeleton sweep treats a view whose empty answer is its boot answer (the chat list) as expected, and the boot-time sweep now reports DOMContentLoaded, first contentful paint and when the dashboard is readable over five cold loads; the Library and Documents "blank" skeletons were a sweep timing artifact, not the app.
+- Filing: when the chat model files a note, the prompt now also names the three notes already filed that read most like it with their categories, and any refile correction that reads like it (private notes are never named, and the note being re-filed is not its own example). The corrections switch in Learned silences it. Before, only the categories you had moved notes into were mentioned.
+- Desktop launch: a MemoryMap already on the port is reused only when it serves this launch's data folder; a second copy pointed at a different folder is treated as another program and the window moves to the next free port, where before it opened onto the wrong notebook. The server reports a hash of its resolved folder (never the path) at the new open `GET /instance`, compared case-insensitively on Windows; a build too old to answer is still reused, as before.
+- Whiteboard between 641 and 819px: the tool dock no longer overlaps the zoom cluster (6,841px² to 0) and the top bar is one row from 680; the whiteboard file's last ten off-band widths moved onto the 819.98/820 band and their allowances left `tests/test_breakpoints.py` (`op5-1005.js` MODE=bands).
+- Settings, Models: an installed model's menu offers only the uses its kind has (an embedding model is offered Use for search, never Use for chat; a vision model images, reading text and chat), read from the catalogue, then Ollama's model details, then the name (`model_cards.installed_uses`, `tests/test_model_cards.py`, `op5-1005.js` MODE=models).
+- Settings, Skills and Personas: the "Built-in" label on a list row is readable in light (4.27:1 before, three tints stacked under muted type); it takes the ink, as the "Installed" label already did.
+- Test suite: each pytest-xdist worker no longer climbs to 2 to 2.7 GB (four of them filled a 16 GB CI runner, which shut down at 96 to 99%). FastAPI's callable caches kept every test's app alive (about 8 MB each) and are now cleared after each test, and the 145 test modules that read a frontend file at import now share one copy of it (collection RSS 490 to 341 MB). Measured per worker at the end of the suite: about 1 GB before the second change, down from 2 to 2.7 GB.
+- The guided tour no longer counts steps it cannot show on a tablet-width window (600 to 819 wide, or a touch screen): the chat sidebar is a sheet parked off screen there and the status bar's Commands item is hidden, so those two cards are left out of the count instead of being planned and dropped ("3 of 4" with three shown). The no-mind-map card is shorter (115 characters, was 209).
+- Whiteboards and mind maps: the Board menu closes when Export, Clear, Add to a note, Map to document, Copy app link or Delete is pressed. It stayed open over the dialog or picker the row had just opened, and on a phone (390 wide) it covered the note picker's rows so the first one could not be pressed. Measured: all six left it open before, none after.
+- Settings, Skills and Personas: the "Built-in" label on a list row is readable in light (4.27:1 before, three tints stacked under muted type); it takes the ink, as the "Installed" label already did.
+- A whiteboard or mind map in a note no longer reads "This board is no longer in your notebook" when the note is drawn a second time while the first look for the board is still on its way: the second card now waits for that look instead of treating it as an answer. Measured with a board made a second before its note was opened: the card drew as removed in every run before, and as the board in every run after (`noteobject.js`).
+- Alignment and loading: a Timeline row's kind mark, title and time sit on one line (the mark was 1.2px above the title in a one-line row), and the Settings lists that fill from a request (Packages and its embedding models, Skills, Tools, Personas, Backups, Privacy, Account) show skeleton rows while they load instead of a blank space (INBOX 542, 596).
+- Settings: Models, What it remembers, What it learned and the Logs list show placeholder rows while their first answer is on its way, instead of a bare "Checking the models…" line or an empty pane; Models paints the last known status the moment Settings opens.
+- Capture: the formatting strip is the one-row folded bar from its first paint on a phone (it drew two rows, 104px, and folded to 54px when the Library code loaded, a jump under the thumb).
+- Note facts turned to their icons (a narrow column such as Ask's matching notes) are 24px squares with the icon centred. They kept the words' minimum width and side padding, so the links icon sat 4.5px left of centre in a 30 by 24 box (`iconchip.js`: now 24 by 24, 0px off).
+- Private notes: a private note's card no longer offers "Tag with Atlas" (the chip under an untagged note). The route refuses a private note, so the chip's only answer was a refusal toast; the note menu's AI actions group was already left out for one. Measured: a private untagged note drew 1 chip before and draws 0 now, a plain one still draws 1 (`open-privatechip.js`; `tests/test_private_note_no_ai_offer.py`).
+- Loading: the first visit to Graph, Library and Documents shows the page's own outline (its bar, then the map, the tiles, or the list and the open page) instead of a blank screen with a line across the middle, and if it takes more than a moment it says "Opening the graph…" with a moving ring. Dashboard widgets load as skeleton rows rather than the word Loading, and going back to the dashboard keeps it on screen while it refreshes instead of showing it empty for a second (INBOX 598, 596, 602).
+- Learned from your notes: turning off "Open questions" now stops the night pass collecting questions and matching them to later answers (the questions already collected stay listed). Before, the switch was stored and shown but gated nothing.
+- Note properties: saving a note's properties, and turning a plain mention into a link from a note's Backlinks, failed with an error since the entries API learned If-Match; both save again.
+- Settings: every on/off row is one shape. The switches written as a `.check-row` (15 in Settings) sat 6.4px from their labels against 9.6px on the `.setting-check` rows beside them; both are 9.6px now, and the SearXNG autostart row leads with its switch in the reading order as it already did on screen (`togglerows.js`, one shape at 1440 and 390, light and dark).
+- Library: the Files sub-tab asks for a PDF's first page only when this install can draw one. Without the PDF render extra each document row used to request a page that could only fail (four 404s per render on a notebook with four PDFs); the server now says per row whether a page can be drawn (`has_pages` on `GET /media`, and on the attachment gallery only with the extra) and the row keeps its type icon otherwise (`pdfpagereq.js`, 0 requests without the extra, 0 404s with it, at 1440 and 390, light and dark).
+- Documents: the word menu keeps its full width wherever it opens. A short menu left near the right edge and then opened on a word with a long suggestion measured itself squeezed against the edge (256px of its 316 at phone width) and was placed from that; it is now measured from the left edge first (`wordmenuwidth.js`, 5 of 5 at 1440 and 390, light and dark).
+- Graph: notes move at an even speed while the map settles (INBOX 586, "the graph is a little jittery when nodes move around or adjust position"). The layout's steps and the screen's frames ran on two clocks, so a note moved two steps in one frame and none in the next; each frame now draws the point between the last two steps that its time says. Simulated at 60 frames a second: per-frame steps vary by 13% instead of 34%, and on a large map every frame moves instead of one in four.
+- Graph: clicking a note moves nothing (INBOX 587, "when I click nodes on the graph, it moves the graph slightly??"). A press on a note used to start a drag at once, which reheated the layout, so every click set its neighbours moving; a drag now begins only after the pointer travels 3px. Measured on ten clicks: other notes moved 15 to 65px before, 0 after, and the view did not move.
+- Mind maps: a core topic's Dashed edge bar is dashed (INBOX 581, "the solid and dashed bar are exactly the same on mind map nodes"). A border's gaps show the box's own ground, and a core topic's ground is its branch colour, the bar's colour, so its Dashed bar drew solid; the gaps now show the board. Every Box (Rounded, Pill, Box, Ellipse), free, pinned, core and filled, in right, down and both-sides maps: Solid continuous and Dashed with gaps in all 64, light and dark (core was 2 of 16 before).
+- Chat: the Chats sidebar's head is one quiet row, the way the Notes sidebar's is (INBOX 578, "this section in the chat sidebar looks awkward"): the title, then the sort as an icon picker and New chat as an icon button, both ghost, beside the collapse toggle. It was a filled New button and a wide Recent field alone on a row under the head. Measured: one row, every control 32px on one centre line, nothing filled, at 170 to 520px sidebar widths; at the narrowest the sort leaves the head (sorting is then in the Library) rather than cutting the title.
+- Graph: Tree, Radial and Arc draw again on a notebook with replies (INBOX 579, "switching the graph layout does nothing"). The map now lists notes newest first, so a reply came before the note it answers and the layout stopped on an error before drawing; the layouts no longer depend on the order, and a reply chain that loops is filed under its category. Measured on 142 notes: every pair of layouts was 0 apart with three errors, now 21 to 110 apart (of 100) with none, canvas and SVG, light and dark, at 1440 and 390.
+- Icons beside words sit on the words' capital-letter centre in whatever font the app is drawn in (INBOX 592): badges such as Fits and Installed, a note's facts line (category, score, tags, date), menu rows and buttons. On Windows the icons sat up to 1.7px off and the date 1.3px off the chips beside it; the "+N more links" button is now the same pill as the links beside it.
+- Notes: the Connections column's help and close buttons are one size and on one line (the close button was smaller and sat 2px lower).
+- Narrow windows (600 to 820 wide, an iPad upright): one layout across the whole band. Settings shows its sections as a strip above one full-width column (the settings had 282px beside the section list at 620), the dashboard is two cards across, a note's actions are one row (they stood in a column below 720), and the top bar is one height; the leftover 720, 640 and 900 pixel layouts now change at 600 or 820 like the rest of the app.
+- Phone: Escape on a ⋯ menu's action sheet closes the sheet. Before, the sheet stayed up and the Escape closed what was under it, the Settings window included (found by INBOX 595's sweep).
+- Mind maps: the "Point a new node at…" picker (and every notebook picker on its shell) is redesigned (INBOX 572). With more rows than fit, each row shrank to 28px and its 32px icon hung over the next row's title; every row is now 56px with the icon centred and 8px between rows. The sources span the dialog as equal segments, each with its count (what matches the words typed), Home and End walk them, and the picker opens on the source you used last. A bookmark's icon says what it points at and a file's its type, titles are clipped by the row's width rather than at 70 characters, nothing matching is an empty state with an icon and a title, the search ring is the one 2px ring, and the list keeps one height and a thin scrollbar with no arrows.
+- Agent mode and skills: a small model that writes a lookup into its reply as text, like list_notes({...}), now has the lookup run instead of stopping with "I cannot execute the tool call"; changes written the same way still are not run.
+- Notes, Ask: the text-selection menu no longer pops up over an answer's sources when the answer selects your question for re-typing.
+- Moving a note the AI filed to another category now teaches the next filing: the move was recorded but never read back, so the same note kept being filed in the same wrong place.
+- Phone: More has a Commands row that opens the command palette, which a phone had no way to reach.
+- Notes: switching on "Connections beside an open note" with no note open says that the column shows beside a note once you open one (INBOX 546).
+- Settings: every section with three or more groups opens with its "In this section" strip under its title; Tasks had it at the bottom (after Quit MemoryMap) and short sections had none (INBOX 541).
+- Graph, Arc view: it opens framed whole, its arcs and end labels inside the window with a margin, instead of zoomed in on the bare baseline near the top (INBOX 544).
+- Notes, Capture: the Clear button sits below the text box instead of over its bottom edge (6px over at desktop width, 14px on a phone) (INBOX 545).
+- Top bar: the tabs no longer jump sideways when you switch tab; the strip was measured with its sliding highlight counted as a tab, so whether it was centred depended on which tab was selected (INBOX 539).
+- Agent mode: a model that can call tools is no longer reported as unable to after one tool call Ollama could not read; the request is made once more, only Ollama's own "does not support tools" counts as no tools, an error mid-answer is said instead of ending empty, and a model that claims tools but keeps failing gets its own message (INBOX 538).
+
+- Mind maps: a map's theme with an impossibly large text size in it (JSON's 1e999, from a hand-edited file or another client) is dropped like any other bad value; before, saving it was a server error, and since the theme is read on every open of the map, a stored one would have broken the map (the final scan, 2026-10-06).
+- Mind maps: the + on a map line is one Undo step that puts the branch back under its parent; Redo brings the new topic back between them; any topic taken back by Undo comes back under its parent on Redo, and a batch redoes in the right order (INBOX 537).
+Graph: a topic summary request's shared terms are capped at 200 characters each.
+Suggestions: a decision's signal names are capped at 40 characters (they are kept in the learning table for good).
+Agent: a small model's runaway bracket (thousands of [ or { in one tool argument) failed that one call as unreadable JSON; it raised RecursionError past every reader and ended the whole turn.
+Logs: the query-string redaction was quadratic in a line with a ? early and a long run of slashes after it (28,000 slashes took 2.4 s on the thread that writes every log line); it reads each run once.
+Privacy: making a note private drops the people and places a model had read out of it (the notes filter's entity: term and the graph still answered with a private note's names); made readable again, it is read again.
+- Graph: the options panel (676px of list in a 492px panel at 1440x900) already scrolled inside itself and now keeps the wheel there: a wheel at the end of the list no longer chains to the map behind it (`overscroll-behavior: contain`; on a phone the sheet is the scroller and already contained). Sweep `scratchpad/ui-sweeps/graphoptfit.js`.
+- A private note's kept tag suggestions and discarded tags are handled like its tags: shown wherever its tags are and nowhere else (search, the graph, the model's context, exports and every locked read were checked together), and filing no longer makes new suggestions for a private note from its text (`tests/test_private_suggested_tags.py`).
+- `[[Target|Shown]]` means the same everywhere: the note it links to is the part before the bar, whether the link is made on save, listed in a document or note's backlinks, or shown as "links to it" in a note's references; and a note's label, preview and graph line read the shown words, not "Target|Shown" (`manager.wiki_target`, `wiki_shown`, `wiki_plain`).
+/tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-wisps.txt
+/tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-aura.txt
+Library: a note or document with a long run of blank lines or spaces no longer freezes the app: 1,000 blank lines made the Library list take 6.5 seconds and 2,000 took 49, because the preview's table-rule pattern was cubic in the run; 20,000 of any shape is now instant.
+Privacy: saving a setting no longer copies a name, a dictionary of your words or a whole skill into the activity log; only short plain values are recorded.
+Security: the link opener, page clipper and other outbound fetches now refuse the shared address space (100.64.0.0/10, which includes Tailscale nodes and a cloud metadata service at 100.100.100.200) as they already refused home-network addresses.
+Privacy: saving an edit to a private note kept its new text encrypted only in the editor's eyes (it was written to the database in plain text while the note stayed marked private, and into the search index); it is now stored encrypted, and Add context, which appended plain words to the encrypted text and made the note unreadable, refuses a private note.
+Privacy: making a note private now encrypts the history it already had (its first version and earlier edits sat in the event log and the version list in plain text); restoring an older version fits the note as it is now, so a version saved while private no longer comes back as unreadable text in a note that has since been made public.
+- Chat: the transcript keeps following a long answer as it is written. A heading, list or code block landing between two frames made it stop following, so the end ran away from you and only "Jump to latest" caught up; a picture arriving late or a fold collapsing now keeps you at the bottom too.
+- Chat: with a local server that speaks the OpenAI dialect (LM Studio, llama.cpp), an answer now writes itself live; it used to arrive all at once at the end of the turn.
+- Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.
+- Chips: the Contents jump chips, the dashboard's On this day dates, the chat sources' +N, document property and embed chips and the Library's reading badges put their words in the same trimmed span as every other chip, so they sit level with their neighbours.
+- Skill logs: Clear and the pin button no longer touch when the collapsed sidebar is peeked open (they overlapped by 5.6px; the peeked pin now sits where the pinned one does, 6.4px from Clear), and at phone width Clear sits 6.4px from the opener, up from 2.4px (INBOX 495).
+- Locking the notebook no longer deletes the Timeline's feed and table or the Reminders controls (it emptied their containers, not only the rows), so the Notes select button stops throwing `Cannot read properties of null` from `paintTimeline` after a lock; a lint now fails if a purged container holds an id (INBOX 492).
+- Mind maps: the board's Insert and Arrange buttons no longer show in a map's top bar when one of their menus was open as the map opened.
+- Quick sketch: the toolbar stays on one row at tablet width with Large text; the ink dots sit closer between 600 and 1023px wide.
+- Mind maps: the topic menu's "Connect this topic to another" picks the connect tool again; it did nothing.
+- Mind maps: Tab, a name and Enter typed before the new topic's editor has opened now name that topic; the Enter used to add a second, empty topic and the name was lost.
+- Search results open from the keyboard (Tab to one, Enter or Space), and the sidebars' "All in Library" link fits on one line.
+- Whiteboard and mind map, audited (INBOX 445): M picks the highlighter without opening the quick-nav guide (which swallowed the stroke, and M then D left the board); a map's letters no longer pick hidden board tools; Escape leaves a text box selected; the shape Fill switch draws filled shapes when on (it was inverted); the tool bar shows only the settings the held tool uses; Ctrl+Shift+arrows move a topic among its siblings, Enter adds the new topic right after the current one and Shift+Enter right before it, Ctrl+Z brings back a deleted branch with its styling, undo keeps 100 steps; what you type straight after Tab or Enter is the new topic's text; Tab walks a board's items from the keyboard, each one announced, and Select all takes pictures; group and branch drags no longer re-measure the board every frame.
+- A note card's time stays on screen when you point at the card (it faded out to make room for the buttons), at the right of the details line, and says "edited" when the note has been.
+- With no AI running, Ask answers "What have I saved recently?" with your newest notes and when each was written, each cited, instead of saying the notes did not match the question.
+- Companion on Chat: it perches on the composer dock, reads along on it while an answer is written and cheers when it lands, and never covers the input, Send, Stop or the latest message (Atlas's tail hung over Stop and the input). A double-click no longer pokes it first, and with reduced motion a move is a crossfade rather than a fade to nothing and back.
+- On a phone a note's suggested tags are 24px chips again: each one's dismiss button had grown into a 44px grey disc. The graph labels a note by its first line, not its title run into its body. The document sidebar's Documents/Outline tabs keep their underline in the Paper, Utilitarian and Mono looks. Recently added on the dashboard can be opened from the keyboard. The Reminders form is one height with every other form.
+- A note's history says whose each change was: You, Atlas, or You and Atlas (a save that includes an applied Improve writing suggestion), with the exact time on hover; any earlier version can be put back.
+- Selected text, Search the notebook: says which notes it is showing, with Clear, instead of filtering the list silently.
+- A note's details line has room again: where it is filed and how sure, its tags, then what points at it, 16px apart (they sat 6px apart, overlapping, in the Notes list).
+- The graph's note popup renders markdown and pictures again: choosing Source in Capture had switched every note box to raw markdown, including the popup, which has no Source button to switch back.
+- Selected text, Save as a note: says "Saving…" at once and "Saved as a note" with Open when done, and files in the background instead of waiting on the model.
+- Ask, Chat and the weekly digest know what a note's time words meant: "this Friday" in a note written two weeks ago reaches the model as "Friday 25 September 2026, 8 days ago", not as this week's Friday.
+- "What have I saved recently?" (and "what did I write lately") lists your newest notes instead of searching for the word "saved".
+- A picture in a note stays visible while you edit its line (under its markdown), so the graph popup's Edit no longer turns a sketch into a bare link.
+- Loading placeholders show the shape of what is coming (a title line and a text line) with a visible sweep; with reduced motion they breathe gently instead of sitting blank.
+- The tags list under a tags field lights the row under the pointer, and Enter or Tab takes a row reached with the arrows or the pointer.
+- Settings, Templates, Skills and Personas: Edit, Reset and Delete sit in their own column, centred on the item and always shown (they were hidden until pointed at and hugged the card's top corner); the Built-in label is one line beside the name.
+- Badges: "Built-in", "Edited", "Yours" and the Models sliders' "you set this" are drawn one way everywhere (the Library's skill cards showed bare text and the sliders a third style); the Library's skill facts are one height.
+- Privacy: the search-by-meaning model goes online only to download itself the first time; once on this computer it loads from disk with no connection, and if its files will not load it says to reinstall it instead of quietly fetching it again.
+- Settings, Models: double-clicking a slider to reset it also resets its "you set this" badge, and the value no longer shows twice.
+- Loading: the Library's documents, boards and maps, images and files, AI skills, bookmarks and contents, Reminders, the chat list and the documents sidebar show placeholder rows while their data loads, instead of a blank area.
+- Tags fields (Capture and editing a note): the browser's dropdown arrow and list are replaced by the app's own list, under the field at its width, completing the tag after the last comma, leaving out tags already entered, showing how many notes use each; arrow keys, Enter, Tab and Escape work.
+- A note nothing could file offers its likely categories as one-tap buttons beside Choose category; a note filed from your notebook's words says so.
+- The AI status dot's "checking" dots sit in the middle of the dot (they were 3px off).
+- The AI status popup and the header's menus stand above the companion when it is perched on their bar.
+- Settings, Models says it is checking while the model status loads and that a slow model server is slow, instead of "Can't reach the MemoryMap server" while the app is running.
+- The needle extra's note says plainly that it runs offline and that nothing needs doing about telemetry.
+- Notes: Ctrl+Shift+N, the dashboard's New note and the empty states always open Capture with the caret in the box; with Notes last on Browse the shortcut used to focus nothing, and what you typed next was lost.
+- Filing with no AI: a new note is filed from your notebook's own words (the notes already in each category, their tags, your moves by hand and the category names), says so ("filed from your notebook's words"), and stays in Uncategorised when it is not sure; before, every note went to Uncategorised whenever no model was running.
+- Accessibility: Settings, Keyboard shortcuts has a switch for single-key shortcuts (the m chord, / and ?), so speech input or a stray key cannot trigger them (WCAG 2.1.4).
+- Zoom and keyboard: at 400% zoom or on a very short window the sub-tab strips scroll with the page and New note stays in its dock, so a focused control is never hidden under them; a closed sidebar drawer is no longer a Tab stop; a control reached by Tab scrolls clear of the floating button and the sticky strip.
+- Keyboard: F2 or Edit puts the caret in the note's editor and Escape returns to the note; a chooser sheet (Move to category, Tags) opens on the current row and the arrow keys walk its rows; after a move the focus stays on the note instead of falling to the top of the page.
+- Accessibility: Find anything's results are announced as a list only while they list something; its empty and no-match messages no longer read as an empty list.
+- A dropdown's list is never narrower than the control that opened it (Library "Items per page", the Timeline's options, Sort notes).
+- A chip's leading icon sits level with its words (the clock on the "Ask again" chips sat 1.5px high).
+- The Web search panel's "..." menu is there the moment the panel opens, instead of after the engine's status check.
+- A note card's labels row keeps the same room under the text as under "Show more".
+- Timeline: on a day with notes, today's count stays at the end of its heading like every other day's, with "Start today's note" just before it, instead of floating in the middle.
+- Reminders: the 15 min and 1 day steppers sit right after Quick set, with the time they add up to after them, and no longer move when Reset appears.
+- Accessibility: sidebar and panel resize grips say how wide the panel is; the document editor and every note box have a name; Library chip counts and the Web toggle meet 4.5:1 contrast; dashboard rows that are buttons are announced as a group; Capture, persona and template fields have labels, not only placeholders.
+- Companion: perched on a chat message, a library card or a note card, it now scrolls under the top bar with its perch instead of staying in front of it (62px of figure over the bar before, 103px at Large); perched on the bar itself it stays in front.
+- Companion: the palette row says Hide companion or Show companion, whichever it will do, and the hide toast names the shortcut as currently bound.
+- Accessibility: the app has one main landmark around its tab pages, so a screen reader's jump to main content works on every tab (it found nothing on five).
+- Status bar: below 1024px wide the page no longer scrolls sideways while a background job runs; the key hint goes and Ask, Guide, Find, reminders and the running count show their icon and number, their words still read to a screen reader.
+- Notes: a filter still being typed (`tag:`, `in:`, `#`) no longer empties the list until its value is typed.
+- Notes: Ctrl+Enter (Cmd+Enter) saves from the capture box and from a note being edited, and the caret stays in the box after a save, so the next thought goes straight in.
+- A note no AI could file says so once, "Saved in Uncategorised: no AI model is running to file it", with Choose category beside it, instead of "Filed under Uncategorised (0% sure)" twice.
+- A note being edited keeps what you typed when the list redraws (a star pressed elsewhere, a filter, a background filing); Escape and Cancel ask before dropping changes, and an emptied note is refused rather than quietly kept.
+- Selecting notes, then changing category or filter, no longer leaves hidden notes selected for Tag or Delete.
+- A to Z sorts by a note's title, with "note 2" before "note 10"; the sort is remembered.
+- The Notes sidebar lights one row at a time, lists categories with no notes yet, sorts names the way people read them, and every row is reachable by keyboard; its fold is remembered.
+- In "All spaces", moving or renaming a category never files a note under another space's category; category counts match the notes list; tags are stored once each, whatever their case.
+- The Connections column lists a note's own [[links]], and "Forgotten, and close to this" never lists drafts or unrelated notes.
+- The popup agent with a small model: a reply that only says what it will do ("I'll count the notes in Work") is asked once to do it, and the model's quoting markers no longer show in answers.
+- Settings: Import .md files works again; the search engine line says how many notes search by meaning can find and how the last search found its notes; Chat's Web and Plan pills keep their icon when on.
+- Boards and mind maps: dragging the overview's view box keeps up with the pointer (a 150-card board at a 4x slowed CPU: 183 to 33ms a frame at the 95th percentile, long tasks 61 to 0 to 3), and Fit is two to three times smoother.
+- Phone: tapping a note opens it; the categories drawer is one column of full-width rows that closes on a choice; a toast no longer covers the New note button.
+- The command palette (Ctrl+K) finds "Manage categories", "Go to category: X", a #tag, and Move to category for the note in hand.
+- Asking for "my last note" (or latest, newest, what I wrote last) lists your newest notes newest first instead of searching for the words; Chat and Ask now tell the model when each note was written and last edited.
+- The rows view is one line per note (47px a row, was 74).
+- Note boxes (Capture and editing a note) render as you type with a Source switch for the markdown, in place of a separate Preview; the switch stays visible with the formatting tools folded and is remembered.
+
+### Added
+- Whiteboards and mind maps: drag a card, a text box, a shape or a topic (or the selection it belongs to) onto "Drop here to delete", which appears at the foot of the canvas while something is carried, to delete it as one Undo step, with a toast offering Undo; a topic takes its branch, as its Delete does. Escape or a drop anywhere else leaves it a plain move, and Delete still works from the keyboard (INBOX 660).
+- Mind maps: a topic can have a due day (the Markers popover's Due row): drawn in the marker row, a day gone in red and read as was due, filterable, kept by OPML and FreeMind, and Remind me makes a reminder at 9:00 that day (MINDMAP_PLAN decision 37; `tests/test_mindmap.py`, `op5-1005.js` MODE=due).
+- Mind maps: Study the map (the board menu, or the palette) asks one branch at a time with what is under it hidden; Show draws it, Knew it or Not yet marks it, and the marks are kept for that map on this device (MINDMAP_PLAN decision 36; `tests/test_map_study.py`, `op5-1005.js` MODE=study).
+- Mind maps: export as a plain-text outline (a tab per level) and import a .txt outline; an outline file dropped on the boards page imports and opens (MINDMAP_PLAN §12.2 item 10; `tests/test_mindmap.py`, `op5-1005.js` MODE=mapio).
+
+- Chat, skill runs: "Undo the run" beside What changed puts back every note the run changed at once, after showing what will go back; each change keeps its own Undo, and a board item is named as one that can't be undone.
+- Settings, Packages: "Read images without Tesseract (RapidOCR)", a second local reader for pictures and scanned pages with nothing else to install. It reads when Tesseract isn't ready; Tesseract stays the reader whenever it is. The Vision bundle installs both, and the OCR workspace names whichever one read.
+- Documents: in Live, drag the corner of a picture to resize it, or focus the corner and use the arrow keys, and its align button puts it on the left, in the centre or on the right; the size and alignment are written into the picture's markdown, so Read, a print and the exports show the same picture (DOCUMENTS_PLAN decision 8, the audit's D5).
+- Documents: Print or save as PDF first asks for the page size (A4 or Letter), orientation, margins and whether to print page numbers with the title at the head of each page, and remembers it; a plain Ctrl+P prints on the same page (DOCUMENTS_PLAN decision 7, the audit's D4).
+- Documents: a ```mermaid flowchart (flowchart or graph, in any direction, with boxes, rounds, diamonds and circles, labelled and dotted or thick links) draws as a diagram in Read, in Live while the caret is elsewhere, in a print and in the HTML export, by the app's own parser with nothing downloaded; press it in Live to edit its text; any other Mermaid diagram stays as code (DOCUMENTS_PLAN decision 20.6, the audit's D3).
+- Documents: the menu's Map the headings (and the palette) makes a new mind map of the document's headings, laid out as a tree, with a topic that opens the document again; a heading inside a code block is left out (MINDMAP_PLAN decision 35, the audit's M5).
+- Mind maps: markers on a topic, a priority from 1 to 5, how far along it is, a flag and up to six icons (from the app's own icon set, never emoji), drawn before its name and set from the topic's menu (Content, Markers) or the palette; View, Filter by marker dims every topic without the one you pick; OPML and FreeMind exports carry them (MINDMAP_PLAN decision 34, the audit's M4).
+- Mind maps: View, Outline shows the map as an indented list beside it, edited in place: type to rename (the canvas follows as you type), Enter adds a topic, Tab and Shift+Tab move it in and out a level, Backspace on an empty topic removes it, Escape goes back to the map; the palette has the same row (MINDMAP_PLAN decision 33, the audit's M3).
+- Notes: the filter is:review lists the filings to check, notes Atlas filed with little confidence or left in Uncategorised, each with Accept (keep its category, with Undo), Refile and Split; the dashboard's Categories widget says how many wait, and the palette has Show filings to check (WORLD_CLASS_PLAN section 17).
+- Graph: View, Colour, Note type paints each note by its type (Meeting, Book, your own), with "No type" in grey; a type's colour is chosen in Note types, its ⋯, Colour…, and Automatic is the colour the picker previews (WORLD_CLASS_PLAN row 10, D5).
+- Timeline: in the feed, Ctrl and the mouse wheel, or a trackpad pinch, makes the date groups finer or coarser (day, week, month, year), one step per gesture, keeping your place; + and - on a row do the same. Options, Time range has On this day: what you wrote on today's date in earlier months and years, in your own time zone (TIMELINE_PLAN decisions 11 and 12).
+- Dashboard, Tensions: the widget now lists the disagreements already found and not yet decided (by a review or the overnight pass), each with both notes, what it is about, and which model found it when, with buttons to open either note, link the two as contradicting, or dismiss the pair. A review keeps what it finds and never asks the model about the same pair twice, and the review sheet shows what is waiting before you start (WORLD_CLASS_PLAN B4, row 18).
+- Notes, a live query's Table: the last row rolls each column up over every matching note (not only the rows drawn): Count, and Sum, Min and Max for numbers, Earliest and Latest for dates, the choice kept per column. A note field in Properties (and in a document's properties) has a magnifier that searches your notes, where before only the first 300 titles were offered (GRAPH_PLAN, the last KG rows; `scratchpad/ui-sweeps/kg1005-rollups.js` 8/8 at 1440 light and 390 dark).
+- Polish in use (WORLD_CLASS_PLAN H9): Settings, General, Simple mode shows only Dashboard, Notes, Chat and Library (every hidden place still opens from the palette); What you use counts the tabs and palette commands you use, on this computer only and never sent anywhere, lists what has not been used in 90 days, and the palette puts your most used commands first; `memorymap --capture` bound to a key in your system's keyboard settings opens a one-line capture box over any app (Settings, Keyboard shortcuts, Capture from anywhere has the command; a note was saved and listed 606 ms after the box opened); a pause while typing a question warms the search for it, and focus in Capture, Ask or chat starts loading a search model that is not loaded yet, which took the first answer on a fresh install from 15.5 s to 11.5 s of the app's own time (most of what is left is that model's first load on a busy sandbox). A perf budget runs with the suite on every push (`tests/test_perf_budget.py`: statement and time budgets on ten boot routes); the sweeps gained a fault pass (29 routes failed one at a time, no tab left blank), a keyboard reach pass and the axe pass in `all.sh` (WCAG 2.2 AA, every tab and Settings section: 0 findings at 1440 light and dark; at 390 the Timeline table's rows carried aria-expanded, which a plain table does not allow, and the table is a treegrid now, 0 findings after).
+- Settings, Import & export, Import from another app: From Notion (the Markdown & CSV export zip), From Obsidian (the vault folder), From Evernote (.enex) and From Apple Notes (an exporter's folder). Folders and notebooks become categories, tags and created dates come along, links between Notion pages become wiki links, and a second import of the same export adds nothing twice and says how many were already here; one step with Undo, like the other imports. Evernote files are read with entity expansion refused (WORLD_CLASS_PLAN H6, 5.7; `POST /import/app`, `entry/app_import.py`, `tests/test_app_import.py`). Keyboard: every visible dock control on all seven tabs is reached by Tab, measured (`scratchpad/ui-sweeps/inv1005-keyreach.js`: 45 controls at 1440, 31 at 390, none missed).
+- Web clipper, from your own browser: Settings, Import & export, Web clipper has a Clip to MemoryMap bookmark to drag to the bookmarks bar. Pressed on any page it opens a small MemoryMap window with the page's title and address, and Save as a note keeps its main text, or only what you selected. Nothing is fetched (it works with web search off and on pages you signed in to see), no extension is needed, and the same page clipped twice points to the note it made the first time. A clipped note keeps its address, so Atlas treats it as text from outside, and a retrieved note from outside is now fenced as one in the prompt (WORLD_CLASS_PLAN D9; `POST /links/clip-page`, `clip.html`, `tests/test_webclip_page.py`).
+- Documents: the margin reader. Turn it on from the dock menu's While you write, Margin reader, and a column beside the editor shows at most three cards about the paragraph you are in, a moment after you stop typing: Repeats, Differs (the same thing with a different number or a not, or what the model judges a disagreement), Answers (one of your open questions), Date (with Make a reminder) and Related, each naming the sentence in your other note, with Open and Not this. Nothing is written into your text; off by default and behind Settings, What the notebook learned, Margin reader (WORLD_CLASS_PLAN I2; `POST /editor/read`, `ai/margin.py`, `tests/test_margin_reader_spec.py`). Measured with the model off, 500 notes, 12 requests on a sandbox at load 20: median 40 ms, p90 122 ms (the plan's budget is 300 ms); typing latency in Chromium not measured.
+- Settings, Models, Test my models: the model bench runs your installed models on your own notes (filing, a cited answer from three notes, five tool calls each) and recommends one, with each model's numbers and the first things it got wrong, Stop, and Use this one; fully local, one run at a time, its last report kept (WORLD_CLASS_PLAN I8, H3; `ai/bench.py`, `/models/bench`, `tests/test_bench_spec.py`). The offline harness's citation score now comes from `ai/bench.py`, so the two cannot drift. Not verified against a real model.
+- Time travel: in Notes, Ask, the clock button answers from your notes as they were on a day you pick, and a note's History shows Then and now for an earlier version, what it said then against what it says today, sentence by sentence (row 23).
+- Settings, What it learned: a "Learned from you" line counts your corrections and gives filing accuracy, the share of the notes Atlas filed that you left where it put them, older half of the last 200 against the newer half (row 20).
+- From the original vision: a review queue (is:review in Notes, Accept the filing on a note's menu, and a Filings to check dashboard widget), Tidy suggestions in Manage categories (names alike in spelling or meaning to merge, categories empty for thirty days to remove, Not these remembered), a Filing style setting (by topic, by project or by time), charts in Ask for counting questions (how many notes per category this month) with their numbers and Save as PNG, a Most opened this month widget, and Explain this note on a note's menu (WORLD_CLASS_PLAN 17).
+- Reminders: Snooze 10 minutes on a reminder's menu, beside +1h and tomorrow on its row (WORLD_CLASS_PLAN D8).
+- Ctrl+Shift+V outside a text box saves what you copied as a new note, with Undo; a saved chat reopens where you left it; the AI status dot says how the last answer went (the model, its time, how much of its window it used); suggested links read as two note chips with a score bar, the reason behind Add a reason, and Link all above 70%; Settings, Account & security has Re-encrypt private notes. Settings, Packages: a package's name lines up with its Install button.
+- Documents and reminders go to the recycle bin like notes: the Library's bin lists them, Restore brings back the same document with its history, attached notes and reminders (its Undo used to make a new copy), Delete for good, Empty the bin and the auto-clear take them too. The Notes selection bar's ⋯ has Move to space (each note keeps its category's name, its files and reminders go with it, and Undo sends each back) and Export as Markdown. Editing a note shows its words and reading time. Note templates fill {{clipboard}} and {{time}} and put the caret at {{cursor}} (WORLD_CLASS_PLAN 5).
+- Remind me on a document's and a board's or map's ⋯ menu, and on the Library's note card with Link to (a note picker); a document's Library card has Show in graph. A reminder now says what it is about (a note, a document, a board or a map), and its row opens that (WORLD_CLASS_PLAN 1.3).
+- Note types: Person, Project, Meeting, Book and Place come built in, each with its own colour and fields (deleted ones stay deleted), and the graph's View, Colour has Note type, which paints each note its type's colour (WORLD_CLASS_PLAN D5).
+- Whiteboard: View, Present frames shows a board's frames one at a time, full screen, in reading order, each fitted to the screen. The arrow keys, Space, Home and End (or the small bar at the foot) move through them, and Escape puts the board back as it was (WHITEBOARD_PLAN decision 16; `scratchpad/ui-sweeps/wbpresent.js` 18/18 at 1440x900 and 390x844, light and dark).
+- Whiteboard: lock. Ctrl+Shift+L (or Lock on an item's right-click menu) holds what is selected in place: clicks pass through it to the board, and Select all, a box selection, the eraser and a frame's drag leave it alone. Right-click the board and choose Unlock (it says how many are locked), or press Ctrl+Shift+L with nothing selected, to free them (WHITEBOARD_PLAN decision 15; `scratchpad/ui-sweeps/wblock.js` 17/17 at 1440x900 and 390x844, light and dark). A box selection drawn inside a frame no longer selects the frame as well.
+- Whiteboard: frames. F (or Add in the rail, or Insert, Frame) places a titled region on a board; a click drops one, a drag draws it. Dragging its title moves everything inside it with it (Ctrl and drag moves the frame alone), double-click the title to rename it, and deleting it leaves what it held. Its inside lets clicks through, so you select and draw inside it as on the board; it exports with the board, and the board's AI read names each frame and the cards under it (WHITEBOARD_PLAN decision 14; `scratchpad/ui-sweeps/wbframes.js` 24/24 at 1440x900 and 4/4 at 390x844, light and dark).
+- Mind maps: a topic can hold a note. "Add a note…" in the topic's menu opens a box beside it; the note is saved when you close it, and a mark on the topic opens it again. Markdown exports a note as a paragraph under its topic, OPML and FreeMind as `_note`, and all three read it back.
+- Mind maps: View, Number the branches numbers every topic by its place in the outline (1, 1.1, 1.2), as quiet text before its name. It is saved with the map, and the Markdown and OPML exports keep the numbers and read them back.
+- Whiteboard: a connector can carry a label ("yes", "no"). Select it and press Enter, or right-click it and choose Add a label; the label sits at the middle of the line, on the curve when it is bent, follows the line when either end moves, and exports with it. Double-click still bends the line.
+- Mind maps: a connect drag says which connection it will make before you let go. The topic under the pointer gets a solid ring when the release will hang it in the tree, a dashed ring (and a dashed line) when it will be a cross-link, and a screen reader hears which.
+- Mind maps: a topic can be a task. "Make this a task" in the topic's menu puts a box on it; press the box to tick it, and every topic above counts what is done under it ("1/2"). Markdown exports write tasks as `- [ ]` and `- [x]` and read them back; OPML and FreeMind keep them too.
+- Whiteboard: a rectangle, ellipse, diamond or triangle holds text. Double-click it (or select it and press Enter), type, and press Enter; the text sits centred in the shape, wraps to it, and moves, resizes, undoes and exports with it. On a dark fill it turns white. The shape's right-click menu says Add text.
+- Help covers every feature since 0.3.0 (INBOX 448 (1)): 17 new entries in the help the Guide, Chat and the popup agent read (Quick note, saving while the server is away, pictures and files in a note, how a note is filed and what its percentage means, suggested tags, the tag manager, Manage categories, a note's history, sorting notes, view addresses, Bookmarks, Contents, AI skills, Tesseract's language, dates and recent notes in answers, downloading a model, accessibility and zoom) and fourteen widened or corrected (mind map Ctrl+Shift+arrows, Enter and Shift+Enter, Ctrl+D and 100 undo steps; the notes filter's #tag, title:, before:, after:, in: and is:draft; source marks and Escape in Chat; Add to calendar; Background jobs' last-run lines; Draft with Atlas; hashtags; density Auto; the privacy receipt; deleting a space; locking puts dialogs away; the Settings groups; the Bookmarks sub-tab), 95 in all; of 52 features in `tests/test_help_coverage.py`, 4 reached their help from the question a person asks, now 52. Settings, Help lists all 95 in twelve groups from `GET /help/topics` instead of 13 hand-copied topics that still taught "g then a letter", and the Settings search finds a topic by its words ("percentage", "alt+n", "bookmarks"), settings first, a press opening the topic.
+- Notes keep the tags filing suggested: each shows on the card as "+ tag", one press to add it, its × to stop suggesting it. With no AI they come from your own tags on the notes most like it.
+- A note's card shows how sure the filing was (for example "83%") beside its category, and says whether Atlas or your notebook's words filed it.
+- Notes: a category chip moves its note in one click (also Move to category in a note's menu); a tag chip shows that tag's notes; the filter box takes #tag, title:, before:, after:, in: and is:draft.
+- Notes: Recently edited sort, a title field when editing, Copy [[link]] in a note's menu, and Home, End, Delete and F2 on a focused note.
+- Notes sidebar: a Tags row opens every tag with its count; choose one to see its notes, or rename or remove it everywhere, with Undo.
+- Category rename and merge can be undone, and deleting a category always offers to keep its notes in Uncategorised.
+- Selected notes can be added to or removed from Favourites, archived, published (drafts) or have a tag removed, from the selection bar's ⋯, each undoable.
+- Settings, Templates: Draft with Atlas writes a template from its name and one line, and pressing it again gives another version; nothing is saved until you add it.
+- Graph: each category's notes gather in a place of their own, and notes with no links sit with their category rather than in a ring round the map (View, Group by category).
+- A Library card, a board card and a Documents row are no longer a button holding buttons: the title is the control that opens them, so a screen reader reaches the tick and the menu as themselves. A click anywhere on the card still opens it.
+- A Settings group's '?' is no longer inside the group's heading, so a screen reader reaches it as its own button; it is drawn where it was, and pressing it still opens a closed group.
+- The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
+### Changed
+
+- Boot budgets: the whiteboard rules only the Library bundle draws (30 KB of CSS) moved from the boot sheet into `library-lazy.css`, the status bar's slot list and its Settings rows into `settings-controls.js`, and the `openTour` guards and four documents.js globals folded away; boot CSS 183,375 to 179,885 gzipped, app scripts 320,436 to 319,757, guards 280 to 277, top-level lets 706 to 702. Measured identical on 3,400 drawn elements by `scratchpad/ui-sweeps/cssdiff-lazy.js`.
+- Documents and notes: while the line numbers show, the line the caret is on is lightly washed (the hover veil, readable in light and dark); with the numbers off nothing is highlighted (INBOX 651; activeline.js: wash 0.07 light and 0.09 dark, ink 14.9:1 and 10.7:1 over it).
+- Editors: copy and cut with nothing selected take the whole line, as VS Code does; the clipboard gets the line with its newline, pasting that line puts it above the one you are on, and cutting the last line takes the newline before it (INBOX 652; linecopy.js, 7 checks in the documents editor and in the capture box).
+- Chat, Ask, the popup agent and the Guide: the line under an answer in progress now says what is happening, in one set of words: Reaching Atlas while it waits for the first word, Reading your notes while it searches, Waking the model when a model is slow to load, Atlas is thinking, Atlas is writing, and Atlas is followed by the tool's action when it uses one (a persona's name replaces Atlas); with progress indicators set to Still it is the same words as a single pulsing line (INBOX 649; phases.js: 7 stages, motion on and off).
+- Notes: the "Write with Atlas" sub-tab is now the Writing room, a name that still fits with no AI model set up; its Settings, Models row, the help, the Guide and the tour say the same, and asking the Guide about "write with atlas" still finds it (INBOX 648).
+- Tour: between 641 and 819px wide the Settings steps now point at the section picker instead of three strip buttons that are hidden there, so the count matches the cards shown; walked at 600 to 1100 and on an empty notebook.
+- Gate: scripts/gate.sh --sweeps no longer names fifteen sweeps whose files were deleted (each could only fail); a test keeps the list and the folder in step.
+- Sweeps: lib.js gains openBoardsTab and waitForBoardOpen (the Boards sub-tab picked and the board code waited for, not a Library press and a sleep); seven board sweeps use them, two of which used to time out.
+- Sweeps: bm1005-sidebar.js measures the whiteboard rail's Notes tab skeletons (5 at 300ms, 264 notes after) as well as the Library's; both were already built.
+- OCR workspace on a phone: the page-size track (Fit, 100%) grows round its 44px buttons instead of leaving them 12px past a 32px track; wbtopbar.js seeds a scanned image and measures the head at 1440 and 390.
+- Sweeps: phonechrome.js asserts, at any WIDTH and HEIGHT, that every tab's page ends where the status bar (or the phone tab dock) begins; measured at nine widths from 600 to 1093, nothing overlaps.
+- Timeline on a phone: the calendar strip's spacing steps down a token so the list begins at 336px of 844, inside the first-screen rule; phonechrome.js probes the status bar with the three things the phone bar shows (a job, offline, power saver) and asserts the agent's activity leaves it folded away.
+- Graph: the map's sizes (how central each note is) are worked out from the links' plain columns rather than by loading every link in full, so the first open of the map after a change at 5,000 notes went from about 1.2 s to about 0.7 s (GRAPH_PLAN).
+- Graph: the first open of the map after a change is faster at notebook scale; the map's data was being passed through a generic converter that walked every value only to hand it back unchanged. At 5,000 notes the first build after a write went from about 1.5 s to about 1.2 s, and the next one from about 0.7 to 0.5 s (GRAPH_PLAN).
+- Mind maps: a topic's menu (and the command palette) has Summarise this branch. A few sentences about everything under the topic go into its note, open for you to read, change or keep; with no model running the branch is said plainly from its own topics, and says so.
+- Mind maps: Alt+1 to Alt+9 show that many levels of the whole map, folding everything deeper (Alt+1 leaves the trunks alone), so a large map reads as its outline in one press and opens a level at a time. Also in the command palette, the topic menu and the keys sheet; one Undo puts it back.
+- Boards: the sidebar's Library shows loading placeholders the first time it opens instead of an empty panel while its shapes and templates arrive, and the Notes tab does the same before your notes have loaded (INBOX 596).
+- Chat: the row of buttons that shows when you point at a message (copy, edit, delete) now hangs over its own message's bottom edge instead of below it, so at narrower windows it no longer lies over the start of the answer under a question (7 to 13px across it from 640 to 820px wide, now clear by 1px).
+- Graph: the map reads a slimmer payload. A note's fields at their usual value (no pin, no type, no parent, not pinned, no file, no tags) and an unexplained link's empty reason are left out and filled back in the page, times are to the second: at 5,000 notes the map's read went from 3,145 KB to 1,767 KB, and a rebuild after the first one from about 1.0 to 1.5 s to about 0.7 s. The dashboard reads the same slim payload, so one build after a change serves both (GRAPH_PLAN, a slimmer node).
+- Development: the badge alignment sweep measures an icon against its words' cap-height centre, the label recipe's one target (DESIGN.md), not the x-height band it used before, which read correctly aligned chips 1.5px high; the older status bar ink sweep it replaced is retired (INBOX 503, 592).
+- Boards and maps: the tools docked at the side are one column of one width on a board and a map (176px; 173 and 225 before, where the map's layout picker set it), every row four cells in the same four columns so the tools line up like a palette, the layout picker a row of its own; on a phone the tools are always the bottom strip, so the open sidebar no longer covers the tool picker, and the switch to dock at the side is not shown there (INBOX 596).
+- Atlas: the tail never holds still while idle. Each behaviour it takes up varies its swing, speed and curl a little, a small ripple swings it nearly as one on a clock of its own, and it draws out and back along its length a few percent, so its tip goes round a small loop the other waves cannot cancel; a slow frame no longer slows it. Measured stepped at 60 frames a second over 60 seconds, the tip's longest spell within 0.75px went from 1,100ms to 400ms (masculine) and 650 to 150ms (feminine); in real time at 8 to 11 frames a second, 588 and 474ms (INBOX 601).
+- The dashboard's widgets appear together once they have drawn, on every visit, instead of moving about for a second as each one filled in (a layout shift of 0.26 on a notebook of 300 notes); the opening waits for them too, 1.2 seconds at most. Stylesheet rules for ten classes nothing in the app uses any more (an old Library activity view and stat row, a whiteboard sidebar, the reminders' old list bar, the graph's old toolbar groups, two background-art drifts) are gone, which keeps the boot stylesheets under their budget (INBOX 577, 580).
+- Code layout: the frontend's scripts live in `frontend/js/` (50 files, beside `css/` and `vendor/`), not loose in `frontend/`. `sw.js` stays at the frontend root, because a service worker only controls pages under its own path. Nothing about the app changes; the script URLs are `/js/<name>.js`, a test checks that every script path in `index.html`, the lazy loader and the workers resolves to a real file.
+### Changed
+
+- Models: Suggested downloads are cards grouped by purpose (chat and filing, bigger machines, search, images, reading text). Each says its size on disk, the memory it asks for, what it is good at and whether it fits this computer; one starting pick per group; Download, Use for chat and the like as the one action, Remove and Copy name in a menu, and progress with Cancel on the card. Download another model takes an Ollama name or a Hugging Face link and says what it is before it downloads. A switch hides the ones too big for this computer.
+- Settings: searching a word lists the settings that match (the setting's own words, the section and group it is in) and a press opens it and rings it; a long section has a sticky index of its groups with the one you are at marked; choosing a section from the keyboard puts the focus on its heading, and the arrow keys still walk the list. The Models group heads are shortened to their names, with the detail in one line beneath.
+- Settings: the sections sit in six groups (AI, Notebook, Look and feel, Privacy and security, System, Help and About). Search and index is its own section, holding the search engine and the search index from Models and Search relevance from General; the answer style moved from General to Personas. A link that names a setting opens the section that holds it now.
+- The masculine Atlas's lower body is one thick wisp curving in an S from the full width of his hips to a soft curled tip, with two smaller wisps branching off it at different heights, all one smooth shape with no seams, in place of five straight spikes.
+- Files attached to a note are one card everywhere (the note, its edit form, Capture, a document, the graph and the timeline): the picture or a tinted kind icon, the whole name on up to two lines, and the kind, size and date. Click the card to open the file; its ⋯ menu has Open, Download, Rename, Describe with AI, Edit description, Annotate a copy, Copy as a link and Remove. Removing a file from a note's text can be undone, and its upload is only deleted once nothing else uses it.
+- One "working" mark across the app: the same ring, 1.15 times the text beside it, 2px stroke, turning once every 0.9s in the accent's text colour, on a note's "Atlas is reading…" and "Filing…", the agent palette and its steps, the activity panel, the tension review, a long job's toast, the Library's readings and every button that waits (which now also says so with the ring and cannot be pressed twice). Before, the same state was a ring, a spinning icon at two speeds, a pulsing word that never moved, the chat's reply dots, or a still icon. With reduced motion the ring breathes instead of turning, and "…" is always the one-character ellipsis.
+### Added
+
+- A double-click on Notes or Library in the top bar goes back to its first sub-tab (INBOX 659).
+- A category's colour can be chosen: in Manage categories (and a category's ⋯ menu in the sidebar), Colour opens twelve swatches that each read as a dot in light and dark, plus Automatic to go back to the name-based colour. The choice shows at once on the category's dots and chips, its graph nodes and legend, the timeline and the dashboard, and is kept with the category through a rename.
+- Speed: the reference chips on the note cards (asked for at every unlock) are read for a whole page of notes at once instead of four database queries per note, so sixty cards cost 6 statements rather than 242 and about a third of the time on 500 notes (172 to 53 ms), and 5.8 times less on 5,000 notes (2,267 to 388 ms, same machine and load); what they count is unchanged.
+- Speed: the dashboard's activity strip and heatmap read each recent note's day as a column instead of loading every note whole, text included; on 5,000 notes made within the year the heatmap went from 179 to 24 ms and the stats from 184 to 55 ms (same machine, interleaved runs).
+- Speed: the Library's Files & Images list (and the pickers that offer your uploads) works out where each file is used by asking the database for the notes, documents and board objects that mention `/media/` instead of loading every one; on 5,000 notes 140 ms became 9 ms (same machine, interleaved runs), with the same answers.
+- Speed: the first click of a session (the unlock) no longer waits for the reminder chime's audio device to open; it is made just after, when the browser is idle. The click's handlers went from 44 to 56 ms (the longest script on the lock screen) to under 1 ms in headless Chromium, and the chime still works (the context is running afterwards).
+- Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
+### Fixed
+
+- Filing with no model: a note whose own category wins its words' vote by a clear lead (twice the next) is filed there, even when a shared word like "oil" splits the vote; before, an obvious cooking note stayed Uncategorised. Measured on the leave-one-out set: 17% filed (was 15%), 71% of those right (was 67%).
+- Phone header: at 360 wide with Text size Large and Density Spacious the shell was 368px wide and every tab scrolled sideways by 8px; the header's targets stay 44px in Large text and below 360 its padding and gaps step down, so the page no longer scrolls sideways at 320, 360 and 390 in any text size or density.
+- Phone action sheets (a ⋯ at 390) leave with the same short fade the menus have on Escape, on a press outside and on a row, instead of vanishing in one frame; nothing animates when Interface animations is set to reduced.
+- Mind maps: a topic's resize grip, link and reference doors now use the topic as it is now; after the map had refreshed, a plain drag of the grip put a cleared text size back and saved the older copy of the topic.
+- Mind maps: the left rail shows This map and Outline however the map was opened; from the board picker or straight after New board it kept a whiteboard's Notes, Layers and Pages, which only went back to Library (INBOX 657).
+- Mind maps: dragging a line's curve is undone by Ctrl+Z; the undo step used to hold the new curve (INBOX 658).
+- Timeline: the table's header row and the feed's date headers are opaque again when the list scrolls under them; their base layer had never painted, so rows showed through the labels (INBOX 655).
+- Agent activity no longer opens over the page at every launch for the app's own start-up work (loading the search model, rebuilding the index, starting the local search engine, image captions and page reads) or for downloads started in Settings; they stay listed under the status bar's activity item, and a failure is still announced (INBOX 653).
+- Whiteboard: turning a card, a box or a selection now carries the links touching it round with it as it turns; before, a link stayed on the unturned box until the item was next moved (INBOX 647).
+- Boards and maps: dragging a selection box, an item or a branch to the edge of the canvas pans the board to follow, faster the deeper into the edge, and the item stays under the pointer (INBOX 608).
+- Graph: Mind map on the selection bar builds the map from the notes' links: the picked or most connected note in the middle, linked notes under the note they link to, the rest grouped by category, no topic left with more than eight children, and every other link kept as a cross-link, laid out on both sides. Its notice and its bell row have Open (INBOX 607).
+- Boards and maps: the board's sidebar. With the tools docked at the side it stands beside them instead of over them, and is the same height on a board and a map; the Library's ⋯ menu hangs from its button's right edge; a map's rail has This map (what the map is made of, its look, Open every folded branch, Lay the map out again) and the Outline in place of Notes, Layers and Pages; and the Library starts with Templates, five for a board (Kanban with cards, a retrospective, a flowchart loop, meeting notes, a week plan) and seven for a map (Brainstorm, Decision, Project, Cause and effect, Pros and cons, Book notes, Meeting), placed by a click or dragged to where they go, a map's under the topic they are dropped on (INBOX 596).
+- Mind maps: several topics picked at once (a box dragged round them, or Shift-click) are a map selection, not a board one. No group box with resize and rotate grips; the bar has colour, bold, tasks, fold and summarise for all of them, each one undo step; the right-click menu has the same in words (INBOX 617).
+- Mind maps: a selected topic's bar has the text size on it (S, M, L, XL, one press), and every choice in its Text, Shape and Branch line panels is a row of buttons rather than a list inside a menu, so nothing takes more than two presses. The two small grips above a topic's corner are one square on its bottom right corner that resizes it like a card; Shift while dragging scales its text with it (INBOX 610).
+- Mind maps: a long branch is a smooth curve at every zoom; its two sides are drawn as a spline through more samples instead of straight pieces that showed their corners (INBOX 609).
+- Improve writing: Start and Use the suggestion are 44px under touch like every other dialog foot (they were held at 32 by their own height rule; `improvefoot.js`, 0 findings at 390 and 1440, light and dark). The background art's unused CSS-style rules (the mesh and bubbles, canvas styles since) are gone, 370 bytes of boot CSS.
+- Help audit (2026-10-05): the Guide, the help popovers, the README and a few messages named places the UI had renamed, and now say what the UI says. Settings, Shortcuts is Keyboard shortcuts, Settings, Tools is Tools it can use, Settings, Extras is Packages, the model bench switch is under What it learned, the search engine is under Search and index in the README, and Account & security is spelled as the nav spells it; the Library's sub-tab is Boards & maps (the Guide said Whiteboards and Boards and maps), Files & Images is two sub-tabs, Images and Files, and Write with Atlas has Split into notes where the Guide named an Extract notes button and a Writing Room sub-tab the Notes tab does not have. The autonomous background AI entry's badge opened Profile and now opens Background tasks. tests/test_help_settings_paths.py pins every "Settings, A, B" path in the Guide, the README and the app's own messages to the nav and panes in index.html, so a rename fails the build; scratchpad/ui-sweeps/helpaudit.js opens all 21 panes and 80 paths in a browser.
+- Graph: the map stays framed when a panel opens or closes beside it (INBOX 613).
+- Appearance: the generative background stays off when it is switched off; the power saver, a theme change or the tour could draw it anyway (INBOX 611).
+- Ask: a sentence drawn from a picture's caption gets its note's number, so a note that is one word and a sketch is cited too (INBOX 604).
+- Notes: the Ask sub-tab is as wide as a tab should be (INBOX 605); Customise can reset the Quick access highlights alone (INBOX 603).
+- Start-up: a session left over from before the app restarted goes straight to the lock screen, instead of drawing the dashboard with every widget failing first (INBOX 597).
+- Ask: the model is shown each note's tags and attached files (with their captions), so a note that is one word and a sketch is no longer passed over as too vague (INBOX 594).
+- Ask: the last answer's "Only 2 of 6 sentences" notice goes when you ask again, rather than sitting over the next answer's thinking (INBOX 593).
+- Graph: tree, radial and arc no longer throw when a reply is listed before the note it answers, so switching layout works again (INBOX 579); a reply loop hangs off its category instead of hanging the layout.
+- Chat: the agent's step circles sit exactly on the rail's line (INBOX 588).
+- Documents: printing a document, or saving it as PDF, gave one blank page; the print rule hid the part of the window the document page now sits in. A long document prints on as many pages as it needs again.
+- Documents: at 1024 wide the sidebar's Outline tab no longer runs under the collapse button; a narrow sidebar puts its two tabs on their own row under it.
+- Exports: the writing dictionary's Export saves in the desktop window too (it used a browser-only download that the desktop window ignores); every download goes through one helper.
+- Chat: a document imported through the paperclip lands in the space that is open, not the default space. Every upload that sets its own headers (the chat, the Library, documents, the whiteboard, media, Settings) now sends the space with the token through one helper, and a lint fails on a header object that drops it.
+- Graph: a note's size in focus mode and the Local map is the whole map's (its PageRank), whichever view was opened first; before, the two shared one cached ranking of two different graphs (drafts and boards in one, not the other), so sizes depended on the order, and turning Maps on kept the ranking without boards. The graph also loads about four times faster when warm at 5,000 notes (3.3 to 4.1 s down to 0.7 to 1.0 s in process), reading columns rather than whole notes (GRAPH_PLAN, decision 2026-10-05).
+- The chat list's sort select is as wide as its words (144px) rather than the whole sidebar column (266px).
+
 ## [0.3.32] - 2026-09-28
 
 ### Added
@@ -4761,7 +5611,7 @@ orchestrator; these are the ones that change what the app does.
   health budget times its fastest sample rather than the median, so it
   measures the endpoint instead of the machine's load.
 
-## [0.2.2] — 2026-09-07
+## [0.2.2]: 2026-09-07
 
 ### Recorded late (shipped in 0.2.2, listed under Unreleased until 0.3.0 was cut)
 
@@ -4779,7 +5629,7 @@ orchestrator; these are the ones that change what the app does.
 - **Ask the notebook about itself.** "What are my most common tags", "which
   categories have the most notes", "how many notes have no tags", "which are my
   most linked notes", "when do I write most" are counted from your data rather
-  than generated — exact, instant, and answered with no AI model running at all.
+  than generated: exact, instant, and answered with no AI model running at all.
   Private and binned notes are never counted.
 - **"Ask the AI for wordings"** in the document suggestion menu: where the
   built-in checks have no mechanical fix, the local model offers two or three
@@ -4788,7 +5638,7 @@ orchestrator; these are the ones that change what the app does.
   that finishes after you close the workspace is still there when you come
   back, and a range read that is interrupted keeps the pages it managed.
 - **The OCR reader picker offers both AI readers** where a machine has two
-  different models — a dedicated document reader and a general vision model —
+  different models, a dedicated document reader and a general vision model,
   instead of one option named after whichever it happened to resolve.
 - **Mark a notification unread**, per row, plus "Mark all read".
 - **"Edit document"** on a previewed document in the lightbox.
@@ -4808,11 +5658,11 @@ orchestrator; these are the ones that change what the app does.
   notebook folder has gone read-only.
 - **Document editor: "Check with AI."** Sends the current document to Chat
   with a prompt asking the model to flag wording issues a spellchecker
-  can't catch — agreement, tense, clarity — without rewriting the document.
+  can't catch, agreement, tense, clarity, without rewriting the document.
 - **Archive extended to chats and documents** (BACKLOG §30b's own named
   remaining scope, after notes got this first). An "Archive" action beside
-  Delete in the chat sidebar and the documents dock — kept, never deleted,
-  out of the way — and the Library's Shelved filter now covers all three
+  Delete in the chat sidebar and the documents dock, kept, never deleted,
+  out of the way, and the Library's Shelved filter now covers all three
   kinds.
 - **The popup agent in the status bar.** It works from every tab and had
   nothing on screen saying so. Now a slot beside the Ctrl-K hint, on by
@@ -4827,13 +5677,13 @@ orchestrator; these are the ones that change what the app does.
   wand in the selection bar open a small bar at the caret instead of a side
   panel: type an instruction, the answer replaces the selection (or writes at
   the cursor) and lands *selected*, with Keep / Try again / Undo underneath.
-  No new endpoint — the existing `POST /documents/{id}/ai-edit`.
+  No new endpoint: the existing `POST /documents/{id}/ai-edit`.
 - **Several routes between two notes, not just the best one.** The graph's
   Trace panel now finds up to three genuinely different, loopless routes
   (Yen's K-shortest paths) and draws all of them at once, each in its own
   colour, with switchable chips above the readout.
-- **"Generate story from path" is a menu of six shapes** — narrative,
-  explainer, timeline, argument, teaching notes, short brief — instead of one
+- **"Generate story from path" is a menu of six shapes**, narrative,
+  explainer, timeline, argument, teaching notes, short brief, instead of one
   fixed prompt.
 - **The Files sub-tab is a reading list.** Every file tile carries a
   "Read · N words" / "Not read" badge and a primary "Read this" / "Open
@@ -4845,15 +5695,15 @@ orchestrator; these are the ones that change what the app does.
   (heading/list/table/code/text, read off their own shape) instead of one
   whole-page fallback region, and each region shows which page and section it
   came from.
-- **Delete a stored OCR reading**, not just overwrite it by reading again —
+- **Delete a stored OCR reading**, not just overwrite it by reading again,
   `DELETE /{files,media}/{id}/page-reads/{page}` plus a "Delete this reading"
   action in the workspace. Redo already worked (a re-read replaces the stored
   answer); its button now says so.
 - **Ask the notebook about itself, in more ways, and past a typo.** Word
   count, longest notes, notes gone stale, and which tags keep turning up
-  together — and every question now survives a misspelling ("catagories",
+  together: and every question now survives a misspelling ("catagories",
   "docuemnts") against a small fixed vocabulary, transpositions included.
-- **Undo for deleting a document.** The one permanent loss left in the app —
+- **Undo for deleting a document.** The one permanent loss left in the app,
   notes, chats, files and boards were all recoverable, a document was not.
   All four delete doors now offer Undo.
 - **A refresh button on the Your Notes sub-tab**, matching the one every
@@ -4865,7 +5715,7 @@ orchestrator; these are the ones that change what the app does.
   picture itself does.
 - **`read_file` can target a search term.** A new optional `query` argument
   returns the text around where it actually appears instead of only the
-  first ~2000 characters — a multi-page scan's later pages were previously
+  first ~2000 characters: a multi-page scan's later pages were previously
   unreachable through this tool no matter how precisely `search_files` had
   already located the match. `list_documents`'s search preview and
   `get_document`'s no-embedding-backend fallback got the same fix.
@@ -4873,19 +5723,19 @@ orchestrator; these are the ones that change what the app does.
 ### Fixed
 - **The chat sidebar never marked the open conversation.** A `null` passed as
   the highlight terms threw inside the Sources panel, which aborted
-  `openConversation` before it repainted the sidebar — the click worked, the
+  `openConversation` before it repainted the sidebar, the click worked, the
   transcript rendered, and an unrelated null check stopped the row from ever
   being marked. A third of each row was also dead to clicks, and the mark it
   would have got was a 3px bar and a 13% tint.
 - **The chat header's model name opened its panel off the bottom of the
-  window** — `position: absolute` with no positioned ancestor put it at (0, 905)
+  window**: `position: absolute` with no positioned ancestor put it at (0, 905)
   in a 900px viewport, which is indistinguishable from a control that does
   nothing.
 - **A page read that finished after the OCR workspace was closed was lost**,
   even though the app announces such reads as background tasks precisely so the
   window can be closed.
 - **The OCR picker and the OCR reader disagreed about which model would run.**
-- **The gallery's per-image select checkboxes could not be clicked** — the
+- **The gallery's per-image select checkboxes could not be clicked**, the
   actions row above them stretched across the tile and swallowed every click.
 - **The lightbox could not be dismissed by clicking beside the picture**, and
   its close button was covered by the content column on taller documents.
@@ -4898,25 +5748,25 @@ orchestrator; these are the ones that change what the app does.
   buttons measured at 43.6x28.
 - **The formatting toolbar's dropdowns un-clipped the whole toolbar**, spilling
   every control past the panel edge.
-- **Files and attachments did not render in the timeline or graph popups** —
+- **Files and attachments did not render in the timeline or graph popups**,
   both filtered to images and dropped everything else.
 - **The dashboard greeting could call you by a misspelt or invented name.**
 - **The note cards' ⋯ glyph sat above centre**, drawn as a typed character
   where the app's other ⋯ builder uses the icon font.
 - **Deleting a document failed** once it had a history, on a foreign key.
-- **Restoring a document version restored the wrong text** — the snapshot taken
+- **Restoring a document version restored the wrong text**, the snapshot taken
   first coalesced into the very revision being restored. Caught by a test
   before it shipped.
 - **Short background AI jobs were invisible.** The status loop idles at 10s
   (120s in a hidden tab) and can only announce a job it has seen in a
-  `/tasks` payload, so an image caption — often shorter than that gap —
+  `/tasks` payload, so an image caption, often shorter than that gap,
   began and ended unobserved: no "Started" line, no status-bar slot, no
   "Finished" toast. Writes that can leave work on a background thread now
   kick a poll, and `jobsRunning()` counts every task rather than only
   re-index and model pulls.
 - **Formatting-toolbar dropdowns escaped their panel.** Measured in the
   capture composer: the Insert menu sat 123px outside the panel's left edge,
-  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards —
+  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards:
   right for the document ⋯ it was written for, wrong for an opener near the
   left of a toolbar. Clamped inside the panel on open.
 - **The OCR workspace's reader picker named the wrong model.** It resolved a
@@ -4932,16 +5782,16 @@ orchestrator; these are the ones that change what the app does.
   lists, and the widget picker listed "On this day" twice.
 - **Toolbar dropdowns in the capture and documents toolbars opened up to
   151px from the button that opened them**, and after that, in the top-left
-  corner of the panel — three related bugs in the same placement function,
+  corner of the panel, three related bugs in the same placement function,
   in the same viewport-fixed-menu change: wrong alignment axis, no
   containing-block correction, and a zeroed fallback on a failed measurement.
 - **The traced graph path's chips clipped from both ends** ("ting is the
-  delivery of computing se") — a flex item that could not shrink, centred in
+  delivery of computing se"), a flex item that could not shrink, centred in
   its box, overflowing equally on either side; `text-overflow` on the parent
   button never touched it.
 - **A misspelt "ask the notebook about itself" question fell through to
   ordinary semantic search**, which is precisely the case that feature exists
-  to answer better — and one new question's own pre-filter accidentally
+  to answer better: and one new question's own pre-filter accidentally
   rejected it before any matcher saw it.
 - **`clampToolbarMenu`'s CodeQL-adjacent cousin**: three cyclic imports
   (one already a CodeQL alert, two more of the same shape unreported)
@@ -4950,8 +5800,8 @@ orchestrator; these are the ones that change what the app does.
 ### Verified
 - **A real (non-Ollama) backend, driven live for the first time.** A
   stand-in OpenAI-`/v1` server (a real socket, not a mocked `requests`)
-  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn —
-  SSE framing included — all round-trip correctly through
+  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn:
+  SSE framing included: all round-trip correctly through
   `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
   Tool-call streaming remains spec-verified only; see HISTORY.md §113.
 
@@ -4961,12 +5811,12 @@ A bug-fix and consistency release, from one long round of live reports.
 - **The formatting-toolbar dropdowns rendered as transparent, block-flow
   text.** The previous release's hide-until-placed fix for menu flicker split
   the rule wrongly, leaving the menu's whole appearance (flex column, padding,
-  border, background, shadow) behind the `.is-placed` class — and because the
+  border, background, shadow) behind the `.is-placed` class: and because the
   placement code gives up when a menu measures 0x0, that class was then never
   added. Self-sealing, and it affected every `<details>` menu in the note
   capture, note edit and document toolbars.
 - **Turning the background librarian off did not stop the pass already
-  running** — nor did battery-saver mode. Both now request a stop, which the
+  running**: nor did battery-saver mode. Both now request a stop, which the
   pass honours at its next checkpoint instead of finishing first.
 - **Agent-activity notices ignored both the mute switch and "Panel only"**
   whenever they carried an error. The notifications centre records them
@@ -4975,14 +5825,14 @@ A bug-fix and consistency release, from one long round of live reports.
   workspace.** The per-page readings are now joined into the file and media
   list responses, in page order, with a whole-file reading still winning.
 - **Chat: scrolling up left the pane stuck** with the answer cut off until
-  "Jump to latest" was clicked — `scroll-behavior: smooth` on a pane written
+  "Jump to latest" was clicked: `scroll-behavior: smooth` on a pane written
   to every frame turned each auto-scroll into an animation competing with the
   wheel.
 - **Chat: every finished answer step kept its blinking caret** during an agent
   run, and the caret sat on a line of its own whenever an answer ended in a
   list.
 - **The spaces switcher in the top bar was shorter than everything beside
-  it** — 28px against 36px for the tabs and the five icon buttons.
+  it**: 28px against 36px for the tabs and the five icon buttons.
 - **The whiteboard's view dropdown had a horizontal scrollbar**, and long
   dropdown menus could run off the bottom of the window instead of scrolling.
   Every popover menu is now capped to the window height and scrolls inside
@@ -5045,10 +5895,10 @@ A bug-fix and consistency release, from one long round of live reports.
 - Stop buttons all carry the stop icon and the error colour.
 - Tighter shell: one `--page-gutter` (ceiling 24px → 18px) for the page edge,
   the sidebar gap and the top, and one gap under both sub-tab strips.
-- Surface tiers and a border budget, one button ramp, one eyebrow recipe —
+- Surface tiers and a border budget, one button ramp, one eyebrow recipe,
   see `docs/roadmap/UI_MODERNISATION_PLAN.md` for what remains.
 
-## [0.2.0] — 2026-09-05
+## [0.2.0]: 2026-09-05
 
 A long round driven almost entirely by live reports with screenshots. Two
 defect *shapes* account for most of the visual bugs in it, and both are
@@ -5067,8 +5917,8 @@ border-style rule to resurrect as 3px.
   vault-relative path, `[[wiki links]]` resolve by **filename** (which is what
   Obsidian links name), the Contents index gained a By-folder mode, and
   Settings gained a folder picker beside the file picker.
-- **The Contents sub-tab is a real index** — sticky sections, a filter, a jump
-  bar, folding, grouping by category, tag or month — rather than a masonry of
+- **The Contents sub-tab is a real index**, sticky sections, a filter, a jump
+  bar, folding, grouping by category, tag or month, rather than a masonry of
   boxes with a scroller inside each one.
 - **A selection toolbar** in both editing surfaces, and the note *edit* form
   (the app's poorest editing surface) gained the toolbar, the "/" menu and the
@@ -5081,7 +5931,7 @@ border-style rule to resurrect as 3px.
 - **Favourites** as a parallel pseudo-category, integrated everywhere.
 
 ### Changed
-- The Images/Files gallery kebab is the app's own `kebabMenu()` — it was a
+- The Images/Files gallery kebab is the app's own `kebabMenu()`, it was a
   second implementation of one control, which is how it drifted three times.
 - The widgets picker shows Wide as a state, marks Remove as destructive, and
   can be reordered from the keyboard.
@@ -5096,11 +5946,11 @@ border-style rule to resurrect as 3px.
 - Attached (not embedded) images never appeared in widget rows.
 
 
-## [0.1.9] — 2026-09-04
+## [0.1.9]: 2026-09-04
 
 ### Added
 - **A note's attached files can be read.** An attachment now carries a
-  caption, extracted text and a vision-model transcription of its own —
+  caption, extracted text and a vision-model transcription of its own,
   columns `MediaUpload` has always had and `Attachment` never did. One
   endpoint (`POST /files/{id}/analyse`) covers all three: Tesseract for a
   picture, the document extractor for a .docx or a text-layer PDF, and a
@@ -5129,7 +5979,7 @@ border-style rule to resurrect as 3px.
   and the model that wrote a caption is a badge rather than a bare id.
 
 ### Fixed
-- **A PDF's pages no longer disappear when you read its text** — pages on one
+- **A PDF's pages no longer disappear when you read its text**, pages on one
   side, the extracted text on the other.
 - **Popup menus clipped in many places, not one.** Every `<select>` in the
   app now escapes its clipping ancestor; the escape mechanism itself gained
@@ -5138,7 +5988,7 @@ border-style rule to resurrect as 3px.
 - **A note's attached PDF never appeared in the Library**, because the
   gallery only ever queried one of the two file tables.
 - Agent rows printed their icon spec as text ("ph:folder Merged …").
-- Whiteboard link endpoints drifted away from the cursor while zoomed — the
+- Whiteboard link endpoints drifted away from the cursor while zoomed, the
   zoom scale was applied twice.
 - Usage chips printed raw markdown instead of a readable line.
 - A turn that is still generating now says so for as long as it runs, rather
@@ -5211,10 +6061,10 @@ border-style rule to resurrect as 3px.
 - The AI Skills tab's step/tool fact list had no visual container.
 - The Graph Options toggles (and two more elsewhere in Settings) now use
   the same pill styling as other toggles instead of a bare switch.
-## [0.1.7] — 2026-08-31
+## [0.1.7]: 2026-08-31
 
 ### Added
-- **Links**: a bookmark shelf for websites, in a new Library sub-tab —
+- **Links**: a bookmark shelf for websites, in a new Library sub-tab,
   save a URL, group them (a free-text group with a "/" convention for
   sub-groups, e.g. "Work/Reading"), filter by group or search text, pin
   favourites to the top. Saving a URL you already have warns rather than
@@ -5224,7 +6074,7 @@ border-style rule to resurrect as 3px.
   document's Outline sidebar), with a picker to attach one and a one-click
   way to remove it.
 - **Contents**: a new Library sub-tab with a hyperlinked outline of the
-  whole notebook, grouped by category or by tag — click a note to jump
+  whole notebook, grouped by category or by tag, click a note to jump
   straight to it. The fast, scannable companion to the Graph tab's spatial
   view, not a replacement for it.
 - The Library "All" tab's create button now opens a "What would you like to
@@ -5238,7 +6088,7 @@ border-style rule to resurrect as 3px.
 - A related-notes panel that updates live while editing a note, not just
   when you click to reveal it.
 - The AI can now read a note's attached files (PDFs, code, text) when that
-  note is hand-attached to a chat turn — previously only attached pictures
+  note is hand-attached to a chat turn, previously only attached pictures
   were read; other attachments were invisible to the model.
 - Meeting-note transcripts get an AI-generated "Decisions" / "Action items"
   summary block prepended automatically when saved as a note, best-effort
@@ -5260,7 +6110,7 @@ border-style rule to resurrect as 3px.
 
 ### Fixed
 - An attached chat document's extracted text never actually reached the
-  model — the attachment showed in the composer but the AI couldn't see it.
+  model: the attachment showed in the composer but the AI couldn't see it.
 - A private note could leak its content via `restore_note` while the vault
   was locked.
 - The Documents kebab dropdown's real transparency bug (not a z-index issue,
@@ -5272,7 +6122,7 @@ border-style rule to resurrect as 3px.
 - The Timeline thread view's band labels overlapped their own dots; lanes
   now space dynamically so dense clusters can't bleed into a neighbour.
 - The "Your notes" filter help button (and the capture composer's own "?"
-  button) didn't match the app's other circular help-toggle buttons — first
+  button) didn't match the app's other circular help-toggle buttons, first
   a markup/class mismatch, then, reported again, a `.library-toolbar button`
   CSS rule silently overriding the circle's height back to the toolbar's
   shared control height while leaving its width alone, stretching it into
@@ -5291,14 +6141,14 @@ border-style rule to resurrect as 3px.
 - Several CodeQL alerts closed: a path-injection sanitizer, an exception's
   raw text reaching the user, and related lint findings.
 
-## [0.1.6] — 2026-08-30
+## [0.1.6]: 2026-08-30
 
 Follow-on fixes and features added to the 0.1.5 branch after that release was
 tagged, ahead of the PR merging.
 
 ### Fixed
 - A `keydown` handler on the graph map hijacked keystrokes typed into a note's
-  popup or the "Grow the map" form — Space/Enter reopened the wrong note
+  popup or the "Grow the map" form: Space/Enter reopened the wrong note
   instead of typing a space or submitting. Now ignored while the event target
   is an input, textarea, select, or contenteditable element.
 - An unhandled exception anywhere inside `run_agent`/`run_skill`, outside the
@@ -5311,69 +6161,69 @@ tagged, ahead of the PR merging.
 - The AI Skills page was unusable below ~900px (fixed two-column grid, a
   sticky sidebar with nowhere to go).
 - A private note's new "decrypted" audit-log entry could fire while the vault
-  was locked — `readable_content()` returns a placeholder, not the real text,
+  was locked: `readable_content()` returns a placeholder, not the real text,
   when the vault has no key, so a locked-vault read logged a decrypt that
   never happened.
-- `<summary>`-based icon buttons (the kebab/ellipsis menus) were off-centre —
+- `<summary>`-based icon buttons (the kebab/ellipsis menus) were off-centre,
   the centring CSS selector only ever matched `<button>`.
 - The "Your themes" section in Settings → Appearance had a `-stack` class
   that only overrode `align-items`, not `flex-direction`, so a row with more
   than two children never actually stacked.
 - The llama.cpp extra's "unavailable" message implied the app doesn't talk to
   llama.cpp at all; it already does, via `llama-server`'s OpenAI-compatible
-  API — only in-process `llama-cpp-python` embedding is unbuilt.
+  API: only in-process `llama-cpp-python` embedding is unbuilt.
 - The Capture tab's "File under" row could run its later buttons off the
-  card's right edge instead of wrapping — `.capture-field-row` claimed to
+  card's right edge instead of wrapping, `.capture-field-row` claimed to
   wrap but never set `flex-wrap: wrap`.
 - The Image Gallery's kebab button had square corners: the base `button`
   rule's `border-radius` never reaches a `<summary>` element (it is a
-  `<details>` disclosure, not a real button) — the centring fix above this
+  `<details>` disclosure, not a real button), the centring fix above this
   same element already got was never joined by one for its corners.
-- The lightbox's prev/next arrow icons sat visibly off-centre — inherited
+- The lightbox's prev/next arrow icons sat visibly off-centre, inherited
   padding (`0.5rem 1rem`) the sibling close button already resets shrank the
   centring box to less than the glyph's own width, and CSS Grid's "safe
   centre" fallback shifted the oversized glyph to the padding box's edge.
 - A tool call a model wrote as text instead of using the structured
   tool_calls field (small/local models do this routinely) silently failed
-  to recover whenever its `arguments` were themselves an object or array —
-  an entirely ordinary shape — because the fallback regex could not match
+  to recover whenever its `arguments` were themselves an object or array,
+  an entirely ordinary shape, because the fallback regex could not match
   across a nested brace. Replaced with a real brace-balanced scanner.
 - `PUT /preferences` logged an audit-log ("Activity") row for every key
   changed, `ui_state` (the interface's entire theme/appearance state behind
-  one key) included — a slider drag read identically to changing the model
+  one key) included: a slider drag read identically to changing the model
   backend. Cosmetic/one-shot keys no longer write an audit row; the
   preference itself still saves exactly as before.
 - The Library's Activity cards clip long entries at 400 characters
-  server-side with no way to see the rest — clicking one with nothing to
+  server-side with no way to see the rest, clicking one with nothing to
   jump to (most of them) now opens the full, un-clipped text.
 - The image gallery's popup menu could still run off the *left* edge on a
-  narrow (single/two-column) gallery — the existing flip logic only ever
+  narrow (single/two-column) gallery: the existing flip logic only ever
   corrected right-edge overflow. Now clamped back into bounds after the
   flip decision, regardless of which edge or how narrow.
 - `renderLibraryDocuments()` and `renderLibraryBoardsGallery()` overwrote
   the Library's empty-state element's `textContent` on every render (to
-  show a "no search match" message) — harmless while that element was a
+  show a "no search match" message): harmless while that element was a
   plain line of text, but it silently erased any richer markup put there
   instead. Found while giving those two subtabs the same icon+title empty
   state "All" and Image Gallery already had (below); the "no match" case
   now has its own sibling element instead of overwriting the real one.
 - The "Detailed" response length preset could come back with no answer at
-  all, or a much shorter one than promised — the same shared
+  all, or a much shorter one than promised, the same shared
   thinking/answer token budget already documented as a risk in
   `test_thinking_budget.py` ("1,024 shared between deliberation and answer
   is the same trap in a larger size"). Detailed's own prompt explicitly
   asks the model to reason through the notes, inviting more deliberation
   than Normal or Quick, but got the same flat 1,024-token thinking
-  allowance as both — a verbose reasoning model given more to think about
+  allowance as both: a verbose reasoning model given more to think about
   and no more room for it starved its own answer. Detailed's allowance is
   now 3,072 tokens.
 - The launcher's PowerShell splash (`scripts/splash.ps1`) never called
-  `[System.Windows.Forms.Application]::EnableVisualStyles()` — without it
+  `[System.Windows.Forms.Application]::EnableVisualStyles()`, without it
   WinForms renders every control with the classic, unthemed renderer, and
   the classic renderer does not animate a Marquee-style ProgressBar at all,
   regardless of its colours (a second, independent cause of the "bar just
   stays empty" symptom already fixed once by removing its ForeColor/
-  BackColor). Not verified live — this sandbox has no Windows/PowerShell
+  BackColor). Not verified live: this sandbox has no Windows/PowerShell
   runtime to run it on; the fix is standard WinForms practice and matches
   the documented behaviour, but say so plainly rather than claim it's seen.
 - The boot splash (`#boot-splash`, shown for the one `/auth/status` round
@@ -5382,7 +6232,7 @@ tagged, ahead of the PR merging.
   100% the instant the real request resolves, so it never claims to finish
   before the work behind it does.
 - The Library's "Activity" filter chip could land alone on its own row,
-  looking like a stray pill under the others — `.library-chip-activity`'s
+  looking like a stray pill under the others, `.library-chip-activity`'s
   `margin-left: auto` (meant to push it to the end of the row) fights
   `flex-wrap` the moment the chips before it don't all fit on one line, and
   a wrapping auto-margin item gets shoved onto a lonely row of its own. The
@@ -5391,18 +6241,18 @@ tagged, ahead of the PR merging.
 
 ### Added
 - `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
-  + `count_notes` into one call — a skill wanting "the notebook's shape"
+  + `count_notes` into one call: a skill wanting "the notebook's shape"
   (Notebook health check, Tidy suggestions) needed three round trips for
   numbers this app already had cheap SQL for.
 - `llama-server`'s own `/props` is now probed as a context-length source
-  (ROADMAP.md item A.2) — a real number (the `-c` it was started with) in
+  (ROADMAP.md item A.2): a real number (the `-c` it was started with) in
   place of the guess-from-model-name table, for plain llama.cpp servers
   that report neither `loaded_context_length` nor `max_context_length`.
 - Exporting a single note as a `.md` download (`GET /entries/{id}/export.md`),
-  mirroring the document export that already existed — a "Download .md"
+  mirroring the document export that already existed, a "Download .md"
   item on a note's overflow menu and its Library card menu.
 - A tip under the custom-template textarea (Settings → Templates) saying
-  `{date}` resolves to today's date — the substitution already worked for
+  `{date}` resolves to today's date: the substitution already worked for
   any template (`applyTemplate()` does a plain string replace), including
   user-made ones; it just wasn't discoverable without reading the source.
 - The Library's Documents, Whiteboards, and Image Gallery subtabs now get
@@ -5413,65 +6263,65 @@ tagged, ahead of the PR merging.
   §95 item 2).
 - Settings → Background tasks' finished-jobs list now shows which model did
   the work (captioning, OCR, the autonomous pass), when the job recorded
-  one — the data already existed, it just wasn't rendered (BACKLOG.md §95
+  one: the data already existed, it just wasn't rendered (BACKLOG.md §95
   item 3).
-- macOS gets a launch splash too now — a non-modal `display notification`
+- macOS gets a launch splash too now, a non-modal `display notification`
   banner (never steals focus, unlike `display dialog`) showing the same
   phase text the Linux/zenity dialog already showed. Asked for directly.
 - Recency and pinning are now a search-ranking signal (BACKLOG.md §95 item
   6): hybrid search's candidates are reordered by pinned-first /
   most-recently-touched and fused in as a third ranked list, the same rank-
-  position fusion the existing semantic/keyword combination already uses —
+  position fusion the existing semantic/keyword combination already uses,
   never a new source of matches, only a reorder of notes a real search
   already found relevant.
-- The Quick sketch pad's highlighter had no visible transparency — "basically
+- The Quick sketch pad's highlighter had no visible transparency, "basically
   a thick pen." `sketchMove` kept extending one open canvas path with
   `lineTo()` and calling `stroke()` on every pointer-move without ever
   starting a fresh path, so `stroke()` re-drew the *entire accumulated path*
-  each time, not just the newest segment — a stroke ten points long got its
+  each time, not just the newest segment, a stroke ten points long got its
   first segment recomposited ten times. Invisible on the plain pen (opaque
   drawn twice is still opaque) but at the highlighter's 0.35 alpha, ~10
   overlapping passes already reads as ~99% opaque. Fixed by reopening the
   path from the current point after every stroke, so each call draws its one
   new segment exactly once. Verified by sampling canvas pixels before/after
-  a multi-point stroke — the repeatedly-touched start and the once-touched
+  a multi-point stroke: the repeatedly-touched start and the once-touched
   end now composite identically.
 - CodeQL alerts on `main` (user-pasted screenshots): #289/#290
-  (`py/path-injection`, High) — a second fix attempt for this same alert
+  (`py/path-injection`, High): a second fix attempt for this same alert
   still didn't close it; researched CodeQL's actual sanitiser model
   (`Path::SafeAccessCheck`'s only recognised Python shape is a bare
   `x.startswith(base)` as a guard's sole condition) and simplified
   `_within_exports` to match it exactly, dropping the compound condition
   and computed `+ os.sep` argument that likely broke pattern recognition
   the second time. #296 (information exposure through an exception,
-  Medium) — `routes_chat.py`'s error-fallback path sent a raw exception's
+  Medium): `routes_chat.py`'s error-fallback path sent a raw exception's
   `str()` straight to the client; now goes through `safe_value`, the same
   sanitiser `librarian.model_error_message` already uses for the identical
   shape. #319 (duplicate `import re` in a test function), #320/#321
   (mixed implicit/explicit returns in `ollama_client.py`/`openai_client.py`'s
-  retry-loop `chat()` methods — added an unreachable trailing raise so the
+  retry-loop `chat()` methods: added an unreachable trailing raise so the
   function reads as exhaustive).
 - Three more Preferences toggles ("Mute notifications except reminders",
   "Let the AI use this profile...", "Allow web search when I ask for it")
   had the same bare-`<label>`-missing-`.check-row` bug as Settings → About's
-  five — swept the whole file for the pattern (`<label>` directly wrapping
+  five: swept the whole file for the pattern (`<label>` directly wrapping
   a checkbox, no class) rather than trusting the one page already fixed was
   the only one.
 - Settings → Help's "Related" links could only ever open another Settings
-  section — a topic about a real *tab* (Reminders, Graph, Library…) had
+  section: a topic about a real *tab* (Reminders, Graph, Library…) had
   nowhere to send you but a settings screen that only tangentially mentions
   it. Added `[data-goto-tab]`, the same delegated-click pattern as the
   existing `[data-goto-section]`, closing the modal and switching tabs
   directly. Wired up for every topic with a real tab to go to (Capturing
   notes, Asking & chatting, Skills, Graph, Reminders, Dashboard, Library,
   Timeline); Reminders and Dashboard also gained the Settings links they
-  were missing (a notification-mute toggle, the dashboard greeting name —
+  were missing (a notification-mute toggle, the dashboard greeting name,
   both in Preferences). Skills, What it remembers, Spaces, Appearance and
   Keyboard shortcuts have no tab of their own, so no tab link was added for
-  those — a manufactured one would be worse than none.
+  those: a manufactured one would be worse than none.
 - Arrow-key navigation on the command palette (34+ commands, only ~7 visible
   at once) never scrolled the selected row into view past the first
-  screenful — confirmed live (15x ArrowDown left the active row off-screen).
+  screenful: confirmed live (15x ArrowDown left the active row off-screen).
   `renderPalette` rebuilds the list from scratch every keypress, so there
   was never a focused/tracked element for the browser's native
   scroll-on-focus to follow; `.active` is a plain CSS class on an unfocused
@@ -5480,17 +6330,17 @@ tagged, ahead of the PR merging.
   the `[[wiki-link]]` autocomplete popup for consistency.
 - Every `.small.icon-only`/`.small.icon-button` control (Settings modal's
   back/forward nav arrows, plus several search/sort/filter icon buttons
-  elsewhere) rendered oversized and square-boxy — 43px next to a 30px
+  elsewhere) rendered oversized and square-boxy, 43px next to a 30px
   "Close" button beside it. `.small`'s own horizontal padding
   (01-forms-settings.css, a later file) was clobbering `.icon-only`'s
   intended padding (00-tokens-shell.css) for the shared physical left/
   right sides, whichever file happened to load second winning regardless
-  of which rule actually fit an icon button — `aspect-ratio: 1` then
+  of which rule actually fit an icon button, `aspect-ratio: 1` then
   squared that oversized width into an oversized height too. A compound
   selector fixes it generally (specificity, not file order), reported live
   with a screenshot against the Settings nav arrows specifically.
 - Settings → About's five on/off toggles (three Updates, two desktop-only)
-  were still bare `<label>` elements with no `.check-row` class — a prior
+  were still bare `<label>` elements with no `.check-row` class: a prior
   pass's own comment claimed they'd been lined up with every other toggle
   in the app, but only the DOM order changed; the actual pill/box/hover
   treatment `.check-row` provides never applied. Reported live with a
@@ -5504,7 +6354,7 @@ tagged, ahead of the PR merging.
   settings page uses; Settings → Help's "Settings → X" mentions are now
   real links to that section, plus two new ones for topics that had none.
 - The status bar's back/forward now cover opening Settings and moving
-  between its sections, not just the tabs and sub-tabs it already tracked —
+  between its sections, not just the tabs and sub-tabs it already tracked,
   including a second copy of the two buttons in the Settings header itself,
   since the modal overlay sits above the status bar's own.
 - Meeting Notes as a real Library filter chip (tag-based, alongside the
@@ -5524,25 +6374,25 @@ tagged, ahead of the PR merging.
 ### Reverted
 - A mechanical check flagging a skill step "failed" if its own instruction
   named one of the skill's tools by identifier and that tool was never
-  called — real steps that conditionally act on "each X" legitimately call
+  called: real steps that conditionally act on "each X" legitimately call
   nothing when there is no X, and the check could not tell that apart from
   a step that should have called it and didn't. Reverted before merging;
   see HANDOVER.md §97 for what would be needed to attempt this safely.
 - Minimise-on-Quit (`js_api=bridge` on `webview.create_window()`): caused a
-  real hang on Windows — a recursion storm in `window.native` COM property
+  real hang on Windows, a recursion storm in `window.native` COM property
   access on the WebView2 UI thread. Fully reverted; root cause confirmed,
   not re-attempted this release.
 
-## [0.1.5] — 2026-08-30
+## [0.1.5]: 2026-08-30
 
 A correctness and cost release. The headline items are a chat bug that could
 file an answer under the wrong conversation, a prompt that spent more on tool
 schemas than on the user's own notes, and a Restart button that killed the
 packaged app.
 
-### Fixed — a chat turn could be saved into the wrong conversation
+### Fixed: a chat turn could be saved into the wrong conversation
 
-`chatConv` is reassigned when you switch chats, and every save read it *live* —
+`chatConv` is reassigned when you switch chats, and every save read it *live*,
 at each checkpoint and again when the turn finished, minutes after the send. So
 switching mid-stream wrote the finished answer into whichever conversation was
 open when it landed, or made a new one out of it. Visible only as the message
@@ -5554,15 +6404,15 @@ live nodes and re-attaches them on return, so the reply continues in front of
 you rather than appearing all at once at the end, and the notice names the
 thread that is actually being answered instead of the one you just left.
 
-### Fixed — the tool-call disclosure was permanently open
+### Fixed: the tool-call disclosure was permanently open
 
 A chip rendered as its label with the entire raw result stuck to it. The
 disclosure was built correctly; `.tool-chip-body` set `display: flex`
 unconditionally, and an author rule beats the user-agent rule that hides a
-closed `<details>`. It collapses now — one line, click to see the arguments and
+closed `<details>`. It collapses now: one line, click to see the arguments and
 the result.
 
-### Fixed — the glass sheen made dialogs unreadable in light mode
+### Fixed: the glass sheen made dialogs unreadable in light mode
 
 The sheen used the `background` shorthand, which re-declared the fill as
 `--card` at a specificity that beat `.modal-card`'s deliberately near-opaque
@@ -5570,310 +6420,310 @@ The sheen used the `background` shorthand, which re-declared the fill as
 glass. It layers as `background-image` now, and is halved in light mode where a
 white sheen on a near-white surface only flattens it.
 
-### Fixed — an off toggle switch looked like a blank gap
+### Fixed: an off toggle switch looked like a blank gap
 
 The track was 7% alpha inside a 10% border: invisible on a card, so an unchecked
 switch read as empty space. Reported twice, on the semantic-search and
 smart-model-routing controls.
 
-### Fixed — Restart from the tray killed the packaged app
+### Fixed: Restart from the tray killed the packaged app
 
 `os.execv(sys.executable, [sys.executable, *sys.argv])` is right from source,
 but in a PyInstaller build both are the .exe, so the executable's own path
-arrived as a positional argument and argparse exited — with no console to print
+arrived as a positional argument and argparse exited, with no console to print
 to. Open and View Logs also failed to raise the window when it was merely
 behind something.
 
-### Added — advanced response settings, detected per model
+### Added: advanced response settings, detected per model
 
 Top-k, top-p, min-p, repeat penalty and the repeat window, in Settings →
 Models. Values start at what the model itself recommends: a GGUF ships its
 author's parameters and Ollama reports them in `/api/show`, which the app was
 already fetching and discarding. Each row says whether a number came from the
-model, the task, or you, and only what you change is stored — so switching
+model, the task, or you, and only what you change is stored, so switching
 model still picks up the new one's recommendations.
 
-### Added — a separate OCR model, and scanned PDFs that actually read
+### Added: a separate OCR model, and scanned PDFs that actually read
 
 Rasterising a PDF does not read it; it makes a picture a model still has to
 read. A general vision model describes an invoice, a document reader
-transcribes it — so OCR has its own setting, and automatic mode prefers an
+transcribes it: so OCR has its own setting, and automatic mode prefers an
 installed reader (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) over a general VLM.
 
 `core/pdfpages.py` supplies the pages, behind an optional ~16 MB extra. The
 path had never once executed before: `docview.extract` has always taken a
 vision reader and its only caller passed nothing.
 
-### Added — the chat attach button takes any file
+### Added: the chat attach button takes any file
 
 Images to the gallery as before; anything else is imported as a document with
 its text extracted. Four verified OCR models were added to the suggested list.
 
-### Added — a splash during the pre-launch work
+### Added: a splash during the pre-launch work
 
 The git pull, venv build and pip install all happen before Python exists, so no
 window could cover them. Now one does, on Windows and on Linux under zenity.
 
-### Changed — the prompt costs a quarter less on a small model
+### Changed: the prompt costs a quarter less on a small model
 
 Measured on an 8k window with eight notes and no history: 32% of the context
 before the conversation started, with tool schemas costing nearly twice the
-user's own notes. Now 23%. Schemas are trimmed before any tool is dropped —
-dropping one changes what the app can do — and the tool guide has a short form
+user's own notes. Now 23%. Schemas are trimmed before any tool is dropped,
+dropping one changes what the app can do, and the tool guide has a short form
 below 8k.
 
-### Changed — tool selection reads words, not substrings
+### Changed: tool selection reads words, not substrings
 
 `ai/toolwords.py` replaces substring matching, which offered the tag tools for
 "my vintage camera" and the link tools for "blinking lights". It ranks rather
 than gates, tells a question about a capability from a request to use it, and
-stays a suggestion the model may overrule — reaching for an unoffered tool now
+stays a suggestion the model may overrule, reaching for an unoffered tool now
 widens the set for the rest of the turn.
 
-### Changed — a 500 on the tools path falls back instead of failing
+### Changed: a 500 on the tools path falls back instead of failing
 
 Ollama answers 400 for a model that declares no tool support, but a model whose
-chat template breaks answers 500 — common on community re-quants. The app now
+chat template breaks answers 500, common on community re-quants. The app now
 retries the same request without tools to tell that apart from a real outage,
 and falls back to a plain answer rather than failing the turn.
 
-### Fixed — two buttons wired to nothing
+### Fixed: two buttons wired to nothing
 
 Settings → About's "Take tour again", and the Whiteboards Reload button. After
 accounting for ids built at runtime there are now zero interactive elements in
 the page without a handler.
 
-### Fixed — whiteboard panels collided below 1180px
+### Fixed: whiteboard panels collided below 1180px
 
 The tools row and the zoom cluster shared the bottom edge; by 900px the tools
 row ran off the canvas. Verified clean at eight viewports from 1920 to 600.
 
 
-### Fixed — the Documents Library sub-tab looked nothing like the rest of the app
+### Fixed: the Documents Library sub-tab looked nothing like the rest of the app
 
 Reported bluntly and repeatedly: "SOOOO ugly and not consistent with the
 other application design style." Root cause, found by screenshotting it
 beside the "All" library view: its rows had no scoped CSS at all, so every
-one fell through to the app's default filled button style — a solid-accent
+one fell through to the app's default filled button style, a solid-accent
 bar with the title and word count crammed onto one line. Given a document
 icon and a proper card look (border, hover state, title/meta on separate
 lines) matching the rest of the Library. Verified in both themes.
 
-### Added — back/forward now covers switching between saved chats
+### Added: back/forward now covers switching between saved chats
 
 Opening a different saved conversation, or starting a new one, is now a
-real history step — Back/Forward restores the right chat. Fixed a genuine
+real history step: Back/Forward restores the right chat. Fixed a genuine
 async-ordering bug in the process: `stepTabHistory` now awaits
 `openConversation` on that branch, because `openConversation` calls
-`recordTabVisit` itself only after a network fetch — without the await,
+`recordTabVisit` itself only after a network fetch, without the await,
 every Back/Forward through a saved chat would have recorded a spurious new
 entry rather than being a no-op. Caught live via Playwright before it
 shipped.
 
-### Added — onboarding can pull a model and seed example notes
+### Added: onboarding can pull a model and seed example notes
 
 The first-run tour's "Your setup" slide now makes two one-click offers,
 neither automatic: download a starter model when Ollama is running but none
 is installed, and add five short, linked example notes when the notebook is
-genuinely empty — so the Graph, Timeline and Dashboard have something to show
+genuinely empty: so the Graph, Timeline and Dashboard have something to show
 before your first real note. Seeding refuses server-side on any notebook
 that already has a note, so it can never run twice or land on top of real
 work.
 
-### Added — "Build a skill", a built-in skill that writes skills
+### Added: "Build a skill", a built-in skill that writes skills
 
-Interviews you about a job you do often — what it should do, whether it
-touches your notes, what should be fill-in-the-blank each run — then saves it
+Interviews you about a job you do often, what it should do, whether it
+touches your notes, what should be fill-in-the-blank each run, then saves it
 as a real skill with `save_skill`: ordered steps and an actual tool
 allowlist, not a paraphrase saved as a sentence. Checks `list_skills` first
 so a near-duplicate ask reuses or refines what's already there instead of
 shipping a second copy.
 
-### Fixed — the "AI isn't available" pill could be wrong while Ollama was up
+### Fixed: the "AI isn't available" pill could be wrong while Ollama was up
 
-`/models/status` used to probe Ollama twice on every poll — `is_running()`
-and `list_models()` both hit its own `/api/tags` — which could take up to 7s
+`/models/status` used to probe Ollama twice on every poll, `is_running()`
+and `list_models()` both hit its own `/api/tags`, which could take up to 7s
 combined against the frontend's 5s abort on that exact call. One reachability
 check now does both jobs, and the frontend's timeout has real headroom above
 the new (lower) worst case instead of racing it at the wire.
 
-### Fixed — the agent's "View" button after deleting a note pointed nowhere
+### Fixed: the agent's "View" button after deleting a note pointed nowhere
 
 A destructive result reused the same navigation as every other change, which
-only ever looks in the ordinary notes list — a note the agent just moved to
+only ever looks in the ordinary notes list, a note the agent just moved to
 the bin was never there, so the button silently found nothing. It now opens
 the Library's own Bin filter and highlights the note there, which is the one
 place a binned note actually lives.
 
-### Added — a minimap and saved views for the Graph
+### Added: a minimap and saved views for the Graph
 
 A minimap in the corner of the map shows every note at once with a rectangle marking what you're currently looking at; click anywhere on it to jump there, keeping your zoom level. Alongside it, **saved views**: name a combination of layout, colouring, filters and position, and come back to it later. Both were the missing half of "the graph is a tool" once a notebook gets dense enough that the force layout stops being readable.
 
-### Added — the Library search box can search by meaning
+### Added: the Library search box can search by meaning
 
-Notes match on meaning as well as words, the same way the Notes tab already worked. Documents, chats, images and skills still match on their words — they have no embeddings — and the toggle says so rather than implying more than it does. Turning it on can only ever add results, never remove one.
+Notes match on meaning as well as words, the same way the Notes tab already worked. Documents, chats, images and skills still match on their words, they have no embeddings, and the toggle says so rather than implying more than it does. Turning it on can only ever add results, never remove one.
 
-### Added — chat history can expire
+### Added: chat history can expire
 
 Saved chats had no retention policy at all and grew forever. Settings → Preferences now takes a number of days after which old chats are deleted. Off by default, and **pinned chats are never deleted, however old they are**.
 
-### Performance — the notes list no longer builds the whole notebook at once
+### Performance: the notes list no longer builds the whole notebook at once
 
 It renders what fits and fills in as you scroll, staying one continuous list rather than becoming pages. On a 1,501-note notebook that took first paint from 533ms to 16ms and the page from 31,680 elements to 4,306. The Library grid does the same.
 
-### Fixed — 49 icon-only buttons were unnamed to a screen reader
+### Fixed: 49 icon-only buttons were unnamed to a screen reader
 
 Buttons across the whiteboard, sketch pad, document toolbar and status bar announced only as "button". A re-scan found 56 such buttons, not the 13 previously recorded.
 
-### Fixed — several controls were too small to tap reliably
+### Fixed: several controls were too small to tap reliably
 
 Measured across every tab: a tag chip one pixel under the 24px minimum, two toggle labels four pixels short, the Library's per-card selection tick at 13×13, and a link in Settings.
 
-### Fixed — dropdown panels trapped keyboard focus
+### Fixed: dropdown panels trapped keyboard focus
 
-The previous release made every dialog trap Tab inside it, which was right for real dialogs and wrong for the notifications panel, the note picker, the graph popups and the help panels — those sit over a page that stays usable, so focus should be able to leave them.
+The previous release made every dialog trap Tab inside it, which was right for real dialogs and wrong for the notifications panel, the note picker, the graph popups and the help panels, those sit over a page that stays usable, so focus should be able to leave them.
 
-### Fixed — the Agent Activity panel took a third of a phone screen
+### Fixed: the Agent Activity panel took a third of a phone screen
 
 On the Graph tab in particular, where there is no way to scroll it out of the way, it left barely a third of the screen for the map. Its log area is now compact on narrow screens; it still scrolls, so nothing is lost.
 
-### Added — the text-selection popup is now a kebab, with nine actions instead of three
+### Added: the text-selection popup is now a kebab, with nine actions instead of three
 
-Highlight text anywhere in the app and a single ⋯ appears; clicking it opens a menu that stays inside the window, flipping up or sideways near an edge rather than running off it. It now offers *Save as a note*, *Save as a draft*, *Add to a note…*, *Save with its source* (when the passage came from the web reader — a quoted clipping with a link back), *Copy*, *Search the notebook*, *Set a reminder*, *Extract notes…* and *Ask the AI about this*. The old three-button bar could not fit on a phone screen, never appeared for a touch selection or a keyboard one, and had no room to grow.
+Highlight text anywhere in the app and a single ⋯ appears; clicking it opens a menu that stays inside the window, flipping up or sideways near an edge rather than running off it. It now offers *Save as a note*, *Save as a draft*, *Add to a note…*, *Save with its source* (when the passage came from the web reader, a quoted clipping with a link back), *Copy*, *Search the notebook*, *Set a reminder*, *Extract notes…* and *Ask the AI about this*. The old three-button bar could not fit on a phone screen, never appeared for a touch selection or a keyboard one, and had no room to grow.
 
-### Added — the selection menu is reachable without a mouse
+### Added: the selection menu is reachable without a mouse
 
 A long-press drag on a touchscreen now raises the kebab (the popup listened for `mouseup` and nothing else before, so touch selections raised nothing at all), and a new rebindable `Ctrl+Shift+E` opens the menu for a selection made with Shift+Arrow.
 
-### Fixed — the selection popup could render off the left edge of the screen
+### Fixed: the selection popup could render off the left edge of the screen
 
-The clamp that was meant to keep it on screen was nested the wrong way round, so a popup wider than the viewport — which the old three-label bar was, on any phone — ended up at a negative left position instead of pinned to the margin.
+The clamp that was meant to keep it on screen was nested the wrong way round, so a popup wider than the viewport, which the old three-label bar was, on any phone, ended up at a negative left position instead of pinned to the margin.
 
-### Fixed — arrow keys did nothing in most of the app's ⋯ menus
+### Fixed: arrow keys did nothing in most of the app's ⋯ menus
 
-Arrow-key navigation was written inside the note card's menu specifically, so every other kebab menu — saved conversations, the sidebars, and the new selection menu — had none, even though they announce themselves as menus to a screen reader.
+Arrow-key navigation was written inside the note card's menu specifically, so every other kebab menu, saved conversations, the sidebars, and the new selection menu, had none, even though they announce themselves as menus to a screen reader.
 
-### Fixed — eight dialogs let keyboard focus escape behind them
+### Fixed: eight dialogs let keyboard focus escape behind them
 
 The confirm and prompt dialogs, the image viewer, note history, the recycle bin, the skill-run panel, the agent command palette and the graph's connection dialog were all missing a focus trap, because the trap worked from a hard-coded list of dialogs that nobody adding a new one knew about. It now recognises any dialog automatically. The image viewer and command palette also gained the dialog semantics they were missing.
 
-### Performance — the note list builds around 76% fewer DOM elements
+### Performance: the note list builds around 76% fewer DOM elements
 
-Every note card was eagerly building its full 19-item ⋯ menu, hidden, at render time — and rebuilding it on every search keystroke, sort change and save. Menus are now built when first opened. Measured on a 1,501-note notebook: 133,748 elements before, 31,680 after.
+Every note card was eagerly building its full 19-item ⋯ menu, hidden, at render time, and rebuilding it on every search keystroke, sort change and save. Menus are now built when first opened. Measured on a 1,501-note notebook: 133,748 elements before, 31,680 after.
 
-### Performance — the notebook's list queries are served from an index
+### Performance: the notebook's list queries are served from an index
 
 The `entries` table had no index on any of the columns its list queries filter and sort by, so SQLite sorted every live note in the notebook on each request. On a 20,000-note database the main list query went from 46 ms to 15 ms; saving a note is 0.02 ms slower.
 
-### Performance — responses are compressed
+### Performance: responses are compressed
 
-The app served roughly 2.3MB of uncompressed frontend on a cold load, and uncompressed JSON besides. `app.js` is now 70% smaller over the wire (1071.7 KB → 320.1 KB) and `index.html` 75% smaller. Chat streaming, the weekly digest and the live log are unaffected — they still arrive incrementally.
+The app served roughly 2.3MB of uncompressed frontend on a cold load, and uncompressed JSON besides. `app.js` is now 70% smaller over the wire (1071.7 KB → 320.1 KB) and `index.html` 75% smaller. Chat streaming, the weekly digest and the live log are unaffected, they still arrive incrementally.
 
-### Added — a global Undo/Redo system
+### Added: a global Undo/Redo system
 
 Two new buttons in the status bar (Undo/Redo), plus Ctrl+Z / Ctrl+Shift+Z, wired into note delete (single and multi-select), note creation, reminder delete, linking/unlinking notes, and note content edits (which covers attaching or removing an image, since that's just a content edit). Session-only, and deliberately steps aside for a text field's own native undo while you're typing in it.
 
-### Fixed — the Ask tab's search-relevance button did nothing
+### Fixed: the Ask tab's search-relevance button did nothing
 
 `#ask-search-tune` existed in the markup with the right icon and tooltip, but no click handler was ever attached to it. It now opens the same Settings → Preferences "Search relevance" group its sibling buttons elsewhere in the app already jump to, and sits at the right edge of its row instead of squeezed against the mode chip.
 
-### Fixed — draft notes appearing in Library and Graph
+### Fixed: draft notes appearing in Library and Graph
 
-A draft is unfinished by definition, and the Notes tab already excludes drafts from its own note lists — Library's mixed "note" view and the Graph's node list didn't, so an unfinished draft showed up as a first-class card and graph node.
+A draft is unfinished by definition, and the Notes tab already excludes drafts from its own note lists, Library's mixed "note" view and the Graph's node list didn't, so an unfinished draft showed up as a first-class card and graph node.
 
-### Security — a real path-injection finding, closed
+### Security: a real path-injection finding, closed
 
 CodeQL flagged `POST /files/save`'s filename handling (`py/path-injection`) despite an existing whitelist sanitiser; the sanitiser is now built on `os.path.basename` and the write path is checked for real containment inside the exports folder before it's ever used.
 
 ## [0.1.3] - 2026-08-23
 
-### Fixed — chat citation badges silently dropped in the Chat tab
+### Fixed: chat citation badges silently dropped in the Chat tab
 
-The backend already computed per-sentence note grounding and sent a `grounding` event for any notes-related turn, but the frontend only ever rendered it in the Ask tab — the Chat tab never listened for the event at all, so a chat answer that clearly drew on specific notes named none of them. Each chat bubble now gets its own "Grounded in:" chip strip, the same one the Ask tab already had.
+The backend already computed per-sentence note grounding and sent a `grounding` event for any notes-related turn, but the frontend only ever rendered it in the Ask tab, the Chat tab never listened for the event at all, so a chat answer that clearly drew on specific notes named none of them. Each chat bubble now gets its own "Grounded in:" chip strip, the same one the Ask tab already had.
 
-### Added — search-relevance help and quick-access links
+### Added: search-relevance help and quick-access links
 
-Settings → Preferences → "Search relevance (advanced)" (minimum similarity, above-average margin) had no explanation and no way in except scrolling Settings by hand. Added a hover tooltip and a click-open panel explaining both numbers, plus three quick-access links — the Dashboard's Tools & Features catalog, the Ask tab's Matching Records heading, and Chat's per-turn matching-notes summary — that jump straight to the setting and highlight it.
+Settings → Preferences → "Search relevance (advanced)" (minimum similarity, above-average margin) had no explanation and no way in except scrolling Settings by hand. Added a hover tooltip and a click-open panel explaining both numbers, plus three quick-access links, the Dashboard's Tools & Features catalog, the Ask tab's Matching Records heading, and Chat's per-turn matching-notes summary, that jump straight to the setting and highlight it.
 
-### Added — an "Open exports folder" button, and a configurable export location
+### Added: an "Open exports folder" button, and a configurable export location
 
 Graph PNGs, chat exports and the like landed in the app's data folder with only a toast naming the path. Settings → Data now has a button to open that folder directly (desktop app only), and a new preference to redirect where exports are saved, validated as a real, writable folder before it's accepted.
 
-### Fixed — three preferences silently dropped by Settings
+### Fixed: three preferences silently dropped by Settings
 
-`auto_stale_review_enabled` (the autonomous stale/orphaned-note reviewer), `session_idle_ttl_minutes` (Settings → Account's sign-out timer), and `response_mode` (the Quick/Normal/Detailed picker) each had a working Settings control that saved without error but never actually took effect — some were never echoed back after saving (so the control looked reset on reload even though the saved value was in effect), one was never actually accepted by the save endpoint at all. All three now round-trip correctly.
+`auto_stale_review_enabled` (the autonomous stale/orphaned-note reviewer), `session_idle_ttl_minutes` (Settings → Account's sign-out timer), and `response_mode` (the Quick/Normal/Detailed picker) each had a working Settings control that saved without error but never actually took effect, some were never echoed back after saving (so the control looked reset on reload even though the saved value was in effect), one was never actually accepted by the save endpoint at all. All three now round-trip correctly.
 
-### Fixed — the in-app package installer failing on the packaged Windows build
+### Fixed: the in-app package installer failing on the packaged Windows build
 
-Reported by a real user: installing "Search by meaning" or dictation from Settings → Packages failed with a cryptic "unrecognized arguments" error and no visible cause. The installer was accidentally re-launching the packaged app itself instead of running `pip`, a mistake only possible in the installed .exe, not a source checkout — which is also the real explanation for two earlier, unresolved "pip install just fails" reports. It now finds a real Python on the system and uses that; if none is found, it says so plainly instead of failing mysteriously. The same fix was needed, and applied, to the SearXNG (private web search) setup process for the same reason.
+Reported by a real user: installing "Search by meaning" or dictation from Settings → Packages failed with a cryptic "unrecognized arguments" error and no visible cause. The installer was accidentally re-launching the packaged app itself instead of running `pip`, a mistake only possible in the installed .exe, not a source checkout, which is also the real explanation for two earlier, unresolved "pip install just fails" reports. It now finds a real Python on the system and uses that; if none is found, it says so plainly instead of failing mysteriously. The same fix was needed, and applied, to the SearXNG (private web search) setup process for the same reason.
 
-### Fixed — a missing search-engine component in the packaged build
+### Fixed: a missing search-engine component in the packaged build
 
 The packaged Windows app was missing four internal files needed for the optional local web-search engine (SearXNG) to install itself, producing a "module not found" error for anyone who tried. Fixed, and guarded against happening again for any future addition to that engine.
 
-### Fixed — the background-activity notification visibly shrinking the Chat tab
+### Fixed: the background-activity notification visibly shrinking the Chat tab
 
-Reported and reproduced live: opening the small "Agent Activity" notification panel while on the Chat tab visibly shoved the whole conversation — messages, the composer, the Send button — up the page. The panel was never meant to overlap the conversation at all (only the chat list beside it), so the leftover spacing rule causing the squeeze was removed.
+Reported and reproduced live: opening the small "Agent Activity" notification panel while on the Chat tab visibly shoved the whole conversation, messages, the composer, the Send button, up the page. The panel was never meant to overlap the conversation at all (only the chat list beside it), so the leftover spacing rule causing the squeeze was removed.
 
-### Added — a one-click fix when the built-in search engine can't install
+### Added: a one-click fix when the built-in search engine can't install
 
-If the offline "search by meaning" engine can't be installed (a known limitation on some systems), Settings → Models now offers a single button to switch to an equivalent Ollama-based engine (nomic-embed-text) instead — downloading it and switching over automatically, rather than requiring several manual steps across two different settings panels.
+If the offline "search by meaning" engine can't be installed (a known limitation on some systems), Settings → Models now offers a single button to switch to an equivalent Ollama-based engine (nomic-embed-text) instead: downloading it and switching over automatically, rather than requiring several manual steps across two different settings panels.
 
-### Changed — the in-chat "Web" toggle now visibly shows when it's off
+### Changed: the in-chat "Web" toggle now visibly shows when it's off
 
 The web-search toggle in the chat composer looked identical whether it was on or off, which made it easy to overlook that it was left on (or think it was on when it wasn't). It now dims clearly when off, while staying just as easy to turn on.
 
-### Added — automatic updates for the packaged Windows app
+### Added: automatic updates for the packaged Windows app
 
-Settings → About can now download and install a new release itself — no more being sent back through a browser to redownload and re-run the installer by hand. A popup after login offers it the moment a real release is found (once per version, not every login); Settings → About has the same "Update automatically" action as a manual fallback. Two new, separate switches: whether the app may check GitHub for a release at all, and whether it may apply one automatically once found — turning either off is respected everywhere, including the popup. A "choose a specific version" picker lists recent releases directly in Settings, and a "track the main branch" channel option is now a real, storable preference (main-branch tracking itself still reports honestly as not yet available — no nightly-build pipeline exists yet to make good on it). Every step — checking, downloading, and applying — degrades cleanly when offline or blocked by a firewall/antivirus, and a failed attempt can always be retried, either from the next login's popup or by hand in Settings. Source checkouts (`start.sh`/`start.bat`) already auto-update on every launch via `git pull`; they now default to tracking main (since that's what they're actually doing) and show their own "you were just updated" popup after a real update, using the same mechanism.
+Settings → About can now download and install a new release itself, no more being sent back through a browser to redownload and re-run the installer by hand. A popup after login offers it the moment a real release is found (once per version, not every login); Settings → About has the same "Update automatically" action as a manual fallback. Two new, separate switches: whether the app may check GitHub for a release at all, and whether it may apply one automatically once found, turning either off is respected everywhere, including the popup. A "choose a specific version" picker lists recent releases directly in Settings, and a "track the main branch" channel option is now a real, storable preference (main-branch tracking itself still reports honestly as not yet available, no nightly-build pipeline exists yet to make good on it). Every step, checking, downloading, and applying, degrades cleanly when offline or blocked by a firewall/antivirus, and a failed attempt can always be retried, either from the next login's popup or by hand in Settings. Source checkouts (`start.sh`/`start.bat`) already auto-update on every launch via `git pull`; they now default to tracking main (since that's what they're actually doing) and show their own "you were just updated" popup after a real update, using the same mechanism.
 
-### Fixed — a background embedding-model install failure now retries itself
+### Fixed: a background embedding-model install failure now retries itself
 
-Reported by a real user: when the BGE semantic-search model failed to install, the app fell back to a lower-quality model and stayed there, even after the underlying cause (a transient `pip` failure) resolved itself. A missing `sentence_transformers` package now triggers one automatic reinstall attempt in the background, and search quality recovers on its own once it succeeds — no more permanently stuck on the fallback after a one-off install hiccup.
+Reported by a real user: when the BGE semantic-search model failed to install, the app fell back to a lower-quality model and stayed there, even after the underlying cause (a transient `pip` failure) resolved itself. A missing `sentence_transformers` package now triggers one automatic reinstall attempt in the background, and search quality recovers on its own once it succeeds, no more permanently stuck on the fallback after a one-off install hiccup.
 
-### Added — search inside uploaded images (OCR), and a search box for the Image Gallery
+### Added: search inside uploaded images (OCR), and a search box for the Image Gallery
 
-A whiteboard photo or a scanned page attached to a note used to sit as an opaque file — nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text — "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected. Settings → Packages can now install this feature like any other optional extra, and tries to install the Tesseract program itself automatically too (winget/brew/apt/dnf/pacman, whichever this computer has) rather than only pointing at manual instructions.
+A whiteboard photo or a scanned page attached to a note used to sit as an opaque file, nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text, "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected. Settings → Packages can now install this feature like any other optional extra, and tries to install the Tesseract program itself automatically too (winget/brew/apt/dnf/pacman, whichever this computer has) rather than only pointing at manual instructions.
 
-### Fixed — a security review found two real issues in the new auto-update code, both fixed
+### Fixed: a security review found two real issues in the new auto-update code, both fixed
 
 `POST /update/apply`'s specific-version picker built a GitHub URL from the requested version without checking its shape first; it now only accepts a real release-tag pattern. A failed install used to report the raw system error, which on Windows could include a local file path; it now reports a safe, generic message while the full detail still goes to the app's own logs.
 
 ## [0.1.2] - 2026-08-23
 
-### Added — Dev view / User view console mode, a terminal-style log view, advanced search settings
+### Added: Dev view / User view console mode, a terminal-style log view, advanced search settings
 
-A first-run choice, and a live Settings/tray toggle, for whether the desktop app keeps a console window open ("Dev view") or runs with none at all ("User view"). The mechanism is a relaunch — a detached `pythonw.exe` that never allocates a console — rather than hiding one already created, after "hide console" reports turned out to trace to Windows Terminal/ConPTY returning a handle to a hidden pseudo-console host rather than the real window. Settings → Logs gained a List/Terminal toggle rendering the same records as raw console-style lines, the GUI answer to User view hiding the real thing. Settings → Preferences gained "Search relevance (advanced)" (minimum similarity, above-average margin, reset to default) for tuning semantic search directly instead of only via a code constant.
+A first-run choice, and a live Settings/tray toggle, for whether the desktop app keeps a console window open ("Dev view") or runs with none at all ("User view"). The mechanism is a relaunch, a detached `pythonw.exe` that never allocates a console, rather than hiding one already created, after "hide console" reports turned out to trace to Windows Terminal/ConPTY returning a handle to a hidden pseudo-console host rather than the real window. Settings → Logs gained a List/Terminal toggle rendering the same records as raw console-style lines, the GUI answer to User view hiding the real thing. Settings → Preferences gained "Search relevance (advanced)" (minimum similarity, above-average margin, reset to default) for tuning semantic search directly instead of only via a code constant.
 
-### Fixed — a sign-out bug in the console-mode feature above, found the same session it shipped
+### Fixed: a sign-out bug in the console-mode feature above, found the same session it shipped
 
-The first-run popup could fire before real sign-in, fire again after, and randomly sign the user out. It guarded only on a preference flag that read as "unseen" during a stale-token bootstrap pass (not just "not yet answered"), and it called the same route Settings/tray use to live-restart the desktop process — killing the in-memory session mid-login and racing its own "mark this answered" write against that exit. The popup now requires the preferences fetch to have actually succeeded, and never restarts the process itself.
+The first-run popup could fire before real sign-in, fire again after, and randomly sign the user out. It guarded only on a preference flag that read as "unseen" during a stale-token bootstrap pass (not just "not yet answered"), and it called the same route Settings/tray use to live-restart the desktop process, killing the in-memory session mid-login and racing its own "mark this answered" write against that exit. The popup now requires the preferences fetch to have actually succeeded, and never restarts the process itself.
 
-### Fixed — semantic search returning irrelevant results
+### Fixed: semantic search returning irrelevant results
 
-An unrelated note scored 57% cosine similarity for an unconnected query. The similarity floor assumed "0 means unrelated," which doesn't hold for the current embedding model (BGE-family, anisotropic — unrelated notes routinely land at 0.4-0.6). Added a second, relative floor from each query's own score distribution, self-calibrating rather than a fixed number.
+An unrelated note scored 57% cosine similarity for an unconnected query. The similarity floor assumed "0 means unrelated," which doesn't hold for the current embedding model (BGE-family, anisotropic: unrelated notes routinely land at 0.4-0.6). Added a second, relative floor from each query's own score distribution, self-calibrating rather than a fixed number.
 
-### Fixed — larger local models timing out or failing to respond
+### Fixed: larger local models timing out or failing to respond
 
-Both the Ollama and OpenAI-compatible clients defaulted their request timeout to 120s, unconfigurable — too short for a cold load of a model past roughly 4B parameters on modest hardware. Raised to 600s, and Ollama chat requests now ask the server to keep a model loaded for 30 minutes of idle time instead of its own 5-minute default.
+Both the Ollama and OpenAI-compatible clients defaulted their request timeout to 120s, unconfigurable, too short for a cold load of a model past roughly 4B parameters on modest hardware. Raised to 600s, and Ollama chat requests now ask the server to keep a model loaded for 30 minutes of idle time instead of its own 5-minute default.
 
-### Fixed — drafts
+### Fixed: drafts
 
-The primary Capture box had no way to save a note as a draft at all (only three other, less obvious paths did); it does now. Drafts were also never actually surfaced in the Library despite being documented as such — the sub-tab didn't exist — and, separately, kept showing up in All notes and category views, undercutting the point of a separate Drafts section. All three fixed.
+The primary Capture box had no way to save a note as a draft at all (only three other, less obvious paths did); it does now. Drafts were also never actually surfaced in the Library despite being documented as such, the sub-tab didn't exist, and, separately, kept showing up in All notes and category views, undercutting the point of a separate Drafts section. All three fixed.
 
-### Fixed — a batch of smaller reports
+### Fixed: a batch of smaller reports
 
 The Image Gallery lightbox miscounting images when one's backing file was missing on disk; the tool-call output panel in chat truncating to 300 characters for no reason tied to cost (raised to 4000); a long model id pushing the chat header's buttons onto their own row; a form-alignment gap in Capture's "File under" row; the AI never seeing the similarity score or matched keyword terms behind its own search results, despite that data already existing for the frontend's badges.
 
 ## [0.1.1] - 2026-08-18
 
-### Fixed — two system tray bugs
+### Fixed: two system tray bugs
 
 Both reported directly, right after v0.1.0 shipped. "View Logs" opened
 Settings → Logs unconditionally, reaching straight past the lock screen if
-the app was locked — now it only jumps into Settings when `#lock-overlay`
+the app was locked, now it only jumps into Settings when `#lock-overlay`
 isn't showing, otherwise it just brings the (still locked) window forward.
-"Quit" closed the window but left the process running in its terminal —
+"Quit" closed the window but left the process running in its terminal,
 `window.destroy()` runs on the tray's own thread, not the main thread
 blocked inside `webview.start()`, and a cross-thread destroy call isn't
 guaranteed to unblock that wait. Quit now hard-exits the process directly,
@@ -5882,45 +6732,45 @@ being unnecessary here.
 
 ## [0.1.0] - 2026-08-18
 
-### Added — an allowlist for note attachments
+### Added: an allowlist for note attachments
 
 Reported directly: `POST /entries/{id}/files` (the generic "attach a file"
-button on a note) had no file-type validation at all — anything uploaded,
+button on a note) had no file-type validation at all, anything uploaded,
 video included. `/media/upload` (pasted/dropped images) already had a real
 allowlist for a stored-XSS reason specific to that route; this one is
 broader (attachments download rather than render inline) but still refuses
 video, audio and executable shapes with a clear 415, while covering images,
 PDF, common office formats, and text/code files. Audio specifically is
-tracked as a real feature to add (BACKLOG §75 — capture, playback, a
+tracked as a real feature to add (BACKLOG §75: capture, playback, a
 library page) rather than a permanent refusal.
 
-### Changed — a themed dialog for the document word-count goal
+### Changed: a themed dialog for the document word-count goal
 
-Was a bare `window.prompt()` — functional, but the only dialog in the app
+Was a bare `window.prompt()`, functional, but the only dialog in the app
 with no app styling, font or theme at all. Reported directly. Now a `card
 space-dialog` matching every other small dialog in the app (the space
 create/rename/delete ones, the documents-storage one).
 
-### Fixed — three UI issues at the top of the Documents sidebar
+### Fixed: three UI issues at the top of the Documents sidebar
 
 All reported directly, with a photo. (1) The document title input had no
 floor on how far it could shrink, so on a narrow window it was crushed to
 a few illegible pixels before the toolbar ever wrapped its buttons onto
-their own row — given a real minimum width, the toolbar now wraps instead.
+their own row: given a real minimum width, the toolbar now wraps instead.
 (2) The four new help-tooltip circles (below) rendered as ovals, not
-circles, everywhere except the Graph/Timeline tabs — `--control-h`, the
+circles, everywhere except the Graph/Timeline tabs, `--control-h`, the
 custom property they sized themselves against, is only declared in a
 handful of scopes, and silently resolved to nothing everywhere else,
 falling back to `button.small`'s asymmetric padding. Fixed with a literal
 size instead of a token that isn't always in scope. (3) The Documents/
 Outline pill toggle's "Recent"/"+ New" row was reserving the same
 right-side clearance for the collapse toggle that the tab strip above it
-already reserves, even though the toggle only ever appears once — "+ New"
+already reserves, even though the toggle only ever appears once, "+ New"
 sat well short of the sidebar's real edge with dead space beside it. Given
 its own clearance instead, plus a little extra beyond the bare minimum for
 visual breathing room next to the toggle.
 
-### Fixed — the sidebar collapse toggle escaping to the page's top-left on a phone
+### Fixed: the sidebar collapse toggle escaping to the page's top-left on a phone
 
 Reported directly: the collapse toggle (Notes, Chat and Documents sidebars
 alike) could render pinned near the very top of the viewport, over the app
@@ -5931,15 +6781,15 @@ establish a positioning context for an absolutely-positioned child, so the
 toggle fell through to the page's own initial containing block. `position:
 relative` disables sticky the same way while still containing the toggle.
 
-### Removed — two dead files at the repo root
+### Removed: two dead files at the repo root
 
 `find_emojis.py` was an unreferenced one-off debugging script (scanned
 `app.js` for stray emoji during a past cleanup pass); `mkdocs.yml`
-configured a docs site nothing builds — no CI step, no Makefile target, no
+configured a docs site nothing builds, no CI step, no Makefile target, no
 `mkdocs` dependency anywhere, and the real GitHub Pages site is the
 hand-built `docs/index.html` renderer. Asked for directly.
 
-### Added — help tooltips on Timeline and the three Library subtabs
+### Added: help tooltips on Timeline and the three Library subtabs
 
 Asked for directly, matching the existing Graph tab pattern. The Timeline
 toolbar and the AI Skills, Whiteboards and Image Gallery subtabs each had a
@@ -5953,7 +6803,7 @@ same click/outside-click/Escape listener trio. Verified live: all five
 panels are hidden by default, open correctly positioned under their button,
 and close on outside-click and Escape.
 
-### Fixed — sketch/attachment images rendering below a note's metadata
+### Fixed: sketch/attachment images rendering below a note's metadata
 
 Reported directly ("attached sketches are below note metadata"). The note
 card built its attachment thumbnails and appended them to the list item
@@ -5963,23 +6813,23 @@ inserting the attachment row before the metadata element rather than
 appending after it. Verified live: attachments now render above the
 metadata footer in the note list.
 
-### Fixed — two error-prevention gaps
+### Fixed: two error-prevention gaps
 
 Asked for directly. `deleteAskHistoryTurn` deleted a Q&A permanently with
-no confirmation or undo — its own "clear all" sibling already confirms,
+no confirmation or undo, its own "clear all" sibling already confirms,
 this didn't. Now it does. A reminder's `due_at` could be set in the past
 (create and edit both) with no check, silently creating a reminder that
-could never usefully fire — `POST /reminders` and `PUT /reminders/{id}`
+could never usefully fire, `POST /reminders` and `PUT /reminders/{id}`
 now reject one more than a minute in the past (a small clock-skew/latency
 allowance, not real slack) with a clear 422.
 
-### Fixed — Library thumbnails for pasted/dropped images, not just sketches
+### Fixed: Library thumbnails for pasted/dropped images, not just sketches
 
 Asked for directly ("make the sketches render... the same as how images are
 visually displayed"). Found the opposite of the assumed direction: sketches
 already got a Library thumbnail (a real `Attachment`), but a note with a
-pasted or dropped image — inline markdown in the note's own text, no
-`Attachment` row — got none at all, and its title/preview showed the raw
+pasted or dropped image, inline markdown in the note's own text, no
+`Attachment` row: got none at all, and its title/preview showed the raw
 `![alt](url)` syntax literally. Root cause: `routes_library.py`'s
 `thumb_by_entry` only ever looked at `Attachment` rows, and `_clip()` never
 stripped inline markdown the way `routes_graph.py`'s node-label preview
@@ -5987,22 +6837,22 @@ already did.
 
 Fixed by factoring the shared fix out (`manager.strip_inline_markdown`,
 reused by both `routes_graph.py` and `routes_library.py` instead of two
-near-duplicate regexes) and adding a `thumb_url` fallback — the note's own
+near-duplicate regexes) and adding a `thumb_url` fallback: the note's own
 first inline image, same URL shapes the note editor itself already renders
-— checked only when there's no `Attachment` thumbnail, so a sketch's own
+- checked only when there's no `Attachment` thumbnail, so a sketch's own
 drawing always wins over anything mentioned in its caption. Extended to the
 recycle bin and archive views too, which had no thumbnails of either kind
 before. Verified live: a pasted-image note and a sketch note both show
 correct thumbnails in grid and list view, with clean (non-markdown) titles.
 
-### Added — pagination for `GET /entries`
+### Added: pagination for `GET /entries`
 
 Requested directly ("that is a real app feature... probably needed for
-real world use"). `GET /entries` was genuinely unbounded — every note in
+real world use"). `GET /entries` was genuinely unbounded: every note in
 the notebook, every load, no matter its size. Now takes `limit`/`offset`
 (default page 1000, hard ceiling 5000) and reports the true total via an
 `X-Total-Count` header. `entry/manager.py` grew matching params on all
-three list functions plus three new count helpers — additive, so every
+three list functions plus three new count helpers, additive, so every
 existing in-process caller is unaffected.
 
 `app.js`'s `loadEntries()` fetches pages in a loop, painting the first
@@ -6012,7 +6862,7 @@ exactly as complete as it always was once loading finishes. Caught and
 fixed in the same pass, by grepping every `/entries` call site rather than
 assuming the new default was safe everywhere: three dashboard widgets each
 independently re-fetched the whole list and would have silently truncated
-past 1000 notes (wrong tag counts, most seriously) — now they reuse
+past 1000 notes (wrong tag counts, most seriously), now they reuse
 `allEntries` instead. Also removed dead code found the same way: `copyLogs()`
 built and fetched an `/entries` URL it never used.
 
@@ -6021,7 +6871,7 @@ Verified live: seeded 2500 notes, confirmed exactly 3 page requests fire,
 render, and the dashboard's widgets show correct totals with zero console
 errors.
 
-### Fixed — backend hardening pass
+### Fixed: backend hardening pass
 
 Requested directly ("harden the backend, make sure it's robust"); found by a
 targeted audit rather than guessed at, each verified live before being
@@ -6029,11 +6879,11 @@ called fixed:
 
 - `GET /graph/local/{id}?depth=` had no upper bound; the BFS loop ran
   `range(depth)` regardless, so a large `depth` blocked this single-worker
-  server's one request thread for real wall-clock time — a trivial DoS on a
+  server's one request thread for real wall-clock time, a trivial DoS on a
   personal-notebook app. Now `Query(ge=1, le=6)`, plus the loop breaks as
   soon as its frontier empties instead of finishing out the range.
 - `GET /timeline?days=` had no upper bound either, and fed straight into
-  `timedelta(days=days)` — a large enough value raised an unhandled
+  `timedelta(days=days)`, a large enough value raised an unhandled
   `OverflowError` (Python int too large to convert to C int), surfacing as a
   raw 500 instead of a clean error. Now `Query(ge=0, le=40000)` (0 still
   means "everything").
@@ -6042,40 +6892,40 @@ called fixed:
   (`MAX_DOCUMENT_IMPORT_NOTES`). Now capped at `MAX_IMPORT_FILES = 500` with
   a clear 422 past that, rather than unbounded work per request.
 - Wiki-link resync failures in `create_entry`/`update_entry` were swallowed
-  with no logging — the embedding-refresh block three lines above both of
+  with no logging: the embedding-refresh block three lines above both of
   them explicitly logs on failure ("logged rather than swallowed" is the
   comment right there), and the wiki-link block didn't follow its own
   neighbour's pattern. A real link-resolution bug was invisible in both the
   UI and Settings → Logs; now it isn't.
 - `searxng_manager._run_streaming`'s deadline was only checked *between*
-  output lines — a child process that went quiet without exiting (a stalled
+  output lines: a child process that went quiet without exiting (a stalled
   download, a hung subprocess) blocked the call forever no matter what
   `timeout` said. Reads the pipe from a background thread into a queue now,
   so the deadline is checked on a real poll loop even when nothing is being
   read. Reproduced the actual hang locally before and after the fix.
 
-### Added — Windows installer
+### Added: Windows installer
 
 - A real installed build for Windows: `packaging/windows/memorymap.spec`
   (PyInstaller, onedir) and `packaging/windows/installer.iss` (Inno Setup,
-  per-user install — no admin prompt). `release.yml` now builds and attaches
+  per-user install: no admin prompt). `release.yml` now builds and attaches
   it to the GitHub Release whenever a `v*` tag is pushed. Unsigned for now
   (see README's Windows install note); ships to GitHub Releases only.
 - `core/config.py` and `api/app.py` both located `frontend/` and the app
   icon via a path relative to the source file's own position, which assumes
-  a `src/` layer a PyInstaller bundle doesn't have — both now branch on
+  a `src/` layer a PyInstaller bundle doesn't have: both now branch on
   `sys.frozen` and resolve against the bundle's own extraction root instead.
   Notes now default to `%APPDATA%\MemoryMap AI` (or the platform
   equivalent) only for a frozen build; a source checkout is unaffected.
 
-### Added — system tray, update check
+### Added: system tray, update check
 
 - **System tray for the desktop window.** Closing the window now minimizes it
   to a tray icon instead of quitting; the tray menu is Open / View Logs /
   Restart / Quit. `pystray` + `Pillow` join `pywebview` as the `desktop`
   extra (`core/extras.py`) and are bundled into the Windows installer. Missing
   or unusable on the running platform (no display, package not installed) is
-  a soft fallback, not a crash — the window just closes for real, same as
+  a soft fallback, not a crash, the window just closes for real, same as
   before.
 - **"Check for updates" (Settings → About).** Off by default, same reasoning
   as web search. A `GET /update/check` endpoint compares the running version
@@ -6084,19 +6934,19 @@ called fixed:
   exists) are all new. Caught live rather than merely reasoned about: the new
   `update_check_enabled` preference wasn't declared on `PreferencesBody`, so
   the PUT silently dropped it, and `get_preferences()`'s hand-built response
-  dict never echoed it back either — both fixed.
+  dict never echoed it back either, both fixed.
 
-### Fixed / Added — CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
+### Fixed / Added: CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
 
 - **Security.** All 81 open CodeQL alerts closed. Separately: a private
   note's ciphertext was reaching the AI in four places once a link, card, or
   reminder referencing it predated the note being marked private
-  (`set_private` doesn't touch existing references) — the weekly digest,
+  (`set_private` doesn't touch existing references), the weekly digest,
   `audit_vague_links`, the whiteboard `read_whiteboard`/`search_whiteboard`
   agent tools, and a reminder's entry preview. All four now respect the
   private-note guard; each has a regression test.
-- **Extract notes** (new). Turn selected text — in the Writing Room, a
-  Document, or a whiteboard multi-selection — into one or more AI-drafted
+- **Extract notes** (new). Turn selected text: in the Writing Room, a
+  Document, or a whiteboard multi-selection, into one or more AI-drafted
   notes, auto-filed and auto-linked with real generated reasons, previewed
   before anything is written. Reuses the janitor's filing/merge judgement
   and the librarian's link-reason generation rather than new logic.
@@ -6114,26 +6964,26 @@ called fixed:
 - **Docs.** ~1,000 lines of resolved ROADMAP/BACKLOG items moved into
   `docs/roadmap/HISTORY.md`; both live docs now hold only open work.
 
-### Fixed / Added — work-recovery session: icon system, spaces, timeline, chat dock, link reasons
+### Fixed / Added: work-recovery session: icon system, spaces, timeline, chat dock, link reasons
 
 A previous session's work was lost; the recovery attempt had left the app
 with a broken icon system and several silently-dead features. Baseline was
-16 failing tests, not 2 — six of them because the link-reason feature had
+16 failing tests, not 2, six of them because the link-reason feature had
 never run once (`provider.run_prompt` does not exist).
 
-- **Icons.** The Phosphor stylesheet was vendored but never linked — no icon
+- **Icons.** The Phosphor stylesheet was vendored but never linked, no icon
   in the app rendered. All 367 colour emoji replaced app-wide (frontend and
   backend tool/skill labels) with Phosphor glyphs via a `ph:name` label
   marker (`setLabel()`) for the ~300 that live in JS string literals rather
   than markup. `lucide.min.js` and its dead branch removed.
 - **CSS correctness.** Five custom properties used but never declared
   (`--surface-2`, `--text-main`, `--card-hover`, `--radius-3`,
-  `--accent-alpha-1`) — an undeclared property invalidates its whole
+  `--accent-alpha-1`), an undeclared property invalidates its whole
   declaration, so the workspace menu had no background and timeline cards no
   radius. A literal `\n` inside a `:root[data-glass="off"]` selector list
   invalidated that entire rule.
 - **Spaces.** Rebuilt switcher (markup had been deleted by a bad regex, CSS
-  and JS left behind); create/rename/delete hardened — reserved ids can no
+  and JS left behind); create/rename/delete hardened: reserved ids can no
   longer be claimed, icon values are validated (were interpolated unescaped
   into a class name), delete reassigns every `WorkspaceMixin` model instead
   of four hardcoded ones and no longer reads a deleted ORM row.
@@ -6145,7 +6995,7 @@ never run once (`provider.run_prompt` does not exist).
 - **Chat dock.** Skills folded into one dropdown (selector, Auto|Manual
   pace, Run) instead of four loose controls. Plan is a toggle applied on
   the way out of `sendChatMessage`, so Enter and suggestion chips honour it
-  too — previously only its own button sent a plan.
+  too: previously only its own button sent a plan.
 - **Link reasons.** `audit_vague_links` rewritten onto
   `librarian.generate_link_reason` (the old call target did not exist);
   rejects reasons that are themselves vague; commits once per batch instead
@@ -6158,19 +7008,19 @@ never run once (`provider.run_prompt` does not exist).
   dedicated `auto_link_reason_audit` preference (was previously untested
   that the pass reached the audit at all).
 - **Security.** `_unlink_notes` bypassed the private-note guard that
-  `link_notes` immediately above it enforces — it could unlink and reveal
+  `link_notes` immediately above it enforces, it could unlink and reveal
   the existence of a private note the caller cannot read.
 - **Dashboard.** Widget preview rows: `safeMdSlice` returned the empty
   string whenever an unpaired markdown marker was the first character
   (`cut.slice(0, cut.lastIndexOf(marker))` with index 0), rendering as a
-  bare "…" — now falls back to a plain-text slice. Block markdown (headings,
+  bare "…", now falls back to a plain-text slice. Block markdown (headings,
   lists) rendered as literal syntax because the widgets used the inline-only
   renderer; now strip block syntax and show the note's first line as a
   title. A widget-picker modal (roadmap item 26) on top of the existing
   `dashboard_layout` preference and inline edit mode, not a second store.
 - **Graph.** Fit-to-view computed its bounding box from node centres
   (ignoring radius/halo/label), used a flat 60px margin regardless of
-  container size, and clamped only the zoom-in direction — one distant
+  container size, and clamped only the zoom-in direction, one distant
   outlier collapsed the whole graph to a scale of 0.07. Padded by rendered
   node extent, container-relative margin, clamped both directions.
 - **Whiteboard.** A note card showed 100 characters of escaped plain text
@@ -6179,9 +7029,9 @@ never run once (`provider.run_prompt` does not exist).
 - **Documents.** Full-height sticky sidebar (was shrink-wrapped to its
   content by a duplicate `#doc-sidebar` rule later in the file that re-set
   `align-self: start`). The storage-path disclosure moved into a dialog
-  behind a link-styled button — ~370px back to the document list.
+  behind a link-styled button, ~370px back to the document list.
 - **Sidebars.** Categories, Chats and Recent headers now sit level with
-  their collapse toggle — the toggle is positioned against the card's
+  their collapse toggle: the toggle is positioned against the card's
   border box, the heading row started at the content box, `--space-6`
   lower, with nothing keeping the two in step.
 - **Misc.** `!err?.name === "AbortError"` parsed as `(!err?.name) ===
@@ -6199,28 +7049,28 @@ never run once (`provider.run_prompt` does not exist).
   the user just pressed, not background chatter).
 
 
-### Fixed / Added — whiteboard redo & select, highlighter persistence, arc-label spacing, touch input (roadmap §11, §15)
+### Fixed / Added: whiteboard redo & select, highlighter persistence, arc-label spacing, touch input (roadmap §11, §15)
 
 - Whiteboard: a redo stack (Ctrl+Y / Ctrl+Shift+Z, toolbar button), and a
   real single-item Select tool (was folded into Pan) with Delete/Backspace
   and Escape support.
 - Whiteboard: a highlighter stroke's width/opacity is now saved and
-  restored correctly — it previously reloaded as a plain full-opacity 3px
+  restored correctly: it previously reloaded as a plain full-opacity 3px
   line, losing the tool's whole point.
 - Whiteboard: an arrow tool (shaft + arrowhead as one path/one undo entry).
-  **Its live drag-to-save path was not confirmed working this session** —
+  **Its live drag-to-save path was not confirmed working this session**,
   see HANDOVER.md for why, and check this first next session.
 - Graph (arc view): labels were re-reported as reading like they belonged
-  to the wrong node — widened node spacing, shortened the label limit, and
+  to the wrong node, widened node spacing, shortened the label limit, and
   steepened the label tilt so a label's own reach stays under one node-step.
   Category labels also now get an accent colour, not just bold, so they
   read as a distinct kind of label.
 - Whiteboard and graph: switched from mouse events to pointer events (the
   sketch pad already did this) so touch and pen input work, not just a
-  mouse — not verified against real touch hardware, reasoned from the
+  mouse: not verified against real touch hardware, reasoned from the
   event model.
 
-### Changed — licence: MIT → AGPL-3.0
+### Changed: licence: MIT → AGPL-3.0
 
 MemoryMap is now under the **GNU Affero General Public License v3.0**. The
 licence text is the official one from the FSF, unmodified.
@@ -6238,8 +7088,8 @@ What it means in practice:
 
 **One consequence worth flagging, because it inverts a documented constraint:**
 ANALYSIS.md §34a said "odysseus is AGPL, MemoryMap is MIT, no code crosses in
-either direction." Half of that is now lifted — odysseus's AGPL code *may* come
-in, carrying its notices and attribution — and the other half is tighter:
+either direction." Half of that is now lifted, odysseus's AGPL code *may* come
+in, carrying its notices and attribution, and the other half is tighter:
 nothing from here can go out to an MIT project. §34a is rewritten to say so.
 
 Updated: `LICENSE`, the pyproject classifier, the README badge and footer,
@@ -6247,7 +7097,7 @@ ANALYSIS.md §34a, and the cross-reference line in every roadmap file and
 CLAUDE.md.
 
 
-### Fixed — the owner's reported list
+### Fixed: the owner's reported list
 
 Diagnosed in the running app rather than from the report. Full triage, with
 what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md).
@@ -6261,7 +7111,7 @@ what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md
   cursor so the mode looks like one.
 - **The autonomous-tasks switch turned itself off.** Two controls write that
   preference and the one on the skills panel saved straight to the server
-  without updating `prefsCache` — so the next `savePrefs`, which rebuilds the
+  without updating `prefsCache`, so the next `savePrefs`, which rebuilds the
   whole object from the DOM, read the other checkbox and switched it back.
 - **Light/dark stopped affecting the page background** after using the colour
   scheme selector. The builder computes a page colour *for a mode* and stored
@@ -6284,7 +7134,7 @@ what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md
 - **A text box in "What it remembers".** `save_user_preference` is the model's
   way in; this is the one people reach for first.
 
-### Checked and found correct — not changed
+### Checked and found correct, not changed
 
 - **Password, token and secret storage.** bcrypt with a per-password salt;
   `secrets.token_hex(32)` session tokens held in memory and swept on expiry;
@@ -6293,7 +7143,7 @@ what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md
   The real defect underneath is the highlighter at 5% opacity.
 
 
-### Audited — a week of another agent's work, brought to a mergeable state
+### Audited: a week of another agent's work, brought to a mergeable state
 
 `fix/Antigravity-Audit` arrived with 8 commits, ~9,600 insertions and no test
 files. It had **90 failing tests and 20 ruff errors** against a `main` whose
@@ -6308,24 +7158,24 @@ three new features it brought are documented in §39.
   (Sessions are not thread-safe) and closed it twice, leaked that thread when a
   client hung up, had to be mounted outside `dependencies=locked` and reimplement
   auth by hand, and replaced a transport the same-origin policy protects with
-  one it does not — so any page the user had open could drive the agent. It
+  one it does not, so any page the user had open could drive the agent. It
   also accounted for ~70 of the 90 failures. Two genuine improvements from the
   rewrite were kept: mid-stream `error` events, and tool-error logging.
 - **`generate_skill` removed.** It wrote unvalidated AI-authored skills straight
   into preferences, bypassing `save_skill`'s schema check, built-in-name guard,
-  tool-name validation and `MAX_SKILLS` — and called `config.save_preference`,
+  tool-name validation and `MAX_SKILLS`, and called `config.save_preference`,
   a method with no definition anywhere, so it could only ever have raised.
 
-#### Fixed — security and privacy
+#### Fixed: security and privacy
 
 - **The AI could tag and link private notes.** `tag_note` and `link_notes` grew
   batch arguments and stopped routing through `_require_note`, the one place
   that refuses a private note. The batch feature is kept; the guard is back.
-- **`/media/upload` and `/media/{filename}`** noted as a hardening item — the
+- **`/media/upload` and `/media/{filename}`** noted as a hardening item, the
   filename is whitelisted so there is no traversal, but uploads are served
   same-origin with no type restriction.
 
-#### Fixed — data loss and correctness
+#### Fixed: data loss and correctness
 
 - **JSON export silently dropped `is_deleted`**, so every note in the recycle
   bin would have re-imported as a live note.
@@ -6333,24 +7183,24 @@ three new features it brought are documented in §39.
   stored vector was stacked into one array; a notebook holding two widths
   mid-reindex raised on the ragged list and took every query down with it. The
   same crash, plus an N×N memory blowup, was in the graph's similarity edges
-  and in link suggestions — all three now go through one blocked,
+  and in link suggestions, all three now go through one blocked,
   dimension-safe `embeddings.similar_pairs`.
 - **`?semantic=true` threw away its own ranking**, returning matches in
   notebook order, and swallowed a cold embedding model as "here is your whole
   notebook" instead of a 503.
-- **Notes sharing an uppercase tag stopped being neighbours** — the tag index
+- **Notes sharing an uppercase tag stopped being neighbours**, the tag index
   was keyed lowercase and intersected against unfolded tags.
 - **`search_notes` scaled its ceiling with the context window**, so a 128k
   model could pull 768 note previews into a single tool result.
 - **`find_similar_notes` was listed in `WRITE_TOOLS`**, so a pure read cleared
   the agent's read-dedup ledger and counted as work for the claim checker.
-- **`ask_user` was culled from small models**, leaving them to guess — the
+- **`ask_user` was culled from small models**, leaving them to guess, the
   exact failure that tool exists to prevent.
 - **The memory stream was injected unbounded into the system prompt** on every
   round, past the `PROSE_BUDGET_CHARS` guard that exists to stop that. Now
   capped at 600 characters, newest-first, and never fatal when unavailable.
 
-#### Fixed — features that had never executed once
+#### Fixed: features that had never executed once
 
 - **The background librarian was never started.** `app.py` imported
   `autonomous` and called nothing, so the interval, the on/off switch and three
@@ -6359,7 +7209,7 @@ three new features it brought are documented in §39.
   `except Exception` wide enough to swallow the `AttributeError`. Now
   implemented, and it returns a count.
 - **`VACUUM` moved onto an autocommit connection.** Through a `Session` it
-  works only while it is the first statement — pysqlite defers its BEGIN — and
+  works only while it is the first statement, pysqlite defers its BEGIN, and
   raises once anything has read or written, which is the state the background
   pass leaves behind.
 - **`trigger-autonomous` had no guard**, so each press started another agent
@@ -6368,10 +7218,10 @@ three new features it brought are documented in §39.
   app.js template literals**, all refused by the app's own
   `style-src 'self'` CSP and therefore rendering as no styling at all.
 
-#### Fixed — the interface
+#### Fixed: the interface
 
 - **Every card, field and dialog in the app had no border and no shadow.**
-  `border-style` and `shadow-intensity` — two new Settings controls — were
+  `border-style` and `shadow-intensity`, two new Settings controls, were
   missing from `APPEARANCE_DEFAULTS`, so `undefined` and `NaN` were written
   into two CSS custom properties on `<html>`. Both are invalid where they are
   *used*, which is an `!important` rule matching `.card`, `input`, `textarea`,
@@ -6384,13 +7234,13 @@ three new features it brought are documented in §39.
   now aliased to the real theme-aware tokens.
 - **Graph Trace threw a ReferenceError.** It moved from two `<select>`s to
   click-two-notes and left three references to the locals the selects filled.
-- **Picking a sketch colour left the eraser armed** — the button was renamed
+- **Picking a sketch colour left the eraser armed**, the button was renamed
   and one call kept the old id, swallowed by an optional chain.
 - **Tags / Recycle bin / Activity** lost their markup but kept their click
   handlers; the sidebar shortcuts are back.
 - `applyThemeChoice(undefined)` stamped `data-theme="undefined"` onto `<html>`.
 
-#### Added — tests and lints
+#### Added: tests and lints
 
 46 tests across `test_whiteboard.py`, `test_autonomous.py` and
 `test_antigravity_regressions.py`; 28 of the 32 applicable ones fail against
@@ -6400,7 +7250,7 @@ fallback; the inline-style ban covers app.js; and the dated search tests own
 their own clock.
 
 
-### Fixed — agent robustness pass
+### Fixed: agent robustness pass
 
 - **A skill/plan step now hands the next step the actual notes and
   documents it touched, not just its own prose summary.** Reported as the
@@ -6417,13 +7267,13 @@ their own clock.
   `agent._change_note_id`/`_change_document_id` now resolve each tool's id
   from the field it actually uses.
 
-### Added — §37G, §37I, §37K
+### Added: §37G, §37I, §37K
 
 - **A document importer.** `markitdown` had been an installable extra with
   nothing calling it since it was added; Settings → Import & export now has
   an "Import a document" button (PDF, Word, slides) alongside the existing
   markdown importer. A converted file with more than one top-level heading
-  becomes one note per heading — a deck or a document with real chapters —
+  becomes one note per heading, a deck or a document with real chapters,
   otherwise the whole thing is one note, capped at 25 notes per upload.
 - **The sketch pad accepts a background image.** An "🖼️ Add image" button
   draws a chosen photo onto its own canvas layer beneath the pen strokes, so
@@ -6432,18 +7282,18 @@ their own clock.
   painting white, so erasing a stroke reveals the image underneath instead of
   punching a white hole through it.
 - **`compress_chat`, an agent tool.** The agent can now ask to compress the
-  older part of a long conversation — `POST /chat/compress`'s summarising
-  logic, reused rather than duplicated — but the turn still ends on a review
+  older part of a long conversation, `POST /chat/compress`'s summarising
+  logic, reused rather than duplicated, but the turn still ends on a review
   card the user approves before it replaces anything, the same human-gated
   flow the manual Compress button already used. Deciding *not* to let the
   agent auto-apply its own summary was the point: a summary nobody can
   correct is one they have to trust blindly.
 - **A handful of emoji were missing their colour variation selector**
   (⚡️ ✖️ ▶️ ☑️ ⚠️), rendering as thin text-style glyphs on some platforms next
-  to fully-qualified emoji in the same row — the same bug one of them was
+  to fully-qualified emoji in the same row, the same bug one of them was
   already fixed for once, audited across the rest of the frontend.
 
-### Fixed — a second round of reported UI bugs
+### Fixed: a second round of reported UI bugs
 
 - **Quick sketch's Close button darkened the background instead of closing.**
   `#sketch-overlay` sat at `z-index: 60`, the toast/popup tier; the "close
@@ -6458,7 +7308,7 @@ their own clock.
   as the Library toolbar: one declared `--control-h` for the filter box, the
   sort select and both buttons.
 - **The category sidebar's ✎/🗑 buttons overlapped the note count** instead of
-  replacing it — `background: inherit` was meant to hide the count underneath
+  replacing it: `background: inherit` was meant to hide the count underneath
   but a glass card is never fully opaque. The count now fades out exactly
   when the actions fade in.
 - **A stale login token produced a toast storm before the lock screen.**
@@ -6467,7 +7317,7 @@ their own clock.
   correctly, explained the one real state. The 401 now carries a marker the
   bootstrap loop checks before toasting.
 - **First load now defaults to the Dashboard**, not Notes. Only the fallback
-  changed — a returning visit still opens on whichever tab was last active.
+  changed: a returning visit still opens on whichever tab was last active.
 
 ### Roadmap
 
@@ -6475,16 +7325,16 @@ their own clock.
   resizable/refined web panel, a UI zoom setting, the graph toolbar, sketch
   image/document upload, llama.cpp wiring, chat compression as an agent tool,
   a real Timeline fix, emoji rendering) in priority order, and corrects three
-  stale claims in the roadmap's own top-level priority sections — including
+  stale claims in the roadmap's own top-level priority sections, including
   "the Library tab" listed as an open Tier 3 item after it had been built and
   partly deleted.
 
-### Removed — the three panels the Library replaced (roadmap §36G)
+### Removed: the three panels the Library replaced (roadmap §36G)
 
 **The first surface this project has taken away rather than added.** The Notes
 sidebar's 🗑, 📜 and 🏷 buttons opened the Library, but `#bin-panel`,
 `#activity-panel` and `#tags-panel` were still in the markup and still
-rendered, so each of those three things had two implementations — and the
+rendered, so each of those three things had two implementations, and the
 bin's two could disagree about what was in it, because each fetched its own
 list. Gone with them: `renderBin`, `renderActivity`, `renderTags`, `showPanel`,
 the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
@@ -6505,18 +7355,18 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
 - **Embedding models you can see and remove** (Settings → Optional extras).
   Which models are on this machine, their real size on disk, where the cache
   is, and download / re-download / remove. Answers a question the logs made
-  look alarming: the model is fetched **once** — the HuggingFace requests on
+  look alarming: the model is fetched **once**, the HuggingFace requests on
   every start are checking the copy you already have.
 - **A 🧭 Plan button in the chat.** The `make_plan` tool has existed since
   §35K and the only way to reach it was to hope the model chose it. An action
   rather than a toggle: planning costs a round-trip, and "plan this one" is a
   decision about the message in the box.
 - **SearXNG can start with the app** (Settings → Web search, off by default).
-  Reported as web search "disabling itself" — it was the container going away
+  Reported as web search "disabling itself", it was the container going away
   after a reboot, and every search after that fell through to a rate-limited
   DuckDuckGo.
-- **The dashboard's launcher is three labelled groups** — Start something, Jump
-  to, Run a skill — instead of one grid of seven identical chips doing three
+- **The dashboard's launcher is three labelled groups**, Start something, Jump
+  to, Run a skill, instead of one grid of seven identical chips doing three
   different jobs. The Library, the Timeline and the command palette are
   reachable from it at last.
 - **Optional extras that nothing calls yet are greyed out** and refused
@@ -6527,14 +7377,14 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
 
 - **Web search opens as a column beside the conversation**, not a drawer inside
   the composer dock. Inside the dock it had to be capped at `min(38vh, 20rem)`
-  — a search box, a results list and a whole web page in 20rem — reported as
+  - a search box, a results list and a whole web page in 20rem, reported as
   *"squashed ugly … what it is right now isn't working"*. As a column it needs
   no cap at all, and the reader takes the column over rather than sharing it.
 - **The dock's controls are one visual family**: one corner radius, one border,
   one hover, and selects that give up the platform's chrome. A toggle that is
   on now says so with the accent.
 - **Switches instead of checkboxes** wherever a checkbox means on-or-off.
-  Radios keep `accent-color` — one-of-several is not on-or-off — and
+  Radios keep `accent-color`, one-of-several is not on-or-off, and
   checkboxes in a *list* stay ticks.
 - The **Rediscover** widget renders markdown instead of showing `## Schedule`
   and `**bold**` spelled out.
@@ -6545,7 +7395,7 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
 - **The chat dock drew outside its own card.** Measured at 1849×700 with a
   hand-dragged composer: the dock's box ended at y=614 and the composer at
   y=814, with Send below the window. A dragged height is now trimmed to the
-  room the card has — measured, not guessed — and the *preference* is never
+  room the card has, measured, not guessed, and the *preference* is never
   rewritten, so the box comes back when there is room.
 - **Starting a skill from the dashboard didn't take you to it.** The run began
   and streamed into a tab nobody was looking at.
@@ -6561,7 +7411,7 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
   character class with `*` next to an anchor is the shape to avoid; the linear
   replacement is again the more readable one.
 
-### Fixed — long jobs finish, or say where they stopped (roadmap §35K)
+### Fixed: long jobs finish, or say where they stopped (roadmap §35K)
 
 Two reports, one subject: *"the agent struggles with long tasks like skills
 then cuts out half way through and has to restart, or it hits a limit for tool
@@ -6569,13 +7419,13 @@ calls which has happened quite a bit."*
 
 - **Rounds are earned now, not granted.** The cap counted rounds, which cannot
   tell a model doing eight useful things from a model doing the same thing
-  eight times — and "tag these eight notes" is a search, a read and eight
+  eight times: and "tag these eight notes" is a search, a read and eight
   writes. A round that makes a successful call it has not already made buys
   another round, up to a ceiling. A model looping on one call earns nothing and
   still stops where it always did.
 - **A step that ran out of rounds is no longer ticked off as done.** The runner
   could only see that the step's turn produced text, and "I couldn't finish
-  step 1" is text — so a step cut off mid-job was marked ✓ and the next one ran
+  step 1" is text: so a step cut off mid-job was marked ✓ and the next one ran
   on top of half-finished work. It is marked stalled, the run stops there, and
   the result says which step it stopped on.
 - **Resume from step N.** A run that stopped picks up where it stopped instead
@@ -6583,13 +7433,13 @@ calls which has happened quite a bit."*
   rounds gets a **Continue** button, rather than a paragraph asking you to type
   "carry on".
 
-### Added — the agent can plan a big job and work through it (roadmap §35K)
+### Added: the agent can plan a big job and work through it (roadmap §35K)
 
 Reported: *"I will say fix my categories and it will only merge two categories
 and leave it at that, ignoring the rest."*
 
 A model given one broad instruction does the first part and reports success.
-Skills already solved this — each step is its own turn — but only for a job you
+Skills already solved this, each step is its own turn, but only for a job you
 had saved as a skill. Now the agent can call **`make_plan`**: it writes 2–6
 steps, its turn ends, and the same runner works through them one at a time,
 ticking each off and listing what changed with an Undo on each.
@@ -6598,7 +7448,7 @@ A plan is a skill nobody saved, so it looks and behaves exactly like a skill
 run. A plan that is too long is refused rather than trimmed, because silently
 dropping the end of the job is the failure this exists to prevent.
 
-### Changed — the chat controls moved down to the chat box (roadmap §36B)
+### Changed: the chat controls moved down to the chat box (roadmap §36B)
 
 Asked for directly: *"moving the majority of the ui controls like the
 chat/agent pull, web search and stuff to the bottom bar with the chat input."*
@@ -6606,10 +7456,10 @@ chat/agent pull, web search and stuff to the bottom bar with the chat input."*
 Chat/Agent, Web, answer length, persona, the skill picker and attached notes
 now sit in a dock with the message box, so you set them as you write instead of
 scrolling back to the top of a long conversation. The chat header keeps what is
-about the conversation itself — its name, what it has cost, and Export. The web
+about the conversation itself, its name, what it has cost, and Export. The web
 and persona panels moved down with the buttons that open them.
 
-### Added — compress a long conversation (roadmap §35I)
+### Added: compress a long conversation (roadmap §35I)
 
 Asked for directly: *"there should be a tool as well as a manual command or
 something to be able to compress chat context on longer chats so the AI can
@@ -6618,17 +7468,17 @@ better continue."*
 **🗜 Compress** in the chat header summarises the earlier messages, shows you
 the summary to read and edit, and then sends that in place of them. What it
 fixes is not what it sounds like: a long chat never overflowed the model's
-window — the oldest messages were quietly dropped to make room — so the model
+window, the oldest messages were quietly dropped to make room, so the model
 was forgetting the start of the conversation and re-asking things you had told
 it. A summary keeps the gist of ten messages for the price of one.
 
 Nothing is deleted. Every message stays in the conversation and in the saved
 transcript; only what the model is *sent* changes, and one Undo puts it back.
 
-### Changed — the chat's controls are one strip, and its header has two levels
+### Changed: the chat's controls are one strip, and its header has two levels
 
-The dock under the chat was three stacked bands — skills, controls, then the
-message box — which is most of the height of a short conversation. It is one
+The dock under the chat was three stacked bands, skills, controls, then the
+message box: which is most of the height of a short conversation. It is one
 line now: skills · what the AI may use · how it answers, with everything the
 same height so it reads as a single strip. The skill's description moved into
 the picker's tooltip, where the steps and tools it uses already were.
@@ -6637,11 +7487,11 @@ The chat header shows the conversation's name as a heading with its token count
 and compression state as quiet metadata beneath, instead of a row of things
 that all looked like buttons.
 
-### Fixed — the desktop app could keep running an old build
+### Fixed: the desktop app could keep running an old build
 
 If a button you were told was fixed is still broken, this is why. The frontend
 was served with no `Cache-Control` header at all, which lets a cache reuse it
-without checking — and the desktop shell has no reload button, its own on-disk
+without checking: and the desktop shell has no reload button, its own on-disk
 cache, and restarts the process without clearing it. After an update it could
 go on running the previous `app.js` indefinitely. The files are now served
 `no-cache`, so every start checks for a newer build (and gets a 304 when there
@@ -6649,22 +7499,22 @@ isn't one).
 
 The recycle bin's **Empty now** was the report that led here. It was driven end
 to end in a real browser against this server: the confirm dialog opens, the
-notes go, the bin comes back empty. The fix has been in the code since §35F —
+notes go, the bin comes back empty. The fix has been in the code since §35F,
 what was missing was any guarantee you were running it.
 
-### Fixed — reminders were polled twice a minute, not once
+### Fixed: reminders were polled twice a minute, not once
 
 A rewrite left the previous poller's timer behind. Both timers ran the new
 poller, so the app asked the server for reminders twice as often as intended,
 and two polls landing together could announce the same reminder twice.
 
-### Fixed — all seven tabs stay readable
+### Fixed: all seven tabs stay readable
 
 When the tab strip cannot fit beside the app name and the header buttons it now
 takes a row of its own, instead of scrolling with "Dashboard" clipped against
 the left edge.
 
-### Fixed — the Reminders tab is no longer faded at the edge
+### Fixed: the Reminders tab is no longer faded at the edge
 
 Reported: *"the reminders tab in the top bar is partially faded out on the
 right."* The tab strip's fade meant "this bar scrolls" rather than "there is
@@ -6672,15 +7522,15 @@ more that way", so the last tab stayed dimmed with nothing hidden behind it.
 Each edge now fades only when there is something beyond it, the fade is a fixed
 width rather than a share of the bar, and choosing a tab scrolls it into view.
 
-### Added — any OpenAI-compatible backend (roadmap §6)
+### Added: any OpenAI-compatible backend (roadmap §6)
 
 The headline ask was "support LM Studio". What got built is the **dialect**,
 not the product: LM Studio serves the OpenAI API on `localhost:1234/v1`, and so
 do llama.cpp's server, Jan, vLLM, and Ollama's own `/v1` surface. One provider
 gets all of them, and the only thing that differs between them is an address.
 
-Pick it in **Settings → Models → Model backend**. It applies immediately — no
-restart, nothing to put in `.env` — and the setting is saved whether or not the
+Pick it in **Settings → Models → Model backend**. It applies immediately: no
+restart, nothing to put in `.env`, and the setting is saved whether or not the
 server is answering yet, because "set the address, then start the server" is
 the normal order to do it in.
 
@@ -6688,7 +7538,7 @@ the normal order to do it in.
   about Ollama moved there and is now shared: the think-tag splitter, the
   tool-text gate and the prose-tool-call recovery, the error classes, the
   context ceiling, the neutral `{context_tokens, max_output_tokens}` budget.
-  They were *moved*, not copied — a test asserts they are gone from the old
+  They were *moved*, not copied, a test asserts they are gone from the old
   file, because two copies of a tool-call gate that drift apart is exactly the
   bug this refactor exists to prevent.
 
@@ -6701,11 +7551,11 @@ the normal order to do it in.
   Ollama equivalent: arguments come through as partial JSON spread over many
   chunks, and two concurrent calls interleave on the wire. Folding them by
   arrival order instead of by index produces one unparseable blob the moment a
-  model asks for two things at once — which small models do constantly.
+  model asks for two things at once, which small models do constantly.
 
 - **The window a server *loaded* beats the window a model *could* hold.** LM
   Studio reports both; a 128k model loaded at 4k will drop the front of the
-  prompt — the system prompt, the part telling it that it has tools — if the
+  prompt, the system prompt, the part telling it that it has tools, if the
   app budgets against the bigger number. Where nothing is reported at all
   (plain llama.cpp), a known-model table answers, and where that doesn't
   either, the app says "unknown" and budgets conservatively rather than
@@ -6714,7 +7564,7 @@ the normal order to do it in.
 - **Tool results are addressed by id.** Ollama accepts `{"role": "tool",
   "tool_name": …}`; the OpenAI shape wants a `tool_call_id` matching an id the
   assistant turn issued. The agent keeps writing one dialect and the client
-  translates at the boundary — including the case where a model calls the same
+  translates at the boundary, including the case where a model calls the same
   tool twice in one turn, where matching on name alone leaves a call
   unanswered and the server rejects the whole turn.
 
@@ -6722,7 +7572,7 @@ the normal order to do it in.
   four Ollama generation paths send an options block; `tests/test_providers.py`
   now asserts the equivalent for the new provider, against the payloads that
   actually went out. A path that omits `max_tokens` is a model running unbounded
-  on the backend's defaults — the bug the context-budget work was spent fixing,
+  on the backend's defaults: the bug the context-budget work was spent fixing,
   arriving again through a different door.
 
 - Downloading models is an Ollama capability, so the suggested-downloads panel
@@ -6730,31 +7580,31 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
-### Added — finished background tasks, and a way to quit
+### Added: finished background tasks, and a way to quit
 
 **Settings → Background tasks now shows what stopped, not only what is
 running.** The old rule was that a finished job isn't a task and a screen that
-accumulates them is a log — tidy, and wrong in the one way that matters: a job
+accumulates them is a log, tidy, and wrong in the one way that matters: a job
 that *fails* disappeared at the moment it became interesting. A re-index that
 died halfway left exactly the same empty list as one that finished, and the
 reason existed only in the log console, a different screen you have to know to
 open. Endings are now recorded with their outcome and reason: in memory,
 bounded to the last 40, newest first. Cancelling is reported as *cancelled*
-rather than failed — a user's own decision in red is how people learn to ignore
+rather than failed: a user's own decision in red is how people learn to ignore
 red.
 
 **A Quit button** stops the app and its server properly. Until now the ways out
 were Ctrl+C in a window the launcher hides, or closing the tab and leaving the
-server running — which is why a second start could find its port taken. It is a
+server running: which is why a second start could find its port taken. It is a
 POST behind the unlock gate (a GET would be reachable from a link in another
 tab), it replies before it signals, and it uses SIGINT rather than a hard exit
 so uvicorn's normal shutdown runs and the SearXNG subprocess is torn down by
 the code that knows how.
 
-### Changed — many more suggested models, sorted by what your machine can run
+### Changed: many more suggested models, sorted by what your machine can run
 
-Three chat models became twelve, in three tiers — runs-on-anything, 8 GB, and
-a mixture-of-experts tier for 16 GB and up — in Settings → Models and in the
+Three chat models became twelve, in three tiers, runs-on-anything, 8 GB, and
+a mixture-of-experts tier for 16 GB and up, in Settings → Models and in the
 README, on the current Gemma 4 and Qwen 3.5 families.
 
 The MoE tier is the one worth explaining rather than just listing:
@@ -6768,11 +7618,11 @@ matters: someone reading the list is choosing against hardware they already
 own, and a quality-sorted list puts the model they can't run at the top and the
 one they should start with out of sight. Each says what it is *for* rather than
 how good it is, and the README points at the new "Can use tools" row for agent
-work — read from the model rather than guessed.
+work: read from the model rather than guessed.
 
-### Added — five notebook-audit skills, and taking a link back out
+### Added: five notebook-audit skills, and taking a link back out
 
-Asked for: *"a skill that can do a full audit and clean up of my notebook —
+Asked for: *"a skill that can do a full audit and clean up of my notebook,
 linking notes, removing inaccurate links, analysing categories and tags,
 retagging, changing categories, moving notes, combining duplicates."*
 
@@ -6782,46 +7632,46 @@ would either stop half-finished or have steps so broad a 3B model can't tell
 whether it has done them. Each job also wants a different toolbox, and the
 allowlist is what keeps a run cheap and safe.
 
-- **🩺 Notebook health check** — the audit. Read-only *by construction*: it is
+- **🩺 Notebook health check**: the audit. Read-only *by construction*: it is
   offered no tool that can write, so a model that ignores "change nothing"
   still can't. Finishes by naming which clean-up skill fixes each problem.
-- **🏷 Clean up my tags** — merges plurals, spellings and synonyms via
+- **🏷 Clean up my tags**, merges plurals, spellings and synonyms via
   `rename_tag`, then removes tags that don't match what a note says.
-- **🗂 Reorganise my categories** — proposes a structure first, then creates,
+- **🗂 Reorganise my categories**: proposes a structure first, then creates,
   renames, merges and moves notes into it. `delete_category` is deliberately
   absent: it's destructive, so it would stop a bulk run for a confirm card, and
   merging keeps the notes together rather than scattering them.
-- **🔗 Fix my links** — removes connections that don't hold up and adds ones
+- **🔗 Fix my links**: removes connections that don't hold up and adds ones
   that should exist.
-- **🧬 Find notes worth combining** — reports the merged note it *would* write
+- **🧬 Find notes worth combining**, reports the merged note it *would* write
   and links the group. Deciding what to lose isn't a judgement to hand a model
   across a whole notebook.
 
 **`unlink_notes`** is the tool that made the fourth possible. Its absence had a
 specific cost: an audit could add a connection and never correct one, so a wrong
-link was permanent from inside the app. It is a write but *not* destructive —
+link was permanent from inside the app. It is a write but *not* destructive,
 no writing is lost, both notes survive, and the result carries the `link_notes`
-call that puts it back — because a confirm card on every correction in a tidy-up
+call that puts it back, because a confirm card on every correction in a tidy-up
 run is how people learn to click through confirm cards. (Removing a link by hand
 already worked: the `×` on a link chip in Notes.)
 
-### Changed — the graph tool costs half what it did
+### Changed: the graph tool costs half what it did
 
 Asked for: *"the knowledge graph needs to be very solid and token efficient."*
-It wasn't. Twelve neighbours came back as full `_note_summary` rows — 200-char
+It wasn't. Twelve neighbours came back as full `_note_summary` rows: 200-char
 previews, ISO timestamps, `pinned`, `truncated`, and a null `via` on every
-one-hop result — **~1,230 tokens for one call**, a third of a 4k window before
+one-hop result: **~1,230 tokens for one call**, a third of a 4k window before
 the question or the notes.
 
 A graph walk's job is to say *what connects to what*; reading one in full is
 `get_note`'s job. Rows now carry an id, a 90-character preview, the category,
-how it connects and how far — with tags and `via` omitted when empty rather than
+how it connects and how far, with tags and `via` omitted when empty rather than
 sent as null. **633 tokens**, and a test holds the worst case under 800.
 
-### Changed — skills the model can find, and a budget guard retired
+### Changed: skills the model can find, and a budget guard retired
 
 A skill was findable only by the person who remembered writing it. `when_to_use`
-is a field now — *when* to reach for a skill, as opposed to what it is — and
+is a field now, *when* to reach for a skill, as opposed to what it is, and
 `list_skills` reports it along with `step_count` and `changes_notes`, so a skill
 that alters the notebook reads differently from one that only summarises. The
 note to the model also says plainly that it cannot start a skill itself, because
@@ -6829,7 +7679,7 @@ a model that believes it can will narrate having done so.
 
 **`PROMPT_BUDGET_CHARS` is retired**, on its own instructions. Its comment said
 to retire it if it ever needed raising a third time for a tool rather than for
-prose — and the third time came in the same session, for one added argument on
+prose: and the third time came in the same session, for one added argument on
 `save_skill`. It weighed the *whole* tool registry, and no turn has sent the
 whole registry since `within_budget` started fitting the schemas to the model's
 reported window. A guard that must be raised every time the app legitimately
@@ -6841,31 +7691,31 @@ whole to a 3B model and a 70B one alike; and the existing post-trim test covers
 what actually reaches a 4,096-token model. The registry is capped by the
 model's real window, per turn, by code that is tested.
 
-### Added — the graph is walkable by the AI (roadmap §9)
+### Added: the graph is walkable by the AI (roadmap §9)
 
 Asked directly: *"is the graph an actual knowledge graph? I want it to be one
 for the AI to have easily usable and accessible context."*
 
-It was half of one. The edges were real and persisted — explicit links, reply
-threads, shared tags — and the graph *view* has drawn them as typed edges since
+It was half of one. The edges were real and persisted, explicit links, reply
+threads, shared tags: and the graph *view* has drawn them as typed edges since
 it was built. What the agent could see was `get_note`'s `links` field: a bare
 list of note ids, with no indication of what any of them meant, one note per
 tool call. It could add connections and never follow them.
 
 `related_notes` walks the neighbourhood breadth-first to depth 2, capped at 12
-notes, and **every result says how it connects** — "linked", "thread: this is a
-reply to it", "shares #recipes" — plus how many hops out and which note it hung
+notes, and **every result says how it connects**, "linked", "thread: this is a
+reply to it", "shares #recipes", plus how many hops out and which note it hung
 off. The typing is the point: "you linked these" and "these share a tag" are
 different strengths of evidence, and a flat list of ids hides that. Sharing a
 *category* is deliberately not a connection, since nearly every note shares one.
 
 **Potential connections too**, on request: `include_suggestions` adds notes that
 *read* alike but were never linked. They come back in their own list, labelled
-"NOT linked yet", with an instruction to say so — because the one way this could
+"NOT linked yet", with an instruction to say so, because the one way this could
 mislead is a guess repeated to the user as a fact. Off by default, since a
 similarity sweep costs a comparison per note.
 
-### Security — the AI is locked to this machine by default
+### Security: the AI is locked to this machine by default
 
 The backend address is now *refused* if it isn't on this computer or your own
 network, rather than allowed with a warning. "100% offline, on your machine"
@@ -6873,7 +7723,7 @@ should be a promise the app keeps, not one it reminds you that you are breaking.
 
 Enforced in two places, and the second is the one that matters:
 `preferences.json` is a plain file, and it is what a restored backup or a copied
-config brings with it — so checking only at the endpoint would let an address
+config brings with it, so checking only at the endpoint would let an address
 that never passed through it be used anyway, silently, on every turn. When the
 saved address is refused the app falls back to the local default and logs why,
 rather than refusing to start: it has to open so the setting can be fixed from
@@ -6882,51 +7732,51 @@ inside it.
 Unlocking is a visible switch in Settings → Models, for anyone who genuinely
 wants a hosted API.
 
-### Fixed — "'timeout' is not recognized" on Windows
+### Fixed: "'timeout' is not recognized" on Windows
 
 Reported in use, and real. `start.bat` waited three seconds before opening the
-browser with `timeout /t 3`, and `timeout` is `System32\timeout.exe` — an
+browser with `timeout /t 3`, and `timeout` is `System32\timeout.exe`, an
 external program, not a `cmd` builtin. On any machine whose `PATH` has lost
 System32 it fails outright, and it also refuses to run when its input is
 redirected. It now waits with the virtual environment's own Python, which the
 script has already created and checked at an absolute path, so it needs nothing
 on `PATH` at all.
 
-### Added — peek, colour schemes, and saving a look (roadmap §33)
+### Added: peek, colour schemes, and saving a look (roadmap §33)
 
 Three appearance additions, the first two taken from odysseus.
 
 - **Peek.** A checkbox in the Settings title bar fades the panel so a colour
   change can be seen on the page behind it. The technique is the part worth
   copying: the fade is `color-mix` on the *background*, never element
-  `opacity` — opacity fades the swatches and the controls too, which makes the
+  `opacity`, opacity fades the swatches and the controls too, which makes the
   thing you are trying to judge harder to see rather than easier. It clears
   itself on close and when you leave Appearance, because a panel left
   semi-transparent on the Logs screen reads as a rendering bug.
 
 - **Build a scheme from one colour.** Picking an accent is easy; picking a page
   background that *goes* with it is the part people give up on. Choose a colour
-  and a relationship — monochromatic, analogous, complementary, triadic — and
+  and a relationship, monochromatic, analogous, complementary, triadic, and
   the two are worked out together: the hue rotates by the amount that
   relationship names, the saturation drops hard (a background carrying the
   accent's full saturation is exhausting to read against), and the lightness
   goes to whichever end the *resolved* mode needs, so it is right under
   "System" too.
 
-- **Save the look you built.** Everything the appearance controls write —
-  colours, font, spacing, corners, background, the selected theme — saved under
+- **Save the look you built.** Everything the appearance controls write,
+  colours, font, spacing, corners, background, the selected theme, saved under
   a name and applied again in one click. Stored server-side with the rest of
   your preferences rather than in the browser: a look built by hand is a thing
   you would be upset to lose to a cleared cache, and in preferences it rides
   along in the daily backup and is there in the desktop window too.
 
-### Added — the agent can ask instead of guessing (roadmap §33)
+### Added: the agent can ask instead of guessing (roadmap §33)
 
 Told "delete the one about the beans" when there are three, the agent had
 exactly one move: pick one and act. A confident wrong action on someone's
 notebook is worse than a question, and the user finds out afterwards.
 
-`ask_user` offers 2-6 options as buttons and **ends the turn** — which is the
+`ask_user` offers 2-6 options as buttons and **ends the turn**, which is the
 feature, not a limitation: the model asked because it does not know what to do
 next, so carrying on would mean carrying on with the guess the question exists
 to avoid.
@@ -6937,7 +7787,7 @@ to avoid.
   into the conversation like any other.
 - **A malformed question is recoverable, not fatal.** A model that offers one
   option, or sends `"yes, no"` as a string instead of a list, has made a fixable
-  mistake — the string is parsed, and anything genuinely unusable goes back to
+  mistake: the string is parsed, and anything genuinely unusable goes back to
   the model with the reason so the run continues rather than stranding the user.
 - **It cannot be run as an ordinary tool.** The handler raises, so a path that
   bypasses the agent loop can't fabricate an answer to a question nobody saw.
@@ -6946,19 +7796,19 @@ to avoid.
   while it stays cheap, so the schema is 507 characters and a test holds it
   under 900.
 
-### Added — quick / normal / detailed (roadmap §11)
+### Added: quick / normal / detailed (roadmap §11)
 
 The prompt side of a turn has been budgeted against the model's real window
 since the context work. The **output** side had one number for everything:
 `num_predict` was a flat 1,024 whether the question was "when did I write about
 beans" or "draft me a summary of the last month". Output tokens are generated
-one at a time, so they cost far more wall-clock each than prompt tokens do — a
+one at a time, so they cost far more wall-clock each than prompt tokens do, a
 uniform cap means every short question pays for the possibility of a long
 answer.
 
 One picker in the chat toolbar now moves four settings together: the reply cap,
 the temperature, the thinking toggle and a length hint in the prompt. They
-belong together — capping the reply without telling the model to be brief
+belong together: capping the reply without telling the model to be brief
 truncates it mid-sentence, which reads as a crash rather than as brevity.
 
 - **`normal` is exactly what every turn got before**, and a test says so. It is
@@ -6967,7 +7817,7 @@ truncates it mid-sentence, which reads as a crash rather than as brevity.
 - **Settings a model can't do are never sent.** Thinking is only ever toggled
   *off*: turning it off on a model with none is a harmless no-op, while turning
   it on where it isn't supported is the request that errors. An unset
-  temperature is omitted rather than sent as null — absent means "your default",
+  temperature is omitted rather than sent as null, absent means "your default",
   which is what happened before presets existed.
 - **The picker is per-turn, the preference is the default.** One quick answer
   doesn't change the setting for every answer after it, but the last choice is
@@ -6975,7 +7825,7 @@ truncates it mid-sentence, which reads as a crash rather than as brevity.
 - The mode list is served from `GET /chat/modes` rather than duplicated in
   `app.js`, so adding a fourth preset is a change to `ai/presets.py` alone.
 
-### Security — the backend address is the one setting that can leave the machine
+### Security: the backend address is the one setting that can leave the machine
 
 Everything else about MemoryMap is local by construction: the server binds to
 localhost, the database is a file, nothing phones home. §6 made the chat
@@ -7004,7 +7854,7 @@ case there and refusing them would break the only thing the setting is for.
   entitled to is for it to happen quietly, because the app's headline promise
   is that notes stay on the machine. Settings → Models shows a plain warning
   naming what is being sent where, and it stays until the address changes.
-- A name that does not resolve yet is not an error — "set the address, then
+- A name that does not resolve yet is not an error, "set the address, then
   start the server" is the normal order, and a container name resolves only
   once its container is up.
 
@@ -7017,7 +7867,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **SearXNG was reachable from the local network when run under Docker.** The
   container was created with `-p 8888:8080`, which publishes on *every*
-  interface rather than just this machine — and because Docker installs its
+  interface rather than just this machine, and because Docker installs its
   own firewall rules, a host firewall set to refuse that port never saw the
   packet. SearXNG has no authentication in front of it, so anyone on the same
   network had both a free proxy to the internet and a view of what had been
@@ -7025,7 +7875,7 @@ so the next audit does not have to rediscover them. The other four were real.
   fixed when a container is created, so **a container left behind by an
   earlier version is detected and recreated** rather than started as it was;
   one that cannot be inspected is left alone rather than removed on a guess.
-  The from-source path was never affected — it has always set
+  The from-source path was never affected, it has always set
   `SEARXNG_BIND_ADDRESS=127.0.0.1`.
 
 - **Requests caused by another site's page are refused.** Binding to localhost
@@ -7033,7 +7883,7 @@ so the next audit does not have to rediscover them. The other four were real.
   have the browser send requests to `http://localhost:8000` on your behalf,
   which is how local dev servers and Ollama itself have been attacked. The API
   now checks the `Origin` (or, failing that, `Referer`) against the host the
-  request was actually sent to. Requests carrying neither header still work —
+  request was actually sent to. Requests carrying neither header still work,
   that is curl, the desktop window, and a shortcut, none of which a browser
   sends an origin for. This closes a window that was widest **before a
   password was set**, when the unlock gate is deliberately open and a
@@ -7045,7 +7895,7 @@ so the next audit does not have to rediscover them. The other four were real.
   been. Expiry also forgets the private-note key, so an expired session cannot
   leave decrypted notes behind in memory.
 
-- **Every response carries a strict Content-Security-Policy** — no inline
+- **Every response carries a strict Content-Security-Policy**, no inline
   script or style, no `eval`, and no remote host named anywhere in it. The
   project's existing "no asset from a CDN" rule is what made a policy this
   tight affordable. Alongside it: `X-Content-Type-Options`,
@@ -7060,7 +7910,7 @@ so the next audit does not have to rediscover them. The other four were real.
   "like the terminal running in the background, with key errors flagged".
   Alongside that:
   - **Follow** keeps the newest records in view, and pauses the moment you
-    scroll up to read something — scrolling back to the bottom resumes it.
+    scroll up to read something, scrolling back to the bottom resumes it.
   - **Filters** by level (all / warnings / errors), by source, and by text.
     They re-draw what is already on screen rather than refetching, so changing
     one in the middle of an incident cannot lose the records you were reading.
@@ -7076,17 +7926,17 @@ so the next audit does not have to rediscover them. The other four were real.
 - **The AI can manage categories, not just use them.** It could already file a
   note into a category but had no way to make one, so asking it to organise
   anything ran into a wall. It now has `create_category`, `rename_category`,
-  `merge_categories` and `delete_category` — enough to answer "tidy up my
+  `merge_categories` and `delete_category`, enough to answer "tidy up my
   duplicate categories" or "file these under a new Recipes category".
 
   Deleting a category never deletes notes; they're kept and become
   Uncategorised. Merging and deleting ask for your approval before they run,
-  because neither can be undone afterwards — nothing records which notes came
+  because neither can be undone afterwards, nothing records which notes came
   from where. Creating and renaming can be undone, and offer it.
 
 - **Any error in the log can be copied on its own.** Each record has its own
   copy button that takes the traceback with it, and an open traceback has a
-  **Copy traceback** button of its own — so getting one error out is a click,
+  **Copy traceback** button of its own, so getting one error out is a click,
   not a filter-then-select-across-a-scrolling-box. The error count on the Logs
   menu item is clickable and opens the screen already filtered to errors, and
   **Copy all** relabels itself to "Copy 12 shown" whenever a filter is hiding
@@ -7094,7 +7944,7 @@ so the next audit does not have to rediscover them. The other four were real.
   discover until you pasted it.
 
 - **A support bundle button** (Settings → Logs). It saves a zip containing the
-  log, your settings, app and model status, and how many notes exist — the
+  log, your settings, app and model status, and how many notes exist, the
   things a bug report needs. Nothing is sent anywhere: the file lands on your
   disk and it is entirely your choice whether to share it.
 
@@ -7107,10 +7957,10 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **The results panel says which engine answered, and what that meant.** You
   choose an engine in Settings for a privacy reason, and until now nothing
-  reported whether that choice was honoured — under *Automatic* the engine
+  reported whether that choice was honoured, under *Automatic* the engine
   that answers is not necessarily the one configured. Searches now report
-  "via SearXNG — your own instance, the query stayed on your machine" or
-  "via DuckDuckGo — a third party saw this query, but not your notes",
+  "via SearXNG: your own instance, the query stayed on your machine" or
+  "via DuckDuckGo: a third party saw this query, but not your notes",
   **including when nothing was found**, which is when it matters most and was
   exactly when the panel used to go quiet. Individual results also name the
   upstream engines SearXNG used to find them: it is a metasearch engine, so
@@ -7118,7 +7968,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **The log viewer admits when it has forgotten something.** The buffer keeps
   the most recent 500 records and silently discarded the rest, so a busy hour
-  and a quiet one looked identical — 500 rows either way, with no way to tell
+  and a quiet one looked identical, 500 rows either way, with no way to tell
   whether the top row was the start of the story or the middle of it. It now
   says how many earlier records were dropped and how far back it still
   reaches. Worst in exactly the case the viewer exists for: chasing something
@@ -7136,14 +7986,14 @@ so the next audit does not have to rediscover them. The other four were real.
 ### Changed
 
 - **SearXNG is presented as the recommended way to search**, not "an optional,
-  self-hosted search engine" — the one-click install works now, and it needs
+  self-hosted search engine", the one-click install works now, and it needs
   no Docker and no account. The default setting is deliberately still
   *Automatic*, which prefers SearXNG whenever it is running and falls back to
   DuckDuckGo until you have one, so search keeps working on a fresh notebook.
   (*SearXNG only* remains available and still refuses to fall back.)
 
 - **Autocomplete is pinned off in the generated SearXNG settings.** It is the
-  one thing in a search UI that leaks without a search being run — a fragment
+  one thing in a search UI that leaks without a search being run, a fragment
   of every query goes to a third-party suggestion endpoint as it is typed.
   SearXNG already defaults it off; stating it explicitly means neither a
   hand-edited file nor a changed upstream default can turn it back on.
@@ -7151,12 +8001,12 @@ so the next audit does not have to rediscover them. The other four were real.
 ### Changed
 
 - **The whole prompt is now sized to the model's real context window.** Every
-  part of it — the instructions, the tool definitions, your retrieved notes,
-  the conversation so far, and the results of anything the AI looks up — used
+  part of it: the instructions, the tool definitions, your retrieved notes,
+  the conversation so far, and the results of anything the AI looks up, used
   to have its own separate limit, and nothing ever added them up. Together they
   came to roughly 11,300 tokens against a window that is commonly 4,096: nearly
   three times too big. When that overflows, the *start* of the prompt is what
-  gets discarded, which is the part telling the AI what it can do — so the
+  gets discarded, which is the part telling the AI what it can do, so the
   symptom was an assistant that suddenly forgot it had tools, rather than any
   error you could see.
 
@@ -7172,14 +8022,14 @@ so the next audit does not have to rediscover them. The other four were real.
   long answer costs far more waiting than a long prompt does.
 
 - **MemoryMap now tells Ollama how much context to allocate.** It previously
-  sent no settings at all, so Ollama used its own default — typically 4,096
-  tokens — no matter what the model was capable of. Asking for the right window
+  sent no settings at all, so Ollama used its own default, typically 4,096
+  tokens: no matter what the model was capable of. Asking for the right window
   is what makes the budgeting above true rather than optimistic. Capped at 8,192
   by default because a larger window costs memory; raise `max_context_tokens`
   in preferences if your machine has room.
 
 - **The AI is given as many tools as its model can actually hold.** The number
-  used to be fixed, tuned for a 4,096-token context — which is what Ollama
+  used to be fixed, tuned for a 4,096-token context, which is what Ollama
   falls back to when a model doesn't declare a size, not a fact about any
   particular model. Most current models declare 8k, 32k or far more, and were
   being rationed for no reason; genuinely small ones needed rationing harder
@@ -7193,7 +8043,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **"🎲 Another" in the Rediscover widget often did nothing.** It picked a note
   at random *including the one already on screen*, so a click could land back
-  on the same note — 1 in 10 clicks on a ten-note notebook, half of them on
+  on the same note, 1 in 10 clicks on a ten-note notebook, half of them on
   two notes, and every single one when there was only one note to show. It now
   picks from the others, and says so instead of offering a dead button when
   there's only one note in the notebook.
@@ -7203,19 +8053,19 @@ so the next audit does not have to rediscover them. The other four were real.
   the next day. Two things were wrong.
 
   The route built your clock as "UTC now, plus your offset" and then labelled
-  the result UTC — an aware timestamp claiming `+00:00` while actually holding
+  the result UTC: an aware timestamp claiming `+00:00` while actually holding
   local wall-clock. The AI was told "now is 23:30+00:00" when that `+00:00`
   was a fiction, so when it answered with a timezone of its own (the natural
   thing, having been given one) that answer was trusted as-is and skipped the
-  correction. The reminder landed out by exactly your UTC offset — ten hours
+  correction. The reminder landed out by exactly your UTC offset, ten hours
   in eastern Australia, which turns half an hour away into 10am tomorrow.
   Anyone on UTC never saw it.
 
   Separately, *"in half an hour"* was being handed to a 3B model to work out.
   That is arithmetic, and the answer varied with whichever model happened to be
   installed. **"In …" phrases are now resolved by rule before the AI is asked**
-  — "in half an hour", "in 20 minutes", "in a couple of hours", "in an hour and
-  a half", "in 3 days" and so on — which also means they work **with Ollama
+  - "in half an hour", "in 20 minutes", "in a couple of hours", "in an hour and
+  a half", "in 3 days" and so on: which also means they work **with Ollama
   switched off**, where Magic Add used to refuse outright. Phrases that name a
   time rather than an offset ("at 8pm", "tomorrow morning") still go to the
   model, now inside a timezone frame that is actually true. The time phrase is
@@ -7223,39 +8073,39 @@ so the next audit does not have to rediscover them. The other four were real.
   than repeating "in half an hour" when it fires.
 
 - **Copy buttons work when the app isn't on localhost.** Every copy in the app
-  — a note, an answer, a code block, a log record — used `navigator.clipboard`,
+  - a note, an answer, a code block, a log record, used `navigator.clipboard`,
   which browsers only expose in a *secure context*. On `http://localhost` that
   is satisfied, so this looked fine; reach the app at `http://192.168.1.20:8000`
   or through a tunnel and the entire API is `undefined`, and every copy button
   became a no-op that said "couldn't copy". Copying now tries the modern API,
-  falls back to the older mechanism that works over plain http, and — if the
-  browser refuses both — shows the text in a dialog with it already selected,
+  falls back to the older mechanism that works over plain http, and, if the
+  browser refuses both: shows the text in a dialog with it already selected,
   so Ctrl+C still gets it out.
 
 - **Gravity and Spread no longer pretend to work under the tree layouts.**
-  Both scale the force simulation, which Tree and Radial tree do not run —
-  their positions come from the hierarchy — so the sliders moved, saved their
+  Both scale the force simulation, which Tree and Radial tree do not run,
+  their positions come from the hierarchy, so the sliders moved, saved their
   value, and changed nothing. They are now disabled and dimmed under those
   layouts, with the reason on hover, and restored when you switch back.
 
 - **Custom CSS works under the new security policy.** Settings → Appearance
   applied your CSS by injecting a `<style>` element, which is precisely what
-  the new `Content-Security-Policy` refuses — so the feature would have
+  the new `Content-Security-Policy` refuses: so the feature would have
   silently stopped working. It now uses an adopted stylesheet, which keeps the
   feature *and* the strict policy; the alternative would have been to permit
   inline styles everywhere, including any injected through note text.
 
 - **Renaming or moving the app folder no longer breaks the launcher.** The
   app is installed into its own `.venv` by absolute path, so a renamed folder
-  left the venv pointing at somewhere that no longer exists — and the
+  left the venv pointing at somewhere that no longer exists, and the
   "dependencies already up to date" check, which only watches
   `requirements.txt`, skipped the reinstall that would have fixed it. The
   launch then died with `No module named memorymap`. Both launchers now ask
   the venv whether it can actually import the app, which catches a rename, a
   move, and a half-deleted venv alike.
 
-- **Picking a theme works every time.** A single earlier tweak — one palette,
-  one light/dark choice — sat on top of every theme picked afterwards and
+- **Picking a theme works every time.** A single earlier tweak, one palette,
+  one light/dark choice: sat on top of every theme picked afterwards and
   cancelled that part of it, so a theme could appear to do nothing. Choosing a
   theme now clears the manual settings that theme covers, and leaves the ones
   it says nothing about alone.
@@ -7263,7 +8113,7 @@ so the next audit does not have to rediscover them. The other four were real.
   indigo-tinted, and Lagoon's inset panels and secondary text are no longer
   washed out against their cards.
 - **Background tasks shows SearXNG starting**, not just installing. A start
-  waits up to 90 seconds for the service to answer — the longest silence in
+  waits up to 90 seconds for the service to answer, the longest silence in
   the app, and the one thing missing from the screen that exists to explain
   silences.
 - **The AI emblem has one home.** It was squeezed into the Notes and Chat
@@ -7272,18 +8122,18 @@ so the next audit does not have to rediscover them. The other four were real.
 - **A long note no longer crowds out the rest of your notebook.** Ten notes
   are retrieved so the AI sees ten of them; one note of several pages used to
   fill the prompt on its own. Notes now go in capped, cut with a marker
-  telling the AI exactly how to read the rest — which it could already do.
+  telling the AI exactly how to read the rest, which it could already do.
 - **A chat's prompt stops moving between rounds.** The clock in the system
   prompt carried microseconds, and that line sits above your notes and the
   conversation so far. Ollama caches the prompt only up to the first
   difference, so every round of every turn re-read the whole thing from
-  scratch. It is now to the minute — identical across the rounds of one tool
+  scratch. It is now to the minute, identical across the rounds of one tool
   loop, which is exactly where the re-reading was costing the most.
 - **SearXNG moves to a free port instead of giving up.** Port 8888 is a
   popular number, and "close whatever has it" is advice that assumes you can.
   It now tries 8080, 8081, 8890 and 8899 in turn, and `MEMORYMAP_SEARXNG_PORT`
   picks one yourself. A SearXNG already answering on the wanted port still
-  wins over a free one — that is ours from a previous run, and moving would
+  wins over a free one, that is ours from a previous run, and moving would
   start a second copy beside it.
 - **The dashboard's widgets no longer go missing on a cold load.** Starting the
   app fetched your notes and rendered the open tab at the same time, so the
@@ -7292,8 +8142,8 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Added
 
-- **A new document, without leaving the note.** The *Add to document* picker —
-  in the capture box and in a note's ⋯ menu — offers **＋ New document…**, so
+- **A new document, without leaving the note.** The *Add to document* picker,
+  in the capture box and in a note's ⋯ menu: offers **＋ New document…**, so
   a note can go into a document that does not exist yet.
 - **The app's icon is the app's icon.** The top bar now shows the favicon, so
   the mark in your browser tab and the mark above the tabs are the same thing.
@@ -7309,18 +8159,18 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Saved filters**: name a filter and keep it as a chip above the notes list.
   Stored as a preference, so it survives a restart.
 - **Private notes**: mark any note private and its text is encrypted at rest
-  with AES-GCM. The design is an envelope — a random data key encrypts the
-  notes, and your password only encrypts that key — so changing your password
+  with AES-GCM. The design is an envelope, a random data key encrypts the
+  notes, and your password only encrypts that key, so changing your password
   re-wraps 32 bytes instead of re-encrypting every note, which is where an
   interruption could otherwise lose data. Private notes are kept out of search
   and are never given to the AI, and their embeddings are deleted (a vector
   encodes what a note is about, so keeping one would leak the point). The key
   exists in memory only while the app is unlocked. There is no recovery if you
-  forget your password — that is inherent to encryption, not a shortcut here.
+  forget your password: that is inherent to encryption, not a shortcut here.
 - **Documents tab**: a markdown editor for long-form writing, with a live
   preview, autosave, `Ctrl+S`/`B`/`I`, `.md` and PDF export, and AI editing.
-  Documents are a separate table from notes on purpose — a note is a captured
-  thought, a document is something you sit down and write — so they never
+  Documents are a separate table from notes on purpose, a note is a captured
+  thought, a document is something you sit down and write, so they never
   appear in note search or the graph. AI edits are always shown as a proposal
   to accept or reject, never written straight into the file.
 - **Writing room** (Notes tab): write loose thoughts, get a drafted note back,
@@ -7334,12 +8184,12 @@ so the next audit does not have to rediscover them. The other four were real.
   Uncategorised. Neither can lose a note.
 - **Back-to-top button** on every tab except the graph, and the Notes panels
   (Activity / Tags / Recycle bin) return to the top when opened.
-- **Settings navigation is grouped** — the AI, your notebook, system, getting
-  help — instead of eleven flat buttons. Appearance is unchanged.
+- **Settings navigation is grouped**, the AI, your notebook, system, getting
+  help: instead of eleven flat buttons. Appearance is unchanged.
 - **Settings → Background tasks shows everything that's running**, not just
   two of them. It knew about re-indexing and model downloads; the embedding
   model loading at startup (a ~90 MB download the first time) and the SearXNG
-  install (several minutes) both ran with nothing on that screen to say so —
+  install (several minutes) both ran with nothing on that screen to say so,
   which reads as the app being broken rather than busy. The list now comes
   from the server, with a live step for each job, a progress bar where there
   is a real number to show, and a Quit button only on the jobs that can be
@@ -7350,19 +8200,19 @@ so the next audit does not have to rediscover them. The other four were real.
   that document, and the document lists the notes it draws on, each with a
   detach button. Detaching removes the connection and never the note; binning
   a note takes it out of the document's list on its own. A note you wrote
-  before the document existed can be added afterwards, too — **📄 Add to a
+  before the document existed can be added afterwards, too, **📄 Add to a
   document** in a note's ⋯ menu picks from the documents you have, and the ×
   on the note's 📄 chip detaches it again without going to find the document
   first.
 - **The graph has layouts.** A picker for how the notes are arranged: the
-  force-directed **web** as before, a **tree** — notebook → category → note,
+  force-directed **web** as before, a **tree**, notebook → category → note,
   reading left to right, with a note's replies branching off the note they
-  answer — and a **radial tree**, the same shape wrapped into a circle. Most
+  answer: and a **radial tree**, the same shape wrapped into a circle. Most
   notebooks have far more filing than links, and a force graph of
   mostly-unlinked notes is a cloud of dots; a tree shows the structure that is
   actually there. Your choice is remembered.
 - **Both trees are legible at the size of a real notebook.** Reported with a
-  photo — "the graph tree and radial are a bit hard to read and aren't neat" —
+  photo, "the graph tree and radial are a bit hard to read and aren't neat" ,
   of 29 notes squeezed into the panel's height at eighteen pixels a row. The
   tree now gives every note the room a label needs and pans if that makes it
   taller than the panel, zooming out only when the whole thing nearly fits;
@@ -7370,17 +8220,17 @@ so the next audit does not have to rediscover them. The other four were real.
   than straight diagonals. The radial sizes its rings from the panel and the
   note count instead of a fixed radius, gives each category a wedge of its own
   so a one-note category is not squeezed against its neighbour, and rings by
-  depth — notebook, category, note, reply — so a category that happens to
+  depth, notebook, category, note, reply, so a category that happens to
   contain a thread no longer sits a ring in from its siblings.
-- **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands — one per category
-  or tag — with the bucket size you choose, from days to years. A note sits
+- **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands, one per category
+  or tag: with the bucket size you choose, from days to years. A note sits
   where it is *about* when it says so ("the beans need netting next week"
   plots on that week, marked 🕓, with the date it was written on hover) and at
   when it was written otherwise. Click any note to open it.
 - **Notes remember what "tomorrow" meant.** A note saying "the deadline is
   next Friday" is correct the day it is written and misleading forever after,
   and nothing recorded which Friday it was. Every note's relative time
-  phrases — tomorrow, last week, in three days, next Friday, two months ago —
+  phrases, tomorrow, last week, in three days, next Friday, two months ago,
   are now worked out when it is saved and kept beside it, shown as a small
   chip (`🕓 last week → week of Jul 20`) with the full date on hover. The
   phrase is always shown next to the date, because the resolution is a rule
@@ -7395,48 +8245,48 @@ so the next audit does not have to rediscover them. The other four were real.
 - **A message is only offered the tools it plausibly needs.** Every tool is
   described to the model again on every round of every message, and all of
   them together were about three quarters of what it read before reaching
-  your question — on a small model, most of the window. A question now
+  your question: on a small model, most of the window. A question now
   carries the reading tools; "remind me…" adds the reminder ones; "tidy up my
   notes", which could mean anything, still gets everything. Measured: the
   fixed overhead of a typical question drops from ~3,157 tokens to ~1,439.
-  It only decides what is *offered* — a tool is never blocked from running —
+  It only decides what is *offered*, a tool is never blocked from running,
   and Settings → Tools can turn it off.
 - **Skills are jobs now, not saved prompts.** A skill was a name and a string,
-  and clicking one dropped that string into the chat box — which is why asking
+  and clicking one dropped that string into the chat box, which is why asking
   the AI to make one only ever produced another sentence. A skill now carries
   ordered **steps**, an explicit **tool allowlist**, and declared **inputs**
   it asks you for before it runs, and `save_skill` accepts all of them so the
   AI can write a real one. Skills with only a prompt keep working exactly as
   before.
   - **Naming a skill's tools makes it work on a small model.** Only those
-    tools are offered for the run — 1,963 characters of schema for "Auto-tag
-    my notes" instead of the full registry's 10,215 — and calling anything
+    tools are offered for the run, 1,963 characters of schema for "Auto-tag
+    my notes" instead of the full registry's 10,215: and calling anything
     outside the list is refused rather than merely discouraged. That leaves
     far more of a 4k context window for the actual question.
   - **Running one is a job, not a paragraph.** Each step is its own turn, so
     the steps tick off as they finish, and a step that fails is named with the
     reason instead of the run quietly doing less than it claimed.
-  - **A run ends in what changed** — every note it wrote, with a button to see
+  - **A run ends in what changed**, every note it wrote, with a button to see
     it and a button to put it back. Nothing is taken on trust from the model's
     own account of what it did.
   - **A skill asks for what it needs first.** "Draft an email" has a box for
     who it's to and what it's about, instead of spending a chat round asking.
   - The ten built-in skills moved out of the frontend and are served by the
-    API, so the AI can list and run them too — it used to answer "you have no
+    API, so the AI can list and run them too, it used to answer "you have no
     skills" while ten were on screen.
 
 ### Fixed
 
 - **SearXNG couldn't be imported on Windows at all.** With the install
   finally finishing, the start died on `ModuleNotFoundError: No module named
-  'pwd'` — a POSIX-only module SearXNG imports at the top of one file. It is
+  'pwd'`, a POSIX-only module SearXNG imports at the top of one file. It is
   the only such import in the whole package, and the only thing it's used for
   is naming the current user in an error message that can't be reached without
   a Valkey database. A stand-in module now goes into SearXNG's own virtualenv
   where the platform hasn't got one.
 - **The install said it had worked when it hadn't.** Its final check was
-  `import searx`, which passed on Windows while the thing that actually runs —
-  `searx.webapp` — could not be imported. It checks that now, using the same
+  `import searx`, which passed on Windows while the thing that actually runs,
+  `searx.webapp`, could not be imported. It checks that now, using the same
   settings a real start uses.
 - **The chat box couldn't grow.** It was a one-line `<input>`, so a
   three-sentence question scrolled sideways inside a box the width of the chat
@@ -7445,10 +8295,10 @@ so the next audit does not have to rediscover them. The other four were real.
   newline, which a single-line box couldn't offer at all.
 - **One long note filled the whole list.** Notes past about ten lines are now
   clamped with a fade and a "Show more", so the list stays a list. Only notes
-  that genuinely overflow get one — a note you can already read in full never
+  that genuinely overflow get one, a note you can already read in full never
   grows a button.
 - **The app was naming the wrong embedding model.** Settings → Models said
-  "Built-in (all-MiniLM)" — it had been `BAAI/bge-small-en-v1.5` for two
+  "Built-in (all-MiniLM)", it had been `BAAI/bge-small-en-v1.5` for two
   changes, and the only way to find out was to watch it download from Hugging
   Face in the log. Reported by someone who did exactly that. The name now
   comes from the running service rather than a string in the interface, so it
@@ -7457,17 +8307,17 @@ so the next audit does not have to rediscover them. The other four were real.
 - **The SearXNG install had no progress and no output**, so a working install
   and a hung one looked identical for several minutes. It now shows which of
   five stages it is in, a bar that moves (the download reports real bytes),
-  and the lines pip is printing as it prints them — which is what actually
+  and the lines pip is printing as it prints them, which is what actually
   tells you it is alive while a bar sits still. Both appear on the Web search
   screen and in Settings → Background tasks.
 - **A finished install left "Installing SearXNG…" on screen** under a badge
-  that said "Stopped" — reported with a photo, and the install had in fact
+  that said "Stopped", reported with a photo, and the install had in fact
   succeeded. That line now always says something current.
 - **SearXNG now installs, starts and answers.** Five separate bugs, none of
   them in its log, because three of them happened before it wrote a line.
   - *`git clone` can never work on Windows.* Four files in the SearXNG
     repository have a colon in the name (`…/searxng.conf:socket`), which
-    Windows refuses — git fetches everything and then dies at the checkout,
+    Windows refuses: git fetches everything and then dies at the checkout,
     leaving a half-written folder behind. `pip install <tarball-url>` unpacks
     the same files, so the no-git path was broken there too. The archive is
     now downloaded and unpacked by the app, skipping the handful of members a
@@ -7489,13 +8339,13 @@ so the next audit does not have to rediscover them. The other four were real.
     download whenever that folder existed, then handed it to pip. Reinstalling
     made it permanent rather than fixing it: the wipe used
     `rmtree(ignore_errors=True)`, git marks `.git/objects` read-only, Windows
-    enforces that — so the writable files went, the folder stayed, and the
+    enforces that: so the writable files went, the folder stayed, and the
     wipe reported success. Now the question asked is whether the folder
     *contains a project*, the wipe clears the read-only bit (moving the tree
     aside if it still can't delete it) and says what survived, and an install
     isn't called done until `import searx` works in the new virtualenv.
   - *"SearXNG started but never answered."* The liveness check was
-    `os.kill(pid, 0)` — on Windows any signal but CTRL_C/CTRL_BREAK goes to
+    `os.kill(pid, 0)`, on Windows any signal but CTRL_C/CTRL_BREAK goes to
     `TerminateProcess`, so checking whether the instance was alive killed it.
     The Web search screen polls status every three seconds, so it was killed
     seconds after every start.
@@ -7504,14 +8354,14 @@ so the next audit does not have to rediscover them. The other four were real.
   long URL pushed the layout sideways: a horizontal scrollbar, and text that
   read as scaled up because every paragraph had been stretched to the width of
   the widest thing on screen. Measured at 1280px, the document was 3425px
-  wide. The cause was CSS automatic minimum sizing in two places — a `1fr`
-  grid track and a flex item with `min-width: auto` — which is what stopped
+  wide. The cause was CSS automatic minimum sizing in two places, a `1fr`
+  grid track and a flex item with `min-width: auto`, which is what stopped
   the `overflow-x: auto` already set on code blocks and tables from taking
   effect. Now 0 overflow across six tabs at four widths.
 - **The top bar overflowed itself by up to 215px.** The block meant to let the
   tab strip scroll declared `flex`, but so did the base rule ~70 lines later
   at equal specificity, so the tabs stayed rigid at 579px and the header
-  controls were squeezed to 76px around 201px of buttons — Settings, the lock
+  controls were squeezed to 76px around 201px of buttons, Settings, the lock
   and the theme toggle pushed out of the window. Worst in the desktop shell,
   whose 1200x800 window lands at 800–960 CSS pixels on a scaled display. The
   documented degradation ladder (wordmark → status pill → tab padding → tabs
@@ -7519,19 +8369,19 @@ so the next audit does not have to rediscover them. The other four were real.
   guessed from a breakpoint.
 - **Accent swatches did nothing while any theme was selected.** `[data-accent]`
   rules sit near the top of the stylesheet and `[data-palette]` rules near the
-  bottom, both the same specificity — so the palette won on source order, and
+  bottom, both the same specificity, so the palette won on source order, and
   every theme selects a palette. An explicit pick is now an inline custom
   property, which beats both. Clearing an accent also left it applied, because
   `applyAppearance` re-applied every setting except that one.
-- **The search-engine radios reset themselves.** Picking one saves nothing —
-  "Apply & re-index" does — and the guard against the status poll was a focus
+- **The search-engine radios reset themselves.** Picking one saves nothing,
+  "Apply & re-index" does: and the guard against the status poll was a focus
   check, so the moment focus moved the poll put the saved backend back and the
   setting looked stuck.
 - **Editing an answer reverted when the chat was reopened.** The edit updated
   the message text, but a reopened chat replays the saved step timeline, which
   kept its own copy of the model's original wording.
 - **Sketches couldn't be opened from the graph.** A sketch is a note plus a
-  PNG, so its node showed the caption and nothing else — the drawing was
+  PNG, so its node showed the caption and nothing else, the drawing was
   unreachable from the map. Image attachments now preview in the popup and
   open full size on click.
 - **"New note" on the dashboard did nothing** unless you had left the Notes tab
@@ -7551,7 +8401,7 @@ so the next audit does not have to rediscover them. The other four were real.
 - **`pytest` didn't work in a fresh clone** without an editable install, though
   the README and CONTRIBUTING both say to run exactly that.
 - **Keyword search only matched contiguous substrings.** "bread proving" found
-  a note that "proving bread" did not — word order was something you had to
+  a note that "proving bread" did not: word order was something you had to
   guess. It now matches every word in any order across content and tags, and
   ranks results (exact phrase, then tags, then the opening of a note) rather
   than listing them newest-first. With no AI running this is the whole of
@@ -7559,12 +8409,12 @@ so the next audit does not have to rediscover them. The other four were real.
 - **AI-only buttons looked usable with no AI.** Improve, Magic Add, Draft it
   and AI edit stayed enabled, so you'd type a note, press the button, wait, and
   get an apology. They're disabled with the reason in the tooltip. Save, Ask,
-  search, tags, categories, reminders, documents and the graph are unaffected —
+  search, tags, categories, reminders, documents and the graph are unaffected,
   they work fully without AI.
 - **The status pill announced faults instead of capability.** "search AI
-  unavailable — see Settings → Logs" pointed at a log viewer; it now reads
+  unavailable: see Settings → Logs" pointed at a log viewer; it now reads
   "word search on · AI search unavailable" with the detail in the tooltip.
-- **The command palette had gone stale** — it knew nothing about Documents, the
+- **The command palette had gone stale**, it knew nothing about Documents, the
   writing room, or the newer settings screens.
 - **The chat answered "hey" with a summary of your notebook.** Every message
   was retrieved-for and then answered "using ONLY the notes provided"; on an
@@ -7575,7 +8425,7 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Message metadata was missing whenever tools were on** (the default). The
   agent path never read the token counts out of Ollama's response, so the line
   under each answer lost everything but the model name and elapsed time.
-- **Editing a chat message didn't edit anything** — it copied the text into the
+- **Editing a chat message didn't edit anything**: it copied the text into the
   input box and left the original exchange in place, so a one-word correction
   left the typo, the answer to the typo, and the fix all in the thread. The
   bubble is now the editor, and saving clears the replies that followed.
@@ -7589,12 +8439,12 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Reminders landed at the wrong time.** The due field opened at 9am tomorrow
   rather than now, and Magic Add was given the time in UTC, so every relative
   phrase ("tomorrow evening") resolved against the wrong clock.
-- **The graph node popup could hang off the bottom of the map** — it was
+- **The graph node popup could hang off the bottom of the map**, it was
   positioned before the note loaded, then grew as its chips and buttons
   rendered.
 - **Note timestamps were misaligned** from card to card: two `margin-left:auto`
   in one flex row split the free space between them.
-- **Jumping to a note looked like nothing happened** — the highlight started
+- **Jumping to a note looked like nothing happened**, the highlight started
   fading as the scroll began, so it was gone by the time the note arrived.
 - **The markdown export navigated the app away** instead of downloading: a
   plain link carries no auth header, so the server's 401 was rendered in place
@@ -7611,7 +8461,7 @@ so the next audit does not have to rediscover them. The other four were real.
   /insights/greeting`, cached per time-block, with handwritten fallbacks
   whenever the local model is unavailable), a line summarising your notebook,
   a live clock, and one-tap quick actions. The greeting phrase never contains a
-  name — the display name is added from preferences. The Reminders tab shows a
+  name: the display name is added from preferences. The Reminders tab shows a
   live clock too, so "now" is always visible.
 - **One-click launchers**: `start.bat` (Windows) and `start.sh` (macOS/Linux)
   create the virtualenv, install/update dependencies, copy `.env`, and start
@@ -7642,7 +8492,7 @@ so the next audit does not have to rediscover them. The other four were real.
   halos, and highlighted "hub" notes. The dashboard constellation gains a
   caption and a category colour key.
 - **Notes**: sticky category sidebar, collapsible Capture / Ask / Browse
-  section cards with remembered state, and a richer markdown renderer — GFM
+  section cards with remembered state, and a richer markdown renderer, GFM
   pipe tables, blockquotes, horizontal rules, `####`–`######` headings,
   `~~strikethrough~~`, task-list checkboxes, and bare URLs.
 
@@ -7653,7 +8503,7 @@ so the next audit does not have to rediscover them. The other four were real.
   UI no longer appears frozen during a cold-start search. Live-markdown
   re-rendering is throttled to cut main-thread jank on long answers, and
   anti-buffering headers were added.
-- The dashboard no longer breaks when a widget renderer is synchronous — one
+- The dashboard no longer breaks when a widget renderer is synchronous, one
   failing widget can only spoil its own card.
 - Settings checkboxes stacked correctly instead of running together (the
   `display: block` rule targeted the wrong container).
@@ -7661,7 +8511,7 @@ so the next audit does not have to rediscover them. The other four were real.
   `#settings` / `#prefs-panel` selectors that matched nothing).
 - A failed startup call no longer stops the rest of the app from loading, and
   an unreachable server fails fast with a clear message instead of hanging.
-- `requirements.txt` — two optional extras were written as literal
+- `requirements.txt`, two optional extras were written as literal
   `pip install …` lines, which made pip reject the whole file.
 
 ### Added
@@ -7692,25 +8542,25 @@ so the next audit does not have to rediscover them. The other four were real.
 - **More appearance options.** Nine accent colours, a Font choice
   (System / Serif / Mono), and a Reduce-motion toggle; subtle button press
   feedback throughout.
-- **Action skills — skills that actually *do* things.** Skills can now be
+- **Action skills: skills that actually *do* things.** Skills can now be
   marked "can make changes": running one turns on the AI's tools for that
   message, so it uses them instead of only answering (destructive steps still
-  ask first). Two new tool-using built-ins — 🏷 Auto-tag my notes and
-  🔗 Link related notes — and a "can make changes" checkbox when you create
+  ask first). Two new tool-using built-ins, 🏷 Auto-tag my notes and
+  🔗 Link related notes: and a "can make changes" checkbox when you create
   your own. Action skills are marked with a ⚙ in the chip row.
 - **Per-note "Re-evaluate with AI".** A ⋯-menu action on every note that
   re-runs the AI to refresh its confidence (and category, unless you filed it
-  yourself) and suggests topic tags and links to related notes — each applied
+  yourself) and suggests topic tags and links to related notes, each applied
   with a click, inline on the card. Backed by `POST /entries/{id}/reevaluate`
   and a new `librarian.suggest_tags`; every step is best-effort so it still
   works (with empty suggestions) when the AI is offline.
-- **Chat enhancements.** Per-message actions revealed on hover — copy any
+- **Chat enhancements.** Per-message actions revealed on hover, copy any
   message, **edit & resend** your last question, **regenerate** the last answer
   (re-runs it without a duplicate prompt bubble), and read-aloud; **export a
   conversation to Markdown**; role labels on every bubble; and a friendly
   empty-state welcome so the chat page isn't a blank rectangle.
 - **Graph view enhancements.** On-screen zoom controls (＋ / － / fit-to-view)
-  so zooming no longer depends on discovering scroll/pinch; hover-spotlight —
+  so zooming no longer depends on discovering scroll/pinch; hover-spotlight:
   pointing at a note dims everything except it and its directly-linked
   neighbours (shares one dimming pass with search so they never conflict); a
   "Hide unlinked" toggle to declutter the map to just the connected web; and a
@@ -7741,7 +8591,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Ideas / not yet
 
-- A GitHub Pages **landing page** (marketing/showcase only — the app itself is a
+- A GitHub Pages **landing page** (marketing/showcase only: the app itself is a
   local Python server and can't run on Pages).
 
 ---
@@ -7751,42 +8601,42 @@ so the next audit does not have to rediscover them. The other four were real.
 MemoryMap AI was built in numbered phases and lettered "waves." This is the
 condensed record of what each one delivered.
 
-### Phases 1–5 — Core product
+### Phases 1–5: Core product
 
-- **Phase 1 — Walking skeleton:** server starts, entries stored in SQLite,
+- **Phase 1: Walking skeleton:** server starts, entries stored in SQLite,
   tests green.
-- **Phase 2 — Make the AI real:** auto-categorising janitor + question-answering
+- **Phase 2: Make the AI real:** auto-categorising janitor + question-answering
   librarian + semantic search, verified end-to-end with a real Ollama model.
-- **Phase 3 — Web interface:** capture box, category sidebar, chat panel showing
+- **Phase 3: Web interface:** capture box, category sidebar, chat panel showing
   the answer *and* the raw results, confidence flags.
-- **Phase 3.5 — Model Manager:** pick & download Ollama models in-app; switch the
+- **Phase 3.5: Model Manager:** pick & download Ollama models in-app; switch the
   embedding backend with a safe automatic re-index.
-- **Phase 4 — Core MVP:** single-user unlock, manual overrides, recycle bin,
+- **Phase 4: Core MVP:** single-user unlock, manual overrides, recycle bin,
   entry linking, guided mode, audit viewer, export, preferences.
-- **Phase 5 — Quick access + polish:** recent questions, most-used dashboard,
+- **Phase 5: Quick access + polish:** recent questions, most-used dashboard,
   optional AI profile, glassmorphism UI with dark mode.
 
-### Waves A–I — Platform, power features, hardening
+### Waves A–I: Platform, power features, hardening
 
-- **Waves A–D — App shell & power features:** tabbed UI, settings modal, log
+- **Waves A–D: App shell & power features:** tabbed UI, settings modal, log
   viewer, note threads/files/pins/tags, chat tab with personas and saved
   conversations, dashboard, reminders.
-- **Wave E — Graph view:** Obsidian-style force-directed map (D3 vendored
+- **Wave E: Graph view:** Obsidian-style force-directed map (D3 vendored
   locally).
-- **Wave F — Platform:** command palette (Ctrl/Cmd-K), markdown import/export,
+- **Wave F: Platform:** command palette (Ctrl/Cmd-K), markdown import/export,
   daily local backups + restore, PWA + mobile pass, opt-in web search, sketch pad.
-- **Wave G — Agentic tools + skills:** the chat AI can create/tag/pin/link/delete
+- **Wave G: Agentic tools + skills:** the chat AI can create/tag/pin/link/delete
   notes and set reminders (destructive actions always confirmed), plus one-click
   skills.
-- **Wave H — Voice & desktop:** local Whisper dictation (optional), read-aloud,
+- **Wave H: Voice & desktop:** local Whisper dictation (optional), read-aloud,
   and a `python -m memorymap --desktop` window (optional pywebview).
-- **Wave I — Hardening:** GitHub Actions CI (offline test suite), accessibility +
+- **Wave I: Hardening:** GitHub Actions CI (offline test suite), accessibility +
   keyboard + loading polish.
 
-### Later waves — UI & graph refinements
+### Later waves: UI & graph refinements
 
 - **Wave K:** empty states, streak widget, high-contrast mode, larger tap targets.
-- **Wave L:** UI rework — accessibility, usability, design.
+- **Wave L:** UI rework, accessibility, usability, design.
 - **Wave M:** graph filters + search + pinning, image thumbnails, sharing, batch
   operations.
 - **Wave N:** graph fixes + auto-linking, AI writing help, a dedicated utility

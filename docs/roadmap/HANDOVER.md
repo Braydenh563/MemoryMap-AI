@@ -1,5 +1,11 @@
 # HANDOVER
 
+> **Models and count, the owner 2026-10-05:** mainly Opus; Sonnet for well defined, labour tasks ("actually mainly use opus but just remember that sonnet is there for well defined and labour tasks"). Once the current four finish, at most three agents at once.
+>
+> **More Sonnet, the owner 2026-10-05:** "focus on finishing everything open. work faster, be thorough, be more token efficient. Ill allow more agents if they are sonnet 5.5". At most four Opus; extra agents beyond that are Sonnet. Shared rules: agent-remaining/agent_rules_1005.md.
+>
+> **Agent count, the owner 2026-10-05:** "after these agents are done drop down one or two agents so the usage isnt as close". Running agents are not replaced as they finish; at most four at once from here.
+
 ## 2026-09-08, the third night: read this block first, whoever you are
 
 **If you are the Opus continuation of the Fable session** (same session,
@@ -172,16 +178,16 @@ not confirm it. Never widen a lint; a failing lint found something.
 
 **Where each open section-A item lives** (INBOX number: file, area,
 diagnosis):
-- 66 lightbox in graph fullscreen: `frontend/app.js` lightbox mount (grep
+- 66 lightbox in graph fullscreen: `frontend/js/app.js` lightbox mount (grep
   `lightbox`), `#graph-card` is the fullscreen element; mount the dialog
   inside `document.fullscreenElement` while it is set.
-- 69 agent panel rows: `frontend/app.js` ~35850 (`agent-run-summary`,
+- 69 agent panel rows: `frontend/js/app.js` ~35850 (`agent-run-summary`,
   `agent-run-name`); the caret's toggle handler is per-row and lost on
   re-render; delegate it on the panel.
 - 70 notifications combobox: the panel's outside-click guard closes on a
   click inside `.select-menu` (enhanceSelect at `app.js` ~18359); exclude
   it.
-- 73 mute toggle resets: `frontend/settings.js`, grep `mute`; write the
+- 73 mute toggle resets: `frontend/js/settings.js`, grep `mute`; write the
   value into `prefsCache` before the save round-trip, not after.
 - 74 profile panels and Ctrl+S: `frontend/index.html` "About you
   (optional)" group; a `keydown` on `#settings-modal` for Ctrl/Cmd+S that
@@ -195,7 +201,7 @@ diagnosis):
 - 83 Tools paragraphs: `frontend/index.html` Settings > Tools, "How many
   are offered at once" and "Small model mode"; one line each, the rest
   behind `data-help-for` (pattern at index.html ~5321).
-- 84 marquee behind objects: `frontend/whiteboard.js`, the selection
+- 84 marquee behind objects: `frontend/js/whiteboard.js`, the selection
   rectangle is drawn on the object canvas; draw it on the overlay canvas
   (the one the guides use).
 - 86 zoom popup under dialogs: the zoom indicator's z-index (grep
@@ -209,10 +215,10 @@ diagnosis):
   `:root[data-glass-sheen="on"] .card` (3389); the card blur is off unless
   `data-bg-art="on"` (INBOX 49), which is why "blur does nothing" on a
   still page.
-- 96 drag without pin: `frontend/graph-canvas.js` drag end (grep `fx =`
+- 96 drag without pin: `frontend/js/graph-canvas.js` drag end (grep `fx =`
   and `gcTogglePin`); on drop set `x/y`, clear `fx/fy`, reheat at
   alpha 0.1; pin only on Shift+drag or the menu.
-- 67 gravity: `frontend/graph-worker.js` `tuning()`; `pull` is 0.25x to
+- 67 gravity: `frontend/js/graph-worker.js` `tuning()`; `pull` is 0.25x to
   3.25x; if still spread at 100 on the owner's build, raise to 5x and add
   the component ring.
 
@@ -274,7 +280,7 @@ after a usage reset. Either way, without asking anything:
    backend moves (Briefs 6 to 13), each against its spec tests
    (`tests/test_events.py`, `test_search_engine_spec.py`,
    `test_harness_verifier_spec.py`: strict-xfail, remove the marker as
-   each passes); **Fable**, when available, writes plans and specs,
+   each passes); **never Fable** (the owner, 2026-10-04: it kills usage); Opus writes plans and specs,
    reviews merges line by line and root-causes the invisible bugs. Each
    agent works in its own worktree cut from the branch with its own port
    and data dir, commits per step, and writes its remaining list before
@@ -287,28 +293,62 @@ after a usage reset. Either way, without asking anything:
    in every diff. If a decision seems needed, it is already written in a
    plan file; find it.
 
-### How far each plan actually is (honest, as of 2026-09-08 late)
+### How far each plan actually is (honest, as of 2026-10-03)
 
 The owner: "many of the plan and ui redesign and modernisation documents
-are only just begun or half done." True; this table is the state.
+are only just begun or half done." The 2026-09-08 version of this table said
+so and was right; the plans have since been built through, and this is the
+state now. The line-by-line ledger of what is left is
+`agent-remaining/OPEN.md`, section B.
 
 | Plan | Done | Left |
 | --- | --- | --- |
-| UI_MODERNISATION_PLAN | Phases 0 to 10 (tooling, mass, components, type and glass, motion, per-surface, states, dock grammar, responsive, the Liquid Glass adoptions) | Phase 11, the phone done properly; the items in `archive/agent-remaining/responsive.md`, `consistency.md` and `docks.md` |
-| GRAPH_PLAN | Phases 1 to 6 (canvas and drag, the space, colour rules and groups, utility part one, backend, the node panel) | Phase 4 part two, 6b the minimap, the local pane |
-| DOCUMENTS_PLAN | Phases 0, 1 and 2 in full (the chrome, then CodeMirror 6 as the surface: Live as decorations, findings, undo, search, folding) | Phases 3 to 8; `archive/agent-remaining/documents-engine.md` and `documents-batch.md` |
-| MINDMAP_PLAN | Phases 1 to 5 and the previews | §12, Coggle-level controls (INBOX 93) |
-| AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging inside a step (CHAT_PLAN Phase 4) |
-| WHITEBOARD_PLAN | One surface per panel, the Arrange section, the marquee and the export fixes | Phases 1 to 4: the rail and keys, the context bar, the export dialog and handles, the mind map regressions and Tidy |
-| CHAT_PLAN | The header and badge, citation numbering, the Sources panel, angle-bracket links (as bug fixes, not phases) | Phases 1 to 4 |
-| TIMELINE_PLAN | Audit and plan only | Phases 1 to 4 |
-| WORLD_CLASS_PLAN / SESSION_BRIEFS | Brief 1; parts of 3 and 10; Brief 18 section A | Briefs 2 to 15; Brief 18 sections B onward |
+| UI_MODERNISATION_PLAN | Phases 0 to 11 (tooling to the Liquid Glass adoptions to the phone done properly), the Settings information architecture (444), consistency pass 1 and the zoom sweep (2026-10-03) | Consistency pass 2 (Settings shell, Reminders on a phone, Library, Notes and Documents chrome, running), Phase 11 item 11's screenshot set, Phase 10's `.glass-clear` |
+| GRAPH_PLAN | Phases 1 to 6, the minimap (6b), the local pane, saved views restoring positions, the lasso as one drag, the 2026-10-03 shape (categories gather, unlinked on a ring) | The `?since=` cursor (nothing polls `/graph`), the local pane's Show switches (left by decision) |
+| DOCUMENTS_PLAN | Phases 0 to 8 (CodeMirror 6, blocks, the connected document, review and history, export, one editor everywhere), the slash menus as one system (section 18), boards and maps as objects in a note (section 19) | The Phase 2, 6 and 8 tails, the engine's three deliberate omissions, the phone's bottom formatting bar |
+| MINDMAP_PLAN | Phases 1 to 5, section 12's controls and structure, section 13's render pass (500 topics: render 47.8 to 149.1 ms, open 965.6 ms) | The 2026-10-03 audit's found-not-fixed list (445 (2)) and the mapux agent's leftovers |
+| AGENT_SKILLS_REFORM | Phases A to D, D verified against a real model (2026-09-20) | The same gate at 3B and 4B, an eval each for CLAUDE.md section 4's unproven list |
+| WHITEBOARD_PLAN | Phases 1 to 4 (the rail and keys, the context bar, export dialog and handles, mind map regressions and Tidy) | Decision 7's other half, the phone context bar comparison, sketch handles at zoom, the arrange panel items |
+| CHAT_PLAN | Phases 1 to 4 (grounding closed 2026-09-23, one composer, Ask unified and the popup agent, skills that finish) | The `evals` breadth (WORLD_CLASS_PLAN 9), the chat stutter notes (413) |
+| TIMELINE_PLAN | Phases 1 to 4, section 7's two measurements | Nothing (the "auto" scale thresholds were tuned 2026-10-04) |
+| WORLD_CLASS_PLAN / SESSION_BRIEFS | Briefs 1 to 34 written; the row check of 2026-09-24, F3, `similar_pairs`, S1 to S3 and S5, the llama.cpp runner | The ranked list of 38 (plan section 8): Brief 15's LAN tail, B2 durable jobs, D2, I1, chunk vectors then I6, I3 |
 
-### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
+### State of the branch (`claude/notes-flow-rebuild`, PR #162)
 
-**Now (2026-09-27, v0.3.3 released from `fix/gemini-fixes-5`, PR 157):** start the
+**Now (2026-10-06, PR 162):** release 0.4.0 is ready to merge: version
+bumped (`__version__`, pyproject, README, every `?v=` stamp), CHANGELOG
+`[0.4.0] - 2026-10-06` with a Highlights block (release.yml cuts the notes
+under 120,000 bytes with a link), CI green on every job including the 49
+E2E browser tests and the Windows install/upgrade/uninstall. Final scan:
+`agent-remaining/final-scan-1006.md` (5 open, none blocking). After the
+merge: tag `v0.4.0` on main; then the next PR from ROADMAP's top block
+(OneNote ideas and meeting notes, the code editor, the rest of 641).
+
+**Before that (2026-10-03 night, PR 162):** merged since evening: Library pages and
+whiteboard/mind map audits (445), job last-run status (438), note making
+(434: Quick note Alt+N, offline outbox, paste/drop, `#tags`), mind map undo
+follow-ups, UI consistency pass 1 (Chat, Graph chrome, Dashboard, Timeline,
+Reminders, Settings jobs) and the zoom sweep: every tab 0 at 200% and 400%
+(433 resolved). Running: UI consistency pass 2 (Settings shell, Reminders
+phone, Library, Notes and Documents chrome, Opus). Next: refresh
+`docs/screenshots` with `readmeshots.js` after pass 2 (today's density pass
+made them stale), then 437 and 434's open parts. `gate.sh --staged` now
+includes the gzip boot budget (CI went red by 141 bytes once). Gate with
+`grep -q "^failed:  none"` before every commit. `smoke.js`,
+`selmenu-items.js`, `captureaudit.js` are the quick feature checks; run
+`zoom.js` one tab at a time (`ONLY=`).
+
+**Before that (2026-10-03 morning, PR 162, branch `claude/notes-flow-rebuild`):** the note
+flow (INBOX 432, in HISTORY "INBOX resolved, 2026-10-03") is fixed end to end
+and measured; a real model runs in the sandbox (`scratchpad/llama-dev.sh`,
+llama.cpp built from source, Qwen2.5-1.5B), so drive the popup agent and
+filing against it before claiming either works. Open after it: INBOX 431
+(5) companion stacking, (6) graph default forces, the companion motion
+work, then 430. Then, as before:
+
+**Before that (2026-09-27, v0.3.3 released from `fix/gemini-fixes-5`, PR 157):** start the
 next PR from the "Carry-over to the next PR (0.3.4)" list at the top of
-[`agent-remaining/wrapup-0927.md`](agent-remaining/wrapup-0927.md), item 1
+[`archive/agent-remaining/wrapup-0927.md`](archive/agent-remaining/wrapup-0927.md), item 1
 first (the `frontend/js/` move).
 
 **A trap this session paid for, keep it.** In the shared worktree,

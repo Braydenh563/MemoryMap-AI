@@ -32,7 +32,8 @@ const { boot } = require('./lib.js');
       const card = cards.find((c) => (c.id + ' ' + c.className).includes(s)) || cards[0];
       if (!card) return { section: s, card: null };
       const cr = card.getBoundingClientRect();
-      const controls = [...card.querySelectorAll('button, select, input:not([type=hidden]), textarea')].filter(visible);
+      // A select the app replaced with its own opener (`.select-native-hidden`: absolute, clipped, 24x1 or 1x40) is not a control a person sees.
+      const controls = [...card.querySelectorAll('button, select:not(.select-native-hidden), input:not([type=hidden]), textarea')].filter(visible);
       const rows = new Map();
       for (const c of controls) {
         const r = c.getBoundingClientRect();

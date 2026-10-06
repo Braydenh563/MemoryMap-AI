@@ -72,7 +72,7 @@ def test_the_least_used_controls_are_behind_one_kebab():
 def test_the_ids_did_not_move():
     """documents.js binds by id. A redesign that renames one is a redesign
     that silently unwires it, the "features that never ran" shape."""
-    js = Path("frontend/documents.js").read_text(encoding="utf-8")
+    js = Path("frontend/js/documents.js").read_text(encoding="utf-8")
     for element_id in re.findall(r'\$\("(doc-[a-z-]+)"\)', js):
         assert f'id="{element_id}"' in HTML, element_id
 
@@ -80,7 +80,7 @@ def test_the_ids_did_not_move():
 def test_the_export_label_is_set_with_setlabel_not_textcontent():
     """The button carries an icon element now. `textContent = …` would wipe
     it, which is the kind of thing that looks fine until you open the menu."""
-    js = Path("frontend/documents.js").read_text(encoding="utf-8")
+    js = Path("frontend/js/documents.js").read_text(encoding="utf-8")
     assert 'setLabel($("doc-export-md")' in js
     assert '$("doc-export-md").textContent' not in js
 
@@ -88,7 +88,7 @@ def test_the_export_label_is_set_with_setlabel_not_textcontent():
 def test_the_kebab_closes_on_a_pick_and_on_a_click_away():
     """`<details>` gives open/close, Enter/Space and Escape. It gives neither
     of these."""
-    js = Path("frontend/documents.js").read_text(encoding="utf-8")
+    js = Path("frontend/js/documents.js").read_text(encoding="utf-8")
     assert "doc-dock-menu-item" in js
     assert "menu.contains(event.target)" in js
 
@@ -127,8 +127,8 @@ def test_every_kebab_uses_the_same_icon():
         p.name: p.read_text(encoding="utf-8")
         for p in (
             Path("frontend/index.html"),
-            Path("frontend/library.js"),
-            Path("frontend/documents.js"),
+            Path("frontend/js/library.js"),
+            Path("frontend/js/documents.js"),
         )
     }
     for name, text in sources.items():
@@ -145,3 +145,15 @@ def test_every_kebab_uses_the_same_icon():
     assert "ph:dots-three" not in sources["library.js"], (
         "library.js is drawing its own kebab again, use kebabMenu() from app.js"
     )
+
+
+def test_enter_in_the_title_starts_the_body():
+    """UX-05: "Trip plan", Enter, "Day one" typed on into the title. The
+    behaviour is measured by scratchpad/ui-sweeps/ux1005-doctitle.js at 1440
+    and 390; this pins the handler's shape so it is not lost."""
+    source = Path("frontend/js/documents.js").read_text(encoding="utf-8")
+    start = source.index('$("doc-title").addEventListener("keydown"')
+    handler = source[start : source.index("\n});", start)]
+    assert "event.isComposing" in handler, "Enter that ends an IME composition is not a line break"
+    assert '"Enter"' in handler and "preventDefault" in handler
+    assert "docCmView.focus()" in handler and 'setDocView(' in handler

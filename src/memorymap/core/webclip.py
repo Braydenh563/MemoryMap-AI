@@ -12,7 +12,7 @@ web reader, and held to the rules that one set (`search/websearch.py`):
   or resolves (any of its answers) to a private, loopback, link-local,
   reserved or metadata address. The connection is then pinned to the address
   that passed, so a second DNS answer cannot walk past the check (the web
-  reader's `_pin_url` and `_PinnedAdapter`, reused rather than copied).
+  reader's `pin_url` and `PinnedAdapter`, now in `core/privacy_http.py`).
 * **Bounded.** `CLIP_MAX_BYTES` and `CLIP_DEADLINE_SECONDS` cap the whole
   fetch, not each socket read: a server that drips a byte a second passes a
   per-read timeout forever and still runs into the deadline here. Past either
@@ -37,6 +37,7 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
+from memorymap.core.privacy_http import PRIVACY_HEADERS, PinnedAdapter, pin_url, strip_tracking
 from memorymap.core.security import UnsafeUrl, public_addresses
 
 #: The largest page a clip will read. Well past any article, and small enough
@@ -66,7 +67,6 @@ class ClipRefused(Exception):
 def _new_session() -> requests.Session:
     """A one-shot session with the web reader's quiet headers and no cookies.
     A seam for the tests, which replace it with a fake network."""
-    from memorymap.search.websearch import PRIVACY_HEADERS
 
     session = requests.Session()
     session.headers.update(PRIVACY_HEADERS)
@@ -75,16 +75,12 @@ def _new_session() -> requests.Session:
 
 
 def clean_url(url: str) -> str:
-    from memorymap.search.websearch import strip_tracking
-
     return strip_tracking((url or "").strip())
 
 
 def fetch_page(url: str) -> dict:
     """GET one public page, checking every hop. Returns
     `{"url": final_url, "html": text}` or raises `ClipRefused`."""
-    from memorymap.search.websearch import _pin_url, _PinnedAdapter
-
     url = clean_url(url)
     deadline = time.monotonic() + CLIP_DEADLINE_SECONDS
     session = _new_session()
@@ -93,11 +89,12 @@ def fetch_page(url: str) -> dict:
             try:
                 addresses = public_addresses(url)
             except UnsafeUrl as exc:
-                raise ClipRefused(f"{exc}.") from exc
-            pinned, host_header = _pin_url(url, addresses[0])
+                # `UnsafeUrl` is a sentence written for a person (core/security.py).
+                raise ClipRefused(str(exc)) from exc
+            pinned, host_header = pin_url(url, addresses[0])
             parsed = urlparse(pinned)
             if parsed.scheme == "https":
-                session.mount(f"https://{parsed.netloc}", _PinnedAdapter(urlparse(url).hostname))
+                session.mount(f"https://{parsed.netloc}", PinnedAdapter(urlparse(url).hostname))
             # CodeQL reads this as SSRF, as it does the web reader's: fetching
             # the page the person asked to clip is the feature. The address
             # was checked on this hop and the connection is pinned to it.

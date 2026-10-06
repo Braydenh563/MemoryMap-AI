@@ -22,10 +22,10 @@ from __future__ import annotations
 import json
 import re
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Conversation, Document, Entry, MediaUpload, WhiteboardObject
+from memorymap.core.database import BoardLibraryItem, Conversation, Document, Entry, MediaUpload, WhiteboardObject
 from memorymap.entry import manager
 
 # Same shape routes_whiteboard.py's own MEDIA_URL_RE validates on the way in, 
@@ -41,6 +41,23 @@ def referenced_names(text: str) -> set[str]:
     deciding what to run OCR/captioning/vision-OCR on at save time, not
     just when deciding what counts as orphaned."""
     return set(_MEDIA_NAME_RE.findall(text or ""))
+
+
+def _could_name_a_file(column):
+    """A WHERE clause for the rows whose text could mention an upload.
+
+    `referenced_names` finds nothing in text without a literal `/media/` in
+    it, so a row without one cannot contribute, and loading it (as an object,
+    text and all) only to run a regex over it is the whole cost of the
+    Library's gallery on a big notebook: 177 ms on 5,000 notes with no uploads
+    (the performance pass, 2026-10-03). SQLite's LIKE folds ASCII case, so
+    this keeps a superset of what the regex reads. Ciphertext is kept too: a
+    private note's stored text is `mmenc1:...`, which says nothing until it is
+    opened, and the pass below must still open it, or note that it could not.
+    """
+    from memorymap.core import crypto
+
+    return or_(column.like("%/media/%"), column.startswith(crypto.PREFIX, autoescape=True))
 
 
 def _referenced_filenames(session: Session) -> tuple[set[str], bool]:
@@ -62,13 +79,28 @@ def _referenced_filenames(session: Session) -> tuple[set[str], bool]:
     #: it. `referenced_names` reads the `data` blob as text and takes the
     #: `/media/...` names out of it, so it does not care which key holds one,
     #: and a kind added later is covered by having been added.
-    for obj in session.scalars(select(WhiteboardObject)):
+    for obj in session.scalars(select(WhiteboardObject).where(_could_name_a_file(WhiteboardObject.data))):
         referenced.update(referenced_names(obj.data))
 
-    for doc in session.scalars(select(Document)):
+    #: A board's background image lives in its settings (WHITEBOARD_PLAN
+    #: decision 24, FEAT-06): before this, setting one made the upload an
+    #: orphan, and "clean up orphaned media" deleted it.
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.board_settings))  # noqa: E712
+    ):
+        referenced.update(referenced_names(entry.board_settings or ""))
+
+    #: A picture saved in the board library (decision 25), the bin's too: an
+    #: item there can be restored or placed, and its picture has to be there.
+    for item in session.scalars(select(BoardLibraryItem)):
+        referenced.update(referenced_names(json.dumps(item.payload or {})))
+
+    for doc in session.scalars(select(Document).where(_could_name_a_file(Document.content))):
         referenced.update(referenced_names(doc.content))
 
-    for entry in session.scalars(select(Entry).where(Entry.is_deleted == False)):  # noqa: E712
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.content))  # noqa: E712
+    ):
         if entry.is_private and crypto.is_encrypted(entry.content) and vault.key() is None:
             skipped_private = True
             continue
@@ -137,15 +169,27 @@ def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
     #: topic carrying a picture is a use of that upload, and a screen that says
     #: "nothing points at this file" while a topic is drawing it is the screen
     #: that offers to delete it.
-    for obj in session.scalars(select(WhiteboardObject)):
+    for obj in session.scalars(select(WhiteboardObject).where(_could_name_a_file(WhiteboardObject.data))):
         for name in referenced_names(obj.data):
             note(name, "board", obj.board_id, "Whiteboard")
 
-    for doc in session.scalars(select(Document)):
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.board_settings))  # noqa: E712
+    ):
+        for name in referenced_names(entry.board_settings or ""):
+            note(name, "board", entry.id, "Board background")
+
+    for item in session.scalars(select(BoardLibraryItem)):
+        for name in referenced_names(json.dumps(item.payload or {})):
+            note(name, "library", item.id, f"Board library: {item.name}")
+
+    for doc in session.scalars(select(Document).where(_could_name_a_file(Document.content))):
         for name in referenced_names(doc.content):
             note(name, "document", doc.id, doc.title)
 
-    for entry in session.scalars(select(Entry).where(Entry.is_deleted == False)):  # noqa: E712
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.content))  # noqa: E712
+    ):
         if entry.is_private and crypto.is_encrypted(entry.content) and vault.key() is None:
             skipped_private = True
             continue

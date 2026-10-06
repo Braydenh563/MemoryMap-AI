@@ -273,7 +273,7 @@ const show = (o) => console.log("    " + JSON.stringify(o));
 
   // **Revised by the owner 2026-09-23** (MINDMAP_PLAN decisions item 6): a
   // cross-link is now drawn exactly like a branch — `wbMapCrossLinkLook` in
-  // frontend/whiteboard.js hands it the same ribbon/curve geometry, the same
+  // frontend/js/whiteboard.js hands it the same ribbon/curve geometry, the same
   // branch colour (its source topic's, falling back to the target's, falling
   // back to the accent), and no dash. What used to distinguish the two kinds
   // by ink alone no longer does; the ring and the context-row checks above

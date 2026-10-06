@@ -67,23 +67,29 @@ def _frontend_js() -> str:
     files' own $("...") lookups.
     """
     app = app_js_text()
-    whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
-    graph = (INDEX.parent / "graph.js").read_text(encoding="utf-8")
-    documents = (INDEX.parent / "documents.js").read_text(encoding="utf-8")
-    library = (INDEX.parent / "library.js").read_text(encoding="utf-8")
-    dashboard = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
-    settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
-    timeline = (INDEX.parent / "timeline.js").read_text(encoding="utf-8")
-    palette = (INDEX.parent / "palette.js").read_text(encoding="utf-8")
-    avatars = (INDEX.parent / "avatars.js").read_text(encoding="utf-8")
-    avatars += "\n" + (INDEX.parent / "atlas.js").read_text(encoding="utf-8")
-    documents_code = (INDEX.parent / "documents-code.js").read_text(encoding="utf-8")
-    documents_prose = (INDEX.parent / "documents-prose.js").read_text(encoding="utf-8")
-    whiteboard_map = (INDEX.parent / "whiteboard-map.js").read_text(encoding="utf-8")
+    whiteboard = (INDEX.parent / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    graph = (INDEX.parent / "js" / "graph.js").read_text(encoding="utf-8")
+    documents = (INDEX.parent / "js" / "documents.js").read_text(encoding="utf-8")
+    library = (INDEX.parent / "js" / "library.js").read_text(encoding="utf-8")
+    dashboard = (INDEX.parent / "js" / "dashboard.js").read_text(encoding="utf-8")
+    settings = (INDEX.parent / "js" / "settings.js").read_text(encoding="utf-8")
+    timeline = (INDEX.parent / "js" / "timeline.js").read_text(encoding="utf-8")
+    palette = (INDEX.parent / "js" / "palette.js").read_text(encoding="utf-8")
+    avatars = (INDEX.parent / "js" / "avatars.js").read_text(encoding="utf-8")
+    avatars += "\n" + (INDEX.parent / "js" / "atlas.js").read_text(encoding="utf-8")
+    documents_code = (INDEX.parent / "js" / "documents-code.js").read_text(encoding="utf-8")
+    documents_prose = (INDEX.parent / "js" / "documents-prose.js").read_text(encoding="utf-8")
+    whiteboard_map = (INDEX.parent / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    #: The board's command table and its sidebar (2026-10-05).
+    whiteboard_extras = "\n".join(
+        (INDEX.parent / "js" / name).read_text(encoding="utf-8")
+        for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js", "whiteboard-history.js")
+        if (INDEX.parent / "js" / name).exists()
+    )
     return (
         app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
         + "\n" + dashboard + "\n" + settings + "\n" + timeline + "\n" + palette + "\n" + avatars
-        + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map
+        + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map + "\n" + whiteboard_extras
     )
 
 
@@ -132,8 +138,8 @@ def test_the_prepaint_theme_table_matches_app_js():
     # It is still the pre-paint copy and still has to match; only its file
     # changed. This test read index.html and, once the block left, reported
     # "the table has moved", which was true, and is exactly what it is for.
-    boot = (INDEX.parent / "theme-boot.js").read_text(encoding="utf-8")
-    settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
+    boot = (INDEX.parent / "js" / "theme-boot.js").read_text(encoding="utf-8")
+    settings = (INDEX.parent / "js" / "settings.js").read_text(encoding="utf-8")
 
     inline = set(re.findall(r"^\s{4}(\w+): \{ ", boot, re.M))
     declared = set(re.findall(r"^  (\w+): \{\n\s+label:", settings, re.M))
@@ -151,7 +157,7 @@ def test_every_theme_names_a_palette_that_exists():
     """A theme selecting a palette with no CSS silently renders as default."""
     # THEME_PRESETS moved to settings.js with the rest of appearance (§88.3
     # item 4): read from there now.
-    app = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
+    app = (INDEX.parent / "js" / "settings.js").read_text(encoding="utf-8")
     css = css_text()
 
     used = set(re.findall(r'palette: "(\w+)"', app))
@@ -176,7 +182,7 @@ def test_rediscover_never_offers_the_note_it_is_already_showing():
     # which is where this guard still belongs. Pointed at the function that
     # holds the behaviour rather than relaxed: the "Another" button is exactly
     # as broken as it ever was if it can hand back the note on screen.
-    app = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
+    app = (INDEX.parent / "js" / "dashboard.js").read_text(encoding="utf-8")
     start = app.index("async function renderRandomShuffle(")
     body = app[start : start + 2200]
     assert "entries.filter(" in body, "the current note is not excluded from the pool"
@@ -187,7 +193,7 @@ def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
     """A live-looking button that cannot do anything is the exact shape of
     "this control is broken", trap 12, arriving by a new route."""
     # renderRandomShuffle holds the shuffle now, see the note above.
-    app = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
+    app = (INDEX.parent / "js" / "dashboard.js").read_text(encoding="utf-8")
     start = app.index("async function renderRandomShuffle(")
     # The end of the function, not a fixed character count. A 2600-char window
     # was doing this job and a comment added inside the function pushed the
@@ -231,7 +237,7 @@ def test_every_appearance_setting_has_a_default():
     # app.js has to be checked against the same table or this test would
     # miss exactly the class of bug it exists for.
     app = app_js_text()
-    settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
+    settings = (INDEX.parent / "js" / "settings.js").read_text(encoding="utf-8")
     block = DEFAULTS_BLOCK.search(settings)
     assert block, "APPEARANCE_DEFAULTS wasn't found in settings.js, has it moved?"
 
@@ -278,7 +284,6 @@ MODEL_GATED_CONTROLS = {
     "doc-ai-run": "/documents/<id>/ai-edit",
     "doc-extract": "/entries/extract/preview",
     "wb-extract-notes": "/entries/extract/preview",
-    "reminder-magic-add": "/reminders/parse",
     "chat-send": "/chat/stream",
     "chat-input": "/chat/stream",
     #: **Atlas is not here, and that is this rule's own rule** (INBOX 304).
@@ -305,6 +310,11 @@ MODEL_GATED_CONTROLS = {
 #: (`scratchpad/ui-sweeps/mindmap3.js` timed out on it).
 WORKS_WITHOUT_A_MODEL = {
     "wb-boards-generate": "/whiteboard/boards/propose",
+    # Magic Add reads "in 20 minutes" and `ai/when`'s wall-clock phrases
+    # ("tomorrow at 5pm", "next Friday", "tonight") with no model, and answers
+    # 503 with a working example only for what neither reads (audit
+    # 2026-10-05, UX-01: gated, the dashboard's "Remind me" was a dead end).
+    "reminder-magic-add": "/reminders/parse",
 }
 
 
@@ -364,3 +374,28 @@ def test_every_model_gated_control_gives_a_reason_and_is_in_the_inventory():
         assert block.group(1) in {"button", "input", "textarea", "select"}, (
             f"{ident} is a <{block.group(1)}>, which has no disabled state to set"
         )
+
+
+def test_the_digest_says_why_it_is_off_on_the_page():
+    """UX-12 (audit 2026-10-05): a disabled button's `title` is the only
+    reason a keyboard or a phone could not reach. The widget carries a line
+    the status poll fills (`[data-offline-line]`), with the Settings link."""
+    js = Path(__file__).resolve().parents[1] / "frontend" / "js"
+    dashboard = (js / "dashboard.js").read_text(encoding="utf-8")
+    widget = dashboard[dashboard.index("async function renderDigestWidget(") :]
+    widget = widget[: widget.index("\n}\n")]
+    assert "dataset.offlineLine" in widget
+    status = (js / "status.js").read_text(encoding="utf-8")
+    sync = status[status.index("function syncModelGatedControls(") :]
+    sync = sync[: sync.index("\n}\n")]
+    assert '"[data-offline-line]"' in sync and "renderAiOfflineNotice(line" in sync
+
+
+def test_a_browser_download_says_so():
+    """UX-11: Export Markdown downloaded with no word on screen."""
+    skills = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
+    save = skills[skills.index("async function saveFile(") :]
+    save = save[: save.index("\n}\n")]
+    browser_half = save[save.index("downloadBlob(blob, filename)") :]
+    assert "toast(`Downloaded ${filename}" in browser_half
+

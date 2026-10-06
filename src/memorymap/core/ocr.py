@@ -28,12 +28,14 @@ from __future__ import annotations
 
 import functools
 import importlib
+import importlib.util
 import logging
 import os
 import re
 import shutil
 import subprocess  # noqa: S404  # fixed args from a hardcoded table below, no shell, no user input
 import sys
+import time
 from pathlib import Path
 
 from memorymap.core import jobs
@@ -178,6 +180,424 @@ def tesseract_available() -> bool:
     return False
 
 
+#: The preference the person's language choice is kept under. One setting for
+#: every read (the workspace, the background pass after an upload, a PDF page),
+#: because "remember my language" that only the button you pressed obeyed would
+#: be a setting that quietly stops applying (INBOX 443 (3)).
+LANGUAGE_PREFERENCE = "ocr_language"
+
+#: A Tesseract language is a code such as `eng` or `chi_sim`, and several join
+#: with a plus (`eng+deu`). Checked before it is stored or handed to the
+#: program as an argument: this string ends up on a command line.
+_LANGUAGE_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{1,19}(\+[A-Za-z][A-Za-z0-9_]{1,19}){0,3}$")
+
+#: What each common code is called, so the picker says "German" and not
+#: `deu`. A code not listed is shown as itself.
+LANGUAGE_NAMES = {
+    "eng": "English", "deu": "German", "fra": "French", "spa": "Spanish",
+    "ita": "Italian", "por": "Portuguese", "nld": "Dutch", "swe": "Swedish",
+    "nor": "Norwegian", "dan": "Danish", "fin": "Finnish", "pol": "Polish",
+    "ces": "Czech", "hun": "Hungarian", "ron": "Romanian", "tur": "Turkish",
+    "ell": "Greek", "rus": "Russian", "ukr": "Ukrainian", "heb": "Hebrew",
+    "ara": "Arabic", "hin": "Hindi", "tha": "Thai", "vie": "Vietnamese",
+    "jpn": "Japanese", "kor": "Korean", "chi_sim": "Chinese (simplified)",
+    "chi_tra": "Chinese (traditional)", "lat": "Latin",
+}
+
+#: The list of installed languages is asked of the program, which is a process
+#: start; the workspace asks on every open, so the answer is kept briefly.
+_LANGUAGES_TTL_SECONDS = 30.0
+_languages_cache: dict[str, tuple[float, list[str]]] = {}
+
+
+def installed_languages() -> list[str]:
+    """The language packs the `tesseract` program has, as it reports them.
+
+    Empty when the program is missing or does not answer. `osd` is dropped: it
+    is the orientation detector, not a language anyone reads.
+    """
+    binary = shutil.which("tesseract")
+    if not binary:
+        return []
+    now = time.monotonic()
+    cached = _languages_cache.get(binary)
+    if cached and now - cached[0] < _LANGUAGES_TTL_SECONDS:
+        return list(cached[1])
+    languages: list[str] = []
+    try:
+        result = subprocess.run(  # noqa: S603  # fixed args, the binary found on PATH, no shell
+            [binary, "--list-langs"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=NO_WINDOW,
+        )
+        # Some builds print the list on stderr; read both.
+        for line in (result.stdout + "\n" + result.stderr).splitlines():
+            line = line.strip()
+            if line.lower().startswith("list of"):
+                continue
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", line) and line != "osd":
+                languages.append(line)
+    except (OSError, subprocess.SubprocessError):
+        logger.info("could not list tesseract languages", exc_info=True)
+    _languages_cache[binary] = (now, languages)
+    return list(languages)
+
+
+_version_cache: dict[str, str] = {}
+
+
+def clear_language_cache() -> None:
+    """Forget what the program said about itself (after an install)."""
+    _languages_cache.clear()
+    _version_cache.clear()
+
+
+def tesseract_version() -> str:
+    """`5.3.4` from `tesseract --version`, or "" when it cannot be asked."""
+    binary = shutil.which("tesseract")
+    if not binary:
+        return ""
+    if binary in _version_cache:
+        return _version_cache[binary]
+    try:
+        result = subprocess.run(  # noqa: S603  # fixed args, the binary found on PATH, no shell
+            [binary, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=NO_WINDOW,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    first = ((result.stdout or result.stderr).strip().splitlines() or [""])[0]
+    match = re.search(r"(\d+\.\d+(?:\.\d+)?)", first)
+    _version_cache[binary] = match.group(1) if match else ""
+    return _version_cache[binary]
+
+
+def saved_language() -> str:
+    """The language the person chose, or "" for Tesseract's own default."""
+    deps = importlib.import_module("memorymap.core.deps")
+    try:
+        value = str(deps.get_config().get_preference(LANGUAGE_PREFERENCE, "") or "")
+    except Exception:  # noqa: BLE001  # no app state (a bare import): the default
+        return ""
+    return value if _LANGUAGE_PATTERN.match(value) else ""
+
+
+def set_language(code: str) -> str:
+    """Remember a language. "" goes back to the default. Raises `ValueError`
+    for a code that is malformed or whose pack is not installed, with a
+    message that says what to do."""
+    code = (code or "").strip()
+    if code:
+        if not _LANGUAGE_PATTERN.match(code):
+            raise ValueError("That is not a language code. Pick one from the list.")
+        have = installed_languages()
+        missing = [part for part in code.split("+") if part not in have]
+        if missing:
+            raise ValueError(
+                f"The {', '.join(missing)} language pack isn't installed for Tesseract. "
+                "Install it with your package manager (for example tesseract-ocr-deu), "
+                "then reopen this list."
+            )
+    deps = importlib.import_module("memorymap.core.deps")
+    deps.get_config().set_preference(LANGUAGE_PREFERENCE, code)
+    return code
+
+
+def effective_language() -> str:
+    """The saved language when its packs are all still installed, else "".
+
+    A pack removed since it was chosen must not turn every read into a
+    failure: the default language reads, and the status says it fell back.
+    """
+    code = saved_language()
+    if not code:
+        return ""
+    have = installed_languages()
+    return code if have and all(part in have for part in code.split("+")) else ""
+
+
+def _language_kwargs() -> dict:
+    """`{"lang": code}` only when a language is chosen, so the default call is
+    exactly the call it always was."""
+    code = effective_language()
+    return {"lang": code} if code else {}
+
+
+def packages_available() -> bool:
+    """Whether `pytesseract` and Pillow can be imported (a look, not an import)."""
+    try:
+        return (
+            importlib.util.find_spec("pytesseract") is not None
+            and importlib.util.find_spec("PIL") is not None
+        )
+    except (ImportError, ValueError):
+        return False
+
+
+#: **RapidOCR, the second local reader** (WORLD_CLASS_PLAN row 31 item 97, the
+#: owner asking for an OCR alternative to pytesseract). PaddleOCR's models on
+#: onnxruntime: pip-installable whole, no system program, better than
+#: Tesseract on photographs and mixed layouts, Apache-2.0. **An optional extra,
+#: never a dependency**: `core/extras.py`'s "rapidocr" row installs it on the
+#: person's own press, like faster-whisper, and nothing here imports it at
+#: module level. Two package names have shipped the same `RapidOCR` class:
+#: `rapidocr_onnxruntime` (1.x, the one the extra installs) and `rapidocr`
+#: (2.x and later); either is read.
+RAPIDOCR_MODULES = ("rapidocr_onnxruntime", "rapidocr")
+
+#: The readers' names as a person reads them. `"tesseract"` stays the *id* of
+#: the local reader in stored readings, page reads and the API (`source`,
+#: the reader picker's value), whichever engine did the reading: rows written
+#: before RapidOCR existed say it, and renaming a stored id to say which
+#: program ran would split one reader in two everywhere it is read back.
+ENGINE_NAMES = {"tesseract": "Tesseract", "rapidocr": "RapidOCR"}
+
+
+def rapidocr_available() -> bool:
+    """Whether a RapidOCR package can be imported (a look, not an import)."""
+    for name in RAPIDOCR_MODULES:
+        try:
+            if importlib.util.find_spec(name) is not None:
+                return True
+        except (ImportError, ValueError):
+            continue
+    return False
+
+
+def engine() -> str:
+    """Which local reader reads: `"tesseract"` when both of its halves are
+    here (the default whenever it is present, as it always was),
+    `"rapidocr"` when Tesseract is not ready and RapidOCR is installed, and
+    `""` when neither can read."""
+    if tesseract_available() and packages_available():
+        return "tesseract"
+    if rapidocr_available():
+        return "rapidocr"
+    return ""
+
+
+def engine_name() -> str:
+    """The reading engine's name for a sentence, "Tesseract" when none is
+    installed (it is the one an install suggestion names first)."""
+    return ENGINE_NAMES.get(engine(), "Tesseract")
+
+
+def local_available() -> bool:
+    """Whether some local OCR engine can read here (the question every caller
+    that used to ask `tesseract_available()` about *reading* meant)."""
+    return bool(engine())
+
+
+@functools.lru_cache(maxsize=1)
+def _rapidocr_reader():
+    """One RapidOCR instance per process: building it loads three ONNX models
+    (about a second), which a reader built per page would pay every time.
+    `lru_cache` rather than a module global, the same shape as
+    `_log_binary_missing` (CodeQL's unused-global note)."""
+    for name in RAPIDOCR_MODULES:
+        try:
+            module = importlib.import_module(name)
+        except ImportError:
+            continue
+        return module.RapidOCR()
+    raise ImportError("no RapidOCR package is installed")
+
+
+def _rapidocr_lines(image_path: Path) -> list[tuple[list, str, float]] | None:
+    """`(box, text, score)` per line RapidOCR found, in its reading order, or
+    None when it cannot run. A box is four `[x, y]` corners; a score 0 to 1.
+
+    The 1.x call returns `(result, elapse)` with `result` a list of
+    `[box, text, score]` or None for a page with no text; 2.x returns an
+    object with `boxes`, `txts` and `scores`. Both are read."""
+    try:
+        reader = _rapidocr_reader()
+        out = reader(str(image_path))
+    except Exception:
+        logger.warning("RapidOCR failed for %s", image_path.name, exc_info=True)
+        return None
+    if isinstance(out, tuple):
+        out = out[0]
+    if out is None:
+        return []
+    if hasattr(out, "txts"):
+        boxes = list(getattr(out, "boxes", None) if getattr(out, "boxes", None) is not None else [])
+        texts = list(out.txts or [])
+        scores = list(getattr(out, "scores", None) or [1.0] * len(texts))
+        rows = zip(boxes, texts, scores)
+    else:
+        rows = ((row[0], row[1], row[2]) for row in out if len(row) >= 3)
+    lines = []
+    for box, text, score in rows:
+        text = str(text).strip()
+        if not text:
+            continue
+        try:
+            corners = [[float(x), float(y)] for x, y in box]
+        except (TypeError, ValueError):
+            continue
+        lines.append((corners, text, float(score)))
+    return lines
+
+
+def _rapidocr_text(image_path: Path) -> str:
+    lines = _rapidocr_lines(image_path)
+    return "\n".join(text for _, text, _ in lines or []).strip()
+
+
+def _image_size(image_path: Path, lines: list[tuple[list, str, float]]) -> tuple[float, float]:
+    """The page's pixel size, from Pillow (RapidOCR's own dependency), or
+    failing that the furthest corner any line reached."""
+    try:
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            return float(img.size[0]), float(img.size[1])
+    except Exception:  # noqa: BLE001  # Pillow missing or the file unreadable: the boxes still say something
+        # A PNG says its size in its first 24 bytes, so a RapidOCR install
+        # without Pillow still gets the true page size for the commonest
+        # screenshot format; anything else falls back to the boxes.
+        try:
+            head = image_path.read_bytes()[:24]
+            if head[:8] == b"\x89PNG\r\n\x1a\n" and head[12:16] == b"IHDR":
+                return float(int.from_bytes(head[16:20], "big")), float(int.from_bytes(head[20:24], "big"))
+        except OSError:
+            pass  # unreadable here too: the boxes below are what is left
+        xs = [x for corners, _, _ in lines for x, _ in corners] or [0.0]
+        ys = [y for corners, _, _ in lines for _, y in corners] or [0.0]
+        return max(xs), max(ys)
+
+
+def _rapidocr_regions(image_path: Path) -> dict | None:
+    """`extract_regions`' shape from RapidOCR's lines. RapidOCR finds lines,
+    not blocks, so lines are joined into a block while each starts within
+    about half a line's height of the last one's foot and overlaps it
+    sideways: a paragraph comes back as one region, a new column or a gap as
+    another, which is what Tesseract's block numbering gives."""
+    lines = _rapidocr_lines(image_path)
+    if lines is None:
+        return None
+    width, height = _image_size(image_path, lines)
+    if not width or not height:
+        return None
+    boxes = []
+    for corners, text, score in lines:
+        xs = [x for x, _ in corners]
+        ys = [y for _, y in corners]
+        boxes.append({"x0": min(xs), "y0": min(ys), "x1": max(xs), "y1": max(ys), "text": text, "score": score})
+    heights = sorted(b["y1"] - b["y0"] for b in boxes)
+    median_height = heights[len(heights) // 2] if heights else 0.0
+    blocks: list[dict] = []
+    for b in boxes:
+        last = blocks[-1] if blocks else None
+        line_h = b["y1"] - b["y0"]
+        joins = (
+            last is not None
+            and 0 <= b["y0"] - last["y1"] <= max(line_h, last["line_h"]) * 0.6
+            and b["x0"] < last["x1"]
+            and b["x1"] > last["x0"]
+        )
+        if joins:
+            last["lines"].append(b["text"])
+            last["scores"].append(b["score"])
+            last["heights"].append(line_h)
+            last["x0"], last["y0"] = min(last["x0"], b["x0"]), min(last["y0"], b["y0"])
+            last["x1"], last["y1"] = max(last["x1"], b["x1"]), max(last["y1"], b["y1"])
+            last["line_h"] = line_h
+        else:
+            blocks.append({**b, "lines": [b["text"]], "scores": [b["score"]], "heights": [line_h], "line_h": line_h})
+    regions = []
+    for block in blocks:
+        block_heights = sorted(block["heights"])
+        block_median = block_heights[len(block_heights) // 2]
+        kind = "heading" if median_height and block_median >= median_height * REGION_HEADING_RATIO else "text"
+        regions.append(
+            {
+                "index": len(regions),
+                "kind": kind,
+                "text": "\n".join(block["lines"]),
+                "confidence": round(100 * sum(block["scores"]) / len(block["scores"]), 1),
+                "box": {
+                    "x": round(block["x0"] / width, 5),
+                    "y": round(block["y0"] / height, 5),
+                    "w": round((block["x1"] - block["x0"]) / width, 5),
+                    "h": round((block["y1"] - block["y0"]) / height, 5),
+                },
+            }
+        )
+    return {
+        "width": int(width),
+        "height": int(height),
+        "regions": regions,
+        "source": "tesseract",
+        "engine": "rapidocr",
+    }
+
+
+def engine_status() -> dict:
+    """One honest answer to "can a local reader read here, and how".
+
+    `binary` and `package` are Tesseract's two halves, reported separately
+    because they are fixed by different things (`attempt_binary_install` for
+    one, pip for the other) and "not installed" names neither. `engine` is
+    the one that reads (`engine()`), `rapidocr` whether RapidOCR is
+    installed; Tesseract's languages apply to Tesseract only. `fix` is the
+    one action that mends it, which the workspace and Settings both offer.
+    """
+    binary = tesseract_available()
+    package = packages_available()
+    reader = engine()
+    ready = bool(reader)
+    if ready:
+        reason = ""
+    elif not binary and not package:
+        reason = "Tesseract isn't installed."
+    elif not binary:
+        reason = "The Tesseract program isn't installed, though the part that connects it to MemoryMap is."
+    else:
+        reason = "The part that connects Tesseract to MemoryMap isn't installed."
+    languages = installed_languages() if binary else []
+    saved = saved_language()
+    chosen = effective_language()
+    note = ""
+    if saved and not chosen and binary:
+        note = f"The saved language ({saved}) is no longer installed, so the default is used."
+    return {
+        "ready": ready,
+        "binary": binary,
+        "package": package,
+        "version": tesseract_version() if binary else "",
+        "languages": [
+            {"code": code, "name": LANGUAGE_NAMES.get(code, code)} for code in languages
+        ],
+        "language": chosen,
+        "language_note": note,
+        "reason": reason,
+        "fix": "" if ready else "install",
+        "engine": reader,
+        "engine_name": ENGINE_NAMES.get(reader, ""),
+        "rapidocr": rapidocr_available(),
+    }
+
+
+def unavailable_reason() -> str:
+    """Why no local reader can read right now, in a sentence that says what
+    to do, or "" when one can. Used where a route used to return nothing and
+    let a missing engine look like a page with no text on it."""
+    status = engine_status()
+    if status["ready"]:
+        return ""
+    return (
+        f"{status['reason']} Install it in Settings, Packages (Search inside images), "
+        "or RapidOCR beside it, or read this with the AI vision model instead."
+    )
+
+
 def _one_thread_for_tesseract() -> None:
     """Pin Tesseract's OpenMP to one thread unless the person set it.
 
@@ -219,7 +639,10 @@ def _log_package_missing() -> None:
 def extract_text(image_path: Path) -> str:
     """Best-effort OCR text for one image file. Never raises: a missing
     binary, a corrupt image, or an unsupported format all just mean no text
-    was found, exactly as if the image genuinely had none."""
+    was found, exactly as if the image genuinely had none. RapidOCR reads
+    when Tesseract is not ready and it is installed (`engine()`)."""
+    if engine() == "rapidocr":
+        return _rapidocr_text(image_path)
     if not tesseract_available():
         _log_binary_missing()
         return ""
@@ -235,7 +658,7 @@ def extract_text(image_path: Path) -> str:
     _one_thread_for_tesseract()
     try:
         with Image.open(image_path) as img:
-            text = pytesseract.image_to_string(img)
+            text = pytesseract.image_to_string(img, **_language_kwargs())
         return text.strip()
     except Exception:
         # A single unreadable image (corrupt file, an animated GIF Tesseract
@@ -280,8 +703,11 @@ def extract_regions(image_path: Path) -> dict | None:
     **normalised to 0–1** against the image's own pixel size, because the
     thing that draws them is an `<img>` scaled to whatever width the panel
     happens to be; sending pixels would make every overlay wrong at every
-    size but one.
+    size but one. RapidOCR's lines are grouped into the same blocks when it
+    is the engine (`_rapidocr_regions`).
     """
+    if engine() == "rapidocr":
+        return _rapidocr_regions(image_path)
     if not tesseract_available():
         _log_binary_missing()
         return None
@@ -295,7 +721,9 @@ def extract_regions(image_path: Path) -> dict | None:
     try:
         with Image.open(image_path) as img:
             width, height = img.size
-            data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+            data = pytesseract.image_to_data(
+                img, output_type=pytesseract.Output.DICT, **_language_kwargs()
+            )
     except Exception:
         logger.warning("OCR regions failed for %s", image_path.name, exc_info=True)
         return None

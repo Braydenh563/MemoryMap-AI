@@ -45556,3 +45556,14 @@ and refuses a topic ("Select a shape, link or text box first").
      scratchpad/ui-sweeps/pkgselect695.js: the Documents row centred and
      focused, ticked, no errors.
 
+703. **The owner, 2026-10-06, verbatim**, with screenshots of the Forgot
+     your password card (the "I have my recovery key | I don't have it"
+     switch with neither segment drawn chosen; the reset command box beside
+     a shorter Copy button): "there's no active default selection on the
+     forgot password pill. also these buttons arent the same height". Fixed
+     2026-10-06: the chosen path carries `.active` (what draws a `.seg`'s
+     chosen segment; only `aria-pressed` was set), from the markup and on
+     every switch; the command row stretches its two to one height.
+     scratchpad/ui-sweeps/forgot703.js: chosen fill present light and dark,
+     40/40px at 1440 and 60/60px at 390.
+

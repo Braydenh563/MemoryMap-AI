@@ -42,6 +42,10 @@ function forgotChoose(path) {
   const key = path === "key";
   $("lock-forgot-have").setAttribute("aria-pressed", String(key));
   $("lock-forgot-lost").setAttribute("aria-pressed", String(!key));
+  //: `.active` is what draws a `.seg`'s chosen segment (INBOX 703: the card
+  //: opened with neither path looking chosen).
+  $("lock-forgot-have").classList.toggle("active", key);
+  $("lock-forgot-lost").classList.toggle("active", !key);
   $("lock-forgot-key-pane").classList.toggle("hidden", !key);
   $("lock-forgot-reset-pane").classList.toggle("hidden", key);
   $("lock-forgot-error").textContent = "";

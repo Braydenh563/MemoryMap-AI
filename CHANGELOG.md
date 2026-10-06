@@ -27,6 +27,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Forgot your password: the card opens with its first path shown as chosen, and the reset command and its Copy button are one height.
 - Settings, Packages: "Select its packages" takes you to the bundle's packages, the first one in view with its tick focused, and says how many it selected.
 - Graph: Link together can be undone (its toast and Ctrl+Z), and a new Unlink on the selection bar removes the links between the selected notes, also undoable.
 - Notes, compact rows: a row's details (category, tags, time) sit on the title's line, centred with it, and the hover buttons sit inside the row on that line, open or closed, instead of hanging half below it. The open/close arrow is one quiet button whose arrow turns, with no filled, bordered square when open, and a row opens and closes with a short height animation (none with Interface animations off) that turns back smoothly if pressed again mid-way.

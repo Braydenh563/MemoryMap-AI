@@ -1762,6 +1762,7 @@ $("meeting-copy")?.addEventListener("click", (event) =>
   copyToClipboard($("meeting-transcript").value, event.currentTarget)
 );
 $("meeting-discard").addEventListener("click", resetMeetingUI);
+$("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
 // When a new service worker takes over (after an update), reload once so

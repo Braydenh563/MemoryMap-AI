@@ -125,3 +125,28 @@ def test_the_title_names_the_note_it_saves():
     assert 'id="meeting-title"' in HTML
     block = JS.split("async function saveMeetingNote()")[1].split("\n}\n")[0]
     assert 'meeting-title' in block
+
+
+# --- INBOX 708: states, Stop from Paused, an empty transcript ---------------------
+
+
+def test_the_recorder_shows_one_state_at_a_time():
+    block = JS.split("function setMeetingState(state)")[1].split("\n}\n")[0]
+    for part in ("meeting-stage", "meeting-controls", "meeting-pause", "meeting-timer",
+                 "meeting-progress", "meeting-transcript", "meeting-save-row"):
+        assert part in block
+    assert 'id="meeting-progress"' in HTML
+
+
+def test_stop_works_from_paused_and_a_discard_is_not_transcribed():
+    block = JS.split("async function toggleMeetingRecording()")[1].split("\n}\n")[0]
+    assert 'meetingRecorder.state === "paused"' in block
+    assert "meetingRecorder.requestData()" in block
+    assert "recorder.discarded" in block
+    close = JS.split("function closeMeetingRecorder()")[1].split("\n}\n")[0]
+    assert "meetingRecorder.discarded = true" in close
+
+
+def test_an_empty_transcript_says_so_instead_of_transcribed():
+    assert "Nothing was heard in that recording." in JS
+    assert "Transcribed:" not in JS

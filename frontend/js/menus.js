@@ -382,6 +382,51 @@ function cardOpener(title, open, name) {
 }
 window.cardOpener = cardOpener;
 
+//: **One vertical rule for every menu that hangs from its opener** (INBOX 712:
+//: the document editor's ⋯ "goes off the bottom of the screen"): below the
+//: opener when the whole menu fits there, else above it when it fits there,
+//: else on whichever side has more room, its height capped to that room with
+//: the list scrolling inside it (the 120px floor keeps a menu a menu, not a
+//: slit). Pure, so the callers (the document dock's ⋯, the generic
+//: `openActionMenu`, and a menu re-placed after its window or its rows
+//: changed) cannot decide differently. `anchor` is the opener's rect.
+function menuSidePlan(height, anchor, gap = 4, margin = 8) {
+  const below = Math.floor(window.innerHeight - anchor.bottom - gap - margin);
+  const above = Math.floor(anchor.top - gap - margin);
+  const need = Math.ceil(height);
+  if (need <= below) return { up: false, cap: null };
+  if (need <= above) return { up: true, cap: null };
+  const up = above > below;
+  return { up, cap: Math.max(120, up ? above : below) };
+}
+
+//: The last step of `openActionMenu` for a menu that stayed where its
+//: stylesheet put it (an escaped menu is placed by `placeEscapedMenu`, which
+//: already keeps the whole box in the window). The earlier flip only asks
+//: whether the menu spills past its nearest scrolling ancestor, and that can
+//: be a box taller than the window, so a menu near the bottom of a tall page
+//: still ran off the screen. A menu already inside the window is left as the
+//: flip chose; one that spills is re-decided by `menuSidePlan`.
+function fitActionMenuInWindow(menu, opener) {
+  const margin = 8;
+  const anchor = opener.getBoundingClientRect();
+  //: Not laid out (an opener in a hidden pane): nothing to measure against.
+  if (!anchor.width && !anchor.height) return;
+  let box = menu.getBoundingClientRect();
+  if (box.top >= margin - 1 && box.bottom <= window.innerHeight - margin + 1) return;
+  menu.classList.remove("action-menu-flip");
+  menu.style.maxHeight = "none";
+  box = menu.getBoundingClientRect();
+  const plan = menuSidePlan(box.height, anchor);
+  menu.classList.toggle("action-menu-flip", plan.up);
+  if (plan.cap !== null) {
+    menu.style.maxHeight = `${plan.cap}px`;
+    menu._fitCap = true;
+  } else {
+    menu.style.maxHeight = "";
+  }
+}
+
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
   window._menuOpenedAt = performance.now();
@@ -400,6 +445,12 @@ function openActionMenu(menu, opener) {
   //: same two-step `showSelectionPopupAt` uses, and for the same reason.
   const wasVisibility = menu.style.visibility;
   menu.style.visibility = "hidden";
+  //: A cap `fitActionMenuInWindow` wrote on the last open is this open's
+  //: measurement error, so it goes before anything is measured.
+  if (menu._fitCap) {
+    menu.style.maxHeight = "";
+    menu._fitCap = false;
+  }
   menu.classList.remove("hidden", "action-menu-flip");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
@@ -444,6 +495,9 @@ function openActionMenu(menu, opener) {
   //: a menu that fits, and a menu that does not gets the same reparent-to-body
   //: treatment rather than being clipped.
   escapeMenuIfClipped(menu, opener);
+  if (!menu._escapedHome && !menu._escapeWired && !menu.classList.contains("submenu")) {
+    fitActionMenuInWindow(menu, opener);
+  }
   //: Placed, so it can be seen. Restored rather than cleared, in case a caller
   //: had its own reason to hide this menu.
   menu.style.visibility = wasVisibility;

@@ -45752,3 +45752,32 @@ and refuses a topic ("Select a shape, link or text box first").
      inside its end, the chip the press, named "Link to <first line>"
      (`relchip709.js`: 3 of 3 rows, a press links).
 
+708. **The owner, 2026-10-06, verbatim**, with screenshots of the Meeting
+     notes recorder: "the stop and resume on the audio transcribe doesnt
+     work" (paused at 0:05, Stop and Resume shown, "Paused."), then the
+     recorder after Stop reading "Transcribed: review it below before
+     saving." over an empty transcript, and: "also these panels feel badly
+     designed and neglected". Next: reproduce with Chromium's fake
+     microphone (--use-fake-device-for-media-stream), fix Stop and Resume
+     from the paused state (and an empty transcript must say so, not
+     "Transcribed"), then redesign the recorder panel by DESIGN.md: one clear
+     state at a time (ready, recording with level and time, paused,
+     transcribing with progress, review), the transcript sized to its
+     content, actions grouped with one primary. Placed: the next free Opus
+     slot.
+
+710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
+     checkbox in a note's editor (a large outlined box after a bullet) and in
+     the document editor (a smaller filled grey box after a bullet): "the
+     rendering of the selection tick boxes is different on the notes to the
+     document editor". One task-checkbox look for both editors (and no
+     bullet beside a task box), from one shared rule. Placed: the next free
+     Sonnet slot.
+
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+

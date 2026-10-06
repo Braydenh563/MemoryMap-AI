@@ -45708,3 +45708,15 @@ and refuses a topic ("Select a shape, link or text box first").
      shortcut with a button has it in that button's title. Placed: the next
      free Sonnet slot.
 
+702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
+     Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
+     filled square) and the Chats sidebar (hovered row: a neutral grey fill,
+     a plain ⋯): "the hover and button styles on the notes sidebar is
+     different from the others. is that intentional??" Not intentional.
+     Decision taken: one sidebar row recipe for every rail (Notes, Chats,
+     Library, Documents, Timeline, Settings): the same hover fill, the same
+     current-row fill (the current row may carry the accent, hover never
+     does), and the row's ⋯ as a plain ghost icon that fills only on its own
+     hover, inside the row's radius; a lint holds the rails to it. Placed:
+     the next free Sonnet slot.
+

@@ -39,12 +39,11 @@ The owner: "it needs to be robust and secure."
 
 ## Left
 
-- Not verified: Download .txt in the desktop window (pywebview routes it
-  through `saveFile` to the exports folder, default `<data dir>/exports`, which
-  is beside the notebook; the dialog says to keep the key away from this
-  computer, but the saved copy is not deleted for the person). Next: decide
-  whether the desktop path should open a native Save dialog instead
-  (`src/memorymap/__main__.py` webview API) or warn in the toast.
+- Done 605eea3 (INBOX 671): Download .txt in the desktop window is a native
+  Save dialog starting in Documents (`core/desktop_dialog.py`,
+  `/auth/recovery-key/save`), the data dir refused. Not verified: a real
+  pywebview window (not installed in the sandbox; the dialog is faked in
+  tests, both pywebview dialects covered).
 - Not verified in a browser: the another-device notice on the card (the sweep
   server binds loopback only); held by `test_both_open_routes_refuse_another_device`.
 - Not verified: a real phone; screen-reader reading of the card.

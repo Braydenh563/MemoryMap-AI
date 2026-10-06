@@ -45366,3 +45366,20 @@ and refuses a topic ("Select a shape, link or text box first").
      0 overflow, 0 console errors; four keys absent from the DB, WAL, prefs and
      server log (72 files).
 
+671. **Decision missing, found by the forgot-password agent (663),
+     2026-10-06.** In the desktop window, Download .txt for the recovery key
+     goes through `saveFile`, which writes into `<data dir>/exports`, beside
+     the notebook: whoever copies the folder gets the key that opens its
+     private notes. Recommendation, taken: the recovery key is saved through
+     a native Save dialog (pywebview's save dialog, starting in the
+     person's Documents folder), never inside the data dir; a browser tab
+     keeps its ordinary download. Placed: the 0.4.1 mini release, the same
+     agent.
+     **Fixed 605eea3.** `POST /auth/recovery-key/save` (desktop only, behind
+     the lock) asks pywebview's Save dialog (`core/desktop_dialog.py`, both
+     `FileDialog.SAVE` and `SAVE_DIALOG`) starting in Documents, and refuses
+     a path inside the data dir; account-recovery.js never calls `saveFile`.
+     Measured: 7 new tests pass with the dialog faked; after a save, a
+     refusal (exports and the data dir root) and a cancel, the key is in no
+     file under the data dir.
+

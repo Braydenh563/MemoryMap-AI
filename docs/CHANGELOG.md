@@ -52,6 +52,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Notes: the compact rows view's metadata runs to the row's right edge with the time its last item, one column down the list (no width is held back for the hover actions, which overlay the end of the row); the whole row shows the pointer cursor; and in the card view the time sits in the same bottom-right corner on every card (a title-only note's no longer sits 104px left) with the hover buttons clear of it on a one-line note (INBOX 719).
 - The mini Atlas avatar beside the name on an Ask answer, a Chat reply and the Guide no longer hangs under its row: the head is clipped to its 20px box (the companion's body and legs were drawn 11px below it, so the name sat at the top of a figure twice its height, with empty space under it) (INBOX 714).
 - Mind map: a topic's floating bar (colour, text size, Text, Shape, Branch line) no longer draws over the board's View, Edit or Board menus (INBOX 716). The top bar lifts above the floating bars while one of its menus is open; measured over the View menu, the menu answers every overlapping point where the bar used to answer 68 of 77.
 - Mind map: double-clicking a topic's resize grip to put its size back now saves (INBOX 716). It sent a height the server refuses, so the save was rejected, the board reloaded with the old size, and the next move of the topic brought the manual size back. The reset stores the height the text needs, the branch line follows the box the same moment, and Ctrl+Z puts the manual size back.

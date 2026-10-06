@@ -45979,3 +45979,12 @@ and refuses a topic ("Select a shape, link or text box first").
      `test_a_popup_chooses_a_kind_with_a_tab_strip`. The pickers' source
      pills are left in `agent-remaining/board715-1006.md`.
 
+719. **The owner, 2026-10-06, verbatim**, with a screenshot of Notes in
+     compact rows (every row's metadata ends about 200px short of the row's
+     right edge): "blank space on right of compact rows view and when hovering
+     over the rows, the cursor is the text type cursor, not pointer". Then, with
+     the card view (the date sits at a different height on each card, pushed
+     down under the hover actions on one): "the last created or edited date
+     changes position each note, I think it should be consistent in the corner
+     or smth". Placed: Sonnet agent.
+

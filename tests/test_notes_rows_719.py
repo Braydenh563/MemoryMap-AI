@@ -5,7 +5,7 @@ when hovering over the rows, the cursor is the text type cursor, not pointer",
 and of the card view: "the last created or edited date changes position each
 note, I think it should be consistent in the corner".
 
-Measured in Chromium at 1440 (scratchpad/ui-sweeps/rows719.js), before:
+Measured in Chromium at 1440, before:
 
 - rows: the metadata lane ended 104px short of the row's right edge on every
   row. `padding-inline-end: 6.5rem` held the width at rest for the hover
@@ -19,7 +19,7 @@ Measured in Chromium at 1440 (scratchpad/ui-sweeps/rows719.js), before:
 - cards: on a one-line note the hover strip's bottom was 6px below the date's
   top, so the strip sat over the date.
 
-The numbers are the sweep's; these pins hold the causes, so a later cleanup
+The numbers are from that measurement; these pins hold the causes, so a later cleanup
 of "redundant" rules fails here and not in the next screenshot.
 """
 
@@ -81,3 +81,15 @@ def test_the_hover_strip_ends_inside_the_time_it_covers():
     css = _css()
     block = _block(css, "#entry-list.is-rows > li .entry-meta-end > .entry-actions")
     assert "right: var(--space-1)" in block
+
+
+def test_an_empty_body_leaves_no_float_to_narrow_the_meta_line():
+    css = _css()
+    block = _block(css, "#entry-list > li > .entry-content:empty::before")
+    assert "display: none" in block
+
+
+def test_the_card_strip_sits_in_the_corner_not_a_second_offset_below_it():
+    css = _css()
+    block = _block(css, "#entry-list:not(.is-rows) > li .entry-meta-end > .entry-actions")
+    assert "top: 0" in block

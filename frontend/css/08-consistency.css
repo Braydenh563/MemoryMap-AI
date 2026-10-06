@@ -9289,7 +9289,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    6.5rem` here held 104px at the end of every row at rest for the strip that
    appears on hover, which is `position: absolute` and costs no width, so the
    metadata lane ended 104px short of the row's edge on every row (measured at
-   1440, scratchpad/ui-sweeps/rows719.js). The lane runs to the row's padding
+   1440 in Chromium). The lane runs to the row's padding
    edge now and the time is its last item, one column down the list; on hover
    the strip overlays the end of the row. */
 
@@ -11488,4 +11488,36 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 
 #entry-list.is-rows > li.row-expanded > .entry-content {
   cursor: auto;
+}
+
+/* --- A card's date is in the same corner on every card (INBOX 719) ---
+   The owner: "the last created or edited date changes position each note, I
+   think it should be consistent in the corner". It is the last item of the
+   card's details line, pushed to the card's bottom-right, and measured at
+   1440 it was 17px from the right and 7.4px from the bottom on every card
+   but two kinds, both fixed here (measured in Chromium):
+
+   1. **A note that is only a title** sat 104px to the left of the rest. The
+      actions' float (`.entry-content::before`, 6.5rem by 1em) belongs in the
+      body paragraph, and a title-only note leaves that paragraph empty, so
+      the float had no line to sit in, escaped the paragraph, and narrowed
+      the details line under it (a flex container avoids floats) by its
+      width. An empty body keeps no float.
+   2. **A one-line note** was 71px tall: the hover strip (17px to 46px from
+      the card's top) ended 6px below the date's top, so on hover the date
+      read as pushed down under the buttons. The strip's offset was counted
+      twice: `.entry-meta-end` is the positioned corner (`top: --space-3`) and
+      the strip inside it asked for `top: --space-3` again. It sits in the
+      corner itself now (9px to 38px), clear of the date line on the
+      shortest card, and the date is not moved to make room. Touch has its
+      own lane for the strip above the text (`padding-top`,
+      06-timeline-dialogs.css), and keeps what it measured. */
+#entry-list > li > .entry-content:empty::before {
+  display: none;
+}
+
+@media (hover: hover) {
+  #entry-list:not(.is-rows) > li .entry-meta-end > .entry-actions {
+    top: 0;
+  }
 }

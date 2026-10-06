@@ -41,7 +41,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Category, Entry
@@ -138,6 +138,38 @@ def lexical_category(
     #: model reports.
     confidence = max(50, min(85, round(40 + 50 * share)))
     return LexicalMatch(name=best_name, confidence=confidence, margin=margin)
+
+
+def category_support(
+    session: Session, content: str, category: str, exclude_entry_id: int | None = None
+) -> tuple[float | None, int]:
+    """How the notebook's own words see `category` for `content`: (its share
+    of the vote, how many notes it holds).
+
+    The share is None when the words have no real opinion (nothing in common
+    with a filed note, or the best vote under `MIN_VOTE`), because "the words
+    know nothing" must not read as "the words disagree". Names compare
+    without case, since a model answers "work" for "Work". Read by
+    `filing_certainty`, which lowers a model's number when this disagrees."""
+    wanted = (category or "").strip().lower()
+    held = session.scalar(
+        select(func.count(Entry.id))
+        .join(Category, Entry.category_id == Category.id)
+        .where(
+            func.lower(Category.name) == wanted,
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_board == False,  # noqa: E712
+            Entry.id != (exclude_entry_id or 0),
+        )
+    )
+    tally = _tally(session, content, exclude_entry_id)
+    share: float | None = None
+    if tally is not None:
+        votes, _supporters = tally
+        total = sum(votes.values())
+        if votes and total > 0 and max(votes.values()) >= MIN_VOTE:
+            share = sum(v for name, v in votes.items() if name.lower() == wanted) / total
+    return share, int(held or 0)
 
 
 def suggest_categories(

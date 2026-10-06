@@ -23,7 +23,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from memorymap.ai import extractor, janitor, learning, librarian, links, relations
+from memorymap.ai import extractor, filing_certainty, janitor, learning, librarian, links, relations
 from memorymap.ai import tensions as tensions_module
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api import paging
@@ -128,7 +128,9 @@ def _to_out(
             manager.category_name_for(session, entry) if category_name is None else category_name
         ),
         tags=manager.entry_tags(entry),
-        ai_confidence=entry.ai_confidence,
+        ai_confidence=filing_certainty.shown(
+            entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
+        ),
         suggested_tags=_open_suggestions(entry),
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
@@ -364,7 +366,30 @@ class _LateFiling:
             self._stand_in = category
             return category, confidence, filed_by
 
+    def _calibrated(self, category: str, raw: int) -> int:
+        """The model's late number, calibrated as `janitor._ask_llm` does for
+        an answer inside the wait (`filing_certainty`). On this thread's own
+        session: the late answer has none of the request's."""
+        from memorymap.ai import filing_certainty
+        from memorymap.core.deps import impersonate_workspace
+
+        try:
+            with deps.get_db().session() as session:
+                with impersonate_workspace(session, self.workspace_id):
+                    entry = session.get(Entry, self.entry_id)
+                    if entry is not None:
+                        return filing_certainty.calibrated(
+                            session, manager.readable_content(entry), category, raw, "llm",
+                            exclude_entry_id=entry.id,
+                        )
+        except Exception:
+            logger.debug("couldn't calibrate the late answer for entry %s", self.entry_id, exc_info=True)
+        return filing_certainty.calibrate(
+            raw, "llm", support=None, category_notes=filing_certainty.ESTABLISHED_NOTES
+        )
+
     def arrived(self, category: str, confidence: int) -> None:
+        confidence = self._calibrated(category, confidence)
         with self._lock:
             if self._stand_in is None:
                 self._early = (category, confidence)
@@ -1090,20 +1115,31 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
     #: Nothing was sure enough to file it: up to three categories to offer as
     #: one-tap choices (INBOX 434), the ones its words lean to first.
     suggestions: list[str] = []
-    if filed_by == "none" and category == manager.UNCATEGORISED:
+    shown = filing_certainty.shown(
+        entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
+    )
+    #: A pick the calibration put under the review line (`filing_certainty`)
+    #: is offered the same way: the alternatives beside the one it chose.
+    unsure_pick = filed_by == "ai" and 0 < shown < manager.REVIEW_CONFIDENCE
+    if (filed_by == "none" and category == manager.UNCATEGORISED) or unsure_pick:
         from memorymap.ai import lexical_filing
 
         try:
-            suggestions = lexical_filing.suggest_categories(
-                session, manager.readable_content(entry) or "", exclude_entry_id=entry.id
-            )
+            suggestions = [
+                name
+                for name in lexical_filing.suggest_categories(
+                    session, manager.readable_content(entry) or "", exclude_entry_id=entry.id,
+                    limit=4,
+                )
+                if name != category
+            ][:3]
         except Exception:  # noqa: BLE001 - a hint never fails the status
             logger.debug("no category suggestions for entry %s", entry.id, exc_info=True)
     return {
         "id": entry.id,
         "filing_state": state,
         "category": category,
-        "ai_confidence": entry.ai_confidence,
+        "ai_confidence": shown,
         "similar": similar,
         "filed_by": filed_by,
         "suggestions": suggestions,

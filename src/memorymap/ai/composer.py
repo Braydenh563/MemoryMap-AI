@@ -16,9 +16,8 @@ Every factual clause of a composed answer is one of two things:
   contains.
 
 Only the connective tissue between them is written here, and it comes from
-`PHRASES`, a closed list that says nothing about the world: "Your note ...
-says:", "Across three more notes, from 3 March to 12 May:", "None of these
-notes mention ...". No sentence is paraphrased, no half-sentence is joined to
+`PHRASES`, a closed list that says nothing about the world: "Separately,",
+"Later, on", "None of these notes mention ...". No sentence is paraphrased, no half-sentence is joined to
 another, and nothing is concluded: a yes/no question gets the closest sentence,
 never a yes or a no. `compose` returns the answer as `parts` as well as text,
 each tagged with what it is, so the tests hold every clause of every answer to
@@ -41,16 +40,18 @@ is almost like a chat bot").** The rule above does not move; what changed is
 how the quotes are strung together, each step measured on the showcase eval
 (`tests/_composer_eval.py`) and kept because it moved a number:
 
-- the first line is the answer: the lead note named and its sentence on the
-  same line, a list of short entries said as one sentence ("lists four: A,
+- the first line is the answer: the lead sentence itself, its note named
+  after it as the citation, once (INBOX 741: never "Your note ... says:",
+  never a note named by its first words), a list of short entries said as one sentence ("lists four: A,
   B, C and D"), a checklist with how many are ticked, a broad question
   opened by how many notes mention it ("At least five of your notes mention
   “running”, from 20 August to 21 September");
 - the other notes are joined by how they relate to what came before, by
   meaning (`_Meaning`: the embedder's cosine when it is running, shared
-  words when not): "also" or "adds" for the same subject, "Later, on" for a
-  newer note on the same thread, "Separately" for another topic, "But your
-  newer note" for two that may disagree; one topic to a paragraph;
+  words when not): no joiner or "And" for the same subject, "Later, on"
+  for a newer note on the same thread, "Separately" for another topic, "But
+  in a newer note" for two that may disagree; no joiner twice in an answer,
+  one topic to a paragraph;
 - a sentence other notes repeat is said once, with how many say it; a
   broad question's lead is the sentence the others lean towards (TextRank,
   `centrality`), the note named for the subject first;
@@ -140,30 +141,35 @@ PHRASES: dict[str, str] = {
     "close_paren": ")",
     "and": " and ",
     "or": " or ",
-    # The opening: the note the strongest sentence is in, then the sentence.
-    "says_a": "Your note ",
-    "says_a_end": " says: ",
-    "says_b": "From your note ",
-    "says_b_end": ": ",
-    "says_c": "The closest match is your note ",
-    "says_c_end": ", which says: ",
-    "says_d": "In your note ",
-    "says_d_end": ", you wrote: ",
-    "closest_a": "The closest your notes come is ",
-    "closest_b": "Nothing here says it outright. The nearest is ",
-    "closest_end": ": ",
-    "figure_a": "The figure is in your note ",
-    "figure_b": "Your note ",
-    "figure_b_end": " has the number: ",
-    "date_a": "The date is in your note ",
-    "date_b": "Your note ",
-    "date_b_end": " gives the date: ",
-    "written_on": ", written ",
+    # The opening (INBOX 741, the owner: "rn the ask chat messages just say,
+    # ur note starting with this says this. also ur not starting with this
+    # says this, furthermore, ur note starting with this says this"). The
+    # answer is the note's own sentence, said first; the note is named once,
+    # after it, as the citation ("(**Harbor launch plan**)"), never by its
+    # first words and never as "Your note ... says:". An opener is optional
+    # and varied by the question, so two answers in a row do not start alike.
+    "open_notes": "From your notes: ",
+    "open_wrote": "Here is what you wrote: ",
+    "open_put": "Your notes put it this way: ",
+    "open_figure": "The number you noted: ",
+    "open_date": "The date you noted: ",
+    "wrote_on_a": "On ",
+    "wrote_on_b": " you wrote: ",
+    "closest_a": "The closest your notes come is this: ",
+    "closest_b": "Nothing here says it outright. The nearest is: ",
+    # The citation: a titled note by its heading, in bold; a note with no
+    # heading by the day it was written, since its first words are what the
+    # quote already says.
+    "your_note": "your note",
+    "your_note_cap": "Your note",
+    "a_note_from": "A note from ",
+    "one_of_your_notes": "one of your notes",
+    "one_of_your_notes_cap": "One of your notes",
+    "note_from": " from ",
+    "list_from": "From ",
     "latest_a": "Most recently, on ",
-    "latest_a_mid": ", your note ",
-    "latest_b": "The newest note on this, from ",
-    "latest_in": ", is ",
-    "latest_undated": "The most recent is ",
+    "latest_b": "The newest, from ",
+    "latest_undated": "The most recent: ",
     "mention_lead": "At least ",
     "mention_mid": " of your notes mention ",
     "from_span": ", from ",
@@ -178,31 +184,31 @@ PHRASES: dict[str, str] = {
     "has": " has ",
     "checklist_items_done": " checklist items done:",
     "end_colon": ":",
-    # The notes after the first, joined by how they relate to what came before.
-    "also_says": " also says: ",
-    "also_in": "Also, in ",
-    "adds": " adds: ",
-    "separately": "Separately, ",
-    "elsewhere": "Elsewhere, ",
-    "says": " says: ",
-    "said": " said: ",
+    # The notes after the first, joined by how they relate to what came
+    # before, never the same joining words twice running and never a pile of
+    # "also": the same subject mostly needs no joiner at all, the sentence
+    # and its citation are enough. Each joiner takes the quote after a comma
+    # when its first word can be lowered ("Separately, the hills are steep"),
+    # and after a colon when it cannot ("Separately: Lisbon to Porto ...").
+    "and_join": "And ",
+    "on_top": "On top of that",
+    "separately": "Separately",
+    "elsewhere": "Elsewhere",
+    "another_note": "On another note",
     "later_on": "Later, on ",
-    "before_that": "Before that, on ",
     "then_on": "Then on ",
+    "before_that": "Before that, on ",
     "echo": " (Your notes say this ",
     "echo_end": " times.)",
     "disagree_lead": "Your notes may disagree here. ",
-    "but_newer": "But the newer ",
-    "but_older": "But the older ",
-    "but_your_newer": "But your newer note ",
-    "but_your_older": "But your older note ",
-    "but_your": "But your note ",
+    "but_newer": "But in a newer note",
+    "but_older": "But in an older note",
+    "but_other": "But in another note",
     "disagree_check": " These may disagree, so it is worth checking which is current.",
     "picture_in": "The picture in ",
     "picture_shows": " shows ",
     "picture_reads": " has these words in it: ",
     "timeline": "In the order you wrote them:",
-    "in_note": ", in ",
     # A comparison.
     "of_found": "Of the notes found, ",
     "mentions_one": " mentions ",
@@ -397,6 +403,10 @@ class NoteView:
     #: under says what it is about ("Reading list", tagged #books, is about
     #: books without saying the word).
     filed_words: set[str] = field(default_factory=set)
+    #: Whether the note has a heading. One without is never named by its first
+    #: words (INBOX 741): the quote already says them, and "your note starting
+    #: with ... says" was the whole complaint. It is cited by its day instead.
+    titled: bool = False
 
     @property
     def id(self) -> int:
@@ -525,7 +535,7 @@ def read_note(note: dict, rank: int) -> NoteView | None:
     if not content.strip() or note.get("id") is None:
         return None
     title, body_start = _title(content)
-    view = NoteView(note=note, rank=rank, title=title, written=_written(note))
+    view = NoteView(note=note, rank=rank, title=title, written=_written(note), titled=bool(title) and body_start > 0)
     view.title_words = set(_words(title))
     filed = [str(t) for t in (note.get("tags") or [])] + [str(note.get("category") or "")]
     view.filed_words = set(_words(" ".join(filed)))
@@ -868,6 +878,9 @@ class _Answer:
         #: same note can say "It" (the one pronoun written here, and only of
         #: a note named just before it).
         self.last_note: int | None = None
+        #: The notes already named in this answer: a note is named once, at
+        #: its first quote, and its later quotes go uncited (INBOX 741).
+        self.named: set[int] = set()
 
     def t(self, *names: str) -> _Answer:
         for name in names:
@@ -882,12 +895,35 @@ class _Answer:
         self.parts.append(("asked", text))
         return self
 
-    def name(self, view: NoteView) -> _Answer:
-        """The note's name, in bold."""
-        self.t("bold")
-        self.parts.append(("title", view.title, view.id))
+    def name(self, view: NoteView, cap: bool = False) -> _Answer:
+        """The note's name: its heading in bold, or, for a note with no
+        heading, "your note from 3 March" (never its first words)."""
         self.last_note = view.id
-        return self.t("bold")
+        self.named.add(view.id)
+        if view.titled:
+            self.t("bold")
+            self.parts.append(("title", view.title, view.id))
+            return self.t("bold")
+        if view.written:
+            return self.t("your_note_cap" if cap else "your_note", "note_from").m(self.day(view.written))
+        return self.t("one_of_your_notes_cap" if cap else "one_of_your_notes")
+
+    def cite(self, view: NoteView, again: bool = False) -> _Answer:
+        """" (**Harbor launch plan**)" or " (your note, 3 March)" after a
+        quote: the citation as a marker, once per note unless `again`."""
+        if view.id in self.named and not again:
+            return self
+        self.named.add(view.id)
+        self.t("open_paren")
+        if view.titled:
+            self.t("bold")
+            self.parts.append(("title", view.title, view.id))
+            self.t("bold")
+        elif view.written:
+            self.t("your_note", "comma").m(self.day(view.written))
+        else:
+            self.t("one_of_your_notes")
+        return self.t("close_paren")
 
     def q(self, s: Sentence, terms: list[str], shown: str | None = None) -> _Answer:
         """A quote, and its citation row: once per sentence, at its first use.
@@ -963,6 +999,32 @@ def _pick(question: str, salt: str, options: list[str]) -> str:
     return options[digest[0] % len(options)]
 
 
+#: The first words a quote may have lowered after a joiner ("Separately,
+#: the hills are steep"): words that are never a name. Anything else, a
+#: name, "I", a capitalised word the app cannot tell from a name, keeps its
+#: capital and takes the joiner after a colon instead.
+_LOWERABLE = frozenset(
+    """a an the it its this that these those there they their them we our
+    you your he she his her one two three four five six seven eight nine ten
+    every each some most all no not after before when if then in on at for
+    to with without from by of only just still maybe once both next last
+    first until since cut try keep ask write ship book buy call check get go
+    make use add need plan start stop slow hire pair pairs foam sign
+    out back""".split()
+)
+
+
+def _lowered(s: Sentence) -> str | None:
+    """The quote with its first letter lowered, when its first word is one
+    that is never a name ("The", "Ship", not "Harbor" or "I"); None otherwise."""
+    if s.kind not in ("prose", "item") or len(s.text) < 2:
+        return None
+    first = re.match(r"[A-Za-z]+", s.text)
+    if not first or first.group(0).lower() not in _LOWERABLE or first.group(0)[1:] != first.group(0)[1:].lower():
+        return None
+    return s.text[0].lower() + s.text[1:]
+
+
 #: A sentence opening with one of these leans on the one before it: "It
 #: forces the reading to be active" quoted alone has lost what "it" is.
 _LEANS_BACK = re.compile(r"^(it|this|that|these|those|they|he|she|then|there|which|second|third|another)\b", re.I)
@@ -984,13 +1046,19 @@ def _with_context(out: _Answer, sentences: list[Sentence]) -> list[Sentence]:
     return result
 
 
-def _quotes(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None:
+def _quotes(out: _Answer, sentences: list[Sentence], terms: list[str], lower_first: bool = False) -> None:
     """Sentences of one note, run together in the note's own order; a picture's
     reading introduced as the app's reading of it, and each sentence other
-    notes repeat followed by how many say it."""
+    notes repeat followed by how many say it. `lower_first` lowers the first
+    sentence's first letter, after a joiner that ends in a comma."""
     for i, s in enumerate(sentences):
         if i:
             out.t("space")
+        if not i and lower_first and _lowered(s):
+            out.q(s, terms, _lowered(s))
+            if s.echoes:
+                out.t("echo").m(out.count(1 + len(s.echoes))).t("echo_end")
+            continue
         if s.kind == "picture":
             out.t("picture_in").name(out.views[s.note_id]).t("picture_shows").q(s, terms)
             if not s.text.endswith((".", "?", "…")):
@@ -1029,6 +1097,23 @@ def _sentence_case(items: list[Sentence]) -> bool:
     return all(not re.search(r"\s[A-Z]", s.text) for s in items)
 
 
+def _joined(out: _Answer, keys: list[str], unit: list[Sentence], terms: list[str], when: date | None = None, colon: bool = False) -> None:
+    """A joiner, an optional measured day, then the note's sentences: after a
+    comma with the first letter lowered when it can be ("Later, on 3 March,
+    the hotel is booked"), after a colon when it cannot or `colon` says so
+    (a joiner that is not a clause: "The newest, from 3 March: ...")."""
+    out.t(*keys)
+    if when:
+        out.m(out.day(when))
+    if _lowered(unit[0]) and not colon:
+        if when or not PHRASES[keys[-1]].endswith(" "):
+            out.t("comma")
+        _quotes(out, unit, terms, lower_first=True)
+    else:
+        out.t("colon")
+        _quotes(out, unit, terms)
+
+
 def _list_sentence(out: _Answer, items: list[Sentence], terms: list[str]) -> None:
     """" A, B and C." from the list's own entries."""
     lower = _sentence_case(items)
@@ -1047,7 +1132,9 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
     if tasks and len(tasks) == len(items):
         done, total = out.count(sum(1 for s in tasks if s.done)), out.count(len(tasks))
         if lead == "opening":
-            out.t("says_a").name(view).t("has").m(done).t("checklist_of").m(total).t("checklist_items_done")
+            if view.titled:
+                out.t("your_note_cap", "space")
+            out.name(view, cap=True).t("has").m(done).t("checklist_of").m(total).t("checklist_items_done")
         else:
             out.t("checklist").m(done).t("checklist_of").m(total).t("checklist_done")
         out.t("para")
@@ -1057,7 +1144,9 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
             out.item(s, terms)
         return
     if lead == "opening":
-        out.t("says_a").name(view).t("lists")
+        if view.titled:
+            out.t("your_note_cap", "space")
+        out.name(view, cap=True).t("lists")
     else:
         out.t("it_lists")
     out.m(out.count(len(items)))
@@ -1073,32 +1162,29 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
 
 
 def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
-    """The words that introduce the strongest sentence and name its note, on
-    the same line as the sentence: the first line is the answer."""
+    """What comes before the strongest sentence on the first line, which is
+    the answer: often nothing, the sentence itself, or a short opener chosen
+    by the question so answers in a row do not start alike. The note is not
+    named here; its citation follows the quote (`_Answer.cite`)."""
     view = out.views[s.note_id]
     if shape == "count" and _NUMBER_CUE.search(s.text):
-        if _pick(question, "lead", ["a", "b"]) == "a":
-            out.t("figure_a").name(view).t("colon")
-        else:
-            out.t("figure_b").name(view).t("figure_b_end")
+        options = ["", "open_figure", "open_notes"]
     elif shape == "when" and _DATE_CUE.search(s.text):
-        if _pick(question, "lead", ["a", "b"]) == "a":
-            out.t("date_a").name(view).t("colon")
-        else:
-            out.t("date_b").name(view).t("date_b_end")
+        options = ["", "open_date"]
     elif shape == "when" and view.written:
         #: No date in the sentence: the day the note was written is the one
         #: date the app knows, and it is said as that and nothing more.
-        out.t("says_b").name(view).t("written_on").m(out.day(view.written)).t("colon")
+        out.t("wrote_on_a").m(out.day(view.written)).t("wrote_on_b")
+        return
     elif shape == "yesno":
-        out.t(_pick(question, "lead", ["closest_a", "closest_b"])).name(view).t("closest_end")
+        options = ["closest_a", "closest_b"]
+    elif shape == "explain":
+        options = ["", "open_put", "open_notes"]
     else:
-        #: "The closest match" only for the search's own first result: the
-        #: lead is the sentence that says most about the question, which can
-        #: sit in the third note found (the owner, 2026-10-06: "it said the
-        #: closest match is my gary sketch, even though it is the 3rd match").
-        style = _pick(question, "lead", ["a", "b", "c", "d"] if s.rank == 0 else ["a", "b", "d"])
-        out.t(f"says_{style}").name(view).t(f"says_{style}_end")
+        options = ["", "open_notes", "open_wrote"]
+    key = _pick(question, "lead", options)
+    if key:
+        out.t(key)
 
 
 def _span(out: _Answer, views: list[NoteView]) -> None:
@@ -1129,9 +1215,9 @@ def _lead_block(out: _Answer, shape: str, lead: Sentence, chosen: list[Sentence]
     if shape in FACT_SHAPES and lead.kind == "item":
         #: "Is the pricing page signed off?" is answered by the one entry of
         #: the risks list that says so, not by the whole list.
-        out.t(_pick(question, "lead", ["closest_a", "closest_b"]) if shape == "yesno" else "says_b")
-        out.name(view).t("closest_end" if shape == "yesno" else "says_b_end")
+        _opening(out, lead, shape, question)
         _quotes(out, [lead], terms)
+        out.cite(view)
         return
     prose = sorted(_with_context(out, [s for s in same if s.kind == "prose" or s.kind.startswith("picture")]), key=lambda s: s.order)
     items = [s for s in same if s.kind in ("item", "task")]
@@ -1147,6 +1233,7 @@ def _lead_block(out: _Answer, shape: str, lead: Sentence, chosen: list[Sentence]
     else:
         _opening(out, lead if lead in prose else prose[0], shape, question)
         _quotes(out, prose, terms)
+        out.cite(view)
     if items and shape != "when":
         out.t("para")
         _list_block(out, view, items, terms, "continued")
@@ -1208,6 +1295,7 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
     units = [sorted((s for s in rest if s.note_id == i), key=lambda s: s.order) for i in order]
     said = [s for s in out.views[lead.note_id].sentences if s.key in out.cited]
     last = ""
+    used: set[str] = set()
     for group in _clusters(meaning, units):
         for g, unit in enumerate(group):
             #: Two notes to a paragraph at most: a topic's paragraph that runs
@@ -1216,28 +1304,32 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
             view = out.views[unit[0].note_id]
             relation = _relation(out, meaning, unit[0], said or [lead], lead)
             if unit[0].kind.startswith("picture") and len(unit) == 1:
-                if relation == "separately":
-                    out.t(_pick(f"{question}:{view.id}", "join", ["separately", "elsewhere"]))
+                #: A picture's reading names its note itself ("The picture
+                #: in **Sketches** shows ..."): no joiner before it.
                 _quotes(out, unit, terms)
             elif relation == "later":
-                out.t("later_on").m(out.day(view.written))
-                out.t("comma").name(view).t("says")
-                _quotes(out, unit, terms)
-            elif relation == "also":
-                #: Never the same joining words twice running.
-                options = [o for o in ("also_says", "also_in", "adds") if o != last]
-                style = last = _pick(f"{question}:{view.id}", "join", options)
-                if style == "also_in":
-                    out.t("also_in").name(view).dated(view).t("colon")
-                else:
-                    out.name(view).dated(view).t(style)
-                _quotes(out, unit, terms)
+                last = "then_on" if "later_on" in used else "later_on"
+                used.add(last)
+                _joined(out, [last], unit, terms, view.written)
             else:
-                options = [o for o in ("separately", "elsewhere") if o != last]
+                #: The same subject mostly needs no joiner: the sentence and
+                #: its citation are enough, and a pile of "also" is what the
+                #: owner read as a template (INBOX 741). Never the same
+                #: joining words twice in one answer. A joiner for the same subject only where the quote can
+                #: follow it after a comma: "On top of that: Subject: ..." is
+                #: two colons and no sentence.
+                pool = ["", "and_join", "on_top"] if relation == "also" and _lowered(unit[0]) else [""]
+                if relation != "also":
+                    pool = ["separately", "elsewhere", "another_note"]
+                options = [o for o in pool if o not in used] or [""]
                 last = _pick(f"{question}:{view.id}", "join", options)
-                out.t(last).name(view).dated(view)
-                out.t("says")
-                _quotes(out, unit, terms)
+                if last:
+                    used.add(last)
+                if last:
+                    _joined(out, [last], unit, terms)
+                else:
+                    _quotes(out, unit, terms)
+            out.cite(view)
             said.extend(unit)
 
 
@@ -1257,14 +1349,15 @@ def _timeline(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None
         view = out.views[note_id]
         out.t("line", "bullet")
         if view.written:
-            out.m(out.day(view.written)).t("in_note")
-        out.name(view).t("colon")
+            out.m(out.day(view.written)).t("colon")
         _quotes(out, sorted((s for s in sentences if s.note_id == note_id), key=lambda s: s.order), terms)
+        if view.titled or not view.written:
+            out.cite(view)
 
 
 def _earlier(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None:
     """A "latest" question's older notes, newest first, as prose that walks
-    back: "Before that, on 12 September, **Q4 roadmap** said: ..."."""
+    back: "Before that, on 12 September, three workstreams ... (**Q4 roadmap**)"."""
     sentences = _with_context(out, [s for s in sentences if s.kind == "prose" or s.kind.startswith("picture")])
     order: list[int] = []
     for s in sentences:
@@ -1274,10 +1367,12 @@ def _earlier(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None:
     for i, note_id in enumerate(order):
         view = out.views[note_id]
         out.t("para")
+        unit = sorted((s for s in sentences if s.note_id == note_id), key=lambda s: s.order)
         if view.written:
-            out.t("before_that" if i == 0 else "then_on").m(out.day(view.written)).t("comma")
-        out.name(view).t("said")
-        _quotes(out, sorted((s for s in sentences if s.note_id == note_id), key=lambda s: s.order), terms)
+            _joined(out, ["before_that" if i == 0 else "then_on"], unit, terms, view.written)
+        else:
+            _quotes(out, unit, terms)
+        out.cite(view)
 
 
 def _disagreement(chosen: list[Sentence]) -> tuple[Sentence, Sentence] | None:
@@ -1300,19 +1395,16 @@ def _disagreements(out: _Answer, pair: tuple[Sentence, Sentence], lead: Sentence
         #: other side is said, as the "but" to it.
         other = b if a.note_id == lead.note_id else a
         view = out.views[other.note_id]
-        out.t(("but_your_newer" if other is b else "but_your_older") if newer else "but_your")
-        out.name(view).dated(view).t("says")
-        _quotes(out, [other], terms)
+        _joined(out, [("but_newer" if other is b else "but_older") if newer else "but_other"], [other], terms)
+        out.cite(view, again=True)
         out.t("disagree_check")
         return
     out.t("disagree_lead")
-    view = out.views[a.note_id]
-    out.name(view).dated(view).t("says")
     _quotes(out, [a], terms)
-    out.t("space", "but_newer" if newer else "but_older")
-    view = out.views[b.note_id]
-    out.name(view).dated(view).t("says")
-    _quotes(out, [b], terms)
+    out.cite(out.views[a.note_id], again=True)
+    out.t("space")
+    _joined(out, ["but_newer" if newer else "but_other"], [b], terms)
+    out.cite(out.views[b.note_id], again=True)
 
 
 #: Words too short or too common to report as missing: a two-letter word
@@ -1370,11 +1462,11 @@ def _compare(out: _Answer, sides: tuple[str, str], views: list[NoteView], meanin
             out.t("line").t("side_none")
             continue
         for s in picks:
-            out.t("line").item(s, side_terms).t("open_paren").name(out.views[s.note_id]).t("close_paren")
+            out.t("line").item(s, side_terms).cite(out.views[s.note_id], again=True)
     if both:
         out.t("para", "bold", "both", "bold")
         for s in both:
-            out.t("line").item(s, a_terms + b_terms).t("open_paren").name(out.views[s.note_id]).t("close_paren")
+            out.t("line").item(s, a_terms + b_terms).cite(out.views[s.note_id], again=True)
     return True
 
 
@@ -1461,15 +1553,14 @@ def _body(
         ordered = sorted(chosen, key=lambda s: (out.views[s.note_id].written or date.min, s.score), reverse=True)
         lead = ordered[0]
         view = out.views[lead.note_id]
-        if view.written:
-            if _pick(question, "lead", ["a", "b"]) == "a":
-                out.t("latest_a").m(out.day(view.written)).t("latest_a_mid").name(view).t("says")
-            else:
-                out.t("latest_b").m(out.day(view.written)).t("latest_in").name(view).t("colon")
-        else:
-            out.t("latest_undated").name(view).t("colon")
         same = sorted(_with_context(out, [s for s in ordered if s.note_id == lead.note_id and s.kind == "prose"]), key=lambda s: s.order)
-        _quotes(out, same or [lead], terms)
+        if view.written:
+            key = _pick(question, "lead", ["latest_a", "latest_b"])
+            _joined(out, [key], same or [lead], terms, view.written, colon=key == "latest_b")
+        else:
+            out.t("latest_undated")
+            _quotes(out, same or [lead], terms)
+        out.cite(view)
         _earlier(out, [s for s in ordered if s.note_id != lead.note_id and s.key not in skip], terms)
         return lead
     lead = chosen[0]
@@ -1519,7 +1610,14 @@ def _newest(out: _Answer, views: list[NoteView]) -> None:
     _span(out, shown)
     out.t("end_colon")
     for view in shown:
-        out.t("line", "bullet").name(view).dated(view).t("colon")
+        out.t("line", "bullet")
+        if view.titled:
+            out.name(view).dated(view)
+        elif view.written:
+            out.t("list_from").m(out.day(view.written))
+        else:
+            out.name(view, cap=True)
+        out.t("colon")
         first = view.sentences[0]
         if first.kind == "picture":
             out.t("picture_in").name(view).t("picture_shows").q(first, [])
@@ -1561,7 +1659,7 @@ def _next_questions(question: str, shape: str, terms: list[str], views: list[Not
     #: question (a sentence of it scored at least half the best), by its name.
     best = max((s.score for v in views for s in v.sentences), default=0.0)
     for view in sorted(views, key=lambda v: v.rank):
-        if view.id in cited or view.note.get("connected") or not view.title or view.title.endswith("…"):
+        if view.id in cited or view.note.get("connected") or not view.titled:
             continue
         if (view.title_words and view.title_words <= asked) or not any(s.score >= best / 2 > 0 for s in view.sentences):
             continue

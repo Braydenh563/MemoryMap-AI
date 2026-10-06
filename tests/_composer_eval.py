@@ -239,6 +239,31 @@ def run(data: dict | None = None) -> list[dict]:
     return rows
 
 
+#: The phrases that join or open: the ones a reader hears as a template when
+#: they come twice in one answer (INBOX 741, the owner: "ur note starting
+#: with this says this. also ur not starting with this says this").
+JOINERS = ("and_join", "on_top", "separately", "elsewhere", "another_note", "later_on", "then_on", "before_that",
+           "open_notes", "open_wrote", "open_put", "open_figure", "open_date", "closest_a", "closest_b")
+
+
+def lead_in_repeats(result: dict) -> int:
+    """How many joining or opening phrases come more than once in an answer."""
+    joiners = {composer.PHRASES[k] for k in JOINERS}
+    used = [p[1] for p in result["parts"] if p[0] == "template" and p[1] in joiners]
+    return len(used) - len(set(used))
+
+
+def opener(result: dict) -> str:
+    """How the answer starts: its first worded phrase, or "(quote)" when it
+    starts with the person's own sentence."""
+    for part in result["parts"]:
+        if part[0] != "template":
+            return f"({part[0]})"
+        if re.search(r"[A-Za-z]", part[1]):
+            return part[1]
+    return ""
+
+
 def summary(rows: list[dict]) -> dict:
     n = len(rows)
     return {
@@ -252,6 +277,11 @@ def summary(rows: list[dict]) -> dict:
         "first_line_answers": sum(1 for r in rows if r["first_line"]),
         "words_mean": round(sum(r["words"] for r in rows) / n, 1),
         "notes_cited_mean": round(sum(r["cited"] for r in rows) / n, 2),
+        "lead_in_repeats": sum(1 for r in rows if lead_in_repeats(r["result"])),
+        "openers_distinct": len({opener(r["result"]) for r in rows}),
+        #: A note introduced as saying something ("Your note X says:"), the
+        #: shape INBOX 741 removed.
+        "says_colon": sum(len(re.findall(r"\b(?:says|said): ", r["text"])) for r in rows),
     }
 
 

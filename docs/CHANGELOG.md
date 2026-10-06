@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask and Chat with no model: an answer from your notes says the note's own sentence first and names the note once after it, by its heading or the day it was written, instead of opening every sentence with "Your note ... says:" and a pile of "also"; joining words vary and never repeat in one answer (INBOX 741).
 - Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.
 - Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.
 - Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.

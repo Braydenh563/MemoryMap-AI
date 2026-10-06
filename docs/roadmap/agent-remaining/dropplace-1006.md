@@ -22,7 +22,7 @@ by). Every placement is followed by one Ctrl+Z, which must remove it whole.
 | Drag held at a quarter of the picture | 16 to 145 / 32 to 291 / 63 to 581px | 0px |
 | Note card dropped | 12.5 / 25 / 50px | 0px |
 | Icon, emoji, image file dropped | 0px | 0px |
-| Map template drag (free layout, no root) | 118.5 / 236.9 / 473.8px | 0px |
+| Map template drag (free layout, no root) | 118.5 / 236.9 / 473.8px | 0 to 0.3px (Decision template 0.1-0.3px, its topics no longer overlap) |
 | Map template click (no root) | 91.7 / 132.9 / 346.9px | 0px |
 | Map template drag, under the root (free layout) | 219.4 / 438.8 / 877.6px | 0px |
 | Map template click, under the root | 78.8 / 285.4 / 721.6px | 0px |
@@ -72,3 +72,7 @@ by). Every placement is followed by one Ctrl+Z, which must remove it whole.
 - `wbMapDropTargetAt` (whiteboard-map.js ~2702) still converts by hand; fold
   it into `wbClientToBoard` and update the pinned line in
   `tests/test_map_drag_cost.py`.
+
+## Log
+
+- done: 8bb431d (the fix, the sweep, tests). Final sweep: 111 placements, 0 fails, largest error 0.3px, every one removed by one undo.

@@ -469,7 +469,7 @@ function thinkingFold(open = true) {
   el.open = open;
   const summary = document.createElement("summary");
   summary.className = "fold-summary";
-  setLabel(summary, "ph:brain Thinking");
+  setLabel(summary, "ph:sparkle Thinking");
   const body = document.createElement("div");
   body.className = "thinking";
   el.append(summary, body);

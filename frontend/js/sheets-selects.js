@@ -1615,7 +1615,7 @@ async function loadConversationList() {
       })
     );
     items.push(
-      makeMenuItem("ph:magic-wand Name with Atlas", "Let Atlas name this chat", async () => {
+      makeMenuItem("ph:sparkle Name with Atlas", "Let Atlas name this chat", async () => {
         //: Asked for, so answered directly: the activity notice below obeys
         //: "AI activity: panel only", and with that set the click showed
         //: nothing at all, start or finish (the owner at release).

@@ -433,7 +433,7 @@ def _find_similar_notes(session: Session, args: dict) -> dict:
     return {
         "note_id": entry.id,
         "similar": suggestions,
-        "label": f"ph:brain Found {len(suggestions)} similar notes to #{entry.id}",
+        "label": f"ph:sparkle Found {len(suggestions)} similar notes to #{entry.id}",
         "how_to_read_more": (
             "These notes share conceptual similarities based on their semantic "
             "embeddings, even if they don't share exact keywords. Use link_notes "
@@ -2367,7 +2367,7 @@ def _save_user_preference(session: Session, args: dict) -> dict:
     session.commit()
     session.refresh(row)
     return {
-        "label": "ph:brain Suggested",
+        "label": "ph:brain Suggested remembering this",
         "message": (
             f"Suggested remembering: {pref}: it is NOT in force until the user "
             "accepts it. Do not assume it applies yet."

@@ -412,7 +412,7 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
 // offers a control you can see and this one asked you to know a key.
 $("command-palette-close").addEventListener("click", () => toggleAgentPalette());
 
-//: The header's wand moved to the status bar with INBOX 207; the slot's own
+//: The header's agent button moved to the status bar with INBOX 207; the slot's own
 //: listener sits beside the rest of the bar's, and the chord is named in its
 //: tooltip, which is how anybody finds out a chord exists.
 

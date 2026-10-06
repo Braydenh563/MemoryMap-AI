@@ -411,7 +411,7 @@ function renderActivityStatusItem() {
   if (!agentRuns.length) return;
   const running = agentRuns.filter((run) => run.state === "running").length;
   paintStatusItem("status-activity", {
-    icon: "ph:robot",
+    icon: "ph:strategy",
     value: running || agentRuns.length,
     label: running ? "running" : agentRuns.length === 1 ? "run" : "runs",
     title: "Agent activity: every run this session, and the log.\n\nClick to show or hide the panel.",

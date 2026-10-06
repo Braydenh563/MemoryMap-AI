@@ -32,7 +32,7 @@ def test_library_all_documents_and_bookmarks_docks_carry_a_help_popover():
 
 
 def test_reminders_card_has_one_worded_add():
-    # The magic field's button is the wand alone, named by title and
+    # The magic field's button is the sparkle alone, named by title and
     # aria-label; the form's "Add" is the card's one worded Add.
     magic = re.search(r'<button[^>]*id="reminder-magic-add"[^>]*>(.*?)</button>', HTML, re.S)
     assert magic

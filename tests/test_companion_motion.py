@@ -599,7 +599,7 @@ def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
     kebab = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
     assert "if (Array.isArray(item.items) && typeof buildMenuGroupButton === \"function\")" in kebab
     menu = _fn("nameMarkBuddyMenu")
-    for row in ("ph:user-switch Companion", "ph:star-four Atlas look", "ph:resize Size", "ph:gear Settings"):
+    for row in ("ph:user-switch Companion", "ph:coat-hanger Atlas look", "ph:resize Size", "ph:gear Settings"):
         assert f'label: "{row}",\n    items:' in menu, row
     assert 'choose("avatar-buddy", value)' in menu and 'choose("atlas-look", value)' in menu
     for target in ('openSettingsModal("appearance", "avatar-buddy-row")', 'openSettingsModal("preferences")', 'openSettingsModal("personas")'):

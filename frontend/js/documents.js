@@ -2449,7 +2449,7 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-serif", "The serif face") },
   { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
     run: () => docRunControl("doc-word-goal", "The word goal") },
-  { id: "ai", icon: "ph:magic-wand", label: "Ask Atlas to edit this document", keys: "",
+  { id: "ai", icon: "ph:sparkle", label: "Ask Atlas to edit this document", keys: "",
     run: () => docRunControl("doc-ai", "AI editing") },
   { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
     run: () => docRunControl("doc-extract", "Extracting notes") },
@@ -10901,7 +10901,7 @@ function syncDocAiPanel() {
   const wordCount = selection ? selection.split(/\s+/).length : 0;
 
   const runLabel = { edit: "Suggest an edit", write: "Write it", remove: "Remove it" }[verb];
-  setLabel($("doc-ai-run"), `ph:magic-wand ${runLabel}`);
+  setLabel($("doc-ai-run"), `ph:sparkle ${runLabel}`);
 
   $("doc-ai-instruction").placeholder =
     verb === "write"
@@ -11522,7 +11522,7 @@ function docDiffHunkHead(hunk, index, total, skipped, onToggle) {
 //: has to be read from the top, which is the work a history exists to save.
 const DOC_HISTORY_SOURCES = {
   edit: { icon: "ph:pencil-simple", label: "You" },
-  ai: { icon: "ph:magic-wand", label: "AI edit" },
+  ai: { icon: "ph:sparkle", label: "AI edit" },
   restore: { icon: "ph:clock-counter-clockwise", label: "Restored" },
 };
 
@@ -17462,7 +17462,7 @@ function docSuggestAnswers(finding, opts = {}) {
     const askAi = document.createElement("button");
     askAi.type = "button";
     askAi.className = "doc-suggest-item doc-suggest-ai";
-    setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
+    setLabel(askAi, "ph:sparkle Ask Atlas for wordings\u2026");
     askAi.title = "Have the local model suggest two or three other ways to put this";
     askAi.addEventListener("click", async () => {
       if (!currentDoc || !currentDoc.id) return toast("Save the document first.", "info");
@@ -17478,7 +17478,7 @@ function docSuggestAnswers(finding, opts = {}) {
       if (!current()) return;
       const options = (body && body.options) || [];
       if (!options.length) {
-        setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
+        setLabel(askAi, "ph:sparkle Ask Atlas for wordings\u2026");
         askAi.disabled = false;
         return toast(
           (body && body.message) || "No other wordings came back for that one.",
@@ -17490,7 +17490,7 @@ function docSuggestAnswers(finding, opts = {}) {
         const item = document.createElement("button");
         item.type = "button";
         item.className = "doc-suggest-item doc-suggest-ai-option";
-        setLabel(item, `ph:magic-wand ${option}`);
+        setLabel(item, `ph:sparkle ${option}`);
         item.title = `Replace with \u201c${option}\u201d`;
         item.addEventListener("click", () => {
           docProseFix({ ...finding, replacement: option });

@@ -2734,7 +2734,7 @@ async function renderMemorySettings() {
       if (pref.proposed) {
         const tag = document.createElement("span");
         tag.className = "memory-proposed-tag";
-        setLabel(tag, "ph:brain Suggested by Atlas");
+        setLabel(tag, "ph:sparkle Suggested by Atlas");
 
         const answer = async (accept) => {
           await apiJson(`/memory/${pref.id}/answer`, {

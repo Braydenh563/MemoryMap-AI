@@ -574,15 +574,16 @@
            The eyebrow `<h3>` is the recipe `.card h3` already gives every
            panel head in the app, including the agent activity panel this is
            most often confused with, rather than a second heading style for one
-           surface. No icon on the title on purpose: the wand sits two lines
-           below it at `--text-h3` as the input's own affordance, and repeating
+           surface. No icon on the title on purpose: the agent's mark (DESIGN.md,
+           "AI and agent icons") sits two lines below it at `--text-h3` as the input's own
+           affordance (the head's mark is Atlas's face, drawn over its fallback), and repeating
            one glyph twice inside a 293px card would be the only doubled icon
            in any dialog here. -->
       <div class="row space-between command-palette-head dialog-head">
         <div class="row help-head">
           <!-- The head wears Atlas's own face (atlas.js, `atlasDressMarks`);
                the icon is what shows until it is drawn. -->
-          <span class="atlas-mark atlas-mark-agent" data-atlas-avatar="28" aria-hidden="true"><i class="ph ph-sparkle" aria-hidden="true"></i></span>
+          <span class="atlas-mark atlas-mark-agent" data-atlas-avatar="28" aria-hidden="true"><i class="ph ph-strategy" aria-hidden="true"></i></span>
           <h3 class="dialog-head-title">Agent</h3>
           <!-- The one line of description this panel is allowed (standing
                order 6) is the paragraph below; everything longer lives behind
@@ -603,8 +604,8 @@
       </div>
       <div class="help-body hidden" id="command-palette-help" role="dialog" aria-label="About the agent">
         <p>
-          Ctrl+Shift+A opens and closes this from any tab, or use the wand in
-          the header. Enter sends, Shift+Enter starts a line, Down moves into
+          Ctrl+Shift+A opens and closes this from any tab, or use Agent in
+          the status bar. Enter sends, Shift+Enter starts a line, Down moves into
           the starters and Escape closes. It uses the same model, tools and
           notebook the Chat tab does, so anything it writes or files is real,
           and it answers from what you have written; tick the box below to
@@ -613,7 +614,7 @@
         </p>
       </div>
       <div class="command-palette-bar">
-        <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
+        <span class="command-palette-icon"><i class="ph ph-strategy" aria-hidden="true"></i></span>
         <!-- A textarea, not an `<input>`. Reported directly: "the input bar
              in the popup agent isnt multiline". What people actually type at
              this agent is a paragraph, "Make a note: …" with a sentence of
@@ -795,7 +796,7 @@
          widths and two baselines in one row, which is what the owner called
          "not aligned and unprofessional" (2026-09-23). -->
     <h3 class="panel-head monitor-header dialog-head">
-      <span class="monitor-title dialog-head-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent activity</span>
+      <span class="monitor-title dialog-head-title"><i class="ph ph-strategy ph-lead" aria-hidden="true"></i> Agent activity</span>
       <span class="row monitor-header-actions">
         <button id="agent-monitor-clear" class="icon-only ghost small dialog-head-btn" type="button"
           aria-label="Clear finished runs" title="Clear finished runs"><i class="ph ph-broom" aria-hidden="true"></i></button>
@@ -1564,7 +1565,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- Improve rewrites what is typed; the four before it add a
                  thing. Two families, one hairline between them. -->
             <span class="capture-tools-sep" aria-hidden="true"></span>
-            <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let Atlas proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
+            <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let Atlas proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
           <!-- **Where this note goes**, both halves of it. A category and a
                document are the same question asked twice, so they are one
@@ -1694,7 +1695,7 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Clear the desk: the thoughts, the draft and its earlier versions"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Discard this draft</button>
                 </div>
               </details>
-              <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
+              <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Draft</button>
             </div>
           </div>
           <div class="help-body hidden" id="draft-help-body" role="dialog" aria-label="What is this?">
@@ -2222,7 +2223,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
                   <label class="dock-menu-check semantic-toggle" title="Search by concept instead of exact keywords">
-                    <input type="checkbox" id="semantic-search-toggle"> <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic: match by meaning
+                    <input type="checkbox" id="semantic-search-toggle"> <i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Semantic: match by meaning
                   </label>
                   <button id="save-search" class="doc-dock-menu-item hidden" type="button"
                     title="Save this filter so you can come back to it"><i class="ph ph-star ph-lead" aria-hidden="true"></i> Save this filter</button>
@@ -2932,7 +2933,7 @@ Link to another note with [[its first few words]]."></textarea>
                   data-shortcut="agentMode"
                   title="Agent mode: Atlas can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
-                  <span class="agent-toggle-label"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent mode</span>
+                  <span class="agent-toggle-label"><i class="ph ph-strategy ph-lead" aria-hidden="true"></i> Agent mode</span>
                 </label>
                 <button id="web-search-toggle" class="ghost small" aria-pressed="false"
                   title="Search the web here, and let Atlas search when you ask it to"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</button>
@@ -3005,10 +3006,10 @@ Link to another note with [[its first few words]]."></textarea>
                        it meant. -->
                   <button data-chat-mode="chat" type="button"
                     title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
-                    aria-label="Ask the Librarian"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask<span class="chat-mode-long"> the Librarian</span></button>
+                    aria-label="Ask the Librarian"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask<span class="chat-mode-long"> the Librarian</span></button>
                   <button data-chat-mode="agent" type="button"
                     title="Agent mode. Ask the Librarian to do something: it can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
-                    aria-label="Agent mode"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent<span class="chat-mode-long"> mode</span></button>
+                    aria-label="Agent mode"><i class="ph ph-strategy ph-lead" aria-hidden="true"></i> Agent<span class="chat-mode-long"> mode</span></button>
                 </div>
 
               <!-- How the answer comes out: who is speaking, and how hard they
@@ -4549,7 +4550,7 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Rendered as you write, the markdown itself, or both side by side"><i class="ph ph-caret-down" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list">
                 <button type="button" class="doc-dock-menu-item" data-doc-view="live"
-                  title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Live</button>
+                  title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-article ph-lead" aria-hidden="true"></i> Live</button>
                 <button type="button" class="doc-dock-menu-item" data-doc-view="source"
                   title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
                 <button type="button" class="doc-dock-menu-item" data-doc-view="split"
@@ -4588,7 +4589,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="doc-format-show" class="ghost small doc-format-show hidden" type="button"
               title="Show the formatting toolbar (Ctrl+Shift+X)" aria-label="Show the formatting toolbar (Ctrl+Shift+X)"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span>Formatting</span></button>
             <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
-              title="Ask Atlas to rewrite this document, or the text you've selected" aria-label="AI edit"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">AI edit</span></button>
+              title="Ask Atlas to rewrite this document, or the text you've selected" aria-label="AI edit"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">AI edit</span></button>
             <!-- A code document's Format (the owner, 2026-09-23: "a button
                  to automatically format the whole document, ot just a
                  selection"). One button for both, as Shift+Alt+F is: the
@@ -5112,7 +5113,7 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="doc-ai-instruction" type="text" maxlength="500"
             placeholder="e.g. “tighten this”, “make it more formal”"
             aria-label="What should Atlas do?">
-          <button id="doc-ai-run" data-needs-model="AI editing needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
+          <button id="doc-ai-run" data-needs-model="AI editing needs the local AI"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
             title="Stop Atlas: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
         </div>
@@ -5178,7 +5179,7 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- The wand alone (WORLD_CLASS_PLAN 507): the form below has the
              card's one worded "Add", so this reads as "add from the sentence"
              by its name and tooltip, not as a second "Add". -->
-        <button id="reminder-magic-add" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
+        <button id="reminder-magic-add" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-sparkle" aria-hidden="true"></i></button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -5306,7 +5307,7 @@ Link to another note with [[its first few words]]."></textarea>
             data-help-for="reminders-help" aria-controls="reminders-help" aria-expanded="false"
             title="About reminders" aria-label="About reminders"><i class="ph ph-question" aria-hidden="true"></i></button>
           <div class="help-body hidden" id="reminders-help" role="dialog" aria-label="About reminders">
-            <p>Reminders are grouped as overdue, today and upcoming. Write one in plain words and press the wand to fill in the time, or use Quick set. Notifications fire while the app is open. The calendar view shows the month, and More adds every open reminder to your calendar app.</p>
+            <p>Reminders are grouped as overdue, today and upcoming. Write one in plain words and press the sparkle to fill in the time, or use Quick set. Notifications fire while the app is open. The calendar view shows the month, and More adds every open reminder to your calendar app.</p>
           </div>
           <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">
             <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
@@ -5438,7 +5439,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <label class="dock-menu-check"
                     title="Also match notes by meaning, not just the words you typed. Documents, chats and images still match on their words.">
                     <input type="checkbox" id="library-semantic-toggle">
-                    <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic: match by meaning
+                    <i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Semantic: match by meaning
                   </label>
                   <label class="dock-menu-check" title="Also show things you have thrown away.">
                     <input type="checkbox" id="library-show-binned" class="accent-check">

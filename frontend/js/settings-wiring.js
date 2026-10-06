@@ -1035,7 +1035,7 @@ const CHORD_ACTIONS = {
   //: leads to the guide, I think it should be called guide instead"),
   //: the same word the status bar's button uses. The key stays `a`.
   a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
-  p: { label: "Popup agent", icon: "ph:magic-wand", run: () => toggleAgentPalette() },
+  p: { label: "Popup agent", icon: "ph:strategy", run: () => toggleAgentPalette() },
 };
 let tabJumpArmedAt = 0;
 

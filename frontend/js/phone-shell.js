@@ -1465,7 +1465,7 @@ function openPhoneMoreSheet() {
       //: chrome that will not fit is this sheet, which is where Settings
       //: already went for the same reason; the header keeps both at every
       //: width that has room (600 and up, `10-responsive.css`).
-      list.appendChild(sheetRow("ph ph-magic-wand tab-icon", "Ask the agent", () => {
+      list.appendChild(sheetRow("ph ph-strategy tab-icon", "Ask the agent", () => {
         close();
         toggleAgentPalette();
       }));
@@ -1484,7 +1484,7 @@ function openPhoneMoreSheet() {
       //: does not show (INBOX 430): a row with the count, opening the panel.
       const runs = phoneMoreRunCount();
       if (runs) {
-        const row = sheetRow("ph ph-robot tab-icon", "Agent activity", () => {
+        const row = sheetRow("ph ph-strategy tab-icon", "Agent activity", () => {
           close();
           $("status-activity")?.click();
         });

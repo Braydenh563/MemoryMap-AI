@@ -359,8 +359,8 @@ HELP_TOPICS: list[dict] = [
             "right-click on either, lists the places you have been: an icon, the "
             "note's or document's title, a thumbnail when a note opens with a "
             "picture, and the tab in muted text under it), undo and redo, "
-            "Commands with its Ctrl/Cmd+K hint, and three icons: the wand for "
-            "the popup agent, the "
+            "Commands with its Ctrl/Cmd+K hint, and three icons: the agent's "
+            "mark (crosses, a circle and an arrow, a play drawn up) for the popup agent, the "
             "compass for Atlas the guide, and the magnifying glass for Find "
             "anything (hover one for its name and keys). The offline "
             "badge, the power-saver badge and the running-job slot appear only "
@@ -1709,7 +1709,7 @@ HELP_TOPICS.extend(
             "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
-                "tomorrow evening, high priority\"), then Enter or the wand button "
+                "tomorrow evening, high priority\"), then Enter or the sparkle button "
                 "(Add from this sentence) works out the time and the "
                 "priority. Times like \"tomorrow at 5pm\", \"next Friday\", "
                 "\"tonight\" or \"in 20 minutes\" are read with no AI; the AI is "

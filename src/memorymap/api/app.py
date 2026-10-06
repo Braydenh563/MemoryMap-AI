@@ -591,8 +591,16 @@ def _compact_event_log() -> None:
 #: Housekeeping's two steps, by name, for `core/passes.py` (Run now in
 #: Background tasks). Looked up on this module at call time, so a test that
 #: stands in for one is honoured here as in `_startup_maintenance`.
-passes.register_housekeeping("purge-bin", lambda: _purge_expired_bin_entries())
-passes.register_housekeeping("compact-history", lambda: _compact_event_log())
+def _purge_step() -> None:
+    _purge_expired_bin_entries()
+
+
+def _compact_step() -> None:
+    _compact_event_log()
+
+
+passes.register_housekeeping("purge-bin", _purge_step)
+passes.register_housekeeping("compact-history", _compact_step)
 
 
 def _startup_maintenance() -> None:

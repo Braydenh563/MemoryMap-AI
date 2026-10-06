@@ -1910,7 +1910,7 @@ const LAZY_MODULES = {
   chipMenus: ["/js/chip-menus.js"],
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
-  //: The Ask box's AI / From your notes switch (ask-compose.js), preloaded below.
+  //: The Ask box's Use AI switch (ask-compose.js), preloaded below.
   askCompose: ["/js/ask-compose.js"],
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/js/questions-view.js"],

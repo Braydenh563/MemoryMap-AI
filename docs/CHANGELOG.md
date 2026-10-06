@@ -17,6 +17,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Ask: the AI / From your notes segmented pill is now one compact switch row, Use AI, in the header's control group (INBOX 714). On, your model writes the answer; off, the answer is From your notes, with no AI. Same stored choice, kept per device; with no model running it is off and greyed with the reason on it. Its '?' help, Settings' help and the Guide say so.
 - Link reasons say what the two notes share (INBOX 691): "Both tagged #portugal; both mention Lisbon and Porto", "“Glaze tests” names “Kiln plan”", "Written two days apart, both in Travel", rather than "similar in meaning", which is kept only when likeness is all there is. New links and the link suggestions get them at once; Tidy names the existing ones, one by one or in a background job that can be stopped and undone. On the showcase notebook, 38 of 48 generic reasons became specific.
 - A note's suggested links are one chip each, the note and its + together, the whole chip the press (INBOX 709).
 - Tools and features lists Manage tags, Filings to check and Find duplicates, which were reachable only from a menu, a typed filter or Settings.

@@ -2513,15 +2513,11 @@ header#top-bar[data-scrolled="1"],
     min-width: 0;
   }
 
-  /* Ask's AI / From your notes switch (INBOX 688) takes the first line with
-     its '?', as two equal segments: beside History it left the '?' stranded
-     at the line's end and History on a line of its own. */
-  #ask .ask-header-actions > .ask-source-seg {
+  /* Ask's Use AI switch (INBOX 688, 714) takes the first line with its '?':
+     beside History it left the '?' stranded at the line's end and History
+     on a line of its own. */
+  #ask .ask-header-actions > .ask-use-ai {
     flex: 1 1 auto;
-  }
-
-  #ask .ask-source-seg > button {
-    flex: 1 1 0;
   }
 }
 

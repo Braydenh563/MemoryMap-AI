@@ -981,16 +981,17 @@ MORE_TOPICS.extend(
             "badge": {"label": "Chat", "tab": "chat"},
         },
         {
-            #: INBOX 688: the Ask box's AI / From your notes switch.
+            #: INBOX 688, 714: the Ask box's Use AI switch.
             "id": "answers-from-notes",
             "keywords": (
                 "from your notes", "answer without ai", "no ai answer", "answer with no model",
                 "composed answer", "without the ai", "ai or notes", "notes instead of ai",
-                "switch off the ai", "ai off", "who answers", "ask without a model",
+                "switch off the ai", "ai off", "who answers", "ask without a model", "use ai",
             ),
             "body": (
-                "Ask on the Notes tab has a switch beside its title: AI, or From "
-                "your notes. From your notes answers with no AI: the app picks the "
+                "Ask on the Notes tab has a Use AI switch beside its title. On, your "
+                "model writes the answer; off, the answer is From your notes, with "
+                "no AI: the app picks the "
                 "sentences in your notes that answer the question and lays them "
                 "out, the closest one first under the note it came from, the rest "
                 "grouped by note, a timeline for a when question, the newest first "
@@ -1001,7 +1002,7 @@ MORE_TOPICS.extend(
                 "none of the notes found mention. It never answers yes or no for "
                 "you. The chip over the answer reads Your notes, no AI. The "
                 "choice is kept on this device; with no model running it is the "
-                "answer and AI is greyed until a model runs."
+                "answer and Use AI is greyed, with the reason on it, until a model runs."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1331,8 +1332,8 @@ TOPIC_META: dict[str, dict] = {
     "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
-    "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, AI or From your notes", "steps": (
-        "Open Ask on the Notes tab.", "Choose From your notes beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
+    "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, the Use AI switch", "steps": (
+        "Open Ask on the Notes tab.", "Turn Use AI off beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},

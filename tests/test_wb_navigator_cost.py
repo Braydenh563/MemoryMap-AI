@@ -102,7 +102,12 @@ def test_the_inverse_zoom_is_written_onto_the_grips_that_read_it() -> None:
     without its selector in `WB_INV_ZOOM_GRIPS` would stay at the root's 1
     and grow with the board, which this catches.
     """
-    css_text = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    #: The board's rules are in the boot sheet and in library-lazy.css (the
+    #: boot CSS budget moved the ones only the Library bundle draws).
+    css_text = "\n".join(
+        (ROOT / "frontend" / "css" / name).read_text(encoding="utf-8")
+        for name in ("07-whiteboard-misc.css", "library-lazy.css")
+    )
     css_text = re.sub(r"/\*.*?\*/", "", css_text, flags=re.S)
     readers: set[str] = set()
     for selectors, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css_text):

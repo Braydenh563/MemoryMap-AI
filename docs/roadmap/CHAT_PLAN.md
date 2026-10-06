@@ -624,3 +624,22 @@ composer feeding a running model, "the composer acts"), each measured on the
 their own call when usage allows (standing order 4 bars Fable agents unless
 the owner says otherwise).
 
+10. **The composer writes for the model and the agent, not only for the
+    person** (the owner, 2026-10-06, after reading one of this harness's own
+    templated system notices: "maybe the composer could be used to help
+    streamline, and assist in agent tasks and ai tasks and responses??").
+    Deterministic, templated text where a small model is weakest:
+    - **Context packs**: the notes a model reads arrive as a composed brief
+      (who, what, when, the measured counts, quoted sentences with ids), not
+      raw note dumps; fewer tokens, less to misread.
+    - **Tool results**: each agent tool's result is summarised in one fixed
+      shape ("Done: tagged 3 notes #trip. Not done: 1, it is private.") so the
+      model's next step reads a clean state, and the person sees the same line.
+    - **Guard notices**: the agent's own rails (what it may not do, what needs
+      confirming, what came from a note rather than the person) as fixed,
+      tested wording, the way this harness frames external content.
+    - **Progress and run digests**: the Agent activity panel and run history
+      written by the composer from the run's events.
+    Measured on the agent evals (`pytest -m evals`) with a small local model:
+    task success and tokens per task, before and after.
+

@@ -50,3 +50,11 @@ def test_boards_filter_gap_is_set_after_the_ring_room_rule():
     # The earlier lone-id rules never applied; they must not come back.
     assert not re.search(r"(?m)^#library-boards-filter\s*\{", _css("00-tokens-shell.css"))
     assert not re.search(r"(?m)^#reminder-filter\s*\{", _css("07-whiteboard-misc.css"))
+
+
+def test_autonomous_pass_jobs_have_no_rule_above_the_second_switch():
+    text = _css("library-lazy.css")
+    body = _rule(text, ".skills-worker-toggles")
+    assert "flex-direction: column" in body and "flex-wrap" not in body
+    rule = _rule(text, ".skills-worker-toggles > .setting-check")
+    assert "border-top-color: transparent" in rule

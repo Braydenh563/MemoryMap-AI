@@ -31,7 +31,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import learning, lexical_filing, librarian
+from memorymap.ai import filing_certainty, learning, lexical_filing, librarian
 from memorymap.ai.embeddings import EmbeddingService, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
@@ -351,7 +351,7 @@ def _semantic_category(
         labelled=labelled, excluded=excluded,
     )
     if match is not None and match.similarity >= CONFIDENT_MATCH:
-        confidence = min(100, round(match.similarity * 100))
+        confidence = min(filing_certainty.CAP, round(match.similarity * 100))
         logger.info(
             "janitor: filed by semantic match -> '%s' (%d%%)",
             safe_value(match.name, 60),
@@ -572,7 +572,7 @@ def _knn_match(
     # Confidence reflects both how close the neighbours are and how much they
     # agree: a unanimous vote among distant notes shouldn't read as certain.
     confidence = round(min(1.0, scored[0][0]) * share * 100)
-    return NeighbourMatch(name=name, confidence=max(1, min(100, confidence)))
+    return NeighbourMatch(name=name, confidence=max(1, min(filing_certainty.CAP, confidence)))
 
 
 def _ask_llm(
@@ -617,7 +617,17 @@ def _ask_llm(
         category = str(data["category"]).strip()
         if not category:
             raise ValueError("empty category")
-        return category, _confidence_of(data), "llm"
+        raw = _confidence_of(data)
+        confidence = filing_certainty.calibrated(
+            session, content, category, raw, "llm", exclude_entry_id=exclude_entry_id
+        )
+        # The model's own number is kept in the log only: it is how a small
+        # model phrases itself, not a probability (`filing_certainty`).
+        logger.info(
+            "janitor: the model said %d%% for '%s'; shown as %d%%",
+            raw, safe_value(category, 60), confidence,
+        )
+        return category, confidence, "llm"
     except TimeoutError:
         # Logged where the deadline passed. "timeout" only when an answer is
         # still coming to someone (`on_late`); `categorise` turns it back

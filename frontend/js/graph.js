@@ -3450,11 +3450,12 @@ function renderGraphPopupHeader(entry, node) {
   //: and "0%" beside a title reads as a verdict on the note rather than as
   //: "there is no figure here". The old chip had the same bug and said
   //: "0% confident" out loud.
-  const hasConfidence = typeof entry.ai_confidence === "number" && entry.ai_confidence > 0;
+  //: And not on a note the person filed: that is theirs, with no percentage.
+  const hasConfidence = typeof entry.ai_confidence === "number" && entry.ai_confidence > 0 && !entry.user_filed;
   confidence.classList.toggle("hidden", !hasConfidence);
   if (hasConfidence) {
     confidence.textContent = `${entry.ai_confidence}%`;
-    confidence.title = `Atlas was ${entry.ai_confidence}% confident filing this note`;
+    confidence.title = `Atlas's estimate that this is the right category: ${entry.ai_confidence}%`;
   }
 
   const category = $("graph-popup-category");

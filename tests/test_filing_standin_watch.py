@@ -41,6 +41,7 @@ def test_the_watch_follows_a_stand_in_to_the_models_answer():
     script = (
         """
 const Node = { TEXT_NODE: 3 };
+const REVIEW_THRESHOLD = 50;
 const FILING_POLL_STEPS = [1];
 const FILING_WATCH_LIMIT_MS = 5000;
 const filingWatches = new Set();

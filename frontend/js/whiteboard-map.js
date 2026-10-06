@@ -5949,6 +5949,11 @@ function wbMapPickRow(select) {
   draw();
   select.hidden = true;
   select.parentElement.append(row);
+  //: Marked on the row that holds it, so the CSS that lays the row out is a
+  //: class rather than `:has(> .wb-map-picks)` (tests/test_has_invalidation.py:
+  //: a `:has` re-matches on every change below the row).
+  select.parentElement.classList.add("has-map-picks");
+  if (row.classList.contains("is-grid")) select.parentElement.classList.add("has-map-pick-grid");
   return row;
 }
 

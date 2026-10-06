@@ -9800,12 +9800,12 @@ input[type="file"] {
   grid-template-columns: repeat(6, var(--wb-map-pick));
 }
 
-.wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks.is-grid) {
+.wb-map-strip-menu .wb-menu-row.has-map-pick-grid {
   align-items: start;
   row-gap: var(--space-2);
 }
 
-.wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks.is-grid) > :first-child {
+.wb-map-strip-menu .wb-menu-row.has-map-pick-grid > :first-child {
   line-height: var(--wb-map-pick);
 }
 
@@ -9877,12 +9877,12 @@ input[type="file"] {
    column inside the 21rem door: below the tablet band and under touch the
    name goes over its previews instead, and the previews still never wrap. */
 @media (max-width: 819.98px), (pointer: coarse) {
-  .wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks) {
+  .wb-map-strip-menu .wb-menu-row.has-map-picks {
     grid-template-columns: minmax(0, 1fr);
     row-gap: var(--space-1);
   }
 
-  .wb-map-strip-menu .wb-menu-row:has(> .wb-map-picks) > :not(:first-child) {
+  .wb-map-strip-menu .wb-menu-row.has-map-picks > :not(:first-child) {
     grid-column: 1;
   }
 

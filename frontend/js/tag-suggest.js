@@ -115,17 +115,29 @@ function takeTagSuggest(tag) {
 //: The entry point (app.js `LAZY_ENTRY_POINTS.tagSuggest`): opens the list
 //: under `input`, or refreshes it when it is already open there.
 let tagSuggestOpening = null;
+//: Whether the field was typed in while the first open waited for the tags.
+let tagSuggestTypedMeanwhile = false;
 
 async function openTagSuggest(input) {
   if (tagSuggest && tagSuggest.input === input) return fillTagSuggest();
   //: A press fires focusin and click together: one open at a time, or the
   //: second orphaned the first's list where Escape could not reach it.
-  if (tagSuggestOpening === input) return;
+  if (tagSuggestOpening === input) {
+    tagSuggestTypedMeanwhile = true;
+    return;
+  }
   closeTagSuggest();
   tagSuggestOpening = input;
+  tagSuggestTypedMeanwhile = false;
   const counts = await apiJson("/tags", { silent: true, cacheMs: 30000 }).catch(() => null);
   tagSuggestOpening = null;
   if (!counts || !Object.keys(counts).length || document.activeElement !== input || tagSuggest) return;
+  //: **Late is not now.** The first open waits for the tags. When the answer
+  //: came after a tag was typed and entered (the field emptied again), the
+  //: list opened then with every tag in it, over the form's Save, and a press
+  //: meant for Save took a tag nobody chose (tests-e2e/specs/notes.spec.js).
+  //: Typing again, or a press in the field, opens it as before.
+  if (tagSuggestTypedMeanwhile && !tagSuggestToken(input).token) return;
   const box = document.createElement("div");
   box.className = "tag-suggest card glass hidden";
   const list = document.createElement("ul");

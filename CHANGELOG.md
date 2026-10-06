@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Tags: a tag typed and entered before the tag list had loaded no longer opens the list afterwards over the note form's Save changes, where a press meant for Save took a tag nobody chose.
 - Dictate with the voice add-on not installed, Compress on a chat with nothing to compress yet, and Add on an empty reminder now say so as a plain message instead of an error with Report this.
 - Documents: words typed just before a reload or a closed window (inside the 1.2 s autosave pause, or after a save the server refused) are kept on this device, and the next open of that document offers them back with Put them back.
 - The project website (GitHub Pages) is rebuilt as one static landing page in the app's own look, light and dark: what MemoryMap is, the capture, filing and ask loop, a tour of the screenshots, privacy and offline, install, models, questions people ask, and links to the release, the source, issues and every policy on GitHub. It no longer loads the documents from the repository, which often failed, and names no version, date or count, so it does not go stale (INBOX 645).

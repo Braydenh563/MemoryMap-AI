@@ -103,6 +103,12 @@ test("words typed just before a reload are kept and put back", async ({ page }) 
   });
   await openApp(page, `/#/docs/${made.id}`);
   await expect(page.locator("#doc-title")).toHaveValue(made.title);
+  // The save is held, never answered, so the reload lands inside the pause
+  // whatever the load: under CI settings the 1.2 s autosave sometimes landed
+  // first and there was nothing left to keep.
+  const saveUrl = new RegExp(`/documents/${made.id}$`);
+  const held = [];
+  await page.route(saveUrl, (route) => (route.request().method() === "PUT" ? held.push(route) : route.continue()));
   const editor = page.locator("#tab-documents .cm-content");
   await editor.click();
   await page.keyboard.press("Control+End");
@@ -111,6 +117,8 @@ test("words typed just before a reload are kept and put back", async ({ page }) 
 
   page.once("dialog", (dialog) => dialog.accept());
   await reloadApp(page);
+  await page.unroute(saveUrl);
+  for (const route of held) await route.abort().catch(() => {});
   const offer = page.locator(".toast", { hasText: "unsaved changes" });
   await expect(offer).toBeVisible({ timeout: 15_000 });
   await offer.getByRole("button", { name: "Put them back" }).click();

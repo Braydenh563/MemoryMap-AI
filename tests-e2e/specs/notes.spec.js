@@ -79,3 +79,33 @@ test("an edit left unsaved in the form survives a reload and can be reopened", a
   await page.locator(`#entry-list > li[data-id="${id}"]`).locator("button", { hasText: "Save changes" }).click();
   await expect.poll(async () => (await api(page, `/entries/${id}`)).content).toContain("is 2210, not 2201");
 });
+
+// Found by this suite flaking on CI settings: the tag list is fetched on the
+// field's first focus, and when that answer came after the tag was typed and
+// Enter pressed, the list opened then, every tag in it, over Save changes; a
+// press meant for Save took a tag nobody chose. The answer is held back here
+// so the order is certain, not a matter of load.
+test("a tag typed and entered before the tag list arrives does not open the list over Save", async ({ page }) => {
+  await openApp(page);
+  const id = await captureNote(page, `Tag race ${Date.now()}: call the plumber about the boiler`);
+  const row = await noteRow(page, id);
+  await row.locator('button[aria-label="Edit this entry"]').click();
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route(/\/tags(\?|$)/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  const input = row.locator(".note-edit-tag-input");
+  await input.click();
+  await page.keyboard.insertText("plumbing");
+  await page.keyboard.press("Enter");
+  await expect(row.locator(".note-edit-tags")).toContainText("plumbing");
+  release();
+  await page.waitForResponse(/\/tags(\?|$)/);
+  // The list's own work after the answer is one render; give it that frame.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await expect(page.locator(".tag-suggest:not(.hidden)")).toHaveCount(0);
+  await row.locator("button", { hasText: "Save changes" }).click();
+  await expect.poll(async () => (await api(page, `/entries/${id}`)).tags).toEqual(["plumbing"]);
+});

@@ -53,7 +53,7 @@ def test_models_says_cannot_reach_only_when_the_server_is_down():
 
 def test_an_unfiled_note_offers_one_tap_categories():
     code = app_js_text()
-    settle = code[code.index("function settleCaptureStatus(status) {"):]
+    settle = code[code.index("function settleCaptureStatus(status"):]
     settle = settle[: settle.index("\n}\n")]
     assert "status.suggestions" in settle and "moveNotesToCategory([status.id], name)" in settle
     assert 'status.filed_by === "words"' in code
@@ -75,7 +75,7 @@ def test_the_tags_field_has_the_apps_own_list_not_a_datalist():
     # Sized and placed to the field, a combobox, one open at a time.
     assert "box.style.width = `${Math.min(field.width" in suggest
     assert 'input.setAttribute("role", "combobox")' in suggest
-    assert "if (tagSuggestOpening === input) return;" in suggest
+    assert "if (tagSuggestOpening === input) {" in suggest
     css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
     assert ".tag-suggest {" in css
 
@@ -140,3 +140,16 @@ def test_a_timed_out_status_poll_is_not_logged_as_a_warning():
     poll = poll[: poll.index("\n}\n")]
     assert "silent: true" in poll and "AbortSignal.timeout(8000)" in poll
     assert '!(silent && networkErr?.name === "TimeoutError")' in code
+
+
+def test_a_late_tag_list_does_not_open_after_the_tag_was_entered():
+    # Found by tests-e2e/specs/notes.spec.js flaking: the first open waits for
+    # GET /tags; a tag typed and entered meanwhile left the field empty, and
+    # the late list then opened with every tag over the form's Save button.
+    source = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
+    start = source.index("async function openTagSuggest(input) {")
+    body = source[start : source.index("\n}\n", start)]
+    waiting = body.index("if (tagSuggestOpening === input) {")
+    assert "tagSuggestTypedMeanwhile = true;" in body[waiting : waiting + 120]
+    after = body[body.index('await apiJson("/tags"') :]
+    assert "if (tagSuggestTypedMeanwhile && !tagSuggestToken(input).token) return;" in after

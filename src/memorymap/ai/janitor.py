@@ -342,6 +342,14 @@ def _semantic_category(
     # the person has corrected notes like this one out of (I7's consumer:
     # `learning.centroid_excluded` was claimed built with no caller, ARCH-08).
     labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    # **Nothing filed by meaning yet, nothing to compare against.** Both
+    # matches below embedded the note before finding that out, and on a new
+    # notebook (which skips the launch warm-up) that embed is the model's
+    # cold load: the first note sat at "Filing…" for as long as it took,
+    # over 20 s on a CI runner that downloads the model (E2E first-run,
+    # 2026-10-06), to reach the Uncategorised it was always going to get.
+    if labelled is None or not labelled.names:
+        return None
     if _too_short_to_trust(content, embeddings, labelled):
         logger.info("janitor: too short and too far from any filed note to file by meaning")
         return None
@@ -467,12 +475,12 @@ def _best_centroid_match(
     `excluded` are the categories the person has corrected notes like this
     one away from (`learning.excluded_categories`, WORLD_CLASS_PLAN I7):
     never the answer, however close."""
-    note_vector = embeddings.embed_text(content)
-    if note_vector is None:
-        return None
     if labelled is None:
         labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
     if labelled is None or not labelled.names:
+        return None
+    note_vector = embeddings.embed_text(content)
+    if note_vector is None:
         return None
 
     import numpy as np
@@ -515,12 +523,12 @@ def _knn_match(
     a split vote is the case where asking the model is worth its cost.
     `excluded` categories have no vote (see `_best_centroid_match`).
     """
-    note_vector = embeddings.embed_text(content)
-    if note_vector is None:
-        return None
     if labelled is None:
         labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
     if labelled is None or not labelled.names:
+        return None
+    note_vector = embeddings.embed_text(content)
+    if note_vector is None:
         return None
 
     import numpy as np

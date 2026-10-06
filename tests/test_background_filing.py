@@ -256,3 +256,22 @@ def test_an_ai_change_names_its_model():
     assert tools._ai_actor("add_tags", "granite4.1:3b") == "ai:add_tags@granite4.1:3b"
     assert tools._ai_actor("add_tags", None) == "ai:add_tags"
     assert len(tools._ai_actor("x", "m" * 100)) == 60
+
+
+def test_a_new_notebook_files_its_first_note_without_loading_the_embedding_model(session):
+    """Nothing filed by meaning means nothing to compare against, so the note
+    is never embedded on the way to Uncategorised: that embed was the model's
+    cold load on a first launch (E2E first-run, 2026-10-06)."""
+    from memorymap.ai import janitor
+
+    class _ColdEmb:
+        def embed_text(self, text):
+            raise AssertionError("embedded with nothing to compare against")
+
+        def backend_id(self):
+            raise AssertionError("read the matrix with nothing filed")
+
+    emb = _ColdEmb()
+    assert janitor._semantic_category(session, "the spare key is under the blue pot", emb) is None
+    assert janitor._best_centroid_match(session, "the spare key", emb) is None
+    assert janitor._knn_match(session, "the spare key", emb) is None

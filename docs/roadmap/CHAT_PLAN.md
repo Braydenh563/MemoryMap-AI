@@ -490,3 +490,36 @@ twenty). Open until the owner's next run reports it gone or not.
 - ~~The Chat tab's Ask mode ignores `grounding_live`~~ Built 2026-10-05 (HISTORY.md, "Moved from the plans, 2026-10-05 (backlog-1005)").
 - The placed lists' triage pass and the question hover row: built 2026-10-05
   (HISTORY.md, "Moved from the plans, 2026-10-05 (op3-1005)").
+
+## Placed from INBOX: the composer everywhere (the owner, 2026-10-06)
+
+Verbatim: "I also want to use the composer basically really good sentence
+model like an ai or apple's siri really smartly to improve quality of life
+across the app. I need it perfect and I want to integrate it, like with the
+companion message bubbles, or other things I havent thought of."
+
+After INBOX 725 (the composer at chat-bot quality), one shared sentence
+engine (`ai/composer.py`), the notes' own words joined by meaning, no model
+needed, used wherever the app speaks:
+
+1. **Companion bubbles**: what the companion says about the notebook (a
+   resurfaced note, a pattern this week, a reminder due, an empty day) is
+   composed from the notes, with its source one tap away; rate-limited, never
+   twice the same, quiet when the person is typing.
+2. **Dashboard greeting and digest**: today's line, the week in review and
+   "on this day" written by the composer instead of fixed templates.
+3. **Toasts and confirmations** that name the thing ("Moved Passport renewal
+   to the bin; it was linked to 3 notes").
+4. **Search and Find anything**: a one-line answer above the results when the
+   query is a question.
+5. **Note and document helpers**: a summary line on a long note, "what links
+   these two notes" on a link, a title suggestion from a note's own words.
+6. **Reminders and meetings**: the action items and decisions read back as
+   sentences; a reminder's notification says why it matters, from its note.
+7. **Tidy and filing**: every reason ("filed under Work because…") in one
+   voice.
+
+Rules: the 725 constraints (every fact quoted or measured, a fixed tested
+phrasebook, offline, deterministic) hold everywhere; one style guide for the
+app's voice in DESIGN.md; each surface gets a measured eval like 725's.
+

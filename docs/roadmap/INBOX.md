@@ -193,6 +193,11 @@ with its owner named in the entry.
      other misuse (the same glyph meaning two things, two glyphs for one).
      Placed: a Sonnet agent with 699, 701, 702.
 
+707. **The owner, 2026-10-06, verbatim.** "when loading the app after login,
+     the companion just appears with no animation". Placed: with 705, the
+     polish agent: an entrance (a short emerge or drop-in to its perch, under
+     the avatar motion switch and reduced motion), once per unlock.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

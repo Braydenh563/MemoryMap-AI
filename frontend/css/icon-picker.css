@@ -65,7 +65,7 @@
   color: var(--text);
   font-size: var(--text-lg);
   cursor: grab;
-  transition: background-color var(--motion-fast) var(--ease-out);
+  transition: background-color var(--ui-fast) var(--ease-out);
 }
 
 .icon-picker-tile:hover,

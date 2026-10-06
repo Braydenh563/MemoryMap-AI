@@ -1964,6 +1964,8 @@ const LAZY_MODULES = {
   settingsControls: ["/js/settings-controls.js"],
   attachTo: ["/js/pick-row.js", "/js/attach-to.js"],
   vault: ["/js/vault-unlock.js"],
+  //: The one icon and emoji picker, on first use (MINDMAP_PLAN decision 43): see icon-picker.js.
+  iconPicker: ["/css/icon-picker.css", "/js/icon-picker.js"],
   //: Settings groups, each file's header says which (WORLD_CLASS_PLAN rows 21 to 27).
   modelBench: ["/js/model-bench.js"],
   webClip: ["/js/web-clip.js"],
@@ -2247,6 +2249,8 @@ const LAZY_ENTRY_POINTS = {
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
   chordGuide: ["showTabJumpHint"],
+  //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
+  iconPicker: ["openIconPicker"],
   //: Async, and reached from a Settings pane drawn before the window's own await.
   settingsControls: ["refreshSearxngHost"],
   settingsData: [

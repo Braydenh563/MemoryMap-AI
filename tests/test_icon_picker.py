@@ -39,12 +39,15 @@ def _emoji_source() -> list[tuple[str, str, str]]:
 
 
 def test_the_picker_is_fetched_on_first_use_with_its_own_styles():
-    """Not at boot: one loader in editor.js (a boot script every caller
-    reaches) fetches the stylesheet and the script, and every caller goes
-    through it rather than calling `openIconPicker` before it exists."""
+    """Not at boot: `LAZY_MODULES.iconPicker` names the stylesheet and the
+    script, `LAZY_ENTRY_POINTS` stands in for `openIconPicker`, and every
+    caller goes through the one door in editor.js (a boot script every
+    caller reaches) rather than calling `openIconPicker` itself."""
+    app = (JS / "app.js").read_text(encoding="utf-8")
+    assert 'iconPicker: ["/css/icon-picker.css", "/js/icon-picker.js"]' in app
     editor = (JS / "editor.js").read_text(encoding="utf-8")
     loader = editor[editor.index("function pickIconOrEmoji(") :][:400]
-    assert 'lazyScript("/css/icon-picker.css")' in loader and 'lazyScript("/js/icon-picker.js")' in loader
+    assert 'iconPicker: ["openIconPicker"]' in app and "openIconPicker(options)" in loader
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert "/js/icon-picker.js" not in index and "/css/icon-picker.css" not in index, "the picker must not load at boot"
     for path in JS.glob("*.js"):

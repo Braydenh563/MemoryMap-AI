@@ -492,24 +492,28 @@ async function tidyApply(button) {
   }
   let undoId = result.undo_id;
   const undo = async () => {
-    await apiJson(`/tidy/undo/${undoId}`, { method: "POST" });
-    await tidyAfterChange();
+    const back = await apiJson(`/tidy/undo/${undoId}`, { method: "POST" });
+    await tidyAfterChange(back.entry_ids);
   };
   const redo = async () => {
     const again = await apiJson(`/tidy/${encodeURIComponent(key)}/apply`, { method: "POST", body: JSON.stringify({ ids, level }) });
     undoId = again.undo_id;
-    await tidyAfterChange();
+    await tidyAfterChange(again.entry_ids);
   };
   const action = pushUndo(result.message, undo, redo);
   toastAction(`${result.message}.`, "Undo", async () => {
     settleUndoFromToast(action);
     await undo();
   });
-  await tidyAfterChange();
+  await tidyAfterChange(result.entry_ids);
 }
 
-async function tidyAfterChange() {
-  await loadEntries();
+//: `entryIds` are the notes the run or its undo changed (the server reads them
+//: off the undo payload), so only those rows are patched and the notebook is
+//: not read again (tests/test_refresh_entries.py). A run that touched no note
+//: (old reminders) patches none.
+async function tidyAfterChange(entryIds) {
+  if (entryIds && entryIds.length) await refreshEntries(entryIds);
   await tidyBadge(true);
   if (TIDY.state) {
     if (TIDY.state.view === "review") await tidyShow(TIDY.state.key, TIDY.state.level);
@@ -556,9 +560,9 @@ async function tidyHistory() {
       li.appendChild(done);
     } else {
       li.appendChild(smallButton("ph:arrow-counter-clockwise Undo", `Put back: ${run.message}`, async () => {
-        await apiJson(`/tidy/undo/${run.undo_id}`, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(`/tidy/undo/${run.undo_id}`, { method: "POST" }).catch((e) => toast(e.message, true));
         toast(`Undid: ${run.message}.`);
-        await tidyAfterChange();
+        await tidyAfterChange(back?.entry_ids);
       }));
     }
     list.appendChild(li);

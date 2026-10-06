@@ -5,8 +5,9 @@ Before: the Notes list and the Library each had a second ranking path,
 `GET /entries?q=...&semantic=true` (cosine only, notes only, a 25-note cap),
 the Notes list's own parser did not know `kind:`, `has:` or `space:` (they
 were read as plain words and matched nothing), and the palette matched the
-loaded page of notes in the browser. `GET /search` is the engine every one of
-them now calls; each surface keeps its own look and its own result shape.
+loaded page of notes in the browser. `GET /search` is the engine every
+content search now calls (the palette stopped searching content at all in
+INBOX 666: it hands typed text to Find anything); each surface keeps its own look and its own result shape.
 
 Two halves, because the suite cannot see the DOM: the backend half proves
 the engine answers whatever the old path answered (same notes for a
@@ -129,16 +130,45 @@ def test_the_library_semantic_toggle_asks_the_engine():
     assert "kind=note" in body
 
 
-def test_the_palette_asks_the_engine_for_notes_and_documents():
+def test_the_palette_does_not_search_content():
+    """INBOX 666: the palette is commands and places; content search is Find
+    anything's. It makes no `/search` ask, holds no engine state, and lists
+    no notes, documents, reminders, conversations, files or boards."""
     text = _read("app-palette.js")
-    ask = _function(text, "paletteAskEngine")
-    assert "/search?q=" in ask and "kind=note,document" in ask
-    # Drawn from the engine's answer first, topped up by the in-memory match.
+    assert "/search" not in re.sub(r"//.*", "", text)
+    assert "paletteAskEngine" not in text and "paletteEngine" not in text
     matches = _function(text, "paletteMatches")
-    assert "paletteEngine.notes" in matches and "paletteEngine.docs" in matches
-    # The ask is made when the person types, and dropped when the window closes.
-    assert "paletteAskEngine($(" in text
-    assert "paletteEngine.run += 1" in _function(text, "closePalette")
+    for group in ("Notes", "Documents", "Reminders", "Conversations", "Files", "Boards & maps"):
+        assert f'group: "{group}"' not in matches, group
+    assert "allEntries" not in matches and "paletteReminders" not in text
+
+
+def test_the_palette_ends_with_a_row_that_opens_find_anything():
+    """Typed text always ends the palette's list with one row, "Search
+    everything for", which closes the palette and opens Find anything with the
+    text in its field (`openFinder` searches at once). With no command matching
+    it is the only row, so it is the lit one."""
+    text = _read("app-palette.js")
+    matches = _function(text, "paletteMatches")
+    assert r"Search everything for \u201c" in matches
+    assert "openFinder(" in matches
+    assert "handoff" in matches
+    ret = matches[matches.rindex("return ["):]
+    assert ret.index("...commands") < ret.index("handoff")
+    # Not counted as a feature in the usage ledger.
+    assert "handoff" in _function(text, "paletteRun")
+    # openFinder takes the text and runs the search.
+    finder = _function(_read("spaces-find.js"), "openFinder")
+    assert "prefill" in finder and "finderSearch()" in finder
+
+
+def test_find_anything_lists_its_actions_after_the_content_groups():
+    """INBOX 666: the actions group (INBOX 270) sorts after every content kind."""
+    text = _read("spaces-find.js")
+    kinds = text[text.index("const FINDER_KINDS = ["):]
+    kinds = kinds[: kinds.index("];")]
+    keys = re.findall(r'key: "(\w+)"', kinds)
+    assert keys[-1] == "action" and keys.index("note") < keys.index("action")
 
 
 def test_no_surface_still_reads_the_second_ranking_path():

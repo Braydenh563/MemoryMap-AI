@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Command palette: Ctrl+K is commands and places only (tabs, sub-tabs, Settings pages, actions, a category, a tag); notes, documents, files, boards, reminders and conversations are no longer listed there, and typed text ends with a row, Search everything for, that opens Find anything with the words already searched (INBOX 666). Find anything is unchanged and still lists its actions after the content. The palette's prompt reads Run a command or go to a place, and the Guide, Help, the README and the Tools and features row say the same.
 - The GitHub Pages site is redesigned to read as a designed product page rather than a template: the Ask screenshot as the hero on a dark stage, with numbered pins and a key for what it shows; "How it works" as three joined steps with small in-page examples of a note, its filing and a cited answer; alternating feature rows and a bento for the smaller tools; privacy as a ledger of everything that could reach the network; install, models, FAQ and a closing download. Still one static file with no requests beyond its own screenshots, in the app's own blue and category colours, light and dark, checked at six widths with no horizontal scroll and every text colour at 4.8:1 or better.
 
 ### Fixed

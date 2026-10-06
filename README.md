@@ -102,8 +102,9 @@ Open a section for the detail.
 - 21 built-in skills (and your own) run multi-step jobs as a visible
   checklist. Small models are first-class: a small-model mode gives a 4B model
   one step and one tool at a time.
-- A command palette (`Ctrl`/`Cmd`+`K`) reaches any command, note or document,
-  and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
+- A command palette (`Ctrl`/`Cmd`+`K`) runs any command or goes to any place
+  (typed words it cannot match go to Find anything, `Ctrl`+`P`, which
+  searches notes and documents), and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
   take plain language: "call Sam tomorrow evening".
 
 </details>
@@ -228,8 +229,8 @@ Captured from the app in the dark theme at 1440 by 900.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/palette.png" alt="The command palette: the word launch matching notes, a document, a board and reminders at once, with a preview of the chosen note" width="850">
-  <br><sub><b>Command palette</b>: Ctrl/⌘-K reaches a command, a note, a document, a file or a board</sub>
+  <img src="docs/screenshots/palette.png" alt="The command palette: the word launch matching commands, with a preview of the chosen row" width="850">
+  <br><sub><b>Command palette</b>: Ctrl/⌘-K runs a command or goes to a place, and hands a search to Find anything</sub>
 </p>
 
 <p align="center">

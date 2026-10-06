@@ -153,6 +153,14 @@ with its owner named in the entry.
      pills go to 685's clipping sweep; the dock's narrow layout and the
      companion's stacking (it must sit under every dialog, menu and
      popover) to a Sonnet agent.
+     **Parts 2 and 3 built** (dock694-1006, `cf6af06`): the chat dock is a
+     size container (`@container chat-dock`, 10-responsive.css), one-line
+     composer to 27rem, two fixed strip lines under 47rem, icon-only toggles
+     under 24rem; the companion's band is z 44 (under menus 45, panels 60,
+     dialogs 1010) and the dock lifts to 46 while its own panel is open.
+     `scratchpad/ui-sweeps/dock694.js`: dock at 320 to 1200, light, dark, touch,
+     and seven popups with the companion placed over their heads. Part 1 (the
+     cut pill bottoms) is still open; 694 is not resolved.
 
 696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
      package bundles and the buttons disabled and it just stayed as the 2/3

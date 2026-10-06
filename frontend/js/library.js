@@ -955,7 +955,7 @@ function libraryActions(item) {
           settleUndoFromToast(action);
           await restoreIt();
           toast("Note restored.");
-        });
+        }, { also: GO_TO_BIN });
       }),
     ];
   }

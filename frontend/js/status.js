@@ -1920,7 +1920,8 @@ function syncModelGatedControls(status = modelStatus) {
   //: beside it) and says so, the popup agent cannot and says that.
   renderAiOfflineNotice(
     $("ask-offline"),
-    "No model is connected, so this answers from your notes alone: the matching records are below."
+    "No model is connected, so this answers from your notes alone: the matching records are below.",
+    { dismissible: true }
   );
   renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
   //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
@@ -1928,7 +1929,8 @@ function syncModelGatedControls(status = modelStatus) {
   //: line says what a model would add rather than that nothing answers.
   renderAiOfflineNotice(
     $("chat-offline"),
-    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode."
+    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode.",
+    { dismissible: true }
   );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
@@ -1943,15 +1945,41 @@ function syncModelGatedControls(status = modelStatus) {
   renderChatModeSeg();
 }
 
+//: **A banner can be closed for the session** (INBOX 732: "a way to
+//: temporarily hide these no ai popups, they can appear again when the user
+//: starts a new app session"). Kept in `sessionStorage`, which a new app
+//: session starts empty, with a plain Set beside it for a profile that
+//: refuses storage. Never `localStorage`: that would be for good.
+const AI_OFFLINE_DISMISSED_KEY = "aiOfflineDismissed";
+const aiOfflineDismissedNow = new Set();
+
+function aiOfflineDismissed(id) {
+  if (aiOfflineDismissedNow.has(id)) return true;
+  try {
+    return JSON.parse(sessionStorage.getItem(AI_OFFLINE_DISMISSED_KEY) || "[]").includes(id);
+  } catch (err) {
+    return false;
+  }
+}
+
+function dismissAiOffline(id) {
+  aiOfflineDismissedNow.add(id);
+  try {
+    sessionStorage.setItem(AI_OFFLINE_DISMISSED_KEY, JSON.stringify([...aiOfflineDismissedNow]));
+  } catch (err) { /* memory alone still lasts until the window closes */ }
+}
+
 //: One line and one button, in a named container, or nothing at all. Rebuilt
 //: rather than toggled because the status poll calls this every tick and a
-//: stale sentence is worse than none.
-function renderAiOfflineNotice(container, what) {
+//: stale sentence is worse than none. `dismissible` adds the close (DESIGN.md,
+//: "A notice that can be closed"): a dismissed one stays hidden for the session.
+function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
   if (!container) return;
   container.replaceChildren();
   const off = aiIsOff();
-  container.classList.toggle("hidden", !off);
-  if (!off) return;
+  const closed = dismissible && aiOfflineDismissed(container.id);
+  container.classList.toggle("hidden", !off || closed);
+  if (!off || closed) return;
   const text = document.createElement("span");
   text.className = "muted";
   text.textContent = what;
@@ -1962,6 +1990,20 @@ function renderAiOfflineNotice(container, what) {
   link.title = "Open Settings at Models, where a local or remote model is connected";
   link.addEventListener("click", () => openSettingsModal("models"));
   container.append(text, link);
+  if (!dismissible) return;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "ghost small icon-only";
+  close.dataset.dismiss = "notice";
+  setLabel(close, "ph:x");
+  close.title = "Hide this until you reopen the app";
+  close.setAttribute("aria-label", "Hide this notice until you reopen the app");
+  close.addEventListener("click", () => {
+    dismissAiOffline(container.id);
+    container.replaceChildren();
+    container.classList.add("hidden");
+  });
+  container.append(close);
 }
 
 //: The popup agent is the one surface with nothing to fall back to, so its

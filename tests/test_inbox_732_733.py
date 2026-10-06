@@ -25,6 +25,7 @@ ins for what they call.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -33,7 +34,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 JS = ROOT / "frontend" / "js"
-CSS = ROOT / "frontend" / "css"
 WB = (JS / "whiteboard.js").read_text(encoding="utf-8")
 STATUS = (JS / "status.js").read_text(encoding="utf-8")
 
@@ -165,3 +165,50 @@ def test_deleting_some_other_board_leaves_the_one_just_made_alone():
     assert out["last"] == 5, out
 
 
+# --- 732: the no-model banners' close ---------------------------------------------
+
+
+def _notice() -> str:
+    return _function(STATUS, "function renderAiOfflineNotice(")
+
+
+def test_chat_and_ask_banners_are_dismissible_and_the_others_are_not():
+    block = STATUS[STATUS.index("  renderAiOfflineNotice(\n    $(\"ask-offline\")") : STATUS.index("  syncAgentPaletteAvailability();")]
+    asks = re.search(r'\$\("ask-offline"\),.*?\{ dismissible: true \}\s*\)', block, re.S)
+    chat = re.search(r'\$\("chat-offline"\),.*?\{ dismissible: true \}\s*\)', block, re.S)
+    assert asks and chat, block
+    assert block.count("dismissible: true") == 2, block
+
+
+def test_a_dismissed_banner_is_remembered_for_the_session_not_the_device():
+    body = _notice() + _function(STATUS, "function aiOfflineDismissed(") + _function(STATUS, "function dismissAiOffline(")
+    assert "sessionStorage" in body
+    assert "localStorage" not in body
+    assert body.count("try {") >= 2, body
+
+
+def test_the_close_is_a_labelled_icon_button_on_the_dismiss_recipe():
+    body = _notice()
+    assert "ph:x" in body
+    assert 'close.dataset.dismiss = "notice"' in body
+    assert 'setAttribute("aria-label"' in body
+    assert '"ghost small icon-only"' in body
+    #: Last child of the row, after the text and the connect button.
+    assert body.index("container.append(text, link)") < body.index("container.append(close)")
+
+
+def test_the_dismiss_recipe_is_in_the_design_system():
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "`data-dismiss=\"notice\"`" in design
+
+
+def test_the_guide_says_the_banners_can_be_closed():
+    text = (ROOT / "src" / "memorymap" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
+    assert "close button" in text and "new session" in text
+
+
+def test_the_dismissal_is_written_where_the_banner_is_drawn_not_in_a_new_boot_file():
+    """The boot scripts are at their gzip cap: the logic stays a few lines in
+    the file that already draws the banner."""
+    assert "dismissAiOffline" in STATUS
+    assert not (JS / "ai-offline.js").exists()

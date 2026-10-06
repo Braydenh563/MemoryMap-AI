@@ -48,15 +48,28 @@ def test_the_text_size_is_on_the_bar_not_behind_the_text_door():
 def test_every_select_on_the_bar_is_drawn_as_a_row_of_presses():
     wire = _body("whiteboard-map.js", "wbWireMapChoices")
     assert 'querySelectorAll("#wb-map-strip select")' in wire
-    row = _body("whiteboard-map.js", "wbMapChoiceRow")
-    # The choice-control recipe (DESIGN.md), and the select stays the control:
-    # a press sets it and fires its change, so no listener has to know.
-    assert '"seg wb-map-choices"' in row and 'setAttribute("role", "group")' in row
+    assert "wbMapSizeStepper(select)" in wire and "wbMapPickRow(select)" in wire
+    row = _body("whiteboard-map.js", "wbMapPickRow")
+    # INBOX 665: previews, never a pill well, and the select stays the
+    # control: a press sets it and fires its change, so no listener has to know.
+    assert '"seg' not in row and '"wb-map-picks"' in row and 'setAttribute("role", "group")' in row
     assert 'select.dispatchEvent(new Event("change", { bubbles: true }))' in row
-    assert "aria-pressed" in row
+    assert "aria-pressed" in row and "wbMapPickGlyph(select.id, option.value)" in row
+    # "Follow the map" is the trailing reset, not a peer.
+    assert "wb-map-pick-follow" in row and "wbMapIsFollow" in row
+    stepper = _body("whiteboard-map.js", "wbMapSizeStepper")
+    assert '"stepper wb-map-size-stepper"' in stepper and "stepper-unit" in stepper
+    assert 'select.dispatchEvent(new Event("change", { bubbles: true }))' in stepper
     assert "wbWireMapChoices();" in _body("whiteboard.js", "initWhiteboard")
     # Redrawn whenever the strip syncs to a new topic.
     assert "for (const draw of WB_MAP_CHOICE_REDRAWS) draw();" in _body("whiteboard-map.js", "wbSyncMapStrip")
+    # The follow rows are marked where they are named.
+    assert "blank.dataset.follow" in _body("whiteboard-map.js", "wbSyncMapStrip")
+    assert "blank.dataset.follow" in _body("whiteboard-map.js", "wbSyncMapFill")
+    css = _css()
+    assert ".wb-map-choices" not in css
+    picks = css[css.index(".wb-map-picks {"):]
+    assert "flex-wrap: nowrap;" in picks[: picks.index("}")]
 
 
 def test_one_resize_grip_on_the_corner_and_shift_scales_the_text():

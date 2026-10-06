@@ -345,6 +345,8 @@ async function importMarkdown(inputId = "import-md-files") {
     const result = await response.json();
     status.textContent =
       `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}.` +
+      //: Passed over because the same file and text are already a note.
+      (result.already ? ` ${result.already} already in your notebook, left as they are.` : "") +
       (result.skipped.length ? ` Skipped: ${result.skipped.join("; ")}` : "");
     undoImport(result, status);
     loadEntries().catch(() => {});

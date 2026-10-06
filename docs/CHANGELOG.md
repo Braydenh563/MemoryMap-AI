@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Import: Markdown files and folders now join up their [[wiki links]] as links (the Graph showed an imported vault with none until each note was saved again), and choosing the same files again adds only what is new, saying how many were already in
 - Graph: Concept maps landed on the Library's All view on a first visit to the Library instead of on the boards; it now waits for the Library before opening Boards & maps
 - Boards: Library, Create, New board and New mind map did nothing on a first visit to Boards (the button was pressed before the boards' code had bound it); they now open the board gallery and make the board
 - Documents: Library, Create, New document on a first visit opened the last document instead of making one, so a title and text typed there went into an existing document; it now makes the document, and a link to a document (#/docs/2) is no longer replaced by the newest one as the tab finishes loading

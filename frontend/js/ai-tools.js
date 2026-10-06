@@ -33,6 +33,14 @@ async function renderTasks(payload) {
     const name = document.createElement("strong");
     name.textContent = job.label;
     row.appendChild(name);
+    //: How long it has run, on the server's clock (INBOX 696); a waiting row
+    //: says how long it has waited.
+    if (job.started && body.now) {
+      const took = document.createElement("span");
+      took.className = "muted task-elapsed";
+      took.textContent = `${job.queued ? "waiting " : ""}${taskElapsed(body.now - job.started)}`;
+      row.appendChild(took);
+    }
 
     if (job.cancellable) {
       const actions = document.createElement("span");
@@ -72,16 +80,22 @@ async function renderTasks(payload) {
       li.appendChild(detail);
     }
 
-    // A bar only where there is a real fraction to show. A progress bar that
-    // guesses is worse than one that admits it can't say: and under reduced
-    // motion an indeterminate animation freezes and reads as a fault.
-    if (typeof job.progress === "number") {
+    //: Every running row has a bar (INBOX 696, the owner: "they are just flat
+    //: rows"): the real fraction where the job reports one, else an
+    //: indeterminate bar, which guesses nothing; the elapsed time beside the
+    //: name is what keeps moving under reduced motion. A waiting row has none.
+    if (!job.queued) {
       const bar = document.createElement("progress");
-      bar.max = 1;
-      bar.value = job.progress;
       bar.className = "task-progress";
+      if (typeof job.progress === "number") {
+        bar.max = 1;
+        bar.value = job.progress;
+      }
+      bar.setAttribute("aria-label", job.label);
       li.appendChild(bar);
     }
+    //: A bulk install's packages, each with where it is.
+    if ((job.steps || []).length) li.appendChild(taskSteps(job.steps));
 
     // What the job itself is printing. A bar answers "is it working?" only
     // while it moves, and pip can sit on one number for minutes, the output
@@ -121,6 +135,45 @@ async function renderTasks(payload) {
     list.appendChild(li);
   }
   renderTaskHistory((body && body.history) || []);
+}
+
+// "45 s", "3 min 05 s", "1 h 12 min".
+function taskElapsed(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+  return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`;
+}
+
+//: One line per package of a bulk action: waiting, in hand, done or not.
+//: Shared with the bundle rows in Settings, Packages (settings-packages.js).
+const TASK_STEP_ICONS = {
+  queued: "ph:hourglass-medium",
+  running: "ph:spin",
+  completed: "ph:check-circle",
+  failed: "ph:warning",
+  skipped: "ph:minus-circle",
+  cancelled: "ph:stop-circle",
+};
+const TASK_STEP_WORDS = { queued: "waiting", running: "installing", completed: "done" };
+function taskSteps(steps) {
+  const list = document.createElement("ul");
+  list.className = "task-steps";
+  for (const step of steps) {
+    const li = document.createElement("li");
+    li.className = `task-step is-${step.outcome}`;
+    setLabel(li, `${TASK_STEP_ICONS[step.outcome] || "ph:info"} ${step.label}: ${TASK_STEP_WORDS[step.outcome] || step.outcome}`);
+    if (step.message) li.title = step.message;
+    //: pip reports no fraction, so the package in hand has an indeterminate bar.
+    if (step.outcome === "running") {
+      const bar = document.createElement("progress");
+      bar.className = "task-progress task-step-bar";
+      bar.setAttribute("aria-label", step.label);
+      li.appendChild(bar);
+    }
+    list.appendChild(li);
+  }
+  return list;
 }
 
 // What has stopped, newest first. Separate from the running list on purpose:

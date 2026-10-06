@@ -254,7 +254,9 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
-            "(re-indexing, downloading a model, setting up search) with Quit on "
+            "(re-indexing, downloading a model, installing packages, setting up "
+            "search), each running job with a progress bar (a moving one when "
+            "it cannot count its steps) and how long it has run, with Quit on "
             "the jobs that can stop safely, and what has finished since it "
             "started. Background jobs lists every kind of job, the never-run "
             "ones too, with when it last ran and how it went, and beside each "
@@ -286,7 +288,8 @@ MORE_TOPICS: list[dict] = [
             "missing, and its ⋯ reinstalls or removes them all. Tick packages "
             "to install, reinstall or remove several at once from the bar "
             "above the list; they run one after another and one that fails "
-            "does not stop the rest. An installed package's ⋯ has Reinstall "
+            "does not stop the rest; a bundle's row shows each of its packages "
+            "as it goes, waiting, installing or done. An installed package's ⋯ has Reinstall "
             "(for a feature that is on but not working) and Remove, and its "
             "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "

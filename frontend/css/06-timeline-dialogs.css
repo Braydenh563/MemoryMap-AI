@@ -1200,6 +1200,44 @@
   font-size: 0.8rem;
 }
 
+/* INBOX 696: how long a job has run, beside its name, and a bulk action's
+   packages one line each (Background tasks and the Packages bundle rows). */
+.task-elapsed {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.task-steps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+}
+
+.task-step {
+  color: var(--muted);
+}
+
+.task-step.is-running {
+  color: var(--text);
+}
+
+.task-step.is-completed {
+  color: var(--ok);
+}
+
+.task-step.is-failed {
+  color: var(--error);
+}
+
+.task-step-bar.task-progress {
+  max-width: 12rem;
+  margin: var(--space-1) 0 0;
+}
+
 /* --- the in-app confirm dialog (§35F) --------------------------------------
    Replaces window.confirm, which pywebview's backends do not all implement, 
    one that doesn't returns undefined, and every `if (!confirm(...)) return;`

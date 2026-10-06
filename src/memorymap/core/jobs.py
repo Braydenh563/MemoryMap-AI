@@ -153,6 +153,9 @@ LABELS: dict[str, str] = {
     "vision-pdf": "Reading a scan with the vision model",
     "file-entry": "Filing a note",
     "warm-filing": "Warming up the filing model",
+    #: INBOX 696: a "Background job" row says nothing a person can read.
+    "embed-entry": "Updating a note's search vector",
+    "bench": "Timing a model",
 }
 
 
@@ -160,7 +163,9 @@ class _Job:
     """One queued piece of work. A plain object rather than a dataclass so
     `__slots__` keeps 200 of them cheap during a bulk upload."""
 
-    __slots__ = ("seq", "kind", "func", "args", "kwargs", "name", "queued_at", "dedupe_key", "durable_id", "durable_db")
+    __slots__ = (
+        "seq", "kind", "func", "args", "kwargs", "name", "queued_at", "started_at", "dedupe_key", "durable_id", "durable_db"
+    )
 
     def __init__(
         self,
@@ -183,6 +188,9 @@ class _Job:
         self.durable_id: int | None = None
         self.durable_db: object = None
         self.queued_at = time.time()
+        #: When a worker took it, for the panel's elapsed time (INBOX 696):
+        #: a running row counts from here, a waiting one from `queued_at`.
+        self.started_at = 0.0
 
 
 class Pool:
@@ -358,6 +366,7 @@ class Pool:
                         # with a long queue behind it. A durable job's row
                         # stays queued, so the next launch runs it.
                         continue
+                    job.started_at = time.time()
                     self._running[job.seq] = job
                 # A remembered job is claimed first: a row cancelled while it
                 # waited, or claimed by another server on the same file,
@@ -431,6 +440,7 @@ class Pool:
                     "progress": None,
                     "log": [],
                     "queued": waiting,
+                    "started": job.queued_at if waiting else (job.started_at or job.queued_at),
                     #: The `jobs` row, for `/jobs/{id}/cancel`; None when
                     #: this process alone knows the job.
                     "job_id": job.durable_id,

@@ -60,7 +60,7 @@ def collect() -> list[dict]:
                 "label": "Re-indexing your notes",
                 "detail": f"{reindex['done']} of {reindex['total']}",
                 "progress": _percent(reindex["done"], reindex["total"]),
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -75,7 +75,7 @@ def collect() -> list[dict]:
                 "label": f"Downloading {name}",
                 "detail": f"{round(fraction * 100)}%" if fraction is not None else "starting…",
                 "progress": fraction,
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -93,7 +93,7 @@ def collect() -> list[dict]:
                 "stopped part-way: it is a single load with nothing to "
                 "interrupt between.",
                 "progress": None,
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -172,7 +172,7 @@ def collect() -> list[dict]:
                 "stops it at the next safe point and keeps it from starting "
                 "again for a while.",
                 "progress": None,
-                                "log": [],
+                "log": [],
             }
         )
 
@@ -199,7 +199,8 @@ def collect() -> list[dict]:
                     f"{starting.get('backend') or 'source'} backend."
                 ),
                 "progress": min(waited / max(searxng_manager.START_TIMEOUT, 1), 1.0),
-                                "log": [],
+                "log": [],
+                "started": starting.get("since") or None,
             }
         )
 
@@ -223,7 +224,8 @@ def collect() -> list[dict]:
                 # No fraction reported for the same reason pip's isn't below:
                 # snapshot_download doesn't hand back one worth trusting.
                 "progress": None,
-                                "log": list(embed_download.log),
+                "log": list(embed_download.log),
+                "started": embed_download.started or None,
             }
         )
 
@@ -247,6 +249,10 @@ def collect() -> list[dict]:
                 "detail": f"{bulk['done'] + 1 if now else bulk['done']} of {bulk['total']}. {step}",
                 "progress": bulk["done"] / bulk["total"] if bulk["total"] else None,
                 "log": list(pip.log),
+                "started": extras.bulk().started or None,
+                #: Each package and where it is (INBOX 696), so the row can
+                #: say which are done, which is in hand and which wait.
+                "steps": [{"label": item["label"], "outcome": item["outcome"]} for item in bulk["items"]],
             }
         )
     elif pip.running:
@@ -261,7 +267,8 @@ def collect() -> list[dict]:
                 # pip does not report a fraction it is worth believing, and a
                 # bar that guesses is worse than one that admits it can't say.
                 "progress": None,
-                                "log": list(pip.log),
+                "log": list(pip.log),
+                "started": pip.started or None,
             }
         )
 
@@ -284,6 +291,26 @@ def collect() -> list[dict]:
             }
         )
 
+    # The Windows installer's download (Settings, About, Update now): minutes
+    # on a slow line, and it was visible only in its own dialog (INBOX 696:
+    # "does everything show in the background tasks??").
+    from memorymap.api import routes_update
+
+    update = routes_update.current()
+    if update["running"]:
+        tasks.append(
+            {
+                "kind": "app-update",
+                "name": "",
+                "label": "Downloading the update",
+                "detail": update["step"] or "starting…",
+                "progress": _percent(update["done_bytes"], update["total_bytes"]),
+                "log": [],
+            }
+        )
+
+    _stamp_started(tasks)
+
     # **One table decides, not eight hard-coded booleans.** Every entry above
     # used to carry its own `"cancellable": True/False`, and six of them said
     # False because nothing could stop them, which was true when they were
@@ -300,6 +327,32 @@ def collect() -> list[dict]:
             or bool(task.get("queued") and task.get("job_id"))
         )
     return tasks
+
+
+#: (kind, name) -> when `collect` first saw that row, for a job that keeps no
+#: clock of its own (a re-index, a pull, the SearXNG install). A first sight
+#: is a poll's, so it can be late by one poll interval; it never restarts
+#: while the row stays, which is what lets the elapsed time grow.
+_first_seen: dict[tuple[str, str], float] = {}
+
+
+def _stamp_started(tasks: list[dict]) -> None:
+    """Give every row a `started` (INBOX 696: the panel shows how long each
+    has run): its own where the job keeps one, else when it was first seen.
+    Rows gone from the list are forgotten, so a job run again starts afresh."""
+    now = time.time()
+    keys = set()
+    for task in tasks:
+        key = (task["kind"], str(task.get("name") or ""))
+        keys.add(key)
+        if task.get("started"):
+            task["started"] = float(task["started"])
+            _first_seen[key] = task["started"]
+            continue
+        task["started"] = _first_seen.setdefault(key, now)
+    for key in list(_first_seen):
+        if key not in keys:
+            del _first_seen[key]
 
 
 #: The filing rows (the pool's "Filing a note" and janitor's late-answer
@@ -329,7 +382,8 @@ def list_tasks() -> dict:
     finished, and the only record of why was the log console, a different
     screen that you have to know to look at.
     """
-    return {"tasks": collect(), "history": taskhistory.recent()}
+    #: `now` so the panel counts elapsed time on the server's clock.
+    return {"tasks": collect(), "history": taskhistory.recent(), "now": time.time()}
 
 
 @router.get("/jobs/last-runs")

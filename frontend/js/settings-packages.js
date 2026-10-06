@@ -204,6 +204,24 @@ function packagesRenderBundles(body) {
       meta.className = "muted extras-meta";
       meta.textContent = members.map((extra) => String(extra.packages[0] || extra.id).split(/[[\s]/)[0]).join(", ");
       li.append(about, meta);
+
+      //: Where each of its packages is in the bulk action in hand (INBOX 696,
+      //: the owner: "it just stayed as the 2/3 packages I had installed until
+      //: it just suddenly updated, there was no progress indicator"): a bar
+      //: over the packages, then one line each, waiting, installing, done.
+      const bulk = body.bulk || {};
+      const mine = (bulk.items || []).filter((item) => bundle.extras.includes(item.id));
+      if (mine.length && (bulk.running || packagesUi.bulkSeen)) {
+        if (bulk.running) {
+          const bar = document.createElement("progress");
+          bar.className = "task-progress";
+          bar.max = mine.length;
+          bar.value = mine.filter((item) => item.outcome !== "queued" && item.outcome !== "running").length;
+          bar.setAttribute("aria-label", `${bundle.label}: ${bar.value} of ${mine.length} done`);
+          li.appendChild(bar);
+        }
+        li.appendChild(taskSteps(mine));
+      }
       return li;
     })
   );

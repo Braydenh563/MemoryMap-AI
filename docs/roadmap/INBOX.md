@@ -163,6 +163,10 @@ with its owner named in the entry.
      (INBOX 715's `hint` field) has no edit path, double-click should edit it like
      the title; the quick-connect arrows beside each edge stay axis-aligned on a
      rotated object, they must sit off its rotated edges.
+     Then, verbatim: "also the arrow head styles in the whiteboard have no
+     variations, not different arrow heads". Connector ends need a set of heads
+     (none, arrow, open arrow, triangle, circle, diamond, bar), per end, in the
+     connector toolbar.
 
 ## Placed (last 20, newest first)
 

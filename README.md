@@ -128,7 +128,7 @@ Captured from the app in the dark theme at 1440 by 900.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, and note cards newest first, each with its category, tags and the notes it links to" width="850">
+  <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, note cards newest first, each with its category, tags and the notes it links to, and the Connections panel for the open note on the right" width="850">
   <br><sub><b>Notes</b>: captured, filed into a category, tagged and linked to what they relate to</sub>
 </p>
 
@@ -187,8 +187,8 @@ Captured from the app in the dark theme at 1440 by 900.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/map.png" alt="A mind map of a trip, laid out both ways from the root: numbered branches, topics that are tasks with ticks and a done count on their parent, and a mark on the topics that hold a note" width="850">
-  <br><sub><b>Mind maps</b>: numbered branches, topics that are tasks, and a note behind any topic</sub>
+  <img src="docs/screenshots/map.png" alt="A mind map of a trip, laid out both ways from the root: numbered branches in a boxed look with a size and weight per level, icons on the main topics, topics that are tasks with ticks and a done count on their parent, and a mark on the topics that hold a note" width="850">
+  <br><sub><b>Mind maps</b>: numbered branches, a look per level, icons, topics that are tasks, and a note behind any topic</sub>
 </p>
 
 <p align="center">

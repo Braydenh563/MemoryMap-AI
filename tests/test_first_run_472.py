@@ -40,7 +40,15 @@ def test_no_ai_is_a_calm_off_state_not_a_warning():
     rule = shell[shell.index('.ai-status[data-level="off"] {') :]
     rule = rule[: rule.index("}")]
     assert "var(--chip-bg)" in rule and "var(--muted)" in rule
-    assert '.ai-status[data-level="off"] .ai-status-dot {' in shell
+    # INBOX 656 ("can the no ai available ai status icon be better??"): the
+    # ring became the app's AI sparkle with a slash, in currentColor, so it
+    # keeps the neutral chip colours above; an svg with no name of its own.
+    off = js[js.index("function aiOffGlyph") :]
+    off = off[: off.index("\n}\n")]
+    assert 'stroke: "currentColor"' in off and '"aria-hidden": "true"' in off
+    assert 'mask: "url(#ai-off-gap)"' in off
+    assert 'if (state.level === "off")' in js and "aiOffGlyph()" in js
+    assert ".ai-off-glyph {" in shell
 
 
 def test_the_start_tiles_draw_the_quick_access_tile_recipe():

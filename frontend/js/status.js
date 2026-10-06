@@ -1957,7 +1957,7 @@ function syncAgentPaletteAvailability() {
 //
 //   idle  … grey    haven't heard back yet, says nothing either way
 //   ok    ✓ green   everything the AI can do is available
-//   off   ○ grey    no model connected, the supported offline way to run
+//   off   AI sparkle, slashed, grey: no model connected, the offline way to run
 //   warn  ! amber   loading or rebuilding, app works
 //   error ✕ red     something is broken and won't fix itself
 function aiStatusState() {
@@ -2065,6 +2065,31 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: **"AI off" is the app's AI sparkle with a slash** (INBOX 656, the owner:
+//: "can the no ai available ai status icon be better??"). It was a hollow
+//: ring, which said nothing; the sparkle is what every AI control here wears
+//: (Ask, Refine, the agent), and the slash, cut clear of it by a mask so it
+//: reads at 14px, says it is not connected. It stays in the muted ink on the
+//: chip, never amber: the notebook is fine, which is the card's first words.
+//: An svg in `currentColor`, not the icon font plus a pseudo-element, so it
+//: costs the boot stylesheet nothing and centres by the dot's own grid.
+function aiOffGlyph() {
+  const ns = "http://www.w3.org/2000/svg";
+  const make = (tag, attrs, parent) => {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    if (parent) parent.appendChild(el);
+    return el;
+  };
+  const svg = make("svg", { class: "ai-off-glyph", viewBox: "0 0 16 16", width: "14", height: "14", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false" });
+  const mask = make("mask", { id: "ai-off-gap", maskUnits: "userSpaceOnUse", x: "0", y: "0", width: "16", height: "16" }, make("defs", {}, svg));
+  make("rect", { width: "16", height: "16", fill: "white", stroke: "none" }, mask);
+  make("path", { d: "M2.5 2.5L13.5 13.5", stroke: "black", "stroke-width": "3.4" }, mask);
+  make("path", { d: "M8 1.4Q9.9 6.1 14.6 8Q9.9 9.9 8 14.6Q6.1 9.9 1.4 8Q6.1 6.1 8 1.4Z", mask: "url(#ai-off-gap)" }, svg);
+  make("path", { d: "M2.5 2.5L13.5 13.5" }, svg);
+  return svg;
+}
+
 //: **How the last answer went, on the AI dot** (WORLD_CLASS_PLAN, Placed
 //: 2026-09-09 item 99 (c)): the model, the time it took and how much of its
 //: window the question filled, set by the chat when a turn ends.
@@ -2087,7 +2112,10 @@ function renderAiPill() {
   //: baseline in every font and the icon font's dots sit above the middle,
   //: 3px off either way (INBOX 435, measured); a box of known size is
   //: centred by the dot's own grid. ✓, ! and ✕ are within half a pixel.
-  button.querySelector(".ai-status-dot").textContent = state.level === "idle" ? "" : AI_STATUS_GLYPH[state.level];
+  const dot = button.querySelector(".ai-status-dot");
+  if (state.level === "off") {
+    if (!dot.querySelector(".ai-off-glyph")) dot.replaceChildren(aiOffGlyph());
+  } else dot.textContent = state.level === "idle" ? "" : AI_STATUS_GLYPH[state.level];
   // The button's own name for screen readers and for the native tooltip, so
   // the information is reachable without opening anything.
   const summary = `AI status: ${state.title}`;

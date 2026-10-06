@@ -348,7 +348,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("status bar", "statusbar", "bottom bar", "bottom strip", "the strip"),
         "body": (
             "The status bar is the strip along the bottom of every screen. It "
-            "shows what the local model is doing, your note count, open and due "
+            "shows what the local model is doing (a grey sparkle with a slash "
+            "means no model is connected and the notebook works without one), "
+            "your note count, open and due "
             "reminders, back and forward (the small arrow beside them, or a "
             "right-click on either, lists the places you have been: an icon, the "
             "note's or document's title, a thumbnail when a note opens with a "

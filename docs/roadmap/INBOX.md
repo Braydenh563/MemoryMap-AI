@@ -57,13 +57,6 @@ with its owner named in the entry.
      keyframe that jumps). Placed: the 0.4.1 mini release, an Opus agent
      when a slot frees.
 
-675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Dashboard's Focused view: a full-width card holding "Evening, Brayden."
-     over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6
-     October" at the far right, the middle empty. "can you improve the
-     dashboard hero section on the focused view??" Placed: the 0.4.1 mini
-     release, an Opus design agent.
-
 676. **The owner, 2026-10-06, verbatim**, with two screenshots of the Notes
      compact rows view (a collapsed row: chevron, title, a link snippet, the
      category chip, tags and "1 week ago" sitting low, with the hover
@@ -76,14 +69,6 @@ with its owner named in the entry.
      should smoothly change, the dropdown and collapse should be a smooth
      animation adn not sudden and janky." Placed: the 0.4.1 mini release, an
      Opus agent.
-
-677. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Dashboard's Compact view: a "Quick access" label, then five equal,
-     bordered, full-height boxes (New note, Sketch, Ask AI, Remind me,
-     Meeting notes) stretched across the whole row, each icon and word
-     left-aligned in a mostly empty box. "the quick access looks wierd and
-     not refined in the compact view". Placed: with 675, the dashboard
-     hero agent (same surface).
 
 ## Placed (last 20, newest first)
 

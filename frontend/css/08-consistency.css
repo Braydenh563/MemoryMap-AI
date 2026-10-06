@@ -11125,3 +11125,71 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 .dock .select-shell:has(.select-opener-icon) {
   min-width: 0;
 }
+
+/* ==========================================================================
+   Ring room (INBOX 685, "a lot of borders get cut off on an edge")
+   ==========================================================================
+   A focus ring is an outline outside the control's box (2px line, 2px offset:
+   `--ring-room`). Any ancestor that clips (`overflow` other than visible,
+   `contain: paint`, a `clip-path`) paints nothing outside its padding box, so
+   a control flush against that edge lost the side of its ring: the Regenerate
+   button in the Dashboard's constellation widget lost its left edge to
+   `.dash-body .row { overflow-x: clip }`. The sweep that found the rest is
+   `scratchpad/ui-sweeps/clip685.js` (every focusable on every surface, its
+   ring's outer box against every clipping ancestor, 1440 and 390, both
+   themes); `tests/test_ring_room.py` holds the containers below.
+
+   Two recipes, never a hidden ring:
+   - **Room**, for a container of separate controls (buttons, fields, chips):
+     `overflow-clip-margin` where the box clips with `overflow: clip`, or
+     padding of `--ring-room` with the same negative margin where it scrolls
+     (the layout does not move; the ring has somewhere to be painted).
+   - **Inset**, for a container whose children fill it edge to edge (a tab
+     strip, a list of rows, a segmented group, a sheet's rows): the ring is
+     drawn inside the control (`outline-offset: -2px`). Never on a filled
+     accent button, whose ring would vanish into its own fill. */
+
+/* Dashboard widgets: a body clips across (the focus timer's digits once made
+   a scrollbar flicker), and a tall one scrolls inside itself. */
+.dash-body,
+.dash-body .row {
+  overflow-clip-margin: var(--ring-room);
+}
+
+.dash-body {
+  padding: var(--ring-room);
+  margin: calc(-1 * var(--ring-room));
+  max-height: calc(320px + 2 * var(--ring-room));
+}
+
+.dash-widget:is([data-widget="boards"], [data-widget="art"], [data-widget="capture"], [data-widget="stats"], [data-widget="night"]) .dash-body {
+  max-height: none;
+}
+
+/* Inset: the controls that fill a clipping box edge to edge. A sub-tab strip
+   scrolls across (it is `overflow-x: auto`, so it clips down too), the
+   zoom group and the chat's mode switch are rounded by clipping, a sidebar
+   hides what leaves it, a list of rows fills the list. The ring is drawn
+   inside the control (one outline, 2px, offset -2px); a chosen segment is an
+   accent fill, so its ring is `--on-accent` there, or it would vanish into
+   the fill it sits on. */
+:is(
+  .tabs-line > button,
+  .doc-crumbs .doc-crumb,
+  #graph-legend .legend-toggle,
+  .sidebar-resize,
+  #category-list li,
+  .doc-item-button,
+  .outline-link,
+  .outline-twist,
+  .doc-template-choice,
+  .sheet-row,
+  .graph-zoom-btn,
+  .chat-dock-controls .seg > button
+):focus-visible {
+  outline-offset: -2px;
+}
+
+:is(.graph-zoom-btn, .chat-dock-controls .seg > button):is(.active, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]):focus-visible {
+  outline-color: var(--on-accent);
+}

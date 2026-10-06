@@ -551,6 +551,15 @@ select optgroup {
      two-line control still grows. Not a spacing token, for the reason
      DESIGN.md already gives: a hit target must not move with density. */
   --target-min: 1.75rem;
+  /* How far the base focus ring reaches past a control's box: its 2px line
+     and its 2px offset (the base `:focus-visible`, 02-chat-graph.css). A
+     container that clips (`overflow` other than visible, `contain: paint`)
+     and holds a control flush to its edge must leave this much room, by
+     padding or `overflow-clip-margin`, or draw the ring inside the control.
+     08-consistency.css "Ring room" lists the containers;
+     `tests/test_ring_room.py` holds the list. A fixed length, not a spacing
+     token: the ring does not grow with density (INBOX 685). */
+  --ring-room: 4px;
   /* A standing button's floor, 32px; `button.small` takes the larger of
      this and `--target-min` (44 under touch). */
   --button-min-h: 2rem;

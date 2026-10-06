@@ -75,7 +75,7 @@ def test_the_tags_field_has_the_apps_own_list_not_a_datalist():
     # Sized and placed to the field, a combobox, one open at a time.
     assert "box.style.width = `${Math.min(field.width" in suggest
     assert 'input.setAttribute("role", "combobox")' in suggest
-    assert "if (tagSuggestOpening === input) return;" in suggest
+    assert "if (tagSuggestOpening?.input === input) {" in suggest
     css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
     assert ".tag-suggest {" in css
 
@@ -140,3 +140,25 @@ def test_a_timed_out_status_poll_is_not_logged_as_a_warning():
     poll = poll[: poll.index("\n}\n")]
     assert "silent: true" in poll and "AbortSignal.timeout(8000)" in poll
     assert '!(silent && networkErr?.name === "TimeoutError")' in code
+
+
+def test_a_late_tag_list_does_not_open_after_the_tag_was_entered():
+    # Found by tests-e2e/specs/notes.spec.js flaking: the first open waits for
+    # GET /tags; a tag typed and entered meanwhile left the field empty, and
+    # the late list then opened with every tag over the form's Save button.
+    source = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
+    start = source.index("async function openTagSuggest(input) {")
+    body = source[start : source.index("\n}\n", start)]
+    waiting = body.index("if (tagSuggestOpening?.input === input) {")
+    assert "if (input.value !== tagSuggestOpening.value) tagSuggestOpening.typed = true;" in body[waiting : waiting + 260]
+    after = body[body.index('await apiJson("/tags"') :]
+    assert "if (!tagSuggestToken(input).token && (opening.typed || input.dataset.tagged)) return;" in after
+    # A tag entered before this file arrived: the note form marks the field,
+    # a key or press in it clears the mark, and the list stays shut till then.
+    fill = source[source.index("function fillTagSuggest() {") :]
+    assert "if (!token && input.dataset.tagged) {" in fill[:400]
+    panels = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
+    commit = panels[panels.index("const commitTag = () => {") :]
+    commit = commit[: commit.index("\n  };")]
+    assert 'tagEntry.dataset.tagged = "1";' in commit
+    assert 'for (const type of ["focus", "pointerdown"]) tagEntry.addEventListener(type, () => delete tagEntry.dataset.tagged);' in panels

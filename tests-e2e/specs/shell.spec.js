@@ -3,7 +3,7 @@
 // Capture, a space made and a note filed in it, and a setting that is still
 // set after a reload.
 const { test, expect } = require("@playwright/test");
-const { openApp, openTab, api, captureNote } = require("../helpers");
+const { openApp, openTab, api, captureNote, reloadApp } = require("../helpers");
 
 async function palette(page, words) {
   await page.keyboard.press("Control+k");
@@ -32,8 +32,7 @@ test("the companion shows with Ctrl+Shift+Y, stays after a reload, and hides aga
   await expect(buddy).toHaveCount(0);
   await page.keyboard.press("Control+Shift+Y");
   await expect(buddy).toBeVisible();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await openApp(page);
+  await reloadApp(page);
   await expect(buddy).toBeVisible();
   await page.keyboard.press("Control+Shift+Y");
   await expect(buddy).toHaveCount(0);
@@ -72,8 +71,7 @@ test("a new space holds the note written in it, and All spaces still shows it", 
   const space = (spaces.spaces || spaces).find((s) => s.name === name);
   expect((await api(page, `/entries/${id}`)).workspace_id).toBe(space.id);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await openApp(page);
+  await reloadApp(page);
   await expect(page.locator("#space-current-name")).toHaveText(name);
   await page.click("#space-switcher-btn");
   await page.locator("#space-menu").getByText("All spaces").click();
@@ -86,7 +84,6 @@ test("a setting changed in Settings is still set after a reload", async ({ page 
   await page.fill("#pref-display-name", name);
   await page.keyboard.press("Tab");
   await expect.poll(async () => (await api(page, "/preferences")).display_name).toBe(name);
-  await page.reload({ waitUntil: "domcontentloaded" });
   await openApp(page, "/#/settings/preferences");
   await expect(page.locator("#pref-display-name")).toHaveValue(name);
 });

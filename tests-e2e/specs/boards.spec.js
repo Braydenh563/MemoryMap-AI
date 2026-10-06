@@ -42,7 +42,6 @@ test("New board: pasted text becomes a text box that is there after a reload", a
   await page.keyboard.press("Control+v");
   await expect.poll(() => boardTexts(page, board.id)).toContain(line);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
   await openApp(page, `/#/library/board/${board.id}`);
   await expect(page.locator("#wb-canvas-view")).toContainText(line);
   expect(errors).toEqual([]);
@@ -63,7 +62,6 @@ test("New mind map: Tab adds a branch, typed and kept across a reload", async ({
     })
     .toEqual(["First branch"]);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
   await openApp(page, `/#/library/board/${map.id}`);
   await expect(page.locator("#wb-canvas-view")).toContainText("First branch");
 });

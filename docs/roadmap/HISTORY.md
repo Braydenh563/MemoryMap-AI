@@ -45208,3 +45208,33 @@ and refuses a topic ("Select a shape, link or text box first").
      grey on the chip, same card; measured (aioff656.js/.py): 14px glyph
      centred to the pixel in the 28px and 44px dot, 5.33:1 light, 6.86:1 dark.
 
+648. **The owner, 2026-10-05, verbatim.** "Make sure you finish everything that
+     is left except for the large backlog, work toast and token efficiently.
+     Polish all the small things that make the app feel more professional and
+     reliable. For ma the largest things that make me not want to use an app
+     are ui issues, loss of work to data with no way to retrieve or undo it,
+     poor usability and learnability, and features that don't work how they
+     should. The small things pile up and then I don't want to put my time and
+     effort into actually using the application. I don't want this to happen.
+     I want to be able to use it without worry like a professional
+     application, I want a satisfying experience and the same for my friends
+     who I try to get to use the program. Make sure it is the best thing to
+     ever grace the planet even if no ai model is available. And I was
+     wondering if we should rename the write with atlas/ai subtab to the
+     writing room or smth??" Placed: the end-to-end agent's brief now covers,
+     per flow, no unrecoverable loss (undo, trash or confirm; unsaved edits
+     survive a tab switch, reload and restart), every flow with no model
+     configured, and learnability (labels, tooltips, empty states). Decision
+     taken on the rename: the sub-tab is "Writing room" (built this commit;
+     the panel id was already `writing-room`, the Guide still answers to
+     "write with atlas").
+     **Fixed ab7d7b2, 8d0aec9, 5d2faa6, 430da2e, 24107d3, fc1e1a7.** Measured
+     (agent-remaining/e2e-1005.md): every flow in the inventory driven end to
+     end with no model, 49 Playwright tests passed with no retries in 3.5 min
+     (tests-e2e/specs, now all in CI's E2E job); unsaved work: the capture
+     draft, the note form's edit and a document's last words survive a
+     confirmed reload (notes.spec.js, documents.spec.js); the no-model crawl
+     (`scratchpad/ui-sweeps/e2e648-crawl.js`) made 187 presses on 11 surfaces
+     with no page error, no 5xx, no spinner left and no press that changed
+     nothing; every empty tab says what goes there, with a button to start.
+

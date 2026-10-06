@@ -27,6 +27,19 @@ function watchErrors(page) {
 // tab bar answers. `networkidle` never settles here (the app polls).
 async function openApp(page, route = "/") {
   await page.goto(route, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+}
+
+// A reload the way a person presses F5, then the app up again. One
+// navigation: a reload followed by a second `goto` hung now and then in
+// Chromium (the second navigation never committed), so the specs that check
+// "still there after a reload" use this.
+async function reloadApp(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+}
+
+async function waitForApp(page) {
   // A spec that locks the app (notes.spec.js) ends every saved session, so
   // a later spec may meet the lock screen: sign in the way a person would.
   const locked = await page
@@ -184,4 +197,25 @@ function makeZip(files) {
   return Buffer.concat([...locals, dir, end]);
 }
 
-module.exports = { makeZip, watchErrors, openApp, openTab, api, captureNote, waitFiled, noteExists };
+// A note's row in Notes, Your notes; one of its ⋯ menu's items; and the
+// confirm card's filled button, whatever verb it reads (`confirmVerb`).
+async function noteRow(page, id) {
+  await openTab(page, "notes");
+  await page.click('#notes-subtabs [data-section="browse"]');
+  const row = page.locator(`#entry-list > li[data-id="${id}"]`);
+  await expect(row).toBeVisible();
+  return row;
+}
+
+async function menuItem(page, row, label) {
+  await row.locator('button[aria-label="More actions"]').click();
+  await page.locator(".action-menu:not(.hidden)").getByText(label, { exact: true }).click();
+}
+
+async function confirm(page) {
+  const button = page.locator(".confirm-overlay button:not(:has-text('Cancel'))").last();
+  await expect(button).toBeVisible();
+  await button.click();
+}
+
+module.exports = { reloadApp, noteRow, menuItem, confirm, makeZip, watchErrors, openApp, openTab, api, captureNote, waitFiled, noteExists };

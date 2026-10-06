@@ -950,6 +950,7 @@ async function openDocument(id) {
   renderDocComments();
   renderDocList();
   docRestorePosition(doc.id);
+  offerKeptDocEdit(doc);
 }
 
 //: **A document reopens where you left it.** Measured before this existed
@@ -1029,6 +1030,62 @@ function docRememberPosition() {
 
 //: A reload or a closed tab inside the 600ms is one more write, not a lost one.
 window.addEventListener("pagehide", docRememberPositionNow);
+
+//: **Words typed in the last 1.2 s survive a reload** (INBOX 648, the owner:
+//: "unsaved edits survive tab switch, reload and restart"; measured by
+//: tests-e2e/specs/documents.spec.js). Autosave waits for a pause, and a
+//: Leave inside that pause, a closed desktop window (which asks nothing), or
+//: a save the server refused ("Not saved") lost the newest words for good.
+//: The text is kept on this device at that moment, dropped by the next save
+//: that lands, and offered back the next time that document opens, the same
+//: shape as the note form's kept edit (note-edit-panels.js).
+const DOC_EDIT_KEPT = "doc-edit-draft";
+
+function keepDocEditLocally() {
+  if (!currentDoc || !docDirty) return;
+  try {
+    localStorage.setItem(DOC_EDIT_KEPT, JSON.stringify({ id: currentDoc.id, title: $("doc-title").value, content: docText(), at: Date.now() }));
+  } catch {
+    /* storage full or blocked: nothing more can be done at unload */
+  }
+}
+
+function forgetDocEditLocally(id) {
+  try {
+    const kept = JSON.parse(localStorage.getItem(DOC_EDIT_KEPT) || "null");
+    if (kept && kept.id === id) localStorage.removeItem(DOC_EDIT_KEPT);
+  } catch {
+    /* nothing kept, nothing to forget */
+  }
+}
+
+window.addEventListener("pagehide", keepDocEditLocally);
+
+//: Called by openDocument once the document is on screen. A kept copy whose
+//: text is already the document's is dropped without a word; otherwise one
+//: message offers it back, as an edit (Ctrl+Z takes it out again) that the
+//: ordinary autosave then saves.
+function offerKeptDocEdit(doc) {
+  let kept = null;
+  try {
+    kept = JSON.parse(localStorage.getItem(DOC_EDIT_KEPT) || "null");
+  } catch {
+    kept = null;
+  }
+  if (!kept || kept.id !== doc.id) return;
+  if (kept.content === doc.content && (kept.title || "") === (doc.title || "")) {
+    forgetDocEditLocally(doc.id);
+    return;
+  }
+  toastAction(`Your unsaved changes to “${clipText(kept.title || "Untitled", 40)}” were kept.`, "Put them back", () => {
+    if (!currentDoc || currentDoc.id !== kept.id) return;
+    const box = docSurface();
+    if (!box) return;
+    if (kept.title) $("doc-title").value = kept.title;
+    docReplaceRange(box, 0, docText().length, String(kept.content || ""));
+    markDocDirty();
+  });
+}
 
 function docRestorePosition(id) {
   const box = docSurface();
@@ -1724,6 +1781,7 @@ async function saveDocument({ silent = false } = {}) {
     });
     currentDoc = saved;
     docDirty = false;
+    forgetDocEditLocally(saved.id);
     $("doc-saved").textContent = "Saved";
     if (!silent) toast("Document saved.");
     docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
@@ -1734,6 +1792,7 @@ async function saveDocument({ silent = false } = {}) {
       return;
     }
     $("doc-saved").textContent = "Not saved";
+    keepDocEditLocally();
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
   }

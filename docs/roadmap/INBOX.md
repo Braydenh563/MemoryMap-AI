@@ -70,27 +70,6 @@ with its owner named in the entry.
      and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
      then the PR title and description, then the owner is told it is ready.
 
-648. **The owner, 2026-10-05, verbatim.** "Make sure you finish everything that
-     is left except for the large backlog, work toast and token efficiently.
-     Polish all the small things that make the app feel more professional and
-     reliable. For ma the largest things that make me not want to use an app
-     are ui issues, loss of work to data with no way to retrieve or undo it,
-     poor usability and learnability, and features that don't work how they
-     should. The small things pile up and then I don't want to put my time and
-     effort into actually using the application. I don't want this to happen.
-     I want to be able to use it without worry like a professional
-     application, I want a satisfying experience and the same for my friends
-     who I try to get to use the program. Make sure it is the best thing to
-     ever grace the planet even if no ai model is available. And I was
-     wondering if we should rename the write with atlas/ai subtab to the
-     writing room or smth??" Placed: the end-to-end agent's brief now covers,
-     per flow, no unrecoverable loss (undo, trash or confirm; unsaved edits
-     survive a tab switch, reload and restart), every flow with no model
-     configured, and learnability (labels, tooltips, empty states). Decision
-     taken on the rename: the sub-tab is "Writing room" (built this commit;
-     the panel id was already `writing-room`, the Guide still answers to
-     "write with atlas").
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

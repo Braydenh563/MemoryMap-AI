@@ -72,10 +72,15 @@ function server(port, dir) {
 
 module.exports = defineConfig({
   testDir: "./specs",
-  // One app instance per project, so tests run serially against one
-  // notebook rather than each spinning up its own server.
+  // One app instance per project. Files run side by side, the tests inside a
+  // file in order: every test writes its own notes with its own words, so
+  // two files sharing the notebook cannot see each other's work, and the one
+  // spec that cannot share (first-run: restore replaces the notebook, the
+  // lock ends every session) has its own server. Three workers is what keeps
+  // the job inside six minutes on a four-core runner; MEMORYMAP_E2E_WORKERS
+  // to change it.
   fullyParallel: false,
-  workers: 1,
+  workers: Number(process.env.MEMORYMAP_E2E_WORKERS || 3),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // "github" alone annotates the run but writes no report to disk; the CI
@@ -86,6 +91,9 @@ module.exports = defineConfig({
   globalSetup: require.resolve("./global-setup.js"),
   use: {
     headless: true,
+    // A navigation that never commits fails in 30 s with its own message,
+    // rather than silently spending the whole test's budget.
+    navigationTimeout: 30_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     // Clipboard access for the paste spec; harmless everywhere else.

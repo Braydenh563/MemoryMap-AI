@@ -58,6 +58,12 @@ function placeTagSuggest() {
 function fillTagSuggest() {
   const { input, list, counts } = tagSuggest;
   const { token } = tagSuggestToken(input);
+  //: A tag just taken or entered in the note form: shut until the next key.
+  if (!token && input.dataset.tagged) {
+    tagSuggest.box.classList.add("hidden");
+    input.setAttribute("aria-expanded", "false");
+    return;
+  }
   const have = new Set(input.value.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean));
   const wanted = token.toLowerCase().replace(/^#/, "");
   const names = Object.keys(counts).filter((tag) => {
@@ -114,18 +120,33 @@ function takeTagSuggest(tag) {
 
 //: The entry point (app.js `LAZY_ENTRY_POINTS.tagSuggest`): opens the list
 //: under `input`, or refreshes it when it is already open there.
+//: The open waiting for the tags: its field, the field's text then, and
+//: whether it was typed in meanwhile (one object, not a second top-level
+//: flag).
 let tagSuggestOpening = null;
 
 async function openTagSuggest(input) {
   if (tagSuggest && tagSuggest.input === input) return fillTagSuggest();
   //: A press fires focusin and click together: one open at a time, or the
   //: second orphaned the first's list where Escape could not reach it.
-  if (tagSuggestOpening === input) return;
+  if (tagSuggestOpening?.input === input) {
+    //: Typed in, not only pressed: the click of that same press is no change.
+    if (input.value !== tagSuggestOpening.value) tagSuggestOpening.typed = true;
+    return;
+  }
   closeTagSuggest();
-  tagSuggestOpening = input;
+  const opening = (tagSuggestOpening = { input, value: input.value, typed: false });
   const counts = await apiJson("/tags", { silent: true, cacheMs: 30000 }).catch(() => null);
   tagSuggestOpening = null;
   if (!counts || !Object.keys(counts).length || document.activeElement !== input || tagSuggest) return;
+  //: **Late is not now.** The first open waits for this file and for the
+  //: tags. When they came after a tag was typed and entered (the field
+  //: emptied again), the list opened then with every tag in it, over the
+  //: note form's Save, and a press meant for Save took a tag nobody chose
+  //: (tests-e2e/specs/notes.spec.js). `typed` sees the typing while the tags
+  //: were fetched; the form's `data-tagged` sees a tag entered before this
+  //: file arrived. Typing again, or a press in the field, opens it as before.
+  if (!tagSuggestToken(input).token && (opening.typed || input.dataset.tagged)) return;
   const box = document.createElement("div");
   box.className = "tag-suggest card glass hidden";
   const list = document.createElement("ul");

@@ -155,6 +155,15 @@ with its owner named in the entry.
      "Untitled map 2", "Untitled document 4" (the next free number per kind), the
      name selected for typing over, renamed later from the title.
 
+740. **The owner, 2026-10-06, verbatim**, with an OKR board from the new templates
+     (frame titles "Objective one", hints "A goal worth the quarter") and a rotated
+     sticky note: "I cant edit the text under the titles in these objects?I rotated
+     an object int he whiteboard (a sticky note) and the arrows jsut off the middle
+     of each edge didnt rotate with it". Two bugs: the template frames' hint line
+     (INBOX 715's `hint` field) has no edit path, double-click should edit it like
+     the title; the quick-connect arrows beside each edge stay axis-aligned on a
+     rotated object, they must sit off its rotated edges.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

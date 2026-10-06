@@ -45424,3 +45424,9 @@ and refuses a topic ("Select a shape, link or text box first").
      pointer (avatars.js). scratchpad/ui-sweeps/buddywheel.js: nothing moved
      before, `#tab-main` 400px after a 400px wheel.
 
+684. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's current line washed as a full-width band: "I think the active
+     line highlighting is a little too strong??" Fixed 2026-10-06: the wash is
+     half the `--hover-veil` (0.045 white in dark, 0.035 ink in light), set
+     in documents.js `docCmTheme`; tests/test_line_gutter_look.py pins it.
+

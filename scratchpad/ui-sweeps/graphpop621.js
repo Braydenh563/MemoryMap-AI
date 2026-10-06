@@ -55,7 +55,7 @@ const TAG = process.env.TAG || 'shot';
       const w = cs(well); const c = fromBefore ? getComputedStyle(well, '::before') : cs(chosen);
       return `well ${w.backgroundColor} ${w.borderTopWidth} | chosen ${c.backgroundColor} ${c.boxShadow}`;
     };
-    const layoutSeg = segSig(document.getElementById('graph-layout'), document.querySelector('#graph-layout label:has(input:checked)'), false);
+    const layoutSeg = null; // INBOX 670: the layout is a list now, not a well
     const notesSeg = document.querySelector('.notes-view-toggle');
     const dockSeg = segSig(notesSeg, notesSeg?.querySelector('.active'), getComputedStyle(notesSeg, '::before').content !== 'none');
     const switches = [...pop.querySelectorAll('input[type=checkbox]')].filter(vis).map((i) => `${Math.round(i.getBoundingClientRect().width)}x${Math.round(i.getBoundingClientRect().height)}`);

@@ -111,6 +111,14 @@ KIND_LANES: dict[str, str] = {
     #: Installing, removing or reinstalling optional extras, one package or
     #: a bundle (`core/extras.py`, INBOX 595).
     "extras": "install",
+    #: Changing the embedding model (`core/embedswitch.py`, INBOX 700): the
+    #: re-index's lane, for the re-index's reason.
+    "embed-switch": "batch",
+    #: A scheduled pass started by hand (`core/passes.py`, INBOX 713).
+    "pass": "batch",
+    #: Tidy's whole-notebook link reason pass (INBOX 691): no model, but a
+    #: notebook-wide walk, so it waits behind nothing a person is waiting on.
+    "tidy-link-reasons": "batch",
 }
 
 DEFAULT_LANE = "cpu"
@@ -130,7 +138,7 @@ PENDING_ROWS_PER_KIND = 10
 #: `extras` is quiet for another reason: `routes_tasks.collect` already draws
 #: an install as its own row, with pip's step and log, and a second generic
 #: "Background job" row for the same install would say the same thing twice.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras"})
+QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras", "embed-switch"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202
@@ -153,6 +161,11 @@ LABELS: dict[str, str] = {
     "vision-pdf": "Reading a scan with the vision model",
     "file-entry": "Filing a note",
     "warm-filing": "Warming up the filing model",
+    #: INBOX 696: a "Background job" row says nothing a person can read.
+    "embed-entry": "Updating a note's search vector",
+    "bench": "Timing a model",
+    "pass": "Running a scheduled pass",
+    "tidy-link-reasons": "Naming link reasons",
 }
 
 
@@ -160,7 +173,9 @@ class _Job:
     """One queued piece of work. A plain object rather than a dataclass so
     `__slots__` keeps 200 of them cheap during a bulk upload."""
 
-    __slots__ = ("seq", "kind", "func", "args", "kwargs", "name", "queued_at", "dedupe_key", "durable_id", "durable_db")
+    __slots__ = (
+        "seq", "kind", "func", "args", "kwargs", "name", "queued_at", "started_at", "dedupe_key", "durable_id", "durable_db"
+    )
 
     def __init__(
         self,
@@ -183,6 +198,9 @@ class _Job:
         self.durable_id: int | None = None
         self.durable_db: object = None
         self.queued_at = time.time()
+        #: When a worker took it, for the panel's elapsed time (INBOX 696):
+        #: a running row counts from here, a waiting one from `queued_at`.
+        self.started_at = 0.0
 
 
 class Pool:
@@ -358,6 +376,7 @@ class Pool:
                         # with a long queue behind it. A durable job's row
                         # stays queued, so the next launch runs it.
                         continue
+                    job.started_at = time.time()
                     self._running[job.seq] = job
                 # A remembered job is claimed first: a row cancelled while it
                 # waited, or claimed by another server on the same file,
@@ -412,7 +431,8 @@ class Pool:
         shown: dict[str, int] = {}
         hidden: dict[str, int] = {}
         for job in jobs:
-            label = LABELS.get(job.kind, "Background job")
+            #: A pass's row is named for the pass ("Night shift").
+            label = job.name if job.kind == "pass" and job.name else LABELS.get(job.kind, "Background job")
             waiting = job.seq not in running
             if waiting:
                 shown[job.kind] = shown.get(job.kind, 0) + 1
@@ -431,6 +451,7 @@ class Pool:
                     "progress": None,
                     "log": [],
                     "queued": waiting,
+                    "started": job.queued_at if waiting else (job.started_at or job.queued_at),
                     #: The `jobs` row, for `/jobs/{id}/cancel`; None when
                     #: this process alone knows the job.
                     "job_id": job.durable_id,

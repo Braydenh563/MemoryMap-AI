@@ -691,7 +691,7 @@ function attachSelectionContext(context) {
     input.focus();
     autoGrow(input);
   }
-  announce(`Selection from ${context.title} attached to your next message.`);
+  announce(`${context.kind === "reading" ? "Text read from" : "Selection from"} ${context.title} attached to your next message.`);
 }
 
 function clearSelectionAttachment() {
@@ -713,12 +713,16 @@ function renderSelectionAttachment() {
   const label = document.createElement("span");
   const words = attachedSelection.text.replace(/\s+/g, " ").trim();
   const shown = words.length > 42 ? `${words.slice(0, 41)}…` : words;
-  setLabel(label, `ph:text-aa ${attachedSelection.title} · line ${attachedSelection.line}: “${shown}”`);
+  //: A page's reading (the OCR workspace, INBOX 717) has a file and a page,
+  //: not a line in an editor.
+  setLabel(label, attachedSelection.kind === "reading"
+    ? `ph:scan ${attachedSelection.title}: “${shown}”`
+    : `ph:text-aa ${attachedSelection.title} · line ${attachedSelection.line}: “${shown}”`);
   const remove = document.createElement("button");
   remove.className = "attachment-remove";
   remove.type = "button";
   setLabel(remove, "ph:x");
-  remove.title = "Don't send this selection with your message";
+  remove.title = "Don't send this with your message";
   remove.setAttribute("aria-label", remove.title);
   remove.addEventListener("click", () => {
     clearSelectionAttachment();
@@ -743,6 +747,8 @@ function renderSelectionAttachment() {
 //: which case the text is still sent, the user asked about it, but with no
 //: position claimed at all.
 function revalidateSelection(context) {
+  //: A reading is a copy of what was read, not a place in a surface.
+  if (context.kind === "reading") return { ...context, position: "exact" };
   //: **Through `docSurfaceById`, never `getElementById` alone.** A document
   //: whose CodeMirror engine has mounted keeps `#doc-content` in the markup as
   //: the form's empty value carrier: it is still an `HTMLTextAreaElement` and
@@ -792,6 +798,9 @@ function revalidateSelection(context) {
 //: message that carries a selection, and the tool schemas are already the
 //: dominant fixed cost of a round (§R5 item 1).
 function selectionContextBlock(context) {
+  if (context.kind === "reading") {
+    return [`The user is asking about the text read (OCR) from ${context.title}:`, "", context.text, ""].join("\n");
+  }
   const where =
     context.position === "gone" || context.position === "unknown"
       ? `${context.title} (the user has since edited it, so this passage may no longer be there)`
@@ -1714,6 +1723,7 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: **Numbered while it streams, as the Ask tab is** (INBOX 320, the
   //: askcite row): the backend sends the rows so far each time a sentence
   //: completes (`grounding_live`), and the markers are put back after every
@@ -1869,7 +1879,9 @@ async function sendChatMessage(preset, opts = {}) {
   // Captured once, not re-read at save time: the toggle can move on to the
   // next message while this one is still streaming, and the meta line and
   // the saved turn must both say what actually answered *this* question.
-  const effectiveUseTools = opts.useTools ?? $("tools-toggle").checked;
+  //: Agent only when something can call tools: the saved toggle stays on with
+  //: no model (renderChatModeSeg greys it), and a turn sent then is Ask's.
+  const effectiveUseTools = opts.useTools ?? ($("tools-toggle").checked && !(aiIsOff() && !modelStatus?.tools_engine));
 
   let slowLoadTimeout;
   try {
@@ -1906,7 +1918,8 @@ async function sendChatMessage(preset, opts = {}) {
       signal: controller.signal,
       onMeta: (m) => {
         meta = m;
-        status.textContent = "The model is writing…";
+        //: No model runs: the answer is composed from the notes (INBOX 725).
+        status.textContent = m && m.composed ? "Composing from your notes, no AI…" : "The model is writing…";
       },
       onRelated: (event) => {
         renderRelatedElsewhere(groundingHolder, event.items);
@@ -1921,6 +1934,7 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
+        composedNext = Array.isArray(event.next) ? event.next : [];
         renderAnswerGrounding(
           groundingHolder,
           event.sentences,
@@ -2021,7 +2035,7 @@ async function sendChatMessage(preset, opts = {}) {
           activityRun = addAgentRun({
             kind: "agent",
             name: agentRunTitle(question),
-            icon: "ph:robot",
+            icon: "ph:strategy",
           });
           openPanelForRun(activityRun);
         }
@@ -2535,8 +2549,9 @@ async function sendChatMessage(preset, opts = {}) {
   loadRecentQuestions();
   loadMostUsed();
   // Last, and deliberately not awaited: the answer is already on screen and
-  // saved, and this is a second model call. See offerFollowups.
-  offerFollowups(bubble, question, answerRaw);
+  // saved, and this is a second model call. See offerFollowups. A composed
+  // answer (no model running) brings its own next questions (INBOX 725).
+  offerFollowups(bubble, question, answerRaw, meta?.composed ? composedNext : null);
 }
 
 // --- "what to ask next" chips under a finished answer -------------------------
@@ -2556,17 +2571,20 @@ async function sendChatMessage(preset, opts = {}) {
 // - **Attach to the wrong bubble.** The reply can land after the reader has
 //   sent another message or opened a different conversation, so the bubble it
 //   was asked for has to still be on screen when it does.
-async function offerFollowups(bubble, question, answer) {
+async function offerFollowups(bubble, question, answer, given = null) {
   if (!bubble || !question || !answer) return;
-  let picks = [];
-  try {
-    picks = await apiJson("/chat/followups", {
-      method: "POST",
-      silent: true,
-      body: JSON.stringify({ question, answer }),
-    });
-  } catch {
-    return; // no honest error state for a suggestion, see the module note
+  //: `given`: a composed answer's own next questions, already in hand.
+  let picks = given || [];
+  if (!given) {
+    try {
+      picks = await apiJson("/chat/followups", {
+        method: "POST",
+        silent: true,
+        body: JSON.stringify({ question, answer }),
+      });
+    } catch {
+      return; // no honest error state for a suggestion, see the module note
+    }
   }
   if (!Array.isArray(picks) || !picks.length) return;
   // `isConnected` is the check that matters: a deleted turn, a cleared chat or

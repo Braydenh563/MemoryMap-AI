@@ -31,4 +31,4 @@ def test_every_caller_of_reevaluate_entry_is_gated_on_privacy() -> None:
         if re.search(r"\breevaluateEntry\(entry\)", path.read_text()) and path.name != "lightbox.js":
             callers.append(path.name)
     assert sorted(callers) == ["menus.js", "note-cards.js"], callers
-    assert 'if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions"' in MENUS.read_text()
+    assert 'if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:sparkle AI actions"' in MENUS.read_text()

@@ -445,17 +445,26 @@ const REVEAL_TARGETS = {
   "graph-physics": { tab: "graph", open: revealGraphOptions, el: "graph-physics" },
   //: KG4: note types and their fields.
   "note-types": { open: () => openNoteTypesSheet(), sel: '[data-sheet="note-types"] .sheet-card', built: "openNoteTypesSheet", flash: false },
+  //: New meeting (INBOX 644): its sheet, the title field first.
+  "meeting-new": { open: () => openNewMeeting(), sel: '[data-sheet="new-meeting"] .sheet-card', built: "openNewMeeting", flash: false },
   //: KG3: the kinds of link, the built-ins and a person's own.
   "relation-types": { open: () => openRelationTypesSheet(), sel: '[data-sheet="relation-types"] .sheet-card', built: "openRelationTypesSheet", flash: false },
   //: KG5: every person, place and thing named in the notes.
   entities: { open: () => openEntitiesSheet(), sel: '[data-sheet="entities"] .sheet-card', built: "openEntitiesSheet", flash: false },
   //: The suggestions inbox (KG9): one sheet, opened at the kind asked for.
   suggestions: { open: () => openSuggestionsInbox("links"), sel: '[data-sheet="suggestions"] .sheet-card', built: "openSuggestionsInbox", flash: false },
-  "graph-suggest": { open: () => openSuggestionsInbox("links"), sel: "#inbox-tab-links", built: "openSuggestionsInbox", flash: false, fallback: "link-suggest-btn" },
+  "graph-suggest": { open: () => openSuggestionsInbox("links"), sel: "#inbox-kind", built: "openSuggestionsInbox", flash: false, fallback: "link-suggest-btn" },
   "timeline-zoom": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-scale-group" },
   "timeline-bands": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-band-section" },
   "global-find": { open: () => openGlobalFind(), el: "global-find-bar", flash: false, fallback: "wb-search-bar" },
-  tensions: { open: () => openSuggestionsInbox("tensions"), sel: "#inbox-tab-tensions", built: "openSuggestionsInbox", flash: false },
+  tensions: { open: () => openSuggestionsInbox("tensions"), sel: "#inbox-kind", built: "openSuggestionsInbox", flash: false },
+  //: Tidy (INBOX 691): its sheet, or opened at one review; the tag manager
+  //: and the filings to check, each named in Tools and features at last.
+  tidy: { tab: "notes", open: () => openTidySheet(), sel: '[data-sheet="tidy"] .sheet-card', built: "openTidySheet", flash: false },
+  "tidy-links": { tab: "notes", open: () => openTidySheet("link-reasons"), sel: "#tidy-review", built: "openTidySheet", flash: false },
+  "tidy-duplicates": { tab: "notes", open: () => openTidySheet("duplicates"), sel: "#tidy-review", built: "openTidySheet", flash: false },
+  "tag-manager": { open: () => openTagsSheet(), sel: '[data-sheet="tags"] .sheet-card', built: "openTagsSheet", flash: false },
+  "notes-review": { tab: "notes", open: () => showNotesFilter("is:review"), el: "note-search" },
 
   // Plan and focus: the dashboard's widgets
   "widget-on-this-day": { open: () => revealDashWidget("on-this-day"), sel: '[data-widget="on-this-day"]', built: "renderDashboard" },
@@ -496,6 +505,9 @@ const REVEAL_TARGETS = {
   //: when the features browser opens (`renderFeatures`): the tool's own row
   //: in Settings → Tools it can use, where it is switched on or off.
   "ai-tool": { settings: "tools", sel: '#tool-list [data-tool="{arg}"]', built: "renderToolSettings", fallback: "settings-tools" },
+  // One package's row in Settings, Packages (`extra-row-<id>`, settings-packages.js):
+  // the OCR workspace's "RapidOCR, not installed" Install (INBOX 717).
+  "extra-row": { settings: "extras", sel: "#extra-row-{arg}", built: "renderExtras", fallback: "settings-extras" },
   "workspace-new": { open: () => openSpaceCreate(), el: "space-create-dialog", flash: false },
 
   // Data and control

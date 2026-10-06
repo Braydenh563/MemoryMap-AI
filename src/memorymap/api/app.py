@@ -51,8 +51,10 @@ from memorymap.api import (
     run_sandbox,
     routes_backups,
     routes_duplicates,
+    routes_tidy,
     routes_drafts,
     routes_learned,
+    routes_meetings,
     routes_mentions,
     routes_inbox,
     routes_entities,
@@ -102,6 +104,7 @@ from memorymap.core import (
     jobruns,
     jobs,
     logbuffer,
+    passes,
     security,
     startup_status,
 )
@@ -585,16 +588,35 @@ def _compact_event_log() -> None:
         )
 
 
+#: Housekeeping's two steps, by name, for `core/passes.py` (Run now in
+#: Background tasks). Looked up on this module at call time, so a test that
+#: stands in for one is honoured here as in `_startup_maintenance`.
+def _purge_step() -> None:
+    _purge_expired_bin_entries()
+
+
+def _compact_step() -> None:
+    _compact_event_log()
+
+
+passes.register_housekeeping("purge-bin", _purge_step)
+passes.register_housekeeping("compact-history", _compact_step)
+
+
 def _startup_maintenance() -> None:
     """The once-per-launch housekeeping, off the path to the first byte
     (ARCH-19). Looked up on the module at call time, so a test can stand in
     for each. Each step already logs and swallows its own failure."""
     module = sys.modules[__name__]
-    for step in ("_purge_expired_bin_entries", "_compact_event_log", "_backup_if_due"):
-        try:
-            getattr(module, step)()
-        except Exception:  # noqa: BLE001  # one step must not stop the next
-            logging.getLogger("memorymap.startup").warning("startup maintenance step %s failed", step, exc_info=True)
+    #: Recorded as "Housekeeping" (INBOX 713), so Background jobs can say
+    #: when it last ran beside its Run now (`core/passes.py`).
+    with jobruns.job_run("maintenance") as run:
+        for step in ("_purge_expired_bin_entries", "_compact_event_log", "_backup_if_due"):
+            try:
+                getattr(module, step)()
+            except Exception:  # noqa: BLE001  # one step must not stop the next
+                logging.getLogger("memorymap.startup").warning("startup maintenance step %s failed", step, exc_info=True)
+        run.result = "at start"
 
 
 def _backup_if_due() -> None:
@@ -1139,6 +1161,7 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_auth.router)
     app.include_router(routes_entries.router, dependencies=locked)
     app.include_router(routes_mentions.router, dependencies=locked)
+    app.include_router(routes_meetings.router, dependencies=locked)
     app.include_router(routes_inbox.router, dependencies=locked)
     app.include_router(routes_entities.router, dependencies=locked)
     app.include_router(routes_relations.router, dependencies=locked)
@@ -1174,6 +1197,7 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_conversations.router, dependencies=locked)
     app.include_router(routes_documents.router, dependencies=locked)
     app.include_router(routes_duplicates.router, dependencies=locked)
+    app.include_router(routes_tidy.router, dependencies=locked)
     app.include_router(routes_drafts.router, dependencies=locked)
     app.include_router(routes_learned.router, dependencies=locked)
     app.include_router(routes_night.router, dependencies=locked)

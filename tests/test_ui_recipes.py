@@ -1093,6 +1093,8 @@ LIST_ROWS = {
     ".bench-row": ".bench-results",
     #: The board's Layers tab (WHITEBOARD_PLAN decision 27).
     ".wb-layer-row": ".wb-layers-tree",
+    #: A meeting's action items, in its sheet (INBOX 644).
+    ".meeting-action": ".meeting-actions-list",
 }
 
 
@@ -2826,6 +2828,127 @@ def _seg_track_names() -> set[str]:
     return names
 
 
+#: INBOX 665 (the owner: "i dont really like these multi pill elements exept
+#: in some small cases like the little view mode 2 pill ones"). A `.seg` well
+#: of four or more choices written in index.html, each with where its
+#: conversion is placed (agent-remaining/seg665-1006.md). The list may only
+#: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
+SEG_OF_FOUR_PLACED = {
+    #: The one that stays (INBOX 670): the Attach picker's five sources, each
+    #: carrying the count of what is attached from it, are the picker dialog's
+    #: strip, which DESIGN.md's picker rows pin as equal segments across the
+    #: dialog (tabs with a count on each, one Tab stop, arrows between them),
+    #: and `test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog`
+    #: holds that shape. A list there would hide the counts and add a click.
+    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them as equal segments, pinned",
+}
+
+
+class _SegWells(HTMLParser):
+    """Every `.seg` / `.segmented-control` in the page with its option count."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.depth = 0
+        self.open: list[list] = []
+        self.found: dict[str, int] = {}
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "input":
+            if a.get("type") == "radio" and self.open:
+                self.open[-1][2] += 1
+            return
+        if tag in ("br", "img", "meta", "link"):
+            return
+        self.depth += 1
+        classes = (a.get("class") or "").split()
+        if tag == "div" and ("seg" in classes or "segmented-control" in classes) and "tabs-line" not in classes:
+            self.open.append([self.depth, a.get("id") or ".".join(classes), 0])
+        elif tag == "button" and self.open and self.depth == self.open[-1][0] + 1:
+            self.open[-1][2] += 1
+
+    def handle_endtag(self, tag):
+        if tag in ("input", "br", "img", "meta", "link"):
+            return
+        if self.open and self.open[-1][0] == self.depth:
+            _, name, count = self.open.pop()
+            self.found[name] = count
+        self.depth -= 1
+
+
+def test_a_pill_well_holds_two_or_three_choices() -> None:
+    """DESIGN.md's `.seg` row (INBOX 665): a well is for two or three short
+    choices always in view. Measured before by `scratchpad/seg665_inventory.py`:
+    25 wells in the page, four of them four or five wide, plus the map topic
+    bar's eight selects drawn as wells of three to thirteen. The two the owner
+    named among the threes (Questions' state, AI skills' kinds) are selects."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    wells = _SegWells()
+    wells.feed(html)
+    wide = {name for name, count in wells.found.items() if count >= 4}
+    assert wide <= set(SEG_OF_FOUR_PLACED), f"a new pill well of four or more: {sorted(wide - set(SEG_OF_FOUR_PLACED))}"
+    for name in ("questions-state", "skills-kind", "font-seg", "density-seg", "graph-layout"):
+        assert name not in wells.found, f"#{name} is a select (INBOX 665, 670), not a well"
+        assert f'<select id="{name}"' in html
+
+
+def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
+    """INBOX 670: Settings, Appearance, Font and Density were wells of four.
+    Each is a `<select>` (ids kept) that writes the same setting as before,
+    and `renderAppearance` sets the list from the stored value."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    font = html[html.index('<select id="font-seg"') :]
+    font = font[: font.index("</select>")]
+    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial"]
+    density = html[html.index('<select id="density-seg"') :]
+    density = density[: density.index("</select>")]
+    assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
+    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    assert '$("font-seg").addEventListener("change"' in js and 'localStorage.setItem("font", e.target.value)' in js
+    assert '$("density-seg").addEventListener("change"' in js
+    assert '$("font-seg").value = appearancePref("font")' in js
+    assert '$("density-seg").value = prefs.get("density", null) || "auto"' in js
+    assert "#font-seg button" not in js and "#density-seg button" not in js
+
+
+def test_the_suggestions_inbox_kinds_are_a_list_with_counts() -> None:
+    """INBOX 670: the inbox's four kinds, each carrying a count, were a
+    `.seg` well (the shape INBOX 665 took away from Questions). One select,
+    `#inbox-kind`, its rows "Links (3)"; the arrows of the list replace the
+    tabs' own, and the panes follow the value."""
+    js = (ROOT / "frontend" / "js" / "suggestions-inbox.js").read_text(encoding="utf-8")
+    assert 'document.createElement("select")' in js and 'kind.id = "inbox-kind"' in js
+    assert "inbox-seg" not in js and 'className = "seg' not in js and '"tablist"' not in js
+    assert 'kind.addEventListener("change"' in js and "inboxShow(kind.value)" in js
+    assert "option.dataset.label" in js, "the counts ride on the select's rows"
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert ".inbox-seg" not in css
+    reveal = (ROOT / "frontend" / "js" / "reveal-targets.js").read_text(encoding="utf-8")
+    assert "#inbox-tab-" not in reveal
+
+
+def test_a_visual_choice_is_a_row_of_previews() -> None:
+    """DESIGN.md "A visual choice in a popup" (INBOX 665). Measured before
+    with `seg665-probe.js` at 1440 on a themed map: the Shape door 333px with
+    Box and Fill wrapping to 103px rows, the Text door's icons to three lines.
+    After: every row 32px, one line, the door 155px. The rows are previews in
+    one label column, the follow choice a trailing reset, never a well."""
+    wm = frontend_text("whiteboard-map.js")
+    assert "wbMapChoiceRow" not in wm and "wb-map-choices" not in wm
+    assert '"seg wb-map-theme-scope"' not in wm
+    for name in ("function wbMapPickRow(", "function wbMapSizeStepper(", "function wbMapMarkerGlyph("):
+        assert name in wm
+    seg = wm[wm.index("function wbMapMarkerSeg(") :]
+    seg = seg[: seg.index("\n}\n")]
+    assert 'className = "seg"' not in seg and '"wb-map-picks"' in seg
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    picks = css[css.index(".wb-map-picks {") :]
+    assert "flex-wrap: nowrap;" in picks[: picks.index("}")]
+    assert "grid-template-columns: 5rem minmax(0, 1fr);" in css
+
+
 def test_a_segmented_track_is_rounded_by_the_table() -> None:
     names = _seg_track_names()
     offenders = []
@@ -4176,8 +4299,10 @@ def test_every_second_level_strip_is_a_tabs_line() -> None:
         assert tag, strip
         classes = re.search(r'class="([^"]*)"', tag.group(0)).group(1).split()
         assert "tabs-line" in classes, f"#{strip} is not a .tabs-line"
-        if strip != "doc-sidebar-tabs":
-            assert "seg" not in classes, f"#{strip} is a choice control again (.seg boxes it in a pill)"
+        #: INBOX 682: `#doc-sidebar-tabs` was the one strip that kept `.seg`, and
+        #: the flat looks' choice-control fill, edge and square corner (08) drew
+        #: its chosen tab as a grey bordered slab. No strip keeps it now.
+        assert "seg" not in classes, f"#{strip} is a choice control again (.seg boxes it in a pill)"
         end = page.index("</div>", tag.end())
         assert "<i " not in page[tag.end() : end], (
             f"#{strip} has an icon: second-level tabs are words only (one icon rule)"
@@ -4383,17 +4508,16 @@ def test_the_ai_skills_dock_holds_one_row() -> None:
 
     1. the sort is an icon-and-caret picker (`data-select-icon`) and an icon
        picker in a dock is not held to a worded select's 9rem floor;
-    2. the segment's words are `.toolbar-word`s that leave the row when the
-       dock (a container, so the logs column counts) is under 58rem, above
-       the phone band only, where the segment has a row of its own;
+    2. the kind filter is one worded select (INBOX 665: it was a pill well
+       of three whose words left the row under 58rem), its counts on its rows;
     3. the planned two-line break (INBOX 450) waits for a dock under 700px.
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     sort = re.search(r'<select id="skills-sort"[^>]*>', html).group(0)
     assert 'data-select-icon="ph-' in sort
-    kind = html[html.index('id="skills-kind"'):]
-    kind = kind[: kind.index("</div>")]
-    assert kind.count('class="toolbar-word"') == 3
+    kind = html[html.index('<select id="skills-kind"'):]
+    kind = kind[: kind.index("</select>")]
+    assert kind.count("<option ") == 3 and "toolbar-word" not in kind
     css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
     assert ".dock:has(.toolbar-word) {\n  container: dock / inline-size;" in css
     assert ".dock .select-shell:has(.select-opener-icon) {\n  min-width: 0;" in css
@@ -4460,7 +4584,11 @@ def test_the_note_edit_form_is_one_composition() -> None:
     assert panels.count('li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"))') == 2
     assert "foot.prepend(attachButton)" in panels
     rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
-    assert 'smallButton("ph:plus", `Link this note to' in rows
+    #: INBOX 709: the + is inside the note's chip, the chip the one control.
+    assert 'chip("", "link entry-related-chip", linkIt)' in rows
+    assert 'relChip.setAttribute("aria-label", `Link to ${name}`)' in rows
+    assert 'add.className = "ph ph-plus entry-related-add"' in rows
+    assert 'smallButton("ph:plus"' not in rows
 
 
 def test_the_note_edit_forms_attach_a_link_opens_the_picker() -> None:
@@ -4609,3 +4737,329 @@ def test_the_ocr_toolbars_segment_track_grows_round_its_touch_buttons() -> None:
     at = css.index("  .sheet-card-page .ocr-toolbar .seg-compact {\n")
     block = css[at : css.index("}", at)]
     assert "height: auto;" in block and "min-height: var(--target-min);" in block
+
+
+#: **A control inside a rounded container takes the container's tokens**
+#: (DESIGN.md, "Controls inside a rounded container"; INBOX 682 and 683, the
+#: owner: "the square active goes out of the circular pill"). Each key is a
+#: selector as written; each value is the one corner every rule that rounds
+#: it may use. The table bar's "Copy | ... | X" drew its buttons with
+#: `--radius-inner`, a card surface's concentric corner that is 0 below a 12px
+#: corner setting, so a rounded square sat in a capsule.
+CONTROLS_IN_ROUNDED_CONTAINERS = {
+    ".code-actions > .code-copy": "var(--radius-in-pill)",
+    ".code-actions > .menu-wrap > button": "var(--radius-in-pill)",
+    ".whiteboard-floating-panel.whiteboard-floating-panel.bottom-right > button": "var(--radius-in-pill)",
+    ".timeline-days .timeline-day.ghost.small": "var(--radius-in-choice)",
+    ".graph-zoom .graph-zoom-btn": "var(--radius-in-md)",
+    ".tabs-line > button": "var(--radius-md)",
+}
+
+
+def test_a_control_in_a_rounded_container_takes_the_container_tokens() -> None:
+    found: dict[str, list[str]] = {key: [] for key in CONTROLS_IN_ROUNDED_CONTAINERS}
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if selector.startswith("@"):
+                continue
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius:
+                continue
+            value = " ".join(radius.group(1).replace("!important", "").split())
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                if part in found:
+                    found[part].append(value)
+    offenders = []
+    for key, want in CONTROLS_IN_ROUNDED_CONTAINERS.items():
+        if not found[key]:
+            offenders.append(f"{key}: no rule rounds it (expected {want})")
+        offenders += [f"{key}: {value} (expected {want})" for value in found[key] if value != want]
+    assert not offenders, "a control inside a rounded container off the table:\n  " + "\n  ".join(offenders)
+
+
+def test_the_contained_corner_tokens_are_defined_from_the_table() -> None:
+    tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    for name, value in (
+        ("--radius-in-pill", "var(--radius-pill)"),
+        ("--radius-in-choice", "max(var(--radius-md), calc(var(--radius-choice) - var(--space-1)))"),
+        ("--radius-in-md", "max(var(--radius-sm), calc(var(--radius-md) - var(--space-1)))"),
+    ):
+        got = re.search(rf"{re.escape(name)}\s*:\s*([^;]+);", tokens)
+        assert got and " ".join(got.group(1).split()) == value, f"{name} is not {value}"
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "### Controls inside a rounded container" in design
+
+
+def test_no_second_level_strip_is_also_a_choice_control() -> None:
+    """The class that gave the Documents sidebar's tabs a grey, edged, square
+    slab in the flat looks (INBOX 682): `.seg` and `.tabs-line` are two
+    recipes, never one element's two classes."""
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    offenders = [
+        tag
+        for tag in re.findall(r"<[a-z]+\s[^>]*>", page)
+        if (classes := re.search(r'class="([^"]*)"', tag))
+        and {"seg", "tabs-line"} <= set(classes.group(1).split())
+    ]
+    assert not offenders, f"an element is both .seg and .tabs-line: {offenders}"
+
+
+# --- One sidebar row recipe for every rail (INBOX 702) ----------------------------
+#: A left rail's rows. Hover is the neutral `--row-hover-bg`, the current row
+#: may carry the accent (`--accent-soft`), and the row's ⋯ is a plain ghost
+#: icon that fills only under its own pointer. The owner, with two screenshots:
+#: "the hover and button styles on the notes sidebar is different from the
+#: others. is that intentional??" (a blue-tinted hover on Notes, grey on Chats).
+RAIL_ROWS = {
+    "#sidebar li": ("#sidebar li.active",),
+    "#category-list li": (),
+    "#conversation-list li": ("#conversation-list li.active-conv",),
+    ".modal-nav button": (".modal-nav button.active",),
+}
+#: Every `.sidebar-panel` is a rail with rows above, or is named here with why not.
+RAIL_PANELS = {
+    "sidebar": "Notes categories",
+    "chat-sidebar": "Chats",
+    "doc-sidebar": "Documents (cards with a resting fill; hover is the next neutral tier)",
+    "skills-sidebar": "Skill logs: a log, not a list of rows with a menu",
+}
+#: Wrappers of a row's ⋯ in a rail; the recipe rule in 08-consistency.css
+#: names each.
+RAIL_MENUS = ("#category-list li .category-actions", "#conversation-list li .entry-actions", ".doc-item .doc-item-menu")
+
+
+def _rail_background(body: str) -> str | None:
+    found = re.search(r"(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)", body)
+    return " ".join(found.group(1).split()) if found else None
+
+
+def test_a_rail_row_hovers_neutral_and_the_current_row_is_the_only_accent() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    seen_hover: set[str] = set()
+    seen_current: set[str] = set()
+    offenders = []
+    for selector, body in _rules(css):
+        fill = _rail_background(body)
+        if fill is None:
+            continue
+        for part in (p.strip() for p in selector.split(",")):
+            for row, currents in RAIL_ROWS.items():
+                if part == f"{row}:hover":
+                    seen_hover.add(row)
+                    if fill != "var(--row-hover-bg)":
+                        offenders.append(f"{part} fills {fill}: a rail row hovers var(--row-hover-bg)")
+                for current in currents:
+                    if part in (current, f"{current}:hover"):
+                        seen_current.add(current)
+                        if fill != "var(--accent-soft)":
+                            offenders.append(f"{part} fills {fill}: the current row is var(--accent-soft)")
+    assert not offenders, "\n".join(offenders)
+    assert seen_hover >= {"#sidebar li", "#conversation-list li", ".modal-nav button"}, seen_hover
+    assert seen_current >= {"#sidebar li.active", "#conversation-list li.active-conv", ".modal-nav button.active"}, seen_current
+
+
+def test_every_rail_is_a_known_rail() -> None:
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    panels = set(re.findall(r'<aside[^>]*class="[^"]*\bsidebar-panel\b[^"]*"[^>]*id="([\w-]+)"', page))
+    panels |= set(re.findall(r'<aside[^>]*id="([\w-]+)"[^>]*class="[^"]*\bsidebar-panel\b', page))
+    assert panels == set(RAIL_PANELS), (
+        f"sidebar panels {sorted(panels)}; known {sorted(RAIL_PANELS)}: a new rail takes the row recipe "
+        "(DESIGN.md, 'A sidebar row') and joins RAIL_ROWS and RAIL_PANELS"
+    )
+
+
+def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() -> None:
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    plain = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button")]
+    hover = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button:hover")]
+    assert plain and hover, "the rail ⋯ recipe rule (08-consistency.css) is missing or no longer names every rail's menu"
+    assert _rail_background(plain[0]) == "transparent", "a rail ⋯ has no fill at rest or while its row is hovered"
+    assert _rail_background(hover[0]) == "var(--ghost-btn-bg)", "a rail ⋯ fills only under its own pointer"
+    assert "border-radius: var(--radius-md)" in plain[0], "the fill stays inside the row's own radius"
+
+
+#: **Every `.seg` pill inside a popup, by name** (INBOX 715, the owner: "i
+#: dont like pills like that in popups"). DESIGN.md's row "A popup that
+#: chooses a kind" is a `.tabs-line` tab strip under the head; the New board
+#: dialog's Board | Mind map and the icon picker's Emoji | Icons were pills and
+#: are strips now. What is left is either a setting's value or a view of one
+#: pane (DESIGN.md's `.seg` row: two or three short choices), or a kind switch
+#: placed in `docs/roadmap/agent-remaining/board715-1006.md`. The lists only
+#: shrink: a new pill in a popup fails here.
+SEG_IN_POPUPS = {
+    "doc-history-filter": "Earlier versions: All or AI edits, a filter of one list",
+    "ocr-zoom": "the OCR workspace's zoom",
+    "ocr-view": "the OCR workspace's view of one page",
+    "theme-seg": "Settings: a value",
+    "fontsize-seg": "Settings: a value",
+    "border-style-seg": "Settings: a value",
+    "privacy-range": "Settings: a value",
+    "log-view-toggle": "Settings: a view of one log",
+    "note-picker-sources": "PLACED: the Attach picker's sources, a kind switch",
+}
+SEG_BUILT_IN_SCRIPT = {
+    ("app.js", "seg seg-compact confirm-seg"): "promptDialog's `segment`, a value",
+    ("documents.js", "seg"): "the print setup's values",
+    ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
+    ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
+    ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
+}
+
+
+class _PopupPills(HTMLParser):
+    """Every `.seg` inside a dialog, a `[popover]` or a `role="dialog"`, by id."""
+
+    VOID = {"input", "img", "br", "hr", "meta", "link", "source", "area", "col", "embed", "param", "track", "wbr", "base"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[tuple[str, bool]] = []
+        self.found: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        popup = tag == "dialog" or "popover" in a or a.get("role") == "dialog"
+        if "seg" in (a.get("class") or "").split() and any(p for _, p in self.stack):
+            self.found.append(a.get("id") or "?")
+        if tag not in self.VOID:
+            self.stack.append((tag, popup))
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                break
+
+
+def test_a_popup_chooses_a_kind_with_a_tab_strip() -> None:
+    """INBOX 715: a popup's kind switch is a `.tabs-line.popup-kinds` with
+    `role="tablist"`, its tabs `role="tab"` with `aria-selected`, never a
+    `.seg` pill; no new pill appears in a popup, in the markup or in script."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    pills = _PopupPills()
+    pills.feed(re.sub(r"<!--.*?-->", "", html, flags=re.S))
+    assert set(pills.found) <= set(SEG_IN_POPUPS), sorted(set(pills.found) - set(SEG_IN_POPUPS))
+    built = set()
+    for path in JS:
+        for classes in re.findall(r'\.className = "(seg(?: [^"]*)?)";', path.read_text(encoding="utf-8")):
+            built.add((path.name, classes))
+    assert built <= set(SEG_BUILT_IN_SCRIPT), sorted(built - set(SEG_BUILT_IN_SCRIPT))
+    # The two the owner named are tab strips.
+    assert re.search(r'class="tabs-line popup-kinds[^"]*" id="wb-template-kind" role="tablist"', html)
+    picker = (ROOT / "frontend" / "js" / "icon-picker.js").read_text(encoding="utf-8")
+    assert 'tabs.className = "tabs-line popup-kinds icon-picker-modes"' in picker
+    assert 'b.setAttribute("role", "tab")' in picker and '"aria-selected"' in picker
+    guide = (ROOT / "frontend" / "js" / "help-chat.js").read_text(encoding="utf-8")
+    assert 'seg.className = "tabs-line popup-kinds help-chat-views"' in guide
+
+
+#: **A Rows line starts with its kind icon** (INBOX 722, the owner: "theres a
+#: wierd gap at the start of the library all tab lines view"). With one picture
+#: in the list, every row without one reserved a 3rem `::before` slot so the
+#: thumbnails would line up, which pushed every other row's icon 63px in
+#: (measured: icon at x 75 against a 14px row padding). The thumbnail now sits
+#: after the title and the preview, in a slot only the row that has one pays
+#: for, so the icon is at the row's own padding on every row.
+def test_a_library_row_reserves_no_leading_slot_for_a_thumbnail() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    for selector, body in _rules(css):
+        if ".library-list" in selector and "::before" in selector and "content" in body:
+            raise AssertionError(f"a Rows line reserves space before its icon: {selector}")
+    thumb = [
+        body for selector, body in _rules((ROOT / "frontend/css/00-tokens-shell.css").read_text(encoding="utf-8"))
+        if selector == ".library-list .library-card-thumb"
+    ]
+    assert thumb, "the Rows thumbnail rule is missing"
+    order = re.search(r"order\s*:\s*(-?\d+)", thumb[0])
+    assert order and int(order.group(1)) > 0, "a Rows thumbnail follows the title; it never leads the row"
+    assert "has-thumbs" not in (ROOT / "frontend/js/library.js").read_text(encoding="utf-8")
+
+
+#: **The hover tick is a control with its icon, not an empty box** (INBOX 722,
+#: the owner: an empty square beside the hovered row's ⋯). It was neither a
+#: leftover nor a pin: it is the Library's selection tick (`.library-card-tick`,
+#: wired to the bulk bar, labelled "Select <title>"), revealed on hover. Drawn
+#: unchecked it was a 28px blank square next to the 28px ⋯, which reads as a
+#: control that failed to load. An unchecked tick now shows a faint check, so it
+#: says what it is before it is pressed, and it carries a title.
+def test_the_library_hover_tick_shows_its_check_and_names_itself() -> None:
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    faint = [
+        body for selector, body in _rules(css)
+        if ".library-card-tick:not(:checked)::after" in selector
+    ]
+    assert faint, "an unchecked Library tick draws a faint check (library-lazy.css)"
+    assert 'content: ""' in faint[0] and "border-width: 0 2px 2px 0" in faint[0]
+    assert re.search(r"border(?:-color)?\s*:[^;]*var\(--(?:muted|faint)", faint[0]) or "border-color: var(--muted)" in faint[0]
+    script = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    assert re.search(r'tick\.className = "library-card-tick";\s*tick\.title = "Select"', script), "the tick names itself on hover"
+
+
+#: **One ⋯ (INBOX 722, the owner: "meatball buttons have a visible outline, is
+#: that consistent with the rest of the app?? i dont think it is").** The app's
+#: rule, DESIGN.md's "A ⋯ or ⋮ that opens a menu" row: a plain ghost icon, no fill, edge
+#: or shadow at rest, `--ghost-btn-bg` only under its own pointer or while its
+#: menu is open, drawn at `--radius-md`. `kebabMenu` gives every opener the one
+#: class, `kebab-opener`, and it is styled once in 08-consistency.css; a surface
+#: that wants its ⋯ dressed differently does not get to say so.
+def test_the_kebab_opener_is_one_shared_ghost_icon_styled_once() -> None:
+    script = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    assert 'opener.classList.add("icon-only", "kebab-opener")' in script, "kebabMenu's opener carries the shared class"
+
+    shared = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    named = [(selector, body) for selector, body in _rules(shared) if ".kebab-opener" in selector]
+    plain = [body for selector, body in named if ":hover" not in selector]
+    at_rest = [body for selector, body in named if ":not(:hover" in selector]
+    hover = [body for selector, body in named if ":not(:hover" not in selector and ":is(:hover" in selector]
+    assert plain and at_rest and hover, "the shared kebab opener rule (08-consistency.css) is missing"
+    assert all(_rail_background(body) == "transparent" for body in at_rest), "a ⋯ has no fill at rest"
+    rest = "\n".join(plain)
+    assert re.search(r"border(?:-color)?\s*:\s*transparent", rest), "a ⋯ has no edge at rest"
+    assert re.search(r"box-shadow\s*:\s*none", rest), "a ⋯ has no shadow at rest"
+    assert "border-radius: var(--radius-md)" in rest
+    assert any(_rail_background(body) == "var(--ghost-btn-bg)" for body in hover), "a ⋯ fills only under its own pointer"
+
+    # No other rule in the app dresses the opener: a selector that names
+    # `.kebab-opener`, or the library's ⋯ chip that this replaced, may not set
+    # a resting fill, edge or shadow anywhere else.
+    for path in CSS:
+        if path.name == "08-consistency.css":
+            continue
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            names_opener = ".kebab-opener" in selector or (
+                'button[aria-haspopup="menu"]' in selector and "library-card-menu" in selector
+            )
+            if names_opener and re.search(r"(?:^|;)\s*(?:background(?:-color)?|border(?:-color)?|box-shadow)\s*:", body):
+                raise AssertionError(f"{path.name}: {selector} dresses the ⋯ opener; styled once in 08-consistency.css")
+
+
+#: **A rail row's ⋮ overlays the row; it never reserves a column** (INBOX 722,
+#: the owner: "there's quite a big gap on the right side of the chat sidebar
+#: chat items"). Measured at rest before: a chat's title 34px and a Documents
+#: title 33px short of the row's padding edge (the hidden ⋮ still held a flex
+#: item, and a 2rem `padding-right`, open); the Notes categories rail was
+#: already right (its `.category-actions` is absolute and the count is the last
+#: thing in the row). Now every rail's menu is absolutely placed, the row keeps
+#: only its own padding, and the words fade under the ⋮ while it shows.
+def test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    def declared(selector: str, prop: str) -> list[str]:
+        return [
+            re.search(rf"(?:^|;)\s*{prop}\s*:\s*([^;]+)", body).group(1).strip()
+            for sel, body in _rules(css)
+            if selector in [part.strip() for part in sel.split(",")] and re.search(rf"(?:^|;)\s*{prop}\s*:", body)
+        ]
+
+    assert "absolute" in declared("#conversation-list li .entry-actions", "position"), "a chat row's ⋮ overlays the row"
+    assert "absolute" in declared("#category-list li .category-actions", "position") or "absolute" in declared(".category-actions", "position")
+    assert "absolute" in declared(".menu-wrap.doc-item-menu", "position"), "a Documents row's ⋮ overlays the row"
+    # No right padding held back for the ⋮: the row keeps its own 0.6rem, the
+    # old `var(--space-9)` (2rem) reservation is gone.
+    paddings = declared(".doc-item-button", "padding")
+    assert paddings and all("space-9" not in value for value in paddings), "the Documents row reserves a column for its ⋮"
+    # The words fade under the ⋮ rather than stopping short of it.
+    fades = [body for sel, body in _rules(css) if "#conversation-list li" in sel and "mask-image" in body]
+    assert fades, "the end of a chat's title fades under its ⋮"
+    assert any(":hover" in sel and "doc-item" in sel for sel, body in _rules(css) if "mask-image" in body)

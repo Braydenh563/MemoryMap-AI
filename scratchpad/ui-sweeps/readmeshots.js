@@ -265,8 +265,9 @@ async function stage(page, shot) {
     case 'palette':
       await page.evaluate(() => openPalette());
       await page.waitForTimeout(700);
-      //: Typed: one word reaching commands, notes, a board and a document.
-      await page.fill('#palette-input', 'launch').catch(() => {});
+      //: Typed: the palette is commands and places (INBOX 666), so a word
+      //: that reaches several commands, and the hand-off to Find anything.
+      await page.fill('#palette-input', 'new').catch(() => {});
       await page.waitForTimeout(1500);
       break;
     case 'features':

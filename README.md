@@ -102,8 +102,9 @@ Open a section for the detail.
 - 21 built-in skills (and your own) run multi-step jobs as a visible
   checklist. Small models are first-class: a small-model mode gives a 4B model
   one step and one tool at a time.
-- A command palette (`Ctrl`/`Cmd`+`K`) reaches any command, note or document,
-  and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
+- A command palette (`Ctrl`/`Cmd`+`K`) runs any command or goes to any place
+  (typed words it cannot match go to Find anything, `Ctrl`+`P`, which
+  searches notes and documents), and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
   take plain language: "call Sam tomorrow evening".
 
 </details>
@@ -228,8 +229,8 @@ Captured from the app in the dark theme at 1440 by 900.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/palette.png" alt="The command palette: the word launch matching notes, a document, a board and reminders at once, with a preview of the chosen note" width="850">
-  <br><sub><b>Command palette</b>: Ctrl/⌘-K reaches a command, a note, a document, a file or a board</sub>
+  <img src="docs/screenshots/palette.png" alt="The command palette: the word new matching the create commands, a preview of the chosen one, and a last row that searches everything" width="850">
+  <br><sub><b>Command palette</b>: Ctrl/⌘-K runs a command or goes to a place, and hands a search to Find anything</sub>
 </p>
 
 <p align="center">
@@ -352,7 +353,9 @@ Markdown, or as a full backup that you can seal with a password.
 - The AI runs where you point it, and a setting that is on by default
   refuses a model address that is not on your computer or network.
 - Private notes are encrypted at rest with a key derived from your password,
-  and kept out of search, the graph and every AI tool.
+  and kept out of search, the graph and every AI tool. A recovery key, shown
+  once, lets "Forgot your password?" on the lock screen set a new password
+  and keep them.
 - Web search is off by default, and the update check waits for your answer to
   the question the first start asks. Web search sends only your search words.
 - Settings, Privacy lists every connection the app has made.
@@ -376,7 +379,7 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 | [CHANGELOG](CHANGELOG.md) | What changed, release by release |
 | [SECURITY](SECURITY.md) | How to report a vulnerability |
 
-**Status.** Version 0.4.0. This is a beta (`0.x`). Capture, chat with
+**Status.** Version 0.4.1. This is a beta (`0.x`). Capture, chat with
 checkable answers, the graph, documents, boards and mind maps, the OCR
 workspace, private notes and themes are built and stable, with desktop builds
 for Windows and Linux. Settings, Help has a guided tour of the real controls.
@@ -387,7 +390,7 @@ Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: the
 one rule is that every feature must work with no cloud service. In short:
 
 ```
-pytest -n auto                  # 7,200+ tests, fully offline, every AI call faked
+pytest -n auto                  # 8,200+ tests, fully offline, every AI call faked
 bash scripts/gate.sh --changed  # lints, node --check, ruff, and the tests that name your files
 ruff check .                    # what CI lints with
 ```

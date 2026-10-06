@@ -734,7 +734,7 @@ async function renderTemplateSettings() {
   await loadTemplates();
   const list = $("template-list");
   list.replaceChildren();
-  const { builtin, custom } = templateCatalogue();
+  const { builtin, custom } = await templateCatalogue();
   for (const template of [...custom, ...builtin]) list.appendChild(templateRow(template));
 }
 

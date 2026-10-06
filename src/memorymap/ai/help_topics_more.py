@@ -182,7 +182,7 @@ MORE_TOPICS: list[dict] = [
             "Notes, Questions lists the questions your notes ask in passing, "
             "found when Atlas reads your notes (Read notes now, or on its own "
             "with background tasks on), newest note first: "
-            "Open, Answered and Dropped, each with a count. A row says when and "
+            "Open, Answered or Dropped, picked in the bar with a count on each. A row says when and "
             "in which note it was asked; when a later note answers it, the row "
             "says so with the sentence, and pressing that line opens the note. "
             "Mark answered asks which note answers it and links the two notes; "
@@ -215,6 +215,9 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "search relevance", "minimum similarity", "above-average margin",
             "search engine", "semantic search", "embedding model", "re-index",
+            "embedding models", "multilingual search", "change embedding model",
+            "pull a model", "pull a model by name", "found on this computer",
+            "uninstall embedding model", "reinstall embedding model", "cached models",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
         ),
@@ -222,8 +225,20 @@ MORE_TOPICS: list[dict] = [
             "Settings, Search and index. Search engine: the built-in one "
             "(recommended, about 650 MB of memory while the app is open) or an "
             "Ollama embedding model such as nomic-embed-text; changing it "
-            "re-reads every note in the background and search uses keywords "
-            "until it finishes. Search index: Rebuild search index after an "
+            "re-reads every note in the background (Background tasks shows it, "
+            "with Stop) and search keeps using the current model until the new "
+            "one has read every note. Embedding models lists the choices, from "
+            "MiniLM (smallest, fastest) and BGE Small (the default) to "
+            "multilingual ones (Multilingual E5, BGE M3, Qwen3), with each "
+            "one's size, languages, context and licence: Use switches in one "
+            "press, and a model under other terms (EmbeddingGemma) links to "
+            "them instead; each row's ⋮ has Use, Install or Reinstall, and "
+            "Uninstall (refused on the model in use). Found on this computer "
+            "lists embedding models already here (the Hugging Face cache, "
+            "Ollama, LM Studio), with Use where MemoryMap can load them and "
+            "why not where it cannot. Pull a model by name takes a Hugging Face "
+            "repo (owner/name) or an Ollama name and checks it online only when "
+            "you press Pull. Search index: Rebuild search index after an "
             "update or a restore, or if search stops finding notes you know "
             "are there. Search relevance: Minimum similarity and Above-average "
             "margin; raise them for fewer, surer results, lower them if search "
@@ -251,13 +266,19 @@ MORE_TOPICS: list[dict] = [
             "battery", "battery-efficient", "save power", "quit the app",
             "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
+            "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
-            "(re-indexing, downloading a model, setting up search) with Quit on "
+            "(re-indexing, downloading a model, installing packages, setting up "
+            "search), each running job with a progress bar (a moving one when "
+            "it cannot count its steps) and how long it has run, with Stop on "
             "the jobs that can stop safely, and what has finished since it "
             "started. Background jobs lists every kind of job, the never-run "
-            "ones too, with when it last ran and how it went, and beside each "
+            "ones too, with when it last ran and how it went; each scheduled "
+            "pass (autonomous background AI, the night shift, the daily backup, "
+            "resurfacing, the embeddings backfill, housekeeping) also says when "
+            "it runs by itself and has Run now. Beside each "
             "control (Back up now, Rebuild search index, Find duplicates, the "
             "importers) a line reads, for example, \"Last run 2h ago, "
             "succeeded, 412 notes indexed\", with the exact time on hover; a "
@@ -283,15 +304,17 @@ MORE_TOPICS: list[dict] = [
             "otherwise off, downloaded from PyPI to this machine. Bundles "
             "group the packages one kind of work needs (Documents, Vision, AI, "
             "Voice, Desktop, Code): a bundle's Install fetches what is "
-            "missing, and its ⋯ reinstalls or removes them all. Tick packages "
+            "missing, and its ⋮ reinstalls or removes them all. Tick packages "
             "to install, reinstall or remove several at once from the bar "
             "above the list; they run one after another and one that fails "
-            "does not stop the rest. An installed package's ⋯ has Reinstall "
+            "does not stop the rest; a bundle's row shows each of its packages "
+            "as it goes, waiting, installing or done. An installed package's ⋮ has Reinstall "
             "(for a feature that is on but not working) and Remove, and its "
             "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
-            "Tiny (fastest) to Medium (most accurate). Embedding models chooses "
-            "what search by meaning uses; it is downloaded once and kept."
+            "Tiny (fastest) to Medium (most accurate). Embedding models lists "
+            "the built-in models on this machine, each downloaded once and kept; "
+            "which one search uses is chosen in Settings, Search and index."
         ),
         "badge": {"label": "Packages", "section": "extras"},
     },
@@ -348,7 +371,10 @@ MORE_TOPICS: list[dict] = [
             "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
             "files, documents and actions in one box as you type: Enter opens "
             "the top result, the arrows move, Esc closes. It lists the command "
-            "palette's actions too, so \"dark\" finds Toggle light/dark."
+            "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
+            "notes and files. The command palette (Ctrl+K) sends what you type "
+            "here: its last row, Search everything for, opens this box with "
+            "the words already searched."
         ),
         "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
@@ -438,6 +464,7 @@ MORE_TOPICS: list[dict] = [
             "auto-lock", "auto lock", "change my password", "reset password",
             "other devices", "on my phone", "another computer", "sessions",
             "lock everywhere", "re-encrypt", "new key", "rotate key",
+            "recovery key", "make a recovery key",
         ),
         "body": (
             "Settings, Account & security. Signing in: ask for a password when "
@@ -452,10 +479,15 @@ MORE_TOPICS: list[dict] = [
             "a new encryption key and moves every private note onto it, so an old "
             "backup stops opening them; every other session is signed out. Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
-            "locks at once. There is no reset link: run python -m memorymap "
-            "--reset-password in a terminal, which keeps ordinary notes, "
-            "loses private ones, whose key is your password, and turns other "
-            "devices off."
+            "locks at once. Recovery key: Make a recovery key (or Replace it) "
+            "asks your password and shows a key once, to copy or download and "
+            "keep away from this computer; the old one stops working. Forgot "
+            "your password? on the lock screen, on this computer only, has two "
+            "paths: the recovery key and a new password keeps private notes "
+            "and hands you a new key; I don't have it resets the password like "
+            "python -m memorymap --reset-password, which keeps ordinary notes, "
+            "documents, boards and settings, leaves private notes sealed for "
+            "good, and turns other devices off."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },
@@ -759,6 +791,45 @@ MORE_TOPICS.extend(
             "badge": {"label": "Notes", "tab": "notes"},
         },
         {
+            "id": "tidy",
+            "keywords": (
+                "tidy", "tidy up", "clean up", "cleanup", "clean up notes", "broom",
+                "weak links", "link reasons", "similar in meaning", "specific reason",
+                "why are these linked", "auto tags", "tags atlas added", "low confidence",
+                "tags used once", "look alike tags", "near duplicate", "duplicate notes",
+                "find duplicates", "uncategorised", "short notes", "empty notes",
+                "old reminders", "stale reminders", "without the ai", "without ai",
+                "bulk", "housekeeping", "apply automatically",
+            ),
+            "body": (
+                "Tidy is the broom in the Notes dock, beside the search help; the "
+                "number on it is how many things its reviews found. It opens on an "
+                "overview of all nine reviews, each a rule that needs no AI, with "
+                "its count and one line on what it finds, the ones with nothing to "
+                "tidy last; press a row to open that review and its back button to "
+                "return to the overview. The reviews: Links to explain (Add reasons "
+                "gives a link that only says similar in meaning what the two notes "
+                "share, a tag, a name or a week), Weak automatic links (Remove "
+                "links), Tags Atlas added (tags written by Atlas or a background "
+                "pass, never changed by you, that fit their note poorly; Remove "
+                "tags), Tags used once (Remove tags), Tags that look alike (Merge "
+                "tags), Notes without a category (Move notes, to the category their "
+                "words point to), Near-duplicate notes (Merge notes), Empty or very "
+                "short notes (Move to bin) and Reminders long past (Mark done). "
+                "Each review's description says what its button will change. Tick "
+                "the rows (each says why it is listed and what the button will do), "
+                "then press the button; one Undo puts the batch back, from the "
+                "toast, Ctrl+Z or Recent runs. Apply automatically runs a review "
+                "after each note is filed; merging notes, binning and removing tags "
+                "used once never run on their own. Links to explain also has Add "
+                "reasons to all in the background, a job you can stop in Settings, "
+                "Background tasks. The command palette and Tools and features open "
+                "Tidy too, and new links already say what their notes share when "
+                "they can."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
             "id": "manage-categories",
             "keywords": (
                 "manage categories", "merge categories", "merge two categories",
@@ -939,6 +1010,42 @@ MORE_TOPICS.extend(
             "badge": {"label": "Chat", "tab": "chat"},
         },
         {
+            #: INBOX 688, 714: the Ask box's Use AI switch.
+            "id": "answers-from-notes",
+            "keywords": (
+                "from your notes", "answer without ai", "no ai answer", "answer with no model",
+                "composed answer", "without the ai", "ai or notes", "notes instead of ai",
+                "switch off the ai", "ai off", "who answers", "ask without a model", "use ai",
+            ),
+            "body": (
+                "Ask on the Notes tab has a Use AI switch beside its title. On, your "
+                "model writes the answer; off, the answer is From your notes, with "
+                "no AI: the app picks the "
+                "sentences in your notes that answer the question and strings them "
+                "together, the answer on the first line under the note it came from, "
+                "the other notes joined by how they relate (also, later, separately, "
+                "or but when two may disagree), a sentence several notes repeat said "
+                "once with how many say it, a timeline for a when question, the "
+                "newest first for a latest question, two sides for a comparison, and "
+                "a few questions to ask next. Tell me more, or the second one, "
+                "follows on from the answer before. The Chat tab answers the same "
+                "way whenever no model is running: its box stays open, and Agent "
+                "mode is greyed unless the Needle extra can run it. Every "
+                "sentence is quoted from a note and cited like any answer; the app "
+                "adds only the joining words and the counts and dates it measured, "
+                "names two notes that may disagree, and says which of your words "
+                "none of the notes found mention. It never answers yes or no for "
+                "you. The chip over the answer reads Your notes, no AI. The "
+                "choice is kept on this device; with no model running it is the "
+                "answer and Use AI is greyed, with the reason on it, until a model runs. "
+                "The No model is connected line above the Chat box and the Ask box "
+                "has a close button (the small x at its end): it hides that line "
+                "until the next time you start the app, a new session, and "
+                "connecting a model in Settings, Models always brings the answers back."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
             "id": "follow-up-trail",
             "keywords": (
                 "follow-up", "follow up", "followup", "suggested question",
@@ -966,9 +1073,9 @@ MORE_TOPICS.extend(
                 "changes notes", "last run of a skill", "undo a skill run", "undo the run",
             ),
             "body": (
-                "Library, AI skills lists every skill: Yours and Built-in switch "
-                "between your own and the ones that ship with the app (each with "
-                "a count; on a narrow window each shows its icon and count), and "
+                "Library, AI skills lists every skill: the filter beside the "
+                "search shows All skills, Yours or Built-in (your own or the ones "
+                "that ship with the app, each with its count), and "
                 "the sort button (the arrows beside them) orders by Yours first, "
                 "Name A to Z or Recently run. Each card says whether the skill Reads only or Changes "
                 "notes, and how its last run went. Duplicate makes a copy of any "
@@ -987,20 +1094,27 @@ MORE_TOPICS.extend(
                 "ocr language", "reading language", "tesseract language", "install tesseract",
                 "tesseract not working", "tesseract missing", "read again", "which engine",
                 "language of the scan", "rapidocr", "ocr without tesseract",
+                "choose rapidocr", "rapidocr instead of tesseract",
             ),
             "body": (
-                "In the OCR workspace, one line under the toolbar says whether "
-                "Tesseract can read, its version and the language it reads in; "
-                "pick the language there, and every read follows it, the "
-                "background pass included. When Tesseract cannot read, the line "
-                "names the cause and offers Install, with its progress; a read it "
+                "In the OCR workspace, the reader button's dot says whether "
+                "Tesseract can read (green) or not (amber); its menu shows the "
+                "version and the language it reads in. Pick the language there, "
+                "and every read follows it, the background pass included. When "
+                "Tesseract cannot read, the menu names the cause and offers "
+                "Install, with its progress, and the tool row's ... menu opens "
+                "Settings to manage it; a read it "
                 "cannot do falls to the vision model, and each reading names the "
                 "engine that read it. Read again reads afresh, and a reading can "
                 "be edited by hand or added to an existing note. Settings, "
                 "Packages shows the same status and language. RapidOCR, a second "
                 "reader with nothing else to install (its own row in Settings, "
-                "Packages), reads when Tesseract isn't ready; its "
-                "models read English and Chinese, so the language does not apply."
+                "Packages), can be chosen in the reader button's menu, and then "
+                "reads even when Tesseract is ready; with nothing chosen it reads "
+                "when Tesseract isn't ready. Its models read English and Chinese, "
+                "so the language does not apply. Not installed, the menu says so "
+                "and its Install opens that Packages row. The workspace remembers "
+                "the reader you chose."
             ),
             "badge": {"label": "Packages", "section": "extras"},
         },
@@ -1098,8 +1212,8 @@ MORE_TOPICS.extend(
             ),
             "body": (
                 "Emoji and icons. One picker holds every Phosphor icon the app ships "
-                "and about 470 emoji: type to search, Recent first, Emoji or Icons "
-                "above, arrows and Enter to choose, Escape to close. On a board or a "
+                "and about 470 emoji: Emoji or Icons in the tab strip under its title, "
+                "type to search, Recent first, arrows and Enter to choose, Escape to close. On a board or a "
                 "map, Insert, Emoji and icons… keeps it open: press one to place it "
                 "in the middle of the view, or drag it where it goes. An emoji lands "
                 "as a sticker (no card, resize it like any item), an icon as a shape "
@@ -1126,8 +1240,8 @@ MORE_TOPICS.extend(
                 "its level's: the Text and Shape menus over a selected topic set "
                 "them, and Fill offers Solid colour. View, How this map looks picks "
                 "the hierarchy (Classic, Outline with plain text on the lines, "
-                "Boxed, or Flat for every topic alike) and, under Centre, Main "
-                "branches or Sub-topics, that level's size, weight, box, edge bar, "
+                "Boxed, or Flat for every topic alike) and, with Setting on The "
+                "centre, Main branches or Sub-topics, that level's size, weight, box, edge bar, "
                 "fill and line. A topic's menu, Look: Copy this topic's style and "
                 "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
                 "Use this look for its level, which hands the topic's own look to "
@@ -1211,7 +1325,8 @@ TOPIC_META: dict[str, dict] = {
     #: every entry by its title, and an id read aloud ("Files images") is not one.
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
-    "voice": {"title": "Dictation, meetings and read aloud", "path": "Notes tab, the microphone"},
+    "voice": {"title": "Dictation, recording and read aloud", "path": "Notes tab, the microphone"},
+    "meetings": {"title": "Meeting notes", "path": "Dashboard, New meeting; a meeting's meeting chip"},
     "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Writing room, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},
     "ocr-workspace": {"title": "The OCR workspace", "path": "Read text, on any image or PDF"},
@@ -1230,6 +1345,7 @@ TOPIC_META: dict[str, dict] = {
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
     "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
     "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
+    "board-templates": {"title": "Board and map templates", "path": "Library tab, Boards & maps, New"},
     "board-format": {"title": "The board's Format panel and connectors", "path": "A board, Ctrl+Shift+P or the selection's More menu"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards & maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
@@ -1256,16 +1372,19 @@ TOPIC_META: dict[str, dict] = {
     "filing": {"title": "How a note is filed", "path": "A note's card, beside its category"},
     "suggested-tags": {"title": "Suggested tags", "path": "A note's card"},
     "tag-manager": {"title": "Managing tags", "path": "Notes tab, the ... menu, Manage tags"},
+    "tidy": {"title": "Tidy: reviews with no AI", "path": "Notes tab, the broom in the dock"},
     "manage-categories": {"title": "Managing categories", "path": "Notes tab, the Categories head in the sidebar"},
     "note-history": {"title": "A note's history", "path": "A note's menu, History"},
     "notes-list": {"title": "Sorting and browsing notes", "path": "Notes tab, Your notes"},
     "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
+    "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, the Use AI switch", "steps": (
+        "Open Ask on the Notes tab.", "Turn Use AI off beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
-    "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, under the toolbar"},
+    "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, the reader button"},
     "time-and-recency": {"title": "Dates and recent notes in answers", "path": "Chat tab, or Ask on the Notes tab"},
     "model-downloads": {"title": "Downloading a model", "path": "Settings, Models, Suggested downloads"},
     "accessibility": {"title": "Accessibility and zoom", "path": "Settings, Keyboard shortcuts and Appearance"},
@@ -1286,13 +1405,13 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Writing notes", (
         "capture", "quick-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
-        "write-with-atlas", "translate", "extract-notes", "voice",
+        "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
     )),
     ("Filing, tags and categories", (
-        "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
+        "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
@@ -1300,7 +1419,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "margin-reader",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",
+        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-templates", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

@@ -861,8 +861,7 @@ function renderDocList() {
           loadDocuments(currentDoc?.id);
         }),
       ],
-      `Actions for "${doc.title || "Untitled"}"`
-    );
+      `Actions for "${doc.title || "Untitled"}"`, { vertical: true });
     menu.classList.add("doc-item-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
     // Same clipping shape as the Library's own Documents-subtab kebab, a
@@ -2450,7 +2449,7 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-serif", "The serif face") },
   { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
     run: () => docRunControl("doc-word-goal", "The word goal") },
-  { id: "ai", icon: "ph:magic-wand", label: "Ask Atlas to edit this document", keys: "",
+  { id: "ai", icon: "ph:sparkle", label: "Ask Atlas to edit this document", keys: "",
     run: () => docRunControl("doc-ai", "AI editing") },
   { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
     run: () => docRunControl("doc-extract", "Extracting notes") },
@@ -7721,7 +7720,16 @@ function docLivePlugin(CM) {
               //: A number carries information ("this is item 3") and stays as
               //: it was typed; a dash does not, and becomes a bullet while
               //: the caret is elsewhere. Both keep the muted ink.
-              if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
+              //: **A task has its box, not a bullet as well** (INBOX 710: "a
+              //: bullet beside a task box"). The dash and the space after it
+              //: go while the caret is elsewhere; the box (the task marker's
+              //: widget, 1.1em and its 0.4em margin) takes the hanging
+              //: indent's 1.6em, so a wrapped line still aligns under its
+              //: words.
+              const taskLead = /^[ \t]*[-*+]\s+(?=\[[ xX]\]\s)/.exec(line.text);
+              if (taskLead && !touched(line.from, line.to)) {
+                ranges.push(hidden.range(from, line.from + taskLead[0].length));
+              } else if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
                 ranges.push(
                   Decoration.replace({ widget: new DocBulletWidget() }).range(from, to)
                 );
@@ -10893,7 +10901,7 @@ function syncDocAiPanel() {
   const wordCount = selection ? selection.split(/\s+/).length : 0;
 
   const runLabel = { edit: "Suggest an edit", write: "Write it", remove: "Remove it" }[verb];
-  setLabel($("doc-ai-run"), `ph:magic-wand ${runLabel}`);
+  setLabel($("doc-ai-run"), `ph:sparkle ${runLabel}`);
 
   $("doc-ai-instruction").placeholder =
     verb === "write"
@@ -11514,7 +11522,7 @@ function docDiffHunkHead(hunk, index, total, skipped, onToggle) {
 //: has to be read from the top, which is the work a history exists to save.
 const DOC_HISTORY_SOURCES = {
   edit: { icon: "ph:pencil-simple", label: "You" },
-  ai: { icon: "ph:magic-wand", label: "AI edit" },
+  ai: { icon: "ph:sparkle", label: "AI edit" },
   restore: { icon: "ph:clock-counter-clockwise", label: "Restored" },
 };
 
@@ -16385,6 +16393,18 @@ document.addEventListener(
   true
 );
 
+//: Whether a menu from `openMenuAtPoint` is showing. Its host is parked in
+//: the body and the menu may have been reparented there by
+//: `escapeMenuIfClipped`, so it is found by its opener's class.
+function docPointerMenuOpen() {
+  for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
+    if (menu.closest(".pointer-menu-host") || menu._escapedOpener?.classList.contains("pointer-menu-anchor")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function docFindingAtPoint(x, y) {
   if (typeof x !== "number" || typeof y !== "number") return null;
   for (const mark of docFindingMarks()) {
@@ -16421,6 +16441,11 @@ function docRevealForSuggest(anchor, finding) {
 }
 
 function docOpenSuggestFor(finding, focus = true, point = null, revealed = false) {
+  //: **One surface** (INBOX 689): a menu opened at the pointer (a suggested
+  //: change's, a link's) is the answer the press asked for, and the finding's
+  //: popover opened over it is the overlap the owner reported. The change's
+  //: menu carries the finding's answers itself (`docSuggestMenu`).
+  if (docPointerMenuOpen()) return false;
   const anchor = docFindingAnchor(finding, point);
   if (anchor) {
     //: Once only: a finding the editor cannot bring into view (a folded
@@ -17311,6 +17336,55 @@ function docFindingIsPassage(finding) {
   return /\s/.test(String(finding.text || "").trim());
 }
 
+//: **The answers to a finding as data** (INBOX 689): the candidates that
+//: replace the word, then "Add to dictionary" (a spelling or a variant) and
+//: "Ignore in this document". `docSuggestAnswers` draws them as buttons in
+//: the popover and the panel row, and a suggested change that carries a
+//: finding lists the same rows in its own menu (`docSuggestMenu`), so the
+//: three can never offer different things. Each row's `run(close)` does the
+//: whole job, calling `close` in the order the surface needs: after a fix,
+//: before the dictionary write and the ignore.
+function docFindingAnswerRows(finding) {
+  const rows = docSuggestAlternatives(finding).map((option, index) => {
+    const removal = `Remove \u201c${finding.text}\u201d`;
+    return {
+      kind: "candidate",
+      best: index === 0,
+      label: option === " " ? "one space" : option === "" ? removal : option,
+      title: option === "" ? removal : `Replace with \u201c${option}\u201d`,
+      run: (close = () => {}) => {
+        docProseFix({ ...finding, replacement: option });
+        close();
+      },
+    };
+  });
+  if (finding.rule === "spelling" || finding.rule === "variant") {
+    rows.push({
+      kind: "action",
+      id: "dictionary",
+      //: Short (INBOX 552): the word is the heading above it, and "Add
+      //: \u201cword\u201d to dictionary" wrapped onto two lines in a narrow panel.
+      label: "ph:book-open-text Add to dictionary",
+      title: `Add \u201c${finding.text}\u201d to the dictionary`,
+      run: async (close = () => {}) => {
+        close();
+        await docDictionaryAdd(finding.text);
+      },
+    });
+  }
+  rows.push({
+    kind: "action",
+    id: "ignore",
+    label: "ph:eye-slash Ignore in this document",
+    title: "Stop flagging this wording in this document until MemoryMap is restarted",
+    run: (close = () => {}) => {
+      close();
+      docProseIgnore(finding);
+    },
+  });
+  return rows;
+}
+
 //: **The answers to a finding, built once and drawn in two places**
 //: (DOCUMENTS_PLAN 12 D2 and D3): the floating menu over the word, and the
 //: expanded row in the panel. They were two code paths offering the same four
@@ -17330,7 +17404,6 @@ function docSuggestAnswers(finding, opts = {}) {
 
   const list = document.createElement("div");
   list.className = inline ? "doc-suggest-list doc-suggest-list-inline" : "doc-suggest-list";
-  const alternatives = docSuggestAlternatives(finding);
   //: **A candidate word is a word, not an action, and it used to be drawn as
   //: one.** Every row carried the same `ph:check`, so five suggestions read as
   //: five identical commands with different arguments, and the eye had nothing
@@ -17342,20 +17415,17 @@ function docSuggestAnswers(finding, opts = {}) {
   //: menu now separates into "which word" and "what to do about it" without a
   //: divider having to say so. The first candidate carries the weight, because
   //: it is the one Enter and a double-click take.
-  alternatives.forEach((option, index) => {
+  const answerRows = docFindingAnswerRows(finding);
+  answerRows.filter((row) => row.kind === "candidate").forEach((row) => {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = index === 0 ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
-    const removal = `Remove \u201c${finding.text}\u201d`;
-    item.textContent = option === " " ? "one space" : option === "" ? removal : option;
-    item.title = option === "" ? removal : `Replace with \u201c${option}\u201d`;
-    item.addEventListener("click", () => {
-      docProseFix({ ...finding, replacement: option });
-      close();
-    });
+    item.className = row.best ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
+    item.textContent = row.label;
+    item.title = row.title;
+    item.addEventListener("click", () => row.run(close));
     list.appendChild(item);
   });
-  if (!alternatives.length) {
+  if (!answerRows.some((row) => row.kind === "candidate")) {
     const none = document.createElement("p");
     none.className = "muted doc-suggest-none";
     //: A rule with no fix still opens this menu, because "ignore it" and "this
@@ -17368,30 +17438,15 @@ function docSuggestAnswers(finding, opts = {}) {
 
   const actions = document.createElement("div");
   actions.className = inline ? "doc-suggest-actions doc-suggest-actions-inline" : "doc-suggest-actions";
-  if (finding.rule === "spelling" || finding.rule === "variant") {
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "doc-suggest-item";
-    //: Short (INBOX 552): the word is the heading above it, and "Add
-    //: \u201cword\u201d to dictionary" wrapped onto two lines in a narrow panel.
-    setLabel(add, "ph:book-open-text Add to dictionary");
-    add.title = `Add \u201c${finding.text}\u201d to the dictionary`;
-    add.addEventListener("click", async () => {
-      close();
-      await docDictionaryAdd(finding.text);
-    });
-    actions.appendChild(add);
+  for (const row of answerRows.filter((other) => other.kind === "action")) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "doc-suggest-item";
+    setLabel(button, row.label);
+    button.title = row.title;
+    button.addEventListener("click", () => row.run(close));
+    actions.appendChild(button);
   }
-  const ignore = document.createElement("button");
-  ignore.type = "button";
-  ignore.className = "doc-suggest-item";
-  setLabel(ignore, "ph:eye-slash Ignore in this document");
-  ignore.title = "Stop flagging this wording in this document until MemoryMap is restarted";
-  ignore.addEventListener("click", () => {
-    close();
-    docProseIgnore(finding);
-  });
-  actions.appendChild(ignore);
 
   if (docFindingIsPassage(finding)) {
     //: **"Ask the AI for wordings", where the app itself has no answer.** Asked
@@ -17407,7 +17462,7 @@ function docSuggestAnswers(finding, opts = {}) {
     const askAi = document.createElement("button");
     askAi.type = "button";
     askAi.className = "doc-suggest-item doc-suggest-ai";
-    setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
+    setLabel(askAi, "ph:sparkle Ask Atlas for wordings\u2026");
     askAi.title = "Have the local model suggest two or three other ways to put this";
     askAi.addEventListener("click", async () => {
       if (!currentDoc || !currentDoc.id) return toast("Save the document first.", "info");
@@ -17423,7 +17478,7 @@ function docSuggestAnswers(finding, opts = {}) {
       if (!current()) return;
       const options = (body && body.options) || [];
       if (!options.length) {
-        setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
+        setLabel(askAi, "ph:sparkle Ask Atlas for wordings\u2026");
         askAi.disabled = false;
         return toast(
           (body && body.message) || "No other wordings came back for that one.",
@@ -17435,7 +17490,7 @@ function docSuggestAnswers(finding, opts = {}) {
         const item = document.createElement("button");
         item.type = "button";
         item.className = "doc-suggest-item doc-suggest-ai-option";
-        setLabel(item, `ph:magic-wand ${option}`);
+        setLabel(item, `ph:sparkle ${option}`);
         item.title = `Replace with \u201c${option}\u201d`;
         item.addEventListener("click", () => {
           docProseFix({ ...finding, replacement: option });
@@ -18510,9 +18565,12 @@ function docCmTheme(CM) {
       //: `--hover-veil`, a translucent ink laid over whatever ground the line
       //: has, so it reads in light and dark and never covers the selection
       //: layer's tint; it shows only while the editor has the focus, the same
-      //: rule the number beside it follows.
+      //: rule the number beside it follows. Half the veil since INBOX 684
+      //: (the owner: "the active line highlighting is a little too strong"):
+      //: 0.045 white in dark, 0.035 ink in light, a place marker rather than
+      //: a band.
       ".cm-activeLine": { backgroundColor: "transparent" },
-      "&.cm-focused .cm-activeLine": { backgroundColor: "var(--hover-veil)" },
+      "&.cm-focused .cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--hover-veil) 50%, transparent)" },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch.cm-searchMatch-selected": { outline: "1px solid var(--accent)" },

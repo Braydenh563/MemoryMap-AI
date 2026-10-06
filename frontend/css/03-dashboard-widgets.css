@@ -201,32 +201,20 @@
   gap: var(--space-1);
 }
 
-/* One row at every width, as the Attach picker's sources (the `.seg` recipe
-   wraps, which put Link types alone on a second line at 390). */
-.seg.inbox-seg {
+/* The kind of suggestion is one list (INBOX 670), its rows carrying the
+   counts: as wide as its longest row on a wide sheet, the sheet's width on a
+   phone. It was a well of four at every width. */
+.inbox-card > .select-shell {
   flex: 0 0 auto;
-  align-self: stretch;
-  flex-wrap: nowrap;
-  margin-bottom: 0;
-}
-
-.seg.inbox-seg > button {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
+  align-self: flex-start;
+  min-width: 14rem;
+  margin-bottom: var(--space-3);
 }
 
 @media (max-width: 599.98px) {
-  .seg.inbox-seg > button {
-    padding-inline: var(--space-1);
-    font-size: var(--text-sm);
+  .inbox-card > .select-shell {
+    align-self: stretch;
   }
-}
-
-/* The count after a kind is quiet text, never a pill (INBOX 466). */
-.inbox-count:not(:empty) {
-  margin-inline-start: var(--space-1);
-  color: var(--muted);
 }
 
 .inbox-body {
@@ -383,6 +371,108 @@
 .prop-row > input,
 .prop-row > select {
   margin: 0;
+}
+
+/* Meetings (INBOX 644, meetings.js): the New meeting sheet's people field
+   is the edit form's tag field on a property row, and the meeting sheet's
+   action items are DESIGN.md's row in a list: a mark, the content (the
+   task over one line of facts), one actions cell centred on the row. */
+.prop-row > .meeting-people {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+}
+
+.meeting-people > .note-edit-tag-input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  margin: 0;
+}
+
+/* Nothing said yet, no row held for it: the gap above the buttons was an
+   empty status line. */
+.meeting-new > .status:empty,
+.meeting-view > .status:empty {
+  display: none;
+}
+
+/* The sheet's fields are targets too: 44px under touch, as its buttons are. */
+.meeting-new .prop-row input {
+  min-height: var(--target-min);
+}
+
+.meeting-actions-list,
+.meeting-decisions,
+.meeting-proposal-list {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.meeting-actions-list {
+  display: grid;
+  gap: var(--row-gap);
+}
+
+.meeting-decisions > li,
+.meeting-proposal-list > li {
+  padding: var(--space-1) 0;
+}
+
+.meeting-decisions > li:not(.meeting-empty)::before {
+  content: "\2022";
+  margin-inline-end: var(--space-2);
+  color: var(--muted);
+}
+
+.meeting-action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.meeting-action:hover {
+  background: var(--surface-2);
+  border-color: var(--divider);
+}
+
+.meeting-action-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.meeting-action-text {
+  overflow-wrap: anywhere;
+}
+
+.meeting-action.is-done .meeting-action-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.meeting-action-facts {
+  font-size: var(--text-sm);
+}
+
+.meeting-action-act {
+  align-self: center;
+}
+
+.meeting-proposal-list > li {
+  display: flex;
+  flex-direction: column;
+}
+
+.meeting-cite {
+  font-size: var(--text-sm);
 }
 
 /* GRAPH_PLAN KG7: a structural query's bar over the notes list. */
@@ -2111,8 +2201,10 @@ header#top-bar select,
   width: 100%;
 }
 
-#features-card>input {
-  margin-bottom: 0.4rem;
+/* Clear of the head: a focus ring spreads past the field's box, and flush
+   under the head it crossed the title row and the close button (INBOX 668). */
+#features-card>.search-field {
+  margin: var(--space-3) 0 var(--space-2);
 }
 
 .features-list {
@@ -2418,9 +2510,14 @@ header#top-bar select,
    margin-top trick to sit close once the content above it already carries
    a small margin, and the button's text needs none of the 1.5 line-height
    a paragraph does. Scoped to `.entry-clamped`: once a note is opened out
-   (the class comes off), it goes back to the normal reading measure. */
+   (the class comes off), it goes back to the normal reading measure.
+
+   **No leading of its own any more** (INBOX 678, the owner: "it just
+   increases the spacing between the rows"). The tighter 1.3 was for a one-
+   and two-line clamp; at four lines it made "Show more" re-space the same
+   lines (19.1px to 22.8px a line, measured), which reads as the button doing
+   nothing but moving text. One line height, the paragraph's, both ways. */
 #entry-list:not(.is-rows) .entry-content.entry-clamped {
-  line-height: 1.3;
   margin-bottom: 0.1rem;
 }
 
@@ -3250,6 +3347,14 @@ button.answer-figure-open {
   display: inline-flex;
   line-height: 0;
   vertical-align: middle;
+  /* **The box is the avatar** (INBOX 714: "the mini atlas avatar on causes a
+     rather wide gap below"). The head's SVG is 20px square, but the companion's
+     body and legs are drawn outside its viewBox and an SVG root's overflow was
+     visible: measured 31.4px of figure hanging 11px under a 20px box, the
+     name at its top, so the row read twice its height with empty space under
+     the name. Clipped, it is the head and shoulders the miniature was drawn
+     as, and adds nothing below the name line. */
+  overflow: clip;
 }
 
 /* The app emblem as an assistant's head (Appearance, Assistant avatar;
@@ -3332,8 +3437,10 @@ button.answer-figure-open {
 /* --- chat polish ------------------------------------------------------------ */
 #chat-messages {
   max-height: none;
-  /* the flex layout owns the height now */
-  gap: 0.8rem;
+  /* the flex layout owns the height now; the gap is the hover actions'
+     row's room (`.msg-actions`, hung under each bubble), so they never sit
+     on a bubble or the next one. */
+  gap: calc(var(--space-9) + var(--space-3));
   padding: 0.6rem 0.4rem 0.25rem;
   /* **No `scroll-behavior: smooth` here.** Reported: "I scrolled up on a chat
      and then I couldnt scroll back down to the bottom unless I clicked the
@@ -3503,7 +3610,7 @@ button.answer-figure-open {
 #conversation-list li.active-conv {
   border-left-color: var(--accent);
   border-left-width: 4px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--accent-soft);
 }
 
 #conversation-list li.active-conv .conv-name {
@@ -3524,12 +3631,12 @@ button.answer-figure-open {
 
 @media (hover: hover) {
   #conversation-list li:hover {
-    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    background: var(--row-hover-bg);
   }
 }
 
 #conversation-list li.active-conv:hover {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--accent-soft);
 }
 
 #conversation-list li .entry-actions {
@@ -3559,6 +3666,7 @@ button.answer-figure-open {
 .graph-zoom {
   display: flex;
   flex-direction: column;
+  /* The padding, gap and overflow are set again below, with the reason. */
   gap: 0;
   overflow: hidden;
   /* The floating-control recipe (see `.scroll-top`): card fill, glass edge,
@@ -3572,15 +3680,27 @@ button.answer-figure-open {
   -webkit-backdrop-filter: var(--glass-filter);
 }
 
+/* **Round buttons, a rounded strip** (INBOX 683 sweep: "the square active goes
+   out of the circular pill"). The strip clipped its buttons (`overflow:
+   hidden`) and drew them square, so a hover fill was a hard rectangle against
+   the strip's own corner and a keyboard focus ring was cut to a single blue
+   line along the clipped edge (measured at 1440: the ring of "Zoom in" showed
+   only its bottom). The strip takes one `--space-1` of padding and no clip,
+   and each button the concentric corner (`--radius-in-md`: the strip's corner
+   minus that padding), so the fill, the pressed state and the ring all sit
+   inside the strip. The hairlines between the buttons go: a gap is the
+   divider now. */
+.graph-zoom {
+  padding: var(--space-1);
+  gap: var(--space-1);
+  overflow: visible;
+}
+
 .graph-zoom .graph-zoom-btn {
-  border-radius: 0;
+  border-radius: var(--radius-in-md);
   border: none;
   box-shadow: none;
   margin: 0;
-}
-
-.graph-zoom .graph-zoom-btn+.graph-zoom-btn {
-  border-top: 1px solid var(--border);
 }
 
 /* Legend entries read as toggle pills. */
@@ -3891,9 +4011,16 @@ button.answer-figure-open {
    rows out of it. Still a control height (30px, unchanged) and never
    smaller than the touch-target floor the row's own `min-height` still
    enforces; only the air around the rows is tightened. */
+/* **Equal side gaps** (INBOX 726, the owner: "barely any right margin").
+   Measured with the vertical scrollbar showing: label left edge 8px from the
+   panel's edge, control right edge 8px from the scrollport's, and with the
+   scrollbar's own track beside the controls that read as no margin at all.
+   One `--space-6` on both sides, so left and right stay equal whether or not
+   the panel scrolls. `scrollbar-gutter: stable both-edges` was tried for this
+   and clipped the selects' right borders, so the padding does the work. */
 .graph-options .dock-menu-section {
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-6);
 }
 
 /* Six independent switches, two to a row, halving the "Show" section's

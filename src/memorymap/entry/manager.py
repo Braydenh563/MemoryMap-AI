@@ -48,7 +48,8 @@ from memorymap.core.database import (
     like_escape,
 )
 from memorymap.core import events
-from memorymap.entry import timewords
+from memorymap.core.lookahead import Ahead
+from memorymap.entry import link_facts, timewords
 from memorymap.entry.tagnames import normalise_tags
 
 # Where entries land when no AI is available or the AI can't decide.
@@ -1808,12 +1809,18 @@ def _deduce_reason(
     if vectors[source_id].shape != vectors[target_id].shape:
         return None, None  # mid embedding-model change, see search.similar_pairs
     score = embeddings.cosine_similarity(vectors[source_id], vectors[target_id])
+    #: **What the two notes share, in words, when they share something a
+    #: person can check** (INBOX 691): a tag, a name, one naming the other,
+    #: the same category in the same week (`link_wording`). The score stays
+    #: in `reason_confidence` either way; "similar in meaning" is what is left
+    #: when the vectors are all there is.
     if score >= AUTO_REASON_THRESHOLD:
-        return AUTO_REASON_TEXT, round(score, 2)
+        return link_facts.reason_for(session, source_id, target_id) or AUTO_REASON_TEXT, round(score, 2)
     if score + TEMPORAL_RESCUE_BOOST >= AUTO_REASON_THRESHOLD and _shares_a_date(
         session, source_id, target_id
     ):
-        return AUTO_REASON_TEXT_TEMPORAL, round(score, 2)
+        specific = link_facts.reason_for(session, source_id, target_id)
+        return specific or AUTO_REASON_TEXT_TEMPORAL, round(score, 2)
     return None, None
 
 
@@ -2194,6 +2201,31 @@ def set_link_props(session: Session, link: EntryLink, props: dict | None) -> Ent
     return link
 
 
+def set_link_two_way(session: Session, link: EntryLink, two_way: bool | None) -> EntryLink:
+    """Make a link run both ways or one way (INBOX 693), or null to let its
+    type decide again (`is_two_way_link`)."""
+    link.two_way = two_way
+    log_action(
+        session,
+        "relinked",
+        "entry",
+        link.source_entry_id,
+        f"-> entry {link.target_entry_id} ({'two-way' if two_way else 'one-way' if two_way is False else 'direction by type'})",
+    )
+    session.commit()
+    return link
+
+
+def is_two_way_link(link_two_way: bool | None, link_type: str | None, types: dict[str, dict]) -> bool:
+    """Whether a link is drawn with no arrow: its own choice when it has
+    one, else its type's (a type with no inverse has no direction), else one
+    way (INBOX 693)."""
+    if link_two_way is not None:
+        return bool(link_two_way)
+    kind = types.get(link_type or "")
+    return bool(kind) and not kind["directed"]
+
+
 def set_link_type(session: Session, link: EntryLink, link_type: str | None) -> EntryLink:
     """Give a link a kind, built-in or custom (KG3), or none (GRAPH_PLAN KG9:
     the inbox's type suggestions, and the link menu's Type). The caller has
@@ -2541,6 +2573,39 @@ def _heading_text(stripped: str) -> str | None:
     return text
 
 
+def _md_links(text: str, image: bool) -> str:
+    """`![alt](src)` removed, or `[text](src)` reduced to its text.
+
+    What `!\\[[^\\]]*\\]\\([^)]*\\)` and `\\[([^\\]]*)\\]\\([^)]*\\)` did, with
+    the same answers, but linear: those scanned to the end of the line from
+    every unclosed `[`, so a first line of `[[[[...` (a note's own text, a
+    paste) took 0.3 to 0.8 s at 20 KB (final scan, 2026-10-06). The next `]`
+    and the next `)` are looked up through `Ahead`, which remembers its last
+    hit, so each is found once per stretch rather than once per `[`.
+    """
+    opener = "![" if image else "["
+    size = len(text)
+    close, paren = Ahead(text, r"\]"), Ahead(text, r"\)")
+    out: list[str] = []
+    done = scan = 0
+    while True:
+        start = text.find(opener, scan)
+        if start < 0:
+            break
+        mid = close.first(start + len(opener))
+        if text.startswith("](", mid):
+            end = paren.first(mid + 2)
+            if end < size:
+                out.append(text[done:start])
+                if not image:
+                    out.append(text[start + 1 : mid])
+                done = scan = end + 1
+                continue
+        scan = start + 1
+    out.append(text[done:])
+    return "".join(out)
+
+
 def plain_label(content: str, limit: int = 80) -> str:
     """A note's first line as a *person* would read it, for a chip or a card.
 
@@ -2570,7 +2635,7 @@ def plain_label(content: str, limit: int = 80) -> str:
         break
     first = re.sub(r"^#{1,6}\s*", "", first)          # heading markers
     first = re.sub(r"^[-*+]\s+|^>\s*", "", first)     # list bullet / quote
-    first = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", first)  # images, alt and all
+    first = _md_links(first, image=True)               # images, alt and all
     #: **Before the markdown link rule, because that one cannot see this.**
     #: `[text](url)` needs the `(url)` to match, so `[[a wiki link]]` fell
     #: straight through it and every chip for a note whose first line links
@@ -2580,7 +2645,7 @@ def plain_label(content: str, limit: int = 80) -> str:
     #: brackets. Same rule as the markdown link below: the link keeps its
     #: text, because the text is what the note says.
     first = wiki_plain(first)
-    first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
+    first = _md_links(first, image=False)              # links keep their text
     first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
     first = re.sub(r"\s+", " ", first).strip()
     return first[:limit]
@@ -2832,7 +2897,13 @@ def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> No
     from memorymap.core.database import AuditLog, EntryRevision
 
     def swap(value: str) -> str:
-        return crypto.encrypt(new_key, crypto.decrypt(old_key, value))
+        # A value the old key cannot open was sealed under a vault a password
+        # reset removed (INBOX 663): unreadable before and after, so it is
+        # kept as it is rather than failing the whole re-key (see the route).
+        try:
+            return crypto.encrypt(new_key, crypto.decrypt(old_key, value))
+        except crypto.DecryptionError:
+            return value
 
     for revision in session.scalars(select(EntryRevision)):
         if crypto.is_encrypted(revision.content):

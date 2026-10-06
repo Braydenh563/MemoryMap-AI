@@ -258,6 +258,14 @@ class Vault(Base):
     kdf_salt: Mapped[bytes] = mapped_column(LargeBinary(32))
     wrapped_dek: Mapped[bytes] = mapped_column(LargeBinary(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: The same data key wrapped a second time, by the recovery key (INBOX
+    #: 663; crypto.new_recovery_key). Null until one is made. The key itself
+    #: is never stored: only its salt and what it wraps, so this row alone
+    #: still reveals nothing. Replacing the key, using it, or re-keying the
+    #: vault rewrites all three, which is what makes an old key dead.
+    recovery_salt: Mapped[bytes | None] = mapped_column(LargeBinary(32), default=None)
+    recovery_wrapped_dek: Mapped[bytes | None] = mapped_column(LargeBinary(128), default=None)
+    recovery_created_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class Category(Base, WorkspaceMixin):
@@ -671,6 +679,13 @@ class EntryLink(Base, WorkspaceMixin):
     #: null for a link a person or Atlas made, which only they remove.
     #: `link_type` is the meaning and must not carry this.
     origin: Mapped[str | None] = mapped_column(String(8), default=None)
+    #: INBOX 693, the owner: "what if the user makes a link meaning for the
+    #: note link to be omnidirectional and not a directional link??" True: the
+    #: link runs both ways and the graph draws no arrow on it; False: one way,
+    #: source to target. Null, every link made before this column, defers to
+    #: its type's own `directed` (a typed link with no inverse reads both
+    #: ways) and, untyped, to one way, which is what an arrow has always said.
+    two_way: Mapped[bool | None] = mapped_column(Boolean, default=None)
     #: GRAPH_PLAN KG3: properties on the link itself (a JSON object of short
     #: scalar values: "count": 4, "since": "2026"), null for none.
     props: Mapped[dict | None] = mapped_column(LinkProps(), default=None)
@@ -857,6 +872,33 @@ class ChunkVector(Base):
     embedding: Mapped[bytes] = mapped_column(LargeBinary)
     dim: Mapped[int] = mapped_column(Integer)
     model_version: Mapped[str] = mapped_column(String(200))
+
+
+class StagedEmbedding(Base):
+    """A note's vector from the model a switch is moving to (INBOX 700).
+
+    Changing the embedding model used to delete each note's vector as the
+    re-index reached it, so search fell back to keywords for the length of
+    the pass. The new set is built here instead, beside the live one, and
+    swapped in whole in one transaction when it is complete
+    (`core/embedswitch.py`); until then every search reads `embeddings` on
+    the old model. `model_version` names the target, so a resumed switch
+    keeps what it already did and a switch to another model starts clean.
+
+    No foreign key on `entry_id`, for `ChunkVector`'s reason: the hard-delete
+    paths list the side tables they clear, and a row whose note is gone is
+    dropped at the swap. A new table, so `create_all` builds it: no
+    migration, the same as `job_runs`.
+    """
+
+    __tablename__ = "embeddings_staged"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(Integer, unique=True)
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    dim: Mapped[int] = mapped_column(Integer)
+    model_version: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class Attachment(Base, WorkspaceMixin):

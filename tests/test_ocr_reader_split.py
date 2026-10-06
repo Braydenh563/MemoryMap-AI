@@ -70,4 +70,5 @@ def test_the_read_uses_the_model_the_picker_named(monkeypatch):
 
 def test_an_unknown_reader_is_refused(client):
     """A typo must not quietly charge the reader a vision pass."""
-    assert routes_files.READERS == ("vision", "ocr", "tesseract")
+    # "rapidocr" joined by name (INBOX 717), refused when it is not installed.
+    assert routes_files.READERS == ("vision", "ocr", "tesseract", "rapidocr")

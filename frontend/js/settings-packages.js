@@ -158,9 +158,17 @@ function packagesRenderBundles(body) {
           [
             {
               label: "ph:check-square Select its packages",
-              run: () => {
-                for (const extra of members) if (!extra.unavailable || extra.installed) packagesUi.selected.add(extra.id);
-                renderExtras();
+              //: And takes you to them (INBOX 695, the owner: "it didn
+              //: navigate scroll me to them"): the bundle's first package
+              //: row, centred, its tick focused, and a line saying how many.
+              run: async () => {
+                const picked = members.filter((extra) => !extra.unavailable || extra.installed);
+                for (const extra of picked) packagesUi.selected.add(extra.id);
+                await renderExtras();
+                const row = picked.length ? document.getElementById(`extra-row-${picked[0].id}`) : null;
+                row?.scrollIntoView({ block: "center", behavior: reducedMotionWanted() ? "auto" : "smooth" });
+                row?.querySelector(".extras-pick")?.focus({ preventScroll: true });
+                toast(`Selected ${picked.length} package${picked.length === 1 ? "" : "s"}.`, "info");
               },
             },
             {
@@ -183,8 +191,7 @@ function packagesRenderBundles(body) {
                   : packagesBulk("uninstall", removable),
             },
           ],
-          `More for the ${bundle.label} bundle`
-        )
+          `More for the ${bundle.label} bundle`, { vertical: true })
       );
       head.appendChild(actions);
       li.appendChild(head);
@@ -196,6 +203,24 @@ function packagesRenderBundles(body) {
       meta.className = "muted extras-meta";
       meta.textContent = members.map((extra) => String(extra.packages[0] || extra.id).split(/[[\s]/)[0]).join(", ");
       li.append(about, meta);
+
+      //: Where each of its packages is in the bulk action in hand (INBOX 696,
+      //: the owner: "it just stayed as the 2/3 packages I had installed until
+      //: it just suddenly updated, there was no progress indicator"): a bar
+      //: over the packages, then one line each, waiting, installing, done.
+      const bulk = body.bulk || {};
+      const mine = (bulk.items || []).filter((item) => bundle.extras.includes(item.id));
+      if (mine.length && (bulk.running || packagesUi.bulkSeen)) {
+        if (bulk.running) {
+          const bar = document.createElement("progress");
+          bar.className = "task-progress";
+          bar.max = mine.length;
+          bar.value = mine.filter((item) => item.outcome !== "queued" && item.outcome !== "running").length;
+          bar.setAttribute("aria-label", `${bundle.label}: ${bar.value} of ${mine.length} done`);
+          li.appendChild(bar);
+        }
+        li.appendChild(taskSteps(mine));
+      }
       return li;
     })
   );
@@ -349,8 +374,7 @@ function packagesRowMenu(extra, body) {
         run: () => (body.running ? toast(busy, "info") : packagesRemoveOne(extra)),
       },
     ],
-    `More for ${extra.label}`
-  );
+    `More for ${extra.label}`, { vertical: true });
 }
 
 async function packagesInstallOne(extra) {
@@ -569,7 +593,12 @@ async function renderEmbedModels() {
       });
       // Without huggingface_hub there is nothing to download *with*, so the
       // button says so rather than failing on an ImportError nobody can read.
-      if (!body.can_download) {
+      //: Not offered in one press (INBOX 700): its licence or its loading
+      //: rules; the reason is the tooltip and Settings, Models links its terms.
+      if (!model.one_press) {
+        get.disabled = true;
+        get.title = model.why_not;
+      } else if (!body.can_download) {
         get.disabled = true;
         get.title =
           "Needs the huggingface_hub library, it arrives with “Search by " +

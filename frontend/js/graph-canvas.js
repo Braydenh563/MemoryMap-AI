@@ -288,6 +288,9 @@ const GC_LABEL_LANDMARK_HUBS = 10;
 //: GC_LABEL_ZOOM, hovering or searching still names the rest.
 const GC_LABEL_ALL_SMALL = 20;
 const GC_LABEL_LANDMARK_SHARE = 0.35;
+//: A note with this many links is a hub, named at the overview of a grouped
+//: map besides each category's best-connected note (INBOX 693).
+const GC_LABEL_HUB_DEGREE = 5;
 //: How far a non-neighbour dims while something is hovered (§5 Phase 1).
 const GC_DIM_ALPHA = 0.2;
 
@@ -346,6 +349,10 @@ function gcIsNote(node) {
 //: a filing line, a contradiction) keep their own recipe. The number is the
 //: least opacity a tinted line of that kind is drawn at.
 const GC_EDGE_TINTED = { link: 0.55, thread: 0.6, entity: 0.55, document: 0.55 };
+//: A line between two category clusters, while grouped: this much of its
+//: kind's width and opacity (the line pass in `gcDraw`, INBOX 693).
+const GC_CROSS_WIDTH = 0.65;
+const GC_CROSS_ALPHA = 0.5;
 // GRAPH-SIM-BEGIN
 //: **Similarity is a backbone, not every pair** (INBOX 412, the owner: "when
 //: I tick similarity on the graph, this happens, is there a way to make it
@@ -433,7 +440,7 @@ function gcSimilarityBand(score, lo, hi) {
 //: dot. The dots go into a grid so a big map costs a few cell reads per
 //: label rather than a scan of every note. `blocked` are boxes no label may
 //: take at all (the topic plates, KG6), forced ones included where they can.
-function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
+function gcPlaceLabels(items, discs, lineCount = null, blocked = [], bounds = null) {
   let cell = 0;
   for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
   cell = Math.max(cell * 4, 1);
@@ -468,7 +475,13 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
     }
     return false;
   };
+  //: A place past the edge of the canvas is no place (INBOX 693: names "cut
+  //: by the viewport"); `bounds` is the canvas in world units.
+  const outside = (box) =>
+    bounds !== null &&
+    (box.left < bounds.left || box.right > bounds.right || box.top < bounds.top || box.bottom > bounds.bottom);
   const clashes = (box) => {
+    if (outside(box)) return true;
     for (const list of [placed, blocked]) for (const other of list) {
       if (
         box.left < other.right &&
@@ -491,15 +504,19 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
   //: moves there whole, so `labelBoxes` still says exactly where the text
   //: is, and the plate it is drawn on (`gcDrawLabels`) hides any line left
   //: beneath it.
+  let fewest = Infinity;
   const best = (spots, ok) => {
     let pick = null;
-    let fewest = Infinity;
+    fewest = Infinity;
     for (const spot of spots) {
       if (!ok(spot)) continue;
       //: Past six lines a place is simply crowded; counting on would only
       //: rank two bad places, at a cost every frame.
       const lines = lineCount ? lineCount(spot, Math.min(fewest, 6)) : 0;
-      if (lines === 0) return spot;
+      if (lines === 0) {
+        fewest = 0;
+        return spot;
+      }
       if (lines < fewest) {
         fewest = lines;
         pick = spot;
@@ -507,19 +524,53 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
     }
     return pick;
   };
+  //: **Never on a dot, never on a line, when there is any choice** (INBOX
+  //: 693, the owner's decision: "labels never over dots or lines").
+  //: Measured on the showcase notebook at the fit (graph692.js), 3 to 7
+  //: names sat on another note's dot and 5 to 14 had a line through them.
+  //: Two things gave way:
+  //: - a landmark (one of the best-connected notes) was let sit on a dot
+  //:   (GRAPH_PLAN, decision of 2026-09-26, measured on a 417-note map whose
+  //:   dense middle had no free place); the owner's newer decision ends the
+  //:   waiver: a landmark with no place off every dot is left off at this
+  //:   zoom like any other name, and zooming in gives it one. Room kept
+  //:   clear for a hub's name by the layout was tried twice and rejected (a
+  //:   lane beside each hub, then a box under it): at the overview a name is
+  //:   about as wide as its cluster, so clearing room for it pulled the
+  //:   clusters into streaks and the fit zoom from 0.77 to 0.48;
+  //: - an ordinary name went to the place crossing the fewest lines; now a
+  //:   name that would sit on a line is left off until the view gives it
+  //:   room (zoom in, or point at the note: its name is drawn on hover
+  //:   whatever it covers). Names asked for by name and landmarks still take
+  //:   their least-crossed place, on the plate that hides the line under it
+  //:   (`gcDrawLabels`), because an overview with no hub named is not
+  //:   clearer.
   for (const box of items) {
     const spots = [box, ...(box.alts || []).map((spot) => ({ ...box, ...spot, alts: undefined }))];
     if (box.force) {
       //: Asked for by name: drawn whatever it lands on, at the clearest
       //: place that covers no label and no dot if there is one.
-      placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || box);
+      placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || gcClampBox(box, bounds));
       continue;
     }
-    const covers = box.landmark ? () => false : coversDisc;
-    const pick = best(spots, (spot) => !clashes(spot) && !covers(spot));
-    if (pick) placed.push(pick);
+    if (box.landmark) {
+      const pick = best(spots, (spot) => !clashes(spot) && !coversDisc(spot));
+      if (pick) placed.push(pick);
+      continue;
+    }
+    const pick = best(spots, (spot) => !clashes(spot) && !coversDisc(spot));
+    if (pick && fewest === 0) placed.push(pick);
   }
   return placed;
+}
+//: A box moved the least it must to lie inside `bounds` (a name asked for by
+//: name, with nowhere clear to go, still reads whole at the canvas's edge).
+function gcClampBox(box, bounds) {
+  if (!bounds) return box;
+  const dx = Math.max(0, bounds.left - box.left) - Math.max(0, box.right - bounds.right);
+  const dy = Math.max(0, bounds.top - box.top) - Math.max(0, box.bottom - bounds.bottom);
+  if (!dx && !dy) return box;
+  return { ...box, x: box.x + dx, y: box.y + dy, left: box.left + dx, right: box.right + dx, top: box.top + dy, bottom: box.bottom + dy };
 }
 //: **The drawn links as a grid of short segments**, for `gcPlaceLabels` to
 //: ask whether a name would sit on one. World units, so a zoom keeps it; it
@@ -734,7 +785,14 @@ function gcArrows(s = gcTab) {
   return box ? box.checked : prefs.get("graph-arrows", null) === "1";
 }
 
+//: **A line between two categories is straight** (INBOX 693, the owner:
+//: "cross-cluster links drawn short, straight or one gentle bend ... no long
+//: arcs spanning the canvas"): while notes gather by category (`_cluster`,
+//: set in `renderGraphCanvas`), its bow is its midpoint, so every caller
+//: (paint, hover, hit test, the label pass's line grid) draws and finds it
+//: straight. The worker's `clearCurve` makes the same exception.
 function gcBowPoint(a, b) {
+  if (a._straight || (a._cluster != null && a._cluster !== b._cluster)) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
@@ -1599,7 +1657,28 @@ function gcDraw(s = gcTab) {
         ? a.colour
         : null;
     if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
-    const key = `${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
+    //: How sure, as thickness and strength (INBOX 693, the legend's second
+    //: channel): a reason the app deduced (`reason_confidence`, 0 to 1)
+    //: draws its link from 0.6x to 1.2x, so a guess reads lighter than a
+    //: reason in someone's words, which keeps its full line.
+    if (edge.kind === "link" && typeof edge.reason_confidence === "number") {
+      const sure = 0.6 + 0.6 * Math.max(0, Math.min(1, edge.reason_confidence));
+      style = { ...style, width: style.width * sure, alpha: Math.min(1, style.alpha * sure) };
+    }
+    //: **A line between clusters is quiet until asked about** (INBOX 693,
+    //: the owner: cross-cluster links "thin and muted (only highlighted on
+    //: hover)"). The clusters are what the map says; the lines between them
+    //: are the footnote. Thinner and fainter, unless the pointer is on one
+    //: of its ends; a contradiction keeps its warning.
+    if (
+      a._cluster != null &&
+      a._cluster !== b._cluster &&
+      edge.link_type !== "contradicts" &&
+      !(hl.hovering && byHover)
+    ) {
+      style = { ...style, width: style.width * GC_CROSS_WIDTH, alpha: style.alpha * GC_CROSS_ALPHA };
+    }
+    const key =`${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
@@ -1619,7 +1698,8 @@ function gcDraw(s = gcTab) {
         edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
-    } else if (arrows && edge.kind === "link") {
+      // No arrow on a link that runs both ways (INBOX 693, `two_way` from /graph).
+    } else if (arrows && edge.kind === "link" && !edge.two_way) {
       const bow = curvedLinks ? gcBowPoint(a, b) : null;
       gcLinkSpark(bucket, a, bow, b, k, sparkRich);
       sparks += 1;
@@ -1763,14 +1843,35 @@ function gcDraw(s = gcTab) {
     const degree = (node) => (s.adj.get(node.id) || { size: 0 }).size;
     // A big map keeps its dozen hubs of degree 2+; a mid-sized one names
     // its best-connected third, a lone note included only if it has a link.
+    //: **Hubs only, in every shape but Organic** (INBOX 693, the
+    //: owner: "labels for hubs only by default plus collision-free placement
+    //: for the rest at zoom"). Measured on the showcase notebook at the fit,
+    //: the best-connected third named 23 notes, leaves among them, and the
+    //: names were what made a cluster look busy. Grouped, the overview names
+    //: each category's hub (its best-connected note, two links or more) and
+    //: any other note with `GC_LABEL_HUB_DEGREE` links, at most
+    //: GC_LABEL_LANDMARKS; the rest are named past the zoom gate.
+    // Every shape but Organic (`_straight`), whose overview keeps its
+    // best-connected third on pills, the look the owner kept.
+    const grouped = s.nodes.some((node) => node._straight);
     const big = s.nodes.length > GC_LABEL_ALL_MAX;
-    const count = big
+    const count = big || grouped
       ? GC_LABEL_LANDMARKS
       : Math.max(8, Math.round(s.nodes.length * GC_LABEL_LANDMARK_SHARE));
-    const landmarks = drawn
-      .filter((node) => !node._dim && !already.has(node.id) && degree(node) >= (big ? 2 : 0))
-      .sort((a, b) => degree(b) - degree(a))
-      .slice(0, count);
+    let pool = drawn.filter((node) => !node._dim && !already.has(node.id) && degree(node) >= (big ? 2 : 0));
+    if (grouped && !big) {
+      const top = new Map();
+      for (const node of pool) {
+        const best = top.get(node.category || "");
+        if (degree(node) >= 2 && (!best || degree(node) > degree(best))) top.set(node.category || "", node);
+      }
+      const heads = new Set(top.values());
+      pool = pool.filter((node) => heads.has(node) || degree(node) >= GC_LABEL_HUB_DEGREE);
+      pool.sort((a, b) => Number(heads.has(b)) - Number(heads.has(a)) || degree(b) - degree(a));
+    } else {
+      pool.sort((a, b) => degree(b) - degree(a));
+    }
+    const landmarks = pool.slice(0, count);
     for (const node of landmarks) labelled.push(node);
   }
   //: Sprites at the zoom's own pixel size, so a node stays crisp at any
@@ -1961,15 +2062,11 @@ function gcDraw(s = gcTab) {
     // subject to the same test as everything else. The hovered or
     // keyboard-focused note is never in this trade: there is exactly one of
     // it, and it was pointed at.
-    //: **The landmarks may sit on a dot** (GRAPH_PLAN.md, "Decision made,
-    //: 2026-09-26"). The ten best-connected notes in view are what the map is
-    //: read by, and they live in its dense middle, where every place a name
-    //: could go is on some other dot: measured on the 417-note fixture, the
-    //: rule that a label never covers a dot named 0 of those ten at the fit
-    //: and 2 of ten at 2x, even with four places to try. So for them alone
-    //: the dot test is waived; the label test is not (no two names overlap),
-    //: and a covered dot still answers the pointer, because a canvas label is
-    //: paint and hit testing is on the notes (`gcNodeAtWorld`).
+    //: **The landmarks** are the ten best-connected notes in view, what the
+    //: map is read by. They were let sit on a dot (GRAPH_PLAN.md, "Decision
+    //: made, 2026-09-26"); since INBOX 693 they are not ("labels never over
+    //: dots or lines", the owner), and only keep the right to the place
+    //: crossing the fewest lines when none crosses none (`gcPlaceLabels`).
     const landmarkIds = new Set(
       drawn
         .filter((node) => !node._dim && (s.adj.get(node.id) || { size: 0 }).size >= 2)
@@ -2029,6 +2126,17 @@ function gcDraw(s = gcTab) {
             { x: node.x - r * 0.72 - 3 / k, y: node.y + r * 0.72 + 9 / k, align: "right" },
             { x: node.x + r * 0.72 + 3 / k, y: node.y - r * 0.72 - 9 / k, align: "left" },
             { x: node.x - r * 0.72 - 3 / k, y: node.y - r * 0.72 - 9 / k, align: "right" },
+            //: Then a step further out (INBOX 693): a name may no longer sit
+            //: on a dot or a line, and a hub in the middle of its cluster
+            //: (the layout puts it there now) has a leaf or a spoke at every
+            //: near place. Measured on the showcase notebook at the fit:
+            //: without these, three of its seven category hubs went unnamed.
+            { x: node.x, y: node.y + r + 27 / k, align: "center" },
+            { x: node.x, y: node.y - r - 27 / k, align: "center" },
+            { x: node.x + r + 20 / k, y: node.y + 12 / k, align: "left" },
+            { x: node.x - r - 20 / k, y: node.y + 12 / k, align: "right" },
+            { x: node.x + r + 20 / k, y: node.y - 12 / k, align: "left" },
+            { x: node.x - r - 20 / k, y: node.y - 12 / k, align: "right" },
           ].map((spot) => {
             const l = spot.align === "center" ? spot.x - width / 2 : spot.align === "left" ? spot.x : spot.x - width;
             return { ...spot, left: l - padX, right: l + width + padX, top: spot.y - half, bottom: spot.y + half };
@@ -2068,7 +2176,16 @@ function gcDraw(s = gcTab) {
     //: 1,100 links, for names that are moving anyway. The names step to
     //: their clear places when it settles, cross-fading (`gcDrawLabels`).
     const lines = s.tree || s.dragNode || s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks);
-    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null, s.topicPlates || []);
+    // The canvas itself, a few pixels in: a name is never cut by its edge
+    // (INBOX 693, labels "cut by the viewport"; `gcPlaceLabels`).
+    const inset = 4 / k;
+    const frame = {
+      left: -t.x / k + inset,
+      top: -t.y / k + inset,
+      right: (s.dims.w - t.x) / k - inset,
+      bottom: (s.dims.h - t.y) / k - inset,
+    };
+    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null, s.topicPlates || [], frame);
     placedLabels = placed;
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
@@ -3165,14 +3282,48 @@ function gcWireSelectionDock(s = gcTab) {
     } else {
       for (let i = 1; i < nodes.length; i++) pairs.push([nodes[0], nodes[i]]);
     }
-    let made = 0;
+    //: **Undoable, like every other bulk change** (INBOX 690, the owner: "I
+    //: highlighted a bunch of notes on the graph and pressed link together
+    //: but now I cant undo it"). Each made link is kept by its id, so the
+    //: undo removes exactly those and no link that was already there.
+    const made = [];
     for (const [a, b] of pairs) {
       if (s.adj.get(a.id)?.has(b.id)) continue;
       const ok = await apiJson(`/entries/${a.id}/links`, { method: "POST", body: JSON.stringify({ target_id: b.id }) }).catch(() => null);
-      if (ok) made += 1;
+      const linkId = ok?.links?.find((link) => link.entry_id === b.id)?.link_id;
+      if (linkId != null) made.push({ from: a.id, to: b.id, linkId });
     }
-    toast(made ? `Linked ${made} pair${made === 1 ? "" : "s"}.` : "Those notes were already linked.");
     renderGraph();
+    if (!made.length) return toast("Those notes were already linked.");
+    const words = `${made.length} pair${made.length === 1 ? "" : "s"}`;
+    const action = pushUndo(`Linked ${words} on the graph`, () => gcUnlinkPairs(made), () => gcRelinkPairs(made));
+    toastAction(`Linked ${words}.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await gcUnlinkPairs(made);
+    });
+  });
+  //: The other half of Link together: every link between the selected
+  //: notes goes, undoable (INBOX 690: links already made, before the undo
+  //: above existed, can be taken back the same way they were made).
+  on("graph-selection-unlink", async () => {
+    const nodes = gcSelectedNodes(s).filter((node) => Number.isInteger(node.id));
+    const ids = new Set(nodes.map((node) => node.id));
+    const gone = [];
+    for (const node of nodes) {
+      const entry = await apiJson(`/entries/${node.id}`).catch(() => null);
+      for (const link of entry?.links || []) {
+        if (!ids.has(link.entry_id) || gone.some((g) => g.linkId === link.link_id)) continue;
+        gone.push({ from: node.id, to: link.entry_id, linkId: link.link_id, reason: link.reason || null });
+      }
+    }
+    if (!gone.length) return toast("None of the selected notes are linked to each other.");
+    await gcUnlinkPairs(gone);
+    const words = `${gone.length} link${gone.length === 1 ? "" : "s"}`;
+    const action = pushUndo(`Removed ${words} on the graph`, () => gcRelinkPairs(gone), () => gcUnlinkPairs(gone));
+    toastAction(`Removed ${words}.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await gcRelinkPairs(gone);
+    });
   });
   on("graph-selection-map", async () => {
     //: Notes only: a lens can put tags, categories and boards on the graph
@@ -3438,6 +3589,69 @@ function gcStop(s = gcTab) {
   gcPost({ type: "stop" }, s);
 }
 
+//: What the worker's forces are tuned by, read fresh from the controls'
+//: stored values. Sent with every `init`, and again on its own when a switch
+//: the forces depend on changes without a rebuild (Curved links).
+function gcWorkerParams(s = gcTab) {
+  return {
+    gravity: prefs.number("graph-gravity", 50, { min: 0, max: 100 }),
+    spread: prefs.number("graph-spread", 50, { min: 0, max: 100 }),
+    linkForce: Number(prefs.get("graph-link-force", null) || 50),
+    lengthByScore: prefs.get("graph-length-score", null) !== "0",
+    //: The tab's map only: a local map of one note's neighbours is
+    //: arranged by its links, and a ring of category places would pull
+    //: three notes apart.
+    groupBy: s.size === "full" && prefs.get("graph-group", null) !== "0",
+    //: Unlinked notes take a seat on a ring round the cluster (the worker's
+    //: `orbitForce`); a local map has none to seat.
+    orbit: s.size === "full",
+    //: The lines the worker keeps clear of dots are the lines drawn
+    //: (`clearanceForce`, INBOX 693): curved or straight.
+    curved: gcCurvedLinks(s),
+    //: How the force layout arranges itself (INBOX 693, `#graph-shape`; the
+    //: worker's `SHAPES`).
+    shape: gcShape(s),
+  };
+}
+
+//: The Shape control's value: the tab's own, remembered; a pane beside a
+//: note is always Organic, the shape a neighbourhood of a few notes reads in.
+const GC_SHAPES = ["organic", "clusters", "galaxy"];
+function gcShape(s = gcTab) {
+  if (s.size !== "full") return "organic";
+  const saved = prefs.get("graph-shape", null);
+  return GC_SHAPES.includes(saved) ? saved : "organic";
+}
+
+//: **Reshuffle layout** (INBOX 692, the owner: "can you add a resuffle
+//: button or feature to the graph to rearrange how the graph sits on the
+//: main force view??"). A new seed for the worker (`reshuffle` there: the
+//: categories dealt round in a new order, every unpinned note sent to a new
+//: start near its category's new place, drawn moving rather than jumping,
+//: then the layout settles from full heat), and the camera framed on the
+//: result the way a first open frames it: once as it cools, once at rest
+//: (the tick handler's two fits, `gcStartWorker`), because the person
+//: asked for a new picture and should see all of it. Only the force
+//: layout: a tree, radial or arc layout is computed, not settled, and has
+//: nothing to shuffle. Returns whether it did anything.
+function gcReshuffle(s = gcTab) {
+  if (s.tree || !s.worker || !s.nodes.length) return false;
+  s.layoutSeed = 1 + Math.floor(Math.random() * 0x7ffffffe);
+  s.settledSig = null;
+  s.userZoomed = false;
+  s.fittedOnce = true;
+  gcSetAutoFitDone(s, false);
+  gcPost(
+    {
+      type: "reshuffle",
+      seed: s.layoutSeed,
+      animate: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+    },
+    s
+  );
+  return true;
+}
+
 //: `viewSeed`, when the caller is restoring a saved view, is
 //: `{alpha, freezeIds}`: the alpha to hand the worker's `init` (0 to start at
 //: rest, the decision above) and which node ids to freeze right after init
@@ -3607,19 +3821,11 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       //: changed nothing on this renderer (INBOX 412, measured).
       score: typeof e.score === "number" ? e.score : typeof e.reason_confidence === "number" ? e.reason_confidence : null,
     })),
-    params: {
-      gravity: prefs.number("graph-gravity", 50, { min: 0, max: 100 }),
-      spread: prefs.number("graph-spread", 50, { min: 0, max: 100 }),
-      linkForce: Number(prefs.get("graph-link-force", null) || 50),
-      lengthByScore: prefs.get("graph-length-score", null) !== "0",
-      //: The tab's map only: a local map of one note's neighbours is
-      //: arranged by its links, and a ring of category places would pull
-      //: three notes apart.
-      groupBy: s.size === "full" && prefs.get("graph-group", null) !== "0",
-      //: Unlinked notes take a seat on a ring round the cluster (the worker's
-      //: `orbitForce`); a local map has none to seat.
-      orbit: s.size === "full",
-    },
+    params: gcWorkerParams(s),
+    //: The arrangement a Reshuffle dealt (`gcReshuffle`), kept by every
+    //: re-render after it; 0 is the default map. Not in the hold signature
+    //: below: a reshuffle is already the settled layout it describes.
+    seed: s.layoutSeed || 0,
     world,
     // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout
     // at rest instead of relaxing it (see the decision on `viewSeed` above),
@@ -3962,9 +4168,17 @@ async function renderGraphCanvas(s = gcTab) {
     edge._path2d = null;
   }
   const maxDegree = gcMaxDegree(s, nodes);
+  //: Which category's cluster a note stands in, in the Clusters shape; null
+  //: otherwise. Read by `gcBowPoint` and the line pass: a line between
+  //: clusters is straight and quiet. `_straight`: every line is drawn
+  //: straight, in every shape but Organic (INBOX 693, the owner: curved lines
+  //: crossing "through the middle of the hub"; the worker's `clearCurve`).
+  const shape = s.tree ? null : gcShape(s);
   for (const node of nodes) {
     node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size, maxDegree);
     node.colour = s.colourOf(node);
+    node._cluster = shape === "clusters" ? node.category || "" : null;
+    node._straight = Boolean(shape) && shape !== "organic";
   }
   //: **A note with no position yet is placed here, not in the worker.**
   //: d3-force assigns its phyllotaxis spiral inside `forceSimulation`, which
@@ -4263,13 +4477,26 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
 //: line and nothing to tell apart. A fact, not a toggle, so a `span` like the
 //: cluster mode's filter note rather than a `.legend-toggle` button; the
 //: longer sentence is the Show section's '?', and this entry's `title`.
-function gcLegendEdgeKey(data) {
+function gcLegendEdgeKey(data, s = gcTab) {
   const legend = document.getElementById("graph-legend");
-  if (!legend || !data || !(data.edges || []).some((e) => e.kind === "similar")) return;
+  //: Three channels and no more (INBOX 693, the owner: "should links
+  //: visualise differently or have a different style based on distance,
+  //: similarity, type of link etc??"): solid for a link, dashed for a
+  //: suggestion by meaning; thickness and strength for how sure (a closer
+  //: match, a reason deduced with more confidence, `gcDraw`); faint for a
+  //: line between two category clusters. The key shows the ones this map has.
+  const similar = (data?.edges || []).some((e) => e.kind === "similar");
+  const category = new Map((data?.nodes || []).map((n) => [n.id, n.category || ""]));
+  const id = (end) => (end && typeof end === "object" ? end.id : end);
+  const cross =
+    gcShape(s) === "clusters" &&
+    (data?.edges || []).some((e) => e.kind !== "similar" && category.get(id(e.source)) !== category.get(id(e.target)));
+  if (!legend || !data || !(similar || cross)) return;
   const key = document.createElement("span");
   key.className = "legend-item legend-edge-key";
   key.title =
-    "Solid lines are links. Dashed lines join each note to its closest matches in meaning: darker is closer. Point at a note to see the scores.";
+    "Solid lines are links, thicker where the app is surer of a reason it found. Dashed lines join each note to its closest matches in meaning: darker is closer. " +
+    "Faint lines run between two categories. Point at a note to see the scores.";
   const swatch = (kind, word) => {
     const line = document.createElement("span");
     line.className = `legend-line legend-line-${kind}`;
@@ -4282,7 +4509,8 @@ function gcLegendEdgeKey(data) {
   const links = (data.edges || []).filter((e) => e.kind === "link");
   const reasoned = links.filter((e) => e.reason).length;
   swatch(reasoned * 2 > links.length ? "reasoned" : "link", "Link");
-  swatch("similar", "Similar");
+  if (similar) swatch("similar", "Similar");
+  if (cross) swatch("cross", "Between categories");
   legend.appendChild(key);
 }
 
@@ -4730,3 +4958,21 @@ function graphPaneWire() {
 }
 
 onDomReady(graphPaneWire);
+
+//: Remove and remake a set of links by note pair (INBOX 690). A remade link
+//: gets a new id, written back so the next undo or redo finds it.
+async function gcUnlinkPairs(pairs) {
+  for (const pair of pairs) {
+    await api(`/entries/${pair.from}/links/${pair.linkId}`, { method: "DELETE" }).catch(() => null);
+  }
+  renderGraph();
+}
+
+async function gcRelinkPairs(pairs) {
+  for (const pair of pairs) {
+    const body = JSON.stringify({ target_id: pair.to, reason: pair.reason || null });
+    const made = await apiJson(`/entries/${pair.from}/links`, { method: "POST", body }).catch(() => null);
+    pair.linkId = made?.links?.find((link) => link.entry_id === pair.to)?.link_id ?? pair.linkId;
+  }
+  renderGraph();
+}

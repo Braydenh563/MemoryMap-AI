@@ -600,8 +600,8 @@ function chatCommands() {
     { id: "chat-web", primary: true, group: "This message", icon: "ph:globe", label: "Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
     { id: "chat-plan", primary: true, group: "This message", icon: "ph:compass", label: "Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
     { id: "chat-skills", primary: true, group: "This message", icon: "ph:lightning", label: "Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
-    { id: "chat-mode-agent", group: "Mode", icon: "ph:robot", label: "Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
-    { id: "chat-mode-chat", group: "Mode", icon: "ph:chat-circle", label: "Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
+    { id: "chat-mode-agent", group: "Mode", icon: "ph:strategy", label: "Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
+    { id: "chat-mode-chat", group: "Mode", icon: "ph:sparkle", label: "Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
   ];
 }
 
@@ -802,7 +802,7 @@ function editorBlockRows(context) {
   add({ id: "columns-3", group: "Structure", icon: "ph:squares-four", label: "Three columns", about: "Three side by side, stacked on a phone", keys: ":::columns", keywords: ["columns", "three", "3", "layout", "grid", "side by side"], sample: ":::columns\nOne\n:::column\nTwo\n:::column\nThree\n:::", run: (t) => editorBlock(t, ":::columns\n", "First column", "\n:::column\nSecond column\n:::column\nThird column\n:::") });
   add({ id: "toc", group: "Structure", icon: "ph:list-dashes", label: "Table of contents", about: "Every heading, as links, kept up to date", keys: "[TOC]", keywords: ["toc", "contents", "outline", "index", "headings", "navigation"], sample: "[TOC]\n\n## Introduction\n## Method\n### Results", run: (t) => editorBlock(t, "[TOC]") });
   add({ id: "table", group: "Structure", icon: "ph:table", label: "Table", about: "Rows and columns you can sort and export", keys: "| |", keywords: ["table", "grid", "columns", "rows", "spreadsheet"], sample: "| Task | Owner |\n| --- | --- |\n| Draft | Sam |\n| Review | Ana |", run: (t) => editorApplyNamed(t, "table") });
-  add({ id: "break-dots", group: "Structure", icon: "ph:dots-three", label: "Section break", about: "Three dots: a pause inside one topic", keys: "***", keywords: ["break", "section", "dots", "asterism", "divider", "pause"], sample: "End of one part.\n\n***\n\nStart of the next.", run: (t) => editorBlock(t, "***") });
+  add({ id: "break-dots", group: "Structure", icon: "ph:asterisk", label: "Section break", about: "Three dots: a pause inside one topic", keys: "***", keywords: ["break", "section", "dots", "asterism", "divider", "pause"], sample: "End of one part.\n\n***\n\nStart of the next.", run: (t) => editorBlock(t, "***") });
   add({ id: "break-strong", group: "Structure", icon: "ph:equals", label: "Strong divider", about: "A heavy rule: one part ends here", keys: "___", keywords: ["divider", "rule", "thick", "strong", "heavy", "end"], sample: "Part one.\n\n___\n\nPart two.", run: (t) => editorBlock(t, "___") });
   if (inDocument) {
     add({ id: "page-break", group: "Structure", icon: "ph:file-dashed", label: "Page break", about: "What follows starts on a new page when printed", keys: "\\newpage", keywords: ["page", "break", "new page", "print", "pdf", "pagebreak"], sample: "End of chapter one.\n\n\\newpage\n\nChapter two.", run: (t) => editorBlock(t, "\\newpage") });
@@ -1745,7 +1745,7 @@ const SELECTION_BAR_ACTIONS = [
   //: other because the choice between them is the whole decision, and a
   //: selection is the moment it gets made. Document surfaces only: see
   //: `inlineAiAvailable`, so the button is skipped where it could not work.
-  { inlineAi: true, label: "ph:magic-wand", title: "Rewrite this with AI (Ctrl+J)" },
+  { inlineAi: true, label: "ph:sparkle", title: "Rewrite this with AI (Ctrl+J)" },
 ];
 
 const selectionBarState = { textarea: null };
@@ -2259,7 +2259,7 @@ function inlineAiElement() {
   const icon = document.createElement("span");
   icon.className = "inline-ai-icon";
   icon.setAttribute("aria-hidden", "true");
-  setLabel(icon, "ph:magic-wand");
+  setLabel(icon, "ph:sparkle");
   row.appendChild(icon);
 
   const input = document.createElement("input");
@@ -2557,7 +2557,7 @@ document.addEventListener("mousedown", (event) => {
   if (inlineAiState.phase === "idle" || inlineAiState.phase === "working") return;
   const bar = $("inline-ai");
   if (!bar || bar.contains(event.target)) return;
-  //: **Not the press that opened it.** The selection bar's wand opens this
+  //: **Not the press that opened it.** The selection bar's sparkle opens this
   //: on `mousedown`, and that same event then bubbles here from a target
   //: outside this bar, so the rewrite closed in the instant it opened (the
   //: owner, 2026-09-24: "doesnt work or appear to do anything"; traced as

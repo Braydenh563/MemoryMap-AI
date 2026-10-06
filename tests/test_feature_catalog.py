@@ -67,6 +67,11 @@ SCRIPTS = (
     "whiteboard-library.js",
     "whiteboard-format.js",
     "whiteboard-interchange.js",
+    #: The meetings sheet (INBOX 644), lazy behind `LAZY_MODULES.meetings`:
+    #: its stand-in is how Quick access and the catalogue reach New meeting.
+    "meetings.js",
+    #: Tidy (INBOX 691), lazy behind `LAZY_MODULES.tidy`.
+    "tidy.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short

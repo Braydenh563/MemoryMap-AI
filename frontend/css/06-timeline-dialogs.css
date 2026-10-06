@@ -1200,6 +1200,56 @@
   font-size: 0.8rem;
 }
 
+/* INBOX 696: how long a job has run, beside its name, and a bulk action's
+   packages one line each (Background tasks and the Packages bundle rows). */
+.task-elapsed {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.task-steps {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+}
+
+.task-step {
+  color: var(--muted);
+}
+
+.task-step.is-running {
+  color: var(--text);
+}
+
+.task-step.is-completed {
+  color: var(--ok);
+}
+
+.task-step.is-failed {
+  color: var(--error);
+}
+
+/* Pull a model by name (INBOX 700): the field takes the row, Pull beside it. */
+.embed-pull {
+  flex-wrap: nowrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.embed-pull > .search-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.task-step-bar.task-progress {
+  max-width: 12rem;
+  margin: var(--space-1) 0 0;
+}
+
 /* --- the in-app confirm dialog (§35F) --------------------------------------
    Replaces window.confirm, which pywebview's backends do not all implement, 
    one that doesn't returns undefined, and every `if (!confirm(...)) return;`
@@ -1538,6 +1588,45 @@
 /* A group heading with everything under it filtered out is a heading for an
    empty list, so it hides with its group. */
 #settings-nav .nav-group-label.hidden {
+  display: none;
+}
+
+/* **A group heading is a label, not a row** (INBOX 697, the owner: "I was
+   clicking on the header thinking it was the help page"). In the Quiet look it
+   was ink at 12px and 600, the loudest text in the list and set level with the
+   rows' own text; now it is the small muted section label, a step under a row's
+   size, with no hover and no pointer. A press on it still opens its group's
+   first page (settings.js), so the click is never dead. */
+#settings-nav .nav-group-label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: default;
+  user-select: none;
+}
+
+/* **The current page's sections are one short block** (INBOX 698, the owner:
+   "annoying when I am trying to flick through multiple settings pages"). Open,
+   a page used to push the next one 463px down (Help, thirteen links). Now it
+   shows its "On this page" head and the section you are reading, with a toggle
+   for the rest, remembered per device. */
+.settings-nav-groups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) 0 calc(var(--space-6) + var(--space-3));
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.settings-nav-groups-head .linklike {
+  padding: 0;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.settings-nav-groups:not(.is-open) .settings-nav-group:not([aria-current="location"]) {
   display: none;
 }
 
@@ -2247,12 +2336,9 @@
   color: var(--error);
 }
 
-/* **Power is secondary** (INBOX 618): quieter than the bell, the theme and
-   the gear at rest, at full strength under the pointer or the keyboard. Still
-   3:1 on the bar's ground in both themes (`contrast.js`), a control's floor. */
-#top-bar #quit-btn:not(:hover, :focus-visible) {
-  opacity: 0.72;
-}
+/* Power at full strength like its neighbours (the owner, 2026-10-06: "the
+   quit button looks dimmed??"; INBOX 618's 0.72 read as disabled). Its red
+   under the pointer is what sets it apart. */
 
 /* --- one switch, everywhere a checkbox means "on or off" ---------------------
    Asked for: *"I want to ditch the radio buttons mostly application wide …
@@ -2312,7 +2398,8 @@
    switching something on. `.sr-only` stays excluded: that is the variant
    whose visible control is drawn by a sibling. */
 .checkbox-label>input[type="checkbox"]:not(.sr-only),
-.wb-snap-label input[type="checkbox"] {
+.wb-snap-label input[type="checkbox"],
+.ask-use-ai input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   /* A control's own size: not a spacing token, and it must not move with the
@@ -2408,7 +2495,8 @@
 .check-row input[type="checkbox"]::after,
 .semantic-toggle input[type="checkbox"]::after,
 .checkbox-label>input[type="checkbox"]:not(.sr-only)::after,
-.wb-snap-label input[type="checkbox"]::after {
+.wb-snap-label input[type="checkbox"]::after,
+.ask-use-ai input[type="checkbox"]::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -2432,7 +2520,8 @@
 .check-row input[type="checkbox"]:hover,
 .semantic-toggle input[type="checkbox"]:hover,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):hover,
-.wb-snap-label input[type="checkbox"]:hover {
+.wb-snap-label input[type="checkbox"]:hover,
+.ask-use-ai input[type="checkbox"]:hover {
   border-color: var(--ink);
 }
 
@@ -2443,7 +2532,8 @@
 .check-row input[type="checkbox"]:checked,
 .semantic-toggle input[type="checkbox"]:checked,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):checked,
-.wb-snap-label input[type="checkbox"]:checked {
+.wb-snap-label input[type="checkbox"]:checked,
+.ask-use-ai input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -2455,13 +2545,15 @@
 .check-row input[type="checkbox"]:checked::after,
 .semantic-toggle input[type="checkbox"]:checked::after,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):checked::after,
-.wb-snap-label input[type="checkbox"]:checked::after {
+.wb-snap-label input[type="checkbox"]:checked::after,
+.ask-use-ai input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
   background: #fff;
 }
 
 .checkbox-label>input[type="checkbox"]:not(.sr-only):disabled,
-.wb-snap-label input[type="checkbox"]:disabled {
+.wb-snap-label input[type="checkbox"]:disabled,
+.ask-use-ai input[type="checkbox"]:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -2884,6 +2976,13 @@
      the way: a pill is not a fifth card radius. Repeating the class buys the
      specificity and claims no family. */
   padding: var(--space-1) var(--space-2);
+}
+
+/* **The zoom pill's buttons are round inside it** (INBOX 683 sweep): three
+   `.ghost.small.icon-only` buttons kept the button corner, so their hover
+   fill and focus ring were rounded squares in a capsule. */
+.whiteboard-floating-panel.whiteboard-floating-panel.bottom-right > button {
+  border-radius: var(--radius-in-pill);
 }
 
 /* A pill is a single row of controls. Once it has wrapped it is a block of
@@ -3939,7 +4038,7 @@ aside[data-resizable="1"] {
   min-height: max(var(--control-h-body), var(--target-min));
   padding: var(--space-1);
   border-color: transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-in-choice);
   background: transparent;
   box-shadow: none;
   color: var(--ink);

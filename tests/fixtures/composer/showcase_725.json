@@ -1,0 +1,1292 @@
+{
+ "today": "2026-10-06",
+ "notes": [
+  {
+   "id": 1,
+   "content": "# Harbor launch plan\n\nShip the mobile app to the public on the 14th of next month. Three gates before then: beta feedback closed, the onboarding rewrite merged, and the pricing page signed off.\n\n- [x] Beta invite list\n- [x] Crash reporting\n- [ ] Store listing copy\n- [ ] Launch email",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "launch"
+   ],
+   "created_at": "2026-09-14"
+  },
+  {
+   "id": 2,
+   "content": "# Q4 roadmap\n\nThree workstreams: Harbor launch, the sync rewrite and the support backlog. Harbor gets two thirds of the team until launch week, then the sync rewrite takes over.",
+   "category": "Work",
+   "tags": [
+    "roadmap",
+    "planning"
+   ],
+   "created_at": "2026-09-12"
+  },
+  {
+   "id": 3,
+   "content": "# Beta feedback, week 2\n\n41 testers active. The top complaint is the sign-up flow (nine fields). Second is that offline mode is hard to find. Nobody mentioned speed, which is the first time.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "beta"
+   ],
+   "created_at": "2026-08-21"
+  },
+  {
+   "id": 4,
+   "content": "# Onboarding rewrite\n\nCut sign-up from nine fields to four. Ask for the name later, on the first share. Draft screens are on the launch board.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "design"
+   ],
+   "created_at": "2026-09-05"
+  },
+  {
+   "id": 5,
+   "content": "# Pricing page\n\nOne free tier and one paid. The comparison table moves above the fold; the FAQ answers the refund question in its first line.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "pricing"
+   ],
+   "created_at": "2026-09-14"
+  },
+  {
+   "id": 6,
+   "content": "# Sprint 14 retro\n\nWhat helped: measuring before changing anything. What did not: two days lost reading code instead of running it. Keep the Thursday demo.",
+   "category": "Work",
+   "tags": [
+    "retro",
+    "team"
+   ],
+   "created_at": "2026-09-11"
+  },
+  {
+   "id": 7,
+   "content": "# Sync rewrite, first notes\n\nThe conflict rule is last-writer-wins today, which silently drops edits. Proposal: keep both versions and ask, the way a document merge does.",
+   "category": "Work",
+   "tags": [
+    "sync",
+    "engineering"
+   ],
+   "created_at": "2026-08-29"
+  },
+  {
+   "id": 8,
+   "content": "# Why the list felt slow\n\nIt was not the database. Every row re-measured its own height on scroll. Caching the height per row took a long list from 40ms a frame to 6.",
+   "category": "Work",
+   "tags": [
+    "engineering",
+    "performance"
+   ],
+   "created_at": "2026-09-27"
+  },
+  {
+   "id": 9,
+   "content": "# Store listing\n\nFive screenshots, dark and light. The first line has to say what it does in under ten words: notes that sort themselves, offline.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "launch"
+   ],
+   "created_at": "2026-08-25"
+  },
+  {
+   "id": 10,
+   "content": "# Launch email draft\n\nSubject: Harbor is out. One paragraph, one screenshot, one button. Send at 9 in each time zone, not all at once.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "marketing"
+   ],
+   "created_at": "2026-10-02"
+  },
+  {
+   "id": 11,
+   "content": "# Support backlog triage\n\n63 open tickets. 20 are the same export question; one help article closes them. Billing questions go to the new form.",
+   "category": "Work",
+   "tags": [
+    "support"
+   ],
+   "created_at": "2026-09-18"
+  },
+  {
+   "id": 12,
+   "content": "# Hiring a designer\n\nPortfolio review on Tuesday. Looking for someone who has shipped a product end to end, not only screens.",
+   "category": "Work",
+   "tags": [
+    "team",
+    "hiring"
+   ],
+   "created_at": "2026-09-01"
+  },
+  {
+   "id": 13,
+   "content": "# Launch metrics\n\nDay-one installs matter less than week-two retention. Track: notes created in the first week, and whether people come back on day 8.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "metrics"
+   ],
+   "created_at": "2026-08-24"
+  },
+  {
+   "id": 14,
+   "content": "# Launch risks\n\n1. The store review takes longer than a week.\n2. Sync conflicts surface under real load.\n3. The pricing page is not signed off in time.",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "risks"
+   ],
+   "created_at": "2026-10-06"
+  },
+  {
+   "id": 15,
+   "content": "# Thursday demo notes\n\nShowed the new onboarding to the whole team. Feedback: the progress dots read as a carousel. Replace them with a step count.",
+   "category": "Work",
+   "tags": [
+    "meetings"
+   ],
+   "created_at": "2026-09-26"
+  },
+  {
+   "id": 16,
+   "content": "# Team offsite ideas\n\nOne day, no laptops. A walk in the morning, the roadmap in the afternoon, dinner somewhere with a long table.",
+   "category": "Work",
+   "tags": [
+    "team"
+   ],
+   "created_at": "2026-08-30"
+  },
+  {
+   "id": 17,
+   "content": "# Public API, maybe\n\nThree people in the beta asked for one. Not before launch. Write down the read-only version so the idea is not lost.",
+   "category": "Work",
+   "tags": [
+    "engineering",
+    "api"
+   ],
+   "created_at": "2026-09-26"
+  },
+  {
+   "id": 18,
+   "content": "# Portugal trip, overview\n\nTen days in May: four in Lisbon, a day in Sintra, three in Porto, two in the Douro valley. Train between the cities, a car only for the valley.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "planning"
+   ],
+   "created_at": "2026-09-16"
+  },
+  {
+   "id": 19,
+   "content": "# Lisbon, where to stay\n\nAlfama for the walk-everywhere feel, but the hills are steep with luggage. Príncipe Real is quieter and close to the metro.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "lisbon"
+   ],
+   "created_at": "2026-09-08"
+  },
+  {
+   "id": 20,
+   "content": "# Sintra day trip\n\nTrain from Rossio, 40 minutes. Pena Palace first thing, timed ticket. Quinta da Regaleira in the afternoon when the tour buses leave.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "sintra"
+   ],
+   "created_at": "2026-09-06"
+  },
+  {
+   "id": 21,
+   "content": "# Porto, three days\n\nRibeira at sunset, the Livraria Lello early or not at all, and a port lodge tour across the bridge in Gaia.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "porto"
+   ],
+   "created_at": "2026-09-24"
+  },
+  {
+   "id": 22,
+   "content": "# Douro valley\n\nHire a car in Porto. Stay one night at a quinta near Pinhão; the river road from Régua to Pinhão is the drive to do.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "douro"
+   ],
+   "created_at": "2026-09-12"
+  },
+  {
+   "id": 23,
+   "content": "# Flights\n\nOut to Lisbon, back from Porto, so no day is lost going back. Booked, seats 14A and 14B.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "bookings"
+   ],
+   "created_at": "2026-09-24"
+  },
+  {
+   "id": 24,
+   "content": "# Trains\n\nLisbon to Porto on the Alfa Pendular, 2h50. Tickets open 60 days ahead and are half price if booked early.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "bookings"
+   ],
+   "created_at": "2026-09-22"
+  },
+  {
+   "id": 25,
+   "content": "# Things to eat\n\nPastéis de nata at the Belém bakery, bifana from a counter, francesinha in Porto once, grilled sardines anywhere with a queue.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "food"
+   ],
+   "created_at": "2026-09-09"
+  },
+  {
+   "id": 26,
+   "content": "# Packing list\n\n- Walking shoes with grip (the pavements are polished stone)\n- A light jacket for the evenings\n- Plug adapter\n- The rail pass printout",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "packing"
+   ],
+   "created_at": "2026-09-08"
+  },
+  {
+   "id": 27,
+   "content": "# Trip budget\n\nRoughly 1,900 for two, flights included. The quinta night is the splurge; everything else is mid-range.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "budget"
+   ],
+   "created_at": "2026-09-03"
+  },
+  {
+   "id": 28,
+   "content": "# Useful phrases\n\nObrigado or obrigada, depending on who is speaking. Uma bica is an espresso in Lisbon and um cimbalino in Porto.",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "language"
+   ],
+   "created_at": "2026-08-20"
+  },
+  {
+   "id": 29,
+   "content": "# Photo spots\n\nMiradouro da Senhora do Monte at golden hour. The Dom Luís I bridge from the upper deck. Arrive early, leave the tripod.",
+   "category": "Travel",
+   "tags": [
+    "photography"
+   ],
+   "created_at": "2026-08-25"
+  },
+  {
+   "id": 30,
+   "content": "# Sourdough log\n\nLoaf 6: 78% hydration, 20 hour cold proof. Best crumb yet, still pale underneath. Next time the stone goes one shelf lower.",
+   "category": "Cooking",
+   "tags": [
+    "baking",
+    "sourdough"
+   ],
+   "created_at": "2026-09-07"
+  },
+  {
+   "id": 31,
+   "content": "# Starter feeding\n\n1:5:5 at night, ready by morning in a warm kitchen. In winter it needs the oven with only the light on.",
+   "category": "Cooking",
+   "tags": [
+    "baking",
+    "sourdough"
+   ],
+   "created_at": "2026-09-03"
+  },
+  {
+   "id": 32,
+   "content": "# Weeknight dinners\n\nFive that take under 30 minutes: miso salmon, chickpea curry, lemon orzo, egg fried rice, and the tomato soup below.",
+   "category": "Cooking",
+   "tags": [
+    "recipes",
+    "weeknight"
+   ],
+   "created_at": "2026-10-05"
+  },
+  {
+   "id": 33,
+   "content": "# Roast tomato soup\n\nRoast the tomatoes and garlic first, add a little smoked paprika, blend half and leave the rest chunky.",
+   "category": "Cooking",
+   "tags": [
+    "recipes"
+   ],
+   "created_at": "2026-10-03"
+  },
+  {
+   "id": 34,
+   "content": "# Chickpea curry\n\nOnion, garlic, ginger, a spoon of curry paste, a tin of chickpeas and a tin of coconut milk. Spinach at the end.",
+   "category": "Cooking",
+   "tags": [
+    "recipes",
+    "weeknight"
+   ],
+   "created_at": "2026-09-19"
+  },
+  {
+   "id": 35,
+   "content": "# Pizza night\n\nThe sourdough discard makes a good thin base. 48 hour dough, hottest oven, steel on the top shelf.",
+   "category": "Cooking",
+   "tags": [
+    "baking"
+   ],
+   "created_at": "2026-10-04"
+  },
+  {
+   "id": 36,
+   "content": "# Meal prep Sundays\n\nCook grains and one sauce for the week. Freeze half the soup. Saves about four evenings.",
+   "category": "Cooking",
+   "tags": [
+    "planning"
+   ],
+   "created_at": "2026-09-17"
+  },
+  {
+   "id": 37,
+   "content": "# Trying pastéis de nata at home\n\nShop-bought puff pastry, rolled tight into a log. The custard needs the hottest oven the kitchen has; mine scorched at 250.",
+   "category": "Cooking",
+   "tags": [
+    "baking",
+    "portugal"
+   ],
+   "created_at": "2026-08-21"
+  },
+  {
+   "id": 38,
+   "content": "# Knife sharpening\n\nWhetstone at 15 degrees, 1000 then 6000 grit. Every two months, or when the tomato test fails.",
+   "category": "Cooking",
+   "tags": [
+    "kitchen"
+   ],
+   "created_at": "2026-10-03"
+  },
+  {
+   "id": 39,
+   "content": "# Spice drawer\n\nToast whole spices before grinding. Buy small, label with the month.",
+   "category": "Cooking",
+   "tags": [
+    "kitchen"
+   ],
+   "created_at": "2026-10-01"
+  },
+  {
+   "id": 40,
+   "content": "# Half marathon plan\n\nTwelve weeks to the October race. Three runs a week: one easy, one tempo, one long. The long run grows by a kilometre a week.",
+   "category": "Health",
+   "tags": [
+    "running",
+    "half-marathon"
+   ],
+   "created_at": "2026-08-29"
+  },
+  {
+   "id": 41,
+   "content": "# Week 4\n\nEasy pace is still too fast. Slow the Tuesday run down until it is boring, then hold it for three weeks.",
+   "category": "Health",
+   "tags": [
+    "running"
+   ],
+   "created_at": "2026-09-21"
+  },
+  {
+   "id": 42,
+   "content": "# Physio, left knee\n\nFoam roll the IT band after every long run. Single-leg squats twice a week, three sets of ten.",
+   "category": "Health",
+   "tags": [
+    "running",
+    "physio"
+   ],
+   "created_at": "2026-08-20"
+  },
+  {
+   "id": 43,
+   "content": "# New running shoes\n\nThe old pair has 700 km on it. Try two in the shop, run on the treadmill in both.",
+   "category": "Health",
+   "tags": [
+    "running",
+    "gear"
+   ],
+   "created_at": "2026-09-17"
+  },
+  {
+   "id": 44,
+   "content": "# Sleep notes\n\nScreens off at 10:30 helps more than anything else tried. Coffee after 2pm costs about forty minutes.",
+   "category": "Health",
+   "tags": [
+    "sleep"
+   ],
+   "created_at": "2026-09-10"
+  },
+  {
+   "id": 45,
+   "content": "# Fuel on long runs\n\nA gel every 40 minutes past the first hour. Practise it in training, never new on race day.",
+   "category": "Health",
+   "tags": [
+    "running",
+    "nutrition"
+   ],
+   "created_at": "2026-09-16"
+  },
+  {
+   "id": 46,
+   "content": "# Morning mobility\n\nTen minutes: hips, hamstrings, thoracic rotation. Done before coffee or it does not happen.",
+   "category": "Health",
+   "tags": [
+    "mobility"
+   ],
+   "created_at": "2026-08-31"
+  },
+  {
+   "id": 47,
+   "content": "# Dentist\n\nCheck-up booked for the 21st. Ask about the night guard.",
+   "category": "Health",
+   "tags": [
+    "admin"
+   ],
+   "created_at": "2026-09-15"
+  },
+  {
+   "id": 48,
+   "content": "# Race day checklist\n\n- Bib and pins the night before\n- Same breakfast as the long runs\n- Start slower than feels right",
+   "category": "Health",
+   "tags": [
+    "running",
+    "half-marathon"
+   ],
+   "created_at": "2026-08-27"
+  },
+  {
+   "id": 49,
+   "content": "# Thinking in Systems\n\nStocks and flows, and why a delay inside a feedback loop makes a system oscillate instead of settle. The bathtub example finally made it click.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "systems"
+   ],
+   "created_at": "2026-08-26"
+  },
+  {
+   "id": 50,
+   "content": "# Four Thousand Weeks\n\nThe point is not to get everything done; it is to choose what to neglect on purpose. Pairs well with the systems book.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "time"
+   ],
+   "created_at": "2026-09-28"
+  },
+  {
+   "id": 51,
+   "content": "# The Design of Everyday Things\n\nA door that needs a sign has failed. Affordances, signifiers and feedback: the three words I now use in every design review.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "design"
+   ],
+   "created_at": "2026-09-29"
+  },
+  {
+   "id": 52,
+   "content": "# Atomic habits, the useful bits\n\nMake the good thing the easy thing. Lay the running kit out the night before; it works better than willpower.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "habits"
+   ],
+   "created_at": "2026-09-23"
+  },
+  {
+   "id": 53,
+   "content": "# On writing short\n\nAn essay about cutting: every sentence should earn its place, and the first draft is for finding out what you think.",
+   "category": "Reading",
+   "tags": [
+    "essays",
+    "writing"
+   ],
+   "created_at": "2026-08-31"
+  },
+  {
+   "id": 54,
+   "content": "# Podcast: slow productivity\n\nDo fewer things, work at a natural pace, obsess over quality. Fewer open loops means less time spent switching.",
+   "category": "Reading",
+   "tags": [
+    "podcasts"
+   ],
+   "created_at": "2026-08-23"
+  },
+  {
+   "id": 55,
+   "content": "# Reading list\n\n- Designing Data-Intensive Applications\n- The Mom Test\n- A Pattern Language\n- Ways of Seeing",
+   "category": "Reading",
+   "tags": [
+    "books"
+   ],
+   "created_at": "2026-09-21"
+  },
+  {
+   "id": 56,
+   "content": "# Designing Data-Intensive Applications\n\nChapter 5 on replication is the one to reread before the sync rewrite. Leaderless replication and read repair.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "engineering"
+   ],
+   "created_at": "2026-09-25"
+  },
+  {
+   "id": 57,
+   "content": "# The Mom Test\n\nAsk about their life, not your idea. Specifics in the past beat opinions about the future.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "research"
+   ],
+   "created_at": "2026-09-05"
+  },
+  {
+   "id": 58,
+   "content": "# A line worth keeping\n\nFrom a poem read on the train: attention is the beginning of devotion.",
+   "category": "Reading",
+   "tags": [
+    "poetry"
+   ],
+   "created_at": "2026-10-02"
+  },
+  {
+   "id": 59,
+   "content": "# A Pattern Language\n\nA window place: people are drawn to light. True of rooms, and oddly true of app screens too.",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "architecture"
+   ],
+   "created_at": "2026-09-28"
+  },
+  {
+   "id": 60,
+   "content": "# Garden, spring jobs\n\nCut back the lavender after the last frost. Move the rosemary into the sun. Sow the beans in the second week of April.",
+   "category": "Home",
+   "tags": [
+    "garden"
+   ],
+   "created_at": "2026-09-30"
+  },
+  {
+   "id": 61,
+   "content": "# Boiler service\n\nDue in March. The pressure keeps dropping to 0.8; mention it. The engineer last time said the valve was worn.",
+   "category": "Home",
+   "tags": [
+    "maintenance"
+   ],
+   "created_at": "2026-09-13"
+  },
+  {
+   "id": 62,
+   "content": "# Paint for the study\n\nTwo samples on the wall: a warm white and a pale green. The green wins in the afternoon light.",
+   "category": "Home",
+   "tags": [
+    "decorating"
+   ],
+   "created_at": "2026-09-06"
+  },
+  {
+   "id": 63,
+   "content": "# Home insurance renewal\n\nThe renewal quote went up 30%. Compare three before the 1st; the old policy covers accidental damage, keep that.",
+   "category": "Home",
+   "tags": [
+    "admin"
+   ],
+   "created_at": "2026-08-24"
+  },
+  {
+   "id": 64,
+   "content": "# Houseplants\n\nThe fiddle leaf wants the east window and less water. Repot the monstera in spring.",
+   "category": "Home",
+   "tags": [
+    "garden",
+    "plants"
+   ],
+   "created_at": "2026-09-20"
+  },
+  {
+   "id": 65,
+   "content": "# Shelves in the hall\n\nStud finder first. Two brackets per metre, 6mm plugs. The oak board needs a coat of oil before it goes up.",
+   "category": "Home",
+   "tags": [
+    "diy"
+   ],
+   "created_at": "2026-09-29"
+  },
+  {
+   "id": 66,
+   "content": "# Bin days\n\nRecycling is every other Tuesday; food waste every week. The calendar is on the fridge.",
+   "category": "Home",
+   "tags": [
+    "admin"
+   ],
+   "created_at": "2026-09-22"
+  },
+  {
+   "id": 67,
+   "content": "# Bike service\n\nThe gears skip under load. New chain and a cassette check before the summer.",
+   "category": "Home",
+   "tags": [
+    "maintenance"
+   ],
+   "created_at": "2026-08-28"
+  },
+  {
+   "id": 68,
+   "content": "# Wi-fi in the back room\n\nOne mesh point on the landing fixed it. Speed in the study went from 4 to 180.",
+   "category": "Home",
+   "tags": [
+    "tech"
+   ],
+   "created_at": "2026-10-05"
+  },
+  {
+   "id": 69,
+   "content": "# Offline as the headline\n\nBeta testers did not know Harbor works offline. What if that is the first thing the store page says, not the fifth?",
+   "category": "Ideas",
+   "tags": [
+    "harbor",
+    "product"
+   ],
+   "created_at": "2026-09-19"
+  },
+  {
+   "id": 70,
+   "content": "# Notes as a map\n\nA node on a board could be a real note, so the map and the notebook stay one thing.",
+   "category": "Ideas",
+   "tags": [
+    "product",
+    "maps"
+   ],
+   "created_at": "2026-09-04"
+  },
+  {
+   "id": 71,
+   "content": "# A five-line journal\n\nOne line each: what happened, what I learned, what I am grateful for, what tomorrow needs, one word for the day.",
+   "category": "Ideas",
+   "tags": [
+    "writing",
+    "habits"
+   ],
+   "created_at": "2026-08-22"
+  },
+  {
+   "id": 72,
+   "content": "# A photo book of the trip\n\nTwenty pictures, one per page, with a line from these notes under each.",
+   "category": "Ideas",
+   "tags": [
+    "portugal",
+    "photography"
+   ],
+   "created_at": "2026-08-27"
+  },
+  {
+   "id": 73,
+   "content": "# The garden as a system\n\nCompost is the stock, kitchen scraps the inflow. The delay is about six months, which is why it never feels like it is working.",
+   "category": "Ideas",
+   "tags": [
+    "garden",
+    "systems"
+   ],
+   "created_at": "2026-09-01"
+  },
+  {
+   "id": 74,
+   "content": "# Teach what I just learned\n\nWrite a short post after each book: the one idea I would keep. It forces the reading to be active.",
+   "category": "Ideas",
+   "tags": [
+    "writing"
+   ],
+   "created_at": "2026-09-02"
+  },
+  {
+   "id": 75,
+   "content": "# A bread habit\n\nBake every Saturday for twelve weeks and log each loaf. Same habit rule as running: make the start easy.",
+   "category": "Ideas",
+   "tags": [
+    "baking",
+    "habits"
+   ],
+   "created_at": "2026-09-10"
+  },
+  {
+   "id": 76,
+   "content": "# Harbor launch board",
+   "category": null,
+   "tags": [],
+   "created_at": "2026-10-06"
+  },
+  {
+   "id": 77,
+   "content": "# Portugal trip",
+   "category": null,
+   "tags": [],
+   "created_at": "2026-10-06"
+  }
+ ],
+ "questions": [
+  {
+   "question": "What is the Harbor launch plan?",
+   "notes": [
+    1,
+    2,
+    10,
+    14,
+    4,
+    3,
+    5,
+    13,
+    69,
+    57
+   ],
+   "connected": [
+    3,
+    5,
+    13,
+    57,
+    69
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "When is the dentist check-up?",
+   "notes": [
+    47,
+    38,
+    61,
+    1,
+    3,
+    39,
+    32,
+    34,
+    36
+   ],
+   "connected": [
+    32,
+    34,
+    36,
+    39
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Who asked for a public API?",
+   "notes": [
+    17,
+    1,
+    3,
+    2,
+    4,
+    5,
+    13,
+    14
+   ],
+   "connected": [
+    5,
+    13,
+    14
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "How many beta testers are active?",
+   "notes": [
+    3,
+    1,
+    17,
+    69,
+    13,
+    2,
+    4,
+    5,
+    15,
+    12
+   ],
+   "connected": [
+    2,
+    4,
+    5,
+    12,
+    15
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Which books am I reading?",
+   "notes": [
+    55,
+    57,
+    50,
+    56,
+    74,
+    3,
+    54,
+    49,
+    4,
+    69
+   ],
+   "connected": [
+    3,
+    4,
+    49,
+    54,
+    69
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Compare Lisbon and Porto",
+   "notes": [
+    23,
+    18,
+    24,
+    19,
+    21,
+    20,
+    22,
+    27
+   ],
+   "connected": [
+    20,
+    22,
+    27
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Why did the list feel slow?",
+   "notes": [
+    54,
+    8,
+    55,
+    1,
+    41,
+    6,
+    52,
+    57,
+    40,
+    3
+   ],
+   "connected": [
+    3,
+    6,
+    40,
+    52,
+    57
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What is the latest on the sync rewrite?",
+   "notes": [
+    7,
+    1,
+    56,
+    8,
+    2,
+    3,
+    4,
+    5,
+    69,
+    57
+   ],
+   "connected": [
+    3,
+    4,
+    5,
+    57,
+    69
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Does Harbor work offline?",
+   "notes": [
+    69,
+    1,
+    3,
+    4,
+    2,
+    5,
+    9,
+    13
+   ],
+   "connected": [
+    5,
+    9,
+    13
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What hotel did I book in Porto?",
+   "notes": [
+    23,
+    24,
+    21,
+    18,
+    22,
+    29,
+    19,
+    27,
+    20,
+    72
+   ],
+   "connected": [
+    19,
+    20,
+    27,
+    29,
+    72
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What do I know about sourdough?",
+   "notes": [
+    30,
+    35,
+    31,
+    36,
+    69,
+    75,
+    37,
+    32,
+    25,
+    52
+   ],
+   "connected": [
+    25,
+    32,
+    37,
+    52,
+    75
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "How long is the train from Lisbon to Porto?",
+   "notes": [
+    24,
+    18,
+    23,
+    20,
+    21,
+    19,
+    22,
+    27,
+    25,
+    29
+   ],
+   "connected": [
+    19,
+    22,
+    25,
+    27,
+    29
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "When is the boiler service due?",
+   "notes": [
+    61,
+    1,
+    30,
+    24,
+    31,
+    2,
+    3,
+    4,
+    7,
+    11
+   ],
+   "connected": [
+    2,
+    3,
+    4,
+    7,
+    11
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What should I pack for Portugal?",
+   "notes": [
+    23,
+    27,
+    18,
+    24,
+    26,
+    19,
+    20,
+    21,
+    29,
+    25
+   ],
+   "connected": [
+    19,
+    20,
+    21,
+    25,
+    29
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "How do I sharpen my knife?",
+   "notes": [
+    38,
+    30,
+    39,
+    26,
+    31,
+    35,
+    34,
+    75,
+    52,
+    33
+   ],
+   "connected": [
+    33,
+    34,
+    35,
+    52,
+    75
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What are the launch risks?",
+   "notes": [
+    14,
+    1,
+    2,
+    4,
+    13,
+    3,
+    5,
+    7,
+    69,
+    57
+   ],
+   "connected": [
+    3,
+    5,
+    7,
+    57,
+    69
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Is the pricing page signed off?",
+   "notes": [
+    1,
+    14,
+    5,
+    69,
+    11,
+    2,
+    3,
+    4,
+    57,
+    15
+   ],
+   "connected": [
+    2,
+    3,
+    4,
+    15,
+    57
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What is my half marathon training plan?",
+   "notes": [
+    40,
+    48,
+    2,
+    36,
+    1,
+    7,
+    11,
+    42,
+    14,
+    56
+   ],
+   "connected": [
+    7,
+    11,
+    14,
+    42,
+    56
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "How much will the trip cost?",
+   "notes": [
+    27,
+    18,
+    72,
+    20,
+    1,
+    19,
+    21,
+    22,
+    25
+   ],
+   "connected": [
+    19,
+    21,
+    22,
+    25
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What did I learn from Thinking in Systems?",
+   "notes": [
+    49,
+    74,
+    50,
+    73,
+    15,
+    53,
+    54,
+    71,
+    52
+   ],
+   "connected": [
+    52,
+    53,
+    54,
+    71
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Who are we looking to hire?",
+   "notes": [
+    12,
+    15,
+    4,
+    1,
+    11,
+    3,
+    6,
+    2,
+    7,
+    69
+   ],
+   "connected": [
+    2,
+    3,
+    6,
+    7,
+    69
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What do my notes say about running?",
+   "notes": [
+    48,
+    41,
+    40,
+    43,
+    42,
+    52,
+    45,
+    44,
+    75,
+    54
+   ],
+   "connected": [
+    44,
+    45,
+    52,
+    54,
+    75
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What is the status of the onboarding rewrite?",
+   "notes": [
+    1,
+    4,
+    15,
+    2,
+    56,
+    3,
+    5,
+    13,
+    69,
+    57
+   ],
+   "connected": [
+    3,
+    5,
+    13,
+    57,
+    69
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "Which dinners take under 30 minutes?",
+   "notes": [
+    32,
+    36,
+    73,
+    44,
+    30,
+    49,
+    34,
+    33,
+    39,
+    50
+   ],
+   "connected": [
+    33,
+    34,
+    39,
+    49,
+    50
+   ],
+   "search_mode": "hybrid"
+  },
+  {
+   "question": "What did I write recently?",
+   "notes": [
+    77,
+    76,
+    14,
+    68,
+    32
+   ],
+   "connected": [],
+   "search_mode": "recent"
+  }
+ ]
+}

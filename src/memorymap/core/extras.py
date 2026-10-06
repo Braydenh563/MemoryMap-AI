@@ -595,8 +595,9 @@ EXTRAS: tuple[Extra, ...] = (
         module="",
         size="~36 MB",
         caveat="Runs offline, inside the app. needle's own tools send usage "
-        "data by default; MemoryMap uses only its engine, which has no network "
-        "code, and switches that setting off anyway. Nothing for you to do.",
+        "data by default; MemoryMap uses only its engine, checks at install "
+        "that it imports no network calls, and switches that setting off "
+        "anyway. Nothing for you to do.",
         kind="download",
         version="3.0.1",
         licence="Apache-2.0",
@@ -611,6 +612,7 @@ EXTRAS: tuple[Extra, ...] = (
                     unpack="zip",
                     members=((f"needle/libneedle3.{ext}", f"libneedle3.{ext}"),),
                     platform=key,
+                    inspect_imports=True,
                 )
                 for key, tag, ext, sha, size in (
                     ("linux-x86_64", "manylinux2014_x86_64", "so",

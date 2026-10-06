@@ -853,6 +853,23 @@ details[open] > .about-whats-new::before,
   max-width: 9rem;
 }
 
+/* Tidy's count (INBOX 691) on the broom's corner, the phone More's run count
+   (`.tab-badge`, 10-responsive.css) in the accent: news, not a fault. Out of
+   the flow, so the glyph keeps the icon run's 32px. */
+.notes-tidy {
+  position: relative;
+}
+
+.notes-tidy > .tab-badge {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  right: calc(-1 * var(--space-1));
+  margin-left: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  pointer-events: none;
+}
+
 @media (max-width: 1399.98px) {
   [data-dock-name="notes"] .dock-word {
     position: absolute;
@@ -3281,12 +3298,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    segmented control say "you are here". Classic and the colour looks keep
    their filled tabs exactly (the owner's "the current look" option). */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar button.active,
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg:not(.doc-sidebar-tabs) button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-chip.active {
-  /* Not the document sidebar's Documents/Outline strip (INBOX 446 (5)): it
-     is an underline tab strip (07-whiteboard-misc.css), and this rule
-     painted its selected tab a grey slab and took its accent underline
-     away, the one tab strip in the flat looks drawn both ways at once. */
   border-color: transparent;
   background: color-mix(in srgb, var(--ink) 11%, transparent);
   color: var(--ink);
@@ -4248,6 +4261,9 @@ body .chip.item-label,
 .lock-card #lock-submit {
   width: 100%;
   justify-content: center;
+  /* 38px under a touch pointer until 2026-10-06 (forgotpw.js, INBOX 663):
+     the lock screen's one action gets a finger's floor like every other. */
+  min-height: var(--target-min);
 }
 
 /* --- the Library, second pass: cards in reading order, one anatomy ----------
@@ -5926,7 +5942,7 @@ body .chip.item-label,
    Placed by `left`/`top` from avatars.js, one layout per move and never per
    frame; the walk between perches is a `translate` avatars.js animates on
    the compositor. Above the top bar (40) so its hands can hold that edge,
-   and under toasts (60), menus and dialogs. Only the drawn parts take the
+   and under menus (45), popovers, toasts and dialogs (`#nm-buddy-band`). Only the drawn parts take the
    pointer: the box's empty corners are not a dead zone over the page. The
    box is the body's own 64 by 92 drawing, in px because avatars.js
    measures perches in those px. */
@@ -5990,18 +6006,48 @@ body .chip.item-label,
 #nm-buddy.nmb-away { opacity: 0; visibility: hidden; pointer-events: none; transition: none; }
 #nm-buddy.nmb-dodge .nm-buddy-face { pointer-events: none; }
 
+/* **44: above the top bar (40), under every menu (45), popover, panel and
+   dialog** (INBOX 694, the owner: "the companion covers the attach popup").
+   It was 50, which put it over each action menu (45), the dock's Attach
+   panel (45 inside a dock at 3) and the lock screen (50, a tie it won by
+   coming later in the body). A bar with its own popup open still lifts above
+   it (z 51, the rule at `header#top-bar:has(`), and the chat dock lifts to 46
+   while one of its panels is open. A `<dialog>` opened with `showModal()` is
+   in the browser's top layer, above any z-index, and a `.modal-overlay` is
+   1010, so with a modal open it is seen dimmed behind the scrim, as the
+   modal rule has it for every other thing on the page. */
 #nm-buddy-band {
   position: fixed;
   left: 0;
   top: 0;
   width: 0;
   height: 0;
-  z-index: 50;
+  z-index: 44;
   pointer-events: none;
+  /* Fades with the full-screen flag below, and back. */
+  transition: opacity var(--motion-base) var(--ease-out), visibility 0s linear 0s;
 }
 
 #nm-buddy-band.nmb-riding {
   overflow: clip;
+}
+
+/* **Gone while anything fills the window** (INBOX 726, the owner: "I can see
+   atlas on the edges when on the full screen graph", then "the same full
+   screen companion issue with other full screens probably too", then "not
+   just atlas but the companion"). Keyed on the companion's container, so it
+   holds for every avatar the companion can be (Atlas, you, a persona, your
+   own character), mini or full, and for anything riding in it; and on one
+   flag on the root that every full-screen surface sets (wiring.js,
+   `watchFullscreenSurface`), so no surface is named here. Its own fade, not
+   the tab-away cut of `.nmb-away`: leaving a full screen brings it back the
+   same way. `visibility` follows the fade out (delayed) and leads the fade
+   in, so a hidden companion is never a target for the pointer. */
+:root[data-fullscreen] #nm-buddy-band {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--ease-out), visibility 0s linear var(--motion-base);
 }
 
 /* The shutter (avatars.js, `nameMarkBuddyRideFrames`): riding, a clipping
@@ -6360,6 +6406,13 @@ body .chip.item-label,
     & .nm-char .nm-buddy-head { animation: nmv-head-sway 5.9s ease-in-out -2.95s infinite alternate; }
     & .nmb-arm-l { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate; }
     & .nmb-arm-r { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate-reverse; }
+    /* Not Atlas's arms (INBOX 669, "atlas's arm movements are jerky"): its
+       arms are a rig that redraws them from these probes, so a drift that
+       never ends ran the rig every frame for as long as the view was open,
+       158 layouts and 0.7s of main thread a second at rest
+       (atlas669-cost.js), and its view dropped to 18 frames a second on a
+       busy machine. Atlas has its own loops: sway, breath, tail, rings. */
+    &.atl-figure-box :is(.nmb-arm-l, .nmb-arm-r) { animation: none; }
     & .name-mark .nm-eyes {
       translate: calc(var(--nmv-x) * 3.4px) calc(var(--nmv-y) * 2.6px);
       transition: translate var(--motion-fast) var(--ease-out);
@@ -7034,7 +7087,7 @@ body .chip.item-label,
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-l { animation: nmb-hide-l 2.4s ease-in-out; }
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-r { animation: nmb-hide-r 2.4s ease-in-out; }
     &.nmb-act-hide .name-mark .nm-eyes { animation: nmb-hide-eyes 2.4s ease-in-out; }
-    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 0.9s ease-in-out; }
+    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 1.2s ease-in-out; }
     &.nmb-act-nod .nm-buddy-head { animation: nmb-nod-yes 0.3s ease-in-out 4 alternate; }
     &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
     &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
@@ -7119,26 +7172,37 @@ body .chip.item-label,
   z-index: 3;
 }
 
+/* **An arm's gesture starts and ends where the arm is** (INBOX 669, the
+   owner: "atlas's arm movements are jerky and not smooth"). The arm
+   keyframes (the hide's, the wave's, the scratch's, here and below) began
+   and ended at `rotate(0deg)`, which is the arm's rest only standing
+   calm: floating it rests at -28 degrees, her held-out arm at -50, a
+   mood's arms elsewhere again. So a wave first swung the arm to 0 and then
+   up, and at its end swung it past its rest to 0 and back (20 degrees a
+   frame, atlas669-clicks.js). With no 0% or 100% the stylesheet starts
+   and ends each from the arm's own transform, whatever the pose or mood. */
 @keyframes nmb-hide-l {
-  0%, 100% { transform: none; }
   18%, 82% { transform: rotate(-152deg); }
 }
 @keyframes nmb-hide-r {
-  0%, 100% { transform: none; }
   18%, 82% { transform: rotate(152deg); }
 }
 @keyframes nmb-hide-eyes {
   0%, 100% { scale: 1 1; }
   18%, 82% { scale: 1 0.12; }
 }
+/* **A poke's wiggle swings, it does not snap** (INBOX 669, the owner:
+   "when I click atlas, it often starts tilting to the left then just snaps
+   back"). Its turn back from the left went 11 degrees in 225ms, 1.4 a
+   frame, which in the large view moved the head 4px a frame
+   (atlas669-clicks.js). Now 9 degrees over 336ms, from and back to the
+   body's own transform (a lean, a shy sink) rather than `none`. */
 @keyframes nmb-wiggle {
-  0%, 100% { transform: none; }
-  20% { transform: rotate(-6deg) scale(1.03, 0.97); }
-  45% { transform: rotate(5deg); }
-  70% { transform: rotate(-3deg); }
+  20% { transform: rotate(-5deg) scale(1.03, 0.97); }
+  48% { transform: rotate(4deg); }
+  74% { transform: rotate(-2deg); }
 }
 @keyframes nmb-scratch {
-  0%, 100% { transform: rotate(0deg); }
   15%, 35%, 55%, 75% { transform: rotate(-150deg); }
   25%, 45%, 65% { transform: rotate(-138deg); }
 }
@@ -7260,7 +7324,6 @@ body .chip.item-label,
   75% { rotate: 3deg; }
 }
 @keyframes nmb-wave-l {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(98deg); }
   32%, 64% { transform: rotate(128deg); }
 }
@@ -7280,7 +7343,6 @@ body .chip.item-label,
   45%, 60% { transform: rotate(-7deg) scale(0.98, 1.05); }
 }
 @keyframes nmb-wave {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-98deg); }
   32%, 64% { transform: rotate(-128deg); }
 }
@@ -7577,6 +7639,8 @@ body .chip.item-label,
 /* The body's breath, on a box inside its sway box that holds the body's
    root and the lids' (atlas.js, INBOX 540): the lids breathe with the face. */
 .atl-lw-breathe { position: absolute; left: 0; top: 0; width: 64px; height: 92px; transform-origin: 31px 90px; will-change: transform; }
+/* The chest swells about the hips (INBOX 687, `atlasBreathFrame`). */
+.atl-layer-body .nmb-torso { transform-origin: 31px 60px; }
 /* The hair's own layer (INBOX 554, 564), in the breathing box under the
    body's root; its box sways it about the crown, a beat behind the body. */
 .atl-lw-breathe > .atl-lw-hair { position: absolute; left: 0; top: 0; width: 64px; height: 92px; transform-origin: 32px 15px; will-change: rotate; }
@@ -8909,7 +8973,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* INBOX 577 (the owner: "the companion or atlas's head goes large then
        small then large again"): the figure's breath lifts the body and
        barely widens it; it never stretches the head, and it starts at rest. */
-    & .atl-lw-breathe { animation: atl-breathe-rise 4.4s ease-in-out infinite; }
+    & .atl-lw-breathe { animation: atl-breathe-rise 4.6s ease-in-out infinite; }
+    /* The rise's period is the chest's swell's (INBOX 687, atlas-life.js,
+       `atlasBreathFrame`): 4.6s and 4.0s, clear of every idle sway and of
+       the large view's 4.3s bob, which the old 4.4s drifted against. */
     /* The hair trails the body's sway: the same clock, a beat later and a
        little wider about the crown (INBOX 554, 564). */
     & .atl-lw-hair[data-atlas-look="masculine"] { animation: atl-hair-trail 7.2s ease-in-out -2.5s infinite alternate; }
@@ -8938,7 +9005,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-lower[data-atlas-look="feminine"] { animation: atl-hem-wind 7.1s ease-in-out -3.55s infinite alternate; }
     /* His cloak catches the same wind on a clock of its own (INBOX 575). */
     & .atl-lw-lower[data-atlas-look="masculine"] { animation: atl-hem-wind 6.3s ease-in-out -3.15s infinite alternate; }
-    & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
+    & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 4s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
     /* (The happy moods stopped this flow while the wag ran on the layer; the
@@ -9121,24 +9188,20 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   75% { transform: translateY(-3px) scaleX(-0.1); }
 }
 @keyframes atl-wave {
-  0%, 100% { transform: rotate(0deg); }
   18%, 50%, 82% { transform: rotate(-100deg); }
   34%, 66% { transform: rotate(-78deg); }
 }
 @keyframes atl-buddy-wave {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-78deg); }
   32%, 64% { transform: rotate(-102deg); }
 }
 /* INBOX 568: her right arm hangs at rest, so the wave rises from there to
    the old wave's angles less a right angle, and settles back. */
 @keyframes atl-buddy-wave-f {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-122deg); }
   32%, 64% { transform: rotate(-146deg); }
 }
 @keyframes atl-buddy-scratch {
-  0%, 100% { transform: rotate(0deg); }
   15%, 35%, 55%, 75% { transform: rotate(-118deg); }
   25%, 45%, 65% { transform: rotate(-106deg); }
 }
@@ -9241,16 +9304,33 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   padding-block: var(--space-3);
 }
 
-@media (hover: hover) {
-  #entry-list.entry-list.is-rows > li:not(:has(textarea)) {
-    padding-inline-end: 6.5rem;
-  }
-}
+/* **No width is kept back for the hover actions** (INBOX 719, the owner:
+   "blank space on right of compact rows view"). A `padding-inline-end:
+   6.5rem` here held 104px at the end of every row at rest for the strip that
+   appears on hover, which is `position: absolute` and costs no width, so the
+   metadata lane ended 104px short of the row's edge on every row (measured at
+   1440 in Chromium). The lane runs to the row's padding
+   edge now and the time is its last item, one column down the list; on hover
+   the strip overlays the end of the row. */
 
+/* The corner sits on the row's first line (INBOX 676), not the row's
+   middle: `top: 50%` put the cluster's *top* at the middle, so it hung half
+   below a collapsed row and floated mid-card on an expanded one. The line
+   and the anchor are set at the end of this file ("The compact row"). */
 @media (hover: hover) {
   #entry-list.is-rows > li:not(:has(textarea)) .entry-meta-end {
-    top: 50%;
+    top: var(--row-anchor);
+    transform: none;
+  }
+
+  #entry-list.is-rows > li .entry-meta-end > .entry-actions {
+    top: 0;
     transform: translateY(-50%);
+    /* The strip ends inside the row's padding edge, where the time ends, so
+       none of the time's last glyph shows past it (measured: the strip's edge
+       was 17.6px in, the time's 16, which left a sliver of the "o" of "ago"
+       beside the ⋯). The corner box already sits `--space-4` in. */
+    right: var(--space-1);
   }
 }
 
@@ -9715,14 +9795,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   display: grid;
   justify-items: start;
   gap: var(--space-1);
-}
-
-/* The reader's page-range box is a control like its neighbours: the touch
-   floor on a phone (libreader.js measured it at 36px against 44). */
-@media (pointer: coarse), (max-width: 599.98px) {
-  .ocr-read-range .ocr-read-pages {
-    min-height: var(--target-min);
-  }
 }
 
 /* No companion while the app is locked (the owner: "the avatar shows even
@@ -11109,4 +11181,451 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    drops the 9rem floor a worded select needs: its value is not on screen. */
 .dock .select-shell:has(.select-opener-icon) {
   min-width: 0;
+}
+
+/* ==========================================================================
+   Ring room (INBOX 685, "a lot of borders get cut off on an edge")
+   ==========================================================================
+   A focus ring is an outline outside the control's box (2px line, 2px offset:
+   `--ring-room`). Any ancestor that clips (`overflow` other than visible,
+   `contain: paint`, a `clip-path`) paints nothing outside its padding box, so
+   a control flush against that edge lost the side of its ring: the Regenerate
+   button in the Dashboard's constellation widget lost its left edge to
+   `.dash-body .row { overflow-x: clip }`. The sweep that found the rest is
+   `scratchpad/ui-sweeps/clip685.js` (every focusable on every surface, its
+   ring's outer box against every clipping ancestor, 1440 and 390, both
+   themes); `tests/test_ring_room.py` holds the containers below.
+
+   Two recipes, never a hidden ring:
+   - **Room**, for a container of separate controls (buttons, fields, chips):
+     `overflow-clip-margin` where the box clips with `overflow: clip`, or
+     padding of `--ring-room` with the same negative margin where it scrolls
+     (the layout does not move; the ring has somewhere to be painted).
+   - **Inset**, for a container whose children fill it edge to edge (a tab
+     strip, a list of rows, a segmented group, a sheet's rows): the ring is
+     drawn inside the control (`outline-offset: -2px`). Never on a filled
+     accent button, whose ring would vanish into its own fill. */
+
+/* Dashboard widgets: a body clips across (the focus timer's digits once made
+   a scrollbar flicker), and a tall one scrolls inside itself. */
+.dash-body,
+.dash-body .row {
+  overflow-clip-margin: var(--ring-room);
+}
+
+.dash-body {
+  padding: var(--ring-room);
+  margin: calc(-1 * var(--ring-room));
+  max-height: calc(320px + 2 * var(--ring-room));
+}
+
+.dash-widget:is([data-widget="boards"], [data-widget="art"], [data-widget="capture"], [data-widget="stats"], [data-widget="night"]) .dash-body {
+  max-height: none;
+}
+
+/* Inset: the controls that fill a clipping box edge to edge. A sub-tab strip
+   scrolls across (it is `overflow-x: auto`, so it clips down too), the
+   zoom group and the chat's mode switch are rounded by clipping, a sidebar
+   hides what leaves it, a list of rows fills the list. The ring is drawn
+   inside the control (one outline, 2px, offset -2px); a chosen segment is an
+   accent fill, so its ring is `--on-accent` there, or it would vanish into
+   the fill it sits on. */
+:is(
+  .tabs-line > button,
+  .doc-crumbs .doc-crumb,
+  #graph-legend .legend-toggle,
+  .sidebar-resize,
+  #category-list li,
+  .doc-item-button,
+  .outline-link,
+  .outline-twist,
+  .doc-template-choice,
+  .sheet-row,
+  .graph-zoom-btn,
+  .chat-dock-controls .seg > button
+):focus-visible {
+  outline-offset: -2px;
+}
+
+:is(.graph-zoom-btn, .chat-dock-controls .seg > button):is(.active, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]):focus-visible {
+  outline-color: var(--on-accent);
+}
+
+/* Room: the scrollers that hold separate controls or bordered cards against
+   their edge. Across, the room is padding with the same negative margin, so
+   nothing moves; at the start and the end of the scroll it is padding alone
+   (a few pixels the first control and the last one stand in). */
+:is(
+  .doc-sidebar-section,
+  .doc-sidebar .doc-outline-wrap,
+  .library-view-section,
+  .doc-list
+) {
+  padding-inline: var(--ring-room);
+  margin-inline: calc(-1 * var(--ring-room));
+}
+
+:is(.doc-sidebar-section, .library-view-section, .doc-list) {
+  padding-block: var(--ring-room);
+}
+
+/* The Settings nav scrolls on its own and its last section button stood on
+   the bottom edge (2px of padding for a 4px ring). */
+.modal-nav {
+  padding-block: var(--ring-room);
+}
+
+/* The Settings pane's controls start at its left edge (a link, the field
+   under Memory, the profile mark, the help search). */
+.modal-content {
+  padding-inline-start: var(--ring-room);
+}
+
+/* Beside the nav the pane's extra room comes out of the grid gap; under 820
+   the pane fills the body, which hides what leaves it, so it stays padding. */
+@media (min-width: 820px) {
+  .modal-content {
+    margin-inline-start: calc(-1 * var(--ring-room));
+  }
+}
+
+/* The one action an empty References section keeps (a quiet "Attach a link"
+   with no padding of its own), in a wrap that scrolls. */
+#doc-bookmarks-wrap:has(> .doc-outline:empty) {
+  padding-block: var(--ring-room);
+  margin-top: calc(var(--space-3) - var(--ring-room));
+}
+
+/* A pill track and its segments (INBOX 694: "the bottom of these pills gets
+   cut off", the dock's Ask | Agent and the skills panel's Pace: Auto | Manual).
+   The track is the dock's control height with a 1px edge, so its inside is two
+   pixels shorter than the segments, which were the same control height, and
+   the chosen segment's fill (the strip's sliding indicator, drawn in the
+   segment's box) lost its bottom edge to the track's clip (measured: the
+   segment 32px in a 30px inside, 2px past the bottom). The segments take the
+   track's inside, whatever height it has. */
+.chat-dock-controls .seg > button {
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
+}
+
+/* --- The compact row: one line, one anchor, one chevron (INBOX 676) ---
+   The owner: "the popup hover buttons arent correctly positioned, the
+   metadata isnt centred. when expanded the dropdown arrow is different and
+   bordered ... the dropdown and collapse should be a smooth animation".
+   Measured at 1440 (scratchpad/ui-sweeps/rows676.js): the metadata's centre
+   4.8px under the title's, the cluster 32.8 to 62px in a 49.6px row, the
+   open chevron a caret-up in a filled, bordered square.
+
+   1. The metadata. INBOX 505's step down under a card's text
+      (`margin-top: var(--space-4)`, above) reached the one-line row too and
+      pushed the chips and the time 9.6px down; the row grew to fit it. */
+#entry-list.is-rows > li:not(.row-expanded):not(.list-window-sentinel) > .entry-meta.entry-meta {
+  margin-top: 0;
+}
+
+/* 2. One anchor for the chevron and the cluster: the centre of the row's
+      first line, in both states. A collapsed row's line is at least one
+      control high (the 28px chevron and cluster fit it), so the anchor is
+      the top padding plus half that line, which is the collapsed row's own
+      middle and the expanded row's title line alike. Not `50%`: through the
+      open and close animation the row's height changes every frame, and a
+      chevron centred on it would ride down and back up with it. The track
+      starts at the top (`align-content`) for the same reason: a row closing
+      from 240px keeps its one line at the top while the box shrinks to it. */
+#entry-list.is-rows > li {
+  --row-anchor: calc(var(--space-3) + var(--target-min) / 2);
+  grid-template-rows: minmax(var(--target-min), auto);
+  align-content: start;
+}
+
+#entry-list.is-rows > li > .row-expand {
+  top: var(--row-anchor);
+  transform: translateY(-50%);
+}
+
+/* The open row's title is that same line, centred in it. Its end stays
+   clear of the hover strip, which overlays the row's top-right corner (five
+   targets wide: star, copy, edit, ⋯ and their gaps, INBOX 719). */
+#entry-list.is-rows > li.row-expanded > .entry-title {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+  padding-inline-end: calc(var(--target-min) * 5);
+}
+
+/* A collapsed row's preview is one line in its own grid column, nowhere near
+   the strip, so the float that keeps an opened card's first line out from
+   under it (`.entry-content::before`, above) would only cut 104px off the
+   preview's end for nothing. */
+#entry-list.is-rows > li:not(.row-expanded) > .entry-content::before {
+  display: none;
+}
+
+/* 3. One chevron. `aria-expanded="true"` is the icon button's "on" recipe
+      (a fill and an edge, for a menu that is open); a disclosure is not a
+      menu, so the button stays the ghost it is closed, and only the glyph
+      says which way the row is: it turns, over the interface motion token
+      (the Interface animations switch sets it to 0s). */
+#entry-list li > .row-expand.ghost.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+#entry-list li > .row-expand.ghost.ghost:hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+#entry-list li > .row-expand > .ph {
+  transition: transform var(--ui-base) var(--ease-out);
+}
+
+#entry-list li.row-expanded > .row-expand > .ph {
+  transform: rotate(180deg);
+}
+
+/* --- A note's buttons stay while its own menu is open (INBOX 679) ---
+   The owner: "the popup buttons on notes disappear when pressing the meatball
+   button and opening the menu". The strip is shown by `:hover` and
+   `:focus-within` on the note; a menu that would be clipped is moved to
+   `<body>` (`escapeMenuIfClipped`, menus.js), so pointing at it or focusing
+   an item left the note on both counts, and the strip faded out from under
+   its own open menu (measured in rows view: opacity 1 pressed, 0 with the
+   pointer on the menu). `openActionMenu` already marks the owning strip
+   `.menu-open` until the menu closes, so that is the third reason to show. */
+#entry-list > li .entry-actions.menu-open {
+  opacity: 1;
+}
+
+/* Room: strips of chips and tiles that scroll across (`overflow-x: auto`
+   clips down as well), and the notes page, whose cards stand on its edges
+   under 600. */
+:is(.launch-row, .library-filters, #tab-notes .layout > .tab-main) {
+  padding-inline: var(--ring-room);
+  margin-inline: calc(-1 * var(--ring-room));
+}
+
+:is(.launch-row, .library-filters, #chat-suggest) {
+  padding-block: var(--ring-room);
+  margin-block: calc(-1 * var(--ring-room));
+}
+
+/* **The chips' gap to what is below them** (INBOX 726, the owner: "no
+   vertical gap", of the Library's Boards / Maps filter row; "reported
+   twice" before). The two rules that gave the boards row and the Reminders
+   row a `margin-bottom: var(--space-4)` never applied: the `:is()` above
+   takes the specificity of its most specific argument, `#chat-suggest`, an
+   id, so it out-ranks a lone id selector that comes earlier, and the
+   negative margin won (measured: chips to grid 0px on both). Restated here,
+   after it. The Library's own row sits in a card with 16px of padding under
+   its chips (17px measured to the card's edge), so the row is given that:
+   `--space-6` visible, less the 4px of ring room the padding already
+   supplies. */
+:is(#library-boards-filter, #reminder-filter) {
+  margin-bottom: calc(var(--space-6) - var(--ring-room));
+}
+
+/* The chat's suggestions fill the page's width (`max-width: 100%`), so the
+   room is padding inside it. */
+#chat-suggest {
+  padding-inline: var(--ring-room);
+}
+
+/* Inset: the dock's quiet icon buttons on its scrolling row, a menu's rows,
+   a table head's sort buttons (the head clips, and the button fills it). */
+:is(.chat-dock-controls .ghost, .menu-item, .timeline-sort):focus-visible {
+  outline-offset: -2px;
+}
+
+/* A sort button fills its head cell, and the head's collapsed 2px edge takes
+   a pixel of the cell's inside: the chosen column's fill lost its bottom row
+   under `overflow: hidden`. Clipped with 2px of margin it keeps the row. */
+.timeline-table thead th {
+  overflow: clip;
+  overflow-clip-margin: 2px;
+}
+
+/* Text that ellipsises is clipped by its own box, and a line box of 1 is
+   shorter than the font's ascent plus descent (INBOX 685: the "g" of
+   "Categories" and "Skill logs", `.sidebar-head h2`, 05-sidebars-themes.css,
+   now 1.25). The phone tab bar's captions keep their tight line (the bar's
+   height is measured) and take the descender back with `overflow-clip-margin`,
+   which moves nothing. */
+.tab-label {
+  overflow: clip;
+  overflow-clip-margin: 0.25em;
+}
+
+/* A sheet's scrolling body (the New meeting form, an entity's page, a note's
+   properties, the suggestions inbox): its fields stand on its edges. */
+.inbox-body {
+  padding: var(--ring-room);
+  margin: calc(-1 * var(--ring-room));
+}
+
+/* --- One sidebar row recipe for every rail (INBOX 702) ---
+   The owner, with two screenshots: the Notes sidebar's hovered row was a
+   blue-tinted fill with its ⋯ in a filled square, the Chats sidebar's a
+   neutral grey with a plain ⋯: "is that intentional??" It was not: each rail
+   had been styled on the day it was built. Measured before: hover filled
+   `--accent-soft` on Notes and the Settings list, 6% ink on Chats; the
+   current row 10% accent, 16% accent and `--accent-soft`.
+
+   The rule, for every row of a left rail (Notes categories, Chats, the
+   Documents list, the Settings sections, and any rail added later):
+   - **hover is neutral**: `--row-hover-bg`, never an accent tint, because
+     the accent means "this is the one you are in";
+   - **the current row may carry the accent**: `--accent-soft` (a rail may add
+     its own edge or title colour on top, never a second fill), and hovering
+     it changes nothing;
+   - **the row's ⋯ is a plain ghost icon**: no fill at rest or while the row
+     is hovered, `--ghost-btn-bg` only under its own pointer, drawn with the
+     row's own radius so the fill stays inside the row.
+   The Documents rows are cards that keep their resting `--surface-2` fill (an
+   owner report: "every row draws the same shape"); their hover is the next
+   neutral tier, which is why `tests/test_ui_recipes.py` names them apart.
+   Pinned there; DESIGN.md's recipe index has the row. */
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
+  background: var(--ghost-btn-bg);
+}
+
+/* --- A row is a pointer target (INBOX 719) ---
+   The owner: "when hovering over the rows, the cursor is the text type
+   cursor, not pointer". Measured: `cursor: auto` on every row, which draws
+   the I-beam over any text under the pointer. A click on a compact row's body
+   opens or closes it (`li.addEventListener("click")`, note-cards.js), so the
+   whole row says so. Cards do nothing on a click, so they keep the plain
+   cursor; select mode, where the whole card is the checkbox, already has the
+   pointer (`.entry-list li.selectable`). An opened row's own text is real,
+   selectable text (a selection stands the click down), so it keeps the text
+   cursor there, and the row's buttons and chips keep their own. */
+#entry-list.is-rows > li:not(:has(textarea)) {
+  cursor: pointer;
+}
+
+#entry-list.is-rows > li.row-expanded > .entry-content {
+  cursor: auto;
+}
+
+/* --- A card's date is in the same corner on every card (INBOX 719) ---
+   The owner: "the last created or edited date changes position each note, I
+   think it should be consistent in the corner". It is the last item of the
+   card's details line, pushed to the card's bottom-right, and measured at
+   1440 it was 17px from the right and 7.4px from the bottom on every card
+   but two kinds, both fixed here (measured in Chromium):
+
+   1. **A note that is only a title** sat 104px to the left of the rest. The
+      actions' float (`.entry-content::before`, 6.5rem by 1em) belongs in the
+      body paragraph, and a title-only note leaves that paragraph empty, so
+      the float had no line to sit in, escaped the paragraph, and narrowed
+      the details line under it (a flex container avoids floats) by its
+      width. An empty body keeps no float.
+   2. **A one-line note** was 71px tall: the hover strip (17px to 46px from
+      the card's top) ended 6px below the date's top, so on hover the date
+      read as pushed down under the buttons. The strip's offset was counted
+      twice: `.entry-meta-end` is the positioned corner (`top: --space-3`) and
+      the strip inside it asked for `top: --space-3` again. It sits in the
+      corner itself now (9px to 38px), clear of the date line on the
+      shortest card, and the date is not moved to make room. Touch has its
+      own lane for the strip above the text (`padding-top`,
+      06-timeline-dialogs.css), and keeps what it measured. */
+#entry-list > li > .entry-content:empty::before {
+  display: none;
+}
+
+@media (hover: hover) {
+  #entry-list:not(.is-rows) > li .entry-meta-end > .entry-actions {
+    top: 0;
+  }
+}
+
+/* --- One ⋯ opener, styled once (INBOX 722) ---
+   The owner, of the Library's Rows view: "meatball buttons have a visible
+   outline, is that consistent with the rest of the app?? i dont think it is."
+   It was not. Measured at 1440 with a `getComputedStyle` pass over every
+   `kebabMenu` opener at rest: the Library's cards and lines (and the Boards
+   gallery) kept `box-shadow: var(--shadow-sm)` (0 2px 8px at 5% in light, 35%
+   black in dark) on a transparent, border-less button, a ring the Notes cards,
+   the Chats rail, the Documents list and the Settings packages did not draw.
+   The cause was a per-surface rule for the Library's ⋯ in 00-tokens-shell.css
+   (an opaque chip, written so the ⋯ could be seen over a photograph) that the
+   app's ghost icon-only rule had already half overridden.
+
+   `kebabMenu` gives every opener the one class and this is the whole recipe:
+   a plain ghost icon, no fill, edge or shadow at rest, `--ghost-btn-bg` only
+   under its own pointer or while its menu is open, drawn at `--radius-md`.
+   Two classes on the selector, so a surface's own `button` rule cannot dress
+   it; the lint in `tests/test_ui_recipes.py` fails a rule outside this file
+   that tries. DESIGN.md's recipe index has the row. */
+:is(button, summary).kebab-opener.icon-only {
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:is(button, summary).kebab-opener.icon-only:not(:hover, [aria-expanded="true"]) {
+  background: transparent;
+}
+
+:is(button, summary).kebab-opener.icon-only:is(:hover, [aria-expanded="true"]):not(:disabled) {
+  background: var(--ghost-btn-bg);
+}
+
+/* --- A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) ---
+   The owner, with a screenshot of the Chats sidebar: "there's quite a big gap
+   on the right side of the chat sidebar chat items." Measured at 1440 with the
+   row at rest (no ⋮ showing): a chat's title ended 34px short of the row's
+   padding edge, because the hidden actions span (28px, `opacity: 0`) was still
+   a flex item and "What have I saved about literature?" wrapped to a second
+   line beside empty space; a Documents row did the same through a 2rem
+   `padding-right` kept "for the kebab" (title 33px short). Both reserved room
+   for a control that is only there on hover, focus or on a touch screen.
+
+   The rule, for every left rail: the title and meta take the row's full width
+   at rest, within 1px of its padding edge. The ⋮ is absolutely placed over the
+   row's right end, centred on it, and the end of the words fades under it
+   while it shows (a hovered or focused row, or any row on a touch screen,
+   where the ⋮ is always drawn) rather than a column being held open for it.
+   The Notes categories rail already did this (its `.category-actions` is
+   absolute and the count is the last thing in the row). Pinned in
+   `tests/test_ui_recipes.py`. */
+#conversation-list li {
+  position: relative;
+}
+
+#conversation-list li .entry-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0.6rem;
+  display: flex;
+  align-items: center;
+}
+
+@media (hover: hover) {
+  #conversation-list li:is(:hover, :focus-within) .conv-title,
+  .doc-item:is(:hover, :focus-within) :is(.doc-item-title, .doc-item-meta) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+  }
+}
+
+@media (hover: none) {
+  #conversation-list li .conv-title,
+  .doc-item :is(.doc-item-title, .doc-item-meta) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+  }
 }

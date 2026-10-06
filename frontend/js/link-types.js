@@ -175,7 +175,7 @@ async function openRelationTypesSheet() {
               openRelationTypesSheet();
               relationTypeDeleteUndo(gone);
             } },
-          ], `Actions for ${t.name}`));
+          ], `Actions for ${t.name}`, { vertical: true }));
         }
         list.appendChild(row);
       }

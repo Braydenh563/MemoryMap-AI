@@ -1343,7 +1343,7 @@ function timelineRowElement(row, density) {
   li.dataset.id = row.id;
   li.dataset.key = row.key;
   li.dataset.kind = row.kind;
-  if (row.placedBy === "mentioned") li.dataset.placed = "mentioned";
+  if (row.placedBy === "mentioned" || row.placedBy === "meeting") li.dataset.placed = row.placedBy;
   if (row.pinned) li.dataset.pinned = "1";
   //: **Reachable by keyboard, on the app's own recipe for a list.** The SVG
   //: view had 0 focusable notes; the Notes list has a *roving* tab stop
@@ -1372,6 +1372,8 @@ function timelineRowElement(row, density) {
   //: made, so their own glyph is free to say what they are.
   glyph.className = `ph ${TIMELINE_KIND_GLYPHS[row.kind] || "ph-note"}`;
   if (row.kind === "note" && row.placedBy === "mentioned") glyph.className = "ph ph-clock-countdown";
+  //: A meeting sits at its own `date:` (INBOX 644), and says it is a meeting.
+  if (row.kind === "note" && row.placedBy === "meeting") glyph.className = "ph ph-users-three";
   //: The day's page carries the calendar whichever store holds it
   //: (DOCUMENTS_PLAN section 14); `timelineIsDailyNote` is what knows the set.
   if (timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
@@ -1434,7 +1436,9 @@ function timelineRowElement(row, density) {
   when.title =
     row.placedBy === "mentioned"
       ? `“${row.phrase}” in this note meant ${TIMELINE_ROW_FULL_DATE.format(row.when)}. Written ${shortDate(row.writtenAt)}.`
-      : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
+      : row.placedBy === "meeting"
+        ? `A meeting on ${TIMELINE_ROW_FULL_DATE.format(row.when)}. Written ${shortDate(row.writtenAt)}.`
+        : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
   meta.appendChild(when);
 
   li.append(mark, main, meta);
@@ -2136,7 +2140,7 @@ function timelineTableRow(row) {
   tr.dataset.id = row.id;
   tr.dataset.key = row.key;
   tr.dataset.kind = row.kind;
-  if (row.placedBy === "mentioned") tr.dataset.placed = "mentioned";
+  if (row.placedBy === "mentioned" || row.placedBy === "meeting") tr.dataset.placed = row.placedBy;
   tr.tabIndex = -1;
   tr.setAttribute("aria-expanded", "false");
 
@@ -2172,7 +2176,9 @@ function timelineTableRow(row) {
   time.title =
     row.placedBy === "mentioned"
       ? `“${row.phrase}” in this note meant ${TIMELINE_ROW_FULL_DATE.format(row.when)}. Written ${shortDate(row.writtenAt)}.`
-      : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
+      : row.placedBy === "meeting"
+        ? `A meeting on ${TIMELINE_ROW_FULL_DATE.format(row.when)}. Written ${shortDate(row.writtenAt)}.`
+        : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
   when.appendChild(time);
   tr.appendChild(when);
 

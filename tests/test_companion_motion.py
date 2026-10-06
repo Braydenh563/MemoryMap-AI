@@ -455,7 +455,8 @@ def test_a_walk_is_paced_too() -> None:
     # frame, 60 layouts and 120 paints a second, because the pacer let a
     # walk run at full rate. Paced from its first step: 20 and 39.
     tempo = _fn("nameMarkBuddyTempo")
-    assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");' in tempo
+    assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;' in tempo
+    assert "nmb-walking" not in tempo[tempo.index("const busy") : tempo.index("const still")]
     move = _fn("nameMarkBuddyGo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
@@ -598,7 +599,7 @@ def test_its_menu_has_sections_for_who_it_is_and_the_settings_behind_it():
     kebab = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
     assert "if (Array.isArray(item.items) && typeof buildMenuGroupButton === \"function\")" in kebab
     menu = _fn("nameMarkBuddyMenu")
-    for row in ("ph:user-switch Companion", "ph:star-four Atlas look", "ph:resize Size", "ph:gear Settings"):
+    for row in ("ph:user-switch Companion", "ph:coat-hanger Atlas look", "ph:resize Size", "ph:gear Settings"):
         assert f'label: "{row}",\n    items:' in menu, row
     assert 'choose("avatar-buddy", value)' in menu and 'choose("atlas-look", value)' in menu
     for target in ('openSettingsModal("appearance", "avatar-buddy-row")', 'openSettingsModal("preferences")', 'openSettingsModal("personas")'):
@@ -791,7 +792,9 @@ def _run_pure(names: list[str], body: str):
     # The interaction model's choices are pure functions: run them as they
     # are written, in node, against the cases below.
     src = "\n".join(_fn(n) for n in names)
-    script = "const NMB_WARMTH_HALF_MS = 240000; const NMB_BORED_MS = 240000;\n" + src + "\nconsole.log(JSON.stringify(" + body + "));"
+    # The poke pools are two one-line constants the reaction reads.
+    pools = "\n".join(re.search(rf"^const {n} = .*;$", AV, re.M).group(0) for n in ("NMB_POKE_GENTLE", "NMB_POKE_POOL"))
+    script = "const NMB_WARMTH_HALF_MS = 240000; const NMB_BORED_MS = 240000;\n" + pools + "\n" + src + "\nconsole.log(JSON.stringify(" + body + "));"
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
@@ -805,8 +808,21 @@ def test_the_interaction_model_moves_between_states_as_the_owner_asked() -> None
     # 2026-09-27, "it opens its eyes and mouth for a sec like it is startled
     # but then falls back asleep"); poked again while waking, a pout, then
     # grumpy.
-    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,60000],[false,2,3000],[false,3,2000],[false,4,1000],[false,2,1500,true],[false,3,1500,true]].map((a) => nameMarkBuddyClickReaction(...a))")
-    assert click == ["wake", "wake", "pleased", "playful", "playful", "grumpy", "pout", "grumpy"]
+    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,1500,true],[false,2,1500,true],[false,3,1500,true,'',() => 0],[false,1,60000,false,'',() => 0]].map((a) => nameMarkBuddyClickReaction(...a))")
+    # Asleep: wake. Groggy: a pout for the first two, then the pool.
+    assert click == ["wake", "wake", "pout", "pout", "pleased", "pleased"]
+    # INBOX 705: awake, a poke is one of a pool, never the same twice running,
+    # and annoyed is rare (the fifth poke in twenty seconds, one draw in four,
+    # never straight after itself).
+    pool = _run_pure(["nameMarkBuddyClickReaction"], "(() => { const out = []; for (let pokes = 1; pokes <= 8; pokes++) for (let r = 0; r < 20; r++) { let i = 0; const rand = () => (r + 0.5 + i++ * 7) % 20 / 20; out.push([pokes, nameMarkBuddyClickReaction(false, pokes, 3000, false, '', rand), nameMarkBuddyClickReaction(false, pokes, 3000, false, 'grumpy', rand)]); } return out; })()")
+    seen = {how for _, how, _ in pool}
+    assert {"pleased", "playful", "curious", "wave", "spin", "laugh"} <= seen
+    assert all(how != "grumpy" for pokes, how, _ in pool if pokes < 5)
+    assert all(after != "grumpy" for _, _, after in pool)
+    late = [how for pokes, how, _ in pool if pokes >= 5]
+    assert 0 < sum(how == "grumpy" for how in late) <= len(late) * 0.3
+    repeat = _run_pure(["nameMarkBuddyClickReaction"], "[...NMB_POKE_POOL].map((last) => nameMarkBuddyClickReaction(false, 3, 3000, false, last, () => 0.99) !== last)")
+    assert all(repeat)
     hover = _run_pure(["nameMarkBuddyHoverReaction"], "[[true,0,0,false],[true,1800,0,false],[false,0,0,false],[false,0,-0.5,false],[false,0,0.5,true]].map((a) => nameMarkBuddyHoverReaction(...a))")
     assert hover == ["stir", "wake", "brighten", "none", "none"]
     # Warmth relaxes by half in four minutes, and not at all at once.
@@ -828,7 +844,7 @@ def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
     tick = _fn("nameMarkBuddyTick")
     assert "if (idle > NMB_SLEEP_MS && !awake) {" in tick and "if (nameMarkBuddyWander(Date.now())) {" in tick
     build = _fn("nameMarkBuddyBuild")
-    assert "const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy);" in build
+    assert "const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy, lastHow);" in build
     assert "nameMarkBuddyHover(0);" in build
     wander = _fn("nameMarkBuddyWander")
     for guard in ("nmb.pinned", 'nmb.perch === "errand"', 'nameMarkBuddyActions() === "off"', 'nameMarkBuddyActOff("wander")',
@@ -1446,7 +1462,7 @@ def test_an_act_or_a_walk_is_let_go_not_dropped():
     keyframe, since a lone keyframe is the end), off the pacer, and not
     under reduced motion; the companion's expressions cross over 0.6s."""
     blend = _fn("nameMarkBuddyBlend")
-    assert "nameMarkIdleQuiet()" in blend and "{ ...from, offset: 0 }" in blend
+    assert "nameMarkIdleQuiet()" in blend and "{ ...moved, offset: 0 }" in blend
     assert 'id: "nmb-blend"' in blend
     assert "nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in _fn("nameMarkBuddyAct")
     assert 'nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));' in AV
@@ -1534,3 +1550,76 @@ def test_the_large_view_of_a_face_is_alive_like_the_companion() -> None:
     follow = _fn("nameMarkViewerFollow")
     assert 'document.documentElement.dataset.avatarFollow === "off"' in follow
     assert 'style.setProperty("--nmv-x"' in follow and "requestAnimationFrame" in follow
+
+
+def test_inbox_669_an_ended_move_is_never_replayed_by_the_pacer() -> None:
+    # INBOX 669 (the owner: "when I click atlas, it often starts tilting to
+    # the left then just snaps back"; "atlas's arm movements are jerky").
+    # The pacer's list is read once a second, so it held an act's animations
+    # after the stylesheet had cancelled them, and `pause()` on a cancelled
+    # animation restarts it from its first frame: every act's gesture played
+    # a second time, stepped at 10Hz (atlas669-clicks.js). It skips them.
+    tempo = _fn("nameMarkBuddyTempo")
+    skip = tempo.index('if (states[i] === "idle" || states[i] === "finished")')
+    assert skip < tempo.index("anim.pause()") and skip < tempo.index("anim.play()")
+    # In the large view, drawn 2.2 times over, nothing is stepped.
+    assert "|| !!nmb.visit;" in tempo
+
+
+def test_inbox_669_no_rig_joint_turns_over_four_degrees_a_frame() -> None:
+    motion = (ROOT / "frontend" / "js" / "atlas-motion.js").read_text(encoding="utf-8")
+    spring = _fn("atlasRigSpring", motion)
+    assert "const ATLAS_RIG_MAX_SPEED = 200;" in motion
+    assert 200 / 60 < 4
+    # Clamped inside the integration step, before the position moves.
+    assert spring.index("ATLAS_RIG_MAX_SPEED") < spring.index("j.x += j.v * h;")
+
+
+def test_inbox_669_arm_gestures_start_and_end_at_the_arms_rest() -> None:
+    # A gesture's keyframes began and ended at rotate(0deg), the rest only
+    # of a calm standing arm: floating (-28deg) or her held-out arm (-50deg)
+    # swung to 0 first and swung past rest at the end (20 degrees a frame).
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    for name in ["nmb-wave", "nmb-wave-l", "nmb-scratch", "nmb-hide-l", "nmb-hide-r", "atl-wave", "atl-buddy-wave", "atl-buddy-wave-f", "atl-buddy-scratch"]:
+        body = re.search(r"@keyframes " + re.escape(name) + r" \{(.*?)\n\}", css, re.S).group(1)
+        assert not re.search(r"(^|\s)(0%|100%|from|to)[ ,{]", body), name
+
+
+def test_inbox_669_a_turn_hands_back_about_the_point_it_turned_on() -> None:
+    # Hanging by one hand turns the body about the hand; cut short, its
+    # class took the point away and the eased turn swung about the new one,
+    # 44px off in a frame in the large view (atlas669-clicks.js).
+    blend = _fn("nameMarkBuddyBlend")
+    held = blend.index("held.push({ anim, el, from });")
+    assert 'from.transformOrigin = style.transformOrigin;' in blend[:held]
+    assert "el.animate([{ ...moved, offset: 0 }]" in blend
+
+
+def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
+    # A facepalm leans the body by a plain rule and stops its bob; at its
+    # end the bob came back over the rule's transition and the lean went in
+    # a frame (the head 9px). The blend reads the body before and after.
+    blend = _fn("nameMarkBuddyBlend")
+    before = blend.index('el.querySelector(".nm-buddy-char")')
+    after = blend.index("change();\n  const eased")
+    assert before < after
+    tail = blend[after:]
+    assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
+    assert "if (eased.has(el)) continue;" in tail
+
+
+def test_the_first_entrance_after_an_unlock_is_a_drop_once() -> None:
+    # INBOX 707 (the owner: "when loading the app after login, the companion
+    # just appears with no animation"). Measured: the usual entrance was a
+    # 250ms fade over a 14px drift. The first one of a page load drops in over
+    # 640ms and ends at rest; the flag is spent so a tab switch never replays
+    # it, and Reduce motion / Avatar animation off return before it.
+    enter = _fn("nameMarkBuddyEnter")
+    assert "unlockDrop: true" in AV
+    drop = enter.index("if (nmb.unlockDrop && !hangs) {")
+    assert enter.index("if (nameMarkBuddyNoTravel()) {") < drop, "the reduced-motion fade must come first"
+    assert "nmb.unlockDrop = false;" in enter[drop:]
+    assert 'translate: "0px 0px", opacity: 1 }' in enter[drop:], "it ends at rest, with no jump"
+    assert "{ duration: 640," in enter[drop:]
+    # A hanging or bar perch uses its own way out of the bar, never the bare fade.
+    assert "const how = unlockFirst ? ways[0] :" in enter

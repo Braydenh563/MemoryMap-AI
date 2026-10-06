@@ -418,6 +418,12 @@ class WhiteboardObjectData(BaseModel):
     #: plain text, shown on demand from a marker on the topic. Content, like
     #: `task`: no theme sets it and no reset clears it (`MAP_CONTENT_FIELDS`).
     note: str | None = Field(default=None, max_length=MAX_TOPIC_NOTE_CHARS)
+    #: **A frame drawn as a panel** (INBOX 715): a named tint for its ground
+    #: and edge, which turns the title inside its top, and one line under the
+    #: title saying what goes in it. A name rather than a colour so the
+    #: panel is drawn from the theme's own mix in light and dark alike.
+    tint: str | None = Field(default=None, pattern="^(neutral|red|amber|green|teal|blue|violet|pink)$")
+    hint: str | None = Field(default=None, max_length=120)
     #: **A boundary round this topic's branch** (MINDMAP_PLAN.md decision 19)
     #: and the words over it. Content, like `note`.
     boundary: str | None = Field(default=None, pattern="^(rounded|dashed|cloud)$")

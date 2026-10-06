@@ -62,7 +62,8 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 )
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
-from memorymap.entry import duplicates, manager
+from memorymap.entry import duplicates, link_facts, manager
+from memorymap.entry import meetings as meeting_shape
 from memorymap.entry import properties as note_properties
 from memorymap.entry.tagnames import inline_tags, normalise_tags
 from memorymap.search import engine as search_engine
@@ -529,6 +530,12 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 except Exception:
                     logger.warning("couldn't keep tag suggestions for entry %s", entry_id, exc_info=True)
                     session.rollback()
+                # Tidy's reviews a person switched on (INBOX 691, off by
+                # default): after filing, as `system:tidy`, each run undoable
+                # from Tidy's history. Never raises.
+                from memorymap.entry import tidy
+
+                tidy.run_automatic(session)
     except Exception:
         logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
         try:
@@ -697,6 +704,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
         content = note_properties.with_type_fields(session, content, body.note_type, deps.get_config())
+    #: A note typed Meeting, however it was made (its type's New note, the
+    #: Capture template, an import), is a meeting everywhere meetings are
+    #: listed (INBOX 644): the Library's chip and the Notes sidebar's row
+    #: count the tag, which the type alone never carried.
+    if meeting_shape.is_meeting(content) and meeting_shape.MEETING_TAG not in {t.lower() for t in tags}:
+        tags = normalise_tags([*tags, meeting_shape.MEETING_TAG])
     try:
         entry = manager.create_entry(
             session,
@@ -1646,6 +1659,12 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         appearances[a] = appearances.get(a, 0) + 1
         appearances[b] = appearances.get(b, 0) + 1
         signals = candidate.signals()
+        reason = "; ".join(s["reason"] for s in signals if s["signal"] != "time")
+        #: Meaning alone previews what linking would write, and linking now
+        #: names what the two notes share when they share something (INBOX
+        #: 691, `entry/link_wording.py`), so the preview does too.
+        if [s["signal"] for s in signals if s["signal"] != "time"] == ["similarity"]:
+            reason = link_facts.reason_for(session, a, b) or reason
         suggestions.append({
             "source_id": a,
             "target_id": b,
@@ -1654,11 +1673,11 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
             "similarity": round(candidate.similarity, 2) if candidate.similarity is not None else None,
             "confidence": round(candidate.confidence, 2),
             "signals": signals,
-            # Similarity alone reads "similar in meaning", the text `create_link`
-            # deduces at the same bar (`manager.AUTO_REASON_THRESHOLD`), so the
-            # suggestion previews the link. Otherwise every signal, strongest
-            # first, less the time, which supports a pair but is no reason to link.
-            "reason": "; ".join(s["reason"] for s in signals if s["signal"] != "time"),
+            # Similarity alone previews what `create_link` deduces at the same
+            # bar (`manager.AUTO_REASON_THRESHOLD`): the specific reason, else
+            # "similar in meaning". Otherwise every signal, strongest first,
+            # less the time, which supports a pair but is no reason to link.
+            "reason": reason,
         })
         if len(suggestions) == 12:
             break
@@ -2702,6 +2721,9 @@ class LinkPatchBody(BaseModel):
     #: Only the fields sent change.
     link_type: str | None = Field(default=None, max_length=24)
     props: dict | None = None
+    #: INBOX 693: true for a link that runs both ways, false for one way,
+    #: null to let its type decide (`manager.is_two_way_link`).
+    two_way: bool | None = None
 
     @field_validator("props")
     @classmethod
@@ -3611,7 +3633,8 @@ def delete_link(
 def patch_link(
     entry_id: int, link_id: int, body: LinkPatchBody, session: Session = Depends(get_session)
 ) -> EntryOut:
-    """Change a link's type (GRAPH_PLAN KG9) or its properties (KG3)."""
+    """Change a link's type (GRAPH_PLAN KG9), its properties (KG3) or its
+    direction (INBOX 693)."""
     entry = _existing_entry(session, entry_id)
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
@@ -3623,6 +3646,8 @@ def patch_link(
         manager.set_link_type(session, link, body.link_type)
     if "props" in sent:
         manager.set_link_props(session, link, body.props)
+    if "two_way" in sent:
+        manager.set_link_two_way(session, link, body.two_way)
     return _to_out(session, entry)
 
 

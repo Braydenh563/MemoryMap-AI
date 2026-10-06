@@ -1,17 +1,12 @@
-"""The command palette reads fields the API actually sends.
+"""The command palette's matching stays whole and stays commands and places.
 
-**Why this file exists.** The palette's reminder filter read `r.content`, and
-a reminder has no `content`, its field is `text`. `undefined.toLowerCase()`
-threw, and because the throw happened partway through `paletteMatches`, every
-group was lost with it: notes, documents, reminders and conversations alike.
-So Ctrl+K silently degraded to its static command list for anyone with a
-single reminder saved, and the only trace was an exception in a console nobody
-has open. It is the "feature that never ran once" shape CLAUDE.md warns about,
-and no Python test could see it because the fault was a field name spanning
-the API and the browser.
-
-This ties the two sides together: the payload keys the palette depends on have
-to keep existing, and the palette has to keep reading those names.
+**Why this file exists.** The palette's reminder filter once read `r.content`,
+and a reminder has no `content`, its field is `text`. `undefined.toLowerCase()`
+threw partway through `paletteMatches` and every group was lost with it. Since
+INBOX 666 the palette no longer lists content (notes, documents, reminders,
+conversations, files, boards: Find anything's), so the payload half of this
+file is gone; what is left keeps the same failure class out (a field read goes
+through `paletteText`) and pins the new split.
 """
 
 from __future__ import annotations
@@ -26,27 +21,6 @@ def _palette_matches_source() -> str:
     return text[start:end]
 
 
-def test_a_reminder_payload_still_carries_text(ai_client):
-    """The field the palette reads. If reminders are ever renamed back to
-    `content`, this fails here rather than silently in a browser."""
-    ai_client.post("/reminders", json={"text": "call mum", "due_at": "2030-01-01T09:00:00Z"})
-    rows = ai_client.get("/reminders").json()
-    assert rows, "expected at least one reminder"
-    assert "text" in rows[0], f"reminder keys were {sorted(rows[0])}"
-
-
-def test_the_palette_reads_reminder_text_not_content():
-    """The other half of the same contract, checked statically because the
-    palette runs in a browser this suite cannot start."""
-    source = _palette_matches_source()
-    assert "paletteReminders" in source
-    reminder_block = source[source.index("paletteReminders") :]
-    assert "r.text" in reminder_block, "the palette must read a reminder's `text`"
-    assert "r.content" not in reminder_block, (
-        "`r.content` is the bug this file exists for, a reminder has no `content`"
-    )
-
-
 def test_palette_field_reads_go_through_the_guard():
     """One malformed record must cost one missing group, not all of them.
 
@@ -59,31 +33,15 @@ def test_palette_field_reads_go_through_the_guard():
     assert not raw, f"these bypass paletteText and can throw the palette away: {raw}"
 
 
-def test_the_palette_resolves_every_kind_of_thing_the_app_holds():
-    """REDESIGN.md R7.3: "one universal picker... resolving notes, documents,
-    files and maps alike".
-
-    It searched four of six, notes, documents, reminders, conversations, so
-    a file or a board could only be reached by navigating to its tab first.
-    That is the difference between a jump-to-note box and the way you move
-    around the app.
-    """
+def test_the_palette_is_commands_and_places_only():
+    """INBOX 666 (the owner: "I thought [the palette] was just for quick
+    commands and navigation, not for finding notes and documents"). Content
+    groups are Find anything's; the palette keeps commands, places (tabs,
+    sub-tabs, Settings pages, categories, tags) and one handoff row."""
     source = _palette_matches_source()
     for group in ("Notes", "Documents", "Files", "Boards & maps", "Reminders", "Conversations"):
-        assert f'"{group}"' in source, f"the palette no longer resolves {group}"
-
-
-def test_notes_match_by_body_not_just_title():
-    """Owner report: "I think notes appear in the command palette search."
-    Verified live in Chromium (Ctrl+K, a query matching only a note's body):
-    they do, grouped under "Notes", opening the note through `flashEntry`.
-    Kept here so a future rewrite of `paletteMatches` cannot drop the body
-    half and pass only on a title match."""
-    source = _palette_matches_source()
-    notes_block = source[source.index('group: "Notes"') - 400 : source.index('group: "Notes"') + 400]
-    assert "e.content" in notes_block
-    assert "e.title" in notes_block
-    assert "flashEntry(e.id)" in notes_block
+        assert f'group: "{group}"' not in source, f"the palette lists {group} again"
+    assert "paletteCommands()" in source and "notesPaletteCommands(" in source
 
 
 def test_the_palette_returns_every_group_it_builds():

@@ -45272,3 +45272,797 @@ and refuses a topic ("Select a shape, link or text box first").
      segmented control and Settings; `motion1005.js`: 170 to 257 ms on screen,
      lands to 0px at 1440 and 390.
 
+664. **The owner, 2026-10-06, verbatim.** "Placing coordinates of templates on
+     the mindmap and whiteboard could be improved (little off from the
+     cursor)." A template placed from the Library lands offset from where the
+     pointer is. Next: measure the drop point against the placed group's
+     anchor at several zoom levels (a click place and a drag place, board and
+     map), and anchor the template where the pointer is (its centre on a
+     click, the grab point on a drag). Placed: next PR.
+     **Fixed 2026-10-06 (dropplace-1006).** One conversion
+     (`wbClientToBoard`), one anchor rule (`wbAnchorDelta`, `wbAnchorPlaced`
+     inside the placement's undo step), the middle of the canvas you can see
+     (`wbFreeCanvasRect`), the tile's picture as the drag image held where it
+     was pressed. `scratchpad/ui-sweeps/dropplace.js`, 105 placements at zoom
+     0.5, 1 and 2 panned, board and map: before up to 165px (click), 581px
+     (drag held off centre), 50px (note card), 474px (map template); after
+     0px on every one, one undo each. `tests/test_wb_drop_place.py`.
+
+666. **The owner, 2026-10-06, verbatim.** "also I feel like the features for
+     the command pallate and the find anything search kinda clash, like the
+     command pallate I though was just for quick commands and navigation, not
+     for finding notes and documents etc. I feel like that should be left to
+     the find anything but idk". Today both overlap: the palette
+     (app-palette.js) asks `/search` for notes and documents and lists
+     reminders and conversations; Find anything (spaces-find.js) searches
+     every kind and also lists the palette's commands (INBOX 270). Decision
+     taken (the VS Code and Linear split): the palette is commands and
+     places in the app only (tabs, sub-tabs, Settings pages, actions); its
+     content groups go, and typed text that matches no command offers one
+     row, "Search everything for ...", which opens Find anything with the
+     text. Find anything stays the one search over content and keeps its
+     actions group (the owner's 270), below the content. Placed: the 0.4.1
+     mini release, a Sonnet agent.
+     Fixed 2026-10-06: `app-palette.js` lists commands, places and one last
+     row, Search everything for (`openFinder(text)`); `paletteAskEngine` and
+     the content groups are gone; Find anything's actions already sorted last
+     (`FINDER_KINDS`). `palette666.js`: light and dark, no console errors, no
+     `/search` call from the palette.
+
+667. **The owner, 2026-10-06, verbatim**, with a screenshot of the Quick
+     note dialog: "the quick note popup tooltip button doesnt work or show a
+     popup". Fixed 2026-10-06: `wireHelpPopover` moved the panel to `<body>`,
+     under the modal's top layer; it now goes into the open dialog (as
+     `wireEscapedActionMenu` already did for menus), and the first Escape
+     closes only the help. Measured by `scratchpad/ui-sweeps/quicknotehelp.js`
+     (topmost at the panel's centre: false before, true after, light and
+     dark); `tests/test_help_popover_in_dialogs.py`.
+
+668. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tools &
+     features dialog: "the tools and features highlighted textbox clashes
+     with the top row elements". Fixed 2026-10-06: the bare `#features-search`
+     sat 0px under the head and its focus ring (2px at a 2px offset) crossed
+     the title row and the close button; it is the `.search-field` recipe now
+     (magnifier, the inset well) with `--space-3` above it: 8px clear at 1440
+     and 390, light and dark (`scratchpad/ui-sweeps/featureshead.js`).
+
+665. **The owner, 2026-10-06, verbatim**, with four screenshots (the mind
+     map size picker "S Map M L XL"; the mind map popup's Box, Edge bar and
+     Fill rows as wrapping pill wells; a three-pill count group "21 / 0 /
+     21"; the note composer's formatting toolbar): "also clean up or
+     redesign this bit in the mind map popup. also i dont really like these
+     multi pill elements exept in some small cases like the little view
+     mode 2 pill ones in places and the formatting toolbar in the note
+     capture and edit forms go slightly off the edge on the border".
+     Recommendation: a `.seg` well only for two or three short, always
+     visible choices (view modes); longer option sets become a select or a
+     swatch/preview picker per DESIGN.md, the popup restructured; the
+     toolbar measured and kept inside its border at every width. Placed:
+     the 0.4.1 mini release, an Opus design agent. Added by the owner, "and
+     this as well": Questions' Open, Answered, Dropped well. **Fixed
+     2026-10-06 (seg665-1006)**: the topic bar's doors are one-line rows of
+     previews (Shape door 333 to 155px at 1440, every row 32px), the size a
+     stepper, markers and the theme's level switch converted; Questions and
+     AI skills' kinds are selects with their counts; the note strip's More
+     opened into one row 700px past its border below 600 and now wraps;
+     `seg665.js`, `seg665-toolbar.js`. Remaining wells of four:
+     `agent-remaining/seg665-1006.md`.
+
+663. **The owner, 2026-10-06, verbatim.** "there is no forgot password option
+     in the lock screen." Today the only way back in is the terminal command
+     `python -m memorymap --reset-password` (Help names it), and private notes
+     stay sealed by the old password whatever is done. Recommendation: a
+     "Forgot your password?" link under the field that opens one card saying
+     plainly what a reset does and does not recover (notes yes, private notes
+     no, a sealed backup only with its own password), with the command to
+     copy and, in the desktop app, a button that runs the same reset after a
+     typed confirmation. Placed: next PR.
+     **Fixed e575d00, 0f1d0f0, dd452b2.** A recovery key (160 bits, shown once,
+     wrapping the same DEK) and the lock card's "Forgot your password?" with
+     both paths, this computer only; the CLI and the button share
+     `core/password_reset.py`. Measured: tests/test_forgot_password.py 24 and
+     test_forgot_password_ui.py 8 pass; forgotpw.js, light and dark at 390 and
+     1440, 32 surfaces, 0 low contrast, every control at the floor (44px touch),
+     0 overflow, 0 console errors; four keys absent from the DB, WAL, prefs and
+     server log (72 files).
+
+671. **Decision missing, found by the forgot-password agent (663),
+     2026-10-06.** In the desktop window, Download .txt for the recovery key
+     goes through `saveFile`, which writes into `<data dir>/exports`, beside
+     the notebook: whoever copies the folder gets the key that opens its
+     private notes. Recommendation, taken: the recovery key is saved through
+     a native Save dialog (pywebview's save dialog, starting in the
+     person's Documents folder), never inside the data dir; a browser tab
+     keeps its ordinary download. Placed: the 0.4.1 mini release, the same
+     agent.
+     **Fixed 605eea3.** `POST /auth/recovery-key/save` (desktop only, behind
+     the lock) asks pywebview's Save dialog (`core/desktop_dialog.py`, both
+     `FileDialog.SAVE` and `SAVE_DIALOG`) starting in Documents, and refuses
+     a path inside the data dir; account-recovery.js never calls `saveFile`.
+     Measured: 7 new tests pass with the dialog faked; after a save, a
+     refusal (exports and the data dir root) and a cancel, the key is in no
+     file under the data dir.
+
+670. **Decision missing, found by the drop-placement agent (664),
+     2026-10-06.** A map template dropped on a map with no central topic
+     makes one trunk per top-level topic in the template. Recommendation,
+     taken: a template with one top-level topic makes that topic the
+     central topic; a template with several puts them under a new central
+     topic named after the template. With it, the five `.seg` wells INBOX
+     665 left (`#font-seg`, `#density-seg`, `#graph-layout`,
+     `#note-picker-sources`, the suggestions inbox kinds;
+     docs/roadmap/agent-remaining/seg665-1006.md), converted by the recipe
+     665 added to DESIGN.md. Placed: the 0.4.1 mini release, a Sonnet agent.
+     **Fixed 2026-10-06 (inbox670)**: `_place_branch` wraps several
+     top-level topics under a new central topic named after the template on a
+     map with no root (also a new map started from a map template), one
+     top-level topic is the centre; `dropplace.js` map half 0 to 0.2px, one
+     undo each. Font, Density, the Graph's Layout and the suggestions inbox
+     kinds are selects; the Attach picker's sources stay (DESIGN.md's picker
+     row pins them). `SEG_OF_FOUR_PLACED` holds that one entry. `seg670.js`,
+     `kg9inbox.js` at 1440 and 390. Left: `agent-remaining/inbox670-1006.md`.
+
+672. **The owner, 2026-10-06, verbatim**, with a screenshot of the lock card
+     (a bordered "Forgot your password?" button between the field and
+     Unlock): "make the forgot password like amodernised subtle but
+     accessible button in like the corner or a small hyperlink below the
+     unlock button or smth". Fixed 2026-10-06: a `.link-button` under
+     Unlock, small muted words that take the accent and an underline on
+     hover and focus, 32px tall (44px under a coarse pointer);
+     tests/test_forgot_password_ui.py pins the order and the class.
+673. **The owner, 2026-10-06, verbatim**, with a screenshot of a note card
+     whose text stopped about two thirds across: "can you make note content
+     like text extend a little more to the right??" Fixed 2026-10-06: the
+     card's measure 72ch to 84ch (both views); measured at 1920 with the
+     rail open, the text 674 to 787px of a 1087px card
+     (scratchpad/ui-sweeps/notewidth.js).
+674. **The owner, 2026-10-06, verbatim.** "when hovering over the
+     companion, I cant two finger scroll on the trackpad". Fixed 2026-10-06:
+     the companion is `position: fixed`, so its scroll chain ended at the
+     document; a wheel on it now goes to the element beneath (a board pans by
+     its own handler) and otherwise scrolls the nearest scroller under the
+     pointer (avatars.js). scratchpad/ui-sweeps/buddywheel.js: nothing moved
+     before, `#tab-main` 400px after a 400px wheel.
+
+684. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's current line washed as a full-width band: "I think the active
+     line highlighting is a little too strong??" Fixed 2026-10-06: the wash is
+     half the `--hover-veil` (0.045 white in dark, 0.035 ink in light), set
+     in documents.js `docCmTheme`; tests/test_line_gutter_look.py pins it.
+
+669. **The owner, 2026-10-06, verbatim.** "when I click atlas, it often
+     starts tilting to the left then just snaps back" / "in the enlarged view
+     panel". INBOX 600 eased a mood's loop back over 0.7s
+     (`nameMarkBuddyBlend`, atlas.js ~3527); a click still snaps. Next:
+     reproduce in the enlarged view, sample the figure's transforms per frame
+     after a click (the atlas600-still.js method), find what cuts the tilt
+     (a play class removed, a mood timer, a second click restarting it), and
+     hand back without a jump. With it, the owner, the same hour: "atlas's
+     arm movements are jerky and not smooth" (measure the arms' rotation per
+     frame through each move; no step over a few degrees a frame, no
+     keyframe that jumps). Placed: the 0.4.1 mini release, an Opus agent
+     when a slot frees.
+     **Fixed** (atlas669-1006). Causes, measured with `atlas669-clicks.js`:
+     the pacer resurrected an act's cancelled animations (`pause()` on an
+     idle animation restarts it), so a wave or a look replayed at 10Hz after
+     the act; the large view was paced at all; the rig's arms turned up to
+     27 degrees a frame; the arm keyframes began and ended at `rotate(0)`,
+     not the arm's rest; a poke's wiggle swung back 1.4 degrees a frame; a
+     rule-held lean (a facepalm) and a one-hand hang's pivot dropped in one
+     frame at the act's end; the face view's arm drift ran Atlas's rig every
+     frame. Large view, 20 clicks, per 60fps frame, before then after: the
+     companion's head 7.9deg/3.9px to 1.2deg/2.5px, its arms 12.1deg/4.5px
+     to 3.3deg/2.0px; every arm act and mood, the arm's own turn 15.0 to
+     3.3deg. Remaining: `agent-remaining/atlas669-1006.md`.
+
+676. **The owner, 2026-10-06, verbatim**, with two screenshots of the Notes
+     compact rows view (a collapsed row: chevron, title, a link snippet, the
+     category chip, tags and "1 week ago" sitting low, with the hover
+     buttons hanging half below the row's bottom edge; an expanded row: the
+     chevron now an up arrow in a bordered square button, the hover buttons
+     again low at the right with a stray circle after them): "hovering over
+     collapsed notes on the compact rows view the popup hover buttons arent
+     correctly positioned, the metadata isnt centred. when expanded the
+     dropdown arrow is different and bordered, it isnt clean, the arrow
+     should smoothly change, the dropdown and collapse should be a smooth
+     animation adn not sudden and janky." Placed: the 0.4.1 mini release, an
+     Opus agent. Fixed 2026-10-06: INBOX 505's card margin no longer reaches
+     a row (details centre 4.8px low, now 0); the chevron and the hover
+     cluster share one anchor, the first line's centre (cluster 32.8 to 62px
+     in a 49.6px row, now 7.4 to 36.6 in 44, open or closed); one ghost
+     chevron whose glyph turns; the toggle animates the row in place (one
+     frame 49.6 to 237.8px before, now no frame over 22% of the change,
+     reversible mid-way). `scratchpad/ui-sweeps/rows676.js`.
+678. **The owner, 2026-10-06, verbatim**, with two screenshots of one note
+     card, before and after "Show more" (the same four lines both times,
+     only the line spacing larger after): "this note has show more but it
+     doesnt have any text cut off, it just increases the spacing between the
+     rows". Two faults: "Show more" is offered for text that is not
+     clipped, and the clamped and expanded states set different line
+     heights. Placed: with 676, the rows agent (the same card code).
+     Fixed 2026-10-06: the fit is a ResizeObserver (`noteClampFit`), so a
+     card built hidden or in a later chunk is measured once laid out; the
+     clamped preview's own 1.3 leading is gone (19.1 to 22.8px a line
+     before, 22.8 both now). `scratchpad/ui-sweeps/rows678.js`.
+679. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "the popup buttons on notes disappear when pressing
+     the meatball button and opening the menu". The card's hover action
+     cluster hides while its own menu is open. Placed: with 676. Fixed
+     2026-10-06: `.entry-actions.menu-open` shows the strip (rows view: 0
+     on the escaped menu before, 1 now; 0 again once closed).
+     `scratchpad/ui-sweeps/rows679.js`.
+
+690. **The owner, 2026-10-06, verbatim.** "I highlighted a bunch of notes on
+     the graph and pressed link together but now I cant undo it :(" Fixed
+     2026-10-06: Link together pushes one undo for the links it made (by
+     id, so links already there are untouched), with Undo on its toast and
+     Ctrl+Z; a new Unlink on the graph's selection bar removes every link
+     between the selected notes, also undoable, which also takes back links
+     made before this fix (graph-canvas.js `gcUnlinkPairs`,
+     `gcRelinkPairs`; help_chat names both).
+
+675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Focused view: a full-width card holding "Evening, Brayden."
+     over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6
+     October" at the far right, the middle empty. "can you improve the
+     dashboard hero section on the focused view??" Placed: the 0.4.1 mini
+     release, an Opus design agent. **Fixed (hero675-1006):** two columns,
+     the date and time one small line over the greeting, New note under
+     it, and four glance tiles (due today, today's meetings, to file, the
+     last note) from reads the dashboard already makes; the widest empty
+     strip of the hero went from 60/72/78% at 1024/1440/1920 to 3/2/2%
+     (`scratchpad/ui-sweeps/hero675.js`, `tests/test_inbox_675_hero.py`).
+677. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Compact view: a "Quick access" label, then five equal,
+     bordered, full-height boxes (New note, Sketch, Ask AI, Remind me,
+     Meeting notes) stretched across the whole row, each icon and word
+     left-aligned in a mostly empty box. "the quick access looks wierd and
+     not refined in the compact view". Placed: with 675, the dashboard
+     hero agent (same surface). **Fixed (hero675-1006):** a Compact tile is
+     as wide as its words at a button's measure, one line beside its label;
+     icon and words fill 98% of a tile at 390 to 1920 (were 33 to 68% mean,
+     25% the emptiest), light and dark (`scratchpad/ui-sweeps/quick677.js`,
+     `tests/test_inbox_677_quick_access.py`).
+
+682. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Documents sidebar's "Documents | Outline" tabs (square-cornered boxes,
+     the chosen one bordered): "should these have rounded edges to stay
+     conistent??" Recommendation, taken: yes, the radius table's value for a
+     control of that size (DESIGN.md), the chosen state drawn the way every
+     other tab strip draws it.
+     **Fixed, 2026-10-06**: root cause, `#doc-sidebar-tabs` was also a `.seg`, so
+     the flat looks' choice-control fill, edge and 0 corner drew its chosen tab as a
+     bordered slab; the class is gone (a lint holds it) and every `.tabs-line` tab
+     takes `--radius-md` on its hover fill and focus ring.
+683. **The owner, 2026-10-06, verbatim**, with two screenshots of a
+     pill-shaped floating bar "Copy | ... | X" (square-cornered fill on the
+     hovered "..." and a square focus ring on the X, both inside the round
+     pill): "the square active goes out of the circular pill". Every control
+     inside a pill takes a radius that sits inside it (concentric: the
+     pill's radius minus its padding, or fully round), for hover, active and
+     focus alike. Placed with 682: the 0.4.1 mini release, a Sonnet agent
+     that also sweeps for other square states inside rounded containers.
+     **Fixed, 2026-10-06**: the bar is the table's `.code-actions`; its buttons
+     took `--radius-inner`, 0 below a 12px corner setting. New tokens
+     `--radius-in-pill`, `--radius-in-choice`, `--radius-in-md`, a DESIGN.md
+     section and a lint; the sweep fixed the board zoom pill, the timeline week
+     well and the graph zoom strip (agent-remaining/radius682-1006.md).
+
+695. **The owner, 2026-10-06, verbatim**, with a screenshot of a package
+     bundle's ⋯ menu in Settings: "I pressed "select its packages" but it
+     didn navigate scroll me to them". Fixed 2026-10-06: the action awaits
+     the redraw, centres the bundle's first package row, focuses its tick
+     and says how many it selected (settings-packages.js);
+     scratchpad/ui-sweeps/pkgselect695.js: the Documents row centred and
+     focused, ticked, no errors.
+
+703. **The owner, 2026-10-06, verbatim**, with screenshots of the Forgot
+     your password card (the "I have my recovery key | I don't have it"
+     switch with neither segment drawn chosen; the reset command box beside
+     a shorter Copy button): "there's no active default selection on the
+     forgot password pill. also these buttons arent the same height". Fixed
+     2026-10-06: the chosen path carries `.active` (what draws a `.seg`'s
+     chosen segment; only `aria-pressed` was set), from the markup and on
+     every switch; the command row stretches its two to one height.
+     scratchpad/ui-sweeps/forgot703.js: chosen fill present light and dark,
+     40/40px at 1440 and 60/60px at 390.
+
+704. **The owner, 2026-10-06, verbatim.** "you completely removed the audio
+     transcription feature by redesigning the meeting notes." The recorder
+     stayed (Tools and features, Ctrl+Shift+R, the meeting sheet) but its
+     Quick access tile became New meeting. Fixed 2026-10-06: New meeting has
+     "Start and record", which makes the meeting and opens the recorder
+     writing into its Notes; help_chat's meetings topic names it and the
+     shortcut. Not verified in a browser (usage).
+
+689. **The owner, 2026-10-06, verbatim**, with a screenshot of a document
+     with tracked changes: the "Accept this insertion / Reject this
+     insertion" menu and the spelling tooltip ("faque" is not in the
+     dictionary, its candidates, Add to dictionary, Ignore in this document)
+     open at once over the same word, overlapping: "these overlap a
+     little". Cause: the suggestion menu opens on mousedown
+     (documents-prose.js `docSuggestMenu`) while CodeMirror's lint tooltip
+     (`docSuggestAnswers`, documents.js) shows for the same word. Decision
+     taken: one surface: a press on a suggested change whose text also
+     carries a finding opens one menu, the change's Accept/Reject first,
+     then the finding's answers as their own group; the lint tooltip is
+     closed while any app menu is open. Placed: the 0.4.1 mini release, the
+     next free agent slot. **Fixed** (963144b, c97210f): `docSuggestMenu` lists
+     the finding's rows (`docFindingAnswerRows`, the one builder the popover
+     and the panel row also draw from) after the change's own, and
+     `docOpenSuggestFor` declines while a pointer menu is open; sweep
+     `scratchpad/ui-sweeps/suggest689.js`.
+
+686. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Notebook constellation: "can you add a smooth animation for
+     regenerating the notebook constelation??" Regenerate redraws in one
+     frame. Placed: an Opus agent, with 687. **Fixed** 2026-10-06
+     (motion686-1006): Regenerate retargets the live sketch (dashboard.js,
+     `artRetarget`, `p.regenerate`): stars paired by category and index
+     ease out over 800 ms on the glide's own clock (at most 25 ms a frame,
+     60 fps while it runs), new ones grow in, leftovers fade, the lines fade
+     out and back; a second Regenerate starts from the drawn positions.
+     Interface animations off and reduced motion: a 200 ms cross-fade. Save
+     PNG saves the settled sky. `constellation686.js`: largest step 0.071
+     and 0.094 of a star's journey (light, dark; bound 1/8), interrupted
+     0.094 and 0.081; before, the canvas was torn down, two frames blank,
+     and the sky swapped whole.
+687. **The owner, 2026-10-06, verbatim.** "does the companion or at least
+     atlas have a subtle breathing look??" Next: check what a resting
+     companion and Atlas do now (sample the figure per frame at rest); if
+     nothing breathes, add a slow, small breath (a few percent of scale on
+     the torso, about 4 to 5 s a cycle, never in the face's features),
+     under the avatar motion switch and reduced motion. Placed: with 686.
+     **Fixed** 2026-10-06 (motion686-1006). Measured first
+     (`breath687.js`, 10 s at rest): Atlas's breath swung the torso 0.6%
+     (0.1px on the companion, 0.2px in the large view) and the head as
+     much, so nothing breathed to the eye; the generated-face companion
+     already breathes 2 to 3% as a whole. Now the chest swells 3.5% wide
+     and 2.5% tall about the hips on the rise's clock (4.6s, her 4.0s, clear
+     of the idle clocks), written ten times a second from the tail's loop
+     (atlas-life.js, `atlasBreathFrame`): torso 0.7px on the companion and
+     1.5px in the large view, head unchanged, still under Avatar animation
+     Off, only the old slowed rise under reduced motion. 669's click sweep:
+     0 steps over its limits in all four cases.
+
+688. **The owner, 2026-10-06, verbatim.** "is there a way to do very good
+     imitations of ai responses but using string concatenation with the app
+     when the ai isnt available with the option to toggle between them in
+     the ask subtab?? it needs to be VERY refined and well worded and
+     designed and use some world class shenanigans to make it work, nice
+     and understandable to read, well structured and more." What exists:
+     `ai/extractive.py` (INBOX 269), the best passage per note, cited, never
+     an invented claim. Decision taken: a composed answer built on it, never
+     breaking its rule (every factual clause is the person's own words or a
+     count the app measured; only connective wording comes from templates),
+     shaped by the kind of question (what/when/who/how many/list/compare/
+     why/how), with a lead sentence, grouped points, dates and numbers
+     pulled out, agreements and contradictions between notes named, and a
+     one-line "what your notes do not say"; a toggle in Ask between "AI"
+     and "From your notes" (the latter always available, the default with
+     no model). Placed: the 0.4.1 mini release, an Opus agent when a slot
+     frees (brief: session scratchpad brief-composer-688.md).
+     **Fixed** 2026-10-06 (composer688-1006): `ai/composer.py`, every part of
+     an answer a quote, a measured value or a fixed phrase (held by a
+     traceability test); Ask's AI / From your notes switch (lazy
+     ask-compose.js), the answer whenever no model runs; the ten questions
+     before and after in docs/roadmap/agent-remaining/composer688-1006.md.
+
+680. **The owner, 2026-10-06, verbatim.** "should the settings sidebar
+     scroll a little to show the quick access in page sections if scrolling
+     on that settings page??" Recommendation, taken: yes; as a Settings page
+     scrolls, the sidebar keeps the current in-page section's link in view
+     (scrolled to nearest, smoothly under the motion switch, never stealing
+     focus). Placed: the 0.4.1 mini release, a Sonnet agent.
+     **Fixed (dcf6a66): the Settings sidebar follows the page.**
+681. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "not all dropdown elements close when pressing that
+     element again". Every menu, dropdown and popover trigger toggles: a
+     second press on the control that opened it closes it. Next: inventory
+     every trigger (kebabMenu, the action menus, custom selects, popovers,
+     split buttons) and press each twice. Placed: with 680.
+     **Fixed: every menu trigger toggles; inventory in agent-remaining/toggles681-1006.md.**
+697. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's "Help and About" group heading above its "Help" row: "I was
+     clicking on the header thinking it was the help page until i realised
+     it was the header". Group headings read as rows. Decision taken: a
+     heading is drawn as a quiet small label (the DESIGN.md section label,
+     not a row's size and weight, no hover), and a press on one opens its
+     group's first page so the click is never dead. Placed: with 680, the
+     Settings sidebar agent.
+     **Fixed: a group heading is a quiet label and opens its first page.**
+698. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's Help page expanded into its thirteen in-page sections, pushing
+     the next pages far down: "these sub tabs on the settings sidebar are
+     good but annoying when I am trying to flick through multiple settings
+     pages". Decision taken: the page list stays one compact list; the
+     current page's sections show as a short "On this page" block that does
+     not push the other pages down (collapsed to the current section with a
+     toggle to show all, remembered), and the arrow keys and a click move
+     page to page without opening sections. Placed: with 680/697, the
+     Settings sidebar agent.
+     **Fixed: the open page's sections are one short block with a remembered toggle.**
+
+711. **The owner, 2026-10-06, verbatim**, with a screenshot of "Leave
+     without saving?" over the Documents list: "I already clicked that
+     button by switching tabs and it appeared again when I tried to go onto
+     the documents?? (I was on a note edit form and tried to switch to the
+     library and go to documents)". Leave confirmed once must settle the
+     edit form (closed, its words kept as the recoverable draft) so the next
+     move does not ask again. Fixed 2026-10-06: a tab switch no longer asks
+     about an open note form (it stays open in Notes with its words kept,
+     and a reload offers them back); a document with edits in hand is saved
+     first and asked about only if that save fails (navigation.js
+     `confirmLeavingUnsavedWork`; tests/test_unsaved_work_guard.py).
+
+685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Regenerate button's focus ring cut off along its left edge: "a lot of
+     borders get cut off on an edge." Focus rings and borders clipped by an
+     ancestor's `overflow`. Next: sweep every focusable control on every
+     surface for a ring outside its nearest clipping ancestor, and fix by
+     room (padding or an inset ring), never by hiding the ring. Placed: the
+     0.4.1 mini release, a Sonnet agent. Fixed 2026-10-06: the sweep
+     (`scratchpad/ui-sweeps/clip685.js`) found 59 clipped rings at 1440 and
+     61 at 390, now 0 and 0, by container in 08-consistency.css "Ring room"
+     (room or an inset ring, `--ring-room`, `tests/test_ring_room.py`). Also
+     fixed with it: the cut pill bottoms (694's first part), the "g" of
+     "Categories" and "Skill logs" (a line box of 1 under `overflow: hidden`),
+     the phone tab captions' descenders, the New meeting sheet's fields.
+
+705. **The owner, 2026-10-06, verbatim**, more for the next pass: the
+     composer formatting toolbar still meets its border at the right ("still
+     the offending formatting bar edges on the border"); a "go to bin" button
+     on the "Moved to the bin." notice; the title bar's app icon and the
+     header's logo clash ("these seem like the clash a bit... but idk");
+     Atlas and the companions "get annoyed every time I tap them multiple
+     times, can they alternate how they respond a little more??". Placed:
+     the next session (usage).
+707. **The owner, 2026-10-06, verbatim.** "when loading the app after login,
+     the companion just appears with no animation". Placed: with 705, the
+     polish agent: an entrance (a short emerge or drop-in to its perch, under
+     the avatar motion switch and reduced motion), once per unlock.
+
+691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
+     through links and tags without the ai?? like removing tags that dont
+     have a custom reason (reasons other than "similar in meaning") and that
+     have a low conficence score, maybe could be added in the notes tab??
+     like manual or automated ways to manage notes and other things
+     systemnatically and programatically nearly up to par with the ai but as
+     an option if the ai isnt available or as an alternative. needs to also
+     be known to the user, no use having them if the user doesnt know about
+     them. I feel like there are a lot of features hidden". Then: "also so
+     many notes get the reason "similar in meaning". the notes adn
+     management of things around them needs to be more dynamic and better.
+     world class". Placed: the 0.4.1 mini release, an Opus agent (audit,
+     then a Tidy surface in Notes, specific link reasons, discoverability).
+     **Fixed** 2026-10-06 (tidy691-1006): link reasons name what two notes
+     share (38 of 48 generic ones on the showcase notebook; 10 of 89 left
+     generic after the background pass), and Tidy, the broom in the Notes
+     dock with its count, holds nine rule-based reviews with apply, one
+     Undo and an optional automatic run; palette, Tools and features, the
+     Guide. See agent-remaining/tidy691-1006.md.
+709. **The owner, 2026-10-06, verbatim**, with a screenshot of a note's
+     "suggested links" row (each suggestion's text, then a separate "+"
+     button floating after it): "these plus buttons feel too separate from
+     their notes". Decision taken: each suggestion is one chip holding its
+     text and its add control (the + inside the chip's end, the whole chip
+     the hover target, its accessible name "Link to <title>"). Placed: with
+     691, the Tidy and links agent.
+     **Fixed** 2026-10-06 (tidy691-1006): one chip per suggestion, the +
+     inside its end, the chip the press, named "Link to <first line>"
+     (`relchip709.js`: 3 of 3 rows, a press links).
+
+708. **The owner, 2026-10-06, verbatim**, with screenshots of the Meeting
+     notes recorder: "the stop and resume on the audio transcribe doesnt
+     work" (paused at 0:05, Stop and Resume shown, "Paused."), then the
+     recorder after Stop reading "Transcribed: review it below before
+     saving." over an empty transcript, and: "also these panels feel badly
+     designed and neglected". Next: reproduce with Chromium's fake
+     microphone (--use-fake-device-for-media-stream), fix Stop and Resume
+     from the paused state (and an empty transcript must say so, not
+     "Transcribed"), then redesign the recorder panel by DESIGN.md: one clear
+     state at a time (ready, recording with level and time, paused,
+     transcribing with progress, review), the transcript sized to its
+     content, actions grouped with one primary. Placed: the next free Opus
+     slot.
+
+710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
+     checkbox in a note's editor (a large outlined box after a bullet) and in
+     the document editor (a smaller filled grey box after a bullet): "the
+     rendering of the selection tick boxes is different on the notes to the
+     document editor". One task-checkbox look for both editors (and no
+     bullet beside a task box), from one shared rule. Placed: the next free
+     Sonnet slot.
+
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+
+699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
+     package's row ("needle's own tools send usage data by default;
+     MemoryMap uses only its engine, which has no network code, and
+     switches that setting off anyway"): "is it possible to remove the part
+     of needle which sends usage data??" / "or even vendor it??" What is
+     true today (ai/needle_provider.py): the app loads only needle's native
+     engine with ctypes; the Python package and the command-line tool, which
+     carry the usage-data client, are never installed; the Linux engine was
+     read and imports no socket, connect, send or getenv. Decision taken:
+     not vendored (a 36 MB native engine plus weights per platform does not
+     belong in the repository, and the source build is not ours to
+     maintain); instead the download is pinned by SHA-256 per platform and,
+     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
+     and an engine that imports any network call is refused with a plain
+     message; the row's copy says this in one line. Placed: the next free
+     Sonnet slot.
+
+701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
+     shortcut, should they be added to the tooltips??" Recommendation,
+     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
+     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
+     changed binding changes its tooltip, with a lint that every bound
+     shortcut with a button has it in that button's title. Placed: the next
+     free Sonnet slot.
+
+702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
+     Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
+     filled square) and the Chats sidebar (hovered row: a neutral grey fill,
+     a plain ⋯): "the hover and button styles on the notes sidebar is
+     different from the others. is that intentional??" Not intentional.
+     Decision taken: one sidebar row recipe for every rail (Notes, Chats,
+     Library, Documents, Timeline, Settings): the same hover fill, the same
+     current-row fill (the current row may carry the accent, hover never
+     does), and the row's ⋯ as a plain ghost icon that fills only on its own
+     hover, inside the row's radius; a lint holds the rails to it. Placed:
+     the next free Sonnet slot.
+
+706. **The owner, 2026-10-06, verbatim.** "also idk about ui or ux proper
+     usage of icons but can you make sure that the common and professional
+     ways to use icons and what icons are used where is correct?? like we
+     have been using majority of meatball icons but I think meatball,
+     kebab, bento box icons and more etc are better for use in various
+     situations and uses". Decision taken (platform conventions): ⋯
+     (meatball, horizontal) for an item's overflow in a horizontal row or
+     card; ⋮ (kebab, vertical) for overflow at the end of a vertical list
+     row or a narrow column/app bar; ⊞ (bento/grid) only for switching
+     between apps or spaces; ☰ (hamburger) only for opening navigation. A
+     DESIGN.md row and a lint pin which goes where; then an icon audit for
+     other misuse (the same glyph meaning two things, two glyphs for one).
+     Placed: a Sonnet agent with 699, 701, 702.
+
+692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
+     stretched force layout: "can you add a resuffle button or feature to
+     the graph to rearrange how the graph sits on the main force view??"
+     The graph has Unpin all and no re-layout. Placed: with 693, the next
+     free agent slot.
+693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
+     where a link passes behind other notes' dots: "bit of overlap". Links
+     drawn through nodes they do not connect, and nodes close enough to
+     touch. Placed: with 692. And, the same hour, with a screenshot of the
+     force view: "is there a way to get the graph to sit in ways that are
+     more visually appealing and understandable and profesional and
+     stylisitc and modern and intentional and impressive and meaningful??"
+     692 and 693 are one Opus design pass on the force layout: clusters by
+     category with clear space between them, hubs central, labels never
+     over dots or lines, links routed round nodes they do not join, a
+     Reshuffle (new seed, animated) and a fit to view.
+     **Built** (graph692, `7fcfb21`), with the owner's second pass (compact
+     round clusters, even gutters, cross lines short, straight and muted,
+     orphans tidy, hubs-only names, the canvas's shape). Measured on the
+     showcase notebook at 1440x900 (`scratchpad/ui-sweeps/graph692.js`,
+     light and dark identical), before / after: link through an unrelated
+     dot 8 / 0; name on a dot 3 / 0; name on a line 5 / 2 (hub names on
+     their plates); dot overlap 0 / 0, label overlap 0 / 0; spacing CV
+     0.48 / 0.37; category purity 0.82 / 0.94; hub distance from its
+     cluster's middle 1.03 / 0.69 of the mean radius; box aspect over the
+     canvas's 0.67 / 0.84; fit zoom 0.75 / 0.93; names drawn 23 / 10. Mean
+     cross-category line 128 / 196 world units (crossMax 210 / 616): the
+     clusters now stand apart and a bridge goes home, so this one rose; the
+     lines are straight, thin and muted instead. A layout lane or box kept
+     clear for a hub's name was tried twice and rejected (it streaked the
+     clusters). Reshuffle: 70 of 75 notes move, fit 1.0, aspect 1.06.
+     Not verified: maps past 600 notes, portrait, and the owner's eye.
+     Addendum, the owner, 2026-10-06, verbatim: "make sure that while the graph is impressive, it is alse very easy to understand and read, with minimised overlap and wierd spacing, everything has to have meaning and be intentional, not just for the looks. combine looks with systematic function"
+     Addendum, the owner, 2026-10-06, verbatim, with two graph screenshots (a wide flat layout with long hub arcs and stacked labels, rejected; the earlier clustered layout with wandering cross-cluster links): "see i dont want this. and it still looks messy. it needs to be clean, modern and profesisonal and stylistic"
+     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
+     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
+     Addendum, the owner, 2026-10-06, verbatim, with a dense dark-theme Travel cluster: "stuff like this can get potentially hard to read..."; then, with their own notebook on the current organic layout: "like this is what i have rn and maybe it or a slightly refined version can be an option??"
+     The addenda above were built in the same pass: Shape (Organic, the
+     base layout refined and the default; Clusters; Galaxy; Rings built and
+     left out), two-way links, line styles on three channels with a key,
+     leaves fanned round their hub, a radius of room round every note and
+     names kept inside the canvas.
+696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
+     package bundles and the buttons disabled and it just stayed as the 2/3
+     packages I had installed until it just suddenly updated, there was no
+     progress indicator or anything. does verything show in the background
+     tasks?? also the running background task stuff dont have progress bars
+     or indicators, they are just flat rows". Next: a bundle install shows
+     per-package progress in its row (queued, installing with a determinate
+     or indeterminate bar, done), every long job appears in Background
+     tasks, and a running task row carries a progress bar (determinate when
+     the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
+     release, an Opus agent when a slot frees.
+     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
+     Addendum, the owner, 2026-10-06, verbatim, with a dense dark-theme Travel cluster: "stuff like this can get potentially hard to read..."; then, with their own notebook on the current organic layout: "like this is what i have rn and maybe it or a slightly refined version can be an option??"
+700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
+     model options as alternatives in the models??" / "research the best
+     ones available today". Research, 2026-10-06 (sources in the session
+     report): small and CPU-friendly: all-MiniLM-L6-v2 (22M, fastest),
+     BAAI/bge-small-en-v1.5 (today's default), nomic-embed-text v1.5 (137M,
+     8k context), EmbeddingGemma 300M (2k context; Gemma terms, not
+     Apache), Qwen3-Embedding-0.6B (Apache-2.0, about 70.7 MTEB-eng-v2,
+     about 1.2 GB), BGE-M3 (568M, multilingual, MIT), multilingual-e5-small;
+     through Ollama also mxbai-embed-large, snowflake-arctic-embed2,
+     granite-embedding and qwen3-embedding 0.6b/4b/8b. Decision taken: a
+     curated list in Models with size, languages, context, licence and a
+     one-line "best for", the current default kept; changing the model
+     re-embeds in the background (durable job, progress shown, search keeps
+     working on the old vectors until the new set is complete); only
+     licences that allow it are offered as one-press installs, others link
+     to their terms. Placed: the next free agent slot.
+     Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
+     Addendum, the owner, 2026-10-06, verbatim: "I feel like there should be the options to modify, install, uninstall, reinstall embedded models etc. also maybe a way to type a model name into a text box near the suggested model section and then pull in a model that is typed in the box if it exists?? like from ollama or huggingface."
+713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
+     processes like the night shift and stuff, is it possible to manually
+     run them as well as manually stop or cancel them when they are
+     running??" Decision taken: every scheduled pass (the night shift and
+     the other maintenance passes) is listed in Background tasks with its
+     schedule and last run, a "Run now" on each, and a running job's row
+     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
+     next step. Placed: with 696, the progress agent.
+     Built (696, 700, 713), 2026-10-06: see CHANGELOG, Unreleased; commits c49736e, 636bfe0, fd68ea1, e643112.
+
+714. **The owner, 2026-10-06, verbatim**, with two screenshots of Ask answers
+     (the mini Atlas avatar beside the "Atlas" name, then a tall gap before
+     the answer text): "the mini atlas avatar on causes a rather wide gap
+     below". Then, with the Ask header's "AI | From your notes" segmented
+     pill: "also that ai/from your notes toggle looks out of place and i dont
+     like it, it doesnt feel modern and professional". Placed: Sonnet agent.
+
+716. **The owner, 2026-10-06, verbatim**, three mind map bugs with screenshots.
+     (1) "I double clicked to reset the sizing on a mindmap node and the link
+     didnt update" (the branch line still ends at the old, larger box).
+     (2) "then I moved the reset node and it went back to my manually upscaled
+     size". (3) With the View menu open over a selected node: "mindmap node
+     popup tools go in front of dropdown menus" (the node's floating format
+     bar, colour, 17px, Text, Shape, Branch line, draws over the menu).
+     The owner's server log at the time: "ERROR: browser: [HTTP 422] PUT /whiteboard/objects/57: Check the height and try again." then "WARN: browser: [Whiteboard] object 57 is stale: reloading the board".
+     Placed: Sonnet agent.
+     Fixed 2026-10-06: (1) and (2) were one fault: the grip's double-click reset
+     sent height null, the object schema refuses it (422), `wbSaveObject` took
+     that for a stale board and reloaded the manual size. The reset now stores
+     the height the text needs, redraws the line at once and pushes an Undo
+     step (`wbFitToText`). (3) The top bar (z 20, a stacking context) holds the
+     menus, the topic's bar is a sibling at 22; the top bar lifts to 24 while
+     a menu is open. Sweeps: `mapreset716.js`, `mapstripmenu716.js`.
+
+718. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tidy
+     review's "Apply automatically" switch (an outlined track with a grey knob,
+     drawn thinner than the app's other switches, inside a filled chip): "this
+     button toggle seems overly thin". Placed: Sonnet agent with 716.
+     Addenda, the owner, 2026-10-06, verbatim, on the Tidy dialog: "no vertical
+     spacing between elements,also what is naming???" (Recent runs touching the
+     row above and the Undo row below; the "Name 1" and "Name all in the
+     background" buttons). "is it possible to see all issues identified??" (the
+     review picker is a dropdown of nine). "this popup coveres the ? button and
+     is massive and takes up a lot of room" (the Tidy help popover, a long
+     scrolling essay over its own trigger).
+     Built (718), 2026-10-06: see CHANGELOG, Unreleased; sweep
+     `scratchpad/ui-sweeps/tidy718.js`.
+715. **The owner, 2026-10-06, verbatim**, with screenshots of the New board
+     dialog (the "Name" label touching the field's focus ring; the Board |
+     Mind map pill under the title; Mind map offering only "Blank"): "name
+     text clashes with border. also the pill at the top is ugly and I want it
+     to be redesigned to be like the other popups. also there are no mindmap
+     templates to choose from". Then, with the SWOT, retro and To do / Doing /
+     Done board templates (dashed boxes, titles of three different sizes
+     sitting on the dashed border): "some of the templates are poorly
+     designed and the templates need massive improving and expanding". Then,
+     with the template preview's description text flush to its box's top
+     left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
+     Then, of the map's "Start from a shape" bar and the icon picker's Emoji |
+     Icons: "redesign this popup. and change the pill for the emoji popup as
+     well. i dont like pills like that in popups"; of the Library's map
+     tiles: "these all look the same".
+     **Fixed 661ac13, 57cf398, b9beaaa.** Measured (`scratchpad/ui-sweeps/board715.js`,
+     1440 and 390, light and dark, 86 checks each): the Name word clears the
+     field's ring by 6.4px (`--space-2`); the kind is a `.tabs-line` (no
+     `.seg`); the preview's caption on `--space-3`; 17 board templates (12
+     new), every title one size inside its panel, no dashed edge; 15 map
+     templates (8 new), no two pictures alike in the picker, the Library or
+     the new map's offer, which is one row of picture tiles at 390 with every
+     tile pressable; the icon picker's and the Guide's kind switches are tab
+     strips. DESIGN.md "A popup that chooses a kind", lint
+     `test_a_popup_chooses_a_kind_with_a_tab_strip`. The pickers' source
+     pills are left in `agent-remaining/board715-1006.md`.
+
+720. **The owner, 2026-10-06, verbatim**, with the Ask history's pin and bin
+     buttons and the Agent activity panel captioning a pasted image: "these
+     buttons in the ask history panel are circles, shouldnt they be rounded
+     squares to stay consistent?? also I accidentally pressed ctrl v randomly on
+     the app when on the ask tab and it started captioning the image, I didnt
+     want to add the image, I should only be able to upload images where it is
+     intended". Fixed: `wbCommandsLive` (whiteboard-commands.js) now needs the
+     canvas rendered, so a board left open in the Library no longer takes a
+     paste on another tab; `.icon-btn` is `--radius-md`. tests/test_stray_paste_720.py.
+
+724. **The owner, 2026-10-06, verbatim**, with four screenshots of an Ask answer
+     in "Your notes, no AI": "it said the closest match is my gary sketch, even
+     though it is the 3rd match. i think it is because it has the most amount of
+     links or connections but idk". Then, of the notice above it ("Only 1 of 4
+     sentences here comes from your notes. The rest is the model's own writing"):
+     "also this message needs to be altered as a model wasnt used". Fixed: the
+     lead is the sentence that says most about the question (BM25 over
+     sentences), not the first result, so "The closest match" is now said only
+     of the first result (`composer._lead`); a composed or extractive answer's
+     support carries `by_model: False` and the notice says the rest is the
+     app's joining words or picture readings (capture-ask.js).
+717. **The owner, 2026-10-06, verbatim**, with screenshots of the OCR
+     workspace toolbar (Regions switch, Fit, 100%, zoom, One page | Scroll,
+     engine select, Read this page again, a bare "all" field, Read pages, then
+     a second row: "Tesseract 5.5.3 is ready", Reads in [Default], Manage):
+     "these arent aligned. and can you redesign the ocr worspace controls to be
+     more modern, professional, learnable, accessible, usable and better ui/ux??
+     they also go onto two rows. the whole ocr workspace is just a bit iffy to
+     use and interact with". Then, after pressing the workspace's comment
+     button (the page's text landed in the chat composer under a "No model is
+     connected" banner and a skill offer): "I pressed the comment button on the
+     ocr workspace and idk what just happened". Placed: Opus agent.
+
+719. **The owner, 2026-10-06, verbatim**, with a screenshot of Notes in
+     compact rows (every row's metadata ends about 200px short of the row's
+     right edge): "blank space on right of compact rows view and when hovering
+     over the rows, the cursor is the text type cursor, not pointer". Then, with
+     the card view (the date sits at a different height on each card, pushed
+     down under the hover actions on one): "the last created or edited date
+     changes position each note, I think it should be consistent in the corner
+     or smth". Placed: Sonnet agent.
+
+723. **The owner, 2026-10-06, verbatim**: "make sure all the icons for the ai
+     are consistent. also can you use a better icon for the agent?? i dont like
+     the robot". Measured: ph:sparkle 33 uses, ph:magic-wand 35, ph:robot 9,
+     ph:brain 5, ph:star-four 1, ph:asterisk 1. Placed: Opus agent.
+     Fixed 2026-10-06: one glyph per meaning (DESIGN.md, "AI and agent
+     icons"): `ph-sparkle` is the AI doing a thing for you, now also Chat's
+     Ask mode, every "with AI" label and the Use AI switch; the agent is
+     `ph-strategy` (a play drawn up, then made) in place of the robot, in
+     the 16 places `AGENT_ICON_PLACES` lists; the wand only tidies or fixes
+     by rule (3 places), the brain only remembers (4); the four-pointed star
+     and the robot are gone. Lint: `tests/test_icon_conventions.py`.
+
+726. **The owner, 2026-10-06, verbatim**, with the graph's settings popover
+     (View: Layout, Shape, Colour, Size selects pushed to the far right, Trace,
+     Hide legend, Physics, Show): "the graph settings popup feels unceccessarily
+     wide and the text has barely any right margin". Also, verbatim, of the Chat
+     tab's sidebar: "there's quite a big gap on the right side of the chat
+     sidebar chat items" (placed with 722).
+     Then, verbatim: "I can see atlas on the edges when on the full screen graph"
+     (the companion peeking out round the full-screen graph's edge, bottom
+     right). "no vertical gap" (the Library boards filter row, All | Maps |
+     Boards, touching the cards below). "random top border on link related
+     notes??" (Settings, the autonomous pass's "What it does while running":
+     a rule drawn above the second switch only).
+
+722. **The owner, 2026-10-06, verbatim**, with screenshots of the Library's
+     Everything tab in its lines view (each row starts about 110px in, an empty
+     square box beside the hovered row's ⋯, and every row's ⋯ drawn as a filled,
+     outlined square): "theres a wierd gap at the start of the library all tab
+     lines view cards". Then: "also meatball buttons have a visible outline, is
+     that consistent with the rest of the app?? i dont think it is...".
+     Placed: Sonnet agent.
+
+732. **The owner, 2026-10-06, verbatim**, with the Chat and Ask "No model is connected"
+     banners: "also I want a way to temporarily hide these no ai popups, they can
+     appear again when the user starts a new app session." "like an x close button
+     or smth". Placed: Sonnet agent.
+733. **The owner, 2026-10-06, verbatim**, with the Library's New menu (Whiteboard,
+     Mind map): "I pressed whiteboard but it selected mindmap. also when making a
+     new one from the library page, when I click the new button options it opens one
+     of my whiteboards or mindmaps in the background rather than staying on the page
+     I opened the create new board/mindmap panel from". Then, with an empty map card
+     still showing: "i deleted this empty map but itdidnt dissapear??" Placed: Sonnet
+     agent.
+

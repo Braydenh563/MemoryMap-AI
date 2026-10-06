@@ -105,6 +105,23 @@
   --note-preview-lines: 5;
 }
 
+/* Settings, Appearance, Font (INBOX 670): the list's rows are each set in
+   their own face, so the choice is seen before it is made (the row class comes
+   from `data-menu-class` on the option, sheets-selects.js). The
+   stacks are 00-tokens-shell.css's `:root[data-font]` values; System has no
+   rule, it is the page's own. */
+.select-option.select-face-serif {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+}
+
+.select-option.select-face-mono {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+.select-option.select-face-arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
    scroll (user request). It sits just below the sticky top bar; a long
@@ -201,7 +218,7 @@
 
 @media (hover: hover) {
   #sidebar li:hover {
-    background: var(--accent-soft);
+    background: var(--row-hover-bg);
   }
 }
 
@@ -509,7 +526,10 @@ button:active:not(:disabled),
 
 button:disabled {
   opacity: 0.5;
-  cursor: wait;
+  /* Not `wait` (the owner, 2026-10-06: "whenever I hover over a disabled
+     element, my cursor changes to a loading ring spinner"): disabled is not
+     busy. A control that is working says so itself. */
+  cursor: default;
 }
 
 /* Reported: "control elements and buttons feel more like just shapes with
@@ -1317,6 +1337,13 @@ progress {
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
+/* A composed answer (INBOX 688): its blockquote is the answer itself, the
+   note's own words under the line naming the note, so it reads in ink, not
+   in the muted grey a quote inside a written answer takes. */
+.answer.answer-composed blockquote {
+  color: var(--ink);
+}
+
 .answer hr,
 .bubble-answer hr,
 .dash-body hr {
@@ -1702,7 +1729,7 @@ progress {
   display: block;
   overflow: visible;
   margin: 0 0 var(--space-2);
-  max-width: 72ch;
+  max-width: 84ch; /* the card view's measure (INBOX 673) */
   color: var(--ink);
 }
 
@@ -1765,12 +1792,14 @@ progress {
   transform: none;
 }
 
-/* Readable measure, in card view too. 72ch is inside the 65-75 the rule
-   asks for; `ch` rather than px so it tracks the user's own font-size
-   setting instead of fixing the line length in pixels and drifting off the
-   rule the moment anyone changes it. */
+/* Readable measure, in card view too. `ch` rather than px so it tracks the
+   user's own font-size setting instead of fixing the line length in pixels.
+   84ch since 2026-10-06 (INBOX 673, the owner: "can you make note content
+   like text extend a little more to the right??"): 72ch, inside the 65-75 a
+   long read wants, left a third of a wide card empty beside a short note,
+   and a card is a glance more than a long read. */
 .entry-list:not(.is-rows) .entry-content {
-  max-width: 72ch;
+  max-width: 84ch;
 }
 
 /* The AI Skills panel's own log rows (`renderSkillLogs`, library.js): 
@@ -2173,6 +2202,30 @@ button:not(.ghost) > .spinner {
   text-align: center;
 }
 
+/* The lock field's own show-password toggle: the browser's reveal vanished
+   after a blur and sat on one side (tests/test_lock_reveal.py). */
+.lock-password-wrap {
+  position: relative;
+  margin-block: var(--space-3);
+}
+
+.lock-password-wrap input {
+  width: 100%;
+  margin: 0;
+  padding-inline: calc(var(--control-h) + var(--space-2));
+}
+
+
+.lock-password-wrap input::-ms-reveal {
+  display: none;
+}
+
+.lock-password-show {
+  position: absolute;
+  inset: 0 var(--space-1) 0 auto;
+  margin: auto 0;
+}
+
 /* The same card asking for the password for one action (app.js
    `askPasswordPrompt`: unlocking private notes, turning sign-in off). It can
    be asked from inside Settings, a modal at 1010, so it sits above the
@@ -2186,6 +2239,42 @@ button:not(.ghost) > .spinner {
   width: 100%;
   justify-content: center;
   margin-top: var(--space-2);
+}
+
+/* "Forgot your password?" (INBOX 663) as a quiet link under Unlock (the
+   owner: "subtle but accessible ... a small hyperlink below the unlock
+   button"): small muted words, underlined on hover and focus, in a box as
+   tall as a touch target needs. Its card is styled in recovery-lazy.css,
+   loaded when it is pressed. */
+.lock-card .lock-forgot {
+  display: block;
+  min-height: 32px;
+  margin: var(--space-2) auto 0;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.lock-card .lock-forgot:is(:hover, :focus-visible) {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
+@media (pointer: coarse) {
+  .lock-card .lock-forgot {
+    min-height: 44px;
+  }
+}
+
+/* On the unlock only: setup has nothing to forget, and a prompt for one
+   action has "Not now". The card, while open, takes the lock card's place
+   (account-recovery.js opens and closes it), and never shows in another
+   mode. CSS rather than script: app.js is at its gzip ratchet. */
+#lock-overlay:not([data-mode="unlock"]) :is(#lock-forgot, #lock-forgot-card),
+#lock-overlay:has(#lock-forgot-card:not(.hidden)) #lock-card {
+  display: none;
 }
 
 /* The setup note (index.html, `#lock-setup-note`): the length rule, what the
@@ -2991,6 +3080,39 @@ li.link-source {
   align-items: center;
 }
 
+/* **Use AI** (INBOX 714): one compact switch row in the header's control group,
+   on the app's pill-switch recipe (06-timeline-dialogs.css lists
+   `.ask-use-ai input` with the others). It replaced a two-segment pill that
+   "doesnt feel modern and professional". One control high (`--control-h`) and
+   centred on the header line like the History button and the model select
+   beside it; the input is the switch and is not clipped. Greyed with a reason
+   when no model runs (ask-compose.js). */
+.ask-use-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* The touch floor is `--target-min` (44px below 820), the height History and
+     the '?' take there; on a desktop `--control-h` wins. */
+  min-height: max(var(--control-h), var(--target-min));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ask-use-ai.is-off {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* The AI's mark beside its word (INBOX 723, DESIGN.md "AI and agent icons"):
+   the sparkle every AI control wears, sat close to "Use AI" rather than a
+   gap's width away, so the switch reads as switch, then label. */
+.ask-use-ai .ask-use-ai-mark {
+  margin-inline-end: calc(var(--space-1) - var(--space-2));
+}
+
 #ask-history-toggle {
   position: relative;
 }
@@ -3101,7 +3223,9 @@ li.link-source {
   background: none;
   border: none;
   box-shadow: none;
-  border-radius: var(--radius-pill);
+  /* A rounded square like every other quiet icon button (the owner,
+     2026-10-06: "these buttons in the ask history panel are circles"). */
+  border-radius: var(--radius-md);
   color: var(--muted);
   cursor: pointer;
 }
@@ -3429,6 +3553,16 @@ mark.global-find-hit.global-find-current {
   margin: 0;
 }
 
+/* **A confirm sits above whatever asked it** (INBOX 721, the owner: "i
+   pressed delete for an image on the lightbox and the popup appeared behind
+   it"). A confirm is opened from any surface, including the lightbox
+   (`.lightbox`, z-index 1020, 02-chat-graph.css) and the full-screen graph
+   (1000), and the shared `.modal-overlay` (1010) sat under the first of
+   them. It is the last word on the screen, so it takes the top of the scale. */
+.modal-overlay.confirm-overlay {
+  z-index: 1040;
+}
+
 .modal-card {
   width: min(880px, 96vw);
   max-height: 88vh;
@@ -3550,7 +3684,7 @@ mark.global-find-hit.global-find-current {
 }
 
 .modal-nav button:hover {
-  background: var(--accent-soft);
+  background: var(--row-hover-bg);
 }
 
 .modal-nav button.active {
@@ -4878,29 +5012,28 @@ html.modal-open body {
 }
 
 
-/* Each related note and its Link button on one line. The panel was a plain
-   run of chips; adding an action per row means the pairing has to be
-   explicit or the buttons drift away from the notes they belong to. */
+/* A suggested link: one chip holding the note and, at its end, the + that
+   says pressing it links (INBOX 709: "these plus buttons feel too separate
+   from their notes"). The whole chip is the hover and the press. */
 .entry-related-row {
   display: inline-flex;
-  /* One height for the note and its Link button (owner, 0.3.32: "the
-     suggested links arent the same height as the link buttons"): the chip
-     was its text's height beside a full control. */
-  align-items: stretch;
-  gap: var(--space-1);
   margin-right: var(--space-2);
 }
-.entry-related-row > .chip,
-.entry-related-row > button {
+
+.entry-related-row > .chip {
   display: inline-flex;
   align-items: center;
   margin-block: 0;
 }
-.entry-related-row > .chip {
-  align-self: stretch;
-  height: auto;
-  min-height: 0;
-  max-height: none;
+
+.entry-related-add {
+  margin-left: var(--space-2);
+  color: var(--accent-text);
+}
+
+.entry-related-chip[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 

@@ -37,10 +37,13 @@ const WB_SIDE_KEY = "wb-sidebar";
 const WB_ICON_PAGE = 120;
 //: The group folds the person opened or closed, by key.
 const wbLibFolds = new Map();
-//: The entry a tile drag carries, for the canvas's drop.
-
 //: The library and sidebar's state, one name in the shared scope.
-const wbLibState = { lib: null, libIcons: null, libIconShown: WB_ICON_PAGE, libPlaceFan: 0, libPlaceFanAt: 0, libDragging: null, layersDrag: null, pagesDrag: null, sideRefreshTimer: 0 };
+//: `libDragging` is the entry a tile drag carries, for the canvas's drop, and
+//: `libGrab` where in its picture the tile was held (INBOX 664);
+//: `libPress` where a tile was pressed, before the drag began;
+//: `libLastClick` is where the last click placed, for the next one to step
+//: off it.
+const wbLibState = { lib: null, libIcons: null, libIconShown: WB_ICON_PAGE, libLastClick: null, libDragging: null, libGrab: null, libPress: null, layersDrag: null, pagesDrag: null, sideRefreshTimer: 0 };
 
 function wbSideState() {
   const saved = prefs.json(WB_SIDE_KEY, {});
@@ -207,7 +210,8 @@ function wbLibEntries() {
       out.push({
         ref, name: entry.name, tags: entry.tags || [], kind: entry.kind || "element", set: set.name,
         group: `set:${key}`, payload: entry.payload, favourite: Boolean(marks[`${key}/${entry.key}`]?.favourite),
-        template: entry.template || null,
+        template: entry.template || null, shape: entry.shape || null, layout: entry.layout || null,
+        hint: entry.hint || null, purpose: entry.purpose || null,
       });
     }
   }
@@ -318,88 +322,10 @@ function wbLibThumb(entry) {
     svg.appendChild(r);
     return svg;
   }
-  if (entry.kind === "branch") {
-    svg.setAttribute("viewBox", "0 0 64 40");
-    for (const [x1, y1, x2, y2] of [[14, 20, 44, 8], [14, 20, 44, 20], [14, 20, 44, 32]]) {
-      const l = document.createElementNS(NS, "path");
-      l.setAttribute("d", `M ${x1} ${y1} C 30 ${y1} 30 ${y2} ${x2} ${y2}`);
-      l.setAttribute("fill", "none");
-      l.setAttribute("stroke", "currentColor");
-      l.setAttribute("stroke-width", "2");
-      svg.appendChild(l);
-    }
-    for (const [x, y, w] of [[2, 15, 18], [44, 4, 18], [44, 16, 18], [44, 28, 18]]) {
-      const r = document.createElementNS(NS, "rect");
-      r.setAttribute("x", String(x));
-      r.setAttribute("y", String(y));
-      r.setAttribute("width", String(w));
-      r.setAttribute("height", "9");
-      r.setAttribute("rx", "4");
-      r.setAttribute("fill", "var(--accent-soft, #dde)");
-      r.setAttribute("stroke", "currentColor");
-      svg.appendChild(r);
-    }
-    return svg;
-  }
-  const element = entry.kind === "template" ? payload.element || {} : payload;
-  const box = element.box || { w: 100, h: 100 };
-  const pad = Math.max(box.w, box.h) * 0.06;
-  svg.setAttribute("viewBox", `${-pad} ${-pad} ${box.w + pad * 2} ${box.h + pad * 2}`);
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  //: A line one fortieth of a small shape, a hundred and twentieth of a board.
-  const strokeW = Math.max(box.w, box.h) / (Math.max(box.w, box.h) > 400 ? 120 : 40);
-  for (const item of (element.items || []).slice(0, 60)) {
-    if (item.kind === "sketch") {
-      const data = typeof item.data === "string" ? (() => { try { return JSON.parse(item.data); } catch { return {}; } })() : item.data || {};
-      if (!data.d) continue;
-      const p = document.createElementNS(NS, "path");
-      p.setAttribute("d", data.d);
-      const ink = !data.color || data.color === "ink" ? "currentColor" : data.color;
-      const fill = data.fill === "ink" ? "currentColor" : data.fill;
-      p.setAttribute("fill", fill || "none");
-      if (fill && data.fillOpacity != null) p.setAttribute("fill-opacity", String(data.fill === "ink" && data.fillOpacity < 1 ? Math.max(0.18, data.fillOpacity) : data.fillOpacity));
-      if (data.noStroke) p.setAttribute("stroke", "none");
-      else {
-        p.setAttribute("stroke", ink);
-        p.setAttribute("stroke-width", String(strokeW));
-      }
-      p.setAttribute("stroke-linejoin", "round");
-      svg.appendChild(p);
-    } else if (item.kind === "object") {
-      const r = document.createElementNS(NS, "rect");
-      r.setAttribute("x", String(item.x || 0));
-      r.setAttribute("y", String(item.y || 0));
-      r.setAttribute("width", String(item.w || 100));
-      r.setAttribute("height", String(item.h || 60));
-      r.setAttribute("rx", String(strokeW * 2));
-      const d = item.data || {};
-      if (item.type === "frame") {
-        r.setAttribute("fill", "none");
-        r.setAttribute("stroke", "currentColor");
-        r.setAttribute("stroke-width", String(strokeW));
-        r.setAttribute("stroke-dasharray", `${strokeW * 3} ${strokeW * 2}`);
-      } else {
-        r.setAttribute("fill", d.bg || "none");
-        r.setAttribute("stroke", d.border_color || (d.bg ? "none" : "currentColor"));
-        r.setAttribute("stroke-width", String(strokeW / 2));
-        r.setAttribute("stroke-opacity", d.bg ? "1" : "0.4");
-      }
-      svg.appendChild(r);
-      const words = (d.content || "").replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 14);
-      if (words && item.type !== "image") {
-        const t = document.createElementNS(NS, "text");
-        t.setAttribute("x", String((item.x || 0) + (item.w || 100) / 2));
-        t.setAttribute("y", String((item.y || 0) + (item.type === "frame" ? -strokeW : (item.h || 60) / 2)));
-        t.setAttribute("text-anchor", "middle");
-        t.setAttribute("dominant-baseline", item.type === "frame" ? "auto" : "central");
-        t.setAttribute("font-size", String(Math.min(Math.max(box.w, box.h) / 9, (item.w || 100) / Math.max(4, words.length * 0.6))));
-        t.setAttribute("fill", d.color || "currentColor");
-        t.textContent = words;
-        svg.appendChild(t);
-      }
-    }
-  }
-  return svg;
+  //: A branch and a drawing are drawn by whiteboard-templates.js, so a tile,
+  //: the New board dialog and a new map's offer draw one picture (INBOX 715).
+  if (entry.kind === "branch" || payload.branch) return wbThumbSvg(wbMapThumbSpec(entry));
+  return wbThumbSvg(wbBoardThumbSpec(entry.kind === "template" ? payload.element || {} : payload));
 }
 
 function wbLibTile(entry) {
@@ -583,14 +509,80 @@ function wbLibInk() {
   return /^#[0-9a-f]{6}$/i.test(value) ? value : "#3355ff";
 }
 
-//: Where a click places: the middle of the view, each repeat within a few
-//: seconds 24 further down and right so they fan out instead of stacking.
+//: Where a click places: the middle of the canvas you can see
+//: (`wbViewCentre`). A click with the view where it was for the last one
+//: would land exactly on top of it, so each such repeat steps 24px on screen
+//: further down and right, ten steps and round again; the run starts over
+//: once the view moves. It was a four-second timer, so a fifth click a
+//: moment later stacked on the first.
 function wbLibCentre() {
-  const now = Date.now();
-  wbLibState.libPlaceFan = now - wbLibState.libPlaceFanAt < 4000 ? wbLibState.libPlaceFan + 1 : 0;
-  wbLibState.libPlaceFanAt = now;
   const [x, y] = wbViewCentre();
-  return [x + wbLibState.libPlaceFan * 24, y + wbLibState.libPlaceFan * 24];
+  const k = d3.zoomTransform(document.getElementById("whiteboard-container")).k || 1;
+  const board = window.currentBoardId ?? 0;
+  const last = wbLibState.libLastClick;
+  const same = last && last.board === board && Math.abs(last.x - x) < 0.5 && Math.abs(last.y - y) < 0.5;
+  const n = same ? (last.n + 1) % 10 : 0;
+  wbLibState.libLastClick = { board, x, y, n };
+  return [x + (n * 24) / k, y + (n * 24) / k];
+}
+
+//: The box an element's drawing fills, in its own units: its thumbnail's
+//: paths and boxes measured by the browser (the thumbnail draws the payload
+//: in the payload's own coordinates), so a curve or an arc is bounded where
+//: it is drawn, not by its control points. Its words are left out. Cached by
+//: the entry's ref and version; null for a branch, which has no drawing.
+const wbLibDrawnBoxes = new Map();
+
+function wbLibContentBox(entry) {
+  if (!entry || entry.kind === "branch") return null;
+  const key = `${entry.ref}:${entry.item?.version || 0}`;
+  if (wbLibDrawnBoxes.has(key)) return wbLibDrawnBoxes.get(key);
+  const svg = wbLibThumb(entry);
+  //: Measured in the page (an element outside it has no box), out of sight;
+  //: `getBBox` is in the drawing's own units whatever size it is shown at.
+  svg.classList.add("visually-hidden");
+  document.body.append(svg);
+  let box = null;
+  try {
+    for (const el of svg.querySelectorAll("path, rect")) {
+      const b = el.getBBox();
+      if (!b.width && !b.height) continue;
+      box = box
+        ? { minX: Math.min(box.minX, b.x), minY: Math.min(box.minY, b.y), maxX: Math.max(box.maxX, b.x + b.width), maxY: Math.max(box.maxY, b.y + b.height) }
+        : { minX: b.x, minY: b.y, maxX: b.x + b.width, maxY: b.y + b.height };
+    }
+  } catch {
+    box = null;
+  }
+  svg.remove();
+  wbLibDrawnBoxes.set(key, box);
+  return box;
+}
+
+//: Where in a tile's picture the pointer is, as a fraction of the drawing
+//: (0 to 1 each way, held inside it), and the same point in the picture's own
+//: pixels, for the drag image. The middle for a branch, whose picture is a
+//: sign rather than a drawing of what it places.
+function wbLibGrabPoint(tile, clientX, clientY) {
+  const svg = tile.querySelector("svg.wb-lib-thumb");
+  if (!svg) return null;
+  const r = svg.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  let l = Infinity, t = Infinity, rt = -Infinity, b = -Infinity;
+  if (tile._entry?.kind !== "branch") {
+    for (const el of svg.querySelectorAll("path, rect")) {
+      const q = el.getBoundingClientRect();
+      if (!q.width && !q.height) continue;
+      l = Math.min(l, q.left); t = Math.min(t, q.top); rt = Math.max(rt, q.right); b = Math.max(b, q.bottom);
+    }
+  }
+  if (!Number.isFinite(l)) {
+    return { frac: [0.5, 0.5], offset: [r.width / 2, r.height / 2] };
+  }
+  const clamp = (v) => Math.max(0, Math.min(1, v));
+  const fx = rt > l ? clamp((clientX - l) / (rt - l)) : 0.5;
+  const fy = b > t ? clamp((clientY - t) / (b - t)) : 0.5;
+  return { frac: [fx, fy], offset: [l + (rt - l) * fx - r.left, t + (b - t) * fy - r.top] };
 }
 
 function wbLibRefBody(ref) {
@@ -599,8 +591,11 @@ function wbLibRefBody(ref) {
 
 //: Places an entry at `at` (board units), selects what it made, announces it
 //: and records it as one undo step. `connect`: join the item that was
-//: selected before to what was placed, on its right (Shift+Enter).
-async function wbLibPlace(entry, at = null, { connect = false, onto = null } = {}) {
+//: selected before to what was placed, on its right (Shift+Enter). `grab`:
+//: which point of the drawing goes at `at`, as a fraction of its box (where
+//: its tile was held for a drag; the middle otherwise). See "Where a placed
+//: thing lands" in whiteboard.js.
+async function wbLibPlace(entry, at = null, { connect = false, onto = null, grab = null } = {}) {
   if (!entry) return;
   if (entry.kind === "style") return wbLibApplyStyle(entry);
   if (entry.kind === "palette") return wbLibApplyPalette(entry, entry.payload?.colours?.[0]);
@@ -615,10 +610,24 @@ async function wbLibPlace(entry, at = null, { connect = false, onto = null } = {
     if (box) point = [box.maxX + 120 + w / 2, (box.minY + box.maxY) / 2];
   }
   point = point || wbLibCentre();
+  const frac = grab || [0.5, 0.5];
   const body = { ...wbLibRefBody(entry.ref), x: point[0], y: point[1], ink: wbLibInk() };
+  //: The server centres the payload's declared box on x, y, and a drawing
+  //: need not fill its box (a star sat 6px high, a cloud 7px off), so the box
+  //: is asked for where it puts the drawing by the rule: exact before it is
+  //: drawn, and so no second save after it.
+  if (entry.kind !== "branch") {
+    const box = entry.payload?.box || { w: 100, h: 100 };
+    const drawn = wbLibContentBox(entry) || { minX: 0, minY: 0, maxX: box.w, maxY: box.h };
+    const [left, top] = wbAnchorDelta(drawn, point, frac, wbSnapOn() ? WB_GRID_SPACING : 0);
+    body.x = left + box.w / 2;
+    body.y = top + box.h / 2;
+  }
   //: A branch goes under the topic it was dropped on, else the selected
   //: one; a map template with neither goes under the root, since a
-  //: template is the map's first branches rather than a second trunk.
+  //: template is the map's first branches rather than a second trunk. With
+  //: no root to go under, the server makes the central topic (INBOX 670): the
+  //: template's one top-level topic, or a new one named after the template.
   if (map && entry.kind === "branch") {
     const dropped = onto != null ? wbFindItem("object", onto) : null;
     const topic = (dropped && WB_MAP_KINDS.has(dropped.kind) ? dropped : null) || wbSelectedMapNode()
@@ -654,10 +663,21 @@ async function wbLibPlace(entry, at = null, { connect = false, onto = null } = {
         }
       }
     }
+    if (map) await wbRefreshMapState();
+    renderWhiteboardNow();
+    //: Then put what was drawn where the rule says, inside this gesture so
+    //: it is the same undo step. A branch is laid out by the server from
+    //: its first topic's corner, so on a map it is always measured and
+    //: moved; on a map with a layout the tidy below places it instead.
+    if (!map || wbMapLayout() === "free") {
+      const rows = [
+        ...made.sketches.filter((s) => !/"type"\s*:\s*"link-/.test(s.data)).map((item) => ({ kind: "sketch", item })),
+        ...made.objects.map((item) => ({ kind: "object", item })),
+      ];
+      await wbAnchorPlaced(rows, point, frac);
+    }
   });
   if (!made) return;
-  if (map) await wbRefreshMapState();
-  renderWhiteboardNow();
   if (map) await wbMapTidy({ quiet: true });
   clearWbSelection();
   const keys = [
@@ -1245,32 +1265,70 @@ onDomReady(() => {
     } else return;
     e.preventDefault();
   });
+  list?.addEventListener("pointerdown", (e) => {
+    const tile = e.target.closest(".wb-lib-tile");
+    wbLibState.libPress = tile ? { tile, x: e.clientX, y: e.clientY } : null;
+  });
   list?.addEventListener("dragstart", (e) => {
     const tile = e.target.closest(".wb-lib-tile");
     if (!tile?._entry) return;
     e.dataTransfer.setData("application/x-memorymap-library", tile._entry.ref);
     e.dataTransfer.effectAllowed = "copy";
     wbLibState.libDragging = tile._entry;
+    //: **The tile's picture is what is carried, held where it was grabbed**
+    //: (INBOX 664). The browser's own drag image was the whole tile, name
+    //: and padding included, and where it was held meant nothing: the drop
+    //: put the item's middle under the pointer whatever part of the picture
+    //: was there (48px off for a rectangle held by its corner, 291px for the
+    //: Kanban template). Now the drag image is the drawing, the pointer holds
+    //: it at the point it was grabbed (kept inside the drawing), and the drop
+    //: puts that same point of the placed item under the pointer.
+    //: Held where it was pressed: the browser starts a drag only once the
+    //: pointer has travelled a few pixels, and on a 60px picture of a
+    //: 1040px template those few pixels were 10 to 15px of board.
+    const press = wbLibState.libPress?.tile === tile ? wbLibState.libPress : { x: e.clientX, y: e.clientY };
+    const grab = wbLibGrabPoint(tile, press.x, press.y);
+    wbLibState.libGrab = grab?.frac || null;
+    const svg = tile.querySelector("svg.wb-lib-thumb");
+    if (grab && svg && e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(svg, grab.offset[0], grab.offset[1]);
   });
   list?.addEventListener("dragend", () => {
     wbLibState.libDragging = null;
+    wbLibState.libGrab = null;
+    wbLibState.libPress = null;
+    wbMapClearDropTarget();
   });
   const canvas = document.getElementById("whiteboard-container");
+  //: **On a map, the topic a branch or an icon will join is lit while it is
+  //: over it**, the same cue a dragged topic gives (`wbMapShowDropTarget`):
+  //: the drop goes under that topic rather than where the pointer is, and
+  //: nothing said so until it had happened.
+  const showJoin = (e, carries) => {
+    if (typeof wbMapShowDropTarget !== "function" || !wbIsMap()) return;
+    const joins = carries === "icon" || wbLibState.libDragging?.kind === "branch";
+    const id = joins ? Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null : null;
+    const topic = id != null ? wbFindItem("object", id) : null;
+    wbMapShowDropTarget(topic && WB_MAP_KINDS.has(topic.kind) ? id : null);
+  };
   canvas?.addEventListener("dragover", (e) => {
     if (e.dataTransfer?.types?.includes("application/x-memorymap-library")) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
+      showJoin(e, "library");
     }
+  });
+  canvas?.addEventListener("dragleave", (e) => {
+    if (!canvas.contains(e.relatedTarget)) wbMapClearDropTarget();
   });
   canvas?.addEventListener("drop", (e) => {
     if (!e.dataTransfer?.types?.includes("application/x-memorymap-library") || !wbLibState.libDragging) return;
     e.preventDefault();
     e.stopPropagation();
-    const t = d3.zoomTransform(canvas);
-    const o = wbCanvasOriginRect();
+    wbMapClearDropTarget();
     const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
-    wbLibPlace(wbLibState.libDragging, [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k], { onto });
+    wbLibPlace(wbLibState.libDragging, wbClientToBoard(e.clientX, e.clientY), { onto, grab: wbLibState.libGrab });
     wbLibState.libDragging = null;
+    wbLibState.libGrab = null;
   }, true);
   //: **An icon or an emoji dragged from the picker** (MINDMAP_PLAN.md
   //: decision 44): onto a map topic it is that topic's icon, anywhere else a
@@ -1280,6 +1338,7 @@ onDomReady(() => {
     if (e.dataTransfer?.types?.includes("application/x-memorymap-icon")) {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
+      showJoin(e, "icon");
     }
   }, true);
   canvas?.addEventListener("drop", (e) => {
@@ -1293,6 +1352,7 @@ onDomReady(() => {
       choice = window.iconPickerDragging;
     }
     window.iconPickerDragging = null;
+    wbMapClearDropTarget();
     if (!choice || (choice.kind !== "emoji" && choice.kind !== "icon") || typeof choice.value !== "string") return;
     const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
     const topic = onto != null ? wbFindItem("object", onto) : null;
@@ -1300,9 +1360,7 @@ onDomReady(() => {
       wbMapSetTopicIcon(topic, choice.value);
       return;
     }
-    const t = d3.zoomTransform(canvas);
-    const o = wbCanvasOriginRect();
-    wbPlaceSticker(choice, [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k]);
+    wbPlaceSticker(choice, wbClientToBoard(e.clientX, e.clientY));
   }, true);
   document.getElementById("wb-lib-more")?.addEventListener("click", (e) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -1339,151 +1397,6 @@ onDomReady(() => {
   const state = wbSideState();
   if (state.open && !window.matchMedia("(max-width: 600px)").matches) wbOpenSidebar(state.tab, { focus: false });
 });
-
-// --- New board from a template (BACKLOG 4b, answered by decision 25) ---------
-//
-// "New board" opens a gallery: Blank, the built-in frames (Kanban, a
-// retrospective, SWOT, a timeline lane), then the person's own templates; a
-// mind map's: Blank, then its own. DESIGN.md's recipe for "a dialog of
-// choices that each make something": quiet radio rows beside a preview of
-// what the chosen row makes, drawn by the same thumbnail the library tile
-// uses; choosing is not making (only Create, Enter or a double click makes).
-
-function wbTemplateChoices(kind) {
-  const out = [{ ref: null, name: "Blank", hint: kind === "map" ? "One central topic named after the map" : "An empty board" }];
-  if (kind === "board") {
-    const frames = wbLibSets.get("frames");
-    for (const entry of frames?.items || []) {
-      if (entry.key === "frame") continue;
-      out.push({ ref: `builtin:frames/${entry.key}`, name: entry.name, hint: "Built in", entry: { ...entry, kind: "element", ref: `builtin:frames/${entry.key}` } });
-    }
-  }
-  for (const item of wbLibState.lib?.items || []) {
-    if (item.kind !== "template") continue;
-    const type = item.payload?.board?.type === "map" ? "map" : "board";
-    if (type !== kind) continue;
-    out.push({ ref: `item:${item.id}`, name: item.name, hint: "Yours", entry: { ...item, ref: `item:${item.id}`, payload: item.payload } });
-  }
-  return out;
-}
-
-//: Resolves `{name, kind, ref}` (ref null for blank) or null when cancelled.
-async function wbOpenTemplateGallery(kind = "board") {
-  const dialog = document.getElementById("wb-template-dialog");
-  const list = document.getElementById("wb-template-list");
-  const preview = document.getElementById("wb-template-preview");
-  const nameField = document.getElementById("wb-template-name");
-  const kindSeg = document.getElementById("wb-template-kind");
-  if (!dialog || !list || !preview || !nameField) return null;
-  await wbLoadLibrary();
-  let chosen = null;
-  const choose = (choice, { focus = false } = {}) => {
-    chosen = choice;
-    for (const row of list.querySelectorAll(".doc-template-choice")) {
-      const on = row.dataset.ref === String(choice.ref);
-      row.setAttribute("aria-checked", on ? "true" : "false");
-      row.tabIndex = on ? 0 : -1;
-      if (on && focus) row.focus();
-    }
-    preview.replaceChildren();
-    if (choice.entry) preview.append(wbLibThumb(choice.entry));
-    else {
-      const blank = document.createElement("p");
-      blank.className = "muted doc-template-empty";
-      blank.textContent = choice.hint;
-      preview.append(blank);
-    }
-    if (!nameField.dataset.typed) nameField.value = choice.ref ? choice.name : "";
-  };
-  const fill = () => {
-    list.replaceChildren();
-    for (const btn of kindSeg?.querySelectorAll("button") || []) {
-      const on = btn.dataset.value === kind;
-      btn.classList.toggle("active", on);
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
-    }
-    for (const choice of wbTemplateChoices(kind)) {
-      const li = document.createElement("li");
-      li.setAttribute("role", "presentation");
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "ghost doc-template-choice";
-      row.setAttribute("role", "radio");
-      row.setAttribute("aria-checked", "false");
-      row.dataset.ref = String(choice.ref);
-      const name = document.createElement("strong");
-      name.textContent = choice.name;
-      const hint = document.createElement("span");
-      hint.className = "muted text-sm";
-      hint.textContent = choice.hint;
-      const check = document.createElement("i");
-      check.className = "ph ph-check doc-template-check";
-      check.setAttribute("aria-hidden", "true");
-      row.append(name, hint, check);
-      row.addEventListener("click", () => choose(choice));
-      row.addEventListener("dblclick", () => finish(true));
-      li.append(row);
-      list.append(li);
-    }
-    choose(wbTemplateChoices(kind)[0]);
-  };
-  let settle;
-  const done = new Promise((resolve) => {
-    settle = resolve;
-  });
-  const finish = (make) => {
-    const name = nameField.value.trim();
-    if (make && !name) {
-      nameField.focus();
-      toast("Give the board a name first.");
-      return;
-    }
-    dialog.close();
-    settle(make ? { name, kind, ref: chosen?.ref || null } : null);
-  };
-  nameField.value = "";
-  delete nameField.dataset.typed;
-  nameField.oninput = () => {
-    nameField.dataset.typed = "1";
-  };
-  nameField.onkeydown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      finish(true);
-    }
-  };
-  list.onkeydown = (e) => {
-    const rows = [...list.querySelectorAll(".doc-template-choice")];
-    const at = rows.indexOf(document.activeElement);
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      const next = rows[(at + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length];
-      next?.click();
-      next?.focus();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      finish(true);
-    }
-  };
-  if (kindSeg) {
-    for (const btn of kindSeg.querySelectorAll("button")) {
-      btn.onclick = () => {
-        kind = btn.dataset.value;
-        fill();
-      };
-    }
-  }
-  document.getElementById("wb-template-create").onclick = () => finish(true);
-  for (const btn of dialog.querySelectorAll("[data-close-dialog='wb-template-dialog']")) btn.onclick = () => finish(false);
-  dialog.oncancel = (e) => {
-    e.preventDefault();
-    finish(false);
-  };
-  fill();
-  dialog.showModal();
-  nameField.focus();
-  return done;
-}
 
 // --- Layers (WHITEBOARD_PLAN decision 27; INBOX 557b) ------------------------
 //

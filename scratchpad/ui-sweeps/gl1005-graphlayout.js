@@ -37,12 +37,10 @@ const phone = W < 600;
   const results = {};
   const shapes = {};
   for (const kind of ["tree", "radial", "arc", "force"]) {
-    const label = page.locator(`#graph-layout label:has(input[value="${kind}"])`);
-    await label.scrollIntoViewIfNeeded();
-    await label.click();
+    await page.selectOption("#graph-layout", kind);
     await page.waitForTimeout(kind === "force" ? 3500 : 1500);
     const s = await sample();
-    const checked = await page.evaluate(() => document.querySelector('input[name="graph-layout"]:checked')?.value);
+    const checked = await page.evaluate(() => document.getElementById("graph-layout").value);
     const stored = await page.evaluate(() => localStorage.getItem("graph-layout"));
     shapes[kind] = s.pts;
     results[kind] = { renderer: s.renderer, drawnLayout: s.layout, checked, stored, nodes: s.n, first3: s.pts.slice(0, 3) };

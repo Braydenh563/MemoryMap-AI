@@ -148,4 +148,4 @@ def test_the_shutter_is_wired_into_the_band() -> None:
     assert "overflow: clip;" in shutter_css
     # On the top bar itself it rides nothing, in a band over the bar (40).
     band_css = CSS08[CSS08.index("#nm-buddy-band {") :]
-    assert "z-index: 50;" in band_css[: band_css.index("}")]
+    assert "z-index: 44;" in band_css[: band_css.index("}")]

@@ -192,6 +192,7 @@ function showSettingsSection(name) {
   }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
+  if (name === "searchindex") renderEmbedChoices();
   //: The Atlas row's starter chips, with the chat's bundle (help-chat.js).
   if (name === "help") renderAtlasStarters();
   if (name === "about") renderHealthBlock().catch(() => {});
@@ -2307,7 +2308,7 @@ function renderThemeToggle() {
   const dark = resolvedTheme() === "dark";
   setLabel(button, dark ? "ph:sun" : "ph:moon");
   const next = dark ? "light" : "dark";
-  button.title = `Switch to ${next} mode`;
+  button.title = shortcutTitle(`Switch to ${next} mode`, "toggleTheme");
   button.setAttribute("aria-label", `Switch to ${next} mode`);
 }
 
@@ -2519,8 +2520,11 @@ function renderAppearance() {
   renderPaletteGrid();
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
-  _segActive("font-seg", "font", appearancePref("font"));
-  _segActive("density-seg", "density", prefs.get("density", null) || "auto");
+  //: Two lists, not wells (INBOX 670): a value no option carries (a font a
+  //: saved look set that the list does not offer) leaves the list on its
+  //: first row rather than on a blank.
+  $("font-seg").value = appearancePref("font");
+  $("density-seg").value = prefs.get("density", null) || "auto";
 }
 
 // A frozen background with no explanation reads as a broken app, which is
@@ -2874,22 +2878,18 @@ for (const b of document.querySelectorAll("#fontsize-seg button")) {
     renderAppearance();
   });
 }
-for (const b of document.querySelectorAll("#font-seg button")) {
-  b.addEventListener("click", () => {
-    localStorage.setItem("font", b.dataset.font);
-    applyAppearance();
-    renderAppearance();
-  });
-}
-for (const b of document.querySelectorAll("#density-seg button")) {
-  b.addEventListener("click", () => {
-    //: Auto is no choice at all: the window's height decides.
-    if (b.dataset.density === "auto") localStorage.removeItem("density");
-    else localStorage.setItem("density", b.dataset.density);
-    applyAppearance();
-    renderAppearance();
-  });
-}
+$("font-seg").addEventListener("change", (e) => {
+  localStorage.setItem("font", e.target.value);
+  applyAppearance();
+  renderAppearance();
+});
+$("density-seg").addEventListener("change", (e) => {
+  //: Auto is no choice at all: the window's height decides.
+  if (e.target.value === "auto") localStorage.removeItem("density");
+  else localStorage.setItem("density", e.target.value);
+  applyAppearance();
+  renderAppearance();
+});
 $("perf-mode").addEventListener("change", (e) => {
   localStorage.setItem("perf", e.target.value);
   applyAppearance();
@@ -3151,16 +3151,19 @@ function focusSettingsHeading(name) {
   head.focus({ preventScroll: true });
 }
 
-for (const button of document.querySelectorAll("#settings-nav button")) {
+//: A group heading (INBOX 697) is in the loop too: a press on it opens its
+//: group's first page rather than doing nothing.
+for (const button of document.querySelectorAll("#settings-nav button, #settings-nav .nav-group-label")) {
   button.addEventListener("click", (event) => {
-    showSettingsSection(button.dataset.section);
+    const name = (button.dataset.section ? button : button.nextElementSibling.querySelector("[data-section]:not(.hidden)")).dataset.section;
+    showSettingsSection(name);
     //: **A pointer click keeps the focus in the list** (INBOX 467, the owner:
     //: "I cant navigate on the settings navigation side bar with arrows"),
     //: so Up and Down walk on from the section clicked, as in every settings
     //: window's sidebar; a click in the pane gives the reading keys to the
     //: pane. Enter or Space (`detail` 0) still hands the focus to the
     //: section's heading, where a keyboard user reads on.
-    if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(button.dataset.section);
+    if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(name);
     else if (!settingsNavWalking) button.focus({ preventScroll: true });
   });
 }
@@ -4452,6 +4455,23 @@ function renderJobOverview() {
     line.dataset.jobLine = run.kind;
     line.dataset.jobBare = "1";
     li.append(name, line);
+    //: A scheduled pass says when it runs and has Run now (INBOX 713, the
+    //: owner: "is it possible to manually run them").
+    if (run.can_run) {
+      const when = document.createElement("p");
+      when.className = "muted task-detail";
+      when.textContent = run.schedule || "";
+      const go = smallButton("ph:play Run now", `Run ${run.label} now`, async () => {
+        const result = await apiJson(`/jobs/passes/${encodeURIComponent(run.kind)}/run`, { method: "POST" }).catch((e) => ({ started: false, failed: true, error: e, message: e.message }));
+        //: Already running is an expected answer, a plain toast; a request
+        //: that threw is a fault, the red one.
+        if (result.failed) toast(result.error.message, true);
+        else toast(result.message, "info");
+        refreshBackgroundTasks();
+      });
+      go.classList.add("job-run-now");
+      li.append(when, go);
+    }
     list.appendChild(li);
   }
 }

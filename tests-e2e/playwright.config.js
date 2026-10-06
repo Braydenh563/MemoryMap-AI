@@ -103,6 +103,10 @@ module.exports = defineConfig({
     {
       name: "first-run",
       testMatch: /first-run\.spec\.js/,
+      // No retry here, whatever CI sets above: these specs assert an empty
+      // notebook, and attempt 1 leaves a note behind, so a retry always fails
+      // on "Your notebook is empty" being hidden and buries the real failure.
+      retries: 0,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: FRESH_URL,

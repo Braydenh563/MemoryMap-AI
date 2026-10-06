@@ -382,10 +382,9 @@ def test_the_palette_offers_a_typed_question_to_atlas():
     start = app.index("function paletteMatches(")
     body = app[start : app.index("\n}\n", start)]
     assert 'endsWith("?")' in body and "askAtlasAbout" in body
-    #: `docs` is declared in the Library's lazy bundle, so the palette's own
-    #: document search has to survive its absence: it threw on the first
-    #: keystroke of a fresh load until this guard.
-    assert 'typeof docs === "undefined"' in body
+    #: The palette lists no documents any more (INBOX 666), so the guard for
+    #: the Library's lazy `docs` went with the document group.
+    assert "docs" not in body
 
 
 def test_atlas_has_a_shortcut_and_it_is_in_the_registry():

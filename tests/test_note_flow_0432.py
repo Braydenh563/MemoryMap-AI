@@ -129,7 +129,9 @@ def test_an_open_edit_keeps_its_text_through_a_redraw():
     assert "noteFormDraft.id === entry.id" in form
     assert "draft ? draft.content :" in form and "draft ? draft.title :" in form
     # The title is its own field and goes back on as the leading heading.
-    assert "withTitle(textarea.value.trim(), titleInput.value)" in form
+    #: Under the note's property block, held aside while editing (meetings-644).
+    assert "const typed = textarea.value.trim();" in form
+    assert "parts.block : \"\") + withTitle(typed, titleInput.value)" in form
     # Cleared only on purpose: Save and Cancel (closeNoteForm).
     assert "noteFormDraft = null" in form
     assert "noteFormDraft = null" in _function(_read("note-edit-panels.js"), "closeNoteForm")
@@ -268,7 +270,8 @@ def test_a_row_is_one_line_with_the_time_at_its_end():
     after, measured at 1440 in Chromium, thirteen to a screen against nine."""
     css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
     assert "padding-top: 1.4em;" not in css
-    assert "#entry-list.entry-list.is-rows > li:not(:has(textarea)) {\n    padding-inline-end: 6.5rem;" in css
+    # No width held back for the hover strip (INBOX 719): it overlays the end.
+    assert "padding-inline-end: 6.5rem" not in css
     assert ":not(:has(> .entry-title)) > .entry-content {\n  grid-column: 1 / 3;" in css
 
 

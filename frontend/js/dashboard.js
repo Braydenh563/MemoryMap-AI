@@ -469,19 +469,19 @@ async function renderDashSubmessage() {
   const bits = [];
   if (stats) {
     const n = stats.total_entries;
-    bits.push(n === 0 ? "No notes yet" : `You have ${n} note${n === 1 ? "" : "s"}`);
+    bits.push(["notes", n === 0 ? "No notes yet" : `You have ${n} note${n === 1 ? "" : "s"}`]);
   }
   const due = (reminders || []).filter(
     (r) => !r.done && new Date(r.due_at) <= new Date()
   ).length;
-  if (due) bits.push(`${due} reminder${due === 1 ? "" : "s"} due`);
+  if (due) bits.push(["reminders", `${due} reminder${due === 1 ? "" : "s"} due`]);
   else {
     const open = (reminders || []).filter((r) => !r.done).length;
-    if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
+    if (open) bits.push(["reminders", `${open} reminder${open === 1 ? "" : "s"} coming up`]);
   }
   if (stats && stats.per_day) {
     const streak = dashStreak(stats.per_day);
-    if (streak > 1) bits.push(`${streak}-day capture streak`);
+    if (streak > 1) bits.push(["streak", `${streak}-day capture streak`]);
     //: Atlas celebrates a streak of three days or more, once a day at most
     //: (atlas.js, `atlasStreak`), and the companion cheers once when it grows
     //: (avatars.js). Here since INBOX 436 took the stat strip that used to
@@ -489,7 +489,18 @@ async function renderDashSubmessage() {
     atlasStreak(streak);
     nameMarkBuddyStreak(streak);
   }
-  el.textContent = bits.join(" · ");
+  //: One span per fact, its separator inside it, so a view can fold one fact
+  //: away whole: the Focused hero's glance says what is due (INBOX 675), and
+  //: hides the reminders fact here rather than saying it twice.
+  el.replaceChildren(
+    ...bits.map(([kind, text], i) => {
+      const bit = document.createElement("span");
+      bit.className = "dash-sub-bit";
+      bit.dataset.bit = kind;
+      bit.textContent = i ? ` · ${text}` : text;
+      return bit;
+    })
+  );
 }
 
 function renderDashboardGreeting() {
@@ -517,6 +528,180 @@ function renderDashboardGreeting() {
   // visible one was doing the same 59 times out of 60.
   startDashClock();
   renderDashSubmessage().catch(() => {});
+  renderDashGlance().catch(() => {});
+}
+
+//: **The Focused hero's glance** (INBOX 675, the owner, with a screenshot at
+//: about 2000px: "can you improve the dashboard hero section on the focused
+//: view??"). The banner was a greeting at one end, the time at the other and
+//: nothing between: the widest empty strip of it measured 60% of the hero at
+//: 1024, 72% at 1440 and 78% at 1920 (`scratchpad/ui-sweeps/hero675.js`). A
+//: hero earns that width by answering the question somebody opens a notebook
+//: with, which is "what needs me today", so the other half of it is four
+//: tiles: what is due today, today's meetings, the filings waiting and the
+//: note you were last in.
+//:
+//: Always four, in one order, each with a calm state: tiles that come and go
+//: with the day's data would move under the pointer and leave the empty
+//: middle back on a quiet day. Every number is a read the dashboard already
+//: makes (`dashReminders`, `fetchDashStats`, `dashEntries`, all shared with
+//: the widgets), so the glance costs no request and no model.
+//:
+//: Pure, so the arithmetic runs in node (tests/test_inbox_675_hero.py); `go`
+//: is a token `renderDashGlance` turns into the press, not a closure.
+function dashGlanceFacts({ reminders = [], stats = null, entries = [], now = new Date() } = {}) {
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const time = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const byDue = (a, b) => new Date(a.due_at) - new Date(b.due_at);
+  const open = (reminders || []).filter((r) => r && !r.done).sort(byDue);
+  const today = open.filter((r) => new Date(r.due_at) < endOfDay);
+  const overdue = today.filter((r) => new Date(r.due_at) <= now).length;
+  const next = open.find((r) => new Date(r.due_at) >= endOfDay);
+  let dueHint = "No reminders set";
+  if (today.length) {
+    const first = today[0];
+    const when = new Date(first.due_at);
+    dueHint = when <= now ? `${first.text}, overdue` : `${first.text} at ${time(when)}`;
+  } else if (next) {
+    dueHint = `Next: ${next.text}, ${new Date(next.due_at).toLocaleDateString([], { weekday: "long" })}`;
+  }
+  const due = {
+    id: "due",
+    icon: "ph:alarm",
+    count: today.length,
+    overdue,
+    label: today.length ? `${today.length} due today` : "Nothing due today",
+    hint: dueHint,
+    go: "reminders",
+  };
+
+  //: A meeting is a note typed Meeting with a `date:` in its property block,
+  //: the writer's wall clock (entry/meetings.py); today's are the ones whose
+  //: date is today's, the next one the first still to start.
+  const meetingsToday = [];
+  for (const entry of entries || []) {
+    const when = dashMeetingWhen(entry, now);
+    if (when) meetingsToday.push({ entry, when });
+  }
+  meetingsToday.sort((a, b) => a.when - b.when);
+  const upcoming = meetingsToday.find((m) => m.when >= now) || meetingsToday[meetingsToday.length - 1];
+  const name = (entry) => (entry.title || "").trim() || "A meeting";
+  const n = meetingsToday.length;
+  const meetings = {
+    id: "meetings",
+    icon: "ph:users-three",
+    count: n,
+    label: n ? `${n} meeting${n === 1 ? "" : "s"} today` : "No meetings today",
+    hint: !n
+      ? "Nothing on the calendar"
+      : upcoming.when >= now
+        ? `${name(upcoming.entry)} at ${time(upcoming.when)}`
+        : `${name(upcoming.entry)} was at ${time(upcoming.when)}`,
+    go: n ? { entry: upcoming.entry.id } : "meetings",
+  };
+
+  //: Null when the stats read failed: "Nothing to file" would be a claim.
+  const waiting = stats && Number.isFinite(stats.to_review) ? stats.to_review : null;
+  const review = {
+    id: "review",
+    icon: "ph:checks",
+    count: waiting,
+    label: waiting === null ? "Filings to check" : waiting ? `${waiting} to file` : "Nothing to file",
+    hint: waiting ? "Atlas was unsure where these go" : waiting === 0 ? "Every note has a home" : "Open the list",
+    go: "review",
+  };
+
+  const last = dashContinueNote(entries);
+  const lastTitle = last
+    ? (last.title || "").trim() || (last.content || "").split("\n").map((l) => l.replace(/^#{1,6}\s+/, "").trim()).find((l) => l && l !== "---") || "Your last note"
+    : "";
+  const resume = {
+    id: "continue",
+    icon: last ? "ph:arrow-u-up-left" : "ph:pencil-simple",
+    count: null,
+    label: last ? lastTitle : "No notes yet",
+    hint: last ? "Pick up where you left off" : "Your first note starts here",
+    go: last ? { entry: last.id } : "capture",
+  };
+  return [due, meetings, review, resume];
+}
+
+//: When a note is a meeting today: its `date:` as a local Date, or null. A
+//: date with no time is the start of the day, so it sorts first.
+function dashMeetingWhen(entry, now) {
+  const content = (entry && entry.content) || "";
+  if (!content.startsWith("---")) return null;
+  const end = content.indexOf("\n---", 3);
+  if (end < 0) return null;
+  const block = content.slice(3, end);
+  if (!/^type:\s*meeting\s*$/im.test(block)) return null;
+  const found = /^date:\s*(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/m.exec(block);
+  if (!found) return null;
+  const [, y, mo, d, h = "0", mi = "0"] = found;
+  if (Number(y) !== now.getFullYear() || Number(mo) !== now.getMonth() + 1 || Number(d) !== now.getDate()) return null;
+  return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+}
+
+//: Drawn at every view and shown at Focused only (the CSS): the reads are the
+//: widgets' own, so drawing it costs nothing, and a switch of view needs no
+//: render. Tiles are the tile recipe (`quickLinkButton`), toned for a card.
+async function renderDashGlance() {
+  const host = $("dash-glance");
+  if (!host) return;
+  //: The newest draw wins; its number is held on the host, not in a
+  //: top-level `let` (the global-scope ratchet).
+  const serial = String((Number(host.dataset.glanceDraw) || 0) + 1);
+  host.dataset.glanceDraw = serial;
+  //: Four placeholders first, so the hero holds its height while the reads
+  //: land (INBOX 577's rule for this banner: no shift at boot).
+  if (!host.childElementCount) {
+    for (let i = 0; i < 4; i++) {
+      const hold = document.createElement("span");
+      hold.className = "quick-link dash-glance-hold";
+      hold.setAttribute("aria-hidden", "true");
+      host.append(hold);
+    }
+  }
+  const [reminders, stats, entries] = await Promise.all([
+    dashReminders().catch(() => []),
+    fetchDashStats().catch(() => null),
+    dashEntries().catch(() => []),
+  ]);
+  if (serial !== host.dataset.glanceDraw || !host.isConnected) return;
+  const facts = dashGlanceFacts({ reminders, stats, entries });
+  const press = {
+    reminders: () => switchTab("reminders"),
+    meetings: () => showNotesFilter("tag:meeting"),
+    review: () => showNotesFilter("is:review"),
+    capture: () => startNewNote(),
+  };
+  host.replaceChildren(
+    ...facts.map((fact) => {
+      const run = typeof fact.go === "object" ? () => flashEntry(fact.go.entry) : press[fact.go];
+      const tile = quickLinkButton({ icon: fact.icon, label: fact.label, hint: fact.hint, run });
+      tile.classList.remove("quick-action");
+      tile.dataset.glance = fact.id;
+      tile.title = `${fact.label}. ${fact.hint}`;
+      //: A trailing caret: the tile is a way somewhere, and in a wide tile
+      //: it gives the far end something to say rather than an empty box.
+      const go = document.createElement("i");
+      go.className = "ph ph-caret-right dash-glance-go";
+      go.setAttribute("aria-hidden", "true");
+      tile.append(go);
+      //: A tile with nothing in it is quieter than one with something, so
+      //: the eye lands on what needs doing (and on overdue first).
+      if (fact.count === 0) tile.classList.add("is-calm");
+      if (fact.overdue) tile.classList.add("is-overdue");
+      return tile;
+    })
+  );
+}
+
+{
+  //: The hero's one action at Focused, where Quick access (whose first tile
+  //: is the same New note) is folded away.
+  const add = $("dash-hero-new");
+  if (add) add.addEventListener("click", () => startNewNote());
 }
 
 // The greeting can address you by name, but the setting for it is one field
@@ -686,12 +871,17 @@ const QUICK_START = [
       $("reminder-magic").focus();
     },
   },
+  //: **A meeting, not a recorder** (INBOX 644: "tucked away"). This tile
+  //: opened the recorder, a dialog whose one control is Record, so the
+  //: everyday case, notes typed in a meeting, was five clicks through a
+  //: template. It starts a meeting note now; recording is inside it. The id
+  //: stays, so a saved Quick access keeps its tile.
   {
     id: "meeting-notes",
-    icon: "ph:microphone",
-    label: "Meeting notes",
-    hint: "Record and transcribe",
-    run: () => openMeetingRecorder(),
+    icon: "ph:users-three",
+    label: "New meeting",
+    hint: "Agenda, notes, action items",
+    run: () => openNewMeeting(),
   },
 ];
 
@@ -1246,7 +1436,7 @@ function dashCustomiseItems() {
   }
   items.push({
     label: "ph:arrow-counter-clockwise Reset quick access",
-    title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes, the first highlighted",
+    title: "Back to New note, Ask AI, Sketch, Remind me and New meeting, the first highlighted",
     group: "quick",
     run: async () => { await saveQuickAccess([]); await saveQuickTints({}); renderQuickLinks(); },
   });
@@ -1299,7 +1489,8 @@ function featureCatalog() {
       { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", reveal: "writing-room" },
       { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", reveal: "sketch" },
       { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", reveal: "notes-dictation" },
-      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, then file the notes.", reveal: "meeting" },
+      { name: "New meeting", desc: "A meeting note: when, who, agenda, notes, decisions and action items.", reveal: "meeting-new" },
+      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, saved as a meeting note.", reveal: "meeting" },
       { name: "Attachments", desc: "Attach files and images to any note.", reveal: "notes-attach" },
       // Beside Attachments, which is the entry a person who has files in the
       // notebook is already reading. Asked for directly: "I want an easier and
@@ -1307,11 +1498,21 @@ function featureCatalog() {
       // central feature." This browser and the command palette are the app's
       // two answers to that, and the reader had been in neither.
       { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
+      //: The reader's own row in Settings, Packages (the target `extra-row`,
+      //: which the OCR workspace's Manage and Install also go to).
+      { name: "Reading engines", desc: "Tesseract and RapidOCR, which read the text in pictures, and whether each is installed.", reveal: "extra-row", arg: "ocr" },
       { name: "Threads", desc: "Continue a thought to build a train of related notes.", reveal: "notes-thread" },
       { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", reveal: "notes-capture" },
       { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },
       { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", reveal: "notes-private" },
       { name: "Pins & tags", desc: "Pin important notes and organise with tags.", reveal: "notes-favourite" },
+      //: INBOX 691: the tidying tools, each findable here (the owner: "no use
+      //: having them if the user doesnt know about them").
+      { name: "Tidy", desc: "Reviews with no AI: weak links, stray tags, notes without a category, duplicates, old reminders.", reveal: "tidy" },
+      { name: "Specific link reasons", desc: "Name what two linked notes share, a tag, a name or a week, instead of “similar in meaning”.", reveal: "tidy-links" },
+      { name: "Find duplicates", desc: "Notes that say much the same thing, merged into one with nothing lost.", reveal: "tidy-duplicates" },
+      { name: "Manage tags", desc: "Rename, merge or remove tags across every note.", reveal: "tag-manager" },
+      { name: "Filings to check", desc: "Notes Atlas filed with little certainty, each with Accept, Refile and Split.", reveal: "notes-review" },
       { name: "Bin", desc: "Deleted notes, documents and reminders are recoverable until the bin is cleared.", reveal: "recycle-bin" },
     ]},
     { group: "Ask & chat", items: [
@@ -1388,7 +1589,7 @@ function featureCatalog() {
     { group: "Map & discovery", items: [
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
-      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout.", reveal: "graph-physics" },
+      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout; Reshuffle layout deals a new one.", reveal: "graph-physics" },
       { name: "Suggestions", desc: "Links to add, disagreements, names to merge and link types, decided one by one.", reveal: "suggestions" },
       { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
       { name: "People and things", desc: "Everyone and everything your notes name, each with its own page.", reveal: "entities" },
@@ -1447,7 +1648,7 @@ function featureCatalog() {
       { name: "Where your data went", desc: "Every connection the app made, and whether anything left this computer.", reveal: "settings:privacy" },
       { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
       { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
-      { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", reveal: "palette" },
+      { name: "Command palette", desc: "Ctrl/⌘-K to run a command or go to a place; its last row searches everything.", reveal: "palette" },
       { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
       { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
       { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },
@@ -2295,10 +2496,72 @@ function buildArtParticles(p, categories, total, width, height) {
         amp: p.random(2, 9),
         size: p.random(2, 5),
         hue,
+        //: Which star this is across a Regenerate (INBOX 686): the n-th star
+        //: of a category glides to where the n-th star of that category goes.
+        cat: group.name,
+        idx: i,
       });
     }
   }
   return particles;
+}
+
+//: **Regenerate glides (INBOX 686**, the owner: "can you add a smooth
+//: animation for regenerating the notebook constelation??"). It used to tear
+//: the sketch down and mount a new one, so the sky changed in one frame. Now
+//: the live sketch is retargeted: every star eases from where it is drawn to
+//: its place in the new arrangement, a star with no partner fades and grows
+//: in where it lands, one left over fades out where it stands, and the lines
+//: (which read wrong while their stars are travelling) fade out and come back
+//: as the stars settle. A second Regenerate mid-way starts from the drawn
+//: positions, so nothing jumps.
+//:
+//: The bound the owner's ask is measured against: no star moves more than an
+//: eighth of its journey between two frames. A cubic ease-out starts at three
+//: times the average speed, so at the sketch's thirty frames a second over
+//: 800 ms the first frame would be 0.125 of the way, exactly on the line;
+//: the glide runs at sixty (`ART_GLIDE_FPS`) and drops back when it settles,
+//: which halves it. Measured first with the wall clock, the first frame was
+//: still 0.14 of the way: it was drawn 30 to 50 ms after the click, and a
+//: busy machine's late frames did the same mid-glide. Hence the glide's own
+//: clock below. `scratchpad/ui-sweeps/constellation686.js` measures it.
+const ART_GLIDE_MS = 800;
+const ART_GLIDE_FPS = 60;
+//: The most of the glide's clock one frame may spend: 25 ms is three fifths
+//: of an eighth of the journey even at the ease's fastest, its first frame.
+const ART_GLIDE_STEP_MS = 25;
+//: The quick cross-fade that replaces the glide when interface animations are
+//: off or less motion is asked for: a change of picture, not a journey.
+const ART_FADE_MS = 200;
+
+function artEaseOut(u) {
+  const k = 1 - Math.min(1, Math.max(0, u));
+  return 1 - k * k * k;
+}
+
+//: The lines' strength through a glide: from wherever they were (a glide
+//: interrupted while they were half gone starts from half), out by a third
+//: of the way, held out while the stars cross, back in over the last half.
+function artLineFade(from, u) {
+  if (u <= 0.3) return from * (1 - u / 0.3);
+  if (u <= 0.5) return 0;
+  return artEaseOut((u - 0.5) / 0.5);
+}
+
+//: Pair the stars drawn now with the next arrangement's. `shown` carries what
+//: the last frame drew (`x`, `y`, `vis`, `drawSize`); each next star gets a
+//: `from` (a partner's drawn state, or nothing: it grows in where it lands);
+//: unpaired shown stars, and stars still fading from an earlier glide, leave.
+function artRetarget(shown, leaving, next) {
+  const key = (s) => `${s.cat}\u0000${s.idx}`;
+  const drawn = new Map(shown.map((s) => [key(s), s]));
+  for (const star of next) {
+    const was = drawn.get(key(star));
+    star.from = was ? { x: was.x, y: was.y, vis: was.vis ?? 1, size: was.drawSize ?? was.size } : { x: null, y: null, vis: 0, size: 0 };
+    drawn.delete(key(star));
+  }
+  const gone = [...leaving, ...drawn.values()].filter((s) => (s.vis ?? 1) > 0.01);
+  return gone.map((s) => ({ ...s, from: { x: s.x, y: s.y, vis: s.vis ?? 1, size: s.drawSize ?? s.size } }));
 }
 
 async function renderArtWidget(body) {
@@ -2320,12 +2583,15 @@ async function renderArtWidget(body) {
   controls.appendChild(
     smallButton("ph:dice-five Regenerate", "A fresh arrangement of the same notes", () => {
       artNonce += 1;
-      startArt(holder);
+      //: The live sketch glides to it (INBOX 686); only a widget with no
+      //: sketch yet (p5 still loading) builds one.
+      if (artInstance) artInstance.regenerate();
+      else startArt(holder);
     })
   );
   controls.appendChild(
     smallButton("ph:floppy-disk Save PNG", "Save this artwork as an image", () => {
-      if (artInstance) artInstance.saveCanvas("memorymap-constellation", "png");
+      if (artInstance) artInstance.saveSettled();
     })
   );
   body.appendChild(controls);
@@ -2431,8 +2697,15 @@ async function startArt(holder) {
     let particles = [];
     let width = 0;
     const height = 220;
+    //: The glide in hand (INBOX 686): when it began, how strong the lines
+    //: were then, and the stars still fading out. `null` at rest.
+    let glide = null;
+    //: The quick cross-fade's picture of the old sky, and when it began.
+    let fade = null;
 
-    const scene = (t) => {
+    //: `settled` draws the arrangement the glide is heading for, whatever
+    //: point it has reached: what Save PNG saves.
+    const scene = (t, settled = false) => {
       // A soft vertical wash instead of a flat fill, more depth (Wave N).
       p.noStroke();
       const washHue = p.hue(p.color(accentHex));
@@ -2441,34 +2714,105 @@ async function startArt(holder) {
         p.fill(washHue, 30, shade, 1);
         p.rect(0, y, width, 4);
       }
-      for (const dot of particles) {
-        dot.x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
-        dot.y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
+      const now = p.millis();
+      //: The glide's own clock, advanced by each drawn frame and by no more
+      //: than `ART_GLIDE_STEP_MS` per frame: it starts at the first frame
+      //: drawn after the click, not at the click, and a late frame (a busy
+      //: machine) stalls the glide rather than jumping it.
+      if (glide && !settled) {
+        if (glide.last !== null) glide.elapsed += Math.min(now - glide.last, ART_GLIDE_STEP_MS);
+        glide.last = now;
       }
+      const u = glide && !settled ? Math.min(1, glide.elapsed / ART_GLIDE_MS) : 1;
+      const e = artEaseOut(u);
+      //: The drift goes on under the glide: a star eases from where it was
+      //: drawn towards its new place as that place drifts, so it arrives on
+      //: the moving point rather than on a still one and then lurching.
+      for (const dot of particles) {
+        const x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
+        const y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
+        const from = u < 1 ? dot.from : null;
+        dot.x = from && from.x !== null ? from.x + (x - from.x) * e : x;
+        dot.y = from && from.y !== null ? from.y + (y - from.y) * e : y;
+        dot.vis = from ? from.vis + (1 - from.vis) * e : 1;
+        dot.drawSize = from ? from.size + (dot.size - from.size) * e : dot.size;
+      }
+      const lines = u < 1 ? artLineFade(glide.lineFrom, u) : 1;
       // Faint connecting lines between nearby stars (O(n²), but n is
       // capped low enough that it stays cheap at 60fps).
-      for (let i = 0; i < particles.length; i++) {
+      for (let i = 0; lines > 0 && i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i];
           const b = particles[j];
           const d = p.dist(a.x, a.y, b.x, b.y);
           if (d < 70) {
-            p.stroke(a.hue, 65, dark ? 72 : 55, p.map(d, 0, 70, 0.45, 0));
+            p.stroke(a.hue, 65, dark ? 72 : 55, p.map(d, 0, 70, 0.45, 0) * lines * Math.min(a.vis, b.vis));
             p.strokeWeight(1);
             p.line(a.x, a.y, b.x, b.y);
           }
         }
       }
+      //: Stars with no place in the new sky fade where they stand, gone by
+      //: six tenths of the way so the arrivals are not crowded by them.
+      const leaving = u < 1 ? glide.leaving : [];
+      const out = artEaseOut(Math.min(1, u / 0.6));
+      for (const dot of leaving) dot.vis = dot.from.vis * (1 - out);
       // The stars themselves: a soft glow halo + a bright core, twinkling.
       p.noStroke();
-      for (const dot of particles) {
-        const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + dot.phase);
+      for (const dot of leaving.concat(particles)) {
+        const twinkle = (0.6 + 0.4 * Math.sin(t * 2 + dot.phase)) * dot.vis;
         p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
-        p.circle(dot.x, dot.y, dot.size * 4); // glow
+        p.circle(dot.x, dot.y, dot.drawSize * 4); // glow
         p.fill(dot.hue, 80, dark ? 78 : 48, twinkle);
-        p.circle(dot.x, dot.y, dot.size); // core
+        p.circle(dot.x, dot.y, dot.drawSize); // core
+      }
+      if (fade && !settled) {
+        const k = 1 - Math.min(1, (now - fade.start) / ART_FADE_MS);
+        const ctx = p.drawingContext;
+        ctx.save();
+        ctx.globalAlpha = k;
+        ctx.drawImage(fade.snap, 0, 0, width, height);
+        ctx.restore();
       }
     };
+
+    //: Regenerate (INBOX 686): the next arrangement, reached by a glide, or
+    //: by a cross-fade when interface animations are off or less motion is
+    //: asked for (read now, not at build: the switch may have moved since).
+    p.regenerate = () => {
+      if (!width) return;
+      p.randomSeed(artSeed(categories) + artNonce * 997);
+      const next = buildArtParticles(p, categories, total, width, height);
+      const now = p.millis();
+      if (reduceMotion || reducedMotionWanted() || document.documentElement.dataset.uiMotion === "off") {
+        const snap = document.createElement("canvas");
+        snap.width = p.drawingContext.canvas.width;
+        snap.height = p.drawingContext.canvas.height;
+        snap.getContext("2d").drawImage(p.drawingContext.canvas, 0, 0);
+        fade = { snap, start: now };
+        glide = null;
+        particles = next;
+        p.frameRate(ART_FRAME_RATE);
+        p.loop();
+        return;
+      }
+      const u = glide ? Math.min(1, glide.elapsed / ART_GLIDE_MS) : 1;
+      const lineFrom = glide && u < 1 ? artLineFade(glide.lineFrom, u) : 1;
+      const leaving = artRetarget(particles, glide && u < 1 ? glide.leaving : [], next);
+      glide = { elapsed: 0, last: null, lineFrom, leaving };
+      particles = next;
+      p.frameRate(ART_GLIDE_FPS);
+    };
+    //: Save PNG takes the settled sky, then puts the frame in hand back
+    //: before the browser paints, so the save never shows on screen.
+    p.saveSettled = () => {
+      const t = reduceMotion ? 0 : p.millis() * 0.0003;
+      scene(t, true);
+      p.saveCanvas("memorymap-constellation", "png");
+      scene(t);
+    };
+    //: What the stars are drawn at, for the sweep that measures the glide.
+    p.artStars = () => particles;
 
     p.setup = () => {
       width = holder.clientWidth || 300;
@@ -2499,7 +2843,18 @@ async function startArt(holder) {
     //: browser throttles a background tab to. The two are the same number:
     //: `frameCount * 0.005` at sixty frames a second advanced `t` by 0.3 a
     //: second, and `millis() * 0.0003` advances it by 0.3 a second full stop.
-    p.draw = () => scene(p.millis() * 0.0003);
+    p.draw = () => {
+      scene(reduceMotion ? 0 : p.millis() * 0.0003);
+      const now = p.millis();
+      if (glide && glide.elapsed >= ART_GLIDE_MS) {
+        glide = null;
+        p.frameRate(ART_FRAME_RATE);
+      }
+      if (fade && now - fade.start >= ART_FADE_MS) {
+        fade = null;
+        if (reduceMotion) p.noLoop();
+      }
+    };
     // Was missing entirely: width was measured once at setup and never
     // re-synced, so this canvas was the one p5 sketch in the app with no
     // resize handling at all (the sibling in the whiteboard has its own).
@@ -2517,6 +2872,7 @@ async function startArt(holder) {
       if (!next || next === width) return;
       width = next;
       p.resizeCanvas(width, height);
+      glide = null;
       particles = buildArtParticles(p, categories, total, width, height);
     };
     const observer = new ResizeObserver(resync);

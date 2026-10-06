@@ -513,6 +513,9 @@ async function renderAccount() {
         : "No encrypted notes yet",
     ],
     ["Open sessions", String(info.active_sessions)],
+    //: INBOX 663: the recovery key's row and its one button, drawn by
+    //: account-recovery.js (lazy: the boot scripts' total cap).
+    await recoveryAccountRow(info),
   ];
   if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
   $("account-password-on-open").checked = info.password_on_open !== false;
@@ -1315,14 +1318,18 @@ function paletteCommands() {
     { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
     { label: "ph:clipboard-text Paste as a note", about: "What you copied, saved as a new note.", chord: "pasteNote", act: () => pasteClipboardAsNote() },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
-    { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
+    { label: "ph:sparkle Write a note from rough thoughts", reveal: "writing-room" },
     { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },
     // The popup agent (Ctrl+Shift+A) has real capability, it's the same
     // tool-calling agent as Chat's agent mode, just reachable from anywhere
     //, but was reachable only by already knowing that chord. This palette
     // is the app's own "what can I do here" list; it belongs in it.
-    { label: "ph:magic-wand Ask the agent anything", reveal: "agent-palette", chord: "askAgent" },
+    { label: "ph:strategy Ask the agent anything", reveal: "agent-palette", chord: "askAgent" },
     { label: "ph:palette New sketch", reveal: "sketch", chord: "quickSketch" },
+    //: A command, not a search (INBOX 666: the palette is commands and
+    //: places; finding a meeting is Find anything's). INBOX 644: there was
+    //: no way to start a meeting note by name anywhere in the app.
+    { label: "ph:users-three New meeting", reveal: "meeting-new", about: "Agenda, notes, decisions and action items." },
     {
       // Reachable from anywhere, which is the point. Asked for directly: "I
       // would also like the meeting notes popup to be expanded as a proper
@@ -1343,7 +1350,7 @@ function paletteCommands() {
       // you were last reading, else your newest readable file; the decision and
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
-      label: "ph:book-open-text Read a document or image with AI",
+      label: "ph:sparkle Read a document or image with AI",
       reveal: "page-reader",
     },
     {

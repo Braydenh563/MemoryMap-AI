@@ -7,7 +7,9 @@
   {
    "key": "kanban",
    "kind": "element",
-   "name": "Kanban with cards",
+   "name": "Kanban",
+   "hint": "To do, doing and done, a card in each",
+   "purpose": "plan",
    "tags": [
     "template",
     "tasks",
@@ -15,36 +17,26 @@
     "doing",
     "done"
    ],
+   "template": "board",
    "payload": {
     "box": {
      "w": 1040,
-     "h": 520
+     "h": 560
     },
     "items": [
-     {
-      "key": "f0",
-      "kind": "object",
-      "type": "frame",
-      "data": {
-       "content": "To do"
-      },
-      "x": 0,
-      "y": 0,
-      "w": 320,
-      "h": 520,
-      "z": -1
-     },
      {
       "key": "f1",
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Doing"
+       "content": "To do",
+       "hint": "What is waiting",
+       "tint": "neutral"
       },
-      "x": 360,
+      "x": 0,
       "y": 0,
       "w": 320,
-      "h": 520,
+      "h": 560,
       "z": -1
      },
      {
@@ -52,16 +44,33 @@
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Done"
+       "content": "Doing",
+       "hint": "What is moving now",
+       "tint": "blue"
+      },
+      "x": 360,
+      "y": 0,
+      "w": 320,
+      "h": 560,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Done",
+       "hint": "What is finished",
+       "tint": "green"
       },
       "x": 720,
       "y": 0,
       "w": 320,
-      "h": 520,
+      "h": 560,
       "z": -1
      },
      {
-      "key": "s0",
+      "key": "s4",
       "kind": "object",
       "type": "text",
       "data": {
@@ -71,14 +80,14 @@
        "color": "#2a2a1f",
        "font_size": 16
       },
-      "x": 60,
-      "y": 80,
+      "x": 24,
+      "y": 96,
       "w": 200,
-      "h": 120,
+      "h": 100,
       "z": 1
      },
      {
-      "key": "s1",
+      "key": "s5",
       "kind": "object",
       "type": "text",
       "data": {
@@ -88,14 +97,14 @@
        "color": "#2a2a1f",
        "font_size": 16
       },
-      "x": 60,
-      "y": 230,
+      "x": 24,
+      "y": 212,
       "w": 200,
-      "h": 120,
+      "h": 100,
       "z": 1
      },
      {
-      "key": "s2",
+      "key": "s6",
       "kind": "object",
       "type": "text",
       "data": {
@@ -105,14 +114,14 @@
        "color": "#2a2a1f",
        "font_size": 16
       },
-      "x": 420,
-      "y": 80,
+      "x": 384,
+      "y": 96,
       "w": 200,
-      "h": 120,
+      "h": 100,
       "z": 1
      },
      {
-      "key": "s3",
+      "key": "s7",
       "kind": "object",
       "type": "text",
       "data": {
@@ -122,56 +131,970 @@
        "color": "#2a2a1f",
        "font_size": 16
       },
-      "x": 780,
-      "y": 80,
+      "x": 744,
+      "y": 96,
       "w": 200,
-      "h": 120,
+      "h": 100,
       "z": 1
      }
     ],
     "links": []
-   },
-   "template": "board"
+   }
   },
   {
-   "key": "retro",
+   "key": "week",
    "kind": "element",
-   "name": "Retrospective",
+   "name": "Weekly planner",
+   "hint": "A focus for the week, then a column a day",
+   "purpose": "plan",
    "tags": [
     "template",
-    "retro",
-    "review",
-    "went well"
+    "week",
+    "plan",
+    "schedule",
+    "days"
    ],
+   "template": "board",
    "payload": {
     "box": {
-     "w": 1320,
-     "h": 440
+     "w": 1260,
+     "h": 640
     },
     "items": [
-     {
-      "key": "f0",
-      "kind": "object",
-      "type": "frame",
-      "data": {
-       "content": "Went well"
-      },
-      "x": 0,
-      "y": 0,
-      "w": 300,
-      "h": 440,
-      "z": -1
-     },
      {
       "key": "f1",
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "To improve"
+       "content": "This week's focus",
+       "hint": "The one thing that makes this a good week",
+       "tint": "amber"
       },
-      "x": 340,
+      "x": 0,
       "y": 0,
-      "w": 300,
+      "w": 1260,
+      "h": 180,
+      "z": -1
+     },
+     {
+      "key": "s2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "The one thing",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 96,
+      "w": 240,
+      "h": 56,
+      "z": 1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Monday",
+       "hint": "Plans and appointments",
+       "tint": "neutral"
+      },
+      "x": 0,
+      "y": 220,
+      "w": 220,
+      "h": 420,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Tuesday",
+       "hint": "Plans and appointments",
+       "tint": "neutral"
+      },
+      "x": 260,
+      "y": 220,
+      "w": 220,
+      "h": 420,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Wednesday",
+       "hint": "Plans and appointments",
+       "tint": "neutral"
+      },
+      "x": 520,
+      "y": 220,
+      "w": 220,
+      "h": 420,
+      "z": -1
+     },
+     {
+      "key": "f6",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Thursday",
+       "hint": "Plans and appointments",
+       "tint": "neutral"
+      },
+      "x": 780,
+      "y": 220,
+      "w": 220,
+      "h": 420,
+      "z": -1
+     },
+     {
+      "key": "f7",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Friday",
+       "hint": "Plans and appointments",
+       "tint": "neutral"
+      },
+      "x": 1040,
+      "y": 220,
+      "w": 220,
+      "h": 420,
+      "z": -1
+     },
+     {
+      "key": "s8",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Something to do",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 316,
+      "w": 172,
+      "h": 100,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "roadmap",
+   "kind": "element",
+   "name": "Roadmap",
+   "hint": "Now, next and later, over a line of milestones",
+   "purpose": "plan",
+   "tags": [
+    "template",
+    "roadmap",
+    "timeline",
+    "milestones",
+    "now next later"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1160,
+     "h": 740
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Now",
+       "hint": "Being built",
+       "tint": "green"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 360,
+      "h": 460,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Next",
+       "hint": "Lined up after it",
+       "tint": "blue"
+      },
+      "x": 400,
+      "y": 0,
+      "w": 360,
+      "h": 460,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Later",
+       "hint": "Ideas for after that",
+       "tint": "neutral"
+      },
+      "x": 800,
+      "y": 0,
+      "w": 360,
+      "h": 460,
+      "z": -1
+     },
+     {
+      "key": "s4",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "What ships first",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s5",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "What comes after",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 424,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s6",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "A maybe",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 824,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "f7",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Milestones",
+       "hint": "Dates you are aiming at, left to right",
+       "tint": "violet"
+      },
+      "x": 0,
+      "y": 500,
+      "w": 1160,
+      "h": 240,
+      "z": -1
+     },
+     {
+      "key": "k8",
+      "kind": "sketch",
+      "data": {
+       "d": "M 40 650 L 1120 650",
+       "shape": "arrow",
+       "color": "ink",
+       "width": 3,
+       "endCap": "arrow"
+      },
+      "z": 5
+     },
+     {
+      "key": "k9",
+      "kind": "sketch",
+      "data": {
+       "d": "M 110 650 A 10 10 0 1 1 130 650 A 10 10 0 1 1 110 650 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t10",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Start"
+      },
+      "x": 50,
+      "y": 670,
+      "w": 140,
+      "h": 44,
+      "z": 1
+     },
+     {
+      "key": "k11",
+      "kind": "sketch",
+      "data": {
+       "d": "M 410 650 A 10 10 0 1 1 430 650 A 10 10 0 1 1 410 650 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t12",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "First release"
+      },
+      "x": 350,
+      "y": 670,
+      "w": 140,
+      "h": 44,
+      "z": 1
+     },
+     {
+      "key": "k13",
+      "kind": "sketch",
+      "data": {
+       "d": "M 710 650 A 10 10 0 1 1 730 650 A 10 10 0 1 1 710 650 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t14",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Second release"
+      },
+      "x": 650,
+      "y": 670,
+      "w": 140,
+      "h": 44,
+      "z": 1
+     },
+     {
+      "key": "k15",
+      "kind": "sketch",
+      "data": {
+       "d": "M 1010 650 A 10 10 0 1 1 1030 650 A 10 10 0 1 1 1010 650 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t16",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Done"
+      },
+      "x": 950,
+      "y": 670,
+      "w": 140,
+      "h": 44,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "brief",
+   "kind": "element",
+   "name": "Project brief",
+   "hint": "Goal, audience, scope, milestones, risks and success",
+   "purpose": "plan",
+   "tags": [
+    "template",
+    "project",
+    "brief",
+    "scope",
+    "plan"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1160,
+     "h": 600
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Goal",
+       "hint": "What changes when this is done",
+       "tint": "blue"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 360,
+      "h": 280,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Audience",
+       "hint": "Who it is for",
+       "tint": "violet"
+      },
+      "x": 400,
+      "y": 0,
+      "w": 360,
+      "h": 280,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Scope",
+       "hint": "What is in, and what is out",
+       "tint": "neutral"
+      },
+      "x": 800,
+      "y": 0,
+      "w": 360,
+      "h": 280,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Milestones",
+       "hint": "The dates that matter",
+       "tint": "teal"
+      },
+      "x": 0,
+      "y": 320,
+      "w": 360,
+      "h": 280,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Risks",
+       "hint": "What could go wrong",
+       "tint": "red"
+      },
+      "x": 400,
+      "y": 320,
+      "w": 360,
+      "h": 280,
+      "z": -1
+     },
+     {
+      "key": "f6",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Success looks like",
+       "hint": "How you will know it worked",
+       "tint": "green"
+      },
+      "x": 800,
+      "y": 320,
+      "w": 360,
+      "h": 280,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "okrs",
+   "kind": "element",
+   "name": "OKRs",
+   "hint": "Objectives, each with its key results",
+   "purpose": "plan",
+   "tags": [
+    "template",
+    "okr",
+    "objectives",
+    "key results",
+    "goals"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1080,
+     "h": 640
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Objective one",
+       "hint": "A goal worth the quarter",
+       "tint": "violet"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 360,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Key results",
+       "hint": "Three numbers that say it happened",
+       "tint": "blue"
+      },
+      "x": 400,
+      "y": 0,
+      "w": 680,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "s3",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "What you want to be true",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s4",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Key result 1",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 424,
+      "y": 96,
+      "w": 186,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s5",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Key result 2",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 634,
+      "y": 96,
+      "w": 186,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s6",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Key result 3",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 844,
+      "y": 96,
+      "w": 186,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "f7",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Objective two",
+       "hint": "A goal worth the quarter",
+       "tint": "violet"
+      },
+      "x": 0,
+      "y": 340,
+      "w": 360,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f8",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Key results",
+       "hint": "Three numbers that say it happened",
+       "tint": "blue"
+      },
+      "x": 400,
+      "y": 340,
+      "w": 680,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "s9",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "What you want to be true",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 436,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s10",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Key result 1",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 424,
+      "y": 436,
+      "w": 186,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s11",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Key result 2",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 634,
+      "y": 436,
+      "w": 186,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s12",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Key result 3",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 844,
+      "y": 436,
+      "w": 186,
+      "h": 100,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "swot",
+   "kind": "element",
+   "name": "SWOT analysis",
+   "hint": "Strengths, weaknesses, opportunities and threats",
+   "purpose": "decide",
+   "tags": [
+    "template",
+    "swot",
+    "strengths",
+    "weaknesses",
+    "opportunities",
+    "threats",
+    "analysis"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 880,
+     "h": 640
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Strengths",
+       "hint": "What you do well",
+       "tint": "green"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Weaknesses",
+       "hint": "Where you fall short",
+       "tint": "red"
+      },
+      "x": 460,
+      "y": 0,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Opportunities",
+       "hint": "What you could make use of",
+       "tint": "blue"
+      },
+      "x": 0,
+      "y": 340,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Threats",
+       "hint": "What could get in the way",
+       "tint": "amber"
+      },
+      "x": 460,
+      "y": 340,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "eisenhower",
+   "kind": "element",
+   "name": "Eisenhower matrix",
+   "hint": "What to do now, schedule, hand off or drop",
+   "purpose": "decide",
+   "tags": [
+    "template",
+    "eisenhower",
+    "priority",
+    "urgent",
+    "important",
+    "matrix"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 880,
+     "h": 640
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Do now",
+       "hint": "Urgent and important",
+       "tint": "red"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "s2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "A task",
+       "bg": "#ffd1dc",
+       "border_color": "#e8a3b4",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Schedule",
+       "hint": "Important, not urgent",
+       "tint": "blue"
+      },
+      "x": 460,
+      "y": 0,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Delegate",
+       "hint": "Urgent, not important",
+       "tint": "amber"
+      },
+      "x": 0,
+      "y": 340,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Drop",
+       "hint": "Neither urgent nor important",
+       "tint": "neutral"
+      },
+      "x": 460,
+      "y": 340,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "pros-cons",
+   "kind": "element",
+   "name": "Pros and cons",
+   "hint": "Two columns to weigh, then the decision",
+   "purpose": "decide",
+   "tags": [
+    "template",
+    "pros",
+    "cons",
+    "compare",
+    "weigh",
+    "decision"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 920,
+     "h": 660
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Pros",
+       "hint": "Reasons for",
+       "tint": "green"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 440,
       "h": 440,
       "z": -1
      },
@@ -180,12 +1103,118 @@
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Ideas"
+       "content": "Cons",
+       "hint": "Reasons against",
+       "tint": "red"
       },
-      "x": 680,
+      "x": 480,
       "y": 0,
-      "w": 300,
+      "w": 440,
       "h": 440,
+      "z": -1
+     },
+     {
+      "key": "s3",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "A reason for",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s4",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "A reason against",
+       "bg": "#ffd1dc",
+       "border_color": "#e8a3b4",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 504,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Decision",
+       "hint": "What you chose, and why",
+       "tint": "violet"
+      },
+      "x": 0,
+      "y": 480,
+      "w": 920,
+      "h": 180,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "lean",
+   "kind": "element",
+   "name": "Lean canvas",
+   "hint": "A business on one page, in nine boxes",
+   "purpose": "decide",
+   "tags": [
+    "template",
+    "lean",
+    "canvas",
+    "business",
+    "startup",
+    "model"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1360,
+     "h": 760
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Problem",
+       "hint": "The top three problems",
+       "tint": "red"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 240,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Solution",
+       "hint": "One answer to each",
+       "tint": "teal"
+      },
+      "x": 280,
+      "y": 0,
+      "w": 240,
+      "h": 240,
       "z": -1
      },
      {
@@ -193,97 +1222,394 @@
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Actions"
+       "content": "Key metrics",
+       "hint": "What you will count",
+       "tint": "neutral"
       },
-      "x": 1020,
-      "y": 0,
-      "w": 300,
-      "h": 440,
+      "x": 280,
+      "y": 280,
+      "w": 240,
+      "h": 240,
       "z": -1
      },
      {
-      "key": "s0",
+      "key": "f4",
       "kind": "object",
-      "type": "text",
+      "type": "frame",
       "data": {
-       "content": "Add a note",
-       "bg": "#d6f5c9",
-       "border_color": "#9dd18a",
-       "color": "#2a2a1f",
-       "font_size": 16
+       "content": "Unique value",
+       "hint": "Why it is different, in a line",
+       "tint": "violet"
       },
-      "x": 50,
-      "y": 80,
-      "w": 200,
-      "h": 120,
-      "z": 1
+      "x": 560,
+      "y": 0,
+      "w": 240,
+      "h": 520,
+      "z": -1
      },
      {
-      "key": "s1",
+      "key": "f5",
       "kind": "object",
-      "type": "text",
+      "type": "frame",
       "data": {
-       "content": "Add a note",
-       "bg": "#ffd1dc",
-       "border_color": "#e8a3b4",
-       "color": "#2a2a1f",
-       "font_size": 16
+       "content": "Unfair advantage",
+       "hint": "What cannot be copied",
+       "tint": "amber"
       },
-      "x": 390,
-      "y": 80,
-      "w": 200,
-      "h": 120,
-      "z": 1
+      "x": 840,
+      "y": 0,
+      "w": 240,
+      "h": 240,
+      "z": -1
      },
      {
-      "key": "s2",
+      "key": "f6",
       "kind": "object",
-      "type": "text",
+      "type": "frame",
       "data": {
-       "content": "Add a note",
-       "bg": "#fff4a3",
-       "border_color": "#e8d56a",
-       "color": "#2a2a1f",
-       "font_size": 16
+       "content": "Channels",
+       "hint": "How people find it",
+       "tint": "blue"
       },
-      "x": 730,
-      "y": 80,
-      "w": 200,
-      "h": 120,
-      "z": 1
+      "x": 840,
+      "y": 280,
+      "w": 240,
+      "h": 240,
+      "z": -1
      },
      {
-      "key": "s3",
+      "key": "f7",
       "kind": "object",
-      "type": "text",
+      "type": "frame",
       "data": {
-       "content": "Add a note",
-       "bg": "#cfe8ff",
-       "border_color": "#94bfe8",
-       "color": "#2a2a1f",
-       "font_size": 16
+       "content": "Customers",
+       "hint": "Who has the problem",
+       "tint": "green"
       },
-      "x": 1070,
-      "y": 80,
-      "w": 200,
-      "h": 120,
-      "z": 1
+      "x": 1120,
+      "y": 0,
+      "w": 240,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f8",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Costs",
+       "hint": "What it takes to run",
+       "tint": "neutral"
+      },
+      "x": 0,
+      "y": 560,
+      "w": 660,
+      "h": 200,
+      "z": -1
+     },
+     {
+      "key": "f9",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Revenue",
+       "hint": "Where the money comes from",
+       "tint": "green"
+      },
+      "x": 700,
+      "y": 560,
+      "w": 660,
+      "h": 200,
+      "z": -1
      }
     ],
     "links": []
-   },
-   "template": "board"
+   }
+  },
+  {
+   "key": "five-whys",
+   "kind": "element",
+   "name": "5 whys",
+   "hint": "Ask why five times to reach the root cause",
+   "purpose": "solve",
+   "tags": [
+    "template",
+    "five whys",
+    "root cause",
+    "why",
+    "problem"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1160,
+     "h": 740
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Problem",
+       "hint": "What happened, in one sentence",
+       "tint": "red"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 1160,
+      "h": 180,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Why 1",
+       "hint": "Because…",
+       "tint": "neutral"
+      },
+      "x": 0,
+      "y": 220,
+      "w": 200,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Why 2",
+       "hint": "Because…",
+       "tint": "neutral"
+      },
+      "x": 240,
+      "y": 220,
+      "w": 200,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Why 3",
+       "hint": "Because…",
+       "tint": "neutral"
+      },
+      "x": 480,
+      "y": 220,
+      "w": 200,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Why 4",
+       "hint": "Because…",
+       "tint": "neutral"
+      },
+      "x": 720,
+      "y": 220,
+      "w": 200,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f6",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Why 5",
+       "hint": "Usually the root cause",
+       "tint": "amber"
+      },
+      "x": 960,
+      "y": 220,
+      "w": 200,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f7",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Fix",
+       "hint": "What changes so it does not happen again",
+       "tint": "green"
+      },
+      "x": 0,
+      "y": 560,
+      "w": 1160,
+      "h": 180,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "fishbone",
+   "kind": "element",
+   "name": "Fishbone",
+   "hint": "Six kinds of cause along a spine to the effect",
+   "purpose": "solve",
+   "tags": [
+    "template",
+    "fishbone",
+    "ishikawa",
+    "cause",
+    "effect",
+    "root cause"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1300,
+     "h": 520
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "People",
+       "hint": "Who was involved",
+       "tint": "blue"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 300,
+      "h": 220,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Process",
+       "hint": "The steps taken",
+       "tint": "violet"
+      },
+      "x": 340,
+      "y": 0,
+      "w": 300,
+      "h": 220,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Tools",
+       "hint": "What was used",
+       "tint": "teal"
+      },
+      "x": 680,
+      "y": 0,
+      "w": 300,
+      "h": 220,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Materials",
+       "hint": "What went in",
+       "tint": "amber"
+      },
+      "x": 0,
+      "y": 300,
+      "w": 300,
+      "h": 220,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Measurement",
+       "hint": "How it was checked",
+       "tint": "neutral"
+      },
+      "x": 340,
+      "y": 300,
+      "w": 300,
+      "h": 220,
+      "z": -1
+     },
+     {
+      "key": "f6",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Surroundings",
+       "hint": "Where and when",
+       "tint": "green"
+      },
+      "x": 680,
+      "y": 300,
+      "w": 300,
+      "h": 220,
+      "z": -1
+     },
+     {
+      "key": "f7",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Effect",
+       "hint": "The problem you are tracing",
+       "tint": "red"
+      },
+      "x": 1020,
+      "y": 0,
+      "w": 280,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "k8",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 260 L 1008 260",
+       "shape": "arrow",
+       "color": "ink",
+       "width": 3,
+       "endCap": "arrow"
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
   },
   {
    "key": "flow",
    "kind": "element",
-   "name": "Flowchart, a loop",
+   "name": "Flowchart",
+   "hint": "A step, a question and a loop back",
+   "purpose": "solve",
    "tags": [
     "template",
     "flowchart",
     "process",
     "decision"
    ],
+   "template": "board",
    "payload": {
     "box": {
      "w": 440,
@@ -431,199 +1757,73 @@
       }
      }
     ]
-   },
-   "template": "board"
+   }
   },
   {
    "key": "meeting",
    "kind": "element",
    "name": "Meeting notes",
+   "hint": "Agenda, notes, decisions and actions",
+   "purpose": "meet",
    "tags": [
     "template",
     "meeting",
     "agenda",
+    "minutes",
     "actions"
    ],
+   "template": "board",
    "payload": {
     "box": {
-     "w": 960,
-     "h": 460
+     "w": 940,
+     "h": 560
     },
     "items": [
      {
-      "key": "f0",
+      "key": "f1",
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Meeting"
+       "content": "Agenda",
+       "hint": "Topics, and who leads each",
+       "tint": "blue"
       },
       "x": 0,
       "y": 0,
-      "w": 960,
-      "h": 460,
+      "w": 300,
+      "h": 560,
       "z": -1
-     },
-     {
-      "key": "t0",
-      "kind": "object",
-      "type": "text",
-      "data": {
-       "content": "## Agenda"
-      },
-      "x": 40,
-      "y": 40,
-      "w": 280,
-      "h": 48,
-      "z": 1
-     },
-     {
-      "key": "t1",
-      "kind": "object",
-      "type": "text",
-      "data": {
-       "content": "## Notes"
-      },
-      "x": 340,
-      "y": 40,
-      "w": 280,
-      "h": 48,
-      "z": 1
-     },
-     {
-      "key": "t2",
-      "kind": "object",
-      "type": "text",
-      "data": {
-       "content": "## Actions"
-      },
-      "x": 640,
-      "y": 40,
-      "w": 280,
-      "h": 48,
-      "z": 1
-     },
-     {
-      "key": "s0",
-      "kind": "object",
-      "type": "text",
-      "data": {
-       "content": "First item",
-       "bg": "#fff4a3",
-       "border_color": "#e8d56a",
-       "color": "#2a2a1f",
-       "font_size": 16
-      },
-      "x": 40,
-      "y": 110,
-      "w": 200,
-      "h": 120,
-      "z": 1
-     },
-     {
-      "key": "s1",
-      "kind": "object",
-      "type": "text",
-      "data": {
-       "content": "What was said",
-       "bg": "#cfe8ff",
-       "border_color": "#94bfe8",
-       "color": "#2a2a1f",
-       "font_size": 16
-      },
-      "x": 340,
-      "y": 110,
-      "w": 200,
-      "h": 120,
-      "z": 1
      },
      {
       "key": "s2",
       "kind": "object",
       "type": "text",
       "data": {
-       "content": "Who does what, by when",
-       "bg": "#d6f5c9",
-       "border_color": "#9dd18a",
+       "content": "First item",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
        "color": "#2a2a1f",
        "font_size": 16
       },
-      "x": 640,
-      "y": 110,
+      "x": 24,
+      "y": 96,
       "w": 200,
-      "h": 120,
+      "h": 100,
       "z": 1
-     }
-    ],
-    "links": []
-   },
-   "template": "board"
-  },
-  {
-   "key": "week",
-   "kind": "element",
-   "name": "Week plan",
-   "tags": [
-    "template",
-    "week",
-    "plan",
-    "schedule"
-   ],
-   "payload": {
-    "box": {
-     "w": 1260,
-     "h": 380
-    },
-    "items": [
-     {
-      "key": "f0",
-      "kind": "object",
-      "type": "frame",
-      "data": {
-       "content": "Monday"
-      },
-      "x": 0,
-      "y": 0,
-      "w": 220,
-      "h": 380,
-      "z": -1
-     },
-     {
-      "key": "f1",
-      "kind": "object",
-      "type": "frame",
-      "data": {
-       "content": "Tuesday"
-      },
-      "x": 260,
-      "y": 0,
-      "w": 220,
-      "h": 380,
-      "z": -1
-     },
-     {
-      "key": "f2",
-      "kind": "object",
-      "type": "frame",
-      "data": {
-       "content": "Wednesday"
-      },
-      "x": 520,
-      "y": 0,
-      "w": 220,
-      "h": 380,
-      "z": -1
      },
      {
       "key": "f3",
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Thursday"
+       "content": "Notes",
+       "hint": "What was said",
+       "tint": "neutral"
       },
-      "x": 780,
+      "x": 340,
       "y": 0,
-      "w": 220,
-      "h": 380,
+      "w": 600,
+      "h": 260,
       "z": -1
      },
      {
@@ -631,18 +1831,517 @@
       "kind": "object",
       "type": "frame",
       "data": {
-       "content": "Friday"
+       "content": "Decisions",
+       "hint": "What was agreed",
+       "tint": "violet"
       },
-      "x": 1040,
+      "x": 340,
+      "y": 300,
+      "w": 280,
+      "h": 260,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Actions",
+       "hint": "Who does what, by when",
+       "tint": "green"
+      },
+      "x": 660,
+      "y": 300,
+      "w": 280,
+      "h": 260,
+      "z": -1
+     },
+     {
+      "key": "s6",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Who, what, by when",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 684,
+      "y": 396,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "retro",
+   "kind": "element",
+   "name": "Retrospective",
+   "hint": "What went well, what to improve, ideas, actions",
+   "purpose": "meet",
+   "tags": [
+    "template",
+    "retro",
+    "review",
+    "went well",
+    "sprint"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1320,
+     "h": 480
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Went well",
+       "hint": "Keep doing",
+       "tint": "green"
+      },
+      "x": 0,
       "y": 0,
-      "w": 220,
-      "h": 380,
+      "w": 300,
+      "h": 480,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "To improve",
+       "hint": "What slowed you down",
+       "tint": "red"
+      },
+      "x": 340,
+      "y": 0,
+      "w": 300,
+      "h": 480,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Ideas",
+       "hint": "Things to try",
+       "tint": "blue"
+      },
+      "x": 680,
+      "y": 0,
+      "w": 300,
+      "h": 480,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Actions",
+       "hint": "Who does what next",
+       "tint": "violet"
+      },
+      "x": 1020,
+      "y": 0,
+      "w": 300,
+      "h": 480,
+      "z": -1
+     },
+     {
+      "key": "s5",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 24,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s6",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#ffd1dc",
+       "border_color": "#e8a3b4",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 364,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s7",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 704,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     },
+     {
+      "key": "s8",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#e4dcff",
+       "border_color": "#b7a8ec",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 1044,
+      "y": 96,
+      "w": 200,
+      "h": 100,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "cornell",
+   "kind": "element",
+   "name": "Study notes (Cornell)",
+   "hint": "Cues, notes and a summary, the Cornell way",
+   "purpose": "learn",
+   "tags": [
+    "template",
+    "cornell",
+    "study",
+    "notes",
+    "lecture",
+    "revision"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 960,
+     "h": 760
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Cues",
+       "hint": "Questions and key words",
+       "tint": "amber"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 280,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Notes",
+       "hint": "What you heard or read, in your words",
+       "tint": "neutral"
+      },
+      "x": 320,
+      "y": 0,
+      "w": 640,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Summary",
+       "hint": "The page in three sentences",
+       "tint": "blue"
+      },
+      "x": 0,
+      "y": 560,
+      "w": 960,
+      "h": 200,
       "z": -1
      }
     ],
     "links": []
-   },
-   "template": "board"
+   }
+  },
+  {
+   "key": "mood",
+   "kind": "element",
+   "name": "Mood board",
+   "hint": "Pictures, colours and words for a look",
+   "purpose": "learn",
+   "tags": [
+    "template",
+    "mood",
+    "inspiration",
+    "design",
+    "look"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1000,
+     "h": 500
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Pictures",
+       "hint": "Drop images here",
+       "tint": "neutral"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 640,
+      "h": 500,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Colours",
+       "hint": "A palette to keep to",
+       "tint": "pink"
+      },
+      "x": 680,
+      "y": 0,
+      "w": 320,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Words",
+       "hint": "How it should feel",
+       "tint": "violet"
+      },
+      "x": 680,
+      "y": 180,
+      "w": 320,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Type and texture",
+       "hint": "Letters, surfaces, details",
+       "tint": "teal"
+      },
+      "x": 680,
+      "y": 360,
+      "w": 320,
+      "h": 140,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "journey",
+   "kind": "element",
+   "name": "User journey map",
+   "hint": "Stages across, what people do, think and feel down",
+   "purpose": "learn",
+   "tags": [
+    "template",
+    "journey",
+    "user",
+    "customer",
+    "experience",
+    "ux"
+   ],
+   "template": "board",
+   "payload": {
+    "box": {
+     "w": 1260,
+     "h": 1100
+    },
+    "items": [
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Discover",
+       "hint": "How they find you",
+       "tint": "neutral"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 220,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Try",
+       "hint": "The first go",
+       "tint": "neutral"
+      },
+      "x": 260,
+      "y": 0,
+      "w": 220,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Choose",
+       "hint": "The moment they decide",
+       "tint": "neutral"
+      },
+      "x": 520,
+      "y": 0,
+      "w": 220,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Use",
+       "hint": "Every day after",
+       "tint": "neutral"
+      },
+      "x": 780,
+      "y": 0,
+      "w": 220,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f5",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Recommend",
+       "hint": "Telling others",
+       "tint": "neutral"
+      },
+      "x": 1040,
+      "y": 0,
+      "w": 220,
+      "h": 140,
+      "z": -1
+     },
+     {
+      "key": "f6",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Doing",
+       "hint": "What they do at each step",
+       "tint": "blue"
+      },
+      "x": 0,
+      "y": 180,
+      "w": 1260,
+      "h": 200,
+      "z": -1
+     },
+     {
+      "key": "f7",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Thinking",
+       "hint": "What goes through their mind",
+       "tint": "violet"
+      },
+      "x": 0,
+      "y": 420,
+      "w": 1260,
+      "h": 200,
+      "z": -1
+     },
+     {
+      "key": "f8",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Feeling",
+       "hint": "Highs and lows",
+       "tint": "amber"
+      },
+      "x": 0,
+      "y": 660,
+      "w": 1260,
+      "h": 200,
+      "z": -1
+     },
+     {
+      "key": "f9",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Opportunities",
+       "hint": "Where you could do better",
+       "tint": "green"
+      },
+      "x": 0,
+      "y": 900,
+      "w": 1260,
+      "h": 200,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
   }
  ]
 }

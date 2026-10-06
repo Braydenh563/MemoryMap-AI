@@ -786,7 +786,28 @@ class EmbeddingService:
         """The model actually doing the work right now, whichever backend."""
         if self._models.embedding_backend() == "ollama":
             return self._models.embedding_model()
-        return DEFAULT_ST_MODEL
+        return self.st_repo()
+
+    def st_repo(self) -> str:
+        """The built-in backend's model (INBOX 700: a choice now, from the
+        allowlist in `core/embedmodels.py`; the default until one is made)."""
+        chosen = getattr(getattr(self, "_models", None), "embedding_st_model", None)
+        return chosen() if chosen is not None else DEFAULT_ST_MODEL
+
+    def pinned(self, backend: str, model: str) -> "EmbeddingService":
+        """A service bound to `backend` and `model` whatever the settings say:
+        the one a model switch embeds the new set with while this one, on the
+        saved settings, keeps answering searches (`core/embedswitch.py`)."""
+        return EmbeddingService(_PinnedModels(backend, model), self._ollama)
+
+    def adopt(self, other: "EmbeddingService") -> None:
+        """Take over `other`'s loaded model once the switch has made its
+        settings the saved ones: the new model is already in memory, and
+        loading it again would cost the first search after the switch."""
+        if other._st_model is not None:
+            self._st_model = other._st_model
+        self.clear_embed_cache()
+        self.reset_failure_state()
 
     def backend_id(self) -> str:
         """Stored as model_version next to every vector, so a backend
@@ -794,7 +815,7 @@ class EmbeddingService:
         different spaces and must never be compared (plan §6.5)."""
         if self._models.embedding_backend() == "ollama":
             return f"ollama:{self._models.embedding_model()}"
-        return f"sentence-transformers:{DEFAULT_ST_MODEL}"
+        return f"sentence-transformers:{self.st_repo()}"
 
     def is_ready(self) -> bool:
         """Can we embed right now without a long first-time load?
@@ -867,26 +888,33 @@ class EmbeddingService:
         os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
         from sentence_transformers import SentenceTransformer
 
+        repo = self.st_repo()
         try:
-            model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
+            model = SentenceTransformer(repo, local_files_only=True)
             logger.info("embedding model loaded from local cache")
             return model
         except Exception as exc:  # noqa: BLE001  # not cached, stale or corrupt
             from memorymap.core import embedmodels
 
-            if embedmodels.is_downloaded(DEFAULT_ST_MODEL):
+            if embedmodels.is_downloaded(repo):
                 logger.warning(
                     "%s is on this computer but would not load (%s); staying offline. "
                     "Reinstall it from Settings, Models to fetch it again.",
-                    DEFAULT_ST_MODEL,
+                    repo,
                     safe_value(str(exc), 200),
                 )
                 raise EmbeddingCacheBroken(
                     "The search-by-meaning model's files on this computer would not load. "
                     "Reinstall it from Settings, Models."
                 ) from exc
-        logger.info("%s is not on this computer yet: downloading it once", DEFAULT_ST_MODEL)
-        return SentenceTransformer(DEFAULT_ST_MODEL)
+        logger.info("%s is not on this computer yet: downloading it once", repo)
+        return SentenceTransformer(repo)
+
+    def _prefixed(self, text: str) -> str:
+        """`text` with the prefix its model was trained with (E5, nomic)."""
+        from memorymap.core import embedmodels
+
+        return embedmodels.prefix_for(self.st_repo()) + text
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
         if self._st_model is None and self._load_failed_at is not None:
@@ -903,7 +931,9 @@ class EmbeddingService:
             _limit_torch_threads()
             # No progress bar: a tqdm "Batches" bar on stderr for every one
             # note is log noise in a packaged app and a little work besides.
-            result = np.asarray(self._st_model.encode(text, show_progress_bar=False), dtype="float32")
+            result = np.asarray(
+                self._st_model.encode(self._prefixed(text), show_progress_bar=False), dtype="float32"
+            )
             self.last_error = None
             return result
         except Exception as exc:
@@ -1087,7 +1117,7 @@ class EmbeddingService:
                 import numpy as np
 
                 _limit_torch_threads()
-                batch = self._st_model.encode(list(texts), show_progress_bar=False)
+                batch = self._st_model.encode([self._prefixed(text) for text in texts], show_progress_bar=False)
                 return [np.asarray(row, dtype="float32") for row in batch]
             except Exception:  # noqa: BLE001  # fall back to one at a time
                 logger.debug("batched encode failed; embedding one at a time", exc_info=True)
@@ -1147,6 +1177,24 @@ class EmbeddingService:
             )
         session.add_all(rows)
         return len(rows)
+
+
+class _PinnedModels:
+    """The three answers an `EmbeddingService` asks its model manager for,
+    fixed: the settings a model switch is moving to, not the saved ones."""
+
+    def __init__(self, backend: str, model: str) -> None:
+        self._backend = backend
+        self._model = model
+
+    def embedding_backend(self) -> str:
+        return self._backend
+
+    def embedding_model(self) -> str:
+        return self._model if self._backend == "ollama" else ""
+
+    def embedding_st_model(self) -> str:
+        return self._model if self._backend != "ollama" else DEFAULT_ST_MODEL
 
 
 # `store_quietly` used to live here and is now `core.deps.store_quietly`, it

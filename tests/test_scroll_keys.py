@@ -41,7 +41,7 @@ def test_a_pointer_picked_settings_section_hands_the_keys_to_the_pane() -> None:
     #: screen reader); with no heading it falls back to the pane. INBOX 467
     #: (the owner, later): a pointer click keeps the focus in the list so the
     #: arrows walk the sections, and Page Up/Down read the pane from there.
-    assert "if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(button.dataset.section);" in wiring
+    assert "if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(name);" in wiring
     assert 'event.key === "PageDown" || event.key === "PageUp"' in settings
     assert "if (!head) return focusSettingsPane();" in wiring
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")

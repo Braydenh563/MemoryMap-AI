@@ -251,7 +251,12 @@ function wbCommandMenuRow(id) {
 function wbCommandsLive() {
   const view = document.getElementById("library-view-whiteboard");
   const canvas = document.getElementById("wb-canvas-view");
-  return Boolean(view && !view.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden"));
+  //: Rendered, not only un-hidden: the Library tab hides by its own panel,
+  //: so a board left open there kept these classes while Notes or Ask was on
+  //: screen, and a stray Ctrl+V dropped an image onto the unseen board (and
+  //: started captioning it). `getClientRects()` is empty under any hidden
+  //: ancestor.
+  return Boolean(view && !view.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && canvas.getClientRects().length);
 }
 
 //: The command palette's rows (palette.js, through `paletteCommands` in
@@ -324,7 +329,7 @@ const WB_HELP_SECTIONS = [
     { icon: "ph:caret-down", label: "Fold or open a branch", keys: ["C"] },
     { icon: "ph:list-dashes", label: "Show that many levels", keys: ["Alt+1 to 9"] },
     { icon: "ph:crosshair", label: "Focus here, show all again", keys: ["F"] },
-    { icon: "ph:list", label: "The topic's whole menu", keys: ["Shift+F10"] },
+    { icon: "ph:dots-three", label: "The topic's whole menu", keys: ["Shift+F10"] },
     { icon: "ph:text-aa", label: "Label a line", keys: ["double-click it"] },
     { icon: "ph:line-segment", label: "Straighten a line", keys: ["double-click its grip"] },
   ] },
@@ -358,7 +363,7 @@ const WB_HELP_SECTIONS = [
     { icon: "ph:text-t", label: "A text box on the empty board", keys: ["double-click"] },
     { cmd: "text" },
     { cmd: "copy-style" }, { cmd: "paste-style" },
-    { icon: "ph:list", label: "The item's or the board's menu", keys: ["right-click", "hold"] },
+    { icon: "ph:dots-three", label: "The item's or the board's menu", keys: ["right-click", "hold"] },
   ] },
   { title: "Arrange", surface: "board", rows: [
     { cmd: "order-forward" }, { cmd: "order-backward" }, { cmd: "order-front" }, { cmd: "order-back" },

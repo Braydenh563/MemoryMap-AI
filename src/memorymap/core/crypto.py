@@ -17,9 +17,13 @@ What this protects against: someone reading the database file, a stolen
 laptop, a synced backup, a shared machine. What it cannot protect against:
 someone who has your password, or a running unlocked app.
 
-There is no recovery path. That is inherent to encryption rather than a
-shortcut taken here: a backdoor that let the app recover notes without the
-password would equally let anyone else.
+There is no recovery path the app holds. That is inherent to encryption
+rather than a shortcut taken here: a backdoor that let the app recover notes
+without the password would equally let anyone else. The one way back is a
+recovery key the owner holds (INBOX 663): 160 random bits shown once, which
+wraps the same DEK a second time exactly as the password does (its own salt,
+the same scrypt, AES-GCM). It is a second password the app chose, never
+stored: the database keeps only what it wraps.
 """
 
 from __future__ import annotations
@@ -27,6 +31,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import re
+import secrets
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -91,6 +97,41 @@ def unwrap_dek(wrapped: bytes, password: str, salt: bytes) -> bytes:
         return AESGCM(kek).decrypt(nonce, body, None)
     except (InvalidTag, ValueError) as exc:
         raise DecryptionError("Wrong password for the vault") from exc
+
+
+#: **The recovery key** (INBOX 663). 160 bits from `secrets`, written in
+#: RFC 4648 base32 (A to Z, 2 to 7: no 0, 1, 8 or 9 to misread) as eight
+#: groups of four. 160 bits is past any offline guessing, so the scrypt in
+#: front of it buys nothing for strength; it is kept so the key wraps the DEK
+#: by the same code path as the password and a stolen database gives an
+#: attacker the same per-guess cost whichever wrap they aim at.
+RECOVERY_KEY_BYTES = 20
+RECOVERY_KEY_CHARS = 32  # base32 of 20 bytes, no padding
+_RECOVERY_GROUP = 4
+_BASE32 = re.compile(r"[A-Z2-7]{32}")
+#: Characters base32 never uses that a person copying the key by hand may
+#: write instead of the one meant. Mapped, not refused: none of them is ever
+#: part of a real key, so reading them as their lookalike can only help.
+_LOOKALIKES = str.maketrans({"0": "O", "1": "I", "8": "B"})
+
+
+def new_recovery_key() -> str:
+    """A fresh recovery key, as shown to the owner: XXXX-XXXX-...-XXXX."""
+    raw = base64.b32encode(secrets.token_bytes(RECOVERY_KEY_BYTES)).decode("ascii")
+    return "-".join(raw[i : i + _RECOVERY_GROUP] for i in range(0, len(raw), _RECOVERY_GROUP))
+
+
+def normalise_recovery_key(text: str) -> str | None:
+    """The canonical 32 characters of a typed or pasted key, or None.
+
+    Dashes, spaces and case are what copying and retyping change, so they do
+    not count. Anything else that is not exactly 32 base32 characters is not
+    a recovery key at all, which the caller says without trying it.
+    """
+    if not isinstance(text, str):
+        return None
+    compact = re.sub(r"[\s\-_]", "", text).upper().translate(_LOOKALIKES)
+    return compact if _BASE32.fullmatch(compact) else None
 
 
 def encrypt(dek: bytes, plaintext: str) -> str:

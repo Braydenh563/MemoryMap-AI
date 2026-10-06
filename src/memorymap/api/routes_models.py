@@ -298,6 +298,15 @@ def _embedding_coverage(session: Session) -> dict:
     return {"indexed": int(indexed), "total": int(total)}
 
 
+def _tools_engine() -> str | None:
+    from memorymap.core import extras
+
+    try:
+        return "needle" if extras.download_ready("needle") is not None else None
+    except Exception:  # noqa: BLE001  # an unreadable extras folder is "not installed"
+        return None
+
+
 @router.get("/status")
 def status(session: Session = Depends(get_session)) -> dict:
     """One call that tells the UI everything: is Ollama up, what's
@@ -348,6 +357,11 @@ def status(session: Session = Depends(get_session)) -> dict:
         # backend is answering", which is the question the pill asks whoever
         # is answering it.
         "ollama_running": running,
+        #: What can still call tools with no model (INBOX 725): "needle" when
+        #: its extra is on disk (`tool_fallback.for_tools`'s own test, a
+        #: folder check, no import), so the Chat tab's Agent mode is greyed
+        #: only when nothing could run it.
+        "tools_engine": None if running else _tools_engine(),
         "unreachable_hint": unreachable_hint,
         # Which dialect is actually in use (§6), so the UI can say so rather
         # than claiming Ollama when the answers came from LM Studio.
@@ -886,32 +900,49 @@ def cancel_job(kind: str, name: str = "") -> dict:
 def set_embedding_backend(
     body: EmbeddingBackendBody, session: Session = Depends(get_session)
 ) -> dict:
-    """Switch how notes are embedded, then re-index everything, vectors
-    from different models must never be compared (§6.5)."""
+    """Switch how notes are embedded: vectors from different models must
+    never be compared (§6.5), so every note is embedded again.
+
+    Through `core/embedswitch.py` since INBOX 700: the new set is built
+    beside the old one and swapped in whole, so search keeps working on the
+    old model until it is complete, rather than falling back to keywords
+    for the length of a re-index. The settings change at the swap."""
     if body.backend == "ollama" and not body.model:
         raise HTTPException(status_code=400, detail="Pick an Ollama embedding model.")
-    current = jobs.reindex_status()
-    if current is not None and current["status"] == "running":
-        raise HTTPException(status_code=409, detail="A re-index is already running.")
+    from memorymap.core import embedmodels, embedswitch
 
-    deps.get_model_manager().set_embedding_backend(body.backend, body.model)
+    current = jobs.reindex_status()
+    if (current is not None and current["status"] == "running") or embedswitch.status()["running"]:
+        raise HTTPException(status_code=409, detail="A re-index is already running.")
+    manager = deps.get_model_manager()
+    if body.backend == "ollama":
+        model = str(body.model)
+    else:
+        # A built-in model is an allowlist repo, never free text.
+        from memorymap.core import embedfind
+
+        entry = embedmodels.EMBED_MODELS_BY_REPO.get(body.model or "")
+        if entry and entry.one_press:
+            model = entry.repo
+        elif body.model and embedfind.usable_repo(body.model):
+            model = body.model
+        else:
+            model = manager.embedding_st_model()
+
+    # Switching backend is a fresh start: drop any cached failure so the
+    # switch retries right away and the stale error banner clears at once
+    # instead of lingering for the retry-cooldown (bug: a fixed torch/Ollama
+    # still showed the old "search engine problem" until the cooldown lapsed).
+    deps.get_embeddings().reset_failure_state()
+    started, message = embedswitch.start(body.backend, model)
     log_action(
         session,
         "edited",
         "preferences",
-        detail=f"embedding_backend={body.backend} model={body.model or '-'}",
+        detail=f"embedding switch to {body.backend} {model}: {'started' if started else 'not started'}",
     )
     session.commit()
-
-    # Switching backend is a fresh start: drop any cached failure so the
-    # re-index retries right away and the stale error banner clears at once
-    # instead of lingering for the retry-cooldown (bug: a fixed torch/Ollama
-    # still showed the old "search engine problem" until the cooldown lapsed).
-    embeddings = deps.get_embeddings()
-    embeddings.reset_failure_state()
-    jobs.start_reindex(deps.get_db(), embeddings)
-    deps.clear_index_stale()
-    return {"reindex_started": True}
+    return {"reindex_started": started, "message": message}
 
 
 @router.post("/reindex")

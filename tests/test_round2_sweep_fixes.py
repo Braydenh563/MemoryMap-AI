@@ -28,7 +28,11 @@ def _css(name: str) -> str:
 
 def test_the_phone_band_keeps_one_row_only_where_the_fit_is_mounted() -> None:
     css = _css("05-sidebars-themes.css")
-    assert re.search(r"\.doc-toolbar:has\(> \.doc-toolbar-tools\)\s*\{\s*flex-wrap: nowrap;", css)
+    # Never once More is open (INBOX 665): one row then ran 700px past the
+    # strip's border at 390.
+    assert re.search(
+        r"\.doc-toolbar:not\(\.is-more-open\):has\(> \.doc-toolbar-tools\)\s*\{\s*flex-wrap: nowrap;", css
+    )
     assert not re.search(r"\n  \.doc-toolbar \{\s*flex-wrap: nowrap;\s*\}", css)
 
 

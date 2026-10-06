@@ -55,7 +55,6 @@ EXPECTED = {
     ],
     'capture-ask.js': [
         '"Couldn\'t read the clipboard, so that part of the template is empty."',
-        '"Reading is paused in Settings, What it learned."',
     ],
     'categories-panel.js': [
         '"Name the new category first."',
@@ -106,7 +105,7 @@ EXPECTED = {
     'library.js': [
         '"A note can\'t be linked to itself."',
         'chosen.said',
-        '"There is nothing to ask about yet."',
+        '"There is nothing to ask about yet. Read the page first."',
         '"There is nothing to copy yet."',
         '"There is nothing to save yet."',
         'updated.message || (image._isImage ? "No description was written. Is a vision model running in Settings > Models?" : "No description was written. Check a model is running in Settings > Models.")',
@@ -125,11 +124,14 @@ EXPECTED = {
     'note-edit-panels.js': [
         '"A note needs some text. To remove it, use Move to bin in its menu."',
     ],
-    'notes-list.js': [
+    'note-panels.js': [
         'draftFirst ? "A draft can\'t be linked to a saved note. Save the draft first." : "A saved note can\'t be linked to a draft. Save the draft first."',
     ],
     'pick-row.js': [
         'shape.full || "That\'s as many as one message can carry."',
+    ],
+    'questions-view.js': [
+        '"Reading is paused in Settings, What it learned."',
     ],
     'selection.js': [
         '"Extracting notes needs the local AI."',

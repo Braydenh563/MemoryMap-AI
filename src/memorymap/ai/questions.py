@@ -27,7 +27,6 @@ the graph unasked, as it never writes to a note (I1).
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 from sqlalchemy import select
@@ -80,9 +79,14 @@ def _title(content: str) -> str:
     line cut at 60 characters. A one-line note's whole text as its "title"
     read as the sentence twice beside the quote of it (questions.js)."""
     first = (content or "").strip().split("\n", 1)[0].strip().lstrip("#").strip()
-    sentence = re.match(r"(.+?[.!?])(?:\s|$)", first)
-    if sentence and len(sentence.group(1)) <= 60:
-        return sentence.group(1)
+    #: The first `.`, `!` or `?` that ends a word (followed by a space or the
+    #: end), after at least one character, and only if the sentence fits in
+    #: 60: so only the first 60 characters are ever read. This was
+    #: `re.match(r"(.+?[.!?])(?:\s|$)", first)`, linear already (anchored), but
+    #: CodeQL reads `.+?` as `py/polynomial-redos` and the loop is simpler.
+    for end in range(1, min(len(first), 60)):
+        if first[end] in ".!?" and (end + 1 == len(first) or first[end + 1].isspace()):
+            return first[: end + 1]
     return first if len(first) <= 60 else first[:59].rstrip() + "\u2026"
 
 

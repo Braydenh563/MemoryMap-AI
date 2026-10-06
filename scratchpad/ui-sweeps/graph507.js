@@ -64,13 +64,15 @@ const phone = W < 600;
       };
     })
   );
-  // Layout by keyboard: focus the Tree radio, press Space
-  await page.focus('input[name="graph-layout"][value="tree"]');
-  await page.keyboard.press("Space");
+  // Layout by keyboard (INBOX 670: a list now): open it, walk to Tree, Enter
+  await page.focus("#graph-layout ~ .select-opener");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(250);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
   await page.waitForTimeout(600);
-  log("layout after Tree", await page.evaluate(() => ({ checked: document.querySelector('input[name="graph-layout"]:checked').value, saved: localStorage.getItem("graph-layout") })));
-  await page.focus('input[name="graph-layout"][value="force"]');
-  await page.keyboard.press("Space");
+  log("layout after Tree", await page.evaluate(() => ({ checked: document.getElementById("graph-layout").value, saved: localStorage.getItem("graph-layout") })));
+  await page.selectOption("#graph-layout", "force");
   await page.waitForTimeout(400);
   // Colour and size selects
   for (const [id, value] of [["graph-colour", "kind"], ["graph-size", "length"]]) {

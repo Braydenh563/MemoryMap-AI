@@ -35,10 +35,12 @@ const check = (label, ok, detail) => {
     wbMapThemeDialog();
     await new Promise((r) => setTimeout(r, 300));
     const card = document.querySelector(".wb-info-card");
-    const seg = card.querySelector(".wb-map-theme-scope");
-    const pressed = () => [...seg.children].find((b) => b.getAttribute("aria-pressed") === "true")?.textContent;
+    // INBOX 665: the level switch is a select now, not a `.seg` of four.
+    const seg = card.querySelector(".wb-map-theme-scope select");
+    const pressed = () => seg.selectedOptions[0]?.textContent.replace(/^The /, "").replace(/^whole map$/, "Whole map");
     const before = pressed();
-    seg.children[2].click();
+    seg.value = "1";
+    seg.dispatchEvent(new Event("change"));
     await new Promise((r) => setTimeout(r, 100));
     const rows = [...card.querySelectorAll(".wb-map-theme-rows select")].map((s) => s.getAttribute("aria-label"));
     const blank = card.querySelector(".wb-map-theme-rows select")?.options[0]?.textContent;

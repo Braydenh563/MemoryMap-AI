@@ -369,11 +369,23 @@ def rapidocr_available() -> bool:
     return False
 
 
-def engine() -> str:
+#: The local engines a reader may name outright (INBOX 717, the owner: "does
+#: the ocr worspace give rapidocr as an alternative??"). `""` is the automatic
+#: pick below, and stays what every caller that names nothing gets.
+LOCAL_ENGINES = ("tesseract", "rapidocr")
+
+
+def engine(choice: str = "") -> str:
     """Which local reader reads: `"tesseract"` when both of its halves are
     here (the default whenever it is present, as it always was),
     `"rapidocr"` when Tesseract is not ready and RapidOCR is installed, and
-    `""` when neither can read."""
+    `""` when neither can read.
+
+    `choice="rapidocr"` is the workspace's explicit pick: RapidOCR reads even
+    when Tesseract is ready, and `""` comes back when it is not installed (the
+    caller says so; nothing is substituted for an engine somebody named)."""
+    if choice == "rapidocr":
+        return "rapidocr" if rapidocr_available() else ""
     if tesseract_available() and packages_available():
         return "tesseract"
     if rapidocr_available():
@@ -381,9 +393,11 @@ def engine() -> str:
     return ""
 
 
-def engine_name() -> str:
+def engine_name(choice: str = "") -> str:
     """The reading engine's name for a sentence, "Tesseract" when none is
     installed (it is the one an install suggestion names first)."""
+    if choice == "rapidocr":
+        return "RapidOCR"
     return ENGINE_NAMES.get(engine(), "Tesseract")
 
 
@@ -585,10 +599,14 @@ def engine_status() -> dict:
     }
 
 
-def unavailable_reason() -> str:
+def unavailable_reason(choice: str = "") -> str:
     """Why no local reader can read right now, in a sentence that says what
     to do, or "" when one can. Used where a route used to return nothing and
     let a missing engine look like a page with no text on it."""
+    if choice == "rapidocr":
+        if rapidocr_available():
+            return ""
+        return "RapidOCR isn't installed. Install it in Settings, Packages, or pick another reader."
     status = engine_status()
     if status["ready"]:
         return ""
@@ -636,13 +654,17 @@ def _log_package_missing() -> None:
     )
 
 
-def extract_text(image_path: Path) -> str:
+def extract_text(image_path: Path, choice: str = "") -> str:
     """Best-effort OCR text for one image file. Never raises: a missing
     binary, a corrupt image, or an unsupported format all just mean no text
     was found, exactly as if the image genuinely had none. RapidOCR reads
-    when Tesseract is not ready and it is installed (`engine()`)."""
-    if engine() == "rapidocr":
+    when Tesseract is not ready and it is installed (`engine()`), or when it
+    was chosen (`choice`)."""
+    picked = engine(choice)
+    if picked == "rapidocr":
         return _rapidocr_text(image_path)
+    if choice == "rapidocr":
+        return ""
     if not tesseract_available():
         _log_binary_missing()
         return ""
@@ -687,7 +709,7 @@ REGION_MIN_CONFIDENCE = 30
 REGION_HEADING_RATIO = 1.45
 
 
-def extract_regions(image_path: Path) -> dict | None:
+def extract_regions(image_path: Path, choice: str = "") -> dict | None:
     """Text laid out as Tesseract found it: one entry per block, with the
     box it occupies on the page.
 
@@ -706,8 +728,11 @@ def extract_regions(image_path: Path) -> dict | None:
     size but one. RapidOCR's lines are grouped into the same blocks when it
     is the engine (`_rapidocr_regions`).
     """
-    if engine() == "rapidocr":
+    picked = engine(choice)
+    if picked == "rapidocr":
         return _rapidocr_regions(image_path)
+    if choice == "rapidocr":
+        return None
     if not tesseract_available():
         _log_binary_missing()
         return None

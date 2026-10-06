@@ -232,6 +232,79 @@ def test_suggestion_mode_is_wired_and_reachable() -> None:
     assert "docSuggestForRead(" in _body("renderDocPreview")
 
 
+#: INBOX 689: a press on a suggested change whose text is also a spelling
+#: finding opens one menu, the change's answers first and the finding's after.
+MENU_DRIVER = r"""
+const results = [];
+const eq = (name, got, want) => results.push({ name, ok: JSON.stringify(got) === JSON.stringify(want), detail: JSON.stringify(got) });
+const text = 'Say {++faque++} and {--old--}.';
+const [ins, del] = docSuggestParse(text);
+const finding = { start: text.indexOf('faque'), end: text.indexOf('faque') + 5, text: 'faque', rule: 'spelling' };
+const elsewhere = { start: 0, end: 3, text: 'Say', rule: 'spelling' };
+const straddle = { start: ins.start - 2, end: ins.bodyStart + 2, text: 'x', rule: 'spelling' };
+eq('finding/inside the body', docSuggestFindingFor(ins, [elsewhere, finding]), finding);
+eq('finding/outside the body is none', docSuggestFindingFor(ins, [elsewhere]), null);
+eq('finding/the marker alone is not the body', docSuggestFindingFor(ins, [{ start: ins.start, end: ins.bodyStart }]), null);
+eq('finding/overlapping the body edge counts', docSuggestFindingFor(ins, [straddle]), straddle);
+eq('finding/none for a deletion without one', docSuggestFindingFor(del, [finding]), null);
+eq('finding/no list is none', docSuggestFindingFor(ins, undefined), null);
+const second = { start: finding.start + 2, end: finding.end, text: 'que', rule: 'spelling' };
+eq('finding/the one under the offset wins', docSuggestFindingFor(ins, [finding, second], finding.end - 1), finding);
+const calls = [];
+const run = {
+  one: (accept) => () => calls.push(['one', accept]),
+  all: (accept) => () => calls.push(['all', accept]),
+  next: () => () => calls.push(['next']),
+};
+const answers = [
+  { label: 'fake', title: 'Replace with fake', run: () => calls.push(['fix']) },
+  { label: 'ph:book-open-text Add to dictionary', title: 't', run: () => calls.push(['dict']) },
+  { label: 'ph:eye-slash Ignore in this document', title: 't', run: () => calls.push(['ignore']) },
+];
+const alone = docSuggestMenuItems(ins, 1, [], run);
+eq('menu/no finding keeps the old two rows', alone.map((i) => [i.group, i.label]), [['one', 'ph:check Accept this insertion'], ['one', 'ph:x Reject this insertion']]);
+const many = docSuggestMenuItems(del, 2, [], run);
+eq('menu/two changes add the all rows', many.map((i) => i.group), ['one', 'one', 'all', 'all', 'all']);
+const one = docSuggestMenuItems(ins, 2, answers, run);
+eq('menu/the change first, the finding after', one.map((i) => i.label), [
+  'ph:check Accept this insertion', 'ph:x Reject this insertion', 'ph:checks Accept all 2', 'ph:x-circle Reject all 2',
+  'ph:arrow-down Next change', 'fake', 'ph:book-open-text Add to dictionary', 'ph:eye-slash Ignore in this document',
+]);
+eq('menu/the finding is its own group', [...new Set(one.slice(5).map((i) => i.group))], ['finding']);
+eq('menu/groups in order', [...new Set(one.map((i) => i.group))], ['one', 'all', 'finding']);
+one.forEach((item) => item.run());
+eq('menu/every row runs its own action', calls.map((c) => c.join(':')), ['one:true', 'one:false', 'all:true', 'all:false', 'next', 'fix', 'dict', 'ignore']);
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+def test_a_suggested_change_with_a_finding_is_one_menu(tmp_path) -> None:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "menu.js"
+    script.write_text(_suggest_source() + MENU_DRIVER, encoding="utf-8")
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    failed = [f"{r['name']}: {r['detail']}" for r in json.loads(out.stdout) if not r["ok"]]
+    assert not failed, "\n".join(failed)
+
+
+def test_the_change_menu_and_the_popover_take_their_answers_from_one_builder() -> None:
+    """The finding's answers are `docFindingAnswerRows`, drawn by the popover
+    (`docSuggestAnswers`) and listed by the change's menu (`docSuggestMenu`),
+    and no pointer menu is open when the popover is asked for."""
+    assert "docFindingAnswerRows(" in _body("docSuggestAnswers")
+    menu = _body("docSuggestMenu")
+    assert "docFindingAnswerRows(" in menu
+    assert "closeDocSuggest()" in menu
+    assert "docSuggestMenuItems(" in menu
+    assert "docPointerMenuOpen()" in _body("docOpenSuggestFor")
+    # The labels live in the builder alone: a second literal is a second copy.
+    assert DOCUMENTS.count('"ph:eye-slash Ignore in this document"') == 1
+    assert DOCUMENTS.count('"ph:book-open-text Add to dictionary"') == 1
+
+
 # --- read aloud ----------------------------------------------------------------
 
 READ_DRIVER = r"""

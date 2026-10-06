@@ -618,15 +618,6 @@ function renderLibrary(options) {
       afterChunk: () => {
         renderLibraryContextBars();
         ensureLibraryGridStop(grid);
-        //: **The thumbnail column is only reserved when a thumbnail exists.**
-        //: Reported: "fix the wierd gap at the start of all the cards in the
-        //: library line view in the all subtab." List view reserves a 3rem
-        //: slot on every row *without* a picture so the rows that have one
-        //: still line up -- correct when some rows have pictures, and on a
-        //: notebook where none do it indents the entire list by 48px of
-        //: nothing. CSS cannot ask whether any sibling has one; this can, so
-        //: the class says so and the rule keys off it.
-        grid.classList.toggle("has-thumbs", Boolean(grid.querySelector(".library-card-thumb")));
       },
     });
 
@@ -955,7 +946,7 @@ function libraryActions(item) {
           settleUndoFromToast(action);
           await restoreIt();
           toast("Note restored.");
-        });
+        }, { also: GO_TO_BIN });
       }),
     ];
   }
@@ -1324,6 +1315,7 @@ function libraryCard(item) {
     const tick = document.createElement("input");
     tick.type = "checkbox";
     tick.className = "library-card-tick";
+    tick.title = "Select";
     tick.checked = librarySelection.has(libraryKeyOf(item));
     tick.setAttribute("aria-label", `Select ${item.title}`);
     tick.addEventListener("click", (event) => event.stopPropagation());
@@ -1943,9 +1935,11 @@ const LIBRARY_CREATE_BY_KIND = {
       newChatConversation();
     },
   },
+  //: A meeting note (INBOX 644); the recorder is inside it, and still the
+  //: Record a meeting command.
   meeting: {
-    label: "ph:microphone Transcribe audio",
-    run: () => openMeetingRecorder(),
+    label: "ph:plus New meeting",
+    run: () => openNewMeeting(),
   },
   // Asked for directly: "I want ways to make custom knowledge graphs that are
   // like mindmaps where I can add and remove nodes, move them around, change
@@ -2046,7 +2040,7 @@ const LIBRARY_CREATE_HINTS = {
   mindmap: ["ph:tree-structure", "A tree of topics round one central idea, with branches you fold and colour."],
   board: ["ph:squares-four", "A canvas of cards, sketches and links you arrange freely."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
-  meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
+  meeting: ["ph:users-three", "A meeting note: agenda, notes, decisions, action items."],
   file: ["ph:upload-simple", "A PDF, an image or any file you already have."],
 };
 
@@ -2058,7 +2052,7 @@ const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "ch
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.
-const LIBRARY_CREATE_CHORDS = { note: "newNote", document: "newDocument", chat: "newChat", meeting: "recordMeeting" };
+const LIBRARY_CREATE_CHORDS = { note: "newNote", document: "newDocument", chat: "newChat" };
 
 function openLibraryCreatePicker() {
   const overlay = document.createElement("div");
@@ -2524,18 +2518,22 @@ function renderSkillCards(query = "") {
   grid.replaceChildren(...columns);
   watchSkillColumns(grid);
 
-  //: The segment carries its counts, so "Yours 0" says why the page looks the
-  //: way it does before anyone clicks it.
+  //: The filter's rows carry their counts, so "Yours (0)" says why the page
+  //: looks the way it does before anyone opens it (INBOX 665: a select now,
+  //: it was a pill well of three).
   const yours = skillCardsCache.filter(({ skill }) => !skill.builtin).length;
   const counts = { all: skillCardsCache.length, yours, builtin: skillCardsCache.length - yours };
-  document.querySelectorAll("#skills-kind button").forEach((button) => {
-    const kind = button.dataset.kind;
-    const on = kind === skillKindFilter;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", on ? "true" : "false");
-    const count = button.querySelector("[data-count]");
-    if (count) count.textContent = counts[kind];
-  });
+  const kindSelect = $("skills-kind");
+  if (kindSelect) {
+    for (const option of kindSelect.options) {
+      const text = `${option.dataset.label} (${counts[option.value]})`;
+      if (option.textContent !== text) option.textContent = text;
+    }
+    if (kindSelect.value !== skillKindFilter) {
+      kindSelect.value = skillKindFilter;
+      kindSelect.dispatchEvent(new Event("change"));
+    }
+  }
 
   if (!empty) return;
   empty.replaceChildren();
@@ -2583,10 +2581,9 @@ onDomReady(() => {
       renderSkillCards($("skills-search")?.value || "");
     });
   }
-  $("skills-kind")?.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-kind]");
-    if (!button) return;
-    skillKindFilter = button.dataset.kind;
+  $("skills-kind")?.addEventListener("change", (event) => {
+    if (event.target.value === skillKindFilter) return;
+    skillKindFilter = event.target.value;
     renderSkillCards($("skills-search")?.value || "");
   });
 });
@@ -3734,6 +3731,24 @@ function mediaFileKind(url) {
 // highlights its box. Boxes are fractions of the image (core/ocr.py), so the
 // overlay is a percentage-positioned layer over the `<img>` and stays right
 // at any panel width, which is why nothing here reads `naturalWidth`.
+//: **The tool row's own state** (INBOX 717), in one object rather than eight
+//: top-level names (tests/test_global_scope_ratchet.py): the section last
+//: selected, whether the remembered reader was applied, the reading menu's
+//: last arguments, the row's fit frame and observer, the two menus' rebuild
+//: keys, the last page range asked for, and whether Tesseract is installing.
+const ocrUi = {
+  activeRegion: null,
+  readerPicked: false,
+  more: { canEdit: false, canAdd: false },
+  dockFrame: 0,
+  dockObserver: null,
+  toolsMenuKey: "",
+  lastRange: "",
+  readMenuKey: "",
+  installing: false,
+  //: Which file `ocrWorkspacePages` was counted for (`ocrBuildPageRail`).
+  pagesFor: "",
+};
 let ocrWorkspaceImages = [];
 let ocrWorkspaceCurrent = null;
 let ocrWorkspaceRegions = [];
@@ -3769,8 +3784,9 @@ function ocrRegionsUrl(image, page = 0) {
   //: one nobody asked for. A page that already has stored regions is served
   //: from the store either way, so this only governs the first read.
   const reader = document.getElementById("ocr-reader")?.value || "";
-  const auto = reader === "tesseract" ? "1" : "0";
-  return `${base}?page=${page}&auto=${auto}`;
+  const auto = reader === "tesseract" || reader === "rapidocr" ? "1" : "0";
+  //: RapidOCR by name reads the first look too (INBOX 717).
+  return `${base}?page=${page}&auto=${auto}${reader === "rapidocr" ? "&engine=rapidocr" : ""}`;
 }
 
 //: The rendered picture of one page, an image is itself the page, a PDF has
@@ -3882,7 +3898,12 @@ function ocrSyncStopButton() {
   button.classList.toggle("hidden", !record || !record.controller);
 }
 
+//: The section last selected, by page and index, so a re-read or a page turn
+//: that rebuilds the list puts the selection back (INBOX 717).
+
 function ocrSelectRegion(index) {
+  const chosen = document.querySelector(`#ocr-region-list .ocr-region[data-index="${Number(index)}"]`);
+  ocrUi.activeRegion = chosen ? { index: Number(index), page: chosen.dataset.page } : null;
   for (const box of document.querySelectorAll("#ocr-boxes .ocr-box")) {
     box.classList.toggle("is-active", Number(box.dataset.index) === index);
   }
@@ -4041,6 +4062,10 @@ function ocrRenderRegions(body) {
   //: there rather than offered and then refused.
   ocrSyncMoreMenu(hasReading && !ocrIsPdf(ocrWorkspaceCurrent), hasReading);
   ocrCloseEdit();
+  //: **One filled action, and it is the next step** (INBOX 717, WORLD_CLASS_
+  //: PLAN 1.2). Before anything is read, Read is; once there is text, Save as
+  //: note is, and Read (now "Read again") steps back to a ghost.
+  ocrStageRead(hasReading || body.source === "text-file");
 
   //: The badge is not decoration: a single whole-page region drawn from
   //: stored text is a *fallback*, and letting it look like something the
@@ -4110,20 +4135,20 @@ function ocrRenderRegions(body) {
   //: looking live. Disabled, with the reason in its tooltip and the reader
   //: that *would* produce them named, which is also the honest argument for
   //: Tesseract still existing here.
-  const boxToggle = $("ocr-show-boxes");
-  const boxLabel = boxToggle?.closest("label");
+  //: A toggle button now (INBOX 717), `aria-disabled` rather than `disabled`
+  //: so the reason in its title still shows on hover and it stays in the tab
+  //: order for a screen reader to hear why.
+  const boxToggle = $("ocr-regions");
   if (boxToggle) {
-    boxToggle.disabled = !positioned;
-    if (boxLabel) {
-      boxLabel.classList.toggle("is-disabled", !positioned);
-      boxLabel.title = positioned
-        ? "Draw a box around each block the reader found"
-        : `This reading has no page positions. Only ${ocrLocalName()} returns where each `
-          + "block sits: a vision model gives back the words and not the places.";
-    }
-    //: The layer follows the checkbox even after a re-read, or a page read
+    boxToggle.setAttribute("aria-disabled", String(!positioned));
+    boxToggle.title = positioned
+      ? "Draw a box around each block the reader found"
+      : `This reading has no page positions. Only ${ocrLocalName()} returns where each `
+        + "block sits: a vision model gives back the words and not the places.";
+    //: The layer follows the toggle even after a re-read, or a page read
     //: with boxes turned off would come back with them on.
-    $("ocr-boxes").classList.toggle("is-hidden", positioned && !boxToggle.checked);
+    $("ocr-boxes").classList.toggle("is-hidden", positioned && boxToggle.getAttribute("aria-pressed") !== "true");
+    ocrSyncToolsMenu();
   }
   for (const region of ocrWorkspaceRegions) {
     //: `positioned` says the *reading* has boxes; `region.box` says this block
@@ -4149,6 +4174,9 @@ function ocrRenderRegions(body) {
     const row = document.createElement("li");
     row.className = "ocr-region";
     row.dataset.index = String(region.index);
+    //: Reachable by the keyboard (INBOX 717): one tab stop for the list, then
+    //: the arrows (`ocrRoveKeys`); Enter does what a click does.
+    row.tabIndex = -1;
     //: **The two panes are one document, read from either side.** Asked for
     //: directly: "each page I am on it aoto scrolls to the extracted text in
     //: the pannel for extracted text on the right, and if I click on a
@@ -4362,6 +4390,26 @@ function ocrRenderRegions(body) {
     message.textContent = "No text was found on this page.";
     message.classList.remove("hidden");
   }
+  //: The empty state replaces the server's "nothing read yet" sentence, which
+  //: it says better; any other message (a reason, an error) stays under it.
+  ocrPaintEmpty(body, hasReading);
+  if ($("ocr-empty") && !$("ocr-empty").classList.contains("hidden")) {
+    if (/^Nothing has been read/.test(message.textContent)) {
+      message.textContent = "";
+      message.classList.add("hidden");
+    }
+    //: The head's "Nothing read yet" badge says the same thing louder, in a
+    //: warning's colours, over a state that is not a fault.
+    source.hidden = true;
+  }
+  if (ocrUi.activeRegion) {
+    const again = list.querySelector(
+      `.ocr-region[data-index="${ocrUi.activeRegion.index}"][data-page="${ocrUi.activeRegion.page}"]`
+    );
+    again?.classList.add("is-active");
+    document.querySelector(`#ocr-boxes .ocr-box[data-index="${ocrUi.activeRegion.index}"]`)?.classList.add("is-active");
+  }
+  ocrRoveSync(list, ".ocr-region");
   //: A find that survives a re-read: the rows were just rebuilt, so the filter
   //: has to be re-applied or a typed query silently stops filtering the moment
   //: a page is re-read, which is precisely when a reader is looking for it.
@@ -4764,6 +4812,11 @@ function ocrDocumentReading(body, storedPages, storedMessage) {
 }
 
 async function ocrLoadPage(image, page = 0, opts = {}) {
+  //: Another page of the same file keeps its reading on screen until the new
+  //: answer replaces it (INBOX 717, measured: turning a page of a stored
+  //: three-page reading emptied the pane for 11 of 91 frames, and the list's
+  //: scroll position went with it). A different file starts empty.
+  const sameFile = Boolean(ocrWorkspaceCurrent) && ocrRailKey(ocrWorkspaceCurrent) === ocrRailKey(image);
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
   //: Whatever page descriptions are on screen belong to the *previous* load.
@@ -4825,17 +4878,20 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     thumb.classList.toggle("is-active", active);
     thumb.setAttribute("aria-current", active ? "true" : "false");
   }
+  ocrRoveSync($("ocr-rail"), ".ocr-rail-item");
   //: A read started elsewhere and still running is the *first* thing this
   //: window has to say, otherwise reopening mid-read shows an empty page and
   //: reads as "it stopped when I closed the window", which is exactly what
   //: was reported.
   const running = ocrReadInFlight(image);
-  $("ocr-message").textContent = running
-    ? `${running.label}: this keeps running if you close this window.`
-    : "Reading the page…";
-  $("ocr-message").classList.remove("hidden");
+  if (running || !sameFile) {
+    $("ocr-message").textContent = running
+      ? `${running.label}: this keeps running if you close this window.`
+      : "Reading the page…";
+    $("ocr-message").classList.remove("hidden");
+  }
   $("ocr-boxes").replaceChildren();
-  $("ocr-region-list").replaceChildren();
+  if (!sameFile) $("ocr-region-list").replaceChildren();
   //: **The read button is not a PDF button.** Asked for directly: *"make it not
   //: just reading text on the page but truly ... an all encompassing text and
   //: image ocr workspace, dont limit the feature."* It was hidden outright for
@@ -4845,9 +4901,9 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   $("ocr-read-page")?.classList.remove("hidden");
   const readLabel = $("ocr-read-page-label");
   if (readLabel) readLabel.textContent = ocrIsPdf(image) ? "Read this page" : "Read this image";
-  //: The range box lives or dies with the per-page button, both are PDF-only,
-  //: and a "read pages 1-5" control beside a photograph would be a lie.
-  $("ocr-read-range-group")?.classList.toggle("hidden", !ocrIsPdf(image));
+  //: Read's menu lives or dies with the per-page button, both are PDF-only,
+  //: and a "read pages 1-5" choice beside a photograph would be a lie.
+  ocrSyncReadMenu(image);
 
   //: **A text file needs no model at all.** Its words are already words, so
   //: the reader shows them straight away, same panes, same Copy / Ask /
@@ -4861,6 +4917,8 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     $("ocr-stage")?.classList.add("ocr-stage-text");
     try {
       const file = await ocrFetchFileText(image);
+      //: The view moved on while this was fetched: its answer is not for it.
+      if (ocrWorkspaceCurrent !== image) return;
       const paragraphs = (file.text || "").split(/\n{2,}/).map((t) => t.trim()).filter(Boolean);
       ocrRenderRegions({
         regions: (paragraphs.length ? paragraphs : ["(This file is empty.)"]).map((text, index) => ({
@@ -4919,6 +4977,10 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: something: a Tesseract reading with real box positions is a better
     //: answer than stored text, and this must not overwrite it.
     const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
+    //: Another file was opened while this page loaded (a PDF, then at once an
+    //: image): painting this answer would put the PDF's reading and its Pages
+    //: rail under the image.
+    if (ocrWorkspaceCurrent !== image) return;
     //: **Per-page descriptions, from the same response** (Phase 7.3). A page's
     //: reading and its description live on one `PageRead` row, so one request
     //: carries both; keeping them in a map keyed by page is what lets the
@@ -4971,6 +5033,8 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
         ? "Describe this image with the vision model (writes its caption)"
         : "Describe the figures, charts and diagrams on this page";
     }
+    //: Describe is a row of the reading's ⋯ (INBOX 717): offered now it shows.
+    ocrSyncMoreMenu();
     const captionEl = $("ocr-caption");
     if (captionEl) {
       //: A page's own description, not the file's: `image.caption` is one
@@ -5014,6 +5078,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
 function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
   ocrPagesKnown = true;
+  ocrUi.pagesFor = ocrRailKey(image);
   const rail = $("ocr-rail");
   if (!rail) return;
   //: The switch above the rail gains its "Pages" segment only once the page
@@ -5055,6 +5120,7 @@ function ocrBuildPageRail(image, pages) {
     rail.appendChild(item);
   }
   rail.classList.toggle("hidden", ocrWorkspacePages < 2);
+  ocrRoveSync(rail, ".ocr-rail-item");
 }
 
 //: Two tables share one rail, and their ids collide, see `_touched_items`
@@ -5081,6 +5147,10 @@ function closeOcrWorkspace() {
   const overlay = $("ocr-workspace");
   if (!overlay) return;
   overlay.classList.add("hidden");
+  //: A popover left open would be open again on the next visit, over a
+  //: different file.
+  for (const open of overlay.querySelectorAll("details[open]")) open.open = false;
+  closeHelpPopovers();
   const running = ocrReadInFlight(ocrWorkspaceCurrent);
   if (!running || !ocrLastOpened) return;
   const { image, page } = ocrLastOpened;
@@ -5255,7 +5325,18 @@ function ocrRenderRailSwitch(current) {
       title: "Every document the reader can open",
     },
   ];
-  if (ocrIsPdf(current) && ocrWorkspacePages > 1) {
+  //: **Pages is the open file's** (the owner: "pages should only show if a
+  //: file is selected and open/being viewed on the ocr workspace"). Decided by
+  //: the file on screen, never the caller's argument (a sibling list that
+  //: resolved after the view moved on passed the PDF it was opened with), and
+  //: by the count recorded for that file, never the last count set.
+  const viewing = ocrWorkspaceCurrent;
+  const paged = Boolean(viewing) && ocrIsPdf(viewing) && !ocrIsTextFile(viewing)
+    && ocrPagesKnown && ocrUi.pagesFor === ocrRailKey(viewing) && ocrWorkspacePages > 1;
+  //: Only beside Files (the owner: "if im on files and go back to imags, the
+  //: pages is still there"): Pages is the open file's own view, so the Images
+  //: list does not carry it even while that file stays in the viewer.
+  if (paged && ocrRailMode !== "images") {
     segments.push({
       id: "pages",
       label: "Pages",
@@ -5273,7 +5354,14 @@ function ocrRenderRailSwitch(current) {
   //: rather than as a control that comes and goes.
   //: A one-page document offers no Pages segment, so "pages" mode would
   //: leave the rail empty and no tab lit (measured): fall back to Files.
-  if (ocrRailMode === "pages" && !segments.some((segment) => segment.id === "pages")) ocrRailMode = "files";
+  //: **Only once the count is known** (INBOX 717, measured): the sibling list
+  //: usually arrives before the page count, so a three-page PDF opened with
+  //: the rail on Files and its own pages one press away, and `ocrBuildPageRail`
+  //: then returned early because the mode was no longer "pages".
+  const pending = Boolean(viewing) && ocrIsPdf(viewing) && !ocrPagesKnown;
+  if (ocrRailMode === "pages" && !paged && !pending) {
+    ocrRailMode = viewing?._isImage ? "images" : "files";
+  }
   const usable = segments;
   host.classList.remove("hidden");
   for (const segment of usable) {
@@ -5346,6 +5434,7 @@ function ocrRenderRail(current) {
     rail.appendChild(item);
   }
   rail.classList.toggle("hidden", !siblings.length);
+  ocrRoveSync(rail, ".ocr-rail-item");
 }
 
 //: Opening a *different* thing from the rail, as opposed to a different page
@@ -5371,6 +5460,8 @@ function ocrOpenSibling(row) {
   ocrWorkspacePage = 0;
   ocrWorkspacePages = 1;
   ocrPagesKnown = false;
+  //: A picture or a text file has no pages: the rail goes back to its list.
+  if (ocrRailMode === "pages") ocrRailMode = row._isImage ? "images" : "files";
   ocrLoadPage(row);
   ocrRenderRail(row);
 }
@@ -5445,6 +5536,10 @@ function openOcrWorkspace(image, images, page = 0) {
   //: card and becomes the page a frame later is a flash of the wrong thing.
   ocrPhonePage(window.matchMedia(PHONE_TABS).matches);
   overlay.classList.remove("hidden");
+  //: The tool row is measured once it has a size (INBOX 717), and again
+  //: whenever the card does.
+  ocrWatchDock();
+  requestAnimationFrame(() => ocrFitDock());
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];
     ocrLoadPage(image, startPage);
@@ -5581,13 +5676,16 @@ function ocrApplyZoom() {
   if (ocrZoom === null) {
     pane.classList.add("is-fit");
     ocrFitStage();
-    // The Fit button beside it is already lit; a second "Fit" as the level
-    // read as a duplicate control (screenshot). Shown only as a percentage.
-    if (label) { label.textContent = "Fit"; label.hidden = true; }
+    //: The level reads "Fit" while the Fit button beside it is lit: the strip
+    //: is one control now (INBOX 717), and a readout that vanished made the
+    //: strip change width under the pointer.
+    if (label) {
+      label.textContent = "Fit";
+      label.setAttribute("aria-label", "Zoom level: Fit. Press for 100%");
+    }
     return;
   }
   pane.classList.remove("is-fit");
-  if (label) label.hidden = false;
   //: The page's own size on paper is the rendered width divided by the scale
   //: it was rendered at; the zoom multiplies *that*, so 100% is 100%. Applied
   //: to every stage on screen, which in continuous mode is every page.
@@ -5596,7 +5694,13 @@ function ocrApplyZoom() {
     if (!pageStage || !natural) continue;
     pageStage.style.width = `${Math.round((natural / ocrNaturalScale()) * ocrZoom)}px`;
   }
-  if (label) label.textContent = `${Math.round(ocrZoom * 100)}%`;
+  if (label) {
+    label.textContent = `${Math.round(ocrZoom * 100)}%`;
+    label.setAttribute(
+      "aria-label",
+      ocrZoom === 1 ? "Zoom level: 100%. Press to fit the page" : `Zoom level: ${label.textContent}. Press for 100%`
+    );
+  }
 }
 
 function ocrStepZoom(direction) {
@@ -5614,19 +5718,37 @@ function ocrStepZoom(direction) {
       ? steps.find((step) => step > ocrZoom + 0.001)
       : [...steps].reverse().find((step) => step < ocrZoom - 0.001);
   ocrZoom = next ?? ocrZoom;
-  ocrApplyZoom();
+  ocrKeepCentre(() => ocrApplyZoom());
   ocrSyncZoomButtons();
 }
 
-//: The segment and the ± row describe one state, so they are painted from it
-//: rather than each tracking their own idea of what is showing.
+//: **A zoom keeps what you were looking at in the middle** (INBOX 717,
+//: measured: one step in from 200% moved the pane's centre from 50% of the
+//: page to 33%, so the line being read slid off towards the bottom right).
+//: The centre is kept as a fraction of the content and put back after the
+//: page has its new size.
+function ocrKeepCentre(apply) {
+  const pane = $("ocr-page-pane");
+  if (!pane) return apply();
+  const x = (pane.scrollLeft + pane.clientWidth / 2) / Math.max(1, pane.scrollWidth);
+  const y = (pane.scrollTop + pane.clientHeight / 2) / Math.max(1, pane.scrollHeight);
+  apply();
+  pane.scrollLeft = x * pane.scrollWidth - pane.clientWidth / 2;
+  pane.scrollTop = y * pane.scrollHeight - pane.clientHeight / 2;
+  return undefined;
+}
+
+//: The strip describes one state, so it is painted from it rather than each
+//: button tracking its own idea of what is showing. The level button's title
+//: says what pressing it does from here: 100%, or back to the fitted page.
 function ocrSyncZoomButtons() {
-  for (const button of document.querySelectorAll("#ocr-zoom button")) {
-    const isFit = button.dataset.ocrZoom === "fit";
-    const on = isFit ? ocrZoom === null : ocrZoom === 1;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", String(on));
+  const fit = $("ocr-zoom-fit");
+  if (fit) fit.setAttribute("aria-pressed", String(ocrZoom === null));
+  const level = $("ocr-zoom-level");
+  if (level) {
+    level.title = ocrZoom === 1 ? "Fit the whole page (0)" : "Show the page at 100%, its own size on paper";
   }
+  ocrSyncToolsMenu();
   const out = $("ocr-zoom-out");
   const zin = $("ocr-zoom-in");
   if (out) out.disabled = ocrZoom !== null && ocrZoom <= OCR_ZOOM_STEPS[0];
@@ -5828,6 +5950,10 @@ function ocrSyncPager(image) {
   if (previous) previous.disabled = ocrWorkspacePage <= 0;
   if (next) next.disabled = ocrWorkspacePage >= ocrWorkspacePages - 1;
   $("ocr-view")?.classList.toggle("hidden", !multi);
+  //: The layout pair comes and goes with the document, so the row is measured
+  //: again, and the Read menu's page count follows the document.
+  ocrSyncReadMenu(image);
+  ocrFitDock();
 }
 
 function ocrStepPage(delta) {
@@ -5857,6 +5983,10 @@ let ocrReaders = {
 //: click in the first moments after the window opens must wait for it rather
 //: than read an empty one as "nothing is available".
 let ocrReadersLoading = Promise.resolve();
+//: Where the workspace remembers the reader (INBOX 717), and whether this
+//: session has already applied it: a reader changed by hand is not overruled
+//: by the memory on the next refresh of the list (an install finishing).
+const OCR_READER_KEY = "memorymap.ocr.reader";
 
 function ocrLoadReaders() {
   ocrReadersLoading = ocrLoadReadersNow();
@@ -5916,25 +6046,56 @@ async function ocrLoadReadersNow() {
       : ocrReaders.ocr_reason || "";
   }
   if (tess) {
-    tess.disabled = ocrReaders.tesseract === false;
-    tess.textContent = ocrReaders.tesseract
-      ? `${ocrLocalName()} (fast, on-page positions)`
-      : "Tesseract (not installed)";
-    tess.title = ocrReaders.tesseract
+    //: Tesseract itself now (INBOX 717): RapidOCR has its own option, so this
+    //: one no longer turns into "RapidOCR" when Tesseract is missing.
+    const ready = ocrCan("tesseract");
+    tess.disabled = !ready;
+    tess.textContent = ready ? "Tesseract (fast, on-page positions)" : "Tesseract (not installed)";
+    tess.title = ready
       ? "No model needed, on this computer, and it says where each block sits."
-      : "Not ready yet. Use Install Tesseract in the line below the toolbar.";
+      : "Not ready yet. Install Tesseract from this menu.";
   }
+  //: **RapidOCR, a choice** (INBOX 717, the owner: "does the ocr worspace give
+  //: rapidocr as an alternative??"). Installed: its trade-off in one line.
+  //: Not: named as missing, with the one way to get it under the picker
+  //: (Settings, Packages at its row), rather than an option that cannot act.
+  const rapid = select.querySelector('option[value="rapidocr"]');
+  const rapidReady = ocrCan("rapidocr");
+  if (rapid) {
+    rapid.disabled = !rapidReady;
+    rapid.textContent = rapidReady ? "RapidOCR (English and Chinese, nothing else to install)" : "RapidOCR, not installed";
+    rapid.title = rapidReady
+      ? "Reads on this computer with no model and nothing else to install. Its models read English and Chinese, so the language setting does not apply."
+      : "Install RapidOCR in Settings, Packages.";
+  }
+  $("ocr-rapidocr-missing")?.classList.toggle("hidden", rapidReady || !ocrReaders.engine);
   //: The engine's own line (ocr-engine.js, lazy): ready or not, which
   //: language, and the one Install. Handed the answer just fetched, so opening
   //: the window is one request, and told to reload this picker when it changes
   //: the engine (an install finished, a language chosen).
   if (ocrReaders.engine) {
-    ocrEngineMount($("ocr-engine"), { readers: ocrReaders, onChange: () => ocrLoadReaders() });
+    ocrEngineMount($("ocr-engine"), {
+      readers: ocrReaders,
+      popover: true,
+      onChange: () => ocrLoadReaders(),
+      onPaint: (state) => {
+        ocrUi.installing = Boolean(state?.installing);
+        ocrSyncReaderButton();
+      },
+    });
   }
   //: Fall to whichever one works rather than leaving a disabled option
   //: selected, which reads as "this is what will happen" and is not.
+  //: The reader chosen last time, when it can still read (INBOX 717); with
+  //: nothing remembered, the automatic pick below, as before.
+  const remembered = prefs.get(OCR_READER_KEY, "");
+  const option = remembered ? select.querySelector(`option[value="${remembered}"]`) : null;
+  if (option && !option.disabled && !option.hidden && !ocrUi.readerPicked) select.value = remembered;
+  ocrUi.readerPicked = true;
   if (select.selectedOptions[0]?.disabled || select.selectedOptions[0]?.hidden) {
-    select.value = ocrReaders.tesseract && !ocrReaders.vision ? "tesseract" : "vision";
+    select.value = ocrCan("tesseract") && !ocrReaders.vision
+      ? "tesseract"
+      : rapidReady && !ocrReaders.vision ? "rapidocr" : "vision";
   }
   //: No repaint call is needed: `enhanceSelect` (sheets-selects.js) watches each select
   //: with `MutationObserver(rebuild, {childList: true, subtree: true})`, and
@@ -5942,11 +6103,75 @@ async function ocrLoadReadersNow() {
   //: childList mutation: so the app's own dropdown rebuilds itself. Written
   //: down because `disabled` alone would *not* have been seen (no
   //: `attributes: true`), which is why every branch above sets the label too.
+  ocrSyncReaderButton();
+}
+
+//: **The reader button: a dot, a name, a caret** (INBOX 717). The dot is the
+//: state of the reader the next press of Read would use, which is what the
+//: owner's "Tesseract 5.5.3 is ready" badge said from a row of its own: green
+//: when it can read, amber when it cannot (the popover says why and offers
+//: Install), pulsing while Tesseract installs. The title and the aria-label
+//: carry the same facts in words, for a pointer and for a screen reader.
+function ocrSyncReaderButton() {
+  const dot = $("ocr-engine-dot");
+  const name = $("ocr-reader-name");
+  const summary = document.querySelector("#ocr-reader-menu > summary");
+  if (!dot || !name || !summary) return;
+  const reader = ocrReader();
+  const engine = ocrReaders.engine || {};
+  //: Told by ocr-engine.js (lazy) on every paint, through `onPaint`.
+  const installing = ocrUi.installing;
+  const can = ocrCan(reader);
+  const word = reader === "tesseract" ? "Tesseract" : reader === "rapidocr" ? "RapidOCR"
+    : reader === "ocr" ? "Vision model" : "Document reader";
+  name.textContent = word;
+  const busy = installing && reader === "tesseract";
+  dot.classList.toggle("is-busy", busy);
+  dot.classList.toggle("is-ok", !busy && Boolean(can));
+  dot.classList.toggle("is-warn", !busy && !can);
+  let state;
+  if (busy) {
+    state = "Tesseract is installing.";
+  } else if (reader === "tesseract") {
+    const version = engine.version ? ` ${engine.version}` : "";
+    const named = (engine.languages || []).find((l) => l.code === engine.language);
+    const language = engine.language ? (named ? named.name : engine.language) : "";
+    state = can
+      ? `Tesseract${version} is ready${language ? `, reading ${language}` : ""}.`
+      : `Tesseract can't read yet. ${engine.reason || ""}`.trim();
+  } else if (reader === "rapidocr") {
+    state = can
+      ? "RapidOCR is ready. It reads English and Chinese; the language setting does not apply."
+      : "RapidOCR isn't installed. Install it from this menu.";
+  } else {
+    const model = reader === "ocr" ? ocrReaders.ocr_model : ocrReaders.vision_model;
+    const why = (reader === "ocr" ? ocrReaders.ocr_reason : ocrReaders.vision_reason) || "Start an AI model in Settings.";
+    state = can ? `${shortModelName(model) || "The document reader"} is ready.` : `The document reader can't read yet. ${why}`;
+  }
+  summary.title = `${state} Press to change the reader${reader === "tesseract" ? " or its language" : ""}.`;
+  summary.setAttribute("aria-label", `Reader: ${word}. ${state}`);
+  ocrFitDock();
 }
 
 function ocrReader() {
   const value = $("ocr-reader")?.value;
-  return value === "tesseract" || value === "ocr" ? value : "vision";
+  return value === "tesseract" || value === "ocr" || value === "rapidocr" ? value : "vision";
+}
+
+//: The two local engines are local readers alike: no model, a stored reading
+//: under the id "tesseract", the `ocr` analyse kind for a picture.
+function ocrIsLocal(reader) {
+  return reader === "tesseract" || reader === "rapidocr";
+}
+
+//: **Whether a reader can run now.** Tesseract is Tesseract itself (both of
+//: its halves), not the automatic pick that falls to RapidOCR, now that
+//: RapidOCR is a choice of its own (INBOX 717): one option, one engine.
+function ocrCan(reader) {
+  const engine = ocrReaders.engine;
+  if (reader === "tesseract") return engine ? Boolean(engine.binary && engine.package) : Boolean(ocrReaders.tesseract);
+  if (reader === "rapidocr") return Boolean(engine?.rapidocr);
+  return reader === "ocr" ? Boolean(ocrReaders.ocr) : Boolean(ocrReaders.vision);
 }
 
 //: The local reader's name: Tesseract, or RapidOCR where Tesseract is not
@@ -5956,7 +6181,7 @@ function ocrLocalName() {
 }
 
 function ocrReaderNameFor(reader) {
-  if (reader === "tesseract" && ocrLocalName() !== "Tesseract") return ocrLocalName();
+  if (reader === "rapidocr") return "RapidOCR";
   if (reader === "tesseract") {
     const code = ocrReaders.engine?.language;
     const named = (ocrReaders.engine?.languages || []).find((l) => l.code === code);
@@ -5981,22 +6206,24 @@ function ocrReaderName() {
 async function ocrChooseReader() {
   await ocrReadersLoading;
   const asked = ocrReader();
-  const can = (reader) =>
-    reader === "tesseract" ? ocrReaders.tesseract : reader === "ocr" ? ocrReaders.ocr : ocrReaders.vision;
+  const can = ocrCan;
   if (can(asked)) return { reader: asked, said: "" };
-  const order = asked === "tesseract" ? ["vision", "ocr"] : ["tesseract", "vision", "ocr"];
+  //: A local reader falls to the other local one first, then to a model.
+  const order = ocrIsLocal(asked)
+    ? [asked === "tesseract" ? "rapidocr" : "tesseract", "vision", "ocr"]
+    : ["tesseract", "rapidocr", "vision", "ocr"];
   const other = order.find((reader) => reader !== asked && can(reader));
   if (!other) {
     return {
       reader: "",
       said: ocrReaders.engine && !ocrReaders.engine.ready
-        ? "Nothing can read this yet. Install Tesseract with the button above, or start an AI model in Settings."
-        : "Nothing can read this right now. Start an AI model in Settings, or pick a reader above.",
+        ? "Nothing can read this yet. Install Tesseract from the reader menu, or start an AI model in Settings."
+        : "Nothing can read this right now. Start an AI model in Settings, or pick another reader.",
     };
   }
   const select = $("ocr-reader");
   if (select) select.value = other;
-  const why = asked === "tesseract" ? "isn't installed" : "isn't available";
+  const why = ocrIsLocal(asked) ? "isn't installed" : "isn't available";
   return { reader: other, said: `${ocrReaderNameFor(asked)} ${why}, so ${ocrReaderNameFor(other)} read this.` };
 }
 
@@ -6104,7 +6331,11 @@ async function ocrReadImage(image, button) {
     await trackOcrRead(
       image,
       label,
-      analyseMediaRow(image, reader === "tesseract" ? "ocr" : "vision-ocr", { force: true })
+      analyseMediaRow(
+        image,
+        ocrIsLocal(reader) ? "ocr" : "vision-ocr",
+        ocrIsLocal(reader) ? { force: true, engine: reader } : { force: true }
+      )
     );
     //: Re-read rather than render the response: the regions endpoint is the
     //: one thing that knows how to turn either reader's answer into boxes, and
@@ -6137,22 +6368,51 @@ async function ocrReadImage(image, button) {
 //: "Add to a note" uses on a selection (selection.js). Rebuilt on every
 //: render because a menu's items are fixed when it is built, and what is
 //: possible depends on the reading on screen.
-function ocrSyncMoreMenu(canEdit, canAdd) {
+//: Called with no arguments (after `ocrLoadPage` has shown or hidden
+//: Describe) it rebuilds from the last state it was given.
+function ocrSyncMoreMenu(canEdit = ocrUi.more.canEdit, canAdd = ocrUi.more.canAdd) {
+  ocrUi.more = { canEdit, canAdd };
   const slot = $("ocr-more");
   if (!slot) return;
+  //: The reading's rarer actions (INBOX 717): kept as buttons in the markup,
+  //: hidden (`.ocr-in-menu`), so their own show-and-hide rules and handlers
+  //: stay where they were; a row is offered while its button would have been.
+  const held = (id) => {
+    const button = $(id);
+    return button && !button.classList.contains("hidden") ? button : null;
+  };
+  const describe = held("ocr-describe");
+  const clean = held("ocr-clean-loops");
+  const remove = held("ocr-delete-reading");
+  const extra = [];
+  if (describe) {
+    extra.push({
+      label: `ph:sparkle ${$("ocr-describe-label")?.textContent || "Describe"}`,
+      title: describe.title,
+      group: "model",
+      run: () => describe.click(),
+    });
+  }
+  if (clean) extra.push({ label: "ph:broom Clean up repeated lines", title: clean.title, group: "fix", run: () => clean.click() });
+  const tail = remove
+    ? [{ label: "ph:trash Delete this reading", title: remove.title, danger: true, group: "delete", run: () => remove.click() }]
+    : [];
   slot.replaceChildren(
     kebabMenu(
       [
+        ...extra,
         {
           label: "ph:pencil-simple Edit the text",
           title: canEdit ? "Correct the text by hand" : "Nothing to edit yet, or this is a document read page by page",
           disabled: !canEdit,
+          group: "text",
           run: () => ocrOpenEdit(),
         },
         {
           label: "ph:note-pencil Add to an existing note",
           title: "Add the text to a note you already have",
           disabled: !canAdd,
+          group: "text",
           run: () => {
             appendSelectionToNote(ocrAllText(), {
               jump: false,
@@ -6161,10 +6421,378 @@ function ocrSyncMoreMenu(canEdit, canAdd) {
             });
           },
         },
+        ...tail,
       ],
       "More for this reading"
     )
   );
+}
+
+//: **Read a range, or the whole document.** Reported: the workspace could
+//: read the page you were looking at and nothing else, so a ten-page scan
+//: took ten clicks and ten waits.
+//:
+//: Renders one region per page rather than a single blob, so the reading
+//: keeps the shape of the document: each page's text is separately
+//: copyable, and "Save as note" writes them in order with their page
+//: numbers instead of a wall of text nobody can navigate.
+//: Called from Read's menu (every page, or the range `ocrAskRange` asked for).
+async function ocrReadRange(spec) {
+  const image = ocrWorkspaceCurrent;
+  if (!image) return;
+  //: The busy state goes on Read itself: the menu row that started this has
+  //: closed, and the split button is what the eye goes back to.
+  const button = $("ocr-read-page");
+  spec = String(spec || "all").trim() || "all";
+  const chosen = await ocrChooseReader();
+  if (!chosen.reader) {
+    $("ocr-message").textContent = chosen.said;
+    $("ocr-message").classList.remove("hidden");
+    toast(chosen.said, "info");
+    return;
+  }
+  setBusy(button, true, "Reading…");
+  const label =
+    spec === "all"
+      ? `Reading every page with ${ocrReaderNameFor(chosen.reader)}…`
+      : `Reading pages ${spec} with ${ocrReaderNameFor(chosen.reader)}…`;
+  $("ocr-message").textContent = label;
+  $("ocr-message").classList.remove("hidden");
+  const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
+  const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+  try {
+    const controller = new AbortController();
+    const body = await trackOcrRead(
+      image,
+      label,
+      apiJson(
+        `${base}/ocr-range-read?pages=${encodeURIComponent(spec)}&reader=${chosen.reader}`,
+        { method: "POST", signal: controller.signal }
+      ),
+      controller
+    );
+    const withText = (body.pages || []).filter((page) => (page.text || "").trim());
+    if (withText.length) {
+      ocrRenderRegions({
+        //: `kind: "heading"` on nothing here: these are pages, not layout
+        //: blocks, and the label carries the page number because a reader
+        //: scrolling twelve transcriptions needs to know which is which.
+        regions: withText.map((page, index) => ({
+          index,
+          kind: "text",
+          text: `Page ${page.page + 1}\n\n${page.text.trim()}`,
+          confidence: 0,
+          box: { x: 0, y: 0, w: 1, h: 1 },
+        })),
+        source: "stored-text",
+        message: body.message || `Read ${withText.length} page(s): text only, no page positions.`,
+        pages: ocrWorkspacePages,
+        page: ocrWorkspacePage,
+      });
+    } else {
+      $("ocr-message").textContent =
+        body.message || "Nothing was read on those pages.";
+      $("ocr-message").classList.remove("hidden");
+    }
+    progress?.done(
+      withText.length
+        ? `Read ${withText.length} page(s) of ${image.original_name}.`
+        : body.message || "Nothing was read."
+    );
+  } catch (error) {
+    //: A read the user stopped is not a failure and must not be reported
+    //: as one: `ocrStopRead` has already written the "Stopped." line, and
+    //: a red toast on top of it says the app broke when it obeyed.
+    if (error?.name === "AbortError") {
+      progress?.done("Reading stopped.");
+      return;
+    }
+    $("ocr-message").textContent = error.message || "Those pages could not be read.";
+    progress?.done(error.message || "Those pages could not be read.", { isError: true });
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+// --- the tool row (INBOX 717) -------------------------------------------------
+//
+// The owner: "these arent aligned ... they also go onto two rows. the whole ocr
+// workspace is just a bit iffy to use and interact with". One `.dock` now (see
+// the markup): View, then Read. These are the pieces that make it one row at
+// every width and say what each control does.
+
+//: **Fold, never wrap or scroll.** The row is measured and its controls fold
+//: by priority until it fits: first Regions gives up its word (`is-tight`),
+//: then the controls marked `data-fold` go, lowest number first (page layout,
+//: zoom, Regions), and last the reader button keeps only its dot
+//: (`is-tightest`). Whatever folded is offered as rows of the ⋯ menu, so
+//: nothing is out of reach at 390 that is on screen at 1440. Measured, not a
+//: breakpoint, because the row's width depends on the reader's name, whether
+//: the file is a document, and the zoom level's digits.
+const OCR_DOCK_STEPS = ["is-tight", 1, 2, 3, "is-tightest"];
+
+function ocrDockFits(dock) {
+  const box = dock.getBoundingClientRect();
+  const style = getComputedStyle(dock);
+  const inner = box.right - parseFloat(style.paddingRight || "0") - parseFloat(style.borderRightWidth || "0");
+  const zones = [...dock.children].filter((zone) => zone.offsetParent !== null);
+  for (let i = 0; i < zones.length; i += 1) {
+    const rect = zones[i].getBoundingClientRect();
+    if (rect.right > inner + 0.5) return false;
+    if (i > 0 && rect.left < zones[i - 1].getBoundingClientRect().right - 0.5) return false;
+    //: And one line: a zone (or the row) that wrapped has children on two.
+    if (i > 0 && Math.abs(rect.top - zones[0].getBoundingClientRect().top) > 2) return false;
+    const tops = [...zones[i].children].filter((el) => el.offsetParent !== null)
+      .map((el) => el.getBoundingClientRect())
+      .map((r) => r.top + r.height / 2);
+    if (tops.length && Math.max(...tops) - Math.min(...tops) > 2) return false;
+  }
+  return true;
+}
+
+function ocrFitDock() {
+  const dock = $("ocr-dock");
+  if (!dock || dock.offsetParent === null) return;
+  const folded = [...dock.querySelectorAll("[data-fold]")];
+  dock.classList.remove("is-tight", "is-tightest");
+  for (const el of folded) el.classList.remove("is-folded");
+  for (const step of OCR_DOCK_STEPS) {
+    if (ocrDockFits(dock)) break;
+    if (typeof step === "string") dock.classList.add(step);
+    else for (const el of folded) if (Number(el.dataset.fold) === step) el.classList.add("is-folded");
+  }
+  ocrSyncToolsMenu();
+}
+
+//: Watched, because the card follows the window and a phone turns sideways.
+//: One fit per frame: a drag of the window edge fires dozens of these.
+function ocrWatchDock() {
+  const dock = $("ocr-dock");
+  if (!dock || ocrUi.dockObserver || typeof ResizeObserver === "undefined") return;
+  ocrUi.dockObserver = new ResizeObserver(() => {
+    cancelAnimationFrame(ocrUi.dockFrame);
+    ocrUi.dockFrame = requestAnimationFrame(() => ocrFitDock());
+  });
+  ocrUi.dockObserver.observe(dock);
+}
+
+//: **The dock's ⋯** (kebabMenu): Manage the readers in Settings, and a row for
+//: each control the row has folded away, in its own group. Rebuilt only when
+//: what it would hold changes, so an open menu or a focused opener is not
+//: thrown away by a zoom step; when it is rebuilt with the focus on it, the
+//: focus moves to the new opener.
+function ocrSyncToolsMenu() {
+  const slot = $("ocr-tools-more");
+  const dock = $("ocr-dock");
+  if (!slot || !dock) return;
+  const isFolded = (el) => Boolean(el && el.classList.contains("is-folded") && !el.classList.contains("hidden"));
+  const view = $("ocr-view");
+  const zoom = $("ocr-zoom");
+  const regions = $("ocr-regions");
+  const items = [];
+  if (isFolded(regions)) {
+    const on = regions.getAttribute("aria-pressed") === "true";
+    const off = regions.getAttribute("aria-disabled") === "true";
+    items.push({
+      label: on ? "ph:bounding-box Hide the regions" : "ph:bounding-box Show the regions",
+      title: regions.title,
+      disabled: off,
+      group: "view",
+      run: () => regions.click(),
+    });
+  }
+  if (isFolded(zoom)) {
+    items.push(
+      { label: "ph:plus Zoom in", title: "Zoom in (+)", group: "zoom", run: () => ocrStepZoom(1) },
+      { label: "ph:minus Zoom out", title: "Zoom out (-)", group: "zoom", run: () => ocrStepZoom(-1) },
+      ocrZoom === null
+        ? { label: "ph:magnifying-glass Show at 100%", title: "The page at its own size on paper", group: "zoom", run: () => ocrSetZoom(1) }
+        : { label: "ph:arrows-in Fit the whole page", title: "Fit the whole page (0)", group: "zoom", run: () => ocrSetZoom(null) }
+    );
+  }
+  if (isFolded(view)) {
+    const scrolling = view.querySelector('[data-ocr-view="scroll"]')?.getAttribute("aria-pressed") === "true";
+    items.push(
+      scrolling
+        ? { label: "ph:file One page at a time", group: "layout", run: () => ocrSetViewMode("page", ocrWorkspaceCurrent, { asked: true }) }
+        : { label: "ph:scroll Scroll through every page", group: "layout", run: () => ocrSetViewMode("scroll", ocrWorkspaceCurrent, { asked: true }) }
+    );
+  }
+  items.push({
+    label: "ph:gear Manage readers in Settings",
+    title: "Install, reinstall or remove Tesseract, and choose the reading models, in Settings",
+    group: "manage",
+    run: () => ocrOpenReaderSettings(),
+  });
+  const key = items.map((item) => `${item.label}|${item.disabled ? 1 : 0}`).join("/");
+  if (key === ocrUi.toolsMenuKey && slot.firstChild) return;
+  ocrUi.toolsMenuKey = key;
+  const hadFocus = slot.contains(document.activeElement);
+  slot.replaceChildren(kebabMenu(items, "More tools: Settings, and anything folded away"));
+  if (hadFocus) slot.querySelector(":scope > .menu-wrap > button")?.focus();
+}
+
+//: Manage, where it lived on the engine line: Settings, Packages, at the
+//: Tesseract row, through the reveal recipe (its stand-in loads the piece).
+function ocrOpenReaderSettings() {
+  return revealFeature("extra-row", "ocr");
+}
+
+//: One way to set the zoom from anywhere (the strip, the keys, the menu).
+function ocrSetZoom(level) {
+  ocrZoom = level;
+  ocrKeepCentre(() => ocrApplyZoom());
+  ocrSyncZoomButtons();
+}
+
+//: **Read, and its menu** (INBOX 717): the press reads what is on screen; the
+//: caret reads this page, every page, or a range asked for when it is wanted
+//: (the bare "all" box that sat in the row, unlabelled, is gone). Shown for a
+//: document only: a picture has one page and its Read needs no choice.
+function ocrReadMenuItems() {
+  const pages = ocrWorkspacePages;
+  return [
+    {
+      label: "ph:file Read this page",
+      title: `Read page ${ocrWorkspacePage + 1}, replacing any reading it has`,
+      run: () => $("ocr-read-page")?.click(),
+    },
+    {
+      label: pages > 1 ? `ph:files Read all ${pages} pages` : "ph:files Read every page",
+      title: "Read every page of the document, one after another",
+      run: () => ocrReadRange("all"),
+    },
+    {
+      label: "ph:list-numbers Read pages…",
+      title: "Choose the pages: 3, 1-5, or 1,4,7-9",
+      run: () => ocrAskRange(),
+    },
+  ];
+}
+
+function ocrSyncReadMenu(image = ocrWorkspaceCurrent) {
+  const slot = $("ocr-read-menu-slot");
+  if (!slot) return;
+  const pdf = Boolean(image) && ocrIsPdf(image) && !ocrIsTextFile(image);
+  const key = pdf ? `${ocrWorkspacePages}:${ocrWorkspacePage}` : "";
+  if (key === ocrUi.readMenuKey && (slot.firstChild || !pdf)) return;
+  ocrUi.readMenuKey = key;
+  if (!pdf) {
+    slot.replaceChildren();
+    return;
+  }
+  const hadFocus = slot.contains(document.activeElement);
+  const wrap = kebabMenu(ocrReadMenuItems(), "More ways to read: every page, or a range");
+  const opener = wrap.querySelector(":scope > button");
+  if (opener) {
+    opener.id = "ocr-read-menu";
+    opener.classList.remove("icon-only");
+    //: Filled or ghost with the half beside it (`ocrStageRead`).
+    opener.classList.toggle("ghost", Boolean($("ocr-read-page")?.classList.contains("ghost")));
+    opener.classList.add("split-button-caret");
+    setLabel(opener, "ph:caret-down");
+    opener.title = "Read every page, or a range";
+    opener.setAttribute("aria-label", "More ways to read: every page, or a range");
+  }
+  slot.replaceChildren(wrap);
+  if (hadFocus) opener?.focus();
+}
+
+//: The split button is one control, so its caret takes the same fill.
+function ocrStageRead(read) {
+  stagePrimary("ocr-read-page", "ocr-to-note", read);
+  document.querySelector("#ocr-read-menu-slot .split-button-caret")?.classList.toggle("ghost", read);
+}
+
+async function ocrAskRange() {
+  const total = ocrWorkspacePages;
+  const spec = await promptDialog(
+    `Which pages? This document has ${total}. Type one page (3), a range (1-5) or a list (1,4,7-9).`,
+    ocrUi.lastRange || `1-${total}`,
+    { confirmLabel: "Read" }
+  );
+  if (spec === null || spec === undefined) return;
+  const clean = String(spec).trim();
+  if (!clean) return;
+  ocrUi.lastRange = clean;
+  ocrReadRange(clean);
+}
+
+//: **The empty reading says what to do first** (INBOX 717). It used to be one
+//: muted sentence from the server ("Nothing has been read off page 1 yet. Use
+//: “Read this page” to transcribe it."), the same weight as every status line
+//: in the pane. Now a short block: what is here, the one press that fills it,
+//: and the gesture nobody found (drag on the page to read just one part).
+function ocrPaintEmpty(body, hasReading) {
+  const box = $("ocr-empty");
+  if (!box) return;
+  const empty = !hasReading && body.source !== "text-file" && !ocrReadInFlight(ocrWorkspaceCurrent)
+    && !(body.regions || []).length;
+  box.classList.toggle("hidden", !empty);
+  if (!empty) {
+    box.replaceChildren();
+    return;
+  }
+  const pdf = ocrIsPdf(ocrWorkspaceCurrent);
+  const icon = document.createElement("span");
+  icon.className = "ocr-empty-icon";
+  setLabel(icon, "ph:scan");
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "ocr-empty-title";
+  title.textContent = "Nothing read yet";
+  const line = document.createElement("p");
+  line.className = "muted ocr-empty-line";
+  line.textContent = pdf
+    ? `Press Read this page to turn page ${ocrWorkspacePage + 1} into text, or open Read's menu for every page.`
+    : "Press Read this image to turn it into text you can copy, search and save.";
+  const hint = document.createElement("p");
+  hint.className = "muted ocr-empty-line";
+  hint.textContent = "Or drag on the page to read or describe just one part.";
+  box.replaceChildren(icon, title, line, hint);
+}
+
+//: **The rail and the reading walk with the arrow keys** (INBOX 717). One tab
+//: stop each (a roving tabindex: the current row is 0, the rest -1), then Up
+//: and Down move between rows, Home and End go to the ends, and Enter or
+//: Space does what a click does. Delegated on the container, so rows rebuilt
+//: on every read keep it without being wired again.
+function ocrRoveSync(container, selector) {
+  if (!container) return;
+  const rows = [...container.querySelectorAll(selector)].filter((row) => !row.classList.contains("hidden"));
+  const current = rows.find((row) => row === document.activeElement)
+    || rows.find((row) => row.classList.contains("is-active"))
+    || rows[0];
+  for (const row of rows) row.tabIndex = row === current ? 0 : -1;
+}
+
+function ocrRoveKeys(container, selector, onMove) {
+  if (!container) return;
+  container.addEventListener("keydown", (event) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const from = event.target.closest(selector);
+    //: Only when a row itself has the focus: the arrows belong to the caret
+    //: inside a reading's text, and to the buttons' own menus.
+    if (!from || event.target !== from) return;
+    const rows = [...container.querySelectorAll(selector)].filter((row) => !row.classList.contains("hidden"));
+    const at = rows.indexOf(from);
+    if (at < 0) return;
+    const to = event.key === "Home" ? 0
+      : event.key === "End" ? rows.length - 1
+        : Math.max(0, Math.min(rows.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)));
+    event.preventDefault();
+    event.stopPropagation();
+    if (to === at) return;
+    for (const row of rows) row.tabIndex = -1;
+    rows[to].tabIndex = 0;
+    rows[to].focus();
+    rows[to].scrollIntoView({ block: "nearest" });
+    onMove?.(rows[to]);
+  });
+  container.addEventListener("focusin", (event) => {
+    const row = event.target.closest(selector);
+    if (row && event.target === row) ocrRoveSync(container, selector);
+  });
 }
 
 function ocrOpenEdit() {
@@ -6195,17 +6823,28 @@ onDomReady(() => {
     if (event.target === event.currentTarget) closeOcrWorkspace();
   });
   $("ocr-page-pane")?.classList.add("is-fit");
-  for (const button of document.querySelectorAll("#ocr-zoom button")) {
-    button.addEventListener("click", () => {
-      //: Fit is a *mode* (null) and 100% is a number, so both go through the
-      //: one state `ocrApplyZoom` paints from: the old handler toggled a
-      //: class and called the fitter, which is why "Actual size" had no way
-      //: back and no idea what percentage it was showing.
-      ocrZoom = button.dataset.ocrZoom === "fit" ? null : 1;
-      ocrApplyZoom();
-      ocrSyncZoomButtons();
-    });
-  }
+  //: Fit is a *mode* (null) and 100% is a number, so both go through the one
+  //: state `ocrApplyZoom` paints from. The level is a button: from anything
+  //: but 100% it shows the page at 100%, and at 100% it fits it again.
+  $("ocr-zoom-level")?.addEventListener("click", () => ocrSetZoom(ocrZoom === 1 ? null : 1));
+  $("ocr-zoom-fit")?.addEventListener("click", () => ocrSetZoom(null));
+  //: RapidOCR's install is its Packages row's (one install flow per extra):
+  //: this goes there, the row flashed, and the workspace asks again on reopen.
+  $("ocr-rapidocr-install")?.addEventListener("click", () => {
+    closeOcrWorkspace();
+    revealFeature("extra-row", "rapidocr");
+  });
+  //: The arrows walk the rail's thumbnails and the reading's sections; Enter
+  //: on a section goes to its page, the same as a click on it.
+  ocrRoveKeys($("ocr-rail"), ".ocr-rail-item");
+  ocrRoveKeys($("ocr-region-list"), ".ocr-region", (row) => ocrSelectRegion(Number(row.dataset.index)));
+  $("ocr-region-list")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const row = event.target.closest(".ocr-region");
+    if (!row || event.target !== row) return;
+    event.preventDefault();
+    row.click();
+  });
   for (const button of document.querySelectorAll("#ocr-view button")) {
     button.addEventListener("click", () => {
       ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent, { asked: true });
@@ -6217,39 +6856,54 @@ onDomReady(() => {
   //: A reader is a claim about *who read this*, so switching it clears the
   //: reading rather than leaving one reader's words under the other's name.
   $("ocr-reader")?.addEventListener("change", () => {
+    ocrSyncReaderButton();
+    //: Remembered (INBOX 717): the next file opens on the reader chosen here.
+    //: Nothing remembered keeps the automatic pick (`ocrLoadReadersNow`).
+    prefs.set(OCR_READER_KEY, ocrReader());
     const message = $("ocr-message");
     if (!message) return;
     message.textContent =
-      ocrReader() === "tesseract"
-        ? `${ocrLocalName()} will read the page, no model needed, and it marks where each block sits.`
-        : "The vision model will read the page.";
+      ocrReader() === "rapidocr"
+        ? "RapidOCR will read the page: no model, nothing else to install, English and Chinese, and it marks where each block sits."
+        : ocrReader() === "tesseract"
+          ? "Tesseract will read the page, no model needed, and it marks where each block sits."
+          : "The vision model will read the page.";
     message.classList.remove("hidden");
   });
   //: **The reading has to be able to leave this window.** A transcription you
   //: can only re-read inside the dialog that produced it is a dead end; the
   //: two things anyone does with one are ask about it and keep it.
+  //:
+  //: **Ask about this page: a chip, never the page in the composer** (INBOX
+  //: 717). The owner: "I pressed the comment button on the ocr workspace and
+  //: idk what just happened". It wrote up to 4,000 characters of the page into
+  //: the chat box, closed the window and switched tab, all at once, under the
+  //: chat's "No model is connected" banner. Now the reading rides with the
+  //: next message as the composer's context chip (`attachSelectionContext`,
+  //: the same chip a selected passage gets, `kind: "reading"` so it is named
+  //: by its file and page rather than by a line number), the box stays empty
+  //: for the question, and a toast says what happened and how to undo it.
   $("ocr-to-chat")?.addEventListener("click", () => {
     const text = ocrAllText();
-    if (!text) return toast("There is nothing to ask about yet.", "info");
-    const name = ocrWorkspaceCurrent?.original_name || "this page";
-    const page = ocrIsPdf(ocrWorkspaceCurrent) ? `, page ${ocrWorkspacePage + 1}` : "";
-    const quoted = text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
-    const prompt = `Here is the text read from ${name}${page}:\n\n${quoted}\n\n`;
-    //: The composer, not a sent message: the question is the user's to write,
-    //: and asking one on their behalf is what the selection popup's own
-    //: "Ask the AI about this" was told not to do. Same two lines it uses, 
-    //: `switchTab("chat")` then fill `#chat-input`, rather than a second way
-    //: of starting a chat that can drift from the first.
-    const box = document.getElementById("chat-input");
-    if (!box) return toast("The chat isn't available right now.", true);
+    if (!text) return toast("There is nothing to ask about yet. Read the page first.", "info");
+    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", true);
+    const name = ocrWorkspaceCurrent?.original_name || "this image";
+    const pdf = ocrIsPdf(ocrWorkspaceCurrent);
+    const where = pdf ? `${name}, page ${ocrWorkspacePage + 1}` : name;
     closeOcrWorkspace();
-    switchTab("chat");
-    box.value = prompt;
-    box.focus();
-    //: The composer grows with its content (`.autogrow`), and that is driven
-    //: by `input`, a value set in script fires nothing, so without this the
-    //: box stays one line tall over four paragraphs of text.
-    box.dispatchEvent(new Event("input", { bubbles: true }));
+    attachSelectionContext({
+      kind: "reading",
+      title: where,
+      text: text.length > 8000 ? `${text.slice(0, 8000)}…` : text,
+      line: 0,
+      column: 0,
+      start: 0,
+      end: 0,
+      before: "",
+      after: "",
+      surfaceId: "",
+    });
+    toast(`The text of ${where} is attached to your next chat message. Type your question.`);
   });
   //: Arrow keys and Page Up/Down move between pages, which is what every
   //: document reader on the machine already does, a page rail you can only
@@ -6267,6 +6921,23 @@ onDomReady(() => {
     //: text any better than the page's.
     if (event.key === "Escape") {
       if (document.querySelector(".confirm-overlay")) return;
+      //: **Escape closes the innermost thing first** (INBOX 717): the help,
+      //: the reader popover or an open menu, and only then the window. A
+      //: menu's own keys close it (`wireMenuKeyboard`); this only stands back.
+      if (document.querySelector(".help-body.help-popover:not(.hidden)")) {
+        event.preventDefault();
+        closeHelpPopovers();
+        $("ocr-help-toggle")?.focus();
+        return;
+      }
+      const popover = overlay.querySelector("details[open]");
+      if (popover) {
+        event.preventDefault();
+        popover.open = false;
+        popover.querySelector("summary")?.focus();
+        return;
+      }
+      if (document.querySelector(".action-menu:not(.hidden), .select-menu:not(.hidden)")) return;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") { document.activeElement.blur(); return; }
       //: **Escape cancels the rectangle before it closes the window.** Asked
       //: for by name in Phase 7.4 ("Escape cancels"), and it is also the only
@@ -6288,6 +6959,30 @@ onDomReady(() => {
       return;
     }
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    //: **Never while correcting a reading** (INBOX 717): a section's text is
+    //: `contenteditable`, and Left/Right there moved the caret *and* turned
+    //: the page, so fixing one word threw the reading away mid-edit.
+    if (document.activeElement?.isContentEditable) return;
+    //: A menu or a popover in this window owns its own arrows.
+    if (event.target.closest?.(".action-menu, .dock-menu-list, .select-menu")) return;
+    //: Zoom keys, said in each button's title: + and - step, 0 fits.
+    if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        ocrStepZoom(1);
+        return;
+      }
+      if (event.key === "-") {
+        event.preventDefault();
+        ocrStepZoom(-1);
+        return;
+      }
+      if (event.key === "0") {
+        event.preventDefault();
+        ocrSetZoom(null);
+        return;
+      }
+    }
     if (event.key === "ArrowLeft" || event.key === "PageUp") {
       event.preventDefault();
       ocrStepPage(-1);
@@ -6363,8 +7058,15 @@ onDomReady(() => {
   window.addEventListener("resize", () => {
     if (!$("ocr-workspace")?.classList.contains("hidden")) ocrApplyZoom();
   });
-  $("ocr-show-boxes")?.addEventListener("change", (event) => {
-    $("ocr-boxes").classList.toggle("is-hidden", !event.currentTarget.checked);
+  $("ocr-regions")?.addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    if (button.getAttribute("aria-disabled") === "true") {
+      return toast(button.title, "info");
+    }
+    const on = button.getAttribute("aria-pressed") !== "true";
+    button.setAttribute("aria-pressed", String(on));
+    $("ocr-boxes").classList.toggle("is-hidden", !on);
+    ocrSyncToolsMenu();
   });
   $("ocr-copy-all")?.addEventListener("click", (event) => {
     const text = ocrAllText();
@@ -6464,7 +7166,7 @@ onDomReady(() => {
         const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
         const kind = shown
           ? (shown === "tesseract" ? "ocr" : "vision-ocr")
-          : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
+          : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
         await analyseMediaRow(image, kind, { text: "" });
         //: The gallery tile behind this dialog now claims a reading that is
         //: gone: same repaint `ocrReadImage` triggers after writing one.
@@ -6580,88 +7282,6 @@ onDomReady(() => {
       setBusy(button, false);
     }
   });
-  //: **Read a range, or the whole document.** Reported: the workspace could
-  //: read the page you were looking at and nothing else, so a ten-page scan
-  //: took ten clicks and ten waits.
-  //:
-  //: Renders one region per page rather than a single blob, so the reading
-  //: keeps the shape of the document: each page's text is separately
-  //: copyable, and "Save as note" writes them in order with their page
-  //: numbers instead of a wall of text nobody can navigate.
-  $("ocr-read-range")?.addEventListener("click", async (event) => {
-    const image = ocrWorkspaceCurrent;
-    if (!image) return;
-    const button = event.currentTarget;
-    const spec = ($("ocr-read-pages")?.value || "all").trim() || "all";
-    const chosen = await ocrChooseReader();
-    if (!chosen.reader) {
-      $("ocr-message").textContent = chosen.said;
-      $("ocr-message").classList.remove("hidden");
-      toast(chosen.said, "info");
-      return;
-    }
-    setBusy(button, true, "Reading…");
-    const label =
-      spec === "all"
-        ? `Reading every page with ${ocrReaderNameFor(chosen.reader)}…`
-        : `Reading pages ${spec} with ${ocrReaderNameFor(chosen.reader)}…`;
-    $("ocr-message").textContent = label;
-    $("ocr-message").classList.remove("hidden");
-    const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
-    const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-    try {
-      const controller = new AbortController();
-      const body = await trackOcrRead(
-        image,
-        label,
-        apiJson(
-          `${base}/ocr-range-read?pages=${encodeURIComponent(spec)}&reader=${chosen.reader}`,
-          { method: "POST", signal: controller.signal }
-        ),
-        controller
-      );
-      const withText = (body.pages || []).filter((page) => (page.text || "").trim());
-      if (withText.length) {
-        ocrRenderRegions({
-          //: `kind: "heading"` on nothing here: these are pages, not layout
-          //: blocks, and the label carries the page number because a reader
-          //: scrolling twelve transcriptions needs to know which is which.
-          regions: withText.map((page, index) => ({
-            index,
-            kind: "text",
-            text: `Page ${page.page + 1}\n\n${page.text.trim()}`,
-            confidence: 0,
-            box: { x: 0, y: 0, w: 1, h: 1 },
-          })),
-          source: "stored-text",
-          message: body.message || `Read ${withText.length} page(s): text only, no page positions.`,
-          pages: ocrWorkspacePages,
-          page: ocrWorkspacePage,
-        });
-      } else {
-        $("ocr-message").textContent =
-          body.message || "Nothing was read on those pages.";
-        $("ocr-message").classList.remove("hidden");
-      }
-      progress?.done(
-        withText.length
-          ? `Read ${withText.length} page(s) of ${image.original_name}.`
-          : body.message || "Nothing was read."
-      );
-    } catch (error) {
-      //: A read the user stopped is not a failure and must not be reported
-      //: as one: `ocrStopRead` has already written the "Stopped." line, and
-      //: a red toast on top of it says the app broke when it obeyed.
-      if (error?.name === "AbortError") {
-        progress?.done("Reading stopped.");
-        return;
-      }
-      $("ocr-message").textContent = error.message || "Those pages could not be read.";
-      progress?.done(error.message || "Those pages could not be read.", { isError: true });
-    } finally {
-      setBusy(button, false);
-    }
-  });
 
   //: **Edit the reading** (INBOX 443 (3): "the result is editable and
   //: copyable"). A textarea over the sections; Save writes the one stored
@@ -6677,7 +7297,7 @@ onDomReady(() => {
     const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
     const kind = shown
       ? (shown === "tesseract" ? "ocr" : "vision-ocr")
-      : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
+      : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
     setBusy(button, true, "Saving…");
     try {
       await analyseMediaRow(image, kind, { text: box.value, edited: true });
@@ -8033,7 +8653,7 @@ function filterLibraryImagesGallery() {
     const visionOcrBtn = document.createElement("button");
     visionOcrBtn.type = "button";
     visionOcrBtn.className = "ghost small icon-button library-image-vision-ocr-btn";
-    setLabel(visionOcrBtn, "ph:text-aa");
+    setLabel(visionOcrBtn, "ph:sparkle");
 
     const visionOcrText = document.createElement("p");
     // Not `hidden` any more, and it is the class that had to go rather than
@@ -8190,7 +8810,7 @@ function filterLibraryImagesGallery() {
     // **One kebab, not five icons.** Reported directly: "it also seems like
     // there are two popup buttons on the images in the image library which do
     // the same thing??", and they nearly did. `ocrBtn` (ph:scan) and
-    // `visionOcrBtn` (ph:text-aa) are both "read the text in this image",
+    // `visionOcrBtn` (once ph:text-aa) are both "read the text in this image",
     // differing only in *which* reader, which an icon cannot say and a
     // tooltip only says once you have hovered both. A menu row has room for
     // words, so the two readers are told apart by name rather than by glyph.
@@ -8341,7 +8961,7 @@ function filterLibraryImagesGallery() {
       { button: rename, label: "ph:pencil-simple Rename" },
       { button: save, label: "ph:download-simple Save a copy" },
       { button: captionBtn, label: "ph:sparkle Describe with AI" },
-      { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
+      { button: visionOcrBtn, label: "ph:sparkle Read text with AI" },
       //: Left out entirely, not greyed, when the binary is missing, the
       //: lightbox menu (app.js) does the same, for the same report: "make
       //: sure all the fila and document ocr worfs with ai ocr models, I dont

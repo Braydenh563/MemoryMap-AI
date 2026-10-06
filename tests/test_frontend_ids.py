@@ -83,7 +83,7 @@ def _frontend_js() -> str:
     #: The board's command table and its sidebar (2026-10-05).
     whiteboard_extras = "\n".join(
         (INDEX.parent / "js" / name).read_text(encoding="utf-8")
-        for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js", "whiteboard-history.js")
+        for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js", "whiteboard-history.js", "whiteboard-templates.js")
         if (INDEX.parent / "js" / name).exists()
     )
     return (
@@ -284,8 +284,6 @@ MODEL_GATED_CONTROLS = {
     "doc-ai-run": "/documents/<id>/ai-edit",
     "doc-extract": "/entries/extract/preview",
     "wb-extract-notes": "/entries/extract/preview",
-    "chat-send": "/chat/stream",
-    "chat-input": "/chat/stream",
     #: **Atlas is not here, and that is this rule's own rule** (INBOX 304).
     #: The guide's field and Send were gated with the rest of INBOX 203's
     #: fifteen, and then `help_chat.offline_answer` was built precisely so the
@@ -315,6 +313,11 @@ WORKS_WITHOUT_A_MODEL = {
     # 503 with a working example only for what neither reads (audit
     # 2026-10-05, UX-01: gated, the dashboard's "Remind me" was a dead end).
     "reminder-magic-add": "/reminders/parse",
+    # INBOX 725, the owner: "if the composer can respond in the chat, should
+    # the chat input bar be enabled??" With no model a Chat message is
+    # composed from the notes (`ai/composer.py`), so the box and Send work.
+    "chat-send": "/chat/stream",
+    "chat-input": "/chat/stream",
 }
 
 

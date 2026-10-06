@@ -3772,10 +3772,10 @@ span > .chip {
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  /* Right side wider than the rest: room for the kebab in the corner, same
-     reservation .doc-list-body uses below for the Library's own copy of
-     this row. */
-  padding: 0.4rem var(--space-9) 0.4rem 0.6rem;
+  /* No column held back for the kebab (INBOX 722): it overlays the row's
+     right end on hover and the words fade under it (08-consistency.css), so
+     the title runs to the row's own padding at rest. */
+  padding: 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   /* **Every row draws the same shape, not only the one you are in.**
@@ -5582,65 +5582,13 @@ input.doc-title-input::placeholder {
   }
 }
 
-/* **The dock's own band is wider than the phone's.** Measured with the phone
-   rules at 599.98: the dock was 168px of 844 at 599 and 271px at 600, because
-   600 to 819 is a real width (a small tablet, a phone in landscape, a narrow
-   window) where the controls still wrap onto three lines and the composer
-   still shares a line it cannot fit on. The sidebar reserve above stays on the
-   phone, where the panel is not a column; here there is room for it. */
-@media (max-width: 819.98px) {
-  /* One line, because five controls and a segmented switch cannot be three
-     lines above a keyboard. Scrolled sideways rather than folded away: the
-     controls are the ones that decide what the next message does, and a person
-     who cannot see that Web is on will not think to look for it behind a
-     chevron. `.edge-fade` is wired for this strip in app.js. */
-  .chat-dock-controls {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .chat-dock-controls::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Nothing in the strip may shrink below its own label, or "Web" and "Plan"
-     compress into unreadable slivers instead of scrolling. */
-  .chat-dock-controls > * {
-    flex: 0 0 auto;
-  }
-
-  /* The spacer exists to push the mode segment to the right edge on a wide
-     dock. On one scrolling line it would push it off the end. */
-  .chat-dock-controls-spacer {
-    display: none;
-  }
-
-  /* **The text gets its own line, and the buttons share the next one.**
-     Forcing this row to `nowrap` was tried first and was worse: the textarea
-     is `autogrow`, so squeezed to 26px wide beside four icon buttons and Send
-     it grew to 295px *tall*, and the dock went from 321px to 367px. A phone is
-     the one width where the message and the controls genuinely do not fit on
-     one line, so they do not share one. */
-  .chat-composer {
-    flex-wrap: wrap;
-  }
-
-  .chat-composer #chat-input {
-    flex: 1 1 100%;
-    min-width: 0;
-    order: -1;
-    /* Autogrow has no ceiling of its own; on a phone a pasted paragraph would
-       otherwise take the window. Past this it scrolls, which is what every
-       messaging app does. */
-    max-height: 7rem;
-  }
-
-  .chat-composer > button,
-  .chat-composer > label {
-    flex: 0 0 auto;
-  }
-}
+/* The strip and the composer used to be re-laid for a narrow *window* here
+   (a scrolling strip, a composer with the field on its own line). That was
+   the wrong measure: the chat sits in a column that is a window's width
+   minus its rail, a panel or a sidebar, so the dock was ragged at 1440 with
+   a rail open and fine at 820 without one (INBOX 694). The layout follows
+   the dock's own width now, `@container chat-dock` at the end of
+   10-responsive.css. */
 
 /* ============ THE WRITE WITH AI ROW, ON A NARROW COLUMN ==================
    Reported: "when I clcik on the text box in the 'write with ai' subtab, the
@@ -6432,6 +6380,13 @@ button.manage-cat-count:hover {
    backdrop filter makes it a stacking context at z auto, and the sticky
    toolbar at z 2 painted over everything in it, the panel's z 45 included.
    While a popover of the dock is open the dock rises above the toolbar. */
-.chat-dock:has(#note-picker-panel:not(.hidden)) {
-  z-index: 3;
+/* **And above the companion** (INBOX 694, the owner: "the companion covers
+   the attach popup"). The panel's own z 45 counts only inside the dock's
+   stacking context, so its real place in the page was this rule's 3, and the
+   companion's band (44) sat over it. 46 is above the band and above the
+   menus' 45, which is right while the dock's own popup is the thing open.
+   The Skills and "How it answers" panels are the dock's other two popups and
+   were in the same position. */
+.chat-dock:has(#note-picker-panel:not(.hidden), .chat-skills-panel:not(.hidden), #chat-dock-more-panel:not(.hidden)) {
+  z-index: 46;
 }

@@ -43,7 +43,10 @@ test("Ask with no model answers from the notes, with numbered citations that ope
   await page.fill("#question", "How long is the train from Lisbon to Porto?");
   await page.click("#ask-btn");
   const answer = page.locator("#ai-answer");
-  await expect(answer).toContainText("No model is running");
+  // With no model the answer is composed from the notes (INBOX 688): marked
+  // as such, every sentence the notes' own.
+  await expect(answer).toHaveClass(/answer-composed/);
+  await expect(page.getByText("Your notes, no AI").first()).toBeVisible();
   await expect(answer).toContainText("2h50");
   // Numbered citations in the answer, and the numbered sources under it.
   const cites = answer.locator(".answer-citation-link");
@@ -73,12 +76,15 @@ test("Ask's own suggestion, Summarise my notes in Health, answers from Health on
   }
 });
 
-test("Chat with no model says what it needs instead of a dead Send", async ({ page }) => {
+test("Chat with no model answers from the notes and says what a model adds", async ({ page }) => {
   await openApp(page);
   await openTab(page, "chat");
+  // INBOX 725: with no model Chat is answered by the composer, so Send works,
+  // the banner says so, and Agent mode is greyed with its reason.
   const send = page.locator("#chat-send");
-  await expect(send).toBeDisabled();
-  await expect(send).toHaveAttribute("title", /Connect a model in Settings/);
+  await expect(send).toBeEnabled();
+  await expect(page.locator("#tab-chat")).toContainText("Chat answers from your notes");
+  await expect(page.locator('#chat-mode-seg [data-chat-mode="agent"]')).toBeDisabled();
   // And the empty state points at what does work without one.
   await expect(page.locator("#chat-messages")).toContainText("Try in Notes, Ask");
 });

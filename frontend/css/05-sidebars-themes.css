@@ -51,7 +51,10 @@
    Graph/Library/Timeline/Reminders, the opposite of what §35L's comment says
    it was trying to guarantee. Leaving it to `.card h2` here. */
 .sidebar-head h2 {
-  line-height: 1;
+  /* Not 1: the heading ellipsises (`overflow: hidden` below), so a line box
+     the font's own height clipped the descender of "Categories" and "Skill
+     logs" (INBOX 685). 1.25 holds the ink. */
+  line-height: 1.25;
 }
 
 .sidebar-head>button {
@@ -2689,7 +2692,7 @@ body.resizing-sidebar {
 
 .code-actions > .code-copy {
   border: 0;
-  border-radius: var(--radius-inner);
+  border-radius: var(--radius-in-pill);
   background: transparent;
   box-shadow: none;
   color: var(--muted);
@@ -2731,7 +2734,7 @@ body.resizing-sidebar {
 
 .code-actions > .menu-wrap > button {
   border: 0;
-  border-radius: var(--radius-inner);
+  border-radius: var(--radius-in-pill);
   background: transparent;
   box-shadow: none;
   color: var(--muted);
@@ -4258,8 +4261,12 @@ button.is-on {
      Library has ever been opened the capture strip has no More and no
      fit, and a one-row strip there was cut at the card's edge with
      Bulleted list, Task, Link and Preview past it. Without its group it
-     wraps, which loses nothing. */
-  .doc-toolbar:has(> .doc-toolbar-tools) {
+     wraps, which loses nothing. **Never once More is open** (INBOX 665):
+     at (0,2,0) and later in the file this beat `.doc-toolbar.is-more-open`,
+     so on a phone More "opened" the strip into one row running 700px past
+     its own border (measured at 390: the last tool's right edge at 1052 on
+     a strip ending at 349), with nothing new to see. */
+  .doc-toolbar:not(.is-more-open):has(> .doc-toolbar-tools) {
     flex-wrap: nowrap;
   }
 
@@ -4444,7 +4451,13 @@ button.is-on {
   background: transparent;
   border: none;
   box-shadow: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  /* **A tab is a button, so its hover fill and its focus ring take the one
+     button corner** (INBOX 682: "should these have rounded edges to stay
+     consistent"): `--radius-md` on all four corners, from the table in
+     DESIGN.md, not the `--radius-sm` of a chip that rounded only the top
+     (2.4px in the default look, which read as a square box). The 2px line
+     under the chosen tab is the strip's own `::before`, a straight edge. */
+  border-radius: var(--radius-md);
   color: var(--muted);
   font-size: var(--text-md);
   font-weight: 500;
@@ -4631,6 +4644,17 @@ textarea.autogrow {
   flex: 0 0 auto;
   width: 1.75rem;
   height: 1.75rem;
+}
+
+/* **In the desktop window the title bar is the icon** (INBOX 705, "the title
+   bar's app icon and the header's logo clash"). The OS frame shows the app's
+   icon and name above the bar, and the tile here is that same mark again a
+   few pixels below, larger than the icon above it. Measured: 28px against
+   the frame's 16px. The wordmark stays and moves to the gutter, as it does on
+   a phone; a browser tab has no title-bar icon of its own, so it keeps the
+   tile. `data-chrome` is set from `GET /desktop/fullscreen` (app.js). */
+html[data-chrome="native"] #top-bar #brand-logo {
+  display: none;
 }
 
 /* The bar's icon buttons are squares of the bar's one height. */

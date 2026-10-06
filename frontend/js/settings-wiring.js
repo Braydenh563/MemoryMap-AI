@@ -244,6 +244,19 @@ window.addEventListener("storage", (event) => {
   showLockScreen(false);
 });
 $("lock-submit").addEventListener("click", submitLockForm);
+//: The lock field's own show-password toggle (the browser's reveal vanished
+//: once the field lost focus). Shown text is never kept: a lock resets it.
+$("lock-password-show").addEventListener("click", (event) => {
+  const field = $("lock-password");
+  const show = field.type === "password";
+  field.type = show ? "text" : "password";
+  const button = event.currentTarget;
+  button.setAttribute("aria-pressed", String(show));
+  button.title = show ? "Hide password" : "Show password";
+  button.setAttribute("aria-label", button.title);
+  button.querySelector("i").className = `ph ${show ? "ph-eye-slash" : "ph-eye"}`;
+  field.focus();
+});
 $("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") submitLockForm();
   if (e.key === "Escape" && lockPrompt) {
@@ -253,6 +266,8 @@ $("lock-password").addEventListener("keydown", (e) => {
   }
 });
 $("lock-cancel").addEventListener("click", () => settleLockPrompt(false));
+//: "Forgot your password?" (INBOX 663): the card is account-recovery.js's.
+$("lock-forgot").addEventListener("click", () => openForgotPassword());
 // Enter in the question box asks; Ctrl+Enter in the note box saves.
 $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
@@ -734,8 +749,16 @@ document.addEventListener("keydown", (e) => {
 //: menu that lives on <body> without a `.menu-wrap` around it (the board's
 //: context menu), where a press on one of its group rows closed the whole
 //: menu before the row could open its flyout (measured on the map node menu).
+//: **A press on the control that opened a menu is the menu's own too** (INBOX
+//: 681, "not all dropdown elements close when pressing that element again").
+//: A `kebabMenu` opener sits inside `.menu-wrap`, so it always was; a custom
+//: select's opener sits in `.select-shell`, outside it, so this closed the
+//: list on the press and the opener's click then opened it again: a second
+//: press never shut it. Every opener's own click already toggles, so the
+//: press is left to it. A chip that opens a menu at a point says so the same
+//: way (`aria-haspopup`, `aria-expanded`, chip-menus.js).
 document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped")) closeActionMenus();
+  if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped, [aria-haspopup][aria-expanded='true']")) closeActionMenus();
 }, true);
 
 // Focus trapping (Wave L): while a modal is open, Tab cycles inside it.
@@ -932,33 +955,53 @@ function loadShortcuts() {
 
 let shortcuts = loadShortcuts();
 
-//: **A button says its key.** Measured: of the buttons that have a chord in
-//: this registry (New note, New document, New chat, Settings, light and
-//: dark), none said so in its tooltip, so the chord could only be learned
-//: from the shortcuts sheet. The tooltip is where people look while their
-//: hand is already on the mouse. Stamped from the registry, the current
-//: binding rather than the default, and again whenever a binding changes;
-//: `aria-keyshortcuts` says the same to a screen reader.
-const SHORTCUT_BUTTONS = {
-  "notes-new-note": "newNote",
-  "library-docs-new": "newDocument",
-  "chat-new": "newChat",
-  "settings-btn": "settings",
-  "theme-btn": "toggleTheme",
-};
+SHORTCUT_SOURCE.table = () => shortcuts;
+
+//: **A button says its key** (INBOX 701; first measured when none of the
+//: buttons with a chord said so in a tooltip). A button whose action has a
+//: binding here carries `data-shortcut="<action>"` in index.html, and this
+//: stamps its tooltip from the *current* binding ("New note (Ctrl+Shift+N)",
+//: the Command symbol on a Mac) and again whenever a binding changes;
+//: `aria-keyshortcuts` says the same to a screen reader. Buttons the JS
+//: paints itself (the status bar's) call `shortcutTitle` at the paint, and
+//: `tests/test_shortcut_hints.py` fails for an action with a button that does
+//: neither, and for a chord written next to a `data-shortcut`.
+const SHORTCUT_TITLE_CHORD = /\s*\([^()]*(?:Ctrl|Alt|Shift|⌘|⌥|⇧)[^()]*\)\s*$/;
 
 function stampShortcutTitles() {
-  for (const [id, key] of Object.entries(SHORTCUT_BUTTONS)) {
-    const button = document.getElementById(id);
-    const combo = shortcuts[key]?.keys;
-    if (!button || !combo) continue;
-    if (button.dataset.titleBase === undefined) button.dataset.titleBase = button.title || "";
-    const base = button.dataset.titleBase;
-    button.title = base ? `${base} (${combo})` : combo;
-    button.setAttribute("aria-keyshortcuts", combo.replace(/\bCtrl\b/g, "Control"));
+  for (const button of document.querySelectorAll("[data-shortcut]")) {
+    const combo = shortcuts[button.dataset.shortcut]?.keys;
+    if (!combo) continue;
+    const base = (button.title || "").replace(SHORTCUT_TITLE_CHORD, "") || button.getAttribute("aria-label") || button.textContent.trim();
+    button.title = shortcutTitle(base, button.dataset.shortcut);
+    button.setAttribute("aria-keyshortcuts", combo.replace(/\bCtrl\b/g, SHORTCUT_MAC ? "Meta" : "Control"));
   }
 }
-stampShortcutTitles();
+
+//: Titles that name a *fixed* chord (Bold, Italic, the board's own keys), not
+//: one from the table, are written "Ctrl+B" in the markup; on a Mac they read
+//: with the Command symbol. The static ones only: a title a script sets later
+//: is written through `shortcutTitle` or `chordLabel` where it is set.
+function localizeStaticChords() {
+  if (!SHORTCUT_MAC) return;
+  const chord = /\b(?:(?:Ctrl|Alt|Shift)\+)+[^\s)(,;]+/g;
+  for (const el of document.querySelectorAll('[title*="Ctrl+"], [title*="Alt+"], [title*="Shift+"]')) {
+    el.title = el.title.replace(chord, (match) => chordLabel(match));
+  }
+}
+
+//: A binding changed or reset: the table-driven titles, and the bars that
+//: paint their own, are redone from the new table.
+function restampShortcutHints() {
+  stampShortcutTitles();
+  const dashKeys = document.querySelector(".dash-find-keys");
+  if (dashKeys) dashKeys.textContent = shortcutHint("findAnything");
+  renderStatusBar();
+  renderUndoBar();
+  paintTabHistory();
+}
+localizeStaticChords();
+restampShortcutHints();
 // Sets the status-bar Undo/Redo buttons' icons and "nothing to undo yet"
 // tooltips on load: both stacks are empty at this point, so this only
 // establishes the disabled state the HTML already carries, not a real render.
@@ -996,7 +1039,7 @@ const TAB_JUMP_KEYS = {
 const CHORD_ACTIONS = {
   s: { label: "Settings", icon: "ph:gear", run: () => openSettingsModal() },
   q: { label: "Quick sketch", icon: "ph:palette", run: () => openSketch() },
-  v: { label: "Meeting notes", icon: "ph:microphone", run: () => openMeetingRecorder() },
+  v: { label: "Record a meeting", icon: "ph:microphone", run: () => openMeetingRecorder() },
   //: The two assistants (INBOX 249, the owner: "is there a hotkey ot keybind,
   //: as well as an 'm' key navigation to open the atlas window and popup
   //: agent??"). Ctrl+Shift+A and Ctrl+Shift+H are theirs in the registry
@@ -1005,7 +1048,7 @@ const CHORD_ACTIONS = {
   //: leads to the guide, I think it should be called guide instead"),
   //: the same word the status bar's button uses. The key stays `a`.
   a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
-  p: { label: "Popup agent", icon: "ph:magic-wand", run: () => toggleAgentPalette() },
+  p: { label: "Popup agent", icon: "ph:strategy", run: () => toggleAgentPalette() },
 };
 let tabJumpArmedAt = 0;
 
@@ -1050,7 +1093,7 @@ function saveShortcutOverrides() {
     if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
   }
   localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
-  stampShortcutTitles();
+  restampShortcutHints();
 }
 
 // A keyboard event -> the canonical string we compare against, e.g. "Ctrl+K".
@@ -1223,6 +1266,7 @@ async function pasteClipboardAsNote() {
 function resetShortcuts() {
   localStorage.removeItem(SHORTCUT_STORE);
   shortcuts = loadShortcuts();
+  restampShortcutHints();
   renderShortcutList();
   toast("Shortcuts reset to their defaults.");
 }
@@ -1752,6 +1796,7 @@ $("meeting-copy")?.addEventListener("click", (event) =>
   copyToClipboard($("meeting-transcript").value, event.currentTarget)
 );
 $("meeting-discard").addEventListener("click", resetMeetingUI);
+$("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
 // When a new service worker takes over (after an update), reload once so

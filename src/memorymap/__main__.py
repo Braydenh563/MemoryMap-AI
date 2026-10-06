@@ -2349,9 +2349,10 @@ def _password_exists(db) -> bool:  # noqa: ANN001  # a DatabaseManager
 def _reset_password() -> int:
     """Forgotten password: clear the credential so setup runs again.
 
-    This is deliberately a command you type at a terminal, not a button in the
-    UI: a "reset my password" link inside the app someone is locked out of
-    would just be a way in for anyone at the keyboard.
+    The terminal door to `core.password_reset.reset_password`, which the lock
+    screen's "I don't have it" path (`POST /auth/reset`) calls too, so the two
+    leave the same notebook behind (INBOX 663). This door asks for a typed
+    RESET and says what happened; the work is all in the shared function.
 
     It is honest about the two halves of what happens, because they are very
     different:
@@ -2359,32 +2360,34 @@ def _reset_password() -> int:
     - Ordinary notes are NOT encrypted with the password. They are plain rows
       in SQLite, and they come back untouched.
     - Private notes ARE. Their data key is wrapped with a key derived from the
-      password, so without it they cannot be decrypted by anyone, including
-      this command. Clearing the credential strands them permanently.
+      password, so without it (or a recovery key, which the lock screen takes)
+      they cannot be decrypted by anyone, including this command. Clearing the
+      credential leaves them sealed for good.
     """
-    from memorymap.core import deps, netbind
-    from memorymap.core.database import Entry, User, Vault
-    from sqlalchemy import func, select
+    from memorymap.core import deps, password_reset
+    from memorymap.core.database import User
+    from sqlalchemy import select
 
     config = deps.get_config()
     db = deps.get_db()
     with db.session() as session:
-        user = session.scalar(select(User))
-        if user is None:
+        if session.scalar(select(User)) is None:
             print("No password is set, start the app and it will ask you to choose one.")
             return 0
-        private_count = session.scalar(
-            select(func.count(Entry.id)).where(Entry.is_private == True)  # noqa: E712
-        ) or 0
+        private_count = password_reset.private_note_count(session)
 
         print(f"Notebook: {config.data_dir}")
         print("\nClearing the password will let you set a new one next start.")
-        print("  · Your ordinary notes are not encrypted and come back untouched.")
+        print("  · Your ordinary notes, documents, boards and settings are not encrypted and are kept.")
         if private_count:
             print(
                 f"  · Your {private_count} PRIVATE note(s) are encrypted with the "
-                "current\n    password. They cannot be recovered without it, not by "
-                "this command,\n    not by anyone. They will be lost."
+                "current\n    password. Without it, or your recovery key, they stay "
+                "sealed for good:\n    not this command, not anyone, can open them."
+            )
+            print(
+                "    Have a recovery key? Use \"Forgot your password?\" on the lock "
+                "screen instead,\n    which keeps them."
             )
         else:
             print("  · You have no private notes, so nothing is unrecoverable.")
@@ -2400,28 +2403,16 @@ def _reset_password() -> int:
                 print("Cancelled: nothing was changed.")
                 return 1
 
-        session.delete(user)
-        # SEC-01: with no password the notebook must not stay reachable from
-        # the network, so the reset turns "Allow other devices" off. The
-        # launcher refuses to bind beyond loopback without a password anyway;
-        # this makes the switch say what the server does.
-        lan_was_on = netbind.lan_enabled(config)
-        if lan_was_on:
-            config.set_preference(netbind.LAN_PREF, False)
-        # The wrapped key is useless once its password is gone; leaving it
-        # would make the next setup silently reuse a vault it cannot open.
-        for row in session.scalars(select(Vault)):
-            session.delete(row)
-        session.commit()
+        outcome = password_reset.reset_password(session, config)
 
     print("\nPassword cleared. Start the app and it will ask you to set a new one.")
-    if lan_was_on:
+    if outcome.lan_was_on:
         print(
             "Other devices on this network can no longer open this notebook. "
             "Turn that back on in Settings once a new password is set."
         )
-    if private_count:
-        print("The private notes that were encrypted with the old password are gone.")
+    if outcome.private_notes:
+        print("The private notes that were encrypted with the old password stay sealed.")
     return 0
 
 

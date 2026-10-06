@@ -209,7 +209,10 @@
      room, 1024 up). Raised by the bubble's own foot padding (9.6px) and a
      little of its last line's leading, it ends at the gap's far side, so it
      covers nothing but its own bubble's empty foot. */
-  top: calc(100% - 0.75rem);
+  /* Below the bubble, clear of it (the owner, 2026-10-06: "these buttons
+     are too high and clash with the message bubble"), in the room
+     #chat-messages' gap keeps for it (03-dashboard-widgets.css). */
+  top: calc(100% + var(--space-1));
   /* **Exempt from the bubble's own width cap.** `.msg > *` sets
      `max-width: 100%` so nothing inside a bubble can be wider than it, right
      for content, wrong for a row that is deliberately out of flow. On a
@@ -399,7 +402,7 @@
 
 @media (hover: hover) {
   #conversation-list li:hover {
-    background: var(--accent-soft);
+    background: var(--row-hover-bg);
   }
 }
 
@@ -1793,8 +1796,16 @@ body.graph-fullscreen-on .sidebar-panel {
 }
 
 
-.legend-edge-key .legend-line-similar {
+.legend-edge-key .legend-line-similar,
+.legend-edge-key .legend-line-cross {
   margin-left: var(--space-2);
+}
+
+/* INBOX 693: a line between two category clusters, thin and faint
+   (`GC_CROSS_WIDTH`, `GC_CROSS_ALPHA` in graph-canvas.js). */
+.legend-line-cross {
+  border-top-width: 1px;
+  opacity: 0.5;
 }
 
 /* --- Wave F: command palette --------------------------------------------------- */
@@ -2434,14 +2445,46 @@ button.recording.live-level {
    in the base button recipe, which would move every filled button in the app
    by 2px, see the report for the measurement. */
 #meeting-controls > button,
-#meeting-save-row > button {
+#meeting-save-row button {
   height: var(--control-h-lg);
   padding-block: 0;
 }
 
-/* Away from the primary, not fourth in a run of four. */
-.meeting-discard {
+/* The save row is two groups (INBOX 708): the ways of keeping the transcript
+   (the one filled save, then the document), and, pushed to the far end, the
+   two that are not (Copy, then Discard last), so the destructive one is never
+   beside the primary. */
+#meeting-save-row {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.meeting-actions-main,
+.meeting-actions-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.meeting-actions-more {
   margin-left: auto;
+}
+
+/* The transcribing state's bar, the width of the stage it sits in. */
+.meeting-progress {
+  display: block;
+  width: 100%;
+  height: var(--space-2);
+}
+
+/* The status line is the state's own sentence, so it sits close under the
+   stage rather than a paragraph's gap away; empty it takes no room. */
+#meeting-status {
+  margin-block: 0 var(--space-3);
+}
+
+#meeting-status:empty {
+  display: none;
 }
 
 .meeting-wave {
@@ -2451,6 +2494,15 @@ button.recording.live-level {
   border-radius: var(--radius-md);
   background: var(--inner);
   border: 1px solid var(--border);
+}
+
+/* A recording into a meeting (INBOX 644, `meetingRecordInto`): the meeting
+   has its name, so the name field goes, and the save says where it lands. */
+#meeting-overlay.meeting-into .meeting-title-label,
+#meeting-overlay.meeting-into #meeting-title,
+#meeting-overlay.meeting-into .meeting-save-new,
+#meeting-overlay:not(.meeting-into) .meeting-save-into {
+  display: none;
 }
 
 .meeting-title-label {
@@ -2475,8 +2527,10 @@ button.recording.live-level {
   margin-left: var(--space-2);
 }
 
+/* Sized to its words (`autoGrow`, from the review state's first frame), not to
+   twelve rem around one sentence. */
 #meeting-transcript {
-  min-height: 12rem;
+  min-height: 5rem;
 }
 
 /* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
@@ -6352,7 +6406,10 @@ button.ghost.danger:hover {
      similarity" beside "Group by category", needs 361px of a 352px panel,
      so the right column's switches were cut off at the panel's edge by 11px
      and the panel scrolled sideways. */
-  width: min(25rem, 100%);
+  /* 21rem since INBOX 726 (the owner: "unceccessarily wide and the text has
+     barely any right margin"): the 25rem above was for a two-column Show
+     grid that INBOX 621 made one column, so nothing needs it now. */
+  width: min(21rem, 100%);
 }
 
 /* The options panel is capped against the card, not the viewport, and the

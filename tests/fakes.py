@@ -38,6 +38,11 @@ class FakeEmbeddingService(EmbeddingService):
     def is_ready(self) -> bool:
         return self.available
 
+    def pinned(self, backend: str, model: str) -> "FakeEmbeddingService":
+        # The model a switch moves to: the same fake, so tests exercise the
+        # switch's staging and swap, not a model (INBOX 700).
+        return FakeEmbeddingService(available=self.available)
+
     def embed_text(self, text: str) -> np.ndarray | None:
         if not self.available:
             return None

@@ -206,17 +206,20 @@ function placeHelpPopover(panel, trigger, retry = true) {
   //: make the surface fit worse: it only ever pulls the panel back towards
   //: the middle of the screen.
   left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
-  let top = anchor.bottom + 10;
-  let above = false;
-  if (top + box.height > window.innerHeight - margin) {
-    const room = anchor.top - 10 - box.height;
-    if (room >= margin) {
-      top = room;
-      above = true;
-    } else {
-      top = Math.max(margin, window.innerHeight - margin - box.height);
-    }
+  //: **Never over its own '?'** (INBOX 718: "this popup covers the ? button").
+  //: Below the trigger when the whole panel fits there, above when it fits
+  //: there, else on the side with more room with its height capped to that
+  //: room and scrolling inside (`menuSidePlan`, the menus' rule). The old last
+  //: resort, pinning a too-tall panel to the window's bottom edge, slid it up
+  //: over the trigger whenever the trigger sat in the lower half.
+  const plan = menuSidePlan(box.height, anchor, 10, margin);
+  const above = plan.up;
+  let height = box.height;
+  if (plan.cap !== null) {
+    panel.style.maxHeight = `${plan.cap}px`;
+    height = Math.min(box.height, plan.cap);
   }
+  const top = above ? anchor.top - 10 - height : anchor.bottom + 10;
   panel.style.left = `${Math.round(left)}px`;
   panel.style.top = `${Math.round(top)}px`;
   panel.style.visibility = "";
@@ -255,6 +258,10 @@ document.addEventListener("keydown", (event) => {
   //: closing a popover (the Graph's full-screen exit: one Escape closes the
   //: '?' and the map stays full screen, as the hand-wired Graph help did).
   if (openHelpPopovers.size) event.helpPopoverSpent = true;
+  //: A "?" open inside a modal takes this Escape for itself: without the
+  //: default, the press also asked the dialog to close, and the Quick note
+  //: went with its help (INBOX 667). The next Escape closes the dialog.
+  if ([...openHelpPopovers].some((entry) => entry.panel.closest("dialog[open]"))) event.preventDefault();
   closeHelpPopovers();
 });
 window.addEventListener("resize", () => {
@@ -295,6 +302,7 @@ function wireHelpPopover(trigger, panel) {
       panel.classList.remove("help-popover", "help-popover-above");
       panel.style.left = "";
       panel.style.top = "";
+      panel.style.maxHeight = "";
       //: Cleared with the rest of the inline placement: an element left
       //: `visibility: hidden` in its home tree is an element some other
       //: feature will one day show and find invisible.
@@ -307,7 +315,13 @@ function wireHelpPopover(trigger, panel) {
     closeHelpPopovers();
     homeParent = panel.parentElement;
     homeNext = panel.nextSibling;
-    document.body.appendChild(panel);
+    //: **Into the open modal, not `<body>`, when the "?" is inside one**
+    //: (INBOX 667: the Quick note's "?" showed nothing). A `showModal()`
+    //: dialog is in the top layer, above the whole document whatever the
+    //: z-index, and makes everything outside it inert, so a panel moved to
+    //: `<body>` opened underneath it and could not be reached. The same
+    //: escape `wireEscapedActionMenu` uses for its menus.
+    (trigger.closest("dialog[open]") || document.body).appendChild(panel);
     //: **Hidden before it is shown, revealed only by the placement**
     //: (INBOX 206: "popups still flicker for a split second at the top left
     //: and then appear in the right place"). Removing `hidden` first and
@@ -372,6 +386,56 @@ function cardOpener(title, open, name) {
 }
 window.cardOpener = cardOpener;
 
+//: **One vertical rule for every menu that hangs from its opener** (INBOX 712:
+//: the document editor's ⋯ "goes off the bottom of the screen"): below the
+//: opener when the whole menu fits there, else above it when it fits there,
+//: else on whichever side has more room, its height capped to that room with
+//: the list scrolling inside it (the 120px floor keeps a menu a menu, not a
+//: slit). Pure, so the callers (the document dock's ⋯, the generic
+//: `openActionMenu`, and a menu re-placed after its window or its rows
+//: changed) cannot decide differently. `anchor` is the opener's rect.
+function menuSidePlan(height, anchor, gap = 4, margin = 8) {
+  //: The window's usable foot is the status bar's top, not the window's edge
+  //: (the owner, 2026-10-06: the document ⋯ "still overflows off the page",
+  //: its last rows under the fixed status bar).
+  const bar = document.getElementById("status-bar")?.getBoundingClientRect();
+  const foot = bar && bar.height && bar.top < window.innerHeight ? bar.top : window.innerHeight;
+  const below = Math.floor(foot - anchor.bottom - gap - margin);
+  const above = Math.floor(anchor.top - gap - margin);
+  const need = Math.ceil(height);
+  if (need <= below) return { up: false, cap: null };
+  if (need <= above) return { up: true, cap: null };
+  const up = above > below;
+  return { up, cap: Math.max(120, up ? above : below) };
+}
+
+//: The last step of `openActionMenu` for a menu that stayed where its
+//: stylesheet put it (an escaped menu is placed by `placeEscapedMenu`, which
+//: already keeps the whole box in the window). The earlier flip only asks
+//: whether the menu spills past its nearest scrolling ancestor, and that can
+//: be a box taller than the window, so a menu near the bottom of a tall page
+//: still ran off the screen. A menu already inside the window is left as the
+//: flip chose; one that spills is re-decided by `menuSidePlan`.
+function fitActionMenuInWindow(menu, opener) {
+  const margin = 8;
+  const anchor = opener.getBoundingClientRect();
+  //: Not laid out (an opener in a hidden pane): nothing to measure against.
+  if (!anchor.width && !anchor.height) return;
+  let box = menu.getBoundingClientRect();
+  if (box.top >= margin - 1 && box.bottom <= window.innerHeight - margin + 1) return;
+  menu.classList.remove("action-menu-flip");
+  menu.style.maxHeight = "none";
+  box = menu.getBoundingClientRect();
+  const plan = menuSidePlan(box.height, anchor);
+  menu.classList.toggle("action-menu-flip", plan.up);
+  if (plan.cap !== null) {
+    menu.style.maxHeight = `${plan.cap}px`;
+    menu._fitCap = true;
+  } else {
+    menu.style.maxHeight = "";
+  }
+}
+
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
   window._menuOpenedAt = performance.now();
@@ -390,6 +454,12 @@ function openActionMenu(menu, opener) {
   //: same two-step `showSelectionPopupAt` uses, and for the same reason.
   const wasVisibility = menu.style.visibility;
   menu.style.visibility = "hidden";
+  //: A cap `fitActionMenuInWindow` wrote on the last open is this open's
+  //: measurement error, so it goes before anything is measured.
+  if (menu._fitCap) {
+    menu.style.maxHeight = "";
+    menu._fitCap = false;
+  }
   menu.classList.remove("hidden", "action-menu-flip");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
@@ -434,6 +504,9 @@ function openActionMenu(menu, opener) {
   //: a menu that fits, and a menu that does not gets the same reparent-to-body
   //: treatment rather than being clipped.
   escapeMenuIfClipped(menu, opener);
+  if (!menu._escapedHome && !menu._escapeWired && !menu.classList.contains("submenu")) {
+    fitActionMenuInWindow(menu, opener);
+  }
   //: Placed, so it can be seen. Restored rather than cleared, in case a caller
   //: had its own reason to hide this menu.
   menu.style.visibility = wasVisibility;
@@ -1520,7 +1593,7 @@ function buildMenuGroupButton(label, subItems) {
   const labelSpan = document.createElement("span");
   // setLabel, not textContent: these three group triggers ("AI actions",
   // "Connect", "Add") were the one label sink the sweep missed, so the note
-  // kebab menu rendered the literal text "ph:magic-wand AI actions".
+  // kebab menu rendered the literal text "ph:sparkle AI actions".
   setLabel(labelSpan, label);
   const arrow = document.createElement("span");
   arrow.className = "menu-submenu-arrow";
@@ -1806,7 +1879,7 @@ function entryOverflowMenu(entry) {
         run: () => reevaluateEntry(entry),
       },
       {
-        label: "ph:magic-wand Improve writing",
+        label: "ph:sparkle Improve writing",
         title: "Proofread or rewrite this note with AI",
         run: async () => {
           if (!(await openNoteEditor(entry.id))) return;
@@ -1819,7 +1892,7 @@ function entryOverflowMenu(entry) {
         // Recognising a title the note already wrote (a leading `# Heading`)
         // is free; writing one costs a real model call, so it's this
         // separate, on-request action rather than something automatic.
-        label: entry.title ? "ph:magic-wand Regenerate title" : "ph:magic-wand Generate title",
+        label: entry.title ? "ph:sparkle Regenerate title" : "ph:sparkle Generate title",
         title: "Write a short title for this note with AI",
         run: () => generateEntryTitle(entry),
       },
@@ -1864,6 +1937,11 @@ function entryOverflowMenu(entry) {
         run: () => expandNoteIntoDocument(entry),
       },
       { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
+      //: A meeting's sheet (INBOX 644): its action items, decisions,
+      //: Summarise and Record into it. The meeting chip opens the same.
+      ...(noteIsMeeting(entry)
+        ? [{ label: "ph:users-three Meeting", run: () => openMeetingSheet(entry.id) }]
+        : []),
       //: KG4: the note's properties and type, as a table.
       {
         label: "ph:list-bullets Properties",
@@ -2046,7 +2124,7 @@ function entryOverflowMenu(entry) {
     //: A private note never goes to a model: the server refuses retitling
     //: and re-filing one, so the menu does not offer what would only toast
     //: a refusal (sweep 1004).
-    if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
+    if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:sparkle AI actions", aiItems));
     menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
     menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
     menu.appendChild(rule());

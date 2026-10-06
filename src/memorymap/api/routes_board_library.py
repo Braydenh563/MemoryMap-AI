@@ -46,6 +46,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api.routes_whiteboard import (
     BOARD_BG_COLOR_RE,
+    BOARD_LAYOUTS,
     MAP_REFERENCE_KINDS,
     MAP_TOPIC_KIND,
     MEDIA_URL_RE,
@@ -875,28 +876,65 @@ def _place_element(db: Session, board_id: int | None, payload: dict, body: Place
     return {"sketches": made_sketches, "objects": made_objects}
 
 
-def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceBody, ref: dict) -> dict:
+def _map_has_no_centre(db: Session, board_id: int | None) -> bool:
+    """True for a map board with no topic that is a root. A board that is not
+    a map has no centre to want, and a map with one already has its trunk."""
+    if board_id is None:
+        return False
+    entry = db.get(Entry, board_id)
+    if entry is None or _board_settings(entry)[0] != "map":
+        return False
+    roots = db.scalar(
+        select(WhiteboardObject.id)
+        .where(WhiteboardObject.board_id == board_id, WhiteboardObject.parent_id.is_(None),
+               WhiteboardObject.kind.in_(MAP_REFERENCE_KINDS | {MAP_TOPIC_KIND}))
+        .limit(1)
+    )
+    return roots is None
+
+
+def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceBody, ref: dict,
+                  name: str | None = None) -> dict:
     parent = None
     if body.parent_id is not None:
         parent = db.get(WhiteboardObject, body.parent_id)
         if parent is None or parent.board_id != board_id or parent.kind not in MAP_REFERENCE_KINDS | {MAP_TOPIC_KIND}:
             raise HTTPException(status_code=404, detail="That topic is not on this board.")
     made = []
+    # A sideways tree: each leaf takes the next row, and a topic with children
+    # sits on its first child's row. The row was `parent's row + i`, so the
+    # second child of one topic and the first child of the next landed on the
+    # same spot (the Decision template's "Option B" under "Cost"), which a map
+    # with no layout to tidy it kept as one box on another (INBOX 664).
+    rows = [0]
 
-    def add(node: dict, parent_id: int | None, depth: int, index: int) -> None:
+    def add(node: dict, parent_id: int | None, depth: int) -> int:
         data = {**node.get("data", {}), "content": node.get("text", ""), "library_ref": ref}
         row = WhiteboardObject(
             board_id=board_id, kind="topic", data=json.dumps(WhiteboardObjectData(**{k: v for k, v in data.items() if k != "library_ref"}).model_dump(exclude_none=True) | {"library_ref": ref}),
-            x=body.x + depth * 220, y=body.y + index * 70, z=1, width=180, height=48, parent_id=parent_id,
+            x=body.x + depth * 220, y=body.y, z=1, width=180, height=48, parent_id=parent_id,
         )
         db.add(row)
         db.flush()
         made.append(row)
-        for i, child in enumerate(node.get("children") or []):
-            add(child, row.id, depth + 1, index + i)
+        kids = [add(child, row.id, depth + 1) for child in node.get("children") or []]
+        if kids:
+            at = kids[0]
+        else:
+            at = rows[0]
+            rows[0] += 1
+        row.y = body.y + at * 70
+        return at
 
-    for i, node in enumerate(payload.get("nodes") or []):
-        add(node, parent.id if parent is not None else None, 1 if parent is not None else 0, i)
+    nodes = list(payload.get("nodes") or [])
+    #: A branch placed on a map with no central topic (INBOX 670) used to make
+    #: one trunk per top-level topic. One top-level topic is already the centre
+    #: (it has no parent); several go under a new centre named after the
+    #: template, so a map has the one trunk it is built around.
+    if parent is None and len(nodes) > 1 and _map_has_no_centre(db, board_id):
+        nodes = [{"text": (name or "Map").strip()[:200] or "Map", "children": nodes}]
+    for node in nodes:
+        add(node, parent.id if parent is not None else None, 1 if parent is not None else 0)
     return {"sketches": [], "objects": made}
 
 
@@ -922,12 +960,12 @@ def place_library_item(board_id: int, body: PlaceBody, db: Session = Depends(get
     if kind in ("element", "shape", "preset"):
         made = _place_element(db, target, payload, body, ref)
     elif kind == "branch":
-        made = _place_branch(db, target, payload, body, ref)
+        made = _place_branch(db, target, payload, body, ref, entry_data.get("name"))
     elif kind == "template":
         if payload.get("element"):
             made = _place_element(db, target, payload["element"], body, ref)
         elif payload.get("branch"):
-            made = _place_branch(db, target, payload["branch"], body, ref)
+            made = _place_branch(db, target, payload["branch"], body, ref, entry_data.get("name"))
         else:
             made = {"sketches": [], "objects": []}
     else:
@@ -971,6 +1009,11 @@ def new_board_from_template(body: NewBoardBody, db: Session = Depends(get_sessio
     payload = entry_data.get("payload") or {}
     kind = entry_data.get("kind", "element")
     settings = payload.get("board", {}) if kind == "template" else {"type": "branch" if kind == "branch" else "board"}
+    #: A built-in map template names the layout it is drawn for (INBOX 715:
+    #: a fishbone to the left, pros and cons on both sides, a brainstorm
+    #: round its centre), so the map it starts is the shape its preview was.
+    if kind == "branch" and entry_data.get("layout") in BOARD_LAYOUTS:
+        settings["layout"] = entry_data["layout"]
     board_type = "map" if settings.get("type") in ("map", "branch") else "board"
     name = body.name.strip()
     entry = Entry(content=f"# {name}", is_board=True)
@@ -987,13 +1030,14 @@ def new_board_from_template(body: NewBoardBody, db: Session = Depends(get_sessio
         probe.x, probe.y = float(box.get("w", 0)) / 2, float(box.get("h", 0)) / 2
         _place_element(db, entry.id, payload, probe, ref)
     elif kind == "branch":
-        _place_branch(db, entry.id, payload, probe, ref)
+        #: The central topic is the map's own name, as a blank map's is.
+        _place_branch(db, entry.id, payload, probe, ref, name)
     elif payload.get("element"):
         box = payload["element"].get("box") or {}
         probe.x, probe.y = float(box.get("w", 0)) / 2, float(box.get("h", 0)) / 2
         _place_element(db, entry.id, payload["element"], probe, ref)
     elif payload.get("branch"):
-        _place_branch(db, entry.id, payload["branch"], probe, ref)
+        _place_branch(db, entry.id, payload["branch"], probe, ref, entry_data.get("name"))
     db.commit()
     board_type, layout = _board_settings(entry)
     return {"id": entry.id, "title": name, "type": board_type, "layout": layout}

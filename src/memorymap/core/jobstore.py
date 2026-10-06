@@ -72,6 +72,11 @@ HANDLERS: dict[str, str] = {
     "vision-pdf": "memorymap.ai.vision_ocr:pdf_vision_ocr_and_store",
     "document": "memorymap.ai.docreader:read_document_and_store",
     "file-entry": "memorymap.api.routes_entries:_file_entry_in_background",
+    #: Resumes where it stopped: staged vectors for the same target are kept.
+    "embed-switch": "memorymap.core.embedswitch:run",
+    #: Tidy's link reason pass (INBOX 691): idempotent, a named link no
+    #: longer matches, so a resumed pass repeats nothing.
+    "tidy-link-reasons": "memorymap.entry.tidy:respecify_all",
 }
 
 #: A lease lasts this long without a heartbeat. Long enough that a busy
@@ -546,8 +551,12 @@ def resume(db=None, enqueue=None) -> dict:  # noqa: ANN001
                 func = resolve(kind)
                 args, kwargs = decode_payload(payload)
                 dedupe = _as_key(json.loads(key)) if key else None
-            except Exception as exc:  # noqa: BLE001  # one bad row fails alone
-                _fail_unrun(job_id, f"Could not be resumed: {exc}", db)
+            except Exception:  # noqa: BLE001  # one bad row fails alone
+                #: The row is shown in Background jobs, so it says what
+                #: happened in a sentence; the exception (a decoder's words,
+                #: a payload fragment) goes to the log with its traceback.
+                logger.warning("could not resume job %s (%s)", job_id, kind, exc_info=True)
+                _fail_unrun(job_id, "Could not be resumed after the app restarted.", db)
                 continue
             enqueue(kind, func, args, kwargs, name, dedupe, job_id)
             counts["resumed"] += 1

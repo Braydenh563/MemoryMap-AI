@@ -81,10 +81,11 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(2500);
   await reset();
   const changed = await page.evaluate(() => {
-    const radios = [...document.querySelectorAll('#graph-layout input[name="graph-layout"]')];
-    const next = radios.find((r) => !r.checked);
+    const select = document.getElementById('graph-layout');
+    const next = [...select.options].find((o) => o.value !== select.value);
     if (!next) return false;
-    next.click();
+    select.value = next.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
     return next.value;
   });
   await page.waitForTimeout(800);

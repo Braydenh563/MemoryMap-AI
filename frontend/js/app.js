@@ -761,6 +761,7 @@ function askPasswordPrompt({ title, message, submitLabel, submit }) {
     $("lock-cancel").classList.remove("hidden");
     $("lock-error").textContent = "";
     $("lock-password").value = "";
+    $("lock-password").type = "password";
     $("lock-password").setAttribute("aria-label", "Password");
     $("lock-password").autocomplete = "current-password";
     overlay.classList.remove("hidden");
@@ -880,6 +881,11 @@ async function submitLockForm() {
     setBusy($("lock-submit"), true, "Opening…");
     const opening = startApp();
     curtainShell(opening);
+    //: The step after setup (INBOX 663): a recovery key, offered once the
+    //: app is drawn, skippable. The password just chosen goes with it so
+    //: the offer does not ask for it again; account-recovery.js drops it
+    //: when the dialog closes.
+    if (mode === "setup") offerRecoveryKey(password);
   } catch (error) {
     errorLine.textContent = error.message;
   }
@@ -1084,6 +1090,21 @@ function startApp() {
   if (shellStatus) shellStatus.textContent = "";
   // Warm the filing model, retry stand-ins (routes_models.warm_filing).
   api("/models/warm-filing", { method: "POST", silent: true }).catch(() => {});
+
+  // The desktop window's own title bar already shows the app's icon, so the
+  // header's logo tile under it is the same mark twice (INBOX 705). The server
+  // says whether this page runs in that window (`window_hook`, the same
+  // answer the documents full screen asks); the answer is kept on this
+  // device so the next launch paints without the tile, rather than drawing
+  // it and pulling it back when the reply lands. A browser tab keeps it.
+  document.documentElement.dataset.chrome = prefs.get("windowChrome", "");
+  apiJson("/desktop/fullscreen", { silent: true })
+    .then((state) => {
+      const chrome = state?.available ? "native" : "";
+      document.documentElement.dataset.chrome = chrome;
+      prefs.set("windowChrome", chrome);
+    })
+    .catch(() => {});
 
   // A failed load must be visible, not a silently empty page, and one
   // broken endpoint must never stop the rest of the app from coming up.
@@ -1305,51 +1326,6 @@ async function refreshActiveTab() {
   }
   if (name === "chat") return loadChatSuggestions();
   return undefined; // the notes tab is covered by loadEntries above
-}
-
-// --- capture templates (Wave B) ---------------------------------------------------
-
-const BUILTIN_TEMPLATES = [
-  { name: "Journal", content: "Journal: {date}\n\nToday I " },
-  { name: "Recipe", content: "Recipe: \n\nIngredients:\n- \n\nSteps:\n1. " },
-  { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
-  { name: "Meeting", content: "Meeting about \nWho: \nDecisions: \nTo do: " },
-];
-
-//: **Built-ins and the person's own, as one catalogue** (INBOX 409, "templates
-//: cant be edited"). The persona shape: a saved template that carries a
-//: built-in's name is that built-in's edit, kept in `custom_templates` beside
-//: the templates that are wholly the person's, so the Built-in group shows
-//: the edit's text under the shipped name, Yours shows only their own, and
-//: removing the edit is the reset. Nothing else is stored, and the built-in's
-//: original text never leaves this file. Both readers (the Capture dropdown
-//: and the Settings list) draw from this one function, so they cannot
-//: disagree about which templates exist.
-function templateCatalogue() {
-  const saved = (prefsCache && prefsCache.custom_templates) || [];
-  const edits = new Map(saved.map((t) => [t.name, t]));
-  const builtin = BUILTIN_TEMPLATES.map((t) => {
-    const edit = edits.get(t.name);
-    return { ...(edit || t), builtin: true, overridden: Boolean(edit) };
-  });
-  const shipped = new Set(BUILTIN_TEMPLATES.map((t) => t.name));
-  const custom = saved
-    .filter((t) => !shipped.has(t.name))
-    .map((t) => ({ ...t, builtin: false, overridden: false }));
-  return { builtin, custom };
-}
-
-async function loadTemplates() {
-  // Built-ins + the user's own (kept in preferences). Shared with the two
-  // other boot readers (A2): at boot this joins the one request in flight, and
-  // afterwards it reads the cache every PUT in this file keeps current, which
-  // is why `saveTemplateList` (PUT, then this) still shows the new template.
-  await loadPreferences().catch(() => prefsCache);
-  // Saved filters live in the same payload, so draw them while it's fresh.
-  renderSavedSearches();
-  //: The Capture box's picker reads `templateCatalogue()` when it opens
-  //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
-  //: template saved in Settings is in the next opening without a redraw.
 }
 
 // --- rendering ---------------------------------------------------------------
@@ -1935,6 +1911,10 @@ const LAZY_MODULES = {
   chipMenus: ["/js/chip-menus.js"],
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
+  //: The Ask box's Use AI switch (ask-compose.js), preloaded below.
+  askCompose: ["/js/ask-compose.js"],
+  //: Notes, Questions (questions-view.js), behind two stand-ins.
+  questionsView: ["/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
@@ -1980,6 +1960,7 @@ const LAZY_MODULES = {
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
+  meetings: ["/js/meetings.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
   //: boot's, the motion arrives with the first figure that mounts.
   atlasMotion: ["/js/atlas-motion.js"],
@@ -1989,6 +1970,8 @@ const LAZY_MODULES = {
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
+  //: Settings, Search and index's embedding models (INBOX 700, embed-choices.js).
+  embedChoices: ["/js/embed-choices.js"],
   //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
   chordGuide: ["/js/chord-guide.js"],
   //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
@@ -1999,6 +1982,10 @@ const LAZY_MODULES = {
   dragEdge: ["/js/drag-edge.js"],
   //: The back/forward list's rows (INBOX 654): see nav-history.js.
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
+  //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
+  accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
+  //: Tidy, the reviews with no AI (INBOX 691): tidy.js's header.
+  tidy: ["/css/tidy-lazy.css", "/js/tidy.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2026,6 +2013,8 @@ const LAZY_MODULES = {
     "/js/whiteboard.js",
     "/js/whiteboard-commands.js",
     "/js/whiteboard-library.js",
+    //: The New board dialog and every template's picture (INBOX 715).
+    "/js/whiteboard-templates.js",
     "/js/whiteboard-format.js",
     "/js/whiteboard-interchange.js",
     "/js/whiteboard-history.js",
@@ -2249,6 +2238,7 @@ const LAZY_ENTRY_POINTS = {
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
+  embedChoices: ["renderEmbedChoices"],
   chordGuide: ["showTabJumpHint"],
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],
@@ -2271,16 +2261,20 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  tidy: ["openTidySheet"],
+  questionsView: ["initQuestionsView", "loadQuestions"],
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],
   tour: ["openTour", "renderTourReplay"],
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
-  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
+  notePanels: ["beginOrCompleteLink", "toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
   vault: ["unlockPrivateNotes", "ensureVaultOpen"],
+  accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
-  noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
+  noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",
@@ -2391,4 +2385,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose"].forEach((name) => ensureModule(name)), 3000);

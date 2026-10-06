@@ -2495,8 +2495,9 @@ body.scroll-top-visible .skills-split > .tab-main {
 
    The underline strip itself stays (that redesign is recorded above and is not
    being remade): what changes is that its hover and focus surface obeys
-   DESIGN.md's "one button radius". The bottom corners stay square so the 2px
-   underline is still a straight line under the label, and the fill gets the
+   DESIGN.md's "one button radius" (`--radius-md` on all four corners, INBOX 682:
+   the strip's `.tabs-line > button` rule; the 2px line is the strip's own
+   straight indicator), and the fill gets the
    `--space-2` of horizontal room every other pressable label in the app has,
    with the `gap` dropped a step so the two tabs sit the same distance apart as
    before the padding was added. */
@@ -3320,10 +3321,16 @@ dialog::backdrop {
    surface's tint on an opaque base: text scrolling under it never shows
    through, and at rest it reads as the surface (`stripground.js`). */
 .note-composer > .note-toolbar {
-  margin-bottom: 0;
+  /* **Inset from the surface's border (INBOX 705).** The strip ran full width,
+     so its tint met the bordered edge on the left and right ("still the
+     offending formatting bar edges on the border"). Measured at 1440, 1920 and
+     390, capture and the edit form: the controls were already 6.4px inside
+     the inner box, it was the strip's own ground touching. It now floats one
+     step in, as its own rounded tint, so nothing it paints reaches the
+     border; the controls keep the strip's padding inside it. */
+  margin: 0 var(--space-2) var(--space-1);
   border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-md);
   background: linear-gradient(var(--input-bg), var(--input-bg)), var(--modal-bg-opaque);
 }
 
@@ -4748,8 +4755,12 @@ summary:not(.icon-only):not(.icon-button) {
    anything not on one is the platform control at the accessibility floor, 
    the ugliest available outcome. A new list that forgets to enrol gets no
    warning, no log and no failing test; it just looks broken. */
+/* `:not(:where(.cm-md-task))` (`:where` so the exclusion adds no specificity
+   and the rendered card's tick rule in 01-forms-settings.css still wins): a task's box inside an editor that sits in a list (the
+   note edit form is an `.entry-list` row) is the editor's, drawn once in
+   09-editor.css for the note and the document alike (INBOX 710). */
 .doc-list-tick,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only) {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)) {
   appearance: none;
   -webkit-appearance: none;
   width: var(--target-min);
@@ -4782,7 +4793,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):hover {
   border-color: var(--accent);
 }
 
@@ -4790,7 +4801,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -4801,7 +4812,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):checked::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -4983,85 +4994,102 @@ summary:not(.icon-only):not(.icon-button) {
   top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
   /* Both edges anchored with an auto margin, for the reason written out on
      `.wb-map-empty` above: `left: 50%` alone sized this offer against the
-     half of the board to its right, so it came out 704px inside a 1408px
-     board where its own `max-width` allows 704 to 1295. */
+     half of the board to its right. */
   left: 0;
   right: 0;
-  width: fit-content;
+  width: min(44rem, 92%);
   margin-inline: auto;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  max-width: min(44rem, 92%);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-md);
+}
+
+/* INBOX 715: a head (the title, one muted line, the dialog-head X), then
+   the templates as picture tiles in one row that scrolls, then the
+   first-open hint. */
+.wb-map-templates-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .wb-map-templates-title {
   font-weight: 600;
 }
 
-.wb-map-templates-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.wb-map-templates-sub {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* **The first-open hint** (MINDMAP_PLAN §12.5). Its own line under the four
-   shapes rather than a fifth item wrapping beside them: `flex-basis: 100%` in
-   the card's own wrap. `--text-sm` because it is the quietest thing in the
-   card, under both the title and the sentence that explains the offer. */
+.wb-map-templates-row {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+/* **The first-open hint** (MINDMAP_PLAN §12.5): the quietest line in the
+   card, under the tiles. */
 .wb-map-first-hint {
-  flex-basis: 100%;
   margin: 0;
   font-size: var(--text-sm);
   text-align: center;
 }
 
 /* **The offer must not cover the thing it is an offer about.** Measured at
-   390x844 on a new map: the card wrapped to 335x237 at the top of the canvas
-   and the map's only topic sat at y 411 to 455, so the card's own box overlaps
-   the topic by 8800px2 and `elementFromPoint` at the topic's centre returns the
-   card. A person on a phone could not press the one node their new map has.
-
-   The second line goes at phone width rather than the buttons: the buttons are
-   the offer, and the sentence under the title is an explanation of an offer
-   whose four shapes are named on the buttons themselves. */
+   390x844 on a new map: the old card wrapped to 335x237 at the top of the
+   canvas over the map's only topic (y 411 to 455), and with a head over the
+   tiles the card ran under the selected root's own bar. At phone width the
+   head's words go (the card's group is still named by them) and the card is
+   one row: the tiles that scroll, then the X; the hint wraps under them. */
 @media (max-width: 48rem) {
-  /* `:not(.wb-map-first-hint)` because the hint is the one `.muted` line in
-     this card that is not an explanation of the offer: it is what a person who
-     ignores the offer needs, and at phone width it is the only thing telling
-     them a topic has a ring at all. */
-  .wb-map-templates > .muted:not(.wb-map-first-hint) {
-    display: none;
-  }
-
-  /* The offer's title goes with it at this width, for the same reason and with
-     a measurement behind it: the card is anchored to the top of the canvas and
-     the map is framed at its centre, so every line the card grows costs
-     clearance over the map's only topic. Measured at 390x844 with the hint and
-     the title both drawn, the card ran to y=430 against a root topic at y=411,
-     3,755px2 across it, which is the overlap the offer was already fixed for
-     once. The four buttons under it are named shapes and the card's own
-     `aria-label` still says "Start from a template", so nothing is lost that
-     was not already said twice. */
-  .wb-map-templates-title {
-    display: none;
-  }
-
   .wb-map-templates {
+    flex-flow: row wrap;
+    align-items: center;
     padding: var(--space-1) var(--space-2);
-    gap: var(--space-1) var(--space-2);
+    gap: var(--space-1);
   }
 
-  /* The four shapes are the offer and they are what has to fit; below this
-     width they are a row that scrolls rather than a block that grows down the
-     canvas, which is what put the card over the node in the first place. */
+  .wb-map-templates-head {
+    display: contents;
+  }
+
+  .wb-map-templates-title,
+  .wb-map-templates-sub {
+    display: none;
+  }
+
   .wb-map-templates-row {
-    flex-wrap: nowrap;
-    max-width: 100%;
-    overflow-x: auto;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #wb-map-templates-dismiss {
+    order: 1;
+    flex: none;
+  }
+
+  .wb-map-first-hint {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .wb-map-template-tile.ghost {
+    flex-basis: 4.5rem;
+    width: 4.5rem;
+    padding: var(--space-1);
+  }
+
+  .wb-map-template-tile .wb-lib-thumb {
+    height: 2.25rem;
   }
 }
 
@@ -6001,50 +6029,6 @@ button.connection-row {
   color: var(--muted);
 }
 
-/* **Scrolls sideways rather than wrapping**, which is the same rule the
-   Documents toolbar follows and the reason the labels below can be told never
-   to break: a toolbar that wraps changes the height of the dialog header, and
-   a header that changes height moves the page you are trying to read. */
-.ocr-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  /* One axis cannot be `visible` while the other is not, it computes to
-     `auto` and creates a clipping context that traps every popup opened
-     inside it. Stated, because this exact pair was the Documents toolbar bug. */
-  overflow-y: hidden;
-  padding-bottom: var(--space-1);
-  scrollbar-width: thin;
-}
-
-/* One group per intent: look at it, read it, keep it. The rule between them is
-   what makes three groups read as three rather than as nine controls. */
-.ocr-tool-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-}
-
-.ocr-tool-group + .ocr-tool-group {
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border);
-}
-
-/* The measured defect itself: a label that wrapped inside a button sized for
-   one line. Nothing in this bar may wrap, it scrolls instead. */
-.ocr-toolbar button,
-.ocr-toolbar .checkbox-label,
-.ocr-toolbar .select-opener {
-  white-space: nowrap;
-}
-
-.ocr-reader {
-  max-width: 14rem;
-}
-
 /* Continuous mode: every page stacked, in the order they are in the file. */
 .ocr-scroll {
   display: flex;
@@ -6764,19 +6748,6 @@ button.connection-row {
   background: var(--modal-bg);
 }
 
-/* The ± zoom row beside the Fit/100% segment. Tabular figures so stepping
-   through 75% → 100% → 125% does not shuffle the buttons sideways. */
-.ocr-zoom-steps {
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.ocr-zoom-level {
-  min-width: 3.2rem;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
 /* --- Documents: focus mode --------------------------------------------------
    Same `position: fixed` overlay pattern as the whiteboard's and graph's own
    full-screen toggles (see `#library-view-whiteboard.wb-fullscreen` above),
@@ -7239,26 +7210,6 @@ button.connection-row {
   }
 }
 
-/* The page-range control beside "Read this page with AI". A short box, not a
-   full-width field: it holds "all", "3" or "1-5,8" and nothing longer, and a
-   wide input in a crowded header would read as the primary control when the
-   page rail beside it is what people actually navigate with. */
-.ocr-read-range {
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* **Two selectors, because one loses.** `.row input { flex: 1 }` is (0,1,1)
-   and beats this file's lone class: measured in the workspace: a box holding
-   the word "all" rendered 230px wide and soaked up every spare pixel in the
-   tool row. Exactly the trap `.sampling-number`'s own comment records. */
-.ocr-read-range .ocr-read-pages {
-  flex: none;
-  width: 6rem;
-  margin: 0;
-  text-align: center;
-}
-
 /* The "show me this one" flash lived here as two rules: a keyframe pulse on
    the Live view's `<mark>` and a `::selection` colour on the Source view's
    textarea. DOCUMENTS_PLAN Phase 2 left one editor, and it answers the
@@ -7642,6 +7593,23 @@ button.connection-row {
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+}
+
+/* **A top-bar menu opens above the floating bars** (INBOX 716, the owner, with
+   the View menu over a selected topic: "mindmap node popup tools go in front
+   of dropdown menus"). The menus are inside this bar, and the bar's blurred
+   background makes it a stacking context of its own, so a menu's `z-index:
+   30` only ranks it among the bar's own children: against the topic's bar
+   (`.wb-map-strip`) and the selection bar (`.wb-context`), both 22 and both
+   siblings of this one, the whole bar at 20 loses. Measured with
+   `elementFromPoint` over the View menu: the topic's bar answered 68 of 77
+   points. Lifting the bar only while one of its menus is open keeps the
+   rest of the time exactly as it was, so a topic selected under the top edge
+   still has its bar. 24 is above those two and the radial ring (23), and
+   under the panels that start at 25; there are no z-index tokens in this stylesheet,
+   every layer is a literal (see `.selection-bar`). */
+.wb-topbar:has([data-wb-menu-toggle][aria-expanded="true"]) {
+  z-index: 24;
 }
 
 .wb-topbar-left,
@@ -9724,7 +9692,7 @@ input[type="file"] {
    well off to one side of the thing it is about. `escapeAndCapMenu` still
    takes over whenever the canvas would clip it. */
 .wb-map-strip-menu {
-  width: 20rem;
+  width: 21rem;
   right: auto;
   left: 50%;
   transform: translateX(-50%);
@@ -9738,42 +9706,161 @@ input[type="file"] {
   transform: none;
 }
 
-/* **A door's choices are pressed, not picked from a list** (INBOX 610). Each
-   select in the topic's bar is drawn as the choice-control recipe beside it
-   (`wbMapChoiceRow`, DESIGN.md's `.seg[role="group"]`) and is itself put
-   away: it stays in the DOM because every listener reads it. A row holding
-   segments stacks its name over them, so a run of three or five words has
-   the door's full width and wraps there rather than widening the door; the
-   door is 20rem for the same reason (the longest run, the five shapes, fits
-   one line at 1440, measured by `bm1005-nodetasks.js`). The select is put
-   away with `hidden`, and the strip is `data-no-select-enhance`, so no
-   `.select-shell` opener is drawn for a select nobody sees. */
-.wb-map-strip-menu .wb-menu-row:has(> .wb-map-choices) {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-  padding-bottom: var(--space-1);
+/* **A door is a form of one-line rows** (INBOX 665, the owner: "clean up or
+   redesign this bit in the mind map popup"; DESIGN.md "A visual choice in a
+   popup"). Measured before on a themed map at 1440 (`seg665-probe.js`): the
+   Shape door 333px tall, Box and Fill each a pill well wrapping to two lines
+   (rows of 103px), the Text door's icons to three. Now every row is its name
+   in one label column and its control in the next, so the controls of
+   adjacent rows start on one edge, and every control is a menu row's height
+   (`--control-h-lg`, 32px; 44 below 820 and under touch, `--target-min`
+   there). INBOX 610's one press each stays:
+   a choice is a row of previews (`wbMapPickRow`), each an icon-only ghost
+   drawing what it makes, never wrapping. The select stays in the DOM because
+   every listener reads it, put away with `hidden`; the strip is
+   `data-no-select-enhance`, so no `.select-shell` is drawn for it. */
+.wb-map-strip-menu {
+  --wb-map-pick: max(var(--control-h-lg), var(--target-min));
 }
 
-.wb-map-choices.seg {
-  margin: 0;
+.wb-map-strip-menu .wb-menu-row {
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  min-height: var(--wb-map-pick);
 }
 
-.wb-map-choices.seg button {
-  padding: var(--space-1) var(--space-2);
+.wb-map-strip-menu .wb-menu-row > :first-child {
+  grid-row: 1;
+  grid-column: 1;
 }
 
-/* The text size on the bar: the same four segments, at the bar's own
-   control height so the well does not stand taller than the round buttons
-   beside it. */
-.wb-map-bar-size .wb-map-choices.seg {
-  flex-wrap: nowrap;
-  padding: 2px;
+.wb-map-strip-menu .wb-menu-row > :not(:first-child) {
+  grid-column: 2;
+  justify-self: start;
 }
 
-.wb-map-bar-size .wb-map-choices.seg button {
+.wb-board-menu.wb-map-strip-menu .wb-menu-controls > button,
+.wb-map-strip-menu .wb-menu-row .wb-map-pick {
+  width: var(--wb-map-pick);
+  height: var(--wb-map-pick);
   min-height: 0;
-  height: 1.5rem;
-  padding-block: 0;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+
+.wb-map-strip-menu .wb-menu-controls {
+  gap: 2px;
+}
+
+.wb-map-picks {
+  grid-row: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+}
+
+/* The icon slot's eleven and None are a palette, six to a row like the
+   swatch picker's (DESIGN.md "A choice among colours"): two rows by design,
+   not a run that wrapped, with More icons and emoji under them. */
+.wb-map-picks.is-grid {
+  display: grid;
+  grid-template-columns: repeat(6, var(--wb-map-pick));
+}
+
+.wb-map-strip-menu .wb-menu-row.has-map-pick-grid {
+  align-items: start;
+  row-gap: var(--space-2);
+}
+
+.wb-map-strip-menu .wb-menu-row.has-map-pick-grid > :first-child {
+  line-height: var(--wb-map-pick);
+}
+
+.wb-map-strip-menu .wb-map-icon-more {
+  grid-row: 2;
+  justify-self: stretch;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+/* A preview is drawn in the button's own ink, so the chosen one reads in
+   `--on-accent` on the accent with no rule of its own. */
+.wb-map-pick-preview {
+  width: 1.25rem;
+  height: 0.875rem;
+  flex: none;
+}
+
+.wb-map-pick-emoji {
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+/* Chosen: the choice control's selected state (DESIGN.md: `--accent-surface`
+   behind `--on-accent`, no shadow), on the previews and on the door's own
+   toggles (Bold, Italic, Core idea, Dashed, Arrowhead) alike, so one door
+   has one way of saying "on". */
+.wb-board-menu.wb-map-strip-menu .wb-menu-controls > button.active,
+.wb-map-strip-menu .wb-menu-row .wb-map-pick.active {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* What the map gives a topic that follows it: ringed in the accent, not
+   filled, so the look you see and a look you chose never read the same. The
+   reset beside it says it is following by its ink rather than a fill: it is
+   a way back, not one more look. */
+.wb-map-strip-menu .wb-menu-row .wb-map-pick.is-inherited:not(.active) {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.wb-map-pick-follow {
+  margin-inline-start: var(--space-1);
+}
+
+.wb-map-strip-menu .wb-menu-row .wb-map-pick-follow.active {
+  background: transparent;
+  color: var(--accent-text);
+}
+
+/* The text size on the bar: the stepper recipe at the bar's own control
+   height, so it does not stand taller than the round buttons beside it. */
+.wb-map-size-stepper > .stepper-btn {
+  width: var(--target-min);
+  height: var(--target-min);
+}
+
+.wb-map-size-stepper .stepper-unit {
+  min-width: 2rem;
+}
+
+.wb-map-size-stepper .stepper-unit.is-inherited {
+  color: var(--accent-text);
+}
+
+/* At 44px a row of six previews is 278px, which leaves no room for a name
+   column inside the 21rem door: below the tablet band and under touch the
+   name goes over its previews instead, and the previews still never wrap. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .wb-map-strip-menu .wb-menu-row.has-map-picks {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+
+  .wb-map-strip-menu .wb-menu-row.has-map-picks > :not(:first-child) {
+    grid-column: 1;
+  }
+
+  .wb-map-strip-menu .wb-menu-row > .wb-map-picks {
+    grid-row: 2;
+  }
+
+  .wb-map-strip-menu .wb-map-icon-more {
+    grid-row: 3;
+  }
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------
@@ -10634,12 +10721,6 @@ input[type="file"] {
 .dock-menu-section .timeline-custom-range input {
   flex: 1 1 0;
   min-width: 0;
-}
-
-/* The Reminders filter chips sit under their dock with the same breathing
-   room the Library's do above its grid. */
-#reminder-filter {
-  margin-bottom: var(--space-4);
 }
 
 /* A card whose menu is open comes to the front. A glass card is a stacking
@@ -12506,6 +12587,27 @@ button.finder-row:hover,
   gap: var(--space-2);
 }
 
+/* A Compact tile is one line (its hint is folded above), so it takes a
+   button's measure rather than a two-line tile's: the body size and the
+   control's padding, the icon one step up (INBOX 677). */
+#tab-dashboard[data-density="compact"] .quick-action {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
+}
+
+#tab-dashboard[data-density="compact"] .quick-action .quick-link-icon {
+  font-size: var(--text-lg);
+}
+
+/* On a phone the row scrolls sideways (the phone rules above), where a tile
+   kept a two-line tile's 82% of the screen with one word in it: as wide as
+   its words here too, so more of the row is on screen. */
+@media (max-width: 599.98px) {
+  #tab-dashboard[data-density="compact"] .launch-row-start > * {
+    flex: 0 0 auto;
+  }
+}
+
 /* **And the group labels move onto their own rows' line.** Measured at 1440:
    each of "Start something", "Jump to" and "Run a skill" costs 18px of label
    plus its 8px gap above a row of tiles that already says what it is, so the
@@ -12536,12 +12638,19 @@ button.finder-row:hover,
   }
 
   /* **One line, always** (owner: "when the dashboard is on the compact view,
-     I still want all these buttons to be on the same line and not wrap").
-     Equal shares of the row from a zero basis, and a label that ellipsises
-     rather than pushing a tile onto a second line; the tile's title carries
-     the whole name. */
+     I still want all these buttons to be on the same line and not wrap"),
+     **and each as wide as what it says** (INBOX 677, the owner: "the quick
+     access looks wierd and not refined in the compact view"). The first cut
+     gave every tile an equal share of the row from a zero basis, so at 1920
+     five one-line tiles were 331px each around a 100px label: measured by
+     `scratchpad/ui-sweeps/quick677.js`, the icon and words filled 33% of a
+     tile on average and 25% of the emptiest, five bordered boxes of mostly
+     nothing. Now a tile is its content's width and the row starts beside its
+     label, a run of buttons rather than a set of columns. It still shrinks
+     (a label ellipsises, the title carries the whole name) before it would
+     wrap. */
   #tab-dashboard[data-density="compact"] .launch-row-start > * {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
   }
 
@@ -12608,9 +12717,9 @@ button.finder-row:hover,
    control on the page moved every time the greeting changed. Do not remake
    the one-row head.
 
-   Focused is now Full's head at a smaller scale: a compact banner (greeting
-   and the name nudge on one line, the one-line summary under it, the time on
-   the right) and the search field full width beneath it, one step apart. */
+   Focused is the banner and the search field full width beneath it, one
+   step apart. The banner was a compact strip (greeting left, time right)
+   until INBOX 675 gave it a glance of today: see the block below. */
 #tab-dashboard[data-density="focused"] .dash-head {
   display: flex;
   flex-direction: column;
@@ -12622,15 +12731,43 @@ button.finder-row:hover,
   margin-bottom: 0;
 }
 
+/* **The Focused hero is a hero again** (INBOX 675, the owner, with a
+   screenshot at about 2000px: "can you improve the dashboard hero section on
+   the focused view??"). The compact banner above (INBOX 425's two rows) put
+   the greeting at one end and the time at the other with nothing between:
+   measured by `scratchpad/ui-sweeps/hero675.js`, the widest empty strip was
+   60% of the hero at 1024, 72% at 1440 and 78% at 1920. So the hero takes
+   two columns. The left is who and when: the date and time as one small line
+   over the greeting (the time is information, not a second headline; the
+   greeting is the one headline), the notebook line, and New note, the hero's
+   one filled action. The right is today at a glance (`renderDashGlance`,
+   dashboard.js): what is due, today's meetings, what is waiting to be filed
+   and the note you were last in, four tiles on the tile recipe, toned for a
+   card. The left column is as wide as its words (`fit-content`, held under
+   half), the glance takes the rest and lays its tiles four across where they
+   fit and two by two where they do not, so no width leaves a middle empty.
+   The search stays on its own row beneath (INBOX 425's decision). */
+.dash-hero-new,
+.dash-glance {
+  display: none;
+}
+
 #tab-dashboard[data-density="focused"] .dash-hero {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
+  display: grid;
+  grid-template-columns: fit-content(45%) minmax(0, 1fr);
+  grid-template-areas:
+    "when glance"
+    "text glance"
+    "action glance";
+  grid-template-rows: auto auto 1fr;
+  align-items: start;
+  column-gap: var(--space-8);
+  row-gap: var(--space-1);
+  padding: var(--space-6) var(--space-7);
 }
 
 #tab-dashboard[data-density="focused"] .dash-hero-text {
-  flex: 1 1 auto;
+  grid-area: text;
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -12640,7 +12777,7 @@ button.finder-row:hover,
 }
 
 #tab-dashboard[data-density="focused"] .dash-greeting {
-  font-size: var(--text-h3);
+  font-size: var(--text-h2);
   margin: 0;
 }
 
@@ -12654,25 +12791,155 @@ button.finder-row:hover,
   margin: 0;
 }
 
-/* The time, at the banner's scale: one line, right-aligned, the date under it
-   in the summary's size, so the banner has a right edge rather than ending
-   wherever the greeting does. */
+/* The glance says what is due, so the notebook line does not say it twice. */
+#tab-dashboard[data-density="focused"] .dash-sub-bit[data-bit="reminders"] {
+  display: none;
+}
+
+/* Date, then time, one small muted line: the markup keeps the time first
+   (Full and Compact stack it over the date), so the row runs reversed. */
 #tab-dashboard[data-density="focused"] .dash-clock {
-  flex: none;
-  text-align: right;
+  grid-area: when;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: var(--space-2);
+  text-align: left;
 }
 
-#tab-dashboard[data-density="focused"] .dash-clock-time {
-  font-size: var(--text-h3);
-  color: var(--ink); /* as on Full: the time is information, not an accent */
-}
-
+#tab-dashboard[data-density="focused"] .dash-clock-time,
 #tab-dashboard[data-density="focused"] .dash-clock-date {
+  margin: 0;
   font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--muted);
 }
 
+#tab-dashboard[data-density="focused"] .dash-clock-date::after {
+  content: "\b7";
+  margin-inline-start: var(--space-2);
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero-new {
+  grid-area: action;
+  display: inline-flex;
+  justify-self: start;
+  align-self: end;
+  margin-top: var(--space-4);
+}
+
+#tab-dashboard[data-density="focused"] .dash-glance {
+  grid-area: glance;
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+/* A tile inside a card is a tone (DESIGN.md, Surfaces): `--surface-2`, no
+   edge at rest, the tile recipe's accent under the pointer. */
+.dash-glance .quick-link {
+  background: var(--surface-2);
+  border-color: transparent;
+  padding: var(--space-3) var(--space-4);
+}
+
+.dash-glance .quick-link:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.dash-glance .quick-link-icon {
+  color: var(--accent-text);
+}
+
+/* One line each: the tile's title carries the whole of both. */
+.dash-glance .quick-link-hint {
+  -webkit-line-clamp: 1;
+}
+
+/* Nothing to do here: the words step back so the eye lands on what is. */
+.dash-glance .is-calm .quick-link-label {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.dash-glance .is-calm .quick-link-icon {
+  color: var(--muted);
+}
+
+.dash-glance .is-overdue .quick-link-icon {
+  color: var(--warn);
+}
+
+/* The placeholders hold the row's height while the reads land. */
+.dash-glance .dash-glance-hold {
+  pointer-events: none;
+}
+
+.dash-glance .dash-glance-hold > * {
+  visibility: hidden;
+}
+
+.dash-glance .dash-glance-go {
+  margin-inline-start: auto;
+  color: var(--muted);
+}
+
+/* Narrow: one column, in reading order, the glance two by two under the
+   action. */
+@media (max-width: 819.98px) {
+  #tab-dashboard[data-density="focused"] .dash-hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "when"
+      "text"
+      "action"
+      "glance";
+    grid-template-rows: none;
+    padding: var(--space-5);
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-hero-new {
+    margin: var(--space-3) 0 var(--space-4);
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+}
+
+/* A phone paints the time at the top of its own screen (the note at the
+   phone hero rules above), so the line keeps the date alone there. */
 @media (max-width: 599.98px) {
-  #tab-dashboard[data-density="focused"] .dash-clock {
+  #tab-dashboard[data-density="focused"] .dash-hero .dash-clock {
+    display: flex;
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-clock-time {
+    display: none;
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-clock-date::after {
+    content: none;
+  }
+
+  /* Two by two in 332px: the label wraps rather than clipping to "1 meeting
+     to…", and the hint (the reminder's or meeting's name, which the widgets
+     under the hero list in full) is the part that folds. */
+  .dash-glance .quick-link {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .dash-glance .quick-link-label {
+    white-space: normal;
+  }
+
+  .dash-glance .quick-link-hint,
+  .dash-glance .dash-glance-go {
     display: none;
   }
 }
@@ -12981,17 +13248,13 @@ button.finder-row:hover,
   display: none;
 }
 
-/* The template gallery's own two rows above the list. */
-.wb-template-name-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-}
-
-.wb-template-name-row input {
-  flex: 1;
-  min-width: 0;
+/* The template gallery's name field: its word over the field, as every
+   dialog field is, with the focus ring's reach added to the gap (INBOX 715:
+   "name text clashes with border"; `.space-dialog label` above is a block,
+   so this row's flex never applied and the word sat on the field's ring). */
+.space-dialog label.wb-template-name-row {
+  display: grid;
+  gap: calc(var(--space-2) + var(--ring-room));
 }
 
 /* The Format panel (WHITEBOARD_PLAN decision 19): the sidebar's mirror on the

@@ -127,7 +127,11 @@ HELP_TOPICS: list[dict] = [
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
             "saved notes, with the raw notes shown beside the answer; in Ask, "
             "Enter asks and Escape clears the question, and the clock button "
-            "answers from your notes as they were on a day you pick. A counting "
+            "answers from your notes as they were on a day you pick. Its Use AI switch "
+            "picks who answers: off, the answer is From your notes, quoted from your "
+            "notes' own sentences with no AI, and it is the answer when no model runs, "
+            "in Ask and in Chat. "
+            "A counting "
             "question in Ask (how many notes per category this month) also gets "
             "a chart from your notes, with its numbers and Save as PNG. A note's "
             "... menu has Explain this note: read aloud, then what it links to "
@@ -327,6 +331,7 @@ HELP_TOPICS: list[dict] = [
             "graph and the whiteboard, and Interface animations (on by default) "
             "keeps the short fades and slides of menus, dialogs and tabs and a "
             "button's press even then; turn it off and they are instant. "
+            "Font and Density (Typography & layout) are lists you pick from. "
             "Density's Auto, the default, is Compact on a window "
             "700px tall or less and the look's own spacing on a taller one. "
             "Performance mode (Effects & accessibility) turns off "
@@ -355,8 +360,8 @@ HELP_TOPICS: list[dict] = [
             "right-click on either, lists the places you have been: an icon, the "
             "note's or document's title, a thumbnail when a note opens with a "
             "picture, and the tab in muted text under it), undo and redo, "
-            "Commands with its Ctrl/Cmd+K hint, and three icons: the wand for "
-            "the popup agent, the "
+            "Commands with its Ctrl/Cmd+K hint, and three icons: the agent's "
+            "mark (crosses, a circle and an arrow, a play drawn up) for the popup agent, the "
             "compass for Atlas the guide, and the magnifying glass for Find "
             "anything (hover one for its name and keys). The offline "
             "badge, the power-saver badge and the running-job slot appear only "
@@ -375,7 +380,8 @@ HELP_TOPICS: list[dict] = [
         #: months, and the guide was the one place still teaching the old key.
         "body": (
             "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
-            "them, and on a Mac Cmd works in place of Ctrl. Everywhere: Ctrl+K "
+            "them, and on a Mac Cmd works in place of Ctrl. A button with a "
+            "shortcut shows it in its tooltip, in your own binding. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
             "Ctrl+Shift+Z redo (on a phone, More then Commands opens the "
@@ -469,7 +475,8 @@ HELP_TOPICS: list[dict] = [
             "Deleting a note, a board, a document or a reminder goes to the "
             "bin, not gone for good: restore it from the Library (Filter, "
             "Include the bin, or Open the bin from Ctrl+K), or use the Undo "
-            "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
+            "toast that appears right after deleting, which also has a Go to bin "
+            "button for a note. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
             "buttons do the same by click. Which history they walk depends on "
             "where you are: an open board or mind map has its own, an open "
@@ -489,9 +496,37 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The microphone icon on the note composer dictates a note using "
             "local Whisper: nothing sent anywhere. \"Record a meeting or "
-            "lecture\" (reachable from the Dashboard or the command palette) "
-            "transcribes a longer recording and can pull out decisions and "
-            "action items. Read-aloud plays a note or answer back to you."
+            "lecture\" (the command palette, Ctrl+Shift+R, or a meeting's Record "
+            "into it) transcribes a longer recording and saves it as a meeting "
+            "note, the transcript under Notes. Read-aloud plays a note or "
+            "answer back to you."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    #: INBOX 644: meetings are one shape of note with a sheet of their own.
+    {
+        "id": "meetings",
+        "keywords": (
+            "meeting", "meetings", "meeting notes", "new meeting", "agenda",
+            "action item", "action items", "attendees", "minutes", "standup",
+            "decisions", "summarise meeting",
+        ),
+        "body": (
+            "New meeting (the Dashboard's Quick access, the command palette, "
+            "Library's Create, Tools and features) asks for a title, when and "
+            "who, then opens the meeting as a note with Agenda, Notes, Decisions "
+            "and Action items; Start and record does the same and starts "
+            "transcribing straight into its Notes (Ctrl+Shift+R records too). Write an action item as \"- [ ] Send the deck "
+            "@Sam by Friday\": @Name is its owner, the plain words its due. "
+            "The meeting chip on the note (or its ... menu, Meeting) opens the "
+            "meeting sheet: Remind me makes an action item a reminder, asking "
+            "when if the line does not say; Summarise finds the decisions and "
+            "action items in your notes, each with the words it came from, and "
+            "adds them only when you press Add (Undo takes them back); Record "
+            "into it transcribes on this machine and adds the transcript under "
+            "Notes; Date and people changes when and who. Everything but "
+            "Summarise works with no AI. Every meeting is under Notes, "
+            "Meetings, and sits on the Timeline at its own date."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -558,11 +593,12 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("command palette", "jump anywhere", "quick actions", "jump to"),
         "body": (
             "Ctrl/Cmd+K opens the command palette: jump to any tab or "
-            "setting, search notes and documents (the same search as Find "
-            "anything: it reads the words inside them, and forgives a typo), "
-            "or run a quick action (new note, new "
+            "setting, or run a quick action (new note, new "
             "chat, back up now, toggle the theme, and more) without leaving "
-            "the keyboard. It's a different box from the popup agent "
+            "the keyboard. It does not list your notes or documents: type "
+            "what you are looking for and its last row, Search everything "
+            "for, opens Find anything (Ctrl/Cmd+P) with the words already "
+            "searched. It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
             "answers and acts on an open-ended request."
         ),
@@ -608,13 +644,18 @@ HELP_TOPICS: list[dict] = [
         ),
         "body": (
             "OCR workspace: open any image or PDF from the Library or a note and "
-            "choose \"Read text\". Pick the reader at the top, the AI document "
+            "choose \"Read text\". The reader button in the tool row (its dot is "
+            "green when it can read) picks the AI document "
             "reader (a model built to transcribe a page), the general vision "
-            "model where you have a different one installed, or Tesseract (RapidOCR "
-            "where Tesseract isn't installed and RapidOCR is), which "
-            "needs no model, is about ten times faster and is the only reader "
-            "that tells you where on the page each block sits. Read one page, a "
-            "range like 1-5, or the whole document. A read keeps running if you "
+            "model where you have a different one installed, Tesseract, or "
+            "RapidOCR (English and Chinese, nothing else to install; chosen, it "
+            "reads even when Tesseract is ready). The two local ones "
+            "need no model, are about ten times faster and are the only readers "
+            "that tell you where on the page each block sits; the workspace "
+            "remembers your choice. Read this page "
+            "reads what is on screen; its menu reads every page or a range like "
+            "1-5. Ask sends the page to the chat as a chip on your next "
+            "message. A read keeps running if you "
             "close the window: it shows in Settings, Background tasks and can "
             "be stopped from there or from the workspace, and every page that "
             "has been read is remembered, so reopening the document shows the "
@@ -741,7 +782,7 @@ _KEYWORDS_ADD: dict[str, tuple[str, ...]] = {
     "websearch": ("internet", "web", "google", "browse the web", "search the internet", "search online"),
     "privacy": ("private", "leave my computer", "left my computer", "left this computer", "where your data went", "data leave", "sent anywhere", "privacy", "spy"),
     "undo-bin": ("delete", "by mistake", "bin", "get back", "recover"),
-    "voice": ("speak", "speech", "record", "meeting notes"),
+    "voice": ("speak", "speech", "record", "transcribe a recording"),
     "autonomous": ("background", "automatically", "overnight"),
     "command-palette": ("ctrl k", "commands"),
     "extract-notes": ("pull notes out", "split into notes", "from a chat", "out of a chat"),
@@ -788,7 +829,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "security",
-            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "idle"),
+            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "recovery key", "idle"),
             "body": (
                 "Settings, Account & security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
@@ -796,8 +837,11 @@ HELP_TOPICS.extend(
                 "While it is locked, an open dialog or popover is put away, and "
                 "it comes back as it was after you unlock. "
                 "Private notes are encrypted with that password and are never sent "
-                "to the AI, so a private note's menu has no AI actions. There is "
-                "no reset without the password, so keep it safe."
+                "to the AI, so a private note's menu has no AI actions. Forgot it? "
+                "Press Forgot your password? on the lock screen, on this computer: "
+                "with a recovery key (made at setup or in Account & security) you "
+                "set a new one and keep private notes; without it, a reset keeps "
+                "everything else and leaves private notes sealed."
             ),
             "badge": {"label": "Account & security", "section": "account"},
         },
@@ -842,7 +886,7 @@ HELP_TOPICS.extend(
                 "person or thing named two ways, with Merge; and Link types, a link whose own "
                 "sentence says \"for example\" or \"continues\". Accepting or "
                 "dismissing any of them teaches it which reasons to trust in your "
-                "notebook, and a dismissed one does not come back. A link's ⋯ has "
+                "notebook, and a dismissed one does not come back. A link's ⋮ has "
                 "Kind and properties: a kind says what the link is (Supports, Part "
                 "of, your own) and reads from the other note by its other name "
                 "(Supported by, Has part); Kinds of link in the command palette "
@@ -1027,7 +1071,11 @@ HELP_TOPICS.extend(
                 "A topic's Add, From the library… points a new topic at a note, "
                 "document, file or bookmark: a tab for each with its count (the "
                 "arrows move between them; it opens on the one you used last), "
-                "type to narrow the list, Down and Enter to choose."
+                "type to narrow the list, Down and Enter to choose. A map template "
+                "(Library, Templates) dropped on a map with no central topic gets "
+                "one: a template with several top-level topics goes under a new "
+                "central topic named after it, and one with a single top-level "
+                "topic makes that topic the centre."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1119,6 +1167,34 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-templates",
+            "keywords": (
+                "new board", "board templates", "map templates", "start from a template", "template picker",
+                "kanban", "weekly planner", "roadmap", "project brief", "okr", "okrs", "swot", "eisenhower",
+                "pros and cons", "lean canvas", "five whys", "5 whys", "fishbone", "meeting notes",
+                "retrospective", "cornell", "study notes", "mood board", "journey map", "brainstorm",
+                "project plan", "goal breakdown", "weekly review", "essay outline",
+            ),
+            "body": (
+                "New board (the Boards and maps dock's New) opens one dialog: Board or Mind map in the tab "
+                "strip under its title, the name, then the templates grouped by purpose (Plan and track, "
+                "Weigh and decide, Find the cause, Meet and review, Study and create, then your own), each "
+                "with its picture, and the chosen one drawn larger beside the list. A click chooses; Create, "
+                "Enter or a double click makes it. A board's seventeen: Kanban, Weekly planner, Roadmap, "
+                "Project brief, OKRs, SWOT analysis, Eisenhower matrix, Pros and cons, Lean canvas, 5 whys, "
+                "Fishbone, Flowchart, Meeting notes, Retrospective, Study notes (Cornell), Mood board and User "
+                "journey map. Each frame is a tinted panel with its title and a hint inside its top; drag the "
+                "title to move the frame and what is in it, double-click it to rename. A map's fifteen, "
+                "among them Brainstorm, Decision, Project plan, Cause and effect, Pros and cons, SWOT map, "
+                "Goal breakdown, Weekly review, Study topic, Book notes and Meeting, each drawn in its own "
+                "shape; the new map's central topic is its name, laid out the way the picture shows (a "
+                "brainstorm round its centre, pros and cons both ways, a fishbone to the left). A new map "
+                "that is still just its root offers the same templates as pictures, Start from a template; "
+                "the X hides it for that map."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "board-library",
             "keywords": (
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
@@ -1133,22 +1209,21 @@ HELP_TOPICS.extend(
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
                 "four tabs: Library, Notes, Layers and Pages; a mind map's has Library, This map (its "
                 "facts, its look, open every fold, lay it out again) and Outline. The Library starts with "
-                "Templates (a board's: Kanban, retrospective, flowchart, meeting notes, week plan; a map's: "
-                "Brainstorm, Decision, Project, Cause and effect, Pros and cons, Book notes, Meeting, "
-                "placed under the topic they are dropped on). Pages lists the "
+                "Templates (a board's seventeen and a map's fifteen, a map's placed under the topic they "
+                "are dropped on; see Board and map templates). Pages lists the "
                 "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
                 "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
                 "is on it; right-click it to unlock it. The Library holds "
-                "built-in sets (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective "
-                "and SWOT, and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
+                "built-in sets (General shapes, Flowchart, Arrows, Frames (a frame and a timeline lane) "
+                "and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
                 "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
-                "to place it in the middle of the view, drag it to put it anywhere, or Shift+Enter to place "
+                "to place it in the middle of the view, drag it and it lands held where you grabbed it, or Shift+Enter to place "
                 "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "
                 "(rename, tags, duplicate, move, delete). To save your own: select things and press "
                 "Ctrl+Shift+S, or right-click, Library, for a selection, a drawn shape, a style, a sticky "
                 "or text preset, a palette of the selection's colours, or on a mind map a branch; Board, "
                 "Save this board as a template keeps the whole board. New board then offers your templates "
-                "beside the built-in ones. The library's ⋯ makes a new library, imports a library file and "
+                "beside the built-in ones. The library's ⋮ makes a new library, imports a library file and "
                 "exports one. A placed item is an ordinary copy: changing the library later never changes "
                 "a board. In Agent mode the assistant can search the library and place from it, draw "
                 "shapes and frames, and move, edit or delete what is on a board, asking first."
@@ -1225,9 +1300,11 @@ HELP_TOPICS.extend(
                 "Delete, Cross-link and More; hold Alt on the ring to remove "
                 "instead of add. Dragging a topic onto another moves its whole "
                 "branch; double-click a line to label it. A selected topic has "
-                "its bar above it: the colour, the text size (S, M, L, XL), and "
-                "Text, Shape and Branch line, each a panel of choices you press "
-                "once. Drag the square on its bottom right corner to resize it; "
+                "its bar above it: the colour, the text size (minus and plus "
+                "round the size it reads, S to XL), and Text, Shape and Branch "
+                "line, each a panel of rows: a small preview of each look you "
+                "press once, and a reset arrow that puts the topic back to "
+                "following the map. Drag the square on its bottom right corner to resize it; "
                 "hold Shift as you drag to scale its text with it. Pick several "
                 "topics (drag a box round them, or Shift-click) and the bar and "
                 "the right-click menu act on all of them: colour, bold, tasks, "
@@ -1392,16 +1469,15 @@ HELP_TOPICS.extend(
                 "onto another to link them, double-click empty space to add a note "
                 "there, hover to spotlight a note's connections, point at a line to light "
                 "it and click it to see what it is (a link, a thread, a similarity), "
-                "its reason and how sure, the two notes, and for a link Edit reason "
-                "and Remove, and click a legend "
+                "its reason and how sure, the two notes, and for a link Edit reason, "
+                "Two-way (no arrow) and Remove, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
-                "notes, and the selection bar can Tag, Link together or make a Mind "
-                "map of them, built from their links: the picked or most connected "
-                "note in the middle, linked notes under the note they link to, the "
-                "rest by category, the other links kept as cross-links, and Open on "
-                "the notice that follows. Display options, the gear, opens with View: Layout "
-                "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
-                "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
+                "notes, and the selection bar can Tag, Link together, Unlink (both "
+                "undoable with Ctrl+Z) or make a Mind "
+                "map of them, built from their links round the picked or most "
+                "connected note, with Open on the notice that follows. Display options, the gear, opens with View: Layout "
+                "(Force, Tree, Radial or Arc), Shape (Organic, Clusters or Galaxy), Colour, Size, Trace, which finds how "
+                "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Reshuffle layout, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
                 "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
                 "Display (Labels, Label backgrounds, Curved "
                 "links, Cluster glow, Arrows), the similarity Strength "
@@ -1488,7 +1564,7 @@ HELP_TOPICS.extend(
                 "last row rolls each column up over every match: Count, and Sum, "
                 "Min and Max for numbers, Earliest and Latest for dates. On the "
                 "graph, View, Colour, Note type paints each note by its type; a "
-                "type's ⋯ in Note types has Colour to choose which."
+                "type's ⋮ in Note types has Colour to choose which."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1639,7 +1715,7 @@ HELP_TOPICS.extend(
             "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
-                "tomorrow evening, high priority\"), then Enter or the wand button "
+                "tomorrow evening, high priority\"), then Enter or the sparkle button "
                 "(Add from this sentence) works out the time and the "
                 "priority. Times like \"tomorrow at 5pm\", \"next Friday\", "
                 "\"tonight\" or \"in 20 minutes\" are read with no AI; the AI is "
@@ -1658,7 +1734,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "dashboard-controls",
-            "keywords": ("quick access", "customise quick access", "highlight a tile", "tile colour", "quick start", "focused view", "full view", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
+            "keywords": ("quick access", "customise quick access", "highlight a tile", "tile colour", "quick start", "focused view", "full view", "due today", "today at a glance", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
             "body": (
                 "Dashboard controls. Under the greeting is the search box (Ctrl+P), "
                 "then Customise and a ... menu. The ... menu is for doing: "
@@ -1667,7 +1743,11 @@ HELP_TOPICS.extend(
                 "list of everything the app can do) and Commands (the command "
                 "palette). Customise arranges the page: View (Full, Compact or "
                 "Focused), Widgets and Edit layout, which show, hide and "
-                "rearrange widgets, then Edit quick access: Add or arrange opens "
+                "rearrange widgets. The Focused view folds Quick access away and "
+                "its greeting card holds New note and four tiles for today: what "
+                "is due today, today's meetings, the notes to file and the note "
+                "you were last in; press one to go there. Customise also has "
+                "Edit quick access: Add or arrange opens "
                 "a list of every command with the ones on your dashboard "
                 "checked and first. Check or uncheck as many as you like (up to "
                 "eight), drag a row or press Alt with Up or Down to reorder, "
@@ -1678,8 +1758,8 @@ HELP_TOPICS.extend(
                 "Reset highlights clears the colours (the first tile is "
                 "highlighted again); Reset quick access goes back to the "
                 "defaults. Quick access "
-                "starts as New note, Ask AI, Sketch, Remind me and Meeting "
-                "notes. All of it is "
+                "starts as New note, Ask AI, Sketch, Remind me and New "
+                "meeting. All of it is "
                 "remembered per user. Press m then d to come back here from "
                 "anywhere."
             ),
@@ -1701,8 +1781,8 @@ HELP_TOPICS.extend(
                 "files and actions), and ? lists every shortcut, which Settings, "
                 "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
-                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
-                "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
+                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Record "
+                "a meeting), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
                 "selected text, Ctrl+Shift+K opens the quick sketch pad, and "

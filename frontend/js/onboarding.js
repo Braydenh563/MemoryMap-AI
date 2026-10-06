@@ -16,7 +16,7 @@
 
 const ONBOARDING_SLIDES = [
   {
-    icon: "ph:brain",
+    icon: "ph:sparkle",
     title: "Welcome to MemoryMap",
     //: **"Out of the box", not "ever".** Measured 2026-09-21: two features
     //: make outbound requests, web search and the update check, and both are

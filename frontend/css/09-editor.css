@@ -508,15 +508,57 @@
   transform: translateY(-50%);
 }
 
+/* **One task box, drawn once, for the note editor and the document editor**
+   (INBOX 710: "the rendering of the selection tick boxes is different on the
+   notes to the document editor"). Both mount the same CodeMirror live view
+   (`docLiveExtensions`, one `DocTaskWidget`), and the same input drew two
+   ways: native and 15px in a document, but in a note's edit form, which is an
+   `.entry-list` row, the list's own tick rule (07-whiteboard-misc.css) made
+   it a 28px outlined slab. That rule now skips `.cm-md-task`, and this is the
+   look for both: the text's size, the app's tick (muted outline, accent fill
+   and a drawn checkmark when done, the square radius every other tick has),
+   so the two editors can only differ if this rule does. */
 .cm-md-task-hit > .cm-md-task {
+  appearance: none;
+  -webkit-appearance: none;
   position: relative;
   width: 1.1em;
   height: 1.1em;
   min-width: 0;
   min-height: 0;
-  margin: 0;
+  /* Room before the task's words (the owner, 2026-10-06: "no gap next to
+     radio button on document templates"). */
+  margin: 0 var(--space-2) 0 0;
   vertical-align: top;
   cursor: pointer;
+  border: 1px solid var(--muted);
+  border-radius: calc(var(--radius) * 0.4);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    background var(--ui-fast) var(--ease-out),
+    border-color var(--ui-fast) var(--ease-out);
+}
+
+.cm-md-task-hit > .cm-md-task:hover {
+  border-color: var(--accent);
+}
+
+.cm-md-task-hit > .cm-md-task:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cm-md-task-hit > .cm-md-task:checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0.28em;
+  height: 0.56em;
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .cm-md-figure {

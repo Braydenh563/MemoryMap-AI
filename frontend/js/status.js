@@ -296,7 +296,7 @@ $("notif-activity-mode")?.addEventListener("change", async (event) => {
 const NOTIFICATION_ICONS = {
   reminder: "ph:alarm",
   task: "ph:gear",
-  run: "ph:lightning",
+  run: "ph:strategy",
   error: "ph:warning",
   export: "ph:download-simple",
   assist: "ph:sparkle",
@@ -1227,7 +1227,10 @@ function toastActionButton(note, label, run) {
 
 //: `opts`: `go`, where the action leads as plain data, so its row in the
 //: bell still works after a reload; `record: false` for a notice that is
-//: already in the bell (`keepToastAction`).
+//: already in the bell (`keepToastAction`); `also: {label, run}`, a second
+//: button beside the first (a bin notice's "Go to bin" next to its Undo,
+//: INBOX 705). It is the toast's own and is not kept in the bell: its row
+//: keeps the one action it always had.
 function toastAction(message, actionLabel, onAction, opts = {}) {
   const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
@@ -1237,9 +1240,16 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.className = "toast-msg";
   text.textContent = message;
   note.toastTimer = setTimeout(() => dismissToast(note), 8000);
-  note.append(text, toastActionButton(note, actionLabel, run), toastCloseButton(note, note.toastTimer));
+  const buttons = [toastActionButton(note, actionLabel, run)];
+  if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
+  note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
   toastStack(box, () => box.appendChild(note));
 }
+
+//: The second button of every "Moved to the bin." notice: the bin is the
+//: Library with "Include the bin" ticked (`library-bin` in REVEAL_TARGETS), so
+//: this is the same place Settings and Ctrl+K "Open the bin" lead to.
+const GO_TO_BIN = { label: "Go to bin", run: () => revealFeature("library-bin") };
 
 // --- the server-down banner (WORLD_CLASS_PLAN 22.1 item 6) ------------------
 //
@@ -1505,11 +1515,13 @@ function renderUndoBar() {
     const where = surface.where === "board" ? "on this board" : "in this document";
     paintStatusItem("status-undo", {
       icon: "ph:arrow-u-up-left",
-      title: surface.canUndo?.() ? `Undo the last change ${where} (${shortcuts.undo.keys})` : `Nothing to undo ${where}`,
+      title: surface.canUndo?.() ? `Undo the last change ${where}` : `Nothing to undo ${where}`,
+      shortcut: surface.canUndo?.() ? "undo" : "",
     });
     paintStatusItem("status-redo", {
       icon: "ph:arrow-u-up-right",
-      title: surface.canRedo?.() ? `Redo the last change ${where} (${shortcuts.redo.keys})` : `Nothing to redo ${where}`,
+      title: surface.canRedo?.() ? `Redo the last change ${where}` : `Nothing to redo ${where}`,
+      shortcut: surface.canRedo?.() ? "redo" : "",
     });
     return;
   }
@@ -1518,12 +1530,15 @@ function renderUndoBar() {
     //: The right-click gesture is named here because a hidden gesture is not a
     //: feature: the same reason the nav pair's tooltips name theirs.
     title: last
-      ? `Undo: ${last.label} (${shortcuts.undo.keys}): right-click for the last ${undoStack.length}`
+      ? `Undo: ${last.label}`
       : "Nothing to undo",
+    shortcut: last ? "undo" : "",
+    rest: last ? `right-click for the last ${undoStack.length}` : "",
   });
   paintStatusItem("status-redo", {
     icon: "ph:arrow-u-up-right",
-    title: next ? `Redo: ${next.label} (${shortcuts.redo.keys})` : "Nothing to redo",
+    title: next ? `Redo: ${next.label}` : "Nothing to redo",
+    shortcut: next ? "redo" : "",
   });
 }
 
@@ -1905,16 +1920,17 @@ function syncModelGatedControls(status = modelStatus) {
   //: beside it) and says so, the popup agent cannot and says that.
   renderAiOfflineNotice(
     $("ask-offline"),
-    "No model is connected, so this answers from your notes alone: the matching records are below."
+    "No model is connected, so this answers from your notes alone: the matching records are below.",
+    { dismissible: true }
   );
   renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
-  //: The Chat tab, the fourth surface that is nothing but the model (INBOX
-  //: 266 part 1): its box was disabled with no sentence anywhere near it. It
-  //: names where a question can still be asked, because that is the next
-  //: step for somebody who came here to ask one.
+  //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
+  //: answered from the notes by the composer, so the box stays open and the
+  //: line says what a model would add rather than that nothing answers.
   renderAiOfflineNotice(
     $("chat-offline"),
-    "No model is connected, so Chat cannot answer yet. Notes, Ask answers from your notes without one."
+    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode.",
+    { dismissible: true }
   );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
@@ -1926,17 +1942,44 @@ function syncModelGatedControls(status = modelStatus) {
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
   syncAgentPaletteAvailability();
+  renderChatModeSeg();
+}
+
+//: **A banner can be closed for the session** (INBOX 732: "a way to
+//: temporarily hide these no ai popups, they can appear again when the user
+//: starts a new app session"). Kept in `sessionStorage`, which a new app
+//: session starts empty, with a plain Set beside it for a profile that
+//: refuses storage. Never `localStorage`: that would be for good.
+const AI_OFFLINE_DISMISSED_KEY = "aiOfflineDismissed";
+const aiOfflineDismissedNow = new Set();
+
+function aiOfflineDismissed(id) {
+  if (aiOfflineDismissedNow.has(id)) return true;
+  try {
+    return JSON.parse(sessionStorage.getItem(AI_OFFLINE_DISMISSED_KEY) || "[]").includes(id);
+  } catch (err) {
+    return false;
+  }
+}
+
+function dismissAiOffline(id) {
+  aiOfflineDismissedNow.add(id);
+  try {
+    sessionStorage.setItem(AI_OFFLINE_DISMISSED_KEY, JSON.stringify([...aiOfflineDismissedNow]));
+  } catch (err) { /* memory alone still lasts until the window closes */ }
 }
 
 //: One line and one button, in a named container, or nothing at all. Rebuilt
 //: rather than toggled because the status poll calls this every tick and a
-//: stale sentence is worse than none.
-function renderAiOfflineNotice(container, what) {
+//: stale sentence is worse than none. `dismissible` adds the close (DESIGN.md,
+//: "A notice that can be closed"): a dismissed one stays hidden for the session.
+function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
   if (!container) return;
   container.replaceChildren();
   const off = aiIsOff();
-  container.classList.toggle("hidden", !off);
-  if (!off) return;
+  const closed = dismissible && aiOfflineDismissed(container.id);
+  container.classList.toggle("hidden", !off || closed);
+  if (!off || closed) return;
   const text = document.createElement("span");
   text.className = "muted";
   text.textContent = what;
@@ -1947,6 +1990,20 @@ function renderAiOfflineNotice(container, what) {
   link.title = "Open Settings at Models, where a local or remote model is connected";
   link.addEventListener("click", () => openSettingsModal("models"));
   container.append(text, link);
+  if (!dismissible) return;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "ghost small icon-only";
+  close.dataset.dismiss = "notice";
+  setLabel(close, "ph:x");
+  close.title = "Hide this until you reopen the app";
+  close.setAttribute("aria-label", "Hide this notice until you reopen the app");
+  close.addEventListener("click", () => {
+    dismissAiOffline(container.id);
+    container.replaceChildren();
+    container.classList.add("hidden");
+  });
+  container.append(close);
 }
 
 //: The popup agent is the one surface with nothing to fall back to, so its
@@ -2205,20 +2262,19 @@ let backgroundTasks = [];
 //: ⌘ on a Mac, Ctrl everywhere else. `userAgentData` where it exists because
 //: `navigator.platform` is deprecated and lies inside some embedded shells;
 //: the fallback is what the desktop window still answers.
-const STATUS_META_KEY = /Mac|iPhone|iPad/.test(
-  (navigator.userAgentData && navigator.userAgentData.platform) ||
-    navigator.platform ||
-    ""
-)
-  ? "⌘K"
-  : "Ctrl K";
+const STATUS_META_KEY = SHORTCUT_MAC ? "⌘K" : "Ctrl K";
 
 // One item: an icon, a number, and a word. The number is bold and tabular so
 // the row does not twitch sideways as counts change, a status bar that moves
 // while you are reading it is the thing the header was rebuilt to stop doing.
-function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
+function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = "", rest = "" }) {
   const button = $(id);
   if (!button) return;
+  //: `shortcut` is a `DEFAULT_SHORTCUTS` action: its current binding goes on
+  //: the tooltip (INBOX 701), and only when there is a tooltip to put it on.
+  if (title && shortcut) title = shortcutTitle(title, shortcut);
+  //: A gesture named after the chord ("right-click for the last 3").
+  if (title && rest) title = `${title}: ${rest}`;
   button.replaceChildren();
   if (icon) {
     const glyph = document.createElement("span");
@@ -2307,11 +2363,11 @@ function renderStatusBar() {
   command.replaceChildren();
   const key = document.createElement("span");
   key.className = "status-key";
-  key.textContent = STATUS_META_KEY;
+  key.textContent = shortcutHint("palette") || STATUS_META_KEY;
   const word = document.createElement("span");
   word.textContent = "Commands";
   command.append(key, word);
-  command.title = `Search everything and jump anywhere (${STATUS_META_KEY})`;
+  command.title = shortcutTitle("Search everything and jump anywhere", "palette");
 
   // Same reasoning one control along: the popup agent works from every tab
   // and had nothing on screen saying it exists. Reported as exactly that, 
@@ -2321,7 +2377,7 @@ function renderStatusBar() {
   if (agent) {
     agent.replaceChildren();
     const glyph = document.createElement("i");
-    glyph.className = "ph ph-magic-wand";
+    glyph.className = "ph ph-strategy";
     glyph.setAttribute("aria-hidden", "true");
     const word = document.createElement("span");
     //: UX-07: the name of the dialog it opens; "Ask" is Notes' and Chat's.
@@ -2330,16 +2386,14 @@ function renderStatusBar() {
     //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
     //: names the button here so a screen reader and voice control keep it.
     agent.setAttribute("aria-label", "Agent");
-    //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
-    //: modifier: appending "+Shift+A" to it produced "Ctrl K+Shift+A", which
-    //: names no shortcut at all. Caught by reading the rendered title
-    //: attribute rather than the source.
-    const meta = STATUS_META_KEY.startsWith("⌘") ? "⌘" : "Ctrl";
-    agent.title = `Ask the agent anything, from any tab (${meta}+Shift+A)`;
+    //: The chord comes from the table (`shortcutTitle`), not from a modifier
+    //: guessed here: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, and
+    //: appending to it once produced "Ctrl K+Shift+A", no shortcut at all.
+    agent.title = shortcutTitle("Ask the agent anything, from any tab", "askAgent");
   }
 
   //: The Guide, built the same way one control along (INBOX 207): it left the
-  //: header cluster with the wand, and the pair belongs together, one does
+  //: header cluster with the agent's button, and the pair belongs together, one does
   //: things to your notes and the other explains the app. A compass rather
   //: than the header's '?', because a '?' beside a labelled word reads as
   //: help about the word.
@@ -2358,11 +2412,8 @@ function renderStatusBar() {
     //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
     //: names the button here so a screen reader and voice control keep it.
     find.setAttribute("aria-label", "Find");
-    //: Built the same way the agent's hint two controls up is, and for the
-    //: same reason it records: `STATUS_META_KEY` is the whole hint, so
-    //: appending to it names no shortcut at all.
-    const findMeta = STATUS_META_KEY.startsWith("\u2318") ? "\u2318" : "Ctrl";
-    find.title = `Search everything you keep, and the app itself (${findMeta}+P)`;
+    //: Built the same way the agent's hint two controls up is.
+    find.title = shortcutTitle("Search everything you keep, and the app itself", "findAnything");
   }
 
   const guide = $("status-guide");
@@ -2384,7 +2435,7 @@ function renderStatusBar() {
     const guideName = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Atlas";
     guide.append(glyph, word);
     guide.setAttribute("aria-label", "Guide");
-    guide.title = `Ask ${guideName} how this app works, from any tab`;
+    guide.title = shortcutTitle(`Ask ${guideName} how this app works, from any tab`, "askAtlas");
   }
 }
 
@@ -2472,7 +2523,25 @@ function renderSearchEngineHealth(status) {
 // the same fact is how two of them end up disagreeing. These buttons just show
 // it and set it.
 function renderChatModeSeg() {
-  const agent = $("tools-toggle").checked;
+  //: **Agent mode needs something that can call tools** (INBOX 725, the
+  //: owner: "maybe agent mode should be disabled though unless needle is used
+  //: to call tools without an ai"). With no model and no Needle it is greyed
+  //: with its reason and Ask shows as the mode in use, without touching the
+  //: saved choice, which comes back with the model. With Needle ready it runs
+  //: there, and says so.
+  const engine = modelStatus?.tools_engine || null;
+  const gated = aiIsOff() && !engine;
+  const agentButton = document.querySelector('#chat-mode-seg [data-chat-mode="agent"]');
+  if (agentButton) {
+    if (agentButton.dataset.enabledTitle === undefined) agentButton.dataset.enabledTitle = agentButton.title;
+    agentButton.disabled = gated;
+    agentButton.title = gated
+      ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
+      : aiIsOff() && engine
+        ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
+        : agentButton.dataset.enabledTitle;
+  }
+  const agent = $("tools-toggle").checked && !gated;
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,
   // so nothing complained: but this function runs on every chat-mode change,

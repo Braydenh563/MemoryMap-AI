@@ -1181,6 +1181,9 @@ open; the decisions stay.
    so a ` ```mermaid ` fence renders as code with its language label;
    BACKLOG 29c's "already renders" is corrected. A flowchart-subset parser
    (the audit's D3) is the way in if it is built, not a vendored bundle.
+   **Reopened by the owner, 2026-10-06**: mermaid.js is to be vendored and
+   lazy-loaded; BACKLOG, "Diagrams: mermaid as the interchange format",
+   steps 8 to 13.
 4. **A hidden formatting toolbar always shows its way back** (INBOX 574,
    2026-10-05): the dock's Formatting button while it is hidden (not on a
    phone, which formats from the thumb bar), Ctrl+Shift+X, the ⋯ row and

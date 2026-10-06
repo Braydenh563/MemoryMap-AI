@@ -1083,7 +1083,7 @@ function renderTraceReadout(result) {
   //: fourth opinion about where a dropdown goes.
   const storyOpener = document.createElement("summary");
   storyOpener.className = "graph-trace-note story-mode-btn";
-  setLabel(storyOpener, "ph:magic-wand Generate from path");
+  setLabel(storyOpener, "ph:sparkle Generate from path");
   storyOpener.title = "Build something out of this path, using Atlas locally";
   const caret = document.createElement("i");
   caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
@@ -3664,9 +3664,30 @@ function openGraphLinkPeek(edge, event, nodes) {
       closeGraphLinkPeek();
       await graphRemoveLink(edge, sourceId);
     });
+    //: INBOX 693, the owner: "what if the user makes a link meaning for the
+    //: note link to be omnidirectional and not a directional link??". One
+    //: switch, pressed for a link that runs both ways; Arrows draws none on
+    //: it (`gcDraw`). Saved on the link (PATCH two_way).
+    const direction = smallButton("ph:arrows-left-right Two-way", "Two-way: this link runs both ways and is drawn with no arrow. One-way: from the note that made it", async () => {
+      const next = !edge.two_way;
+      try {
+        await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "PATCH", body: JSON.stringify({ two_way: next }) });
+      } catch (error) {
+        toast(error.message || "Couldn't change the link's direction.", true);
+        return;
+      }
+      for (const drawn of gcTab.edges) if (drawn.id === edge.id && drawn.kind === "link") drawn.two_way = next;
+      edge.two_way = next;
+      direction.setAttribute("aria-pressed", String(next));
+      gcRequestDraw();
+      toast(next ? "This link now runs both ways." : "This link now runs one way.");
+    });
+    direction.id = "graph-link-two-way";
+    direction.setAttribute("aria-pressed", String(Boolean(edge.two_way)));
     editReason.classList.add("ghost");
+    direction.classList.add("ghost");
     remove.classList.add("ghost", "danger");
-    actions.append(editReason, remove);
+    actions.append(editReason, direction, remove);
     panel.appendChild(actions);
   }
   document.body.appendChild(panel);
@@ -3770,7 +3791,7 @@ function openGraphLinkPanel(edge, nodes) {
   const generateBtn = document.createElement("button");
   generateBtn.type = "button";
   generateBtn.className = "ghost";
-  setLabel(generateBtn, "ph:magic-wand Generate");
+  setLabel(generateBtn, "ph:sparkle Generate");
   generateBtn.addEventListener("click", async () => {
     setBusy(generateBtn, true, "Generating…");
     try {
@@ -4170,7 +4191,7 @@ function renderGraphPopupActions(entry) {
       await refreshEntries([entry.id]);
       renderGraph();
       toast("Note restored.");
-    });
+    }, { also: GO_TO_BIN });
   });
   //: Set apart by a gap of its own inside the keep group rather than by a
   //: fourth divider: three groups is the structure, and a hairline whose
@@ -5155,19 +5176,15 @@ function graphApplyView(view) {
     view.positions && Object.keys(view.positions).length ? view.positions : null;
   localStorage.setItem("graph-layout", view.layout);
   if (view.colour) localStorage.setItem("graph-colour", view.colour);
-  //: The layout is a radio group, not one control: `set()` on the group's
-  //: `<div>` wrote a `value` expando and fired "change" from the div, which
-  //: the listener read back as the layout, so the map was right and the View
-  //: menu still showed the old layout ticked (measured: a radial view
-  //: restored with Force still checked). The radio is what a person presses.
-  //: Looked up among the radios rather than by a selector built from the
-  //: saved string, which is whatever the stored JSON says.
-  const layoutRadio = [...document.querySelectorAll('input[name="graph-layout"]')].find(
-    (radio) => radio.value === view.layout
-  );
-  if (layoutRadio) {
-    layoutRadio.checked = true;
-    layoutRadio.dispatchEvent(new Event("change", { bubbles: true }));
+  //: The layout is a list (INBOX 670; it was a radio group, which `set()` on
+  //: its `<div>` wrote a `value` expando on and fired "change" from, so the
+  //: map was right and the View menu still showed the old layout). The list
+  //: is set by value among its own options, so a saved string that no option
+  //: carries leaves it alone rather than blank.
+  const layoutSelect = $("graph-layout");
+  if (layoutSelect && [...layoutSelect.options].some((o) => o.value === view.layout)) {
+    layoutSelect.value = view.layout;
+    layoutSelect.dispatchEvent(new Event("change", { bubbles: true }));
   }
   set("graph-colour", view.colour);
   // Real controls, not the section div: `set()` dispatches "change" on each,
@@ -5322,8 +5339,37 @@ $("graph-label-plates")?.addEventListener("change", (event) => {
   gcRequestDraw();
 });
 
+// INBOX 692: a new arrangement of the force layout, animated, then framed
+// (`gcReshuffle`, graph-canvas.js). Wired here, in the graph's own bundle,
+// beside the other Physics controls, so it can never be pressed before the
+// function it calls has loaded.
+$("graph-reshuffle")?.addEventListener("click", () => {
+  if (!gcReshuffle()) toast("Reshuffle works on the force layout: pick Force under Layout first.");
+});
+
+// INBOX 693: the force layout's Shape (`gcShape`, the worker's `SHAPES`).
+// Remembered; a change re-lays the map out from where every note stands, so
+// the notes travel to the new shape rather than jumping to it.
+(() => {
+  const shape = $("graph-shape");
+  if (!shape) return;
+  // graph-canvas.js (and `gcShape`) loads after this file: an unknown value
+  // leaves a select empty, so that is the test for one.
+  shape.value = prefs.get("graph-shape", null) || "organic";
+  if (!shape.value) shape.value = "organic";
+  shape.addEventListener("change", () => {
+    localStorage.setItem("graph-shape", shape.value);
+    graphHighlightIds = null;
+    renderGraph();
+  });
+})();
+
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
+  //: The layout keeps dots clear of the lines as drawn (the worker's
+  //: `clearanceForce`, INBOX 693), and a curve and a straight line pass
+  //: different dots, so the forces hear about it and the map eases round.
+  if (!gcTab.tree) gcPost({ type: "params", params: gcWorkerParams(gcTab) });
   gcRequestDraw();
 });
 
@@ -5479,11 +5525,9 @@ function graphSettingsEqual(a, b) {
 //: The redraws that pile up are cheap: `renderGraphCanvas` drops every
 //: render but the last by its sequence number.
 function graphApplySettings(settings) {
-  const layout = [...document.querySelectorAll('input[name="graph-layout"]')].find(
-    (radio) => radio.value === settings.layout
-  );
-  if (layout && !layout.checked) {
-    layout.checked = true;
+  const layout = $("graph-layout");
+  if (layout && layout.value !== settings.layout && [...layout.options].some((o) => o.value === settings.layout)) {
+    layout.value = settings.layout;
     layout.dispatchEvent(new Event("change", { bubbles: true }));
   }
   graphHiddenCategories = new Set(settings.hiddenCategories || []);

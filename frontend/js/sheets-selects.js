@@ -789,6 +789,11 @@ function enhanceSelect(select) {
     row.setAttribute("role", "option");
     row.dataset.value = option.value;
     row.textContent = option.textContent.trim();
+    //: **An option that wants its row drawn its own way** names a class in
+    //: `data-menu-class` (Settings' Font list sets each row in its own face,
+    //: INBOX 670). The menu is lifted to <body>, so no selector can reach a
+    //: row through its select; the class travels with the row instead.
+    if (option.dataset.menuClass) row.classList.add(...option.dataset.menuClass.split(/\s+/).filter(Boolean));
     if (option.disabled) row.setAttribute("aria-disabled", "true");
     row.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1069,7 +1074,14 @@ function openKebabSheet(menu, opener, label) {
   opener.setAttribute("aria-expanded", "true");
 }
 
-function kebabMenu(items, ariaLabel) {
+//: **Which overflow glyph (INBOX 706).** `⋯` (`ph:dots-three`, horizontal) for
+//: an item's overflow in a row, a card or a bar of controls; `⋮`
+//: (`ph:dots-three-vertical`) for the overflow at the end of a row in a
+//: vertical list and in a narrow column, the platform conventions. A caller
+//: passes the `vertical` option; the default stays the horizontal one, and
+//: nothing else draws an overflow glyph (DESIGN.md's recipe index, pinned by
+//: `tests/test_icon_conventions.py`).
+function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
 
@@ -1077,7 +1089,7 @@ function kebabMenu(items, ariaLabel) {
   menu.className = "action-menu hidden";
   menu.setAttribute("role", "menu");
 
-  const opener = smallButton("ph:dots-three", ariaLabel, () => {
+  const opener = smallButton(vertical ? "ph:dots-three-vertical" : "ph:dots-three", ariaLabel, () => {
     if (window.matchMedia(PHONE_ACTION_SHEET).matches && typeof openSheet === "function") {
       openKebabSheet(menu, opener, ariaLabel);
       return;
@@ -1094,7 +1106,14 @@ function kebabMenu(items, ariaLabel) {
   //: button has to be remembered per button (see the rule's own comment in
   //: 00-tokens-shell.css) and nobody remembered it here. Set at the source, so
   //: every ⋯ in the app is square rather than one more thing to remember.
-  opener.classList.add("icon-only");
+  //: **One class for every ⋯** (INBOX 722, the owner: "meatball buttons have a
+  //: visible outline, is that consistent with the rest of the app??"). The
+  //: Library's cards and lines drew a resting `--shadow-sm` on a button whose
+  //: fill and edge another rule had already cleared, so the ⋯ read as an
+  //: outlined square there and as a plain glyph everywhere else. The class is
+  //: the one place a surface cannot override: the ghost recipe is written once,
+  //: in 08-consistency.css, DESIGN.md's "A ⋯ or ⋮ that opens a menu" row.
+  opener.classList.add("icon-only", "kebab-opener");
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
@@ -1603,7 +1622,7 @@ async function loadConversationList() {
       })
     );
     items.push(
-      makeMenuItem("ph:magic-wand Name with Atlas", "Let Atlas name this chat", async () => {
+      makeMenuItem("ph:sparkle Name with Atlas", "Let Atlas name this chat", async () => {
         //: Asked for, so answered directly: the activity notice below obeys
         //: "AI activity: panel only", and with that set the click showed
         //: nothing at all, start or finish (the owner at release).
@@ -1651,7 +1670,7 @@ async function loadConversationList() {
     );
     //: Six rows is past the ceiling (DESIGN.md): what you do to it, its address, and the two that put it away.
     const group = (item) => (/Copy app link/.test(item.label) ? "copy" : /Archive|Delete/.test(item.label) ? "end" : "act");
-    actions.appendChild(kebabMenu(items.map((item) => ({ ...item, group: group(item) })), `Actions for ${conversation.title}`));
+    actions.appendChild(kebabMenu(items.map((item) => ({ ...item, group: group(item) })), `Actions for ${conversation.title}`, { vertical: true }));
     li.append(title, actions);
     list.appendChild(li);
   }

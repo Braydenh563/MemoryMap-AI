@@ -280,7 +280,9 @@ def test_creating_a_link_does_not_call_the_model(session, fake_ollama, fake_embe
     link = manager.create_link(session, a, b)
 
     assert link is not None
-    assert link.reason == manager.AUTO_REASON_TEXT
+    #: INBOX 691: the cheap reason is the specific one the two notes give
+    #: (`entry/link_wording.py`), still with no model.
+    assert link.reason == "Both mention “funny”"
     assert link.reason_confidence == 1.0
     assert fake_ollama.chat_calls == []
 
@@ -376,7 +378,8 @@ def test_link_suggestions_carry_the_reason_linking_would_deduce(ai_client):
     match = next(
         s for s in suggestions if frozenset((s["source_id"], s["target_id"])) == frozenset((a["id"], b["id"]))
     )
-    assert match["reason"] == "similar in meaning"
+    # INBOX 691: the reason linking would write, which names what they share.
+    assert match["reason"] == "Both mention “funny”; written the same day, both in Dad Jokes"
 
 
 # --- link reason: deduced with a confidence score, and editable by hand -------------
@@ -395,7 +398,8 @@ def test_a_link_with_no_reason_gets_one_deduced_from_similarity(ai_client):
 
     linked = ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
     link = linked.json()["links"][0]
-    assert link["reason"] == "similar in meaning"
+    # INBOX 691: what the two notes share, not "similar in meaning".
+    assert link["reason"] == "Both mention “funny”; written the same day, both in Dad Jokes"
     assert link["reason_confidence"] == 1.0
 
 
@@ -491,7 +495,7 @@ def test_backfill_deduces_reasons_for_links_made_before_the_feature_existed(
 
     links = ai_client.get(f"/entries/{a['id']}").json()["links"]
     by_target = {link["entry_id"]: link for link in links}
-    assert by_target[b["id"]]["reason"] == "similar in meaning"
+    assert by_target[b["id"]]["reason"] == "Both mention “funny”; written the same day, both in Dad Jokes"
     assert by_target[b["id"]]["reason_confidence"] == 1.0
     assert by_target[c["id"]]["reason"] is None
 
@@ -733,7 +737,9 @@ def test_ordinary_today_phrasing_in_note_text_rescues_a_borderline_reason(sessio
     link = manager.create_link(session, a, b)
 
     assert link is not None
-    assert link.reason == manager.AUTO_REASON_TEXT_TEMPORAL
+    # The rescue still links the pair; what the two notes share names it
+    # (INBOX 691), ahead of the generic temporal text.
+    assert link.reason == "Both mention “mouse”"
     assert link.reason_confidence == 0.5
 
 
@@ -828,5 +834,30 @@ def test_a_score_already_over_threshold_keeps_the_plain_reason(session):
     link = manager.create_link(session, a, b)  # both created just now, same day
 
     assert link is not None
+    assert link.reason != manager.AUTO_REASON_TEXT_TEMPORAL
+    assert link.reason == "Both mention “funny”"
+    assert link.reason_confidence == 1.0
+
+
+def test_two_notes_that_share_only_meaning_keep_the_generic_reason(session):
+    """INBOX 691: "similar in meaning" is the last resort, kept when the two
+    notes share no tag, name, rare word or week in one category."""
+    a = manager.create_entry(session, "a scarecrow joke")
+    b = manager.create_entry(session, "another pun")
+    session.add_all(
+        [
+            EmbeddingRecord(
+                entry_id=entry.id,
+                embedding=vector_to_bytes(np.array([1.0, 0.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            )
+            for entry in (a, b)
+        ]
+    )
+    session.commit()
+
+    link = manager.create_link(session, a, b)
+
     assert link.reason == manager.AUTO_REASON_TEXT
     assert link.reason_confidence == 1.0

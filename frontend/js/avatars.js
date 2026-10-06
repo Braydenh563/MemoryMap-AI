@@ -3407,7 +3407,7 @@ const NAME_MARK_BUDDY_ACTS = {
   carry: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   lantern: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   hide: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
-  wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  wiggle: { ms: 1400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   //: Pleased with a piece of work the app finished (`nameMarkBuddyWork`).
   nod: { ms: 1200, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
@@ -3701,7 +3701,7 @@ const nmb = {
   lastInput: Date.now(), lastCheer: 0, lastPoke: 0, pointer: null, watchTimer: 0, watchAt: 0,
   cueTimer: 0, startledAt: 0, errandTimer: 0, readingErrand: false, shyAt: 0, shyTimer: 0, readTimer: 0, keyAt: 0, keyRun: 0,
   trail: 0, ex: 0, ey: 0, target: null, targetAt: 0, lastMove: null, headTimer: 0, releaseTimer: 0,
-  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [],
+  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [], unlockDrop: true, lastHow: "",
   mood: { energy: 0.7, curiosity: 0.6, sociability: 0.7 }, edgeType: "", edgeLine: 72, reading: null, cool: {},
   anim: null, hopAnim: null, glue: null, heldTimer: 0, placeTimer: 0, movedAt: 0, pinned: false, menu: null, settle: [], checkFrame: 0,
 };
@@ -5369,7 +5369,12 @@ function nameMarkBuddyTempo() {
   //: layouts and 120 paints a second, while the walk itself (the host's
   //: translate) is the compositor's. An act or a drag still runs at full
   //: rate: those are short and are the moment it is being looked at.
-  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");
+  //: And in the large view (INBOX 669, the owner: "atlas's arm movements
+  //: are jerky and not smooth"): there it is drawn 2.2 times over and is
+  //: the one thing on screen, so a head turn stepped at 10Hz jumped 6
+  //: degrees a step (atlas669-clicks.js), and the rig followed each arm's
+  //: stepped gesture in jerks.
+  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;
   //: Held, not stepped, while a scroll is under way and while a page or a
   //: popup is arriving (`uiSettlingUntil`, set by `switchTab` and
   //: `openSettingsModal`; INBOX 580, the owner: "the atlas companion and app
@@ -5382,6 +5387,19 @@ function nameMarkBuddyTempo() {
   //: per animation (measured: 354 layouts a second, interleaved).
   const states = nmbTempo.anims.map((anim) => anim.playState);
   nmbTempo.anims.forEach((anim, i) => {
+    //: **A move that has ended stays ended** (INBOX 669, the owner: "when I
+    //: click atlas, it often starts tilting to the left then just snaps
+    //: back"). The list is read once a second, so it held an act's
+    //: animations after the act's class came off and the stylesheet had
+    //: cancelled them; `pause()` on a cancelled animation starts it again
+    //: from its first frame, and every beat after stepped it on. So each
+    //: act's gesture (a wave's arm, a look's head) played a second time,
+    //: stepped at 10Hz, after the act had handed back (atlas669-clicks.js:
+    //: the wave's probe back at -100 degrees 400ms after the act ended).
+    if (states[i] === "idle" || states[i] === "finished") {
+      nmbTempo.clock.delete(anim);
+      return;
+    }
     if (busy) {
       if (states[i] === "paused") anim.play();
       nmbTempo.clock.delete(anim);
@@ -6150,6 +6168,33 @@ function nameMarkBuddySupportSoon() {
 }
 document.addEventListener("wheel", nameMarkBuddySupportSoon, { passive: true, capture: true });
 document.addEventListener("pointerup", nameMarkBuddySupportSoon, { passive: true, capture: true });
+
+//: **A scroll over the companion scrolls what is under it** (INBOX 674, the
+//: owner: "when hovering over the companion, I cant two finger scroll on the
+//: trackpad"). It is `position: fixed`, so the browser's scroll chain from it
+//: ends at the document, which does not scroll in this app: the list under
+//: it never heard the wheel. The element beneath gets the same wheel (a
+//: board or map pans by its own handler), and when nothing there takes it,
+//: the nearest scroller under the pointer moves by the same amount.
+document.addEventListener("wheel", (event) => {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || event.ctrlKey || !buddy.contains(event.target)) return;
+  const under = document.elementsFromPoint(event.clientX, event.clientY).find((el) => !buddy.contains(el));
+  if (!under) return;
+  const passed = new WheelEvent("wheel", event);
+  under.dispatchEvent(passed);
+  if (passed.defaultPrevented) return event.preventDefault();
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+  for (let el = under; el && el !== document.documentElement; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    const y = event.deltaY && /auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight;
+    const x = event.deltaX && /auto|scroll/.test(style.overflowX) && el.scrollWidth > el.clientWidth;
+    if (!x && !y) continue;
+    event.preventDefault();
+    el.scrollBy({ left: x ? event.deltaX * unit : 0, top: y ? event.deltaY * unit : 0 });
+    return;
+  }
+}, { passive: false });
 setInterval(() => {
   if (!document.hidden && !nmb.away && document.getElementById("nm-buddy")) queueNameMarkBuddyCheck();
 }, 1500);
@@ -6519,6 +6564,31 @@ function nameMarkBuddyEnter(buddy, spot) {
   const x = nmb.x;
   const y = nmb.y;
   const edge = 150;
+  //: **The first entrance after an unlock is a drop** (INBOX 707, the owner:
+  //: "when loading the app after login, the companion just appears with no
+  //: animation"). Measured at 1440x900 after the lock lifted: the usual
+  //: starlight entrance went from invisible to opaque in 250ms over a 14px
+  //: drift, which read as appearing. This one is once per page load (the
+  //: unlock is the page's), 640ms: down 56px onto its perch, faded up over
+  //: the first 40%, a small give at the bottom and settled at rest, so it
+  //: ends where it stands with no jump. A tab switch never plays it: the
+  //: flag is spent; hanging and bar perches already come out of their bar.
+  //: Under Avatar animation off and Reduce motion the fade above ran first.
+  const hangs = spot.kind === "hang" || spot.pose === "hang" || spot.kind === "bar" || y + NMB_H > innerHeight - 110;
+  if (nmb.unlockDrop && !hangs) {
+    nmb.unlockDrop = false;
+    nmb.lastEnter = "drop";
+    buddy.dataset.route = "enter-drop";
+    nmb.anim = buddy.animate(
+      [{ translate: "0px -56px", opacity: 0 }, { opacity: 1, offset: 0.4 }, { translate: "0px 5px", opacity: 1, offset: 0.78 }, { translate: "0px 0px", opacity: 1 }],
+      { duration: 640, easing: "cubic-bezier(0.3, 0.6, 0.3, 1)" },
+    );
+    nmb.hopAnim = null;
+    nameMarkBuddyLimbs(buddy, "float", 640);
+    return "drop";
+  }
+  const unlockFirst = nmb.unlockDrop;
+  nmb.unlockDrop = false;
   //: The side it comes from: the tab it left (`nameMarkBuddyTabSide`), or
   //: the nearer edge. Near that side it walks on; further in, it glides in
   //: from it; nearer the other side than that, it materialises.
@@ -6544,7 +6614,8 @@ function nameMarkBuddyEnter(buddy, spot) {
   else ways = ["materialise"];
   const fresh = ways.filter((w) => w !== nmb.lastEnter);
   const pick = fresh.length ? fresh : ways;
-  const how = pick[Math.floor(Math.random() * pick.length)];
+  //: The first entrance of an unlock is never the bare fade: a hanging one climbs down, one on a bar climbs up.
+  const how = unlockFirst ? ways[0] : pick[Math.floor(Math.random() * pick.length)];
   nmb.lastEnter = how;
   buddy.dataset.route = `enter-${how}`;
   if (how === "glide") {
@@ -7674,13 +7745,28 @@ function nameMarkBuddyFeel(delta, now = Date.now()) {
 //: ... maybe a pout or getting a temporarily a little mad if it happens
 //: multiple times consecutively"). Asleep, it always wakes slowly, never
 //: with a start; poked again while still waking (`groggy`, the first 10s),
-//: it pouts, and a third time it is grumpy. Awake, the first is a hello,
-//: the next two play, and a fourth within twenty seconds is too many.
-function nameMarkBuddyClickReaction(asleep, pokes, sinceLast, groggy = false) {
+//: it pouts.
+//:
+//: **Awake, a poke is one of six answers, never the same twice running**
+//: (INBOX 705, the owner: "they get annoyed every time I tap them multiple
+//: times, can they alternate how they respond a little more"). It used to
+//: climb: hello, play, play, then grumpy at the fourth poke in twenty
+//: seconds, so anyone tapping a few times met the sulk every time. Now a
+//: first poke picks among the gentle three; from the second, from all six
+//: (pleased, playful, curious, a wave, a spin, a laugh); and annoyed is a
+//: rare answer, only from the fifth poke inside twenty seconds, then one
+//: time in four, and never straight after it. The poke count decays by
+//: itself (`nmb.pokes` keeps twenty seconds), so after a pause it is a
+//: hello again. `last` is the previous answer, `rand` the draw (a function,
+//: so a test fixes it).
+const NMB_POKE_GENTLE = ["pleased", "curious", "wave"];
+const NMB_POKE_POOL = ["pleased", "playful", "curious", "wave", "spin", "laugh"];
+function nameMarkBuddyClickReaction(asleep, pokes, sinceLast, groggy = false, last = "", rand = Math.random) {
   if (asleep) return "wake";
-  if (groggy) return pokes >= 3 ? "grumpy" : "pout";
-  if (pokes >= 4) return "grumpy";
-  return pokes >= 2 ? "playful" : "pleased";
+  if (groggy && pokes < 3) return "pout";
+  if (pokes >= 5 && last !== "grumpy" && rand() < 0.25) return "grumpy";
+  const pool = (pokes >= 2 ? NMB_POKE_POOL : NMB_POKE_GENTLE).filter((how) => how !== last);
+  return pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
 }
 
 //: **The calm budget** (the owner: "make sure that random sudden movements
@@ -7747,14 +7833,48 @@ function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
     const style = getComputedStyle(el);
     const from = {};
     for (const key of props) from[key] = style[key];
+    //: And the point it turns about (INBOX 669): an act that turns the
+    //: body about its own point (hanging by one hand turns 16 degrees about
+    //: the hand, `nmb-act-onehand`) took that point away with its class,
+    //: and the turn eased back about the new one, 44px off in the large
+    //: view, in one frame (atlas669-clicks.js, a poke cutting it short).
+    if (props.has("rotate") || props.has("transform")) from.transformOrigin = style.transformOrigin;
     held.push({ anim, el, from });
   }
+  //: **And the body's held pose** (INBOX 669, the owner: "when I click
+  //: atlas, it often starts tilting to the left then just snaps back").
+  //: An act that leans the body by a plain rule (a facepalm tips it 3
+  //: degrees, a read, a shrug, a seat) also stops its idle bob while it
+  //: lasts; at its end the bob's animation came back and covered the rule's
+  //: transition, so the lean went in one frame (atlas669-clicks.js: the
+  //: head 9px in a frame). The body's box is read before and after; if it
+  //: moved and nothing above eased it, it is eased from where it was.
+  const BODY = ["transform", "rotate", "translate", "transformOrigin"];
+  const bodies = roots.map((el) => (el.id === "nm-buddy" ? el.querySelector(".nm-buddy-char") : null)).filter(Boolean).map((el) => {
+    const style = getComputedStyle(el);
+    return { el, from: Object.fromEntries(BODY.map((key) => [key, style[key]])) };
+  });
   change();
-  if (!held.length) return;
+  const eased = new Set();
   for (const { anim, el, from } of held) {
     if (el.getAnimations().includes(anim)) continue;
+    //: Only what moved (the body's note below says why).
+    const style = getComputedStyle(el);
+    const moved = Object.fromEntries(Object.keys(from).filter((key) => style[key] !== from[key]).map((key) => [key, from[key]]));
+    if (!Object.keys(moved).length) continue;
     //: `offset: 0`: a lone keyframe with none is the end, not the start.
-    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    el.animate([{ ...moved, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    eased.add(el);
+  }
+  for (const { el, from } of bodies) {
+    if (eased.has(el)) continue;
+    const style = getComputedStyle(el);
+    //: Only what moved: a key held at its old value that the next act
+    //: animates from the same value (a hang's turn starting at 0) was
+    //: pinned there for the whole blend and then jumped (atlas669-blendcheck.js).
+    const moved = Object.fromEntries(BODY.filter((key) => style[key] !== from[key]).map((key) => [key, from[key]]));
+    if (!Object.keys(moved).length) continue;
+    el.animate([{ ...moved, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
   }
 }
 
@@ -8703,9 +8823,16 @@ function nameMarkBuddyBuild() {
       const sinceLast = now - (nmb.lastPoke || 0);
       nmb.lastPoke = now;
       nmb.pokes = [...nmb.pokes.filter((at) => now - at < 20000), now];
-      nameMarkReact(face.querySelector(".name-mark"));
       const groggy = now - (nmb.wokeAt || 0) < 10000;
-      const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy);
+      //: What it did last counts only inside the same run of taps.
+      const lastHow = sinceLast < 20000 ? nmb.lastHow || "" : "";
+      const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy, lastHow);
+      nmb.lastHow = how;
+      const mark = face.querySelector(".name-mark");
+      //: A spin is Atlas's own turn (atlas.js); another face's react is
+      //: already a hop and a spin.
+      if (how === "spin" && mark?.classList.contains("nm-atlas")) atlasPlay("spin", 900);
+      else nameMarkReact(mark);
       if (how === "wake") {
         //: The poke that woke it starts the count of pokes that annoy it.
         nmb.pokes = [now];
@@ -8744,11 +8871,17 @@ function nameMarkBuddyBuild() {
       }
       nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.05);
       nmb.mood.curiosity = Math.min(1, nmb.mood.curiosity + 0.05);
-      nameMarkBuddyFeel(how === "playful" ? 0.08 : 0.12);
-      //: Pleased, then playful: the face holds a few seconds and comes down
-      //: through a smaller one (`NMB_EXPR_SOFTEN`), never straight back.
-      nameMarkBuddyExpress(how === "playful" ? "laughing" : "happy", 3200);
-      if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : how === "playful" ? "wiggle" : "wave");
+      nameMarkBuddyFeel(how === "playful" || how === "laugh" ? 0.08 : 0.12);
+      //: The face holds a few seconds and comes down through a smaller one
+      //: (`NMB_EXPR_SOFTEN`), never straight back. Each answer has its own:
+      //: curious looks round with wide eyes, a spin is bright, a laugh holds
+      //: longest.
+      const answerFace = { playful: "laughing", laugh: "laughing", curious: "surprised", spin: "excited" };
+      nameMarkBuddyExpress(answerFace[how] || "happy", how === "laugh" ? 3800 : how === "curious" ? 2600 : 3200);
+      //: The acts are the gentle ones (a look, a wave, a wiggle): none is a
+      //: whole-body hop, so the large view keeps INBOX 669's limits.
+      const move = { pleased: "wave", wave: "wave", playful: "wiggle", laugh: "wiggle", curious: "look", spin: "" }[how];
+      if (!nameMarkBuddyStill() && move !== "") nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : move);
       nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
     };
     if (nmb.visit) poke();

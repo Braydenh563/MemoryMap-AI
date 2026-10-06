@@ -464,6 +464,10 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "markers": None,
         #: An emoji placed as a sticker (MINDMAP_PLAN decision 44); None on a plain text.
         "sticker": None,
+        #: A frame drawn as a panel: its ground tint and the line of hint text
+        #: inside it (INBOX 715, the board templates); None on a plain text.
+        "tint": None,
+        "hint": None,
     }
 
     moved = board_client.put(

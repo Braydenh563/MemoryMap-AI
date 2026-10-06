@@ -406,9 +406,14 @@ function openDocumentFromNote(documentId) {
 // note (§43), so a title typed here reads back identically to one typed
 // as the note's own first line. Only prepended when the title box actually
 // has something in it, so a note with no title is unchanged from today.
+//: **Under the property block, never above it** (meetings-644 audit, item 6).
+//: A note of a type opens with its `---` block, and a block is a block only
+//: at the very top: a title written above it turned every property into
+//: body text. So the heading goes after the closing fence when there is one.
 function withTitle(content, title) {
   const trimmed = (title || "").trim();
-  return trimmed ? `# ${trimmed}\n\n${content}` : content;
+  const body = stripFrontmatter(content);
+  return trimmed ? `${content.slice(0, content.length - body.length)}# ${trimmed}\n\n${body.replace(/^\n+/, "")}` : content;
 }
 
 // Shared by saveEntry and saveEntryAsDraft: clear the capture box and every
@@ -1632,11 +1637,17 @@ function renderAnswerSupport(answerEl, support) {
   line.className = "notice notice-warn answer-support";
   line.setAttribute("role", "note");
   const { supported = 0, sentences = 0 } = support;
+  //: No model wrote an answer composed from the notes (INBOX 724, the owner:
+  //: "this message needs to be altered as a model wasnt used"): what is not
+  //: quoted is the app's own joining words and how it read the pictures.
   setLabel(
     line,
-    `ph:warning Only ${supported} of ${sentences} sentences here ` +
-      `${supported === 1 ? "comes" : "come"} from your notes. ` +
-      "The rest is the model's own writing, treat it as a draft."
+    support.by_model === false
+      ? `ph:info Only ${supported} of ${sentences} sentences here ${supported === 1 ? "is" : "are"} quoted ` +
+          "word for word from your notes. The rest is this app's joining words or how it read your pictures; no model wrote any of it."
+      : `ph:warning Only ${supported} of ${sentences} sentences here ` +
+          `${supported === 1 ? "comes" : "come"} from your notes. ` +
+          "The rest is the model's own writing, treat it as a draft."
   );
   first.parentElement.insertBefore(line, first);
 }
@@ -2134,21 +2145,24 @@ function askNotesOnTheRight() {
 //:
 //: Silent on every failure, including the AI not running: an answer that
 //: arrived is not made worse by having nothing to offer after it.
-async function renderAskFollowups(question, answer) {
+async function renderAskFollowups(question, answer, given = null) {
   const strip = $("ask-followups");
   if (!strip) return;
   strip.replaceChildren();
   strip.classList.add("hidden");
   if (!question || !answer) return;
-  let picks = [];
-  try {
-    picks = await apiJson("/chat/followups", {
-      method: "POST",
-      silent: true,
-      body: JSON.stringify({ question, answer }),
-    });
-  } catch {
-    return;
+  //: `given`: a composed answer's own next questions, already in hand.
+  let picks = given || [];
+  if (!given) {
+    try {
+      picks = await apiJson("/chat/followups", {
+        method: "POST",
+        silent: true,
+        body: JSON.stringify({ question, answer }),
+      });
+    } catch {
+      return;
+    }
   }
   if (!Array.isArray(picks) || !picks.length) return;
   const label = document.createElement("span");
@@ -2218,7 +2232,11 @@ function renderChatMeta(meta) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
   // "offline" only when Ollama is genuinely down, not merely because a
   // question found nothing to answer from.
-  if (meta.answered_by) setAnsweredBy(meta.answered_by, `Answered by ${meta.answered_by}`);
+  //: A composed answer (INBOX 688) says so on the chip, and its card takes
+  //: the quote style the composer's lead is drawn in (`.answer-composed`).
+  $("ai-answer").classList.toggle("answer-composed", !!meta.composed);
+  if (meta.composed) setAnsweredBy("Your notes, no AI", "Composed from your notes, no AI: every sentence is quoted from a note");
+  else if (meta.answered_by) setAnsweredBy(meta.answered_by, `Answered by ${meta.answered_by}`);
   else if (meta.ollama_running === false) {
     setAnsweredBy("chat model offline", "The chat model is not running, so nothing answered this");
   } else setAnsweredBy("", "");
@@ -2453,7 +2471,10 @@ async function streamChatEvents({
   // for every answer after it.
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
-  if (notesOnly) body.notes_only = true;
+  //: The Ask box's answer switch (INBOX 688, ask-compose.js): "notes" asks
+  //: for the answer composed from the notes; the server composes anyway when
+  //: no model runs, so an unset switch needs no reading here.
+  if (notesOnly) Object.assign(body, { notes_only: true, answer_from: prefs.get("ask-answer-from") });
   // The deliberately-closed-set case (Trace's "Generate story from path"):
   // retrieval must not add notes beyond the ones the caller attached.
   if (attachedNotesOnly) body.attached_notes_only = true;
@@ -2889,6 +2910,7 @@ async function askQuestion(preset) {
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
   let groundedSupport = null; // how much of the answer the notes backed
+  let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
   let groundedSentences = [];
@@ -3019,6 +3041,7 @@ async function askQuestion(preset) {
         //: reason: the answer is still streaming when this arrives, so a
         //: notice placed now would sit above prose that is still growing.
         groundedSupport = event.support || null;
+        composedNext = Array.isArray(event.next) ? event.next : [];
       },
     });
 
@@ -3086,8 +3109,10 @@ async function askQuestion(preset) {
       placeAnswerFigures(answerBox, answerMeta, question);
       renderAskAnswerFoot(answer, answerMeta);
       //: Not awaited: it is a second model call, and the answer is already on
-      //: screen. The same contract `offerFollowups` has in the Chat tab.
-      renderAskFollowups(question, answerRaw);
+      //: screen. The same contract `offerFollowups` has in the Chat tab. An
+      //: answer composed from the notes brings its own (INBOX 725), built
+      //: from what it found and did not say, and asks no model for them.
+      renderAskFollowups(question, answerRaw, answerMeta?.composed ? composedNext : null);
     }
     askStatusText("");
     // Asking changes both quick-access lists, and, for a real (non-hint)
@@ -3188,8 +3213,9 @@ for (const type of ["focusin", "input", "click"]) {
   });
 }
 
-// --- Open questions (WORLD_CLASS_PLAN I3, row 7): Notes, Questions over `GET /questions`.
-const questionsView = { state: "open", offset: 0, ready: false };
+//: Open questions (WORLD_CLASS_PLAN I3, row 7): the Notes, Questions view is
+//: questions-view.js, lazy (INBOX 688 moved it to make room for the Ask box's
+//: answer switch). The Ask scope it sets stays here: `askQuestion` reads it.
 let askScope = null;
 
 function setAskScope(scope) {
@@ -3223,123 +3249,26 @@ function showAskAsOf(on) {
   }
 }
 
-function questionWhen(iso) {
-  const when = iso ? new Date(iso) : null;
-  return when && !Number.isNaN(when.getTime()) ? when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
-}
+//: From app.js (its cap), 2026-10-06; read at call time only.
+// --- capture templates (Wave B) ---------------------------------------------------
 
-function questionButton(icon, label, onClick) {
-  const button = smallButton(icon, label, onClick);
-  button.setAttribute("aria-label", label);
-  return button;
-}
+const BUILTIN_TEMPLATES = [
+  { name: "Journal", content: "Journal: {date}\n\nToday I " },
+  { name: "Recipe", content: "Recipe: \n\nIngredients:\n- \n\nSteps:\n1. " },
+  { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
+  { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
+];
 
-function questionRow(item) {
-  const li = evidenceSpan("night-fact question-row", "", "li");
-  const text = evidenceSpan("dash-list-text");
-  const asked = ["Asked", questionWhen(item.asked_at), item.note_title ? `in “${item.note_title}”` : ""].filter(Boolean).join(" ");
-  text.append(evidenceSpan("dash-list-title night-fact-text", item.text), evidenceSpan("dash-list-preview", asked));
-  const by = item.answered_by;
-  if (item.state === "answered" && by) {
-    //: The answered-by link (I3, decided 2026-10-04): the answering sentence,
-    //: opening its note; a title that starts the quote is not said twice.
-    const stem = String(by.note_title || "").replace(/…$/, "");
-    const named = by.note_title && !(by.text && by.text.startsWith(stem)) ? ` in “${by.note_title}”` : "";
-    const answer = document.createElement("button");
-    answer.type = "button";
-    answer.className = "ghost small question-answer-link";
-    answer.title = "Open the note that answers it";
-    answer.addEventListener("click", () => flashEntry(by.entry_id));
-    answer.textContent = ["Answered", questionWhen(by.at)].filter(Boolean).join(" ") + named + (by.text ? `: “${by.text}”` : "");
-    text.append(answer);
-  }
-  const actions = evidenceSpan("night-fact-actions");
-  const move = (state, entry_id = null) =>
-    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) })
-      .then(() => loadQuestions())
-      .catch((error) => toast(error.message || "Couldn't change that question.", true));
-  actions.append(questionButton("ph:arrow-square-out", "Open the note that asks it", () => flashEntry(item.entry_id)));
-  if (item.state === "open") {
-    actions.append(
-      questionButton("ph:check-circle", "Mark answered: choose the note that answers it", async () => {
-        const entry = await pickEntryDialog("Which note answers it?");
-        if (entry) move("answered", entry.id);
-      }),
-      questionButton("ph:minus-circle", "Drop: it no longer matters", () => move("dropped"))
-    );
-  } else {
-    actions.append(questionButton("ph:arrow-counter-clockwise", "Reopen", () => move("open")));
-  }
-  li.append(text, actions);
-  return li;
-}
 
-const QUESTIONS_EMPTY = {
-  open: "No open questions. Read notes now finds the questions your notes ask.",
-  answered: "Nothing answered yet. When a later note answers a question, it moves here.",
-  dropped: "Nothing dropped.",
-};
-
-async function loadQuestions({ more = false } = {}) {
-  const list = $("questions-list");
-  if (!list) return;
-  if (!more) questionsView.offset = 0;
-  let reply;
-  try {
-    reply = await apiJson(`/questions?state=${questionsView.state}&limit=30&offset=${questionsView.offset}`, { silent: true });
-  } catch {
-    surfaceFailed(list, "your questions", () => loadQuestions());
-    return;
-  }
-  if (!more) list.replaceChildren();
-  const items = reply.items || [];
-  for (const item of items) list.appendChild(questionRow(item));
-  questionsView.offset += items.length;
-  const counts = reply.counts || {};
-  for (const state of ["open", "answered", "dropped"]) $(`questions-count-${state}`).textContent = counts[state] || "";
-  $("questions-more").classList.toggle("hidden", questionsView.offset >= (reply.total || 0));
-  const ask = $("questions-ask");
-  ask.disabled = !counts.open;
-  ask.title = counts.open ? "Ask about the questions you have not answered yet" : "No open questions to ask about";
-  const lead = $("questions-lead");
-  lead.textContent = reply.total ? "" : QUESTIONS_EMPTY[questionsView.state];
-}
-
-function initQuestionsView() {
-  if (questionsView.ready || !$("questions")) return;
-  questionsView.ready = true;
-  const seg = $("questions-state");
-  seg.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-question-state]");
-    if (!button) return;
-    questionsView.state = button.dataset.questionState;
-    for (const other of seg.querySelectorAll("button")) {
-      other.classList.toggle("active", other === button);
-      other.setAttribute("aria-pressed", String(other === button));
-    }
-    loadQuestions();
-  });
-  //: INBOX 551: the night pass, now (it runs unattended only with background
-  //: tasks on, which is off by default), then the list.
-  $("questions-refresh").addEventListener("click", async (event) => {
-    const button = event.currentTarget;
-    setBusy(button, true, "Reading\u2026");
-    const reply = await apiJson("/night/run", { method: "POST", body: JSON.stringify({ budget: 20000 }) }).catch(() => null);
-    setBusy(button, false);
-    if (reply?.paused) toast("Reading is paused in Settings, What it learned.", "info");
-    loadQuestions();
-  });
-  $("questions-more").addEventListener("click", () => loadQuestions({ more: true }));
-  $("questions-ask").addEventListener("click", () => {
-    //: The Ask scope: the next answer reads the notes with open questions.
-    setAskScope("questions");
-    showNotesSection("ask");
-    const box = $("question");
-    if (!box.value.trim()) box.value = "What am I still undecided about?";
-    box.focus();
-  });
-  $("ask-scope-clear")?.addEventListener("click", () => {
-    setAskScope(null);
-    $("question")?.focus();
-  });
+async function loadTemplates() {
+  // Built-ins + the user's own (kept in preferences). Shared with the two
+  // other boot readers (A2): at boot this joins the one request in flight, and
+  // afterwards it reads the cache every PUT in this file keeps current, which
+  // is why `saveTemplateList` (PUT, then this) still shows the new template.
+  await loadPreferences().catch(() => prefsCache);
+  // Saved filters live in the same payload, so draw them while it's fresh.
+  renderSavedSearches();
+  //: The Capture box's picker reads `templateCatalogue()` when it opens
+  //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
+  //: template saved in Settings is in the next opening without a redraw.
 }

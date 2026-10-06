@@ -1025,7 +1025,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
         }),
       },
       {
-        label: "ph:text-aa Read text with AI",
+        label: "ph:sparkle Read text with AI",
         title: "Read the text in this image with a vision model",
         //: The response carries both readings, so the panel is rebuilt from the
         //: whole row rather than from the field this call happened to write:
@@ -1833,6 +1833,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
 
   const close = () => {
     overlay.remove();
+    setFullscreenSurface("lightbox", false);
     document.removeEventListener("keydown", onKey);
   };
   const onKey = (e) => {
@@ -1886,6 +1887,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   column.append(stageWrap, meta, actions, info);
   overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
+  setFullscreenSurface("lightbox", true);
   closeBtn.focus();
   //: `.then`, not `await`: `openLightbox` is not async and its nine callers
   //: do not expect it to be. The dialog is already on screen and interactive

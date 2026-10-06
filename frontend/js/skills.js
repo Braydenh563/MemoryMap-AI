@@ -668,7 +668,7 @@ function renderChatNudge() {
   ) {
     offers.push({
       kind: "agent",
-      icon: "ph:robot",
+      icon: "ph:strategy",
       text: "That reads like something to do, not something to answer. Ask mode can't touch your notes.",
       action: "Switch to Agent",
       run: () => setChatMode("agent"),

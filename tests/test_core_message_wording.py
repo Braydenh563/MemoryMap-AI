@@ -89,6 +89,7 @@ SOURCES: tuple[Source, ...] = (
             "delete_category",
         ),
     ),
+    Source("entry/tidy.py", raises=("ValueError", "LookupError"), functions=("set_auto", "undo")),
     Source("ai/tools/categories.py", raises=("ToolError",)),
     Source(
         "ai/tools/__init__.py",
@@ -309,6 +310,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("paging.py", "_BAD"): "a fixed sentence, the constant in api/paging.py",
     ("routes_entries.py", "librarian.AI_FAILED_MESSAGE"): "a constant in ai/librarian.py, checked there",
     ("routes_files.py", "reason"): "core/ocr.py unavailable_reason",
+    ("routes_files.py", "ocr.unavailable_reason('rapidocr')"): "core/ocr.py unavailable_reason",
     ("routes_files.py", "edit_message"): "core/docview.py editability",
     ("routes_files.py", "str(exc)"): "ValueError and FileExistsError from entry/manager.py, ValueError from core/ocr.py set_language",
     ("routes_learned.py", "str(exc)"): "ValueError from ai/learning.py record and ai/facts.py set_switches",
@@ -318,6 +320,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_models.py", "info['error']"): "ai/model_cards.py inspect_model_name",
     ("routes_settings.py", "importer.INSTALL_HINT"): "entry/importer.py INSTALL_HINT",
     ("routes_tags.py", "str(exc)"): "ValueError from entry/manager.py rename_tags",
+    ("routes_tidy.py", "str(exc)"): "ValueError from entry/tidy.py set_auto and LookupError from entry/tidy.py undo",
     ("routes_voice.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_voice.py", "over_limit_detail"): "the two callers pass literals, which collect() checks",
     ("routes_voice.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",

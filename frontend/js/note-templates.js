@@ -8,6 +8,31 @@
 // `event.currentTarget` and calls `preventDefault`, which an async stand-in
 // would reach too late, so the opener binds it to the list itself, once.
 
+//: Here since 2026-10-06 (the boot scripts' total cap): only this picker
+//: and the Settings list read it, the list through the stand-in.
+//: **Built-ins and the person's own, as one catalogue** (INBOX 409, "templates
+//: cant be edited"). The persona shape: a saved template that carries a
+//: built-in's name is that built-in's edit, kept in `custom_templates` beside
+//: the templates that are wholly the person's, so the Built-in group shows
+//: the edit's text under the shipped name, Yours shows only their own, and
+//: removing the edit is the reset. Nothing else is stored, and the built-in's
+//: original text never leaves this file. Both readers (the Capture dropdown
+//: and the Settings list) draw from this one function, so they cannot
+//: disagree about which templates exist.
+function templateCatalogue() {
+  const saved = (prefsCache && prefsCache.custom_templates) || [];
+  const edits = new Map(saved.map((t) => [t.name, t]));
+  const builtin = BUILTIN_TEMPLATES.map((t) => {
+    const edit = edits.get(t.name);
+    return { ...(edit || t), builtin: true, overridden: Boolean(edit) };
+  });
+  const shipped = new Set(BUILTIN_TEMPLATES.map((t) => t.name));
+  const custom = saved
+    .filter((t) => !shipped.has(t.name))
+    .map((t) => ({ ...t, builtin: false, overridden: false }));
+  return { builtin, custom };
+}
+
 // --- the Capture box's template picker (INBOX 410) ---------------------------
 //
 // **Choosing is not making**, for notes as for documents. The owner decided it

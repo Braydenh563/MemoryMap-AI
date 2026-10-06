@@ -30,7 +30,9 @@ def _function_source(text: str, name: str) -> str:
     start = text.find(f"function {name}(")
     assert start != -1, f"{name} is missing"
     depth = 0
-    i = text.index("{", start)
+    #: The body's brace, after the parameter list: a destructured parameter
+    #: (`{ vertical = false } = {}`, kebabMenu's) has braces of its own.
+    i = re.compile(r"\)\s*\{").search(text, start).end() - 1
     for j in range(i, len(text)):
         if text[j] == "{":
             depth += 1

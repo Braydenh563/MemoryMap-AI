@@ -861,8 +861,7 @@ function renderDocList() {
           loadDocuments(currentDoc?.id);
         }),
       ],
-      `Actions for "${doc.title || "Untitled"}"`
-    );
+      `Actions for "${doc.title || "Untitled"}"`, { vertical: true });
     menu.classList.add("doc-item-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
     // Same clipping shape as the Library's own Documents-subtab kebab, a

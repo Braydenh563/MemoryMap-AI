@@ -191,8 +191,7 @@ function packagesRenderBundles(body) {
                   : packagesBulk("uninstall", removable),
             },
           ],
-          `More for the ${bundle.label} bundle`
-        )
+          `More for the ${bundle.label} bundle`, { vertical: true })
       );
       head.appendChild(actions);
       li.appendChild(head);
@@ -357,8 +356,7 @@ function packagesRowMenu(extra, body) {
         run: () => (body.running ? toast(busy, "info") : packagesRemoveOne(extra)),
       },
     ],
-    `More for ${extra.label}`
-  );
+    `More for ${extra.label}`, { vertical: true });
 }
 
 async function packagesInstallOne(extra) {

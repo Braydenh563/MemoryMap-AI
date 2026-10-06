@@ -2238,7 +2238,7 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
               <div class="seg notes-view-toggle" role="group" aria-label="How to show notes">
                 <button type="button" id="notes-view-rows" class="active icon-only"
-                  title="Compact rows: more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+                  title="Compact rows: more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
                 <button type="button" id="notes-view-cards"
                   title="Cards, a full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               </div>
@@ -5259,7 +5259,7 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <div class="dock-group dock-arrange">
           <div class="seg seg-compact" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
-            <button type="button" data-view="list" class="active icon-only" title="List" aria-label="List view"><i class="ph ph-list" aria-hidden="true"></i></button>
+            <button type="button" data-view="list" class="active icon-only" title="List" aria-label="List view"><i class="ph ph-rows" aria-hidden="true"></i></button>
             <button type="button" data-view="calendar" class="icon-only" title="Calendar" aria-label="Calendar view"><i class="ph ph-calendar-blank" aria-hidden="true"></i></button>
           </div>
         </div>
@@ -5423,7 +5423,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="seg seg-compact library-view" id="library-view" role="group"
                 aria-label="How to show the library">
                 <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-                <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+                <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
               </div>
             </div>
             <div class="dock-actions">
@@ -5839,7 +5839,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="seg seg-compact library-view" id="library-boards-view" role="group"
               aria-label="How to show boards">
               <button class="icon-only" data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-              <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+              <button class="icon-only" data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-rows" aria-hidden="true"></i></button>
             </div>
           </div>
           <div class="dock-actions">
@@ -7161,7 +7161,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-row">
               <span>Dashed</span>
               <span class="wb-menu-controls">
-                <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+                <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-rectangle-dashed" aria-hidden="true"></i></button>
               </span>
             </div>
             <div class="wb-menu-row">
@@ -7210,7 +7210,7 @@ Link to another note with [[its first few words]]."></textarea>
       <button type="button" id="wb-radial-collapse" class="ghost small wb-map-radial-slot" title="Fold this branch away (C)" aria-label="Fold this branch away (C)"><span class="wb-map-radial-face"><i class="ph ph-caret-circle-down" aria-hidden="true"></i><span class="wb-map-radial-name">Fold</span></span></button>
       <button type="button" id="wb-radial-delete" class="ghost small wb-map-radial-slot" title="Delete this topic and everything under it (Delete)" aria-label="Delete this topic and everything under it (Delete)"><span class="wb-map-radial-face"><i class="ph ph-trash" aria-hidden="true"></i><span class="wb-map-radial-name">Delete</span></span></button>
       <button type="button" id="wb-radial-connect" class="ghost small wb-map-radial-slot" title="Draw a cross-link from this topic to another (Shift+C): it joins two branches without changing the tree" aria-label="Draw a cross-link from this topic to another (Shift+C)"><span class="wb-map-radial-face"><i class="ph ph-graph" aria-hidden="true"></i><span class="wb-map-radial-name">Cross-link</span></span></button>
-      <button type="button" id="wb-radial-more" class="ghost small wb-map-radial-slot" title="Everything else you can do with this topic (Shift+F10)" aria-label="Everything else you can do with this topic (Shift+F10)"><span class="wb-map-radial-face"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span class="wb-map-radial-name">More</span></span></button>
+      <button type="button" id="wb-radial-more" class="ghost small wb-map-radial-slot" title="Everything else you can do with this topic (Shift+F10)" aria-label="Everything else you can do with this topic (Shift+F10)"><span class="wb-map-radial-face"><i class="ph ph-dots-three" aria-hidden="true"></i><span class="wb-map-radial-name">More</span></span></button>
       <span class="wb-map-radial-caption" aria-hidden="true" data-rest="Tab adds a child, Enter one beside, C folds, Delete removes"></span>
     </div>
 
@@ -7286,7 +7286,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="wb-sidebar-panel" class="wb-sidebar-panel hidden" role="tabpanel" aria-labelledby="wb-sidebar-title">
         <div class="wb-sidebar-head">
           <h3 id="wb-sidebar-title" class="wb-sidebar-title">Library</h3>
-          <button type="button" id="wb-lib-more" class="ghost small icon-only dialog-head-btn" data-side-only="library" title="New library, import, export" aria-label="Library actions" aria-haspopup="menu"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+          <button type="button" id="wb-lib-more" class="ghost small icon-only dialog-head-btn" data-side-only="library" title="New library, import, export" aria-label="Library actions" aria-haspopup="menu"><i class="ph ph-dots-three-vertical" aria-hidden="true"></i></button>
           <button type="button" id="wb-sidebar-close" class="ghost small icon-only dialog-head-btn" title="Close the sidebar" aria-label="Close the sidebar"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <section class="wb-side-section" data-side-panel="library" aria-label="Library">
@@ -7837,7 +7837,7 @@ Link to another note with [[its first few words]]."></textarea>
          recipe instead (DESIGN.md, "A sheet"), which is what the HIG asks for
          at this size and what Phase 11 specifies. -->
     <button type="button" id="phone-more-btn" class="phone-tab-more"
-      aria-haspopup="dialog" aria-expanded="false" aria-label="More"><i class="ph ph-dots-three-circle tab-icon" aria-hidden="true"></i><span class="tab-label">More</span></button>
+      aria-haspopup="dialog" aria-expanded="false" aria-label="More"><i class="ph ph-dots-three tab-icon" aria-hidden="true"></i><span class="tab-label">More</span></button>
   </div>
 
   <footer id="status-bar" class="edge-fade">
@@ -12198,7 +12198,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="dock-group dock-arrange">
                 <div class="seg" id="log-view-toggle" role="group" aria-label="List or terminal view">
                   <button data-view="list" type="button" class="active icon-only"
-                    title="One record a row" aria-label="Show the log as a list"><i class="ph ph-list" aria-hidden="true"></i></button>
+                    title="One record a row" aria-label="Show the log as a list"><i class="ph ph-rows" aria-hidden="true"></i></button>
                   <button data-view="terminal" type="button" class="icon-only"
                     title="The way it would print to a console window" aria-label="Show the log as terminal output"><i class="ph ph-terminal-window" aria-hidden="true"></i></button>
                 </div>

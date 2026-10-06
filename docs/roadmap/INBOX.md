@@ -142,20 +142,6 @@ with its owner named in the entry.
      times, can they alternate how they respond a little more??". Placed:
      the next session (usage).
 
-706. **The owner, 2026-10-06, verbatim.** "also idk about ui or ux proper
-     usage of icons but can you make sure that the common and professional
-     ways to use icons and what icons are used where is correct?? like we
-     have been using majority of meatball icons but I think meatball,
-     kebab, bento box icons and more etc are better for use in various
-     situations and uses". Decision taken (platform conventions): ⋯
-     (meatball, horizontal) for an item's overflow in a horizontal row or
-     card; ⋮ (kebab, vertical) for overflow at the end of a vertical list
-     row or a narrow column/app bar; ⊞ (bento/grid) only for switching
-     between apps or spaces; ☰ (hamburger) only for opening navigation. A
-     DESIGN.md row and a lint pin which goes where; then an icon audit for
-     other misuse (the same glyph meaning two things, two glyphs for one).
-     Placed: a Sonnet agent with 699, 701, 702.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

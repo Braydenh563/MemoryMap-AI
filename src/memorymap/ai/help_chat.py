@@ -879,7 +879,7 @@ HELP_TOPICS.extend(
                 "person or thing named two ways, with Merge; and Link types, a link whose own "
                 "sentence says \"for example\" or \"continues\". Accepting or "
                 "dismissing any of them teaches it which reasons to trust in your "
-                "notebook, and a dismissed one does not come back. A link's ⋯ has "
+                "notebook, and a dismissed one does not come back. A link's ⋮ has "
                 "Kind and properties: a kind says what the link is (Supports, Part "
                 "of, your own) and reads from the other note by its other name "
                 "(Supported by, Has part); Kinds of link in the command palette "
@@ -1189,7 +1189,7 @@ HELP_TOPICS.extend(
                 "Ctrl+Shift+S, or right-click, Library, for a selection, a drawn shape, a style, a sticky "
                 "or text preset, a palette of the selection's colours, or on a mind map a branch; Board, "
                 "Save this board as a template keeps the whole board. New board then offers your templates "
-                "beside the built-in ones. The library's ⋯ makes a new library, imports a library file and "
+                "beside the built-in ones. The library's ⋮ makes a new library, imports a library file and "
                 "exports one. A placed item is an ordinary copy: changing the library later never changes "
                 "a board. In Agent mode the assistant can search the library and place from it, draw "
                 "shapes and frames, and move, edit or delete what is on a board, asking first."
@@ -1532,7 +1532,7 @@ HELP_TOPICS.extend(
                 "last row rolls each column up over every match: Count, and Sum, "
                 "Min and Max for numbers, Earliest and Latest for dates. On the "
                 "graph, View, Colour, Note type paints each note by its type; a "
-                "type's ⋯ in Note types has Colour to choose which."
+                "type's ⋮ in Note types has Colour to choose which."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

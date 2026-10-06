@@ -2215,7 +2215,7 @@ def _round_stream(ollama, model, messages, offered, mode, required):
         try:
             return ollama.chat_tools_stream(model, messages, offered, mode=mode, tool_choice="required")
         except TypeError:
-            pass
+            pass  # a fake or provider without tool_choice: the plain call below
     return ollama.chat_tools_stream(model, messages, offered, mode=mode)
 
 

@@ -45575,3 +45575,21 @@ and refuses a topic ("Select a shape, link or text box first").
      writing into its Notes; help_chat's meetings topic names it and the
      shortcut. Not verified in a browser (usage).
 
+689. **The owner, 2026-10-06, verbatim**, with a screenshot of a document
+     with tracked changes: the "Accept this insertion / Reject this
+     insertion" menu and the spelling tooltip ("faque" is not in the
+     dictionary, its candidates, Add to dictionary, Ignore in this document)
+     open at once over the same word, overlapping: "these overlap a
+     little". Cause: the suggestion menu opens on mousedown
+     (documents-prose.js `docSuggestMenu`) while CodeMirror's lint tooltip
+     (`docSuggestAnswers`, documents.js) shows for the same word. Decision
+     taken: one surface: a press on a suggested change whose text also
+     carries a finding opens one menu, the change's Accept/Reject first,
+     then the finding's answers as their own group; the lint tooltip is
+     closed while any app menu is open. Placed: the 0.4.1 mini release, the
+     next free agent slot. **Fixed** (963144b, c97210f): `docSuggestMenu` lists
+     the finding's rows (`docFindingAnswerRows`, the one builder the popover
+     and the panel row also draw from) after the change's own, and
+     `docOpenSuggestFor` declines while a pointer menu is open; sweep
+     `scratchpad/ui-sweeps/suggest689.js`.
+

@@ -96,20 +96,6 @@ with its owner named in the entry.
      no model). Placed: the 0.4.1 mini release, an Opus agent when a slot
      frees (brief: session scratchpad brief-composer-688.md).
 
-689. **The owner, 2026-10-06, verbatim**, with a screenshot of a document
-     with tracked changes: the "Accept this insertion / Reject this
-     insertion" menu and the spelling tooltip ("faque" is not in the
-     dictionary, its candidates, Add to dictionary, Ignore in this document)
-     open at once over the same word, overlapping: "these overlap a
-     little". Cause: the suggestion menu opens on mousedown
-     (documents-prose.js `docSuggestMenu`) while CodeMirror's lint tooltip
-     (`docSuggestAnswers`, documents.js) shows for the same word. Decision
-     taken: one surface: a press on a suggested change whose text also
-     carries a finding opens one menu, the change's Accept/Reject first,
-     then the finding's answers as their own group; the lint tooltip is
-     closed while any app menu is open. Placed: the 0.4.1 mini release, the
-     next free agent slot.
-
 691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
      through links and tags without the ai?? like removing tags that dont
      have a custom reason (reasons other than "similar in meaning") and that

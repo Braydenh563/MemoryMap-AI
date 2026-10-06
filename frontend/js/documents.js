@@ -16385,6 +16385,18 @@ document.addEventListener(
   true
 );
 
+//: Whether a menu from `openMenuAtPoint` is showing. Its host is parked in
+//: the body and the menu may have been reparented there by
+//: `escapeMenuIfClipped`, so it is found by its opener's class.
+function docPointerMenuOpen() {
+  for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
+    if (menu.closest(".pointer-menu-host") || menu._escapedOpener?.classList.contains("pointer-menu-anchor")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function docFindingAtPoint(x, y) {
   if (typeof x !== "number" || typeof y !== "number") return null;
   for (const mark of docFindingMarks()) {
@@ -16421,6 +16433,11 @@ function docRevealForSuggest(anchor, finding) {
 }
 
 function docOpenSuggestFor(finding, focus = true, point = null, revealed = false) {
+  //: **One surface** (INBOX 689): a menu opened at the pointer (a suggested
+  //: change's, a link's) is the answer the press asked for, and the finding's
+  //: popover opened over it is the overlap the owner reported. The change's
+  //: menu carries the finding's answers itself (`docSuggestMenu`).
+  if (docPointerMenuOpen()) return false;
   const anchor = docFindingAnchor(finding, point);
   if (anchor) {
     //: Once only: a finding the editor cannot bring into view (a folded
@@ -17311,6 +17328,55 @@ function docFindingIsPassage(finding) {
   return /\s/.test(String(finding.text || "").trim());
 }
 
+//: **The answers to a finding as data** (INBOX 689): the candidates that
+//: replace the word, then "Add to dictionary" (a spelling or a variant) and
+//: "Ignore in this document". `docSuggestAnswers` draws them as buttons in
+//: the popover and the panel row, and a suggested change that carries a
+//: finding lists the same rows in its own menu (`docSuggestMenu`), so the
+//: three can never offer different things. Each row's `run(close)` does the
+//: whole job, calling `close` in the order the surface needs: after a fix,
+//: before the dictionary write and the ignore.
+function docFindingAnswerRows(finding) {
+  const rows = docSuggestAlternatives(finding).map((option, index) => {
+    const removal = `Remove \u201c${finding.text}\u201d`;
+    return {
+      kind: "candidate",
+      best: index === 0,
+      label: option === " " ? "one space" : option === "" ? removal : option,
+      title: option === "" ? removal : `Replace with \u201c${option}\u201d`,
+      run: (close = () => {}) => {
+        docProseFix({ ...finding, replacement: option });
+        close();
+      },
+    };
+  });
+  if (finding.rule === "spelling" || finding.rule === "variant") {
+    rows.push({
+      kind: "action",
+      id: "dictionary",
+      //: Short (INBOX 552): the word is the heading above it, and "Add
+      //: \u201cword\u201d to dictionary" wrapped onto two lines in a narrow panel.
+      label: "ph:book-open-text Add to dictionary",
+      title: `Add \u201c${finding.text}\u201d to the dictionary`,
+      run: async (close = () => {}) => {
+        close();
+        await docDictionaryAdd(finding.text);
+      },
+    });
+  }
+  rows.push({
+    kind: "action",
+    id: "ignore",
+    label: "ph:eye-slash Ignore in this document",
+    title: "Stop flagging this wording in this document until MemoryMap is restarted",
+    run: (close = () => {}) => {
+      close();
+      docProseIgnore(finding);
+    },
+  });
+  return rows;
+}
+
 //: **The answers to a finding, built once and drawn in two places**
 //: (DOCUMENTS_PLAN 12 D2 and D3): the floating menu over the word, and the
 //: expanded row in the panel. They were two code paths offering the same four
@@ -17330,7 +17396,6 @@ function docSuggestAnswers(finding, opts = {}) {
 
   const list = document.createElement("div");
   list.className = inline ? "doc-suggest-list doc-suggest-list-inline" : "doc-suggest-list";
-  const alternatives = docSuggestAlternatives(finding);
   //: **A candidate word is a word, not an action, and it used to be drawn as
   //: one.** Every row carried the same `ph:check`, so five suggestions read as
   //: five identical commands with different arguments, and the eye had nothing
@@ -17342,20 +17407,17 @@ function docSuggestAnswers(finding, opts = {}) {
   //: menu now separates into "which word" and "what to do about it" without a
   //: divider having to say so. The first candidate carries the weight, because
   //: it is the one Enter and a double-click take.
-  alternatives.forEach((option, index) => {
+  const answerRows = docFindingAnswerRows(finding);
+  answerRows.filter((row) => row.kind === "candidate").forEach((row) => {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = index === 0 ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
-    const removal = `Remove \u201c${finding.text}\u201d`;
-    item.textContent = option === " " ? "one space" : option === "" ? removal : option;
-    item.title = option === "" ? removal : `Replace with \u201c${option}\u201d`;
-    item.addEventListener("click", () => {
-      docProseFix({ ...finding, replacement: option });
-      close();
-    });
+    item.className = row.best ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
+    item.textContent = row.label;
+    item.title = row.title;
+    item.addEventListener("click", () => row.run(close));
     list.appendChild(item);
   });
-  if (!alternatives.length) {
+  if (!answerRows.some((row) => row.kind === "candidate")) {
     const none = document.createElement("p");
     none.className = "muted doc-suggest-none";
     //: A rule with no fix still opens this menu, because "ignore it" and "this
@@ -17368,30 +17430,15 @@ function docSuggestAnswers(finding, opts = {}) {
 
   const actions = document.createElement("div");
   actions.className = inline ? "doc-suggest-actions doc-suggest-actions-inline" : "doc-suggest-actions";
-  if (finding.rule === "spelling" || finding.rule === "variant") {
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "doc-suggest-item";
-    //: Short (INBOX 552): the word is the heading above it, and "Add
-    //: \u201cword\u201d to dictionary" wrapped onto two lines in a narrow panel.
-    setLabel(add, "ph:book-open-text Add to dictionary");
-    add.title = `Add \u201c${finding.text}\u201d to the dictionary`;
-    add.addEventListener("click", async () => {
-      close();
-      await docDictionaryAdd(finding.text);
-    });
-    actions.appendChild(add);
+  for (const row of answerRows.filter((other) => other.kind === "action")) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "doc-suggest-item";
+    setLabel(button, row.label);
+    button.title = row.title;
+    button.addEventListener("click", () => row.run(close));
+    actions.appendChild(button);
   }
-  const ignore = document.createElement("button");
-  ignore.type = "button";
-  ignore.className = "doc-suggest-item";
-  setLabel(ignore, "ph:eye-slash Ignore in this document");
-  ignore.title = "Stop flagging this wording in this document until MemoryMap is restarted";
-  ignore.addEventListener("click", () => {
-    close();
-    docProseIgnore(finding);
-  });
-  actions.appendChild(ignore);
 
   if (docFindingIsPassage(finding)) {
     //: **"Ask the AI for wordings", where the app itself has no answer.** Asked

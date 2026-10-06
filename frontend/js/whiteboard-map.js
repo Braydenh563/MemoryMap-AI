@@ -1196,67 +1196,6 @@ function wbInfoDialog(title, body) {
   return close;
 }
 
-//: **Templates** (§5 item 21). The plan's reason, quoted: "an empty canvas is
-//: the main reason mindmap features go unused."
-//:
-//: Offered on the canvas of a map that has nothing but its root, and never
-//: again after that: this is the one moment the offer helps, and a panel that
-//: kept appearing over a map someone was building would be the opposite of
-//: helpful. Dismissing it is remembered per board.
-//:
-//: Each template is a plain nested list, applied by creating nodes through
-//: the same endpoint Tab uses. No new endpoint and no server-side template
-//: table: a template *is* a few Tab presses, and writing it as data here
-//: keeps it that way.
-const WB_MAP_TEMPLATES = [
-  {
-    key: "brainstorm",
-    label: "Brainstorm",
-    hint: "Ideas, questions and what to do next",
-    nodes: [
-      { text: "Ideas", children: [{ text: "First idea" }] },
-      { text: "Questions", children: [{ text: "What do I not know yet?" }] },
-      { text: "Themes" },
-      { text: "Next steps" },
-    ],
-  },
-  {
-    key: "decision",
-    label: "Decision",
-    hint: "Options, what they cost, and what would change your mind",
-    nodes: [
-      { text: "Options", children: [{ text: "Option A" }, { text: "Option B" }] },
-      { text: "What matters", children: [{ text: "Cost" }, { text: "Time" }] },
-      { text: "Risks" },
-      { text: "What would change my mind" },
-    ],
-  },
-  {
-    key: "project",
-    label: "Project",
-    hint: "Goal, milestones, tasks and who is involved",
-    nodes: [
-      { text: "Goal" },
-      { text: "Milestones", children: [{ text: "First milestone" }] },
-      { text: "Tasks" },
-      { text: "People" },
-      { text: "Risks" },
-    ],
-  },
-  {
-    key: "causes",
-    label: "Cause and effect",
-    hint: "Ishikawa's four: people, process, tools, surroundings",
-    nodes: [
-      { text: "People" },
-      { text: "Process" },
-      { text: "Tools" },
-      { text: "Surroundings" },
-      { text: "What actually happened" },
-    ],
-  },
-];
-
 //: The three panels, resynced together.
 //:
 //: Called from the render as well as from `wbSyncMapChrome`, because all three
@@ -1366,51 +1305,6 @@ function wbDismissMapTemplates() {
     // dismiss it, so this is deliberately silent.
   }
   wbSyncMapTemplates();
-}
-
-//: Fill the map from a template, under whatever root it already has.
-//:
-//: Sequential rather than parallel on purpose: every child needs its parent's
-//: real id, and a template is a dozen nodes at most, so this is a fraction of
-//: a second either way and the order the nodes land in is the order they are
-//: written here.
-async function wbApplyMapTemplate(key) {
-  const template = WB_MAP_TEMPLATES.find((t) => t.key === key);
-  if (!template || !wbIsMap()) return;
-  const index = wbMapIndex();
-  const root = index.roots[0] || null;
-  let made = 0;
-  const place = async (nodes, parentId) => {
-    for (const node of nodes) {
-      const created = await wbMapCreateNode({ parentId, text: node.text });
-      if (!created) return;
-      made += 1;
-      if (node.children?.length) await place(node.children, created.id);
-    }
-  };
-  await place(template.nodes, root ? root.id : null);
-  wbDismissMapTemplates();
-  await wbRefreshMapState();
-  await wbMapTidy({ quiet: true });
-  renderWhiteboardNow();
-  toast(`Started from the ${template.label.toLowerCase()} template: ${made} nodes.`);
-}
-
-//: The template panel's own buttons, built once from the list above so a
-//: fifth template is one entry rather than one entry and one button.
-function wbRenderMapTemplates() {
-  const row = document.getElementById("wb-map-template-row");
-  if (!row || row.childElementCount) return;
-  for (const template of WB_MAP_TEMPLATES) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ghost small";
-    button.dataset.wbTemplate = template.key;
-    button.textContent = template.label;
-    button.title = template.hint;
-    button.addEventListener("click", () => wbApplyMapTemplate(template.key));
-    row.appendChild(button);
-  }
 }
 
 //: The board's map nodes as a tree, rebuilt from `wbState.objects`.

@@ -4877,3 +4877,77 @@ def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() ->
     assert _rail_background(plain[0]) == "transparent", "a rail ⋯ has no fill at rest or while its row is hovered"
     assert _rail_background(hover[0]) == "var(--ghost-btn-bg)", "a rail ⋯ fills only under its own pointer"
     assert "border-radius: var(--radius-md)" in plain[0], "the fill stays inside the row's own radius"
+
+
+#: **Every `.seg` pill inside a popup, by name** (INBOX 715, the owner: "i
+#: dont like pills like that in popups"). DESIGN.md's row "A popup that
+#: chooses a kind" is a `.tabs-line` tab strip under the head; the New board
+#: dialog's Board | Mind map and the icon picker's Emoji | Icons were pills and
+#: are strips now. What is left is either a setting's value or a view of one
+#: pane (DESIGN.md's `.seg` row: two or three short choices), or a kind switch
+#: placed in `docs/roadmap/agent-remaining/board715-1006.md`. The lists only
+#: shrink: a new pill in a popup fails here.
+SEG_IN_POPUPS = {
+    "doc-history-filter": "Earlier versions: All or AI edits, a filter of one list",
+    "ocr-zoom": "the OCR workspace's zoom",
+    "ocr-view": "the OCR workspace's view of one page",
+    "theme-seg": "Settings: a value",
+    "fontsize-seg": "Settings: a value",
+    "border-style-seg": "Settings: a value",
+    "privacy-range": "Settings: a value",
+    "log-view-toggle": "Settings: a view of one log",
+    "note-picker-sources": "PLACED: the Attach picker's sources, a kind switch",
+}
+SEG_BUILT_IN_SCRIPT = {
+    ("app.js", "seg seg-compact confirm-seg"): "promptDialog's `segment`, a value",
+    ("documents.js", "seg"): "the print setup's values",
+    ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
+    ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
+    ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
+    ("help-chat.js", "seg seg-compact help-chat-views"): "PLACED: the Guide's two answers in a reply",
+}
+
+
+class _PopupPills(HTMLParser):
+    """Every `.seg` inside a dialog, a `[popover]` or a `role="dialog"`, by id."""
+
+    VOID = {"input", "img", "br", "hr", "meta", "link", "source", "area", "col", "embed", "param", "track", "wbr", "base"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[tuple[str, bool]] = []
+        self.found: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        popup = tag == "dialog" or "popover" in a or a.get("role") == "dialog"
+        if "seg" in (a.get("class") or "").split() and any(p for _, p in self.stack):
+            self.found.append(a.get("id") or "?")
+        if tag not in self.VOID:
+            self.stack.append((tag, popup))
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                break
+
+
+def test_a_popup_chooses_a_kind_with_a_tab_strip() -> None:
+    """INBOX 715: a popup's kind switch is a `.tabs-line.popup-kinds` with
+    `role="tablist"`, its tabs `role="tab"` with `aria-selected`, never a
+    `.seg` pill; no new pill appears in a popup, in the markup or in script."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    pills = _PopupPills()
+    pills.feed(re.sub(r"<!--.*?-->", "", html, flags=re.S))
+    assert set(pills.found) <= set(SEG_IN_POPUPS), sorted(set(pills.found) - set(SEG_IN_POPUPS))
+    built = set()
+    for path in JS:
+        for classes in re.findall(r'\.className = "(seg(?: [^"]*)?)";', path.read_text(encoding="utf-8")):
+            built.add((path.name, classes))
+    assert built <= set(SEG_BUILT_IN_SCRIPT), sorted(built - set(SEG_BUILT_IN_SCRIPT))
+    # The two the owner named are tab strips.
+    assert re.search(r'class="tabs-line popup-kinds[^"]*" id="wb-template-kind" role="tablist"', html)
+    picker = (ROOT / "frontend" / "js" / "icon-picker.js").read_text(encoding="utf-8")
+    assert 'tabs.className = "tabs-line popup-kinds icon-picker-modes"' in picker
+    assert 'b.setAttribute("role", "tab")' in picker and '"aria-selected"' in picker

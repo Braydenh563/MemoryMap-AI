@@ -210,7 +210,8 @@ function wbLibEntries() {
       out.push({
         ref, name: entry.name, tags: entry.tags || [], kind: entry.kind || "element", set: set.name,
         group: `set:${key}`, payload: entry.payload, favourite: Boolean(marks[`${key}/${entry.key}`]?.favourite),
-        template: entry.template || null,
+        template: entry.template || null, shape: entry.shape || null, layout: entry.layout || null,
+        hint: entry.hint || null, purpose: entry.purpose || null,
       });
     }
   }
@@ -321,88 +322,10 @@ function wbLibThumb(entry) {
     svg.appendChild(r);
     return svg;
   }
-  if (entry.kind === "branch") {
-    svg.setAttribute("viewBox", "0 0 64 40");
-    for (const [x1, y1, x2, y2] of [[14, 20, 44, 8], [14, 20, 44, 20], [14, 20, 44, 32]]) {
-      const l = document.createElementNS(NS, "path");
-      l.setAttribute("d", `M ${x1} ${y1} C 30 ${y1} 30 ${y2} ${x2} ${y2}`);
-      l.setAttribute("fill", "none");
-      l.setAttribute("stroke", "currentColor");
-      l.setAttribute("stroke-width", "2");
-      svg.appendChild(l);
-    }
-    for (const [x, y, w] of [[2, 15, 18], [44, 4, 18], [44, 16, 18], [44, 28, 18]]) {
-      const r = document.createElementNS(NS, "rect");
-      r.setAttribute("x", String(x));
-      r.setAttribute("y", String(y));
-      r.setAttribute("width", String(w));
-      r.setAttribute("height", "9");
-      r.setAttribute("rx", "4");
-      r.setAttribute("fill", "var(--accent-soft, #dde)");
-      r.setAttribute("stroke", "currentColor");
-      svg.appendChild(r);
-    }
-    return svg;
-  }
-  const element = entry.kind === "template" ? payload.element || {} : payload;
-  const box = element.box || { w: 100, h: 100 };
-  const pad = Math.max(box.w, box.h) * 0.06;
-  svg.setAttribute("viewBox", `${-pad} ${-pad} ${box.w + pad * 2} ${box.h + pad * 2}`);
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  //: A line one fortieth of a small shape, a hundred and twentieth of a board.
-  const strokeW = Math.max(box.w, box.h) / (Math.max(box.w, box.h) > 400 ? 120 : 40);
-  for (const item of (element.items || []).slice(0, 60)) {
-    if (item.kind === "sketch") {
-      const data = typeof item.data === "string" ? (() => { try { return JSON.parse(item.data); } catch { return {}; } })() : item.data || {};
-      if (!data.d) continue;
-      const p = document.createElementNS(NS, "path");
-      p.setAttribute("d", data.d);
-      const ink = !data.color || data.color === "ink" ? "currentColor" : data.color;
-      const fill = data.fill === "ink" ? "currentColor" : data.fill;
-      p.setAttribute("fill", fill || "none");
-      if (fill && data.fillOpacity != null) p.setAttribute("fill-opacity", String(data.fill === "ink" && data.fillOpacity < 1 ? Math.max(0.18, data.fillOpacity) : data.fillOpacity));
-      if (data.noStroke) p.setAttribute("stroke", "none");
-      else {
-        p.setAttribute("stroke", ink);
-        p.setAttribute("stroke-width", String(strokeW));
-      }
-      p.setAttribute("stroke-linejoin", "round");
-      svg.appendChild(p);
-    } else if (item.kind === "object") {
-      const r = document.createElementNS(NS, "rect");
-      r.setAttribute("x", String(item.x || 0));
-      r.setAttribute("y", String(item.y || 0));
-      r.setAttribute("width", String(item.w || 100));
-      r.setAttribute("height", String(item.h || 60));
-      r.setAttribute("rx", String(strokeW * 2));
-      const d = item.data || {};
-      if (item.type === "frame") {
-        r.setAttribute("fill", "none");
-        r.setAttribute("stroke", "currentColor");
-        r.setAttribute("stroke-width", String(strokeW));
-        r.setAttribute("stroke-dasharray", `${strokeW * 3} ${strokeW * 2}`);
-      } else {
-        r.setAttribute("fill", d.bg || "none");
-        r.setAttribute("stroke", d.border_color || (d.bg ? "none" : "currentColor"));
-        r.setAttribute("stroke-width", String(strokeW / 2));
-        r.setAttribute("stroke-opacity", d.bg ? "1" : "0.4");
-      }
-      svg.appendChild(r);
-      const words = (d.content || "").replace(/[#*_\[\]()>`]/g, "").trim().slice(0, 14);
-      if (words && item.type !== "image") {
-        const t = document.createElementNS(NS, "text");
-        t.setAttribute("x", String((item.x || 0) + (item.w || 100) / 2));
-        t.setAttribute("y", String((item.y || 0) + (item.type === "frame" ? -strokeW : (item.h || 60) / 2)));
-        t.setAttribute("text-anchor", "middle");
-        t.setAttribute("dominant-baseline", item.type === "frame" ? "auto" : "central");
-        t.setAttribute("font-size", String(Math.min(Math.max(box.w, box.h) / 9, (item.w || 100) / Math.max(4, words.length * 0.6))));
-        t.setAttribute("fill", d.color || "currentColor");
-        t.textContent = words;
-        svg.appendChild(t);
-      }
-    }
-  }
-  return svg;
+  //: A branch and a drawing are drawn by whiteboard-templates.js, so a tile,
+  //: the New board dialog and a new map's offer draw one picture (INBOX 715).
+  if (entry.kind === "branch" || payload.branch) return wbThumbSvg(wbMapThumbSpec(entry));
+  return wbThumbSvg(wbBoardThumbSpec(entry.kind === "template" ? payload.element || {} : payload));
 }
 
 function wbLibTile(entry) {
@@ -1474,151 +1397,6 @@ onDomReady(() => {
   const state = wbSideState();
   if (state.open && !window.matchMedia("(max-width: 600px)").matches) wbOpenSidebar(state.tab, { focus: false });
 });
-
-// --- New board from a template (BACKLOG 4b, answered by decision 25) ---------
-//
-// "New board" opens a gallery: Blank, the built-in frames (Kanban, a
-// retrospective, SWOT, a timeline lane), then the person's own templates; a
-// mind map's: Blank, then its own. DESIGN.md's recipe for "a dialog of
-// choices that each make something": quiet radio rows beside a preview of
-// what the chosen row makes, drawn by the same thumbnail the library tile
-// uses; choosing is not making (only Create, Enter or a double click makes).
-
-function wbTemplateChoices(kind) {
-  const out = [{ ref: null, name: "Blank", hint: kind === "map" ? "One central topic named after the map" : "An empty board" }];
-  if (kind === "board") {
-    const frames = wbLibSets.get("frames");
-    for (const entry of frames?.items || []) {
-      if (entry.key === "frame") continue;
-      out.push({ ref: `builtin:frames/${entry.key}`, name: entry.name, hint: "Built in", entry: { ...entry, kind: "element", ref: `builtin:frames/${entry.key}` } });
-    }
-  }
-  for (const item of wbLibState.lib?.items || []) {
-    if (item.kind !== "template") continue;
-    const type = item.payload?.board?.type === "map" ? "map" : "board";
-    if (type !== kind) continue;
-    out.push({ ref: `item:${item.id}`, name: item.name, hint: "Yours", entry: { ...item, ref: `item:${item.id}`, payload: item.payload } });
-  }
-  return out;
-}
-
-//: Resolves `{name, kind, ref}` (ref null for blank) or null when cancelled.
-async function wbOpenTemplateGallery(kind = "board") {
-  const dialog = document.getElementById("wb-template-dialog");
-  const list = document.getElementById("wb-template-list");
-  const preview = document.getElementById("wb-template-preview");
-  const nameField = document.getElementById("wb-template-name");
-  const kindSeg = document.getElementById("wb-template-kind");
-  if (!dialog || !list || !preview || !nameField) return null;
-  await wbLoadLibrary();
-  let chosen = null;
-  const choose = (choice, { focus = false } = {}) => {
-    chosen = choice;
-    for (const row of list.querySelectorAll(".doc-template-choice")) {
-      const on = row.dataset.ref === String(choice.ref);
-      row.setAttribute("aria-checked", on ? "true" : "false");
-      row.tabIndex = on ? 0 : -1;
-      if (on && focus) row.focus();
-    }
-    preview.replaceChildren();
-    if (choice.entry) preview.append(wbLibThumb(choice.entry));
-    else {
-      const blank = document.createElement("p");
-      blank.className = "muted doc-template-empty";
-      blank.textContent = choice.hint;
-      preview.append(blank);
-    }
-    if (!nameField.dataset.typed) nameField.value = choice.ref ? choice.name : "";
-  };
-  const fill = () => {
-    list.replaceChildren();
-    for (const btn of kindSeg?.querySelectorAll("button") || []) {
-      const on = btn.dataset.value === kind;
-      btn.classList.toggle("active", on);
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
-    }
-    for (const choice of wbTemplateChoices(kind)) {
-      const li = document.createElement("li");
-      li.setAttribute("role", "presentation");
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "ghost doc-template-choice";
-      row.setAttribute("role", "radio");
-      row.setAttribute("aria-checked", "false");
-      row.dataset.ref = String(choice.ref);
-      const name = document.createElement("strong");
-      name.textContent = choice.name;
-      const hint = document.createElement("span");
-      hint.className = "muted text-sm";
-      hint.textContent = choice.hint;
-      const check = document.createElement("i");
-      check.className = "ph ph-check doc-template-check";
-      check.setAttribute("aria-hidden", "true");
-      row.append(name, hint, check);
-      row.addEventListener("click", () => choose(choice));
-      row.addEventListener("dblclick", () => finish(true));
-      li.append(row);
-      list.append(li);
-    }
-    choose(wbTemplateChoices(kind)[0]);
-  };
-  let settle;
-  const done = new Promise((resolve) => {
-    settle = resolve;
-  });
-  const finish = (make) => {
-    const name = nameField.value.trim();
-    if (make && !name) {
-      nameField.focus();
-      toast("Give the board a name first.");
-      return;
-    }
-    dialog.close();
-    settle(make ? { name, kind, ref: chosen?.ref || null } : null);
-  };
-  nameField.value = "";
-  delete nameField.dataset.typed;
-  nameField.oninput = () => {
-    nameField.dataset.typed = "1";
-  };
-  nameField.onkeydown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      finish(true);
-    }
-  };
-  list.onkeydown = (e) => {
-    const rows = [...list.querySelectorAll(".doc-template-choice")];
-    const at = rows.indexOf(document.activeElement);
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      const next = rows[(at + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length];
-      next?.click();
-      next?.focus();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      finish(true);
-    }
-  };
-  if (kindSeg) {
-    for (const btn of kindSeg.querySelectorAll("button")) {
-      btn.onclick = () => {
-        kind = btn.dataset.value;
-        fill();
-      };
-    }
-  }
-  document.getElementById("wb-template-create").onclick = () => finish(true);
-  for (const btn of dialog.querySelectorAll("[data-close-dialog='wb-template-dialog']")) btn.onclick = () => finish(false);
-  dialog.oncancel = (e) => {
-    e.preventDefault();
-    finish(false);
-  };
-  fill();
-  dialog.showModal();
-  nameField.focus();
-  return done;
-}
 
 // --- Layers (WHITEBOARD_PLAN decision 27; INBOX 557b) ------------------------
 //

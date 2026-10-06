@@ -1678,8 +1678,8 @@
   gap: var(--space-1);
 }
 
-/* A tile: the thumbnail drawn from what it places, its name in two lines at
-   most, a star when it is a favourite. The active tile (the list's roving
+/* A tile: the thumbnail drawn from what it places, its name on one line, a
+   star when it is a favourite. The active tile (the list's roving
    tab stop) wears the selection's ground. */
 .wb-lib-tile {
   position: relative;
@@ -1712,17 +1712,17 @@
   overflow: visible;
 }
 
+/* One line, cut with an ellipsis (the tile's `title` holds the whole name):
+   "Cause and effect" wrapped to two lines beside one-line neighbours and
+   the grid's rows went uneven (INBOX 715). */
 .wb-lib-name {
   width: 100%;
+  overflow: hidden;
   font-size: var(--text-xs);
   line-height: 1.2;
   text-align: center;
-  overflow-wrap: break-word;
-  hyphens: auto;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wb-lib-star {
@@ -1768,13 +1768,6 @@
     .wb-layer-lock {
       opacity: 1;
     }
-}
-
-.wb-template-preview .wb-lib-thumb {
-  width: 100%;
-  height: 100%;
-  min-height: 10rem;
-  color: var(--ink);
 }
 
 .wb-page-number {
@@ -2274,4 +2267,266 @@
   background: color-mix(in oklab, var(--error-soft), var(--modal-bg));
   box-shadow: 0 0 0 2px var(--error-soft), var(--glass-shadow);
   scale: 1.06;
+}
+
+/* --- Templates (INBOX 715) ------------------------------------------------
+   The owner, of the built-in board templates: "some of the templates are
+   poorly designed": dashed boxes, titles of three sizes sitting on the
+   border. A template's frames are panels now (`wbPaintFrame`, whiteboard.js):
+   a tinted ground on the theme's own mix and a hairline of the same tint,
+   the token corner, the title inside the top with the panel's padding, and
+   one muted line under it saying what goes there. The tints are the
+   category palette's hues (notes-list.js), each readable as a mix on both
+   grounds; neutral is the theme's muted ink. A frame with no tint keeps
+   decision 14's edge and title above. */
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="neutral"] {
+  --wb-tint: var(--muted);
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="red"] {
+  --wb-tint: #da5252;
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="amber"] {
+  --wb-tint: #c99a1c;
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="green"] {
+  --wb-tint: #15952b;
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="teal"] {
+  --wb-tint: #159172;
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="blue"] {
+  --wb-tint: #387fe3;
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="violet"] {
+  --wb-tint: #9b63e9;
+}
+
+:is(.wb-object-frame, .wb-thumb-frame)[data-tint="pink"] {
+  --wb-tint: #ce5591;
+}
+
+
+.wb-object-frame.wb-frame-panel {
+  border: 1px solid color-mix(in srgb, var(--wb-tint) 32%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--wb-tint) 8%, transparent);
+}
+
+.wb-object-frame.wb-frame-panel .wb-frame-title {
+  top: 0;
+  bottom: auto;
+  right: 0;
+  max-width: none;
+  padding: var(--space-7) var(--space-7) 0;
+  border-top-width: 0;
+  color: var(--ink);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.wb-object-frame .wb-frame-hint {
+  display: none;
+}
+
+.wb-object-frame.wb-frame-panel .wb-frame-hint:not([hidden]) {
+  display: block;
+  position: absolute;
+  top: calc(var(--space-7) + var(--text-h3) * 1.3 + var(--space-1));
+  left: var(--space-7);
+  right: var(--space-7);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* The pictures (`wbMapThumbSpec`, `wbBoardThumbSpec`): one hairline at any
+   size, colours from the theme. */
+.wb-lib-thumb :is(.wb-thumb-line, .wb-thumb-label, .wb-thumb-node, .wb-thumb-root, .wb-thumb-leafbox, .wb-thumb-frame, .wb-thumb-frame-plain, .wb-thumb-blank) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1px;
+}
+
+.wb-lib-thumb .wb-thumb-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.55;
+}
+
+.wb-lib-thumb .wb-thumb-label {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.45;
+  stroke-linecap: round;
+}
+
+.wb-lib-thumb .wb-thumb-root {
+  fill: var(--accent-soft);
+  stroke: var(--accent-text);
+}
+
+.wb-lib-thumb .wb-thumb-node {
+  fill: var(--card);
+  stroke: currentColor;
+}
+
+.wb-lib-thumb .wb-thumb-leaf,
+.wb-lib-thumb .wb-thumb-leafbox {
+  fill: currentColor;
+  fill-opacity: 0.45;
+  stroke: none;
+}
+
+.wb-lib-thumb .wb-thumb-frame {
+  fill: color-mix(in srgb, var(--wb-tint) 12%, transparent);
+  stroke: color-mix(in srgb, var(--wb-tint) 45%, transparent);
+}
+
+.wb-lib-thumb .wb-thumb-frame-plain {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.6;
+}
+
+.wb-lib-thumb .wb-thumb-title {
+  fill: currentColor;
+  font-weight: 600;
+}
+
+.wb-lib-thumb .wb-thumb-hint {
+  fill: currentColor;
+  fill-opacity: 0.22;
+}
+
+.wb-lib-thumb .wb-thumb-blank {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.45;
+  stroke-dasharray: 3 2;
+}
+
+/* The New board dialog (`wbOpenTemplateGallery`, whiteboard-templates.js):
+   the kind as a tab strip under the head, the rows grouped by purpose, each
+   row its picture beside its name and hint. */
+#wb-template-dialog > .tabs-line {
+  margin-bottom: var(--space-2);
+}
+
+.wb-template-group {
+  padding: var(--space-4) var(--space-3) var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+button.ghost.doc-template-choice.wb-template-choice {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.wb-template-choice-art.wb-lib-thumb {
+  width: 3.5rem;
+  height: 2.25rem;
+  color: var(--ink);
+}
+
+.wb-template-choice-words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.wb-template-choice-words > strong {
+  font-weight: 600;
+}
+
+.wb-template-choice[aria-checked="true"] .wb-template-choice-words > strong {
+  color: var(--accent-text);
+}
+
+.wb-template-choice-words > .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The preview: the chosen template's name and hint at the top, on the
+   padding the document templates' page has, then its picture large. */
+.doc-template-preview.wb-template-preview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  mask-image: none;
+}
+
+.wb-template-preview-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3) 0;
+}
+
+.wb-template-preview-text > p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.wb-template-preview-art {
+  min-height: 0;
+  padding: var(--space-3);
+}
+
+.wb-template-preview-art > .wb-lib-thumb {
+  width: 100%;
+  height: 100%;
+  color: var(--ink);
+}
+
+/* A new map's offer (`wbRenderMapTemplates`): the map templates as tiles,
+   each its picture over its name on one line, in a row that scrolls. */
+.wb-map-template-tile.ghost {
+  display: flex;
+  flex: 0 0 5.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  width: 5.5rem;
+  height: auto;
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+}
+
+.wb-map-template-tile.ghost:hover,
+.wb-map-template-tile.ghost:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+.wb-map-template-tile .wb-lib-thumb {
+  width: 100%;
+  height: 2.75rem;
+  color: var(--ink);
+}
+
+.wb-map-template-name {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

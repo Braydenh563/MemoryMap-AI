@@ -21,8 +21,9 @@
   translate: -50% 0;
 }
 
+/* The kind strip spans the panel under its head (INBOX 715). */
 .icon-picker-modes {
-  align-self: flex-start;
+  align-self: stretch;
 }
 
 .icon-picker-list {

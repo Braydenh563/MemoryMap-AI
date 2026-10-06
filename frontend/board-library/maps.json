@@ -5,41 +5,208 @@
  "name": "Mind map templates",
  "items": [
   {
-   "key": "brainstorm",
+   "key": "project",
    "kind": "branch",
-   "name": "Brainstorm",
+   "name": "Project plan",
+   "hint": "Phases from plan to review, left to right",
+   "purpose": "plan",
+   "shape": "phases",
+   "layout": "tree-down",
    "tags": [
     "template",
-    "ideas",
-    "questions"
+    "plan",
+    "phases",
+    "milestones",
+    "tasks"
    ],
    "template": "map",
    "payload": {
     "nodes": [
      {
-      "text": "Ideas",
+      "text": "Plan",
       "children": [
        {
-        "text": "First idea",
+        "text": "Goal",
+        "children": []
+       },
+       {
+        "text": "Scope",
         "children": []
        }
       ]
      },
      {
-      "text": "Questions",
+      "text": "Build",
       "children": [
        {
-        "text": "What do I not know yet?",
+        "text": "First milestone",
         "children": []
        }
       ]
      },
      {
-      "text": "Themes",
+      "text": "Test",
       "children": []
      },
      {
-      "text": "Next steps",
+      "text": "Launch",
+      "children": []
+     },
+     {
+      "text": "Review",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "goal",
+   "kind": "branch",
+   "name": "Goal breakdown",
+   "hint": "Why it matters, the steps, and how you will know",
+   "purpose": "plan",
+   "shape": "tree",
+   "layout": "tree-right",
+   "tags": [
+    "template",
+    "goal",
+    "steps",
+    "habits"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Why it matters",
+      "children": []
+     },
+     {
+      "text": "Milestones",
+      "children": [
+       {
+        "text": "First",
+        "children": []
+       },
+       {
+        "text": "Second",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Habits",
+      "children": []
+     },
+     {
+      "text": "Obstacles",
+      "children": []
+     },
+     {
+      "text": "How I will measure it",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "event",
+   "kind": "branch",
+   "name": "Event plan",
+   "hint": "Before, on the day, after, and the budget",
+   "purpose": "plan",
+   "shape": "phases",
+   "layout": "tree-down",
+   "tags": [
+    "template",
+    "event",
+    "party",
+    "plan"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Before",
+      "children": [
+       {
+        "text": "Invite people",
+        "children": []
+       },
+       {
+        "text": "Book a place",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "On the day",
+      "children": [
+       {
+        "text": "Schedule",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "After",
+      "children": [
+       {
+        "text": "Thank people",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Budget",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "trip",
+   "kind": "branch",
+   "name": "Trip plan",
+   "hint": "Where, when, getting there, and what to pack",
+   "purpose": "plan",
+   "shape": "radial",
+   "layout": "radial",
+   "tags": [
+    "template",
+    "trip",
+    "travel",
+    "holiday"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Where",
+      "children": []
+     },
+     {
+      "text": "When",
+      "children": []
+     },
+     {
+      "text": "Getting there",
+      "children": []
+     },
+     {
+      "text": "Where to stay",
+      "children": []
+     },
+     {
+      "text": "Things to do",
+      "children": [
+       {
+        "text": "A first idea",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Packing",
       "children": []
      }
     ]
@@ -49,6 +216,10 @@
    "key": "decision",
    "kind": "branch",
    "name": "Decision",
+   "hint": "Options, what matters, risks, and what would change your mind",
+   "purpose": "decide",
+   "shape": "fork",
+   "layout": "tree-right",
    "tags": [
     "template",
     "options",
@@ -66,6 +237,10 @@
        },
        {
         "text": "Option B",
+        "children": []
+       },
+       {
+        "text": "Option C",
         "children": []
        }
       ]
@@ -95,86 +270,13 @@
    }
   },
   {
-   "key": "project",
-   "kind": "branch",
-   "name": "Project",
-   "tags": [
-    "template",
-    "plan",
-    "milestones",
-    "tasks"
-   ],
-   "template": "map",
-   "payload": {
-    "nodes": [
-     {
-      "text": "Goal",
-      "children": []
-     },
-     {
-      "text": "Milestones",
-      "children": [
-       {
-        "text": "First milestone",
-        "children": []
-       }
-      ]
-     },
-     {
-      "text": "Tasks",
-      "children": []
-     },
-     {
-      "text": "People",
-      "children": []
-     },
-     {
-      "text": "Risks",
-      "children": []
-     }
-    ]
-   }
-  },
-  {
-   "key": "causes",
-   "kind": "branch",
-   "name": "Cause and effect",
-   "tags": [
-    "template",
-    "ishikawa",
-    "fishbone",
-    "why"
-   ],
-   "template": "map",
-   "payload": {
-    "nodes": [
-     {
-      "text": "People",
-      "children": []
-     },
-     {
-      "text": "Process",
-      "children": []
-     },
-     {
-      "text": "Tools",
-      "children": []
-     },
-     {
-      "text": "Surroundings",
-      "children": []
-     },
-     {
-      "text": "What actually happened",
-      "children": []
-     }
-    ]
-   }
-  },
-  {
    "key": "pros-cons",
    "kind": "branch",
    "name": "Pros and cons",
+   "hint": "Reasons for on one side, against on the other",
+   "purpose": "decide",
+   "shape": "two-sided",
+   "layout": "tree-both",
    "tags": [
     "template",
     "compare",
@@ -189,6 +291,10 @@
        {
         "text": "A reason for",
         "children": []
+       },
+       {
+        "text": "Another reason for",
+        "children": []
        }
       ]
      },
@@ -198,11 +304,305 @@
        {
         "text": "A reason against",
         "children": []
+       },
+       {
+        "text": "Another reason against",
+        "children": []
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "key": "swot",
+   "kind": "branch",
+   "name": "SWOT map",
+   "hint": "Strengths and weaknesses, opportunities and threats",
+   "purpose": "decide",
+   "shape": "two-sided",
+   "layout": "tree-both",
+   "tags": [
+    "template",
+    "swot",
+    "analysis"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Strengths",
+      "children": [
+       {
+        "text": "What you do well",
+        "children": []
        }
       ]
      },
      {
-      "text": "What I decided",
+      "text": "Weaknesses",
+      "children": [
+       {
+        "text": "Where you fall short",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Opportunities",
+      "children": [
+       {
+        "text": "What you could use",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Threats",
+      "children": [
+       {
+        "text": "What could get in the way",
+        "children": []
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "key": "causes",
+   "kind": "branch",
+   "name": "Cause and effect",
+   "hint": "Kinds of cause along a spine to what happened",
+   "purpose": "solve",
+   "shape": "fishbone",
+   "layout": "tree-left",
+   "tags": [
+    "template",
+    "ishikawa",
+    "fishbone",
+    "why"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "People",
+      "children": [
+       {
+        "text": "Skills",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Process",
+      "children": [
+       {
+        "text": "Steps",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Tools",
+      "children": []
+     },
+     {
+      "text": "Materials",
+      "children": []
+     },
+     {
+      "text": "Surroundings",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "meeting",
+   "kind": "branch",
+   "name": "Meeting",
+   "hint": "Agenda, decisions, actions and open questions",
+   "purpose": "meet",
+   "shape": "tiers",
+   "layout": "tree-down",
+   "tags": [
+    "template",
+    "agenda",
+    "minutes",
+    "actions"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Agenda",
+      "children": [
+       {
+        "text": "First item",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Decisions",
+      "children": []
+     },
+     {
+      "text": "Actions",
+      "children": [
+       {
+        "text": "Who, what, by when",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Open questions",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "weekly-review",
+   "kind": "branch",
+   "name": "Weekly review",
+   "hint": "Wins, lessons, loose ends and next week",
+   "purpose": "meet",
+   "shape": "radial",
+   "layout": "radial",
+   "tags": [
+    "template",
+    "week",
+    "review",
+    "reflect"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Wins",
+      "children": []
+     },
+     {
+      "text": "Lessons",
+      "children": []
+     },
+     {
+      "text": "Loose ends",
+      "children": []
+     },
+     {
+      "text": "Next week",
+      "children": [
+       {
+        "text": "Top three",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Energy",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "brainstorm",
+   "kind": "branch",
+   "name": "Brainstorm",
+   "hint": "Ideas, questions, themes and what to do next",
+   "purpose": "learn",
+   "shape": "radial",
+   "layout": "radial",
+   "tags": [
+    "template",
+    "ideas",
+    "questions"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Ideas",
+      "children": [
+       {
+        "text": "First idea",
+        "children": []
+       },
+       {
+        "text": "Second idea",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Questions",
+      "children": [
+       {
+        "text": "What do I not know yet?",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Themes",
+      "children": []
+     },
+     {
+      "text": "Next steps",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "study",
+   "kind": "branch",
+   "name": "Study topic",
+   "hint": "Key ideas, questions, links and practice",
+   "purpose": "learn",
+   "shape": "tree",
+   "layout": "tree-right",
+   "tags": [
+    "template",
+    "study",
+    "revision",
+    "learn"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Key ideas",
+      "children": [
+       {
+        "text": "A definition",
+        "children": []
+       },
+       {
+        "text": "An example",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Questions",
+      "children": []
+     },
+     {
+      "text": "Connections",
+      "children": []
+     },
+     {
+      "text": "Practice",
+      "children": []
+     },
+     {
+      "text": "Sources",
       "children": []
      }
     ]
@@ -212,6 +612,10 @@
    "key": "book",
    "kind": "branch",
    "name": "Book notes",
+   "hint": "The main idea, key points, quotes, what you will do",
+   "purpose": "learn",
+   "shape": "tiers",
+   "layout": "tree-down",
    "tags": [
     "template",
     "reading",
@@ -230,6 +634,10 @@
        {
         "text": "First point",
         "children": []
+       },
+       {
+        "text": "Second point",
+        "children": []
        }
       ]
      },
@@ -245,37 +653,103 @@
    }
   },
   {
-   "key": "meeting",
+   "key": "essay",
    "kind": "branch",
-   "name": "Meeting",
+   "name": "Essay outline",
+   "hint": "A thesis, its arguments and evidence, a conclusion",
+   "purpose": "learn",
+   "shape": "tree",
+   "layout": "tree-right",
    "tags": [
     "template",
-    "agenda",
-    "minutes",
-    "actions"
+    "essay",
+    "writing",
+    "outline"
    ],
    "template": "map",
    "payload": {
     "nodes": [
      {
-      "text": "Agenda",
+      "text": "Thesis",
       "children": []
      },
      {
-      "text": "Decisions",
-      "children": []
-     },
-     {
-      "text": "Actions",
+      "text": "First argument",
       "children": [
        {
-        "text": "Who, what, by when",
+        "text": "Evidence",
         "children": []
        }
       ]
      },
      {
-      "text": "Open questions",
+      "text": "Second argument",
+      "children": [
+       {
+        "text": "Evidence",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Counterpoint",
+      "children": []
+     },
+     {
+      "text": "Conclusion",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "skill",
+   "kind": "branch",
+   "name": "Learning a skill",
+   "hint": "Basics, practice, resources and milestones",
+   "purpose": "learn",
+   "shape": "tree",
+   "layout": "tree-right",
+   "tags": [
+    "template",
+    "skill",
+    "learn",
+    "practice"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Basics",
+      "children": [
+       {
+        "text": "First lesson",
+        "children": []
+       },
+       {
+        "text": "Second lesson",
+        "children": []
+       },
+       {
+        "text": "Third lesson",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Practice",
+      "children": []
+     },
+     {
+      "text": "Resources",
+      "children": []
+     },
+     {
+      "text": "Milestones",
+      "children": []
+     },
+     {
+      "text": "Mistakes to avoid",
       "children": []
      }
     ]

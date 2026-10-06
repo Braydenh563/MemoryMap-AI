@@ -155,7 +155,7 @@ def test_a_door_into_a_library_sub_tab_waits_for_the_library():
         "library.js", "documents.js", "documents-code.js", "documents-prose.js",
         "margin-reader.js", "undo-store.js", "whiteboard.js", "whiteboard-map.js",
         "whiteboard-library.js", "whiteboard-commands.js", "whiteboard-format.js",
-        "whiteboard-history.js", "whiteboard-interchange.js",
+        "whiteboard-history.js", "whiteboard-interchange.js", "whiteboard-templates.js",
     }
     offenders = []
     for path in sorted(JS.glob("*.js")):
@@ -183,6 +183,7 @@ def test_a_press_on_a_boards_button_from_outside_waits_for_the_boards_code():
         "documents.js", "documents-code.js", "documents-prose.js", "margin-reader.js",
         "whiteboard.js", "whiteboard-map.js", "whiteboard-library.js", "whiteboard-commands.js",
         "whiteboard-format.js", "whiteboard-history.js", "whiteboard-interchange.js",
+        "whiteboard-templates.js",
     }
     offenders = []
     for path in sorted(JS.glob("*.js")):

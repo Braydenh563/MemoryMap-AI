@@ -41,9 +41,10 @@ def test_the_logo_tile_is_smaller_than_the_controls():
     assert "width: 1.75rem;" in body and "height: 1.75rem;" in body
 
 
-def test_quit_is_quieter_than_the_other_header_icons():
-    body = "".join(_rules("#top-bar #quit-btn:not(:hover, :focus-visible)"))
-    assert "opacity:" in body
+def test_quit_is_at_full_strength_like_its_neighbours():
+    """Reversed 2026-10-06 (the owner: "the quit button looks dimmed??"):
+    INBOX 618's dimmed Quit read as disabled; its red hover sets it apart."""
+    assert not _rules("#top-bar #quit-btn:not(:hover, :focus-visible)")
 
 
 def test_the_counts_are_quiet():

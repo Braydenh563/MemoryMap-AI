@@ -2184,8 +2184,6 @@ function activeNotesSection() {
 }
 
 function showNotesSection(name, { focus = false } = {}) {
-  // Measurements only mean anything once the section is on screen.
-  if (name === "browse") setTimeout(settleNoteClamps, 0);
   // The picker lists documents that may have been created since this page
   // loaded: a stale list is how "add to document" ends up offering nothing.
   if (name === "capture") loadCaptureDocuments();

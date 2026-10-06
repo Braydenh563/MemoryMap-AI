@@ -127,26 +127,6 @@ with its owner named in the entry.
      carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
      next step. Placed: with 696, the progress agent.
 
-## Placed (last 20, newest first)
-
-- 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in
-  WHITEBOARD_PLAN.md and 607, 609, 610 (map from the graph, smooth
-  branches, node toolbar) in MINDMAP_PLAN.md, "Placed from INBOX,
-  2026-10-05 (boardmap-1005)"; the boardmap-1005 agent holds them.
-- 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in
-  agent-remaining/OPEN.md, "Atlas, placed from INBOX 2026-10-05"; the Atlas
-  agent holds them.
-- 2026-10-04: 528 (the knowledge graph, better than Obsidian and Notion)
-  placed in GRAPH_PLAN.md, "The knowledge graph, 2026-10-04".
-- 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
-- 2026-09-13: 162, 159 placed in WORLD_CLASS_PLAN.md.
-- 2026-09-13: 165, 164 placed in UI_MODERNISATION_PLAN.md.
-- 2026-09-08: dashboard hero preference, New note tile colours, sub-tab
-  arrow keys, Files reading, sidebar toggle, mindmap bugs, line numbers,
-  docks as one bar, timeline redesign, responsive design, em-dashes,
-  paragraphs to popovers, security review: all placed (HANDOVER "flagged
-  list") and most built.
-
 714. **The owner, 2026-10-06, verbatim**, with two screenshots of Ask answers
      (the mini Atlas avatar beside the "Atlas" name, then a tall gap before
      the answer text): "the mini atlas avatar on causes a rather wide gap
@@ -166,3 +146,23 @@ with its owner named in the entry.
      with the template preview's description text flush to its box's top
      left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
 
+
+## Placed (last 20, newest first)
+
+- 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in
+  WHITEBOARD_PLAN.md and 607, 609, 610 (map from the graph, smooth
+  branches, node toolbar) in MINDMAP_PLAN.md, "Placed from INBOX,
+  2026-10-05 (boardmap-1005)"; the boardmap-1005 agent holds them.
+- 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in
+  agent-remaining/OPEN.md, "Atlas, placed from INBOX 2026-10-05"; the Atlas
+  agent holds them.
+- 2026-10-04: 528 (the knowledge graph, better than Obsidian and Notion)
+  placed in GRAPH_PLAN.md, "The knowledge graph, 2026-10-04".
+- 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
+- 2026-09-13: 162, 159 placed in WORLD_CLASS_PLAN.md.
+- 2026-09-13: 165, 164 placed in UI_MODERNISATION_PLAN.md.
+- 2026-09-08: dashboard hero preference, New note tile colours, sub-tab
+  arrow keys, Files reading, sidebar toggle, mindmap bugs, line numbers,
+  docks as one bar, timeline redesign, responsive design, em-dashes,
+  paragraphs to popovers, security review: all placed (HANDOVER "flagged
+  list") and most built.

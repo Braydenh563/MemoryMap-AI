@@ -348,7 +348,10 @@ MORE_TOPICS: list[dict] = [
             "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
             "files, documents and actions in one box as you type: Enter opens "
             "the top result, the arrows move, Esc closes. It lists the command "
-            "palette's actions too, so \"dark\" finds Toggle light/dark."
+            "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
+            "notes and files. The command palette (Ctrl+K) sends what you type "
+            "here: its last row, Search everything for, opens this box with "
+            "the words already searched."
         ),
         "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },

@@ -45272,6 +45272,27 @@ and refuses a topic ("Select a shape, link or text box first").
      segmented control and Settings; `motion1005.js`: 170 to 257 ms on screen,
      lands to 0px at 1440 and 390.
 
+666. **The owner, 2026-10-06, verbatim.** "also I feel like the features for
+     the command pallate and the find anything search kinda clash, like the
+     command pallate I though was just for quick commands and navigation, not
+     for finding notes and documents etc. I feel like that should be left to
+     the find anything but idk". Today both overlap: the palette
+     (app-palette.js) asks `/search` for notes and documents and lists
+     reminders and conversations; Find anything (spaces-find.js) searches
+     every kind and also lists the palette's commands (INBOX 270). Decision
+     taken (the VS Code and Linear split): the palette is commands and
+     places in the app only (tabs, sub-tabs, Settings pages, actions); its
+     content groups go, and typed text that matches no command offers one
+     row, "Search everything for ...", which opens Find anything with the
+     text. Find anything stays the one search over content and keeps its
+     actions group (the owner's 270), below the content. Placed: the 0.4.1
+     mini release, a Sonnet agent.
+     Fixed 2026-10-06: `app-palette.js` lists commands, places and one last
+     row, Search everything for (`openFinder(text)`); `paletteAskEngine` and
+     the content groups are gone; Find anything's actions already sorted last
+     (`FINDER_KINDS`). `palette666.js`: light and dark, no console errors, no
+     `/search` call from the palette.
+
 667. **The owner, 2026-10-06, verbatim**, with a screenshot of the Quick
      note dialog: "the quick note popup tooltip button doesnt work or show a
      popup". Fixed 2026-10-06: `wireHelpPopover` moved the panel to `<body>`,

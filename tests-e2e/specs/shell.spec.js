@@ -1,4 +1,5 @@
-// The app around the notes: the command palette and the guided tour it opens,
+// The app around the notes: the command palette (commands and places, handing a
+// search to Find anything) and the guided tour it opens,
 // the companion shown and hidden, a template made in Settings and used in
 // Capture, a space made and a note filed in it, and a setting that is still
 // set after a reload.
@@ -24,6 +25,18 @@ test("Ctrl+K, Take the guided tour walks to its second step and closes", async (
   expect(second).not.toBe(first);
   await page.click("#tour-close");
   await expect(page.locator("#tour-next")).toBeHidden();
+});
+
+test("Ctrl+K lists no notes: its last row hands the words to Find anything", async ({ page }) => {
+  await openApp(page);
+  await captureNote(page, "A note about zephyrquartz and sourdough.");
+  await palette(page, "zephyrquartz");
+  // Commands and places only: the one row is the handoff, and it is lit.
+  await expect(page.locator("#palette-list .rich-picker-row")).toHaveCount(1);
+  await expect(page.locator("#palette-list .rich-picker-row").first()).toContainText("Search everything for");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#finder-input")).toHaveValue("zephyrquartz");
+  await expect(page.locator("#finder-results .finder-row").first()).toContainText("zephyrquartz");
 });
 
 test("the companion shows with Ctrl+Shift+Y, stays after a reload, and hides again", async ({ page }) => {

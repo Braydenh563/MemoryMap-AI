@@ -1447,7 +1447,7 @@ function featureCatalog() {
       { name: "Where your data went", desc: "Every connection the app made, and whether anything left this computer.", reveal: "settings:privacy" },
       { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
       { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
-      { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", reveal: "palette" },
+      { name: "Command palette", desc: "Ctrl/⌘-K to run a command or go to a place; its last row searches everything.", reveal: "palette" },
       { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
       { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
       { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },

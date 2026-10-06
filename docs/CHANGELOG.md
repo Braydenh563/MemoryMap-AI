@@ -57,6 +57,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library, Boards and maps, New: Whiteboard opens the dialog on Board even after you made a mind map, and neither row opens a board behind the dialog any more; the Library stays as it was until Create, and Cancel leaves it untouched (INBOX 733).
 - Hovering a disabled button shows the normal pointer, not a loading cursor.
 - Chat: a message sent while Agent is greyed (no model) is answered and labelled as Ask; the message buttons hang below the bubble instead of over it.
 - The lock screen's password field keeps its own show-password button (the browser's reveal vanished once the field lost focus) and its typed text stays centred.

@@ -1,0 +1,127 @@
+"""INBOX 732 and 733: the New menu's kind, the board behind it, an empty card
+that stayed after its delete, and the no-model banners' close button.
+
+The owner, 2026-10-06: "I pressed whiteboard but it selected mindmap. also when
+making a new one from the library page, when I click the new button options it
+opens one of my whiteboards or mindmaps in the background rather than staying
+on the page I opened the create new board/mindmap panel from"; "i deleted this
+empty map but itdidnt dissapear??"; and, of the Chat and Ask "No model is
+connected" lines, "like an x close button or smth", back again with a new app
+session.
+
+Measured in Chromium before the fix (scratchpad `repro.js`, data dir with two
+maps): pressing New, Mind map set `#wb-boards-landing` hidden and
+`#wb-canvas-view` shown before the dialog had an answer, so the last board
+loaded behind it, and Cancel left the canvas up. The kind was
+`wbRememberedBoardKind()`, the last kind created, so Whiteboard after one map
+opened on Mind map. The card that stayed was `window.wbLastCreatedBoard`,
+which `drawLibraryBoardsGallery` pushes back into the list whenever the server
+omits it (an empty board is not listed), and nothing cleared it on a delete.
+
+The bodies of `createNewBoard` and `wbBinBoard` are run under node with stand-
+ins for what they call.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+JS = ROOT / "frontend" / "js"
+CSS = ROOT / "frontend" / "css"
+WB = (JS / "whiteboard.js").read_text(encoding="utf-8")
+STATUS = (JS / "status.js").read_text(encoding="utf-8")
+
+needs_node = pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+
+
+def _function(source: str, head: str) -> str:
+    start = source.index(head)
+    return source[start : source.index("\n}\n", start) + 3]
+
+
+def _node(script: str) -> dict:
+    result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+# --- 733: New, Whiteboard / Mind map ------------------------------------------
+
+
+def _new_board_run(scenario: str) -> dict:
+    """`createNewBoard` with the gallery, the canvas and the create call stood
+    in for. `calls` is the order things happened in."""
+    body = _function(WB, "async function createNewBoard(preset = null")
+    remembered = _function(WB, "function wbRememberedBoardKind() {")
+    script = (
+        """
+const calls = [];
+let remembered = "map";            // the last kind made was a map
+let galleryAnswer = null;          // null is Cancel
+const WB_LAST_BOARD_KIND = "wbLastBoardKind";
+const prefs = { get: () => remembered };
+const localStorage = { setItem() {} };
+const window = {};
+const toast = () => {};
+const wbLibInk = () => "";
+const wbLibRefBody = () => ({});
+const wbZoomToFit = () => {};
+const apiJson = async () => ({ id: 7, title: "t" });
+const openWhiteboardBoard = async () => calls.push("open");
+const wbShowCanvasView = () => calls.push("canvas");
+const wbCreateBlankBoard = async (name, kind) => calls.push("create:" + kind);
+async function wbOpenTemplateGallery(kind) { calls.push("gallery:" + kind); return galleryAnswer; }
+"""
+        + remembered
+        + "\n"
+        + body
+        + "\n(async () => {\n"
+        + scenario
+        + "\nconsole.log(JSON.stringify({ calls }));\n})();\n"
+    )
+    return _node(script)
+
+
+@needs_node
+def test_whiteboard_opens_the_dialog_on_board_even_when_the_last_made_was_a_map():
+    out = _new_board_run('await createNewBoard("board", { reveal: true });')
+    assert out["calls"][0] == "gallery:board", out
+
+
+@needs_node
+def test_cancelling_the_dialog_leaves_the_page_it_was_opened_from():
+    out = _new_board_run('await createNewBoard("map", { reveal: true });')
+    assert out["calls"] == ["gallery:map"], out
+
+
+@needs_node
+def test_the_canvas_comes_up_only_once_a_name_is_chosen_and_before_the_board_is_made():
+    out = _new_board_run(
+        'galleryAnswer = { name: "Plan", kind: "map", ref: null };\n'
+        'await createNewBoard("map", { reveal: true });'
+    )
+    assert out["calls"] == ["gallery:map", "canvas", "create:map"], out
+
+
+@needs_node
+def test_a_caller_already_on_the_canvas_does_not_reveal_it_again():
+    out = _new_board_run(
+        'galleryAnswer = { name: "Plan", kind: "board", ref: null };\nawait createNewBoard();'
+    )
+    assert out["calls"] == ["gallery:map", "create:board"], out
+
+
+def test_the_library_menu_names_its_kind_and_does_not_show_the_canvas_itself():
+    for button, kind in (("wb-boards-new", "board"), ("wb-boards-new-map", "map")):
+        start = WB.index(f'$("{button}")?.addEventListener("click"')
+        handler = WB[start : WB.index("\n  });", start)]
+        assert f'createNewBoard("{kind}", {{ reveal: true }})' in handler, handler
+        assert "wbShowCanvasView" not in handler, handler
+
+

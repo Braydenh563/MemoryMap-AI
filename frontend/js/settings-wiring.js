@@ -253,6 +253,8 @@ $("lock-password").addEventListener("keydown", (e) => {
   }
 });
 $("lock-cancel").addEventListener("click", () => settleLockPrompt(false));
+//: "Forgot your password?" (INBOX 663): the card is account-recovery.js's.
+$("lock-forgot").addEventListener("click", () => openForgotPassword());
 // Enter in the question box asks; Ctrl+Enter in the note box saves.
 $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();

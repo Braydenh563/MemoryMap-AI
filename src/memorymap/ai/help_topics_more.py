@@ -438,6 +438,7 @@ MORE_TOPICS: list[dict] = [
             "auto-lock", "auto lock", "change my password", "reset password",
             "other devices", "on my phone", "another computer", "sessions",
             "lock everywhere", "re-encrypt", "new key", "rotate key",
+            "recovery key", "make a recovery key",
         ),
         "body": (
             "Settings, Account & security. Signing in: ask for a password when "
@@ -452,10 +453,15 @@ MORE_TOPICS: list[dict] = [
             "a new encryption key and moves every private note onto it, so an old "
             "backup stops opening them; every other session is signed out. Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
-            "locks at once. There is no reset link: run python -m memorymap "
-            "--reset-password in a terminal, which keeps ordinary notes, "
-            "loses private ones, whose key is your password, and turns other "
-            "devices off."
+            "locks at once. Recovery key: Make a recovery key (or Replace it) "
+            "asks your password and shows a key once, to copy or download and "
+            "keep away from this computer; the old one stops working. Forgot "
+            "your password? on the lock screen, on this computer only, has two "
+            "paths: the recovery key and a new password keeps private notes "
+            "and hands you a new key; I don't have it resets the password like "
+            "python -m memorymap --reset-password, which keeps ordinary notes, "
+            "documents, boards and settings, leaves private notes sealed for "
+            "good, and turns other devices off."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

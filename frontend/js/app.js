@@ -880,6 +880,11 @@ async function submitLockForm() {
     setBusy($("lock-submit"), true, "Opening…");
     const opening = startApp();
     curtainShell(opening);
+    //: The step after setup (INBOX 663): a recovery key, offered once the
+    //: app is drawn, skippable. The password just chosen goes with it so
+    //: the offer does not ask for it again; account-recovery.js drops it
+    //: when the dialog closes.
+    if (mode === "setup") offerRecoveryKey(password);
   } catch (error) {
     errorLine.textContent = error.message;
   }
@@ -1999,6 +2004,8 @@ const LAZY_MODULES = {
   dragEdge: ["/js/drag-edge.js"],
   //: The back/forward list's rows (INBOX 654): see nav-history.js.
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
+  //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
+  accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2279,6 +2286,7 @@ const LAZY_ENTRY_POINTS = {
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
   vault: ["unlockPrivateNotes", "ensureVaultOpen"],
+  accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
   askHistory: [

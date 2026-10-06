@@ -2188,6 +2188,23 @@ button:not(.ghost) > .spinner {
   margin-top: var(--space-2);
 }
 
+/* "Forgot your password?" (INBOX 663) under the field: words in the accent
+   text colour on a ghost button, so it keeps the button's target height. Its
+   card is styled in recovery-lazy.css, loaded when it is pressed. */
+.lock-card .lock-forgot {
+  margin: var(--space-1) 0 var(--space-2) auto;
+  color: var(--accent-text);
+}
+
+/* On the unlock only: setup has nothing to forget, and a prompt for one
+   action has "Not now". The card, while open, takes the lock card's place
+   (account-recovery.js opens and closes it), and never shows in another
+   mode. CSS rather than script: app.js is at its gzip ratchet. */
+#lock-overlay:not([data-mode="unlock"]) :is(#lock-forgot, #lock-forgot-card),
+#lock-overlay:has(#lock-forgot-card:not(.hidden)) #lock-card {
+  display: none;
+}
+
 /* The setup note (index.html, `#lock-setup-note`): the length rule, what the
    password unlocks and what a reset costs, said before the field is filled.
    Left-aligned inside a centred card on purpose, it is three lines of prose

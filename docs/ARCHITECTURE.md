@@ -811,9 +811,13 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   re-wraps the vault key onto the new password *before* replacing the hash:
   the other order would strand every private note.
 - **vault**: the data key for private notes, wrapped with a key derived from
-  the password. This is why a forgotten password loses private notes and only
-  private notes: everything else is plain rows. `--reset-password` clears the
-  credential and says exactly what that costs before it does.
+  the password, and optionally a second time by a recovery key (`recovery_salt`,
+  `recovery_wrapped_dek`, `recovery_created_at`; the key itself is never
+  stored). This is why a forgotten password without the recovery key loses
+  private notes and only private notes: everything else is plain rows. The lock
+  screen's "Forgot your password?" (`/auth/recover`, `/auth/reset`, this
+  computer only) and `--reset-password` share `core/password_reset.py`, which
+  clears the credential; both say exactly what that costs before it runs.
 - **categories**: named buckets; each has an embedding centroid used for the
   janitor's cheap-match path, and a nullable `colour` (a palette key or
   `#rrggbb`; NULL is the name-based automatic colour).

@@ -1,0 +1,108 @@
+/* recovery-lazy.css: "Forgot your password?" and the recovery key (INBOX 663),
+   loaded with account-recovery.js (app.js `LAZY_MODULES.accountRecovery`)
+   rather than at boot, for the gzip budget (tests/test_boot_budget.py). The
+   card sits where the lock card was, on the same overlay; the dialog is a
+   `.space-dialog` with the shared head. Only what those two draw is here. */
+
+/* The card: the lock card's width and the overlay's centring, with prose and
+   fields left-aligned, since it is a form with paragraphs rather than one
+   field under a promise. */
+.lock-forgot-card {
+  width: min(460px, 100%);
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow-y: auto;
+  text-align: left;
+}
+
+.lock-overlay:has(.lock-forgot-card:not(.hidden)) {
+  padding: var(--space-4);
+}
+
+.lock-forgot-card .dialog-head {
+  margin-bottom: var(--space-2);
+}
+
+.lock-forgot-card .dialog-head-title {
+  font-size: var(--text-h3);
+}
+
+/* The two paths fill the width as equal halves, so neither reads as the
+   default and both labels fit at 390. */
+.lock-forgot-seg {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+.lock-forgot-seg > button {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+}
+
+.lock-forgot-pane input {
+  width: 100%;
+}
+
+.lock-forgot-pane > .muted {
+  margin: 0 0 var(--space-2);
+}
+
+/* The one action of each path spans the field, the way the lock card's
+   Unlock does. */
+.lock-forgot-card .lock-forgot-action {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
+/* The command and its Copy share a row; the command wraps rather than
+   pushing the card wider than a phone. */
+.lock-forgot-command {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+}
+
+.lock-forgot-command .code-block {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lock-forgot-command > button {
+  flex: none;
+}
+
+#lock-forgot-error:empty {
+  display: none;
+}
+
+/* The key: monospace, large enough to copy by hand without misreading,
+   wrapping between its groups (the dashes) rather than inside one. */
+.recovery-key-value {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-lg);
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  text-align: center;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.recovery-key-tools {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+#recovery-key-error:empty {
+  display: none;
+}

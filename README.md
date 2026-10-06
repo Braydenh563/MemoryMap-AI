@@ -352,7 +352,9 @@ Markdown, or as a full backup that you can seal with a password.
 - The AI runs where you point it, and a setting that is on by default
   refuses a model address that is not on your computer or network.
 - Private notes are encrypted at rest with a key derived from your password,
-  and kept out of search, the graph and every AI tool.
+  and kept out of search, the graph and every AI tool. A recovery key, shown
+  once, lets "Forgot your password?" on the lock screen set a new password
+  and keep them.
 - Web search is off by default, and the update check waits for your answer to
   the question the first start asks. Web search sends only your search words.
 - Settings, Privacy lists every connection the app has made.

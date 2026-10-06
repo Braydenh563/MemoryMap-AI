@@ -386,6 +386,11 @@ vectors shaped like bge-small's (`scratchpad/ui-sweeps/graphsim.js`):
 
 ## Decision made, 2026-09-26: the hubs are named, over a dot if they must be
 
+**Superseded 2026-10-06 by the owner's own decision in INBOX 693** ("labels
+never over dots or lines"): a hub's name now takes a place on no dot, out
+to a step beyond its near places, or waits for the zoom (`gcPlaceLabels`).
+The record of what was built is in HISTORY.md, INBOX resolved.
+
 The label pass (`gcDraw`, `gcPlaceLabels`) placed a name under its dot or
 not at all, and never over another dot. On the 417-note, 1,105-link fixture
 that named none of the ten best-connected notes in view, at the fit (where

@@ -3723,6 +3723,19 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="arc">Arc</option>
               </select>
             </div>
+            <!-- INBOX 693 (the owner: "different preferred shapes or ways of
+                 structuring the force graph"): how the Force layout arranges
+                 itself, not another layout. Only the forces change; graph.js
+                 saves it and re-lays the map out from where it stands. -->
+            <div class="graph-option-row" id="graph-shape-row">
+              <label for="graph-shape" id="graph-shape-label">Shape</label>
+              <select id="graph-shape" class="ghost small" aria-labelledby="graph-shape-label"
+                title="How the force layout arranges itself">
+                <option value="organic">Organic</option>
+                <option value="clusters">Clusters</option>
+                <option value="galaxy">Galaxy</option>
+              </select>
+            </div>
             <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
                  The legend follows the rule and every legend entry toggles
                  the notes it names; groups (below) paint over whichever rule
@@ -3834,6 +3847,12 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-unpin-all" class="doc-dock-menu-item" type="button"
               title="Release every note you have pinned in place, so the layout can move freely again">
               <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
+            </button>
+            <!-- INBOX 692: a new arrangement on demand, beside Unpin all (the
+                 other "let the layout move" action); graph.js, gcReshuffle. -->
+            <button id="graph-reshuffle" class="doc-dock-menu-item" type="button"
+              title="Lay the map out again from a new start: categories change places, pinned notes stay, and the view fits the result">
+              <i class="ph ph-shuffle ph-lead" aria-hidden="true"></i> Reshuffle layout
             </button>
           </details>
           <div class="dock-menu-section" id="graph-toggle-group"

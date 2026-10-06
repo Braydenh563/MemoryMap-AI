@@ -679,6 +679,13 @@ class EntryLink(Base, WorkspaceMixin):
     #: null for a link a person or Atlas made, which only they remove.
     #: `link_type` is the meaning and must not carry this.
     origin: Mapped[str | None] = mapped_column(String(8), default=None)
+    #: INBOX 693, the owner: "what if the user makes a link meaning for the
+    #: note link to be omnidirectional and not a directional link??" True: the
+    #: link runs both ways and the graph draws no arrow on it; False: one way,
+    #: source to target. Null, every link made before this column, defers to
+    #: its type's own `directed` (a typed link with no inverse reads both
+    #: ways) and, untyped, to one way, which is what an arrow has always said.
+    two_way: Mapped[bool | None] = mapped_column(Boolean, default=None)
     #: GRAPH_PLAN KG3: properties on the link itself (a JSON object of short
     #: scalar values: "count": 4, "since": "2026"), null for none.
     props: Mapped[dict | None] = mapped_column(LinkProps(), default=None)

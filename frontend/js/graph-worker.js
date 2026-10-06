@@ -34,6 +34,7 @@
 //       carried, kept because drag-to-link still depends on it.
 //   {type:"pin", id, x, y} / {type:"unpin", id}   double-click hold / release
 //   {type:"reheat", alpha}                        nudge a settled layout
+//   {type:"reshuffle", seed, animate}             a new arrangement: see below
 //   {type:"stop"}                                 leave the tab
 //   {type:"recycle", buffer}                      hand a position buffer back
 //
@@ -204,10 +205,25 @@ const KIND_STRENGTHS = { map: 0.8, filing: 0.6 };
 //: Link force (GRAPH_PLAN 514 (5)): 0.2x at the slider's left, 1x at 50, 2x
 //: at the right; set by `tuning`, read here.
 let linkScale = 1;
+//: **A line between two categories pulls less than a line inside one**
+//: (INBOX 693, "clusters by category with clear space between" and "hubs
+//: central"), while Group by category is on. A note that bridges two
+//: categories was hauling each one's hub out to the cluster's rim, and the
+//: two clusters toward each other. Measured on the 692 fixture, the hubs'
+//: distance from their cluster's middle (over its mean radius) at 1, 0.5 and
+//: 0.3: 0.93, 0.78, 0.55, with the 10th-percentile gap between categories
+//: 114, 130, 147. As far as the links back the categories (`groupGather`):
+//: on a notebook whose links ignore them, the cross lines are most of the
+//: structure and keep their full pull.
+const CROSS_STRENGTH = 0.3;
+function crossStrength() {
+  return 1 - (1 - CROSS_STRENGTH) * groupGather().t;
+}
 function linkStrength(edge) {
   const a = edge.source.degree || 1;
   const b = edge.target.degree || 1;
-  return (1 / Math.min(a, b)) * (KIND_STRENGTHS[edge.kind] || 1) * linkScale;
+  const across = clustered() && edge.source.group !== edge.target.group ? crossStrength() : 1;
+  return (1 / Math.min(a, b)) * (KIND_STRENGTHS[edge.kind] || 1) * linkScale * across;
 }
 
 function densityScale(count) {
@@ -333,36 +349,300 @@ function groupGather() {
     radius: GROUP_RADIUS_BASE + (GROUP_RADIUS_TOP - GROUP_RADIUS_BASE) * t,
   };
 }
-const GROUP_STRETCH_MAX = 1.6;
+const GROUP_STRETCH_MAX = 3;
 
+//: **Which categories sit side by side is decided by the lines between
+//: them** (INBOX 693, the owner: "cross-cluster links drawn short ... no long
+//: arcs spanning the canvas"). The ring was dealt by size, so two categories
+//: joined by five lines could sit on opposite sides of the map and every one
+//: of those lines crossed it. Now the ring is walked greedily: start at the
+//: largest category, and each next place goes to the category with the most
+//: lines to the one just placed (and, a little, to the first, since the ring
+//: closes), size breaking a tie. A reshuffle starts at a seeded category and
+//: lets the seed break near-ties, so it deals a different ring that is still
+//: one where neighbours are the categories that talk to each other.
 function groupOrder() {
   const sizes = new Map();
   for (const node of nodes) sizes.set(node.group, (sizes.get(node.group) || 0) + 1);
-  return [...sizes.keys()].sort((a, b) => sizes.get(b) - sizes.get(a) || a.localeCompare(b));
+  const bySize = [...sizes.keys()].sort((a, b) => sizes.get(b) - sizes.get(a) || a.localeCompare(b));
+  if (!clustered()) {
+    // Organic keeps its ring by size; a reshuffle deals it in a seeded order.
+    if (!ring.seed) return bySize;
+    const rand = seededRandom(ring.seed);
+    for (let i = bySize.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [bySize[i], bySize[j]] = [bySize[j], bySize[i]];
+    }
+    return bySize;
+  }
+  if (bySize.length < 3) return bySize;
+  const rand = ring.seed ? seededRandom(ring.seed) : null;
+  const link = (a, b) => ring.affinity.get(a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`) || 0;
+  const order = [rand ? bySize[Math.floor(rand() * bySize.length)] : bySize[0]];
+  const left = new Set(bySize.filter((g) => g !== order[0]));
+  while (left.size) {
+    const last = order[order.length - 1];
+    let pick = null;
+    let top = -Infinity;
+    for (const group of left) {
+      const score = link(last, group) + 0.5 * link(order[0], group) + sizes.get(group) * 1e-3 + (rand ? rand() * 0.6 : 0);
+      if (score > top) {
+        top = score;
+        pick = group;
+      }
+    }
+    order.push(pick);
+    left.delete(pick);
+  }
+  return order;
 }
 
-function groupAnchors(width) {
+//: **The arrangement's seed** (INBOX 692, the owner: "can you add a resuffle
+//: button or feature to the graph to rearrange how the graph sits"). Zero is
+//: the default map; a reshuffle picks a new one, and the main thread sends it
+//: with every `init` after, so a re-render keeps the categories where the
+//: reshuffle dealt them rather than pulling them back round to the default.
+//: `turn` is the ring's starting angle, from the same seed.
+const ring = { seed: 0, turn: -Math.PI / 2, width: 0, on: true, affinity: new Map(), inner: new Map(), shape: "organic" };
+
+//: **The force layout's shape** (INBOX 693, the owner: "different preferred
+//: shapes or ways of structuring the force graph", and of the layout the
+//: notebook had: "maybe it or a slightly refined version can be an
+//: option"). `params.shape`, one of:
+//: - "organic", the default: the forces this layout had before 693 (a loose
+//:   tree, categories leaning toward places on a ring, long gentle curves),
+//:   with the fixes every shape has: no line through a dot it does not join
+//:   (`clearanceForce`), a hub's leaves round it in order (`leafForce`),
+//:   loose notes in a close row, room between dots;
+//: - "clusters": each category a compact round cluster on a ring with even
+//:   gutters (`groupAnchors`), hubs at the middle, bridges on the rim;
+//: - "galaxy": one clump, no category places, the best-connected notes
+//:   drawn to the middle (`shapeForce`);
+//: A fourth, Rings (rings out from the focused or the most-linked note), was
+//: built and measured and left out: as forces it either laid a branch along
+//: its ring as a line or, with a radial tree as targets, crossed or
+//: flattened every other component (graph692.js: fit zoom 0.3 to 0.53, a
+//: line through a dot, other components overlapping the root's).
+const SHAPES = new Set(["organic", "clusters", "galaxy"]);
+function clustered() {
+  return ring.shape === "clusters";
+}
+
+//: **The category that joins the others stands in the middle** (INBOX 693:
+//: "hubs central", and cross-cluster lines short). On the showcase notebook
+//: one category (Ideas) is nearly all bridges: its notes link to four other
+//: categories and hardly to each other. On the ring its lines crossed the
+//: map to every far side; in the middle each runs one ring-radius. Chosen
+//: when at least four categories are drawn and one has lines to three or
+//: more others, more of them than it has inside itself; the one with the
+//: most such lines wins.
+function bridgeGroup(groups) {
+  if (groups.length < 4) return null;
+  let best = null;
+  let most = 0;
+  for (const group of groups) {
+    let across = 0;
+    let partners = 0;
+    for (const other of groups) {
+      if (other === group) continue;
+      const count = ring.affinity.get(group < other ? `${group}\u0000${other}` : `${other}\u0000${group}`) || 0;
+      across += count;
+      if (count) partners += 1;
+    }
+    if (partners >= 3 && across > (ring.inner.get(group) || 0) && across > most) {
+      most = across;
+      best = group;
+    }
+  }
+  return best;
+}
+
+//: mulberry32: small, fast and good enough for placing dots; the point is
+//: that it is seeded, so a test (and a person) gets the same map twice.
+function seededRandom(seed) {
+  let a = seed >>> 0 || 1;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function setRingSeed(seed) {
+  ring.seed = Number(seed) >>> 0;
+  ring.turn = ring.seed ? -Math.PI / 2 + seededRandom(ring.seed ^ 0x9e3779b9)() * 2 * Math.PI : -Math.PI / 2;
+}
+
+//: **Each category's place, sized by the category, with an even gutter
+//: between neighbours** (INBOX 693, the owner: "compact round clusters per
+//: category ... packed evenly on a ring or grid with consistent gutters ...
+//: aspect close to the viewport"). The places were evenly spaced angles on
+//: one ring whose radius grew with the whole notebook, so a big category
+//: crowded its neighbour and a small one sat in a wide gap. Now each category
+//: is given a disc (`GROUP_DISC` times the root of its size: the area a
+//: cluster of that many notes takes at the link length), and the ring is the
+//: smallest ellipse round which every disc touches its neighbours' with
+//: `GROUP_GUTTER` between them. The ellipse is as much wider than tall as
+//: the canvas is (within `GROUP_STRETCH_MAX`), so the map fills the view it
+//: is fitted to. Both in units of the link length (`unit`), so the sliders
+//: and the notebook's size scale the whole arrangement together. Only as far
+//: as the links back the categories (`groupGather`): on a notebook whose links
+//: ignore them the ring stays round, because stretching it moved a 300-note
+//: fixture's crossings 20% for no gain in fill.
+//:
+//: The numbers, measured on the showcase notebook (graph692.js, 1440x900):
+//: discs of 46 and gutters of 70 left 97 world units between categories and
+//: the lines between them 316 long on average; 28 and 30 brought those to
+//: 61 and 217 with no two dots touching. The map's box came out about 0.7
+//: of the canvas's shape when the ring was aimed at the canvas's shape
+//: exactly (the clusters are rounder than their ring, and the centre pull
+//: is round), so it is aimed `GROUP_ASPECT_GAIN` past it: 1.4 gave 0.81,
+//: 1.8 gave 0.89.
+const GROUP_DISC = 28;
+const GROUP_GUTTER = 30;
+const GROUP_ASPECT_GAIN = 1.8;
+//: **Grouped, a note's repulsion reaches across its own cluster and no
+//: further** (900 otherwise: see `distanceMax` at the force's build). Two
+//: clusters a gutter apart pushed each other a whole cluster further, which
+//: is what the gutter is for; the places (`groupAnchors`) now set the space
+//: between categories and the charge only the space inside one.
+const GROUPED_CHARGE_REACH = 250;
+
+//: How much room a category's disc takes: its linked notes count whole, its
+//: loose ones half (they sit in a row at the rim, `orbitUpdate`).
+function groupDiscs(unit) {
+  const weight = new Map();
+  for (const node of nodes) weight.set(node.group, (weight.get(node.group) || 0) + (node.degree ? 1 : 0.5));
+  const discs = new Map();
+  for (const [group, w] of weight) discs.set(group, GROUP_DISC * Math.sqrt(w) * unit);
+  return discs;
+}
+
+//: Places `radii` round an ellipse of axis ratio `e` (x over y) starting at
+//: `turn`, each the given distance (`gaps`) from the one before along the
+//: chord, and returns the angles and how far round the last one closes.
+function ellipseWalk(rho, e, gaps) {
+  const at = (theta) => [rho * e * Math.cos(theta), (rho / e) * Math.sin(theta)];
+  const angles = [ring.turn];
+  let theta = ring.turn;
+  for (let i = 0; i < gaps.length - 1; i++) {
+    const [x0, y0] = at(theta);
+    let lo = 0;
+    let hi = Math.PI;
+    for (let k = 0; k < 30; k++) {
+      const mid = (lo + hi) / 2;
+      const [x1, y1] = at(theta + mid);
+      if (Math.hypot(x1 - x0, y1 - y0) < gaps[i]) lo = mid;
+      else hi = mid;
+    }
+    theta += hi;
+    angles.push(theta);
+  }
+  const [xa, ya] = at(theta);
+  const [xb, yb] = at(ring.turn);
+  // How far the closing chord falls short of (positive) or overruns its gap.
+  const closing = theta - ring.turn < 2 * Math.PI ? Math.hypot(xb - xa, yb - ya) - gaps[gaps.length - 1] : -1;
+  return { angles, closing, at };
+}
+
+//: The ring for `gaps` (centre to centre, neighbour to neighbour, each plus
+//: `extra`) on an ellipse of axis ratio `e`: the smallest one that closes.
+function ringFor(gaps, e, extra) {
+  const spaced = gaps.map((g) => g + extra);
+  let lo = 0;
+  let hi = spaced.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < 40; k++) {
+    const rho = (lo + hi) / 2;
+    if (ellipseWalk(rho, e, spaced).closing < 0) lo = rho;
+    else hi = rho;
+  }
+  const walk = ellipseWalk(hi, e, spaced);
+  walk.rho = hi;
+  return walk;
+}
+
+//: Organic's category places: the base layout's ring, unchanged (INBOX
+//: 443 (1)). Evenly spaced angles on a ring `width` out; a landscape map
+//: stretches it along x and squashes it along y by the root of the aspect,
+//: as far as the links back the categories (`groupGather`).
+function groupAnchorsOrganic(width) {
   const groups = groupOrder();
   const anchors = new Map();
   if (groups.length < 2) return anchors;
-  const radius = width;
-  //: **The ring takes the map's shape** (INBOX 443 (1)): on a 1440x700 map a
-  //: round ring left the cluster 45% of the width and a third of the canvas
-  //: filled. A landscape map (aspect, height over width, under 1) stretches the
-  //: ring along x and squashes it along y by the root of the aspect, so the
-  //: category places sit as wide as the room does; a portrait map keeps the
-  //: round ring (its x pull already narrows the cloud, `portraitPull`).
   const aspect = world && Number.isFinite(world.aspect) && world.aspect > 0 ? Math.min(world.aspect, 1) : 1;
-  //: Only as far as the links back the categories (`groupGather`): on a
-  //: notebook whose links ignore them the round ring is kept, because
-  //: stretching it moved a 300-note fixture's crossings 20% for no gain in fill.
   const t = groupGather().t;
-  const stretchX = 1 + (Math.min(GROUP_STRETCH_MAX, 1 / Math.sqrt(aspect)) - 1) * t;
-  const squashY = 1 + (Math.max(1 / GROUP_STRETCH_MAX, Math.sqrt(aspect)) - 1) * t;
+  const stretchX = 1 + (Math.min(ORGANIC_STRETCH_MAX, 1 / Math.sqrt(aspect)) - 1) * t;
+  const squashY = 1 + (Math.max(1 / ORGANIC_STRETCH_MAX, Math.sqrt(aspect)) - 1) * t;
   groups.forEach((group, i) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * i) / groups.length;
-    anchors.set(group, { x: Math.cos(angle) * radius * stretchX, y: Math.sin(angle) * radius * squashY });
+    const angle = ring.turn + (2 * Math.PI * i) / groups.length;
+    anchors.set(group, { x: Math.cos(angle) * width * stretchX, y: Math.sin(angle) * width * squashY, r: 0 });
   });
+  return anchors;
+}
+const ORGANIC_STRETCH_MAX = 1.6;
+
+function groupAnchors(unit) {
+  if (!clustered()) return groupAnchorsOrganic(unit);
+  const view =world && Number.isFinite(world.aspect) && world.aspect > 0 ? 1 / world.aspect : 1;
+  const t = groupGather().t;
+  const key = `${unit}|${ring.seed}|${view}|${t}`;
+  if (ring.cache && ring.cache.key === key) return ring.cache.anchors;
+  const all = groupOrder();
+  const anchors = new Map();
+  ring.cache = { key, anchors };
+  if (all.length < 2) return anchors;
+  const discs = groupDiscs(unit);
+  const middle = bridgeGroup(all);
+  const groups = middle ? all.filter((g) => g !== middle) : all;
+  const radii = groups.map((g) => discs.get(g));
+  const gutter = GROUP_GUTTER * unit;
+  const gaps = radii.map((r, i) => r + radii[(i + 1) % radii.length] + gutter);
+  const meanR = radii.reduce((a, b) => a + b, 0) / radii.length;
+  if (groups.length === 2) {
+    // Two categories: side by side along the canvas's longer side.
+    const across = view >= 1 ? [1, 0] : [0, 1];
+    anchors.set(groups[0], { x: (-across[0] * gaps[0]) / 2, y: (-across[1] * gaps[0]) / 2, r: radii[0] });
+    anchors.set(groups[1], { x: (across[0] * gaps[0]) / 2, y: (across[1] * gaps[0]) / 2, r: radii[1] });
+    return anchors;
+  }
+  //: How far the ring's nearest point must be from the middle when a
+  //: category stands there: its disc, a gutter and the widest ring disc.
+  const clearMiddle = middle ? discs.get(middle) + gutter + Math.max(...radii) : 0;
+  let e = 1;
+  let walk = null;
+  // The ellipse's shape and size, together: the size so the ring closes
+  // with every gutter even (and, round a middle category, as much wider
+  // than even as clears it, shared by every gutter alike), the shape so the
+  // map's box (the ring plus a disc's reach) is the canvas's shape. Three
+  // rounds settle both.
+  for (let round = 0; round < 3; round++) {
+    walk = ringFor(gaps, e, 0);
+    if (middle && walk.rho * Math.min(e, 1 / e) < clearMiddle) {
+      let lo = 0;
+      let hi = clearMiddle * 2 * Math.PI;
+      for (let k = 0; k < 30; k++) {
+        const mid = (lo + hi) / 2;
+        if (ringFor(gaps, e, mid).rho * Math.min(e, 1 / e) < clearMiddle) lo = mid;
+        else hi = mid;
+      }
+      walk = ringFor(gaps, e, hi);
+    }
+    const aimed = view >= 1 ? view * GROUP_ASPECT_GAIN : view / GROUP_ASPECT_GAIN;
+    const target = Math.max(1 / GROUP_STRETCH_MAX, Math.min(GROUP_STRETCH_MAX, aimed));
+    // Box width over height is (rho e + R) / (rho / e + R); solve for e.
+    const want = 1 + (target - 1) * t;
+    const r = meanR / walk.rho;
+    // want (1/e + r) = e + r  ->  e^2 + e r (1 - want) - want = 0
+    const b = r * (1 - want);
+    e = Math.max(1 / GROUP_STRETCH_MAX, Math.min(GROUP_STRETCH_MAX, (-b + Math.sqrt(b * b + 4 * want)) / 2));
+  }
+  groups.forEach((group, i) => {
+    const [x, y] = walk.at(walk.angles[i]);
+    anchors.set(group, { x, y, r: radii[i] });
+  });
+  if (middle) anchors.set(middle, { x: 0, y: 0, r: discs.get(middle) });
   return anchors;
 }
 
@@ -440,7 +720,76 @@ function orbitRadiusAt(angle) {
   return a + (b - a) * f;
 }
 
+//: **Grouped, a loose note sits at its own category's rim** (INBOX 693, the
+//: owner: "orphans gathered into a tidy group per category or at their
+//: cluster's rim"; the rejected screenshot had a category's loose notes as
+//: dots strung down the map's edge). The orbit round the whole map spread a
+//: category's loose notes over its whole slice of the ring, a map-height of
+//: arc for five dots. Now they stand in a close row (one seat apart) on the
+//: outer side of their own cluster, just clear of its farthest note, facing
+//: away from the map's middle; a category with no linked notes at all is a
+//: small round knot (a sunflower) at its own place.
+function orbitUpdateGrouped(lone) {
+  const anchors = groupAnchors(ring.width);
+  const cx = world ? (world.left + world.right) / 2 : 0;
+  const cy = world ? (world.top + world.bottom) / 2 : 0;
+  let widest = 0;
+  for (const node of nodes) widest = Math.max(widest, node.r || 8);
+  const seat = 2 * (widest + COLLIDE_PAD);
+  const byGroup = new Map();
+  for (const node of lone) {
+    if (!byGroup.has(node.group)) byGroup.set(node.group, []);
+    byGroup.get(node.group).push(node);
+  }
+  const linked = new Map();
+  for (const node of nodes) {
+    if (!node.degree) continue;
+    if (!linked.has(node.group)) linked.set(node.group, []);
+    linked.get(node.group).push(node);
+  }
+  for (const [group, list] of byGroup) {
+    const place = anchors.get(group) || { x: 0, y: 0 };
+    list.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const members = linked.get(group) || [];
+    if (!members.length) {
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      list.forEach((node, i) => {
+        const r = seat * 0.62 * Math.sqrt(i + (list.length > 1 ? 0.5 : 0));
+        orbit.items.push({ node, x: cx + place.x + Math.cos(i * golden) * r, y: cy + place.y + Math.sin(i * golden) * r });
+      });
+      continue;
+    }
+    let mx = 0;
+    let my = 0;
+    for (const node of members) {
+      mx += node.x;
+      my += node.y;
+    }
+    mx /= members.length;
+    my /= members.length;
+    let reach = 0;
+    for (const node of members) reach = Math.max(reach, Math.hypot(node.x - mx, node.y - my) + (node.r || 8));
+    const facing = Math.atan2(my - cy, mx - cx);
+    const radius = reach + seat * 0.75;
+    const perRow = Math.max(1, Math.floor((Math.PI * radius) / seat));
+    list.forEach((node, i) => {
+      const row = Math.floor(i / perRow);
+      const inRow = Math.min(perRow, list.length - row * perRow);
+      const r = radius + row * seat;
+      const step = seat / r;
+      const angle = facing + ((i % perRow) - (inRow - 1) / 2) * step;
+      orbit.items.push({ node, x: mx + Math.cos(angle) * r, y: my + Math.sin(angle) * r });
+    });
+  }
+}
+
 function orbitUpdate() {
+  if (clustered() && groupOrder().length > 1) {
+    orbit.items = [];
+    const lone = nodes.filter((node) => node.degree === 0);
+    if (lone.length) orbitUpdateGrouped(lone);
+    return;
+  }
   const lone = [];
   const linked = [];
   let widest = 0;
@@ -481,7 +830,10 @@ function orbitUpdate() {
     list.forEach((node, i) => {
       const ring = Math.floor(i / perRing);
       const inRing = Math.min(perRing, list.length - ring * perRing);
-      const step = Math.min(0.5, (slice * 0.92) / inRing);
+      // A close row, one seat and a fifth apart, not the whole slice (INBOX
+      // 693, "orphans placed tidily rather than floating"): five loose notes
+      // were strung down a map-height of arc.
+      const step = Math.min(0.5, (slice * 0.92) / inRing, minStep * 1.2);
       const angle = centre + ((i % perRing) - (inRing - 1) / 2) * step;
       const radius = orbitRadiusAt(angle) + clear + ring * seat;
       orbit.items.push({ node, x: orbit.cx + Math.cos(angle) * radius, y: orbit.cy + Math.sin(angle) * radius });
@@ -500,26 +852,338 @@ function orbitForce(alpha) {
 }
 orbitForce.initialize = () => {};
 
+const HUB_PULL = 4;
+const HOME_PULL = 1.5;
+
+//: **A line never runs through a note it does not join** (INBOX 693, the
+//: owner's screenshot of a link passing behind other notes' dots: "bit of
+//: overlap"). Measured on the 692 fixture (`tests/test_graph_layout_692.py`):
+//: 7 (line, dot) pairs where a drawn line crossed a dot it has nothing to do
+//: with, and 8 on the showcase notebook in the browser
+//: (`scratchpad/ui-sweeps/graph692.js`). Nothing in the forces knew a line
+//: was there: the charge and the collision act between dots only.
+//:
+//: So every line pushes away the dots it passes too close to, and the dot
+//: pushes back on the line's two ends (shared by where along the line it
+//: sits): the dot steps aside and the line bends round it, which is what
+//: "routed round" can mean for a line drawn from end to end. The line is the
+//: one the canvas draws: the curve `gcBowPoint` bows (the same side by id,
+//: the same seventh of the length, 48 at most) when Curved links is on, the
+//: straight line when it is off, cut into four chords. Not scaled by alpha,
+//: like the collision: a rule about what may touch has to hold at rest,
+//: which is when anyone reads the map closely.
+const CLEAR_GAP = 4;
+const CLEAR_STRENGTH = 0.6;
+const CLEAR_CELL = 40;
+const clearPts = new Float64Array(10);
+const clear = { curved: true, stamp: 0 };
+
+function clearCurve(a, b) {
+  // Drawn straight in every shape but Organic, whose long curves are its
+  // look (the canvas's `gcBowPoint`, `_straight`), and when Curved links is off.
+  if (!clear.curved || ring.shape !== "organic") {
+    clearPts[0] = a.x;
+    clearPts[1] = a.y;
+    clearPts[2] = b.x;
+    clearPts[3] = b.y;
+    return 2;
+  }
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const bow = Math.min(len * 0.14, 48) * (String(a.id) < String(b.id) ? 1 : -1);
+  const cx = (a.x + b.x) / 2 - (dy / len) * bow;
+  const cy = (a.y + b.y) / 2 + (dx / len) * bow;
+  for (let i = 0; i <= 4; i++) {
+    const u = i / 4;
+    clearPts[i * 2] = (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * cx + u * u * b.x;
+    clearPts[i * 2 + 1] = (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * cy + u * u * b.y;
+  }
+  return 5;
+}
+
+//: The nearest point of the drawn line to `node`: [squared distance, x, y,
+//: how far along the line (0 at `a`, 1 at `b`)].
+const clearNear = [0, 0, 0, 0];
+function clearNearest(node, count) {
+  clearNear[0] = Infinity;
+  for (let i = 1; i < count; i++) {
+    const ax = clearPts[i * 2 - 2];
+    const ay = clearPts[i * 2 - 1];
+    const dx = clearPts[i * 2] - ax;
+    const dy = clearPts[i * 2 + 1] - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    const u = Math.max(0, Math.min(1, ((node.x - ax) * dx + (node.y - ay) * dy) / l2));
+    const qx = ax + u * dx;
+    const qy = ay + u * dy;
+    const d = (node.x - qx) ** 2 + (node.y - qy) ** 2;
+    if (d < clearNear[0]) {
+      clearNear[0] = d;
+      clearNear[1] = qx;
+      clearNear[2] = qy;
+      clearNear[3] = (i - 1 + u) / (count - 1);
+    }
+  }
+}
+
+function clearPush(node, a, b) {
+  const need = (node.r || 8) + CLEAR_GAP;
+  if (clearNear[0] >= need * need) return;
+  const dist = Math.sqrt(clearNear[0]);
+  let nx;
+  let ny;
+  if (dist > 1e-6) {
+    nx = (node.x - clearNear[1]) / dist;
+    ny = (node.y - clearNear[2]) / dist;
+  } else {
+    // Dead on the line: step off it square to the line's direction.
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    nx = -(b.y - a.y) / len;
+    ny = (b.x - a.x) / len;
+  }
+  const push = (need - dist) * CLEAR_STRENGTH;
+  // A held note does not move; whoever is free takes the whole step.
+  const along = clearNear[3];
+  const nodeFree = node.fx == null ? 1 : 0;
+  const aFree = a.fx == null ? 1 - along : 0;
+  const bFree = b.fx == null ? along : 0;
+  const share = nodeFree + (aFree + bFree) / 2;
+  if (!share) return;
+  node.vx += (nx * push * nodeFree) / share;
+  node.vy += (ny * push * nodeFree) / share;
+  a.vx -= (nx * push * aFree) / (2 * share);
+  a.vy -= (ny * push * aFree) / (2 * share);
+  b.vx -= (nx * push * bFree) / (2 * share);
+  b.vy -= (ny * push * bFree) / (2 * share);
+}
+
+function clearanceForce() {
+  const links = simulation && simulation.force("link") ? simulation.force("link").links() : [];
+  if (!links.length) return;
+  let widest = 0;
+  for (const node of nodes) widest = Math.max(widest, node.r || 8);
+  const reach = widest + CLEAR_GAP;
+  const grid = new Map();
+  for (const node of nodes) {
+    const key = Math.floor(node.x / CLEAR_CELL) * 100003 + Math.floor(node.y / CLEAR_CELL);
+    const list = grid.get(key);
+    if (list) list.push(node);
+    else grid.set(key, [node]);
+  }
+  for (const link of links) {
+    const a = link.source;
+    const b = link.target;
+    const count = clearCurve(a, b);
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < count; i++) {
+      minX = Math.min(minX, clearPts[i * 2]);
+      maxX = Math.max(maxX, clearPts[i * 2]);
+      minY = Math.min(minY, clearPts[i * 2 + 1]);
+      maxY = Math.max(maxY, clearPts[i * 2 + 1]);
+    }
+    clear.stamp += 1;
+    const x1 = Math.floor((maxX + reach) / CLEAR_CELL);
+    const y1 = Math.floor((maxY + reach) / CLEAR_CELL);
+    for (let gx = Math.floor((minX - reach) / CLEAR_CELL); gx <= x1; gx++) {
+      for (let gy = Math.floor((minY - reach) / CLEAR_CELL); gy <= y1; gy++) {
+        const list = grid.get(gx * 100003 + gy);
+        if (!list) continue;
+        for (const node of list) {
+          if (node === a || node === b || node._clear === clear.stamp) continue;
+          node._clear = clear.stamp;
+          clearNearest(node, count);
+          clearPush(node, a, b);
+        }
+      }
+    }
+  }
+}
+clearanceForce.initialize = () => {};
+
+//: **A hub stands in the middle of its own notes** (INBOX 693, "hubs
+//: central"). The pull toward the category's place alone could not do it:
+//: measured on the 692 fixture, a star's hub sat 1.29x its cluster's mean
+//: radius from the cluster's middle, because its lines to the notes that
+//: bridge categories drew it inward while its leaves were held out at the
+//: category's place, so the cluster read as a fringe hanging off its hub.
+//: Each note that is a hub in its category (`node.hub`, at least
+//: `HUB_MIN`, with three or more links inside it) now leans toward the middle
+//: of its same-category neighbours, as hard as the square of how much of a
+//: hub it is: the leaves are where the category's place puts them and the
+//: hub stands among them.
+const HUB_CENTRE = 0.5;
+const HUB_MIN = 0.5;
+function hubForce(alpha) {
+  if (!clustered()) return;
+  for (const node of nodes) {
+    if (!node.peers || node.hub < HUB_MIN || node.fx != null) continue;
+    let x = 0;
+    let y = 0;
+    for (const peer of node.peers) {
+      x += peer.x;
+      y += peer.y;
+    }
+    const k = HUB_CENTRE * node.hub * node.hub * alpha;
+    node.vx += (x / node.peers.length - node.x) * k;
+    node.vy += (y / node.peers.length - node.y) * k;
+  }
+}
+hubForce.initialize = () => {};
+
+//: **A bridge stands on its cluster's rim, facing what it joins** (INBOX
+//: 693, the owner: cross-cluster lines "short"). Pulled to the middle of its
+//: category's place, a note whose lines go to other categories drew every
+//: one of them across its own cluster first. Its place is now offset toward
+//: the places of the categories it links to, by as much of its cluster's
+//: radius as its lines leave home (`node.away`): a leaf of its own category
+//: stays in the middle, a pure bridge stands at the edge nearest its
+//: partners. `axis` 0 is x, 1 is y.
+const RIM_REACH = 0.85;
+function rimOffset(node, anchors, axis) {
+  if (!clustered() || !node.outs || !node.away) return 0;
+  const home = anchors.get(node.group);
+  let dx = 0;
+  let dy = 0;
+  for (const group of node.outs) {
+    const place = anchors.get(group);
+    if (!place) continue;
+    dx += place.x - home.x;
+    dy += place.y - home.y;
+  }
+  const len = Math.hypot(dx, dy);
+  if (!len) return 0;
+  return ((axis ? dy : dx) / len) * home.r * RIM_REACH * node.away;
+}
+
+//: **Galaxy** (INBOX 693, see `SHAPES`) draws each note toward the middle
+//: as hard as the square of how connected it is, so the hubs make the core
+//: and the leaves the arms. Loose notes keep the orbit round the outside
+//: (`orbitForce`).
+const GALAXY_PULL = 0.2;
+
+function shapeForce(alpha) {
+  if (ring.shape !== "galaxy") return;
+  const cx = world ? (world.left + world.right) / 2 : 0;
+  const cy = world ? (world.top + world.bottom) / 2 : 0;
+  let most = 1;
+  for (const node of nodes) most = Math.max(most, node.degree);
+  for (const node of nodes) {
+    if (!node.degree) continue;
+    const k = GALAXY_PULL * (node.degree / most) ** 2 * alpha;
+    node.vx += (cx - node.x) * k;
+    node.vy += (cy - node.y) * k;
+  }
+}
+shapeForce.initialize = () => {};
+
+//: **A hub's leaves fan out round it, none crowding the next** (INBOX 693,
+//: the owner, of a dense cluster: "stuff like this can get potentially hard
+//: to read", leaves packed so tight their lines tangled). Every note with
+//: three or more leaves (notes linked to it alone) takes them in the order
+//: of their angles round it, and any two neighbours closer than a seat
+//: (two collision radii) at the leaves' distance are eased apart along the
+//: circle. Spokes from one point in angle order cannot cross each other, so
+//: this keeps them apart without moving the fan: setting the leaves evenly
+//: all the way round was tried first and turned a category's fan toward its
+//: neighbours (purity on the 60-note fixture 0.80 to 0.71, test_graph_look).
+const LEAF_PULL = 0.5;
+function leafForce(alpha) {
+  for (const hub of nodes) {
+    const leaves = hub.leaves;
+    if (!leaves || leaves.length < 3) continue;
+    const at = leaves.map((leaf) => [Math.atan2(leaf.y - hub.y, leaf.x - hub.x), leaf]);
+    at.sort((a, b) => a[0] - b[0]);
+    let reach = 0;
+    let widest = 0;
+    for (const [, leaf] of at) {
+      reach += Math.hypot(leaf.x - hub.x, leaf.y - hub.y);
+      widest = Math.max(widest, leaf.r || 8);
+    }
+    reach = Math.max(1, reach / at.length);
+    const want = (2 * Math.max(widest + COLLIDE_PAD, 2 * widest)) / reach;
+    if (want * at.length >= 2 * Math.PI) continue;
+    for (let i = 0; i < at.length; i++) {
+      const [a0, a] = at[i];
+      const [b0, b] = at[(i + 1) % at.length];
+      const gap = (((b0 - a0) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      if (gap >= want) continue;
+      // Ease the pair apart along the circle, half each.
+      const push = ((want - gap) / 2) * reach * LEAF_PULL * alpha;
+      if (a.fx == null) {
+        a.vx += Math.sin(a0) * push;
+        a.vy -= Math.cos(a0) * push;
+      }
+      if (b.fx == null) {
+        b.vx -= Math.sin(b0) * push;
+        b.vy += Math.cos(b0) * push;
+      }
+    }
+  }
+}
+leafForce.initialize = () => {};
+
+//: Whether categories have places: always for Clusters, never for Galaxy
+//: (one clump is its point), and Organic as Group by category
+//: says.
+function groupingOn(params) {
+  if (ring.shape === "clusters") return true;
+  if (ring.shape !== "organic") return false;
+  return !params || params.groupBy !== false;
+}
+
 function applyGrouping(params) {
   if (!simulation || !simulation.force("groupX")) return;
   orbit.on = Boolean(params && params.orbit === true);
   orbit.groupBy = !params || params.groupBy !== false;
   orbit.tick = 0;
-  const on = !params || params.groupBy !== false;
+  clear.curved = !params || params.curved !== false;
+  const on = groupingOn(params);
   const cx = world ? (world.left + world.right) / 2 : 0;
   const cy = world ? (world.top + world.bottom) / 2 : 0;
   const spread = 0.5 + Number(params && params.spread != null ? params.spread : 50) / 50;
   const gather = groupGather();
-  const anchors = on ? groupAnchors(Math.sqrt(nodes.length) * gather.radius * spread) : new Map();
+  // Clusters measures its places in link lengths (`groupAnchors`); Organic
+  // keeps the base ring, a radius grown with the root of the note count.
+  ring.width = clustered()
+    ? SPREAD_TRIM * densityScale(nodes.length) * spread
+    : Math.sqrt(nodes.length) * gather.radius * spread;
+  ring.on = on;
+  ring.params = params;
+  const anchors = on ? groupAnchors(ring.width) : new Map();
   const at = (node) => anchors.get(node.group);
-  const pull = (node) => (at(node) ? (node.degree === 0 ? (orbit.on ? 0.02 : 0.12) : gather.pull) : 0);
+  //: **A category's hub stands at its place** (INBOX 693, "hubs central"):
+  //: measured on the 692 fixture, the best-connected note of each category
+  //: sat 1.57x its cluster's mean radius from the cluster's middle, dragged
+  //: to the edge by its lines to the notes that bridge categories, so a
+  //: cluster read as a fringe round nothing. Its pull toward the place rises
+  //: with the square of how connected it is within its category (`node.hub`,
+  //: 0 to 1), so the leaves are untouched and the hub is the middle the rest
+  //: arrange round.
+  //: **A note whose lines all leave its category still lives in it** (INBOX
+  //: 693, the owner: "small ideas/reading nodes float between clusters with
+  //: no clear home"). Its pull home rises with the share of its lines that
+  //: go to other categories (`node.away`, 0 to 1), so a bridge stands at the
+  //: edge of its own cluster facing the ones it joins, not in the gap.
+  const pull = (node) =>
+    at(node)
+      ? node.degree === 0
+        ? orbit.on
+          ? 0.02
+          : 0.12
+        : clustered()
+          ? gather.pull * (1 + HUB_PULL * node.hub * node.hub) * (1 + HOME_PULL * node.away)
+          : gather.pull
+      : 0;
   simulation
     .force("groupX")
-    .x((node) => cx + (at(node) ? at(node).x : 0))
+    .x((node) => cx + (at(node) ? at(node).x + rimOffset(node, anchors, 0) : 0))
     .strength(pull);
   simulation
     .force("groupY")
-    .y((node) => cy + (at(node) ? at(node).y : 0))
+    .y((node) => cy + (at(node) ? at(node).y + rimOffset(node, anchors, 1) : 0))
     .strength(pull);
 }
 
@@ -540,6 +1204,61 @@ function applyForces(params) {
 //: was off the edge of the box with no way to know it was there. The world is
 //: a square sized by the note count (see the main thread's `gcWorldFor`), not
 //: the viewport, so the forces and not the walls decide the arrangement.
+//: **Reshuffle** (INBOX 692): the categories are dealt round the ring in a
+//: new order from a new angle (`setRingSeed`), every note that is not held
+//: is given a new starting place near its category's new place (a hub near
+//: the middle, a leaf further out, at a seeded random angle), and the layout
+//: starts again from there at full heat. The move to the new places is
+//: drawn, not jumped: `SHUFFLE_STEPS` frames, each closing a quarter of
+//: what is left (an ease-out), before the simulation takes over, so the
+//: eye can follow each note to where it went. A pinned note stays put: a
+//: pin is the person's own decision about where it goes.
+const SHUFFLE_STEPS = 18;
+const SHUFFLE_EASE = 0.25;
+const shuffle = { left: 0 };
+
+function reshuffle(seed, animate) {
+  setRingSeed(seed || 1);
+  applyForces(ring.params);
+  const rand = seededRandom((Number(seed) >>> 0) ^ 0x85ebca6b);
+  const cx = world ? (world.left + world.right) / 2 : 0;
+  const cy = world ? (world.top + world.bottom) / 2 : 0;
+  const anchors = ring.on ? groupAnchors(ring.width) : new Map();
+  const sizes = new Map();
+  for (const node of nodes) sizes.set(node.group, (sizes.get(node.group) || 0) + 1);
+  for (const node of nodes) {
+    if (node.fx != null) continue;
+    const at = anchors.get(node.group);
+    const size = at ? sizes.get(node.group) : nodes.length;
+    const reach = (at ? at.r * 0.8 : 18 * Math.sqrt(size)) * (1 - 0.7 * (node.hub || 0));
+    const angle = rand() * 2 * Math.PI;
+    const r = reach * Math.sqrt(rand());
+    node.tx = cx + (at ? at.x : 0) + Math.cos(angle) * r;
+    node.ty = cy + (at ? at.y : 0) + Math.sin(angle) * r;
+  }
+  orbit.reach = null;
+  orbit.tick = 0;
+  shuffle.left = animate ? SHUFFLE_STEPS : 1;
+  simulation.alphaTarget(0).alpha(1);
+}
+
+//: One frame of the drawn move; the last one lands every note exactly.
+function shuffleStep() {
+  shuffle.left -= 1;
+  const last = shuffle.left === 0;
+  for (const node of nodes) {
+    if (node.tx === undefined) continue;
+    node.x = last ? node.tx : node.x + (node.tx - node.x) * SHUFFLE_EASE;
+    node.y = last ? node.ty : node.y + (node.ty - node.y) * SHUFFLE_EASE;
+    node.vx = 0;
+    node.vy = 0;
+    if (last) {
+      node.tx = undefined;
+      node.ty = undefined;
+    }
+  }
+}
+
 function clampToWorld() {
   if (!world) return;
   for (const node of nodes) {
@@ -592,6 +1311,13 @@ function stopLoop() {
 function loop() {
   timer = null;
   if (!simulation) return;
+  if (shuffle.left > 0) {
+    shuffleStep();
+    clampToWorld();
+    post(false);
+    timer = setTimeout(loop, 16 * (perf ? 2 : 1));
+    return;
+  }
   const started = Date.now();
   simulation.tick();
   ticks += 1;
@@ -683,10 +1409,64 @@ self.onmessage = (event) => {
         .filter((e) => indexById.has(e.source) && indexById.has(e.target))
         .map((e) => ({ source: e.source, target: e.target, kind: e.kind, score: e.score, curated: e.curated === true }));
       for (const edge of edges) {
-        nodes[indexById.get(edge.source)].degree += 1;
-        nodes[indexById.get(edge.target)].degree += 1;
+        const a = nodes[indexById.get(edge.source)];
+        const b = nodes[indexById.get(edge.target)];
+        a.degree += 1;
+        b.degree += 1;
       }
       cohesion = groupCohesion(edges);
+      // Each note's leaves: the notes linked to it and to nothing else (`leafForce`).
+      for (const edge of edges) {
+        const a = nodes[indexById.get(edge.source)];
+        const b = nodes[indexById.get(edge.target)];
+        if (a === b) continue;
+        if (b.degree === 1 && a.degree > 1) (a.leaves || (a.leaves = [])).push(b);
+        if (a.degree === 1 && b.degree > 1) (b.leaves || (b.leaves = [])).push(a);
+      }
+      // How many lines join each pair of categories (`groupOrder`).
+      ring.affinity = new Map();
+      ring.cache = null;
+      ring.inner = new Map();
+      for (const edge of edges) {
+        const a = nodes[indexById.get(edge.source)].group;
+        const b = nodes[indexById.get(edge.target)].group;
+        if (a === b) {
+          ring.inner.set(a, (ring.inner.get(a) || 0) + 1);
+          continue;
+        }
+        const key = a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+        ring.affinity.set(key, (ring.affinity.get(key) || 0) + 1);
+      }
+      //: How much of a hub each note is within its own category (0 to 1):
+      //: its links to notes of the same category over the most any note of
+      //: that category has. See `HUB_PULL`.
+      const within = new Map();
+      for (const edge of edges) {
+        const a = nodes[indexById.get(edge.source)];
+        const b = nodes[indexById.get(edge.target)];
+        if (a === b) continue;
+        if (a.group !== b.group) {
+          // The categories it reaches out to (`rimOffset`).
+          (a.outs || (a.outs = [])).push(b.group);
+          (b.outs || (b.outs = [])).push(a.group);
+          continue;
+        }
+        a.inner = (a.inner || 0) + 1;
+        b.inner = (b.inner || 0) + 1;
+        (a.peers || (a.peers = [])).push(b);
+        (b.peers || (b.peers = [])).push(a);
+        within.set(a.group, Math.max(within.get(a.group) || 0, a.inner, b.inner));
+      }
+      for (const node of nodes) {
+        node.hub = within.get(node.group) ? (node.inner || 0) / within.get(node.group) : 0;
+        node.away = node.degree ? 1 - (node.inner || 0) / node.degree : 0;
+        if (node.peers && node.peers.length < 3) node.peers = null;
+      }
+      setRingSeed(message.seed);
+      // Before the link force is built: its strengths read it (`crossStrength`).
+      ring.shape = SHAPES.has(message.params && message.params.shape) ? message.params.shape : "organic";
+      ring.on = groupingOn(message.params);
+      shuffle.left = 0;
       const tuned = tuning(message.params);
       simulation = d3
         .forceSimulation(nodes)
@@ -716,7 +1496,7 @@ self.onmessage = (event) => {
             // other side). Beyond this radius the force is simply zero, so a
             // cluster is shaped by its own members. 900 is roughly a screen at
             // the fitted zoom and about ten times the link distance.
-            .distanceMax(900)
+            .distanceMax(clustered() ? GROUPED_CHARGE_REACH : 900)
             // d3's default is 0.9. A slightly coarser Barnes-Hut approximation
             // costs accuracy nobody can see at this node size and buys a real
             // fraction of the per-tick cost on thousands of nodes.
@@ -742,9 +1522,15 @@ self.onmessage = (event) => {
         .force("groupX", d3.forceX(0).strength(0))
         .force("groupY", d3.forceY(0).strength(0))
         .force("orbit", orbitForce)
+        .force("clear", clearanceForce)
+        .force("hub", hubForce)
+        .force("shape", shapeForce)
+        .force("leaf", leafForce)
         .force(
           "collide",
-          d3.forceCollide().radius((d) => (d.r || 8) + COLLIDE_PAD)
+          // At least a radius of air each side (INBOX 693, "minimum node gap of
+          // about 2 node radii"): a big hub was only its pad from its neighbour.
+          d3.forceCollide().radius((d) => Math.max((d.r || 8) + COLLIDE_PAD, 2 * (d.r || 8)))
         )
         // d3 starts its own timer on construction; every tick here is driven
         // by `loop` instead, so that one is turned off immediately.
@@ -833,6 +1619,11 @@ self.onmessage = (event) => {
     case "reheat":
       if (!simulation) break;
       simulation.alpha(Math.max(simulation.alpha(), message.alpha || 0.3));
+      run();
+      break;
+    case "reshuffle":
+      if (!simulation) break;
+      reshuffle(message.seed, message.animate !== false);
       run();
       break;
     case "stop":

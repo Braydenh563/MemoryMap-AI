@@ -2721,6 +2721,9 @@ class LinkPatchBody(BaseModel):
     #: Only the fields sent change.
     link_type: str | None = Field(default=None, max_length=24)
     props: dict | None = None
+    #: INBOX 693: true for a link that runs both ways, false for one way,
+    #: null to let its type decide (`manager.link_runs_both_ways`).
+    two_way: bool | None = None
 
     @field_validator("props")
     @classmethod
@@ -3630,7 +3633,8 @@ def delete_link(
 def patch_link(
     entry_id: int, link_id: int, body: LinkPatchBody, session: Session = Depends(get_session)
 ) -> EntryOut:
-    """Change a link's type (GRAPH_PLAN KG9) or its properties (KG3)."""
+    """Change a link's type (GRAPH_PLAN KG9), its properties (KG3) or its
+    direction (INBOX 693)."""
     entry = _existing_entry(session, entry_id)
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
@@ -3642,6 +3646,8 @@ def patch_link(
         manager.set_link_type(session, link, body.link_type)
     if "props" in sent:
         manager.set_link_props(session, link, body.props)
+    if "two_way" in sent:
+        manager.set_link_two_way(session, link, body.two_way)
     return _to_out(session, entry)
 
 

@@ -45,29 +45,6 @@ with its owner named in the entry.
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
 
-692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
-     stretched force layout: "can you add a resuffle button or feature to
-     the graph to rearrange how the graph sits on the main force view??"
-     The graph has Unpin all and no re-layout. Placed: with 693, the next
-     free agent slot.
-
-693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
-     where a link passes behind other notes' dots: "bit of overlap". Links
-     drawn through nodes they do not connect, and nodes close enough to
-     touch. Placed: with 692. And, the same hour, with a screenshot of the
-     force view: "is there a way to get the graph to sit in ways that are
-     more visually appealing and understandable and profesional and
-     stylisitc and modern and intentional and impressive and meaningful??"
-     692 and 693 are one Opus design pass on the force layout: clusters by
-     category with clear space between them, hubs central, labels never
-     over dots or lines, links routed round nodes they do not join, a
-     Reshuffle (new seed, animated) and a fit to view.
-     Addendum, the owner, 2026-10-06, verbatim: "make sure that while the graph is impressive, it is alse very easy to understand and read, with minimised overlap and wierd spacing, everything has to have meaning and be intentional, not just for the looks. combine looks with systematic function"
-     Addendum, the owner, 2026-10-06, verbatim, with two graph screenshots (a wide flat layout with long hub arcs and stacked labels, rejected; the earlier clustered layout with wandering cross-cluster links): "see i dont want this. and it still looks messy. it needs to be clean, modern and profesisonal and stylistic"
-     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
-     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
-     Addendum, the owner, 2026-10-06, verbatim, with a dense dark-theme Travel cluster: "stuff like this can get potentially hard to read..."; then, with their own notebook on the current organic layout: "like this is what i have rn and maybe it or a slightly refined version can be an option??"
-
 694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
      dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
      each with the chosen segment's bottom edge cut off; the chat dock in a

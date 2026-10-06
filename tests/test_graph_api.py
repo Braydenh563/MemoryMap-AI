@@ -40,6 +40,8 @@ def test_graph_nodes_and_manual_link_edges(client):
             # existed before link types and still means what it always
             # meant: "these are related". See core.database.LINK_TYPES.
             "link_type": None,
+            # INBOX 693: an untyped link with no choice of its own runs one way.
+            "two_way": False,
         }
     ]
 
@@ -209,6 +211,7 @@ def test_graph_link_edge_carries_its_reason(client):
             # existed before link types and still means what it always
             # meant: "these are related". See core.database.LINK_TYPES.
             "link_type": None,
+            "two_way": False,
         }
     ]
 

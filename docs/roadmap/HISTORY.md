@@ -45832,6 +45832,48 @@ and refuses a topic ("Select a shape, link or text box first").
      other misuse (the same glyph meaning two things, two glyphs for one).
      Placed: a Sonnet agent with 699, 701, 702.
 
+692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
+     stretched force layout: "can you add a resuffle button or feature to
+     the graph to rearrange how the graph sits on the main force view??"
+     The graph has Unpin all and no re-layout. Placed: with 693, the next
+     free agent slot.
+693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
+     where a link passes behind other notes' dots: "bit of overlap". Links
+     drawn through nodes they do not connect, and nodes close enough to
+     touch. Placed: with 692. And, the same hour, with a screenshot of the
+     force view: "is there a way to get the graph to sit in ways that are
+     more visually appealing and understandable and profesional and
+     stylisitc and modern and intentional and impressive and meaningful??"
+     692 and 693 are one Opus design pass on the force layout: clusters by
+     category with clear space between them, hubs central, labels never
+     over dots or lines, links routed round nodes they do not join, a
+     Reshuffle (new seed, animated) and a fit to view.
+     **Built** (graph692, `7fcfb21`), with the owner's second pass (compact
+     round clusters, even gutters, cross lines short, straight and muted,
+     orphans tidy, hubs-only names, the canvas's shape). Measured on the
+     showcase notebook at 1440x900 (`scratchpad/ui-sweeps/graph692.js`,
+     light and dark identical), before / after: link through an unrelated
+     dot 8 / 0; name on a dot 3 / 0; name on a line 5 / 2 (hub names on
+     their plates); dot overlap 0 / 0, label overlap 0 / 0; spacing CV
+     0.48 / 0.37; category purity 0.82 / 0.94; hub distance from its
+     cluster's middle 1.03 / 0.69 of the mean radius; box aspect over the
+     canvas's 0.67 / 0.84; fit zoom 0.75 / 0.93; names drawn 23 / 10. Mean
+     cross-category line 128 / 196 world units (crossMax 210 / 616): the
+     clusters now stand apart and a bridge goes home, so this one rose; the
+     lines are straight, thin and muted instead. A layout lane or box kept
+     clear for a hub's name was tried twice and rejected (it streaked the
+     clusters). Reshuffle: 70 of 75 notes move, fit 1.0, aspect 1.06.
+     Not verified: maps past 600 notes, portrait, and the owner's eye.
+     Addendum, the owner, 2026-10-06, verbatim: "make sure that while the graph is impressive, it is alse very easy to understand and read, with minimised overlap and wierd spacing, everything has to have meaning and be intentional, not just for the looks. combine looks with systematic function"
+     Addendum, the owner, 2026-10-06, verbatim, with two graph screenshots (a wide flat layout with long hub arcs and stacked labels, rejected; the earlier clustered layout with wandering cross-cluster links): "see i dont want this. and it still looks messy. it needs to be clean, modern and profesisonal and stylistic"
+     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
+     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
+     Addendum, the owner, 2026-10-06, verbatim, with a dense dark-theme Travel cluster: "stuff like this can get potentially hard to read..."; then, with their own notebook on the current organic layout: "like this is what i have rn and maybe it or a slightly refined version can be an option??"
+     The addenda above were built in the same pass: Shape (Organic, the
+     base layout refined and the default; Clusters; Galaxy; Rings built and
+     left out), two-way links, line styles on three channels with a key,
+     leaves fanned round their hub, a radius of room round every note and
+     names kept inside the canvas.
 696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
      package bundles and the buttons disabled and it just stayed as the 2/3
      packages I had installed until it just suddenly updated, there was no

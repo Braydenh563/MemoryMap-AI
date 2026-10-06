@@ -315,6 +315,14 @@ state now. The line-by-line ledger of what is left is
 
 ### State of the branch (`claude/notes-flow-rebuild`, PR #162)
 
+**Now (2026-10-06, PR 167, 0.4.1):** 0.4.1 is ready to merge from
+`claude/mini-release-0.4.1` (forgot-password flow plus INBOX 663 to 726). Next
+session, in order: INBOX 727 to 736 (Ask search indicator, missing similarity
+numbers, composer answer polish, filing without a model, Guide failure with a
+model, reminders magic add, p5 documents and code completion, output panel
+resize); then CHAT_PLAN Phase 5 and the composer decisions 17 to 29, measured on
+the 725 eval. The owner tags `v0.4.0` on main and then `v0.4.1` after merge.
+
 **Now (2026-10-06, PR 162):** release 0.4.0 is ready to merge: version
 bumped (`__version__`, pyproject, README, every `?v=` stamp), CHANGELOG
 `[0.4.0] - 2026-10-06` with a Highlights block (release.yml cuts the notes

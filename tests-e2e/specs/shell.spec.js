@@ -100,3 +100,18 @@ test("a setting changed in Settings is still set after a reload", async ({ page 
   await openApp(page, "/#/settings/preferences");
   await expect(page.locator("#pref-display-name")).toHaveValue(name);
 });
+
+test("Ctrl+K types ahead while the palette's own script is still loading", async ({ page }) => {
+  // The palette is fetched on its first open; a slow fetch (a cold CI runner)
+  // used to lose the words typed at once and the Enter after them.
+  await page.route(/app-palette\.js/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await openApp(page);
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("Open the bin");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#tab-library")).toBeVisible();
+  await expect(page.locator("#palette-overlay")).toBeHidden();
+});

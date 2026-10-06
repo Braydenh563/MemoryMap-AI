@@ -1228,41 +1228,6 @@ function runShortcut(id) {
   actions[id]?.();
 }
 
-//: The clipboard's text as a new note, filed by Atlas like any capture
-//: (`createNoteSafely`, the quick note's path, so a note pasted while the
-//: server is gone waits in the outbox rather than being lost). Undo bins it.
-async function pasteClipboardAsNote() {
-  let text = "";
-  try {
-    text = ((await navigator.clipboard.readText()) || "").trim();
-  } catch {
-    toast("Couldn't read the clipboard here. Paste into Capture instead.", "info");
-    return;
-  }
-  if (!text) return toast("There is no text on the clipboard to save.", "info");
-  const result = await createNoteSafely({ content: text }).catch((error) => {
-    toast(error.message, true);
-    return null;
-  });
-  if (!result) return;
-  if (result.queued) return toast("Saved here; it is sent when the app's server is back.");
-  const id = result.saved.id;
-  refreshEntries([id]);
-  const bin = async () => {
-    await apiJson(`/entries/${id}`, { method: "DELETE" });
-    refreshEntries([id]);
-  };
-  const back = async () => {
-    await apiJson(`/entries/${id}/restore`, { method: "POST" });
-    refreshEntries([id]);
-  };
-  const action = pushUndo("Pasted a note", bin, back);
-  toastAction("Saved what you copied as a new note.", "Undo", async () => {
-    settleUndoFromToast(action);
-    await bin();
-  });
-}
-
 function resetShortcuts() {
   localStorage.removeItem(SHORTCUT_STORE);
   shortcuts = loadShortcuts();
@@ -2167,3 +2132,29 @@ function singleKeysOn() {
 }
 
 $("pref-single-keys").checked = singleKeysOn();
+
+//: Ctrl+K types ahead while the lazy palette loads (CI, 2026-10-06): the
+//: overlay opens at once; app-palette.js keeps the words and runs an Enter.
+{
+  const load = window.openPalette;
+  window.openPalette = (...args) => {
+    const input = $("palette-input");
+    if (!window.paletteEarly) {
+      const early = (window.paletteEarly = { returnFocus: document.activeElement });
+      early.onKey = (e) => e.key === "Enter" && (e.preventDefault(), (early.enter = true));
+      input.value = "";
+      input.addEventListener("keydown", early.onKey);
+      $("palette-overlay").classList.remove("hidden");
+      input.focus();
+    }
+    // Still set after the load: the file never came, so close it here.
+    return load(...args).finally(() => {
+      const early = window.paletteEarly;
+      if (!early) return;
+      window.paletteEarly = null;
+      input.removeEventListener("keydown", early.onKey);
+      $("palette-overlay").classList.add("hidden");
+      early.returnFocus?.focus?.();
+    });
+  };
+}

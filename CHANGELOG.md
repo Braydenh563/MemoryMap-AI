@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.
+
 ## [0.4.1] - 2026-10-06
 
 ### Added

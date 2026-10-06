@@ -45,13 +45,21 @@ function paletteRun(match) {
 }
 
 async function openPalette() {
-  overlayReturnFocus = document.activeElement;
+  //: Opened early by settings-wiring.js's wrapper while this file loaded: what was typed
+  //: meanwhile stays, and an Enter pressed meanwhile runs the first row.
+  const early = window.paletteEarly;
+  window.paletteEarly = null;
+  if (early) $("palette-input").removeEventListener("keydown", early.onKey);
+  overlayReturnFocus = early ? early.returnFocus : document.activeElement;
+  const typed = early ? $("palette-input").value : "";
   $("palette-overlay").classList.remove("hidden");
-  $("palette-input").value = "";
+  $("palette-input").value = typed;
   paletteIndex = 0;
-  renderPalette("");
+  renderPalette(typed);
   $("palette-input").focus();
-  
+  const first = early?.enter && paletteMatches(typed)[0];
+  if (first) return paletteRun(first);
+
   apiJson("/usage/summary", { method: "POST", body: JSON.stringify({ known: [] }), silent: true })
     .then((res) => {
       paletteUsage.clear();

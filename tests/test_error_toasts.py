@@ -151,9 +151,11 @@ EXPECTED = {
         'busy',
     ],
     'settings-wiring.js': [
+        '"Only images can be attached to a chat message right now."',
+    ],
+    'quick-note.js': [
         '"Couldn\'t read the clipboard here. Paste into Capture instead."',
         '"There is no text on the clipboard to save."',
-        '"Only images can be attached to a chat message right now."',
     ],
     'settings.js': [
         '"Nothing to copy: the filters above are hiding every record."',

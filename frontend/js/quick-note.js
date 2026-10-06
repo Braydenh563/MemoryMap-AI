@@ -381,3 +381,40 @@ document.addEventListener("paste", (event) => {
   renderNoteOutbox();
   flushNoteOutbox();
 })();
+
+//: The clipboard's text as a new note, filed by Atlas like any capture
+//: (`createNoteSafely`, the quick note's path, so a note pasted while the
+//: server is gone waits in the outbox rather than being lost). Undo bins it.
+//: Here, not settings-wiring.js, since 2026-10-06: a chord's work, loaded on
+//: first use (`LAZY_ENTRY_POINTS.quickNote`), beside the function it calls.
+async function pasteClipboardAsNote() {
+  let text = "";
+  try {
+    text = ((await navigator.clipboard.readText()) || "").trim();
+  } catch {
+    toast("Couldn't read the clipboard here. Paste into Capture instead.", "info");
+    return;
+  }
+  if (!text) return toast("There is no text on the clipboard to save.", "info");
+  const result = await createNoteSafely({ content: text }).catch((error) => {
+    toast(error.message, true);
+    return null;
+  });
+  if (!result) return;
+  if (result.queued) return toast("Saved here; it is sent when the app's server is back.");
+  const id = result.saved.id;
+  refreshEntries([id]);
+  const bin = async () => {
+    await apiJson(`/entries/${id}`, { method: "DELETE" });
+    refreshEntries([id]);
+  };
+  const back = async () => {
+    await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    refreshEntries([id]);
+  };
+  const action = pushUndo("Pasted a note", bin, back);
+  toastAction("Saved what you copied as a new note.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await bin();
+  });
+}

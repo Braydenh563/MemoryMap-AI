@@ -45717,3 +45717,10 @@ and refuses a topic ("Select a shape, link or text box first").
      bullet beside a task box), from one shared rule. Placed: the next free
      Sonnet slot.
 
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+

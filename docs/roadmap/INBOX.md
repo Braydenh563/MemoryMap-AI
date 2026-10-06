@@ -206,13 +206,6 @@ with its owner named in the entry.
      the hover target, its accessible name "Link to <title>"). Placed: with
      691, the Tidy and links agent.
 
-712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
-     editor's ⋯ menu running past the bottom of the window: "this popup menu
-     goes off the bottom of the screen". Every menu is clamped to the window:
-     placed where it fits (below, else above), and when it cannot fit either
-     way, its height is capped to the room with its list scrolling inside.
-     Placed: with 710.
-
 713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
      processes like the night shift and stuff, is it possible to manually
      run them as well as manually stop or cancel them when they are

@@ -118,11 +118,13 @@ def test_printing_still_hides_the_dock():
 
 def test_every_kebab_uses_the_same_icon():
     """Reported from two screenshots side by side: the gallery's kebab was
-    vertical dots and every other one in the app was horizontal. The app had
-    picked `ph:dots-three` long before this session (`kebabMenu()` in app.js,
-    the graph's mobile "more" toggle); the dock and the gallery menus were
-    added later and each guessed the vertical variant. Nothing renders wrong
-    - it just reads as two different controls doing one job."""
+    vertical dots and every other one in the app was horizontal, which read as
+    two different controls doing one job. The dock and the gallery stay the
+    horizontal meatball. Since INBOX 706 the vertical kebab exists on purpose,
+    for the end of a row in a vertical list and a narrow column, chosen by
+    `kebabMenu(..., { vertical: true })` and pinned by
+    `tests/test_icon_conventions.py`; neither the dock's documents.js nor the
+    gallery's library.js ever names it."""
     sources = {
         p.name: p.read_text(encoding="utf-8")
         for p in (
@@ -132,10 +134,10 @@ def test_every_kebab_uses_the_same_icon():
         )
     }
     for name, text in sources.items():
-        assert "dots-three-vertical" not in text, f"{name} uses the vertical kebab"
+        if name != "index.html":
+            assert "dots-three-vertical" not in text, f"{name} names the vertical kebab"
     assert 'class="ph ph-dots-three"' in sources["index.html"]
     assert '"ph:dots-three"' in app_js_text()
-    assert "dots-three-vertical" not in app_js_text(), "app.js uses the vertical kebab"
     #: library.js used to draw its own kebab and is asserted *not* to now: the
     #: Images/Files gallery menu was a second implementation of one control, 
     #: its own `<details>`, its own list class, its own placement code, which

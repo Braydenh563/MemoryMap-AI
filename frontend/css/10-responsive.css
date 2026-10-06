@@ -1756,7 +1756,10 @@ header#top-bar[data-scrolled="1"],
   }
 
   #tab-notes .layout > .tab-main {
-    padding-right: 0;
+    /* Not 0: the cards stand on this edge, and their focus ring needs
+       `--ring-room` (08-consistency.css, "Ring room"; the margin there takes
+       it back out). */
+    padding-right: var(--ring-room);
   }
 }
 

@@ -89,7 +89,7 @@ def test_the_categories_panel_is_reachable_from_the_sidebar_the_menu_and_setting
     assert 'id="manage-categories-btn"' in html and 'id="settings-manage-categories"' in html
     assert '$("manage-categories-btn").addEventListener("click", () => openManageCategories());' in wiring
     assert '$("settings-manage-categories").addEventListener("click", () => openManageCategories());' in wiring
-    assert "kebabMenu(categoryMenuItems(meta), `Actions for ${category}`)" in notes
+    assert "kebabMenu(categoryMenuItems(meta), `Actions for ${category}`, { vertical: true })" in notes
     assert 'data-help-for", "manage-cat-help"' in notes
     # Every change offers undo.
     assert notes.count("offerCategoryUndo(") >= 5

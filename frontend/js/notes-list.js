@@ -2551,7 +2551,7 @@ function renderSidebar() {
     if (meta && category !== "Uncategorised") {
       const actions = document.createElement("span");
       actions.className = "category-actions";
-      const menu = kebabMenu(categoryMenuItems(meta), `Actions for ${category}`);
+      const menu = kebabMenu(categoryMenuItems(meta), `Actions for ${category}`, { vertical: true });
       menu.addEventListener("click", (event) => event.stopPropagation());
       actions.appendChild(menu);
       li.appendChild(actions);

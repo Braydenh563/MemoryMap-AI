@@ -77,8 +77,11 @@ def test_switch_tab_asks_before_leaving_unsaved_work() -> None:
     assert 'prefs.get("activeTab", null) === name' in guard, (
         "re-pressing the tab already on screen is not a departure"
     )
-    assert "hasUnsavedWork()" in guard
-    assert "confirmDialog(" in guard
+    # INBOX 711: an open note form stays open with its words kept, so only a
+    # document can lose words on a switch, and it is saved before asking.
+    assert "docDirty" in guard and "saveDocument({ silent: true })" in guard
+    assert guard.index("saveDocument(") < guard.index("confirmDialog(")
+    assert "noteFormDirty" not in guard
 
     switch_tab = _function(app, "switchTab")
     first_statement = switch_tab.split("\n")[1].strip()

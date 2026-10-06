@@ -1227,7 +1227,10 @@ function toastActionButton(note, label, run) {
 
 //: `opts`: `go`, where the action leads as plain data, so its row in the
 //: bell still works after a reload; `record: false` for a notice that is
-//: already in the bell (`keepToastAction`).
+//: already in the bell (`keepToastAction`); `also: {label, run}`, a second
+//: button beside the first (a bin notice's "Go to bin" next to its Undo,
+//: INBOX 705). It is the toast's own and is not kept in the bell: its row
+//: keeps the one action it always had.
 function toastAction(message, actionLabel, onAction, opts = {}) {
   const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
@@ -1237,9 +1240,16 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.className = "toast-msg";
   text.textContent = message;
   note.toastTimer = setTimeout(() => dismissToast(note), 8000);
-  note.append(text, toastActionButton(note, actionLabel, run), toastCloseButton(note, note.toastTimer));
+  const buttons = [toastActionButton(note, actionLabel, run)];
+  if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
+  note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
   toastStack(box, () => box.appendChild(note));
 }
+
+//: The second button of every "Moved to the bin." notice: the bin is the
+//: Library with "Include the bin" ticked (`library-bin` in REVEAL_TARGETS), so
+//: this is the same place Settings and Ctrl+K "Open the bin" lead to.
+const GO_TO_BIN = { label: "Go to bin", run: () => revealFeature("library-bin") };
 
 // --- the server-down banner (WORLD_CLASS_PLAN 22.1 item 6) ------------------
 //
@@ -1505,11 +1515,13 @@ function renderUndoBar() {
     const where = surface.where === "board" ? "on this board" : "in this document";
     paintStatusItem("status-undo", {
       icon: "ph:arrow-u-up-left",
-      title: surface.canUndo?.() ? `Undo the last change ${where} (${shortcuts.undo.keys})` : `Nothing to undo ${where}`,
+      title: surface.canUndo?.() ? `Undo the last change ${where}` : `Nothing to undo ${where}`,
+      shortcut: surface.canUndo?.() ? "undo" : "",
     });
     paintStatusItem("status-redo", {
       icon: "ph:arrow-u-up-right",
-      title: surface.canRedo?.() ? `Redo the last change ${where} (${shortcuts.redo.keys})` : `Nothing to redo ${where}`,
+      title: surface.canRedo?.() ? `Redo the last change ${where}` : `Nothing to redo ${where}`,
+      shortcut: surface.canRedo?.() ? "redo" : "",
     });
     return;
   }
@@ -1518,12 +1530,15 @@ function renderUndoBar() {
     //: The right-click gesture is named here because a hidden gesture is not a
     //: feature: the same reason the nav pair's tooltips name theirs.
     title: last
-      ? `Undo: ${last.label} (${shortcuts.undo.keys}): right-click for the last ${undoStack.length}`
+      ? `Undo: ${last.label}`
       : "Nothing to undo",
+    shortcut: last ? "undo" : "",
+    rest: last ? `right-click for the last ${undoStack.length}` : "",
   });
   paintStatusItem("status-redo", {
     icon: "ph:arrow-u-up-right",
-    title: next ? `Redo: ${next.label} (${shortcuts.redo.keys})` : "Nothing to redo",
+    title: next ? `Redo: ${next.label}` : "Nothing to redo",
+    shortcut: next ? "redo" : "",
   });
 }
 
@@ -2205,20 +2220,19 @@ let backgroundTasks = [];
 //: ⌘ on a Mac, Ctrl everywhere else. `userAgentData` where it exists because
 //: `navigator.platform` is deprecated and lies inside some embedded shells;
 //: the fallback is what the desktop window still answers.
-const STATUS_META_KEY = /Mac|iPhone|iPad/.test(
-  (navigator.userAgentData && navigator.userAgentData.platform) ||
-    navigator.platform ||
-    ""
-)
-  ? "⌘K"
-  : "Ctrl K";
+const STATUS_META_KEY = SHORTCUT_MAC ? "⌘K" : "Ctrl K";
 
 // One item: an icon, a number, and a word. The number is bold and tabular so
 // the row does not twitch sideways as counts change, a status bar that moves
 // while you are reading it is the thing the header was rebuilt to stop doing.
-function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
+function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = "", rest = "" }) {
   const button = $(id);
   if (!button) return;
+  //: `shortcut` is a `DEFAULT_SHORTCUTS` action: its current binding goes on
+  //: the tooltip (INBOX 701), and only when there is a tooltip to put it on.
+  if (title && shortcut) title = shortcutTitle(title, shortcut);
+  //: A gesture named after the chord ("right-click for the last 3").
+  if (title && rest) title = `${title}: ${rest}`;
   button.replaceChildren();
   if (icon) {
     const glyph = document.createElement("span");
@@ -2307,11 +2321,11 @@ function renderStatusBar() {
   command.replaceChildren();
   const key = document.createElement("span");
   key.className = "status-key";
-  key.textContent = STATUS_META_KEY;
+  key.textContent = shortcutHint("palette") || STATUS_META_KEY;
   const word = document.createElement("span");
   word.textContent = "Commands";
   command.append(key, word);
-  command.title = `Search everything and jump anywhere (${STATUS_META_KEY})`;
+  command.title = shortcutTitle("Search everything and jump anywhere", "palette");
 
   // Same reasoning one control along: the popup agent works from every tab
   // and had nothing on screen saying it exists. Reported as exactly that, 
@@ -2330,12 +2344,10 @@ function renderStatusBar() {
     //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
     //: names the button here so a screen reader and voice control keep it.
     agent.setAttribute("aria-label", "Agent");
-    //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
-    //: modifier: appending "+Shift+A" to it produced "Ctrl K+Shift+A", which
-    //: names no shortcut at all. Caught by reading the rendered title
-    //: attribute rather than the source.
-    const meta = STATUS_META_KEY.startsWith("⌘") ? "⌘" : "Ctrl";
-    agent.title = `Ask the agent anything, from any tab (${meta}+Shift+A)`;
+    //: The chord comes from the table (`shortcutTitle`), not from a modifier
+    //: guessed here: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, and
+    //: appending to it once produced "Ctrl K+Shift+A", no shortcut at all.
+    agent.title = shortcutTitle("Ask the agent anything, from any tab", "askAgent");
   }
 
   //: The Guide, built the same way one control along (INBOX 207): it left the
@@ -2358,11 +2370,8 @@ function renderStatusBar() {
     //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
     //: names the button here so a screen reader and voice control keep it.
     find.setAttribute("aria-label", "Find");
-    //: Built the same way the agent's hint two controls up is, and for the
-    //: same reason it records: `STATUS_META_KEY` is the whole hint, so
-    //: appending to it names no shortcut at all.
-    const findMeta = STATUS_META_KEY.startsWith("\u2318") ? "\u2318" : "Ctrl";
-    find.title = `Search everything you keep, and the app itself (${findMeta}+P)`;
+    //: Built the same way the agent's hint two controls up is.
+    find.title = shortcutTitle("Search everything you keep, and the app itself", "findAnything");
   }
 
   const guide = $("status-guide");
@@ -2384,7 +2393,7 @@ function renderStatusBar() {
     const guideName = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Atlas";
     guide.append(glyph, word);
     guide.setAttribute("aria-label", "Guide");
-    guide.title = `Ask ${guideName} how this app works, from any tab`;
+    guide.title = shortcutTitle(`Ask ${guideName} how this app works, from any tab`, "askAtlas");
   }
 }
 

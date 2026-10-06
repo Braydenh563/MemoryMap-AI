@@ -221,7 +221,7 @@ function drawManageCategoryRows(list, footer, state) {
     main.append(dot, name, manageCountButton(meta.count, () => showCategoryNotes(meta.name)));
     li.appendChild(main);
     if (meta.name !== "Uncategorised") {
-      const menu = kebabMenu(categoryMenuItems(meta, { inPanel: true }), `Actions for ${meta.name}`);
+      const menu = kebabMenu(categoryMenuItems(meta, { inPanel: true }), `Actions for ${meta.name}`, { vertical: true });
       menu.classList.add("manage-cat-menu");
       menu.setAttribute("role", "gridcell");
       menu.addEventListener("click", (event) => event.stopPropagation());

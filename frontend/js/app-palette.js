@@ -256,6 +256,25 @@ function notesPaletteCommands(query = "") {
       run: paletteLater(() => openBulkTags(ids)),
     });
   }
+  //: Tidy (INBOX 691): the reviews, and two of them by name.
+  rows.push({
+    group: "Notes",
+    label: "ph:broom Tidy notes, links and tags",
+    about: "Weak links, stray tags, notes without a category, duplicates, old reminders. No AI needed.",
+    run: paletteLater(() => openTidySheet()),
+  });
+  rows.push({
+    group: "Notes",
+    label: "ph:link Name link reasons",
+    about: "Say what two linked notes share instead of “similar in meaning”.",
+    run: paletteLater(() => openTidySheet("link-reasons")),
+  });
+  rows.push({
+    group: "Notes",
+    label: "ph:copy-simple Find duplicate notes",
+    about: "Notes that say much the same thing, merged into one.",
+    run: paletteLater(() => openTidySheet("duplicates")),
+  });
   rows.push({
     group: "Tags",
     label: "ph:hash Manage tags",

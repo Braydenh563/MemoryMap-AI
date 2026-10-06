@@ -138,3 +138,58 @@ function prefsMigrate() {
   if (changed) prefs.setJSON("prefs-versions", done);
 }
 prefsMigrate();
+
+//: **Keyboard hints in tooltips (INBOX 701).** The owner, 2026-10-06: "if
+//: something has a keyboard shortcut, should they be added to the tooltips??"
+//: Yes, from the one table: `DEFAULT_SHORTCUTS` in settings-wiring.js is the
+//: only place a chord is written, `shortcutHint(action)` reads the binding the
+//: person has now, and every tooltip that names a chord asks here, so a
+//: rebound key changes its tooltip and nothing can name a key that is not
+//: bound. Here, in the second file loaded, because status.js and navigation.js
+//: paint tooltips before settings-wiring.js has run; the table is handed over
+//: through `SHORTCUT_SOURCE` the moment it exists (and the bars repaint).
+//: `tests/test_shortcut_hints.py` holds the rule.
+//: Case-insensitive: Chrome's `userAgentData.platform` is "macOS", which
+//: `/Mac/` alone does not match.
+const SHORTCUT_MAC = /mac|iphone|ipad/i.test(
+  (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "",
+);
+const SHORTCUT_SOURCE = { table: () => ({}) };
+const SHORTCUT_MAC_SYMBOLS = {
+  Ctrl: "⌘",
+  Alt: "⌥",
+  Shift: "⇧",
+  //: Words, not arrow glyphs: a typed arrow is the lint's "glyph standing in
+  //: for an icon" (`tests/test_no_glyph_icons.py`).
+  ArrowLeft: "Left",
+  ArrowRight: "Right",
+  ArrowUp: "Up",
+  ArrowDown: "Down",
+  Enter: "Return",
+};
+
+//: "Ctrl+Shift+N" as the platform writes it: unchanged on Windows and Linux,
+//: "⇧⌘N" on a Mac (Apple's order is Option, Shift, Command, and the
+//: app's Ctrl is Command there: `matchesShortcut` treats the two as one).
+function chordLabel(keys) {
+  if (!keys || !SHORTCUT_MAC) return keys || "";
+  const parts = keys.split("+");
+  const key = parts.pop();
+  const order = ["Alt", "Shift", "Ctrl"];
+  const mods = order.filter((m) => parts.includes(m)).map((m) => SHORTCUT_MAC_SYMBOLS[m]);
+  return mods.join("") + (SHORTCUT_MAC_SYMBOLS[key] || key);
+}
+
+//: The current binding of an action, written for this platform, or "" when
+//: the action is unbound or the table is not loaded yet.
+function shortcutHint(action) {
+  const entry = SHORTCUT_SOURCE.table()[action];
+  return entry ? chordLabel(entry.keys) : "";
+}
+
+//: "Bold" + the action's chord -> "Bold (Ctrl+B)". The one way a title gets
+//: a chord appended; a lint refuses a hand-built chord in a title.
+function shortcutTitle(base, action) {
+  const hint = shortcutHint(action);
+  return hint ? `${base} (${hint})` : base;
+}

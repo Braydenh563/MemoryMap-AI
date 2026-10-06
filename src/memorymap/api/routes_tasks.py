@@ -176,6 +176,23 @@ def collect() -> list[dict]:
             }
         )
 
+    # Tidy's link reason pass (INBOX 691): a pool job, so it is also a pool
+    # row while queued; this row is the running one, with a Quit that stops
+    # it at its next chunk (what it named is kept, and undoable in Tidy).
+    from memorymap.entry import tidy
+
+    if tidy.is_running():
+        tasks.append(
+            {
+                "kind": "tidy-link-reasons",
+                "name": "",
+                "label": "Naming link reasons",
+                "detail": "Tidy is naming what each linked pair of notes shares. Quitting stops it between batches.",
+                "progress": None,
+                "log": [],
+            }
+        )
+
     # Minutes long, on a worker thread, and previously visible only on the Web
     # search screen: so "is it still doing anything?" had no answer anywhere
     # else. Imported here rather than at module level: it pulls in the search

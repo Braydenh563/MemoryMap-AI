@@ -44,27 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Regenerate button's focus ring cut off along its left edge: "a lot of
-     borders get cut off on an edge." Focus rings and borders clipped by an
-     ancestor's `overflow`. Next: sweep every focusable control on every
-     surface for a ring outside its nearest clipping ancestor, and fix by
-     room (padding or an inset ring), never by hiding the ring. Placed: the
-     0.4.1 mini release, a Sonnet agent.
-
-691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
-     through links and tags without the ai?? like removing tags that dont
-     have a custom reason (reasons other than "similar in meaning") and that
-     have a low conficence score, maybe could be added in the notes tab??
-     like manual or automated ways to manage notes and other things
-     systemnatically and programatically nearly up to par with the ai but as
-     an option if the ai isnt available or as an alternative. needs to also
-     be known to the user, no use having them if the user doesnt know about
-     them. I feel like there are a lot of features hidden". Then: "also so
-     many notes get the reason "similar in meaning". the notes adn
-     management of things around them needs to be more dynamic and better.
-     world class". Placed: the 0.4.1 mini release, an Opus agent (audit,
-     then a Tidy surface in Notes, specific link reasons, discoverability).
 
 692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
      stretched force layout: "can you add a resuffle button or feature to
@@ -92,7 +71,8 @@ with its owner named in the entry.
      Attach dialog's head and tabs): "the bottom of these pills gets cut
      off. aslo the bottom chat dock isnt responsive in design for the
      sidebar sizes. also the companion covers the attach popup". The cut
-     pills go to 685's clipping sweep; the dock's narrow layout and the
+     pills went to 685's sweep and are fixed (the segments take the track's
+     inside); the dock's narrow layout and the
      companion's stacking (it must sit under every dialog, menu and
      popover) to a Sonnet agent.
      **Parts 2 and 3 built** (dock694-1006, `cf6af06`): the chat dock is a
@@ -115,23 +95,8 @@ with its owner named in the entry.
      tasks, and a running task row carries a progress bar (determinate when
      the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
      release, an Opus agent when a slot frees.
-
-699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
-     package's row ("needle's own tools send usage data by default;
-     MemoryMap uses only its engine, which has no network code, and
-     switches that setting off anyway"): "is it possible to remove the part
-     of needle which sends usage data??" / "or even vendor it??" What is
-     true today (ai/needle_provider.py): the app loads only needle's native
-     engine with ctypes; the Python package and the command-line tool, which
-     carry the usage-data client, are never installed; the Linux engine was
-     read and imports no socket, connect, send or getenv. Decision taken:
-     not vendored (a 36 MB native engine plus weights per platform does not
-     belong in the repository, and the source build is not ours to
-     maintain); instead the download is pinned by SHA-256 per platform and,
-     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
-     and an engine that imports any network call is refused with a plain
-     message; the row's copy says this in one line. Placed: the next free
-     Sonnet slot.
+     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
+     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
 
 700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
      model options as alternatives in the models??" / "research the best
@@ -149,49 +114,17 @@ with its owner named in the entry.
      working on the old vectors until the new set is complete); only
      licences that allow it are offered as one-press installs, others link
      to their terms. Placed: the next free agent slot.
+     Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
+     Addendum, the owner, 2026-10-06, verbatim: "I feel like there should be the options to modify, install, uninstall, reinstall embedded models etc. also maybe a way to type a model name into a text box near the suggested model section and then pull in a model that is typed in the box if it exists?? like from ollama or huggingface."
 
-701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
-     shortcut, should they be added to the tooltips??" Recommendation,
-     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
-     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
-     changed binding changes its tooltip, with a lint that every bound
-     shortcut with a button has it in that button's title. Placed: the next
-     free Sonnet slot.
-
-702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
-     Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
-     filled square) and the Chats sidebar (hovered row: a neutral grey fill,
-     a plain ⋯): "the hover and button styles on the notes sidebar is
-     different from the others. is that intentional??" Not intentional.
-     Decision taken: one sidebar row recipe for every rail (Notes, Chats,
-     Library, Documents, Timeline, Settings): the same hover fill, the same
-     current-row fill (the current row may carry the accent, hover never
-     does), and the row's ⋯ as a plain ghost icon that fills only on its own
-     hover, inside the row's radius; a lint holds the rails to it. Placed:
-     the next free Sonnet slot.
-
-705. **The owner, 2026-10-06, verbatim**, more for the next pass: the
-     composer formatting toolbar still meets its border at the right ("still
-     the offending formatting bar edges on the border"); a "go to bin" button
-     on the "Moved to the bin." notice; the title bar's app icon and the
-     header's logo clash ("these seem like the clash a bit... but idk");
-     Atlas and the companions "get annoyed every time I tap them multiple
-     times, can they alternate how they respond a little more??". Placed:
-     the next session (usage).
-
-706. **The owner, 2026-10-06, verbatim.** "also idk about ui or ux proper
-     usage of icons but can you make sure that the common and professional
-     ways to use icons and what icons are used where is correct?? like we
-     have been using majority of meatball icons but I think meatball,
-     kebab, bento box icons and more etc are better for use in various
-     situations and uses". Decision taken (platform conventions): ⋯
-     (meatball, horizontal) for an item's overflow in a horizontal row or
-     card; ⋮ (kebab, vertical) for overflow at the end of a vertical list
-     row or a narrow column/app bar; ⊞ (bento/grid) only for switching
-     between apps or spaces; ☰ (hamburger) only for opening navigation. A
-     DESIGN.md row and a lint pin which goes where; then an icon audit for
-     other misuse (the same glyph meaning two things, two glyphs for one).
-     Placed: a Sonnet agent with 699, 701, 702.
+713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
+     processes like the night shift and stuff, is it possible to manually
+     run them as well as manually stop or cancel them when they are
+     running??" Decision taken: every scheduled pass (the night shift and
+     the other maintenance passes) is listed in Background tasks with its
+     schedule and last run, a "Run now" on each, and a running job's row
+     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
+     next step. Placed: with 696, the progress agent.
 
 ## Placed (last 20, newest first)
 

@@ -43,7 +43,10 @@ test("Ask with no model answers from the notes, with numbered citations that ope
   await page.fill("#question", "How long is the train from Lisbon to Porto?");
   await page.click("#ask-btn");
   const answer = page.locator("#ai-answer");
-  await expect(answer).toContainText("No model is running");
+  // With no model the answer is composed from the notes (INBOX 688): marked
+  // as such, every sentence the notes' own.
+  await expect(answer).toHaveClass(/answer-composed/);
+  await expect(page.getByText("Your notes, no AI").first()).toBeVisible();
   await expect(answer).toContainText("2h50");
   // Numbered citations in the answer, and the numbered sources under it.
   const cites = answer.locator(".answer-citation-link");

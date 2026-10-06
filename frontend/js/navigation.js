@@ -904,10 +904,12 @@ function paintTabHistory() {
   paintStatusItem("status-back", {
     icon: "ph:caret-left",
     title: prev ? `Back to ${entryLabel(prev)}` : "Nothing to go back to",
+    shortcut: prev ? "navigateBack" : "",
   });
   paintStatusItem("status-forward", {
     icon: "ph:caret-right",
     title: next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to",
+    shortcut: next ? "navigateForward" : "",
   });
   // The settings modal's own copy of these two buttons, see their markup
   // comment for why a second copy exists instead of just raising the status
@@ -1364,20 +1366,14 @@ function placeDockMenuInWindow(details, list) {
   //: The gap is measured, not assumed: it is `top: calc(100% + var(--space-2))`
   //: today and a token is free to change.
   const gap = Math.max(0, Math.round(box.top - anchor.bottom));
-  const roomBelow = Math.round(window.innerHeight - box.top - margin);
-  const roomAbove = Math.round(anchor.top - gap - margin);
-  //: **Upward only when below is too little to be a menu at all**, and only
-  //: when above is actually better. 240px is about five rows plus the panel's
-  //: own padding: above that a capped, scrolling menu under the button is
-  //: still a menu, and moving it to the other side of its own button is the
-  //: more surprising change of the two.
-  const goUp = roomBelow < 240 && roomAbove > roomBelow;
-  if (goUp) details.classList.add("doc-dock-menu-up");
-  //: The floor keeps a menu opened against an edge a menu rather than a slit,
-  //: the same 120 `escapeAndCapMenu` uses.
-  const room = Math.max(120, goUp ? roomAbove : roomBelow);
-  if (box.height > room) {
-    list.style.maxHeight = `${room}px`;
+  //: **Below, else above, else capped** (INBOX 712), the one rule
+  //: (`menuSidePlan`, menus.js). This used to move above only when the room
+  //: below was under 240px, so a menu that fitted above but not below, with
+  //: 300px of room under it, stayed down and scrolled.
+  const plan = menuSidePlan(box.height, anchor, gap, margin);
+  if (plan.up) details.classList.add("doc-dock-menu-up");
+  if (plan.cap !== null) {
+    list.style.maxHeight = `${plan.cap}px`;
     list.style.overflowY = "auto";
   }
 
@@ -1404,6 +1400,36 @@ function placeDockMenuInWindow(details, list) {
   if (dx) list.style.transform = `translateX(${Math.round(dx)}px)`;
 }
 
+//: **A placement measured once is wrong the moment the window or the rows
+//: change** (INBOX 712). An open kebab is placed again when the window is
+//: resized (zoom, a docked panel opening, a rotated tablet) and when one of
+//: its rows is shown or hidden (the suggestion and read-aloud rows appear as
+//: the menu opens, after the first measurement), so the last row is never
+//: left past the window's edge by a number that was true a moment ago.
+function watchDockMenuPlacement(menu, list) {
+  menu._placementWatch?.disconnect();
+  let frame = 0;
+  const again = () => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (menu.open) placeDockMenuInWindow(menu, list);
+    });
+  };
+  const observer = new MutationObserver(again);
+  observer.observe(list, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden"] });
+  window.addEventListener("resize", again);
+  menu._placementWatch = {
+    disconnect() {
+      observer.disconnect();
+      window.removeEventListener("resize", again);
+      cancelAnimationFrame(frame);
+      frame = 0;
+      menu._placementWatch = null;
+    },
+  };
+}
+
 document.addEventListener(
   "toggle",
   (event) => {
@@ -1427,10 +1453,12 @@ document.addEventListener(
       list.style.maxHeight = "";
       list.style.overflowY = "";
       menu.classList.remove("doc-dock-menu-up");
+      menu._placementWatch?.disconnect();
       return;
     }
     if (isDockKebab) {
       placeDockMenuInWindow(menu, list);
+      watchDockMenuPlacement(menu, list);
       return;
     }
     menu.classList.remove("dock-menu-flip");
@@ -1683,7 +1711,17 @@ let tabSwitchDeclined = false;
 async function confirmLeavingUnsavedWork(name) {
   tabSwitchDeclined = false;
   if (prefs.get("activeTab", null) === name) return true;
-  if (!hasUnsavedWork()) return true;
+  //: **Only a document can lose words on a tab switch, and it saves first**
+  //: (INBOX 711, the owner: asked again and again after Leave, on a
+  //: document that read Saved, and "doesnt the document auto save??"). An
+  //: open note form stays open in Notes with its words kept (`noteFormDraft`)
+  //: and a reload offers them back, like the Capture box, so a switch away
+  //: is not a departure; asking about it on every move was the bug. A
+  //: document with edits in hand is saved now, and asked about only if
+  //: that save fails.
+  if (typeof docDirty === "undefined" || !docDirty) return true;
+  await saveDocument({ silent: true }).catch(() => {});
+  if (!docDirty) return true;
   const leave = await confirmDialog(
     "Leave without saving?\n\nWhat you were working on here hasn't been saved yet."
   );

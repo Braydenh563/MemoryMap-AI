@@ -1016,7 +1016,7 @@ if (dashFind) {
     if (input) input.setSelectionRange(input.value.length, input.value.length);
   });
   const keysHint = dashFind.querySelector(".dash-find-keys");
-  if (keysHint) keysHint.textContent = STATUS_META_KEY.startsWith("\u2318") ? "\u2318P" : "Ctrl P";
+  if (keysHint) keysHint.textContent = shortcutHint("findAnything") || (STATUS_META_KEY.startsWith("\u2318") ? "\u2318P" : "Ctrl+P");
 }
 
 // Paint it before any poll lands, so the bar is furniture from the first frame
@@ -1405,6 +1405,9 @@ $("manage-categories-btn").addEventListener("click", () => openManageCategories(
 $("manage-categories-foot").addEventListener("click", () => openManageCategories());
 //: The tag manager (tag-manager.js, lazy): the Notes ⋯ menu and Settings
 //: (INBOX 447 (4)); the sidebar's Tags row and the palette open it too.
+//: Tidy (INBOX 691, tidy.js): fetched once the boot is done, so its count is on the dock.
+$("notes-tidy").addEventListener("click", () => openTidySheet());
+setTimeout(() => ensureModule("tidy"), 4e3);
 $("notes-manage-tags").addEventListener("click", () => {
   $("notes-more-menu")?.removeAttribute("open");
   openTagsSheet();

@@ -149,7 +149,14 @@ with its owner named in the entry.
 693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
      where a link passes behind other notes' dots: "bit of overlap". Links
      drawn through nodes they do not connect, and nodes close enough to
-     touch. Placed: with 692.
+     touch. Placed: with 692. And, the same hour, with a screenshot of the
+     force view: "is there a way to get the graph to sit in ways that are
+     more visually appealing and understandable and profesional and
+     stylisitc and modern and intentional and impressive and meaningful??"
+     692 and 693 are one Opus design pass on the force layout: clusters by
+     category with clear space between them, hubs central, labels never
+     over dots or lines, links routed round nodes they do not join, a
+     Reshuffle (new seed, animated) and a fit to view.
 
 ## Placed (last 20, newest first)
 

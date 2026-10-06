@@ -57,6 +57,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Menus placed by the shared rule stop at the status bar's top, so the document ⋯ no longer runs under it; a task tick box has room before its words.
 - The header's Quit button is at full strength like its neighbours; dimmed, it read as disabled.
 - Hovering a disabled button shows the normal pointer, not a loading cursor.
 - Chat: a message sent while Agent is greyed (no model) is answered and labelled as Ask; the message buttons hang below the bubble instead of over it.

@@ -395,7 +395,12 @@ window.cardOpener = cardOpener;
 //: `openActionMenu`, and a menu re-placed after its window or its rows
 //: changed) cannot decide differently. `anchor` is the opener's rect.
 function menuSidePlan(height, anchor, gap = 4, margin = 8) {
-  const below = Math.floor(window.innerHeight - anchor.bottom - gap - margin);
+  //: The window's usable foot is the status bar's top, not the window's edge
+  //: (the owner, 2026-10-06: the document ⋯ "still overflows off the page",
+  //: its last rows under the fixed status bar).
+  const bar = document.getElementById("status-bar")?.getBoundingClientRect();
+  const foot = bar && bar.height && bar.top < window.innerHeight ? bar.top : window.innerHeight;
+  const below = Math.floor(foot - anchor.bottom - gap - margin);
   const above = Math.floor(anchor.top - gap - margin);
   const need = Math.ceil(height);
   if (need <= below) return { up: false, cap: null };

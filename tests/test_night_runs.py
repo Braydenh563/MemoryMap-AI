@@ -141,3 +141,12 @@ def test_the_scheduled_pass_says_so(session, app_state):
     run = facts.run(session, budget=2000, config=app_state, trigger="scheduled")
     session.commit()
     assert session.get(NightRun, run["run_id"]).trigger == "scheduled"
+
+
+def test_run_now_without_a_budget_gets_the_scheduled_pass_budget(ai_client, app_state):
+    """Run now (Background jobs, the Dashboard) sends no budget. It used to get
+    2,000 tokens against the scheduled pass's 20,000, so with a model running
+    it stopped after a few notes."""
+    app_state.set_preference("night_shift_budget_tokens", 12_345)
+    reply = ai_client.post("/night/run", json={}).json()
+    assert reply["budget"] == 12_345

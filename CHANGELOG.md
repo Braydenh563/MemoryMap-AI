@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.
 - Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.
 
 ## [0.4.1] - 2026-10-06

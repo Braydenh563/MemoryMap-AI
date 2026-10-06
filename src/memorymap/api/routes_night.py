@@ -35,7 +35,12 @@ class RunBody(BaseModel):
     #: Tokens. A real limit rather than decoration: the pass stops inside it
     #: and says in `stopped_reason` that it did, so a notebook too big for one
     #: night is resumed rather than half-read and silently declared done.
-    budget: int = Field(default=2000, ge=1, le=1_000_000)
+    #: Left out, it is the scheduled pass's own budget (the
+    #: `night_shift_budget_tokens` preference, 20,000 unset): Run now in
+    #: Background jobs and the Dashboard's "Read my notes now" sent nothing and
+    #: got 2,000, so with a model running they stopped after a few notes and
+    #: read as broken beside the scheduled pass (reported 2026-10-06).
+    budget: int | None = Field(default=None, ge=1, le=1_000_000)
     #: Read every note again rather than only what changed. Never re-derives
     #: an edited or deleted fact: `force` moves the cursor, it does not
     #: override the lifecycle.
@@ -52,6 +57,7 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
     to be able to show.
     """
     config = deps.get_config()
+    budget = body.budget or int(config.get_preference("night_shift_budget_tokens", 20_000) or 20_000)
     provider = deps.get_ollama()
     model = ""
     try:
@@ -67,7 +73,7 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
         provider = None
     with jobruns.job_run("night-shift") as run:
         result = facts.run(
-            session, budget=body.budget, force=body.force, provider=provider, model=model, config=config,
+            session, budget=budget, force=body.force, provider=provider, model=model, config=config,
             embeddings=deps.get_embeddings(),
         )
         session.commit()

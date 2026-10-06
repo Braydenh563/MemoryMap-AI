@@ -303,8 +303,12 @@
       <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
       <h2 id="lock-title">Unlock MemoryMap</h2>
       <p id="lock-message" class="muted"></p>
-      <input id="lock-password" type="password" placeholder="Password or PIN"
-        aria-label="Password" autocomplete="current-password">
+      <div class="lock-password-wrap">
+        <input id="lock-password" type="password" placeholder="Password or PIN"
+          aria-label="Password" autocomplete="current-password">
+        <button type="button" id="lock-password-show" class="ghost icon-only lock-password-show" aria-pressed="false"
+          aria-label="Show password" title="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
+      </div>
       <!-- **What this password is for, said before it is chosen, not after.**
            Measured on five fresh data directories, 2026-09-21: the first screen
            a new person sees asked for a credential in 26 words that never said

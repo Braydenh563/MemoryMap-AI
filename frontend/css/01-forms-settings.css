@@ -2199,6 +2199,38 @@ button:not(.ghost) > .spinner {
   text-align: center;
 }
 
+/* **The app's own show-password button** (the owner, 2026-10-06: the eye
+   "disappeard permanently" after clicking off the field, and typed text sat
+   off centre). The eye was the browser's own reveal (Edge and WebView2's
+   `::-ms-reveal`), which the browser removes for good once the field loses
+   focus, and which took room on one side only. Hidden; this button stays,
+   and the field is padded the same on both sides so the text stays centred. */
+.lock-password-wrap {
+  position: relative;
+}
+
+.lock-card .lock-password-wrap input {
+  width: 100%;
+  margin: 0;
+  padding-inline: calc(var(--control-h) + var(--space-2));
+}
+
+.lock-password-wrap {
+  margin-block: var(--space-3);
+}
+
+.lock-card .lock-password-wrap input::-ms-reveal,
+.lock-card .lock-password-wrap input::-ms-clear {
+  display: none;
+}
+
+.lock-password-show {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-1);
+  margin-block: auto;
+}
+
 /* The same card asking for the password for one action (app.js
    `askPasswordPrompt`: unlocking private notes, turning sign-in off). It can
    be asked from inside Settings, a modal at 1010, so it sits above the

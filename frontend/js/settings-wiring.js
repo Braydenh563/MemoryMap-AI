@@ -244,6 +244,19 @@ window.addEventListener("storage", (event) => {
   showLockScreen(false);
 });
 $("lock-submit").addEventListener("click", submitLockForm);
+//: The lock field's own show-password toggle (the browser's reveal vanished
+//: once the field lost focus). Shown text is never kept: a lock resets it.
+$("lock-password-show").addEventListener("click", (event) => {
+  const field = $("lock-password");
+  const show = field.type === "password";
+  field.type = show ? "text" : "password";
+  const button = event.currentTarget;
+  button.setAttribute("aria-pressed", String(show));
+  button.title = show ? "Hide password" : "Show password";
+  button.setAttribute("aria-label", button.title);
+  button.querySelector("i").className = `ph ${show ? "ph-eye-slash" : "ph-eye"}`;
+  field.focus();
+});
 $("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") submitLockForm();
   if (e.key === "Escape" && lockPrompt) {

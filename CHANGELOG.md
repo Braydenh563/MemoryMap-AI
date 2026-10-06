@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- The GitHub Pages site is redesigned to read as a designed product page rather than a template: the Ask screenshot as the hero on a dark stage, with numbered pins and a key for what it shows; "How it works" as three joined steps with small in-page examples of a note, its filing and a cited answer; alternating feature rows and a bento for the smaller tools; privacy as a ledger of everything that could reach the network; install, models, FAQ and a closing download. Still one static file with no requests beyond its own screenshots, in the app's own blue and category colours, light and dark, checked at six widths with no horizontal scroll and every text colour at 4.8:1 or better.
+
 ### Fixed
 
 - Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.

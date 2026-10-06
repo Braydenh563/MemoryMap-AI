@@ -158,6 +158,7 @@
       border: 1px solid var(--line-strong); border-bottom-width: 2px; background: var(--surface); color: var(--ink);
       line-height: 1.4;
     }
+    .keys { white-space: nowrap; }
     h1, h2, h3, h4 { margin: 0; line-height: 1.15; }
     p { margin: 0; }
     ul, ol { margin: 0; padding: 0; }
@@ -419,7 +420,7 @@
     .tile p { margin-top: 0.35rem; color: var(--muted); font-size: 0.95rem; }
     .t-atlas .shot { background: #0d1226; }
     .t-atlas .shot img { object-fit: contain; object-position: center; }
-    .t-phone .shot img { aspect-ratio: 780 / 1688; max-height: 34rem; object-fit: cover; object-position: top center; }
+    .t-phone .shot img { aspect-ratio: 780 / 1688; max-height: 34rem; object-fit: cover; object-position: center bottom; }
     @media (min-width: 640px) {
       .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .t-wide { grid-column: span 2; }
@@ -514,6 +515,7 @@
       position: relative; overflow: hidden; color: var(--night-ink);
       background: radial-gradient(50rem 24rem at 15% 100%, var(--night-2), transparent 70%), var(--night);
       padding-block: clamp(4rem, 8vw, 6.5rem);
+      border-top: 1px solid var(--line);
     }
     .closing-inner { display: grid; gap: 2rem; grid-template-columns: minmax(0, 1fr); align-items: end; }
     @media (min-width: 900px) { .closing-inner { grid-template-columns: minmax(0, 1fr) auto; } }
@@ -687,9 +689,9 @@
         <li class="step">
           <span class="node" aria-hidden="true">1</span>
           <h3>Capture</h3>
-          <p>Type, paste, draw, dictate or import. <kbd>Alt</kbd>+<kbd>N</kbd> opens a quick note over any tab, and voice is transcribed on your machine.</p>
+          <p>Type, paste, draw, dictate or import. <span class="keys"><kbd>Alt</kbd>+<kbd>N</kbd></span> opens a quick note over any tab, and voice is transcribed on your machine.</p>
           <div class="specimen">
-            <p class="spec-label"><span>Quick note</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save</span></p>
+            <p class="spec-label"><span>Quick note</span><span><span class="keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd></span> to save</span></p>
             <p class="spec-note">Book the Alfa Pendular tickets before the price goes up <span class="tagword">#portugal</span><span class="caret" aria-hidden="true"></span></p>
           </div>
         </li>
@@ -862,7 +864,7 @@
               <img src="screenshots/palette.png" width="1440" height="900" loading="lazy" decoding="async"
                    alt="The command palette: the word launch matching notes, a document, a board and reminders at once, with a preview of the chosen note.">
             </a>
-            <div class="tile-text"><h4>Command palette</h4><p><kbd>Ctrl</kbd>+<kbd>K</kbd> reaches any command, note or board.</p></div>
+            <div class="tile-text"><h4>Command palette</h4><p><span class="keys"><kbd>Ctrl</kbd>+<kbd>K</kbd></span> reaches any command, note or board.</p></div>
           </article>
           <article class="tile t-s2">
             <a class="shot" href="screenshots/reminders.png" data-caption="Reminders: due dates with priority and repeats, linked to the note they came from.">
@@ -883,7 +885,7 @@
               <img src="screenshots/agent.png" width="1440" height="900" loading="lazy" decoding="async"
                    alt="The popup agent over the Notes tab: Atlas beside the title, a box to ask it to do something, and starters grouped by capture, find, summarise and remind.">
             </a>
-            <div class="tile-text"><h4>Popup agent</h4><p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> asks Atlas to capture, find or remind without leaving the page.</p></div>
+            <div class="tile-text"><h4>Popup agent</h4><p><span class="keys"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></span> asks Atlas to capture, find or remind without leaving the page.</p></div>
           </article>
           <article class="tile t-s2 t-atlas">
             <a class="shot" href="screenshots/atlas.png" data-caption="Atlas, the star spirit who keeps your notebook.">

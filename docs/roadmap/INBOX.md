@@ -129,6 +129,15 @@ with its owner named in the entry.
      (`ai/reminder_parser.py`) already reads dates and times without a model; the
      composer adds the reminder's wording and its reason from the note.
 
+735. **The owner, 2026-10-06, verbatim**: "also since p5.js is vendored, can it be a
+     document option in the text editor?? also when on a code document, I get auto
+     fill for redular sentences, not code specific autofill" "I was on js document".
+     Two items for DOCUMENTS_PLAN: a p5.js sketch document kind (code beside a
+     sandboxed live canvas, the vendored p5 only, no network); and on a code
+     document (.js here) the prose autocomplete must switch off and code-aware
+     completion (words from the file, the language's keywords, bracket pairs) take
+     its place.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

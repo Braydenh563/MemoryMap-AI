@@ -68,16 +68,6 @@ with its owner named in the entry.
      docs/roadmap/agent-remaining/seg665-1006.md), converted by the recipe
      665 added to DESIGN.md. Placed: the 0.4.1 mini release, a Sonnet agent.
 
-671. **Decision missing, found by the forgot-password agent (663),
-     2026-10-06.** In the desktop window, Download .txt for the recovery key
-     goes through `saveFile`, which writes into `<data dir>/exports`, beside
-     the notebook: whoever copies the folder gets the key that opens its
-     private notes. Recommendation, taken: the recovery key is saved through
-     a native Save dialog (pywebview's save dialog, starting in the
-     person's Documents folder), never inside the data dir; a browser tab
-     keeps its ordinary download. Placed: the 0.4.1 mini release, the same
-     agent.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

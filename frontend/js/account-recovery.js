@@ -200,6 +200,31 @@ function whenLockLifted() {
   });
 }
 
+//: **Never `saveFile`** (INBOX 671): in the desktop window that writes into
+//: `<data dir>/exports`, beside the notebook, and a key saved there opens its
+//: private notes for whoever copies the folder. The desktop window asks the
+//: server for a native Save dialog starting in Documents
+//: (`/auth/recovery-key/save`, which also refuses the data dir); a browser
+//: tab downloads, and the browser asks where.
+async function saveRecoveryKeyFile(text) {
+  const error = $("recovery-key-error");
+  error.textContent = "";
+  if (!(await desktopShell())) {
+    downloadBlob(new Blob([text], { type: "text/plain" }), RECOVERY_FILE);
+    return;
+  }
+  try {
+    const saved = await apiJson("/auth/recovery-key/save", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+      silent: true,
+    });
+    if (saved.saved) toast(`Saved to ${saved.path}`, "info");
+  } catch (failure) {
+    error.textContent = failure.message;
+  }
+}
+
 function wireRecoveryDialog() {
   const dialog = $("recovery-key-dialog");
   if (RECOVERY.dialogWired) return dialog;
@@ -223,7 +248,7 @@ function wireRecoveryDialog() {
       "both can open your private notes.",
       "",
     ].join("\n");
-    saveFile(RECOVERY_FILE, new Blob([text], { type: "text/plain" }));
+    saveRecoveryKeyFile(text);
   });
   $("recovery-key-done").addEventListener("click", () => dialog.close());
   //: The key leaves the page with the dialog, however it is closed.

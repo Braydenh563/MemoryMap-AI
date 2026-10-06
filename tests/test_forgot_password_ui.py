@@ -105,3 +105,15 @@ def test_settings_names_the_button_for_what_it_does():
     controls = (ROOT / "frontend" / "js" / "settings-controls.js").read_text(encoding="utf-8")
     assert '$("account-recovery-make").addEventListener("click", () => makeRecoveryKey())' in controls
     assert "showRecoveryKey(result.recovery_key" in controls  # after a re-key
+
+
+def test_the_key_file_never_goes_through_save_file():
+    """INBOX 671: `saveFile` writes into the data dir's exports in the desktop
+    window; the key goes to a native Save dialog there, a download elsewhere."""
+    from memorymap.api.asset_strip import strip_js
+
+    assert "saveFile(" not in strip_js(RECOVERY_JS)
+    saver = _function(RECOVERY_JS, "saveRecoveryKeyFile")
+    assert "await desktopShell()" in saver
+    assert '"/auth/recovery-key/save"' in saver
+    assert "downloadBlob(" in saver

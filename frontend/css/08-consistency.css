@@ -11452,3 +11452,37 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
   background: var(--ghost-btn-bg);
 }
+
+/* --- One ⋯ opener, styled once (INBOX 722) ---
+   The owner, of the Library's Rows view: "meatball buttons have a visible
+   outline, is that consistent with the rest of the app?? i dont think it is."
+   It was not. Measured at 1440 with a `getComputedStyle` pass over every
+   `kebabMenu` opener at rest: the Library's cards and lines (and the Boards
+   gallery) kept `box-shadow: var(--shadow-sm)` (0 2px 8px at 5% in light, 35%
+   black in dark) on a transparent, border-less button, a ring the Notes cards,
+   the Chats rail, the Documents list and the Settings packages did not draw.
+   The cause was a per-surface rule for the Library's ⋯ in 00-tokens-shell.css
+   (an opaque chip, written so the ⋯ could be seen over a photograph) that the
+   app's ghost icon-only rule had already half overridden.
+
+   `kebabMenu` gives every opener the one class and this is the whole recipe:
+   a plain ghost icon, no fill, edge or shadow at rest, `--ghost-btn-bg` only
+   under its own pointer or while its menu is open, drawn at `--radius-md`.
+   Two classes on the selector, so a surface's own `button` rule cannot dress
+   it; the lint in `tests/test_ui_recipes.py` fails a rule outside this file
+   that tries. DESIGN.md's recipe index has the row. */
+:is(button, summary).kebab-opener.icon-only {
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:is(button, summary).kebab-opener.icon-only:not(:hover, [aria-expanded="true"]) {
+  background: transparent;
+}
+
+:is(button, summary).kebab-opener.icon-only:is(:hover, [aria-expanded="true"]):not(:disabled) {
+  background: var(--ghost-btn-bg);
+}

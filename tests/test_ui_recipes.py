@@ -4994,3 +4994,41 @@ def test_the_library_hover_tick_shows_its_check_and_names_itself() -> None:
     assert re.search(r"border(?:-color)?\s*:[^;]*var\(--(?:muted|faint)", faint[0]) or "border-color: var(--muted)" in faint[0]
     script = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
     assert re.search(r'tick\.className = "library-card-tick";\s*tick\.title = "Select"', script), "the tick names itself on hover"
+
+
+#: **One ⋯ (INBOX 722, the owner: "meatball buttons have a visible outline, is
+#: that consistent with the rest of the app?? i dont think it is").** The app's
+#: rule, DESIGN.md's "A ⋯ or ⋮ that opens a menu" row: a plain ghost icon, no fill, edge
+#: or shadow at rest, `--ghost-btn-bg` only under its own pointer or while its
+#: menu is open, drawn at `--radius-md`. `kebabMenu` gives every opener the one
+#: class, `kebab-opener`, and it is styled once in 08-consistency.css; a surface
+#: that wants its ⋯ dressed differently does not get to say so.
+def test_the_kebab_opener_is_one_shared_ghost_icon_styled_once() -> None:
+    script = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    assert 'opener.classList.add("icon-only", "kebab-opener")' in script, "kebabMenu's opener carries the shared class"
+
+    shared = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    named = [(selector, body) for selector, body in _rules(shared) if ".kebab-opener" in selector]
+    plain = [body for selector, body in named if ":hover" not in selector]
+    at_rest = [body for selector, body in named if ":not(:hover" in selector]
+    hover = [body for selector, body in named if ":not(:hover" not in selector and ":is(:hover" in selector]
+    assert plain and at_rest and hover, "the shared kebab opener rule (08-consistency.css) is missing"
+    assert all(_rail_background(body) == "transparent" for body in at_rest), "a ⋯ has no fill at rest"
+    rest = "\n".join(plain)
+    assert re.search(r"border(?:-color)?\s*:\s*transparent", rest), "a ⋯ has no edge at rest"
+    assert re.search(r"box-shadow\s*:\s*none", rest), "a ⋯ has no shadow at rest"
+    assert "border-radius: var(--radius-md)" in rest
+    assert any(_rail_background(body) == "var(--ghost-btn-bg)" for body in hover), "a ⋯ fills only under its own pointer"
+
+    # No other rule in the app dresses the opener: a selector that names
+    # `.kebab-opener`, or the library's ⋯ chip that this replaced, may not set
+    # a resting fill, edge or shadow anywhere else.
+    for path in CSS:
+        if path.name == "08-consistency.css":
+            continue
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            names_opener = ".kebab-opener" in selector or (
+                'button[aria-haspopup="menu"]' in selector and "library-card-menu" in selector
+            )
+            if names_opener and re.search(r"(?:^|;)\s*(?:background(?:-color)?|border(?:-color)?|box-shadow)\s*:", body):
+                raise AssertionError(f"{path.name}: {selector} dresses the ⋯ opener; styled once in 08-consistency.css")

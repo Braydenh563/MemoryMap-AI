@@ -4645,41 +4645,15 @@ summary.small.icon-button {
   border-color: var(--accent);
 }
 
-/* --- one ⋯ button, everywhere in the Library ---------------------------------
-   Reported: "the ellipse buttons on white backgrounds are hard to see, make
-   sure all the ellipse buttons in the library tabs are the same ui style."
-
-   Both halves have the same cause. The tiles' kebab painted itself with
-   `--modal-bg`, which is deliberately ~4% see-through (see CLAUDE.md's
-   nav-history story): fine over a dark card, invisible over a white scan or
-   a pale photograph, which is exactly where the Files and Images tiles put
-   it. And because the tile kebab had its own rule while every other Library
-   kebab inherited the plain icon-button look, no two sub-tabs drew the same
-   control.
-
-   One rule for all of them: an opaque chip with a real border, so what is
-   behind it cannot change whether it can be seen. `--modal-bg-opaque` is the
-   same token the command palette and every other floating surface reads text
-   against, and it exists precisely because the translucent one cannot be
-   relied on over unknown content. */
-.library-card-menu > button[aria-haspopup="menu"],
-.library-list .library-card-menu > button[aria-haspopup="menu"],
-.library-image-actions > .menu-wrap > button[aria-haspopup="menu"] {
-  background: var(--modal-bg-opaque);
-  border: 1px solid var(--border);
-  color: var(--ink);
-  box-shadow: var(--shadow-sm);
-  /* No blur: the point is that the control does not take its appearance from
-     whatever it happens to be sitting on. */
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.library-card-menu > button[aria-haspopup="menu"]:hover,
-.library-image-actions > .menu-wrap > button[aria-haspopup="menu"]:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  color: var(--accent-text);
-}
+/* --- one ⋯ button, everywhere (INBOX 722) ---------------------------------------
+   This block used to give the Library's tiles, cards and lines an opaque chip
+   (`--modal-bg-opaque`, a 1px border, `--shadow-sm`) so a ⋯ could be seen over
+   a pale photograph. The fill and the edge were already overridden by the
+   app's ghost icon-only rule (01-forms-settings.css), which left only the
+   shadow, a faint ring on a card, a dark one in dark: the owner's "meatball
+   buttons have a visible outline, is that consistent with the rest of the
+   app??". Every `kebabMenu` opener is a plain ghost icon now, styled once in
+   08-consistency.css under `.kebab-opener`; nothing here dresses it. */
 
 /* **The content column scrolls down, never sideways.**
    Reported: "there's a horizontal scrollbar on the notes tab capture

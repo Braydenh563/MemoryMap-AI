@@ -23,7 +23,7 @@
 // sheet), every Settings section, the palette, the guide, a kebab menu and a
 // few common dialogs.
 const { boot } = require('./lib.js');
-const TABS = ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'reminders', 'documents'];
+const TABS = process.env.TABS ? process.env.TABS.split(',') : ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'reminders', 'documents'];
 const WIDTH = Number(process.env.WIDTH || 1440);
 const HEIGHT = Number(process.env.HEIGHT || (WIDTH < 600 ? 844 : 900));
 const PHONE = WIDTH < 600;
@@ -167,6 +167,7 @@ const MEASURE = () => {
       }
     }
     if (ring) {
+      const exempt = {};
       for (const k of clippersOf(owner)) {
         const pb = padBox(k.el, k.cs);
         const o = over(ring, pb);
@@ -181,11 +182,16 @@ const MEASURE = () => {
           // the scrollport's edge by scroll position, not by its container's
           // geometry (a focus scrolls it in, and that is scroll-padding's job).
           const kel = k.el;
+          const edge = { left: pb.L, top: pb.T, right: pb.R, bottom: pb.B }[s];
+          // An outer clipper whose edge is the same line as an inner scroller's
+          // is the same scrollport (a pane in a body that hides): exempt too.
+          if (exempt[s] !== undefined && Math.abs(edge - exempt[s]) <= 1) continue;
           if (kel !== document.documentElement && kel !== document.body) {
-            if (s === 'top' && k.c.scrollY && kel.scrollTop > 1) continue;
-            if (s === 'bottom' && k.c.scrollY && kel.scrollTop + kel.clientHeight < kel.scrollHeight - 1) continue;
-            if (s === 'left' && k.c.scrollX && kel.scrollLeft > 1) continue;
-            if (s === 'right' && k.c.scrollX && kel.scrollLeft + kel.clientWidth < kel.scrollWidth - 1) continue;
+            const moving = (s === 'top' && k.c.scrollY && kel.scrollTop > 1)
+              || (s === 'bottom' && k.c.scrollY && kel.scrollTop + kel.clientHeight < kel.scrollHeight - 1)
+              || (s === 'left' && k.c.scrollX && kel.scrollLeft > 1)
+              || (s === 'right' && k.c.scrollX && kel.scrollLeft + kel.clientWidth < kel.scrollWidth - 1);
+            if (moving) { exempt[s] = edge; continue; }
           }
           // The control itself past the edge on a scrolling axis is scroll,
           // not a ring problem; on the start side at rest it is a cut.
@@ -200,8 +206,17 @@ const MEASURE = () => {
     el.blur();
   }
   // Plain borders: a bordered box that leaves a clipper's padding box.
+  // An edge a box draws itself: a border, an inset ring shadow (a chosen
+  // segment), or a fill that differs from clear. Each is a boundary that a
+  // clipper can cut off.
+  const edgeDrawn = (c) => ['Top', 'Right', 'Bottom', 'Left'].some((s) => c['border' + s + 'Style'] !== 'none' && num(c['border' + s + 'Width']) >= 1 && !/rgba?\([^)]*,\s*0\)$/.test(c['border' + s + 'Color']))
+    || /inset/.test(c.boxShadow) || (c.backgroundColor && !/rgba?\([^)]*,\s*0\)$/.test(c.backgroundColor) && c.backgroundColor !== 'transparent');
+  // The chosen option of a strip with a sliding indicator draws nothing itself:
+  // the strip's ::before paints its fill in the option's box, so the option's
+  // box is the edge (a chosen pill segment, INBOX 694).
+  const glideChosen = (el) => !!el.parentElement && el.parentElement.matches('.has-glide, .seg') && el.matches('.active,[aria-selected="true"],[aria-current],[aria-pressed="true"],[aria-checked="true"]');
   const bordered = [...document.querySelectorAll('button,input,select,textarea,a,[role=tab],[role=button],.card,.chip,.badge,.pill,.note-card,.entry-item,.library-card,.dash-widget,[class*="widget"],[class*="card"]')]
-    .filter((el) => { const c = getComputedStyle(el); return ['Top', 'Right', 'Bottom', 'Left'].some((s) => c['border' + s + 'Style'] !== 'none' && num(c['border' + s + 'Width']) >= 1 && !/rgba?\([^)]*,\s*0\)$/.test(c['border' + s + 'Color'])); })
+    .filter((el) => edgeDrawn(getComputedStyle(el)) || glideChosen(el))
     .filter((el) => !el.closest('.sr-only') && vis(el)).slice(0, 900);
   let borderMeasured = 0;
   for (const el of bordered) {
@@ -219,19 +234,24 @@ const MEASURE = () => {
         const start = s === 'left' || s === 'top';
         if (scrolls && !start) continue;   // beyond the end of a scroller is just more content
         const bw = num(cs['border' + s[0].toUpperCase() + s.slice(1) + 'Width']);
-        if (bw < 1 || cs['border' + s[0].toUpperCase() + s.slice(1) + 'Style'] === 'none') continue;
+        if ((bw < 1 || cs['border' + s[0].toUpperCase() + s.slice(1) + 'Style'] === 'none') && !edgeDrawn(cs) && !glideChosen(el)) continue;
         if (o[s] <= TOL) continue;
         // A box wholly outside is hidden content (a carousel), not a cut border.
         const inside = horiz ? (r.right > pb.L && r.left < pb.R) : (r.bottom > pb.T && r.top < pb.B);
         if (!inside) continue;
         // Mostly hidden boxes are scrolled content; a cut border is a hairline off the edge.
-        if (o[s] > bw + 3) continue;
+        if (o[s] > Math.max(bw, 1) + 3) continue;
         sides.push(`${s} ${o[s].toFixed(1)}`);
       }
       if (sides.length) push({ clipperEl: k.el, kind: 'border', how: 'border', sig: sig(el), owner: sig(el), clipper: sig(k.el), ov: `${k.cs.overflowX}/${k.cs.overflowY}${k.c.contain ? ' contain' : ''}${k.c.cp ? ' clip-path' : ''}`, sides, rect: [r.left, r.top, r.width, r.height].map(Math.round).join(',') });
     }
   }
-  return { findings, measured, borderMeasured };
+  const dbg = [];
+  if (window.__dbgSel) for (const el of document.querySelectorAll(window.__dbgSel)) {
+    const r = el.getBoundingClientRect();
+    dbg.push({ el: sig(el), sh: getComputedStyle(el).boxShadow, bg: getComputedStyle(el).backgroundColor, vis: vis(el), inBordered: bordered.includes(el), clippers: clippersOf(el).map((k) => ({ s: sig(k.el), pb: padBox(k.el, k.cs), x: k.c.x, y: k.c.y })), r: [r.left, r.top, r.right, r.bottom] });
+  }
+  return { findings, measured, borderMeasured, dbg };
 };
 
 const all = [];
@@ -242,8 +262,10 @@ const empty = [];
   const run = async (label) => {
     await page.mouse.move(2, 2);
     await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+    if (process.env.DBGSEL) await page.evaluate((x) => { window.__dbgSel = x; }, process.env.DBGSEL);
     const r = await page.evaluate(MEASURE);
     surfaces++;
+    if (r.dbg && r.dbg.length) console.log(JSON.stringify(r.dbg));
     if (!r.measured) empty.push(label);
     const rings = r.findings.filter((f) => f.kind === 'ring').length;
     const borders = r.findings.filter((f) => f.kind === 'border').length;

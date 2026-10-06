@@ -50,6 +50,10 @@ RING_ROOM: list[tuple[str, str, str]] = [
     ("a sheet's rows", ".sheet-row", "inset"),
     ("graph zoom group", ".graph-zoom-btn", "inset"),
     ("chat mode switch", ".chat-dock-controls .seg > button", "inset"),
+    ("document sidebar sections", ".doc-sidebar-section", "room"),
+    ("library sections", ".library-view-section", "room"),
+    ("document and library lists", ".doc-list", "room"),
+    ("Settings nav", ".modal-nav", "room"),
 ]
 
 SECTION_HEAD = "Ring room (INBOX 685"

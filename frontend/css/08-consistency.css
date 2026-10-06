@@ -11193,3 +11193,41 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(.graph-zoom-btn, .chat-dock-controls .seg > button):is(.active, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]):focus-visible {
   outline-color: var(--on-accent);
 }
+
+/* Room: the scrollers that hold separate controls or bordered cards against
+   their edge. Across, the room is padding with the same negative margin, so
+   nothing moves; at the start and the end of the scroll it is padding alone
+   (a few pixels the first control and the last one stand in). */
+:is(
+  .doc-sidebar-section,
+  .doc-sidebar .doc-outline-wrap,
+  .library-view-section,
+  .doc-list
+) {
+  padding-inline: var(--ring-room);
+  margin-inline: calc(-1 * var(--ring-room));
+}
+
+:is(.doc-sidebar-section, .library-view-section, .doc-list) {
+  padding-block: var(--ring-room);
+}
+
+/* The Settings nav scrolls on its own and its last section button stood on
+   the bottom edge (2px of padding for a 4px ring). */
+.modal-nav {
+  padding-block: var(--ring-room);
+}
+
+/* The Settings pane's controls start at its left edge (a link, the field
+   under Memory, the profile mark, the help search). */
+.modal-content {
+  padding-inline-start: var(--ring-room);
+  margin-inline-start: calc(-1 * var(--ring-room));
+}
+
+/* The one action an empty References section keeps (a quiet "Attach a link"
+   with no padding of its own), in a wrap that scrolls. */
+#doc-bookmarks-wrap:has(> .doc-outline:empty) {
+  padding-block: var(--ring-room);
+  margin-top: calc(var(--space-3) - var(--ring-room));
+}

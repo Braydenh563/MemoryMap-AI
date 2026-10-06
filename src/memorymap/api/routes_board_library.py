@@ -875,7 +875,25 @@ def _place_element(db: Session, board_id: int | None, payload: dict, body: Place
     return {"sketches": made_sketches, "objects": made_objects}
 
 
-def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceBody, ref: dict) -> dict:
+def _map_has_no_centre(db: Session, board_id: int | None) -> bool:
+    """True for a map board with no topic that is a root. A board that is not
+    a map has no centre to want, and a map with one already has its trunk."""
+    if board_id is None:
+        return False
+    entry = db.get(Entry, board_id)
+    if entry is None or _board_settings(entry)[0] != "map":
+        return False
+    roots = db.scalar(
+        select(WhiteboardObject.id)
+        .where(WhiteboardObject.board_id == board_id, WhiteboardObject.parent_id.is_(None),
+               WhiteboardObject.kind.in_(MAP_REFERENCE_KINDS | {MAP_TOPIC_KIND}))
+        .limit(1)
+    )
+    return roots is None
+
+
+def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceBody, ref: dict,
+                  name: str | None = None) -> dict:
     parent = None
     if body.parent_id is not None:
         parent = db.get(WhiteboardObject, body.parent_id)
@@ -907,7 +925,14 @@ def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceB
         row.y = body.y + at * 70
         return at
 
-    for node in payload.get("nodes") or []:
+    nodes = list(payload.get("nodes") or [])
+    #: A branch placed on a map with no central topic (INBOX 670) used to make
+    #: one trunk per top-level topic. One top-level topic is already the centre
+    #: (it has no parent); several go under a new centre named after the
+    #: template, so a map has the one trunk it is built around.
+    if parent is None and len(nodes) > 1 and _map_has_no_centre(db, board_id):
+        nodes = [{"text": (name or "Map").strip()[:200] or "Map", "children": nodes}]
+    for node in nodes:
         add(node, parent.id if parent is not None else None, 1 if parent is not None else 0)
     return {"sketches": [], "objects": made}
 
@@ -934,12 +959,12 @@ def place_library_item(board_id: int, body: PlaceBody, db: Session = Depends(get
     if kind in ("element", "shape", "preset"):
         made = _place_element(db, target, payload, body, ref)
     elif kind == "branch":
-        made = _place_branch(db, target, payload, body, ref)
+        made = _place_branch(db, target, payload, body, ref, entry_data.get("name"))
     elif kind == "template":
         if payload.get("element"):
             made = _place_element(db, target, payload["element"], body, ref)
         elif payload.get("branch"):
-            made = _place_branch(db, target, payload["branch"], body, ref)
+            made = _place_branch(db, target, payload["branch"], body, ref, entry_data.get("name"))
         else:
             made = {"sketches": [], "objects": []}
     else:
@@ -999,13 +1024,13 @@ def new_board_from_template(body: NewBoardBody, db: Session = Depends(get_sessio
         probe.x, probe.y = float(box.get("w", 0)) / 2, float(box.get("h", 0)) / 2
         _place_element(db, entry.id, payload, probe, ref)
     elif kind == "branch":
-        _place_branch(db, entry.id, payload, probe, ref)
+        _place_branch(db, entry.id, payload, probe, ref, entry_data.get("name"))
     elif payload.get("element"):
         box = payload["element"].get("box") or {}
         probe.x, probe.y = float(box.get("w", 0)) / 2, float(box.get("h", 0)) / 2
         _place_element(db, entry.id, payload["element"], probe, ref)
     elif payload.get("branch"):
-        _place_branch(db, entry.id, payload["branch"], probe, ref)
+        _place_branch(db, entry.id, payload["branch"], probe, ref, entry_data.get("name"))
     db.commit()
     board_type, layout = _board_settings(entry)
     return {"id": entry.id, "title": name, "type": board_type, "layout": layout}

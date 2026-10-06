@@ -702,7 +702,9 @@ async function wbLibPlace(entry, at = null, { connect = false, onto = null, grab
   }
   //: A branch goes under the topic it was dropped on, else the selected
   //: one; a map template with neither goes under the root, since a
-  //: template is the map's first branches rather than a second trunk.
+  //: template is the map's first branches rather than a second trunk. With
+  //: no root to go under, the server makes the central topic (INBOX 670): the
+  //: template's one top-level topic, or a new one named after the template.
   if (map && entry.kind === "branch") {
     const dropped = onto != null ? wbFindItem("object", onto) : null;
     const topic = (dropped && WB_MAP_KINDS.has(dropped.kind) ? dropped : null) || wbSelectedMapNode()

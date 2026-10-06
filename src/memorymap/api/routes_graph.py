@@ -975,7 +975,7 @@ def _build_graph(
                         "link_type": link.link_type,
                         # INBOX 693: no arrow on a link that runs both ways
                         # (its own choice, else its type's direction).
-                        "two_way": manager.link_runs_both_ways(link.two_way, link.link_type, types),
+                        "two_way": manager.is_two_way_link(link.two_way, link.link_type, types),
                     }
                 )
                 #: KG3: a typed link carries its name and inverse, for the

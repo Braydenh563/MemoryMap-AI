@@ -2203,7 +2203,7 @@ def set_link_props(session: Session, link: EntryLink, props: dict | None) -> Ent
 
 def set_link_two_way(session: Session, link: EntryLink, two_way: bool | None) -> EntryLink:
     """Make a link run both ways or one way (INBOX 693), or null to let its
-    type decide again (`link_runs_both_ways`)."""
+    type decide again (`is_two_way_link`)."""
     link.two_way = two_way
     log_action(
         session,
@@ -2216,7 +2216,7 @@ def set_link_two_way(session: Session, link: EntryLink, two_way: bool | None) ->
     return link
 
 
-def link_runs_both_ways(link_two_way: bool | None, link_type: str | None, types: dict[str, dict]) -> bool:
+def is_two_way_link(link_two_way: bool | None, link_type: str | None, types: dict[str, dict]) -> bool:
     """Whether a link is drawn with no arrow: its own choice when it has
     one, else its type's (a type with no inverse has no direction), else one
     way (INBOX 693)."""

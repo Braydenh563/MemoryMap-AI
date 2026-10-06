@@ -212,6 +212,14 @@ with its owner named in the entry.
      content, actions grouped with one primary. Placed: the next free Opus
      slot.
 
+709. **The owner, 2026-10-06, verbatim**, with a screenshot of a note's
+     "suggested links" row (each suggestion's text, then a separate "+"
+     button floating after it): "these plus buttons feel too separate from
+     their notes". Decision taken: each suggestion is one chip holding its
+     text and its add control (the + inside the chip's end, the whole chip
+     the hover target, its accessible name "Link to <title>"). Placed: with
+     691, the Tidy and links agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

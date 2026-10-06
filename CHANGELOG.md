@@ -52,6 +52,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library lines view and the rails (INBOX 722): a Rows line's icon starts at the row's own padding (a picture elsewhere in the list no longer pushes every other row 63px in); the hover tick draws its check and is titled Select instead of reading as an empty box beside the ⋯; every ⋯ is one plain ghost icon with no resting outline or shadow (the `kebab-opener` class, styled once); and a chat's or a document's title runs to the row's edge at rest, the ⋮ overlaying the row's end on hover (the words fade under it) instead of holding a column open.
 - A confirm opened from the lightbox (Delete) now shows above it rather than behind it (INBOX 721).
 - A stray Ctrl+V on another tab no longer drops an image onto a board left open in the Library (and starts captioning it); a board takes a paste only while it is on screen. The Ask history's pin and delete buttons are rounded squares like the app's other icon buttons (INBOX 720).
 - The mini Atlas avatar beside the name on an Ask answer, a Chat reply and the Guide no longer hangs under its row: the head is clipped to its 20px box (the companion's body and legs were drawn 11px below it, so the name sat at the top of a figure twice its height, with empty space under it) (INBOX 714).

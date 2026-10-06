@@ -11486,3 +11486,50 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(button, summary).kebab-opener.icon-only:is(:hover, [aria-expanded="true"]):not(:disabled) {
   background: var(--ghost-btn-bg);
 }
+
+/* --- A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) ---
+   The owner, with a screenshot of the Chats sidebar: "there's quite a big gap
+   on the right side of the chat sidebar chat items." Measured at 1440 with the
+   row at rest (no ⋮ showing): a chat's title ended 34px short of the row's
+   padding edge, because the hidden actions span (28px, `opacity: 0`) was still
+   a flex item and "What have I saved about literature?" wrapped to a second
+   line beside empty space; a Documents row did the same through a 2rem
+   `padding-right` kept "for the kebab" (title 33px short). Both reserved room
+   for a control that is only there on hover, focus or on a touch screen.
+
+   The rule, for every left rail: the title and meta take the row's full width
+   at rest, within 1px of its padding edge. The ⋮ is absolutely placed over the
+   row's right end, centred on it, and the end of the words fades under it
+   while it shows (a hovered or focused row, or any row on a touch screen,
+   where the ⋮ is always drawn) rather than a column being held open for it.
+   The Notes categories rail already did this (its `.category-actions` is
+   absolute and the count is the last thing in the row). Pinned in
+   `tests/test_ui_recipes.py`. */
+#conversation-list li {
+  position: relative;
+}
+
+#conversation-list li .entry-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0.6rem;
+  display: flex;
+  align-items: center;
+}
+
+@media (hover: hover) {
+  #conversation-list li:is(:hover, :focus-within) .conv-title,
+  .doc-item:is(:hover, :focus-within) :is(.doc-item-title, .doc-item-meta) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+  }
+}
+
+@media (hover: none) {
+  #conversation-list li .conv-title,
+  .doc-item :is(.doc-item-title, .doc-item-meta) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
+  }
+}

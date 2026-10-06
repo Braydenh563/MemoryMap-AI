@@ -5032,3 +5032,34 @@ def test_the_kebab_opener_is_one_shared_ghost_icon_styled_once() -> None:
             )
             if names_opener and re.search(r"(?:^|;)\s*(?:background(?:-color)?|border(?:-color)?|box-shadow)\s*:", body):
                 raise AssertionError(f"{path.name}: {selector} dresses the ⋯ opener; styled once in 08-consistency.css")
+
+
+#: **A rail row's ⋮ overlays the row; it never reserves a column** (INBOX 722,
+#: the owner: "there's quite a big gap on the right side of the chat sidebar
+#: chat items"). Measured at rest before: a chat's title 34px and a Documents
+#: title 33px short of the row's padding edge (the hidden ⋮ still held a flex
+#: item, and a 2rem `padding-right`, open); the Notes categories rail was
+#: already right (its `.category-actions` is absolute and the count is the last
+#: thing in the row). Now every rail's menu is absolutely placed, the row keeps
+#: only its own padding, and the words fade under the ⋮ while it shows.
+def test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    def declared(selector: str, prop: str) -> list[str]:
+        return [
+            re.search(rf"(?:^|;)\s*{prop}\s*:\s*([^;]+)", body).group(1).strip()
+            for sel, body in _rules(css)
+            if selector in [part.strip() for part in sel.split(",")] and re.search(rf"(?:^|;)\s*{prop}\s*:", body)
+        ]
+
+    assert "absolute" in declared("#conversation-list li .entry-actions", "position"), "a chat row's ⋮ overlays the row"
+    assert "absolute" in declared("#category-list li .category-actions", "position") or "absolute" in declared(".category-actions", "position")
+    assert "absolute" in declared(".menu-wrap.doc-item-menu", "position"), "a Documents row's ⋮ overlays the row"
+    # No right padding held back for the ⋮: the row keeps its own 0.6rem, the
+    # old `var(--space-9)` (2rem) reservation is gone.
+    paddings = declared(".doc-item-button", "padding")
+    assert paddings and all("space-9" not in value for value in paddings), "the Documents row reserves a column for its ⋮"
+    # The words fade under the ⋮ rather than stopping short of it.
+    fades = [body for sel, body in _rules(css) if "#conversation-list li" in sel and "mask-image" in body]
+    assert fades, "the end of a chat's title fades under its ⋮"
+    assert any(":hover" in sel and "doc-item" in sel for sel, body in _rules(css) if "mask-image" in body)

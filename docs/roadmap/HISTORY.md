@@ -45989,3 +45989,11 @@ and refuses a topic ("Select a shape, link or text box first").
      canvas rendered, so a board left open in the Library no longer takes a
      paste on another tab; `.icon-btn` is `--radius-md`. tests/test_stray_paste_720.py.
 
+722. **The owner, 2026-10-06, verbatim**, with screenshots of the Library's
+     Everything tab in its lines view (each row starts about 110px in, an empty
+     square box beside the hovered row's ⋯, and every row's ⋯ drawn as a filled,
+     outlined square): "theres a wierd gap at the start of the library all tab
+     lines view cards". Then: "also meatball buttons have a visible outline, is
+     that consistent with the rest of the app?? i dont think it is...".
+     Placed: Sonnet agent.
+

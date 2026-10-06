@@ -8159,7 +8159,18 @@ Link to another note with [[its first few words]]."></textarea>
                     <option value="vision">AI document reader</option>
                     <option value="ocr" hidden>AI vision model</option>
                     <option value="tesseract">Tesseract</option>
+                    <!-- RapidOCR by name (INBOX 717: "does the ocr worspace
+                         give rapidocr as an alternative??"): it used to read
+                         only as Tesseract's silent stand-in. -->
+                    <option value="rapidocr">RapidOCR</option>
                   </select>
+                  <!-- Not installed: one way to get it, the Packages row that
+                       owns its install (`revealFeature("extra-row")`). -->
+                  <p id="ocr-rapidocr-missing" class="ocr-rapidocr-missing hidden">
+                    <span class="muted">RapidOCR, not installed.</span>
+                    <button type="button" id="ocr-rapidocr-install" class="ghost small"
+                      title="Open Settings, Packages at RapidOCR's row"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Install</button>
+                  </p>
                 </div>
                 <!-- **The engine, said once** (INBOX 443 (3)): whether
                      Tesseract can read, in which language, and when it cannot

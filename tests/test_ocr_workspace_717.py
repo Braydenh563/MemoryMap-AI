@@ -224,3 +224,23 @@ def test_the_ring_has_room_in_the_dock():
     card: the dock does not clip (`overflow` stays visible)."""
     rules = "\n".join(re.findall(r"\.ocr-dock\s*\{([^}]*)\}", CSS))
     assert not re.search(r"overflow(-x|-y)?:\s*(auto|hidden|scroll|clip)", rules)
+
+
+def test_rapidocr_is_a_choice_in_the_reader_popover():
+    """The owner: "does the ocr worspace give rapidocr as an alternative??"
+    It is an option of the reader picker; missing, the popover says so and its
+    Install goes to the Packages row (the reveal recipe); the choice is
+    remembered, and nothing remembered keeps the automatic pick."""
+    html = _markup()
+    menu = html[html.index('<details id="ocr-reader-menu"') :]
+    menu = menu[: menu.index("</details>")]
+    assert '<option value="rapidocr">' in menu
+    assert 'id="ocr-rapidocr-missing"' in menu and 'id="ocr-rapidocr-install"' in menu
+    assert 'revealFeature("extra-row", "rapidocr")' in LIBRARY
+    reveal = (JS / "reveal-targets.js").read_text(encoding="utf-8")
+    assert '"extra-row": { settings: "extras", sel: "#extra-row-{arg}"' in reveal
+    loader = _body(LIBRARY, "ocrLoadReadersNow")
+    assert "RapidOCR, not installed" in loader
+    assert "prefs.get(OCR_READER_KEY" in loader
+    assert "prefs.set(OCR_READER_KEY" in LIBRARY
+    assert 'reader === "rapidocr" ? "&engine=rapidocr"' in _body(LIBRARY, "ocrRegionsUrl")

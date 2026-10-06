@@ -1077,6 +1077,7 @@ MORE_TOPICS.extend(
                 "ocr language", "reading language", "tesseract language", "install tesseract",
                 "tesseract not working", "tesseract missing", "read again", "which engine",
                 "language of the scan", "rapidocr", "ocr without tesseract",
+                "choose rapidocr", "rapidocr instead of tesseract",
             ),
             "body": (
                 "In the OCR workspace, the reader button's dot says whether "
@@ -1091,8 +1092,12 @@ MORE_TOPICS.extend(
                 "be edited by hand or added to an existing note. Settings, "
                 "Packages shows the same status and language. RapidOCR, a second "
                 "reader with nothing else to install (its own row in Settings, "
-                "Packages), reads when Tesseract isn't ready; its "
-                "models read English and Chinese, so the language does not apply."
+                "Packages), can be chosen in the reader button's menu, and then "
+                "reads even when Tesseract is ready; with nothing chosen it reads "
+                "when Tesseract isn't ready. Its models read English and Chinese, "
+                "so the language does not apply. Not installed, the menu says so "
+                "and its Install opens that Packages row. The workspace remembers "
+                "the reader you chose."
             ),
             "badge": {"label": "Packages", "section": "extras"},
         },

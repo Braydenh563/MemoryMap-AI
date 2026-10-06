@@ -505,6 +505,9 @@ const REVEAL_TARGETS = {
   //: when the features browser opens (`renderFeatures`): the tool's own row
   //: in Settings → Tools it can use, where it is switched on or off.
   "ai-tool": { settings: "tools", sel: '#tool-list [data-tool="{arg}"]', built: "renderToolSettings", fallback: "settings-tools" },
+  // One package's row in Settings, Packages (`extra-row-<id>`, settings-packages.js):
+  // the OCR workspace's "RapidOCR, not installed" Install (INBOX 717).
+  "extra-row": { settings: "extras", sel: "#extra-row-{arg}", fallback: "settings-extras" },
   "workspace-new": { open: () => openSpaceCreate(), el: "space-create-dialog", flash: false },
 
   // Data and control

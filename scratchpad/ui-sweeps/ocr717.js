@@ -35,7 +35,7 @@ function check(label, ok, detail) {
       json.engine = {
         ...json.engine, ready: true, binary: true, package: true, version: "5.5.3", reason: "", fix: "",
         languages: [{ code: "eng", name: "English" }, { code: "deu", name: "German" }], language: "eng",
-        engine: "tesseract", engine_name: "Tesseract",
+        engine: "tesseract", engine_name: "Tesseract", rapidocr: Boolean(process.env.RAPID),
       };
       route.fulfill({ json });
     });
@@ -168,6 +168,21 @@ function check(label, ok, detail) {
   if (process.env.READY) check(`${TAG}: the language label stands over its select`, pop.stacked === true, String(pop.stacked));
   else check(`${TAG}: not installed, the popover offers Install`, pop.install.some((t) => /Install Tesseract/.test(t)), pop.install.join("|"));
   await page.screenshot({ path: `${SHOTS}/ocr717-${TAG}-reader.png` });
+  // RapidOCR, a choice (RAPID=1 fakes it installed): the option, or the
+  // "not installed" line with its Install.
+  const rapid = await page.evaluate(() => {
+    const option = document.querySelector('#ocr-reader option[value="rapidocr"]');
+    return {
+      text: option?.textContent || "",
+      disabled: Boolean(option?.disabled),
+      missing: !document.getElementById("ocr-rapidocr-missing").classList.contains("hidden"),
+    };
+  });
+  if (process.env.READY) {
+    check(`${TAG}: RapidOCR is ${process.env.RAPID ? "offered" : "named as not installed, with Install"}`,
+      process.env.RAPID ? !rapid.disabled && !rapid.missing && /English and Chinese/.test(rapid.text)
+        : rapid.disabled && rapid.missing && /not installed/.test(rapid.text), JSON.stringify(rapid));
+  }
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
   const afterEsc = await page.evaluate(() => ({
@@ -247,6 +262,24 @@ function check(label, ok, detail) {
   check(`${TAG}: Ask attaches the page as a chip`, /page 1/.test(ask.chip), ask.chip);
   check(`${TAG}: Ask says what it did`, /attached to your next chat message/.test(ask.toast), ask.toast);
   await page.screenshot({ path: `${SHOTS}/ocr717-${TAG}-ask.png` });
+  if (process.env.RAPID) {
+    const picked = await page.evaluate(async () => {
+      const select = document.getElementById("ocr-reader");
+      select.value = "rapidocr";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      const word = document.getElementById("ocr-reader-name").textContent;
+      reopenOcrWorkspace();
+      await new Promise((r) => setTimeout(r, 1500));
+      return { word, after: document.getElementById("ocr-reader").value, url: ocrRegionsUrl(ocrWorkspaceCurrent, 0) };
+    });
+    check(`${TAG}: choosing RapidOCR names it, is remembered, and asks for it`,
+      picked.word === "RapidOCR" && picked.after === "rapidocr" && /engine=rapidocr/.test(picked.url), JSON.stringify(picked));
+    await page.evaluate(() => {
+      const select = document.getElementById("ocr-reader");
+      select.value = "tesseract";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
 
   await browser.close();
   process.exit(failures ? 1 : 0);

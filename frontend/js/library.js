@@ -3774,8 +3774,9 @@ function ocrRegionsUrl(image, page = 0) {
   //: one nobody asked for. A page that already has stored regions is served
   //: from the store either way, so this only governs the first read.
   const reader = document.getElementById("ocr-reader")?.value || "";
-  const auto = reader === "tesseract" ? "1" : "0";
-  return `${base}?page=${page}&auto=${auto}`;
+  const auto = reader === "tesseract" || reader === "rapidocr" ? "1" : "0";
+  //: RapidOCR by name reads the first look too (INBOX 717).
+  return `${base}?page=${page}&auto=${auto}${reader === "rapidocr" ? "&engine=rapidocr" : ""}`;
 }
 
 //: The rendered picture of one page, an image is itself the page, a PDF has
@@ -5916,6 +5917,11 @@ let ocrReaders = {
 //: click in the first moments after the window opens must wait for it rather
 //: than read an empty one as "nothing is available".
 let ocrReadersLoading = Promise.resolve();
+//: Where the workspace remembers the reader (INBOX 717), and whether this
+//: session has already applied it: a reader changed by hand is not overruled
+//: by the memory on the next refresh of the list (an install finishing).
+const OCR_READER_KEY = "memorymap.ocr.reader";
+let ocrReaderPicked = false;
 
 function ocrLoadReaders() {
   ocrReadersLoading = ocrLoadReadersNow();
@@ -5975,14 +5981,29 @@ async function ocrLoadReadersNow() {
       : ocrReaders.ocr_reason || "";
   }
   if (tess) {
-    tess.disabled = ocrReaders.tesseract === false;
-    tess.textContent = ocrReaders.tesseract
-      ? `${ocrLocalName()} (fast, on-page positions)`
-      : "Tesseract (not installed)";
-    tess.title = ocrReaders.tesseract
+    //: Tesseract itself now (INBOX 717): RapidOCR has its own option, so this
+    //: one no longer turns into "RapidOCR" when Tesseract is missing.
+    const ready = ocrCan("tesseract");
+    tess.disabled = !ready;
+    tess.textContent = ready ? "Tesseract (fast, on-page positions)" : "Tesseract (not installed)";
+    tess.title = ready
       ? "No model needed, on this computer, and it says where each block sits."
       : "Not ready yet. Install Tesseract from this menu.";
   }
+  //: **RapidOCR, a choice** (INBOX 717, the owner: "does the ocr worspace give
+  //: rapidocr as an alternative??"). Installed: its trade-off in one line.
+  //: Not: named as missing, with the one way to get it under the picker
+  //: (Settings, Packages at its row), rather than an option that cannot act.
+  const rapid = select.querySelector('option[value="rapidocr"]');
+  const rapidReady = ocrCan("rapidocr");
+  if (rapid) {
+    rapid.disabled = !rapidReady;
+    rapid.textContent = rapidReady ? "RapidOCR (English and Chinese, nothing else to install)" : "RapidOCR, not installed";
+    rapid.title = rapidReady
+      ? "Reads on this computer with no model and nothing else to install. Its models read English and Chinese, so the language setting does not apply."
+      : "Install RapidOCR in Settings, Packages.";
+  }
+  $("ocr-rapidocr-missing")?.classList.toggle("hidden", rapidReady || !ocrReaders.engine);
   //: The engine's own line (ocr-engine.js, lazy): ready or not, which
   //: language, and the one Install. Handed the answer just fetched, so opening
   //: the window is one request, and told to reload this picker when it changes
@@ -5997,8 +6018,16 @@ async function ocrLoadReadersNow() {
   }
   //: Fall to whichever one works rather than leaving a disabled option
   //: selected, which reads as "this is what will happen" and is not.
+  //: The reader chosen last time, when it can still read (INBOX 717); with
+  //: nothing remembered, the automatic pick below, as before.
+  const remembered = prefs.get(OCR_READER_KEY, "");
+  const option = remembered ? select.querySelector(`option[value="${remembered}"]`) : null;
+  if (option && !option.disabled && !option.hidden && !ocrReaderPicked) select.value = remembered;
+  ocrReaderPicked = true;
   if (select.selectedOptions[0]?.disabled || select.selectedOptions[0]?.hidden) {
-    select.value = ocrReaders.tesseract && !ocrReaders.vision ? "tesseract" : "vision";
+    select.value = ocrCan("tesseract") && !ocrReaders.vision
+      ? "tesseract"
+      : rapidReady && !ocrReaders.vision ? "rapidocr" : "vision";
   }
   //: No repaint call is needed: `enhanceSelect` (sheets-selects.js) watches each select
   //: with `MutationObserver(rebuild, {childList: true, subtree: true})`, and
@@ -6024,8 +6053,9 @@ function ocrSyncReaderButton() {
   const engine = ocrReaders.engine || {};
   //: ocr-engine.js is lazy: until it has loaded nothing can be installing.
   const installing = typeof ocrEngineInstall === "object" && Boolean(ocrEngineInstall?.running);
-  const can = reader === "tesseract" ? ocrReaders.tesseract : reader === "ocr" ? ocrReaders.ocr : ocrReaders.vision;
-  const word = reader === "tesseract" ? ocrLocalName() : reader === "ocr" ? "Vision model" : "Document reader";
+  const can = ocrCan(reader);
+  const word = reader === "tesseract" ? "Tesseract" : reader === "rapidocr" ? "RapidOCR"
+    : reader === "ocr" ? "Vision model" : "Document reader";
   name.textContent = word;
   const busy = installing && reader === "tesseract";
   dot.classList.toggle("is-busy", busy);
@@ -6035,11 +6065,15 @@ function ocrSyncReaderButton() {
   if (busy) {
     state = "Tesseract is installing.";
   } else if (reader === "tesseract") {
-    const version = engine.version && ocrLocalName() === "Tesseract" ? ` ${engine.version}` : "";
+    const version = engine.version ? ` ${engine.version}` : "";
     const language = typeof ocrEngineLanguageName === "function" ? ocrEngineLanguageName(engine) : "";
     state = can
-      ? `${ocrLocalName()}${version} is ready${language ? `, reading ${language}` : ""}.`
-      : `${ocrLocalName()} can't read yet. ${engine.reason || ""}`.trim();
+      ? `Tesseract${version} is ready${language ? `, reading ${language}` : ""}.`
+      : `Tesseract can't read yet. ${engine.reason || ""}`.trim();
+  } else if (reader === "rapidocr") {
+    state = can
+      ? "RapidOCR is ready. It reads English and Chinese; the language setting does not apply."
+      : "RapidOCR isn't installed. Install it from this menu.";
   } else {
     const model = reader === "ocr" ? ocrReaders.ocr_model : ocrReaders.vision_model;
     const why = (reader === "ocr" ? ocrReaders.ocr_reason : ocrReaders.vision_reason) || "Start an AI model in Settings.";
@@ -6052,7 +6086,23 @@ function ocrSyncReaderButton() {
 
 function ocrReader() {
   const value = $("ocr-reader")?.value;
-  return value === "tesseract" || value === "ocr" ? value : "vision";
+  return value === "tesseract" || value === "ocr" || value === "rapidocr" ? value : "vision";
+}
+
+//: The two local engines are local readers alike: no model, a stored reading
+//: under the id "tesseract", the `ocr` analyse kind for a picture.
+function ocrIsLocal(reader) {
+  return reader === "tesseract" || reader === "rapidocr";
+}
+
+//: **Whether a reader can run now.** Tesseract is Tesseract itself (both of
+//: its halves), not the automatic pick that falls to RapidOCR, now that
+//: RapidOCR is a choice of its own (INBOX 717): one option, one engine.
+function ocrCan(reader) {
+  const engine = ocrReaders.engine;
+  if (reader === "tesseract") return engine ? Boolean(engine.binary && engine.package) : Boolean(ocrReaders.tesseract);
+  if (reader === "rapidocr") return Boolean(engine?.rapidocr);
+  return reader === "ocr" ? Boolean(ocrReaders.ocr) : Boolean(ocrReaders.vision);
 }
 
 //: The local reader's name: Tesseract, or RapidOCR where Tesseract is not
@@ -6062,7 +6112,7 @@ function ocrLocalName() {
 }
 
 function ocrReaderNameFor(reader) {
-  if (reader === "tesseract" && ocrLocalName() !== "Tesseract") return ocrLocalName();
+  if (reader === "rapidocr") return "RapidOCR";
   if (reader === "tesseract") {
     const code = ocrReaders.engine?.language;
     const named = (ocrReaders.engine?.languages || []).find((l) => l.code === code);
@@ -6087,10 +6137,12 @@ function ocrReaderName() {
 async function ocrChooseReader() {
   await ocrReadersLoading;
   const asked = ocrReader();
-  const can = (reader) =>
-    reader === "tesseract" ? ocrReaders.tesseract : reader === "ocr" ? ocrReaders.ocr : ocrReaders.vision;
+  const can = ocrCan;
   if (can(asked)) return { reader: asked, said: "" };
-  const order = asked === "tesseract" ? ["vision", "ocr"] : ["tesseract", "vision", "ocr"];
+  //: A local reader falls to the other local one first, then to a model.
+  const order = ocrIsLocal(asked)
+    ? [asked === "tesseract" ? "rapidocr" : "tesseract", "vision", "ocr"]
+    : ["tesseract", "rapidocr", "vision", "ocr"];
   const other = order.find((reader) => reader !== asked && can(reader));
   if (!other) {
     return {
@@ -6102,7 +6154,7 @@ async function ocrChooseReader() {
   }
   const select = $("ocr-reader");
   if (select) select.value = other;
-  const why = asked === "tesseract" ? "isn't installed" : "isn't available";
+  const why = ocrIsLocal(asked) ? "isn't installed" : "isn't available";
   return { reader: other, said: `${ocrReaderNameFor(asked)} ${why}, so ${ocrReaderNameFor(other)} read this.` };
 }
 
@@ -6210,7 +6262,11 @@ async function ocrReadImage(image, button) {
     await trackOcrRead(
       image,
       label,
-      analyseMediaRow(image, reader === "tesseract" ? "ocr" : "vision-ocr", { force: true })
+      analyseMediaRow(
+        image,
+        ocrIsLocal(reader) ? "ocr" : "vision-ocr",
+        ocrIsLocal(reader) ? { force: true, engine: reader } : { force: true }
+      )
     );
     //: Re-read rather than render the response: the regions endpoint is the
     //: one thing that knows how to turn either reader's answer into boxes, and
@@ -6541,7 +6597,7 @@ function ocrReadMenuItems() {
       run: () => $("ocr-read-page")?.click(),
     },
     {
-      label: `ph:files Read all ${pages} pages`,
+      label: pages > 1 ? `ph:files Read all ${pages} pages` : "ph:files Read every page",
       title: "Read every page of the document, one after another",
       run: () => ocrReadRange("all"),
     },
@@ -6712,6 +6768,12 @@ onDomReady(() => {
   //: but 100% it shows the page at 100%, and at 100% it fits it again.
   $("ocr-zoom-level")?.addEventListener("click", () => ocrSetZoom(ocrZoom === 1 ? null : 1));
   $("ocr-zoom-fit")?.addEventListener("click", () => ocrSetZoom(null));
+  //: RapidOCR's install is its Packages row's (one install flow per extra):
+  //: this goes there, the row flashed, and the workspace asks again on reopen.
+  $("ocr-rapidocr-install")?.addEventListener("click", () => {
+    closeOcrWorkspace();
+    revealFeature("extra-row", "rapidocr");
+  });
   //: The arrows walk the rail's thumbnails and the reading's sections; Enter
   //: on a section goes to its page, the same as a click on it.
   ocrRoveKeys($("ocr-rail"), ".ocr-rail-item");
@@ -6735,12 +6797,17 @@ onDomReady(() => {
   //: reading rather than leaving one reader's words under the other's name.
   $("ocr-reader")?.addEventListener("change", () => {
     ocrSyncReaderButton();
+    //: Remembered (INBOX 717): the next file opens on the reader chosen here.
+    //: Nothing remembered keeps the automatic pick (`ocrLoadReadersNow`).
+    prefs.set(OCR_READER_KEY, ocrReader());
     const message = $("ocr-message");
     if (!message) return;
     message.textContent =
-      ocrReader() === "tesseract"
-        ? `${ocrLocalName()} will read the page, no model needed, and it marks where each block sits.`
-        : "The vision model will read the page.";
+      ocrReader() === "rapidocr"
+        ? "RapidOCR will read the page: no model, nothing else to install, English and Chinese, and it marks where each block sits."
+        : ocrReader() === "tesseract"
+          ? "Tesseract will read the page, no model needed, and it marks where each block sits."
+          : "The vision model will read the page.";
     message.classList.remove("hidden");
   });
   //: **The reading has to be able to leave this window.** A transcription you
@@ -7039,7 +7106,7 @@ onDomReady(() => {
         const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
         const kind = shown
           ? (shown === "tesseract" ? "ocr" : "vision-ocr")
-          : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
+          : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
         await analyseMediaRow(image, kind, { text: "" });
         //: The gallery tile behind this dialog now claims a reading that is
         //: gone: same repaint `ocrReadImage` triggers after writing one.
@@ -7170,7 +7237,7 @@ onDomReady(() => {
     const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
     const kind = shown
       ? (shown === "tesseract" ? "ocr" : "vision-ocr")
-      : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
+      : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
     setBusy(button, true, "Saving…");
     try {
       await analyseMediaRow(image, kind, { text: box.value, edited: true });

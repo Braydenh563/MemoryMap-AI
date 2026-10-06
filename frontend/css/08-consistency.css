@@ -6363,6 +6363,13 @@ body .chip.item-label,
     & .nm-char .nm-buddy-head { animation: nmv-head-sway 5.9s ease-in-out -2.95s infinite alternate; }
     & .nmb-arm-l { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate; }
     & .nmb-arm-r { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate-reverse; }
+    /* Not Atlas's arms (INBOX 669, "atlas's arm movements are jerky"): its
+       arms are a rig that redraws them from these probes, so a drift that
+       never ends ran the rig every frame for as long as the view was open,
+       158 layouts and 0.7s of main thread a second at rest
+       (atlas669-cost.js), and its view dropped to 18 frames a second on a
+       busy machine. Atlas has its own loops: sway, breath, tail, rings. */
+    &.atl-figure-box :is(.nmb-arm-l, .nmb-arm-r) { animation: none; }
     & .name-mark .nm-eyes {
       translate: calc(var(--nmv-x) * 3.4px) calc(var(--nmv-y) * 2.6px);
       transition: translate var(--motion-fast) var(--ease-out);
@@ -7037,7 +7044,7 @@ body .chip.item-label,
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-l { animation: nmb-hide-l 2.4s ease-in-out; }
     &.nmb-act-hide:not([data-pose="hang"]) .nmb-arm-r { animation: nmb-hide-r 2.4s ease-in-out; }
     &.nmb-act-hide .name-mark .nm-eyes { animation: nmb-hide-eyes 2.4s ease-in-out; }
-    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 0.9s ease-in-out; }
+    &.nmb-act-wiggle .nm-buddy-char { animation: nmb-wiggle 1.2s ease-in-out; }
     &.nmb-act-nod .nm-buddy-head { animation: nmb-nod-yes 0.3s ease-in-out 4 alternate; }
     &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
     &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
@@ -7122,26 +7129,37 @@ body .chip.item-label,
   z-index: 3;
 }
 
+/* **An arm's gesture starts and ends where the arm is** (INBOX 669, the
+   owner: "atlas's arm movements are jerky and not smooth"). The arm
+   keyframes (the hide's, the wave's, the scratch's, here and below) began
+   and ended at `rotate(0deg)`, which is the arm's rest only standing
+   calm: floating it rests at -28 degrees, her held-out arm at -50, a
+   mood's arms elsewhere again. So a wave first swung the arm to 0 and then
+   up, and at its end swung it past its rest to 0 and back (20 degrees a
+   frame, atlas669-clicks.js). With no 0% or 100% the stylesheet starts
+   and ends each from the arm's own transform, whatever the pose or mood. */
 @keyframes nmb-hide-l {
-  0%, 100% { transform: none; }
   18%, 82% { transform: rotate(-152deg); }
 }
 @keyframes nmb-hide-r {
-  0%, 100% { transform: none; }
   18%, 82% { transform: rotate(152deg); }
 }
 @keyframes nmb-hide-eyes {
   0%, 100% { scale: 1 1; }
   18%, 82% { scale: 1 0.12; }
 }
+/* **A poke's wiggle swings, it does not snap** (INBOX 669, the owner:
+   "when I click atlas, it often starts tilting to the left then just snaps
+   back"). Its turn back from the left went 11 degrees in 225ms, 1.4 a
+   frame, which in the large view moved the head 4px a frame
+   (atlas669-clicks.js). Now 9 degrees over 336ms, from and back to the
+   body's own transform (a lean, a shy sink) rather than `none`. */
 @keyframes nmb-wiggle {
-  0%, 100% { transform: none; }
-  20% { transform: rotate(-6deg) scale(1.03, 0.97); }
-  45% { transform: rotate(5deg); }
-  70% { transform: rotate(-3deg); }
+  20% { transform: rotate(-5deg) scale(1.03, 0.97); }
+  48% { transform: rotate(4deg); }
+  74% { transform: rotate(-2deg); }
 }
 @keyframes nmb-scratch {
-  0%, 100% { transform: rotate(0deg); }
   15%, 35%, 55%, 75% { transform: rotate(-150deg); }
   25%, 45%, 65% { transform: rotate(-138deg); }
 }
@@ -7263,7 +7281,6 @@ body .chip.item-label,
   75% { rotate: 3deg; }
 }
 @keyframes nmb-wave-l {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(98deg); }
   32%, 64% { transform: rotate(128deg); }
 }
@@ -7283,7 +7300,6 @@ body .chip.item-label,
   45%, 60% { transform: rotate(-7deg) scale(0.98, 1.05); }
 }
 @keyframes nmb-wave {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-98deg); }
   32%, 64% { transform: rotate(-128deg); }
 }
@@ -9124,24 +9140,20 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   75% { transform: translateY(-3px) scaleX(-0.1); }
 }
 @keyframes atl-wave {
-  0%, 100% { transform: rotate(0deg); }
   18%, 50%, 82% { transform: rotate(-100deg); }
   34%, 66% { transform: rotate(-78deg); }
 }
 @keyframes atl-buddy-wave {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-78deg); }
   32%, 64% { transform: rotate(-102deg); }
 }
 /* INBOX 568: her right arm hangs at rest, so the wave rises from there to
    the old wave's angles less a right angle, and settles back. */
 @keyframes atl-buddy-wave-f {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-122deg); }
   32%, 64% { transform: rotate(-146deg); }
 }
 @keyframes atl-buddy-scratch {
-  0%, 100% { transform: rotate(0deg); }
   15%, 35%, 55%, 75% { transform: rotate(-118deg); }
   25%, 45%, 65% { transform: rotate(-106deg); }
 }

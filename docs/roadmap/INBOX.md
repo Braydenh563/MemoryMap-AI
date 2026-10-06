@@ -44,19 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-669. **The owner, 2026-10-06, verbatim.** "when I click atlas, it often
-     starts tilting to the left then just snaps back" / "in the enlarged view
-     panel". INBOX 600 eased a mood's loop back over 0.7s
-     (`nameMarkBuddyBlend`, atlas.js ~3527); a click still snaps. Next:
-     reproduce in the enlarged view, sample the figure's transforms per frame
-     after a click (the atlas600-still.js method), find what cuts the tilt
-     (a play class removed, a mood timer, a second click restarting it), and
-     hand back without a jump. With it, the owner, the same hour: "atlas's
-     arm movements are jerky and not smooth" (measure the arms' rotation per
-     frame through each move; no step over a few degrees a frame, no
-     keyframe that jumps). Placed: the 0.4.1 mini release, an Opus agent
-     when a slot frees.
-
 675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
      Dashboard's Focused view: a full-width card holding "Evening, Brayden."
      over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6

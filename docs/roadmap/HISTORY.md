@@ -45430,3 +45430,28 @@ and refuses a topic ("Select a shape, link or text box first").
      half the `--hover-veil` (0.045 white in dark, 0.035 ink in light), set
      in documents.js `docCmTheme`; tests/test_line_gutter_look.py pins it.
 
+669. **The owner, 2026-10-06, verbatim.** "when I click atlas, it often
+     starts tilting to the left then just snaps back" / "in the enlarged view
+     panel". INBOX 600 eased a mood's loop back over 0.7s
+     (`nameMarkBuddyBlend`, atlas.js ~3527); a click still snaps. Next:
+     reproduce in the enlarged view, sample the figure's transforms per frame
+     after a click (the atlas600-still.js method), find what cuts the tilt
+     (a play class removed, a mood timer, a second click restarting it), and
+     hand back without a jump. With it, the owner, the same hour: "atlas's
+     arm movements are jerky and not smooth" (measure the arms' rotation per
+     frame through each move; no step over a few degrees a frame, no
+     keyframe that jumps). Placed: the 0.4.1 mini release, an Opus agent
+     when a slot frees.
+     **Fixed** (atlas669-1006). Causes, measured with `atlas669-clicks.js`:
+     the pacer resurrected an act's cancelled animations (`pause()` on an
+     idle animation restarts it), so a wave or a look replayed at 10Hz after
+     the act; the large view was paced at all; the rig's arms turned up to
+     27 degrees a frame; the arm keyframes began and ended at `rotate(0)`,
+     not the arm's rest; a poke's wiggle swung back 1.4 degrees a frame; a
+     rule-held lean (a facepalm) and a one-hand hang's pivot dropped in one
+     frame at the act's end; the face view's arm drift ran Atlas's rig every
+     frame. Large view, 20 clicks, per 60fps frame, before then after: the
+     companion's head 7.9deg/3.9px to 1.2deg/2.5px, its arms 12.1deg/4.5px
+     to 3.3deg/2.0px; every arm act and mood, the arm's own turn 15.0 to
+     3.3deg. Remaining: `agent-remaining/atlas669-1006.md`.
+

@@ -3407,7 +3407,7 @@ const NAME_MARK_BUDDY_ACTS = {
   carry: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   lantern: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   hide: { ms: 2400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
-  wiggle: { ms: 900, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  wiggle: { ms: 1400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   //: Pleased with a piece of work the app finished (`nameMarkBuddyWork`).
   nod: { ms: 1200, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
@@ -5369,7 +5369,12 @@ function nameMarkBuddyTempo() {
   //: layouts and 120 paints a second, while the walk itself (the host's
   //: translate) is the compositor's. An act or a drag still runs at full
   //: rate: those are short and are the moment it is being looked at.
-  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");
+  //: And in the large view (INBOX 669, the owner: "atlas's arm movements
+  //: are jerky and not smooth"): there it is drawn 2.2 times over and is
+  //: the one thing on screen, so a head turn stepped at 10Hz jumped 6
+  //: degrees a step (atlas669-clicks.js), and the rig followed each arm's
+  //: stepped gesture in jerks.
+  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;
   //: Held, not stepped, while a scroll is under way and while a page or a
   //: popup is arriving (`uiSettlingUntil`, set by `switchTab` and
   //: `openSettingsModal`; INBOX 580, the owner: "the atlas companion and app
@@ -5382,6 +5387,19 @@ function nameMarkBuddyTempo() {
   //: per animation (measured: 354 layouts a second, interleaved).
   const states = nmbTempo.anims.map((anim) => anim.playState);
   nmbTempo.anims.forEach((anim, i) => {
+    //: **A move that has ended stays ended** (INBOX 669, the owner: "when I
+    //: click atlas, it often starts tilting to the left then just snaps
+    //: back"). The list is read once a second, so it held an act's
+    //: animations after the act's class came off and the stylesheet had
+    //: cancelled them; `pause()` on a cancelled animation starts it again
+    //: from its first frame, and every beat after stepped it on. So each
+    //: act's gesture (a wave's arm, a look's head) played a second time,
+    //: stepped at 10Hz, after the act had handed back (atlas669-clicks.js:
+    //: the wave's probe back at -100 degrees 400ms after the act ended).
+    if (states[i] === "idle" || states[i] === "finished") {
+      nmbTempo.clock.delete(anim);
+      return;
+    }
     if (busy) {
       if (states[i] === "paused") anim.play();
       nmbTempo.clock.delete(anim);
@@ -7774,14 +7792,48 @@ function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
     const style = getComputedStyle(el);
     const from = {};
     for (const key of props) from[key] = style[key];
+    //: And the point it turns about (INBOX 669): an act that turns the
+    //: body about its own point (hanging by one hand turns 16 degrees about
+    //: the hand, `nmb-act-onehand`) took that point away with its class,
+    //: and the turn eased back about the new one, 44px off in the large
+    //: view, in one frame (atlas669-clicks.js, a poke cutting it short).
+    if (props.has("rotate") || props.has("transform")) from.transformOrigin = style.transformOrigin;
     held.push({ anim, el, from });
   }
+  //: **And the body's held pose** (INBOX 669, the owner: "when I click
+  //: atlas, it often starts tilting to the left then just snaps back").
+  //: An act that leans the body by a plain rule (a facepalm tips it 3
+  //: degrees, a read, a shrug, a seat) also stops its idle bob while it
+  //: lasts; at its end the bob's animation came back and covered the rule's
+  //: transition, so the lean went in one frame (atlas669-clicks.js: the
+  //: head 9px in a frame). The body's box is read before and after; if it
+  //: moved and nothing above eased it, it is eased from where it was.
+  const BODY = ["transform", "rotate", "translate", "transformOrigin"];
+  const bodies = roots.map((el) => (el.id === "nm-buddy" ? el.querySelector(".nm-buddy-char") : null)).filter(Boolean).map((el) => {
+    const style = getComputedStyle(el);
+    return { el, from: Object.fromEntries(BODY.map((key) => [key, style[key]])) };
+  });
   change();
-  if (!held.length) return;
+  const eased = new Set();
   for (const { anim, el, from } of held) {
     if (el.getAnimations().includes(anim)) continue;
+    //: Only what moved (the body's note below says why).
+    const style = getComputedStyle(el);
+    const moved = Object.fromEntries(Object.keys(from).filter((key) => style[key] !== from[key]).map((key) => [key, from[key]]));
+    if (!Object.keys(moved).length) continue;
     //: `offset: 0`: a lone keyframe with none is the end, not the start.
-    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    el.animate([{ ...moved, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    eased.add(el);
+  }
+  for (const { el, from } of bodies) {
+    if (eased.has(el)) continue;
+    const style = getComputedStyle(el);
+    //: Only what moved: a key held at its old value that the next act
+    //: animates from the same value (a hang's turn starting at 0) was
+    //: pinned there for the whole blend and then jumped (atlas669-blendcheck.js).
+    const moved = Object.fromEntries(BODY.filter((key) => style[key] !== from[key]).map((key) => [key, from[key]]));
+    if (!Object.keys(moved).length) continue;
+    el.animate([{ ...moved, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
   }
 }
 

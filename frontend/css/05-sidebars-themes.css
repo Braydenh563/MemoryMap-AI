@@ -4643,6 +4643,17 @@ textarea.autogrow {
   height: 1.75rem;
 }
 
+/* **In the desktop window the title bar is the icon** (INBOX 705, "the title
+   bar's app icon and the header's logo clash"). The OS frame shows the app's
+   icon and name above the bar, and the tile here is that same mark again a
+   few pixels below, larger than the icon above it. Measured: 28px against
+   the frame's 16px. The wordmark stays and moves to the gutter, as it does on
+   a phone; a browser tab has no title-bar icon of its own, so it keeps the
+   tile. `data-chrome` is set from `GET /desktop/fullscreen` (app.js). */
+html[data-chrome="native"] #top-bar #brand-logo {
+  display: none;
+}
+
 /* The bar's icon buttons are squares of the bar's one height. */
 #top-bar :is(.header-cluster, .notif-wrap) > button.icon-only {
   width: var(--header-control-h);

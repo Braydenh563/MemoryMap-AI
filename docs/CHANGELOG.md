@@ -64,6 +64,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Whiteboard and mind map: things placed from the Library land where you put them. A dragged shape, template or icon keeps the point you held it by under the pointer (the drag now carries the shape's picture, not the whole tile), a click puts it in the middle of the canvas you can see rather than partly under the open Library, a dropped note's card is centred on the pointer whatever its height, and a mind map template lands under the pointer instead of 240px away. Measured at 50%, 100% and 200% with the view panned: within 0.5px everywhere, where it was up to 165px off on a click and 580px on a drag. A dropped note is now one undo step, and on a mind map the topic a branch template or icon will join is highlighted while you hold it over it.
 - Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.
 - The note composer's formatting strip no longer touches the box's border: it floats one step in as its own rounded tint, in Capture and the note edit form (measured at 1440, 1920 and 390: the strip is 6.4px inside the border, its controls 12.8px).
+- The desktop window no longer shows the app's logo twice: the title bar already carries the icon, so the header's logo tile is hidden there (a browser tab keeps it); the wordmark moves to the page gutter.
 
 ## [0.4.0] - 2026-10-06
 

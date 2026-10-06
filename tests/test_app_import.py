@@ -139,3 +139,45 @@ def test_a_zip_too_large_unpacked_is_refused(monkeypatch):
     monkeypatch.setattr(app_import, "MAX_ARCHIVE_BYTES", 10)
     with pytest.raises(app_import.TooBig):
         app_import.expand([("a.zip", _zip({"a.md": "x" * 100}))])
+
+
+@pytest.mark.parametrize(
+    "call, text",
+    [
+        (app_import._enml, "<en-media" * 20000),
+        (app_import._enml, "<en-media>" * 20000),
+        (app_import._enml, "<en-todo" * 20000),
+        (app_import._enml, "<?xml" * 20000),
+        (app_import._notion_links, "[](" * 20000),
+        (app_import._notion_links, "[a](b" * 20000),
+        (app_import._notion_name, "a" + " " * 20000 + "x"),
+    ],
+    ids=["media-open", "media-pair", "todo", "xml", "link-open", "link-text", "notion-id"],
+)
+def test_an_import_regex_is_linear_on_a_hostile_file(call, text):
+    """Each of these took two to ten seconds on 20 to 180 KB before (the
+    final scan, 2026-10-06: CodeQL's `py/polynomial-redos` shape, an
+    uploaded export reaching an unanchored `[^>]*` or a lazy run). A real
+    ENEX is up to 200 MB, so quadratic is a hang, not a slow import."""
+    import time
+
+    started = time.perf_counter()
+    call(text)
+    assert time.perf_counter() - started < 0.5
+
+
+def test_the_linear_import_regexes_still_read_real_files():
+    assert app_import._notion_name("Garden plan fedcba9876543210fedcba9876543210") == (
+        "Garden plan",
+        "fedcba9876543210fedcba9876543210",
+    )
+    assert app_import._notion_name("Plain") == ("Plain", None)
+    assert app_import._notion_links("See [x](A%20b%200123456789abcdef0123456789abcdef.md).") == "See [[A b]]."
+    body = app_import._notion_links("[web](https://x.org/a.html)")
+    assert body == "[web](https://x.org/a.html)"
+    enml = app_import._enml(
+        '<?xml version="1.0"?><!DOCTYPE en-note SYSTEM "x"><en-note><en-todo checked="true"/>done'
+        '<en-todo/>open<en-media type="image/png" hash="ab"/><en-media hash="c"></en-media></en-note>'
+    )
+    assert "[x] done" in enml and "[ ] open" in enml and enml.count("[attachment]") == 2
+    assert "xml" not in enml and "DOCTYPE" not in enml

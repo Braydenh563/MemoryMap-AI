@@ -7797,8 +7797,12 @@ function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
   for (const { el, from } of bodies) {
     if (eased.has(el)) continue;
     const style = getComputedStyle(el);
-    if (BODY.every((key) => style[key] === from[key])) continue;
-    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    //: Only what moved: a key held at its old value that the next act
+    //: animates from the same value (a hang's turn starting at 0) was
+    //: pinned there for the whole blend and then jumped (atlas669-blendcheck.js).
+    const moved = Object.fromEntries(BODY.filter((key) => style[key] !== from[key]).map((key) => [key, from[key]]));
+    if (!Object.keys(moved).length) continue;
+    el.animate([{ ...moved, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
   }
 }
 

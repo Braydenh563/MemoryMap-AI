@@ -1589,5 +1589,5 @@ def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
     after = blend.index("change();\n  const eased")
     assert before < after
     tail = blend[after:]
-    assert "if (BODY.every((key) => style[key] === from[key])) continue;" in tail
+    assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
     assert "if (eased.has(el)) continue;" in tail

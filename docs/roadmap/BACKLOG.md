@@ -2599,6 +2599,21 @@ as the board import path (`wbMermaidParse`) and the verifier in step 5.
 12. **The AI**: steps 5 and 6 above use the full renderer for the preview;
     the agent gets a `render_mermaid` check tool so it can see its own parse
     errors; Ask can answer with a diagram when the question asks for one.
+12a. **Editing diagrams with the AI** (the owner, 2026-10-06, verbatim: "also
+    editing diagrams as well like with the ai assistant in the document
+    editor. rendering diagrams in chat messages etc"). The document editor's
+    AI assistant works on a diagram as it does on a paragraph: select a
+    diagram (or put the cursor in its fence) and ask ("add a step for
+    review", "turn this into a sequence diagram", "group these into two
+    subgraphs"); the reply is a Mermaid diff shown as before and after
+    drawings, Accept or Discard, one Undo. The same on a board frame and a
+    mind map branch (through their Mermaid form). Every proposal passes the
+    step 5 verifier before it is shown.
+12b. **Diagrams in chat and Ask**: a ` ```mermaid ` block in any chat
+    message, Ask answer or agent reply is drawn (step 8), with Copy, Download
+    (SVG, PNG, `.mmd`), Open in whiteboard and Insert into a document under
+    its ⋯ menu; a block that fails to parse shows as code with the parser's
+    one-line reason.
 13. **Tests and guards**: a lazy-load test (not in `app_js_files`), a
     vendored-file licence notice test, a CSP test that no inline style or
     script is injected, and a sweep that renders one of each kind in light

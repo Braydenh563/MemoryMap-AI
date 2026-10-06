@@ -803,8 +803,11 @@ MORE_TOPICS.extend(
             ),
             "body": (
                 "Tidy is the broom in the Notes dock, beside the search help; the "
-                "number on it is how many things its reviews found. Every review is "
-                "a rule that needs no AI. Pick a review from the list: Links to explain (Add reasons "
+                "number on it is how many things its reviews found. It opens on an "
+                "overview of all nine reviews, each a rule that needs no AI, with "
+                "its count and one line on what it finds, the ones with nothing to "
+                "tidy last; press a row to open that review and its back button to "
+                "return to the overview. The reviews: Links to explain (Add reasons "
                 "gives a link that only says similar in meaning what the two notes "
                 "share, a tag, a name or a week), Weak automatic links (Remove "
                 "links), Tags Atlas added (tags written by Atlas or a background "

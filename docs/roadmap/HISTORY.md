@@ -45872,3 +45872,18 @@ and refuses a topic ("Select a shape, link or text box first").
      carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
      next step. Placed: with 696, the progress agent.
      Built (696, 700, 713), 2026-10-06: see CHANGELOG, Unreleased; commits c49736e, 636bfe0, fd68ea1, e643112.
+
+718. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tidy
+     review's "Apply automatically" switch (an outlined track with a grey knob,
+     drawn thinner than the app's other switches, inside a filled chip): "this
+     button toggle seems overly thin". Placed: Sonnet agent with 716.
+     Addenda, the owner, 2026-10-06, verbatim, on the Tidy dialog: "no vertical
+     spacing between elements,also what is naming???" (Recent runs touching the
+     row above and the Undo row below; the "Name 1" and "Name all in the
+     background" buttons). "is it possible to see all issues identified??" (the
+     review picker is a dropdown of nine). "this popup coveres the ? button and
+     is massive and takes up a lot of room" (the Tidy help popover, a long
+     scrolling essay over its own trigger).
+     Built (718), 2026-10-06: see CHANGELOG, Unreleased; sweep
+     `scratchpad/ui-sweeps/tidy718.js`.
+

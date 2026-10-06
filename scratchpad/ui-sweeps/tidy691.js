@@ -5,6 +5,7 @@
 //   BASE=http://127.0.0.1:8828 SCRATCH=<scratch> node scratchpad/ui-sweeps/tidy691.js
 //   (THEME=dark for dark, WIDTH=390 for a phone; APPLY=1 applies and undoes)
 //
+// (INBOX 718: the review list is the overview now; reviews are opened with tidyShow.)
 // Measures, never looks: the dock's count against `/tidy`'s total; for every
 // review, the rows the sheet draws against the server's, and with APPLY=1 that
 // applying one row drops the count by one and Undo (the toast's) brings it
@@ -50,7 +51,7 @@ const PHONE = WIDTH < 600;
   await page.screenshot({ path: `${OUT}/tidy691-dock-${WIDTH}-${out.theme}.png`, clip: { x: 0, y: 0, width: WIDTH, height: 260 } });
 
   await page.click('#notes-tidy');
-  await page.waitForSelector('[data-sheet="tidy"] #tidy-review', { timeout: 10000 });
+  await page.waitForSelector('[data-sheet="tidy"] .tidy-overview-row', { timeout: 10000 });
   await page.waitForTimeout(800);
   const box = await page.evaluate(() => {
     const r = document.querySelector('[data-sheet="tidy"] .sheet-card').getBoundingClientRect();
@@ -59,7 +60,7 @@ const PHONE = WIDTH < 600;
   check('sheet inside the viewport', box.left >= 0 && box.right <= box.vw && box.top >= 0 && box.bottom <= box.vh, box);
 
   for (const review of summary.reviews) {
-    await page.evaluate((key) => { const s = document.getElementById('tidy-review'); s.value = key; s.dispatchEvent(new Event('change')); }, review.key);
+    await page.evaluate((key) => tidyShow(key), review.key);
     await page.waitForFunction((key) => {
       const list = document.getElementById('tidy-list');
       return TIDY.state && TIDY.state.key === key && list && !/Looking/.test(list.textContent);
@@ -69,7 +70,7 @@ const PHONE = WIDTH < 600;
       rows: document.querySelectorAll('#tidy-list .tidy-row').length,
       ticked: document.querySelectorAll('#tidy-list .note-picker-box:checked').length,
       apply: document.getElementById('tidy-apply')?.textContent.trim(),
-      option: document.getElementById('tidy-review').selectedOptions[0].textContent,
+      option: document.getElementById('tidy-title').textContent,
       first: (() => { const r = document.querySelector('#tidy-list .tidy-row'); return r ? [...r.querySelectorAll('.note-picker-text, .note-picker-meta, .tidy-change')].map((e) => e.textContent) : null; })(),
       overflowX: document.getElementById('tidy-list').scrollWidth > document.getElementById('tidy-list').clientWidth + 1,
     }));

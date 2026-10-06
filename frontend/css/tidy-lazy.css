@@ -16,10 +16,96 @@
   gap: var(--space-5);
 }
 
-.tidy-card > .select-shell,
-.tidy-card > .inbox-desc,
-.tidy-card > .tidy-tools {
+.tidy-card .inbox-desc,
+.tidy-card .tidy-tools {
   margin: 0;
+}
+
+/* One review is a column of the same blocks on the same gap, and the sheet's
+   one scroller (its rows) takes what is left. `hidden` is honoured here
+   because the display below would otherwise win over the attribute. */
+.tidy-review {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.tidy-review[hidden],
+.tidy-overview[hidden] {
+  display: none;
+}
+
+.tidy-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tidy-title {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+/* The overview: nine rows, each a button, on the picker's row. The picker's
+   row is a label, so the button face is taken off (the app dresses a bare
+   button with a fill and a centred label). Nothing to tidy is quiet. */
+.tidy-overview {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.tidy-overview-row.note-picker-row {
+  /* Two lines and a tight pad, so all nine rows are in view on a laptop
+     window without a scroll (the owner asked to see every issue). */
+  padding-block: var(--space-1);
+  width: 100%;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+}
+
+.tidy-overview-icon {
+  flex: none;
+  width: 1.25rem;
+  text-align: center;
+  font-size: var(--text-lg);
+  color: var(--accent-text);
+}
+
+.tidy-overview-count {
+  flex: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+
+.tidy-overview-caret {
+  flex: none;
+  color: var(--muted);
+}
+
+.tidy-overview-row.is-empty .tidy-overview-icon,
+.tidy-overview-row.is-empty .note-picker-text,
+.tidy-overview-row.is-empty .tidy-overview-count {
+  color: var(--muted);
+}
+
+.tidy-overview-row.is-empty .tidy-overview-count {
+  font-weight: 400;
 }
 
 .tidy-tools {

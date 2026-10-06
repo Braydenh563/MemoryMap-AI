@@ -75,7 +75,7 @@ def test_the_tags_field_has_the_apps_own_list_not_a_datalist():
     # Sized and placed to the field, a combobox, one open at a time.
     assert "box.style.width = `${Math.min(field.width" in suggest
     assert 'input.setAttribute("role", "combobox")' in suggest
-    assert "if (tagSuggestOpening === input) {" in suggest
+    assert "if (tagSuggestOpening?.input === input) {" in suggest
     css = (CSS / "05-sidebars-themes.css").read_text(encoding="utf-8")
     assert ".tag-suggest {" in css
 
@@ -149,7 +149,7 @@ def test_a_late_tag_list_does_not_open_after_the_tag_was_entered():
     source = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
     start = source.index("async function openTagSuggest(input) {")
     body = source[start : source.index("\n}\n", start)]
-    waiting = body.index("if (tagSuggestOpening === input) {")
-    assert "tagSuggestTypedMeanwhile = true;" in body[waiting : waiting + 120]
+    waiting = body.index("if (tagSuggestOpening?.input === input) {")
+    assert "if (input.value !== tagSuggestOpening.value) tagSuggestOpening.typed = true;" in body[waiting : waiting + 260]
     after = body[body.index('await apiJson("/tags"') :]
-    assert "if (tagSuggestTypedMeanwhile && !tagSuggestToken(input).token) return;" in after
+    assert "if (opening.typed && !tagSuggestToken(input).token) return;" in after

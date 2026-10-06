@@ -109,3 +109,21 @@ test("a tag typed and entered before the tag list arrives does not open the list
   await row.locator("button", { hasText: "Save changes" }).click();
   await expect.poll(async () => (await api(page, `/entries/${id}`)).tags).toEqual(["plumbing"]);
 });
+
+// And the guard above keeps the list itself: a press in an empty tags field,
+// with the tags slow to come, still opens it once they do.
+test("a press in an empty tags field shows the tags already used", async ({ page }) => {
+  await openApp(page);
+  const id = await captureNote(page, `Tag list ${Date.now()}: the sourdough starter needs feeding`);
+  const row = await noteRow(page, id);
+  await row.locator('button[aria-label="Edit this entry"]').click();
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route(/\/tags(\?|$)/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await row.locator(".note-edit-tag-input").click();
+  release();
+  await expect(page.locator(".tag-suggest:not(.hidden) [role=option]").first()).toBeVisible();
+});

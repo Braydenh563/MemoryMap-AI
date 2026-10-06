@@ -12838,8 +12838,7 @@ const DOC_DIM_KEY = "doc-dim-others";
 const DOC_TYPEWRITER_KEY = "doc-typewriter";
 const DOC_SERIF_KEY = "doc-serif";
 
-let docDimOthers = false;
-let docTypewriter = false;
+const docReadingModes = { dimOthers: false, typewriter: false };
 let docReadingPluginCache = null;
 
 //: The block, by the same rule the rest of this file uses: the run of
@@ -12851,7 +12850,7 @@ function docReadingPlugin(CM) {
   const { Decoration, ViewPlugin } = CM.view;
 
   function build(view) {
-    if (!docDimOthers) return Decoration.none;
+    if (!docReadingModes.dimOthers) return Decoration.none;
     const doc = view.state.doc;
     let first = doc.lineAt(view.state.selection.main.head).number;
     let last = first;
@@ -12896,11 +12895,11 @@ function docReadingPlugin(CM) {
 function docTypewriterExtension(CM) {
   const { EditorView } = CM.view;
   return EditorView.updateListener.of((update) => {
-    if (!docTypewriter) return;
+    if (!docReadingModes.typewriter) return;
     if (!update.selectionSet && !update.docChanged) return;
     const view = update.view;
     requestAnimationFrame(() => {
-      if (!docTypewriter || view !== docCmView) return;
+      if (!docReadingModes.typewriter || view !== docCmView) return;
       view.dispatch({
         effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: "center" }),
       });
@@ -12909,7 +12908,7 @@ function docTypewriterExtension(CM) {
 }
 
 function applyDocDim(on) {
-  docDimOthers = on;
+  docReadingModes.dimOthers = on;
   const button = $("doc-dim-others");
   if (button) {
     button.setAttribute("aria-pressed", String(on));
@@ -12926,7 +12925,7 @@ function applyDocDim(on) {
 }
 
 function applyDocTypewriter(on) {
-  docTypewriter = on;
+  docReadingModes.typewriter = on;
   const button = $("doc-typewriter");
   if (button) {
     button.setAttribute("aria-pressed", String(on));
@@ -12964,10 +12963,10 @@ function docRememberReading(key, on, apply) {
 }
 
 $("doc-dim-others")?.addEventListener("click", () =>
-  docRememberReading(DOC_DIM_KEY, !docDimOthers, applyDocDim)
+  docRememberReading(DOC_DIM_KEY, !docReadingModes.dimOthers, applyDocDim)
 );
 $("doc-typewriter")?.addEventListener("click", () =>
-  docRememberReading(DOC_TYPEWRITER_KEY, !docTypewriter, applyDocTypewriter)
+  docRememberReading(DOC_TYPEWRITER_KEY, !docReadingModes.typewriter, applyDocTypewriter)
 );
 $("doc-serif")?.addEventListener("click", () =>
   docRememberReading(
@@ -14675,8 +14674,8 @@ const DOC_EXTRA_WORDS = [
 ];
 
 let docWordlist = null;
-let docWordlistLoading = false;
-let docWordlistFailed = false;
+//: One object, not two top-level lets (the global-scope ratchet).
+const docWordlistState = { loading: false, failed: false };
 
 //: Until this is true the checker makes no claim about whether a word is
 //: spelled correctly, which is why every caller asks rather than assuming.
@@ -14685,8 +14684,8 @@ function docWordlistReady() {
 }
 
 function docLoadWordlist() {
-  if (docWordlist || docWordlistLoading || docWordlistFailed) return;
-  docWordlistLoading = true;
+  if (docWordlist || docWordlistState.loading || docWordlistState.failed) return;
+  docWordlistState.loading = true;
   api(DOC_WORDLIST_URL, { silent: true })
     .then((response) => response.text())
     .then((text) => {
@@ -14714,7 +14713,7 @@ function docLoadWordlist() {
         if (word) words.add(word);
       }
       docWordlist = words;
-      docWordlistLoading = false;
+      docWordlistState.loading = false;
       //: The ranked suggestions are drawn from the same pool, so it has to be
       //: rebuilt, and the pass that ran without a dictionary has to run again
       //: now that there is one.
@@ -14727,8 +14726,8 @@ function docLoadWordlist() {
       //: Once, not on a loop: a failed fetch here means the file is missing
       //: from the build, and retrying on every keystroke would turn one
       //: mistake into a request storm. The browser's own checker stays on.
-      docWordlistLoading = false;
-      docWordlistFailed = true;
+      docWordlistState.loading = false;
+      docWordlistState.failed = true;
     });
 }
 
@@ -19455,7 +19454,7 @@ function docCmExtensions(CM) {
     //: while the view is live; the typewriter listener is not, because it is
     //: inert until its flag is on and reconfiguring an extension to say
     //: "return early" buys nothing.
-    docCmParts.reading.of(docDimOthers ? docReadingPlugin(CM) : []),
+    docCmParts.reading.of(docReadingModes.dimOthers ? docReadingPlugin(CM) : []),
     docTypewriterExtension(CM),
     docCmParts.gutter.of(docCmGutter(CM)),
     //: Folding, wherever the gutter is: a heading section, a fenced block and

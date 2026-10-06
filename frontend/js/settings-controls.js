@@ -870,8 +870,7 @@ $("about-take-tour")?.addEventListener("click", () => {
   // covering, and a step measured while the modal is still up is dropped for
   // having nothing on screen to point at.
   requestAnimationFrame(() => {
-    if (typeof openTour === "function") openTour("basics");
-    else openOnboarding();
+    openTour("basics");
   });
 });
 

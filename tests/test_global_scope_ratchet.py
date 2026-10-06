@@ -30,8 +30,12 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: guards (63 same-bundle ones in boot files dropped to bring boot JS under its
 #: cap) and 705 lets.
 #: And after the Atlas merge: the companion's own toast and prefs guards gone.
-GUARDS_CAP = 279
-TOP_LEVEL_LETS_CAP = 704
+#: After the E2E merges (280 and 706): the three `openTour` guards (a
+#: LAZY_ENTRY_POINTS stand-in, always defined) came out, and four documents.js
+#: lets became fields of two consts (the word list's loading and failed flags,
+#: the dim and typewriter reading modes).
+GUARDS_CAP = 277
+TOP_LEVEL_LETS_CAP = 702
 
 
 def _code() -> dict[str, str]:

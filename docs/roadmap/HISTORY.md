@@ -45625,3 +45625,26 @@ and refuses a topic ("Select a shape, link or text box first").
      Off, only the old slowed rise under reduced motion. 669's click sweep:
      0 steps over its limits in all four cases.
 
+688. **The owner, 2026-10-06, verbatim.** "is there a way to do very good
+     imitations of ai responses but using string concatenation with the app
+     when the ai isnt available with the option to toggle between them in
+     the ask subtab?? it needs to be VERY refined and well worded and
+     designed and use some world class shenanigans to make it work, nice
+     and understandable to read, well structured and more." What exists:
+     `ai/extractive.py` (INBOX 269), the best passage per note, cited, never
+     an invented claim. Decision taken: a composed answer built on it, never
+     breaking its rule (every factual clause is the person's own words or a
+     count the app measured; only connective wording comes from templates),
+     shaped by the kind of question (what/when/who/how many/list/compare/
+     why/how), with a lead sentence, grouped points, dates and numbers
+     pulled out, agreements and contradictions between notes named, and a
+     one-line "what your notes do not say"; a toggle in Ask between "AI"
+     and "From your notes" (the latter always available, the default with
+     no model). Placed: the 0.4.1 mini release, an Opus agent when a slot
+     frees (brief: session scratchpad brief-composer-688.md).
+     **Fixed** 2026-10-06 (composer688-1006): `ai/composer.py`, every part of
+     an answer a quote, a measured value or a fixed phrase (held by a
+     traceability test); Ask's AI / From your notes switch (lazy
+     ask-compose.js), the answer whenever no model runs; the ten questions
+     before and after in docs/roadmap/agent-remaining/composer688-1006.md.
+

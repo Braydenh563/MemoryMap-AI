@@ -1,0 +1,134 @@
+// questions-view.js: Notes, Questions (WORLD_CLASS_PLAN I3, row 7), the
+// questions your notes ask, over `GET /questions`, with Open, Answered and
+// Dropped, the night pass's Read notes now, and "Ask about these".
+//
+// Lazy (app.js `LAZY_MODULES.questionsView`), moved out of capture-ask.js on
+// 2026-10-06 (INBOX 688) to keep the boot scripts under their gzip total:
+// nothing here runs until the Questions sub-tab is shown, which calls
+// `initQuestionsView` and `loadQuestions` through their stand-ins
+// (`LAZY_ENTRY_POINTS`). The Ask scope (`askScope`, `setAskScope`) stays in
+// capture-ask.js, since `askQuestion` reads it.
+
+const questionsView = { state: "open", offset: 0, ready: false };
+
+function questionWhen(iso) {
+  const when = iso ? new Date(iso) : null;
+  return when && !Number.isNaN(when.getTime()) ? when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+}
+
+function questionButton(icon, label, onClick) {
+  const button = smallButton(icon, label, onClick);
+  button.setAttribute("aria-label", label);
+  return button;
+}
+
+function questionRow(item) {
+  const li = evidenceSpan("night-fact question-row", "", "li");
+  const text = evidenceSpan("dash-list-text");
+  const asked = ["Asked", questionWhen(item.asked_at), item.note_title ? `in “${item.note_title}”` : ""].filter(Boolean).join(" ");
+  text.append(evidenceSpan("dash-list-title night-fact-text", item.text), evidenceSpan("dash-list-preview", asked));
+  const by = item.answered_by;
+  if (item.state === "answered" && by) {
+    //: The answered-by link (I3, decided 2026-10-04): the answering sentence,
+    //: opening its note; a title that starts the quote is not said twice.
+    const stem = String(by.note_title || "").replace(/…$/, "");
+    const named = by.note_title && !(by.text && by.text.startsWith(stem)) ? ` in “${by.note_title}”` : "";
+    const answer = document.createElement("button");
+    answer.type = "button";
+    answer.className = "ghost small question-answer-link";
+    answer.title = "Open the note that answers it";
+    answer.addEventListener("click", () => flashEntry(by.entry_id));
+    answer.textContent = ["Answered", questionWhen(by.at)].filter(Boolean).join(" ") + named + (by.text ? `: “${by.text}”` : "");
+    text.append(answer);
+  }
+  const actions = evidenceSpan("night-fact-actions");
+  const move = (state, entry_id = null) =>
+    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) })
+      .then(() => loadQuestions())
+      .catch((error) => toast(error.message || "Couldn't change that question.", true));
+  actions.append(questionButton("ph:arrow-square-out", "Open the note that asks it", () => flashEntry(item.entry_id)));
+  if (item.state === "open") {
+    actions.append(
+      questionButton("ph:check-circle", "Mark answered: choose the note that answers it", async () => {
+        const entry = await pickEntryDialog("Which note answers it?");
+        if (entry) move("answered", entry.id);
+      }),
+      questionButton("ph:minus-circle", "Drop: it no longer matters", () => move("dropped"))
+    );
+  } else {
+    actions.append(questionButton("ph:arrow-counter-clockwise", "Reopen", () => move("open")));
+  }
+  li.append(text, actions);
+  return li;
+}
+
+const QUESTIONS_EMPTY = {
+  open: "No open questions. Read notes now finds the questions your notes ask.",
+  answered: "Nothing answered yet. When a later note answers a question, it moves here.",
+  dropped: "Nothing dropped.",
+};
+
+async function loadQuestions({ more = false } = {}) {
+  const list = $("questions-list");
+  if (!list) return;
+  if (!more) questionsView.offset = 0;
+  let reply;
+  try {
+    reply = await apiJson(`/questions?state=${questionsView.state}&limit=30&offset=${questionsView.offset}`, { silent: true });
+  } catch {
+    surfaceFailed(list, "your questions", () => loadQuestions());
+    return;
+  }
+  if (!more) list.replaceChildren();
+  const items = reply.items || [];
+  for (const item of items) list.appendChild(questionRow(item));
+  questionsView.offset += items.length;
+  const counts = reply.counts || {};
+  //: The counts ride on the select's rows (INBOX 665), "Answered (2)", and
+  //: a state with none reads as its word alone.
+  for (const option of $("questions-state").options) {
+    const count = counts[option.value] || 0;
+    const text = count ? `${option.dataset.label} (${count})` : option.dataset.label;
+    if (option.textContent !== text) option.textContent = text;
+  }
+  $("questions-more").classList.toggle("hidden", questionsView.offset >= (reply.total || 0));
+  const ask = $("questions-ask");
+  ask.disabled = !counts.open;
+  ask.title = counts.open ? "Ask about the questions you have not answered yet" : "No open questions to ask about";
+  const lead = $("questions-lead");
+  lead.textContent = reply.total ? "" : QUESTIONS_EMPTY[questionsView.state];
+}
+
+function initQuestionsView() {
+  if (questionsView.ready || !$("questions")) return;
+  questionsView.ready = true;
+  const state = $("questions-state");
+  state.value = questionsView.state;
+  state.addEventListener("change", () => {
+    questionsView.state = state.value;
+    loadQuestions();
+  });
+  //: INBOX 551: the night pass, now (it runs unattended only with background
+  //: tasks on, which is off by default), then the list.
+  $("questions-refresh").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setBusy(button, true, "Reading\u2026");
+    const reply = await apiJson("/night/run", { method: "POST", body: JSON.stringify({ budget: 20000 }) }).catch(() => null);
+    setBusy(button, false);
+    if (reply?.paused) toast("Reading is paused in Settings, What it learned.", "info");
+    loadQuestions();
+  });
+  $("questions-more").addEventListener("click", () => loadQuestions({ more: true }));
+  $("questions-ask").addEventListener("click", () => {
+    //: The Ask scope: the next answer reads the notes with open questions.
+    setAskScope("questions");
+    showNotesSection("ask");
+    const box = $("question");
+    if (!box.value.trim()) box.value = "What am I still undecided about?";
+    box.focus();
+  });
+  $("ask-scope-clear")?.addEventListener("click", () => {
+    setAskScope(null);
+    $("question")?.focus();
+  });
+}

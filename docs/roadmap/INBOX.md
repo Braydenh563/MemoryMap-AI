@@ -66,24 +66,6 @@ with its owner named in the entry.
      room (padding or an inset ring), never by hiding the ring. Placed: the
      0.4.1 mini release, a Sonnet agent.
 
-688. **The owner, 2026-10-06, verbatim.** "is there a way to do very good
-     imitations of ai responses but using string concatenation with the app
-     when the ai isnt available with the option to toggle between them in
-     the ask subtab?? it needs to be VERY refined and well worded and
-     designed and use some world class shenanigans to make it work, nice
-     and understandable to read, well structured and more." What exists:
-     `ai/extractive.py` (INBOX 269), the best passage per note, cited, never
-     an invented claim. Decision taken: a composed answer built on it, never
-     breaking its rule (every factual clause is the person's own words or a
-     count the app measured; only connective wording comes from templates),
-     shaped by the kind of question (what/when/who/how many/list/compare/
-     why/how), with a lead sentence, grouped points, dates and numbers
-     pulled out, agreements and contradictions between notes named, and a
-     one-line "what your notes do not say"; a toggle in Ask between "AI"
-     and "From your notes" (the latter always available, the default with
-     no model). Placed: the 0.4.1 mini release, an Opus agent when a slot
-     frees (brief: session scratchpad brief-composer-688.md).
-
 691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
      through links and tags without the ai?? like removing tags that dont
      have a custom reason (reasons other than "similar in meaning") and that

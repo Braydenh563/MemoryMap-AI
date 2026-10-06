@@ -55,7 +55,6 @@ EXPECTED = {
     ],
     'capture-ask.js': [
         '"Couldn\'t read the clipboard, so that part of the template is empty."',
-        '"Reading is paused in Settings, What it learned."',
     ],
     'categories-panel.js': [
         '"Name the new category first."',
@@ -130,6 +129,9 @@ EXPECTED = {
     ],
     'pick-row.js': [
         'shape.full || "That\'s as many as one message can carry."',
+    ],
+    'questions-view.js': [
+        '"Reading is paused in Settings, What it learned."',
     ],
     'selection.js': [
         '"Extracting notes needs the local AI."',

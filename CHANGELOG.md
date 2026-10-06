@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Documents: exporting a document whose text has a long run of unclosed markup (`{++`, `[`, `![a](`) no longer takes seconds. The inline markup splitter reads the text in one pass: 0.7 to 1.9 s on 20 KB before, under 0.02 s now, with the same pieces.
 - Notes: a note whose first line is a long run of unclosed `[` or `![` no longer slows the labels that show it (chips, cards, references). The link and image stripping read the line in one pass: 0.8 s on 20 KB before, under 0.01 s now.
 - E2E: the first-run project no longer retries a failed test in CI. Its specs assert an empty notebook, so a retry always failed on a note left by the first attempt and hid the real failure.
 - Filing: the first note in a new notebook with no AI model no longer waits for the search model to load. With nothing filed yet there is nothing to compare it against, so it is not embedded on the way to Uncategorised; that load, skipped at launch for an empty notebook, could keep the first note at "Filing…" for over 20 seconds.

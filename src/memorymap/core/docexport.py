@@ -25,6 +25,8 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from memorymap.core.lookahead import Ahead
+
 #: Where a `%%…%%` is not a comment: inside a fence or inline code it is an
 #: example of the syntax, and in frontmatter it is a property's value. Same
 #: three as `DOC_COMMENT_SKIP` in documents.js.
@@ -268,6 +270,70 @@ _INLINE = re.compile(
     r"(\{\+\+.+?\+\+\}|\{--.+?--\}|!\[[^\]\n]*\]\([^)\s]+\)|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
     r"|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`)"
 )
+#: `_INLINE`'s emphasis, strike and code alternatives. Each run is cut short by
+#: its own delimiter (`[^*\n]`, `[^~\n]`, `[^`\n]`), so a start costs at most
+#: the distance to the next delimiter and the starts together cost one pass.
+_INLINE_SPANS = re.compile(
+    r"\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`"
+)
+_INLINE_OPEN = re.compile(r"\{\+\+|\{--|!\[|\[|\*|~~|`")
+
+
+def inline_split(text: str) -> list[str]:
+    """`_INLINE.split(text)`, in one pass.
+
+    The pattern above is the reference: the same pieces come back (text,
+    markup, text, markup, ..., with the empty strings `re.split` leaves). It
+    stayed quadratic on a line of unclosed openers (`{++{++...`, `[[[...`,
+    `![a](![a](...`): each start scanned to the end of the line or the text
+    for a closer that was not there, 0.6 to 1.9 s on 20 KB (final scan,
+    2026-10-06; a document's own text). Here the closers (`++}`, `--}`, the
+    next `]`, the next `)` or space, the next newline) are looked up through
+    a cached lookahead, so each is found once per stretch, and the markup
+    that cannot run long (emphasis, strike, code) keeps its regex.
+    """
+    text = text or ""
+    size = len(text)
+    newline = Ahead(text, r"\n")
+    bracket = Ahead(text, r"[\]\n]")
+    stop = Ahead(text, r"[)\s]")
+    closers = {"{++": Ahead(text, r"\+\+\}"), "{--": Ahead(text, r"--\}")}
+    out: list[str] = []
+    done = scan = 0
+    while True:
+        found = _INLINE_OPEN.search(text, scan)
+        if found is None:
+            break
+        start = found.start()
+        scan = start + 1
+        end = -1
+        opener = found.group()
+        if opener in closers:
+            #: `{++` then one or more non-newline characters, then the closer
+            #: at its first occurrence from four characters in.
+            close = closers[opener].first(start + 4)
+            if close < size and newline.first(start + 3) > close:
+                end = close + 3
+        elif opener in ("![", "["):
+            #: `![alt](src)` (alt may be empty) or `[label](src)` (label not),
+            #: src one or more characters up to a `)`, no space inside.
+            mid = bracket.first(start + len(opener))
+            floor = start + len(opener) + (0 if opener == "![" else 1)
+            if mid < size and mid >= floor and text[mid] == "]" and text.startswith("(", mid + 1):
+                close = stop.first(mid + 2)
+                if close < size and close > mid + 2 and text[close] == ")":
+                    end = close + 1
+        else:
+            span = _INLINE_SPANS.match(text, start)
+            if span is not None:
+                end = span.end()
+        if end < 0:
+            continue
+        out.append(text[done:start])
+        out.append(text[start:end])
+        done = scan = end
+    out.append(text[done:])
+    return out
 #: A picture: `![alt|options](src)`, the alt carrying the document's own
 #: width, alignment and caption (`picture_options`).
 _PICTURE = re.compile(r"^!\[([^\]\n]*)\]\(([^)\s]+)\)$")
@@ -534,7 +600,7 @@ def _inline(paragraph, text: str, state: dict, bold: bool = False, holder=None, 
             holder.append(run._r)
         return run
 
-    for piece in _INLINE.split(text or ""):
+    for piece in inline_split(text or ""):
         if not piece:
             continue
         if piece.startswith(("{++", "{--")) and piece.endswith(("++}", "--}")) and len(piece) > 6:

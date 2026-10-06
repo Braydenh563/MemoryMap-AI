@@ -76,3 +76,51 @@ def test_label_links_match_the_old_patterns():
         "[a]( b c )d",
     ]:
         assert _label_links(text) == _old_label_links(text), text
+
+
+# --- core/docexport.py: inline_split -----------------------------------------
+
+_INLINE_PUMPS = {
+    "insertion-openers": "{++" * (N // 3),
+    "deletion-openers": "{--" * (N // 3),
+    "bracket-openers": "[" * N,
+    "image-openers": "![" * (N // 2),
+    "link-no-close": "[a](" * (N // 4),
+    "image-no-close": "![a](" * (N // 5),
+    "link-text": "[a" * (N // 2),
+    "stars": "*" * N,
+    "star-pairs": "*a" * (N // 2),
+    "ticks": "`" * N,
+    "tildes": "~~" * (N // 2),
+}
+
+
+@pytest.mark.parametrize("text", _INLINE_PUMPS.values(), ids=_INLINE_PUMPS.keys())
+def test_inline_split_is_linear_on_unclosed_markup(text):
+    from memorymap.core.docexport import inline_split
+
+    assert _timed(lambda: inline_split(text)) < BUDGET
+
+
+def test_inline_split_matches_the_old_pattern():
+    from memorymap.core.docexport import inline_split
+
+    old = re.compile(
+        r"(\{\+\+.+?\+\+\}|\{--.+?--\}|!\[[^\]\n]*\]\([^)\s]+\)|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
+        r"|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`)"
+    )
+    alphabet = ["a", "b", " ", "\n", "{++", "++}", "{--", "--}", "+", "-", "}", "{", "![", "[", "]", "(", ")", "](", "*", "**", "***", "~~", "~", "`"]
+    cases = list(_random_strings(alphabet, count=3000, length=30)) + [
+        "",
+        "plain",
+        "a **bold** and *it* and ~~gone~~ and `code`",
+        "{++added++} and {--cut--}",
+        "{++++} {++a++} {++a+++}",
+        "{++a\nb++}",
+        "![alt](/media/x.png) [t](https://x.y/z) [t]( x)",
+        "[a](b c) ![](u) [](u)",
+        "***both*** **bold*",
+        "{++a++}{--b--}**c**",
+    ]
+    for text in cases:
+        assert inline_split(text) == old.split(text), repr(text)

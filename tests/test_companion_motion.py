@@ -792,7 +792,9 @@ def _run_pure(names: list[str], body: str):
     # The interaction model's choices are pure functions: run them as they
     # are written, in node, against the cases below.
     src = "\n".join(_fn(n) for n in names)
-    script = "const NMB_WARMTH_HALF_MS = 240000; const NMB_BORED_MS = 240000;\n" + src + "\nconsole.log(JSON.stringify(" + body + "));"
+    # The poke pools are two one-line constants the reaction reads.
+    pools = "\n".join(re.search(rf"^const {n} = .*;$", AV, re.M).group(0) for n in ("NMB_POKE_GENTLE", "NMB_POKE_POOL"))
+    script = "const NMB_WARMTH_HALF_MS = 240000; const NMB_BORED_MS = 240000;\n" + pools + "\n" + src + "\nconsole.log(JSON.stringify(" + body + "));"
     out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
@@ -806,8 +808,21 @@ def test_the_interaction_model_moves_between_states_as_the_owner_asked() -> None
     # 2026-09-27, "it opens its eyes and mouth for a sec like it is startled
     # but then falls back asleep"); poked again while waking, a pout, then
     # grumpy.
-    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,60000],[false,2,3000],[false,3,2000],[false,4,1000],[false,2,1500,true],[false,3,1500,true]].map((a) => nameMarkBuddyClickReaction(...a))")
-    assert click == ["wake", "wake", "pleased", "playful", "playful", "grumpy", "pout", "grumpy"]
+    click = _run_pure(["nameMarkBuddyClickReaction"], "[[true,1,60000],[true,2,900],[false,1,1500,true],[false,2,1500,true],[false,3,1500,true,'',() => 0],[false,1,60000,false,'',() => 0]].map((a) => nameMarkBuddyClickReaction(...a))")
+    # Asleep: wake. Groggy: a pout for the first two, then the pool.
+    assert click == ["wake", "wake", "pout", "pout", "pleased", "pleased"]
+    # INBOX 705: awake, a poke is one of a pool, never the same twice running,
+    # and annoyed is rare (the fifth poke in twenty seconds, one draw in four,
+    # never straight after itself).
+    pool = _run_pure(["nameMarkBuddyClickReaction"], "(() => { const out = []; for (let pokes = 1; pokes <= 8; pokes++) for (let r = 0; r < 20; r++) { let i = 0; const rand = () => (r + 0.5 + i++ * 7) % 20 / 20; out.push([pokes, nameMarkBuddyClickReaction(false, pokes, 3000, false, '', rand), nameMarkBuddyClickReaction(false, pokes, 3000, false, 'grumpy', rand)]); } return out; })()")
+    seen = {how for _, how, _ in pool}
+    assert {"pleased", "playful", "curious", "wave", "spin", "laugh"} <= seen
+    assert all(how != "grumpy" for pokes, how, _ in pool if pokes < 5)
+    assert all(after != "grumpy" for _, _, after in pool)
+    late = [how for pokes, how, _ in pool if pokes >= 5]
+    assert 0 < sum(how == "grumpy" for how in late) <= len(late) * 0.3
+    repeat = _run_pure(["nameMarkBuddyClickReaction"], "[...NMB_POKE_POOL].map((last) => nameMarkBuddyClickReaction(false, 3, 3000, false, last, () => 0.99) !== last)")
+    assert all(repeat)
     hover = _run_pure(["nameMarkBuddyHoverReaction"], "[[true,0,0,false],[true,1800,0,false],[false,0,0,false],[false,0,-0.5,false],[false,0,0.5,true]].map((a) => nameMarkBuddyHoverReaction(...a))")
     assert hover == ["stir", "wake", "brighten", "none", "none"]
     # Warmth relaxes by half in four minutes, and not at all at once.
@@ -829,7 +844,7 @@ def test_its_reactions_come_and_go_gradually_and_it_gets_bored() -> None:
     tick = _fn("nameMarkBuddyTick")
     assert "if (idle > NMB_SLEEP_MS && !awake) {" in tick and "if (nameMarkBuddyWander(Date.now())) {" in tick
     build = _fn("nameMarkBuddyBuild")
-    assert "const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy);" in build
+    assert "const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy, lastHow);" in build
     assert "nameMarkBuddyHover(0);" in build
     wander = _fn("nameMarkBuddyWander")
     for guard in ("nmb.pinned", 'nmb.perch === "errand"', 'nameMarkBuddyActions() === "off"', 'nameMarkBuddyActOff("wander")',
@@ -1591,3 +1606,4 @@ def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
     tail = blend[after:]
     assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
     assert "if (eased.has(el)) continue;" in tail
+

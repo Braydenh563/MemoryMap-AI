@@ -3701,7 +3701,7 @@ const nmb = {
   lastInput: Date.now(), lastCheer: 0, lastPoke: 0, pointer: null, watchTimer: 0, watchAt: 0,
   cueTimer: 0, startledAt: 0, errandTimer: 0, readingErrand: false, shyAt: 0, shyTimer: 0, readTimer: 0, keyAt: 0, keyRun: 0,
   trail: 0, ex: 0, ey: 0, target: null, targetAt: 0, lastMove: null, headTimer: 0, releaseTimer: 0,
-  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [],
+  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [], lastHow: "",
   mood: { energy: 0.7, curiosity: 0.6, sociability: 0.7 }, edgeType: "", edgeLine: 72, reading: null, cool: {},
   anim: null, hopAnim: null, glue: null, heldTimer: 0, placeTimer: 0, movedAt: 0, pinned: false, menu: null, settle: [], checkFrame: 0,
 };
@@ -7719,13 +7719,28 @@ function nameMarkBuddyFeel(delta, now = Date.now()) {
 //: ... maybe a pout or getting a temporarily a little mad if it happens
 //: multiple times consecutively"). Asleep, it always wakes slowly, never
 //: with a start; poked again while still waking (`groggy`, the first 10s),
-//: it pouts, and a third time it is grumpy. Awake, the first is a hello,
-//: the next two play, and a fourth within twenty seconds is too many.
-function nameMarkBuddyClickReaction(asleep, pokes, sinceLast, groggy = false) {
+//: it pouts.
+//:
+//: **Awake, a poke is one of six answers, never the same twice running**
+//: (INBOX 705, the owner: "they get annoyed every time I tap them multiple
+//: times, can they alternate how they respond a little more"). It used to
+//: climb: hello, play, play, then grumpy at the fourth poke in twenty
+//: seconds, so anyone tapping a few times met the sulk every time. Now a
+//: first poke picks among the gentle three; from the second, from all six
+//: (pleased, playful, curious, a wave, a spin, a laugh); and annoyed is a
+//: rare answer, only from the fifth poke inside twenty seconds, then one
+//: time in four, and never straight after it. The poke count decays by
+//: itself (`nmb.pokes` keeps twenty seconds), so after a pause it is a
+//: hello again. `last` is the previous answer, `rand` the draw (a function,
+//: so a test fixes it).
+const NMB_POKE_GENTLE = ["pleased", "curious", "wave"];
+const NMB_POKE_POOL = ["pleased", "playful", "curious", "wave", "spin", "laugh"];
+function nameMarkBuddyClickReaction(asleep, pokes, sinceLast, groggy = false, last = "", rand = Math.random) {
   if (asleep) return "wake";
-  if (groggy) return pokes >= 3 ? "grumpy" : "pout";
-  if (pokes >= 4) return "grumpy";
-  return pokes >= 2 ? "playful" : "pleased";
+  if (groggy && pokes < 3) return "pout";
+  if (pokes >= 5 && last !== "grumpy" && rand() < 0.25) return "grumpy";
+  const pool = (pokes >= 2 ? NMB_POKE_POOL : NMB_POKE_GENTLE).filter((how) => how !== last);
+  return pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
 }
 
 //: **The calm budget** (the owner: "make sure that random sudden movements
@@ -8782,9 +8797,16 @@ function nameMarkBuddyBuild() {
       const sinceLast = now - (nmb.lastPoke || 0);
       nmb.lastPoke = now;
       nmb.pokes = [...nmb.pokes.filter((at) => now - at < 20000), now];
-      nameMarkReact(face.querySelector(".name-mark"));
       const groggy = now - (nmb.wokeAt || 0) < 10000;
-      const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy);
+      //: What it did last counts only inside the same run of taps.
+      const lastHow = sinceLast < 20000 ? nmb.lastHow || "" : "";
+      const how = nameMarkBuddyClickReaction(wasAsleep, wasAsleep ? 1 : nmb.pokes.length, sinceLast, groggy, lastHow);
+      nmb.lastHow = how;
+      const mark = face.querySelector(".name-mark");
+      //: A spin is Atlas's own turn (atlas.js); another face's react is
+      //: already a hop and a spin.
+      if (how === "spin" && mark?.classList.contains("nm-atlas")) atlasPlay("spin", 900);
+      else nameMarkReact(mark);
       if (how === "wake") {
         //: The poke that woke it starts the count of pokes that annoy it.
         nmb.pokes = [now];
@@ -8823,11 +8845,17 @@ function nameMarkBuddyBuild() {
       }
       nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.05);
       nmb.mood.curiosity = Math.min(1, nmb.mood.curiosity + 0.05);
-      nameMarkBuddyFeel(how === "playful" ? 0.08 : 0.12);
-      //: Pleased, then playful: the face holds a few seconds and comes down
-      //: through a smaller one (`NMB_EXPR_SOFTEN`), never straight back.
-      nameMarkBuddyExpress(how === "playful" ? "laughing" : "happy", 3200);
-      if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : how === "playful" ? "wiggle" : "wave");
+      nameMarkBuddyFeel(how === "playful" || how === "laugh" ? 0.08 : 0.12);
+      //: The face holds a few seconds and comes down through a smaller one
+      //: (`NMB_EXPR_SOFTEN`), never straight back. Each answer has its own:
+      //: curious looks round with wide eyes, a spin is bright, a laugh holds
+      //: longest.
+      const answerFace = { playful: "laughing", laugh: "laughing", curious: "surprised", spin: "excited" };
+      nameMarkBuddyExpress(answerFace[how] || "happy", how === "laugh" ? 3800 : how === "curious" ? 2600 : 3200);
+      //: The acts are the gentle ones (a look, a wave, a wiggle): none is a
+      //: whole-body hop, so the large view keeps INBOX 669's limits.
+      const move = { pleased: "wave", wave: "wave", playful: "wiggle", laugh: "wiggle", curious: "look", spin: "" }[how];
+      if (!nameMarkBuddyStill() && move !== "") nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : move);
       nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
     };
     if (nmb.visit) poke();

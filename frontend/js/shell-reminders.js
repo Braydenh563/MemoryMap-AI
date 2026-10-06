@@ -1625,7 +1625,7 @@ function reminderEditForm(reminder) {
 
 async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
-    toast("A reminder needs text and a due time.", true);
+    toast("A reminder needs text and a due time.");
     return false;
   }
   await apiJson("/reminders", {

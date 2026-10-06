@@ -3,9 +3,10 @@ this (INBOX 648, learnability; found by the no-model crawl,
 scratchpad/ui-sweeps/e2e648-crawl.js).
 
 An error toast carries "Report this", which mails the owner a support bundle.
-Two presses on a plain install raised one for something that is not a fault:
+Three presses on a plain install raised one for something that is not a fault:
 Dictate with the voice add-on not installed (the hint already says to install
-it in Settings, Packages) and Compress on a chat with nothing to compress.
+it in Settings, Packages), Compress on a chat with nothing to compress, and
+Add on an empty reminder.
 """
 
 from __future__ import annotations
@@ -31,3 +32,9 @@ def test_dictation_without_the_add_on_says_where_to_get_it_not_report_this():
 def test_nothing_to_compress_is_not_an_error():
     body = _function((JS / "chat.js").read_text(encoding="utf-8"), "async function compressChatContext(")
     assert 'toast("There isn\'t enough conversation to compress yet.")' in body
+
+
+def test_a_reminder_with_a_field_left_empty_is_not_an_error():
+    # Found by the same crawl: Add on the empty Reminders form.
+    body = _function((JS / "shell-reminders.js").read_text(encoding="utf-8"), "async function addReminder(")
+    assert 'toast("A reminder needs text and a due time.");' in body

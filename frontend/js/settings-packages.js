@@ -158,9 +158,17 @@ function packagesRenderBundles(body) {
           [
             {
               label: "ph:check-square Select its packages",
-              run: () => {
-                for (const extra of members) if (!extra.unavailable || extra.installed) packagesUi.selected.add(extra.id);
-                renderExtras();
+              //: And takes you to them (INBOX 695, the owner: "it didn
+              //: navigate scroll me to them"): the bundle's first package
+              //: row, centred, its tick focused, and a line saying how many.
+              run: async () => {
+                const picked = members.filter((extra) => !extra.unavailable || extra.installed);
+                for (const extra of picked) packagesUi.selected.add(extra.id);
+                await renderExtras();
+                const row = picked.length ? document.getElementById(`extra-row-${picked[0].id}`) : null;
+                row?.scrollIntoView({ block: "center", behavior: reducedMotionWanted() ? "auto" : "smooth" });
+                row?.querySelector(".extras-pick")?.focus({ preventScroll: true });
+                toast(`Selected ${picked.length} package${picked.length === 1 ? "" : "s"}.`, "info");
               },
             },
             {

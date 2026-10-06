@@ -26,9 +26,27 @@ document.addEventListener(
 );
 
 function openChipMenu(chipEl, items, ariaLabel, x, y) {
+  //: **A second press on the chip closes its menu** (INBOX 681). The menu's own
+  //: opener is the transparent anchor, so the press on the chip is "outside"
+  //: to the closer in settings-wiring.js unless the menu names its invoker
+  //: (`_invoker`, which that closer reads); the click that follows then lands
+  //: here and shuts what it finds open. A right-click (x given) is a request
+  //: for a menu where the pointer is, so it moves the menu instead.
+  if (x === undefined && chipEl.getAttribute("aria-expanded") === "true") {
+    closeActionMenus();
+    return;
+  }
   const box = chipEl.getBoundingClientRect();
   openMenuAtPoint(items, ariaLabel, x ?? box.left, y ?? box.bottom + 4);
   const menu = document.querySelector(".action-menu:not(.hidden)");
+  if (menu) {
+    //: The chip is the menu's opener as far as the closer is concerned: it is
+    //: told `aria-expanded` back to false when the menu closes, and takes the
+    //: focus back from a menu that held it (`closeActionMenus`).
+    menu._escapedOpener = chipEl;
+    chipEl.setAttribute("aria-haspopup", "menu");
+    chipEl.setAttribute("aria-expanded", "true");
+  }
   chipMenuReturn = menu ? { menu, chip: chipEl } : null;
 }
 

@@ -44,87 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-680. **The owner, 2026-10-06, verbatim.** "should the settings sidebar
-     scroll a little to show the quick access in page sections if scrolling
-     on that settings page??" Recommendation, taken: yes; as a Settings page
-     scrolls, the sidebar keeps the current in-page section's link in view
-     (scrolled to nearest, smoothly under the motion switch, never stealing
-     focus). Placed: the 0.4.1 mini release, a Sonnet agent.
-
-681. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
-     card's open ⋯ menu: "not all dropdown elements close when pressing that
-     element again". Every menu, dropdown and popover trigger toggles: a
-     second press on the control that opened it closes it. Next: inventory
-     every trigger (kebabMenu, the action menus, custom selects, popovers,
-     split buttons) and press each twice. Placed: with 680.
-
-682. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Documents sidebar's "Documents | Outline" tabs (square-cornered boxes,
-     the chosen one bordered): "should these have rounded edges to stay
-     conistent??" Recommendation, taken: yes, the radius table's value for a
-     control of that size (DESIGN.md), the chosen state drawn the way every
-     other tab strip draws it.
-
-683. **The owner, 2026-10-06, verbatim**, with two screenshots of a
-     pill-shaped floating bar "Copy | ... | X" (square-cornered fill on the
-     hovered "..." and a square focus ring on the X, both inside the round
-     pill): "the square active goes out of the circular pill". Every control
-     inside a pill takes a radius that sits inside it (concentric: the
-     pill's radius minus its padding, or fully round), for hover, active and
-     focus alike. Placed with 682: the 0.4.1 mini release, a Sonnet agent
-     that also sweeps for other square states inside rounded containers.
-
-685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Regenerate button's focus ring cut off along its left edge: "a lot of
-     borders get cut off on an edge." Focus rings and borders clipped by an
-     ancestor's `overflow`. Next: sweep every focusable control on every
-     surface for a ring outside its nearest clipping ancestor, and fix by
-     room (padding or an inset ring), never by hiding the ring. Placed: the
-     0.4.1 mini release, a Sonnet agent.
-
-686. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Dashboard's Notebook constellation: "can you add a smooth animation for
-     regenerating the notebook constelation??" Regenerate redraws in one
-     frame. Placed: an Opus agent, with 687.
-
-687. **The owner, 2026-10-06, verbatim.** "does the companion or at least
-     atlas have a subtle breathing look??" Next: check what a resting
-     companion and Atlas do now (sample the figure per frame at rest); if
-     nothing breathes, add a slow, small breath (a few percent of scale on
-     the torso, about 4 to 5 s a cycle, never in the face's features),
-     under the avatar motion switch and reduced motion. Placed: with 686.
-
-688. **The owner, 2026-10-06, verbatim.** "is there a way to do very good
-     imitations of ai responses but using string concatenation with the app
-     when the ai isnt available with the option to toggle between them in
-     the ask subtab?? it needs to be VERY refined and well worded and
-     designed and use some world class shenanigans to make it work, nice
-     and understandable to read, well structured and more." What exists:
-     `ai/extractive.py` (INBOX 269), the best passage per note, cited, never
-     an invented claim. Decision taken: a composed answer built on it, never
-     breaking its rule (every factual clause is the person's own words or a
-     count the app measured; only connective wording comes from templates),
-     shaped by the kind of question (what/when/who/how many/list/compare/
-     why/how), with a lead sentence, grouped points, dates and numbers
-     pulled out, agreements and contradictions between notes named, and a
-     one-line "what your notes do not say"; a toggle in Ask between "AI"
-     and "From your notes" (the latter always available, the default with
-     no model). Placed: the 0.4.1 mini release, an Opus agent when a slot
-     frees (brief: session scratchpad brief-composer-688.md).
-
-689. **The owner, 2026-10-06, verbatim**, with a screenshot of a document
-     with tracked changes: the "Accept this insertion / Reject this
-     insertion" menu and the spelling tooltip ("faque" is not in the
-     dictionary, its candidates, Add to dictionary, Ignore in this document)
-     open at once over the same word, overlapping: "these overlap a
-     little". Cause: the suggestion menu opens on mousedown
-     (documents-prose.js `docSuggestMenu`) while CodeMirror's lint tooltip
-     (`docSuggestAnswers`, documents.js) shows for the same word. Decision
-     taken: one surface: a press on a suggested change whose text also
-     carries a finding opens one menu, the change's Accept/Reject first,
-     then the finding's answers as their own group; the lint tooltip is
-     closed while any app menu is open. Placed: the 0.4.1 mini release, the
-     next free agent slot.
 
 691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
      through links and tags without the ai?? like removing tags that dont
@@ -149,7 +68,175 @@ with its owner named in the entry.
 693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
      where a link passes behind other notes' dots: "bit of overlap". Links
      drawn through nodes they do not connect, and nodes close enough to
-     touch. Placed: with 692.
+     touch. Placed: with 692. And, the same hour, with a screenshot of the
+     force view: "is there a way to get the graph to sit in ways that are
+     more visually appealing and understandable and profesional and
+     stylisitc and modern and intentional and impressive and meaningful??"
+     692 and 693 are one Opus design pass on the force layout: clusters by
+     category with clear space between them, hubs central, labels never
+     over dots or lines, links routed round nodes they do not join, a
+     Reshuffle (new seed, animated) and a fit to view.
+
+694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
+     dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
+     each with the chosen segment's bottom edge cut off; the chat dock in a
+     narrow sidebar with Skills, Web, Plan, the model picker and Ask|Agent
+     wrapping onto four ragged rows; the corner companion drawn over the
+     Attach dialog's head and tabs): "the bottom of these pills gets cut
+     off. aslo the bottom chat dock isnt responsive in design for the
+     sidebar sizes. also the companion covers the attach popup". The cut
+     pills went to 685's sweep and are fixed (the segments take the track's
+     inside); the dock's narrow layout and the
+     companion's stacking (it must sit under every dialog, menu and
+     popover) to a Sonnet agent.
+     **Parts 2 and 3 built** (dock694-1006, `cf6af06`): the chat dock is a
+     size container (`@container chat-dock`, 10-responsive.css), one-line
+     composer to 27rem, two fixed strip lines under 47rem, icon-only toggles
+     under 24rem; the companion's band is z 44 (under menus 45, panels 60,
+     dialogs 1010) and the dock lifts to 46 while its own panel is open.
+     `scratchpad/ui-sweeps/dock694.js`: dock at 320 to 1200, light, dark, touch,
+     and seven popups with the companion placed over their heads. Part 1 (the
+     cut pill bottoms) is still open; 694 is not resolved.
+
+696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
+     package bundles and the buttons disabled and it just stayed as the 2/3
+     packages I had installed until it just suddenly updated, there was no
+     progress indicator or anything. does verything show in the background
+     tasks?? also the running background task stuff dont have progress bars
+     or indicators, they are just flat rows". Next: a bundle install shows
+     per-package progress in its row (queued, installing with a determinate
+     or indeterminate bar, done), every long job appears in Background
+     tasks, and a running task row carries a progress bar (determinate when
+     the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
+     release, an Opus agent when a slot frees.
+
+699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
+     package's row ("needle's own tools send usage data by default;
+     MemoryMap uses only its engine, which has no network code, and
+     switches that setting off anyway"): "is it possible to remove the part
+     of needle which sends usage data??" / "or even vendor it??" What is
+     true today (ai/needle_provider.py): the app loads only needle's native
+     engine with ctypes; the Python package and the command-line tool, which
+     carry the usage-data client, are never installed; the Linux engine was
+     read and imports no socket, connect, send or getenv. Decision taken:
+     not vendored (a 36 MB native engine plus weights per platform does not
+     belong in the repository, and the source build is not ours to
+     maintain); instead the download is pinned by SHA-256 per platform and,
+     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
+     and an engine that imports any network call is refused with a plain
+     message; the row's copy says this in one line. Placed: the next free
+     Sonnet slot.
+
+700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
+     model options as alternatives in the models??" / "research the best
+     ones available today". Research, 2026-10-06 (sources in the session
+     report): small and CPU-friendly: all-MiniLM-L6-v2 (22M, fastest),
+     BAAI/bge-small-en-v1.5 (today's default), nomic-embed-text v1.5 (137M,
+     8k context), EmbeddingGemma 300M (2k context; Gemma terms, not
+     Apache), Qwen3-Embedding-0.6B (Apache-2.0, about 70.7 MTEB-eng-v2,
+     about 1.2 GB), BGE-M3 (568M, multilingual, MIT), multilingual-e5-small;
+     through Ollama also mxbai-embed-large, snowflake-arctic-embed2,
+     granite-embedding and qwen3-embedding 0.6b/4b/8b. Decision taken: a
+     curated list in Models with size, languages, context, licence and a
+     one-line "best for", the current default kept; changing the model
+     re-embeds in the background (durable job, progress shown, search keeps
+     working on the old vectors until the new set is complete); only
+     licences that allow it are offered as one-press installs, others link
+     to their terms. Placed: the next free agent slot.
+
+701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
+     shortcut, should they be added to the tooltips??" Recommendation,
+     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
+     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
+     changed binding changes its tooltip, with a lint that every bound
+     shortcut with a button has it in that button's title. Placed: the next
+     free Sonnet slot.
+
+702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
+     Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
+     filled square) and the Chats sidebar (hovered row: a neutral grey fill,
+     a plain ⋯): "the hover and button styles on the notes sidebar is
+     different from the others. is that intentional??" Not intentional.
+     Decision taken: one sidebar row recipe for every rail (Notes, Chats,
+     Library, Documents, Timeline, Settings): the same hover fill, the same
+     current-row fill (the current row may carry the accent, hover never
+     does), and the row's ⋯ as a plain ghost icon that fills only on its own
+     hover, inside the row's radius; a lint holds the rails to it. Placed:
+     the next free Sonnet slot.
+
+705. **The owner, 2026-10-06, verbatim**, more for the next pass: the
+     composer formatting toolbar still meets its border at the right ("still
+     the offending formatting bar edges on the border"); a "go to bin" button
+     on the "Moved to the bin." notice; the title bar's app icon and the
+     header's logo clash ("these seem like the clash a bit... but idk");
+     Atlas and the companions "get annoyed every time I tap them multiple
+     times, can they alternate how they respond a little more??". Placed:
+     the next session (usage).
+
+706. **The owner, 2026-10-06, verbatim.** "also idk about ui or ux proper
+     usage of icons but can you make sure that the common and professional
+     ways to use icons and what icons are used where is correct?? like we
+     have been using majority of meatball icons but I think meatball,
+     kebab, bento box icons and more etc are better for use in various
+     situations and uses". Decision taken (platform conventions): ⋯
+     (meatball, horizontal) for an item's overflow in a horizontal row or
+     card; ⋮ (kebab, vertical) for overflow at the end of a vertical list
+     row or a narrow column/app bar; ⊞ (bento/grid) only for switching
+     between apps or spaces; ☰ (hamburger) only for opening navigation. A
+     DESIGN.md row and a lint pin which goes where; then an icon audit for
+     other misuse (the same glyph meaning two things, two glyphs for one).
+     Placed: a Sonnet agent with 699, 701, 702.
+
+707. **The owner, 2026-10-06, verbatim.** "when loading the app after login,
+     the companion just appears with no animation". Placed: with 705, the
+     polish agent: an entrance (a short emerge or drop-in to its perch, under
+     the avatar motion switch and reduced motion), once per unlock.
+
+708. **The owner, 2026-10-06, verbatim**, with screenshots of the Meeting
+     notes recorder: "the stop and resume on the audio transcribe doesnt
+     work" (paused at 0:05, Stop and Resume shown, "Paused."), then the
+     recorder after Stop reading "Transcribed: review it below before
+     saving." over an empty transcript, and: "also these panels feel badly
+     designed and neglected". Next: reproduce with Chromium's fake
+     microphone (--use-fake-device-for-media-stream), fix Stop and Resume
+     from the paused state (and an empty transcript must say so, not
+     "Transcribed"), then redesign the recorder panel by DESIGN.md: one clear
+     state at a time (ready, recording with level and time, paused,
+     transcribing with progress, review), the transcript sized to its
+     content, actions grouped with one primary. Placed: the next free Opus
+     slot.
+
+709. **The owner, 2026-10-06, verbatim**, with a screenshot of a note's
+     "suggested links" row (each suggestion's text, then a separate "+"
+     button floating after it): "these plus buttons feel too separate from
+     their notes". Decision taken: each suggestion is one chip holding its
+     text and its add control (the + inside the chip's end, the whole chip
+     the hover target, its accessible name "Link to <title>"). Placed: with
+     691, the Tidy and links agent.
+
+710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
+     checkbox in a note's editor (a large outlined box after a bullet) and in
+     the document editor (a smaller filled grey box after a bullet): "the
+     rendering of the selection tick boxes is different on the notes to the
+     document editor". One task-checkbox look for both editors (and no
+     bullet beside a task box), from one shared rule. Placed: the next free
+     Sonnet slot.
+
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+
+713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
+     processes like the night shift and stuff, is it possible to manually
+     run them as well as manually stop or cancel them when they are
+     running??" Decision taken: every scheduled pass (the night shift and
+     the other maintenance passes) is listed in Background tasks with its
+     schedule and last run, a "Run now" on each, and a running job's row
+     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
+     next step. Placed: with 696, the progress agent.
 
 ## Placed (last 20, newest first)
 

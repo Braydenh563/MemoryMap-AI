@@ -562,6 +562,50 @@ function docSuggestForRead(text) {
   }
   return out;
 }
+
+//: **Which finding a suggested change carries** (INBOX 689). A finding is in
+//: the document's own offsets, markers included, so a misspelled word inside
+//: `{++faque++}` is a finding whose span lies in the mark's body. The one
+//: nearest `offset` (the press, or the caret) wins when a long insertion
+//: carries several; with no offset the first does. Null when the body holds
+//: none, which is the common case and leaves the menu as it always was.
+function docSuggestFindingFor(mark, findings, offset) {
+  const inside = (Array.isArray(findings) ? findings : []).filter(
+    (finding) => finding.start < mark.bodyEnd && finding.end > mark.bodyStart
+  );
+  if (!inside.length) return null;
+  if (typeof offset === "number") {
+    const under = inside.find((finding) => offset >= finding.start && offset <= finding.end);
+    if (under) return under;
+  }
+  return inside[0];
+}
+
+//: The rows of the one menu a press on a suggested change opens, as plain
+//: data so a test can read them: the change's own answers first, the
+//: all-changes rows when there is more than one change, then the finding's
+//: answers (`answers`, rows from `docFindingAnswerRows`, the same ones the
+//: spelling popover and the panel row are drawn from) as their own group, so
+//: one press shows one surface and not a change menu over a spelling one.
+//: `run` supplies the actions: `one(accept)`, `all(accept)`, `next()`.
+function docSuggestMenuItems(mark, count, answers, run) {
+  const what = mark.kind === "ins" ? "insertion" : "deletion";
+  const items = [
+    { group: "one", label: `ph:check Accept this ${what}`, run: run.one(true) },
+    { group: "one", label: `ph:x Reject this ${what}`, run: run.one(false) },
+  ];
+  if (count > 1) {
+    items.push(
+      { group: "all", label: `ph:checks Accept all ${count}`, run: run.all(true) },
+      { group: "all", label: `ph:x-circle Reject all ${count}`, run: run.all(false) },
+      { group: "all", label: "ph:arrow-down Next change", run: run.next() }
+    );
+  }
+  for (const row of answers || []) {
+    items.push({ group: "finding", label: row.label, title: row.title, disabled: row.disabled === true, run: () => row.run() });
+  }
+  return items;
+}
 // DOC-SUGGEST-END
 
 // --- the accessibility check (INBOX 404) ----------------------------------------
@@ -792,17 +836,29 @@ function docSuggestMenu(view, start, x, y) {
   if (!mark || typeof openMenuAtPoint !== "function") return;
   const what = mark.kind === "ins" ? "insertion" : "deletion";
   const count = docSuggestParse(view.state.doc.toString()).length;
-  const items = [
-    { group: "one", label: `ph:check Accept this ${what}`, run: () => docSuggestApply(view, docSuggestResolve(mark, true)) },
-    { group: "one", label: `ph:x Reject this ${what}`, run: () => docSuggestApply(view, docSuggestResolve(mark, false)) },
-  ];
-  if (count > 1) {
-    items.push(
-      { group: "all", label: `ph:checks Accept all ${count}`, run: () => docSuggestAll(true) },
-      { group: "all", label: `ph:x-circle Reject all ${count}`, run: () => docSuggestAll(false) },
-      { group: "all", label: "ph:arrow-down Next change", run: () => docSuggestNext() }
-    );
-  }
+  //: **One surface** (INBOX 689). A word that is a suggested insertion and
+  //: also a spelling finding used to open this menu and, from the same press,
+  //: the finding's popover over it. The finding's answers join this menu as
+  //: their own group instead, and the popover is shut here and kept shut
+  //: while this menu is open (`docOpenSuggestFor`).
+  closeDocSuggest();
+  const offset = docCmView === view ? view.posAtCoords({ x, y }) : null;
+  const finding = docSuggestFindingFor(mark, docProseFound, offset);
+  //: The finding's own sentence heads its group, a row that cannot be
+  //: pressed, so the candidates below it say what they are candidates for
+  //: (the popover this replaces opened with the same line).
+  const said = finding ? String(finding.message || "") : "";
+  const answers = finding
+    ? [
+        ...(said ? [{ label: `ph:info ${said.length > 60 ? `${said.slice(0, 57)}\u2026` : said}`, title: said, disabled: true, run: () => {} }] : []),
+        ...docFindingAnswerRows(finding),
+      ]
+    : [];
+  const items = docSuggestMenuItems(mark, count, answers, {
+    one: (accept) => () => docSuggestApply(view, docSuggestResolve(mark, accept)),
+    all: (accept) => () => docSuggestAll(accept),
+    next: () => () => docSuggestNext(),
+  });
   openMenuAtPoint(items, `Suggested ${what}`, x, y);
 }
 

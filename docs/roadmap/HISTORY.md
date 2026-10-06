@@ -45524,3 +45524,188 @@ and refuses a topic ("Select a shape, link or text box first").
      25% the emptiest), light and dark (`scratchpad/ui-sweeps/quick677.js`,
      `tests/test_inbox_677_quick_access.py`).
 
+682. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Documents sidebar's "Documents | Outline" tabs (square-cornered boxes,
+     the chosen one bordered): "should these have rounded edges to stay
+     conistent??" Recommendation, taken: yes, the radius table's value for a
+     control of that size (DESIGN.md), the chosen state drawn the way every
+     other tab strip draws it.
+     **Fixed, 2026-10-06**: root cause, `#doc-sidebar-tabs` was also a `.seg`, so
+     the flat looks' choice-control fill, edge and 0 corner drew its chosen tab as a
+     bordered slab; the class is gone (a lint holds it) and every `.tabs-line` tab
+     takes `--radius-md` on its hover fill and focus ring.
+683. **The owner, 2026-10-06, verbatim**, with two screenshots of a
+     pill-shaped floating bar "Copy | ... | X" (square-cornered fill on the
+     hovered "..." and a square focus ring on the X, both inside the round
+     pill): "the square active goes out of the circular pill". Every control
+     inside a pill takes a radius that sits inside it (concentric: the
+     pill's radius minus its padding, or fully round), for hover, active and
+     focus alike. Placed with 682: the 0.4.1 mini release, a Sonnet agent
+     that also sweeps for other square states inside rounded containers.
+     **Fixed, 2026-10-06**: the bar is the table's `.code-actions`; its buttons
+     took `--radius-inner`, 0 below a 12px corner setting. New tokens
+     `--radius-in-pill`, `--radius-in-choice`, `--radius-in-md`, a DESIGN.md
+     section and a lint; the sweep fixed the board zoom pill, the timeline week
+     well and the graph zoom strip (agent-remaining/radius682-1006.md).
+
+695. **The owner, 2026-10-06, verbatim**, with a screenshot of a package
+     bundle's ⋯ menu in Settings: "I pressed "select its packages" but it
+     didn navigate scroll me to them". Fixed 2026-10-06: the action awaits
+     the redraw, centres the bundle's first package row, focuses its tick
+     and says how many it selected (settings-packages.js);
+     scratchpad/ui-sweeps/pkgselect695.js: the Documents row centred and
+     focused, ticked, no errors.
+
+703. **The owner, 2026-10-06, verbatim**, with screenshots of the Forgot
+     your password card (the "I have my recovery key | I don't have it"
+     switch with neither segment drawn chosen; the reset command box beside
+     a shorter Copy button): "there's no active default selection on the
+     forgot password pill. also these buttons arent the same height". Fixed
+     2026-10-06: the chosen path carries `.active` (what draws a `.seg`'s
+     chosen segment; only `aria-pressed` was set), from the markup and on
+     every switch; the command row stretches its two to one height.
+     scratchpad/ui-sweeps/forgot703.js: chosen fill present light and dark,
+     40/40px at 1440 and 60/60px at 390.
+
+704. **The owner, 2026-10-06, verbatim.** "you completely removed the audio
+     transcription feature by redesigning the meeting notes." The recorder
+     stayed (Tools and features, Ctrl+Shift+R, the meeting sheet) but its
+     Quick access tile became New meeting. Fixed 2026-10-06: New meeting has
+     "Start and record", which makes the meeting and opens the recorder
+     writing into its Notes; help_chat's meetings topic names it and the
+     shortcut. Not verified in a browser (usage).
+
+689. **The owner, 2026-10-06, verbatim**, with a screenshot of a document
+     with tracked changes: the "Accept this insertion / Reject this
+     insertion" menu and the spelling tooltip ("faque" is not in the
+     dictionary, its candidates, Add to dictionary, Ignore in this document)
+     open at once over the same word, overlapping: "these overlap a
+     little". Cause: the suggestion menu opens on mousedown
+     (documents-prose.js `docSuggestMenu`) while CodeMirror's lint tooltip
+     (`docSuggestAnswers`, documents.js) shows for the same word. Decision
+     taken: one surface: a press on a suggested change whose text also
+     carries a finding opens one menu, the change's Accept/Reject first,
+     then the finding's answers as their own group; the lint tooltip is
+     closed while any app menu is open. Placed: the 0.4.1 mini release, the
+     next free agent slot. **Fixed** (963144b, c97210f): `docSuggestMenu` lists
+     the finding's rows (`docFindingAnswerRows`, the one builder the popover
+     and the panel row also draw from) after the change's own, and
+     `docOpenSuggestFor` declines while a pointer menu is open; sweep
+     `scratchpad/ui-sweeps/suggest689.js`.
+
+686. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Notebook constellation: "can you add a smooth animation for
+     regenerating the notebook constelation??" Regenerate redraws in one
+     frame. Placed: an Opus agent, with 687. **Fixed** 2026-10-06
+     (motion686-1006): Regenerate retargets the live sketch (dashboard.js,
+     `artRetarget`, `p.regenerate`): stars paired by category and index
+     ease out over 800 ms on the glide's own clock (at most 25 ms a frame,
+     60 fps while it runs), new ones grow in, leftovers fade, the lines fade
+     out and back; a second Regenerate starts from the drawn positions.
+     Interface animations off and reduced motion: a 200 ms cross-fade. Save
+     PNG saves the settled sky. `constellation686.js`: largest step 0.071
+     and 0.094 of a star's journey (light, dark; bound 1/8), interrupted
+     0.094 and 0.081; before, the canvas was torn down, two frames blank,
+     and the sky swapped whole.
+687. **The owner, 2026-10-06, verbatim.** "does the companion or at least
+     atlas have a subtle breathing look??" Next: check what a resting
+     companion and Atlas do now (sample the figure per frame at rest); if
+     nothing breathes, add a slow, small breath (a few percent of scale on
+     the torso, about 4 to 5 s a cycle, never in the face's features),
+     under the avatar motion switch and reduced motion. Placed: with 686.
+     **Fixed** 2026-10-06 (motion686-1006). Measured first
+     (`breath687.js`, 10 s at rest): Atlas's breath swung the torso 0.6%
+     (0.1px on the companion, 0.2px in the large view) and the head as
+     much, so nothing breathed to the eye; the generated-face companion
+     already breathes 2 to 3% as a whole. Now the chest swells 3.5% wide
+     and 2.5% tall about the hips on the rise's clock (4.6s, her 4.0s, clear
+     of the idle clocks), written ten times a second from the tail's loop
+     (atlas-life.js, `atlasBreathFrame`): torso 0.7px on the companion and
+     1.5px in the large view, head unchanged, still under Avatar animation
+     Off, only the old slowed rise under reduced motion. 669's click sweep:
+     0 steps over its limits in all four cases.
+
+688. **The owner, 2026-10-06, verbatim.** "is there a way to do very good
+     imitations of ai responses but using string concatenation with the app
+     when the ai isnt available with the option to toggle between them in
+     the ask subtab?? it needs to be VERY refined and well worded and
+     designed and use some world class shenanigans to make it work, nice
+     and understandable to read, well structured and more." What exists:
+     `ai/extractive.py` (INBOX 269), the best passage per note, cited, never
+     an invented claim. Decision taken: a composed answer built on it, never
+     breaking its rule (every factual clause is the person's own words or a
+     count the app measured; only connective wording comes from templates),
+     shaped by the kind of question (what/when/who/how many/list/compare/
+     why/how), with a lead sentence, grouped points, dates and numbers
+     pulled out, agreements and contradictions between notes named, and a
+     one-line "what your notes do not say"; a toggle in Ask between "AI"
+     and "From your notes" (the latter always available, the default with
+     no model). Placed: the 0.4.1 mini release, an Opus agent when a slot
+     frees (brief: session scratchpad brief-composer-688.md).
+     **Fixed** 2026-10-06 (composer688-1006): `ai/composer.py`, every part of
+     an answer a quote, a measured value or a fixed phrase (held by a
+     traceability test); Ask's AI / From your notes switch (lazy
+     ask-compose.js), the answer whenever no model runs; the ten questions
+     before and after in docs/roadmap/agent-remaining/composer688-1006.md.
+
+680. **The owner, 2026-10-06, verbatim.** "should the settings sidebar
+     scroll a little to show the quick access in page sections if scrolling
+     on that settings page??" Recommendation, taken: yes; as a Settings page
+     scrolls, the sidebar keeps the current in-page section's link in view
+     (scrolled to nearest, smoothly under the motion switch, never stealing
+     focus). Placed: the 0.4.1 mini release, a Sonnet agent.
+     **Fixed (dcf6a66): the Settings sidebar follows the page.**
+681. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "not all dropdown elements close when pressing that
+     element again". Every menu, dropdown and popover trigger toggles: a
+     second press on the control that opened it closes it. Next: inventory
+     every trigger (kebabMenu, the action menus, custom selects, popovers,
+     split buttons) and press each twice. Placed: with 680.
+     **Fixed: every menu trigger toggles; inventory in agent-remaining/toggles681-1006.md.**
+697. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's "Help and About" group heading above its "Help" row: "I was
+     clicking on the header thinking it was the help page until i realised
+     it was the header". Group headings read as rows. Decision taken: a
+     heading is drawn as a quiet small label (the DESIGN.md section label,
+     not a row's size and weight, no hover), and a press on one opens its
+     group's first page so the click is never dead. Placed: with 680, the
+     Settings sidebar agent.
+     **Fixed: a group heading is a quiet label and opens its first page.**
+698. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's Help page expanded into its thirteen in-page sections, pushing
+     the next pages far down: "these sub tabs on the settings sidebar are
+     good but annoying when I am trying to flick through multiple settings
+     pages". Decision taken: the page list stays one compact list; the
+     current page's sections show as a short "On this page" block that does
+     not push the other pages down (collapsed to the current section with a
+     toggle to show all, remembered), and the arrow keys and a click move
+     page to page without opening sections. Placed: with 680/697, the
+     Settings sidebar agent.
+     **Fixed: the open page's sections are one short block with a remembered toggle.**
+
+711. **The owner, 2026-10-06, verbatim**, with a screenshot of "Leave
+     without saving?" over the Documents list: "I already clicked that
+     button by switching tabs and it appeared again when I tried to go onto
+     the documents?? (I was on a note edit form and tried to switch to the
+     library and go to documents)". Leave confirmed once must settle the
+     edit form (closed, its words kept as the recoverable draft) so the next
+     move does not ask again. Fixed 2026-10-06: a tab switch no longer asks
+     about an open note form (it stays open in Notes with its words kept,
+     and a reload offers them back); a document with edits in hand is saved
+     first and asked about only if that save fails (navigation.js
+     `confirmLeavingUnsavedWork`; tests/test_unsaved_work_guard.py).
+
+685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Regenerate button's focus ring cut off along its left edge: "a lot of
+     borders get cut off on an edge." Focus rings and borders clipped by an
+     ancestor's `overflow`. Next: sweep every focusable control on every
+     surface for a ring outside its nearest clipping ancestor, and fix by
+     room (padding or an inset ring), never by hiding the ring. Placed: the
+     0.4.1 mini release, a Sonnet agent. Fixed 2026-10-06: the sweep
+     (`scratchpad/ui-sweeps/clip685.js`) found 59 clipped rings at 1440 and
+     61 at 390, now 0 and 0, by container in 08-consistency.css "Ring room"
+     (room or an inset ring, `--ring-room`, `tests/test_ring_room.py`). Also
+     fixed with it: the cut pill bottoms (694's first part), the "g" of
+     "Categories" and "Skill logs" (a line box of 1 under `overflow: hidden`),
+     the phone tab captions' descenders, the New meeting sheet's fields.
+

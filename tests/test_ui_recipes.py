@@ -4299,8 +4299,10 @@ def test_every_second_level_strip_is_a_tabs_line() -> None:
         assert tag, strip
         classes = re.search(r'class="([^"]*)"', tag.group(0)).group(1).split()
         assert "tabs-line" in classes, f"#{strip} is not a .tabs-line"
-        if strip != "doc-sidebar-tabs":
-            assert "seg" not in classes, f"#{strip} is a choice control again (.seg boxes it in a pill)"
+        #: INBOX 682: `#doc-sidebar-tabs` was the one strip that kept `.seg`, and
+        #: the flat looks' choice-control fill, edge and square corner (08) drew
+        #: its chosen tab as a grey bordered slab. No strip keeps it now.
+        assert "seg" not in classes, f"#{strip} is a choice control again (.seg boxes it in a pill)"
         end = page.index("</div>", tag.end())
         assert "<i " not in page[tag.end() : end], (
             f"#{strip} has an icon: second-level tabs are words only (one icon rule)"
@@ -4735,3 +4737,69 @@ def test_the_ocr_toolbars_segment_track_grows_round_its_touch_buttons() -> None:
     at = css.index("  .sheet-card-page .ocr-toolbar .seg-compact {\n")
     block = css[at : css.index("}", at)]
     assert "height: auto;" in block and "min-height: var(--target-min);" in block
+
+
+#: **A control inside a rounded container takes the container's tokens**
+#: (DESIGN.md, "Controls inside a rounded container"; INBOX 682 and 683, the
+#: owner: "the square active goes out of the circular pill"). Each key is a
+#: selector as written; each value is the one corner every rule that rounds
+#: it may use. The table bar's "Copy | ... | X" drew its buttons with
+#: `--radius-inner`, a card surface's concentric corner that is 0 below a 12px
+#: corner setting, so a rounded square sat in a capsule.
+CONTROLS_IN_ROUNDED_CONTAINERS = {
+    ".code-actions > .code-copy": "var(--radius-in-pill)",
+    ".code-actions > .menu-wrap > button": "var(--radius-in-pill)",
+    ".whiteboard-floating-panel.whiteboard-floating-panel.bottom-right > button": "var(--radius-in-pill)",
+    ".timeline-days .timeline-day.ghost.small": "var(--radius-in-choice)",
+    ".graph-zoom .graph-zoom-btn": "var(--radius-in-md)",
+    ".tabs-line > button": "var(--radius-md)",
+}
+
+
+def test_a_control_in_a_rounded_container_takes_the_container_tokens() -> None:
+    found: dict[str, list[str]] = {key: [] for key in CONTROLS_IN_ROUNDED_CONTAINERS}
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if selector.startswith("@"):
+                continue
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius:
+                continue
+            value = " ".join(radius.group(1).replace("!important", "").split())
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                if part in found:
+                    found[part].append(value)
+    offenders = []
+    for key, want in CONTROLS_IN_ROUNDED_CONTAINERS.items():
+        if not found[key]:
+            offenders.append(f"{key}: no rule rounds it (expected {want})")
+        offenders += [f"{key}: {value} (expected {want})" for value in found[key] if value != want]
+    assert not offenders, "a control inside a rounded container off the table:\n  " + "\n  ".join(offenders)
+
+
+def test_the_contained_corner_tokens_are_defined_from_the_table() -> None:
+    tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    for name, value in (
+        ("--radius-in-pill", "var(--radius-pill)"),
+        ("--radius-in-choice", "max(var(--radius-md), calc(var(--radius-choice) - var(--space-1)))"),
+        ("--radius-in-md", "max(var(--radius-sm), calc(var(--radius-md) - var(--space-1)))"),
+    ):
+        got = re.search(rf"{re.escape(name)}\s*:\s*([^;]+);", tokens)
+        assert got and " ".join(got.group(1).split()) == value, f"{name} is not {value}"
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "### Controls inside a rounded container" in design
+
+
+def test_no_second_level_strip_is_also_a_choice_control() -> None:
+    """The class that gave the Documents sidebar's tabs a grey, edged, square
+    slab in the flat looks (INBOX 682): `.seg` and `.tabs-line` are two
+    recipes, never one element's two classes."""
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    offenders = [
+        tag
+        for tag in re.findall(r"<[a-z]+\s[^>]*>", page)
+        if (classes := re.search(r'class="([^"]*)"', tag))
+        and {"seg", "tabs-line"} <= set(classes.group(1).split())
+    ]
+    assert not offenders, f"an element is both .seg and .tabs-line: {offenders}"

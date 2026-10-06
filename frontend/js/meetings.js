@@ -150,8 +150,12 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
       create.className = "accent small";
       create.id = "meeting-new-create";
       setLabel(create, "ph:users-three Start the meeting");
-      const make = async () => {
+      //: `record`: "Start and record" (INBOX 704: the redesign took the
+      //: recorder's tile away and left recording two levels deep): the
+      //: meeting is made, then the recorder opens writing into its Notes.
+      const make = async (record = false) => {
         create.disabled = true;
+        recordButton.disabled = true;
         status.classList.remove("error");
         let made = null;
         try {
@@ -168,17 +172,28 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
           status.textContent = error.message || "Couldn't start the meeting.";
           status.classList.add("error");
           create.disabled = false;
+          recordButton.disabled = false;
           return;
         }
         close();
-        await loadEntries().catch(() => {});
+        //: The one note it made, not a re-read of the notebook (the
+        //: refresh ratchet, tests/test_refresh_entries.py).
+        await refreshEntries([made.id]).catch(() => {});
         if (then) then(made);
         //: Straight into the note: the meeting is where the writing happens.
         flashEntry(made.id);
+        if (record) return meetingRecordInto(made.id);
         openNoteEditor(made.id);
         toastAction("Meeting started. Its action items, summary and recording are under its meeting chip.", "Open", () => openMeetingSheet(made.id));
       };
-      create.addEventListener("click", make);
+      const recordButton = document.createElement("button");
+      recordButton.type = "button";
+      recordButton.className = "ghost small";
+      recordButton.id = "meeting-new-record";
+      recordButton.title = "Start the meeting and transcribe it as it happens, on this computer";
+      setLabel(recordButton, "ph:microphone Start and record");
+      recordButton.addEventListener("click", () => make(true));
+      create.addEventListener("click", () => make());
       for (const input of [titleInput, whenInput]) {
         input.addEventListener("keydown", (event) => {
           if (event.key === "Enter") {
@@ -187,7 +202,7 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
           }
         });
       }
-      actions.append(cancel, create);
+      actions.append(cancel, recordButton, create);
       card.append(body, status, actions);
       requestAnimationFrame(() => titleInput.focus());
     },

@@ -187,3 +187,53 @@ def test_the_web_panel_is_a_column_not_a_drawer_in_the_dock():
     chat_page = _block(markup, '<div class="tab-page hidden" id="tab-chat"')
     assert 'id="web-panel"' in chat_page
     assert chat_page.index('id="chat-main"') < chat_page.index('id="web-panel"')
+
+
+def _all_css() -> str:
+    return css_text()
+
+
+def test_the_dock_lays_itself_out_by_its_own_width():
+    """INBOX 694: "the bottom chat dock isnt responsive in design for the
+    sidebar sizes". The chat sits in a column (a window less a rail, a panel,
+    a sidebar), so the strip and the composer answer to the dock's own width,
+    never to the window's: Skills, Web, Plan, the model picker and Ask|Agent
+    were four ragged rows at 1440 with a rail open. The viewport band that
+    used to wrap the composer and scroll the strip is gone, and the two
+    breakpoints the dock needs are container queries in range syntax, which
+    `test_breakpoints.py` does not count as a page band."""
+    css = _all_css()
+    assert ".chat-dock {\n  container: chat-dock / inline-size;\n}" in css
+    for query in ("@container chat-dock (width < 47rem)", "@container chat-dock (width < 27rem)", "@container chat-dock (width < 24rem)"):
+        assert query in css, query
+    # The icon-only toggles keep their words (the accessible names): `font-size: 0`
+    # keeps text in the accessibility tree, `display: none` would drop it.
+    narrow = css[css.index("@container chat-dock (width < 24rem)"):]
+    assert "font-size: 0;" in narrow[: narrow.index("\n}\n")]
+    # The old window-width rule is not back.
+    old = "@media (max-width: 819.98px) {\n  /* One line, because five controls"
+    assert old not in css
+
+
+def test_the_companion_is_under_every_popup_and_a_dock_popup_is_over_it():
+    """INBOX 694 (3), "the companion covers the attach popup". The companion's
+    band is below the menus (`.action-menu`, 45), the popovers and panels
+    (60) and the dialogs (1010), and above the top bar (40); the chat dock
+    rises above it (not just above the toolbar) while one of its own panels is
+    open, because the panel's z 45 counts only inside the dock."""
+    css = _all_css()
+
+    def z(selector: str) -> int:
+        for hit in re.finditer(r"^" + re.escape(selector) + r" \{", css, re.M):
+            block = css[hit.start():]
+            found = re.search(r"z-index:\s*(\d+)", block[: block.index("}")])
+            if found:
+                return int(found.group(1))
+        raise AssertionError(f"{selector} has no z-index rule")
+
+    band = z("#nm-buddy-band")
+    assert z("header#top-bar") < band < z(".action-menu") < z(".notif-panel") < z(".modal-overlay")
+    lift = css[css.index(".chat-dock:has(#note-picker-panel:not(.hidden)"):]
+    lift = lift[: lift.index("}")]
+    assert "#chat-dock-more-panel:not(.hidden)" in lift and ".chat-skills-panel:not(.hidden)" in lift
+    assert band < int(re.search(r"z-index:\s*(\d+)", lift).group(1))

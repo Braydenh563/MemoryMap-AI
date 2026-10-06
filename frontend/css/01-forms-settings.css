@@ -1334,6 +1334,13 @@ progress {
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
+/* A composed answer (INBOX 688): its blockquote is the answer itself, the
+   note's own words under the line naming the note, so it reads in ink, not
+   in the muted grey a quote inside a written answer takes. */
+.answer.answer-composed blockquote {
+  color: var(--ink);
+}
+
 .answer hr,
 .bubble-answer hr,
 .dash-body hr {

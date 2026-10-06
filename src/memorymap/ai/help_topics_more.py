@@ -981,6 +981,31 @@ MORE_TOPICS.extend(
             "badge": {"label": "Chat", "tab": "chat"},
         },
         {
+            #: INBOX 688: the Ask box's AI / From your notes switch.
+            "id": "answers-from-notes",
+            "keywords": (
+                "from your notes", "answer without ai", "no ai answer", "answer with no model",
+                "composed answer", "without the ai", "ai or notes", "notes instead of ai",
+                "switch off the ai", "ai off", "who answers", "ask without a model",
+            ),
+            "body": (
+                "Ask on the Notes tab has a switch beside its title: AI, or From "
+                "your notes. From your notes answers with no AI: the app picks the "
+                "sentences in your notes that answer the question and lays them "
+                "out, the closest one first under the note it came from, the rest "
+                "grouped by note, a timeline for a when question, the newest first "
+                "for a latest question, and two sides for a comparison. Every "
+                "sentence is quoted from a note and cited like any answer; the app "
+                "adds only the joining words and the counts and dates it measured, "
+                "names two notes that may disagree, and says which of your words "
+                "none of the notes found mention. It never answers yes or no for "
+                "you. The chip over the answer reads Your notes, no AI. The "
+                "choice is kept on this device; with no model running it is the "
+                "answer and AI is greyed until a model runs."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
             "id": "follow-up-trail",
             "keywords": (
                 "follow-up", "follow up", "followup", "suggested question",
@@ -1306,6 +1331,8 @@ TOPIC_META: dict[str, dict] = {
     "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
     "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
     "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
+    "answers-from-notes": {"title": "Answers from your notes, no AI", "path": "Notes tab, Ask, AI or From your notes", "steps": (
+        "Open Ask on the Notes tab.", "Choose From your notes beside the title.", "Ask: the answer is quoted from your notes, with no AI.")},
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
@@ -1336,7 +1363,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
     )),
     ("Asking Atlas", (
-        "ask-chat", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (

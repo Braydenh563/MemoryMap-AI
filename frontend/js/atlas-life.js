@@ -255,6 +255,8 @@ function atlasTailFrame(tail, now) {
   tail.tick += 1;
   //: The props' own loops, while each is shown (`atlasPropsFrame`).
   atlasPropsFrame(box, live, tail.tick);
+  //: And the chest's breath (`atlasBreathFrame`).
+  atlasBreathFrame(box, live, now);
   if (live && tail.tick % 2 && tail.drawn) {
     tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     return;
@@ -412,6 +414,49 @@ function atlasPropsFrame(box, live, tick) {
       loop.anim.currentTime = loop.lag;
     } else loop.anim.cancel();
   }
+}
+
+//: **The chest breathes** (INBOX 687, the owner: "does the companion or at
+//: least atlas have a subtle breathing look??"). It did not, to the eye:
+//: sampled at rest for 10 s (breath687.js), the layered figure's breath, a
+//: 0.45px lift and a 0.6% widening of the whole upper body (`.atl-lw-breathe`,
+//: the CSS), swung the torso 0.1px on the companion and 0.2px in the large
+//: view, and the head as much. The torso now swells 3.5% wide and 2.5% tall
+//: about the hips while the head, the arms and the face, other groups, keep
+//: their size: 0.7px on the companion, 1.5px in the large view.
+//:
+//: **Here, ten times a second, not a CSS animation.** It is inside the body's
+//: drawing, so every step repaints that layer. As a CSS loop it ran at the
+//: frame rate in the large view, which nothing paces, and took the view from
+//: 53 frames a second to 20 to 31 on the sweep's machine. Ten a second is
+//: the companion pacer's rate for what animates inside an Atlas layer
+//: (`nameMarkBuddyTempo`), and a step of a tenth of a second moves the chest
+//: about a tenth of a pixel even at 2.2 times, so it reads as the same
+//: breath. By the clock, not by frames, so a slow machine does not step it
+//: more often than that. It rides the tail's loop, which already knows when the
+//: figure is off screen, on a hidden tab, or still by setting (Avatar
+//: animation Off, Reduce motion, the companion's own Full motion), and puts
+//: the chest back at rest then.
+//:
+//: On the rise's clock: the swell takes its phase from the box's own
+//: animation, so the chest fills as the shoulders lift. Written as the
+//: individual `scale`, so a transform a gesture or a mood gives the torso
+//: composes with it rather than being overwritten.
+const ATLAS_BREATH_SWELL = [0.035, 0.025];
+const ATLAS_BREATH_STEP_MS = 100;
+function atlasBreathFrame(box, live, now) {
+  if (live && now - (box.atlasBreathAt || 0) < ATLAS_BREATH_STEP_MS) return;
+  box.atlasBreathAt = live ? now : 0;
+  box.atlasTorsos ||= [...box.querySelectorAll(".atl-layer-body .nmb-torso")];
+  let k = 0;
+  if (live) {
+    const rise = box.querySelector(".atl-lw-breathe")?.getAnimations()[0];
+    const period = rise ? +rise.effect.getComputedTiming().duration : box.dataset.atlasLook === "feminine" ? 4000 : 4600;
+    const at = rise && rise.currentTime !== null ? +rise.currentTime : now;
+    k = (1 - Math.cos((2 * Math.PI * at) / period)) / 2;
+  }
+  const scale = k ? `${(1 + ATLAS_BREATH_SWELL[0] * k).toFixed(4)} ${(1 + ATLAS_BREATH_SWELL[1] * k).toFixed(4)}` : "";
+  for (const el of box.atlasTorsos) if (el.style.scale !== scale) el.style.scale = scale;
 }
 
 //: **The lower body by what it is doing** (INBOX 575, the owner: "have the

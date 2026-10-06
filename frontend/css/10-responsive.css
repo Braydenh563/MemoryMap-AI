@@ -1756,7 +1756,10 @@ header#top-bar[data-scrolled="1"],
   }
 
   #tab-notes .layout > .tab-main {
-    padding-right: 0;
+    /* Not 0: the cards stand on this edge, and their focus ring needs
+       `--ring-room` (08-consistency.css, "Ring room"; the margin there takes
+       it back out). */
+    padding-right: var(--ring-room);
   }
 }
 
@@ -2509,6 +2512,17 @@ header#top-bar[data-scrolled="1"],
     flex: 1 1 100%;
     min-width: 0;
   }
+
+  /* Ask's AI / From your notes switch (INBOX 688) takes the first line with
+     its '?', as two equal segments: beside History it left the '?' stranded
+     at the line's end and History on a line of its own. */
+  #ask .ask-header-actions > .ask-source-seg {
+    flex: 1 1 auto;
+  }
+
+  #ask .ask-source-seg > button {
+    flex: 1 1 0;
+  }
 }
 
 /* --- the lightbox on a phone (INBOX 430) ------------------------------------
@@ -2862,5 +2876,131 @@ header#top-bar[data-scrolled="1"],
   .palette-hint,
   .rich-picker-keys {
     display: none;
+  }
+}
+
+/* --- the chat dock follows its own width (INBOX 694) ------------------------
+   The owner: "the bottom chat dock isnt responsive in design for the sidebar
+   sizes", with the dock in a narrow column, Skills, Web, Plan, the model
+   picker and Ask|Agent wrapped onto four ragged rows. The chat sits in a
+   column that is a window's width minus a rail, a panel or a sidebar, so no
+   viewport query can know how wide the dock is; the dock says so itself
+   (`container: chat-dock`), and the rules below are written in its width.
+   The range syntax is deliberate: these are a component's own widths, not
+   the page's four bands (tests/test_breakpoints.py counts only `max-width:`).
+
+   Widths are the container's content box (the dock less its 12px padding and
+   its border, so a 800px dock queries as 774), in rem at 16px. Rows, by what
+   the dock can hold:
+   - 47rem and over: the strip is one line, toggles left, model, mode and
+     gear right, the free space between (the spacer), as it was at 1440.
+   - under 47rem: two lines, always the same two. Line one is the toggles
+     (Skills, Web, Plan); line two is the mode group, the model picker taking
+     whatever the Ask|Agent switch and the gear leave, ellipsised, never a
+     third line.
+   - under 24rem: the toggles are icon-only squares. Their words stay as
+     the accessible names (`font-size: 0` keeps the text in the tree, unlike
+     `display: none`) and the titles are untouched; Ask and Agent give up
+     their icons to the model picker.
+   - the composer: one line (box grows, the icon buttons are fixed, Send
+     last) while the box keeps 12rem or more; under 27rem it is the box on a
+     line of its own and the attach buttons left with the mic and Send right
+     on the line under it. A phone below 600 has already moved the two attach
+     buttons and the model picker out of the strip (`dockChatAttachments`,
+     `dockChatTools`), so its composer is the box, the mic and Send and its
+     strip is the mode, the two attachments and the gear: one line each,
+     which the `:has(> .select-shell)` conditions below leave alone. */
+.chat-dock {
+  container: chat-dock / inline-size;
+}
+
+.chat-dock .chat-composer #chat-input {
+  min-width: 12rem;
+}
+
+@container chat-dock (width < 64rem) {
+  .chat-mode-long {
+    display: none;
+  }
+}
+
+@container chat-dock (width < 47rem) {
+  .chat-dock-controls-spacer {
+    display: none;
+  }
+
+  .chat-dock-controls:has(> .chat-tool-group-mode > .select-shell) > .chat-tool-group-mode {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    order: 2;
+  }
+
+  .chat-dock-controls > .chat-tool-group-mode > .select-shell:has(> .feature-model-select) {
+    flex: 1 1 0;
+    min-width: 5rem;
+    max-width: none;
+  }
+
+  .chat-dock-controls > .chat-tool-group-mode > .select-shell:has(> .feature-model-select) .select-opener {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .chat-dock-controls .seg,
+  .chat-dock-controls .chat-dock-more {
+    flex: 0 0 auto;
+  }
+}
+
+@container chat-dock (width < 27rem) {
+  .chat-dock .chat-composer #chat-input {
+    min-width: 0;
+    max-height: 7rem;
+  }
+
+  .chat-dock .chat-composer:has(> .note-picker) {
+    flex-wrap: wrap;
+  }
+
+  .chat-dock .chat-composer:has(> .note-picker) > #chat-input {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .chat-dock .chat-composer:has(> .note-picker) > #mic-chat {
+    margin-inline-start: auto;
+  }
+}
+
+@container chat-dock (width < 24rem) {
+  .chat-dock-controls > .chat-tool-group:not(.chat-tool-group-mode, .chat-tool-group-attach) > button,
+  .chat-dock-controls #chat-skills-btn {
+    width: var(--control-h);
+    min-width: var(--control-h);
+    padding-inline: 0;
+    gap: 0;
+    font-size: 0;
+    justify-content: center;
+  }
+
+  .chat-dock-controls > .chat-tool-group:not(.chat-tool-group-mode, .chat-tool-group-attach) > button > .ph,
+  .chat-dock-controls #chat-skills-btn > .ph {
+    margin: 0;
+    font-size: var(--text-lg);
+  }
+
+  .chat-dock-controls .chat-tool-group + .chat-tool-group:not(.chat-tool-group-mode)::before {
+    margin-inline: var(--space-1);
+  }
+
+  /* Ask and Agent keep their words and give up their icons, so the model
+     picker beside them reads more than its first six letters. */
+  .chat-dock-controls:has(> .chat-tool-group-mode > .select-shell) .seg .ph-lead {
+    display: none;
+  }
+
+  /* A word with no icon beside it is shorter than a finger. */
+  .chat-dock-controls:has(> .chat-tool-group-mode > .select-shell) .seg button {
+    min-width: var(--control-h);
   }
 }

@@ -255,4 +255,4 @@ def test_turning_a_page_and_zooming_keep_the_reader_s_place():
     assert "sameFile" in load and 'if (!sameFile) $("ocr-region-list").replaceChildren();' in load
     assert "ocrKeepCentre(() => ocrApplyZoom())" in _body(LIBRARY, "ocrSetZoom")
     assert "ocrKeepCentre(() => ocrApplyZoom())" in _body(LIBRARY, "ocrStepZoom")
-    assert "ocrActiveRegion" in _body(LIBRARY, "ocrRenderRegions")
+    assert "ocrUi.activeRegion" in _body(LIBRARY, "ocrRenderRegions")

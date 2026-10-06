@@ -64,7 +64,7 @@ function ocrEnginePaintAll() {
       continue;
     }
     ocrEnginePaint(host);
-    host._ocrEngine?.onPaint?.();
+    host._ocrEngine?.onPaint?.({ installing: ocrEngineInstall.running });
   }
 }
 
@@ -233,19 +233,6 @@ function ocrEngineLanguagePicker(engine, opts) {
   });
   wrap.append(label, select);
   return wrap;
-}
-
-async function ocrEngineOpenSettings() {
-  if (typeof openSettingsModal !== "function") return;
-  await openSettingsModal("extras");
-  for (let i = 0; i < 30; i += 1) {
-    const row = document.getElementById("extra-row-ocr");
-    if (row) {
-      row.scrollIntoView({ block: "center" });
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
 }
 
 async function ocrEngineStartInstall() {

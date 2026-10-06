@@ -15,7 +15,7 @@
 //   - the popover shell (`.help-popover`, placed by `placeHelpPopover`,
 //     lifted to <body>), with a dialog head and its X;
 //   - a `.search-field` that filters as you type, over names and categories;
-//   - a `.seg` of two, Emoji and Icons, when a surface offers both;
+//   - a `.tabs-line` of two under the head, Emoji and Icons, when a surface offers both;
 //   - one `role="listbox"` grid of `role="option"` tiles under group heads,
 //     Recent first (this device, twenty: a per-person convenience, so local
 //     storage, and the panel draws correctly without it).
@@ -371,24 +371,38 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
   search.setAttribute("aria-label", "Search emoji and icons");
   field.append(lens, search);
 
-  const seg = document.createElement("div");
-  seg.className = "seg icon-picker-modes";
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", "Emoji or icons");
-  for (const [kind, label] of [["emoji", "ph:smiley Emoji"], ["icon", "ph:shapes Icons"]]) {
+  //: **The kind is a tab strip under the head, never a pill** (INBOX 715, the
+  //: owner: "i dont like pills like that in popups"): DESIGN.md's "a popup
+  //: chooses a kind" row, the arrows and Home and End walking it.
+  const tabs = document.createElement("div");
+  tabs.className = "tabs-line popup-kinds icon-picker-modes";
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Emoji or icons");
+  for (const [kind, label] of [["emoji", "Emoji"], ["icon", "Icons"]]) {
     if (!kinds.includes(kind)) continue;
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "ghost small";
+    b.setAttribute("role", "tab");
     b.dataset.mode = kind;
-    setLabel(b, label);
+    b.textContent = label;
     b.addEventListener("click", () => {
       current = kind;
       draw();
       search.focus({ preventScroll: true });
     });
-    seg.appendChild(b);
+    tabs.appendChild(b);
   }
+  tabs.addEventListener("keydown", (e) => {
+    const all = [...tabs.children];
+    const at = all.findIndex((b) => b.dataset.mode === current);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: all.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const b = all[(to + all.length) % all.length];
+    current = b.dataset.mode;
+    draw();
+    b.focus();
+  });
 
   const list = document.createElement("div");
   list.className = "icon-picker-list";
@@ -399,9 +413,9 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
   status.className = "muted icon-picker-hint";
   status.setAttribute("aria-live", "polite");
 
-  panel.append(head, field);
-  if (seg.children.length > 1) panel.append(seg);
-  panel.append(list, status);
+  panel.append(head);
+  if (tabs.children.length > 1) panel.append(tabs);
+  panel.append(field, list, status);
 
   let tiles = [];
   let active = -1;
@@ -447,7 +461,10 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
     return g;
   };
   const draw = () => {
-    for (const b of seg.children) b.setAttribute("aria-pressed", String(b.dataset.mode === current));
+    for (const b of tabs.children) {
+      b.setAttribute("aria-selected", String(b.dataset.mode === current));
+      b.tabIndex = b.dataset.mode === current ? 0 : -1;
+    }
     const groups = current === "emoji" ? iconPickerEmojiGroups() : iconPickerIconGroups();
     const q = query.trim().toLowerCase();
     const parts = [];

@@ -67,19 +67,6 @@ with its owner named in the entry.
      cut pill bottoms) is still open; 694 is not resolved.
 
 
-715. **The owner, 2026-10-06, verbatim**, with screenshots of the New board
-     dialog (the "Name" label touching the field's focus ring; the Board |
-     Mind map pill under the title; Mind map offering only "Blank"): "name
-     text clashes with border. also the pill at the top is ugly and I want it
-     to be redesigned to be like the other popups. also there are no mindmap
-     templates to choose from". Then, with the SWOT, retro and To do / Doing /
-     Done board templates (dashed boxes, titles of three different sizes
-     sitting on the dashed border): "some of the templates are poorly
-     designed and the templates need massive improving and expanding". Then,
-     with the template preview's description text flush to its box's top
-     left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
-     Addendum, the owner, 2026-10-06, verbatim, with the mind map's "Start from a shape" bar and the icon picker's Emoji | Icons pill: "redesign this popup. and change the pill for the emoji popup as well. i dont like pills like that in popups"
-
 717. **The owner, 2026-10-06, verbatim**, with screenshots of the OCR
      workspace toolbar (Regions switch, Fit, 100%, zoom, One page | Scroll,
      engine select, Read this page again, a bare "all" field, Read pages, then

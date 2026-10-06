@@ -2012,6 +2012,8 @@ const LAZY_MODULES = {
     "/js/whiteboard.js",
     "/js/whiteboard-commands.js",
     "/js/whiteboard-library.js",
+    //: The New board dialog and every template's picture (INBOX 715).
+    "/js/whiteboard-templates.js",
     "/js/whiteboard-format.js",
     "/js/whiteboard-interchange.js",
     "/js/whiteboard-history.js",

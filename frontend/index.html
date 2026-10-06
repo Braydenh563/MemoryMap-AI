@@ -990,14 +990,18 @@
         <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="wb-template-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </span>
     </div>
-    <div class="seg seg-compact wb-template-kind" id="wb-template-kind" role="group" aria-label="What kind of board">
-      <button type="button" data-value="board" title="A free canvas: notes, sketches, images"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Board</button>
-      <button type="button" data-value="map" title="A tree: topics, branches and keyboard editing"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
+    <!-- **The kind is a tab strip, not a pill** (INBOX 715, the owner: "the
+         pill at the top is ugly and I want it to be redesigned to be like the
+         other popups"): DESIGN.md's "a popup chooses a kind" row, the board's
+         Format panel's `.tabs-line` under the head. -->
+    <div class="tabs-line popup-kinds wb-template-kind" id="wb-template-kind" role="tablist" aria-label="What kind of board">
+      <button type="button" role="tab" data-value="board" aria-selected="true" aria-controls="wb-template-list" title="A free canvas: notes, sketches, images">Board</button>
+      <button type="button" role="tab" data-value="map" aria-selected="false" aria-controls="wb-template-list" tabindex="-1" title="A tree: topics, branches and keyboard editing">Mind map</button>
     </div>
     <label class="wb-template-name-row"><span>Name</span>
       <input type="text" id="wb-template-name" maxlength="100" placeholder="Name the new board" autocomplete="off"></label>
     <div class="doc-template-body">
-      <ul id="wb-template-list" class="doc-ai-history-list" role="radiogroup" aria-label="Start from"></ul>
+      <ul id="wb-template-list" class="doc-ai-history-list wb-template-list" role="radiogroup" aria-label="Start from"></ul>
       <div id="wb-template-preview" class="doc-template-preview wb-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
@@ -6014,11 +6018,17 @@ Link to another note with [[its first few words]]."></textarea>
       <!-- **Templates** (§5 item 21): "an empty canvas is the main reason
            mindmap features go unused". Offered on a map that is still just
            its root, and never again once it is dismissed or used. -->
-      <div id="wb-map-templates" class="wb-map-templates card glass" role="note" aria-label="Start from a template" hidden>
-        <span class="wb-map-templates-title">Start from a shape</span>
-        <span class="muted">A few branches to push against, or ignore this and press Tab.</span>
-        <div class="wb-map-templates-row" id="wb-map-template-row"></div>
-        <button type="button" id="wb-map-templates-dismiss" class="ghost small icon-only" title="No thanks: start from the root" aria-label="Hide the template suggestions"><i class="ph ph-x" aria-hidden="true"></i></button>
+      <!-- INBOX 715: a card of the Library's map templates, each its picture
+           over its name (`wbRenderMapTemplates`, whiteboard-templates.js), in
+           one row that scrolls; it was four outlined word buttons from a list
+           of their own. -->
+      <div id="wb-map-templates" class="wb-map-templates card glass" role="group" aria-labelledby="wb-map-templates-title" hidden>
+        <div class="wb-map-templates-head">
+          <span class="wb-map-templates-title" id="wb-map-templates-title">Start from a template</span>
+          <span class="muted wb-map-templates-sub">or press Tab to add a topic</span>
+          <button type="button" id="wb-map-templates-dismiss" class="ghost small icon-only dialog-head-btn" title="No thanks: start from the root" aria-label="Hide the template suggestions"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </div>
+        <div class="wb-map-templates-row edge-fade" id="wb-map-template-row"></div>
         <!-- **The first-open hint** (MINDMAP_PLAN §12.5, "the empty map says
              how to start"). One line, under the offer above it, saying the two
              things the audit found nobody discovers by accident: that a topic
@@ -6032,8 +6042,8 @@ Link to another note with [[its first few words]]."></textarea>
              Inside the offer's card rather than a second card under it: two
              floating notes stacked over one canvas is the clutter this section
              is against, and both have the same moment (a map that is still
-             just its root). `flex-basis: 100%` puts it on its own line under
-             the four shapes, which is where the decision asks for it. -->
+             just its root). The card is a column, so it is its own line under
+             the template tiles, which is where the decision asks for it. -->
         <p class="wb-map-first-hint muted" id="wb-map-first-hint" hidden>Click a topic for its ring of actions, or press Tab to add one under it.</p>
       </div>
       <!-- **A map is never a dead end** (MINDMAP_PLAN.md §12.0). Reported:

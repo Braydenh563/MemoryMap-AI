@@ -45952,4 +45952,30 @@ and refuses a topic ("Select a shape, link or text box first").
      scrolling essay over its own trigger).
      Built (718), 2026-10-06: see CHANGELOG, Unreleased; sweep
      `scratchpad/ui-sweeps/tidy718.js`.
+715. **The owner, 2026-10-06, verbatim**, with screenshots of the New board
+     dialog (the "Name" label touching the field's focus ring; the Board |
+     Mind map pill under the title; Mind map offering only "Blank"): "name
+     text clashes with border. also the pill at the top is ugly and I want it
+     to be redesigned to be like the other popups. also there are no mindmap
+     templates to choose from". Then, with the SWOT, retro and To do / Doing /
+     Done board templates (dashed boxes, titles of three different sizes
+     sitting on the dashed border): "some of the templates are poorly
+     designed and the templates need massive improving and expanding". Then,
+     with the template preview's description text flush to its box's top
+     left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
+     Then, of the map's "Start from a shape" bar and the icon picker's Emoji |
+     Icons: "redesign this popup. and change the pill for the emoji popup as
+     well. i dont like pills like that in popups"; of the Library's map
+     tiles: "these all look the same".
+     **Fixed 661ac13, 57cf398, b9beaaa.** Measured (`scratchpad/ui-sweeps/board715.js`,
+     1440 and 390, light and dark, 86 checks each): the Name word clears the
+     field's ring by 6.4px (`--space-2`); the kind is a `.tabs-line` (no
+     `.seg`); the preview's caption on `--space-3`; 17 board templates (12
+     new), every title one size inside its panel, no dashed edge; 15 map
+     templates (8 new), no two pictures alike in the picker, the Library or
+     the new map's offer, which is one row of picture tiles at 390 with every
+     tile pressable; the icon picker's and the Guide's kind switches are tab
+     strips. DESIGN.md "A popup that chooses a kind", lint
+     `test_a_popup_chooses_a_kind_with_a_tab_strip`. The pickers' source
+     pills are left in `agent-remaining/board715-1006.md`.
 

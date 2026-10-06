@@ -277,7 +277,8 @@ def test_a_new_map_from_a_map_template_has_one_centre(ai_client):
     assert out.status_code == 201, out.text
     topics = _objects(ai_client, out.json()["id"])
     roots = [o for o in topics if o["parent_id"] is None]
-    assert [o["data"]["content"] for o in roots] == ["Project"]
+    # The centre is the map's own name (INBOX 715), as a blank map's is.
+    assert [o["data"]["content"] for o in roots] == ["Launch"]
     assert sum(o["parent_id"] == roots[0]["id"] for o in topics) == 5
 
 
@@ -291,8 +292,8 @@ def test_a_template_starts_a_board_with_its_look(ai_client):
     state = ai_client.get(f"/whiteboard/?board_id={out.json()['id']}").json()
     assert state["background"]["color"] == "#101820"
     assert [o["kind"] for o in state["objects"]] == ["frame"]
-    kanban = ai_client.post("/board-library/new-board", json={"builtin": "frames/kanban", "name": "Sprint"}).json()
-    assert len(ai_client.get(f"/whiteboard/?board_id={kanban['id']}").json()["objects"]) == 3
+    kanban = ai_client.post("/board-library/new-board", json={"builtin": "templates/kanban", "name": "Sprint"}).json()
+    assert sum(o["kind"] == "frame" for o in ai_client.get(f"/whiteboard/?board_id={kanban['id']}").json()["objects"]) == 3
 
 
 def test_limits_and_pictures(ai_client):

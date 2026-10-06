@@ -1161,6 +1161,34 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-templates",
+            "keywords": (
+                "new board", "board templates", "map templates", "start from a template", "template picker",
+                "kanban", "weekly planner", "roadmap", "project brief", "okr", "okrs", "swot", "eisenhower",
+                "pros and cons", "lean canvas", "five whys", "5 whys", "fishbone", "meeting notes",
+                "retrospective", "cornell", "study notes", "mood board", "journey map", "brainstorm",
+                "project plan", "goal breakdown", "weekly review", "essay outline",
+            ),
+            "body": (
+                "New board (the Boards and maps dock's New) opens one dialog: Board or Mind map in the tab "
+                "strip under its title, the name, then the templates grouped by purpose (Plan and track, "
+                "Weigh and decide, Find the cause, Meet and review, Study and create, then your own), each "
+                "with its picture, and the chosen one drawn larger beside the list. A click chooses; Create, "
+                "Enter or a double click makes it. A board's seventeen: Kanban, Weekly planner, Roadmap, "
+                "Project brief, OKRs, SWOT analysis, Eisenhower matrix, Pros and cons, Lean canvas, 5 whys, "
+                "Fishbone, Flowchart, Meeting notes, Retrospective, Study notes (Cornell), Mood board and User "
+                "journey map. Each frame is a tinted panel with its title and a hint inside its top; drag the "
+                "title to move the frame and what is in it, double-click it to rename. A map's fifteen, "
+                "among them Brainstorm, Decision, Project plan, Cause and effect, Pros and cons, SWOT map, "
+                "Goal breakdown, Weekly review, Study topic, Book notes and Meeting, each drawn in its own "
+                "shape; the new map's central topic is its name, laid out the way the picture shows (a "
+                "brainstorm round its centre, pros and cons both ways, a fishbone to the left). A new map "
+                "that is still just its root offers the same templates as pictures, Start from a template; "
+                "the X hides it for that map."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "board-library",
             "keywords": (
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
@@ -1175,14 +1203,13 @@ HELP_TOPICS.extend(
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
                 "four tabs: Library, Notes, Layers and Pages; a mind map's has Library, This map (its "
                 "facts, its look, open every fold, lay it out again) and Outline. The Library starts with "
-                "Templates (a board's: Kanban, retrospective, flowchart, meeting notes, week plan; a map's: "
-                "Brainstorm, Decision, Project, Cause and effect, Pros and cons, Book notes, Meeting, "
-                "placed under the topic they are dropped on). Pages lists the "
+                "Templates (a board's seventeen and a map's fifteen, a map's placed under the topic they "
+                "are dropped on; see Board and map templates). Pages lists the "
                 "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
                 "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
                 "is on it; right-click it to unlock it. The Library holds "
-                "built-in sets (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective "
-                "and SWOT, and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
+                "built-in sets (General shapes, Flowchart, Arrows, Frames (a frame and a timeline lane) "
+                "and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
                 "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
                 "to place it in the middle of the view, drag it and it lands held where you grabbed it, or Shift+Enter to place "
                 "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "

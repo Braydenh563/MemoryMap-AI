@@ -46,6 +46,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api.routes_whiteboard import (
     BOARD_BG_COLOR_RE,
+    BOARD_LAYOUTS,
     MAP_REFERENCE_KINDS,
     MAP_TOPIC_KIND,
     MEDIA_URL_RE,
@@ -1008,6 +1009,11 @@ def new_board_from_template(body: NewBoardBody, db: Session = Depends(get_sessio
     payload = entry_data.get("payload") or {}
     kind = entry_data.get("kind", "element")
     settings = payload.get("board", {}) if kind == "template" else {"type": "branch" if kind == "branch" else "board"}
+    #: A built-in map template names the layout it is drawn for (INBOX 715:
+    #: a fishbone to the left, pros and cons on both sides, a brainstorm
+    #: round its centre), so the map it starts is the shape its preview was.
+    if kind == "branch" and entry_data.get("layout") in BOARD_LAYOUTS:
+        settings["layout"] = entry_data["layout"]
     board_type = "map" if settings.get("type") in ("map", "branch") else "board"
     name = body.name.strip()
     entry = Entry(content=f"# {name}", is_board=True)
@@ -1024,7 +1030,8 @@ def new_board_from_template(body: NewBoardBody, db: Session = Depends(get_sessio
         probe.x, probe.y = float(box.get("w", 0)) / 2, float(box.get("h", 0)) / 2
         _place_element(db, entry.id, payload, probe, ref)
     elif kind == "branch":
-        _place_branch(db, entry.id, payload, probe, ref, entry_data.get("name"))
+        #: The central topic is the map's own name, as a blank map's is.
+        _place_branch(db, entry.id, payload, probe, ref, name)
     elif payload.get("element"):
         box = payload["element"].get("box") or {}
         probe.x, probe.y = float(box.get("w", 0)) / 2, float(box.get("h", 0)) / 2

@@ -8875,6 +8875,24 @@ function wbBuildFrame(el, d) {
     .on("pointerdown", function (event) {
       if (this.isContentEditable) event.stopPropagation();
     });
+  el.append("div").attr("class", "wb-frame-hint").attr("aria-hidden", "true");
+  wbPaintFrame(el.node(), d);
+}
+
+//: **A frame with a `tint` is a panel** (INBOX 715, the templates): a tinted
+//: ground on the theme's own mix, its title inside its top and a one-line
+//: hint under it, drawn by library-lazy.css from `data-tint`. A frame with
+//: none is the edge-and-title frame decision 14 describes.
+function wbPaintFrame(node, d) {
+  const tint = d.data?.tint || "";
+  if (tint) node.dataset.tint = tint;
+  else delete node.dataset.tint;
+  node.classList.toggle("wb-frame-panel", Boolean(tint));
+  const hint = node.querySelector(".wb-frame-hint");
+  if (hint) {
+    hint.textContent = tint ? d.data?.hint || "" : "";
+    hint.hidden = !tint || !d.data?.hint;
+  }
 }
 
 //: **The box a text or sticky drag draws** (the owner, 2026-09-24: a drag
@@ -18195,6 +18213,7 @@ function renderWbObjects(canvas) {
     } else if (d.kind === "frame") {
       const title = this.querySelector(".wb-frame-title");
       if (title && !title.isContentEditable) title.textContent = wbFrameTitle(d);
+      wbPaintFrame(this, d);
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -19626,7 +19645,7 @@ const WB_RECORDED = [
   "wbMapToggleCollapse", "wbMapCopyBranch", "wbMapRemoveKeepingBranch", "wbMapSever",
   "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",
   "wbMapSetLayout", "wbMapInsertBetween", "wbMapOutdent", "wbMapMoveAmongSiblings",
-  "wbApplyMapTemplate", "wbMapTidy", "wbGroupSelection", "wbUngroupSelection",
+  "wbMapTidy", "wbGroupSelection", "wbUngroupSelection",
   "wbPasteCopiedStyle", "wbMapUseLookForLevel", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
 ];
 for (const name of WB_RECORDED) {

@@ -45348,3 +45348,22 @@ and refuses a topic ("Select a shape, link or text box first").
      `seg665.js`, `seg665-toolbar.js`. Remaining wells of four:
      `agent-remaining/seg665-1006.md`.
 
+670. **Decision missing, found by the drop-placement agent (664),
+     2026-10-06.** A map template dropped on a map with no central topic
+     makes one trunk per top-level topic in the template. Recommendation,
+     taken: a template with one top-level topic makes that topic the
+     central topic; a template with several puts them under a new central
+     topic named after the template. With it, the five `.seg` wells INBOX
+     665 left (`#font-seg`, `#density-seg`, `#graph-layout`,
+     `#note-picker-sources`, the suggestions inbox kinds;
+     docs/roadmap/agent-remaining/seg665-1006.md), converted by the recipe
+     665 added to DESIGN.md. Placed: the 0.4.1 mini release, a Sonnet agent.
+     **Fixed 2026-10-06 (inbox670)**: `_place_branch` wraps several
+     top-level topics under a new central topic named after the template on a
+     map with no root (also a new map started from a map template), one
+     top-level topic is the centre; `dropplace.js` map half 0 to 0.2px, one
+     undo each. Font, Density, the Graph's Layout and the suggestions inbox
+     kinds are selects; the Attach picker's sources stay (DESIGN.md's picker
+     row pins them). `SEG_OF_FOUR_PLACED` holds that one entry. `seg670.js`,
+     `kg9inbox.js` at 1440 and 390. Left: `agent-remaining/inbox670-1006.md`.
+

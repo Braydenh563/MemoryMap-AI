@@ -126,6 +126,7 @@ with its owner named in the entry.
      and an engine that imports any network call is refused with a plain
      message; the row's copy says this in one line. Placed: the next free
      Sonnet slot.
+     Addendum, the owner, 2026-10-06, verbatim: "make sure that while the graph is impressive, it is alse very easy to understand and read, with minimised overlap and wierd spacing, everything has to have meaning and be intentional, not just for the looks. combine looks with systematic function"
 
 700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
      model options as alternatives in the models??" / "research the best
@@ -143,6 +144,7 @@ with its owner named in the entry.
      working on the old vectors until the new set is complete); only
      licences that allow it are offered as one-press installs, others link
      to their terms. Placed: the next free agent slot.
+     Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
 
 701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
      shortcut, should they be added to the tooltips??" Recommendation,

@@ -177,9 +177,14 @@ function dashLayout() {
   return {
     order: order.filter((n) => DASH_WIDGETS[n]),
     hidden,
-    wide: saved.wide?.length
+    //: `narrow` is what someone set back to one column. Without it, Narrow on
+    //: the heatmap (the only default wide widget) saved an empty `wide`, which
+    //: reads as "never chosen" and put the default straight back.
+    wide: (saved.wide?.length
       ? saved.wide
-      : (legacyWide.length ? legacyWide : DASH_DEFAULT_WIDE.filter((n) => DASH_WIDGETS[n])),
+      : (legacyWide.length ? legacyWide : DASH_DEFAULT_WIDE.filter((n) => DASH_WIDGETS[n])))
+      .filter((n) => !(saved.narrow || []).includes(n)),
+    narrow: [...(saved.narrow || [])],
   };
 }
 
@@ -204,9 +209,9 @@ async function toggleDashWidgetHidden(name) {
 
 async function toggleDashWidgetWide(name) {
   const next = dashLayout();
-  next.wide = next.wide.includes(name)
-    ? next.wide.filter((n) => n !== name)
-    : [...next.wide, name];
+  const narrowing = next.wide.includes(name);
+  next.wide = narrowing ? next.wide.filter((n) => n !== name) : [...next.wide, name];
+  next.narrow = narrowing ? [...next.narrow.filter((n) => n !== name), name] : next.narrow.filter((n) => n !== name);
   await saveDashLayout(next);
 }
 // --- dashboard welcome banner ------------------------------------------------

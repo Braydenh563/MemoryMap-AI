@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.
+
 ## [0.4.0] - 2026-10-06
 
 ### Highlights

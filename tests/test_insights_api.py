@@ -378,6 +378,26 @@ def test_dashboard_layout_wide_widgets_persist(client):
     assert updated["dashboard_layout"]["wide"] == ["digest", "art"]
 
 
+def test_dashboard_layout_narrowed_widgets_persist(client):
+    """The heatmap's Narrow undid itself: it is the only default wide widget,
+    so narrowing it saved an empty `wide`, which reads as "never chosen" and
+    brought the default back. Narrowed widgets are kept in their own list."""
+    layout = {"order": ["heatmap"], "hidden": [], "wide": [], "narrow": ["heatmap"]}
+    updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
+    assert updated["dashboard_layout"]["narrow"] == ["heatmap"]
+    assert client.get("/preferences").json()["dashboard_layout"]["narrow"] == ["heatmap"]
+
+
+def test_the_dashboard_honours_a_narrowed_default_wide_widget():
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    assert ".filter((n) => !(saved.narrow || []).includes(n))" in src
+    toggle = src[src.index("async function toggleDashWidgetWide(name) {"):]
+    toggle = toggle[: toggle.index("\n}\n")]
+    assert "next.narrow" in toggle
+
+
 def test_dashboard_layout_persists_legacy_widget_sizes(client):
     """Layouts saved before the switch to `wide` still round-trip."""
     layout = {"order": ["stats"], "hidden": [], "sizes": {"stats": "wide"}}

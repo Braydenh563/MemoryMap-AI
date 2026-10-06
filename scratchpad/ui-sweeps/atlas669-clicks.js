@@ -106,6 +106,12 @@ async function sampler(page) {
           const cs = getComputedStyle(el);
           row[k] = [ang(cs), ...tr(cs)];
         }
+        // Each arm's own turn at the shoulder, as drawn (the rig's output on
+        // a layered figure; the stylesheet's elsewhere).
+        for (const side of ['l', 'r']) {
+          const a = r.querySelector(`.atl-layer-body .nmb-arm-${side}:not(.atl-arm-probe)`);
+          if (a) row['arm' + side.toUpperCase() + 'Own'] = [ang(getComputedStyle(a)), 0, 0];
+        }
         // Each probe: where the CSS has the arm (the rig's target).
         for (const side of ['l', 'r']) {
           const p = r.querySelector(`.atl-layer-body .atl-arm-probe.nmb-arm-${side}`);
@@ -149,7 +155,7 @@ function analyse(rows, ctx) {
   for (const r of rows) {
     for (const k of ['armR', 'armL']) if (r[k] && r.body) r[k + 'Rel'] = [r[k][0] - r.body[0], r[k][1] - r.body[1], r[k][2] - r.body[2]];
   }
-  const parts = ['head', 'armR', 'armL', 'armRRel', 'armLRel', 'body', 'face', 'char', 'box', 'lwBody', 'mood', 'pose', 'probeR', 'probeL'];
+  const parts = ['head', 'armR', 'armL', 'armROwn', 'armLOwn', 'armRRel', 'armLRel', 'body', 'face', 'char', 'box', 'lwBody', 'mood', 'pose', 'probeR', 'probeL'];
   const out = {};
   const steps = [];
   for (const k of parts) {
@@ -169,7 +175,7 @@ function analyse(rows, ctx) {
       const dp = Math.hypot(b[1] - a[1], b[2] - a[2]) * s;
       if (dd > deg) { deg = dd; degAt = rows[i].t; }
       if (dp > px) { px = dp; pxAt = rows[i].t; }
-      if (['head', 'armR', 'armL', 'armRRel', 'armLRel'].includes(k) && (dd > LIM_DEG || dp > LIM_PX)) steps.push({ k, t: rows[i].t, deg: +dd.toFixed(2), px: +dp.toFixed(2) });
+      if (['head', 'armR', 'armL', 'armROwn', 'armLOwn'].includes(k) && (dd > LIM_DEG || dp > LIM_PX)) steps.push({ k, t: rows[i].t, deg: +dd.toFixed(2), px: +dp.toFixed(2) });
     }
     out[k] = { deg: +deg.toFixed(2), degAt: Math.round(degAt), px: +px.toFixed(2), pxAt: Math.round(pxAt) };
   }
@@ -225,7 +231,7 @@ if (process.argv[2] === '--analyse') {
   for (const f of process.argv.slice(3)) {
     const { rows, ctx } = JSON.parse(require('fs').readFileSync(f));
     const res = analyse(rows, ctx);
-    const keep = ['head', 'armR', 'armL', 'armRRel', 'armLRel', 'char'];
+    const keep = ['head', 'armR', 'armL', 'armROwn', 'armLOwn', 'char'];
     console.log(f.split('/').pop(), rows.length, 'frames', JSON.stringify(Object.fromEntries(keep.map((k) => [k, res.parts[k] && [res.parts[k].deg, res.parts[k].px]]))));
   }
   process.exit(0);
@@ -278,7 +284,7 @@ if (process.argv[2] === '--analyse') {
     // A click: the whole figure, as seen. The acts: each arm's own move
     // (a hop or a cheer moves the whole body as fast as it is drawn to;
     // that is the body's, reported above, not the arm's).
-    for (const k of c.startsWith('acts-') ? ['armRRel', 'armLRel'] : ['head', 'armR', 'armL']) {
+    for (const k of c.startsWith('acts-') ? ['armROwn', 'armLOwn'] : ['head', 'armR', 'armL', 'armROwn', 'armLOwn']) {
       const v = res.parts[k];
       if (v.deg > LIM_DEG) fails.push(`${c}: ${k} turned ${v.deg}deg in a frame at ${v.degAt}ms`);
       if (v.px > LIM_PX) fails.push(`${c}: ${k} moved ${v.px}px in a frame at ${v.pxAt}ms`);

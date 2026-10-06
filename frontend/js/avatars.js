@@ -7773,11 +7773,31 @@ function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
     if (props.has("rotate") || props.has("transform")) from.transformOrigin = style.transformOrigin;
     held.push({ anim, el, from });
   }
+  //: **And the body's held pose** (INBOX 669, the owner: "when I click
+  //: atlas, it often starts tilting to the left then just snaps back").
+  //: An act that leans the body by a plain rule (a facepalm tips it 3
+  //: degrees, a read, a shrug, a seat) also stops its idle bob while it
+  //: lasts; at its end the bob's animation came back and covered the rule's
+  //: transition, so the lean went in one frame (atlas669-clicks.js: the
+  //: head 9px in a frame). The body's box is read before and after; if it
+  //: moved and nothing above eased it, it is eased from where it was.
+  const BODY = ["transform", "rotate", "translate", "transformOrigin"];
+  const bodies = roots.map((el) => (el.id === "nm-buddy" ? el.querySelector(".nm-buddy-char") : null)).filter(Boolean).map((el) => {
+    const style = getComputedStyle(el);
+    return { el, from: Object.fromEntries(BODY.map((key) => [key, style[key]])) };
+  });
   change();
-  if (!held.length) return;
+  const eased = new Set();
   for (const { anim, el, from } of held) {
     if (el.getAnimations().includes(anim)) continue;
     //: `offset: 0`: a lone keyframe with none is the end, not the start.
+    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    eased.add(el);
+  }
+  for (const { el, from } of bodies) {
+    if (eased.has(el)) continue;
+    const style = getComputedStyle(el);
+    if (BODY.every((key) => style[key] === from[key])) continue;
     el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
   }
 }

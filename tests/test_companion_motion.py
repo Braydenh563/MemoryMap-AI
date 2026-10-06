@@ -1578,3 +1578,16 @@ def test_inbox_669_a_turn_hands_back_about_the_point_it_turned_on() -> None:
     held = blend.index("held.push({ anim, el, from });")
     assert 'from.transformOrigin = style.transformOrigin;' in blend[:held]
     assert "el.animate([{ ...from, offset: 0 }]" in blend
+
+
+def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
+    # A facepalm leans the body by a plain rule and stops its bob; at its
+    # end the bob came back over the rule's transition and the lean went in
+    # a frame (the head 9px). The blend reads the body before and after.
+    blend = _fn("nameMarkBuddyBlend")
+    before = blend.index('el.querySelector(".nm-buddy-char")')
+    after = blend.index("change();\n  const eased")
+    assert before < after
+    tail = blend[after:]
+    assert "if (BODY.every((key) => style[key] === from[key])) continue;" in tail
+    assert "if (eased.has(el)) continue;" in tail

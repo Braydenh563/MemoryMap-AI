@@ -681,4 +681,11 @@ quality held or better.
 26. **Voice: Atlas's by default, changeable.** Warm and brief in openings and
     companion bubbles, plain in answers; a setting offers plain and playful
     too, each with its own phrasebook and tests.
+27. **Notes are a mix**: the eval weights short jottings (rewrites, joining)
+    and long writing (summaries, choosing the sentence) equally.
+28. **Proactive, rarely and on real signals**: a few times a day at most, only
+    for something specific (a due reminder, a resurfaced note, a pattern),
+    never while the person types.
+29. **The blind test is both**: a fixed sample notebook on every build, and
+    the owner and a few friends rating on their own notebooks now and then.
 

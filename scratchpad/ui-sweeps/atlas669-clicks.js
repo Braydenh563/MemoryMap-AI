@@ -10,14 +10,29 @@
 // for the worst steps what changed on that frame (a class, the mood, an
 // animation started or ended).
 //   BASE=... CASES=buddy-m,buddy-f,atlas-m,atlas-f node atlas669-clicks.js
+// Cases acts-float-m, acts-sit-f and the like play every act that moves an
+// arm and every poke mood in the large view, in that pose and look.
 // Exits 1 when a rotation steps over 4deg or a position over 3px a frame.
-// ACTS=1 also plays each companion act that moves the arms (wave, scratch,
-// hide, onehand) and each pose (sit, float) with every poke mood, in the
-// companion's own corner (not the large view), and measures the same way.
 const { boot } = require('./lib.js');
 const ALL = ['buddy-m', 'buddy-f', 'atlas-m', 'atlas-f'];
 const CLICKS = [1500, 6500, 8500, 9000, 9110, 13000, 13090, 17000, 17700, 18400, 22500, 23800, 24000, 28500, 29200, 33000, 33140, 37500, 39000, 43000];
 const END = 50000;
+// The acts that move the arms, each played in turn (every other one cut
+// short 700ms in by the next), then the poke moods, each of which sets the
+// arms for its mood: in the large view, in the pose the case names.
+const ARM_ACTS = ['wave', 'scratch', 'onehand', 'facepalm', 'shrug', 'cheer', 'startle', 'wake', 'bell', 'carry', 'lantern', 'hide', 'wiggle', 'hop'];
+const MOODS = ['happy', 'delighted', 'laughing', 'love', 'curious', 'shy', 'surprised', 'worried', 'proud', 'confused', 'sad', 'calm'];
+const ACT_PLAN = [];
+{
+  let t = 800;
+  ARM_ACTS.forEach((a, i) => {
+    ACT_PLAN.push([t, a]);
+    if (i % 2) { ACT_PLAN.push([t + 700, ARM_ACTS[(i + 3) % ARM_ACTS.length]]); t += 3400; } else t += 2900;
+  });
+  for (const m of MOODS) { ACT_PLAN.push([t, 'mood:' + m]); t += 1500; }
+  ACT_PLAN.push([t + 4000, 'mood:calm']);
+}
+const ACT_END = ACT_PLAN[ACT_PLAN.length - 1][0] + 3000;
 const LIM_DEG = 4;
 const LIM_PX = 3;
 
@@ -188,21 +203,36 @@ async function openCase(c) {
   const table = {};
   for (const c of (process.env.CASES || ALL.join(',')).split(',')) {
     const { browser, page } = await openCase(c);
-    if (c.startsWith('buddy')) {
+    if (!c.startsWith('atlas')) {
       await page.evaluate(() => document.querySelector('#nm-buddy .nm-buddy-face').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
     } else {
       await page.evaluate(() => openNameMarkViewer('Atlas'));
     }
     await page.waitForTimeout(1200);
+    const acts = c.startsWith('acts-');
+    if (acts) {
+      // The pose named in the case, held: the companion's own state and
+      // its attribute, as its pose code sets them.
+      const pose = c.split('-')[1];
+      await page.evaluate((pose) => { nmb.pose = pose; document.getElementById('nm-buddy').dataset.pose = pose; }, pose);
+      await page.waitForTimeout(1200);
+    }
     await sampler(page);
     const t0 = Date.now();
-    for (const at of CLICKS) {
+    const plan = acts ? ACT_PLAN : CLICKS.map((at) => [at, 'click']);
+    for (const [at, what] of plan) {
       const wait = at - (Date.now() - t0);
       if (wait > 0) await page.waitForTimeout(wait);
-      const [x, y] = await headPoint(page);
-      await page.mouse.click(x, y);
+      if (what === 'click') {
+        const [x, y] = await headPoint(page);
+        await page.mouse.click(x, y);
+      } else if (what.startsWith('mood:')) {
+        await page.evaluate((m) => setAtlasMood(m, 2200, { quiet: true, backEaseMs: 1200 }), what.slice(5));
+      } else {
+        await page.evaluate((a) => nameMarkBuddyAct(a), what);
+      }
     }
-    const rest = END - (Date.now() - t0);
+    const rest = (acts ? ACT_END : END) - (Date.now() - t0);
     if (rest > 0) await page.waitForTimeout(rest);
     const { rows, ctx } = await page.evaluate(() => { window.__s.stop = true; return { rows: window.__s.rows, ctx: window.__s.ctx }; });
     const res = analyse(rows, ctx);

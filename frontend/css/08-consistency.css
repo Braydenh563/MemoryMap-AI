@@ -7119,12 +7119,19 @@ body .chip.item-label,
   z-index: 3;
 }
 
+/* **An arm's gesture starts and ends where the arm is** (INBOX 669, the
+   owner: "atlas's arm movements are jerky and not smooth"). The arm
+   keyframes (the hide's, the wave's, the scratch's, here and below) began
+   and ended at `rotate(0deg)`, which is the arm's rest only standing
+   calm: floating it rests at -28 degrees, her held-out arm at -50, a
+   mood's arms elsewhere again. So a wave first swung the arm to 0 and then
+   up, and at its end swung it past its rest to 0 and back (20 degrees a
+   frame, atlas669-clicks.js). With no 0% or 100% the stylesheet starts
+   and ends each from the arm's own transform, whatever the pose or mood. */
 @keyframes nmb-hide-l {
-  0%, 100% { transform: none; }
   18%, 82% { transform: rotate(-152deg); }
 }
 @keyframes nmb-hide-r {
-  0%, 100% { transform: none; }
   18%, 82% { transform: rotate(152deg); }
 }
 @keyframes nmb-hide-eyes {
@@ -7138,7 +7145,6 @@ body .chip.item-label,
   70% { transform: rotate(-3deg); }
 }
 @keyframes nmb-scratch {
-  0%, 100% { transform: rotate(0deg); }
   15%, 35%, 55%, 75% { transform: rotate(-150deg); }
   25%, 45%, 65% { transform: rotate(-138deg); }
 }
@@ -7260,7 +7266,6 @@ body .chip.item-label,
   75% { rotate: 3deg; }
 }
 @keyframes nmb-wave-l {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(98deg); }
   32%, 64% { transform: rotate(128deg); }
 }
@@ -7280,7 +7285,6 @@ body .chip.item-label,
   45%, 60% { transform: rotate(-7deg) scale(0.98, 1.05); }
 }
 @keyframes nmb-wave {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-98deg); }
   32%, 64% { transform: rotate(-128deg); }
 }
@@ -9121,24 +9125,20 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   75% { transform: translateY(-3px) scaleX(-0.1); }
 }
 @keyframes atl-wave {
-  0%, 100% { transform: rotate(0deg); }
   18%, 50%, 82% { transform: rotate(-100deg); }
   34%, 66% { transform: rotate(-78deg); }
 }
 @keyframes atl-buddy-wave {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-78deg); }
   32%, 64% { transform: rotate(-102deg); }
 }
 /* INBOX 568: her right arm hangs at rest, so the wave rises from there to
    the old wave's angles less a right angle, and settles back. */
 @keyframes atl-buddy-wave-f {
-  0%, 100% { transform: rotate(0deg); }
   16%, 48%, 80% { transform: rotate(-122deg); }
   32%, 64% { transform: rotate(-146deg); }
 }
 @keyframes atl-buddy-scratch {
-  0%, 100% { transform: rotate(0deg); }
   15%, 35%, 55%, 75% { transform: rotate(-118deg); }
   25%, 45%, 65% { transform: rotate(-106deg); }
 }

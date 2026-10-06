@@ -5369,7 +5369,12 @@ function nameMarkBuddyTempo() {
   //: layouts and 120 paints a second, while the walk itself (the host's
   //: translate) is the compositor's. An act or a drag still runs at full
   //: rate: those are short and are the moment it is being looked at.
-  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");
+  //: And in the large view (INBOX 669, the owner: "atlas's arm movements
+  //: are jerky and not smooth"): there it is drawn 2.2 times over and is
+  //: the one thing on screen, so a head turn stepped at 10Hz jumped 6
+  //: degrees a step (atlas669-clicks.js), and the rig followed each arm's
+  //: stepped gesture in jerks.
+  const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;
   //: Held, not stepped, while a scroll is under way and while a page or a
   //: popup is arriving (`uiSettlingUntil`, set by `switchTab` and
   //: `openSettingsModal`; INBOX 580, the owner: "the atlas companion and app
@@ -5382,6 +5387,19 @@ function nameMarkBuddyTempo() {
   //: per animation (measured: 354 layouts a second, interleaved).
   const states = nmbTempo.anims.map((anim) => anim.playState);
   nmbTempo.anims.forEach((anim, i) => {
+    //: **A move that has ended stays ended** (INBOX 669, the owner: "when I
+    //: click atlas, it often starts tilting to the left then just snaps
+    //: back"). The list is read once a second, so it held an act's
+    //: animations after the act's class came off and the stylesheet had
+    //: cancelled them; `pause()` on a cancelled animation starts it again
+    //: from its first frame, and every beat after stepped it on. So each
+    //: act's gesture (a wave's arm, a look's head) played a second time,
+    //: stepped at 10Hz, after the act had handed back (atlas669-clicks.js:
+    //: the wave's probe back at -100 degrees 400ms after the act ended).
+    if (states[i] === "idle" || states[i] === "finished") {
+      nmbTempo.clock.delete(anim);
+      return;
+    }
     if (busy) {
       if (states[i] === "paused") anim.play();
       nmbTempo.clock.delete(anim);

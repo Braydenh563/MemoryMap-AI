@@ -2551,6 +2551,26 @@ Work, in order:
 
 **Pointer:** `scratchpad/audit1005/features.md` section 10 (Documents D3) and section 4 row C6 and Phase E. Documents and boards render and import Mermaid (steps 1, 3 and 4 above); the AI-writes-mermaid-then-preview flow (step 2) and chat and notes rendering are what is left.
 
+**The owner, 2026-10-06, verbatim:** "also does the whiteboard handle and export
+in mermaid.js?? can the ai generate diagrams for export, download and opeining
+in the whiteboard (may need heavy guidance)?? maybe this should go in the
+roadmap". Answer: yes for import and export (flowcharts and subgraphs, built
+above); no for the AI step. Placed as the next diagram work, in order:
+
+5. **The AI writes Mermaid, heavily guided.** A built-in skill "Draw a
+   diagram" with a house style and few-shot examples per kind (flowchart,
+   mind map, sequence, timeline), a small-model-safe subset (flowchart TD/LR,
+   subgraphs, labelled edges, no styling directives), and a verifier:
+   `wbMermaidParse` must accept the text, every node must be reachable and
+   labels at most 40 characters, else one re-prompt with the parser's error,
+   then a plain failure. Replaces `generate_diagram` writing straight to the
+   board.
+6. **Preview, then act**: the step 2 split view, with three actions: Open in
+   whiteboard (a new board via `wbMermaidLayout`, the source kept), Download
+   (`.mmd` and `.svg`) and Copy.
+7. **Wider Mermaid**: sequence and timeline diagrams render in documents and
+   chat, and import to boards as frames; anything else stays as code.
+
 ### Related, and cheap: finish the rendering story
 
 Checked this session: chat, documents and the dashboard digest all go through

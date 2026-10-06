@@ -411,6 +411,35 @@ function editorSplice(textarea, start, end, text, select) {
   editorNotifyHost(textarea);
 }
 
+//: **The one icon and emoji picker, fetched on first use** (MINDMAP_PLAN.md
+//: decision 43; icon-picker.js and icon-picker.css). Here rather than as a
+//: row in app.js's `LAZY_MODULES`: app.js is at its gzip ratchet, and this
+//: file is the boot script every caller (the map, the board, both editors)
+//: already reaches. Resolves once the panel is open; a load that fails
+//: (offline, the file gone) does nothing, as a stand-in does.
+function pickIconOrEmoji(options) {
+  return Promise.all([lazyScript("/css/icon-picker.css"), lazyScript("/js/icon-picker.js")])
+    .then(([, loaded]) => (loaded && typeof openIconPicker === "function" ? openIconPicker(options) : null));
+}
+
+//: **An emoji or an icon at the caret** (MINDMAP_PLAN.md decision 46),
+//: from the one picker: an emoji as itself, an icon as `:ph-name:`, which
+//: the reading view draws. The caret's place is kept while the picker is
+//: open, since focus is in its search field by then.
+function editorPickGlyph(textarea, anchor = null) {
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  pickIconOrEmoji({
+    anchor: anchor || (textarea.kind === "codemirror" ? null : textarea),
+    title: "Insert an emoji or icon",
+    onPick: (choice) => {
+      const text = choice.kind === "emoji" ? choice.value : `:ph-${choice.value}:`;
+      editorSplice(textarea, start, end, text, { from: text.length, to: text.length });
+    },
+  });
+}
+
 // Apply one MD_ACTIONS-shaped action to any textarea.
 //
 // The shapes (wrap / line / block / insert) are app.js's, deliberately: the
@@ -763,6 +792,8 @@ function editorBlockRows(context) {
   add({ id: "checklist", group: "Basic", icon: "ph:check-square", label: "To-do list", about: "Tick things off as they are done", keys: "- [ ]", keywords: ["task", "todo", "check", "checklist", "list"], sample: "- [x] Research\n- [ ] Draft\n- [ ] Send", run: act("task") });
   add({ id: "quote", group: "Basic", icon: "ph:quotes", label: "Quote", about: "Somebody else's words, set apart", keys: ">", keywords: ["quote", "blockquote", "cite"], sample: "> Words worth keeping.", run: act("quote") });
   add({ id: "quote-cite", group: "Basic", icon: "ph:quotes", label: "Quote with attribution", about: "The words, and who said them", keys: "> ... -- Name", keywords: ["quote", "cite", "attribution", "author", "pull quote", "source"], sample: "> Stay hungry, stay foolish.\n> -- Stewart Brand", run: (t) => editorBlock(t, "> ", "Words worth keeping", "\n> -- Who said it") });
+  //: MINDMAP_PLAN decision 46: the one icon and emoji picker, from "/".
+  add({ id: "emoji", group: "Basic", icon: "ph:smiley", label: "Emoji or icon", about: "Pick from every emoji and icon", keys: ":fire:", keywords: ["emoji", "icon", "sticker", "symbol", "smiley", "glyph"], run: (t) => editorPickGlyph(t) });
   add({ id: "divider", group: "Basic", icon: "ph:minus", label: "Divider", about: "A hairline between two parts", keys: "---", keywords: ["divider", "rule", "hr", "separator", "line"], sample: "Above\n\n---\n\nBelow", run: (t) => editorBlock(t, "---") });
 
   // --- Structure: what turns a page of text into a document. ---------------

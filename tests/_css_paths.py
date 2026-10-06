@@ -43,6 +43,9 @@ CSS_FILES = [
     CSS_DIR / "library-lazy.css",
     #: Loaded with the back/forward list's rows (`LAZY_MODULES.navHistory`).
     CSS_DIR / "nav-history-lazy.css",
+    #: Not linked by index.html either: loaded with the icon picker (app.js
+    #: `LAZY_MODULES.iconPicker`, MINDMAP_PLAN decision 43), on first open.
+    CSS_DIR / "icon-picker.css",
 ]
 
 

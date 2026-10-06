@@ -49,13 +49,6 @@ with its owner named in the entry.
      sub-tabs, segmented controls and the Settings sidebar, under the
      Interface animations toggle).
 
-642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
-     library which can be dragged and placed in the whiteboard and mindmap and
-     which are also available in text editors and formatting toolbars."
-     Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
-     local), draggable onto boards and maps and insertable from the editors'
-     formatting toolbars.
-
 645. **The owner, 2026-10-05, verbatim.** "Once everything is done, update the
      pr title and description, update the screenshots on the readme, can your
      redesign and remake the GitHub pages landing site?? Make it professional

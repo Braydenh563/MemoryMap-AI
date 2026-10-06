@@ -410,6 +410,13 @@ accessibility, and learnability") are why.
     topic in one transaction with "From your note ..." as each one's note,
     one Undo step. Ghosts drawn on the canvas wait for boot CSS room (the
     cap is full); the picker is the recipe the app already has.
+37. **Stickers come from the one icon and emoji picker** (taken 2026-10-05,
+    INBOX 642, mc1): MINDMAP_PLAN decisions 43 and 44 hold for a board as
+    for a map. An emoji dropped or picked is a text object with `sticker:
+    true`; a Phosphor icon is the Library's own vector icon. The Insert
+    menu's "Emoji and icons" opens the picker. INBOX 641's research for the
+    board beyond stickers (Illustrator's linked symbols, Photoshop's layer
+    effects, Miro's reactions) is open there.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

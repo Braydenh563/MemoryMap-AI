@@ -3702,7 +3702,19 @@ function wbPickStyle(source, keys) {
   return out;
 }
 
+//: A sticker's glyph size: most of its box's shorter side (decision 44).
+function wbStickerSize(obj) {
+  return Math.max(12, Math.round(Math.min(obj.width || 96, obj.height || 96) * 0.72));
+}
+
 function wbCopySelectedStyle() {
+  //: A map topic's look (MINDMAP_PLAN.md decision 42): pasted onto topics
+  //: only, refused on a shape the way a shape's is refused on a text box.
+  const topic = typeof wbSelectedMapNode === "function" ? wbSelectedMapNode() : null;
+  if (topic) {
+    wbCopiedStyle = { kind: "topic", style: wbMapTopicStyle(topic) };
+    return toast("Style copied. Select topics and press Ctrl+Alt+V.");
+  }
   const sketch = wbSelectedSketchOrNull();
   if (sketch) {
     let parsed = null;
@@ -3716,7 +3728,7 @@ function wbCopySelectedStyle() {
     wbCopiedStyle = { kind: "object", style: wbPickStyle(obj.data, WB_OBJECT_STYLE_KEYS) };
     return toast("Style copied. Select a text box and press Ctrl+Alt+V.");
   }
-  toast("Select a shape, link or text box first.");
+  toast("Select a shape, link, text box or topic first.");
 }
 
 async function wbPasteCopiedStyle() {
@@ -3734,7 +3746,14 @@ async function wbPasteCopiedStyle() {
     const list = wbState[WB_LIST_BY_KIND[entry.kind]] || [];
     const item = list.find((i) => i.id === entry.id);
     if (!item) continue;
-    if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
+    if (wbCopiedStyle.kind === "topic") {
+      if (entry.kind === "object" && WB_MAP_KINDS.has(item.kind)) {
+        await wbMapSetNodeStyle(item, { ...wbCopiedStyle.style });
+        applied += 1;
+      } else {
+        skipped += 1;
+      }
+    } else if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
       await wbSaveSketchProps(item, { ...wbCopiedStyle.style });
       applied += 1;
     } else if (entry.kind === "object" && wbCopiedStyle.kind === "object" && item.kind === "text") {
@@ -6411,6 +6430,20 @@ function wbBuildContextMenu(kind) {
             well?.click();
           }
         });
+    });
+
+    //: **Its look as a thing to move about** (MINDMAP_PLAN.md decisions 41
+    //: and 42): Miro's and Photoshop's copy and paste style, and
+    //: Illustrator's Redefine, which hands this topic's look to its level.
+    subItem("Look", sub => {
+      sub("Copy this topic's style", "Ctrl+Alt+C", () => wbCopySelectedStyle());
+      if (wbCopiedStyle?.kind === "topic") sub("Paste style onto this topic", "Ctrl+Alt+V", () => wbPasteCopiedStyle());
+      const level = wbMapLevelOf(mapNode);
+      if (level !== undefined) {
+        sub(`Use this look for ${WB_MAP_LEVEL_NAMES[level]}`,
+          "Every topic at this level that was never given its own look follows", () => wbMapUseLookForLevel(mapNode.id));
+      }
+      sub("How this map looks…", "The hierarchy and each level's look", () => wbMapThemeDialog());
     });
 
     subItem("Lines", sub => {
@@ -9136,7 +9169,10 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       //: And its number on a numbered map (decision 17), as the canvas
       //: draws it: after the box, before the label.
       const place = wbMapNumberOf(exportMapIndex, obj.id);
-      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: An emoji icon is a character, so it travels (decision 46); a
+      //: Phosphor one is the icon font's, which does not.
+      const icon = obj.data?.icon && !/^[a-z0-9-]+$/.test(obj.data.icon) ? `${obj.data.icon} ` : "";
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28, 4, 7.5);
       //: In the map's own face when it has one (§13e's remainder): the file is
       //: the second place a map's text is drawn, and a serif map exported in
       //: sans-serif is two pictures of one map.
@@ -9144,6 +9180,13 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
         fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
         fontFamily: wbMapFontStack() || "sans-serif",
       }));
+    } else if (obj.kind === "text" && obj.data.sticker) {
+      //: A sticker exports as its glyph, centred, at the size it is drawn.
+      const size = wbStickerSize(obj);
+      parts.push(
+        `<text x="${obj.width / 2}" y="${obj.height / 2}" font-size="${size}" text-anchor="middle" ` +
+          `dominant-baseline="central">${wbSvgEscape(obj.data.content || "")}</text>`
+      );
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -17554,6 +17597,9 @@ function renderWbObjects(canvas) {
   // node: `wbMapColors` walks the whole tree by design (see its own comment),
   // and calling it from inside a per-node callback would walk it once per node.
   const mapIndex = wbIsMap() ? wbMapIndex() : null;
+  //: Each topic's level (MINDMAP_PLAN.md decision 38), before anything is
+  //: painted or measured: its look, and so its size, depend on it.
+  if (mapIndex) wbMapLevels(mapIndex);
   const mapColors = mapIndex ? wbMapNodeColors(mapIndex) : null;
   const mapFills = mapIndex ? wbMapFills(mapIndex) : null;
   const mapHidden = mapIndex ? wbMapConcealed(mapIndex) : null;
@@ -17840,12 +17886,16 @@ function renderWbObjects(canvas) {
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
+      //: **A sticker** (MINDMAP_PLAN.md decision 44): an emoji with no card,
+      //: its glyph sized to its box, so resizing it is resizing the emoji.
+      const sticker = Boolean(d.data.sticker);
+      el.classed("wb-sticker", sticker);
       //: A card with a fill and no ink of its own takes the ink that reads
       //: on that fill (`wbCoreInkFor`), not the theme's: a dark blue card in
       //: the light theme drew dark text on it (the owner at release, the
       //: README's board shot).
       textEl.style("color", d.data.color || (d.data.bg && wbCoreInkFor(d.data.bg)) || "")
-        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .style("font-size", sticker ? `${wbStickerSize(d)}px` : d.data.font_size ? `${d.data.font_size}px` : "")
         .style("text-align", d.data.align || "")
         .style("font-weight", d.data.bold ? "700" : "")
         .style("font-style", d.data.italic ? "italic" : "");
@@ -17954,7 +18004,7 @@ function wbObjectPaintKey(d, ctx) {
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
-    `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
+    `|${ctx.fills?.get(d.id) ?? ""}|${wbMapLevelOf(d) ?? ""}` +
     //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
     //: changes this topic's "1/2" without changing anything of its own.
     `|${wbMapTaskTallyKey(index, d.id)}` +
@@ -19263,7 +19313,7 @@ const WB_RECORDED = [
   "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",
   "wbMapSetLayout", "wbMapInsertBetween", "wbMapOutdent", "wbMapMoveAmongSiblings",
   "wbApplyMapTemplate", "wbMapTidy", "wbGroupSelection", "wbUngroupSelection",
-  "wbPasteCopiedStyle", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
+  "wbPasteCopiedStyle", "wbMapUseLookForLevel", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
 ];
 for (const name of WB_RECORDED) {
   const plain = window[name];

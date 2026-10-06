@@ -78,6 +78,14 @@ ALLOWED: dict[str, list[tuple[str, str]]] = {
             "marked unslop-ignore in the file",
         ),
     ],
+    "frontend/js/icon-picker.js": [
+        (
+            "block:const ICON_EMOJI_SOURCE",
+            "the icon and emoji picker's curated emoji (MINDMAP_PLAN decision 43): "
+            "glyphs a person chooses to put in their own map, board or text, never "
+            "the app's own icons",
+        ),
+    ],
     "frontend/js/avatars.js": [
         (
             "/u",

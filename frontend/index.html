@@ -1326,6 +1326,7 @@
               <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> <span class="toolbar-word">List</span></button>
               <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Task</span></button>
               <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="emoji" title="Emoji or icon" aria-label="Emoji or icon"><i class="ph ph-smiley" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <!-- Live or Source (INBOX 430): the box renders as you type; this
                    shows the markdown as typed instead (wiring.js setNoteSource). -->
@@ -4638,6 +4639,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="doc-dock-menu-item" data-md="codeblock" title="Code block"><i class="ph ph-code-block ph-lead" aria-hidden="true"></i> Code block</button>
               <button type="button" class="doc-dock-menu-item" data-md="table" title="Table"><i class="ph ph-table ph-lead" aria-hidden="true"></i> Table</button>
               <button type="button" class="doc-dock-menu-item" data-md="hr" title="Divider"><i class="ph ph-minus ph-lead" aria-hidden="true"></i> Divider</button>
+              <button type="button" class="doc-dock-menu-item" data-md="emoji" title="Emoji or icon"><i class="ph ph-smiley ph-lead" aria-hidden="true"></i> Emoji or icon…</button>
             </div>
           </details>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
@@ -5941,6 +5943,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="open-library"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span>Shapes, icons and frames…</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="insert-sticker"><i class="ph ph-smiley-sticker ph-lead" aria-hidden="true"></i><span>Emoji and icons…</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="import-diagram" data-wb-surface="board"><i class="ph ph-flow-arrow ph-lead" aria-hidden="true"></i><span>Mermaid or board SVG…</span></button>
             </div>
             <div class="wb-menu-section">
@@ -6325,7 +6328,9 @@ Link to another note with [[its first few words]]."></textarea>
             Double-click a line to label it, and its grip to straighten it.
             More, Branch draws a boundary round a branch or summarises a
             topic (select several side by side to summarise them together);
-            More, Topic, Comment… starts a thread on it. View, Present
+            More, Topic, Comment… starts a thread on it. More, Look copies a
+            topic's style, pastes it, or gives it to every topic at its level;
+            View, How this map looks sets the hierarchy and each level. View, Present
             branches shows the map one branch at a time; Esc ends it.
           </p>
           <p>
@@ -6917,6 +6922,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="">No fill</option>
                 <option value="self" data-short="This topic">Fill this topic</option>
                 <option value="branch" data-short="Its branch">Fill with its branch</option>
+                <option value="solid" data-short="Solid">Solid colour</option>
               </select>
             </div>
           </div>

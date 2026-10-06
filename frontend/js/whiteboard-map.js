@@ -124,9 +124,19 @@ function wbMapTheme() {
 function wbMapThemedData(node) {
   const data = node?.data || {};
   const theme = wbMapTheme();
+  const look = wbMapLevelLook(node);
   let merged = null;
-  for (const field in theme) {
+  //: The level first (decision 40): its own look, else its preset's. Then
+  //: the map-wide theme, for a field neither the topic nor its level set.
+  for (const field in look) {
     const own = data[field];
+    if (own !== undefined && own !== null && own !== "") continue;
+    if (!merged) merged = { ...data };
+    merged[field] = look[field];
+  }
+  for (const field in theme) {
+    if (WB_MAP_THEME_META.has(field)) continue;
+    const own = (merged || data)[field];
     if (own !== undefined && own !== null && own !== "") continue;
     if (!merged) merged = { ...data };
     merged[field] = theme[field];
@@ -134,12 +144,123 @@ function wbMapThemedData(node) {
   return merged || data;
 }
 
-//: What this topic would draw for one field if it said nothing: the map's, or
-//: `undefined` for the app's own. The strip's write handlers ask, so that
-//: choosing what the topic already draws stores nothing rather than pinning
-//: it (`edge_arrow`'s rule, applied to the rest of the strip).
-function wbMapThemeDefault(field) {
-  return wbMapTheme()[field];
+//: What this topic would draw for one field if it said nothing: its level's,
+//: the map's, or `undefined` for the app's own. The strip's write handlers
+//: ask, so that choosing what the topic already draws stores nothing rather
+//: than pinning it (`edge_arrow`'s rule, applied to the rest of the strip).
+//: `node` defaults to the selected topic, which is the strip's own subject.
+function wbMapThemeDefault(field, node = typeof wbSelectedMapNode === "function" ? wbSelectedMapNode() : null) {
+  const look = wbMapLevelLook(node);
+  if (look[field] !== undefined) return look[field];
+  return WB_MAP_THEME_META.has(field) ? undefined : wbMapTheme()[field];
+}
+
+// --- levels (MINDMAP_PLAN.md §14, decisions 38 to 40) ------------------------
+//
+// The owner, INBOX 641: "I'm still not happy on the mindmap with how the core
+// nodes work". Measured (`mc1-mapcore-audit.js`): the centre, a main branch
+// and a leaf drew at 13.6px, weight 400, 31px tall, identically. A map is a
+// hierarchy, and XMind and Coggle both draw it as one before anybody styles
+// anything: the centre big and filled, the main branches heavier, the rest
+// quiet. So every topic draws as its level unless told otherwise.
+
+//: The two theme keys that are not a look a topic can take: the preset's name
+//: and the per-level overrides. Never merged onto a topic's data.
+const WB_MAP_THEME_META = new Set(["hierarchy", "levels"]);
+
+//: The seven fields a level can set (the server's `MAP_LEVEL_FIELDS`). `fill`
+//: here is `solid`, `tint` or `none`: a level's fill, read by the paint pass
+//: only where the topic and its branch said nothing (`wbMapFillOf`).
+const WB_MAP_LEVEL_FIELDS = ["font_size", "bold", "italic", "shape", "spine", "fill", "edge_width"];
+
+//: **The four presets** (decision 39), one look per level: 0 the centre, 1 a
+//: main branch, 2 everything deeper and a floating topic. Classic is the
+//: default and is stored as no value. Sizes in px for the reason `font_size`
+//: already is one: they compose with the strip's own S, L and XL.
+const WB_MAP_HIERARCHIES = Object.freeze({
+  classic: Object.freeze([
+    Object.freeze({ font_size: 22, bold: true, shape: "pill", fill: "solid", spine: "none" }),
+    Object.freeze({ font_size: 17, bold: true, fill: "tint", edge_width: "thick" }),
+    Object.freeze({}),
+  ]),
+  //: Coggle's: the centre as Classic, then text sitting on its line.
+  outline: Object.freeze([
+    Object.freeze({ font_size: 22, bold: true, shape: "pill", fill: "solid", spine: "none" }),
+    Object.freeze({ font_size: 17, bold: true, shape: "none", edge_width: "thick" }),
+    Object.freeze({ shape: "none" }),
+  ]),
+  //: XMind's: a filled box per level, lighter with each step down.
+  boxed: Object.freeze([
+    Object.freeze({ font_size: 22, bold: true, shape: "rect", fill: "solid", spine: "none" }),
+    Object.freeze({ font_size: 16, bold: true, fill: "solid", spine: "none", edge_width: "thick" }),
+    Object.freeze({ fill: "tint" }),
+  ]),
+  flat: Object.freeze([WB_MAP_NO_THEME, WB_MAP_NO_THEME, WB_MAP_NO_THEME]),
+});
+
+//: Each topic's level, from the render's one walk (`wbMapLevels`). A topic
+//: not in it (made since the last render) takes no level look until the next.
+let wbMapLevelById = new Map();
+
+//: **The level of every topic** (decision 38). The first root is the centre,
+//: as is any root with topics under it; a root with nothing under it is a
+//: floating topic and draws as a sub-topic. Its children are main branches;
+//: everything below is level 2.
+function wbMapLevels(index) {
+  const levels = new Map();
+  index.roots.forEach((root, i) => {
+    const kids = index.childrenOf.get(root.id) || [];
+    const top = i === 0 || kids.length ? 0 : 2;
+    const walk = (node, level) => {
+      if (levels.has(node.id)) return;
+      levels.set(node.id, level);
+      for (const child of index.childrenOf.get(node.id) || []) walk(child, Math.min(2, level + 1));
+    };
+    walk(root, top);
+  });
+  wbMapLevelById = levels;
+  wbMapAccentInkCache = null;
+  return levels;
+}
+
+function wbMapLevelOf(node) {
+  return node ? wbMapLevelById.get(node.id) : undefined;
+}
+
+//: The looks per level for the open map's theme, cached on the theme object:
+//: this is read once per topic and per edge on every drag frame (13a), so it
+//: allocates once per theme rather than once per read.
+let wbMapLevelLooksFor = null;
+let wbMapLevelLooksCache = null;
+
+function wbMapLevelLooks() {
+  const theme = wbMapTheme();
+  if (wbMapLevelLooksFor === theme && wbMapLevelLooksCache) return wbMapLevelLooksCache;
+  const preset = WB_MAP_HIERARCHIES[theme.hierarchy] || WB_MAP_HIERARCHIES.classic;
+  const own = theme.levels || {};
+  wbMapLevelLooksCache = preset.map((look, level) => {
+    const mine = own[String(level)];
+    return mine && Object.keys(mine).length ? Object.freeze({ ...look, ...mine }) : look;
+  });
+  wbMapLevelLooksFor = theme;
+  return wbMapLevelLooksCache;
+}
+
+//: What one topic's level draws, `{}` off a map or before its first render.
+function wbMapLevelLook(node) {
+  if (!node || !wbIsMap() || !WB_MAP_KINDS.has(node.kind)) return WB_MAP_NO_THEME;
+  const level = wbMapLevelOf(node);
+  return level === undefined ? WB_MAP_NO_THEME : wbMapLevelLooks()[level] || WB_MAP_NO_THEME;
+}
+
+//: A topic's fill as drawn: `solid`, `tint` or nothing. Its own or its
+//: branch's (`wbMapFills`) first, then its level's.
+function wbMapFillOf(d, fills) {
+  const said = fills?.get(d.id);
+  if (said === "solid" || said === "tint") return said;
+  if (said === false) return null;
+  const level = wbMapLevelLook(d).fill;
+  return level === "solid" || level === "tint" ? level : null;
 }
 
 //: **A stored name for the app's own default** (MINDMAP_PLAN.md decision 9's
@@ -817,17 +938,34 @@ function wbMapThemeDialog() {
   lead.textContent = "Every topic that was never given one of these follows the map.";
   body.appendChild(lead);
 
-  for (const group of WB_MAP_THEME_GROUPS) {
-    const head = document.createElement("h4");
-    head.className = "setting-subhead";
-    head.textContent = group.label;
-    body.appendChild(head);
-    for (const field of group.fields) {
-      body.appendChild(field.kind === "check"
-        ? wbMapThemeCheck(field)
-        : wbMapThemeSelect(field));
-    }
+  //: **The hierarchy, and which level the rows below set** (MINDMAP_PLAN.md
+  //: decisions 39 and 40). XMind's theme has a tab per level; here one `.seg`
+  //: of four says whose look the Text, box and line rows are writing: the
+  //: whole map's (the ten fields of decision 8) or one level's own.
+  body.appendChild(wbMapThemeSelect({ key: "hierarchy", label: "Hierarchy", kind: "select", options: [
+    ["", "Classic"], ["outline", "Outline"], ["boxed", "Boxed"], ["flat", "Flat"],
+  ] }));
+  const scope = document.createElement("div");
+  scope.className = "seg wb-map-theme-scope";
+  scope.setAttribute("role", "group");
+  scope.setAttribute("aria-label", "Whose look the rows below set");
+  const rows = document.createElement("div");
+  rows.className = "wb-map-theme-rows";
+  const show = (level) => {
+    for (const b of scope.children) b.setAttribute("aria-pressed", String(b.dataset.level === level));
+    rows.replaceChildren(...(level === "map" ? wbMapThemeMapRows() : wbMapThemeLevelRows(Number(level))));
+  };
+  for (const [level, words] of [["map", "Whole map"], ["0", "Centre"], ["1", "Main branches"], ["2", "Sub-topics"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small";
+    b.dataset.level = level;
+    b.textContent = words;
+    b.addEventListener("click", () => show(level));
+    scope.appendChild(b);
   }
+  body.append(scope, rows);
+  show("map");
 
   const foot = document.createElement("div");
   foot.className = "row wb-map-theme-foot";
@@ -839,6 +977,92 @@ function wbMapThemeDialog() {
   foot.appendChild(reset);
   body.appendChild(foot);
   const close = wbInfoDialog("How this map looks", body);
+}
+
+//: The whole map's rows: decision 8's ten fields and the map's own two.
+function wbMapThemeMapRows() {
+  const out = [];
+  for (const group of WB_MAP_THEME_GROUPS) {
+    const head = document.createElement("h4");
+    head.className = "setting-subhead";
+    head.textContent = group.label;
+    out.push(head);
+    for (const field of group.fields) {
+      out.push(field.kind === "check" ? wbMapThemeCheck(field) : wbMapThemeSelect(field));
+    }
+  }
+  return out;
+}
+
+//: **One level's own look** (decision 40): the seven fields a level can set,
+//: each a select whose blank row is what the hierarchy draws there, so a
+//: level that says nothing is never mistaken for one that says "none".
+const WB_MAP_LEVEL_ROWS = [
+  { key: "font_size", label: "Size", number: true, options: [["12", "S"], ["14", "M"], ["17", "L"], ["22", "XL"], ["28", "XXL"]] },
+  { key: "bold", label: "Bold", bool: true },
+  { key: "italic", label: "Italic", bool: true },
+  { key: "shape", label: "Box", options: [["rounded", "Rounded"], ["pill", "Pill"], ["rect", "Box"], ["ellipse", "Ellipse"], ["none", "Plain"]] },
+  { key: "spine", label: "Edge bar", options: [["solid", "Solid bar"], ["dashed", "Dashed bar"], ["none", "No bar"]] },
+  { key: "fill", label: "Fill", options: [["solid", "Solid colour"], ["tint", "Tinted"], ["none", "No fill"]] },
+  { key: "edge_width", label: "Line into it", options: [["thin", "Thin line"], ["normal", "Line"], ["thick", "Thick line"]] },
+];
+
+const WB_MAP_LEVEL_NAMES = ["the centre", "the main branches", "the sub-topics"];
+
+function wbMapThemeLevelRows(level) {
+  const theme = wbMapTheme();
+  const preset = (WB_MAP_HIERARCHIES[theme.hierarchy] || WB_MAP_HIERARCHIES.classic)[level];
+  const presetName = { outline: "Outline", boxed: "Boxed", flat: "Flat" }[theme.hierarchy] || "Classic";
+  const own = theme.levels?.[String(level)] || {};
+  const head = document.createElement("h4");
+  head.className = "setting-subhead";
+  head.textContent = `How ${WB_MAP_LEVEL_NAMES[level]} look`;
+  const out = [head];
+  for (const field of WB_MAP_LEVEL_ROWS) {
+    //: The centre has no line into it, so nothing to thicken.
+    if (level === 0 && field.key === "edge_width") continue;
+    const options = field.bool ? [["on", "On"], ["off", "Off"]] : field.options;
+    const said = preset[field.key];
+    const shown = said === undefined ? "the app's own"
+      : field.bool ? (said ? "on" : "off")
+        : field.number ? `${said}px`
+          : (options.find(([v]) => v === String(said))?.[1] || String(said)).toLowerCase();
+    const row = document.createElement("div");
+    row.className = "wb-menu-row wb-map-theme-row";
+    const name = document.createElement("span");
+    name.textContent = field.label;
+    const select = document.createElement("select");
+    select.className = "ghost small";
+    select.setAttribute("aria-label", `${field.label}, for ${WB_MAP_LEVEL_NAMES[level]}`);
+    for (const [value, label] of [["", `As ${presetName} draws (${shown})`], ...options]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    }
+    const value = own[field.key];
+    select.value = value === undefined ? "" : field.bool ? (value ? "on" : "off") : String(value);
+    select.addEventListener("change", () => {
+      const raw = select.value;
+      const next = raw === "" ? null : field.bool ? raw === "on" : field.number ? Number(raw) : raw;
+      wbMapSetLevelField(level, field.key, next);
+    });
+    row.append(name, select);
+    out.push(row);
+  }
+  return out;
+}
+
+//: One field of one level's look, written as the whole `levels` set (the
+//: server replaces it whole, so the Undo step that puts it back is exact).
+function wbMapSetLevelField(level, field, value) {
+  const levels = JSON.parse(JSON.stringify(wbMapTheme().levels || {}));
+  const look = { ...(levels[String(level)] || {}) };
+  if (value === null || value === undefined) delete look[field];
+  else look[field] = value;
+  if (Object.keys(look).length) levels[String(level)] = look;
+  else delete levels[String(level)];
+  return wbMapSetTheme({ levels: Object.keys(levels).length ? levels : null });
 }
 
 function wbMapThemeSelect(field) {
@@ -1359,11 +1583,17 @@ function wbMapFills(index) {
     if (seen.has(node.id)) return;
     seen.add(node.id);
     const own = node.data?.fill;
-    fills.set(node.id, own === "self" || own === "branch" ? true : own === "none" ? false : inherited);
-    const next = own === "branch" ? true : inherited;
+    //: `solid` (a topic filled in its branch colour, §14) is this topic's
+    //: alone; `self` and `branch` are the tint; `none` is an explicit no that
+    //: beats a branch above it and a level's fill (`wbMapFillOf`); nothing
+    //: said is `undefined`, which is where the level's fill comes in.
+    fills.set(node.id, own === "solid" ? "solid"
+      : own === "self" || own === "branch" ? "tint"
+        : own === "none" ? false : inherited);
+    const next = own === "branch" ? "tint" : inherited;
     for (const child of index.childrenOf.get(node.id) || []) walk(child, next);
   };
-  for (const root of index.roots) walk(root, false);
+  for (const root of index.roots) walk(root, undefined);
   return fills;
 }
 
@@ -1794,6 +2024,18 @@ function wbRelativeLuminance(channels) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+//: The ink for the accent, read once per render (`wbMapLevels` clears it):
+//: a computed-style read per topic inside the paint loop would force a style
+//: recalculation per topic.
+let wbMapAccentInkCache = null;
+
+function wbMapAccentInk(node) {
+  if (wbMapAccentInkCache == null) {
+    wbMapAccentInkCache = wbCoreInkFor(getComputedStyle(node).getPropertyValue("--accent").trim()) || "";
+  }
+  return wbMapAccentInkCache || null;
+}
+
 function wbCoreInkFor(colour) {
   const channels = wbColourChannels(colour);
   if (!channels) return null;
@@ -1830,7 +2072,9 @@ function wbPaintMapNode(el, d, index, colors, fills) {
   //: reads on it: see `wbCoreInkFor`. Written for every node rather than only
   //: the core ones, because a node marked core after this pass ran would
   //: otherwise take the previous node's ink until the next render.
-  const ink = colour ? wbCoreInkFor(colour) : null;
+  //: A topic with no branch colour (the centre) is filled in the accent, so
+  //: its ink is worked out from that (§14: the centre is solid by default).
+  const ink = colour ? wbCoreInkFor(colour) : wbMapAccentInk(node);
   if (ink) node.style.setProperty("--wb-core-ink", ink);
   else node.style.removeProperty("--wb-core-ink");
 
@@ -1862,7 +2106,16 @@ function wbPaintMapNode(el, d, index, colors, fills) {
   //: The fill (`wbMapFills`): here rather than in `wbPaintMapNodeStyle`
   //: because it can come from an ancestor, which only the render's one walk
   //: of the tree knows.
-  el.classed("wb-map-filled", Boolean(fills?.get(d.id)));
+  //: And a level's fill where neither said anything (decision 39):
+  //: `wb-map-solid` is the branch colour with the ink that reads on it.
+  const fill = wbMapFillOf(d, fills);
+  el.classed("wb-map-filled", fill === "tint");
+  el.classed("wb-map-solid", fill === "solid");
+  //: Its level, for the stylesheet (padding and the spine a centre has none
+  //: of) and for a sweep to read.
+  const level = wbMapLevelOf(d);
+  if (level === undefined) delete node.dataset.level;
+  else node.dataset.level = String(level);
   //: **The spine is on the edge the parent is on** (MINDMAP_PLAN §13e). It is
   //: the left edge in every layout that grows right, the top edge downward
   //: (a class on the view, `wb-map-down`), and the *right* edge for a topic
@@ -2178,7 +2431,15 @@ function wbPaintMapNodeStyle(node, d) {
       ? (WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic).replace(/^ph-/, "")
       : "");
     icon.hidden = !name;
-    icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+    //: **An emoji is drawn as text** (MINDMAP_PLAN.md decision 45): one slot,
+    //: a Phosphor name or one emoji, told apart by the name's own pattern.
+    if (name && !WB_MAP_ICON_NAME.test(name)) {
+      icon.className = "wb-map-node-icon wb-map-node-emoji";
+      if (icon.textContent !== name) icon.textContent = name;
+    } else {
+      if (icon.textContent) icon.textContent = "";
+      icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+    }
   }
 
   //: The picture, and the node shape that goes with it (§12.1 item 2's
@@ -4136,6 +4397,9 @@ function mapPaletteCommands() {
     row("This topic", "ph:caret-down Fold or unfold the branch", () => wbMapToggleCollapse(node.id), "C");
     row("This topic", "ph:crosshair Focus on this branch", () => wbMapSetFocus(node.id));
     row("This topic", "ph:flag Markers on this topic…", () => wbMapOpenMarkers(node.id));
+    row("This topic", "ph:eyedropper Copy this topic's style", () => wbCopySelectedStyle(), "Ctrl+Alt+C");
+    row("This topic", "ph:paint-bucket Paste style onto this topic", () => wbPasteCopiedStyle(), "Ctrl+Alt+V");
+    row("This topic", "ph:stack Use this look for its level", () => wbMapUseLookForLevel(node.id));
     row("This topic", "ph:text-align-left Summarise this branch", () => wbMapSummariseBranch(node));
     row("This topic", "ph:trash Delete the topic and its branch", () => wbMapDeleteSubtree(node.id), "Delete");
   }
@@ -4326,6 +4590,10 @@ async function wbMapAddSibling(id, { above = false } = {}) {
   const parentId = node.parent_id != null && index.byId.has(node.parent_id)
     ? node.parent_id
     : null;
+  //: **The centre's Enter adds a main branch** (MINDMAP_PLAN.md decision
+  //: 47; XMind and Coggle): a second centre is never what was meant. A
+  //: floating topic (a root drawn at level 2) keeps adding one beside it.
+  if (parentId === null && wbMapLevels(index).get(id) === 0) return wbMapAddChild(id);
   const siblings = wbMapSiblingsOf(index, node);
   const at = siblings.findIndex((s) => s.id === id);
   const neighbour = siblings[above ? at - 1 : at + 1];
@@ -5542,9 +5810,12 @@ function wbMapChoiceRow(select) {
       //: "Map" and keeps the sentence as its name.
       const themed = /^As the map draws/.test(words);
       if (icons && option.value) {
-        if (!button.querySelector("i")) {
-          const glyph = document.createElement("i");
-          glyph.className = `ph ph-${option.value}`;
+        if (!button.firstElementChild) {
+          //: A chosen emoji (decision 45) is drawn as itself, a name as its glyph.
+          const emoji = !WB_MAP_ICON_NAME.test(option.value);
+          const glyph = document.createElement(emoji ? "span" : "i");
+          if (emoji) glyph.textContent = option.value;
+          else glyph.className = `ph ph-${option.value}`;
           glyph.setAttribute("aria-hidden", "true");
           button.replaceChildren(glyph);
         }
@@ -5575,7 +5846,65 @@ function wbMapChoiceRow(select) {
   return seg;
 }
 
+//: A Phosphor name, as against an emoji, in a topic's one icon slot.
+const WB_MAP_ICON_NAME = /^[a-z0-9-]+$/;
+
+//: **The icon slot's way to every icon and emoji** (decision 43): the Text
+//: menu's quick row keeps its eleven, and this opens the one picker for the
+//: rest. A choice outside the eleven is shown as one more segment, so the row
+//: always says what the topic wears.
+function wbMapSetTopicIcon(node, value) {
+  if (!node) return Promise.resolve();
+  return wbMapSetNodeStyle(node, { icon: value || null }).then(() => {
+    renderWhiteboardNow();
+    wbSyncMapStrip(node);
+    wbAnnounce(value ? "Icon set." : "Icon removed.");
+  });
+}
+
+function wbMapOpenIconPicker(anchor, node = wbSelectedMapNode()) {
+  if (!node) return;
+  //: By id at the pick, not the object at the open: a render in between can
+  //: replace the objects this tab holds, and a write to the old one is lost.
+  const id = node.id;
+  pickIconOrEmoji({
+    anchor,
+    title: "Icon for this topic",
+    onPick: (choice) => wbMapSetTopicIcon((wbState.objects || []).find((o) => o.id === id), choice.value),
+  });
+}
+
+//: Keeps one extra row in the quick select for an icon outside its eleven.
+function wbMapIconOption(value) {
+  const select = document.getElementById("wb-map-strip-icon");
+  if (!select) return;
+  const known = [...select.options].some((o) => o.value === value && !("chosen" in o.dataset));
+  let chosen = select.querySelector("option[data-chosen]");
+  if (!value || known) {
+    chosen?.remove();
+    return;
+  }
+  if (chosen?.value === value) return;
+  chosen?.remove();
+  chosen = document.createElement("option");
+  chosen.dataset.chosen = "";
+  chosen.value = value;
+  chosen.textContent = WB_MAP_ICON_NAME.test(value) ? value.replace(/-/g, " ") : `Emoji ${value}`;
+  select.appendChild(chosen);
+}
+
+function wbWireMapIconMore() {
+  const select = document.getElementById("wb-map-strip-icon");
+  const row = select?.closest(".wb-menu-row");
+  if (!row || row.querySelector(".wb-map-icon-more")) return;
+  const more = smallButton("ph:smiley More icons and emoji…", "Every icon and emoji: search, recent and drag", (event) =>
+    wbMapOpenIconPicker(event.currentTarget));
+  more.classList.add("wb-map-icon-more");
+  row.appendChild(more);
+}
+
 function wbWireMapChoices() {
+  wbWireMapIconMore();
   for (const select of document.querySelectorAll("#wb-map-strip select")) wbMapChoiceRow(select);
 }
 
@@ -5806,6 +6135,7 @@ function wbSyncMapStrip(node) {
     };
     setSelect("wb-map-text-size", shown("font_size"));
     setSelect("wb-map-align", shown("align"));
+    wbMapIconOption(data.icon || "");
     setSelect("wb-map-strip-icon", data.icon || "");
     setSelect("wb-map-shape", shown("shape"));
     setSelect("wb-map-spine", shown("spine"));
@@ -5900,16 +6230,23 @@ function wbSyncMapFill(node) {
       up = index.byId.get(up.parent_id);
     }
   }
+  //: And its level's (MINDMAP_PLAN.md decision 39): a centre is solid and a
+  //: main branch tinted by default, so the blank row says so, and "No fill"
+  //: is offered to say otherwise on this one topic.
+  const level = !own && !inherited ? wbMapLevelLook(node).fill : null;
+  const fromLevel = level === "solid" || level === "tint";
   const blank = el.querySelector('option[value=""]');
-  const said = inherited ? "Filled by its branch" : "No fill";
+  const said = inherited ? "Filled by its branch"
+    : fromLevel ? `As its level (${level === "solid" ? "solid" : "tinted"})` : "No fill";
   if (blank && blank.textContent !== said) blank.textContent = said;
   let none = el.querySelector('option[value="none"]');
-  if ((inherited || own === "none") && !none) {
+  const offerNone = inherited || fromLevel || own === "none";
+  if (offerNone && !none) {
     none = document.createElement("option");
     none.value = "none";
     none.textContent = "No fill";
     el.appendChild(none);
-  } else if (!inherited && own !== "none" && none) {
+  } else if (!offerNone && none) {
     none.remove();
   }
   if (el.value !== own) {
@@ -6782,9 +7119,70 @@ async function wbMapResetToBranch(id) {
   //: on a themed map a reset topic follows the map, and a toast that said
   //: "the branch's own look" over a topic that just took the map's would be
   //: describing the wrong thing.
+  //: Every topic has a level now (§14), so what it goes back to is that.
   toast(Object.keys(wbMapTheme()).length
-    ? "Back to following this map."
-    : "Back to the branch's own look.");
+    ? "Back to following this map and its level."
+    : "Back to its level's look and its branch's colour.");
+}
+
+//: **What Copy style carries from a topic** (MINDMAP_PLAN.md decision 42):
+//: how it is drawn, never what it is. Not the icon, the core mark, the link,
+//: the line's label or its waypoint: a pasted look that renamed a topic's
+//: icon or bent its line would be pasting content.
+const WB_MAP_PASTE_STYLE_KEYS = [
+  "color", "bold", "italic", "font_size", "align", "shape", "spine", "fill",
+  "edge_style", "edge_dashed", "edge_width", "edge_arrow",
+];
+
+//: A topic's look as a patch: every key, `null` where it says nothing, so a
+//: paste makes the target look the same rather than adding to what it had.
+function wbMapTopicStyle(node) {
+  const style = {};
+  for (const key of WB_MAP_PASTE_STYLE_KEYS) {
+    const value = node?.data?.[key];
+    style[key] = value === undefined || value === "" ? null : value;
+  }
+  return style;
+}
+
+//: **"Use this look for its level"** (decision 41, Illustrator's Redefine
+//: graphic style). The topic's own level fields go into its level's look and
+//: off the topic, so it and every topic at that level that was never told
+//: otherwise draw alike. One gesture (`WB_RECORDED`), so one Undo step.
+async function wbMapUseLookForLevel(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  const level = wbMapLevelOf(node);
+  if (!node || level === undefined) return;
+  const levels = JSON.parse(JSON.stringify(wbMapTheme().levels || {}));
+  const look = { ...(levels[String(level)] || {}) };
+  const patch = {};
+  for (const field of WB_MAP_LEVEL_FIELDS) {
+    let value = node.data?.[field];
+    if (value === undefined || value === null || value === "") continue;
+    //: A topic's fill words are not a level's: its tint is `self`, and a
+    //: branch fill is a cascade, which is the branch's and not a level's.
+    if (field === "fill") {
+      if (value === "branch") continue;
+      if (value === "self") value = "tint";
+    }
+    //: Size 0 is the pin for "the app's own size", which a level says by
+    //: saying nothing.
+    if (field === "font_size" && !value) {
+      delete look.font_size;
+    } else {
+      look[field] = value;
+    }
+    patch[field] = null;
+  }
+  if (!Object.keys(patch).length) {
+    toast("This topic has no look of its own to give its level.");
+    return;
+  }
+  levels[String(level)] = look;
+  await wbMapSetTheme({ levels });
+  await wbMapSetNodeStyle(node, patch);
+  renderWhiteboardNow();
+  toast(`Every one of ${WB_MAP_LEVEL_NAMES[level]} that was never given its own look now looks like this.`);
 }
 
 //: --- the link radial (MINDMAP_PLAN.md §12.1 item 4) -------------------------

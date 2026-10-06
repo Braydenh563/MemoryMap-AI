@@ -9640,6 +9640,8 @@ const MD_ACTIONS = {
   code: { wrap: "`", placeholder: "code" },
   highlight: { wrap: "==", placeholder: "highlighted" },
   clearformat: { custom: "clearformat" },
+  //: The one icon and emoji picker (MINDMAP_PLAN decision 46).
+  emoji: { custom: "emoji" },
   ul: { line: "- " },
   ol: { line: "1. " },
   task: { line: "- [ ] " },
@@ -9740,6 +9742,14 @@ function applyMarkdown(kind, boxId = "doc-content") {
   if (action.custom === "clearformat") {
     clearInlineFormatting(box);
     finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "emoji") {
+    //: Hung from the button that asked, in whichever strip it is; a button
+    //: inside a closed Insert menu has no place, so the picker centres.
+    const anchor = document.querySelector(`[data-md-target="${boxId}"] [data-md="emoji"]`)
+      || (boxId === "doc-content" ? document.querySelector('#doc-toolbar [data-md="emoji"]') : null);
+    editorPickGlyph(box, anchor);
     return;
   }
   //: **Undo and redo go through the browser's own history, deliberately.**

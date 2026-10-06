@@ -44178,6 +44178,18 @@ record.)
      lazy thumbnails loaded; 10 entries drew 9 rows; text contrast min 5.91
      light, 7.96 dark). Boot JS 588,744 to 588,326 (rows are a lazy bundle).
 
+642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
+     library which can be dragged and placed in the whiteboard and mindmap and
+     which are also available in text editors and formatting toolbars."
+     Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
+     local), draggable onto boards and maps and insertable from the editors'
+     formatting toolbars.
+     **Fixed 94b8b70, bb806e8, 87241de (mc1).** One lazy picker (search,
+     Recent, Emoji and Icons, keys); a drop or Insert, Emoji and icons… makes
+     a sticker or a topic's icon, one Undo step (`mc1-stickers.js` 8/8); the
+     note toolbar, the document's Insert menu and "/" insert at the caret
+     (`mc1-editoricons.js` 7/7).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.
@@ -45093,3 +45105,74 @@ look reset keeps it); `scratchpad/ui-sweeps/op5-1005.js` MODE=due, 5/5 at
 the glyphs take read 3.67:1 on the dark board, so the words do not take it),
 Remind me on a day gone makes nothing, on a day to come one reminder at 9:00.
 Not verified: the date field's own picker on a touch keyboard.
+
+## Moved from the plans, 2026-10-05 (MINDMAP_PLAN §14, mc1)
+
+INBOX 641's map-node part and INBOX 642, built by the mc1 agent; decisions 38
+to 47 stay in MINDMAP_PLAN §14.3, WHITEBOARD_PLAN decision 37.
+
+### Measured before (§14.1)
+
+`scratchpad/ui-sweeps/mc1-mapcore-audit.js`, a map of a centre, two branches
+and three leaves at 1440:
+
+| | Centre | Main branch | Leaf |
+| --- | --- | --- | --- |
+| Text size | 13.6px | 13.6px | 13.6px |
+| Weight | 400 | 400 | 400 |
+| Corner radius | 4.8px | 4.8px | 4.8px |
+| Height | 31px | 31px | 31px |
+| Fill | the card | the card | the card |
+
+**The centre, a main branch and a leaf are drawn identically.** Nothing in
+`wbPaintMapNode` knows a topic's depth: the only hierarchy on screen is the
+branch colour, and the root has none of its own (`--accent`). Enter on the
+centre adds a second free root, not a main branch. The theme (§13e) is one
+set of values for every topic; a person who wants a bigger centre sets it by
+hand, one topic, and every new map starts flat again.
+
+**Icons:** a topic's icon is one of 11 Phosphor glyphs in the Text menu
+(`#wb-map-strip-icon`); 1,530 ship in the vendored font. No emoji anywhere
+in a map. The board's Library has an Icons set (all 1,530, as vector paths,
+`board-library/icons.json`), shown only on a board (`wbLibFits` gives a map
+branches and templates, 0 tiles otherwise). The document editor completes 248
+`:shortcode:` emoji as you type (`DOC_EMOJI_SOURCE`); the note editor, both
+formatting toolbars and the "/" menu offer no emoji or icon at all.
+**Copy and paste style** (Ctrl+Alt+C and V) exists for shapes and text boxes
+and refuses a topic ("Select a shape, link or text box first").
+
+### The phases, all built
+
+- **14a** the levels: `wbMapLevels`, `data-level`, the four presets, the
+  Centre's Enter, solid fill as a topic value. Gate: the audit sweep reads
+  three different sizes and weights for centre, branch and leaf; Flat reads
+  them equal; an existing theme's size still reaches the leaves.
+- **14b** the level styles and the theme dialog's level switch, Redefine,
+  copy and paste style for topics; each one Undo step. Gate: a sweep sets a
+  level's look, a topic's own look beats it, Undo puts it back.
+- **14c** the picker module and the map's icon slot (More icons in the Text
+  menu). Gate: search, Recent, arrows and Enter measured; an emoji and an
+  icon set on a topic; boot budget unchanged.
+- **14d** stickers on the board and the map, drop onto a topic. Gate: a
+  drop measured as one object, one Undo step.
+- **14e** the editors: the toolbars, the Insert menu, the "/" row, the
+  `:ph-name:` reading. Gate: a note and a document each get an emoji and an
+  icon, the reading view draws the glyph.
+
+### Built (commits on claude/notes-flow-rebuild via mc1)
+
+- 14a 08d5829: `wbMapLevels`, `data-level`, the four presets, Solid fill, the
+  centre's Enter. `mc1-maplevels.js` 13/13: centre 22px/700 solid pill (ink
+  5.9:1), branch 17px/700 tinted, leaf 13.6px/400; Flat equal; a map-wide 12px
+  reaches the leaves and keeps the centre at 22.
+- 14b 8eb7dc8: the dialog's level switch (seven rows a level, 507px tall at
+  1440x900), Use this look for its level, copy and paste style on topics, each
+  one Undo step. `mc1-maplook.js` 13/13; `maptheme.js` all pass.
+- 14c 94b8b70: `icon-picker.js` and `icon-picker.css`, fetched on first use by
+  `pickIconOrEmoji` (editor.js; app.js sat at its gzip ratchet), 1,530 Phosphor
+  icons and 476 emoji, the topic icon slot takes an emoji.
+  `mc1-iconpicker.js` 12/12 (384x512 panel, search, Recent, arrows, Escape).
+- 14d bb806e8: stickers by drop or Insert, Emoji and icons…; on a topic, its
+  icon. `mc1-stickers.js` 8/8 (sticker 96px box, glyph 69px, no card).
+- 14e 87241de: the note toolbar, the document's Insert menu and the "/" menu;
+  `:ph-name:` drawn in reading, words inside code. `mc1-editoricons.js` 7/7.

@@ -643,3 +643,14 @@ the owner says otherwise).
     Measured on the agent evals (`pytest -m evals`) with a small local model:
     task success and tokens per task, before and after.
 
+11. **A notebook that reads as written for you** (the owner, 2026-10-06,
+    verbatim: "the composer could even be used to customise notifications,
+    make the dashboard and other features mroe dynamic and customised and
+    more"). Notifications name the note and why now ("Passport renewal is due
+    Friday; your trip note says you fly on the 14th"); the dashboard's
+    greeting, glance and widgets order and word themselves from what the
+    person did this week; empty states, Tidy, Timeline and Reminders say
+    something specific instead of a fixed line. One rule: every sentence is
+    still from the notes or a measured value, and the person can turn the
+    personal wording off.
+

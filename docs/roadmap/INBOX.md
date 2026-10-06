@@ -112,22 +112,6 @@ with its owner named in the entry.
      every trigger (kebabMenu, the action menus, custom selects, popovers,
      split buttons) and press each twice. Placed: with 680.
 
-682. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Documents sidebar's "Documents | Outline" tabs (square-cornered boxes,
-     the chosen one bordered): "should these have rounded edges to stay
-     conistent??" Recommendation, taken: yes, the radius table's value for a
-     control of that size (DESIGN.md), the chosen state drawn the way every
-     other tab strip draws it.
-
-683. **The owner, 2026-10-06, verbatim**, with two screenshots of a
-     pill-shaped floating bar "Copy | ... | X" (square-cornered fill on the
-     hovered "..." and a square focus ring on the X, both inside the round
-     pill): "the square active goes out of the circular pill". Every control
-     inside a pill takes a radius that sits inside it (concentric: the
-     pill's radius minus its padding, or fully round), for hover, active and
-     focus alike. Placed with 682: the 0.4.1 mini release, a Sonnet agent
-     that also sweeps for other square states inside rounded containers.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

@@ -1882,7 +1882,7 @@ def pull_embedding_model(body: EmbeddingPullBody) -> dict:
     (`embedmodels.start_typed` says why not otherwise). An Ollama name goes
     to Ollama's own pull, a Background task with its bytes. Either way the
     model then appears under Found on this computer, with Use."""
-    from memorymap.ai import model_manager
+    from memorymap.ai import model_cards, model_manager
 
     kind, name = embedmodels.parse_typed_name(body.name)
     if kind is None:
@@ -1890,6 +1890,11 @@ def pull_embedding_model(body: EmbeddingPullBody) -> dict:
     if kind == "hf":
         started, message = embedmodels.start_typed(name)
         return {"started": started, "message": message, "source": "huggingface"}
+    #: An Ollama name is checked by the rules of "Download another model".
+    info = model_cards.inspect_model_name(name)
+    if not info.get("valid"):
+        return {"started": False, "message": info.get("error") or "That is not a model name.", "source": ""}
+    name = info["name"]
     ollama = deps.get_ollama()
     try:
         running = ollama.is_running()

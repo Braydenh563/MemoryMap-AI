@@ -133,16 +133,34 @@ def _backfill() -> None:
     embeddings.backfill_missing(deps.get_embeddings(), deps.get_db().session)
 
 
-def _purge_bin() -> None:
-    from memorymap.api import app
+#: Housekeeping's two jobs live in `api/app.py` (they read the app's own
+#: config and event log), and the app registers them here at import
+#: (`register_housekeeping`). A hook rather than an import: this module is
+#: reached from the app through `routes_tasks`, and `from memorymap.api import
+#: app` here closed the cycle `api.app -> routes_tasks -> core.passes ->
+#: api.app` (`tests/test_no_import_cycles.py`). The same shape as
+#: `jobstore.set_forget`.
+_housekeeping: dict[str, Callable[[], None]] = {}
 
-    app._purge_expired_bin_entries()
+
+def register_housekeeping(name: str, work: Callable[[], None]) -> None:
+    """Name the work behind a Housekeeping step ("purge-bin", "compact-history")."""
+    _housekeeping[name] = work
+
+
+def _run_housekeeping(name: str) -> None:
+    work = _housekeeping.get(name)
+    if work is None:
+        raise RuntimeError(f"Housekeeping step {name} is not registered: the app has not started.")
+    work()
+
+
+def _purge_bin() -> None:
+    _run_housekeeping("purge-bin")
 
 
 def _compact_history() -> None:
-    from memorymap.api import app
-
-    app._compact_event_log()
+    _run_housekeeping("compact-history")
 
 
 #: Housekeeping's steps, in order; Stop is honoured between them.

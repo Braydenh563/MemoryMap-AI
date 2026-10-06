@@ -24,7 +24,7 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import Provider
-from memorymap.core import jobruns
+from memorymap.core import embedmodels, jobruns
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
@@ -342,6 +342,17 @@ def get_embeddings() -> EmbeddingService:
     init_app_state()
     assert _embeddings is not None
     return _embeddings
+
+
+def _embedding_model_in_use(repo: str) -> bool:
+    """Whether `repo` is the built-in model search reads with right now. Handed
+    to `core/embedmodels.py` (it may not import this module: a cycle), which
+    refuses to remove that model."""
+    manager = get_model_manager()
+    return manager.embedding_backend() != "ollama" and manager.embedding_st_model() == repo
+
+
+embedmodels.set_in_use_check(_embedding_model_in_use)
 
 
 def get_session(request: Request = None) -> Iterator[Session]:

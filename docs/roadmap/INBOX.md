@@ -75,6 +75,29 @@ with its owner named in the entry.
      no-model composer (`ai/composer.py`, INBOX 688). Placed: Opus agent, as a
      CHAT_PLAN phase row.
 
+727. **The owner, 2026-10-06, verbatim**: "there's no searching animation or
+     indicator for when I enter a search in the ask tab and nothing has shown yet".
+
+728. **The owner, 2026-10-06, verbatim**, with Ask's matching records (the green
+     similarity mark shows "68% similar" on some cards and the mark alone on
+     others): "how come only some of the ask tab matching records notes green
+     arrows have % number similarity and others dont show a number??"
+
+729. **The owner, 2026-10-06, verbatim**, with a no-AI answer to "What have I saved
+     about hobbies?" (quotes joined by "Separately", "Later", "Elsewhere, The
+     picture in…"; titles cut mid-word; a capital after a comma): "its alright but
+     it could definitely be better and be more complex and natural and easier for
+     the user to understand." Goes with CHAT_PLAN Phase 5 and decisions 23-29.
+
+730. **The owner, 2026-10-06, verbatim**: "also would the composer be able to
+     somewhat accurately put new notes into a category using meaning similarity,
+     mathematical shenanigans, keyword, and more and like the embedding model as
+     well?? the embedding model should still be accessible and usable without the
+     ai right??" Answer: yes, filing without a model already runs (lexical
+     filing, category centroids and nearest neighbours over the embedder, which
+     needs no AI model); next is measuring its accuracy on a held-out set and
+     letting the composer explain each filing in one line.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

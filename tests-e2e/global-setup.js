@@ -35,13 +35,16 @@ async function signIn(baseURL, statePath) {
   // `.hidden` class rather than Playwright's visibility wait: the overlay is
   // mid-transition right after a submit.
   await page.waitForFunction(() => !!localStorage.getItem("token"), null, { timeout: 20_000 });
-  await page.waitForTimeout(800);
-  if (await stillLocked()) {
+  // Unlocked, or asked once more (a new account then signs in): whichever
+  // comes, waited for rather than guessed at.
+  const unlocked = () =>
+    page.waitForFunction(() => document.getElementById("lock-overlay")?.classList.contains("hidden"), null, { timeout: 5_000 }).then(() => true, () => false);
+  if (!(await unlocked()) && (await stillLocked())) {
     const field = page.locator("#lock-password");
     if (await field.isVisible().catch(() => false)) {
       await field.fill(config.E2E_PASSWORD);
       await page.click("#lock-submit");
-      await page.waitForTimeout(800);
+      await unlocked();
     }
   }
 
@@ -50,14 +53,14 @@ async function signIn(baseURL, statePath) {
     const skip = page.locator("#onboarding-skip");
     if (await skip.isVisible().catch(() => false)) await skip.click();
     else await page.keyboard.press("Escape");
-    await page.waitForTimeout(300);
+    await onboarding.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
   // A first start asks once whether to check for updates; "Don't check"
   // touches no network.
   const dontCheck = page.locator(".confirm-overlay button", { hasText: "Don't check" });
   if (await dontCheck.isVisible().catch(() => false)) {
     await dontCheck.click();
-    await page.waitForTimeout(300);
+    await dontCheck.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
   // The guided tour's offer and the companion's one-time hint are toasts
   // that would sit over clicks; marked seen the way a returning user has.

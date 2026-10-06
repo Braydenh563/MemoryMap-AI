@@ -2609,8 +2609,9 @@ as the board import path (`wbMermaidParse`) and the verifier in step 5.
     drawings, Accept or Discard, one Undo. The same on a board frame and a
     mind map branch (through their Mermaid form). Every proposal passes the
     step 5 verifier before it is shown.
-12b. **Diagrams in chat and Ask**: a ` ```mermaid ` block in any chat
-    message, Ask answer or agent reply is drawn (step 8), with Copy, Download
+12b. **Diagrams in chat, Ask and documents** (the owner: "as well as the
+    documents"): a ` ```mermaid ` block in any document (Read, Live, Split and
+    print), chat message, Ask answer or agent reply is drawn (step 8), with Copy, Download
     (SVG, PNG, `.mmd`), Open in whiteboard and Insert into a document under
     its ⋯ menu; a block that fails to parse shows as code with the parser's
     one-line reason.

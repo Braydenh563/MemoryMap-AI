@@ -33,8 +33,9 @@ capture text → AI categorises it → store it → ask a question → chat answ
 These are the constraints that shaped every decision. When in doubt, they win.
 
 1. **Offline-first, always.** No feature may depend on a cloud service. Two
-   opt-in features can reach the internet, web search and the update check, and
-   both are off by default and clearly marked. The rest is a short list of
+   opt-in features can reach the internet, web search and the update check:
+   web search is off by default, the update check waits for the answer to a
+   question the first start asks once, and both are clearly marked. The rest is a short list of
    one-off downloads that you start (a model, an optional package) or that the
    search model makes on first use; [PRIVACY.md](PRIVACY.md) lists them all and
    Settings, Privacy records every connection the app makes. When web search

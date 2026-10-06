@@ -5546,8 +5546,10 @@ function wbApplyBulkMove(origin, dx, dy) {
 //: drag that begins the gesture, because only it knows what it changed.
 let wbGesture = null;
 
-function wbBeginGesture(restore) {
-  wbGesture = { restore, cancelled: false };
+//: `move` marks the three item drags (a card, a box or topic, a shape), the
+//: gestures the delete target answers (`wbTrashTake`).
+function wbBeginGesture(restore, move = false) {
+  wbGesture = { restore, cancelled: false, move };
   return wbGesture;
 }
 
@@ -5566,8 +5568,144 @@ function wbCancelGesture() {
     gesture.restore?.();
   } finally {
     wbClearAlignmentGuides();
+    wbTrashHide();
   }
   return true;
+}
+
+//: **Drag to delete** (INBOX 660, the owner: "I want to be able to drag
+//: elements on the whiteboard and mindmap onto a popup delete button to
+//: delete them"; Miro, Freeform and every phone home screen do it). While a
+//: card, a box, a shape or a map topic is carried, a target floats at the
+//: foot of the canvas (`.wb-trash`, a `.whiteboard-floating-panel`, so the
+//: glass-off list already holds it); the pointer over it turns it to the
+//: error ink and says "Release to delete". Let go there and the drag is put
+//: back first (the gesture's own `restore`, so nothing moved is saved), then
+//: what was carried is deleted as one Undo step (`wbRecordGesture`, the
+//: selection's own delete) with a toast offering Undo. A topic takes its
+//: branch, as its Delete does (the server deletes the subtree). Escape, or a
+//: drop anywhere else, leaves it a plain move or no move. Keyboard people
+//: keep Delete; the target is pointer-only and hidden from the tree, and its
+//: two states are said in the board's live region.
+//:
+//: It sits above the edge auto-pan's band (3.5rem, `wbEdgePan.band`), so the
+//: board does not scroll away while the pointer travels to it, and the pan
+//: holds still while the pointer is over it.
+let wbTrashEl = null;
+let wbTrashRect = null;
+let wbTrashDown = [0, 0];
+
+function wbTrashTarget() {
+  if (wbTrashEl?.isConnected) return wbTrashEl;
+  const host = document.getElementById("wb-present-bar")?.parentElement;
+  if (!host) return null;
+  wbTrashEl = document.createElement("div");
+  wbTrashEl.className = "whiteboard-floating-panel wb-trash card glass hidden";
+  wbTrashEl.setAttribute("aria-hidden", "true");
+  const icon = document.createElement("i");
+  icon.className = "ph ph-trash";
+  const label = document.createElement("span");
+  label.className = "wb-trash-label";
+  wbTrashEl.append(icon, label);
+  host.appendChild(wbTrashEl);
+  return wbTrashEl;
+}
+
+function wbTrashSetHot(hot) {
+  const el = wbTrashTarget();
+  if (!el) return;
+  el.classList.toggle("wb-trash-hot", hot);
+  el.querySelector(".wb-trash-label").textContent = hot ? "Release to delete" : "Drop here to delete";
+}
+
+function wbTrashHide() {
+  wbTrashRect = null;
+  if (wbTrashEl) wbTrashEl.classList.add("hidden");
+}
+
+window.addEventListener("pointerdown", (e) => { wbTrashDown = [e.clientX, e.clientY]; }, true);
+window.addEventListener("pointermove", (e) => {
+  const g = wbGesture;
+  if (!g || !g.move || g.cancelled) {
+    if (wbTrashRect) wbTrashHide();
+    return;
+  }
+  if (!wbTrashRect) {
+    //: Shown on the drag's first few pixels, never on a click.
+    if (Math.hypot(e.clientX - wbTrashDown[0], e.clientY - wbTrashDown[1]) < 6) return;
+    const el = wbTrashTarget();
+    if (!el) return;
+    wbTrashSetHot(false);
+    el.classList.remove("hidden");
+    wbTrashRect = el.getBoundingClientRect();
+  }
+  const r = wbTrashRect;
+  const pad = 8;
+  const over = e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
+  if (over !== Boolean(g.overTrash)) {
+    g.overTrash = over;
+    wbTrashSetHot(over);
+    wbAnnounce(over ? "Over Delete. Release to delete, or move away to keep it." : "Off Delete.");
+  }
+}, true);
+window.addEventListener("pointercancel", () => wbTrashHide(), true);
+
+//: Called first thing by each item drag's end, while the drag still holds
+//: what `restore` needs. True when the drop was on the target: the move is
+//: put back, the gesture is marked cancelled (so the end saves nothing) and
+//: the delete is under way.
+function wbTrashTake(gesture, kind, d) {
+  const hit = Boolean(gesture && gesture === wbGesture && gesture.move && !gesture.cancelled && gesture.overTrash);
+  wbTrashHide();
+  if (!hit) return false;
+  const keys = wbDragIsBulkMove(kind, d.id) ? [...wbMultiSelection] : [wbMultiKey(kind, d.id)];
+  gesture.cancelled = true;
+  try {
+    gesture.restore?.();
+  } finally {
+    wbClearAlignmentGuides();
+  }
+  wbTrashDelete(keys);
+  return true;
+}
+
+async function wbTrashDelete(keys) {
+  const rank = { sketch: 0, node: 1, object: 2 };
+  const ordered = [...keys].sort((a, b) => rank[a.split(":")[0]] - rank[b.split(":")[0]]);
+  const find = (key) => {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    return [kind, (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id)];
+  };
+  const map = wbIsMap();
+  const topics = () => (wbState.objects || []).filter((o) => WB_MAP_KINDS.has(o.kind)).length;
+  const topicsBefore = map ? topics() : 0;
+  wbMultiSelection.clear();
+  clearWbSelection();
+  await wbRecordGesture(async () => {
+    for (const key of ordered) {
+      const [kind, item] = find(key);
+      if (!item) continue;
+      if (kind === "sketch") await wbDeleteSketchRef?.(item);
+      else if (kind === "node") await wbDeleteNodeRef?.(item);
+      else await wbDeleteObjectRef?.(item);
+    }
+  });
+  wbApplySelectionHighlight();
+  wbScheduleRender();
+  const gone = ordered.filter((key) => !find(key)[1]).length;
+  if (!gone) return;
+  const step = wbUndoStack[wbUndoStack.length - 1];
+  const topicsGone = map ? topicsBefore - topics() : 0;
+  const words = topicsGone
+    ? `Deleted ${topicsGone} topic${topicsGone === 1 ? "" : "s"}.`
+    : `Deleted ${gone === 1 ? "1 item" : `${gone} items`}.`;
+  wbAnnounce(words);
+  toastAction(words, "Undo", async () => {
+    //: The toast's Undo is the stack's own step, and only while it is the
+    //: last thing done: Ctrl+Z may already have taken it back.
+    if (wbUndoStack[wbUndoStack.length - 1] === step) await wbUndo();
+  });
 }
 
 //: Put a moved item (and whatever moved with it) back where the drag found
@@ -12825,7 +12963,7 @@ async function initWhiteboard() {
   function wbEdgePanWanted() {
     if (!(wbEdgePan.buttons & 1) || WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "pan") return false;
     if (wbMarqueeEl && wbMarqueeStart && !wbMarqueeStart.pending) return true;
-    return Boolean(wbGesture && !wbGesture.cancelled && !wbEdgePan.turn);
+    return Boolean(wbGesture && !wbGesture.cancelled && !wbGesture.overTrash && !wbEdgePan.turn);
   }
   //: Screen pixels a frame along one axis: positive moves the board's
   //: content towards the far edge (so the near side comes into view).
@@ -16163,7 +16301,7 @@ function renderWhiteboard() {
       d._dragOriginalD = parsed ? parsed.d : null;
       d._moveUndoBefore = WB_KIND_INFO.sketch.payload(d);
       d._altCopy = Boolean(event.sourceEvent?.altKey);
-      d._gesture = wbBeginGesture(() => wbRestoreMove("sketch", d));
+      d._gesture = wbBeginGesture(() => wbRestoreMove("sketch", d), true);
       // Raw (never-snapped) running totals, applied fresh from the
       // *original* d each frame, the same fix as `dragging`'s own comment
       // above: re-snapping an already-snapped value every frame discards
@@ -16257,8 +16395,13 @@ function renderWhiteboard() {
         d._linkKind = null;
         return r;
       }
+      if (d._dragOriginalD == null) {
+        delete d._linkedSketches;
+        return;
+      }
+      //: Dropped on the delete target: put back, then deleted (INBOX 660).
+      wbTrashTake(d._gesture, "sketch", d);
       delete d._linkedSketches;
-      if (d._dragOriginalD == null) return;
       const finalD = d._dragLiveD;
       const bulkOrigin = d._bulkOrigin;
       const moveBefore = d._moveUndoBefore;
@@ -17267,7 +17410,7 @@ function renderWbObjects(canvas) {
     d._raised = false;
     d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
     d._altCopy = Boolean(event.sourceEvent?.altKey);
-    d._gesture = wbBeginGesture(() => wbRestoreMove("object", d));
+    d._gesture = wbBeginGesture(() => wbRestoreMove("object", d), true);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -17362,6 +17505,8 @@ function renderWbObjects(canvas) {
   async function objDragEnd(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) { const r = dragEndNode.call(this, event, d); d._linkKind = null; return r; }
+    //: Dropped on the delete target: put back, then deleted (INBOX 660).
+    wbTrashTake(d._gesture, "object", d);
     d._linkedSketches = null;
     // Dropped: the paths this drag held references to are about to be
     // replaced by the next render, and a stale element would be updated in
@@ -18182,7 +18327,7 @@ function dragStart(event, d) {
     // Snapshotted before anything below can mutate `d`.
     d._moveUndoBefore = WB_KIND_INFO.node.payload(d);
     d._altCopy = Boolean(event.sourceEvent?.altKey);
-    d._gesture = wbBeginGesture(() => wbRestoreMove("node", d));
+    d._gesture = wbBeginGesture(() => wbRestoreMove("node", d), true);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -18381,6 +18526,8 @@ async function dragEndNode(event, d) {
     }
     d.linkSourceAnchor = null;
   } else {
+    //: Dropped on the delete target: put back, then deleted (INBOX 660).
+    wbTrashTake(d._gesture, "node", d);
     wbClearAlignmentGuides();
     // Sync back to API.
     //

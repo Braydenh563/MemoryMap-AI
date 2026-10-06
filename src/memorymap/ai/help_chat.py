@@ -1018,7 +1018,8 @@ HELP_TOPICS.extend(
             "body": (
                 "Mind maps live in the Library, under Boards & maps; New, then Mind "
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
-                "onto another moves its whole branch. Right-click a topic for the "
+                "onto another moves its whole branch (onto Drop here to delete, at "
+                "the foot, deletes the topic and its branch). Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
                 "map looks sets its branch colours (eight palettes, classic first), its "
                 "font and the look every topic follows unless it was given its own; a "
@@ -1063,6 +1064,7 @@ HELP_TOPICS.extend(
                 "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
                 "comment on a card", "comment on an item", "comments on the board", "comment thread",
                 "present", "presentation", "slides", "slideshow",
+                "drag to delete", "drop to delete", "drag onto delete", "trash an item",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards & maps; Ctrl+Shift+B opens it). "
@@ -1080,8 +1082,9 @@ HELP_TOPICS.extend(
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
                 "Shift and a corner keeps proportions, [ and ] move one step back or "
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
-                "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
-                "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Y redoes. "
+                "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin at "
+                "the foot) removes, Esc cancels a "
+                "drag or goes back to Select. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
                 "for the menu, double-click a line to bend "

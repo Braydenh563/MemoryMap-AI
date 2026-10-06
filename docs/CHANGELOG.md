@@ -685,6 +685,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Note boxes (Capture and editing a note) render as you type with a Source switch for the markdown, in place of a separate Preview; the switch stays visible with the formatting tools folded and is remembered.
 
 ### Added
+- Whiteboards and mind maps: drag a card, a text box, a shape or a topic (or the selection it belongs to) onto "Drop here to delete", which appears at the foot of the canvas while something is carried, to delete it as one Undo step, with a toast offering Undo; a topic takes its branch, as its Delete does. Escape or a drop anywhere else leaves it a plain move, and Delete still works from the keyboard (INBOX 660).
 - Mind maps: a topic can have a due day (the Markers popover's Due row): drawn in the marker row, a day gone in red and read as was due, filterable, kept by OPML and FreeMind, and Remind me makes a reminder at 9:00 that day (MINDMAP_PLAN decision 37; `tests/test_mindmap.py`, `op5-1005.js` MODE=due).
 - Mind maps: Study the map (the board menu, or the palette) asks one branch at a time with what is under it hidden; Show draws it, Knew it or Not yet marks it, and the marks are kept for that map on this device (MINDMAP_PLAN decision 36; `tests/test_map_study.py`, `op5-1005.js` MODE=study).
 - Mind maps: export as a plain-text outline (a tab per level) and import a .txt outline; an outline file dropped on the boards page imports and opens (MINDMAP_PLAN §12.2 item 10; `tests/test_mindmap.py`, `op5-1005.js` MODE=mapio).

@@ -326,9 +326,13 @@ def collect() -> list[dict]:
     # canceller. A flag repeated at eight call sites is a flag that drifts;
     # this reads the same table the cancel endpoint dispatches through, so the
     # button appears exactly where pressing it does something.
+    from memorymap.core import passes
+
     for task in tasks:
         task["cancellable"] = (
             task["kind"] in bgtasks.CANCELLABLE_KINDS
+            # A running pass that has a step to stop at (INBOX 713).
+            or (task["kind"] == "job-pass" and not task.get("queued") and passes.kind_for_label(task.get("name", "")) in passes.STOPPABLE)
             or task["kind"] in FILING_KINDS
             # A queued job the `jobs` table holds: cancelling its row is a
             # real stop (`jobstore.cancel`). A running one is not offered.
@@ -404,7 +408,28 @@ def jobs_last_runs() -> dict:
     `/tasks` this survives a restart: it is the database's record, not the
     process's.
     """
-    return {"jobs": jobruns.last_runs(deps.get_db())}
+    from memorymap.core import passes
+
+    #: The scheduled passes carry their schedule and a Run now (INBOX 713).
+    runs = jobruns.last_runs(deps.get_db())
+    extra = passes.overview()
+    for run in runs:
+        run.update(extra.get(run["kind"], {}))
+    return {"jobs": runs}
+
+
+@router.post("/jobs/passes/{kind}/run")
+def run_pass_now(kind: str) -> dict:
+    """Run one scheduled pass now, through the job pool, deduped (INBOX 713).
+    `kind` is a name from `passes.PASS_KINDS`, never a function."""
+    from fastapi import HTTPException
+
+    from memorymap.core import passes
+
+    if kind not in passes.PASS_KINDS:
+        raise HTTPException(status_code=404, detail="No such pass.")
+    started, message = passes.run_now(kind)
+    return {"started": started, "message": message}
 
 
 @router.get("/jobs")
@@ -499,6 +524,13 @@ def cancel_task(body: CancelTaskBody) -> dict:
     honest response is `stopped: false` and a sentence saying so.
     """
     kind = body.kind.strip()
+    if kind == "job-pass":
+        # A scheduled pass started by hand (INBOX 713): stopped at its next
+        # step where it has one, said plainly where it has not.
+        from memorymap.core import passes
+
+        stopped, detail = passes.stop(passes.kind_for_label(body.name.strip()))
+        return {"status": "ok", "stopped": stopped, "detail": detail}
     if kind.startswith("job-") and kind not in FILING_KINDS:
         count = jobstore.cancel_queued(kind[len("job-"):], body.name.strip())
         if count:

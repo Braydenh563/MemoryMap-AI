@@ -224,7 +224,7 @@ MORE_TOPICS: list[dict] = [
             "(recommended, about 650 MB of memory while the app is open) or an "
             "Ollama embedding model such as nomic-embed-text; changing it "
             "re-reads every note in the background (Background tasks shows it, "
-            "with Quit) and search keeps using the current model until the new "
+            "with Stop) and search keeps using the current model until the new "
             "one has read every note. Embedding models lists the choices, from "
             "MiniLM (smallest, fastest) and BGE Small (the default) to "
             "multilingual ones (Multilingual E5, BGE M3, Qwen3), with each "
@@ -258,15 +258,19 @@ MORE_TOPICS: list[dict] = [
             "battery", "battery-efficient", "save power", "quit the app",
             "quit memorymap", "stop the server", "close the app properly",
             "last run", "last ran", "background jobs", "job history", "did it run",
+            "run now", "night shift", "stop a job", "cancel a job", "scheduled pass",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
             "(re-indexing, downloading a model, installing packages, setting up "
             "search), each running job with a progress bar (a moving one when "
-            "it cannot count its steps) and how long it has run, with Quit on "
+            "it cannot count its steps) and how long it has run, with Stop on "
             "the jobs that can stop safely, and what has finished since it "
             "started. Background jobs lists every kind of job, the never-run "
-            "ones too, with when it last ran and how it went, and beside each "
+            "ones too, with when it last ran and how it went; each scheduled "
+            "pass (autonomous background AI, the night shift, the daily backup, "
+            "resurfacing, the embeddings backfill, housekeeping) also says when "
+            "it runs by itself and has Run now. Beside each "
             "control (Back up now, Rebuild search index, Find duplicates, the "
             "importers) a line reads, for example, \"Last run 2h ago, "
             "succeeded, 412 notes indexed\", with the exact time on hover; a "

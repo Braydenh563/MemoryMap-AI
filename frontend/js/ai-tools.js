@@ -46,7 +46,8 @@ async function renderTasks(payload) {
       const actions = document.createElement("span");
       actions.className = "entry-actions";
       actions.appendChild(
-        smallButton("Quit", "Stop this job", async () => {
+        //: "Stop" (INBOX 713, the owner: "manually stop or cancel them").
+        smallButton("ph:stop-circle Stop", "Stop this job at its next step", async () => {
           // `/tasks/cancel`, not `/models/jobs/cancel`: the old endpoint knew
           // about a re-index and a model pull and nothing else, so this
           // button only ever appeared on two of the eight kinds this panel

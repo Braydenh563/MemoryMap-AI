@@ -66,6 +66,7 @@ KINDS: dict[str, str] = {
     "model-download": "Model download",
     "embedding-model": "Embedding model download",
     "embed-switch": "Embedding model switch",
+    "maintenance": "Housekeeping",
     "extra": "Package install",
     "searxng": "SearXNG setup",
 }

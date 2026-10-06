@@ -114,6 +114,8 @@ KIND_LANES: dict[str, str] = {
     #: Changing the embedding model (`core/embedswitch.py`, INBOX 700): the
     #: re-index's lane, for the re-index's reason.
     "embed-switch": "batch",
+    #: A scheduled pass started by hand (`core/passes.py`, INBOX 713).
+    "pass": "batch",
 }
 
 DEFAULT_LANE = "cpu"
@@ -159,6 +161,7 @@ LABELS: dict[str, str] = {
     #: INBOX 696: a "Background job" row says nothing a person can read.
     "embed-entry": "Updating a note's search vector",
     "bench": "Timing a model",
+    "pass": "Running a scheduled pass",
 }
 
 
@@ -424,7 +427,8 @@ class Pool:
         shown: dict[str, int] = {}
         hidden: dict[str, int] = {}
         for job in jobs:
-            label = LABELS.get(job.kind, "Background job")
+            #: A pass's row is named for the pass ("Night shift").
+            label = job.name if job.kind == "pass" and job.name else LABELS.get(job.kind, "Background job")
             waiting = job.seq not in running
             if waiting:
                 shown[job.kind] = shown.get(job.kind, 0) + 1

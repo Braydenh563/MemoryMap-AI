@@ -9090,7 +9090,7 @@ Link to another note with [[its first few words]]."></textarea>
                   nomic-embed-text): chat models can't create embeddings.
                   Changing this re-reads every note so search keeps making
                   sense. It runs in the background (Settings, Background
-                  tasks shows it, with Quit) and search keeps using the
+                  tasks shows it, with Stop) and search keeps using the
                   current model until the new one has read every note.
                 </p>
                 <p>
@@ -11253,6 +11253,11 @@ Link to another note with [[its first few words]]."></textarea>
                   list above, this is remembered after you restart. A job that
                   has never run says so. Hover a line for the exact time and
                   how long it took.
+                </p>
+                <p>
+                  A scheduled pass also says when it runs by itself, and Run
+                  now starts it at once; while it runs, its row in the list
+                  above has Stop where it has a step to stop at.
                 </p>
               </div>
               <ul id="job-runs-list" class="entry-list"></ul>

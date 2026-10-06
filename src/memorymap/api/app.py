@@ -591,11 +591,15 @@ def _startup_maintenance() -> None:
     (ARCH-19). Looked up on the module at call time, so a test can stand in
     for each. Each step already logs and swallows its own failure."""
     module = sys.modules[__name__]
-    for step in ("_purge_expired_bin_entries", "_compact_event_log", "_backup_if_due"):
-        try:
-            getattr(module, step)()
-        except Exception:  # noqa: BLE001  # one step must not stop the next
-            logging.getLogger("memorymap.startup").warning("startup maintenance step %s failed", step, exc_info=True)
+    #: Recorded as "Housekeeping" (INBOX 713), so Background jobs can say
+    #: when it last ran beside its Run now (`core/passes.py`).
+    with jobruns.job_run("maintenance") as run:
+        for step in ("_purge_expired_bin_entries", "_compact_event_log", "_backup_if_due"):
+            try:
+                getattr(module, step)()
+            except Exception:  # noqa: BLE001  # one step must not stop the next
+                logging.getLogger("memorymap.startup").warning("startup maintenance step %s failed", step, exc_info=True)
+        run.result = "at start"
 
 
 def _backup_if_due() -> None:

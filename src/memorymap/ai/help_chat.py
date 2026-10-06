@@ -379,7 +379,8 @@ HELP_TOPICS: list[dict] = [
         #: months, and the guide was the one place still teaching the old key.
         "body": (
             "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
-            "them, and on a Mac Cmd works in place of Ctrl. Everywhere: Ctrl+K "
+            "them, and on a Mac Cmd works in place of Ctrl. A button with a "
+            "shortcut shows it in its tooltip, in your own binding. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
             "Ctrl+Shift+Z redo (on a phone, More then Commands opens the "

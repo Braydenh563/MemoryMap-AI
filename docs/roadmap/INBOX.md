@@ -133,14 +133,6 @@ with its owner named in the entry.
      licences that allow it are offered as one-press installs, others link
      to their terms. Placed: the next free agent slot.
 
-701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
-     shortcut, should they be added to the tooltips??" Recommendation,
-     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
-     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
-     changed binding changes its tooltip, with a lint that every bound
-     shortcut with a button has it in that button's title. Placed: the next
-     free Sonnet slot.
-
 702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
      Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
      filled square) and the Chats sidebar (hovered row: a neutral grey fill,

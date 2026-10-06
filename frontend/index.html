@@ -282,8 +282,8 @@
            #status-guide), and in the phone's More sheet, which is where
            Settings already went. The header keeps the three that act on the
            window itself: notifications, theme, Settings. -->
-      <button id="theme-btn" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>
-      <button id="settings-btn" class="ghost small icon-only" title="Settings" aria-label="Settings"><i class="ph ph-gear" aria-hidden="true"></i></button>
+      <button id="theme-btn" data-shortcut="toggleTheme" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>
+      <button id="settings-btn" data-shortcut="settings" class="ghost small icon-only" title="Settings" aria-label="Settings"><i class="ph ph-gear" aria-hidden="true"></i></button>
       </span>
       <span class="header-cluster header-cluster-end">
       <!-- Lock and Quit are the two that END your session, so they sit together
@@ -1211,7 +1211,7 @@
          Streak and Writing pace widgets. -->
     <div class="dock dash-dock" data-dock-name="dashboard" role="toolbar" aria-label="Dashboard">
       <div class="dock-group dock-find">
-        <button type="button" id="dash-find" class="ghost dash-find" aria-haspopup="dialog">
+        <button type="button" id="dash-find" data-shortcut="findAnything" title="Search your notes, documents, files and the app" class="ghost dash-find" aria-haspopup="dialog">
           <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
           <span class="dash-find-text">Search your notes, documents, files and the app</span>
           <span class="dash-find-keys" aria-hidden="true"></span>
@@ -1555,7 +1555,7 @@ Link to another note with [[its first few words]]."></textarea>
                  label, a dropdown and three tools, so the one irreversible
                  action on the screen looked exactly like the four reversible
                  ones beside it. -->
-            <button id="sketch-btn" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
+            <button id="sketch-btn" data-shortcut="quickSketch" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" type="button" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Dictate</button>
             <!-- Improve rewrites what is typed; the four before it add a
                  thing. Two families, one hairline between them. -->
@@ -1613,7 +1613,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="save-draft-btn" class="ghost"
               title="Save without filing it yet, find it later under Drafts in the sidebar"
               aria-label="Save as draft">Save as draft</button>
-            <button id="save-btn"><i class="ph ph-check ph-lead" aria-hidden="true"></i> Save</button>
+            <button id="save-btn" data-shortcut="save"><i class="ph ph-check ph-lead" aria-hidden="true"></i> Save</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -1982,7 +1982,7 @@ Link to another note with [[its first few words]]."></textarea>
               title="Tune how strict semantic search is (Settings → Search and index)"
               aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
             <button id="ask-btn">Ask</button>
-            <button id="stop-btn" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+            <button id="stop-btn" data-shortcut="stopAI" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
           </div>
           <!-- What the Ask box does with no model connected (CHAT_PLAN.md
                decision 11). Ask is deliberately not among the controls that
@@ -2303,7 +2303,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the tab bar (UI Phase 11 item 2), where it opens Capture
                    with the box focused, and it hides while Capture is the
                    section showing. -->
-              <button id="notes-new-note" class="small" type="button"
+              <button id="notes-new-note" data-shortcut="newNote" class="small" type="button"
                 title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
             </div>
           </div>
@@ -2445,7 +2445,7 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="tokens">Most tokens</option>
               <option value="alpha">A–Z</option>
             </select>
-            <button id="chat-new" class="ghost small icon-only" type="button" title="New chat: start a fresh conversation"
+            <button id="chat-new" data-shortcut="newChat" class="ghost small icon-only" type="button" title="New chat: start a fresh conversation"
               aria-label="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>
           </span>
         </div>
@@ -2781,7 +2781,7 @@ Link to another note with [[its first few words]]."></textarea>
                  downward. -->
             <div class="row chat-composer">
             <div class="note-picker">
-              <button id="attach-note" class="ghost icon-only" type="button"
+              <button id="attach-note" data-shortcut="attachNote" class="ghost icon-only" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
                 title="Attach something you already have, a note, a document, a file or an image"
                 aria-label="Attach existing notes, documents, files or images"><i class="ph ph-note" aria-hidden="true"></i></button>
@@ -2888,7 +2888,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button type="button" id="chat-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="chat-send" data-needs-model="Chat is answered by the local AI">Send</button>
-            <button id="chat-stop" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+            <button id="chat-stop" data-shortcut="stopAI" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
             </div>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows, skills, then controls, then the
@@ -2914,6 +2914,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="chat-tool-group" role="group" aria-label="What Atlas may use">
                 
                 <label class="muted tools-toggle checkbox-label agent-toggle hidden"
+                  data-shortcut="agentMode"
                   title="Agent mode: Atlas can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
                   <span class="agent-toggle-label"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent mode</span>
@@ -3169,8 +3170,8 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="web-reader-back" class="link-button web-reader-back" type="button"
                 title="Back to the results"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Results</button>
               <span class="row web-reader-tools">
-                <button id="web-reader-find" class="ghost small icon-only" type="button"
-                  aria-label="Find in this page" title="Find in this page (Ctrl+F)"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+                <button id="web-reader-find" data-shortcut="find" class="ghost small icon-only" type="button"
+                  aria-label="Find in this page" title="Find in this page"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
                 <button id="web-reader-copy" class="ghost small icon-only" type="button"
                   aria-label="Copy link" title="Copy link"><i class="ph ph-link" aria-hidden="true"></i></button>
                 <button id="web-reader-open" class="ghost small icon-only" type="button"
@@ -4837,7 +4838,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </details>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" id="doc-find-toggle" class="icon-only" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar" aria-label="Find and replace (Ctrl+F)"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-toggle" data-shortcut="find" class="icon-only" title="Find and replace" aria-expanded="false" aria-controls="doc-find-bar" aria-label="Find and replace"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
           <!-- **The reading width, as a control rather than a constant.**
                Reported: "idk why the document rendered views are so thin??", 
                and they were 736px in a 1132px pane, because a measure cap
@@ -5610,7 +5611,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </details>
-            <button id="library-docs-new" class="small" type="button"
+            <button id="library-docs-new" data-shortcut="newDocument" class="small" type="button"
               title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
           </div>
         </div>
@@ -10718,7 +10719,8 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="settings-group settings-fold" data-fold-key="shortcuts-yours" open>
               <summary><h3 class="inline-h3">Your shortcuts</h3></summary>
               <p class="muted">
-                Click <strong>Change</strong> and press the keys you want. Press
+                Click <strong>Change</strong> and press the keys you want; a button
+                with a shortcut shows it when you hover it. Press
                 <kbd>?</kbd> anywhere in the app for the same list as an overlay.
               </p>
               <ul class="shortcut-list" id="shortcut-list-settings"></ul>
@@ -12399,8 +12401,8 @@ Link to another note with [[its first few words]]."></textarea>
                    style probe confirms it can actually do something. -->
               <div class="row hidden" id="about-restart-row">
                 <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
-                <button id="about-force-reload" class="ghost small" type="button"
-                  title="Reload the app and clear its cached files (Ctrl+Alt+R)">Reload the app</button>
+                <button id="about-force-reload" data-shortcut="forceReload" class="ghost small" type="button"
+                  title="Reload the app and clear its cached files">Reload the app</button>
                 <span class="muted">Some changes, an installed extra, a switched model backend, only take effect after a restart.</span>
               </div>
             </div>

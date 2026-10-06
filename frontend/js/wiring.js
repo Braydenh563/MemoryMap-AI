@@ -1016,7 +1016,7 @@ if (dashFind) {
     if (input) input.setSelectionRange(input.value.length, input.value.length);
   });
   const keysHint = dashFind.querySelector(".dash-find-keys");
-  if (keysHint) keysHint.textContent = STATUS_META_KEY.startsWith("\u2318") ? "\u2318P" : "Ctrl P";
+  if (keysHint) keysHint.textContent = shortcutHint("findAnything") || (STATUS_META_KEY.startsWith("\u2318") ? "\u2318P" : "Ctrl+P");
 }
 
 // Paint it before any poll lands, so the bar is furniture from the first frame

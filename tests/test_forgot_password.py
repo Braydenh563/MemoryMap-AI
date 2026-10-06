@@ -170,7 +170,7 @@ def test_replacing_the_key_kills_the_old_one(client):
 
 
 def test_making_a_key_needs_the_current_password_and_is_throttled(client):
-    _note, _key = _notebook(client, with_key=False)
+    _notebook(client, with_key=False)
     local = _local(client)
     token = local.post("/auth/unlock", json={"password": PASSWORD}).json()["token"]
     for _ in range(routes_auth._FAILURE_ALLOWANCE + 1):
@@ -197,7 +197,7 @@ def test_a_re_key_hands_out_a_new_recovery_key(client):
 
 
 def test_a_re_key_without_a_recovery_key_makes_none(client):
-    _note, _key = _notebook(client, with_key=False)
+    _notebook(client, with_key=False)
     local = _local(client)
     token = local.post("/auth/unlock", json={"password": PASSWORD}).json()["token"]
     rotated = local.post("/auth/rotate-vault-key", json={"current_password": PASSWORD}, headers=_auth(token))

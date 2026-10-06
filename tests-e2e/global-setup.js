@@ -48,6 +48,16 @@ async function signIn(baseURL, statePath) {
     }
   }
 
+  // A new account is offered a recovery key first (INBOX 663), in a modal
+  // that leaves everything under it inert until it closes; closed here the
+  // way a person choosing "not now" does.
+  const keyOffer = page.locator("#recovery-key-dialog[open]");
+  await keyOffer.waitFor({ state: "visible", timeout: 3_000 }).catch(() => {});
+  if (await keyOffer.isVisible().catch(() => false)) {
+    await page.click('#recovery-key-dialog [data-close-dialog="recovery-key-dialog"]');
+    await keyOffer.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+  }
+
   const onboarding = page.locator("#onboarding-overlay");
   if (await onboarding.isVisible().catch(() => false)) {
     const skip = page.locator("#onboarding-skip");

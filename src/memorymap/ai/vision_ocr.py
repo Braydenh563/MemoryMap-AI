@@ -59,7 +59,7 @@ def register_page_read(label: str, model: str = "") -> int:
     with _reads_lock:
         _read_seq += 1
         token = _read_seq
-        _reads[token] = {"label": label, "model": model}
+        _reads[token] = {"label": label, "model": model, "started": time.time()}
     return token
 
 

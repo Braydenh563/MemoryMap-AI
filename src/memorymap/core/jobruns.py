@@ -140,6 +140,18 @@ def live() -> list[dict]:
     return [run.snapshot() for run in runs]
 
 
+def current(kind: str) -> "Run":
+    """The newest run of `kind` in flight, so deep code (the night pass's loop,
+    the embeddings batch) can report without a `run` threaded through every
+    signature. With none running it answers a throwaway handle that records
+    nothing, so a caller never checks."""
+    with _live_lock:
+        for run in reversed(_live):
+            if run.kind == kind:
+                return run
+    return Run(kind, None)
+
+
 class Run:
     """The handle `job_run` yields. Set `result`; call `cancel` for a stop.
 

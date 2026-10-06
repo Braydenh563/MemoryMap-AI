@@ -110,7 +110,13 @@ def collect() -> list[dict]:
                 "label": f"Captioning {job['name']}",
                 "detail": "A vision model is describing this image.",
                 "progress": None,
-                "log": [],
+                #: One blocking call, so no fraction; the lines say what it
+                #: is waiting on (INBOX 1006).
+                "log": [
+                    f"Sent the picture to {job['model']}." if job.get("model") else "Sent the picture to the vision model.",
+                    "Waiting for its description. A small model can take a minute.",
+                ],
+                "started": job.get("started") or None,
             }
         )
 
@@ -131,7 +137,11 @@ def collect() -> list[dict]:
                 if job["model"]
                 else "A vision model is reading this page.",
                 "progress": None,
-                "log": [],
+                "log": [
+                    f"Sent the page to {job['model']}." if job["model"] else "Sent the page to the reader.",
+                    "Waiting for the text. Closing the workspace does not stop it.",
+                ],
+                "started": job.get("started") or None,
             }
         )
 
@@ -342,18 +352,23 @@ def collect() -> list[dict]:
     # unseen.
     from memorymap.core import passes
 
+    #: Runs whose row is built above from its own state: the live handle only
+    #: fills it in (run kind -> row kind).
+    own_rows = {"autonomous": "autonomous", "tidy": "tidy-link-reasons"}
     for live in jobruns.live():
-        if live["kind"] not in passes.PASS_KINDS:
+        if live["kind"] not in passes.PASS_KINDS and live["kind"] not in own_rows:
             continue
         row = next(
             (
                 t
                 for t in tasks
-                if (t["kind"] == "autonomous" and live["kind"] == "autonomous")
+                if t["kind"] == own_rows.get(live["kind"])
                 or (t["kind"] == "job-pass" and not t.get("queued") and t.get("name") == live["label"])
             ),
             None,
         )
+        if row is None and live["kind"] in own_rows:
+            continue
         if row is None:
             row = {"kind": "job-pass", "name": live["label"], "label": live["label"], "detail": "", "queued": False}
             tasks.append(row)

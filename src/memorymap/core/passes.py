@@ -114,7 +114,7 @@ def _backup() -> None:
     config = deps.get_config()
     keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
     with jobruns.job_run("backup") as run:
-        path = backup.backup_now(config.db_path, config.data_dir, keep)
+        path = backup.backup_now(config.db_path, config.data_dir, keep, run)
         run.result = f"saved {path.name} (Run now)"
 
 
@@ -178,12 +178,17 @@ def _maintenance() -> None:
 
     with jobruns.job_run("maintenance") as run:
         done = 0
+        names = ("Clear expired notes from the bin", "Tidy the edit history")
+        run.plan(list(names))
         for step in MAINTENANCE_STEPS:
             if stop_requested("maintenance"):
                 run.cancel(f"stopped after {done} of {len(MAINTENANCE_STEPS)} steps")
+                run.say("Stopped between steps.")
                 return
+            run.say(f"{names[done]}.")
             step()
             done += 1
+            run.step(done)
         run.result = "bin cleared of expired notes, edit history tidied"
 
 

@@ -509,3 +509,53 @@ def test_a_pass_run_through_the_pool_is_one_row_not_two(client, monkeypatch):
     finally:
         gate.set()
         passes.reset_for_tests()
+
+
+def test_a_backup_names_its_three_steps_and_checks_the_copy(client):
+    from memorymap.core import backup
+
+    config = deps.get_config()
+    with jobruns.job_run("backup") as run:
+        backup.backup_now(config.db_path, config.data_dir, 5, run)
+        shot = run.snapshot()
+    assert [s["label"] for s in shot["steps"]] == ["Copy the database", "Check the copy", "Remove old backups"]
+    assert {s["outcome"] for s in shot["steps"]} == {"completed"}
+    assert any("Checking the copy" in line for line in shot["log"])
+
+
+def test_a_backup_that_cannot_be_read_back_fails_and_is_not_kept(tmp_path):
+    from memorymap.core import backup
+
+    junk = tmp_path / "memorymap-x.db"
+    junk.write_bytes(b"this is not a database" * 50)
+    with pytest.raises(OSError):
+        backup.verify_copy(junk)
+
+
+def test_housekeeping_marks_off_its_steps_and_says_what_it_is_doing(client, monkeypatch):
+    from memorymap.core import passes
+
+    seen = []
+    monkeypatch.setattr(
+        passes, "MAINTENANCE_STEPS",
+        (lambda: seen.append(next(r for r in jobruns.live() if r["kind"] == "maintenance")), lambda: None),
+    )
+    passes._maintenance()
+    first = seen[0]
+    assert [s["outcome"] for s in first["steps"]] == ["running", "queued"]
+    assert first["log"] == ["Clear expired notes from the bin."]
+
+
+def test_the_night_pass_reports_notes_read_of_notes_to_read(client, session):
+    from memorymap.ai import facts
+
+    for text in ("I decided to use sqlite.", "Why does the build fail?", "We shipped the beta."):
+        client.post("/entries", json={"content": text})
+    with jobruns.job_run("night-shift") as run:
+        outcome = facts.run(session, budget=5000, force=True)
+        session.commit()
+        shot = run.snapshot()
+    assert outcome["scanned"] >= 3
+    assert shot["progress"] is not None
+    assert shot["log"][0].endswith("to read.") and any(line.startswith("Read ") for line in shot["log"])
+    assert not any("Traceback" in line or "Error" in line for line in shot["log"])

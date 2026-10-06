@@ -37,6 +37,7 @@ from datetime import date, datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.core import jobruns
 from memorymap.core.database import Entry, EntryLink, NoteScore
 
 #: How many notes a notebook needs before resurfacing says anything at all.
@@ -103,7 +104,11 @@ def compute_scores(session: Session) -> int:
 
     existing = {row.entry_id: row for row in session.scalars(select(NoteScore)).all()}
     written = 0
-    for entry in entries:
+    progress = jobruns.current("resurface")
+    progress.say(f"Scoring {len(entries)} note{'' if len(entries) == 1 else 's'} for fading.")
+    for index, entry in enumerate(entries):
+        if index % 50 == 0:
+            progress.step(index, len(entries), "Scoring notes")
         created = entry.created_at
         if created is not None and created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)

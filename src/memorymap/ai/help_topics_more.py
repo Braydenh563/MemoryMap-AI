@@ -1079,11 +1079,13 @@ MORE_TOPICS.extend(
                 "language of the scan", "rapidocr", "ocr without tesseract",
             ),
             "body": (
-                "In the OCR workspace, one line under the toolbar says whether "
-                "Tesseract can read, its version and the language it reads in; "
-                "pick the language there, and every read follows it, the "
-                "background pass included. When Tesseract cannot read, the line "
-                "names the cause and offers Install, with its progress; a read it "
+                "In the OCR workspace, the reader button's dot says whether "
+                "Tesseract can read (green) or not (amber); its menu shows the "
+                "version and the language it reads in. Pick the language there, "
+                "and every read follows it, the background pass included. When "
+                "Tesseract cannot read, the menu names the cause and offers "
+                "Install, with its progress, and the tool row's ... menu opens "
+                "Settings to manage it; a read it "
                 "cannot do falls to the vision model, and each reading names the "
                 "engine that read it. Read again reads afresh, and a reading can "
                 "be edited by hand or added to an existing note. Settings, "
@@ -1359,7 +1361,7 @@ TOPIC_META: dict[str, dict] = {
     "follow-up-trail": {"title": "Where a follow-up came from", "path": "Chat tab, or Ask in the Notes tab, under an answer"},
     "answer-pictures": {"title": "Pictures in answers", "path": "Chat tab, or Ask in the Notes tab, Grounded in"},
     "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
-    "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, under the toolbar"},
+    "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, the reader button"},
     "time-and-recency": {"title": "Dates and recent notes in answers", "path": "Chat tab, or Ask on the Notes tab"},
     "model-downloads": {"title": "Downloading a model", "path": "Settings, Models, Suggested downloads"},
     "accessibility": {"title": "Accessibility and zoom", "path": "Settings, Keyboard shortcuts and Appearance"},

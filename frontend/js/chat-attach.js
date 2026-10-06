@@ -691,7 +691,7 @@ function attachSelectionContext(context) {
     input.focus();
     autoGrow(input);
   }
-  announce(`Selection from ${context.title} attached to your next message.`);
+  announce(`${context.kind === "reading" ? "Text read from" : "Selection from"} ${context.title} attached to your next message.`);
 }
 
 function clearSelectionAttachment() {
@@ -713,12 +713,16 @@ function renderSelectionAttachment() {
   const label = document.createElement("span");
   const words = attachedSelection.text.replace(/\s+/g, " ").trim();
   const shown = words.length > 42 ? `${words.slice(0, 41)}…` : words;
-  setLabel(label, `ph:text-aa ${attachedSelection.title} · line ${attachedSelection.line}: “${shown}”`);
+  //: A page's reading (the OCR workspace, INBOX 717) has a file and a page,
+  //: not a line in an editor.
+  setLabel(label, attachedSelection.kind === "reading"
+    ? `ph:scan ${attachedSelection.title}: “${shown}”`
+    : `ph:text-aa ${attachedSelection.title} · line ${attachedSelection.line}: “${shown}”`);
   const remove = document.createElement("button");
   remove.className = "attachment-remove";
   remove.type = "button";
   setLabel(remove, "ph:x");
-  remove.title = "Don't send this selection with your message";
+  remove.title = "Don't send this with your message";
   remove.setAttribute("aria-label", remove.title);
   remove.addEventListener("click", () => {
     clearSelectionAttachment();
@@ -743,6 +747,8 @@ function renderSelectionAttachment() {
 //: which case the text is still sent, the user asked about it, but with no
 //: position claimed at all.
 function revalidateSelection(context) {
+  //: A reading is a copy of what was read, not a place in a surface.
+  if (context.kind === "reading") return { ...context, position: "exact" };
   //: **Through `docSurfaceById`, never `getElementById` alone.** A document
   //: whose CodeMirror engine has mounted keeps `#doc-content` in the markup as
   //: the form's empty value carrier: it is still an `HTMLTextAreaElement` and
@@ -792,6 +798,9 @@ function revalidateSelection(context) {
 //: message that carries a selection, and the tool schemas are already the
 //: dominant fixed cost of a round (§R5 item 1).
 function selectionContextBlock(context) {
+  if (context.kind === "reading") {
+    return [`The user is asking about the text read (OCR) from ${context.title}:`, "", context.text, ""].join("\n");
+  }
   const where =
     context.position === "gone" || context.position === "unknown"
       ? `${context.title} (the user has since edited it, so this passage may no longer be there)`

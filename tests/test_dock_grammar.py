@@ -102,6 +102,9 @@ ON_THE_GRAMMAR = {
     # The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7): its gate
     # names this lint.
     "questions",
+    # The OCR workspace's tools (INBOX 717): View, then Read, one row that
+    # folds what does not fit into its own menu, the first dock in a dialog.
+    "ocr",
 }
 
 
@@ -133,6 +136,11 @@ class _Dock:
 
 def _kind(tag: str, classes: set[str]) -> str:
     """What a control in a zone's run is: the filled action, an icon, a word."""
+    # A split button (DESIGN.md: a filled action with a default and a choice,
+    # the OCR workspace's Read) is one control: the default press and its
+    # caret are two halves of the one filled action.
+    if "split-button" in classes:
+        return "filled"
     if tag == "details" and "dock-menu" in classes:
         if "dock-more" in classes:
             return "icon"
@@ -205,6 +213,8 @@ class _Parser(HTMLParser):
             for f in self.stack[:-1]
         )
         if not in_menu and current_zone:
+            if "split-button" in classes and in_run:
+                dock.filled.append(a.get("id") or "(no id)")
             if (
                 tag == "button"
                 and in_run

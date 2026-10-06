@@ -6012,50 +6012,6 @@ button.connection-row {
   color: var(--muted);
 }
 
-/* **Scrolls sideways rather than wrapping**, which is the same rule the
-   Documents toolbar follows and the reason the labels below can be told never
-   to break: a toolbar that wraps changes the height of the dialog header, and
-   a header that changes height moves the page you are trying to read. */
-.ocr-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  /* One axis cannot be `visible` while the other is not, it computes to
-     `auto` and creates a clipping context that traps every popup opened
-     inside it. Stated, because this exact pair was the Documents toolbar bug. */
-  overflow-y: hidden;
-  padding-bottom: var(--space-1);
-  scrollbar-width: thin;
-}
-
-/* One group per intent: look at it, read it, keep it. The rule between them is
-   what makes three groups read as three rather than as nine controls. */
-.ocr-tool-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-}
-
-.ocr-tool-group + .ocr-tool-group {
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border);
-}
-
-/* The measured defect itself: a label that wrapped inside a button sized for
-   one line. Nothing in this bar may wrap, it scrolls instead. */
-.ocr-toolbar button,
-.ocr-toolbar .checkbox-label,
-.ocr-toolbar .select-opener {
-  white-space: nowrap;
-}
-
-.ocr-reader {
-  max-width: 14rem;
-}
-
 /* Continuous mode: every page stacked, in the order they are in the file. */
 .ocr-scroll {
   display: flex;
@@ -6775,19 +6731,6 @@ button.connection-row {
   background: var(--modal-bg);
 }
 
-/* The ± zoom row beside the Fit/100% segment. Tabular figures so stepping
-   through 75% → 100% → 125% does not shuffle the buttons sideways. */
-.ocr-zoom-steps {
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.ocr-zoom-level {
-  min-width: 3.2rem;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
 /* --- Documents: focus mode --------------------------------------------------
    Same `position: fixed` overlay pattern as the whiteboard's and graph's own
    full-screen toggles (see `#library-view-whiteboard.wb-fullscreen` above),
@@ -7248,26 +7191,6 @@ button.connection-row {
   .wb-search-bar {
     max-width: calc(100vw - 2rem);
   }
-}
-
-/* The page-range control beside "Read this page with AI". A short box, not a
-   full-width field: it holds "all", "3" or "1-5,8" and nothing longer, and a
-   wide input in a crowded header would read as the primary control when the
-   page rail beside it is what people actually navigate with. */
-.ocr-read-range {
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* **Two selectors, because one loses.** `.row input { flex: 1 }` is (0,1,1)
-   and beats this file's lone class: measured in the workspace: a box holding
-   the word "all" rendered 230px wide and soaked up every spare pixel in the
-   tool row. Exactly the trap `.sampling-number`'s own comment records. */
-.ocr-read-range .ocr-read-pages {
-  flex: none;
-  width: 6rem;
-  margin: 0;
-  text-align: center;
 }
 
 /* The "show me this one" flash lived here as two rules: a keyframe pulse on

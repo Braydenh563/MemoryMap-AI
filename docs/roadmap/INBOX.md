@@ -62,6 +62,7 @@ with its owner named in the entry.
      category with clear space between them, hubs central, labels never
      over dots or lines, links routed round nodes they do not join, a
      Reshuffle (new seed, animated) and a fit to view.
+     Addendum (filed under 696 by mistake, moved here by the 696 agent), the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
 
 694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
      dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
@@ -83,49 +84,6 @@ with its owner named in the entry.
      `scratchpad/ui-sweeps/dock694.js`: dock at 320 to 1200, light, dark, touch,
      and seven popups with the companion placed over their heads. Part 1 (the
      cut pill bottoms) is still open; 694 is not resolved.
-
-696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
-     package bundles and the buttons disabled and it just stayed as the 2/3
-     packages I had installed until it just suddenly updated, there was no
-     progress indicator or anything. does verything show in the background
-     tasks?? also the running background task stuff dont have progress bars
-     or indicators, they are just flat rows". Next: a bundle install shows
-     per-package progress in its row (queued, installing with a determinate
-     or indeterminate bar, done), every long job appears in Background
-     tasks, and a running task row carries a progress bar (determinate when
-     the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
-     release, an Opus agent when a slot frees.
-     Addendum, the owner, 2026-10-06, verbatim, with a screenshot of the clustered graph: "should links visualise differently or have a different style based on distance, similarity, type of link etc?? also with the arrows, what if the user makes a link meaning for the note link to be omnidirectional and not a directional link??"
-     Addendum, the owner, 2026-10-06, verbatim: "also the graph doesnt necessarily need to be in clusters like this, it can be more like a single clump or galaxy. or in other prefered shapes s well?? maybe togglable between?? they arent different views but different preferred shapes or ways of structuring the force graph"
-     Addendum, the owner, 2026-10-06, verbatim, with a dense dark-theme Travel cluster: "stuff like this can get potentially hard to read..."; then, with their own notebook on the current organic layout: "like this is what i have rn and maybe it or a slightly refined version can be an option??"
-
-700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
-     model options as alternatives in the models??" / "research the best
-     ones available today". Research, 2026-10-06 (sources in the session
-     report): small and CPU-friendly: all-MiniLM-L6-v2 (22M, fastest),
-     BAAI/bge-small-en-v1.5 (today's default), nomic-embed-text v1.5 (137M,
-     8k context), EmbeddingGemma 300M (2k context; Gemma terms, not
-     Apache), Qwen3-Embedding-0.6B (Apache-2.0, about 70.7 MTEB-eng-v2,
-     about 1.2 GB), BGE-M3 (568M, multilingual, MIT), multilingual-e5-small;
-     through Ollama also mxbai-embed-large, snowflake-arctic-embed2,
-     granite-embedding and qwen3-embedding 0.6b/4b/8b. Decision taken: a
-     curated list in Models with size, languages, context, licence and a
-     one-line "best for", the current default kept; changing the model
-     re-embeds in the background (durable job, progress shown, search keeps
-     working on the old vectors until the new set is complete); only
-     licences that allow it are offered as one-press installs, others link
-     to their terms. Placed: the next free agent slot.
-     Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
-     Addendum, the owner, 2026-10-06, verbatim: "I feel like there should be the options to modify, install, uninstall, reinstall embedded models etc. also maybe a way to type a model name into a text box near the suggested model section and then pull in a model that is typed in the box if it exists?? like from ollama or huggingface."
-
-713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
-     processes like the night shift and stuff, is it possible to manually
-     run them as well as manually stop or cancel them when they are
-     running??" Decision taken: every scheduled pass (the night shift and
-     the other maintenance passes) is listed in Background tasks with its
-     schedule and last run, a "Run now" on each, and a running job's row
-     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
-     next step. Placed: with 696, the progress agent.
 
 ## Placed (last 20, newest first)
 

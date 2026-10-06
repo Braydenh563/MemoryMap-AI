@@ -167,8 +167,13 @@ def test_a_bubbles_hover_row_hangs_over_its_own_foot_not_the_next_message() -> N
     """CHAT_PLAN (OPEN.md triage): hung 2px under its bubble, the 25px row
     overran the 13px between messages and lay 7 to 13px across the answer
     under a question at 640 to 820. It now starts inside its own bubble's
-    foot padding, 2px under the last line (a probe, 640 and 1280)."""
+    foot padding, 2px under the last line (a probe, 640 and 1280).
+
+    2026-10-06 (the owner: "these buttons are too high and clash with the
+    message bubble"): the row now hangs just below its bubble, in the room
+    #chat-messages' gap keeps for it (measured: 2px under the bubble, 15px
+    clear of the next message at 1440)."""
     rule = CSS[CSS.index(".msg-actions {\n  position: absolute;") :]
     rule = rule[: rule.index("\n}")]
-    assert "top: calc(100% - 0.75rem);" in rule
+    assert "top: calc(100% + var(--space-1));" in rule
     assert "100% + 2px" not in rule

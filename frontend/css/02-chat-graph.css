@@ -399,7 +399,7 @@
 
 @media (hover: hover) {
   #conversation-list li:hover {
-    background: var(--accent-soft);
+    background: var(--row-hover-bg);
   }
 }
 
@@ -2434,14 +2434,46 @@ button.recording.live-level {
    in the base button recipe, which would move every filled button in the app
    by 2px, see the report for the measurement. */
 #meeting-controls > button,
-#meeting-save-row > button {
+#meeting-save-row button {
   height: var(--control-h-lg);
   padding-block: 0;
 }
 
-/* Away from the primary, not fourth in a run of four. */
-.meeting-discard {
+/* The save row is two groups (INBOX 708): the ways of keeping the transcript
+   (the one filled save, then the document), and, pushed to the far end, the
+   two that are not (Copy, then Discard last), so the destructive one is never
+   beside the primary. */
+#meeting-save-row {
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.meeting-actions-main,
+.meeting-actions-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.meeting-actions-more {
   margin-left: auto;
+}
+
+/* The transcribing state's bar, the width of the stage it sits in. */
+.meeting-progress {
+  display: block;
+  width: 100%;
+  height: var(--space-2);
+}
+
+/* The status line is the state's own sentence, so it sits close under the
+   stage rather than a paragraph's gap away; empty it takes no room. */
+#meeting-status {
+  margin-block: 0 var(--space-3);
+}
+
+#meeting-status:empty {
+  display: none;
 }
 
 .meeting-wave {
@@ -2484,8 +2516,10 @@ button.recording.live-level {
   margin-left: var(--space-2);
 }
 
+/* Sized to its words (`autoGrow`, from the review state's first frame), not to
+   twelve rem around one sentence. */
 #meeting-transcript {
-  min-height: 12rem;
+  min-height: 5rem;
 }
 
 /* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */

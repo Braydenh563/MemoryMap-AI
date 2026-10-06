@@ -74,6 +74,9 @@ HANDLERS: dict[str, str] = {
     "file-entry": "memorymap.api.routes_entries:_file_entry_in_background",
     #: Resumes where it stopped: staged vectors for the same target are kept.
     "embed-switch": "memorymap.core.embedswitch:run",
+    #: Tidy's link reason pass (INBOX 691): idempotent, a named link no
+    #: longer matches, so a resumed pass repeats nothing.
+    "tidy-link-reasons": "memorymap.entry.tidy:respecify_all",
 }
 
 #: A lease lasts this long without a heartbeat. Long enough that a busy

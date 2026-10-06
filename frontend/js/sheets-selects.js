@@ -1074,7 +1074,14 @@ function openKebabSheet(menu, opener, label) {
   opener.setAttribute("aria-expanded", "true");
 }
 
-function kebabMenu(items, ariaLabel) {
+//: **Which overflow glyph (INBOX 706).** `⋯` (`ph:dots-three`, horizontal) for
+//: an item's overflow in a row, a card or a bar of controls; `⋮`
+//: (`ph:dots-three-vertical`) for the overflow at the end of a row in a
+//: vertical list and in a narrow column, the platform conventions. A caller
+//: passes the `vertical` option; the default stays the horizontal one, and
+//: nothing else draws an overflow glyph (DESIGN.md's recipe index, pinned by
+//: `tests/test_icon_conventions.py`).
+function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
 
@@ -1082,7 +1089,7 @@ function kebabMenu(items, ariaLabel) {
   menu.className = "action-menu hidden";
   menu.setAttribute("role", "menu");
 
-  const opener = smallButton("ph:dots-three", ariaLabel, () => {
+  const opener = smallButton(vertical ? "ph:dots-three-vertical" : "ph:dots-three", ariaLabel, () => {
     if (window.matchMedia(PHONE_ACTION_SHEET).matches && typeof openSheet === "function") {
       openKebabSheet(menu, opener, ariaLabel);
       return;
@@ -1656,7 +1663,7 @@ async function loadConversationList() {
     );
     //: Six rows is past the ceiling (DESIGN.md): what you do to it, its address, and the two that put it away.
     const group = (item) => (/Copy app link/.test(item.label) ? "copy" : /Archive|Delete/.test(item.label) ? "end" : "act");
-    actions.appendChild(kebabMenu(items.map((item) => ({ ...item, group: group(item) })), `Actions for ${conversation.title}`));
+    actions.appendChild(kebabMenu(items.map((item) => ({ ...item, group: group(item) })), `Actions for ${conversation.title}`, { vertical: true }));
     li.append(title, actions);
     list.appendChild(li);
   }

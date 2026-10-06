@@ -1,0 +1,157 @@
+/* tidy-lazy.css: Tidy's sheet (INBOX 691, tidy.js), loaded with it (app.js
+   `LAZY_MODULES.tidy`) rather than at boot, for the gzip budget. The sheet is
+   the suggestions inbox's (`.inbox-card`, its select and one-line description,
+   03-dashboard-widgets.css) and its rows are the Attach picker's checkable rows
+   (`.note-picker-row`, 04-chat-dock-appearance.css); this is only what Tidy
+   adds: the tool row, the third line of a row (what Apply would do), the foot
+   with the one filled button, and Recent runs. */
+
+.tidy-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.tidy-tools:empty {
+  display: none;
+}
+
+.tidy-tools > .setting-check {
+  margin: 0;
+}
+
+.tidy-door {
+  margin-inline-start: auto;
+}
+
+/* The list is the sheet's one scroller (the managed-list recipe's rule). */
+.tidy-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.tidy-row {
+  align-items: flex-start;
+}
+
+.tidy-row .note-picker-check {
+  margin-top: var(--space-1);
+}
+
+/* What Apply would do to this row: the third line, in the accent's ink. */
+.tidy-change {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--accent-text);
+}
+
+/* A row the rule found but cannot change (no clear category): listed, so
+   the count is honest, and not tickable. */
+.tidy-row.is-off {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.tidy-row.is-off .note-picker-check {
+  visibility: hidden;
+}
+
+.tidy-empty {
+  padding: var(--space-3) 0;
+}
+
+.tidy-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
+.tidy-count {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tidy-foot-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+.tidy-history:empty {
+  display: none;
+}
+
+.tidy-history-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+  list-style: none;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tidy-history-head::-webkit-details-marker {
+  display: none;
+}
+
+/* The one disclosure caret (DESIGN.md): a quarter turn while closed. */
+.tidy-history .contents-caret {
+  transition: rotate var(--ui-fast) var(--ease-out);
+}
+
+.tidy-history:not([open]) .contents-caret {
+  rotate: -90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tidy-history .contents-caret {
+    transition: none;
+  }
+}
+
+.tidy-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tidy-history-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--target-min);
+  font-size: var(--text-sm);
+}
+
+.tidy-history-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 599.98px) {
+  .tidy-door {
+    margin-inline-start: 0;
+  }
+
+  .tidy-foot-end {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

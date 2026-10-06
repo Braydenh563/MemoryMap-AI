@@ -4170,7 +4170,7 @@ function renderGraphPopupActions(entry) {
       await refreshEntries([entry.id]);
       renderGraph();
       toast("Note restored.");
-    });
+    }, { also: GO_TO_BIN });
   });
   //: Set apart by a gap of its own inside the keep group rather than by a
   //: fourth divider: three groups is the structure, and a hairline whose

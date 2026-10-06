@@ -3321,10 +3321,16 @@ dialog::backdrop {
    surface's tint on an opaque base: text scrolling under it never shows
    through, and at rest it reads as the surface (`stripground.js`). */
 .note-composer > .note-toolbar {
-  margin-bottom: 0;
+  /* **Inset from the surface's border (INBOX 705).** The strip ran full width,
+     so its tint met the bordered edge on the left and right ("still the
+     offending formatting bar edges on the border"). Measured at 1440, 1920 and
+     390, capture and the edit form: the controls were already 6.4px inside
+     the inner box, it was the strip's own ground touching. It now floats one
+     step in, as its own rounded tint, so nothing it paints reaches the
+     border; the controls keep the strip's padding inside it. */
+  margin: 0 var(--space-2) var(--space-1);
   border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-md);
   background: linear-gradient(var(--input-bg), var(--input-bg)), var(--modal-bg-opaque);
 }
 
@@ -4749,8 +4755,12 @@ summary:not(.icon-only):not(.icon-button) {
    anything not on one is the platform control at the accessibility floor, 
    the ugliest available outcome. A new list that forgets to enrol gets no
    warning, no log and no failing test; it just looks broken. */
+/* `:not(:where(.cm-md-task))` (`:where` so the exclusion adds no specificity
+   and the rendered card's tick rule in 01-forms-settings.css still wins): a task's box inside an editor that sits in a list (the
+   note edit form is an `.entry-list` row) is the editor's, drawn once in
+   09-editor.css for the note and the document alike (INBOX 710). */
 .doc-list-tick,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only) {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)) {
   appearance: none;
   -webkit-appearance: none;
   width: var(--target-min);
@@ -4783,7 +4793,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):hover {
   border-color: var(--accent);
 }
 
@@ -4791,7 +4801,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -4802,7 +4812,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):not(:where(.cm-md-task)):checked::after {
   content: "";
   position: absolute;
   left: 50%;

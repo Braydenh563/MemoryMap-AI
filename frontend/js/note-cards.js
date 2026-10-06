@@ -1209,7 +1209,7 @@ async function binNoteWithUndo(entry) {
     settleUndoFromToast(action);
     await restoreIt();
     toast("Note restored.");
-  });
+  }, { also: GO_TO_BIN });
 }
 
 let notesSpanMemo = { list: null, many: false };
@@ -2244,7 +2244,7 @@ function entryItem(entry, options = {}) {
         }
         items.push({ label: "ph:tag Kind and properties…", title: "What kind of link this is (Part of, Supports…) and its properties", run: () => openLinkTypeSheet(entry.id, link), group: "kind" });
         items.push({ label: "ph:link-break Remove the link", title: "Remove this link (undoable)", run: unlink, group: "remove" });
-        connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`));
+        connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`, { vertical: true }));
       }
       linkRow.appendChild(connection);
     }

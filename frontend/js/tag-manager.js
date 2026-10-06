@@ -577,7 +577,7 @@ function drawTagRows(list, footer, state) {
     label.title = name;
     main.append(glyph, label, manageCountButton(count, () => showTagNotes(name)));
     li.appendChild(main);
-    const menu = kebabMenu(tagMenuItems(name), `Actions for ${name}`);
+    const menu = kebabMenu(tagMenuItems(name), `Actions for ${name}`, { vertical: true });
     menu.classList.add("manage-cat-menu");
     menu.setAttribute("role", "gridcell");
     menu.addEventListener("click", (event) => event.stopPropagation());

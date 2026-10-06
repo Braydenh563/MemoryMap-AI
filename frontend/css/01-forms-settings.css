@@ -218,7 +218,7 @@
 
 @media (hover: hover) {
   #sidebar li:hover {
-    background: var(--accent-soft);
+    background: var(--row-hover-bg);
   }
 }
 
@@ -3612,7 +3612,7 @@ mark.global-find-hit.global-find-current {
 }
 
 .modal-nav button:hover {
-  background: var(--accent-soft);
+  background: var(--row-hover-bg);
 }
 
 .modal-nav button.active {
@@ -4940,29 +4940,28 @@ html.modal-open body {
 }
 
 
-/* Each related note and its Link button on one line. The panel was a plain
-   run of chips; adding an action per row means the pairing has to be
-   explicit or the buttons drift away from the notes they belong to. */
+/* A suggested link: one chip holding the note and, at its end, the + that
+   says pressing it links (INBOX 709: "these plus buttons feel too separate
+   from their notes"). The whole chip is the hover and the press. */
 .entry-related-row {
   display: inline-flex;
-  /* One height for the note and its Link button (owner, 0.3.32: "the
-     suggested links arent the same height as the link buttons"): the chip
-     was its text's height beside a full control. */
-  align-items: stretch;
-  gap: var(--space-1);
   margin-right: var(--space-2);
 }
-.entry-related-row > .chip,
-.entry-related-row > button {
+
+.entry-related-row > .chip {
   display: inline-flex;
   align-items: center;
   margin-block: 0;
 }
-.entry-related-row > .chip {
-  align-self: stretch;
-  height: auto;
-  min-height: 0;
-  max-height: none;
+
+.entry-related-add {
+  margin-left: var(--space-2);
+  color: var(--accent-text);
+}
+
+.entry-related-chip[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 

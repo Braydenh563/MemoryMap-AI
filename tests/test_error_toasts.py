@@ -124,7 +124,7 @@ EXPECTED = {
     'note-edit-panels.js': [
         '"A note needs some text. To remove it, use Move to bin in its menu."',
     ],
-    'notes-list.js': [
+    'note-panels.js': [
         'draftFirst ? "A draft can\'t be linked to a saved note. Save the draft first." : "A saved note can\'t be linked to a draft. Save the draft first."',
     ],
     'pick-row.js': [

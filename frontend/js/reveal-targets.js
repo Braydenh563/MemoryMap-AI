@@ -458,6 +458,13 @@ const REVEAL_TARGETS = {
   "timeline-bands": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-band-section" },
   "global-find": { open: () => openGlobalFind(), el: "global-find-bar", flash: false, fallback: "wb-search-bar" },
   tensions: { open: () => openSuggestionsInbox("tensions"), sel: "#inbox-kind", built: "openSuggestionsInbox", flash: false },
+  //: Tidy (INBOX 691): its sheet, or opened at one review; the tag manager
+  //: and the filings to check, each named in Tools and features at last.
+  tidy: { tab: "notes", open: () => openTidySheet(), sel: '[data-sheet="tidy"] .sheet-card', built: "openTidySheet", flash: false },
+  "tidy-links": { tab: "notes", open: () => openTidySheet("link-reasons"), sel: "#tidy-review", built: "openTidySheet", flash: false },
+  "tidy-duplicates": { tab: "notes", open: () => openTidySheet("duplicates"), sel: "#tidy-review", built: "openTidySheet", flash: false },
+  "tag-manager": { open: () => openTagsSheet(), sel: '[data-sheet="tags"] .sheet-card', built: "openTagsSheet", flash: false },
+  "notes-review": { tab: "notes", open: () => showNotesFilter("is:review"), el: "note-search" },
 
   // Plan and focus: the dashboard's widgets
   "widget-on-this-day": { open: () => revealDashWidget("on-this-day"), sel: '[data-widget="on-this-day"]', built: "renderDashboard" },

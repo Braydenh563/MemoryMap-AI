@@ -1090,6 +1090,29 @@ function startApp() {
   // Warm the filing model, retry stand-ins (routes_models.warm_filing).
   api("/models/warm-filing", { method: "POST", silent: true }).catch(() => {});
 
+  // The desktop window's own title bar already shows the app's icon, so the
+  // header's logo tile under it is the same mark twice (INBOX 705). The server
+  // says whether this page runs in that window (`window_hook`, the same
+  // answer the documents full screen asks); the answer is kept on this
+  // device so the next launch paints without the tile, rather than drawing
+  // it and pulling it back when the reply lands. A browser tab keeps it.
+  try {
+    document.documentElement.dataset.chrome = localStorage.getItem("windowChrome") || "";
+  } catch (error) {
+    // No storage: the reply below still sets it for this session.
+  }
+  apiJson("/desktop/fullscreen", { silent: true })
+    .then((state) => {
+      const chrome = state?.available ? "native" : "";
+      document.documentElement.dataset.chrome = chrome;
+      try {
+        localStorage.setItem("windowChrome", chrome);
+      } catch (error) {
+        // Not kept; the next launch asks again.
+      }
+    })
+    .catch(() => {});
+
   // A failed load must be visible, not a silently empty page, and one
   // broken endpoint must never stop the rest of the app from coming up.
   // Every bootstrap step is isolated so a single rejection surfaces a toast
@@ -1968,6 +1991,8 @@ const LAZY_MODULES = {
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
   accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
+  //: Tidy, the reviews with no AI (INBOX 691): tidy.js's header.
+  tidy: ["/css/tidy-lazy.css", "/js/tidy.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2241,6 +2266,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  tidy: ["openTidySheet"],
   questionsView: ["initQuestionsView", "loadQuestions"],
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
@@ -2253,7 +2279,7 @@ const LAZY_ENTRY_POINTS = {
   accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
-  meetings: ["openNewMeeting", "openMeetingSheet"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

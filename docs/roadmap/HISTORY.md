@@ -45695,3 +45695,140 @@ and refuses a topic ("Select a shape, link or text box first").
      first and asked about only if that save fails (navigation.js
      `confirmLeavingUnsavedWork`; tests/test_unsaved_work_guard.py).
 
+685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Regenerate button's focus ring cut off along its left edge: "a lot of
+     borders get cut off on an edge." Focus rings and borders clipped by an
+     ancestor's `overflow`. Next: sweep every focusable control on every
+     surface for a ring outside its nearest clipping ancestor, and fix by
+     room (padding or an inset ring), never by hiding the ring. Placed: the
+     0.4.1 mini release, a Sonnet agent. Fixed 2026-10-06: the sweep
+     (`scratchpad/ui-sweeps/clip685.js`) found 59 clipped rings at 1440 and
+     61 at 390, now 0 and 0, by container in 08-consistency.css "Ring room"
+     (room or an inset ring, `--ring-room`, `tests/test_ring_room.py`). Also
+     fixed with it: the cut pill bottoms (694's first part), the "g" of
+     "Categories" and "Skill logs" (a line box of 1 under `overflow: hidden`),
+     the phone tab captions' descenders, the New meeting sheet's fields.
+
+705. **The owner, 2026-10-06, verbatim**, more for the next pass: the
+     composer formatting toolbar still meets its border at the right ("still
+     the offending formatting bar edges on the border"); a "go to bin" button
+     on the "Moved to the bin." notice; the title bar's app icon and the
+     header's logo clash ("these seem like the clash a bit... but idk");
+     Atlas and the companions "get annoyed every time I tap them multiple
+     times, can they alternate how they respond a little more??". Placed:
+     the next session (usage).
+707. **The owner, 2026-10-06, verbatim.** "when loading the app after login,
+     the companion just appears with no animation". Placed: with 705, the
+     polish agent: an entrance (a short emerge or drop-in to its perch, under
+     the avatar motion switch and reduced motion), once per unlock.
+
+691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
+     through links and tags without the ai?? like removing tags that dont
+     have a custom reason (reasons other than "similar in meaning") and that
+     have a low conficence score, maybe could be added in the notes tab??
+     like manual or automated ways to manage notes and other things
+     systemnatically and programatically nearly up to par with the ai but as
+     an option if the ai isnt available or as an alternative. needs to also
+     be known to the user, no use having them if the user doesnt know about
+     them. I feel like there are a lot of features hidden". Then: "also so
+     many notes get the reason "similar in meaning". the notes adn
+     management of things around them needs to be more dynamic and better.
+     world class". Placed: the 0.4.1 mini release, an Opus agent (audit,
+     then a Tidy surface in Notes, specific link reasons, discoverability).
+     **Fixed** 2026-10-06 (tidy691-1006): link reasons name what two notes
+     share (38 of 48 generic ones on the showcase notebook; 10 of 89 left
+     generic after the background pass), and Tidy, the broom in the Notes
+     dock with its count, holds nine rule-based reviews with apply, one
+     Undo and an optional automatic run; palette, Tools and features, the
+     Guide. See agent-remaining/tidy691-1006.md.
+709. **The owner, 2026-10-06, verbatim**, with a screenshot of a note's
+     "suggested links" row (each suggestion's text, then a separate "+"
+     button floating after it): "these plus buttons feel too separate from
+     their notes". Decision taken: each suggestion is one chip holding its
+     text and its add control (the + inside the chip's end, the whole chip
+     the hover target, its accessible name "Link to <title>"). Placed: with
+     691, the Tidy and links agent.
+     **Fixed** 2026-10-06 (tidy691-1006): one chip per suggestion, the +
+     inside its end, the chip the press, named "Link to <first line>"
+     (`relchip709.js`: 3 of 3 rows, a press links).
+
+708. **The owner, 2026-10-06, verbatim**, with screenshots of the Meeting
+     notes recorder: "the stop and resume on the audio transcribe doesnt
+     work" (paused at 0:05, Stop and Resume shown, "Paused."), then the
+     recorder after Stop reading "Transcribed: review it below before
+     saving." over an empty transcript, and: "also these panels feel badly
+     designed and neglected". Next: reproduce with Chromium's fake
+     microphone (--use-fake-device-for-media-stream), fix Stop and Resume
+     from the paused state (and an empty transcript must say so, not
+     "Transcribed"), then redesign the recorder panel by DESIGN.md: one clear
+     state at a time (ready, recording with level and time, paused,
+     transcribing with progress, review), the transcript sized to its
+     content, actions grouped with one primary. Placed: the next free Opus
+     slot.
+
+710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
+     checkbox in a note's editor (a large outlined box after a bullet) and in
+     the document editor (a smaller filled grey box after a bullet): "the
+     rendering of the selection tick boxes is different on the notes to the
+     document editor". One task-checkbox look for both editors (and no
+     bullet beside a task box), from one shared rule. Placed: the next free
+     Sonnet slot.
+
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+
+699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
+     package's row ("needle's own tools send usage data by default;
+     MemoryMap uses only its engine, which has no network code, and
+     switches that setting off anyway"): "is it possible to remove the part
+     of needle which sends usage data??" / "or even vendor it??" What is
+     true today (ai/needle_provider.py): the app loads only needle's native
+     engine with ctypes; the Python package and the command-line tool, which
+     carry the usage-data client, are never installed; the Linux engine was
+     read and imports no socket, connect, send or getenv. Decision taken:
+     not vendored (a 36 MB native engine plus weights per platform does not
+     belong in the repository, and the source build is not ours to
+     maintain); instead the download is pinned by SHA-256 per platform and,
+     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
+     and an engine that imports any network call is refused with a plain
+     message; the row's copy says this in one line. Placed: the next free
+     Sonnet slot.
+
+701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
+     shortcut, should they be added to the tooltips??" Recommendation,
+     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
+     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
+     changed binding changes its tooltip, with a lint that every bound
+     shortcut with a button has it in that button's title. Placed: the next
+     free Sonnet slot.
+
+702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
+     Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
+     filled square) and the Chats sidebar (hovered row: a neutral grey fill,
+     a plain ⋯): "the hover and button styles on the notes sidebar is
+     different from the others. is that intentional??" Not intentional.
+     Decision taken: one sidebar row recipe for every rail (Notes, Chats,
+     Library, Documents, Timeline, Settings): the same hover fill, the same
+     current-row fill (the current row may carry the accent, hover never
+     does), and the row's ⋯ as a plain ghost icon that fills only on its own
+     hover, inside the row's radius; a lint holds the rails to it. Placed:
+     the next free Sonnet slot.
+
+706. **The owner, 2026-10-06, verbatim.** "also idk about ui or ux proper
+     usage of icons but can you make sure that the common and professional
+     ways to use icons and what icons are used where is correct?? like we
+     have been using majority of meatball icons but I think meatball,
+     kebab, bento box icons and more etc are better for use in various
+     situations and uses". Decision taken (platform conventions): ⋯
+     (meatball, horizontal) for an item's overflow in a horizontal row or
+     card; ⋮ (kebab, vertical) for overflow at the end of a vertical list
+     row or a narrow column/app bar; ⊞ (bento/grid) only for switching
+     between apps or spaces; ☰ (hamburger) only for opening navigation. A
+     DESIGN.md row and a lint pin which goes where; then an icon audit for
+     other misuse (the same glyph meaning two things, two glyphs for one).
+     Placed: a Sonnet agent with 699, 701, 702.
+

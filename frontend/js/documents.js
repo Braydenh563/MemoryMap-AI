@@ -861,8 +861,7 @@ function renderDocList() {
           loadDocuments(currentDoc?.id);
         }),
       ],
-      `Actions for "${doc.title || "Untitled"}"`
-    );
+      `Actions for "${doc.title || "Untitled"}"`, { vertical: true });
     menu.classList.add("doc-item-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
     // Same clipping shape as the Library's own Documents-subtab kebab, a
@@ -7721,7 +7720,16 @@ function docLivePlugin(CM) {
               //: A number carries information ("this is item 3") and stays as
               //: it was typed; a dash does not, and becomes a bullet while
               //: the caret is elsewhere. Both keep the muted ink.
-              if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
+              //: **A task has its box, not a bullet as well** (INBOX 710: "a
+              //: bullet beside a task box"). The dash and the space after it
+              //: go while the caret is elsewhere; the box (the task marker's
+              //: widget, 1.1em and its 0.4em margin) takes the hanging
+              //: indent's 1.6em, so a wrapped line still aligns under its
+              //: words.
+              const taskLead = /^[ \t]*[-*+]\s+(?=\[[ xX]\]\s)/.exec(line.text);
+              if (taskLead && !touched(line.from, line.to)) {
+                ranges.push(hidden.range(from, line.from + taskLead[0].length));
+              } else if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
                 ranges.push(
                   Decoration.replace({ widget: new DocBulletWidget() }).range(from, to)
                 );

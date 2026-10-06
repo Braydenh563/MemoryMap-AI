@@ -60,6 +60,8 @@ KINDS: dict[str, str] = {
     "autonomous": "Autonomous optimisation",
     "resurface": "Resurfacing",
     "link-reasons": "Link reasons",
+    #: INBOX 691: a Tidy review applied, or the link reason pass.
+    "tidy": "Tidy",
     "filing": "Filing re-evaluation",
     "ocr": "Reading text from images",
     "caption": "Image captions",

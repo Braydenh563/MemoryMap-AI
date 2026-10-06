@@ -116,6 +116,9 @@ KIND_LANES: dict[str, str] = {
     "embed-switch": "batch",
     #: A scheduled pass started by hand (`core/passes.py`, INBOX 713).
     "pass": "batch",
+    #: Tidy's whole-notebook link reason pass (INBOX 691): no model, but a
+    #: notebook-wide walk, so it waits behind nothing a person is waiting on.
+    "tidy-link-reasons": "batch",
 }
 
 DEFAULT_LANE = "cpu"
@@ -162,6 +165,7 @@ LABELS: dict[str, str] = {
     "embed-entry": "Updating a note's search vector",
     "bench": "Timing a model",
     "pass": "Running a scheduled pass",
+    "tidy-link-reasons": "Naming link reasons",
 }
 
 

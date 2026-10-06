@@ -49,6 +49,8 @@ CSS_FILES = [
     #: Loaded with "Forgot your password?" and the recovery key
     #: (`LAZY_MODULES.accountRecovery`, INBOX 663).
     CSS_DIR / "recovery-lazy.css",
+    #: Tidy's sheet (`LAZY_MODULES.tidy`, INBOX 691).
+    CSS_DIR / "tidy-lazy.css",
 ]
 
 

@@ -853,6 +853,23 @@ details[open] > .about-whats-new::before,
   max-width: 9rem;
 }
 
+/* Tidy's count (INBOX 691) on the broom's corner, the phone More's run count
+   (`.tab-badge`, 10-responsive.css) in the accent: news, not a fault. Out of
+   the flow, so the glyph keeps the icon run's 32px. */
+.notes-tidy {
+  position: relative;
+}
+
+.notes-tidy > .tab-badge {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  right: calc(-1 * var(--space-1));
+  margin-left: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  pointer-events: none;
+}
+
 @media (max-width: 1399.98px) {
   [data-dock-name="notes"] .dock-word {
     position: absolute;
@@ -11146,6 +11163,133 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   min-width: 0;
 }
 
+/* ==========================================================================
+   Ring room (INBOX 685, "a lot of borders get cut off on an edge")
+   ==========================================================================
+   A focus ring is an outline outside the control's box (2px line, 2px offset:
+   `--ring-room`). Any ancestor that clips (`overflow` other than visible,
+   `contain: paint`, a `clip-path`) paints nothing outside its padding box, so
+   a control flush against that edge lost the side of its ring: the Regenerate
+   button in the Dashboard's constellation widget lost its left edge to
+   `.dash-body .row { overflow-x: clip }`. The sweep that found the rest is
+   `scratchpad/ui-sweeps/clip685.js` (every focusable on every surface, its
+   ring's outer box against every clipping ancestor, 1440 and 390, both
+   themes); `tests/test_ring_room.py` holds the containers below.
+
+   Two recipes, never a hidden ring:
+   - **Room**, for a container of separate controls (buttons, fields, chips):
+     `overflow-clip-margin` where the box clips with `overflow: clip`, or
+     padding of `--ring-room` with the same negative margin where it scrolls
+     (the layout does not move; the ring has somewhere to be painted).
+   - **Inset**, for a container whose children fill it edge to edge (a tab
+     strip, a list of rows, a segmented group, a sheet's rows): the ring is
+     drawn inside the control (`outline-offset: -2px`). Never on a filled
+     accent button, whose ring would vanish into its own fill. */
+
+/* Dashboard widgets: a body clips across (the focus timer's digits once made
+   a scrollbar flicker), and a tall one scrolls inside itself. */
+.dash-body,
+.dash-body .row {
+  overflow-clip-margin: var(--ring-room);
+}
+
+.dash-body {
+  padding: var(--ring-room);
+  margin: calc(-1 * var(--ring-room));
+  max-height: calc(320px + 2 * var(--ring-room));
+}
+
+.dash-widget:is([data-widget="boards"], [data-widget="art"], [data-widget="capture"], [data-widget="stats"], [data-widget="night"]) .dash-body {
+  max-height: none;
+}
+
+/* Inset: the controls that fill a clipping box edge to edge. A sub-tab strip
+   scrolls across (it is `overflow-x: auto`, so it clips down too), the
+   zoom group and the chat's mode switch are rounded by clipping, a sidebar
+   hides what leaves it, a list of rows fills the list. The ring is drawn
+   inside the control (one outline, 2px, offset -2px); a chosen segment is an
+   accent fill, so its ring is `--on-accent` there, or it would vanish into
+   the fill it sits on. */
+:is(
+  .tabs-line > button,
+  .doc-crumbs .doc-crumb,
+  #graph-legend .legend-toggle,
+  .sidebar-resize,
+  #category-list li,
+  .doc-item-button,
+  .outline-link,
+  .outline-twist,
+  .doc-template-choice,
+  .sheet-row,
+  .graph-zoom-btn,
+  .chat-dock-controls .seg > button
+):focus-visible {
+  outline-offset: -2px;
+}
+
+:is(.graph-zoom-btn, .chat-dock-controls .seg > button):is(.active, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]):focus-visible {
+  outline-color: var(--on-accent);
+}
+
+/* Room: the scrollers that hold separate controls or bordered cards against
+   their edge. Across, the room is padding with the same negative margin, so
+   nothing moves; at the start and the end of the scroll it is padding alone
+   (a few pixels the first control and the last one stand in). */
+:is(
+  .doc-sidebar-section,
+  .doc-sidebar .doc-outline-wrap,
+  .library-view-section,
+  .doc-list
+) {
+  padding-inline: var(--ring-room);
+  margin-inline: calc(-1 * var(--ring-room));
+}
+
+:is(.doc-sidebar-section, .library-view-section, .doc-list) {
+  padding-block: var(--ring-room);
+}
+
+/* The Settings nav scrolls on its own and its last section button stood on
+   the bottom edge (2px of padding for a 4px ring). */
+.modal-nav {
+  padding-block: var(--ring-room);
+}
+
+/* The Settings pane's controls start at its left edge (a link, the field
+   under Memory, the profile mark, the help search). */
+.modal-content {
+  padding-inline-start: var(--ring-room);
+}
+
+/* Beside the nav the pane's extra room comes out of the grid gap; under 820
+   the pane fills the body, which hides what leaves it, so it stays padding. */
+@media (min-width: 820px) {
+  .modal-content {
+    margin-inline-start: calc(-1 * var(--ring-room));
+  }
+}
+
+/* The one action an empty References section keeps (a quiet "Attach a link"
+   with no padding of its own), in a wrap that scrolls. */
+#doc-bookmarks-wrap:has(> .doc-outline:empty) {
+  padding-block: var(--ring-room);
+  margin-top: calc(var(--space-3) - var(--ring-room));
+}
+
+/* A pill track and its segments (INBOX 694: "the bottom of these pills gets
+   cut off", the dock's Ask | Agent and the skills panel's Pace: Auto | Manual).
+   The track is the dock's control height with a 1px edge, so its inside is two
+   pixels shorter than the segments, which were the same control height, and
+   the chosen segment's fill (the strip's sliding indicator, drawn in the
+   segment's box) lost its bottom edge to the track's clip (measured: the
+   segment 32px in a 30px inside, 2px past the bottom). The segments take the
+   track's inside, whatever height it has. */
+.chat-dock-controls .seg > button {
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
+}
+
 /* --- The compact row: one line, one anchor, one chevron (INBOX 676) ---
    The owner: "the popup hover buttons arent correctly positioned, the
    metadata isnt centred. when expanded the dropdown arrow is different and
@@ -11223,4 +11367,88 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    `.menu-open` until the menu closes, so that is the third reason to show. */
 #entry-list > li .entry-actions.menu-open {
   opacity: 1;
+}
+
+/* Room: strips of chips and tiles that scroll across (`overflow-x: auto`
+   clips down as well), and the notes page, whose cards stand on its edges
+   under 600. */
+:is(.launch-row, .library-filters, #tab-notes .layout > .tab-main) {
+  padding-inline: var(--ring-room);
+  margin-inline: calc(-1 * var(--ring-room));
+}
+
+:is(.launch-row, .library-filters, #chat-suggest) {
+  padding-block: var(--ring-room);
+  margin-block: calc(-1 * var(--ring-room));
+}
+
+/* The chat's suggestions fill the page's width (`max-width: 100%`), so the
+   room is padding inside it. */
+#chat-suggest {
+  padding-inline: var(--ring-room);
+}
+
+/* Inset: the dock's quiet icon buttons on its scrolling row, a menu's rows,
+   a table head's sort buttons (the head clips, and the button fills it). */
+:is(.chat-dock-controls .ghost, .menu-item, .timeline-sort):focus-visible {
+  outline-offset: -2px;
+}
+
+/* A sort button fills its head cell, and the head's collapsed 2px edge takes
+   a pixel of the cell's inside: the chosen column's fill lost its bottom row
+   under `overflow: hidden`. Clipped with 2px of margin it keeps the row. */
+.timeline-table thead th {
+  overflow: clip;
+  overflow-clip-margin: 2px;
+}
+
+/* Text that ellipsises is clipped by its own box, and a line box of 1 is
+   shorter than the font's ascent plus descent (INBOX 685: the "g" of
+   "Categories" and "Skill logs", `.sidebar-head h2`, 05-sidebars-themes.css,
+   now 1.25). The phone tab bar's captions keep their tight line (the bar's
+   height is measured) and take the descender back with `overflow-clip-margin`,
+   which moves nothing. */
+.tab-label {
+  overflow: clip;
+  overflow-clip-margin: 0.25em;
+}
+
+/* A sheet's scrolling body (the New meeting form, an entity's page, a note's
+   properties, the suggestions inbox): its fields stand on its edges. */
+.inbox-body {
+  padding: var(--ring-room);
+  margin: calc(-1 * var(--ring-room));
+}
+
+/* --- One sidebar row recipe for every rail (INBOX 702) ---
+   The owner, with two screenshots: the Notes sidebar's hovered row was a
+   blue-tinted fill with its ⋯ in a filled square, the Chats sidebar's a
+   neutral grey with a plain ⋯: "is that intentional??" It was not: each rail
+   had been styled on the day it was built. Measured before: hover filled
+   `--accent-soft` on Notes and the Settings list, 6% ink on Chats; the
+   current row 10% accent, 16% accent and `--accent-soft`.
+
+   The rule, for every row of a left rail (Notes categories, Chats, the
+   Documents list, the Settings sections, and any rail added later):
+   - **hover is neutral**: `--row-hover-bg`, never an accent tint, because
+     the accent means "this is the one you are in";
+   - **the current row may carry the accent**: `--accent-soft` (a rail may add
+     its own edge or title colour on top, never a second fill), and hovering
+     it changes nothing;
+   - **the row's ⋯ is a plain ghost icon**: no fill at rest or while the row
+     is hovered, `--ghost-btn-bg` only under its own pointer, drawn with the
+     row's own radius so the fill stays inside the row.
+   The Documents rows are cards that keep their resting `--surface-2` fill (an
+   owner report: "every row draws the same shape"); their hover is the next
+   neutral tier, which is why `tests/test_ui_recipes.py` names them apart.
+   Pinned there; DESIGN.md's recipe index has the row. */
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
+  background: var(--ghost-btn-bg);
 }

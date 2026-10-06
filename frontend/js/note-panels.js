@@ -283,7 +283,31 @@ function similarNoteRow(entry, other, onLinked) {
   const preview = shown.length > 50 ? shown.slice(0, 49) + "…" : shown;
   const wrap = document.createElement("span");
   wrap.className = "entry-related-row";
-  const relChip = chip("", "link", () => flashEntry(other.id));
+  //: **One chip, the + inside its end** (INBOX 709, the owner: "these plus
+  //: buttons feel too separate from their notes"). The note and its Link were
+  //: a chip and a button side by side; now the chip is the control, the whole
+  //: of it the hover and the press, named for what pressing does.
+  const linkIt = async () => {
+    if (relChip.getAttribute("aria-disabled") === "true") return;
+    relChip.setAttribute("aria-disabled", "true");
+    try {
+      await apiJson(`/entries/${entry.id}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: other.id }),
+      });
+      toast("Linked.");
+      wrap.remove();
+      onLinked?.();
+    } catch (error) {
+      relChip.removeAttribute("aria-disabled");
+      toast(error.message || "Couldn't link those notes.", true);
+    }
+  };
+  const relChip = chip("", "link entry-related-chip", linkIt);
+  //: Named by the note's first line, the way a person calls it.
+  const name = preview.split("\n")[0].trim() || preview;
+  relChip.setAttribute("aria-label", `Link to ${name}`);
+  relChip.title = `Link this note to “${preview}”`;
   //: The same mark the menu item that opens this row wears, drawn the same
   //: way: an `<i class="ph">` rather than the character U+2248, which came
   //: out in the page font at the text's own weight beside Phosphor icons in
@@ -295,26 +319,11 @@ function similarNoteRow(entry, other, onLinked) {
   const previewSpan = document.createElement("span");
   renderInlineMarkdown(previewSpan, preview, [], true);
   relChip.appendChild(previewSpan);
+  const add = document.createElement("i");
+  add.className = "ph ph-plus entry-related-add";
+  add.setAttribute("aria-hidden", "true");
+  relChip.appendChild(add);
   wrap.appendChild(relChip);
-
-  //: A quiet + beside the note, not a boxed "Link" (INBOX 606).
-  const linkBtn = smallButton("ph:plus", `Link this note to “${preview}”`, async () => {
-    linkBtn.disabled = true;
-    try {
-      await apiJson(`/entries/${entry.id}/links`, {
-        method: "POST",
-        body: JSON.stringify({ target_id: other.id }),
-      });
-      toast("Linked.");
-      wrap.remove();
-      onLinked?.();
-    } catch (error) {
-      linkBtn.disabled = false;
-      toast(error.message || "Couldn't link those notes.", true);
-    }
-  });
-  linkBtn.classList.add("entry-related-link-btn");
-  wrap.appendChild(linkBtn);
   return wrap;
 }
 

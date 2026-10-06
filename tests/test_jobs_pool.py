@@ -232,3 +232,13 @@ def test_a_dedupe_key_keeps_one_job_per_thing_in_flight() -> None:
     third = pool.enqueue("caption", work, "d", dedupe_key=("caption", 7))
     assert third not in (first, other)
     pool.shutdown()
+
+
+def test_loading_the_search_model_never_holds_the_model_lane():
+    """The search warm-up is a model load, minutes on a first launch, and the
+    model lane is one wide: on it, the first note's filing waited behind the
+    load (E2E first-run, 2026-10-06, reproduced with a 40 s stand-in load).
+    Filing, embedding and captions stay on `model`; the warm-up does not."""
+    assert jobs.KIND_LANES["warm"] != "model"
+    assert jobs.KIND_LANES["file-entry"] == "model"
+    assert jobs.KIND_LANES["warm"] in jobs.LANE_WIDTHS

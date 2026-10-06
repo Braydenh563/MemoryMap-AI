@@ -2832,10 +2832,13 @@ def _seg_track_names() -> set[str]:
 #: conversion is placed (agent-remaining/seg665-1006.md). The list may only
 #: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
 SEG_OF_FOUR_PLACED = {
-    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them",
-    "font-seg": "Settings, Appearance: four fonts, each a preview of itself; placed",
-    "density-seg": "Settings, Appearance: four densities; placed",
-    "graph-layout": "the Graph's four layouts, radio-backed; placed",
+    #: The one that stays (INBOX 670): the Attach picker's five sources, each
+    #: carrying the count of what is attached from it, are the picker dialog's
+    #: strip, which DESIGN.md's picker rows pin as equal segments across the
+    #: dialog (tabs with a count on each, one Tab stop, arrows between them),
+    #: and `test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog`
+    #: holds that shape. A list there would hide the counts and add a click.
+    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them as equal segments, pinned",
 }
 
 
@@ -2884,9 +2887,44 @@ def test_a_pill_well_holds_two_or_three_choices() -> None:
     wells.feed(html)
     wide = {name for name, count in wells.found.items() if count >= 4}
     assert wide <= set(SEG_OF_FOUR_PLACED), f"a new pill well of four or more: {sorted(wide - set(SEG_OF_FOUR_PLACED))}"
-    for name in ("questions-state", "skills-kind"):
-        assert name not in wells.found, f"#{name} is a select (INBOX 665), not a well"
+    for name in ("questions-state", "skills-kind", "font-seg", "density-seg", "graph-layout"):
+        assert name not in wells.found, f"#{name} is a select (INBOX 665, 670), not a well"
         assert f'<select id="{name}"' in html
+
+
+def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
+    """INBOX 670: Settings, Appearance, Font and Density were wells of four.
+    Each is a `<select>` (ids kept) that writes the same setting as before,
+    and `renderAppearance` sets the list from the stored value."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    font = html[html.index('<select id="font-seg"') :]
+    font = font[: font.index("</select>")]
+    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial"]
+    density = html[html.index('<select id="density-seg"') :]
+    density = density[: density.index("</select>")]
+    assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
+    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    assert '$("font-seg").addEventListener("change"' in js and 'localStorage.setItem("font", e.target.value)' in js
+    assert '$("density-seg").addEventListener("change"' in js
+    assert '$("font-seg").value = appearancePref("font")' in js
+    assert '$("density-seg").value = prefs.get("density", null) || "auto"' in js
+    assert "#font-seg button" not in js and "#density-seg button" not in js
+
+
+def test_the_suggestions_inbox_kinds_are_a_list_with_counts() -> None:
+    """INBOX 670: the inbox's four kinds, each carrying a count, were a
+    `.seg` well (the shape INBOX 665 took away from Questions). One select,
+    `#inbox-kind`, its rows "Links (3)"; the arrows of the list replace the
+    tabs' own, and the panes follow the value."""
+    js = (ROOT / "frontend" / "js" / "suggestions-inbox.js").read_text(encoding="utf-8")
+    assert 'document.createElement("select")' in js and 'kind.id = "inbox-kind"' in js
+    assert "inbox-seg" not in js and 'className = "seg' not in js and '"tablist"' not in js
+    assert 'kind.addEventListener("change"' in js and "inboxShow(kind.value)" in js
+    assert "option.dataset.label" in js, "the counts ride on the select's rows"
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert ".inbox-seg" not in css
+    reveal = (ROOT / "frontend" / "js" / "reveal-targets.js").read_text(encoding="utf-8")
+    assert "#inbox-tab-" not in reveal
 
 
 def test_a_visual_choice_is_a_row_of_previews() -> None:

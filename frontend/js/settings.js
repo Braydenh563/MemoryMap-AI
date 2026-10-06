@@ -2519,8 +2519,11 @@ function renderAppearance() {
   renderPaletteGrid();
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
-  _segActive("font-seg", "font", appearancePref("font"));
-  _segActive("density-seg", "density", prefs.get("density", null) || "auto");
+  //: Two lists, not wells (INBOX 670): a value no option carries (a font a
+  //: saved look set that the list does not offer) leaves the list on its
+  //: first row rather than on a blank.
+  $("font-seg").value = appearancePref("font");
+  $("density-seg").value = prefs.get("density", null) || "auto";
 }
 
 // A frozen background with no explanation reads as a broken app, which is
@@ -2874,22 +2877,18 @@ for (const b of document.querySelectorAll("#fontsize-seg button")) {
     renderAppearance();
   });
 }
-for (const b of document.querySelectorAll("#font-seg button")) {
-  b.addEventListener("click", () => {
-    localStorage.setItem("font", b.dataset.font);
-    applyAppearance();
-    renderAppearance();
-  });
-}
-for (const b of document.querySelectorAll("#density-seg button")) {
-  b.addEventListener("click", () => {
-    //: Auto is no choice at all: the window's height decides.
-    if (b.dataset.density === "auto") localStorage.removeItem("density");
-    else localStorage.setItem("density", b.dataset.density);
-    applyAppearance();
-    renderAppearance();
-  });
-}
+$("font-seg").addEventListener("change", (e) => {
+  localStorage.setItem("font", e.target.value);
+  applyAppearance();
+  renderAppearance();
+});
+$("density-seg").addEventListener("change", (e) => {
+  //: Auto is no choice at all: the window's height decides.
+  if (e.target.value === "auto") localStorage.removeItem("density");
+  else localStorage.setItem("density", e.target.value);
+  applyAppearance();
+  renderAppearance();
+});
 $("perf-mode").addEventListener("change", (e) => {
   localStorage.setItem("perf", e.target.value);
   applyAppearance();

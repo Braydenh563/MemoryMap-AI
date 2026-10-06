@@ -57,17 +57,6 @@ with its owner named in the entry.
      keyframe that jumps). Placed: the 0.4.1 mini release, an Opus agent
      when a slot frees.
 
-670. **Decision missing, found by the drop-placement agent (664),
-     2026-10-06.** A map template dropped on a map with no central topic
-     makes one trunk per top-level topic in the template. Recommendation,
-     taken: a template with one top-level topic makes that topic the
-     central topic; a template with several puts them under a new central
-     topic named after the template. With it, the five `.seg` wells INBOX
-     665 left (`#font-seg`, `#density-seg`, `#graph-layout`,
-     `#note-picker-sources`, the suggestions inbox kinds;
-     docs/roadmap/agent-remaining/seg665-1006.md), converted by the recipe
-     665 added to DESIGN.md. Placed: the 0.4.1 mini release, a Sonnet agent.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

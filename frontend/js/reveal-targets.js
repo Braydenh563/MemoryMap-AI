@@ -451,11 +451,11 @@ const REVEAL_TARGETS = {
   entities: { open: () => openEntitiesSheet(), sel: '[data-sheet="entities"] .sheet-card', built: "openEntitiesSheet", flash: false },
   //: The suggestions inbox (KG9): one sheet, opened at the kind asked for.
   suggestions: { open: () => openSuggestionsInbox("links"), sel: '[data-sheet="suggestions"] .sheet-card', built: "openSuggestionsInbox", flash: false },
-  "graph-suggest": { open: () => openSuggestionsInbox("links"), sel: "#inbox-tab-links", built: "openSuggestionsInbox", flash: false, fallback: "link-suggest-btn" },
+  "graph-suggest": { open: () => openSuggestionsInbox("links"), sel: "#inbox-kind", built: "openSuggestionsInbox", flash: false, fallback: "link-suggest-btn" },
   "timeline-zoom": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-scale-group" },
   "timeline-bands": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-band-section" },
   "global-find": { open: () => openGlobalFind(), el: "global-find-bar", flash: false, fallback: "wb-search-bar" },
-  tensions: { open: () => openSuggestionsInbox("tensions"), sel: "#inbox-tab-tensions", built: "openSuggestionsInbox", flash: false },
+  tensions: { open: () => openSuggestionsInbox("tensions"), sel: "#inbox-kind", built: "openSuggestionsInbox", flash: false },
 
   // Plan and focus: the dashboard's widgets
   "widget-on-this-day": { open: () => revealDashWidget("on-this-day"), sel: '[data-widget="on-this-day"]', built: "renderDashboard" },

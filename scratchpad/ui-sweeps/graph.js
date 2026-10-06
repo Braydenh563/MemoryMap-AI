@@ -389,7 +389,7 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     () =>
       page.evaluate(() => {
         localStorage.setItem("graph-layout", "tree");
-        document.querySelector('input[name="graph-layout"][value="tree"]').click();
+        (() => { const l = document.getElementById("graph-layout"); l.value = "tree"; l.dispatchEvent(new Event("change", { bubbles: true })); })();
       }),
     5000
   );
@@ -398,7 +398,7 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     () =>
       page.evaluate(() => {
         localStorage.setItem("graph-layout", "radial");
-        document.querySelector('input[name="graph-layout"][value="radial"]').click();
+        (() => { const l = document.getElementById("graph-layout"); l.value = "radial"; l.dispatchEvent(new Event("change", { bubbles: true })); })();
       }),
     5000
   );
@@ -407,7 +407,7 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     () =>
       page.evaluate(() => {
         localStorage.setItem("graph-layout", "arc");
-        document.querySelector('input[name="graph-layout"][value="arc"]').click();
+        (() => { const l = document.getElementById("graph-layout"); l.value = "arc"; l.dispatchEvent(new Event("change", { bubbles: true })); })();
       }),
     5000
   );
@@ -416,7 +416,7 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     () =>
       page.evaluate(() => {
         localStorage.setItem("graph-layout", "force");
-        document.querySelector('input[name="graph-layout"][value="force"]').click();
+        (() => { const l = document.getElementById("graph-layout"); l.value = "force"; l.dispatchEvent(new Event("change", { bubbles: true })); })();
       }),
     4000
   );

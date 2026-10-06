@@ -100,12 +100,14 @@ def test_graph_view_menu_is_folded_into_the_gears_panel():
     for ident in ("graph-layout", "graph-colour", "graph-size", "graph-trace-toggle", "graph-legend-toggle"):
         assert f'id="{ident}"' in panel, ident
     for value in ("force", "tree", "radial", "arc"):
-        assert f'name="graph-layout" value="{value}"' in panel, value
+        assert f'<option value="{value}"' in panel[panel.index('id="graph-layout"') : panel.index('id="graph-colour"')], value
+    # INBOX 670: the layout is a list beside Colour and Size, not a radio well.
+    assert '<select id="graph-layout"' in panel and 'type="radio"' not in panel
     colour = panel[panel.index('id="graph-colour"') : panel.index('id="graph-size"')]
     for value in ("category", "cluster", "kind", "age", "space", "tag", "file"):
         assert f'<option value="{value}">' in colour, value
     # Labelled for keyboard and screen reader users: a label bound to each select.
-    assert 'for="graph-colour"' in panel and 'for="graph-size"' in panel
+    assert 'for="graph-colour"' in panel and 'for="graph-size"' in panel and 'for="graph-layout"' in panel
     assert 'aria-labelledby="graph-layout-label"' in panel
 
 

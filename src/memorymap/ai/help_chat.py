@@ -327,6 +327,7 @@ HELP_TOPICS: list[dict] = [
             "graph and the whiteboard, and Interface animations (on by default) "
             "keeps the short fades and slides of menus, dialogs and tabs and a "
             "button's press even then; turn it off and they are instant. "
+            "Font and Density (Typography & layout) are lists you pick from. "
             "Density's Auto, the default, is Compact on a window "
             "700px tall or less and the look's own spacing on a taller one. "
             "Performance mode (Effects & accessibility) turns off "
@@ -1031,7 +1032,11 @@ HELP_TOPICS.extend(
                 "A topic's Add, From the library… points a new topic at a note, "
                 "document, file or bookmark: a tab for each with its count (the "
                 "arrows move between them; it opens on the one you used last), "
-                "type to narrow the list, Down and Enter to choose."
+                "type to narrow the list, Down and Enter to choose. A map template "
+                "(Library, Templates) dropped on a map with no central topic gets "
+                "one: a template with several top-level topics goes under a new "
+                "central topic named after it, and one with a single top-level "
+                "topic makes that topic the centre."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

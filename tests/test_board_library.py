@@ -222,6 +222,65 @@ def test_no_two_topics_of_a_placed_branch_share_a_spot(ai_client):
                 assert kids[0]["y"] == topic["y"] and kids[0]["x"] == topic["x"] + 220
 
 
+def _objects(client, board_id):
+    return client.get(f"/whiteboard/?board_id={board_id}").json()["objects"]
+
+
+def test_a_template_on_a_map_with_no_centre_gets_one(ai_client):
+    """INBOX 670: a map template dropped on a map with no central topic made
+    one trunk per top-level topic. Several top-level topics now go under a new
+    central topic named after the template; one becomes the centre itself."""
+    mind = _board(ai_client, name="Rootless map", kind="map")
+    out = ai_client.post(f"/whiteboard/boards/{mind['id']}/place", json={"builtin": "maps/brainstorm", "x": 0, "y": 0})
+    assert out.status_code == 201, out.text
+    made = out.json()["objects"]
+    roots = [o for o in made if o["parent_id"] is None]
+    assert [o["data"]["content"] for o in roots] == ["Brainstorm"]
+    kids = [o for o in made if o["parent_id"] == roots[0]["id"]]
+    assert sorted(o["data"]["content"] for o in kids) == ["Ideas", "Next steps", "Questions", "Themes"]
+    # The centre sits on its first branch's row, one column left, and no two
+    # topics share a spot.
+    assert kids[0]["y"] == roots[0]["y"] and kids[0]["x"] == roots[0]["x"] + 220
+    spots = [(o["x"], o["y"]) for o in made]
+    assert len(spots) == len(set(spots))
+
+
+def test_a_template_with_one_top_level_topic_makes_it_the_centre(ai_client):
+    mind = _board(ai_client, name="Rootless single", kind="map")
+    item = _save(ai_client, kind="branch", name="Risks", payload={"nodes": [{"text": "Risks", "children": [{"text": "Cost"}, {"text": "Time"}]}]})
+    out = ai_client.post(f"/whiteboard/boards/{mind['id']}/place", json={"item_id": item["id"], "x": 0, "y": 0})
+    assert out.status_code == 201, out.text
+    made = out.json()["objects"]
+    assert [o["data"]["content"] for o in made if o["parent_id"] is None] == ["Risks"]
+    assert len(made) == 3
+
+
+def test_a_template_on_a_map_that_has_a_centre_adds_no_second_one(ai_client):
+    mind = _board(ai_client, name="Centred map", kind="map")
+    root = ai_client.post(f"/whiteboard/boards/{mind['id']}/nodes", json={"kind": "topic", "text": "Centre"}).json()
+    under = ai_client.post(f"/whiteboard/boards/{mind['id']}/place", json={"builtin": "maps/brainstorm", "x": 0, "y": 0, "parent_id": root["id"]}).json()["objects"]
+    assert not any(o["parent_id"] is None for o in under)
+    assert not any(o["data"]["content"] == "Brainstorm" for o in under)
+    # No parent given on a map that already has a root: nothing is wrapped.
+    bare = ai_client.post(f"/whiteboard/boards/{mind['id']}/place", json={"builtin": "maps/decision", "x": 0, "y": 0}).json()["objects"]
+    assert not any(o["data"]["content"] == "Decision" for o in bare)
+
+
+def test_a_template_on_a_plain_board_is_not_wrapped(ai_client):
+    board = _board(ai_client, name="Plain board")
+    made = ai_client.post(f"/whiteboard/boards/{board['id']}/place", json={"builtin": "maps/brainstorm", "x": 0, "y": 0}).json()["objects"]
+    assert not any(o["data"]["content"] == "Brainstorm" for o in made)
+
+
+def test_a_new_map_from_a_map_template_has_one_centre(ai_client):
+    out = ai_client.post("/board-library/new-board", json={"builtin": "maps/project", "name": "Launch"})
+    assert out.status_code == 201, out.text
+    topics = _objects(ai_client, out.json()["id"])
+    roots = [o for o in topics if o["parent_id"] is None]
+    assert [o["data"]["content"] for o in roots] == ["Project"]
+    assert sum(o["parent_id"] == roots[0]["id"] for o in topics) == 5
+
+
 def test_a_template_starts_a_board_with_its_look(ai_client):
     item = _save(ai_client, kind="template", payload={
         "board": {"type": "board", "background": {"color": "#101820"}},

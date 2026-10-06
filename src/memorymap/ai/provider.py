@@ -1359,21 +1359,21 @@ def loads_lenient(text: str) -> object:
     try:
         return json.loads(raw)
     except (ValueError, RecursionError):
-        pass
+        pass  # not strict JSON: try the leading value alone
     try:
         return json.JSONDecoder().raw_decode(raw)[0]
     except (ValueError, RecursionError):
-        pass
+        pass  # no leading value either: try the repairs below
     tidy = _TRAILING_COMMA_RE.sub(r"\1", raw)
     for attempt in (tidy, _close_open_json(tidy)):
         try:
             return json.loads(attempt)
         except (ValueError, RecursionError):
-            pass
+            pass  # a Python literal (single quotes, True) is the last reading
         try:
             return ast.literal_eval(attempt)
         except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
-            pass
+            pass  # this repair did not read; the next one, or the error below
     raise ValueError("not JSON, even read leniently")
 
 

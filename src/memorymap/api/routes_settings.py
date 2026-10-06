@@ -930,7 +930,8 @@ def _validated_context_windows(value: object) -> dict[str, int | None]:
             continue
         try:
             wanted = int(window)
-        except (TypeError, ValueError):
+        #: OverflowError: JSON's `1e999` is infinity, which has no int.
+        except (TypeError, ValueError, OverflowError):
             cleaned[key] = None
             continue
         cleaned[key] = wanted if 0 < wanted <= _MAX_SETTABLE_CONTEXT else None

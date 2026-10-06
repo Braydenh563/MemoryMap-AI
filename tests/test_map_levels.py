@@ -114,3 +114,24 @@ def test_a_topic_can_be_filled_solid_and_a_text_box_can_be_a_sticker(client):
     )
     assert sticker.status_code in (200, 201), sticker.text
     assert sticker.json()["data"]["sticker"] is True
+
+
+def test_an_infinite_font_size_is_dropped_not_a_500(client):
+    """JSON's `1e999` reads as infinity, and `int(inf)` raises OverflowError,
+    which `_clean_theme` and `_clean_levels` did not catch (the final scan,
+    2026-10-06): the theme patch was a 500, and since `_clean_theme` also
+    runs on the read path, a stored one would be a 500 on every read."""
+    inf = float("inf")
+    assert _clean_theme({"font_size": inf, "levels": {"0": {"font_size": -inf, "bold": True}}}) == {
+        "levels": {"0": {"bold": True}}
+    }
+    board = _map(client)
+    response = client.put(
+        f"/whiteboard/boards/{board['id']}",
+        content='{"theme": {"font_size": 1e999, "levels": {"1": {"font_size": 1e999, "italic": true}}}}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 200, response.text
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree")
+    assert tree.status_code == 200, tree.text
+    assert tree.json()["theme"] == {"levels": {"1": {"italic": True}}}

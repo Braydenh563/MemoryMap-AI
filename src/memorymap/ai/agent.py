@@ -1273,8 +1273,11 @@ _PARK_WHEN_TAINTED = _OUTBOUND_TOOLS | frozenset(_WRITE_TOOLS)
 #: address a search result gave this turn. Anything else, a query string
 #: added, a longer path, a name that only ends like the site, still parks:
 #: that is where a page smuggles data out.
+#: The lookbehind is what keeps it linear: without it a match restarted at
+#: every label of a dotted run (`a.a.a.` 16,000 long took 3.8 s, CodeQL's
+#: `py/polynomial-redos`), and a host never starts inside another host.
 _ADDRESS = re.compile(
-    r"(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63})(?::\d+)?(/[^\s<>()\"']*)?",
+    r"(?<![a-z0-9.\-])(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63})(?::\d+)?(/[^\s<>()\"']*)?",
     re.IGNORECASE,
 )
 
@@ -2212,7 +2215,7 @@ def _round_stream(ollama, model, messages, offered, mode, required):
         try:
             return ollama.chat_tools_stream(model, messages, offered, mode=mode, tool_choice="required")
         except TypeError:
-            pass
+            pass  # a fake or provider without tool_choice: the plain call below
     return ollama.chat_tools_stream(model, messages, offered, mode=mode)
 
 

@@ -54,8 +54,13 @@ MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 MAX_NOTES = 5000
 
-_NOTION_ID = re.compile(r"\s+([0-9a-f]{32})$", re.IGNORECASE)
-_NOTION_LINK = re.compile(r"\[([^\]]*)\]\(([^)\s]+?\.(?:md|html))\)")
+#: Every pattern here runs on an uploaded file, so none may backtrack
+#: quadratically (CodeQL's `py/polynomial-redos`; the final scan measured
+#: 2 to 10 s on 20 to 180 KB of the old shapes): a run that could restart at
+#: every position is bounded by a character it may not contain (`[^\[\]]`,
+#: `[^<>]`), and the Notion id is a fixed-width tail, not a regex.
+_NOTION_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()\[\]\s]+?\.(?:md|html))\)")
+_HEX = frozenset("0123456789abcdefABCDEF")
 _TEXT_SUFFIXES = (".md", ".markdown", ".txt")
 _HTML_SUFFIXES = (".html", ".htm")
 
@@ -162,9 +167,9 @@ def _html_body(html: str) -> str:
 
 def _notion_name(stem: str) -> tuple[str, str | None]:
     """`("Page Title", "1a2b...")` from `Page Title 1a2b...`."""
-    match = _NOTION_ID.search(stem)
-    if match:
-        return stem[: match.start()].strip(), match.group(1).lower()
+    tail = stem[-32:]
+    if len(stem) > 32 and stem[-33].isspace() and set(tail) <= _HEX:
+        return stem[:-33].strip(), tail.lower()
     return stem.strip(), None
 
 
@@ -269,10 +274,14 @@ def _enml(content: str) -> str:
     """An ENML body as markdown: `en-media` (an attached file the export
     carries as base64 elsewhere) and `en-todo` become words, the rest is
     XHTML."""
-    content = re.sub(r"<\?xml[^>]*\?>|<!DOCTYPE[^>]*>", "", content or "")
+    content = re.sub(r"<\?xml[^<>]*\?>|<!DOCTYPE[^<>]*>", "", content or "")
     content = re.sub(r"<en-todo\s+checked=\"true\"\s*/>", "[x] ", content)
-    content = re.sub(r"<en-todo[^>]*/>", "[ ] ", content)
-    content = re.sub(r"<en-media[^>]*/>|<en-media[^>]*>.*?</en-media>", " [attachment] ", content, flags=re.S)
+    content = re.sub(r"<en-todo[^<>]*/>", "[ ] ", content)
+    #: An `en-media` element is empty in ENML, so its opening tag is the
+    #: attachment and a closing tag is dropped; matching open-to-close with a
+    #: lazy `.*?` scanned to the end of the file once per unclosed tag.
+    content = re.sub(r"<en-media[^<>]*>", " [attachment] ", content)
+    content = content.replace("</en-media>", "")
     content = content.replace("<en-note", "<div").replace("</en-note>", "</div>")
     return _html_body(content)
 

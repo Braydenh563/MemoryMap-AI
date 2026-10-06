@@ -45832,3 +45832,36 @@ and refuses a topic ("Select a shape, link or text box first").
      other misuse (the same glyph meaning two things, two glyphs for one).
      Placed: a Sonnet agent with 699, 701, 702.
 
+692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
+     stretched force layout: "can you add a resuffle button or feature to
+     the graph to rearrange how the graph sits on the main force view??"
+     The graph has Unpin all and no re-layout. Placed: with 693, the next
+     free agent slot.
+693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
+     where a link passes behind other notes' dots: "bit of overlap". Links
+     drawn through nodes they do not connect, and nodes close enough to
+     touch. Placed: with 692. And, the same hour, with a screenshot of the
+     force view: "is there a way to get the graph to sit in ways that are
+     more visually appealing and understandable and profesional and
+     stylisitc and modern and intentional and impressive and meaningful??"
+     692 and 693 are one Opus design pass on the force layout: clusters by
+     category with clear space between them, hubs central, labels never
+     over dots or lines, links routed round nodes they do not join, a
+     Reshuffle (new seed, animated) and a fit to view.
+     **Built** (graph692, `7fcfb21`), with the owner's second pass (compact
+     round clusters, even gutters, cross lines short, straight and muted,
+     orphans tidy, hubs-only names, the canvas's shape). Measured on the
+     showcase notebook at 1440x900 (`scratchpad/ui-sweeps/graph692.js`,
+     light and dark identical), before / after: link through an unrelated
+     dot 8 / 0; name on a dot 3 / 0; name on a line 5 / 2 (hub names on
+     their plates); dot overlap 0 / 0, label overlap 0 / 0; spacing CV
+     0.48 / 0.37; category purity 0.82 / 0.94; hub distance from its
+     cluster's middle 1.03 / 0.69 of the mean radius; box aspect over the
+     canvas's 0.67 / 0.84; fit zoom 0.75 / 0.93; names drawn 23 / 10. Mean
+     cross-category line 128 / 196 world units (crossMax 210 / 616): the
+     clusters now stand apart and a bridge goes home, so this one rose; the
+     lines are straight, thin and muted instead. A layout lane or box kept
+     clear for a hub's name was tried twice and rejected (it streaked the
+     clusters). Reshuffle: 70 of 75 notes move, fit 1.0, aspect 1.06.
+     Not verified: maps past 600 notes, portrait, and the owner's eye.
+

@@ -45,24 +45,6 @@ with its owner named in the entry.
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
 
-692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
-     stretched force layout: "can you add a resuffle button or feature to
-     the graph to rearrange how the graph sits on the main force view??"
-     The graph has Unpin all and no re-layout. Placed: with 693, the next
-     free agent slot.
-
-693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
-     where a link passes behind other notes' dots: "bit of overlap". Links
-     drawn through nodes they do not connect, and nodes close enough to
-     touch. Placed: with 692. And, the same hour, with a screenshot of the
-     force view: "is there a way to get the graph to sit in ways that are
-     more visually appealing and understandable and profesional and
-     stylisitc and modern and intentional and impressive and meaningful??"
-     692 and 693 are one Opus design pass on the force layout: clusters by
-     category with clear space between them, hubs central, labels never
-     over dots or lines, links routed round nodes they do not join, a
-     Reshuffle (new seed, animated) and a fit to view.
-
 694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
      dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
      each with the chosen segment's bottom edge cut off; the chat dock in a

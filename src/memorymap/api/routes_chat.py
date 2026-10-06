@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, composer, extractive
+from memorymap.ai import budget as run_budget, composer
 from memorymap.ai import (
     agent,
     captioning,
@@ -1702,8 +1702,19 @@ class _StreamRequest:
 def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
     """Whether this turn's answer is composed from the notes (INBOX 688): an
     Ask-box turn that asked for it, or any Ask-box turn with no model to ask.
-    The Chat tab keeps its own offline answer (`extractive`)."""
+    The Chat tab composes too, but only when no model runs (`_plain_events`)."""
     return bool(req.body.notes_only) and (req.body.answer_from == "notes" or not ollama_running)
+
+
+def _composer_embed():  # noqa: ANN202
+    """The embedder's `embed_many` when a backend is ready, else None: the
+    composer then measures meaning by shared words (INBOX 725, embeddings
+    optional by decision)."""
+    try:
+        embeddings = deps.get_embeddings()
+        return embeddings.embed_many if embeddings is not None and embeddings.is_ready() else None
+    except Exception:  # noqa: BLE001  # no backend is a state, not an error
+        return None
 
 
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
@@ -1782,66 +1793,40 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             }
             yield {"type": "related", "items": related}
         return
-    elif _composed(req, ollama_running):
+    elif _composed(req, ollama_running) or not ollama_running:
         #: **A composed answer** (INBOX 688): the notes' own sentences, chosen
         #: by the question's shape and laid out as an answer, every clause a
         #: quote or a measured value (`ai/composer.py` says how). One piece,
         #: no stream to wait on; its grounding rows are exact, marked so, and
         #: the re-grounding below leaves them alone.
+        #:
+        #: **And the Chat tab's answer whenever no model runs** (INBOX 725, the
+        #: owner: "the composer response should also be able to be viewed in
+        #: chat messages"). It replaced `extractive.answer` here, the forty-
+        #: word passages under an apology: the composer quotes whole sentences
+        #: under the same rule. A running model still answers every Chat turn.
+        follow = prepared.get("follow_on")
         result = composer.compose(
-            req.question,
+            follow.question if follow else req.question,
             prepared["notes"],
             today=user_now(deps.get_config()).date(),
             recent=str(prepared.get("search_mode") or "").endswith("recent"),
+            embed=_composer_embed(),
+            said=follow.said if follow else "",
         )
         yield {"type": "answer", "delta": result["text"]}
         if result["grounding"]:
             yield {
                 "type": "grounding",
                 "sentences": result["grounding"],
+                #: What to ask next, built from what the answer found and did
+                #: not say (INBOX 725): the chips under a composed answer,
+                #: which asks no model for them.
+                "next": result["next"],
                 #: `by_model: False`: no model wrote a word of it, so a low count
                 #: is the app's own joining words and picture readings, and the
                 #: notice says that rather than "the model's own writing".
                 "support": {**result["support"], "by_model": False},
-                "exact": True,
-            }
-        return
-    elif not ollama_running:
-        #: **The notes answer for themselves.** Asked for directly: "I want to
-        #: maximise the ability and function of all the application features
-        #: without ai, the ai features should just be the bonus."
-        #:
-        #: Retrieval has already run by the time this is reached, so the notes
-        #: are ranked and in hand, and this branch used to throw them away and
-        #: say the AI was not available. `extractive.answer` picks the passage
-        #: of each note that is about the question and quotes it, which is not
-        #: a written answer and says so.
-        #:
-        #: The grounding rows go out too, in the same shape a model's answer
-        #: produces, so the citation markers, the "grounded in" chips and the
-        #: passage highlight are drawn by the code that already exists. An
-        #: extractive answer cannot be wrong about where a claim came from,
-        #: because the claim is the passage.
-        #: A recency question is answered by the list itself (INBOX 446).
-        offline = (
-            extractive.recent(prepared["notes"])
-            if str(prepared.get("search_mode") or "").endswith("recent")
-            else extractive.answer(req.question, prepared["notes"])
-        )
-        yield {"type": "answer", "delta": offline["text"]}
-        if offline["grounding"]:
-            #: An extractive answer is every sentence lifted from a note, so
-            #: its support is whatever the same counter makes of it rather
-            #: than an assumed 100%: a sentence the joiner wrote between two
-            #: passages is not a passage, and should be counted as one that is
-            #: not backed.
-            yield {
-                "type": "grounding",
-                "sentences": offline["grounding"],
-                "support": {**grounding_support(offline["text"], offline["grounding"]), "by_model": False},
-                #: Exact by construction, like the composed answer's: the
-                #: re-grounding after the stream used to replace these rows
-                #: with approximate ones (found by INBOX 688's audit).
                 "exact": True,
             }
         return
@@ -2027,11 +2012,19 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
 
     # Retrieval happens INSIDE the stream now, not before it, that's the
     # whole latency win. Nothing before this line touches the model.
+    #: **A follow-up read against the turn before** (INBOX 725): "tell me
+    #: more" or "the second one" means nothing searched on its own. Only for a
+    #: turn the composer answers (Ask's From your notes, or any turn with no
+    #: model), and only with a turn before it: a model reads the history
+    #: itself, and the routing below (`_composed`) is unchanged by it.
+    follow = None
+    if req.history and ((req.body.notes_only and req.body.answer_from == "notes") or not req.ollama.is_running()):
+        follow = composer.follow_on(req.question, req.history)
     prepared = _prepare(
         req.session,
-        req.question,
+        follow.question if follow else req.question,
         req.body.note_ids,
-        force_notes_intent=req.body.answering_agent,
+        force_notes_intent=req.body.answering_agent or follow is not None,
         attached_notes_only=req.body.attached_notes_only,
         document_ids=req.body.document_ids,
         file_ids=req.body.file_ids,
@@ -2046,6 +2039,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         surface=ASK_SURFACE if (req.body.notes_only or not req.use_tools) else AGENT_SURFACE,
         as_of=None if req.skill else req.body.as_of,
     )
+    prepared["follow_on"] = follow
     ollama_running = req.ollama.is_running()
     composed = _composed(req, ollama_running)
     #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
@@ -2061,6 +2055,16 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     tools_only = tools_provider is not req.ollama
     # In agent mode the model can act even when nothing matched, "save a
     # note about X" must work on an empty notebook.
+    #: A turn with no model, no tool fallback and notes to quote is composed
+    #: in `_plain_events` whatever surface asked (INBOX 725): labelled so,
+    #: and its quotes are never trimmed or re-grounded.
+    composing = composed or (
+        not ollama_running
+        and not tools_only
+        and prepared["stats"] is None
+        and intent.needs_retrieval(prepared["intent"])
+        and bool(prepared["notes"])
+    )
     will_answer = not composed and (ollama_running or tools_only) and (
         bool(prepared["notes"])
         or bool(req.images_raw)
@@ -2087,7 +2091,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             ),
             "ollama_running": ollama_running,
             #: The Ask box labels the answer "Composed from your notes, no AI".
-            "composed": composed,
+            "composed": composing,
         }
     )
 
@@ -2165,7 +2169,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         SentenceGrounder(
             prepared["notes"], meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings())
         )
-        if not agentic and not conversational and not composed and prepared["notes"]
+        if not agentic and not conversational and not composing and prepared["notes"]
         else None
     )
     #: The fence markers a small model echoes back are taken out of the
@@ -2233,7 +2237,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: copies of the answer disagreeing about where sentence two starts.
     #: Not a composed answer: its opening line is a fixed phrase, and its
     #: quotes are the person's words, which no trim may touch.
-    trimmed_answer = answer_text if composed else trim_assistant_padding(answer_text)
+    trimmed_answer = answer_text if composing else trim_assistant_padding(answer_text)
     if trimmed_answer != answer_text:
         answer_text = trimmed_answer
         #: The browser has already drawn the untrimmed text, so it is sent the

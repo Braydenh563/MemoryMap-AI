@@ -1723,6 +1723,7 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: **Numbered while it streams, as the Ask tab is** (INBOX 320, the
   //: askcite row): the backend sends the rows so far each time a sentence
   //: completes (`grounding_live`), and the markers are put back after every
@@ -1915,7 +1916,8 @@ async function sendChatMessage(preset, opts = {}) {
       signal: controller.signal,
       onMeta: (m) => {
         meta = m;
-        status.textContent = "The model is writing…";
+        //: No model runs: the answer is composed from the notes (INBOX 725).
+        status.textContent = m && m.composed ? "Composing from your notes, no AI…" : "The model is writing…";
       },
       onRelated: (event) => {
         renderRelatedElsewhere(groundingHolder, event.items);
@@ -1930,6 +1932,7 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
+        composedNext = Array.isArray(event.next) ? event.next : [];
         renderAnswerGrounding(
           groundingHolder,
           event.sentences,
@@ -2544,8 +2547,9 @@ async function sendChatMessage(preset, opts = {}) {
   loadRecentQuestions();
   loadMostUsed();
   // Last, and deliberately not awaited: the answer is already on screen and
-  // saved, and this is a second model call. See offerFollowups.
-  offerFollowups(bubble, question, answerRaw);
+  // saved, and this is a second model call. See offerFollowups. A composed
+  // answer (no model running) brings its own next questions (INBOX 725).
+  offerFollowups(bubble, question, answerRaw, meta?.composed ? composedNext : null);
 }
 
 // --- "what to ask next" chips under a finished answer -------------------------
@@ -2565,17 +2569,20 @@ async function sendChatMessage(preset, opts = {}) {
 // - **Attach to the wrong bubble.** The reply can land after the reader has
 //   sent another message or opened a different conversation, so the bubble it
 //   was asked for has to still be on screen when it does.
-async function offerFollowups(bubble, question, answer) {
+async function offerFollowups(bubble, question, answer, given = null) {
   if (!bubble || !question || !answer) return;
-  let picks = [];
-  try {
-    picks = await apiJson("/chat/followups", {
-      method: "POST",
-      silent: true,
-      body: JSON.stringify({ question, answer }),
-    });
-  } catch {
-    return; // no honest error state for a suggestion, see the module note
+  //: `given`: a composed answer's own next questions, already in hand.
+  let picks = given || [];
+  if (!given) {
+    try {
+      picks = await apiJson("/chat/followups", {
+        method: "POST",
+        silent: true,
+        body: JSON.stringify({ question, answer }),
+      });
+    } catch {
+      return; // no honest error state for a suggestion, see the module note
+    }
   }
   if (!Array.isArray(picks) || !picks.length) return;
   // `isConnected` is the check that matters: a deleted turn, a cleared chat or

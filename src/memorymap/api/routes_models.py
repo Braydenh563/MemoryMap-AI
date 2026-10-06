@@ -298,6 +298,15 @@ def _embedding_coverage(session: Session) -> dict:
     return {"indexed": int(indexed), "total": int(total)}
 
 
+def _tools_engine() -> str | None:
+    from memorymap.core import extras
+
+    try:
+        return "needle" if extras.download_ready("needle") is not None else None
+    except Exception:  # noqa: BLE001  # an unreadable extras folder is "not installed"
+        return None
+
+
 @router.get("/status")
 def status(session: Session = Depends(get_session)) -> dict:
     """One call that tells the UI everything: is Ollama up, what's
@@ -348,6 +357,11 @@ def status(session: Session = Depends(get_session)) -> dict:
         # backend is answering", which is the question the pill asks whoever
         # is answering it.
         "ollama_running": running,
+        #: What can still call tools with no model (INBOX 725): "needle" when
+        #: its extra is on disk (`tool_fallback.for_tools`'s own test, a
+        #: folder check, no import), so the Chat tab's Agent mode is greyed
+        #: only when nothing could run it.
+        "tools_engine": None if running else _tools_engine(),
         "unreachable_hint": unreachable_hint,
         # Which dialect is actually in use (§6), so the UI can say so rather
         # than claiming Ollama when the answers came from LM Studio.

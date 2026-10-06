@@ -11,6 +11,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Answers from your notes read like a chat answer (INBOX 725): the answer on the first line, the other notes joined by how they relate (also, later, separately, or but when two may disagree), a sentence several notes repeat said once with how many say it, short lists said as one sentence, a few questions to ask next under it, and tell me more or the second one following on from the answer before. Every sentence is still quoted from a note. The Chat tab answers the same way whenever no model is running; a running model still answers.
 - Graph: Reshuffle layout, beside Unpin all under Physics (INBOX 692). The categories are dealt round again and every unpinned note moves to a new start, drawn moving, then the map settles and fits the view.
 - Graph: lines say what they are on three channels (INBOX 693): solid for a link and dashed for a match in meaning; thicker and stronger the surer (a closer match, a reason the app found with more confidence); faint between two categories in Clusters. The legend keys the ones the map has.
 - Graph: a link can run both ways (INBOX 693). Point at a link and press Two-way in its menu: Arrows draws no arrow on it. A link of a kind with no other-way name (Related, Contradicts) runs both ways unless you say otherwise.

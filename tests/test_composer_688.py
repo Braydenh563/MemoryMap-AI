@@ -15,6 +15,7 @@ from datetime import date, timedelta
 import pytest
 
 from memorymap.ai import composer
+from tests import _composer_eval as ev
 
 TODAY = date(2026, 10, 6)
 #: Spelled by its code point: the lint reads this file too.
@@ -54,68 +55,18 @@ NOTES = [
 ]
 
 
-def _by_id(notes):
-    return {note["id"]: note for note in notes}
-
-
-def _flat(text: str) -> str:
-    return " ".join(text.split())
-
-
-def _measured_values(notes: list[dict]) -> set[str]:
-    """Every value the app could have measured over these notes: counts up to
-    the number of notes (as digits and as words) and every note's day."""
-    values = {str(n) for n in range(len(notes) + 1)}
-    values |= set(composer._NUMBER_WORDS[: len(notes) + 1])
-    for note in notes:
-        day = date.fromisoformat(note["created_at"][:10])
-        month = composer._MONTHS[day.month - 1]
-        values |= {f"{day.day} {month}", f"{day.day} {month} {day.year}"}
-        if day == TODAY:
-            values.add("today")
-        if (TODAY - day).days == 1:
-            values.add("yesterday")
-    return values
-
-
-def assert_traceable(result: dict, question: str, notes: list[dict]) -> None:
+def assert_traceable(result: dict, question: str, notes: list[dict], asked_from: str = "") -> None:
     """Every part of the answer is a template, a quote of the note it names, a
     note's name, a measured value or a word of the question; and the parts are
-    the whole text, so nothing can sit between them unchecked."""
-    by_id = _by_id(notes)
-    parts = result["parts"]
-    assert "".join(part[1] for part in parts) == result["text"]
-    templates = set(composer.PHRASES.values())
-    measured = _measured_values(notes)
-    for part in parts:
-        kind, text = part[0], part[1]
-        if kind == "template":
-            assert text in templates, f"not a fixed phrase: {text!r}"
-        elif kind == "quote":
-            content = _flat(by_id[part[2]]["content"])
-            body = text.rstrip("…")
-            assert body[1:] in content and (body[0].lower() + body[1:] in content or body in content), (
-                f"quote not in note {part[2]}: {text!r}"
-            )
-        elif kind == "title":
-            first = re.sub(r"[*_`#]", "", by_id[part[2]]["content"].split("\n", 1)[0]).strip()
-            assert first.startswith(text.rstrip("…")), f"not note {part[2]}'s name: {text!r}"
-        elif kind == "measure":
-            assert text in measured, f"not a measured value: {text!r}"
-        elif kind == "asked":
-            assert text.lower() in question.lower(), f"not from the question: {text!r}"
-        else:  # pragma: no cover - a new kind must be added here first
-            raise AssertionError(f"unknown part kind {kind!r}")
-    for row in result["grounding"]:
-        content = by_id[row["note_id"]]["content"]
-        span = _flat(content[row["start"]:row["end"]])
-        body = row["sentence"].rstrip("…")
-        assert span[:1].lower() == body[:1].lower() and span[1:].startswith(body[1:]), (
-            f"row {row['sentence']!r} does not point at its own text: {span!r}"
+    the whole text, so nothing can sit between them unchecked. The check is
+    the eval's (`tests/_composer_eval.py`), so the gate and the measure are
+    one definition. The suggested next questions are held to it too."""
+    failures = ev.trace_failures(result, question, notes, TODAY, asked_from)
+    for parts in result.get("next_parts") or []:
+        failures += ev.trace_failures(
+            {"parts": parts, "text": "".join(p[1] for p in parts), "grounding": []}, question, notes, TODAY, asked_from
         )
-        assert row["sentence"] in result["text"]
-    #: The copy rules the whole app holds: no em-dashes, no exclamation marks.
-    assert EM_DASH not in result["text"] and "!" not in result["text"].replace("![", "")
+    assert failures == [], failures
 
 
 def ask(question: str, notes=NOTES, **kwargs) -> dict:
@@ -202,96 +153,135 @@ def test_a_long_sentence_is_cut_at_a_word_and_says_so():
 # --- composition, one test per shape ----------------------------------------------
 
 
+def _first_line(result: dict) -> str:
+    return result["text"].split("\n", 1)[0]
+
+
 def test_what_leads_with_the_note_named_by_the_question_and_shows_its_checklist():
     result = ask("What is the Harbor launch plan?")
     text = result["text"]
-    assert text.startswith(("Your note **Harbor launch plan**", "From your note **Harbor launch plan**",
-                            "The closest match is your note **Harbor launch plan**"))
-    assert "> Ship the mobile app to the public on the 14th of next month." in text
-    assert "- [x] Beta invite list\n- [x] Crash reporting\n- [ ] Store listing copy" in text
+    first = _first_line(result)
+    assert "**Harbor launch plan**" in first
+    #: INBOX 725: the first line is the answer, the note's sentence on it.
+    assert "Ship the mobile app to the public on the 14th of next month." in first
+    assert "Its checklist has two of three done:\n\n- [x] Beta invite list\n- [x] Crash reporting\n- [ ] Store listing copy" in text
     assert result["support"]["ratio"] == 1.0 and not result["support"]["low"]
 
 
 def test_when_leads_with_the_dated_sentence():
-    result = ask("When is the dentist check-up?")
-    assert "**Dentist**" in result["text"].split("\n", 1)[0]
-    assert "> Check-up booked for the 21st." in result["text"]
+    first = _first_line(ask("When is the dentist check-up?"))
+    assert "**Dentist**" in first and first.endswith("Check-up booked for the 21st.")
 
 
 def test_when_without_a_date_in_the_sentence_says_the_day_it_was_written():
     notes = [_note(1, "# Flights\n\nBooked, seats 14A and 14B on the evening plane.", 4)]
     result = ask("When did I book the flights?", notes)
-    first = result["text"].split("\n", 1)[0]
-    assert first == "From your note **Flights**, written 2 October:"
+    assert _first_line(result) == (
+        "From your note **Flights**, written 2 October: Booked, seats 14A and 14B on the evening plane."
+    )
 
 
 def test_when_lists_the_other_notes_in_the_order_they_were_written():
-    result = ask("When is the launch date?")
+    notes = [
+        _note(1, "# Boiler\n\nThe boiler service is booked for 3 March.", 30),
+        _note(2, "# Engineer\n\nThe boiler service engineer is coming on Tuesday.", 2),
+        _note(3, "# Boiler history\n\nThe last boiler service, in 2023, replaced the valve.", 60),
+    ]
+    result = ask("When is the boiler service?", notes)
     text = result["text"]
-    assert "**In the order you wrote them**" in text
-    timeline = text.split("**In the order you wrote them**", 1)[1]
+    assert composer.PHRASES["timeline"] in text
+    timeline = text.split(composer.PHRASES["timeline"], 1)[1]
     days = re.findall(r"^- (\d+ \w+), in", timeline, re.M)
     parsed = [date(2026, composer._MONTH_INDEX[d.split()[1].lower()], int(d.split()[0])) for d in days]
-    assert parsed == sorted(parsed)
+    assert len(parsed) == 2 and parsed == sorted(parsed)
 
 
 def test_who_quotes_the_sentence_that_names_who():
-    result = ask("Who asked for a public API?")
-    assert "> Three people in the beta asked for one." in result["text"]
+    assert "Three people in the beta asked for one." in _first_line(ask("Who asked for a public API?"))
 
 
 def test_count_leads_with_the_figure():
-    result = ask("How many beta testers are active?")
-    first, rest = result["text"].split("\n\n", 1)
+    first = _first_line(ask("How many beta testers are active?"))
     assert "**Beta feedback, week 2**" in first
-    assert rest.startswith("> 41 testers active.")
+    assert ": 41 testers active." in first
 
 
 def test_list_answers_with_the_persons_own_list():
     result = ask("Which books are on my reading list?")
-    assert result["text"].startswith("From your note **Reading list**:")
-    assert "- Designing Data-Intensive Applications\n- The Mom Test\n- A Pattern Language" in result["text"]
+    #: Short entries read as one sentence, the person's words, counted.
+    assert result["text"].startswith(
+        "Your note **Reading list** lists three: Designing Data-Intensive Applications, The Mom Test and A Pattern Language."
+    )
+
+
+def test_a_list_of_sentences_stays_a_list():
+    notes = [_note(1, "# Launch risks\n\n1. The store review takes longer than a week.\n2. Sync conflicts surface "
+                      "under real load.\n3. The pricing page is not signed off in time.", 2)]
+    result = ask("What are the launch risks?", notes)
+    assert result["text"].startswith("Your note **Launch risks** lists three:\n\n- The store review")
+
+
+def test_a_list_of_plain_phrases_reads_in_sentence_case():
+    notes = [_note(1, "# Packing list\n\n- Walking shoes with grip\n- A light jacket\n- Plug adapter", 2)]
+    result = ask("What should I pack?", notes)
+    assert "lists three: walking shoes with grip, a light jacket and plug adapter." in result["text"]
+    assert {row["sentence"] for row in result["grounding"]} == {"walking shoes with grip", "a light jacket", "plug adapter"}
 
 
 def test_compare_draws_two_sides_with_measured_counts():
     result = ask("Compare Lisbon and Porto")
     text = result["text"]
-    assert text.startswith(composer.PHRASES["each_side"])
+    assert text.startswith("Of the notes found, one mentions Lisbon and one mentions Porto. " + composer.PHRASES["each_side"])
     assert "**Lisbon** (one note)" in text and "**Porto** (one note)" in text
     lisbon, porto = text.split("**Porto**", 1)
     assert "Alfama" in lisbon and "Ribeira" in porto
 
 
 def test_explain_keeps_the_notes_sentences_in_their_own_order():
-    result = ask("Why did the list feel slow?")
-    quote = next(line for line in result["text"].splitlines() if line.startswith("> "))
-    assert quote == (
-        "> It was not the database. Every row re-measured its own height on scroll. "
+    first = _first_line(ask("Why did the list feel slow?"))
+    assert first.endswith(
+        ": It was not the database. Every row re-measured its own height on scroll. "
         "Caching the height per row took a long list from 40ms a frame to 6."
     )
 
 
-def test_status_leads_with_the_newest_and_lists_the_earlier_newest_first():
+def test_status_leads_with_the_newest_and_walks_back_through_the_earlier():
     result = ask("What is the latest on the sync rewrite?")
     text = result["text"]
-    assert "**Sync rewrite, week 3**" in text.split("\n", 1)[0]
-    assert text.split("\n", 1)[0].startswith(("The most recent, written 3 October", "The newest note on this, from 3 October"))
-    assert "**Earlier**\n- 17 August, in **Sync rewrite, first notes**" in text
+    first = _first_line(result)
+    assert "**Sync rewrite, week 3**" in first and "3 October" in first
+    assert "The sync rewrite now keeps both versions and asks." in first
+    assert "\n\nBefore that, on 17 August, **Sync rewrite, first notes** said: The conflict rule" in text
 
 
 def test_yes_no_never_answers_yes_or_no():
     result = ask("Does Harbor work offline?")
-    first = result["text"].split("\n", 1)[0]
+    first = _first_line(result)
     assert first.startswith(("The closest your notes come is", "Nothing here says it outright"))
+    assert "Beta testers did not know Harbor works offline." in first
     assert not re.search(r"\b(yes|no)\b[,.]", result["text"].split("\n\n", 1)[0], re.I)
 
 
-def test_two_notes_that_may_disagree_are_named_newer_first():
+def test_two_notes_that_may_disagree_are_said_as_a_but():
     result = ask("What is the launch date?")
     text = result["text"]
-    assert "**These two may disagree, the newer first**" in text
-    pair = text.split("**These two may disagree, the newer first**", 1)[1]
-    assert pair.index("Standup again") < pair.index("**Standup** (")
+    assert "**Standup**" in _first_line(result)
+    assert "\n\nBut your newer note **Standup again** (yesterday) says: The launch date is the 21st" in text
+    assert composer.PHRASES["disagree_check"] in text
+    #: Each side said once.
+    assert text.count("The launch date is the 21st") == 1 and text.count("The launch date is the 14th") == 1
+
+
+def test_two_other_notes_that_may_disagree_are_named_older_first():
+    notes = [
+        _note(1, "# House\n\nThe boiler pressure is what the engineer checks first.", 9),
+        _note(2, "# Monday\n\nThe boiler pressure was at 1.5 bar this morning.", 6),
+        _note(3, "# Friday\n\nThe boiler pressure was at 0.8 bar this morning.", 2),
+    ]
+    text = ask("What about the boiler pressure?", notes)["text"]
+    assert composer.PHRASES["disagree_lead"] in text
+    pair = text.split(composer.PHRASES["disagree_lead"], 1)[1]
+    assert pair.index("**Monday**") < pair.index("But the newer **Friday**")
 
 
 def test_words_no_note_found_holds_are_named_in_the_closing_line():
@@ -302,14 +292,14 @@ def test_words_no_note_found_holds_are_named_in_the_closing_line():
 def test_the_closing_line_is_left_out_when_nothing_matched_at_all():
     result = ask("What is the capital of Peru?")
     assert result["text"] == composer.PHRASES["nothing"]
-    assert result["grounding"] == []
+    assert result["grounding"] == [] and result["next"] == []
 
 
 def test_the_newest_notes_for_a_question_with_no_subject():
     newest = sorted(NOTES, key=lambda n: n["created_at"], reverse=True)
     result = ask("what did I write recently", newest, recent=True)
     assert result["shape"] == "recent"
-    assert result["text"].startswith("Your newest notes, from 27 September to yesterday:")
+    assert result["text"].startswith("Your five newest notes, from 27 September to yesterday:")
     assert result["text"].count("\n- ") == 5
 
 
@@ -409,7 +399,7 @@ def test_a_notes_tags_say_what_it_is_about_without_being_quoted():
         _note(2, "# Teach what I just learned\n\nWrite a short post after each book I am reading.", 3),
     ]
     result = ask("Which books am I reading?", notes)
-    assert result["text"].startswith("From your note **Reading list**:")
+    assert result["text"].startswith("Your note **Reading list** lists two:")
     assert "books" not in result["text"].split("\n", 1)[1].lower().replace("**", "")
 
 
@@ -434,8 +424,8 @@ def test_closest_match_wording_is_kept_for_the_first_result() -> None:
 
     from memorymap.ai import composer as mod
 
-    body = inspect.getsource(mod._lead)
-    assert '["a", "b", "c"] if s.rank == 0 else ["a", "b"]' in body
+    body = inspect.getsource(mod._opening)
+    assert '["a", "b", "c", "d"] if s.rank == 0 else ["a", "b", "d"]' in body
 
 
 def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:
@@ -443,7 +433,7 @@ def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:
     from pathlib import Path
 
     routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
-    assert routes.count('"by_model": False') >= 2
+    assert routes.count('"by_model": False') >= 1
     js = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
     body = js[js.index("function renderAnswerSupport") :]
     body = body[: body.index("\n}\n")]

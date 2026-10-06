@@ -7655,6 +7655,23 @@ button.connection-row {
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
 }
 
+/* **A top-bar menu opens above the floating bars** (INBOX 716, the owner, with
+   the View menu over a selected topic: "mindmap node popup tools go in front
+   of dropdown menus"). The menus are inside this bar, and the bar's blurred
+   background makes it a stacking context of its own, so a menu's `z-index:
+   30` only ranks it among the bar's own children: against the topic's bar
+   (`.wb-map-strip`) and the selection bar (`.wb-context`), both 22 and both
+   siblings of this one, the whole bar at 20 loses. Measured with
+   `elementFromPoint` over the View menu: the topic's bar answered 68 of 77
+   points. Lifting the bar only while one of its menus is open keeps the
+   rest of the time exactly as it was, so a topic selected under the top edge
+   still has its bar. 24 is above those two and the radial ring (23), and
+   under the panels that start at 25; there are no z-index tokens in this stylesheet,
+   every layer is a literal (see `.selection-bar`). */
+.wb-topbar:has([data-wb-menu-toggle][aria-expanded="true"]) {
+  z-index: 24;
+}
+
 .wb-topbar-left,
 .wb-topbar-right {
   display: flex;

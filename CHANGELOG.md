@@ -43,6 +43,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind map: a topic's floating bar (colour, text size, Text, Shape, Branch line) no longer draws over the board's View, Edit or Board menus (INBOX 716). The top bar lifts above the floating bars while one of its menus is open; measured over the View menu, the menu answers every overlapping point where the bar used to answer 68 of 77.
 - Mind map: double-clicking a topic's resize grip to put its size back now saves (INBOX 716). It sent a height the server refuses, so the save was rejected, the board reloaded with the old size, and the next move of the topic brought the manual size back. The reset stores the height the text needs, the branch line follows the box the same moment, and Ctrl+Z puts the manual size back.
 - Menus stay inside the window: one rule (below the opener, else above, else capped with the list scrolling) places the document editor's ⋯ menu and ends every generic menu open, and the ⋯ menu is placed again when the window is resized or its rows change, so its last row is no longer left past the bottom edge (INBOX 712).
 - Task checkboxes: the note editor and the document editor draw one box (the text's size, muted outline, accent fill and a drawn checkmark when done) from one rule, and a task line no longer has a bullet beside its box (INBOX 710).

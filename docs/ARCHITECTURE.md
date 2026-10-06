@@ -43,7 +43,7 @@ These are the constraints that shaped every decision. When in doubt, they win.
    browser User-Agent rather than one naming the app, no cookie jar, no
    Referer, DNT/Sec-GPC set, POST so queries stay out of request lines, and
    tracking parameters stripped from result URLs. It has its own settings
-   screen (`settings-websearch`), not a corner of Preferences, because
+   screen (`settings-websearch`), not a corner of the Profile pane, because
    every message that has to explain it points there by name.
 2. **Degrade gracefully.** If the AI (Ollama) is down, the app still works:
    new notes are filed as `Uncategorised`, search falls back to keywords, and a
@@ -439,7 +439,7 @@ gate** (`routes_auth.require_unlock`). Routers are grouped by feature area:
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
 | `routes_bookmarks` | `/bookmarks` | saved links to somewhere outside the notebook, same shape as reminders, no AI involved; a link can be read, pinned and noted, and pages tile one order (pinned first) |
 | `routes_voice` | `/voice` | local Whisper transcription |
-| `routes_help` | `/help` | the Help tab's mini AI chat (`POST /help/ask`), app guidance only, no persisted history |
+| `routes_help` | `/help` | the Guide's chat (`POST /help/ask`), app guidance only, no persisted history |
 | `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
 | `routes_tasks` | `/tasks` | what is running in the background right now (`GET /tasks`), and `GET /jobs/last-runs`: when each kind of job last ran and how it went, one entry per kind in `jobruns.KINDS`, from the database so it survives a restart; `GET /jobs` and the server-sent `GET /jobs/stream`, the durable job rows (`core/jobstore.py`), and `POST /jobs/{id}/cancel` for a queued one |
 | `routes_library` | `/library` | **everything you have made, in one list**: notes, documents, chats, files, tags, bin, activity, assembled server-side |

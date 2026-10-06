@@ -12978,8 +12978,14 @@ Link to another note with [[its first few words]]."></textarea>
             title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </span>
       </div>
-      <input id="features-search" type="text" autocomplete="off"
-        placeholder="Search everything MemoryMap can do…" aria-label="Search features">
+      <!-- The search field recipe, not a bare input (INBOX 668: the bare
+           field sat flush under the head, and its focus ring ran into the
+           title row and the close button). -->
+      <div class="search-field">
+        <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+        <input id="features-search" type="search" class="search-field-input" autocomplete="off"
+          placeholder="Search everything MemoryMap can do…" aria-label="Search features">
+      </div>
       <p class="muted" id="features-count" aria-live="polite"></p>
       <div id="features-list" class="features-list"></div>
     </div>

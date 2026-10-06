@@ -45281,3 +45281,11 @@ and refuses a topic ("Select a shape, link or text box first").
      (topmost at the panel's centre: false before, true after, light and
      dark); `tests/test_help_popover_in_dialogs.py`.
 
+668. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tools &
+     features dialog: "the tools and features highlighted textbox clashes
+     with the top row elements". Fixed 2026-10-06: the bare `#features-search`
+     sat 0px under the head and its focus ring (2px at a 2px offset) crossed
+     the title row and the close button; it is the `.search-field` recipe now
+     (magnifier, the inset well) with `--space-3` above it: 8px clear at 1440
+     and 390, light and dark (`scratchpad/ui-sweeps/featureshead.js`).
+

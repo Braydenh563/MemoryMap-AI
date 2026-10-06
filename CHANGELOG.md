@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Tools & features: the search field no longer runs into the title and close button. It is the app's standard search field now, with its magnifier and room under the head for its focus ring.
 - The "?" in the Quick note (and any other dialog) opens its help again. It opened underneath the dialog, where it could not be seen or reached; the first Escape now closes the help and leaves the note open.
 - Filing: the first note in a new notebook with no AI model no longer waits for the search model to load. With nothing filed yet there is nothing to compare it against, so it is not embedded on the way to Uncategorised; that load, skipped at launch for an empty notebook, could keep the first note at "Filing…" for over 20 seconds.
 - Dashboard: Narrow on the activity heatmap now sticks. The heatmap is the one widget that starts wide, and narrowing it saved an empty list of wide widgets, which the dashboard read as never chosen and widened it again; widgets set back to one column are now remembered on their own.

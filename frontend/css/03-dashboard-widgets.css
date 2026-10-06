@@ -2111,8 +2111,10 @@ header#top-bar select,
   width: 100%;
 }
 
-#features-card>input {
-  margin-bottom: 0.4rem;
+/* Clear of the head: a focus ring spreads past the field's box, and flush
+   under the head it crossed the title row and the close button (INBOX 668). */
+#features-card>.search-field {
+  margin: var(--space-3) 0 var(--space-2);
 }
 
 .features-list {

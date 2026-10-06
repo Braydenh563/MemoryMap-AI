@@ -697,6 +697,11 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
         content = note_properties.with_type_fields(session, content, body.note_type, deps.get_config())
+        #: A Meeting made from its type is a meeting everywhere meetings are
+        #: listed (INBOX 644): the Library's chip and the Notes sidebar
+        #: count the tag, which the type alone never carried.
+        if body.note_type.strip().lower() == "meeting" and "meeting" not in {t.lower() for t in tags}:
+            tags = normalise_tags([*tags, "meeting"])
     try:
         entry = manager.create_entry(
             session,

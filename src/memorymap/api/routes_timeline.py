@@ -31,9 +31,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Select, String, and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Document, Entry, EntryDate, Reminder, Space, utcnow
+from memorymap.core.database import Document, Entry, EntryDate, EntryProperty, Reminder, Space, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
+from memorymap.entry import properties as note_properties
 
 router = APIRouter(prefix="/timeline", tags=["timeline"])
 
@@ -181,8 +182,13 @@ def _place_notes(
     categories: dict,
     spaces: dict,
     links: dict,
+    meetings: dict | None = None,
 ) -> None:
     """One feed row per note, placed by the date the note is *about*.
+
+    A meeting (INBOX 644) is about its `date:` property, which beats any
+    phrase in its text: "by Friday" in an action item is when something is
+    due, not when the meeting was.
 
     Lifted out of `timeline` unchanged (WORLD_CLASS_PLAN A5): the route
     was 346 lines, of which the three row builders were 100. Everything
@@ -190,9 +196,13 @@ def _place_notes(
     is why they arrive as dicts rather than as a session to ask again.
     """
     for entry in entries:
-        mention = resolved.get(entry.id)
+        meeting = (meetings or {}).get(entry.id)
+        mention = meeting or resolved.get(entry.id)
         at = mention.at if mention else entry.created_at
-        text = manager.readable_content(entry)
+        #: The property block is the note's metadata, not its words: a row
+        #: titled "---" over "type: Meeting date: ..." was the preview of
+        #: every note of a type (meetings-644 audit, item 5).
+        text = note_properties.strip(manager.readable_content(entry)).lstrip("\n")
         #: **A mentioned day is a day, not an instant** (audit 2026-10-05,
         #: UX-02). `EntryDate.at` is the writer's own calendar day (and the
         #: clock they said with it, if any), with no zone. Served as
@@ -226,7 +236,7 @@ def _place_notes(
                 "bucket": _bucket_start(at, scale),
                 # Said out loud so the view can be honest: this note is here
                 # because of what it talks about, not when it was typed.
-                "placed_by": "mentioned" if mention else "written",
+                "placed_by": "meeting" if meeting else "mentioned" if mention else "written",
                 "phrase": mention.phrase if mention else "",
                 "written_at": entry.created_at.isoformat(),
                 "category": categories.get(entry.category_id, manager.UNCATEGORISED),
@@ -248,6 +258,46 @@ def _place_notes(
                 "preview": _clip(text),
             }
         )
+
+
+class _MeetingAt:
+    """A meeting's `date:` in the shape `_place_notes` reads a mention in."""
+
+    __slots__ = ("at", "precision", "phrase")
+
+    def __init__(self, at: datetime, timed: bool) -> None:
+        self.at = at
+        self.precision = "minute" if timed else "day"
+        self.phrase = ""
+
+
+def _meeting_dates(session: Session, entry_ids: list[int]) -> dict[int, _MeetingAt]:
+    """Each meeting's own date, from the property index (two queries for
+    the page): a note typed Meeting whose `date:` reads as one. The value is
+    the writer's wall clock, as a mention's is (UX-02)."""
+    if not entry_ids:
+        return {}
+    typed = set(
+        session.scalars(
+            select(EntryProperty.entry_id).where(
+                EntryProperty.entry_id.in_(entry_ids),
+                EntryProperty.key == "type",
+                func.lower(EntryProperty.value) == "meeting",
+            )
+        )
+    )
+    if not typed:
+        return {}
+    found: dict[int, _MeetingAt] = {}
+    for row in session.scalars(
+        select(EntryProperty).where(
+            EntryProperty.entry_id.in_(typed),
+            EntryProperty.key == "date",
+            EntryProperty.date.is_not(None),
+        )
+    ):
+        found.setdefault(row.entry_id, _MeetingAt(row.date, len(row.value.strip()) > 10))
+    return found
 
 
 def _place_documents(documents_found: list, placed: list[dict], scale: str, spaces: dict) -> None:
@@ -512,6 +562,8 @@ def timeline(
         for row in rows:
             resolved.setdefault(row.entry_id, row)
 
+    meetings = _meeting_dates(session, [entry.id for entry in entries])
+
     categories = manager.bulk_category_names(session, entries)
 
     # The table view's columns (TIMELINE_PLAN decision 6): which space a note
@@ -523,7 +575,7 @@ def timeline(
     links = manager.links_for_entries_bulk(session, [entry.id for entry in entries])
 
     placed = []
-    _place_notes(entries, placed, scale, resolved, categories, spaces, links)
+    _place_notes(entries, placed, scale, resolved, categories, spaces, links, meetings)
 
     _place_documents(documents_found, placed, scale, spaces)
     _place_reminders(reminders_found, placed, scale, spaces)

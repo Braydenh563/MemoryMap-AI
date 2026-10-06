@@ -94,7 +94,13 @@ KIND_LANES: dict[str, str] = {
     "embed-entry": "model",
     "maintenance": "cpu",
     "bench": "model",
-    "warm": "model",
+    #: Loading the search model on a pause in typing (`search_manager.warm`).
+    #: Not `model`: that lane is one wide, and a first launch's load (a
+    #: download on a fresh install) held the first note's filing behind it
+    #: for longer than the 20 s the E2E first-run spec waits (2026-10-06,
+    #: reproduced with a 40 s stand-in load). Filing with nothing filed
+    #: yet needs no vectors, so nothing on `model` should wait for this.
+    "warm": "batch",
     # F7, the threads onto the pool (2026-10-05). A whole-notebook pass gets a
     # lane of its own: on `model` it would hold every caption and every new
     # note's filing until it finished, which is minutes on a large notebook.

@@ -15,6 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Filing: the first note in a new notebook no longer waits behind the search model's first load. Loading it on a pause in typing shared the one queue filing uses, so on a fresh install the first note could say "Filing…" for as long as the download took.
 - Tools & features: the search field no longer runs into the title and close button. It is the app's standard search field now, with its magnifier and room under the head for its focus ring.
 - The "?" in the Quick note (and any other dialog) opens its help again. It opened underneath the dialog, where it could not be seen or reached; the first Escape now closes the help and leaves the note open.
 - Background jobs: a document that cannot be read, and a job that cannot be resumed after a restart, now show a plain sentence instead of the converter's or decoder's own error text. The detail stays in the log with its traceback.

@@ -180,6 +180,13 @@ with its owner named in the entry.
      phrasebook of joins and openers, turn-aware follow-ons, length fit to the
      question, the app voice; facts stay quoted. Measured on the 725 eval grown
      to about 100 questions with variety and readability scores.
+     Then, verbatim: "rn the ask chat messages just say, ur note starting with this
+     says this. also ur not starting with this says this, furthermore, ur note
+     starting with this says this." Cause: `ai/composer.py` PHRASES (`says`,
+     `also_says`, `says_a_end`): every sentence is introduced by its note's
+     opening words plus "says:". First fix in the voice track: name a note by
+     its title or topic once, then speak the content directly ("You planned
+     Lisbon for May; the hotel is booked") with the citation as a marker.
 
 ## Placed (last 20, newest first)
 

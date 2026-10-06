@@ -57,6 +57,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library, Boards and maps: deleting an empty map or board from its card removes the card at once (it was drawn again from memory because the server does not list an empty board), and Undo brings it back (INBOX 733).
 - Library, Boards and maps, New: Whiteboard opens the dialog on Board even after you made a mind map, and neither row opens a board behind the dialog any more; the Library stays as it was until Create, and Cancel leaves it untouched (INBOX 733).
 - Hovering a disabled button shows the normal pointer, not a loading cursor.
 - Chat: a message sent while Agent is greyed (no model) is answered and labelled as Ask; the message buttons hang below the bubble instead of over it.

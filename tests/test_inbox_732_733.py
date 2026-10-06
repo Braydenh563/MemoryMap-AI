@@ -125,3 +125,43 @@ def test_the_library_menu_names_its_kind_and_does_not_show_the_canvas_itself():
         assert "wbShowCanvasView" not in handler, handler
 
 
+# --- 733: the deleted empty card -------------------------------------------------
+
+
+def _bin_run(scenario: str) -> dict:
+    body = _function(WB, "async function wbBinBoard(id, bin) {")
+    script = (
+        """
+const window = { wbLastCreatedBoard: { id: 5, title: "Empty map", type: "map" } };
+const apiJson = async () => ({});
+const refreshBoardList = async () => {};
+const renderLibraryBoardsGallery = () => {};
+const els = { "wb-boards-landing": { classList: { contains: () => false } } };
+const $ = (id) => els[id] || null;
+"""
+        + body
+        + "\n(async () => {\n"
+        + scenario
+        + "\nconsole.log(JSON.stringify({ last: window.wbLastCreatedBoard && window.wbLastCreatedBoard.id }));\n})();\n"
+    )
+    return _node(script)
+
+
+@needs_node
+def test_deleting_the_board_just_made_stops_the_gallery_drawing_it_again():
+    out = _bin_run("await wbBinBoard(5, true);")
+    assert out["last"] is None, out
+
+
+@needs_node
+def test_undoing_that_delete_brings_the_card_back():
+    out = _bin_run("await wbBinBoard(5, true); await wbBinBoard(5, false);")
+    assert out["last"] == 5, out
+
+
+@needs_node
+def test_deleting_some_other_board_leaves_the_one_just_made_alone():
+    out = _bin_run("await wbBinBoard(9, true);")
+    assert out["last"] == 5, out
+
+

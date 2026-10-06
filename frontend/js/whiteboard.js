@@ -8987,6 +8987,17 @@ async function wbDeleteCurrentBoard() {
 //: 537). The confirm used to say "This cannot be undone", which was untrue.
 async function wbBinBoard(id, bin) {
   await apiJson(bin ? `/entries/${id}` : `/entries/${id}/restore`, { method: bin ? "DELETE" : "POST" });
+  //: **The board made a moment ago is drawn from memory** when the server omits
+  //: it (an empty board is not listed: `drawLibraryBoardsGallery`), so a delete
+  //: has to forget it too, or an empty map's card stays after "Moved to the
+  //: bin" (INBOX 733). Undo puts it back the same way.
+  if (bin && window.wbLastCreatedBoard?.id === id) {
+    window.wbBinnedBoard = window.wbLastCreatedBoard;
+    window.wbLastCreatedBoard = null;
+  } else if (!bin && window.wbBinnedBoard?.id === id) {
+    window.wbLastCreatedBoard = window.wbBinnedBoard;
+    window.wbBinnedBoard = null;
+  }
   await refreshBoardList();
   if ($("wb-boards-landing") && !$("wb-boards-landing").classList.contains("hidden")) renderLibraryBoardsGallery();
 }

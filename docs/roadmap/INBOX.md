@@ -88,6 +88,14 @@ with its owner named in the entry.
      changes position each note, I think it should be consistent in the corner
      or smth". Placed: Sonnet agent.
 
+722. **The owner, 2026-10-06, verbatim**, with screenshots of the Library's
+     Everything tab in its lines view (each row starts about 110px in, an empty
+     square box beside the hovered row's ⋯, and every row's ⋯ drawn as a filled,
+     outlined square): "theres a wierd gap at the start of the library all tab
+     lines view cards". Then: "also meatball buttons have a visible outline, is
+     that consistent with the rest of the app?? i dont think it is...".
+     Placed: Sonnet agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

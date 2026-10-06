@@ -145,6 +145,7 @@ with its owner named in the entry.
      designed and the templates need massive improving and expanding". Then,
      with the template preview's description text flush to its box's top
      left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
+     Addendum, the owner, 2026-10-06, verbatim, with the mind map's "Start from a shape" bar and the icon picker's Emoji | Icons pill: "redesign this popup. and change the pill for the emoji popup as well. i dont like pills like that in popups"
 
 
 ## Placed (last 20, newest first)

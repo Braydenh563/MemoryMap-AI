@@ -4,14 +4,15 @@ const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
   const { browser, page } = await boot();
   for (const kind of ['board', 'map']) {
     await openBoardsTab(page);
+    //: Creates the board or map itself. The list holds only boards "in use"
+    //: (a card on them), so on a fresh data dir `list[0]` was undefined, the
+    //: sweep opened nothing and its "board" case measured the landing page.
     const opened = await page.evaluate(async (kind) => {
-      const list = await apiJson(`/whiteboard/boards${kind === 'map' ? '?type=map' : ''}`).catch(() => []);
-      const b = (list.boards || list)[0];
-      if (!b) return null;
-      await openWhiteboardBoard(b.id);
-      return b.id;
+      const made = await apiJson('/whiteboard/boards', { method: 'POST', body: JSON.stringify({ name: `Library tab sweep ${kind}`, type: kind }) });
+      await openWhiteboardBoard(made.id);
+      return made.id;
     }, kind);
-    if (opened) await waitForBoardOpen(page);
+    await waitForBoardOpen(page);
     const before = await page.evaluate(() => {
       const t = document.getElementById('tab-btn-library').getBoundingClientRect();
       const hit = document.elementFromPoint(t.x + t.width / 2, t.y + t.height / 2);
@@ -20,7 +21,9 @@ const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
     await page.click('#tab-btn-library').catch((e) => before.clickErr = String(e).slice(0, 120));
     await page.waitForTimeout(800);
     const after = await page.evaluate(() => ({ boardOpen: !document.getElementById('wb-canvas-view').classList.contains('hidden'), landing: !document.getElementById('wb-boards-landing').classList.contains('hidden') }));
-    console.log(kind, opened, JSON.stringify({ before, after }));
+    const ok = before.boardOpen && !after.boardOpen && after.landing;
+    console.log(ok ? 'OK  ' : 'FAIL', kind, opened, JSON.stringify({ before, after }));
+    if (!ok) process.exitCode = 1;
   }
   await browser.close();
 })();

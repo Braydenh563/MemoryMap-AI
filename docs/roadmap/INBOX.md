@@ -220,6 +220,22 @@ with its owner named in the entry.
      the hover target, its accessible name "Link to <title>"). Placed: with
      691, the Tidy and links agent.
 
+710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
+     checkbox in a note's editor (a large outlined box after a bullet) and in
+     the document editor (a smaller filled grey box after a bullet): "the
+     rendering of the selection tick boxes is different on the notes to the
+     document editor". One task-checkbox look for both editors (and no
+     bullet beside a task box), from one shared rule. Placed: the next free
+     Sonnet slot.
+
+711. **The owner, 2026-10-06, verbatim**, with a screenshot of "Leave
+     without saving?" over the Documents list: "I already clicked that
+     button by switching tabs and it appeared again when I tried to go onto
+     the documents?? (I was on a note edit form and tried to switch to the
+     library and go to documents)". Leave confirmed once must settle the
+     edit form (closed, its words kept as the recoverable draft) so the next
+     move does not ask again. Placed: with 710.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

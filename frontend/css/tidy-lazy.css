@@ -6,6 +6,108 @@
    adds: the tool row, the third line of a row (what Apply would do), the foot
    with the one filled button, and Recent runs. */
 
+/* **One spacing token between every block of the sheet** (INBOX 718: "no
+   vertical spacing between elements"): the card's flex gap, and nothing else.
+   The inbox recipe's own margins under its select and its description
+   (03-dashboard-widgets.css) are zeroed here, so a block's distance from its
+   neighbour is never the gap plus a margin, and a block that is hidden or
+   empty (Recent runs before a first run) takes no gap with it. */
+.sheet-card.tidy-card {
+  gap: var(--space-5);
+}
+
+.tidy-card .inbox-desc,
+.tidy-card .tidy-tools {
+  margin: 0;
+}
+
+/* One review is a column of the same blocks on the same gap, and the sheet's
+   one scroller (its rows) takes what is left. `hidden` is honoured here
+   because the display below would otherwise win over the attribute. */
+.tidy-review {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.tidy-review[hidden],
+.tidy-overview[hidden] {
+  display: none;
+}
+
+.tidy-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tidy-title {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+/* The overview: nine rows, each a button, on the picker's row. The picker's
+   row is a label, so the button face is taken off (the app dresses a bare
+   button with a fill and a centred label). Nothing to tidy is quiet. */
+.tidy-overview {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.tidy-overview-row.note-picker-row {
+  /* Two lines and a tight pad, so all nine rows are in view on a laptop
+     window without a scroll (the owner asked to see every issue). */
+  padding-block: var(--space-1);
+  width: 100%;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+}
+
+.tidy-overview-icon {
+  flex: none;
+  width: 1.25rem;
+  text-align: center;
+  font-size: var(--text-lg);
+  color: var(--accent-text);
+}
+
+.tidy-overview-count {
+  flex: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+
+.tidy-overview-caret {
+  flex: none;
+  color: var(--muted);
+}
+
+.tidy-overview-row.is-empty .tidy-overview-icon,
+.tidy-overview-row.is-empty .note-picker-text,
+.tidy-overview-row.is-empty .tidy-overview-count {
+  color: var(--muted);
+}
+
+.tidy-overview-row.is-empty .tidy-overview-count {
+  font-weight: 400;
+}
+
 .tidy-tools {
   display: flex;
   flex-wrap: wrap;
@@ -19,6 +121,22 @@
 
 .tidy-tools > .setting-check {
   margin: 0;
+}
+
+/* The Apply automatically switch is the app's one switch (32 by 18.4, the
+   same pill as Settings: 06-timeline-dialogs.css) and nothing else: the
+   `.setting-check` row fills with the accent while its switch is on and with
+   a neutral lift under the pointer, which in a sheet read as a chip behind
+   it (INBOX 718: "overly thin ... inside a filled chip"). Settings rows are
+   rows of a group and keep their fill; this is one switch in a tool row, so
+   every state of the row is bare and the switch stands on the text edge of
+   the blocks above and below it. */
+.tidy-card .setting-check.tidy-auto,
+.tidy-card .setting-check.tidy-auto:hover,
+.tidy-card .setting-check.tidy-auto:has(input:checked),
+.tidy-card .setting-check.tidy-auto:has(input:checked):hover {
+  background: transparent;
+  padding-inline: 0;
 }
 
 .tidy-door {
@@ -88,8 +206,26 @@
   margin-inline-start: auto;
 }
 
+/* Recent runs is its own bordered block: the card's gap keeps it off the
+   action row above, and its rows sit inside it with padding rather than
+   against its edge or the sheet's. */
 .tidy-history:empty {
   display: none;
+}
+
+.tidy-history {
+  flex: 0 0 auto;
+  padding-inline: var(--space-4);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+}
+
+/* The app dresses every bare `summary` as a button (border, fill, padding);
+   inside Recent runs' own bordered block that was a box in a box. */
+details.tidy-history > summary.tidy-history-head {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .tidy-history-head {
@@ -134,7 +270,12 @@
   align-items: center;
   gap: var(--space-3);
   min-height: var(--target-min);
+  padding-block: var(--space-2);
   font-size: var(--text-sm);
+}
+
+.tidy-history-row + .tidy-history-row {
+  border-top: 1px solid var(--divider);
 }
 
 .tidy-history-text {

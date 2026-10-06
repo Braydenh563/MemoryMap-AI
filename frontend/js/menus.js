@@ -206,17 +206,20 @@ function placeHelpPopover(panel, trigger, retry = true) {
   //: make the surface fit worse: it only ever pulls the panel back towards
   //: the middle of the screen.
   left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
-  let top = anchor.bottom + 10;
-  let above = false;
-  if (top + box.height > window.innerHeight - margin) {
-    const room = anchor.top - 10 - box.height;
-    if (room >= margin) {
-      top = room;
-      above = true;
-    } else {
-      top = Math.max(margin, window.innerHeight - margin - box.height);
-    }
+  //: **Never over its own '?'** (INBOX 718: "this popup covers the ? button").
+  //: Below the trigger when the whole panel fits there, above when it fits
+  //: there, else on the side with more room with its height capped to that
+  //: room and scrolling inside (`menuSidePlan`, the menus' rule). The old last
+  //: resort, pinning a too-tall panel to the window's bottom edge, slid it up
+  //: over the trigger whenever the trigger sat in the lower half.
+  const plan = menuSidePlan(box.height, anchor, 10, margin);
+  const above = plan.up;
+  let height = box.height;
+  if (plan.cap !== null) {
+    panel.style.maxHeight = `${plan.cap}px`;
+    height = Math.min(box.height, plan.cap);
   }
+  const top = above ? anchor.top - 10 - height : anchor.bottom + 10;
   panel.style.left = `${Math.round(left)}px`;
   panel.style.top = `${Math.round(top)}px`;
   panel.style.visibility = "";
@@ -299,6 +302,7 @@ function wireHelpPopover(trigger, panel) {
       panel.classList.remove("help-popover", "help-popover-above");
       panel.style.left = "";
       panel.style.top = "";
+      panel.style.maxHeight = "";
       //: Cleared with the rest of the inline placement: an element left
       //: `visibility: hidden` in its home tree is an element some other
       //: feature will one day show and find invisible.

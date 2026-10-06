@@ -92,19 +92,6 @@ with its owner named in the entry.
      connected" banner and a skill offer): "I pressed the comment button on the
      ocr workspace and idk what just happened". Placed: Opus agent.
 
-718. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tidy
-     review's "Apply automatically" switch (an outlined track with a grey knob,
-     drawn thinner than the app's other switches, inside a filled chip): "this
-     button toggle seems overly thin". Placed: Sonnet agent with 716.
-     Addenda, the owner, 2026-10-06, verbatim, on the Tidy dialog: "no vertical
-     spacing between elements,also what is naming???" (Recent runs touching the
-     row above and the Undo row below; the "Name 1" and "Name all in the
-     background" buttons). "is it possible to see all issues identified??" (the
-     review picker is a dropdown of nine). "this popup coveres the ? button and
-     is massive and takes up a lot of room" (the Tidy help popover, a long
-     scrolling essay over its own trigger).
-
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

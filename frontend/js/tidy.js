@@ -6,19 +6,22 @@
 // "a way to better sort through links and tags without the ai ... needs to
 // also be known to the user, no use having them if the user doesnt know about
 // them". The rules are the server's (`entry/tidy.py`, `/tidy`): this file
-// draws them as one sheet on the suggestions inbox's recipe (a select of
-// reviews, each worded and counted; one line of description; the rows), with
-// the Attach picker's checkable rows (`note-picker-row`), a tool row (the
+// draws them as one sheet on the suggestions inbox's recipe: an overview of
+// all nine reviews (icon, name, count, one line on what it finds; the ones
+// with nothing to tidy last), and, pressed, one review with a back button
+// (one line of description naming what its button changes; the rows) on the
+// Attach picker's checkable rows (`note-picker-row`), a tool row (the
 // review's level, its Apply automatically switch, Select all and none) and a
 // foot whose one filled button applies the ticked rows. Each apply is one
 // Undo, in the toast, on Ctrl+Z and in the sheet's Recent runs.
 
+//: The '?' holds four short lines (INBOX 718: "massive"); what each review
+//: finds and changes is in that review's own description, not here.
 const TIDY_HELP = [
-  "Each review is a rule that needs no AI. Pick one from the list, tick the rows to change (each says why it is listed and what Apply would do), then Apply. One Undo puts the whole batch back, from the toast, Ctrl+Z or Recent runs.",
-  "Links to explain gives a link that only says “similar in meaning” the tag, name or week its two notes share. Weak automatic links lists links made from likeness alone with a weak score; the strength list widens it.",
-  "Tags Atlas added lists tags written by Atlas or a background pass, never changed by you, that are not in their note's words and rare in its category. Tags used once and Tags that look alike are the tag manager's two checks, applied in bulk.",
-  "Notes without a category offers the category the note's words point to, from your own filed notes. Near-duplicate notes merge into one note (the others go to the bin). Empty or very short notes go to the bin. Reminders long past are marked done.",
-  "Apply automatically runs a review after each note is filed, as Tidy, listed under Recent runs with its Undo. Merging, binning and removing tags used once always ask first.",
+  "Tidy finds clean-up jobs by rule, with no AI.",
+  "Open a review, tick rows, press its button.",
+  "One Undo reverses a whole batch.",
+  "Apply automatically never merges or bins.",
 ];
 
 //: The open sheet's state, and the count's last fetch and its pending
@@ -58,12 +61,25 @@ function tidyWatchList() {
   }).observe(list, { childList: true });
 }
 
+//: One glyph per rule, for the overview's rows.
+const TIDY_ICONS = {
+  "link-reasons": "link-simple",
+  "weak-links": "link-break",
+  "auto-tags": "tag",
+  "rare-tags": "hash",
+  "lookalike-tags": "arrows-merge",
+  uncategorised: "folder-dashed",
+  duplicates: "copy",
+  "short-notes": "note-blank",
+  "stale-reminders": "clock-countdown",
+};
+
 async function openTidySheet(review = "") {
   if (TIDY.state) {
     if (review) tidyShow(review);
     return;
   }
-  const state = { key: "", reviews: {}, options: {}, rows: [], ticked: new Set(), level: "" };
+  const state = { view: "overview", key: "", reviews: {}, order: [], rows: [], ticked: new Set(), level: "" };
   TIDY.state = state;
   state.close = openSheet({
     label: "Tidy",
@@ -74,13 +90,25 @@ async function openTidySheet(review = "") {
     build: (card) => {
       card.classList.add("inbox-card", "tidy-card");
       tidyHead(card);
-      const select = document.createElement("select");
-      select.id = "tidy-review";
-      select.className = "inbox-kind";
-      select.setAttribute("aria-label", "Review");
-      select.title = "Which review";
-      select.addEventListener("change", () => tidyShow(select.value));
-      state.select = select;
+      //: The overview: every review as one row, pressed to open it.
+      const overview = document.createElement("ul");
+      overview.className = "tidy-overview";
+      overview.id = "tidy-overview";
+      overview.setAttribute("aria-label", "Reviews");
+      //: One review: a back button and its name, its description, its tools,
+      //: its rows and the foot. Hidden while the overview is showing.
+      const pane = document.createElement("div");
+      pane.className = "tidy-review";
+      pane.id = "tidy-review";
+      pane.hidden = true;
+      const nav = document.createElement("div");
+      nav.className = "tidy-nav";
+      const back = smallButton("ph:arrow-left All reviews", "Back to the list of reviews", () => tidyOverview(state.key));
+      back.id = "tidy-back";
+      const title = document.createElement("h3");
+      title.className = "tidy-title";
+      title.id = "tidy-title";
+      nav.append(back, title);
       const about = document.createElement("p");
       about.className = "muted inbox-desc";
       about.id = "tidy-about";
@@ -92,31 +120,26 @@ async function openTidySheet(review = "") {
       list.setAttribute("aria-label", "What this review found");
       const foot = document.createElement("div");
       foot.className = "tidy-foot";
+      pane.append(nav, about, tools, list, foot);
       //: Recent runs fold away (closed), so the rows keep the sheet's height.
       const history = document.createElement("details");
       history.className = "tidy-history";
       history.id = "tidy-history";
-      Object.assign(state, { about, tools, list, foot, history });
-      card.append(select, about, tools, list, foot, history);
+      Object.assign(state, { overview, pane, title, about, tools, list, foot, history });
+      card.append(overview, pane, history);
     },
   });
   const body = await apiJson("/tidy", { silent: true }).catch(() => null);
   if (TIDY.state !== state) return;
   if (!body) {
-    setLabel(state.list, "ph:warning Couldn't read the reviews. Try again in a moment.");
+    const failed = document.createElement("li");
+    failed.className = "muted";
+    setLabel(failed, "ph:warning Couldn't read the reviews. Try again in a moment.");
+    state.overview.replaceChildren(failed);
     return;
   }
-  for (const r of body.reviews) {
-    state.reviews[r.key] = r;
-    const option = document.createElement("option");
-    option.value = r.key;
-    option.dataset.label = r.label;
-    state.options[r.key] = option;
-    state.select.appendChild(option);
-  }
   tidyCounts(body);
-  const first = review || body.reviews.find((r) => r.count)?.key || body.reviews[0].key;
-  await tidyShow(first);
+  if (review && state.reviews[review]) await tidyShow(review);
   tidyHistory();
 }
 
@@ -155,40 +178,116 @@ function tidyHead(card) {
   head.after(helpBody);
 }
 
-//: Each review's row in the select carries its count, "Weak automatic links (4)".
+//: Fresh counts from the server: the overview is drawn again (its rows
+//: sorted, the ones with nothing to tidy last) or, inside a review, only its
+//: title's count moves.
 function tidyCounts(body) {
   const state = TIDY.state;
   if (!state) return;
-  for (const r of body.reviews) {
-    state.reviews[r.key] = { ...state.reviews[r.key], ...r };
-    const option = state.options[r.key];
-    if (option) option.textContent = r.count ? `${r.label} (${r.count})` : r.label;
+  state.order = body.reviews.map((r) => r.key);
+  for (const r of body.reviews) state.reviews[r.key] = { ...state.reviews[r.key], ...r };
+  if (state.view === "review") tidyTitle();
+  else tidyOverviewDraw();
+}
+
+function tidyTitle() {
+  const state = TIDY.state;
+  const review = state?.reviews[state.key];
+  if (!review) return;
+  state.title.textContent = review.count ? `${review.label} (${review.count})` : review.label;
+}
+
+//: The overview: one row for each of the nine reviews, the ones with rows
+//: first (the server's order among them), the ones with nothing to tidy last
+//: and muted. `sort` is stable, so the order among equals is the server's.
+function tidyOverviewDraw() {
+  const state = TIDY.state;
+  if (!state) return;
+  const held = document.activeElement?.closest?.(".tidy-overview-row")?.dataset.review;
+  const sorted = [...state.order].sort((a, b) => !state.reviews[a].count - !state.reviews[b].count);
+  state.overview.replaceChildren(...sorted.map((key) => tidyOverviewRow(state.reviews[key])));
+  if (held) state.overview.querySelector(`[data-review="${held}"]`)?.focus();
+}
+
+function tidyOverviewRow(review) {
+  const li = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "note-picker-row tidy-overview-row";
+  button.dataset.review = review.key;
+  button.classList.toggle("is-empty", !review.count);
+  const icon = document.createElement("i");
+  icon.className = `ph ph-${TIDY_ICONS[review.key] || "broom"} tidy-overview-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  const lines = document.createElement("span");
+  lines.className = "note-picker-lines";
+  const name = document.createElement("span");
+  name.className = "note-picker-text";
+  name.textContent = review.label;
+  const meta = document.createElement("span");
+  meta.className = "note-picker-meta";
+  meta.textContent = review.finds;
+  meta.title = review.finds;
+  lines.append(name, meta);
+  const count = document.createElement("span");
+  count.className = "tidy-overview-count";
+  if (review.count) {
+    const number = document.createElement("span");
+    number.textContent = String(review.count);
+    const words = document.createElement("span");
+    words.className = "visually-hidden";
+    words.textContent = " to tidy";
+    count.append(number, words);
+  } else {
+    count.textContent = "Nothing to tidy";
   }
-  if (state.select && state.key) state.select.value = state.key;
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-right tidy-overview-caret";
+  caret.setAttribute("aria-hidden", "true");
+  button.append(icon, lines, count, caret);
+  button.addEventListener("click", () => tidyShow(review.key));
+  li.appendChild(button);
+  return li;
+}
+
+//: Back to the overview, with the focus on the row it came from.
+function tidyOverview(focusKey = "") {
+  const state = TIDY.state;
+  if (!state) return;
+  state.view = "overview";
+  state.key = "";
+  state.overview.hidden = false;
+  state.pane.hidden = true;
+  tidyOverviewDraw();
+  state.overview.querySelector(`[data-review="${focusKey}"]`)?.focus();
 }
 
 async function tidyShow(key, level = "") {
   const state = TIDY.state;
-  if (!state || !state.options[key]) return;
+  if (!state || !state.reviews[key]) return;
+  const arriving = state.view !== "review";
+  state.view = "review";
   state.key = key;
-  state.select.value = key;
+  state.overview.hidden = true;
+  state.pane.hidden = false;
   const review = state.reviews[key];
   state.level = level || review.level || "";
   state.about.textContent = review.about;
+  tidyTitle();
   state.list.replaceChildren();
   state.foot.replaceChildren();
   setLabel(state.list, "ph:spin Looking…");
   tidyTools(review);
+  if (arriving) $("tidy-back")?.focus();
   const query = state.level ? `?level=${encodeURIComponent(state.level)}` : "";
   const body = await apiJson(`/tidy/${encodeURIComponent(key)}${query}`, { silent: true }).catch(() => null);
   if (TIDY.state !== state || state.key !== key) return;
   state.rows = body ? body.rows : [];
   state.ticked = new Set(state.rows.filter((r) => r.ticked).map((r) => r.id));
   tidyRows();
-  if (body && state.options[key]) {
-    state.reviews[key].count = body.count;
-    state.options[key].textContent = body.count ? `${review.label} (${body.count})` : review.label;
-    state.select.value = key;
+  if (body) {
+    review.count = body.count;
+    tidyTitle();
   }
 }
 
@@ -343,7 +442,7 @@ function tidyFoot() {
   const end = document.createElement("span");
   end.className = "tidy-foot-end";
   if (review?.key === "link-reasons") {
-    end.appendChild(smallButton("ph:play Name all in the background", "Name every link reason the notes can, as a background job you can stop from Background tasks", tidyRunLinkReasons));
+    end.appendChild(smallButton("ph:play Add reasons to all in the background", "Add a reason to every link the notes can explain, as a background job you can stop from Settings, Background tasks", tidyRunLinkReasons));
   }
   const apply = smallButton(`ph:check ${tidyApplyWords(review?.key, n)}`, "Make the change on every ticked row", () => tidyApply(apply), false);
   apply.id = "tidy-apply";
@@ -352,9 +451,27 @@ function tidyFoot() {
   state.foot.append(count, all, none, end);
 }
 
+//: What Apply does, in the plain words of the change (INBOX 718: "what is
+//: naming???"): the bare verb while nothing is ticked, then the verb with
+//: the number and the thing it counts. Each review's description (`about`,
+//: tidy.py) uses the same words, so the button is never a word the sheet has
+//: not already said.
+const TIDY_APPLY = {
+  "link-reasons": ["Add reasons", "Add {n} reason", "Add {n} reasons"],
+  "weak-links": ["Remove links", "Remove {n} link", "Remove {n} links"],
+  "auto-tags": ["Remove tags", "Remove {n} tag", "Remove {n} tags"],
+  "rare-tags": ["Remove tags", "Remove {n} tag", "Remove {n} tags"],
+  "lookalike-tags": ["Merge tags", "Merge {n} set of tags", "Merge {n} sets of tags"],
+  uncategorised: ["Move notes", "Move {n} note", "Move {n} notes"],
+  duplicates: ["Merge notes", "Merge {n} set of notes", "Merge {n} sets of notes"],
+  "short-notes": ["Move to bin", "Move {n} note to bin", "Move {n} notes to bin"],
+  "stale-reminders": ["Mark done", "Mark {n} done", "Mark {n} done"],
+};
+
 function tidyApplyWords(key, n) {
-  const verb = { "weak-links": "Unlink", "auto-tags": "Remove", "rare-tags": "Remove", "lookalike-tags": "Merge", uncategorised: "Move", duplicates: "Merge", "short-notes": "Bin", "stale-reminders": "Mark done", "link-reasons": "Name" }[key] || "Apply";
-  return n ? `${verb} ${n}` : verb;
+  const words = TIDY_APPLY[key];
+  if (!words) return n ? `Apply to ${n}` : "Apply";
+  return n ? words[n === 1 ? 1 : 2].replace("{n}", String(n)) : words[0];
 }
 
 async function tidyApply(button) {
@@ -395,7 +512,7 @@ async function tidyAfterChange() {
   await loadEntries();
   await tidyBadge(true);
   if (TIDY.state) {
-    await tidyShow(TIDY.state.key, TIDY.state.level);
+    if (TIDY.state.view === "review") await tidyShow(TIDY.state.key, TIDY.state.level);
     tidyHistory();
   }
 }
@@ -405,7 +522,7 @@ async function tidyRunLinkReasons() {
     toast(e.message, true);
     return null;
   });
-  if (result) toast("Naming link reasons in the background. Stop it from Settings, Background tasks.");
+  if (result) toast("Adding reasons in the background. Stop it from Settings, Background tasks.");
 }
 
 //: Recent runs: the last five, each with its Undo until it has been undone.

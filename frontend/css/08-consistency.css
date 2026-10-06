@@ -9306,6 +9306,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #entry-list.is-rows > li .entry-meta-end > .entry-actions {
     top: 0;
     transform: translateY(-50%);
+    /* The strip ends inside the row's padding edge, where the time ends, so
+       none of the time's last glyph shows past it (measured: the strip's edge
+       was 17.6px in, the time's 16, which left a sliver of the "o" of "ago"
+       beside the ⋯). The corner box already sits `--space-4` in. */
+    right: var(--space-1);
   }
 }
 

@@ -75,3 +75,9 @@ def test_cards_keep_the_text_cursor_and_select_mode_keeps_the_pointer():
     css = _css()
     assert re.search(r"\.entry-list li\.selectable\s*\{[^}]*cursor:\s*pointer", css)
     assert not re.search(r"#entry-list:not\(\.is-rows\)\s*>\s*li\s*\{[^}]*cursor:\s*pointer", css)
+
+
+def test_the_hover_strip_ends_inside_the_time_it_covers():
+    css = _css()
+    block = _block(css, "#entry-list.is-rows > li .entry-meta-end > .entry-actions")
+    assert "right: var(--space-1)" in block

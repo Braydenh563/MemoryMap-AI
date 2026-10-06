@@ -142,6 +142,18 @@ with its owner named in the entry.
      over dots or lines, links routed round nodes they do not join, a
      Reshuffle (new seed, animated) and a fit to view.
 
+694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
+     dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
+     each with the chosen segment's bottom edge cut off; the chat dock in a
+     narrow sidebar with Skills, Web, Plan, the model picker and Ask|Agent
+     wrapping onto four ragged rows; the corner companion drawn over the
+     Attach dialog's head and tabs): "the bottom of these pills gets cut
+     off. aslo the bottom chat dock isnt responsive in design for the
+     sidebar sizes. also the companion covers the attach popup". The cut
+     pills go to 685's clipping sweep; the dock's narrow layout and the
+     companion's stacking (it must sit under every dialog, menu and
+     popover) to a Sonnet agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

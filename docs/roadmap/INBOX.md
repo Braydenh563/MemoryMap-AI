@@ -57,6 +57,13 @@ with its owner named in the entry.
      keyframe that jumps). Placed: the 0.4.1 mini release, an Opus agent
      when a slot frees.
 
+675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Focused view: a full-width card holding "Evening, Brayden."
+     over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6
+     October" at the far right, the middle empty. "can you improve the
+     dashboard hero section on the focused view??" Placed: the 0.4.1 mini
+     release, an Opus design agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

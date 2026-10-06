@@ -182,3 +182,57 @@ def test_strip_prompt_metadata_matches_the_old_patterns():
     ]
     for text in cases:
         assert strip_prompt_metadata(text) == reference(text), repr(text)
+
+
+# --- ai/questions.py: _title -------------------------------------------------
+#
+# The old `re.match(r"(.+?[.!?])(?:\s|$)", first)` was anchored, so it was
+# linear when measured (20,000 to 200,000 characters of every pump below, a
+# few milliseconds, ten times the input for ten times the time), and CodeQL's
+# `py/polynomial-redos` read it as quadratic anyway. So this one has no
+# "failed before" number: the timing test pins the property, and the
+# equivalence test pins the answers of the loop that replaced it.
+
+_TITLE_PUMPS = {
+    "dots": "a." * (N * 5),
+    "spaces": " " * (N * 5) + ".",
+    "terminators": "!?." * (N * 3),
+    "one-long-word": "x" * (N * 5),
+    "hashes": "# " * (N * 5),
+}
+
+
+@pytest.mark.parametrize("text", _TITLE_PUMPS.values(), ids=_TITLE_PUMPS.keys())
+def test_question_title_is_linear_on_a_long_first_line(text):
+    from memorymap.ai.questions import _title
+
+    assert _timed(lambda: _title(text)) < BUDGET
+
+
+def test_question_title_matches_the_old_pattern():
+    from memorymap.ai.questions import _title
+
+    def reference(content: str) -> str:
+        first = (content or "").strip().split("\n", 1)[0].strip().lstrip("#").strip()
+        sentence = re.match(r"(.+?[.!?])(?:\s|$)", first)
+        if sentence and len(sentence.group(1)) <= 60:
+            return sentence.group(1)
+        return first if len(first) <= 60 else first[:59].rstrip() + "…"
+
+    alphabet = ["a", "b", " ", ".", "!", "?", "...", ". ", "\n", "\t", " ", "#", "1.5", "e.g.", "x" * 20]
+    cases = list(_random_strings(alphabet, count=4000, length=14)) + [
+        "",
+        "Plans for the shed. Then the roof.",
+        "A question? Another.",
+        "x" * 59 + ". more",
+        "x" * 58 + ". more",
+        "x" * 60 + ".",
+        "x" * 61 + ". more",
+        ". leading dot",
+        "v1.5 is out",
+        "Done!",
+        "# Heading. rest",
+        "word." + " " + "rest",
+    ]
+    for content in cases:
+        assert _title(content) == reference(content), repr(content)

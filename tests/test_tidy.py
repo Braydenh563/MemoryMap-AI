@@ -136,7 +136,7 @@ def test_link_reasons_names_generic_links_and_undoes(client, session):
     rows = _review(client, "link-reasons")["rows"]
     assert len(rows) == 1
     assert rows[0]["change"] == "Both tagged #portugal; both mention Lisbon and Porto"
-    assert rows[0]["detail"].startswith("Similar in meaning, some")
+    assert rows[0]["detail"] == "Similar in meaning, some likeness (70%)"
 
     done = _apply(client, "link-reasons", [rows[0]["id"]])
     assert done["applied"] == 1
@@ -164,7 +164,7 @@ def test_weak_links_lists_generic_weak_links_and_unlinks_with_undo(client, sessi
     session.commit()
 
     rows = _review(client, "weak-links")["rows"]
-    assert [r["detail"] for r in rows] == ["Similar in meaning, weak (58%)"]
+    assert [r["detail"] for r in rows] == ["Similar in meaning, weak likeness (58%)"]
     assert rows[0]["change"] == "Unlink"
     assert len(_review(client, "weak-links", level="some")["rows"]) == 1
     assert len(_review(client, "weak-links", level="strong")["rows"]) == 2

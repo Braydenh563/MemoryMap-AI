@@ -93,10 +93,34 @@
 }
 
 .tidy-history-head {
-  margin: 0 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+  list-style: none;
+  cursor: pointer;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
+}
+
+.tidy-history-head::-webkit-details-marker {
+  display: none;
+}
+
+/* The one disclosure caret (DESIGN.md): a quarter turn while closed. */
+.tidy-history .contents-caret {
+  transition: rotate var(--ui-fast) var(--ease-out);
+}
+
+.tidy-history:not([open]) .contents-caret {
+  rotate: -90deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tidy-history .contents-caret {
+    transition: none;
+  }
 }
 
 .tidy-history-list {

@@ -105,7 +105,7 @@ const PHONE = WIDTH < 600;
     }
   }
   const history = await page.evaluate(() => document.getElementById('tidy-history')?.textContent || '');
-  if (process.env.APPLY) check('recent runs listed', /Recent runs/.test(history), { history: history.slice(0, 200) });
+  if (process.env.APPLY) check('recent runs listed', /Recent runs \(\d+\)/.test(history), { history: history.slice(0, 200) });
   check('no console errors', errors.length === 0, { errors });
   const failed = out.checks.filter((c) => !c.ok).length;
   console.log(`SUMMARY ${WIDTH} ${out.theme}: ${out.checks.length - failed} of ${out.checks.length} passed`);

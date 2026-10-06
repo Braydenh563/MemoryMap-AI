@@ -4586,7 +4586,7 @@ def test_the_note_edit_form_is_one_composition() -> None:
     rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
     #: INBOX 709: the + is inside the note's chip, the chip the one control.
     assert 'chip("", "link entry-related-chip", linkIt)' in rows
-    assert 'relChip.setAttribute("aria-label", `Link to ${preview}`)' in rows
+    assert 'relChip.setAttribute("aria-label", `Link to ${name}`)' in rows
     assert 'add.className = "ph ph-plus entry-related-add"' in rows
     assert 'smallButton("ph:plus"' not in rows
 

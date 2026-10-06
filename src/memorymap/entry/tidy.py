@@ -196,7 +196,7 @@ def _generic_links(session) -> list[tuple[EntryLink, Entry, Entry]]:  # noqa: AN
 
 def _strength_detail(score: float | None) -> str:
     word = link_wording.strength_word(score) or "unknown"
-    return f"Similar in meaning, {word} ({_percent(score or 0)})"
+    return f"Similar in meaning, {word} likeness ({_percent(score or 0)})"
 
 
 # --- the rules, one per review --------------------------------------------------
@@ -808,8 +808,9 @@ def respecify_all(workspace_id: str = "default", chunk: int = 200) -> dict:
                 named.extend(undo_part["links"])
                 session.commit()
             if named:
-                with events.acting_as(ACTOR):
-                    row = _log(session, "link-reasons", len(named), {"links": named})
+                #: Asked for by a person (Name all in the background), so the
+                #: run is theirs in Recent runs, not "automatically".
+                row = _log(session, "link-reasons", len(named), {"links": named})
                 session.commit()
                 undo_id = row.id if row is not None else None
             run.result = f"named {len(named)} link reasons" + (" (stopped)" if stopped else "")

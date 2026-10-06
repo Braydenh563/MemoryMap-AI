@@ -92,7 +92,8 @@ async function openTidySheet(review = "") {
       list.setAttribute("aria-label", "What this review found");
       const foot = document.createElement("div");
       foot.className = "tidy-foot";
-      const history = document.createElement("div");
+      //: Recent runs fold away (closed), so the rows keep the sheet's height.
+      const history = document.createElement("details");
       history.className = "tidy-history";
       history.id = "tidy-history";
       Object.assign(state, { about, tools, list, foot, history });
@@ -416,9 +417,12 @@ async function tidyHistory() {
   state.history.replaceChildren();
   const runs = body?.runs || [];
   if (!runs.length) return;
-  const head = document.createElement("h3");
+  const head = document.createElement("summary");
   head.className = "tidy-history-head";
-  head.textContent = "Recent runs";
+  const caret = document.createElement("i");
+  caret.className = "ph ph-caret-down contents-caret";
+  caret.setAttribute("aria-hidden", "true");
+  head.append(caret, ` Recent runs (${runs.length})`);
   const list = document.createElement("ul");
   list.className = "tidy-history-list";
   for (const run of runs) {

@@ -2252,7 +2252,7 @@ const LAZY_ENTRY_POINTS = {
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],
   //: Async, and reached from a Settings pane drawn before the window's own await.
-  settingsControls: ["refreshSearxngHost"],
+  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",

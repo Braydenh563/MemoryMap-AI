@@ -62,11 +62,11 @@ with its owner named in the entry.
      flaws, codeql and ci issues you may have missed." Placed: the release
      close-out, in this order once 640, 642 and the buildable items land
      (641's remainder, 643, 644 and 646 went to the next PR, ROADMAP top):
-     fresh README screenshots (`docs/screenshots/`), an Opus agent rebuilding
+     fresh README screenshots (`docs/screenshots/`; **built**: all 22 retaken in dark from the showcase notebook with `readmeshots.js`, each under 400 KB, none with a toast, skeleton or open dialog), an Opus agent rebuilding
      `docs/index.html` as a static landing page (no fetch of repo docs, links
      out to GitHub instead; **built bdbad35**: one self-contained page, no
      request beyond its own screenshots, no overflow at 320 to 1920, text
-     4.5:1 or better in light and dark, `tests/test_docs_site.py` pins it), a documentation correctness pass, version 0.4.0
+     4.5:1 or better in light and dark, `tests/test_docs_site.py` pins it), a documentation correctness pass (**built**: README, INSTALL, MODELS, PRIVACY, SECURITY, TROUBLESHOOTING, ARCHITECTURE, CONTRIBUTING, RELEASING and DESIGN checked against the code, 2026-10-06), version 0.4.0
      and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
      then the PR title and description, then the owner is told it is ready.
 

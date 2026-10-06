@@ -37,9 +37,10 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - **The AI runs on your machine**, through [Ollama](https://ollama.com) or any
   OpenAI-compatible server on your own computer or network. A setting that is
   on by default refuses a model address that is not local.
-- **Nothing goes online unless you switch it on.** Web search and the update
-  check are off until you turn them on, and Settings, Privacy records every
-  connection the app makes.
+- **Nothing goes online unless you switch it on.** Web search is off until you
+  turn it on, the first start asks once whether to check for updates and until
+  you answer nothing about updating touches the network, and Settings, Privacy
+  records every connection the app makes.
 - **It works with no model at all.** Without one, notes are filed as
   Uncategorised, search uses full-text matching with stemming and spelling
   correction, and every other feature keeps working.
@@ -50,6 +51,11 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - Type, paste, draw, or dictate and record meetings (transcribed on this machine
   with Whisper). `Alt`+`N` opens a quick note over any tab. `#word` tags a note,
   and Markdown works inline, including `[[wiki links]]` and `==highlights==`.
+  Copy or cut with nothing selected takes the whole line, in the capture box
+  and in the editors.
+- Put an emoji or an icon in a note or a document from one picker (Emoji or
+  icon in the toolbar, the Insert menu and the `/` menu): an emoji as itself,
+  one of 1,530 icons as `:ph-name:`.
 - Bring notes in from a folder of Markdown files, a PDF, Word file or slide
   deck, Notion, Obsidian, Evernote or Apple Notes, or clip a web page with a
   bookmarklet. Importing the same thing twice adds only what is new.
@@ -74,7 +80,9 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 
 **Ask**
 - A question returns a conversational answer and the notes behind it, with a
-  numbered citation after each sentence. Chat is saved and resumable.
+  numbered citation after each sentence. Chat is saved and resumable, and the
+  line under an answer in progress says what is happening: reaching the
+  model, reading your notes, thinking, writing, or the tool in use.
 - Questions collects the questions your notes ask in passing, and marks one
   answered when a later note answers it.
 - In Agent mode the assistant has 65 tools to search, link, organise and act on
@@ -91,8 +99,8 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 **Write**
 - Documents is a long-form editor with Live, Source, Split and Read views,
   spelling and grammar checks that run on your computer, version history,
-  focus mode, and code files with line numbers. A document reopens where you
-  left it.
+  focus mode, and code files with line numbers, the line you are on lightly
+  highlighted. A document reopens where you left it.
 - The Writing room turns rough thoughts into a proper note, or a pasted block
   into several linked notes, before anything is saved.
 - Export a document as Markdown, HTML, PDF or Word (Word is an optional
@@ -104,9 +112,14 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - The Timeline puts every note and reminder on a time axis.
 - Boards hold cards, sketches, images and shapes that contain text, joined by
   connectors that carry a label, with a library of shapes, flowchart symbols
-  and 1,530 icons. A board can be a mind map, with tasks to tick, a note behind
-  any topic and numbered branches; maps export as Markdown, OPML or FreeMind,
-  and import XMind.
+  and 1,530 icons. Insert, Emoji and icons places an emoji as a sticker or an
+  icon you can recolour, and dragging a card, shape or topic to the "Drop here to
+  delete" strip at the foot of the canvas deletes it, with an Undo.
+- A board can be a mind map, with tasks to tick, a note behind any topic and
+  numbered branches. The centre, main branches and deeper topics each get their
+  own size and look (Classic, Outline, Boxed or Flat, or your own per level),
+  and a topic can wear any icon or emoji. Maps export as Markdown, OPML or
+  FreeMind, and import XMind.
 - The Dashboard shows your capture streak, statistics, a weekly digest and the
   widgets you choose.
 
@@ -114,6 +127,10 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 - Thirteen themes, each in light or dark, with your own accent, type, density
   and corners. A drawn face for every person and persona, and an optional
   corner companion.
+- An Interface animations switch (Settings, Appearance, Effects & accessibility)
+  turns the short fades and slides off or on, apart from Reduce motion, which
+  stills the large movement. A Back and Forward list in the status bar shows
+  where you have been, with an icon for each kind.
 - Keyboard and screen reader support: named controls, 4.5:1 contrast, a layout
   that holds at 400% zoom, and a switch for single-key shortcuts.
 - A guided tour, and errors written as plain sentences that say what to do.
@@ -128,7 +145,7 @@ Captured from the app in the dark theme at 1440 by 900.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, and note cards newest first, each with its category, tags and the notes it links to" width="850">
+  <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, note cards newest first, each with its category, tags and the notes it links to, and the Connections panel for the open note on the right" width="850">
   <br><sub><b>Notes</b>: captured, filed into a category, tagged and linked to what they relate to</sub>
 </p>
 
@@ -187,8 +204,8 @@ Captured from the app in the dark theme at 1440 by 900.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/map.png" alt="A mind map of a trip, laid out both ways from the root: numbered branches, topics that are tasks with ticks and a done count on their parent, and a mark on the topics that hold a note" width="850">
-  <br><sub><b>Mind maps</b>: numbered branches, topics that are tasks, and a note behind any topic</sub>
+  <img src="docs/screenshots/map.png" alt="A mind map of a trip, laid out both ways from the root: numbered branches in a boxed look with a size and weight per level, icons on the main topics, topics that are tasks with ticks and a done count on their parent, and a mark on the topics that hold a note" width="850">
+  <br><sub><b>Mind maps</b>: numbered branches, a look per level, icons, topics that are tasks, and a note behind any topic</sub>
 </p>
 
 <p align="center">
@@ -311,11 +328,12 @@ Markdown, or as a full backup that you can seal with a password.
 
 - The server listens on this computer only. Letting a phone or another computer
   on your network in is a switch in Settings, Account & security; it always
-  asks for your password, over HTTPS.
+  asks for your password, over HTTPS with a certificate made on this computer
+  (Settings, Account & security shows its fingerprint).
 - Private notes are encrypted at rest with a key derived from your password,
   and kept out of search, the graph and every AI tool.
-- Web search and the update check are off by default. Web search sends only
-  your search words.
+- Web search is off by default, and the update check waits for your answer to
+  the question the first start asks. Web search sends only your search words.
 - Settings, Privacy lists every connection the app has made.
 
 [docs/PRIVACY.md](docs/PRIVACY.md) has the full model, including sessions, the

@@ -108,7 +108,28 @@ async function signIn(page) {
   await page.click('#lock-submit');
   await page.waitForTimeout(3500);
   await page.evaluate(() => document.getElementById('onboarding-overlay')?.classList.add('hidden'));
+  //: The first-start "Check for updates automatically?" question (ask once,
+  //: update-dialogs.js) answered the way a person answers it, "Don't check",
+  //: which saves the answer so it never comes back on this data dir. Left
+  //: open it sat over the dashboard shot.
+  const dont = page.getByRole('button', { name: "Don't check" });
+  if (await dont.isVisible().catch(() => false)) {
+    await dont.click();
+    await page.waitForTimeout(800);
+  }
 }
+
+//: What is on screen at capture, counted: a toast, a skeleton placeholder, or
+//: an open confirm/modal dialog the shot is not of. Printed per file, and a
+//: non-zero count is a retake, not a caption.
+const audit = (page) => page.evaluate(() => {
+  const shown = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+  return {
+    toasts: document.querySelectorAll('#toast-box > *').length,
+    skeletons: [...document.querySelectorAll('.skeleton, [class*="skeleton"]')].filter(shown).length,
+    dialogs: [...document.querySelectorAll('dialog[open], .confirm-overlay, #confirm-dialog')].filter(shown).length,
+  };
+});
 
 //: **What is hidden, and why.** `#ai-status` reads "Search AI didn't load"
 //: here because this sandbox never installs `sentence-transformers`
@@ -289,8 +310,9 @@ async function shoot(page, file, done, { keepFocus = false, clip } = {}) {
   if (!keepFocus) await page.evaluate(() => document.activeElement && document.activeElement.blur());
   await page.waitForTimeout(600);
   const p = `${OUT}/${file}.png`;
+  const seen = await audit(page);
   await page.screenshot({ path: p, ...(clip ? { clip } : {}) });
-  done.push({ file, bytes: fs.statSync(p).size });
+  done.push({ file, bytes: fs.statSync(p).size, ...seen });
 }
 
 (async () => {

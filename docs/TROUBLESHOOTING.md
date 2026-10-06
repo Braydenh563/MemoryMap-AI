@@ -2,6 +2,7 @@
 
 - [The app will not start](#the-app-will-not-start)
 - [The port is already in use](#the-port-is-already-in-use)
+- [A phone or another computer cannot open it, or warns about the certificate](#a-phone-or-another-computer-cannot-open-it-or-warns-about-the-certificate)
 - [The first launch is slow or downloads something](#the-first-launch-is-slow-or-downloads-something)
 - [Windows: "torch_xpu.dll ... WinError 127" and search falls back to keywords](#windows-torch_xpudll--winerror-127-and-search-falls-back-to-keywords)
 - [Linux: the packaged app has no window](#linux-the-packaged-app-has-no-window)
@@ -39,6 +40,21 @@ MemoryMap serves on port 8000. If something else has it, `--doctor` says so, and
 packaged apps and `python -m memorymap`, set `MEMORYMAP_PORT` instead. An
 already-running MemoryMap on that port is not an error: open it, and use Settings,
 Background tasks, Quit MemoryMap if you want it closed.
+
+## A phone or another computer cannot open it, or warns about the certificate
+
+Other devices are off until you allow them: **Settings, Account & security,
+Other devices, Allow other devices on this network**. Turning it on asks for your
+current password and takes effect at the next start.
+
+The address to open on the other device is `https://` followed by this
+computer's network address and port 8443 (`MEMORYMAP_LAN_PORT` changes it). This
+computer keeps plain `http://localhost:8000`. The certificate is made on this
+computer and signed by itself, so a phone or browser warns the first time:
+compare the SHA-256 fingerprint in the warning's certificate details with the one
+Settings shows, and continue only if they match. Regenerate certificate, in the
+same place, makes a new one without a restart, and the other device then warns
+again. If nothing answers, check that this computer's firewall allows port 8443.
 
 ## The first launch is slow or downloads something
 

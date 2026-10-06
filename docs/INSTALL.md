@@ -1,6 +1,6 @@
 # Installing and running MemoryMap AI
 
-There are three ways in. Pick the one that fits.
+There are four ways in. Pick the one that fits.
 
 | You want | Use |
 | --- | --- |
@@ -33,8 +33,10 @@ No terminal and no Python install are needed to run the app.
 
 The app opens in its own window. A tray icon keeps it running when you close
 the window. The tray menu brings it back, starts a note, a question or a search,
-opens Settings or the logs, and restarts or quits the app. If Settings, Packages shows the desktop window as installed but
-no tray icon appears, reinstall that package from the same pane.
+records a meeting, opens Reminders, Settings, Background tasks or the logs,
+hides the window to the tray, and restarts or quits the app. If Settings,
+Packages shows the desktop window as installed but no tray icon appears,
+reinstall that package from the same pane.
 
 **Optional packages.** The installer's last page offers three boxes: search by
 meaning (about 2 GB), voice notes, and document import with scanned-PDF
@@ -234,6 +236,7 @@ Other commands:
 | --- | --- |
 | `python -m memorymap --export PATH` | Write your notes to PATH as a Markdown zip, then exit |
 | `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes are lost |
+| `python -m memorymap --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
 | `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
 | `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer (a source checkout only: the packaged app has no Python to run it with) |
 
@@ -260,9 +263,11 @@ A model backend other than Ollama is chosen in **Settings, Models**, not here.
 
 Nothing about updating touches the network until you say so.
 
-- **The installed app** is a snapshot. Turn on **Settings, About, Updates,
-  Check GitHub for a newer version** (off by default, like web search) and the
-  app tells you when a newer release exists. The **Check for updates** button
+- **The installed app** is a snapshot. The first start asks once whether to
+  check for updates automatically, and until you answer nothing about updating
+  touches the network. Settings, About, Updates holds the answer as **Check
+  GitHub for a newer version** (off until you say yes, like web search), and
+  with it on the app tells you when a newer release exists. The **Check for updates** button
   checks once even with the switch off. On a packaged Windows install, the
   **Update automatically** button runs the official installer for you, and a
   second switch, **Update automatically when a new version is found**, does it

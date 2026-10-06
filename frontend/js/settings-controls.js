@@ -870,8 +870,7 @@ $("about-take-tour")?.addEventListener("click", () => {
   // covering, and a step measured while the modal is still up is dropped for
   // having nothing on screen to point at.
   requestAnimationFrame(() => {
-    if (typeof openTour === "function") openTour("basics");
-    else openOnboarding();
+    openTour("basics");
   });
 });
 
@@ -1815,4 +1814,104 @@ function chosenSkillTools() {
   const box = $("skill-tool-list");
   if (!box) return [];
   return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}
+
+// ---- from spaces-find.js: the status bar's slots, drawn only in Settings ----
+
+//: What shows in the status bar.
+//
+// Asked for: "allow more stuff to be added and removed to the bottom status
+// bar?? maybe??" The bar is a permanent strip across the bottom of every
+// screen, so what belongs on it is taste rather than correctness.
+//
+// **Stored as what is hidden, not what is shown**, and that choice is the
+// whole of the forward-compatibility story: a slot added in a later version
+// appears by default for everyone, instead of being invisible to every user
+// who ever opened this screen and saved a list that could not have named it.
+//
+// Only the slots that are *always* there are listed. The offline badge, the
+// power-saver badge and the running-job slot appear when there is something
+// to say and hide themselves again, and hiding a warning you asked for is a
+// different kind of setting from tidying a permanent one away.
+const STATUS_SLOTS = [
+  { key: "ai", label: "AI status", hint: "The dot and emblem saying what the local model is doing" },
+  { key: "notes", label: "Note count", hint: "How many notes you have, as a link to them" },
+  { key: "reminders", label: "Reminders", hint: "Open and due reminders" },
+  { key: "nav", label: "Back and forward", hint: "Move between the pages you have visited" },
+  { key: "undo", label: "Undo and redo", hint: "The same undo the rest of the app uses" },
+  { key: "command", label: "Command palette hint", hint: "The Ctrl-K reminder" },
+  {
+    key: "agent",
+    label: "Ask the agent",
+    hint: "Open the agent over whatever you are doing, from any tab",
+  },
+  //: Added with INBOX 207, when the Guide left the header cluster. A slot
+  //: added later appears by default for everyone, which is what storing the
+  //: hidden set rather than the shown one buys (the note above).
+  {
+    key: "guide",
+    label: "Guide",
+    hint: "Ask the guide how this app works, from any tab",
+  },
+  //: Added with INBOX 270. A slot added later appears by default for
+  //: everyone, which is what storing the hidden set rather than the shown one
+  //: buys (the note above).
+  {
+    key: "find",
+    label: "Find anything",
+    hint: "Search your notes, documents, files and the app itself",
+  },
+];
+
+function renderStatusBarSettings() {
+  const box = $("status-bar-items");
+  if (!box) return;
+  const hidden = hiddenStatusSlots();
+  // The clock's own row lives inside this same container now (index.html): 
+  // moved there so it wraps as one more compact chip alongside STATUS_SLOTS'
+  // instead of stretching full-width as a lone sibling after the flex box.
+  // `replaceChildren()` below is only ever meant to clear the *generated*
+  // rows this loop is about to rebuild; without pulling the static clock
+  // label out first, it would delete that markup along with them on every
+  // call and silently orphan `#status-bar-clock-toggle` for the rest of
+  // this function.
+  const clockLabel = document.getElementById("status-bar-clock-toggle")?.closest("label");
+  box.replaceChildren();
+  for (const slot of STATUS_SLOTS) {
+    const label = document.createElement("label");
+    label.className = "checkbox-label status-bar-item";
+    label.title = slot.hint;
+    const box_ = document.createElement("input");
+    box_.type = "checkbox";
+    box_.checked = !hidden.has(slot.key);
+    box_.addEventListener("change", () => {
+      const next = hiddenStatusSlots();
+      if (box_.checked) next.delete(slot.key);
+      else next.add(slot.key);
+      const list = [...next];
+      if (prefsCache) prefsCache.status_bar_hidden = list;
+      applyStatusBarSlots();
+      setPreference("status_bar_hidden", list);
+    });
+    const text = document.createElement("span");
+    text.textContent = slot.label;
+    label.append(box_, text);
+    box.appendChild(label);
+  }
+  // Put the clock's row back: see the comment above `clockLabel`'s
+  // declaration. Appended last, so it reads as the odd one out it actually
+  // is (off by default) without visually separating from its siblings.
+  if (clockLabel) box.appendChild(clockLabel);
+  // The clock's own opt-in toggle, not one of STATUS_SLOTS above (it is
+  // off by default, so it is rendered and wired separately rather than
+  // joining a loop that assumes every entry starts visible).
+  const clockToggle = $("status-bar-clock-toggle");
+  if (clockToggle) {
+    clockToggle.checked = Boolean(prefsCache?.status_bar_clock);
+    clockToggle.onchange = () => {
+      if (prefsCache) prefsCache.status_bar_clock = clockToggle.checked;
+      applyStatusClock();
+      setPreference("status_bar_clock", clockToggle.checked);
+    };
+  }
 }

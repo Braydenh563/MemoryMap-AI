@@ -9,10 +9,10 @@ ollama pull llama3.2
 ```
 
 Any Ollama model works. **Settings, Models** switches between them without a
-restart. Its Suggested downloads are grouped by job (chat, images, reading
-text, search), and each card says how much memory the model asks for and
-whether that fits this computer: Fits is under 60% of your memory, Tight is up
-to 85%, Too big is more. Download another model takes an Ollama name or a
+restart. Its Suggested downloads are grouped by job (chat and filing, bigger
+machines, search, images, reading text), and each card says how much memory the
+model asks for and whether that fits this computer: Fits is up to 60% of your
+memory, Tight fit is up to 85%, Too big here is more. Download another model takes an Ollama name or a
 Hugging Face GGUF link. The model's own metadata says whether it can use
 tools, think or see images.
 

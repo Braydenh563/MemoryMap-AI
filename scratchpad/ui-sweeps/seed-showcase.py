@@ -27,7 +27,7 @@ could have, in seven categories, and nothing else:
 - Three documents, one long enough to show the editor.
 - A board with cards, shapes holding text and labelled connectors (this
   week's two whiteboard features), and a mind map with tasks, a note behind a
-  topic and numbered branches (this week's three map features).
+  topic and numbered branches, icons and a look per level.
 - Saved chats, so Chat and the Library have history.
 
 Everything goes through the same routes the app uses, so the search index,
@@ -514,7 +514,24 @@ def seed_map() -> int:
     # A note behind a topic (the mark on it opens it).
     style("sintra", note="Train from Rossio, 40 minutes. Pena Palace first with a timed ticket; Regaleira after lunch when the buses leave.")
     style("flights", note="Out to Lisbon, back from Porto. Seats 14A and 14B.")
-    call("PUT", f"/whiteboard/boards/{bid}", {"numbered": True})
+    # Icons on a few topics (a Phosphor name, or one emoji), as the strip's
+    # Icon picker writes them.
+    for key, icon in (("flights", "airplane-tilt"), ("quinta", "bed"), ("lis", "tram"), ("porto", "wine"), ("pack", "backpack"), ("budget", "coins")):
+        style(key, icon=icon)
+    # A look per level (decision 40): a boxed hierarchy, a vivid palette, the
+    # centre larger and the main branches bold.
+    call(
+        "PUT",
+        f"/whiteboard/boards/{bid}",
+        {
+            "numbered": True,
+            "theme": {
+                "palette": "vivid",
+                "hierarchy": "boxed",
+                "levels": {"0": {"font_size": 25, "bold": True}, "1": {"font_size": 19, "bold": True, "fill": "tint"}, "2": {"font_size": 12}},
+            },
+        },
+    )
     return bid
 
 

@@ -3772,10 +3772,10 @@ span > .chip {
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  /* Right side wider than the rest: room for the kebab in the corner, same
-     reservation .doc-list-body uses below for the Library's own copy of
-     this row. */
-  padding: 0.4rem var(--space-9) 0.4rem 0.6rem;
+  /* No column held back for the kebab (INBOX 722): it overlays the row's
+     right end on hover and the words fade under it (08-consistency.css), so
+     the title runs to the row's own padding at rest. */
+  padding: 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   /* **Every row draws the same shape, not only the one you are in.**

@@ -1106,7 +1106,14 @@ function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   //: button has to be remembered per button (see the rule's own comment in
   //: 00-tokens-shell.css) and nobody remembered it here. Set at the source, so
   //: every ⋯ in the app is square rather than one more thing to remember.
-  opener.classList.add("icon-only");
+  //: **One class for every ⋯** (INBOX 722, the owner: "meatball buttons have a
+  //: visible outline, is that consistent with the rest of the app??"). The
+  //: Library's cards and lines drew a resting `--shadow-sm` on a button whose
+  //: fill and edge another rule had already cleared, so the ⋯ read as an
+  //: outlined square there and as a plain glyph everywhere else. The class is
+  //: the one place a surface cannot override: the ghost recipe is written once,
+  //: in 08-consistency.css, DESIGN.md's "A ⋯ or ⋮ that opens a menu" row.
+  opener.classList.add("icon-only", "kebab-opener");
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 

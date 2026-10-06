@@ -618,15 +618,6 @@ function renderLibrary(options) {
       afterChunk: () => {
         renderLibraryContextBars();
         ensureLibraryGridStop(grid);
-        //: **The thumbnail column is only reserved when a thumbnail exists.**
-        //: Reported: "fix the wierd gap at the start of all the cards in the
-        //: library line view in the all subtab." List view reserves a 3rem
-        //: slot on every row *without* a picture so the rows that have one
-        //: still line up -- correct when some rows have pictures, and on a
-        //: notebook where none do it indents the entire list by 48px of
-        //: nothing. CSS cannot ask whether any sibling has one; this can, so
-        //: the class says so and the rule keys off it.
-        grid.classList.toggle("has-thumbs", Boolean(grid.querySelector(".library-card-thumb")));
       },
     });
 
@@ -1324,6 +1315,7 @@ function libraryCard(item) {
     const tick = document.createElement("input");
     tick.type = "checkbox";
     tick.className = "library-card-tick";
+    tick.title = "Select";
     tick.checked = librarySelection.has(libraryKeyOf(item));
     tick.setAttribute("aria-label", `Select ${item.title}`);
     tick.addEventListener("click", (event) => event.stopPropagation());

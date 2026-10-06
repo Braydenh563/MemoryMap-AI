@@ -67,15 +67,6 @@ with its owner named in the entry.
      cut pill bottoms) is still open; 694 is not resolved.
 
 
-722. **The owner, 2026-10-06, verbatim**, with screenshots of the Library's
-     Everything tab in its lines view (each row starts about 110px in, an empty
-     square box beside the hovered row's ⋯, and every row's ⋯ drawn as a filled,
-     outlined square): "theres a wierd gap at the start of the library all tab
-     lines view cards". Then: "also meatball buttons have a visible outline, is
-     that consistent with the rest of the app?? i dont think it is...".
-     Placed: Sonnet agent.
-     Then: "in the library".
-
 725. **The owner, 2026-10-06, verbatim**: "can you like maximise the application
      responses and sentence concatenation and responses?? I want it soooo good it is
      almost like a chat bot. make them something the world hasnt seen before like

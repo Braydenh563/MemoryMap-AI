@@ -4952,3 +4952,114 @@ def test_a_popup_chooses_a_kind_with_a_tab_strip() -> None:
     assert 'b.setAttribute("role", "tab")' in picker and '"aria-selected"' in picker
     guide = (ROOT / "frontend" / "js" / "help-chat.js").read_text(encoding="utf-8")
     assert 'seg.className = "tabs-line popup-kinds help-chat-views"' in guide
+
+
+#: **A Rows line starts with its kind icon** (INBOX 722, the owner: "theres a
+#: wierd gap at the start of the library all tab lines view"). With one picture
+#: in the list, every row without one reserved a 3rem `::before` slot so the
+#: thumbnails would line up, which pushed every other row's icon 63px in
+#: (measured: icon at x 75 against a 14px row padding). The thumbnail now sits
+#: after the title and the preview, in a slot only the row that has one pays
+#: for, so the icon is at the row's own padding on every row.
+def test_a_library_row_reserves_no_leading_slot_for_a_thumbnail() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    for selector, body in _rules(css):
+        if ".library-list" in selector and "::before" in selector and "content" in body:
+            raise AssertionError(f"a Rows line reserves space before its icon: {selector}")
+    thumb = [
+        body for selector, body in _rules((ROOT / "frontend/css/00-tokens-shell.css").read_text(encoding="utf-8"))
+        if selector == ".library-list .library-card-thumb"
+    ]
+    assert thumb, "the Rows thumbnail rule is missing"
+    order = re.search(r"order\s*:\s*(-?\d+)", thumb[0])
+    assert order and int(order.group(1)) > 0, "a Rows thumbnail follows the title; it never leads the row"
+    assert "has-thumbs" not in (ROOT / "frontend/js/library.js").read_text(encoding="utf-8")
+
+
+#: **The hover tick is a control with its icon, not an empty box** (INBOX 722,
+#: the owner: an empty square beside the hovered row's ⋯). It was neither a
+#: leftover nor a pin: it is the Library's selection tick (`.library-card-tick`,
+#: wired to the bulk bar, labelled "Select <title>"), revealed on hover. Drawn
+#: unchecked it was a 28px blank square next to the 28px ⋯, which reads as a
+#: control that failed to load. An unchecked tick now shows a faint check, so it
+#: says what it is before it is pressed, and it carries a title.
+def test_the_library_hover_tick_shows_its_check_and_names_itself() -> None:
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    faint = [
+        body for selector, body in _rules(css)
+        if ".library-card-tick:not(:checked)::after" in selector
+    ]
+    assert faint, "an unchecked Library tick draws a faint check (library-lazy.css)"
+    assert 'content: ""' in faint[0] and "border-width: 0 2px 2px 0" in faint[0]
+    assert re.search(r"border(?:-color)?\s*:[^;]*var\(--(?:muted|faint)", faint[0]) or "border-color: var(--muted)" in faint[0]
+    script = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    assert re.search(r'tick\.className = "library-card-tick";\s*tick\.title = "Select"', script), "the tick names itself on hover"
+
+
+#: **One ⋯ (INBOX 722, the owner: "meatball buttons have a visible outline, is
+#: that consistent with the rest of the app?? i dont think it is").** The app's
+#: rule, DESIGN.md's "A ⋯ or ⋮ that opens a menu" row: a plain ghost icon, no fill, edge
+#: or shadow at rest, `--ghost-btn-bg` only under its own pointer or while its
+#: menu is open, drawn at `--radius-md`. `kebabMenu` gives every opener the one
+#: class, `kebab-opener`, and it is styled once in 08-consistency.css; a surface
+#: that wants its ⋯ dressed differently does not get to say so.
+def test_the_kebab_opener_is_one_shared_ghost_icon_styled_once() -> None:
+    script = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    assert 'opener.classList.add("icon-only", "kebab-opener")' in script, "kebabMenu's opener carries the shared class"
+
+    shared = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    named = [(selector, body) for selector, body in _rules(shared) if ".kebab-opener" in selector]
+    plain = [body for selector, body in named if ":hover" not in selector]
+    at_rest = [body for selector, body in named if ":not(:hover" in selector]
+    hover = [body for selector, body in named if ":not(:hover" not in selector and ":is(:hover" in selector]
+    assert plain and at_rest and hover, "the shared kebab opener rule (08-consistency.css) is missing"
+    assert all(_rail_background(body) == "transparent" for body in at_rest), "a ⋯ has no fill at rest"
+    rest = "\n".join(plain)
+    assert re.search(r"border(?:-color)?\s*:\s*transparent", rest), "a ⋯ has no edge at rest"
+    assert re.search(r"box-shadow\s*:\s*none", rest), "a ⋯ has no shadow at rest"
+    assert "border-radius: var(--radius-md)" in rest
+    assert any(_rail_background(body) == "var(--ghost-btn-bg)" for body in hover), "a ⋯ fills only under its own pointer"
+
+    # No other rule in the app dresses the opener: a selector that names
+    # `.kebab-opener`, or the library's ⋯ chip that this replaced, may not set
+    # a resting fill, edge or shadow anywhere else.
+    for path in CSS:
+        if path.name == "08-consistency.css":
+            continue
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            names_opener = ".kebab-opener" in selector or (
+                'button[aria-haspopup="menu"]' in selector and "library-card-menu" in selector
+            )
+            if names_opener and re.search(r"(?:^|;)\s*(?:background(?:-color)?|border(?:-color)?|box-shadow)\s*:", body):
+                raise AssertionError(f"{path.name}: {selector} dresses the ⋯ opener; styled once in 08-consistency.css")
+
+
+#: **A rail row's ⋮ overlays the row; it never reserves a column** (INBOX 722,
+#: the owner: "there's quite a big gap on the right side of the chat sidebar
+#: chat items"). Measured at rest before: a chat's title 34px and a Documents
+#: title 33px short of the row's padding edge (the hidden ⋮ still held a flex
+#: item, and a 2rem `padding-right`, open); the Notes categories rail was
+#: already right (its `.category-actions` is absolute and the count is the last
+#: thing in the row). Now every rail's menu is absolutely placed, the row keeps
+#: only its own padding, and the words fade under the ⋮ while it shows.
+def test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    def declared(selector: str, prop: str) -> list[str]:
+        return [
+            re.search(rf"(?:^|;)\s*{prop}\s*:\s*([^;]+)", body).group(1).strip()
+            for sel, body in _rules(css)
+            if selector in [part.strip() for part in sel.split(",")] and re.search(rf"(?:^|;)\s*{prop}\s*:", body)
+        ]
+
+    assert "absolute" in declared("#conversation-list li .entry-actions", "position"), "a chat row's ⋮ overlays the row"
+    assert "absolute" in declared("#category-list li .category-actions", "position") or "absolute" in declared(".category-actions", "position")
+    assert "absolute" in declared(".menu-wrap.doc-item-menu", "position"), "a Documents row's ⋮ overlays the row"
+    # No right padding held back for the ⋮: the row keeps its own 0.6rem, the
+    # old `var(--space-9)` (2rem) reservation is gone.
+    paddings = declared(".doc-item-button", "padding")
+    assert paddings and all("space-9" not in value for value in paddings), "the Documents row reserves a column for its ⋮"
+    # The words fade under the ⋮ rather than stopping short of it.
+    fades = [body for sel, body in _rules(css) if "#conversation-list li" in sel and "mask-image" in body]
+    assert fades, "the end of a chat's title fades under its ⋮"
+    assert any(":hover" in sel and "doc-item" in sel for sel, body in _rules(css) if "mask-image" in body)

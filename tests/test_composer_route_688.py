@@ -43,7 +43,7 @@ def test_from_your_notes_composes_even_with_a_model_running(ai_client, fake_olla
     assert meta["composed"] is True
     assert meta["answered_by"] is None
     assert "**Harbor launch plan**" in out["text"]
-    assert "> Ship the mobile app to the public on the 14th of next month." in out["text"]
+    assert "Ship the mobile app to the public on the 14th of next month." in out["text"].split("\n", 1)[0]
     assert fake_ollama.librarian_reply not in out["text"]
     #: No model was asked for this answer.
     assert len(fake_ollama.chat_models) == calls_before

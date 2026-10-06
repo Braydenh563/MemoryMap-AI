@@ -70,6 +70,8 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
   if (editingId !== id) {
     noteFormDirty = false;
     noteFormDraft = null;
+    //: The copy kept on this device goes with it (note-edit-panels.js).
+    if (typeof forgetNoteEditLocally === "function") forgetNoteEditLocally();
   }
   editingId = id;
   //: **On a phone the note page is put away first.** Tapping a note opens it

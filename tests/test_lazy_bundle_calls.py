@@ -110,6 +110,11 @@ REACHED_AFTER_LOAD = {
     #: toggle, a chord that closes overlays) only while `#palette-overlay` is
     #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
     "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
+    #: `openNoteEditor` drops the copy of an edit kept on this device
+    #: (note-edit-panels.js). Only that bundle writes one, so before it loads
+    #: there is nothing this session kept to drop; a copy from an earlier
+    #: session is still unsaved work, offered back when the bundle arrives.
+    "forgetNoteEditLocally": "notePanels, only its own edit form keeps a copy, and an older copy is meant to survive",
     "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
     #: Capture's staged-files list asks the clear button to re-sync when it
     #: redraws (audit 2026-10-05, FE-18). Before the fieldClear bundle is in,

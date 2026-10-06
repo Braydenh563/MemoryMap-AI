@@ -639,7 +639,7 @@ MORE_TOPICS.extend(
             "id": "note-outbox",
             "keywords": (
                 "server is down", "server down", "server away", "failed to fetch",
-                "waiting to save", "not saved", "lost my note", "kept on this device",
+                "waiting to save", "not saved", "lost my note", "kept on this device", "lost my edit", "unsaved changes",
                 "save while offline", "saved offline", "connection lost", "try now",
             ),
             "body": (
@@ -649,7 +649,9 @@ MORE_TOPICS.extend(
                 "itself when the server is back. It sits at the top of the notes "
                 "list as a card marked Waiting to save, and a notice above Capture "
                 "counts what is waiting, with Try now to send it at once. A note "
-                "sent twice is still saved once."
+                "sent twice is still saved once. An edit left unsaved in a note's "
+                "form is kept on this device too: after a reload or a closed "
+                "window, a message offers Open them to carry on."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

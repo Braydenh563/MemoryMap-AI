@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Notes: an edit left unsaved in a note's form is kept on this device until Save or Cancel, so a reload answered Leave, or a closed desktop window, no longer loses it; the next start offers Open them. The Guide says so
 - Dashboard: the boards widget's New board waits for the boards' code, as Library, Create does now; both did nothing on a first visit since the Library tab began loading library.js alone (FE-03(c)), and both worked in 0.3.32
 - Ask: a question that names a category as where its notes are ("Summarise my notes in Health.", one Ask suggests itself, or "my Work notes") is answered from that category; it was answered from whatever matched the words, other categories included, with a model and without
 - Filing: when a slow model's answer replaces the words-based stand-in, the composer's line follows it (it said "Filed under Health" and nothing said the model then moved the note to Work), and a move is said in a toast with Put it back

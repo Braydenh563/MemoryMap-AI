@@ -102,3 +102,26 @@ test("Move to bin, then Restore from the Library's bin, brings the note back", a
   await openApp(page);
   await expect(await noteRow(page, id)).toContainText("renew the passport");
 });
+
+test("an edit left unsaved in the form survives a reload and can be reopened", async ({ page }) => {
+  await openApp(page);
+  const id = await captureNote(page, `Reload check ${Date.now() % 100000}: the bike lock code`);
+  const row = await noteRow(page, id);
+  await row.locator('button[aria-label="Edit this entry"]').click();
+  const body = row.locator('.cm-content[aria-label="Note text"]');
+  await body.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.insertText(" is 2210, not 2201");
+  // The browser asks before leaving; this run says Leave, the way a person
+  // in a hurry does, and the edit must still be there to come back to.
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await openApp(page);
+  const offer = page.locator(".toast", { hasText: "unsaved changes" });
+  await expect(offer).toBeVisible({ timeout: 15_000 });
+  await offer.getByRole("button", { name: "Open them" }).click();
+  const form = page.locator(`#entry-list > li[data-id="${id}"] textarea.note-edit-box`);
+  await expect(form).toHaveValue(/is 2210, not 2201/);
+  await page.locator(`#entry-list > li[data-id="${id}"]`).locator("button", { hasText: "Save changes" }).click();
+  await expect.poll(async () => (await api(page, `/entries/${id}`)).content).toContain("is 2210, not 2201");
+});

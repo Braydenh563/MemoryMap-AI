@@ -1989,6 +1989,8 @@ const LAZY_MODULES = {
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
   accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
+  //: Tidy, the reviews with no AI (INBOX 691): tidy.js's header.
+  tidy: ["/css/tidy-lazy.css", "/js/tidy.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2261,6 +2263,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  tidy: ["openTidySheet"],
   questionsView: ["initQuestionsView", "loadQuestions"],
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],

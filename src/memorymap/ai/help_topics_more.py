@@ -768,6 +768,39 @@ MORE_TOPICS.extend(
             "badge": {"label": "Notes", "tab": "notes"},
         },
         {
+            "id": "tidy",
+            "keywords": (
+                "tidy", "tidy up", "clean up", "cleanup", "clean up notes", "broom",
+                "weak links", "link reasons", "similar in meaning", "specific reason",
+                "why are these linked", "auto tags", "tags atlas added", "low confidence",
+                "tags used once", "look alike tags", "near duplicate", "duplicate notes",
+                "find duplicates", "uncategorised", "short notes", "empty notes",
+                "old reminders", "stale reminders", "without the ai", "without ai",
+                "bulk", "housekeeping", "apply automatically",
+            ),
+            "body": (
+                "Tidy is the broom in the Notes dock, beside the search help; the "
+                "number on it is how many things its reviews found. Every review is "
+                "a rule that needs no AI: Links to explain (links that only say "
+                "similar in meaning get what the two notes share, a tag, a name or a "
+                "week in one category), Weak automatic links, Tags Atlas added (tags "
+                "written by Atlas or a background pass, never changed by you, that "
+                "fit their note poorly), Tags used once, Tags that look alike, Notes "
+                "without a category (with the category their words point to), "
+                "Near-duplicate notes, Empty or very short notes, and Reminders long "
+                "past. Pick a review from the list, tick the rows (each says why it "
+                "is listed and what Apply will do), then Apply; one Undo puts the "
+                "batch back, from the toast, Ctrl+Z or Recent runs. Apply "
+                "automatically runs a review after each note is filed; merging, "
+                "binning and removing tags used once always ask. Links to explain "
+                "also has Name all in the background, a job you can stop in "
+                "Settings, Background tasks. The command palette and Tools and "
+                "features open Tidy too, and new links already say what their notes "
+                "share when they can."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
             "id": "manage-categories",
             "keywords": (
                 "manage categories", "merge categories", "merge two categories",
@@ -1291,6 +1324,7 @@ TOPIC_META: dict[str, dict] = {
     "filing": {"title": "How a note is filed", "path": "A note's card, beside its category"},
     "suggested-tags": {"title": "Suggested tags", "path": "A note's card"},
     "tag-manager": {"title": "Managing tags", "path": "Notes tab, the ... menu, Manage tags"},
+    "tidy": {"title": "Tidy: reviews with no AI", "path": "Notes tab, the broom in the dock"},
     "manage-categories": {"title": "Managing categories", "path": "Notes tab, the Categories head in the sidebar"},
     "note-history": {"title": "A note's history", "path": "A note's menu, History"},
     "notes-list": {"title": "Sorting and browsing notes", "path": "Notes tab, Your notes"},

@@ -2250,6 +2250,14 @@ Link to another note with [[its first few words]]."></textarea>
                 title="What can I type here?" aria-label="What can I type here?">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
+              <!-- Tidy (INBOX 691): rule-based reviews of links, tags, notes
+                   and reminders, no AI needed (tidy.js, lazy). One glyph in
+                   the icon run, because the row has no width for a word: at
+                   the desktop window's 1200 it had 32px to spare, measured.
+                   The count rides on the glyph's corner in the accent, the
+                   phone More's run count (`.tab-badge`): news, not a fault. -->
+              <button id="notes-tidy" class="ghost small icon-only notes-tidy" type="button"
+                title="Tidy: weak links, stray tags, uncategorised and duplicate notes, old reminders" aria-label="Tidy"><i class="ph ph-broom" aria-hidden="true"></i><span id="notes-tidy-count" class="tab-badge notes-tidy-count" aria-hidden="true" hidden></span></button>
               <details class="doc-dock-menu dock-menu dock-more" id="notes-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">

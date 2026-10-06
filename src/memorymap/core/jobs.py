@@ -111,6 +111,9 @@ KIND_LANES: dict[str, str] = {
     #: Installing, removing or reinstalling optional extras, one package or
     #: a bundle (`core/extras.py`, INBOX 595).
     "extras": "install",
+    #: Tidy's whole-notebook link reason pass (INBOX 691): no model, but a
+    #: notebook-wide walk, so it waits behind nothing a person is waiting on.
+    "tidy-link-reasons": "batch",
 }
 
 DEFAULT_LANE = "cpu"
@@ -153,6 +156,7 @@ LABELS: dict[str, str] = {
     "vision-pdf": "Reading a scan with the vision model",
     "file-entry": "Filing a note",
     "warm-filing": "Warming up the filing model",
+    "tidy-link-reasons": "Naming link reasons",
 }
 
 

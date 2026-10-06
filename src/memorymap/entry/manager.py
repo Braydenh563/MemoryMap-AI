@@ -49,7 +49,7 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.core.lookahead import Ahead
-from memorymap.entry import timewords
+from memorymap.entry import link_facts, timewords
 from memorymap.entry.tagnames import normalise_tags
 
 # Where entries land when no AI is available or the AI can't decide.
@@ -1809,12 +1809,18 @@ def _deduce_reason(
     if vectors[source_id].shape != vectors[target_id].shape:
         return None, None  # mid embedding-model change, see search.similar_pairs
     score = embeddings.cosine_similarity(vectors[source_id], vectors[target_id])
+    #: **What the two notes share, in words, when they share something a
+    #: person can check** (INBOX 691): a tag, a name, one naming the other,
+    #: the same category in the same week (`link_wording`). The score stays
+    #: in `reason_confidence` either way; "similar in meaning" is what is left
+    #: when the vectors are all there is.
     if score >= AUTO_REASON_THRESHOLD:
-        return AUTO_REASON_TEXT, round(score, 2)
+        return link_facts.reason_for(session, source_id, target_id) or AUTO_REASON_TEXT, round(score, 2)
     if score + TEMPORAL_RESCUE_BOOST >= AUTO_REASON_THRESHOLD and _shares_a_date(
         session, source_id, target_id
     ):
-        return AUTO_REASON_TEXT_TEMPORAL, round(score, 2)
+        specific = link_facts.reason_for(session, source_id, target_id)
+        return specific or AUTO_REASON_TEXT_TEMPORAL, round(score, 2)
     return None, None
 
 

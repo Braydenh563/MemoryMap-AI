@@ -4584,7 +4584,11 @@ def test_the_note_edit_form_is_one_composition() -> None:
     assert panels.count('li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"))') == 2
     assert "foot.prepend(attachButton)" in panels
     rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
-    assert 'smallButton("ph:plus", `Link this note to' in rows
+    #: INBOX 709: the + is inside the note's chip, the chip the one control.
+    assert 'chip("", "link entry-related-chip", linkIt)' in rows
+    assert 'relChip.setAttribute("aria-label", `Link to ${name}`)' in rows
+    assert 'add.className = "ph ph-plus entry-related-add"' in rows
+    assert 'smallButton("ph:plus"' not in rows
 
 
 def test_the_note_edit_forms_attach_a_link_opens_the_picker() -> None:

@@ -45,20 +45,6 @@ with its owner named in the entry.
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
 
-691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
-     through links and tags without the ai?? like removing tags that dont
-     have a custom reason (reasons other than "similar in meaning") and that
-     have a low conficence score, maybe could be added in the notes tab??
-     like manual or automated ways to manage notes and other things
-     systemnatically and programatically nearly up to par with the ai but as
-     an option if the ai isnt available or as an alternative. needs to also
-     be known to the user, no use having them if the user doesnt know about
-     them. I feel like there are a lot of features hidden". Then: "also so
-     many notes get the reason "similar in meaning". the notes adn
-     management of things around them needs to be more dynamic and better.
-     world class". Placed: the 0.4.1 mini release, an Opus agent (audit,
-     then a Tidy surface in Notes, specific link reasons, discoverability).
-
 692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
      stretched force layout: "can you add a resuffle button or feature to
      the graph to rearrange how the graph sits on the main force view??"
@@ -195,14 +181,6 @@ with its owner named in the entry.
      transcribing with progress, review), the transcript sized to its
      content, actions grouped with one primary. Placed: the next free Opus
      slot.
-
-709. **The owner, 2026-10-06, verbatim**, with a screenshot of a note's
-     "suggested links" row (each suggestion's text, then a separate "+"
-     button floating after it): "these plus buttons feel too separate from
-     their notes". Decision taken: each suggestion is one chip holding its
-     text and its add control (the + inside the chip's end, the whole chip
-     the hover target, its accessible name "Link to <title>"). Placed: with
-     691, the Tidy and links agent.
 
 710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
      checkbox in a note's editor (a large outlined box after a bullet) and in

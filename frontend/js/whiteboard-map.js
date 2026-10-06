@@ -2525,6 +2525,11 @@ function wbMapOpenLink(d) {
 //: hold the grip that is resizing it, which is a node you cannot get back.
 const WB_MAP_NODE_MIN_W = 72;
 const WB_MAP_NODE_MIN_H = 40;
+//: The least height the server stores for an object (`WhiteboardObjectBase.height`
+//: is `ge=20`). Below the drag's own floor on purpose: a one-line topic in a
+//: small face is drawn shorter than 40, and the reset that records that height
+//: must not be refused for it (INBOX 716).
+const WB_MAP_HEIGHT_FLOOR = 20;
 
 //: **A topic's own resize**, from pointerdown to drop.
 //:

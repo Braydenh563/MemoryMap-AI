@@ -91,8 +91,20 @@ async function captureNote(page, text, { title, tags, category } = {}) {
   const status = page.locator("#save-status");
   const before = await status.getAttribute("data-entry-id");
   await page.click("#save-btn");
-  await expect.poll(() => status.getAttribute("data-entry-id")).not.toBe(before);
-  const id = Number(await status.getAttribute("data-entry-id"));
+  // The status line names the new note's id; a build without that (v0.3.32,
+  // driven for the comparison in e2e-1005.md) is read from the list instead.
+  let id = 0;
+  await expect
+    .poll(async () => {
+      const shown = await status.getAttribute("data-entry-id");
+      if (shown && shown !== before) id = Number(shown);
+      else {
+        const latest = await api(page, "/entries?limit=5");
+        id = (latest.find((e) => e.content.endsWith(text)) || {}).id || 0;
+      }
+      return id;
+    }, { message: "Save made no note" })
+    .toBeGreaterThan(0);
   expect(id, "the composer wrote no note id after Save").toBeGreaterThan(0);
   return id;
 }

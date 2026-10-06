@@ -109,6 +109,15 @@ with its owner named in the entry.
      left edge: "this text isnt spaced or margined/padded". Placed: Opus agent.
      Addendum, the owner, 2026-10-06, verbatim, with the mind map's "Start from a shape" bar and the icon picker's Emoji | Icons pill: "redesign this popup. and change the pill for the emoji popup as well. i dont like pills like that in popups"
 
+716. **The owner, 2026-10-06, verbatim**, three mind map bugs with screenshots.
+     (1) "I double clicked to reset the sizing on a mindmap node and the link
+     didnt update" (the branch line still ends at the old, larger box).
+     (2) "then I moved the reset node and it went back to my manually upscaled
+     size". (3) With the View menu open over a selected node: "mindmap node
+     popup tools go in front of dropdown menus" (the node's floating format
+     bar, colour, 17px, Text, Shape, Branch line, draws over the menu).
+     Placed: Sonnet agent.
+
 
 ## Placed (last 20, newest first)
 

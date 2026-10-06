@@ -559,32 +559,19 @@ function closeNoteForm() {
 const NOTE_EDIT_KEPT = "note-edit-draft";
 
 function keepNoteEditLocally(draft) {
-  try {
-    localStorage.setItem(NOTE_EDIT_KEPT, JSON.stringify({ ...draft, at: Date.now() }));
-  } catch {
-    /* storage full or blocked: the form still holds it */
-  }
+  prefs.setJSON(NOTE_EDIT_KEPT, { ...draft, at: Date.now() });
 }
 
 function forgetNoteEditLocally() {
-  try {
-    localStorage.removeItem(NOTE_EDIT_KEPT);
-  } catch {
-    /* nothing kept, nothing to forget */
-  }
+  prefs.remove(NOTE_EDIT_KEPT);
 }
 
 //: Run once, when this file arrives (app.js preloads it three seconds after
 //: start). A kept edit whose text is already the note's (saved from another
 //: window, say) is dropped without a word.
 async function offerKeptNoteEdit() {
-  let kept = null;
-  try {
-    kept = JSON.parse(localStorage.getItem(NOTE_EDIT_KEPT) || "null");
-  } catch {
-    kept = null;
-  }
-  if (!kept || !Number.isInteger(kept.id) || editingId !== null) return;
+  const kept = prefs.json(NOTE_EDIT_KEPT, {});
+  if (!Number.isInteger(kept.id) || editingId !== null) return;
   const note = await apiJson(`/entries/${kept.id}`, { silent: true }).catch(() => null);
   if (!note || withTitle(String(kept.content || "").trim(), kept.title) === note.content) {
     forgetNoteEditLocally();

@@ -52,7 +52,11 @@ def _offer(kept: dict | None, note_content: str) -> dict:
         """
 const NOTE_EDIT_KEPT = "note-edit-draft";
 const store = {};
-const localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; }, removeItem: (k) => { delete store[k]; } };
+const prefs = {
+  setJSON: (k, v) => { store[k] = JSON.stringify(v); },
+  remove: (k) => { delete store[k]; },
+  json: (k, fallback) => { try { const v = JSON.parse(store[k]); return v && typeof v === "object" ? v : fallback; } catch { return fallback; } },
+};
 let editingId = null;
 const toasts = [];
 function toastAction(message, label) { toasts.push([message, label]); }

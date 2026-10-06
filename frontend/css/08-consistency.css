@@ -6360,6 +6360,13 @@ body .chip.item-label,
     & .nm-char .nm-buddy-head { animation: nmv-head-sway 5.9s ease-in-out -2.95s infinite alternate; }
     & .nmb-arm-l { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate; }
     & .nmb-arm-r { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate-reverse; }
+    /* Not Atlas's arms (INBOX 669, "atlas's arm movements are jerky"): its
+       arms are a rig that redraws them from these probes, so a drift that
+       never ends ran the rig every frame for as long as the view was open,
+       158 layouts and 0.7s of main thread a second at rest
+       (atlas669-cost.js), and its view dropped to 18 frames a second on a
+       busy machine. Atlas has its own loops: sway, breath, tail, rings. */
+    &.atl-figure-box :is(.nmb-arm-l, .nmb-arm-r) { animation: none; }
     & .name-mark .nm-eyes {
       translate: calc(var(--nmv-x) * 3.4px) calc(var(--nmv-y) * 2.6px);
       transition: translate var(--motion-fast) var(--ease-out);

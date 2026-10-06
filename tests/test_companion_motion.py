@@ -1568,3 +1568,13 @@ def test_inbox_669_arm_gestures_start_and_end_at_the_arms_rest() -> None:
     for name in ["nmb-wave", "nmb-wave-l", "nmb-scratch", "nmb-hide-l", "nmb-hide-r", "atl-wave", "atl-buddy-wave", "atl-buddy-wave-f", "atl-buddy-scratch"]:
         body = re.search(r"@keyframes " + re.escape(name) + r" \{(.*?)\n\}", css, re.S).group(1)
         assert not re.search(r"(^|\s)(0%|100%|from|to)[ ,{]", body), name
+
+
+def test_inbox_669_a_turn_hands_back_about_the_point_it_turned_on() -> None:
+    # Hanging by one hand turns the body about the hand; cut short, its
+    # class took the point away and the eased turn swung about the new one,
+    # 44px off in a frame in the large view (atlas669-clicks.js).
+    blend = _fn("nameMarkBuddyBlend")
+    held = blend.index("held.push({ anim, el, from });")
+    assert 'from.transformOrigin = style.transformOrigin;' in blend[:held]
+    assert "el.animate([{ ...from, offset: 0 }]" in blend

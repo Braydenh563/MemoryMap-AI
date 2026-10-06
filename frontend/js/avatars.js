@@ -7765,6 +7765,12 @@ function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
     const style = getComputedStyle(el);
     const from = {};
     for (const key of props) from[key] = style[key];
+    //: And the point it turns about (INBOX 669): an act that turns the
+    //: body about its own point (hanging by one hand turns 16 degrees about
+    //: the hand, `nmb-act-onehand`) took that point away with its class,
+    //: and the turn eased back about the new one, 44px off in the large
+    //: view, in one frame (atlas669-clicks.js, a poke cutting it short).
+    if (props.has("rotate") || props.has("transform")) from.transformOrigin = style.transformOrigin;
     held.push({ anim, el, from });
   }
   change();

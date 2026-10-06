@@ -2571,6 +2571,39 @@ above); no for the AI step. Placed as the next diagram work, in order:
 7. **Wider Mermaid**: sequence and timeline diagrams render in documents and
    chat, and import to boards as frames; anything else stays as code.
 
+**The owner, 2026-10-06, verbatim:** "I think mermaid.js should be better
+integrated and expanded with the features, add to roadmap as well". This
+reopens DOCUMENTS_PLAN decision 3 ("No Mermaid is vendored"), by the owner.
+New decision: **vendor mermaid.js** into `frontend/vendor/` (MIT, so it may
+come into this AGPL project with its notice; never fetched from a CDN, the
+fully-local rule holds), **lazy-loaded** only when a diagram is on screen (it
+is large; never in the boot scripts or their gzip budget), with
+`securityLevel: "strict"` and no HTML labels (the CSP and the
+`test_no_innerhtml_interpolation` rule). The in-house flowchart parser stays
+as the board import path (`wbMermaidParse`) and the verifier in step 5.
+
+8. **Every Mermaid kind renders** where Markdown renders: documents, chat,
+   Ask answers, note previews and the print view: flowchart, sequence, class,
+   state, ER, Gantt, timeline, mind map, pie, quadrant, journey, git graph.
+   Themed from the app's tokens (light, dark, high contrast), re-drawn on a
+   theme switch.
+9. **A Mermaid editor**: a Live and Split view for a fence (source beside the
+   drawing, errors inline with the line), snippets per kind from the "/" menu,
+   and a "Diagram" block in the document toolbar.
+10. **Boards and mind maps both ways**: a mind map exports to and imports
+    from Mermaid `mindmap`; sequence and timeline import as frames with
+    shapes; a board frame can be "Copy as Mermaid".
+11. **Export**: any diagram to SVG and PNG, the `.mmd` source, and Mermaid
+    kept inside the exported SVG (as boards already do); a diagram in a
+    document exports with the document (PDF, HTML, DOCX as an image).
+12. **The AI**: steps 5 and 6 above use the full renderer for the preview;
+    the agent gets a `render_mermaid` check tool so it can see its own parse
+    errors; Ask can answer with a diagram when the question asks for one.
+13. **Tests and guards**: a lazy-load test (not in `app_js_files`), a
+    vendored-file licence notice test, a CSP test that no inline style or
+    script is injected, and a sweep that renders one of each kind in light
+    and dark with no console errors.
+
 ### Related, and cheap: finish the rendering story
 
 Checked this session: chat, documents and the dashboard digest all go through

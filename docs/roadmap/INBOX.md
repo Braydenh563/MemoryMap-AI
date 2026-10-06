@@ -64,6 +64,19 @@ with its owner named in the entry.
      dashboard hero section on the focused view??" Placed: the 0.4.1 mini
      release, an Opus design agent.
 
+676. **The owner, 2026-10-06, verbatim**, with two screenshots of the Notes
+     compact rows view (a collapsed row: chevron, title, a link snippet, the
+     category chip, tags and "1 week ago" sitting low, with the hover
+     buttons hanging half below the row's bottom edge; an expanded row: the
+     chevron now an up arrow in a bordered square button, the hover buttons
+     again low at the right with a stray circle after them): "hovering over
+     collapsed notes on the compact rows view the popup hover buttons arent
+     correctly positioned, the metadata isnt centred. when expanded the
+     dropdown arrow is different and bordered, it isnt clean, the arrow
+     should smoothly change, the dropdown and collapse should be a smooth
+     animation adn not sudden and janky." Placed: the 0.4.1 mini release, an
+     Opus agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

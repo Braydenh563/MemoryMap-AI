@@ -13,6 +13,7 @@ async function run(width, height) {
   let errs = 0;
   page.on('pageerror', () => errs++);
   for (const pane of PANES) {
+    await page.evaluate(() => localStorage.setItem('settings-nav-sections', 'all'));
     await page.evaluate((p) => openSettingsModal(p), pane);
     await page.waitForTimeout(1500);
     const info = await page.evaluate((p) => {

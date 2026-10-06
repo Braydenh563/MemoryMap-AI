@@ -385,6 +385,32 @@ function settingsIndexBuild(name) {
   list.setAttribute("aria-label", "In this section");
   list.dataset.section = name;
   list.dataset.signature = signature;
+  //: **"On this page", short unless asked** (INBOX 698): the head names the block
+  //: and carries the toggle for the rest of the sections, which is remembered
+  //: per device. Collapsed, only the link being read shows (the stylesheet).
+  let showAll = false;
+  try { showAll = localStorage.getItem("settings-nav-sections") === "all"; } catch { /* private window: collapsed */ }
+  const head = document.createElement("div");
+  head.className = "settings-nav-groups-head";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "linklike";
+  const paint = () => {
+    list.classList.toggle("is-open", showAll);
+    toggle.setAttribute("aria-expanded", String(showAll));
+    toggle.textContent = showAll ? "Show fewer" : `Show all ${heads.length} sections`;
+  };
+  toggle.addEventListener("click", () => {
+    showAll = !showAll;
+    try { localStorage.setItem("settings-nav-sections", showAll ? "all" : "current"); } catch { /* not remembered */ }
+    paint();
+    settingsIndexMark(name);
+    const current = list.querySelector('[aria-current="location"]');
+    if (current) settingsNavFollow(current);
+  });
+  head.append(Object.assign(document.createElement("span"), { textContent: "On this page" }), toggle);
+  list.appendChild(head);
+  paint();
   for (const { el, label } of heads) {
     const link = document.createElement("button");
     link.type = "button";

@@ -12,3 +12,5 @@ fixes, 2026-10-05" and its second pass).
 ## Not verified
 
 ## Log
+- done: 94f1747 (import ReDoS), df31d86 (agent _ADDRESS ReDoS), e6f5f41 (empty-except comments), 92dfd7f (int(inf) theme), 04a69b8 (release notes awk + 125k cap)
+- next: review shapes on lazy moves, motion switch, history list; gate --changed; write findings

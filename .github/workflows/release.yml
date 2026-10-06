@@ -50,9 +50,15 @@ jobs:
 
       - name: Resolve from the tag push or the manual input
         id: resolve
+        # The typed version reaches the script as an environment variable,
+        # never spliced into its text: `${{ inputs.version }}` inside `run:`
+        # is substituted before bash parses it, so a value with a quote and
+        # a command in it would run (GitHub's script-injection guidance).
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
           else
             VERSION="${GITHUB_REF_NAME#v}"
           fi

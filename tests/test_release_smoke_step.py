@@ -361,6 +361,16 @@ def test_the_release_notes_are_the_versions_changelog_section(tmp_path):
     assert "## [0.3.31]" not in notes and "## [0.3.32]" not in notes
 
 
+def test_no_typed_input_is_spliced_into_a_script():
+    """`${{ inputs.* }}` inside `run:` is substituted before the shell parses
+    the script, so a typed value is code there (the final scan, 2026-10-06).
+    Inputs go through `env:` instead."""
+    for block in WORKFLOW.split("run: |")[1:]:
+        script = block.split("\n      - ")[0]
+        assert "${{ inputs." not in script and "${{ github.event.inputs" not in script, script[:200]
+    assert "INPUT_VERSION: ${{ inputs.version }}" in WORKFLOW
+
+
 def test_a_long_release_section_is_cut_under_githubs_body_cap(tmp_path):
     """GitHub refuses a release body over 125,000 characters, which would
     fail the release itself; 0.4.0's section is about 278,000. The notes are

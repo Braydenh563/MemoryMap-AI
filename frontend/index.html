@@ -8096,13 +8096,6 @@ Link to another note with [[its first few words]]."></textarea>
                  encompassing text and image ocr workspace, dont limit the
                  feature."* -->
             <h2 class="dialog-head-title">OCR workspace</h2>
-            <!-- The one '?' (INBOX 717): four lines, the first thing to do and
-                 the three things people did not find. -->
-            <button type="button" class="icon-only ghost small graph-help-toggle dialog-head-btn"
-              data-help-for="ocr-help" aria-controls="ocr-help" aria-expanded="false"
-              title="How the OCR workspace works" aria-label="How the OCR workspace works">
-              <i class="ph ph-question" aria-hidden="true"></i>
-            </button>
             <!-- Which file. The workspace can be reached from four places and
                  opened on a document you last touched an hour ago. -->
             <span id="ocr-file" class="ocr-file" hidden></span>
@@ -8216,6 +8209,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <div id="ocr-engine" class="ocr-engine dock-menu-section" role="status" aria-live="polite" hidden></div>
               </div>
             </details>
+            <!-- The one '?' (INBOX 717): four lines, the first thing to do and
+                 the three things people did not find. In the dock, before the
+                 ⋯, because every dock's '?' is a utility of its last zone
+                 (DESIGN.md, the dock grammar). -->
+            <button type="button" id="ocr-help-toggle" class="icon-only ghost small graph-help-toggle"
+              data-help-for="ocr-help" aria-controls="ocr-help" aria-expanded="false"
+              title="How the OCR workspace works" aria-label="How the OCR workspace works">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
             <!-- The dock's ⋯ (kebabMenu, filled by `ocrSyncToolsMenu`): Manage
                  the readers in Settings, and whatever the row has folded. -->
             <span id="ocr-tools-more" class="dock-more ocr-tools-more"></span>

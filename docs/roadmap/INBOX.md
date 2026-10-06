@@ -146,6 +146,7 @@ with its owner named in the entry.
      licences that allow it are offered as one-press installs, others link
      to their terms. Placed: the next free agent slot.
      Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
+     Addendum, the owner, 2026-10-06, verbatim: "I feel like there should be the options to modify, install, uninstall, reinstall embedded models etc. also maybe a way to type a model name into a text box near the suggested model section and then pull in a model that is typed in the box if it exists?? like from ollama or huggingface."
 
 701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
      shortcut, should they be added to the tooltips??" Recommendation,

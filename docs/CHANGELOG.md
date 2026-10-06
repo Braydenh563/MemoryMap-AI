@@ -15,6 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Documents: the current line's highlight is half as strong, a place marker rather than a band.
+- Dashboard, Focused view: the greeting card is a hero again (INBOX 675). The date and time are one small line over the greeting, New note sits under it, and four tiles fill the rest: what is due today, today's meetings, the notes to file and the note you were last in, each a press away. No model needed. Compact view: Quick access tiles are as wide as their words, on one line, instead of five stretched, mostly empty boxes (INBOX 677).
 - Lock screen: "Forgot your password?" is a quiet link under Unlock rather than a bordered button between the field and it.
 - Note cards: the text runs further across a wide card (84 characters a line rather than 72).
 - Mind maps: a template dropped on a map with no central topic no longer makes one separate trunk per top-level topic. A template with several top-level topics (every built-in map template) gets a new central topic named after it, with them as its branches; a template with one top-level topic makes that topic the centre. A map that already has a central topic is unchanged, and a template still lands under the pointer and undoes in one step (INBOX 670).

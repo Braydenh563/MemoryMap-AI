@@ -44,21 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Dashboard's Focused view: a full-width card holding "Evening, Brayden."
-     over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6
-     October" at the far right, the middle empty. "can you improve the
-     dashboard hero section on the focused view??" Placed: the 0.4.1 mini
-     release, an Opus design agent.
-
-677. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Dashboard's Compact view: a "Quick access" label, then five equal,
-     bordered, full-height boxes (New note, Sketch, Ask AI, Remind me,
-     Meeting notes) stretched across the whole row, each icon and word
-     left-aligned in a mostly empty box. "the quick access looks wierd and
-     not refined in the compact view". Placed: with 675, the dashboard
-     hero agent (same surface).
-
 680. **The owner, 2026-10-06, verbatim.** "should the settings sidebar
      scroll a little to show the quick access in page sections if scrolling
      on that settings page??" Recommendation, taken: yes; as a Settings page

@@ -45501,3 +45501,26 @@ and refuses a topic ("Select a shape, link or text box first").
      made before this fix (graph-canvas.js `gcUnlinkPairs`,
      `gcRelinkPairs`; help_chat names both).
 
+675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Focused view: a full-width card holding "Evening, Brayden."
+     over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6
+     October" at the far right, the middle empty. "can you improve the
+     dashboard hero section on the focused view??" Placed: the 0.4.1 mini
+     release, an Opus design agent. **Fixed (hero675-1006):** two columns,
+     the date and time one small line over the greeting, New note under
+     it, and four glance tiles (due today, today's meetings, to file, the
+     last note) from reads the dashboard already makes; the widest empty
+     strip of the hero went from 60/72/78% at 1024/1440/1920 to 3/2/2%
+     (`scratchpad/ui-sweeps/hero675.js`, `tests/test_inbox_675_hero.py`).
+677. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Compact view: a "Quick access" label, then five equal,
+     bordered, full-height boxes (New note, Sketch, Ask AI, Remind me,
+     Meeting notes) stretched across the whole row, each icon and word
+     left-aligned in a mostly empty box. "the quick access looks wierd and
+     not refined in the compact view". Placed: with 675, the dashboard
+     hero agent (same surface). **Fixed (hero675-1006):** a Compact tile is
+     as wide as its words at a button's measure, one line beside its label;
+     icon and words fill 98% of a tile at 390 to 1920 (were 33 to 68% mean,
+     25% the emptiest), light and dark (`scratchpad/ui-sweeps/quick677.js`,
+     `tests/test_inbox_677_quick_access.py`).
+

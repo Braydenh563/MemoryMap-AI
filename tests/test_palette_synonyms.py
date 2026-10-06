@@ -46,3 +46,17 @@ def test_the_words_the_audit_typed_each_find_a_row():
     rows = _searchable_rows()
     for word in ("questions", "backup", "restore", "undo", "redo", "bin", "trash", "deleted", "theme"):
         assert any(word in row for row in rows), f"Ctrl+K {word!r} finds no command"
+
+
+def test_the_guided_tour_is_one_ctrl_k_away():
+    """Found by the e2e flow pass (2026-10-05): Ctrl+K "tour" found only notes
+    that happened to say "tour buses". The tour's doors were the Dashboard's
+    first-run tile and Settings, Help; a person who skipped the welcome had
+    to know that. A row now opens it."""
+    rows = _searchable_rows()
+    for word in ("tour", "walkthrough"):
+        assert any(word in row for row in rows), f"Ctrl+K {word!r} finds no command"
+    body = _commands_body()
+    row = body[body.index("Take the guided tour") :]
+    row = row[: row.index("}")]
+    assert 'openTour("basics")' in row, row

@@ -2545,6 +2545,7 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
         skipped = 0
         skipped_oversize = 0
         already = 0
+        made = []
         known = _already_imported(session)
         for f in p.rglob("*.md"):
             if not _inside(p, f):
@@ -2607,6 +2608,7 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                     entry.user_filed = True
                 deps.store_quietly(session, entry)
                 imported += 1
+                made.append(entry)
                 known.setdefault(relative, set()).add(_text_hash(body.strip()))
                 if imported % 50 == 0:
                     session.commit()
@@ -2630,6 +2632,7 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
         #: Firing on `skipped` too, not just `imported`, matters here: a
         #: directory whose files were all oversize used to leave no trace
         #: at all, imported stayed 0 and the whole run vanished silently.
+        _link_imported(session, made)
         if imported > 0 or skipped > 0 or already > 0:
             detail = f"markdown dir x{imported}"
             if already:
@@ -2689,12 +2692,32 @@ def import_markdown(
     return result
 
 
+def _link_imported(session: Session, entries: list) -> None:
+    """Join up the `[[wiki links]]` an import brought in, both ways.
+
+    After every file is a note, so a link to a file later in the same batch
+    resolves (`sync_wiki_links` only links names that exist), and
+    `resolve_links_to` links notes already here that named one of the new
+    ones. Before this, an imported vault had no links at all until each note
+    was saved again (tests/test_import_markdown_links.py)."""
+    for entry in entries:
+        manager.sync_wiki_links(session, entry)
+        manager.resolve_links_to(session, entry)
+    session.commit()
+
+
 def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
     imported = 0
     skipped: list[str] = []
     #: The notes this import made, so the client's Undo can bin exactly
     #: these (INBOX 464 (18): choosing the files starts the import now).
     ids: list[int] = []
+    made = []
+    #: **Choosing the same files again adds nothing** (the folder importer's
+    #: rule, SEC-10, and the README's promise): a file whose name or path and
+    #: whose text are already a note is passed over; an edited one comes in.
+    known = _already_imported(session)
+    already = 0
     for file in files:
         raw = file.file.read(MAX_IMPORT_BYTES + 1)
         name = file.filename or "note.md"
@@ -2715,6 +2738,11 @@ def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
         #: relative path as the filename when the picker was a directory
         #: picker, and the bare name otherwise; both are relative, which is
         #: the only kind stored.
+        relative = name.lstrip("/")[:500]
+        seen = known.get(relative)
+        if seen is not None and (seen is _PRIVATE or _text_hash(body.strip()) in seen):
+            already += 1
+            continue
         entry = manager.create_entry(
             session,
             body.strip(),
@@ -2722,17 +2750,21 @@ def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
             tags=meta.get("tags") or [],
             ai_confidence=100 if meta.get("category") else 0,
         )
-        entry.source_path = name.lstrip("/")[:500]
+        entry.source_path = relative
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
         deps.store_quietly(session, entry)
         imported += 1
         ids.append(entry.id)
-    manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
+        made.append(entry)
+        known.setdefault(relative, set()).add(_text_hash(body.strip()))
+    _link_imported(session, made)
+    detail = f"markdown x{imported}" + (f", {already} already in" if already else "")
+    manager.log_action(session, "imported", "data", detail=detail)
     session.commit()
     deps.mark_index_stale(imported)
-    return {"imported": imported, "skipped": skipped, "ids": ids}
+    return {"imported": imported, "skipped": skipped, "ids": ids, "already": already}
 
 
 #: A PDF or slide deck, not a video, well past what a document-conversion

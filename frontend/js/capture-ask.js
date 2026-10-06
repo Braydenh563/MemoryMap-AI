@@ -48,6 +48,12 @@ async function watchFiling(entry, { quiet = false } = {}) {
   filingWatches.add(entry.id);
   const started = Date.now();
   let step = 0;
+  //: **A stand-in is followed to the model's answer**
+  //: (tests/test_filing_standin_watch.py). A slow model's note is filed by
+  //: its words first (`standin`) and the answer replaces it when it lands;
+  //: the watch used to stop at the stand-in, so the line said "Health" and
+  //: nothing said the model then moved it to Work.
+  let standIn = null;
   try {
     while (Date.now() - started < FILING_WATCH_LIMIT_MS) {
       const wait = FILING_POLL_STEPS[Math.min(step, FILING_POLL_STEPS.length - 1)];
@@ -60,6 +66,27 @@ async function watchFiling(entry, { quiet = false } = {}) {
         return; // deleted, or the server went away, nothing to report
       }
       if (status.filing_state === "pending") continue;
+      if (status.filing_state === "standin") {
+        if (!standIn) {
+          standIn = status;
+          settleCaptureStatus(status);
+        }
+        continue;
+      }
+      if (standIn) {
+        const before = filingOutcomeText(standIn);
+        const changed = status.category !== standIn.category;
+        settleCaptureStatus(status, before);
+        if (changed && !quiet) {
+          const from = standIn.category;
+          toastAction(
+            `${aiNameNow()} read it and moved it from “${from}” to “${status.category}”.`,
+            `Put it back in ${from}`,
+            () => moveNotesToCategory([entry.id], from),
+          );
+        }
+        return;
+      }
       //: **Said once, where the person is looking** (INBOX 432). The
       //: composer's line and a toast both carried the same sentence, so a
       //: save from Capture read it twice; the toast is for someone who has
@@ -91,14 +118,16 @@ async function watchFiling(entry, { quiet = false } = {}) {
 //: The composer's line said "Filing it in the background" until the next
 //: save, long after the note had been filed. Replaced only while it still
 //: says that, so a newer save's own status is never overwritten.
-function settleCaptureStatus(status) {
+//: `from` is the text it may replace: the pending line, or the stand-in's
+//: line when the model's answer follows it.
+function settleCaptureStatus(status, from = filedByText({ filing_state: "pending" })) {
   //: The line's first node is the text; `offerJumpToNewNote` appends its
   //: "Go to it" button after it, and that button stays. Answers whether the
   //: line said it on screen, so the caller knows a toast would repeat it.
   const line = $("save-status");
   const text = line?.firstChild;
   if (!text || text.nodeType !== Node.TEXT_NODE) return false;
-  if (text.nodeValue !== filedByText({ filing_state: "pending" })) return false;
+  if (text.nodeValue !== from) return false;
   if (line.dataset.entryId && line.dataset.entryId !== String(status.id)) return false;
   text.nodeValue = filingOutcomeText(status);
   //: Nothing filed it: the line's own button picks a category instead of
@@ -135,6 +164,11 @@ function settleCaptureStatus(status) {
 function filingOutcomeText(status) {
   if (status.filing_state === "failed") {
     return `Saved in “${status.category}”: ${aiNameNow()} couldn't file it.`;
+  }
+  //: Filed by its words while the model is still reading it: said as a
+  //: holding place, since the model's answer may move it.
+  if (status.filing_state === "standin") {
+    return `Filed under “${status.category}” for now: ${aiNameNow()} is still reading it.`;
   }
   if (status.filed_by === "none") {
     return aiIsOff()
@@ -722,6 +756,9 @@ const SEARCH_MODE_LABELS = {
   // a joke tagged joke/jokes/funny, asked about as "two weeks ago", was
   // actually three).
   outside_range: "matched, wrong time",
+  //: The question named a category ("notes in Health"): its notes, newest
+  //: first (search_manager._named_category).
+  category: "that category",
 };
 
 // Say something to a screen reader without putting anything on screen. Used

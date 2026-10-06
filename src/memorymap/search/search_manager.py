@@ -984,6 +984,72 @@ def is_recency_ask(query: str) -> bool:
     return bool(_RECENCY_ASK.search(query[:300].strip().rstrip("?.! \t\r\n")))
 
 
+#: The words a question about a whole category is made of besides the
+#: category's own name: "Summarise my notes in Health" is nothing but these,
+#: so it asks for the category, not for notes about some subject in it.
+_CATEGORY_ONLY_WORDS = frozenset(
+    "summarise summarize summary sum up recap overview what whats say says said "
+    "have has i ive my me all every the a an of in under from about do does did "
+    "notes note entries entry saved written wrote tell give show list category".split()
+)
+
+
+def _named_category(session: Session, query: str):
+    """The category a question names as where its notes are, or None.
+
+    "notes in Health", "under Work", "my Travel notes", "the Cooking
+    category": the app suggests "Summarise my notes in Health." itself, and
+    retrieval answered it from whatever matched the words, other categories
+    included (tests/test_ask_category_scope.py). A bare word is not enough:
+    "how does the physio work" names no category, so the name has to be
+    framed as a place ("in", "under", "from") or as a kind of note ("my Work
+    notes"). Answers `(category, the question with that phrase taken out)`.
+    """
+    from memorymap.core.database import Category
+    from memorymap.entry import manager
+
+    try:
+        categories = list(session.scalars(select(Category)))
+    except Exception:  # noqa: BLE001
+        return None
+    for category in sorted(categories, key=lambda c: -len(c.name or "")):
+        name = (category.name or "").strip()
+        if not name or name == manager.UNCATEGORISED:
+            continue
+        named = re.escape(name)
+        for pattern in (
+            rf"\b(?:in|under|from|filed under)\s+(?:my\s+|the\s+)?{named}\b(?:\s+(?:category|notes?))?",
+            rf"\b(?:my|the)\s+{named}\s+(?:notes?|category)\b",
+        ):
+            match = re.search(pattern, query, re.IGNORECASE)
+            if match:
+                rest = (query[: match.start()] + " " + query[match.end() :]).strip()
+                return category, rest
+    return None
+
+
+def _category_only(rest: str) -> bool:
+    """Whether what is left of the question asks for nothing narrower."""
+    words = re.findall(r"[a-z']+", rest.lower().replace("'", ""))
+    return all(word in _CATEGORY_ONLY_WORDS or len(word) < 3 for word in words)
+
+
+def _category_notes(session: Session, category_id: int, limit: int) -> list[Entry]:
+    """A category's notes, newest first."""
+    return list(
+        session.scalars(
+            select(Entry)
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                Entry.category_id == category_id,
+            )
+            .order_by(Entry.created_at.desc(), Entry.id.desc())
+            .limit(limit)
+        )
+    )
+
+
 def _retrieve(
     session: Session,
     query: str,
@@ -1020,6 +1086,16 @@ def _retrieve(
         # An empty week is a real answer, but an empty *list* looks like a
         # failure: fall through so the caller still gets recent notes.
 
+    #: **A named category is a scope** (`_named_category`). A question that
+    #: asks for the whole category lists it; one with a subject searches
+    #: inside it, and lists it when nothing inside matches.
+    scoped = _named_category(session, query)
+    if scoped is not None:
+        scope, rest = scoped
+        found["category"] = scope.name
+        if _category_only(rest):
+            return _without_private(_category_notes(session, scope.id, max(limit, 10))), "category"
+
     # Searching for the subject rather than the sentence. Falls back to the
     # whole question when stripping left nothing to search for.
     subject = asked.subject or query
@@ -1029,6 +1105,10 @@ def _retrieve(
         min_similarity=_min_sim, relative_z_margin=_z_margin,
     )
     keyword = keyword_search(session, subject, limit=FUSION_DEPTH)
+    if scoped is not None:
+        if semantic is not None:
+            semantic = [(entry, score) for entry, score in semantic if entry.category_id == scope.id]
+        keyword = [entry for entry in keyword if entry.category_id == scope.id]
     # Kept before the range narrows them below, so a subject match outside
     # the stated window is still reachable as a fallback (see "outside the
     # window you named" further down) without a second, identical search.
@@ -1070,6 +1150,9 @@ def _retrieve(
             semantic = sorted(semantic, key=lambda pair: _written_at(pair[0]), reverse=True)
 
     entries, mode = _rank(semantic, keyword, limit)
+
+    if not entries and scoped is not None:
+        return _without_private(_category_notes(session, scope.id, max(limit, 10))), "category"
 
     if not entries:
         # Nothing matched. The "never look empty" fallback is recent notes, 
@@ -1155,7 +1238,9 @@ def _retrieve(
             match_info[entry.id] = {"type": "semantic", "score": round(sem_scores[entry.id], 2)}
         elif matched_terms:
             match_info[entry.id] = {"type": "keyword", "terms": matched_terms}
-    if expand_graph and entries:
+    #: Not across a scope: a neighbour from another category is exactly the
+    #: stray a question about one category must not be answered with.
+    if expand_graph and entries and scoped is None:
         # Appended, never interleaved: a connected note is context and a match
         # is an answer, and a prompt that has to drop something should drop the
         # context first. The order encodes that.

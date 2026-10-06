@@ -113,6 +113,8 @@ let libraryTruncated = {};
 //: What the last draw showed, and when (see loadLibrary).
 let librarySignature = "";
 let libraryDrawnAt = 0;
+//: Which `renderLibrary` call is the newest (see its `updateDOM`).
+let libraryRenderGen = 0;
 let libraryBaseItems = [];
 let libraryServerQuery = "";
 
@@ -575,7 +577,14 @@ function renderLibrary(options) {
     $("library-page-next").disabled = libraryCurrentPage >= totalPages;
   }
 
+  //: **A render that was overtaken never draws** (tests/test_library_render_race.py).
+  //: A cross-fade runs `updateDOM` a frame later, with the `items` it
+  //: filtered now; Ctrl+K "Open the bin" ticked the bin before `/library`
+  //: answered, the load then drew 142 cards, and the late fade drew its
+  //: empty list over them ("Nothing of this kind yet.").
+  const generation = ++libraryRenderGen;
   const updateDOM = () => {
+    if (generation !== libraryRenderGen) return;
     //: Measured before the grid is emptied, never after: reading its width
     //: forces a layout, and a layout of an empty grid clamps the section's
     //: scroll to 0, which is how the Library came back from another tab at
@@ -1916,11 +1925,15 @@ const LIBRARY_CREATE_BY_KIND = {
   },
   document: {
     label: "ph:plus New document",
-    run: () => {
-      switchTab("documents");
-      // The Documents page's own loader opens the last document otherwise,
-      // and a new one would be replaced a moment after it appeared.
-      setTimeout(() => $("doc-new").click(), 160);
+    //: The tab first, which fetches documents.js on a first visit, then the
+    //: document. A press of `#doc-new` 160 ms later used to land before that
+    //: button was bound on a first visit, so nothing was made and the last
+    //: document opened in its place (tests/test_new_document_opens_new.py).
+    //: The tab's loader still opens the last document, and `openDocument`
+    //: lets the newer open win.
+    run: async () => {
+      await switchTab("documents");
+      await createDocument();
     },
   },
   chat: {
@@ -1971,15 +1984,23 @@ const LIBRARY_CREATE_BY_KIND = {
   //: mind map, pressed, so it is made the way one made there is.
   mindmap: {
     label: "ph:tree-structure New mind map",
-    run: () => {
+    //: The sub-tab fetches the boards' code on a first visit; the button
+    //: has no listener until it has run, so it is pressed after
+    //: (tests/test_new_document_opens_new.py).
+    run: async () => {
       document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      await ensureModule("library");
       $("wb-boards-new-map")?.click();
     },
   },
   board: {
     label: "ph:plus New board",
-    run: () => {
+    //: The sub-tab fetches the boards' code on a first visit; the button
+    //: has no listener until it has run, so it is pressed after
+    //: (tests/test_new_document_opens_new.py).
+    run: async () => {
       document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      await ensureModule("library");
       $("wb-boards-new")?.click();
     },
   },

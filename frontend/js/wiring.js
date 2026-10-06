@@ -286,8 +286,11 @@ for (const [id, question, label] of [
 //: then "+ Create", then "New concept map". This tab is already the map of
 //: your notes; the only difference is that this one is drawn for you. So the
 //: counterpart gets a labelled button here that lands on the maps themselves.
-$("graph-concept-maps")?.addEventListener("click", () => {
-  switchTab("library");
+//: Awaited: the sub-tab's handler is library.js's, fetched on the Library's
+//: first visit, and a press before it arrived landed on the All view
+//: (tests/test_new_document_opens_new.py).
+$("graph-concept-maps")?.addEventListener("click", async () => {
+  await switchTab("library");
   document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
   // The sub-tab click can leave the last board open on the canvas; a button
   // called "Concept maps" has to arrive at the list of them.

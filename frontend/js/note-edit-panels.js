@@ -357,6 +357,7 @@ function renderEditForm(li, entry) {
   categorySelect.addEventListener("change", drawCategoryChip);
   const keepDraft = () => {
     noteFormDraft = { id: entry.id, title: titleInput.value, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
+    keepNoteEditLocally(noteFormDraft);
   };
   for (const field of [titleInput, textarea]) field.addEventListener("input", keepDraft);
   categorySelect.addEventListener("change", keepDraft);
@@ -420,6 +421,7 @@ function renderEditForm(li, entry) {
         editingId = null;
         noteFormDirty = false;
         noteFormDraft = null;
+        forgetNoteEditLocally();
         toast("Note saved.");
         offerWikiRename(entry.id, await saved?.json?.().catch(() => null));
         await refreshEntries([entry.id]);
@@ -542,9 +544,64 @@ function closeNoteForm() {
   editingId = null;
   noteFormDirty = false;
   noteFormDraft = null;
+  forgetNoteEditLocally();
   renderEntries();
   if (back != null && wasInside) focusNoteRow(back);
 }
+
+//: **An edit survives a reload** (INBOX 648, the owner: "unsaved edits
+//: survive tab switch, reload and a server restart"; found by the e2e flow
+//: pass, tests-e2e/specs/notes.spec.js). The Capture box kept its draft on
+//: this device and the edit form did not: the browser asked before a reload,
+//: and a Leave (or the desktop window closed, which asks nothing) lost the
+//: edit for good. Each change is kept here until Save or Cancel, and the
+//: next start offers it back, once, beside the note it belongs to.
+const NOTE_EDIT_KEPT = "note-edit-draft";
+
+function keepNoteEditLocally(draft) {
+  try {
+    localStorage.setItem(NOTE_EDIT_KEPT, JSON.stringify({ ...draft, at: Date.now() }));
+  } catch {
+    /* storage full or blocked: the form still holds it */
+  }
+}
+
+function forgetNoteEditLocally() {
+  try {
+    localStorage.removeItem(NOTE_EDIT_KEPT);
+  } catch {
+    /* nothing kept, nothing to forget */
+  }
+}
+
+//: Run once, when this file arrives (app.js preloads it three seconds after
+//: start). A kept edit whose text is already the note's (saved from another
+//: window, say) is dropped without a word.
+async function offerKeptNoteEdit() {
+  let kept = null;
+  try {
+    kept = JSON.parse(localStorage.getItem(NOTE_EDIT_KEPT) || "null");
+  } catch {
+    kept = null;
+  }
+  if (!kept || !Number.isInteger(kept.id) || editingId !== null) return;
+  const note = await apiJson(`/entries/${kept.id}`, { silent: true }).catch(() => null);
+  if (!note || withTitle(String(kept.content || "").trim(), kept.title) === note.content) {
+    forgetNoteEditLocally();
+    return;
+  }
+  const name = kept.title || clipText(notePreviewText(note.content).split("\n")[0], 40) || "a note";
+  toastAction(`Your unsaved changes to “${name}” were kept.`, "Open them", async () => {
+    await switchTab("notes");
+    showNotesSection("browse");
+    if (!(await openNoteEditor(kept.id))) return;
+    //: After the open, which clears any draft for a different note.
+    noteFormDraft = { id: kept.id, title: kept.title, content: kept.content, tags: kept.tags, category: kept.category };
+    keepNoteEditLocally(noteFormDraft);
+    renderEntries();
+  });
+}
+offerKeptNoteEdit();
 
 
 //: **The formatting row the note edit form never had.**

@@ -643,7 +643,7 @@ MORE_TOPICS.extend(
             "id": "note-outbox",
             "keywords": (
                 "server is down", "server down", "server away", "failed to fetch",
-                "waiting to save", "not saved", "lost my note", "kept on this device",
+                "waiting to save", "not saved", "lost my note", "kept on this device", "lost my edit", "unsaved changes",
                 "save while offline", "saved offline", "connection lost", "try now",
             ),
             "body": (
@@ -653,7 +653,9 @@ MORE_TOPICS.extend(
                 "itself when the server is back. It sits at the top of the notes "
                 "list as a card marked Waiting to save, and a notice above Capture "
                 "counts what is waiting, with Try now to send it at once. A note "
-                "sent twice is still saved once."
+                "sent twice is still saved once. An edit left unsaved in a note's "
+                "form is kept on this device too: after a reload or a closed "
+                "window, a message offers Open them to carry on."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1170,7 +1172,7 @@ TOPIC_META: dict[str, dict] = {
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
         "Open Settings, Models and check a model is connected.", "Start Ollama, LM Studio or a llama.cpp server, pick a model and press Connect.", "Looks out of date or broken after an update: open Settings, Import & export and press Clear app cache.", "Still stuck: open Settings, Logs and press Email it under the support bundle.")},
     "tour": {"title": "The guided tour", "path": "Settings, Help", "steps": (
-        "Open Settings, Help.", "Press a section's tour button, or start from the top.", "Next and Back move through it; Finish ends it.")},
+        "Open Settings, Help, or press Ctrl+K and choose Take the guided tour.", "Press a section's tour button, or start from the top.", "Next and Back move through it; Finish ends it.")},
     "personas": {"title": "Personas", "path": "Settings, Personas"},
     "templates": {"title": "Templates", "path": "Settings, Templates"},
     "updates": {"title": "Updates", "path": "Settings, About"},

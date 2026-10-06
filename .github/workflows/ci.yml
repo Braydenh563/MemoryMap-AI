@@ -119,7 +119,14 @@ jobs:
     # z-index or a console exception has never once failed a CI run — every
     # layout bug this project has found was found by hand, after shipping.
     # This is the fix: a real headless Chromium against a real running app.
-    name: E2E smoke suite (Playwright)
+    # Since 2026-10-05 it also drives every main flow the way a person does
+    # (capture and filing, search, Ask, notes, documents, boards, import,
+    # backup and restore, spaces, the palette) on a seeded notebook and a
+    # fresh one, and asserts what is there after a reload: the core flow had
+    # been broken under thousands of green unit tests (tests-e2e/specs/,
+    # docs/roadmap/agent-remaining/e2e-1005.md). No model: the no-model
+    # filing path and the extractive Ask are what is asserted.
+    name: E2E flows (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -148,7 +155,7 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Run the smoke suite
+      - name: Run the flows
         working-directory: tests-e2e
         run: npx playwright test
 

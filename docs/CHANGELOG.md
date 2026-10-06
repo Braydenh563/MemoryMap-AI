@@ -25,6 +25,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Notes, compact rows: a row's details (category, tags, time) sit on the title's line, centred with it, and the hover buttons sit inside the row on that line, open or closed, instead of hanging half below it. The open/close arrow is one quiet button whose arrow turns, with no filled, bordered square when open, and a row opens and closes with a short height animation (none with Interface animations off) that turns back smoothly if pressed again mid-way.
+- Note cards: Show more appears only when the preview actually hides text, measured once the card is laid out (a card drawn while hidden, in a later batch, or after a search used to keep it), and the preview and the opened note use the same line spacing.
+- Notes: a note's hover buttons stay shown while its own ⋯ menu is open, and hide again once it closes.
 - The corner companion no longer stops a trackpad or wheel scroll: scrolling over it scrolls the list or board beneath.
 - Filing: the first note in a new notebook no longer waits behind the search model's first load. Loading it on a pause in typing shared the one queue filing uses, so on a fresh install the first note could say "Filing…" for as long as the download took.
 - A note that opens with a property block (any note of a type) shows its title, not "---", on the Timeline, and its preview no longer starts with the block's raw text. The note edit form keeps such a note's block out of the text box (the Properties sheet edits it) and finds its title under the block; a title typed there is written under the block instead of above it, where it turned every property into body text.

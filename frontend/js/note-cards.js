@@ -1076,32 +1076,24 @@ const LONG_NOTE_LINES = 3;
 // a reading position, not a preference.
 const expandedNotes = new Set();
 
-// The character count decides which notes *might* be too tall; only a
-// measurement can say whether one actually is, because that depends on the
-// width it is rendered at. So the clamp goes on optimistically and this takes
-// it back off wherever the note fits after all, a "Show more" on a note that
-// is fully visible is worse than no clamping at all.
-//
-// It bails when the list is off screen: this renders inside a `display: none`
-// sub-tab, where every measurement is 0. `showNotesSection` calls it again on
-// the way in, which is the moment the numbers become real.
-function settleNoteClamps() {
-  const list = $("entry-list");
-  if (!list || !list.offsetParent) return;
-  //: **Every measurement first, then every change** (audit 2026-10-05,
-  //: FE-05). Reading `scrollHeight` after the previous note's clamp came off
-  //: forced a layout of the whole list per note: 143 ms of a 5,000-note save's
-  //: repaint, profiled. A note's own fit does not depend on whether another
-  //: note is clamped (the width is the list's, the clamp is the note's), so
-  //: one layout answers them all.
-  const fits = [...list.querySelectorAll(".entry-content.entry-clamped")].filter(
-    (content) => content.scrollHeight <= content.clientHeight + 4
-  );
-  for (const content of fits) {
-    content.classList.remove("entry-clamped");
-    content.parentElement?.querySelector(".entry-more")?.remove();
+//: **"Show more" is offered for text that is clipped, measured** (INBOX 678,
+//: the owner: "this note has show more but it doesnt have any text cut off").
+//: The character count in `entryItem` decides which notes *might* be too
+//: tall; only a measurement can say, because that depends on the width. The
+//: clamp goes on optimistically and this takes it back off wherever the note
+//: fits. It was one `requestAnimationFrame` after the card was built, plus a
+//: settle pass on the threaded render only: a card built while its sub-tab
+//: was hidden (every size 0) or appended in a later chunk (not yet in the
+//: document) kept its "Show more", and a search or sort never settled at
+//: all. A ResizeObserver answers when the text first has a size, whenever
+//: that is (shown, scrolled into a `content-visibility` window, a chunk
+//: landing) and again when the width changes, and a removed card leaves it.
+const noteClampFit = new ResizeObserver((seen) => {
+  for (const { target } of seen) {
+    if (!target.isConnected) noteClampFit.unobserve(target);
+    else if (target.clientHeight && target.classList.contains("entry-clamped") && target.scrollHeight <= target.clientHeight + 2) target.unclip();
   }
-}
+});
 
 
 //: **The facts about a file, as facts.** Asked for directly with the Files
@@ -1418,7 +1410,8 @@ function entryItem(entry, options = {}) {
     const expand = document.createElement("button");
     expand.type = "button";
     expand.className = "ghost small icon-only row-expand";
-    setLabel(expand, open ? "ph:caret-up" : "ph:caret-down");
+    //: One glyph in both states; `.row-expanded` turns it (INBOX 676).
+    setLabel(expand, "ph:caret-down");
     expand.title = open ? "Show less of this note" : "Show the whole note here";
     expand.setAttribute("aria-label", expand.title);
     expand.setAttribute("aria-expanded", String(open));
@@ -1593,19 +1586,17 @@ function entryItem(entry, options = {}) {
     // and gets a "Show more" that expands nothing.
     //
     // So: guess first so the markup is right when it cannot be measured,
-    // then measure on the next frame and take the control back off when the
-    // text was never clipped. `requestAnimationFrame` is after layout, and
-    // `clientHeight` of 0 (still hidden) fails the comparison and changes
-    // nothing: which is exactly the conservative behaviour that trap
-    // wants.
-    requestAnimationFrame(() => {
-      if (!content.isConnected || expandedNotes.has(entry.id)) return;
-      if (content.clientHeight > 0 && content.scrollHeight <= content.clientHeight + 2) {
-        content.classList.remove("entry-clamped");
-        fillContent();
-        toggle.remove();
-      }
-    });
+    // then measure once the text has a size (`noteClampFit`, above
+    // `entryItem`: a ResizeObserver, so a card built hidden or in a later
+    // chunk is measured when it is laid out, not never) and take the control
+    // back off when the text was never clipped.
+    content.unclip = () => {
+      noteClampFit.unobserve(content);
+      content.classList.remove("entry-clamped");
+      fillContent();
+      toggle.remove();
+    };
+    noteClampFit.observe(content);
   }
 
   const meta = document.createElement("div");

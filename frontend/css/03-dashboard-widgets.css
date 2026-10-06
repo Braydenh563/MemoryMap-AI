@@ -2510,9 +2510,14 @@ header#top-bar select,
    margin-top trick to sit close once the content above it already carries
    a small margin, and the button's text needs none of the 1.5 line-height
    a paragraph does. Scoped to `.entry-clamped`: once a note is opened out
-   (the class comes off), it goes back to the normal reading measure. */
+   (the class comes off), it goes back to the normal reading measure.
+
+   **No leading of its own any more** (INBOX 678, the owner: "it just
+   increases the spacing between the rows"). The tighter 1.3 was for a one-
+   and two-line clamp; at four lines it made "Show more" re-space the same
+   lines (19.1px to 22.8px a line, measured), which reads as the button doing
+   nothing but moving text. One line height, the paragraph's, both ways. */
 #entry-list:not(.is-rows) .entry-content.entry-clamped {
-  line-height: 1.3;
   margin-bottom: 0.1rem;
 }
 

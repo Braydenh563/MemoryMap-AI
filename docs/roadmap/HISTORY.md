@@ -45424,3 +45424,40 @@ and refuses a topic ("Select a shape, link or text box first").
      pointer (avatars.js). scratchpad/ui-sweeps/buddywheel.js: nothing moved
      before, `#tab-main` 400px after a 400px wheel.
 
+676. **The owner, 2026-10-06, verbatim**, with two screenshots of the Notes
+     compact rows view (a collapsed row: chevron, title, a link snippet, the
+     category chip, tags and "1 week ago" sitting low, with the hover
+     buttons hanging half below the row's bottom edge; an expanded row: the
+     chevron now an up arrow in a bordered square button, the hover buttons
+     again low at the right with a stray circle after them): "hovering over
+     collapsed notes on the compact rows view the popup hover buttons arent
+     correctly positioned, the metadata isnt centred. when expanded the
+     dropdown arrow is different and bordered, it isnt clean, the arrow
+     should smoothly change, the dropdown and collapse should be a smooth
+     animation adn not sudden and janky." Placed: the 0.4.1 mini release, an
+     Opus agent. Fixed 2026-10-06: INBOX 505's card margin no longer reaches
+     a row (details centre 4.8px low, now 0); the chevron and the hover
+     cluster share one anchor, the first line's centre (cluster 32.8 to 62px
+     in a 49.6px row, now 7.4 to 36.6 in 44, open or closed); one ghost
+     chevron whose glyph turns; the toggle animates the row in place (one
+     frame 49.6 to 237.8px before, now no frame over 22% of the change,
+     reversible mid-way). `scratchpad/ui-sweeps/rows676.js`.
+678. **The owner, 2026-10-06, verbatim**, with two screenshots of one note
+     card, before and after "Show more" (the same four lines both times,
+     only the line spacing larger after): "this note has show more but it
+     doesnt have any text cut off, it just increases the spacing between the
+     rows". Two faults: "Show more" is offered for text that is not
+     clipped, and the clamped and expanded states set different line
+     heights. Placed: with 676, the rows agent (the same card code).
+     Fixed 2026-10-06: the fit is a ResizeObserver (`noteClampFit`), so a
+     card built hidden or in a later chunk is measured once laid out; the
+     clamped preview's own 1.3 leading is gone (19.1 to 22.8px a line
+     before, 22.8 both now). `scratchpad/ui-sweeps/rows678.js`.
+679. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "the popup buttons on notes disappear when pressing
+     the meatball button and opening the menu". The card's hover action
+     cluster hides while its own menu is open. Placed: with 676. Fixed
+     2026-10-06: `.entry-actions.menu-open` shows the strip (rows view: 0
+     on the escaped menu before, 1 now; 0 again once closed).
+     `scratchpad/ui-sweeps/rows679.js`.
+

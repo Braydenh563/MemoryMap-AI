@@ -126,75 +126,6 @@ async function resolveCategoryChoice(select) {
   return name || undefined;
 }
 
-function beginOrCompleteLink(entry) {
-  //: **A draft and a saved note cannot be connected**, asked for directly,
-  //: and refused by `manager.create_link` whichever route asks. Caught here as
-  //: well so the answer arrives before the click that would fail: starting a
-  //: link from a draft and hunting for a target, only to be told no at the
-  //: end, is the worst order to learn a rule in.
-  //:
-  //: Two drafts are still fine; the rule is that drafts stay separate from the
-  //: notebook, not from each other.
-  if (linkSource !== null && linkSource !== entry.id) {
-    const source = allEntries.find((e) => e.id === linkSource);
-    if (source && Boolean(source.is_draft) !== Boolean(entry.is_draft)) {
-      const draftFirst = Boolean(source.is_draft);
-      linkSource = null;
-      renderEntries();
-      toast(
-        draftFirst
-          ? "A draft can't be linked to a saved note. Save the draft first."
-          : "A saved note can't be linked to a draft. Save the draft first.",
-        "info"
-      );
-      return;
-    }
-  }
-  if (linkSource === null) {
-    linkSource = entry.id;
-    toast("Now click Link on the entry you want to connect it to (Esc cancels).");
-    renderEntries();
-    return;
-  }
-  if (linkSource === entry.id) {
-    linkSource = null; // clicked the same one again = cancel
-    renderEntries();
-    return;
-  }
-  const source = linkSource;
-  const target = entry.id;
-  linkSource = null;
-  apiJson(`/entries/${source}/links`, {
-    method: "POST",
-    body: JSON.stringify({ target_id: target }),
-  })
-    .then((updated) => {
-      toast("Linked.");
-      let liveLinkId = updated.links.find((l) => l.entry_id === target)?.link_id;
-      pushUndo(
-        "Linked two notes",
-        async () => {
-          if (liveLinkId == null) return;
-          await api(`/entries/${source}/links/${liveLinkId}`, { method: "DELETE" });
-          await refreshEntries([source, target]);
-        },
-        async () => {
-          const redone = await apiJson(`/entries/${source}/links`, {
-            method: "POST",
-            body: JSON.stringify({ target_id: target }),
-          });
-          liveLinkId = redone.links.find((l) => l.entry_id === target)?.link_id ?? liveLinkId;
-          await refreshEntries([source, target]);
-        }
-      );
-      return refreshEntries([source, target]);
-    })
-    .catch((error) => {
-      toast(error.message, true);
-      renderEntries();
-    });
-}
-
 // Text filter (Wave J): match note content or any tag, case-insensitive.
 // --- the notes filter ------------------------------------------------------------
 // Same lesson as the server's keyword search: a single substring match means
@@ -2162,17 +2093,50 @@ function setNotesViewMode(mode) {
 const expandedRows = new Set();
 
 function toggleRowExpanded(id) {
-  if (expandedRows.has(id)) {
+  const open = !expandedRows.has(id);
+  if (open) {
+    expandedRows.add(id);
+    notesRailId = id;
+  } else {
     expandedRows.delete(id);
     //: Closing the note the rail is about closes the rail's subject with it:
     //: a column describing a note nobody has open is the chrome-with-nothing
     //: the local map already learned not to be.
     if (notesRailId === id) notesRailId = null;
-  } else {
-    expandedRows.add(id);
-    notesRailId = id;
   }
-  renderEntries();
+  const li = document.querySelector(`#entry-list > li[data-id="${id}"]`);
+  if (!li) return renderEntries();
+  //: **In place, and animated** (INBOX 676, the owner: "the dropdown and
+  //: collapse should be a smooth animation adn not sudden and janky"). This
+  //: was a full list redraw: a new row in one frame (49.6 to 237.8px) and a
+  //: new chevron, so its glyph could not turn. The row is the same DOM open
+  //: or closed (CSS hides what a closed row does not show), so the class
+  //: alone is the change. The height runs from where the row *is*, read
+  //: before the previous animation is cancelled, so a second press mid-way
+  //: turns back from there instead of snapping; what the change reveals
+  //: fades in over the same time. `--ui-slow` is the Interface animations
+  //: switch's token: 0s with it off, and then nothing animates.
+  const from = li.getBoundingClientRect().height;
+  const parts = [...li.querySelectorAll(":scope > :not(.row-expand, .entry-title)")];
+  const seen = parts.map((el) => (el.getAnimations().length ? +getComputedStyle(el).opacity : 0));
+  for (const el of [li, ...parts]) for (const a of el.getAnimations()) if (a.id === "row") a.cancel();
+  li.classList.toggle("row-expanded", open);
+  const button = li.querySelector(":scope > .row-expand");
+  if (button) {
+    button.title = open ? "Show less of this note" : "Show the whole note here";
+    button.setAttribute("aria-label", button.title);
+    button.setAttribute("aria-expanded", String(open));
+  }
+  const to = li.getBoundingClientRect().height;
+  const style = getComputedStyle(li);
+  const duration = parseFloat(style.getPropertyValue("--ui-slow")) * 1000 || 0;
+  const easing = style.getPropertyValue("--ease-in-out").trim() || "ease-in-out";
+  if (duration && Math.abs(to - from) > 1) {
+    li.animate({ height: [`${from}px`, `${to}px`], overflow: ["hidden", "hidden"] }, { id: "row", duration, easing });
+    parts.forEach((el, i) => el.animate({ opacity: [seen[i], 1] }, { id: "row", duration, easing }));
+  }
+  scheduleNotesRail();
+  updateExpandAllButton();
 }
 
 $("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
@@ -2367,10 +2331,6 @@ function renderEntries() {
       afterChunk: () => {
         applyEntryListTabOrder(list);
         ensureCardCounts(list, _entriesLoadGeneration);
-        // After the list is in the DOM: drop the clamp from any note that
-        // turned out to fit. No-op while the sub-tab is hidden;
-        // showNotesSection re-runs it.
-        settleNoteClamps();
         // Expand-all reads the rendered rows, and `applyNotesViewMode` runs
         // at the *top* of this function, right after `replaceChildren()`,
         // when the list is empty and the button would read "Expand all

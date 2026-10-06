@@ -535,6 +535,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 - Packaged builds: both PyInstaller specs now leave any __pycache__ folder out of the bundle (migrations/ is copied whole, so a build machine that had run the app shipped stale bytecode there).
+- Internal, after the motion-polish and map and icon branches merged: the icon picker's stylesheet and script are one `LAZY_MODULES.iconPicker` bundle loaded with `ensureModule`, its tile hover follows the Interface animations switch, and the map's and picker's caches are one const each, so the lazy-CSS, motion-token and global-scope ratchets hold at their caps.
 - Windows start.bat: a folder name containing ! (Notes!, Hi!there) no longer breaks the launcher; the script's own path is read before delayed expansion is turned on, so MM_HOME, MM_SELF and the first cd keep the character. Reasoned and statically tested only, no Windows machine was available.
 - Windows updates: the in-app update now reopens MemoryMap AI by itself when the installer finishes (it passes /RELAUNCH=1 and only a silent install honours it, so a scripted /VERYSILENT install still opens nothing); before, the app closed for the update and stayed closed until the person opened it again. Reasoned and statically tested only, no Windows machine was available.
 - Windows: the Start Menu's Repair MemoryMap AI no longer half-deletes the window's cache under a running copy (WebView2 holds those files locked, so only the unlocked half went); with the app open it leaves the cache alone and says to quit first.

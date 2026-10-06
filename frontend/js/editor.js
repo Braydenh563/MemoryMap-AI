@@ -412,14 +412,13 @@ function editorSplice(textarea, start, end, text, select) {
 }
 
 //: **The one icon and emoji picker, fetched on first use** (MINDMAP_PLAN.md
-//: decision 43; icon-picker.js and icon-picker.css). Here rather than as a
-//: row in app.js's `LAZY_MODULES`: app.js is at its gzip ratchet, and this
-//: file is the boot script every caller (the map, the board, both editors)
-//: already reaches. Resolves once the panel is open; a load that fails
-//: (offline, the file gone) does nothing, as a stand-in does.
+//: decision 43): `LAZY_MODULES.iconPicker` names icon-picker.js and its
+//: stylesheet, and `LAZY_ENTRY_POINTS.iconPicker` (app.js) stands in for
+//: `openIconPicker` until they arrive. This is the one door every caller
+//: (the map, the board, both editors) goes through. Resolves once the panel
+//: is open; a load that fails (offline, the file gone) does nothing.
 function pickIconOrEmoji(options) {
-  return Promise.all([lazyScript("/css/icon-picker.css"), lazyScript("/js/icon-picker.js")])
-    .then(([, loaded]) => (loaded && typeof openIconPicker === "function" ? openIconPicker(options) : null));
+  return openIconPicker(options);
 }
 
 //: **An emoji or an icon at the caret** (MINDMAP_PLAN.md decision 46),

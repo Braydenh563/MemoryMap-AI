@@ -12,6 +12,15 @@
 
 const embedChoicesUi = { poll: null };
 
+//: What an Install, Uninstall, Use or Pull answer says, as a toast. The server
+//: answering "no" (already downloading, Ollama is not running, switch first) is
+//: an expected situation, a plain toast; only a request that threw (`failed`)
+//: is a fault, the red one with Report this (tests/test_error_toasts.py).
+function embedToast(result) {
+  if (result.failed) toast(result.error.message, true);
+  else toast(result.message, "info");
+}
+
 async function renderEmbedChoices() {
   const list = $("embed-choices");
   if (!list) return;
@@ -152,10 +161,10 @@ async function embedChoiceInstall(choice) {
     choice.backend === "ollama"
       ? await apiJson("/models/pull", { method: "POST", body: JSON.stringify({ name: choice.model }) })
           .then(() => ({ started: true, message: `Pulling ${choice.model}. Background tasks shows its progress.` }))
-          .catch((e) => ({ started: false, message: e.message }))
+          .catch((e) => ({ started: false, failed: true, error: e, message: e.message }))
       : await apiJson(`/embedding-models/${encodeURIComponent(choice.id)}/download${again ? "?reinstall=true" : ""}`, { method: "POST" })
-          .catch((e) => ({ started: false, message: e.message }));
-  toast(result.message, !result.started);
+          .catch((e) => ({ started: false, failed: true, error: e, message: e.message }));
+  embedToast(result);
   renderEmbedChoices();
 }
 
@@ -165,10 +174,10 @@ async function embedChoiceUninstall(choice) {
     choice.backend === "ollama"
       ? await apiJson("/models/delete", { method: "POST", body: JSON.stringify({ name: choice.model }) })
           .then(() => ({ removed: true, message: `${choice.label} removed.` }))
-          .catch((e) => ({ removed: false, message: e.message }))
+          .catch((e) => ({ removed: false, failed: true, error: e, message: e.message }))
       : await apiJson(`/embedding-models/${encodeURIComponent(choice.id)}`, { method: "DELETE" })
-          .catch((e) => ({ removed: false, message: e.message }));
-  toast(result.message, !result.removed);
+          .catch((e) => ({ removed: false, failed: true, error: e, message: e.message }));
+  embedToast(result);
   renderEmbedChoices();
 }
 
@@ -219,7 +228,7 @@ async function embedPullTyped() {
   }
   status.textContent = "Checking…";
   const result = await apiJson("/embedding-models/pull", { method: "POST", body: JSON.stringify({ name }) })
-    .catch((e) => ({ started: false, message: e.message }));
+    .catch((e) => ({ started: false, failed: true, error: e, message: e.message }));
   status.textContent = result.message || "";
   if (result.started) {
     input.value = "";
@@ -247,7 +256,7 @@ async function embedChoiceUse(choice) {
   const result = await apiJson("/embedding-models/use", {
     method: "POST",
     body: JSON.stringify({ id: choice.id }),
-  }).catch((e) => ({ started: false, message: e.message }));
-  toast(result.message, !result.started);
+  }).catch((e) => ({ started: false, failed: true, error: e, message: e.message }));
+  embedToast(result);
   renderEmbedChoices();
 }

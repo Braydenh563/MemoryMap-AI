@@ -12625,6 +12625,27 @@ button.finder-row:hover,
   gap: var(--space-2);
 }
 
+/* A Compact tile is one line (its hint is folded above), so it takes a
+   button's measure rather than a two-line tile's: the body size and the
+   control's padding, the icon one step up (INBOX 677). */
+#tab-dashboard[data-density="compact"] .quick-action {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
+}
+
+#tab-dashboard[data-density="compact"] .quick-action .quick-link-icon {
+  font-size: var(--text-lg);
+}
+
+/* On a phone the row scrolls sideways (the phone rules above), where a tile
+   kept a two-line tile's 82% of the screen with one word in it: as wide as
+   its words here too, so more of the row is on screen. */
+@media (max-width: 599.98px) {
+  #tab-dashboard[data-density="compact"] .launch-row-start > * {
+    flex: 0 0 auto;
+  }
+}
+
 /* **And the group labels move onto their own rows' line.** Measured at 1440:
    each of "Start something", "Jump to" and "Run a skill" costs 18px of label
    plus its 8px gap above a row of tiles that already says what it is, so the
@@ -12655,12 +12676,19 @@ button.finder-row:hover,
   }
 
   /* **One line, always** (owner: "when the dashboard is on the compact view,
-     I still want all these buttons to be on the same line and not wrap").
-     Equal shares of the row from a zero basis, and a label that ellipsises
-     rather than pushing a tile onto a second line; the tile's title carries
-     the whole name. */
+     I still want all these buttons to be on the same line and not wrap"),
+     **and each as wide as what it says** (INBOX 677, the owner: "the quick
+     access looks wierd and not refined in the compact view"). The first cut
+     gave every tile an equal share of the row from a zero basis, so at 1920
+     five one-line tiles were 331px each around a 100px label: measured by
+     `scratchpad/ui-sweeps/quick677.js`, the icon and words filled 33% of a
+     tile on average and 25% of the emptiest, five bordered boxes of mostly
+     nothing. Now a tile is its content's width and the row starts beside its
+     label, a run of buttons rather than a set of columns. It still shrinks
+     (a label ellipsises, the title carries the whole name) before it would
+     wrap. */
   #tab-dashboard[data-density="compact"] .launch-row-start > * {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
   }
 

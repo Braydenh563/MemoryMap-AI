@@ -1735,3 +1735,138 @@ def compose(
         "next": ["".join(part[1] for part in parts) for parts in next_parts],
         "next_parts": next_parts,
     }
+
+
+# --- the brief a running model reads ------------------------------------------------
+
+#: At most this many sentences quoted for a model, and this many from one note.
+#: Twice an answer's: the model writes the answer, so it is handed the
+#: material for one with room to choose, not the composer's choice alone.
+BRIEF_POINTS = 12
+BRIEF_PER_NOTE = 4
+#: A note whose quoted parts come to this share of it goes whole: the cut
+#: would save a few characters and cost the model the sentences around them.
+BRIEF_WHOLE = 0.8
+
+
+def _raw(content: str, s: Sentence) -> str:
+    """The sentence as the note has it: the offsets, not the cleaned text, so a
+    model reads (and the grounding pass later matches) the person's words."""
+    return " ".join(content[s.start : s.end].split())
+
+
+def brief(
+    question: str,
+    notes: list[dict],
+    *,
+    recent: bool = False,
+    embed=None,  # noqa: ANN001
+    composed: dict | None = None,
+) -> dict | None:
+    """The notes a running model reads, composed (CHAT_PLAN, "the composer
+    everywhere" 9 and 10, the owner: "the composer should be used to lessen
+    the load ... as well as cheapen the run cost of the ai").
+
+    Every note stays, in its place, with its id and every other field the
+    prompt reads (category, dates, tags, the connected flag), so nothing the
+    model was told about a note is lost and nothing is renumbered. Only
+    `content` changes, and only for a retrieved note whose text is longer than
+    what bears on the question:
+
+    - a note with sentences the composer chose keeps its name and those
+      sentences, in the note's order, "…" where text was left out;
+    - a note with none keeps its name and its first sentence: retrieval found
+      it by meaning or by a link, and the question's words may not be in it;
+    - a note attached by hand, a document, a file or a mind map goes whole: the
+      person chose it, it is the subject;
+    - a note the cut would barely shorten (`BRIEF_WHOLE`) goes whole.
+
+    A shortened note carries `briefed: True`; `librarian.note_for_prompt` says
+    so after it, naming `get_note` when the model has tools. None when there is
+    nothing to brief: a "newest notes" question (the newest are the subject),
+    or no sentence chosen at all (the composer has no reading of the question,
+    and the notes as they are are the honest fallback).
+
+    `composed` is `compose()`'s result for the same question, when the caller
+    has it (the route does: it shows it while the model writes).
+
+    Returns `{"notes", "quoted", "shortened", "chars_before", "chars_after"}`.
+    """
+    if recent or not notes:
+        return None
+    shape = classify(question)
+    terms = subject_terms(question)
+    views: dict[int, NoteView] = {}
+    for i, note in enumerate(notes):
+        if note.get("attached") or not isinstance(note.get("id"), int):
+            continue
+        view = read_note(note, i)
+        if view is not None:
+            views[i] = view
+    candidates = list(views.values())
+    pool = sorted(_score(shape, terms, candidates), key=lambda s: (-s.score, s.rank, s.order))[:MEANING_POOL]
+    chosen = select(
+        shape, terms, candidates,
+        limit=BRIEF_POINTS,
+        meaning=_Meaning(pool, embed, {_stem(t) for t in terms}),
+        per_note=BRIEF_PER_NOTE,
+    )
+    if not chosen:
+        return None
+    by_note: dict[int, list[Sentence]] = {}
+    for s in chosen:
+        by_note.setdefault(s.note_id, []).append(s)
+    #: Everything the composed answer quotes is in the brief too, whatever the
+    #: caps above left out (a long checklist, the two sides of a compare): the
+    #: answer shown while the model writes (`routes_chat`) never says a thing
+    #: the model was not shown.
+    composed = composed if composed is not None else compose(question, notes, recent=recent, embed=embed)
+    spans = {(row["note_id"], row["start"]) for row in composed.get("grounding") or []}
+    for view in candidates:
+        for s in view.sentences:
+            if (view.id, s.start) in spans and s not in by_note.get(view.id, []):
+                by_note.setdefault(view.id, []).append(s)
+    out: list[dict] = []
+    shortened = before = after = 0
+    for i, note in enumerate(notes):
+        content = str(note.get("content") or "")
+        before += len(content)
+        view = views.get(i)
+        text = _brief_text(view, content, by_note) if view else None
+        if text is None or len(text) >= BRIEF_WHOLE * len(content.strip()):
+            out.append(note)
+            after += len(content)
+            continue
+        out.append({**note, "content": text, "briefed": True})
+        after += len(text)
+        shortened += 1
+    return {
+        "notes": out,
+        "quoted": sum(len(kept) for kept in by_note.values()),
+        "shortened": shortened,
+        "chars_before": before,
+        "chars_after": after,
+    }
+
+
+def _brief_text(view: NoteView, content: str, by_note: dict[int, list[Sentence]]) -> str:
+    """One note's part of the brief: its name, then the sentences kept."""
+    if view.id in by_note:
+        picked = sorted(by_note[view.id], key=lambda s: s.order)
+    else:
+        picked = view.sentences[:1]
+    parts: list[str] = []
+    #: An untitled note is named by its first words; when its first sentence
+    #: is kept, the name would only say those words twice.
+    opens_with_name = bool(picked) and picked[0].order == 0 and _raw(content, picked[0]).startswith(view.title.rstrip("…"))
+    if view.title and not opens_with_name:
+        parts.append(view.title)
+    last = -1
+    for s in picked:
+        if parts and s.order != last + 1:
+            parts.append("…")
+        parts.append(_raw(content, s))
+        last = s.order
+    if last < len(view.sentences) - 1:
+        parts.append("…")
+    return " ".join(parts)

@@ -3701,7 +3701,7 @@ const nmb = {
   lastInput: Date.now(), lastCheer: 0, lastPoke: 0, pointer: null, watchTimer: 0, watchAt: 0,
   cueTimer: 0, startledAt: 0, errandTimer: 0, readingErrand: false, shyAt: 0, shyTimer: 0, readTimer: 0, keyAt: 0, keyRun: 0,
   trail: 0, ex: 0, ey: 0, target: null, targetAt: 0, lastMove: null, headTimer: 0, releaseTimer: 0,
-  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [], lastHow: "",
+  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [], unlockDrop: true, lastHow: "",
   mood: { energy: 0.7, curiosity: 0.6, sociability: 0.7 }, edgeType: "", edgeLine: 72, reading: null, cool: {},
   anim: null, hopAnim: null, glue: null, heldTimer: 0, placeTimer: 0, movedAt: 0, pinned: false, menu: null, settle: [], checkFrame: 0,
 };
@@ -6564,6 +6564,31 @@ function nameMarkBuddyEnter(buddy, spot) {
   const x = nmb.x;
   const y = nmb.y;
   const edge = 150;
+  //: **The first entrance after an unlock is a drop** (INBOX 707, the owner:
+  //: "when loading the app after login, the companion just appears with no
+  //: animation"). Measured at 1440x900 after the lock lifted: the usual
+  //: starlight entrance went from invisible to opaque in 250ms over a 14px
+  //: drift, which read as appearing. This one is once per page load (the
+  //: unlock is the page's), 640ms: down 56px onto its perch, faded up over
+  //: the first 40%, a small give at the bottom and settled at rest, so it
+  //: ends where it stands with no jump. A tab switch never plays it: the
+  //: flag is spent; hanging and bar perches already come out of their bar.
+  //: Under Avatar animation off and Reduce motion the fade above ran first.
+  const hangs = spot.kind === "hang" || spot.pose === "hang" || spot.kind === "bar" || y + NMB_H > innerHeight - 110;
+  if (nmb.unlockDrop && !hangs) {
+    nmb.unlockDrop = false;
+    nmb.lastEnter = "drop";
+    buddy.dataset.route = "enter-drop";
+    nmb.anim = buddy.animate(
+      [{ translate: "0px -56px", opacity: 0 }, { opacity: 1, offset: 0.4 }, { translate: "0px 5px", opacity: 1, offset: 0.78 }, { translate: "0px 0px", opacity: 1 }],
+      { duration: 640, easing: "cubic-bezier(0.3, 0.6, 0.3, 1)" },
+    );
+    nmb.hopAnim = null;
+    nameMarkBuddyLimbs(buddy, "float", 640);
+    return "drop";
+  }
+  const unlockFirst = nmb.unlockDrop;
+  nmb.unlockDrop = false;
   //: The side it comes from: the tab it left (`nameMarkBuddyTabSide`), or
   //: the nearer edge. Near that side it walks on; further in, it glides in
   //: from it; nearer the other side than that, it materialises.
@@ -6589,7 +6614,8 @@ function nameMarkBuddyEnter(buddy, spot) {
   else ways = ["materialise"];
   const fresh = ways.filter((w) => w !== nmb.lastEnter);
   const pick = fresh.length ? fresh : ways;
-  const how = pick[Math.floor(Math.random() * pick.length)];
+  //: The first entrance of an unlock is never the bare fade: a hanging one climbs down, one on a bar climbs up.
+  const how = unlockFirst ? ways[0] : pick[Math.floor(Math.random() * pick.length)];
   nmb.lastEnter = how;
   buddy.dataset.route = `enter-${how}`;
   if (how === "glide") {

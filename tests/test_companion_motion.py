@@ -1607,3 +1607,19 @@ def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
     assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
     assert "if (eased.has(el)) continue;" in tail
 
+
+def test_the_first_entrance_after_an_unlock_is_a_drop_once() -> None:
+    # INBOX 707 (the owner: "when loading the app after login, the companion
+    # just appears with no animation"). Measured: the usual entrance was a
+    # 250ms fade over a 14px drift. The first one of a page load drops in over
+    # 640ms and ends at rest; the flag is spent so a tab switch never replays
+    # it, and Reduce motion / Avatar animation off return before it.
+    enter = _fn("nameMarkBuddyEnter")
+    assert "unlockDrop: true" in AV
+    drop = enter.index("if (nmb.unlockDrop && !hangs) {")
+    assert enter.index("if (nameMarkBuddyNoTravel()) {") < drop, "the reduced-motion fade must come first"
+    assert "nmb.unlockDrop = false;" in enter[drop:]
+    assert 'translate: "0px 0px", opacity: 1 }' in enter[drop:], "it ends at rest, with no jump"
+    assert "{ duration: 640," in enter[drop:]
+    # A hanging or bar perch uses its own way out of the bar, never the bare fade.
+    assert "const how = unlockFirst ? ways[0] :" in enter

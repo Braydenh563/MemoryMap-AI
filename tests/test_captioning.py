@@ -248,6 +248,7 @@ def test_running_captions_reports_the_upload_while_the_model_call_is_in_flight(
     monkeypatch.setattr(captioning, "caption_text", _spy)
     captioning.caption_and_store(upload_id, image_path)
 
-    assert seen_mid_call == [[{"upload_id": upload_id, "name": "vacation.png"}]]
+    assert [[(job["upload_id"], job["name"]) for job in jobs] for jobs in seen_mid_call] == [[(upload_id, "vacation.png")]]
+    assert seen_mid_call[0][0]["started"] > 0
     # Cleared once the call returns, not left stuck "running" forever.
     assert captioning.running_captions() == []

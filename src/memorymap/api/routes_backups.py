@@ -108,7 +108,7 @@ def backup_now(session: Session = Depends(get_session)) -> dict:
     #: this catches it, so the last-run line says the same thing.
     try:
         with jobruns.job_run("backup") as run:
-            path = backup.backup_now(config.db_path, config.data_dir, _retention(config))
+            path = backup.backup_now(config.db_path, config.data_dir, _retention(config), run)
             run.result = f"saved {path.name}"
     except OSError as exc:
         raise HTTPException(

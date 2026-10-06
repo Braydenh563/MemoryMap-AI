@@ -42,12 +42,18 @@ logger = logging.getLogger("memorymap.captioning")
 #: already uses for the one other job with nothing to measure.
 _running_lock = threading.Lock()
 _running: dict[int, str] = {}
+#: upload id -> (model, wall-clock start), so the Tasks row can say which model
+#: is working and how long it has been (INBOX 1006).
+_details: dict[int, tuple[str, float]] = {}
 
 
 def running_captions() -> list[dict]:
     """What `caption_and_store` is working on right now, for the Tasks panel."""
     with _running_lock:
-        return [{"upload_id": uid, "name": name} for uid, name in _running.items()]
+        return [
+            {"upload_id": uid, "name": name, "model": _details.get(uid, ("", 0.0))[0], "started": _details.get(uid, ("", 0.0))[1]}
+            for uid, name in _running.items()
+        ]
 
 
 #: Short, factual, no preamble, this is metadata a search box and another
@@ -283,12 +289,14 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
             return None
         with _running_lock:
             _running[upload_id] = upload.original_name
+            _details[upload_id] = (model, time.time())
         started = time.monotonic()
         try:
             text = caption_text(image_path, model, deps.get_ollama())
         finally:
             with _running_lock:
                 _running.pop(upload_id, None)
+                _details.pop(upload_id, None)
         elapsed_ms = (time.monotonic() - started) * 1000
         if not text:
             # A real attempt was made (a model was resolved) and produced

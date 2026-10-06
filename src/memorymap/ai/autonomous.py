@@ -286,6 +286,18 @@ def _run_optimization() -> None:
         _optimization_pass(started, run)
 
 
+#: The stages of one pass, in the order `_optimization_pass` reaches them.
+AUTONOMOUS_STAGES = [
+    "Find entities",
+    "Name link reasons",
+    "Capture from conversations",
+    "Review stale notes",
+    "Check words-filed notes",
+    "Night shift",
+    "Librarian agent",
+]
+
+
 def _optimization_pass(started: float, run: "jobruns.Run") -> None:
     """The body of one pass, split out so the actor above wraps all of it.
 
@@ -294,6 +306,10 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
     pass that did nothing because the battery mode is on would be a lie."""
     try:
         config = deps.get_config()
+        #: What the Background tasks row shows (INBOX 1006): the seven stages
+        #: in order, each marked off as the pass reaches the next.
+        run.plan(AUTONOMOUS_STAGES)
+        run.say("Starting a background pass.")
         if config.get_preference("battery_efficient_mode"):
             logger.info("skipped: battery efficient mode is on")
             run.result = "Skipped: battery efficient mode is on."
@@ -303,7 +319,9 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
         # a plain per-note completion call (like suggest_tags), not a tool-
         # calling agent turn, and gated by its own preference so it isn't
         # silently skipped whenever tag/link/dedupe are all switched off.
+        run.step(0)
         if config.get_preference("auto_entities_enabled", False):
+            run.say("Finding people, places and things in your notes.")
             try:
                 from memorymap.ai.entities import extract_entities_pass
 
@@ -330,7 +348,9 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
             run.cancel("Stopped before it finished.")
             return
 
+        run.step(1)
         if config.get_preference("auto_link_reason_audit", True):
+            run.say("Naming vague link reasons.")
             try:
                 from memorymap.ai.links import audit_vague_links
                 db = deps.get_db()
@@ -367,7 +387,9 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
             run.cancel("Stopped before it finished.")
             return
 
+        run.step(2)
         if config.get_preference("auto_capture_enabled", False):
+            run.say("Looking through conversations for things worth keeping.")
             try:
                 from memorymap.ai.passive_capture import capture_pass
 
@@ -389,7 +411,9 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
             run.cancel("Stopped before it finished.")
             return
 
+        run.step(3)
         if config.get_preference("auto_stale_review_enabled", False):
+            run.say("Looking for stale, unconnected notes.")
             try:
                 from memorymap.entry import manager as entry_manager
                 from memorymap.entry import staleness
@@ -415,6 +439,8 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
         # librarian on, and these notes are exactly what it is for. A fixed
         # batch per tick, like the audits above; `review_words_filed` never
         # touches a note the person filed, a private note or a binned one.
+        run.step(4)
+        run.say("Double-checking notes that were filed by their words.")
         try:
             from memorymap.ai import janitor
 
@@ -448,6 +474,8 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
             from memorymap.ai import facts
 
             db = deps.get_db()
+            run.step(5)
+            run.say("Running the night shift: reading notes for facts and open questions.")
             with db.session() as session, jobruns.job_run("night-shift") as night:
                 outcome = facts.run(
                     session,
@@ -481,6 +509,8 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
             run.result = "Skipped: every autonomous task is switched off."
             return
 
+        run.step(6)
+        run.say(f"Asking the librarian to work on: {', '.join(tasks)}.")
         task_str = ", ".join(tasks)
         persona = (
             "You are an autonomous background process optimizing the user's "
@@ -546,6 +576,9 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
                         break
                     if event.get("type") == "tool" and not event.get("ok"):
                         logger.warning("tool error: %s", event.get("error"))
+                        run.say("One tool step did not work and was skipped.")
+                    elif event.get("type") == "tool" and event.get("name"):
+                        run.say(f"Used {str(event['name']).replace('_', ' ')}.")
                     # The agent hangs a `change` off every successful write,
                     # carrying the call that would put the note back. Collected
                     # here so the pass can be read and reversed afterwards, 

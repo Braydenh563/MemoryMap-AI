@@ -163,7 +163,7 @@ function taskSteps(steps) {
   for (const step of steps) {
     const li = document.createElement("li");
     li.className = `task-step is-${step.outcome}`;
-    setLabel(li, `${TASK_STEP_ICONS[step.outcome] || "ph:info"} ${step.label}: ${TASK_STEP_WORDS[step.outcome] || step.outcome}`);
+    setLabel(li, `${TASK_STEP_ICONS[step.outcome] || "ph:info"} ${step.label}: ${step.word || TASK_STEP_WORDS[step.outcome] || step.outcome}`);
     if (step.message) li.title = step.message;
     //: pip reports no fraction, so the package in hand has an indeterminate bar.
     if (step.outcome === "running") {

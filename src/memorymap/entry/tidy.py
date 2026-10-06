@@ -868,13 +868,18 @@ def respecify_all(workspace_id: str = "default", chunk: int = 200) -> dict:
     try:
         with jobruns.job_run("tidy") as run, deps.get_db().session() as session, impersonate_workspace(session, workspace_id):
             found = _rows_link_reasons(session, "")
+            run.step(0, len(found), "Naming link reasons")
+            run.say(f"{len(found)} link{'' if len(found) == 1 else 's'} with a generic reason to look at.")
             for start in range(0, len(found), max(1, chunk)):
                 if _stop.is_set():
                     stopped = True
+                    run.say("Stopped between batches. What was named is kept.")
                     break
                 applied, undo_part = _apply_link_reasons(session, found[start : start + chunk])
                 named.extend(undo_part["links"])
                 session.commit()
+                run.step(min(start + chunk, len(found)), len(found))
+                run.say(f"Looked at {min(start + chunk, len(found))} of {len(found)} links, {len(named)} named so far.")
             if named:
                 #: Asked for by a person (Name all in the background), so the
                 #: run is theirs in Recent runs, not "automatically".

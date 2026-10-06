@@ -121,7 +121,7 @@ def snapshot(db_path: Path, destination: Path) -> None:
         source.close()
 
 
-def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
+def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None) -> Path:  # noqa: ANN001
     """Take one consistent snapshot and prune old ones.
 
     `keep` was a hard-coded 10 until asked about directly ("backup retention
@@ -132,6 +132,11 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
     constant so a caller that never heard of the preference keeps behaving
     exactly as before.
     """
+    #: `run` is the `jobruns.Run` of the caller, when it has one: the steps
+    #: and lines the Background tasks row shows while this works.
+    if run is not None:
+        run.plan(["Copy the database", "Check the copy", "Remove old backups"])
+        run.say("Copying the database.")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = backups_dir(data_dir)
     destination = folder / f"memorymap-{stamp}.db"
@@ -152,6 +157,15 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
     try:
         snapshot(db_path, partial)
         os.replace(partial, destination)
+        if run is not None:
+            run.step(1)
+            run.say("Checking the copy.")
+            try:
+                verify_copy(destination)
+            except OSError:
+                destination.unlink(missing_ok=True)
+                raise
+            run.step(2)
     except BaseException:
         for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):
             try:
@@ -162,8 +176,26 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
                 pass
         raise
 
-    prune(data_dir, keep)
+    removed = prune(data_dir, keep)
+    if run is not None:
+        run.step(3)
+        run.say(f"Removed {removed} old backup{'' if removed == 1 else 's'}." if removed else "No old backups to remove.")
     return destination
+
+
+def verify_copy(path: Path) -> None:
+    """Open the finished copy and run SQLite's quick check, so a backup that
+    cannot be read fails now rather than the day it is needed. Raises
+    `OSError` (the caller already words that) when the copy is unreadable."""
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        row = connection.execute("PRAGMA quick_check").fetchone()
+    except sqlite3.DatabaseError as exc:
+        raise OSError(0, "the backup could not be read back") from exc
+    finally:
+        connection.close()
+    if not row or row[0] != "ok":
+        raise OSError(0, "the backup did not pass its check")
 
 
 def prune(data_dir: Path, keep: int = KEEP_BACKUPS) -> int:

@@ -59,7 +59,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core import model_gate
+from memorymap.core import jobruns, model_gate
 from memorymap.core.database import DerivedFact, Entry, utcnow
 from memorymap.core.logbuffer import safe_value
 
@@ -443,13 +443,24 @@ def run(
         known_by_entry: dict[int, set[str]] = {}
         for row in session.scalars(select(DerivedFact)).all():
             known_by_entry.setdefault(row.entry_id, set()).add(fingerprint_of(row))
-        for entry in _entries_to_read(session, force):
+        to_read = _entries_to_read(session, force)
+        #: What the Background tasks row shows (INBOX 1006): notes read of the
+        #: notes this run will reach, which the token budget may cut short.
+        progress = jobruns.current("night-shift")
+        reachable = min(len(to_read), max(budget // TOKENS_PER_NOTE, 0))
+        progress.step(0, reachable, "Reading notes")
+        progress.say(f"{len(to_read)} note{'' if len(to_read) == 1 else 's'} to read.")
+        for entry in to_read:
             if spent + TOKENS_PER_NOTE > budget:
                 stopped = "budget"
+                progress.say("Reached the token budget, so it stopped reading.")
                 break
             content = entry.content or ""
             spent += TOKENS_PER_NOTE
             scanned += 1
+            progress.step(scanned, reachable)
+            if scanned % 25 == 0:
+                progress.say(f"Read {scanned} of {reachable} notes, {derived} fact{'' if derived == 1 else 's'} found so far.")
             proposed = [item for item in candidates(content) if questions_on or item.kind != "question"]
             if not proposed:
                 continue
@@ -500,6 +511,7 @@ def run(
                 counts[item.kind] = counts.get(item.kind, 0) + 1
                 models_used.add(decided_by)
         if stopped == "done":
+            progress.say(f"Read {scanned} note{'' if scanned == 1 else 's'}, found {derived} fact{'' if derived == 1 else 's'}.")
             # Passes 4 and 5 read the rows pass 3 just added, by id.
             session.flush()
             spent, paired, stopped = _pair_passes(
@@ -832,6 +844,11 @@ def _pair_passes(
     new_questions = [row for row in questions if row.run_id == night.id] if questions_on else []
     if not (new_claims or new_questions):
         return spent, 0, "done"
+    progress = jobruns.current("night-shift")
+    progress.say(
+        f"Comparing {len(new_claims)} new claim{'' if len(new_claims) == 1 else 's'} "
+        f"and {len(new_questions)} question{'' if len(new_questions) == 1 else 's'} against the rest of your notes."
+    )
     similar = _Similar(embeddings, claims)
     known = _known_pairs(session)
     written = _written(session, {row.entry_id for row in claims + questions})
@@ -843,7 +860,9 @@ def _pair_passes(
         return TOKENS_PER_PAIR
 
     # Pass 4: each new claim against the claims of other notes.
-    for claim in new_claims:
+    for claim_index, claim in enumerate(new_claims):
+        progress.step(claim_index, len(new_claims), "Comparing claims")
+
         def other_note(row, claim=claim):  # noqa: ANN001, ANN202
             return row.entry_id != claim.entry_id
 
@@ -883,7 +902,10 @@ def _pair_passes(
             select(DerivedFact).where(DerivedFact.kind == "answered", DerivedFact.deleted_at.is_(None))
         ).all()
     }
-    for question in questions if questions_on else []:
+    pending_questions = list(questions) if questions_on else []
+    progress.step(0, len(pending_questions), "Matching questions to answers")
+    for question_index, question in enumerate(pending_questions):
+        progress.step(question_index, len(pending_questions))
         if question.id in answered:
             continue
         asked_at = written.get(question.entry_id)
@@ -924,6 +946,7 @@ def _pair_passes(
                 models_used.add(found[0])
                 answered.add(question.id)
                 break
+    progress.say(f"Finished comparing: {derived} pairing{'' if derived == 1 else 's'} found.")
     return spent, derived, "done"
 
 

@@ -110,7 +110,13 @@ def collect() -> list[dict]:
                 "label": f"Captioning {job['name']}",
                 "detail": "A vision model is describing this image.",
                 "progress": None,
-                "log": [],
+                #: One blocking call, so no fraction; the lines say what it
+                #: is waiting on (INBOX 1006).
+                "log": [
+                    f"Sent the picture to {job['model']}." if job.get("model") else "Sent the picture to the vision model.",
+                    "Waiting for its description. A small model can take a minute.",
+                ],
+                "started": job.get("started") or None,
             }
         )
 
@@ -131,7 +137,11 @@ def collect() -> list[dict]:
                 if job["model"]
                 else "A vision model is reading this page.",
                 "progress": None,
-                "log": [],
+                "log": [
+                    f"Sent the page to {job['model']}." if job["model"] else "Sent the page to the reader.",
+                    "Waiting for the text. Closing the workspace does not stop it.",
+                ],
+                "started": job.get("started") or None,
             }
         )
 
@@ -334,6 +344,42 @@ def collect() -> list[dict]:
     if switch:
         tasks.append({"kind": "embed-switch", **switch})
 
+    # The scheduled passes report as they go (INBOX 1006): a bar, named steps
+    # and a short log, from the run record's live handle (`jobruns.live`). A
+    # pass already listed above (the pool's "job-pass" row for a Run now, the
+    # autonomous row) is filled in; one the pool never saw (the start-up
+    # housekeeping, a scheduled backup) gets its own row, so no pass runs
+    # unseen.
+    from memorymap.core import passes
+
+    #: Runs whose row is built above from its own state: the live handle only
+    #: fills it in (run kind -> row kind).
+    own_rows = {"autonomous": "autonomous", "tidy": "tidy-link-reasons"}
+    for live in jobruns.live():
+        if live["kind"] not in passes.PASS_KINDS and live["kind"] not in own_rows:
+            continue
+        row = next(
+            (
+                t
+                for t in tasks
+                if t["kind"] == own_rows.get(live["kind"])
+                or (t["kind"] == "job-pass" and not t.get("queued") and t.get("name") == live["label"])
+            ),
+            None,
+        )
+        if row is None and live["kind"] in own_rows:
+            continue
+        if row is None:
+            row = {"kind": "job-pass", "name": live["label"], "label": live["label"], "detail": "", "queued": False}
+            tasks.append(row)
+        row["progress"] = live["progress"]
+        row["log"] = live["log"]
+        row["started"] = live["started"]
+        if live["steps"]:
+            row["steps"] = live["steps"]
+        if live["detail"]:
+            row["detail"] = live["detail"]
+
     _stamp_started(tasks)
 
     # **One table decides, not eight hard-coded booleans.** Every entry above
@@ -343,8 +389,6 @@ def collect() -> list[dict]:
     # canceller. A flag repeated at eight call sites is a flag that drifts;
     # this reads the same table the cancel endpoint dispatches through, so the
     # button appears exactly where pressing it does something.
-    from memorymap.core import passes
-
     for task in tasks:
         task["cancellable"] = (
             task["kind"] in bgtasks.CANCELLABLE_KINDS

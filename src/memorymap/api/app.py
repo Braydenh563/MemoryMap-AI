@@ -611,11 +611,20 @@ def _startup_maintenance() -> None:
     #: Recorded as "Housekeeping" (INBOX 713), so Background jobs can say
     #: when it last ran beside its Run now (`core/passes.py`).
     with jobruns.job_run("maintenance") as run:
-        for step in ("_purge_expired_bin_entries", "_compact_event_log", "_backup_if_due"):
+        steps = (
+            ("_purge_expired_bin_entries", "Clear expired notes from the bin"),
+            ("_compact_event_log", "Tidy the edit history"),
+            ("_backup_if_due", "Back up if today's is due"),
+        )
+        run.plan([words for _, words in steps])
+        for index, (step, words) in enumerate(steps):
+            run.say(f"{words}.")
             try:
                 getattr(module, step)()
             except Exception:  # noqa: BLE001  # one step must not stop the next
                 logging.getLogger("memorymap.startup").warning("startup maintenance step %s failed", step, exc_info=True)
+                run.say(f"That step did not finish: {words.lower()}. The server log has the detail.")
+            run.step(index + 1)
         run.result = "at start"
 
 
@@ -627,7 +636,7 @@ def _backup_if_due() -> None:
         keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
         if backup.backup_is_due(config.db_path, config.data_dir):
             with jobruns.job_run("backup") as run:
-                path = backup.backup_now(config.db_path, config.data_dir, keep)
+                path = backup.backup_now(config.db_path, config.data_dir, keep, run)
                 run.result = f"saved {path.name} (the daily backup at start)"
     except Exception:  # noqa: BLE001  # a failed backup must never block startup
         # This one matters more than it looks: the user believes they have

@@ -322,9 +322,17 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
             )
             .limit(limit)
         ).all()
+        run.say(
+            f"{len(missing)} note{'' if len(missing) == 1 else 's'} without a vector."
+            if missing
+            else "Every note already has a vector."
+        )
         for start in range(0, len(missing), EMBED_BATCH):
             fixed += service.store_for_entries(session, missing[start : start + EMBED_BATCH])
-        chunked = _backfill_chunks(service, session, limit)
+            run.step(min(start + EMBED_BATCH, len(missing)), len(missing), "Embedding notes")
+            run.say(f"Embedded {min(start + EMBED_BATCH, len(missing))} of {len(missing)} notes.")
+        run.say("Checking long notes for paragraph vectors.")
+        chunked = _backfill_chunks(service, session, limit, run)
         if fixed:
             session.commit()
             logging.getLogger("memorymap.embeddings").info(
@@ -350,7 +358,7 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
 CHUNK_BACKFILL_MIN_CHARS = 400
 
 
-def _backfill_chunks(service, session: Session, limit: int) -> int:  # noqa: ANN001
+def _backfill_chunks(service, session: Session, limit: int, run=None) -> int:  # noqa: ANN001
     """Paragraph vectors for long notes embedded before row 6 existed.
 
     A note vector of this backend and no paragraph rows, content long enough
@@ -375,9 +383,11 @@ def _backfill_chunks(service, session: Session, limit: int) -> int:  # noqa: ANN
         .limit(limit)
     ).all()
     done = 0
-    for entry, record in candidates:
+    for index, (entry, record) in enumerate(candidates, 1):
         if service._store_chunks(session, entry, record):
             done += 1
+        if run is not None:
+            run.step(index, len(candidates), "Paragraph vectors")
     if done:
         session.commit()
     return done

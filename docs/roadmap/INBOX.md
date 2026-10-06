@@ -102,6 +102,14 @@ with its owner named in the entry.
      the robot". Measured: ph:sparkle 33 uses, ph:magic-wand 35, ph:robot 9,
      ph:brain 5, ph:star-four 1, ph:asterisk 1. Placed: Opus agent.
 
+725. **The owner, 2026-10-06, verbatim**: "can you like maximise the application
+     responses and sentence concatenation and responses?? I want it soooo good it is
+     almost like a chat bot. make them something the world hasnt seen before like
+     stringing sentences together based off meaning, similarity etc. idk im just
+     throing stuff out there. I want the app to be really impressive". The
+     no-model composer (`ai/composer.py`, INBOX 688). Placed: Opus agent, as a
+     CHAT_PLAN phase row.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

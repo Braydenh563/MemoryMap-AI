@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-06
+
 ### Added
 
 - Graph: Reshuffle layout, beside Unpin all under Physics (INBOX 692). The categories are dealt round again and every unpinned note moves to a new start, drawn moving, then the map settles and fits the view.

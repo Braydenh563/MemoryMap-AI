@@ -138,6 +138,12 @@ with its owner named in the entry.
      completion (words from the file, the language's keywords, bracket pairs) take
      its place.
 
+736. **The owner, 2026-10-06, verbatim**, with a code document's Output panel (Run
+     again, Stop, Clear, Close; one line of output under a tall empty pane): "I cant
+     adjust the height of this output bottom panel". A drag handle on its top edge
+     (the sidebar resize recipe, keyboard steps too, height kept per document);
+     also seen: Stop stays enabled after "Finished."
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

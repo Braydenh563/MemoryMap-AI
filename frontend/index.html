@@ -9802,18 +9802,21 @@ Link to another note with [[its first few words]]."></textarea>
 
               <div class="setting-row">
                 <div class="setting-label"><span>Font</span></div>
-                <div class="seg" id="font-seg" role="group" aria-label="Font">
-                  <!-- Anthropic and Montserrat removed: neither ever had a
-                       vendored font file or an @font-face rule backing it
-                       (both were added and then deleted from vendor/fonts
-                       earlier in this project's history): picking either
-                       did nothing but silently fall back to the system
-                       font, which reads as a broken setting. -->
-                  <button data-font="system">System</button>
-                  <button data-font="serif">Serif</button>
-                  <button data-font="mono">Mono</button>
-                  <button data-font="arial">Arial</button>
-                </div>
+                <!-- A list, not a pill well (INBOX 670, DESIGN.md `.seg`: two
+                     or three short choices only). Each row is set in its own
+                     face by 01-forms-settings.css where the browser allows it.
+                     Anthropic and Montserrat removed: neither ever had a
+                     vendored font file or an @font-face rule backing it
+                     (both were added and then deleted from vendor/fonts
+                     earlier in this project's history): picking either
+                     did nothing but silently fall back to the system
+                     font, which reads as a broken setting. -->
+                <select id="font-seg" class="small-select setting-control" aria-label="Font">
+                  <option value="system">System</option>
+                  <option value="serif" data-menu-class="select-face-serif">Serif</option>
+                  <option value="mono" data-menu-class="select-face-mono">Mono</option>
+                  <option value="arial" data-menu-class="select-face-arial">Arial</option>
+                </select>
               </div>
 
               <div class="setting-row">
@@ -9821,12 +9824,12 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Density</span>
                   <small class="muted">How much breathing room between elements.</small>
                 </div>
-                <div class="seg" id="density-seg" role="group" aria-label="Density">
-                  <button data-density="auto" title="Compact on a window 700px tall or less, the look's own spacing on a taller one">Auto</button>
-                  <button data-density="comfortable">Comfortable</button>
-                  <button data-density="compact">Compact</button>
-                  <button data-density="spacious">Spacious</button>
-                </div>
+                <select id="density-seg" class="small-select setting-control" aria-label="Density">
+                  <option value="auto" title="Compact on a window 700px tall or less, the look's own spacing on a taller one">Auto</option>
+                  <option value="comfortable">Comfortable</option>
+                  <option value="compact">Compact</option>
+                  <option value="spacious">Spacious</option>
+                </select>
               </div>
 
               <div class="setting-row">

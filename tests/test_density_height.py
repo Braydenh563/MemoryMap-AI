@@ -34,10 +34,10 @@ def test_the_first_paint_and_the_settings_make_the_same_call():
 def test_auto_is_a_choice_in_appearance_and_clears_the_setting():
     html = _text("index.html")
     seg = html[html.index('id="density-seg"') :]
-    seg = seg[: seg.index("</div>")]
-    assert 'data-density="auto"' in seg
+    seg = seg[: seg.index("</select>")]
+    assert 'value="auto"' in seg
     settings = _text("settings.js")
-    assert 'if (b.dataset.density === "auto") localStorage.removeItem("density");' in settings
+    assert 'if (e.target.value === "auto") localStorage.removeItem("density");' in settings
     assert "window crosses 700px tall" in settings or "DENSITY_SHORT.addEventListener" in settings
 
 

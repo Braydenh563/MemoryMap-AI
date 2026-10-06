@@ -327,6 +327,7 @@ HELP_TOPICS: list[dict] = [
             "graph and the whiteboard, and Interface animations (on by default) "
             "keeps the short fades and slides of menus, dialogs and tabs and a "
             "button's press even then; turn it off and they are instant. "
+            "Font and Density (Typography & layout) are lists you pick from. "
             "Density's Auto, the default, is Compact on a window "
             "700px tall or less and the look's own spacing on a taller one. "
             "Performance mode (Effects & accessibility) turns off "

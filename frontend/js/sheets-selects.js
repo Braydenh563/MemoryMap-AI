@@ -789,6 +789,11 @@ function enhanceSelect(select) {
     row.setAttribute("role", "option");
     row.dataset.value = option.value;
     row.textContent = option.textContent.trim();
+    //: **An option that wants its row drawn its own way** names a class in
+    //: `data-menu-class` (Settings' Font list sets each row in its own face,
+    //: INBOX 670). The menu is lifted to <body>, so no selector can reach a
+    //: row through its select; the class travels with the row instead.
+    if (option.dataset.menuClass) row.classList.add(...option.dataset.menuClass.split(/\s+/).filter(Boolean));
     if (option.disabled) row.setAttribute("aria-disabled", "true");
     row.addEventListener("click", (event) => {
       event.stopPropagation();

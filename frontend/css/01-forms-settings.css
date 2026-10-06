@@ -105,6 +105,23 @@
   --note-preview-lines: 5;
 }
 
+/* Settings, Appearance, Font (INBOX 670): the list's rows are each set in
+   their own face, so the choice is seen before it is made (the row class comes
+   from `data-menu-class` on the option, sheets-selects.js). The
+   stacks are 00-tokens-shell.css's `:root[data-font]` values; System has no
+   rule, it is the page's own. */
+.select-option.select-face-serif {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+}
+
+.select-option.select-face-mono {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+.select-option.select-face-arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
    scroll (user request). It sits just below the sticky top bar; a long

@@ -46,23 +46,21 @@ c.commit();print(e)`;
   const head = await page.evaluate(() => {
     const card = document.querySelector('[data-sheet="suggestions"] .sheet-card');
     const r = card.getBoundingClientRect();
-    const tabs = [...card.querySelectorAll('.inbox-seg [role="tab"]')].map((t) => t.textContent.trim());
+    const tabs = [...card.querySelectorAll('#inbox-kind option')].map((t) => t.textContent.trim());
     return {
       w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight,
       sideways: card.scrollWidth > card.clientWidth + 1 || document.documentElement.scrollWidth > innerWidth,
       help: Boolean(card.querySelector('.dialog-head [data-help-for="inbox-help"]')),
       closeLast: card.querySelector('.dialog-head-actions > :last-child')?.classList.contains('sheet-close'),
       tabs,
-      segOver: (() => { const g = card.querySelector('.inbox-seg'); return g.scrollWidth > g.clientWidth + 1; })(),
+      segOver: (() => { const g = card.querySelector('#inbox-kind').closest('.select-shell'); return g.scrollWidth > g.clientWidth + 1 || g.getBoundingClientRect().right > r.right; })(),
+      pills: card.querySelectorAll('.seg').length,
     };
   });
   console.log(JSON.stringify(head));
-  const segTops = await page.evaluate(() => [...document.querySelectorAll('.inbox-seg > button')].map((x) => { const r = x.getBoundingClientRect(); return [x.textContent, Math.round(r.top + r.height / 2), Math.round(r.width)]; }));
-  const segMids = segTops.map((t) => t[1]);
-  const segRow = Math.max(...segMids) - Math.min(...segMids) < 3 ? 1 : 2;
-  check('the kinds on one row', segRow === 1, JSON.stringify(segTops));
+  check('the kinds are one list, no pill well (INBOX 670)', head.pills === 0 && head.tabs.length === 4, `pills ${head.pills}`);
   check('one sheet with four kinds', head.tabs.length === 4, head.tabs.join(' | '));
-  check('counts on the kinds', /Links\d/.test(head.tabs[0]) && /Names\d/.test(head.tabs[2]) && /Link types\d/.test(head.tabs[3]), head.tabs.join(' | '));
+  check('counts on the kinds', /^Links \(\d+\)$/.test(head.tabs[0]) && /^Names \(\d+\)$/.test(head.tabs[2]) && /^Link types \(\d+\)$/.test(head.tabs[3]), head.tabs.join(' | '));
   check('head: ? beside the title, close last', head.help && head.closeLast);
   check('within the window, nothing sideways', head.h <= head.vh && !head.sideways, `${head.w}x${head.h}`);
   check('the kinds fit on one line', !head.segOver);
@@ -77,7 +75,7 @@ c.commit();print(e)`;
   check('Links: the structural pair with its reasons', link && /both/.test(link.why) && !link.sideways, link && link.why);
 
   // Names: Sam into Sam Lee.
-  await page.evaluate(() => document.getElementById('inbox-tab-names').click());
+  await page.selectOption('#inbox-kind', 'names');
   await page.waitForTimeout(300);
   const nameRow = await page.evaluate((s) => {
     const pane = document.getElementById('inbox-pane-names');
@@ -96,11 +94,11 @@ c.commit();print(e)`;
   const merged = execFileSync('python3', ['-c', `import sqlite3,sys
 c=sqlite3.connect(sys.argv[1]);print(c.execute("select count(*) from entity_mentions where entity_id=?",(int(sys.argv[2]),)).fetchone()[0], c.execute("select merged_into from entities where id=?",(int(sys.argv[3]),)).fetchone()[0])`, process.env.DB, String(samLee), String(sam)]).toString().trim();
   check('Merge moved every mention', merged === `3 ${samLee}`, merged);
-  const namesCount = await page.evaluate(() => document.getElementById('inbox-tab-names').textContent);
-  check('the count went down', namesCount === 'Names' || /Names\d/.test(namesCount), namesCount);
+  const namesCount = await page.evaluate(() => document.querySelector('#inbox-kind option[value="names"]').textContent);
+  check('the count went down', namesCount === 'Names' || /^Names \(\d+\)$/.test(namesCount), namesCount);
 
   // Link types: the wiki link whose sentence says "for example".
-  await page.evaluate(() => document.getElementById('inbox-tab-types').click());
+  await page.selectOption('#inbox-kind', 'types');
   await page.waitForTimeout(300);
   const typeRow = await page.evaluate((s) => {
     const r = [...document.querySelectorAll('#inbox-pane-types .inbox-row')].find((x) => x.textContent.includes(`Kiln note ${s}`));
@@ -120,7 +118,7 @@ c=sqlite3.connect(sys.argv[1]);print(c.execute("select link_type from entry_link
   check('the link took the type', typed === 'example_of', typed);
 
   // Disagreements: the pane is there and runs nothing on open.
-  await page.evaluate(() => document.getElementById('inbox-tab-tensions').click());
+  await page.selectOption('#inbox-kind', 'tensions');
   await page.waitForTimeout(300);
   const t = await page.evaluate(() => {
     const pane = document.getElementById('inbox-pane-tensions');
@@ -128,11 +126,15 @@ c=sqlite3.connect(sys.argv[1]);print(c.execute("select link_type from entry_link
   });
   check('Disagreements: Start the review, nothing run', t.visible && t.start && t.cards === 0, JSON.stringify(t));
 
-  // Keyboard: arrows walk the tabs.
-  await page.focus('#inbox-tab-tensions');
-  await page.keyboard.press('ArrowRight');
-  const after = await page.evaluate(() => document.activeElement.id);
-  check('ArrowRight moves to the next kind', after === 'inbox-tab-names', after);
+  // Keyboard: the list opens on Enter, Down moves to the next kind, Enter takes it.
+  await page.focus('#inbox-kind ~ .select-opener');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(250);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => document.getElementById('inbox-kind').value);
+  check('the list walks to the next kind from the keyboard', after === 'names', after);
 
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${process.env.SCRATCH || '.'}/kg9inbox-${WIDTH}-${process.env.THEME || 'light'}.png` });

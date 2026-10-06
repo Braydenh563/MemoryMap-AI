@@ -4,8 +4,8 @@
 // a `LAZY_ENTRY_POINTS` stand-in. One sheet for the four things the notebook
 // proposes and only a person decides: links to add (`/entries/link-suggestions`),
 // disagreements (`/entries/tensions`, a local-model pass started by hand),
-// names that are one thing and link types (`/suggestions`). A `.seg` picks the
-// kind, each with its count. Every accept and dismissal is a correction the
+// names that are one thing and link types (`/suggestions`). A select picks the
+// kind, each row with its count. Every accept and dismissal is a correction the
 // next pass reads (`ai/learning.py`): a dismissal never comes back, and both
 // move what each kind of evidence is worth. Before this the links were a
 // panel under the graph's toolbar and the disagreements a dialog of their own.
@@ -18,6 +18,7 @@ const INBOX_KINDS = [
 ];
 
 const INBOX_HELP = [
+  "The list at the top picks the kind of suggestion; each row says how many are waiting, as in Links (3).",
   "Links: pairs worth connecting, with every reason: similar wording, people or things both name, a note both link with, a rare tag both carry. Type a reason before Link, or leave it to Atlas; Link all above 70% links every pair at least that sure.",
   "Tensions: Start the review reads likely pairs with your local model and shows the two sides with their dates. Nothing runs until you start it.",
   "Names: \"Sam\" and \"Sam Lee\", or one name spelled two ways. Merge keeps the fuller name and moves every mention; the other name is kept as an alias, so it is never found twice.",
@@ -36,7 +37,7 @@ async function openSuggestionsInbox(kind = "links") {
     inboxShow(kind);
     return;
   }
-  const state = { kind, tabs: {}, lists: {}, counts: {} };
+  const state = { kind, select: null, options: {}, lists: {}, counts: {} };
   inboxState = state;
   state.close = openSheet({
     label: "Suggestions",
@@ -47,30 +48,28 @@ async function openSuggestionsInbox(kind = "links") {
     build: (card) => {
       card.classList.add("inbox-card");
       inboxHead(card);
-      const seg = document.createElement("div");
-      seg.className = "seg seg-compact inbox-seg";
-      seg.setAttribute("role", "tablist");
-      seg.setAttribute("aria-label", "Kind of suggestion");
+      //: **A list, not a pill well** (INBOX 670; DESIGN.md `.seg`: two or three
+      //: short choices only). Four kinds, each worded and counted, are one
+      //: select whose rows carry the counts ("Links (3)"), as Questions' state
+      //: does. The panes follow its value, so the list is the one control.
+      const kind = document.createElement("select");
+      kind.id = "inbox-kind";
+      kind.className = "inbox-kind";
+      kind.setAttribute("aria-label", "Kind of suggestion");
+      kind.title = "Kind of suggestion";
       const body = document.createElement("div");
       body.className = "inbox-body";
       for (const [key, label, line] of INBOX_KINDS) {
-        const tab = document.createElement("button");
-        tab.type = "button";
-        tab.id = `inbox-tab-${key}`;
-        tab.setAttribute("role", "tab");
-        tab.setAttribute("aria-controls", `inbox-pane-${key}`);
-        const name = document.createElement("span");
-        name.textContent = label;
-        const count = document.createElement("span");
-        count.className = "inbox-count";
-        tab.append(name, count);
-        tab.addEventListener("click", () => inboxShow(key));
-        seg.appendChild(tab);
+        const option = document.createElement("option");
+        option.value = key;
+        option.dataset.label = label;
+        option.textContent = label;
+        kind.appendChild(option);
         const pane = document.createElement("div");
         pane.id = `inbox-pane-${key}`;
         pane.className = "inbox-pane";
-        pane.setAttribute("role", "tabpanel");
-        pane.setAttribute("aria-labelledby", tab.id);
+        pane.setAttribute("role", "group");
+        pane.setAttribute("aria-label", label);
         pane.hidden = true;
         const desc = document.createElement("p");
         desc.className = "muted inbox-desc";
@@ -79,21 +78,12 @@ async function openSuggestionsInbox(kind = "links") {
         list.className = "inbox-list";
         pane.append(desc, list);
         body.appendChild(pane);
-        state.tabs[key] = tab;
+        state.options[key] = option;
         state.lists[key] = list;
       }
-      //: Arrows walk the tabs (the tabs pattern), Home and End to the ends.
-      seg.addEventListener("keydown", (event) => {
-        const keys = INBOX_KINDS.map(([k]) => k);
-        const at = keys.indexOf(state.kind);
-        const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: keys.length - 1 }[event.key];
-        if (next === undefined) return;
-        event.preventDefault();
-        const key = keys[(next + keys.length) % keys.length];
-        inboxShow(key);
-        state.tabs[key].focus();
-      });
-      card.append(seg, body);
+      kind.addEventListener("change", () => inboxShow(kind.value));
+      state.select = kind;
+      card.append(kind, body);
     },
   });
   inboxShow(kind);
@@ -146,23 +136,27 @@ function inboxHead(card) {
 
 function inboxShow(kind) {
   const state = inboxState;
-  if (!state || !state.tabs[kind]) return;
+  if (!state || !state.options[kind]) return;
   state.kind = kind;
-  for (const [key, tab] of Object.entries(state.tabs)) {
-    const on = key === kind;
-    tab.classList.toggle("active", on);
-    tab.setAttribute("aria-selected", on ? "true" : "false");
-    tab.tabIndex = on ? 0 : -1;
-    document.getElementById(`inbox-pane-${key}`).hidden = !on;
+  if (state.select && state.select.value !== kind) state.select.value = kind;
+  for (const key of Object.keys(state.options)) {
+    document.getElementById(`inbox-pane-${key}`).hidden = key !== kind;
   }
 }
 
+//: The count rides on the kind's row in the list, "Links (3)", and a kind
+//: with none reads as its word alone.
 function inboxCount(kind, n) {
   const state = inboxState;
   if (!state) return;
   state.counts[kind] = n;
-  const count = state.tabs[kind]?.querySelector(".inbox-count");
-  if (count) count.textContent = n ? String(n) : "";
+  const option = state.options[kind];
+  if (!option) return;
+  const text = n ? `${option.dataset.label} (${n})` : option.dataset.label;
+  if (option.textContent !== text) option.textContent = text;
+  //: The opener shows the chosen row's words; a select assigned its own
+  //: value re-reads them, one whose row text changed does not.
+  if (state.select && state.select.value === kind) state.select.value = kind;
 }
 
 /** One kind's rows, or its empty line; a row removing itself recounts. */

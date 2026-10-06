@@ -201,32 +201,20 @@
   gap: var(--space-1);
 }
 
-/* One row at every width, as the Attach picker's sources (the `.seg` recipe
-   wraps, which put Link types alone on a second line at 390). */
-.seg.inbox-seg {
+/* The kind of suggestion is one list (INBOX 670), its rows carrying the
+   counts: as wide as its longest row on a wide sheet, the sheet's width on a
+   phone. It was a well of four at every width. */
+.inbox-card > .select-shell {
   flex: 0 0 auto;
-  align-self: stretch;
-  flex-wrap: nowrap;
-  margin-bottom: 0;
-}
-
-.seg.inbox-seg > button {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
+  align-self: flex-start;
+  min-width: 14rem;
+  margin-bottom: var(--space-3);
 }
 
 @media (max-width: 599.98px) {
-  .seg.inbox-seg > button {
-    padding-inline: var(--space-1);
-    font-size: var(--text-sm);
+  .inbox-card > .select-shell {
+    align-self: stretch;
   }
-}
-
-/* The count after a kind is quiet text, never a pill (INBOX 466). */
-.inbox-count:not(:empty) {
-  margin-inline-start: var(--space-1);
-  color: var(--muted);
 }
 
 .inbox-body {

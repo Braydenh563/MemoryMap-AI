@@ -2911,6 +2911,22 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     assert "#font-seg button" not in js and "#density-seg button" not in js
 
 
+def test_the_suggestions_inbox_kinds_are_a_list_with_counts() -> None:
+    """INBOX 670: the inbox's four kinds, each carrying a count, were a
+    `.seg` well (the shape INBOX 665 took away from Questions). One select,
+    `#inbox-kind`, its rows "Links (3)"; the arrows of the list replace the
+    tabs' own, and the panes follow the value."""
+    js = (ROOT / "frontend" / "js" / "suggestions-inbox.js").read_text(encoding="utf-8")
+    assert 'document.createElement("select")' in js and 'kind.id = "inbox-kind"' in js
+    assert "inbox-seg" not in js and 'className = "seg' not in js and '"tablist"' not in js
+    assert 'kind.addEventListener("change"' in js and "inboxShow(kind.value)" in js
+    assert "option.dataset.label" in js, "the counts ride on the select's rows"
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert ".inbox-seg" not in css
+    reveal = (ROOT / "frontend" / "js" / "reveal-targets.js").read_text(encoding="utf-8")
+    assert "#inbox-tab-" not in reveal
+
+
 def test_a_visual_choice_is_a_row_of_previews() -> None:
     """DESIGN.md "A visual choice in a popup" (INBOX 665). Measured before
     with `seg665-probe.js` at 1440 on a themed map: the Shape door 333px with

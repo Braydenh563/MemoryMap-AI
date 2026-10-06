@@ -48,7 +48,11 @@ def _run(kept: dict | None, doc: dict, *, dirty: bool = True) -> dict:
         """
 const DOC_EDIT_KEPT = "doc-edit-draft";
 const store = {};
-const localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; }, removeItem: (k) => { delete store[k]; } };
+const prefs = {
+  setJSON: (k, v) => { store[k] = JSON.stringify(v); },
+  remove: (k) => { delete store[k]; },
+  json: (k, fallback) => { try { const v = JSON.parse(store[k]); return v && typeof v === "object" ? v : fallback; } catch { return fallback; } },
+};
 const toasts = [];
 function toastAction(message, label) { toasts.push([message, label]); }
 function clipText(t) { return t; }

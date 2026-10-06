@@ -949,8 +949,9 @@ async function openDocument(id) {
   renderDocBookmarks();
   renderDocComments();
   renderDocList();
-  docRestorePosition(doc.id);
+  //: Before the place is restored, which stays last (tests/test_doc_long.py).
   offerKeptDocEdit(doc);
+  docRestorePosition(doc.id);
 }
 
 //: **A document reopens where you left it.** Measured before this existed
@@ -1044,7 +1045,7 @@ const DOC_EDIT_KEPT = "doc-edit-draft";
 function keepDocEditLocally() {
   if (!currentDoc || !docDirty) return;
   try {
-    localStorage.setItem(DOC_EDIT_KEPT, JSON.stringify({ id: currentDoc.id, title: $("doc-title").value, content: docText(), at: Date.now() }));
+    prefs.setJSON(DOC_EDIT_KEPT, { id: currentDoc.id, title: $("doc-title").value, content: docText(), at: Date.now() });
   } catch {
     /* storage full or blocked: nothing more can be done at unload */
   }
@@ -1052,8 +1053,8 @@ function keepDocEditLocally() {
 
 function forgetDocEditLocally(id) {
   try {
-    const kept = JSON.parse(localStorage.getItem(DOC_EDIT_KEPT) || "null");
-    if (kept && kept.id === id) localStorage.removeItem(DOC_EDIT_KEPT);
+    const kept = prefs.json(DOC_EDIT_KEPT, null);
+    if (kept && kept.id === id) prefs.remove(DOC_EDIT_KEPT);
   } catch {
     /* nothing kept, nothing to forget */
   }
@@ -1068,7 +1069,7 @@ window.addEventListener("pagehide", keepDocEditLocally);
 function offerKeptDocEdit(doc) {
   let kept = null;
   try {
-    kept = JSON.parse(localStorage.getItem(DOC_EDIT_KEPT) || "null");
+    kept = prefs.json(DOC_EDIT_KEPT, null);
   } catch {
     kept = null;
   }

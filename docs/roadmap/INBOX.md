@@ -149,6 +149,12 @@ with its owner named in the entry.
      positions (or the saved layout) before the first paint, or hold the canvas
      hidden until the fit, with a fade in. Measure the first painted frame's scale.
 
+739. **The owner, 2026-10-06, verbatim**: "also want auto naming of the whiteboards,
+     mindmaps and documents like \"untitled #\" so the user isnt forced to name a
+     new object". Create works with the name field empty: "Untitled board 3",
+     "Untitled map 2", "Untitled document 4" (the next free number per kind), the
+     name selected for typing over, renamed later from the title.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

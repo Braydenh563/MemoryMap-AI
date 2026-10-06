@@ -106,6 +106,9 @@ REACHED_AFTER_LOAD = {
     #: `ensureModule("navHistory")` and returns when it failed, so the render
     #: runs only once the bundle is in.
     "renderNavHistoryMenu": "navHistory, called by openNavHistoryMenu after awaiting ensureModule('navHistory')",
+    #: INBOX 644: saveMeetingNote (media.js) awaits ensureModule("meetings")
+    #: and calls only when it loaded, as openNavHistoryMenu does.
+    "meetingSaveTranscript": "meetings, called by saveMeetingNote after awaiting ensureModule('meetings')",
     "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it

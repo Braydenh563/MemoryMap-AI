@@ -1313,7 +1313,7 @@ const BUILTIN_TEMPLATES = [
   { name: "Journal", content: "Journal: {date}\n\nToday I " },
   { name: "Recipe", content: "Recipe: \n\nIngredients:\n- \n\nSteps:\n1. " },
   { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
-  { name: "Meeting", content: "Meeting about \nWho: \nDecisions: \nTo do: " },
+  { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
 ];
 
 //: **Built-ins and the person's own, as one catalogue** (INBOX 409, "templates
@@ -1980,6 +1980,7 @@ const LAZY_MODULES = {
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
+  meetings: ["/js/meetings.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
   //: boot's, the motion arrives with the first figure that mounts.
   atlasMotion: ["/js/atlas-motion.js"],
@@ -2281,6 +2282,7 @@ const LAZY_ENTRY_POINTS = {
   vault: ["unlockPrivateNotes", "ensureVaultOpen"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
+  meetings: ["openNewMeeting", "openMeetingSheet"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

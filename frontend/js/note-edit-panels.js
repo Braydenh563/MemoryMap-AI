@@ -199,7 +199,14 @@ function renderEditForm(li, entry) {
   //: finding and editing its "# " line by hand). Not a stored field: the
   //: leading heading is split off into it and put back on save, the shape
   //: `withTitle` writes in Capture, so the two cannot disagree.
-  const heading = /^#[ \t]+([^\n]+)\n*/.exec(entry.content || "");
+  //: The heading is looked for after the note's property block, where a note
+  //: of a type keeps it (meetings-644 audit, item 6): at offset 0 the fence
+  //: hid it, the Title stayed empty and the `# ` line stayed in the body.
+  //: The block stays in the text box, in front of the body, as it was.
+  const source = entry.content || "";
+  const afterBlock = stripFrontmatter(source);
+  const blockText = source.slice(0, source.length - afterBlock.length);
+  const heading = /^\n*#[ \t]+([^\n]+)\n*/.exec(afterBlock);
   const titleInput = document.createElement("input");
   titleInput.type = "text";
   titleInput.maxLength = 200;
@@ -211,7 +218,7 @@ function renderEditForm(li, entry) {
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
   textarea.setAttribute("aria-label", "Note text"); // its editor takes this name (noteSurfaceName)
-  textarea.value = draft ? draft.content : heading ? entry.content.slice(heading[0].length) : entry.content;
+  textarea.value = draft ? draft.content : heading ? blockText + afterBlock.slice(heading[0].length) : entry.content;
   textarea.addEventListener("input", () => { noteFormDirty = true; });
   //: A stable id, because three separate features key off one: the "/" menu
   //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection

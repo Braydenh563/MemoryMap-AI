@@ -996,7 +996,7 @@ const TAB_JUMP_KEYS = {
 const CHORD_ACTIONS = {
   s: { label: "Settings", icon: "ph:gear", run: () => openSettingsModal() },
   q: { label: "Quick sketch", icon: "ph:palette", run: () => openSketch() },
-  v: { label: "Meeting notes", icon: "ph:microphone", run: () => openMeetingRecorder() },
+  v: { label: "Record a meeting", icon: "ph:microphone", run: () => openMeetingRecorder() },
   //: The two assistants (INBOX 249, the owner: "is there a hotkey ot keybind,
   //: as well as an 'm' key navigation to open the atlas window and popup
   //: agent??"). Ctrl+Shift+A and Ctrl+Shift+H are theirs in the registry

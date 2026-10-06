@@ -12622,7 +12622,7 @@ Link to another note with [[its first few words]]."></textarea>
         <li><span class="shortcut-keys"><kbd>Enter</kbd></span><span>Send a chat message, or run the selected command</span></li>
         <li><span class="shortcut-keys"><kbd>Tab</kbd></span><span>Move focus; cycles inside an open dialog</span></li>
         <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>d</kbd>/<kbd>n</kbd>/<kbd>c</kbd>/<kbd>g</kbd>/<kbd>l</kbd>/<kbd>t</kbd>/<kbd>r</kbd></span><span>Jump to Dashboard / Notes / Chat / Graph / Library / Timeline / Reminders</span></li>
-        <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>s</kbd>/<kbd>q</kbd>/<kbd>v</kbd></span><span>Open settings / a quick sketch / meeting notes</span></li>
+        <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>s</kbd>/<kbd>q</kbd>/<kbd>v</kbd></span><span>Open settings / a quick sketch / record a meeting</span></li>
       </ul>
       <h3>In the documents editor</h3>
       <p class="muted">These work while you are writing in a document.</p>
@@ -12899,8 +12899,9 @@ Link to another note with [[its first few words]]."></textarea>
         </p>
         <p>
           The transcript comes back for you to read and trim before anything is
-          saved. An hour of talking is a document rather than a note, which is
-          what the second save button is for.
+          saved. Saved, it is a meeting note with the transcript under Notes, or,
+          opened from a meeting's Record into it, it goes under that meeting's
+          Notes. An hour of talking can be a document instead.
         </p>
       </div>
       <label class="meeting-title-label" for="meeting-title">What is this recording?</label>
@@ -12954,7 +12955,9 @@ Link to another note with [[its first few words]]."></textarea>
            DESIGN.md's ramp: a destructive action is never the filled one, and
            it should not be a slip of the hand away from the primary either. -->
       <div class="row hidden" id="meeting-save-row">
-        <button id="meeting-save" class="ghost">Save as a note</button>
+        <!-- Two wordings, one shown: `.meeting-into` (a recording opened from a
+             meeting's Record into it, meetings.js) shows the second. -->
+        <button id="meeting-save" class="ghost"><span class="meeting-save-new">Save as a meeting</span><span class="meeting-save-into">Add to the meeting</span></button>
         <!-- A lecture or a long meeting is not a note. Asked for as part of
              "expanded as a proper feature with more capabilities": an hour of
              transcript in the Notes list is one enormous card nobody can

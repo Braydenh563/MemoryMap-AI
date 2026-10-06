@@ -1323,6 +1323,10 @@ function paletteCommands() {
     // is the app's own "what can I do here" list; it belongs in it.
     { label: "ph:magic-wand Ask the agent anything", reveal: "agent-palette", chord: "askAgent" },
     { label: "ph:palette New sketch", reveal: "sketch", chord: "quickSketch" },
+    //: A command, not a search (INBOX 666: the palette is commands and
+    //: places; finding a meeting is Find anything's). INBOX 644: there was
+    //: no way to start a meeting note by name anywhere in the app.
+    { label: "ph:users-three New meeting", reveal: "meeting-new", about: "Agenda, notes, decisions and action items." },
     {
       // Reachable from anywhere, which is the point. Asked for directly: "I
       // would also like the meeting notes popup to be expanded as a proper

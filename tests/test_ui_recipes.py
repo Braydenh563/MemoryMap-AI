@@ -1093,6 +1093,8 @@ LIST_ROWS = {
     ".bench-row": ".bench-results",
     #: The board's Layers tab (WHITEBOARD_PLAN decision 27).
     ".wb-layer-row": ".wb-layers-tree",
+    #: A meeting's action items, in its sheet (INBOX 644).
+    ".meeting-action": ".meeting-actions-list",
 }
 
 

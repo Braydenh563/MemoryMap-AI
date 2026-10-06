@@ -108,8 +108,8 @@ def test_new_meeting_is_a_tagged_typed_note(client) -> None:
     assert made["properties"]["type"] == ["Meeting"]
     assert made["properties"]["date"] == ["2026-10-07 14:00"]
     assert made["properties"]["attendees"] == ["Sam", "Priya"]
-    #: The type's own extra field (project) is written too, empty.
-    assert "project" in made["properties"]
+    #: Only what was asked: the type's empty `project` is not written.
+    assert "project" not in made["properties"]
     assert made["title"] == "Weekly sync"
 
 

@@ -60,7 +60,9 @@ def create_meeting(body: MeetingCreate, session: Session = Depends(get_session))
         EntryCreate(
             content=content,
             tags=[shape.MEETING_TAG],
-            note_type=shape.MEETING_TYPE,
+            #: Not `note_type`: that writes the type's other fields empty into
+            #: the block ("project –" on every card), and the Properties sheet
+            #: offers a type's fields as rows whether or not they are written.
             category=body.category or None,
             defer_filing=not body.category,
         ),

@@ -385,6 +385,108 @@
   margin: 0;
 }
 
+/* Meetings (INBOX 644, meetings.js): the New meeting sheet's people field
+   is the edit form's tag field on a property row, and the meeting sheet's
+   action items are DESIGN.md's row in a list: a mark, the content (the
+   task over one line of facts), one actions cell centred on the row. */
+.prop-row > .meeting-people {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-min);
+}
+
+.meeting-people > .note-edit-tag-input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  margin: 0;
+}
+
+/* Nothing said yet, no row held for it: the gap above the buttons was an
+   empty status line. */
+.meeting-new > .status:empty,
+.meeting-view > .status:empty {
+  display: none;
+}
+
+/* The sheet's fields are targets too: 44px under touch, as its buttons are. */
+.meeting-new .prop-row input {
+  min-height: var(--target-min);
+}
+
+.meeting-actions-list,
+.meeting-decisions,
+.meeting-proposal-list {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.meeting-actions-list {
+  display: grid;
+  gap: var(--row-gap);
+}
+
+.meeting-decisions > li,
+.meeting-proposal-list > li {
+  padding: var(--space-1) 0;
+}
+
+.meeting-decisions > li:not(.meeting-empty)::before {
+  content: "\2022";
+  margin-inline-end: var(--space-2);
+  color: var(--muted);
+}
+
+.meeting-action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.meeting-action:hover {
+  background: var(--surface-2);
+  border-color: var(--divider);
+}
+
+.meeting-action-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.meeting-action-text {
+  overflow-wrap: anywhere;
+}
+
+.meeting-action.is-done .meeting-action-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.meeting-action-facts {
+  font-size: var(--text-sm);
+}
+
+.meeting-action-act {
+  align-self: center;
+}
+
+.meeting-proposal-list > li {
+  display: flex;
+  flex-direction: column;
+}
+
+.meeting-cite {
+  font-size: var(--text-sm);
+}
+
 /* GRAPH_PLAN KG7: a structural query's bar over the notes list. */
 .note-query-bar {
   align-items: center;

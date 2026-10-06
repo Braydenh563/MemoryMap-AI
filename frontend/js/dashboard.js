@@ -686,12 +686,17 @@ const QUICK_START = [
       $("reminder-magic").focus();
     },
   },
+  //: **A meeting, not a recorder** (INBOX 644: "tucked away"). This tile
+  //: opened the recorder, a dialog whose one control is Record, so the
+  //: everyday case, notes typed in a meeting, was five clicks through a
+  //: template. It starts a meeting note now; recording is inside it. The id
+  //: stays, so a saved Quick access keeps its tile.
   {
     id: "meeting-notes",
-    icon: "ph:microphone",
-    label: "Meeting notes",
-    hint: "Record and transcribe",
-    run: () => openMeetingRecorder(),
+    icon: "ph:users-three",
+    label: "New meeting",
+    hint: "Agenda, notes, action items",
+    run: () => openNewMeeting(),
   },
 ];
 
@@ -1246,7 +1251,7 @@ function dashCustomiseItems() {
   }
   items.push({
     label: "ph:arrow-counter-clockwise Reset quick access",
-    title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes, the first highlighted",
+    title: "Back to New note, Ask AI, Sketch, Remind me and New meeting, the first highlighted",
     group: "quick",
     run: async () => { await saveQuickAccess([]); await saveQuickTints({}); renderQuickLinks(); },
   });
@@ -1299,7 +1304,8 @@ function featureCatalog() {
       { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", reveal: "writing-room" },
       { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", reveal: "sketch" },
       { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", reveal: "notes-dictation" },
-      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, then file the notes.", reveal: "meeting" },
+      { name: "New meeting", desc: "A meeting note: when, who, agenda, notes, decisions and action items.", reveal: "meeting-new" },
+      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, saved as a meeting note.", reveal: "meeting" },
       { name: "Attachments", desc: "Attach files and images to any note.", reveal: "notes-attach" },
       // Beside Attachments, which is the entry a person who has files in the
       // notebook is already reading. Asked for directly: "I want an easier and

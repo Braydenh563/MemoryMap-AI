@@ -62,8 +62,59 @@ for it), per-line audio time links (the recorder keeps no audio).
 
 ## Build (decisions 1 to 5 of the brief)
 
-Status per step is kept below as it lands.
+Built, measured by `scratchpad/ui-sweeps/meetings644.js` (light and dark at
+1440; light and dark at 390 under touch; all checks pass in all four):
+
+1. **Findable.** New meeting is the Dashboard's fifth Quick access tile
+   (one click from home; the tile id `meeting-notes` is kept so saved
+   layouts keep it), a palette command (`reveal: "meeting-new"`), Library's
+   Create row, and a Tools and features row. Notes has a Meetings row
+   (`tag:meeting`, heading "Meetings"). Library's Meetings chip counts
+   every meeting, since every meeting carries the tag.
+2. **One shape.** `entry/meetings.py` writes it (`POST /meetings`):
+   `type: Meeting`, `date`, `attendees`, then Agenda, Notes, Decisions,
+   Action items, in the normal editor. Any note typed Meeting gets the
+   `meeting` tag on create (template, type, import). The Capture template
+   is the same shape (no date: it is placed where it was written, which is
+   when the meeting was). No migration: nothing a note does not hold.
+3. **No model needed**, except Summarise: `/meeting/summarise` keeps only
+   lines whose quoted source is in the note (dropped lines counted and
+   said), shows them with their words, adds them after the person's own
+   lines on Add, with Undo (toast and the app's undo stack). The recorder
+   is reused (local Whisper, its consent text unchanged); a saved recording
+   is a meeting, or goes under the Notes of the meeting it was opened from
+   (Record into it). The uncited summary the old save prepended is gone.
+4. **Timeline and reminders.** A Meeting with a `date:` sits at it
+   (`placed_by: "meeting"`, the users-three mark, "A meeting on ..." title).
+   An action item becomes a reminder linked to the meeting
+   (`/meeting/remind`): its due read by Magic Add's no-model rules from the
+   line ("by Friday", "tomorrow at 3pm"), or asked for ("When?").
+5. **Recipes.** `openSheet`, `.prop-row`, the tag-field chips, `chip()` for
+   the meeting chip on the details line, the list-row recipe for action
+   items (`.meeting-action` added to `LIST_ROWS` in test_ui_recipes.py), the
+   dialog buttons. Help: `meetings` Guide topic, the voice topic, the chord
+   label (m then v is "Record a meeting"), the recorder's '?' text.
+
+Fixed on the way: the timeline row of a typed note showed "---" and the raw
+block (audit item 5); the edit form's title under a property block (item 6);
+a double click on a Create row stacked two New meeting sheets.
 
 ## Remaining
 
-- (filled in as steps land)
+- Meeting cards show their section headings as raw `## Agenda` text, as
+  every note card does (`renderNoteText` keeps headings as text by design).
+  A meeting-aware card preview (when, who, open action items) would read
+  better; it is a note-card change, so it needs its own pass.
+- The Timeline's table view (a phone's default) has no mark column, so a
+  meeting reads as a Note there; the feed view shows the meeting mark.
+- Summarise is verified only against the fake model (`tests/test_meetings_644.py`):
+  how a real small model keeps to the pipe format and quotes is not known.
+- Transcription is not verifiable here (no faster-whisper in the sandbox);
+  the recorder's save is driven with a typed transcript in the sweep.
+- The documents' "Meeting notes" template is still a document (not a typed
+  note): left, since documents are their own surface.
+- Not taken from OneNote/Granola/Otter: calendar sync (offline), speaker
+  labels, audio time links per line.
+- `tests/test_properties_never_in_previews.py::test_the_frontends_raw_content_clips_read_past_the_block`
+  fails on the base branch already (app-palette.js no longer clips note text
+  after INBOX 666); not this work's file.

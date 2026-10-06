@@ -2826,6 +2826,89 @@ def _seg_track_names() -> set[str]:
     return names
 
 
+#: INBOX 665 (the owner: "i dont really like these multi pill elements exept
+#: in some small cases like the little view mode 2 pill ones"). A `.seg` well
+#: of four or more choices written in index.html, each with where its
+#: conversion is placed (agent-remaining/seg665-1006.md). The list may only
+#: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
+SEG_OF_FOUR_PLACED = {
+    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them",
+    "font-seg": "Settings, Appearance: four fonts, each a preview of itself; placed",
+    "density-seg": "Settings, Appearance: four densities; placed",
+    "graph-layout": "the Graph's four layouts, radio-backed; placed",
+}
+
+
+class _SegWells(HTMLParser):
+    """Every `.seg` / `.segmented-control` in the page with its option count."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.depth = 0
+        self.open: list[list] = []
+        self.found: dict[str, int] = {}
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "input":
+            if a.get("type") == "radio" and self.open:
+                self.open[-1][2] += 1
+            return
+        if tag in ("br", "img", "meta", "link"):
+            return
+        self.depth += 1
+        classes = (a.get("class") or "").split()
+        if tag == "div" and ("seg" in classes or "segmented-control" in classes) and "tabs-line" not in classes:
+            self.open.append([self.depth, a.get("id") or ".".join(classes), 0])
+        elif tag == "button" and self.open and self.depth == self.open[-1][0] + 1:
+            self.open[-1][2] += 1
+
+    def handle_endtag(self, tag):
+        if tag in ("input", "br", "img", "meta", "link"):
+            return
+        if self.open and self.open[-1][0] == self.depth:
+            _, name, count = self.open.pop()
+            self.found[name] = count
+        self.depth -= 1
+
+
+def test_a_pill_well_holds_two_or_three_choices() -> None:
+    """DESIGN.md's `.seg` row (INBOX 665): a well is for two or three short
+    choices always in view. Measured before by `scratchpad/seg665_inventory.py`:
+    25 wells in the page, four of them four or five wide, plus the map topic
+    bar's eight selects drawn as wells of three to thirteen. The two the owner
+    named among the threes (Questions' state, AI skills' kinds) are selects."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    wells = _SegWells()
+    wells.feed(html)
+    wide = {name for name, count in wells.found.items() if count >= 4}
+    assert wide <= set(SEG_OF_FOUR_PLACED), f"a new pill well of four or more: {sorted(wide - set(SEG_OF_FOUR_PLACED))}"
+    for name in ("questions-state", "skills-kind"):
+        assert name not in wells.found, f"#{name} is a select (INBOX 665), not a well"
+        assert f'<select id="{name}"' in html
+
+
+def test_a_visual_choice_is_a_row_of_previews() -> None:
+    """DESIGN.md "A visual choice in a popup" (INBOX 665). Measured before
+    with `seg665-probe.js` at 1440 on a themed map: the Shape door 333px with
+    Box and Fill wrapping to 103px rows, the Text door's icons to three lines.
+    After: every row 32px, one line, the door 155px. The rows are previews in
+    one label column, the follow choice a trailing reset, never a well."""
+    wm = frontend_text("whiteboard-map.js")
+    assert "wbMapChoiceRow" not in wm and "wb-map-choices" not in wm
+    assert '"seg wb-map-theme-scope"' not in wm
+    for name in ("function wbMapPickRow(", "function wbMapSizeStepper(", "function wbMapMarkerGlyph("):
+        assert name in wm
+    seg = wm[wm.index("function wbMapMarkerSeg(") :]
+    seg = seg[: seg.index("\n}\n")]
+    assert 'className = "seg"' not in seg and '"wb-map-picks"' in seg
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    picks = css[css.index(".wb-map-picks {") :]
+    assert "flex-wrap: nowrap;" in picks[: picks.index("}")]
+    assert "grid-template-columns: 5rem minmax(0, 1fr);" in css
+
+
 def test_a_segmented_track_is_rounded_by_the_table() -> None:
     names = _seg_track_names()
     offenders = []
@@ -4383,17 +4466,16 @@ def test_the_ai_skills_dock_holds_one_row() -> None:
 
     1. the sort is an icon-and-caret picker (`data-select-icon`) and an icon
        picker in a dock is not held to a worded select's 9rem floor;
-    2. the segment's words are `.toolbar-word`s that leave the row when the
-       dock (a container, so the logs column counts) is under 58rem, above
-       the phone band only, where the segment has a row of its own;
+    2. the kind filter is one worded select (INBOX 665: it was a pill well
+       of three whose words left the row under 58rem), its counts on its rows;
     3. the planned two-line break (INBOX 450) waits for a dock under 700px.
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     sort = re.search(r'<select id="skills-sort"[^>]*>', html).group(0)
     assert 'data-select-icon="ph-' in sort
-    kind = html[html.index('id="skills-kind"'):]
-    kind = kind[: kind.index("</div>")]
-    assert kind.count('class="toolbar-word"') == 3
+    kind = html[html.index('<select id="skills-kind"'):]
+    kind = kind[: kind.index("</select>")]
+    assert kind.count("<option ") == 3 and "toolbar-word" not in kind
     css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
     assert ".dock:has(.toolbar-word) {\n  container: dock / inline-size;" in css
     assert ".dock .select-shell:has(.select-opener-icon) {\n  min-width: 0;" in css

@@ -1978,6 +1978,24 @@
   color: var(--accent-text);
 }
 
+/* Priority, Progress and Flag as previews (INBOX 665): the topic bar's
+   `.wb-map-picks` at a menu row's height (44 below 820 and under touch), the
+   chosen one the choice control's accent. Six of them are 202px, inside the
+   popover's 22rem at every width, so the row never wraps. */
+.wb-map-markers-pop .wb-map-pick {
+  width: max(var(--control-h-lg), var(--target-min));
+  height: max(var(--control-h-lg), var(--target-min));
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+
+.wb-map-markers-pop .wb-map-pick.active {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+
 /* The outline's and the markers popover's one line of help. */
 .wb-outline-hint,
 .wb-map-markers-hint {

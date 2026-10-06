@@ -939,31 +939,36 @@ function wbMapThemeDialog() {
   body.appendChild(lead);
 
   //: **The hierarchy, and which level the rows below set** (MINDMAP_PLAN.md
-  //: decisions 39 and 40). XMind's theme has a tab per level; here one `.seg`
-  //: of four says whose look the Text, box and line rows are writing: the
-  //: whole map's (the ten fields of decision 8) or one level's own.
+  //: decisions 39 and 40). XMind's theme has a tab per level; here one row
+  //: says whose look the Text, box and line rows are writing: the whole
+  //: map's (the ten fields of decision 8) or one level's own. A select, not
+  //: the `.seg` of four it was (INBOX 665: four worded choices, "Main
+  //: branches" the longest, are a list of values, and a well of them is the
+  //: multi-pill the owner asked to be rid of), in the same label column as
+  //: every row under it.
   body.appendChild(wbMapThemeSelect({ key: "hierarchy", label: "Hierarchy", kind: "select", options: [
     ["", "Classic"], ["outline", "Outline"], ["boxed", "Boxed"], ["flat", "Flat"],
   ] }));
   const scope = document.createElement("div");
-  scope.className = "seg wb-map-theme-scope";
-  scope.setAttribute("role", "group");
-  scope.setAttribute("aria-label", "Whose look the rows below set");
+  scope.className = "wb-menu-row wb-map-theme-row wb-map-theme-scope";
+  const scopeName = document.createElement("span");
+  scopeName.textContent = "Setting";
+  const scopeSelect = document.createElement("select");
+  scopeSelect.className = "ghost small";
+  scopeSelect.setAttribute("aria-label", "Whose look the rows below set");
+  for (const [level, words] of [["map", "The whole map"], ["0", "The centre"], ["1", "Main branches"], ["2", "Sub-topics"]]) {
+    const option = document.createElement("option");
+    option.value = level;
+    option.textContent = words;
+    scopeSelect.appendChild(option);
+  }
+  scope.append(scopeName, scopeSelect);
   const rows = document.createElement("div");
   rows.className = "wb-map-theme-rows";
   const show = (level) => {
-    for (const b of scope.children) b.setAttribute("aria-pressed", String(b.dataset.level === level));
     rows.replaceChildren(...(level === "map" ? wbMapThemeMapRows() : wbMapThemeLevelRows(Number(level))));
   };
-  for (const [level, words] of [["map", "Whole map"], ["0", "Centre"], ["1", "Main branches"], ["2", "Sub-topics"]]) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "ghost small";
-    b.dataset.level = level;
-    b.textContent = words;
-    b.addEventListener("click", () => show(level));
-    scope.appendChild(b);
-  }
+  scopeSelect.addEventListener("change", () => show(scopeSelect.value));
   body.append(scope, rows);
   show("map");
 
@@ -8805,28 +8810,56 @@ function wbMapCloseMarkers({ restoreFocus = false } = {}) {
   if (restoreFocus) document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
 }
 
-//: A segmented row: one pressed at a time, the app's `.seg`.
+//: A row of previews, one pressed at a time (INBOX 665): each choice drawn
+//: as the mark it puts on the topic (`wbMapMarkerGlyph`), the topic bar's
+//: `.wb-map-picks` recipe. It was a `.seg` of six words ("None 1 2 3 4 5",
+//: "None 0% 25% 50% 75% Done"), the pill well the owner asked to be rid of.
 function wbMapMarkerSeg(label, options, current, choose) {
   const wrap = document.createElement("div");
   wrap.className = "wb-map-markers-row";
   const name = document.createElement("span");
   name.className = "wb-map-markers-label";
   name.textContent = label;
-  const seg = document.createElement("div");
-  seg.className = "seg";
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", label);
+  const row = document.createElement("div");
+  row.className = "wb-map-picks";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", label);
   for (const [value, text, title] of options) {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = text;
-    if (title) b.title = title;
-    b.setAttribute("aria-pressed", String(value === current));
+    b.className = "ghost small icon-only wb-map-pick";
+    b.append(wbMapMarkerGlyph(label, value));
+    const words = title ? `${text}, ${title.toLowerCase()}` : text;
+    b.setAttribute("aria-label", `${label} ${words}`);
+    b.title = words;
+    const on = value === current;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", String(on));
     b.addEventListener("click", () => choose(value));
-    seg.appendChild(b);
+    row.appendChild(b);
   }
-  wrap.append(name, seg);
+  wrap.append(name, row);
   return wrap;
+}
+
+//: The mark a choice puts on the topic, drawn by the one painter
+//: (`wbMapPaintMarkers`, decision 34) into a scratch row, so the button shows
+//: exactly what pressing it does and no second copy of the marks exists.
+function wbMapMarkerGlyph(label, value) {
+  if (value === null || value === false) {
+    const none = document.createElement("i");
+    none.className = "ph ph-prohibit";
+    none.setAttribute("aria-hidden", "true");
+    return none;
+  }
+  const host = document.createElement("span");
+  host.className = "wb-map-markers wb-map-pick-mark";
+  wbMapPaintMarkers(host, { [label.toLowerCase()]: value });
+  host.removeAttribute("role");
+  host.removeAttribute("aria-label");
+  host.removeAttribute("title");
+  host.setAttribute("aria-hidden", "true");
+  return host;
 }
 
 function wbMapOpenMarkers(id, anchor = null) {

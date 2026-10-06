@@ -1954,11 +1954,16 @@ Link to another note with [[its first few words]]."></textarea>
               <h2 id="questions-heading">Questions</h2>
             </div>
             <div class="dock-arrange">
-              <div class="seg seg-compact questions-state-seg" id="questions-state" role="group" aria-label="Which questions to show">
-                <button type="button" class="active" data-question-state="open" aria-pressed="true"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Open <span class="seg-count" id="questions-count-open"></span></button>
-                <button type="button" data-question-state="answered" aria-pressed="false"><i class="ph ph-check-circle ph-lead" aria-hidden="true"></i> Answered <span class="seg-count" id="questions-count-answered"></span></button>
-                <button type="button" data-question-state="dropped" aria-pressed="false"><i class="ph ph-minus-circle ph-lead" aria-hidden="true"></i> Dropped <span class="seg-count" id="questions-count-dropped"></span></button>
-              </div>
+              <!-- **A list of values, not a pill well** (INBOX 665, the owner on
+                   this control: "and this as well"). Which questions to show is
+                   one value of three, each worded and counted: the dock's own
+                   select (DESIGN.md "A dropdown of values"), its rows carrying
+                   the counts `loadQuestions` writes, "Open (3)". -->
+              <select id="questions-state" aria-label="Which questions to show" title="Which questions to show">
+                <option value="open" data-label="Open">Open</option>
+                <option value="answered" data-label="Answered">Answered</option>
+                <option value="dropped" data-label="Dropped">Dropped</option>
+              </select>
             </div>
             <div class="dock-actions">
               <button id="questions-ask" class="ghost small" type="button"
@@ -5493,15 +5498,19 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <!-- The arrange zone the comment above said a skill library did not
                  have. It has one now: 24 built-in skills drown the handful
-                 someone wrote, so the two kinds are a segment (INBOX 445 (1))
+                 someone wrote, so the two kinds are a filter (INBOX 445 (1))
                  and the order is one select. Both are drawn and wired by
                  `renderSkillsDashboard`'s counts; the ids are stable. -->
             <div class="dock-group dock-arrange">
-              <div class="seg" id="skills-kind" role="group" aria-label="Which skills to show">
-                <button type="button" class="active" data-kind="all" aria-pressed="true" title="All skills"><i class="ph ph-stack ph-lead" aria-hidden="true"></i><span class="toolbar-word"> All</span> <span data-count></span></button>
-                <button type="button" data-kind="yours" aria-pressed="false" title="Skills you wrote"><i class="ph ph-user ph-lead" aria-hidden="true"></i><span class="toolbar-word"> Yours</span> <span data-count></span></button>
-                <button type="button" data-kind="builtin" aria-pressed="false" title="Built-in skills"><i class="ph ph-package ph-lead" aria-hidden="true"></i><span class="toolbar-word"> Built-in</span> <span data-count></span></button>
-              </div>
+              <!-- INBOX 665: which skills is one value of three, worded and
+                   counted, so it is the dock's select (DESIGN.md "A dropdown of
+                   values"), not a pill well; `renderSkillCards` writes the
+                   counts onto its rows, "Yours (0)". -->
+              <select id="skills-kind" aria-label="Which skills to show" title="Which skills to show">
+                <option value="all" data-label="All skills">All skills</option>
+                <option value="yours" data-label="Yours">Yours</option>
+                <option value="builtin" data-label="Built-in">Built-in</option>
+              </select>
               <!-- INBOX 599: an icon-and-caret picker (`data-select-icon`), so
                    the bar holds one row; the order is still the select's
                    value, read aloud and on its tooltip. -->

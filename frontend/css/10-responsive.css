@@ -2847,19 +2847,6 @@ header#top-bar[data-scrolled="1"],
     min-width: 0;
   }
 
-  .dock #skills-kind {
-    flex: 1 1 100%;
-    flex-wrap: nowrap;
-    height: var(--target-min);
-    padding: 0;
-  }
-
-  .dock #skills-kind > button {
-    flex: 1 1 0;
-    min-width: 0;
-    padding-inline: var(--space-2);
-    border-radius: var(--radius-md);
-  }
 
 }
 

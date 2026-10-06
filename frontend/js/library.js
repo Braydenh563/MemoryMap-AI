@@ -2524,18 +2524,22 @@ function renderSkillCards(query = "") {
   grid.replaceChildren(...columns);
   watchSkillColumns(grid);
 
-  //: The segment carries its counts, so "Yours 0" says why the page looks the
-  //: way it does before anyone clicks it.
+  //: The filter's rows carry their counts, so "Yours (0)" says why the page
+  //: looks the way it does before anyone opens it (INBOX 665: a select now,
+  //: it was a pill well of three).
   const yours = skillCardsCache.filter(({ skill }) => !skill.builtin).length;
   const counts = { all: skillCardsCache.length, yours, builtin: skillCardsCache.length - yours };
-  document.querySelectorAll("#skills-kind button").forEach((button) => {
-    const kind = button.dataset.kind;
-    const on = kind === skillKindFilter;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", on ? "true" : "false");
-    const count = button.querySelector("[data-count]");
-    if (count) count.textContent = counts[kind];
-  });
+  const kindSelect = $("skills-kind");
+  if (kindSelect) {
+    for (const option of kindSelect.options) {
+      const text = `${option.dataset.label} (${counts[option.value]})`;
+      if (option.textContent !== text) option.textContent = text;
+    }
+    if (kindSelect.value !== skillKindFilter) {
+      kindSelect.value = skillKindFilter;
+      kindSelect.dispatchEvent(new Event("change"));
+    }
+  }
 
   if (!empty) return;
   empty.replaceChildren();
@@ -2583,10 +2587,9 @@ onDomReady(() => {
       renderSkillCards($("skills-search")?.value || "");
     });
   }
-  $("skills-kind")?.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-kind]");
-    if (!button) return;
-    skillKindFilter = button.dataset.kind;
+  $("skills-kind")?.addEventListener("change", (event) => {
+    if (event.target.value === skillKindFilter) return;
+    skillKindFilter = event.target.value;
     renderSkillCards($("skills-search")?.value || "");
   });
 });

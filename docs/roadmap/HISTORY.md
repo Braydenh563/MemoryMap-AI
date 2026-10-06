@@ -45272,3 +45272,12 @@ and refuses a topic ("Select a shape, link or text box first").
      segmented control and Settings; `motion1005.js`: 170 to 257 ms on screen,
      lands to 0px at 1440 and 390.
 
+667. **The owner, 2026-10-06, verbatim**, with a screenshot of the Quick
+     note dialog: "the quick note popup tooltip button doesnt work or show a
+     popup". Fixed 2026-10-06: `wireHelpPopover` moved the panel to `<body>`,
+     under the modal's top layer; it now goes into the open dialog (as
+     `wireEscapedActionMenu` already did for menus), and the first Escape
+     closes only the help. Measured by `scratchpad/ui-sweeps/quicknotehelp.js`
+     (topmost at the panel's centre: false before, true after, light and
+     dark); `tests/test_help_popover_in_dialogs.py`.
+

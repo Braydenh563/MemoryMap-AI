@@ -255,6 +255,10 @@ document.addEventListener("keydown", (event) => {
   //: closing a popover (the Graph's full-screen exit: one Escape closes the
   //: '?' and the map stays full screen, as the hand-wired Graph help did).
   if (openHelpPopovers.size) event.helpPopoverSpent = true;
+  //: A "?" open inside a modal takes this Escape for itself: without the
+  //: default, the press also asked the dialog to close, and the Quick note
+  //: went with its help (INBOX 667). The next Escape closes the dialog.
+  if ([...openHelpPopovers].some((entry) => entry.panel.closest("dialog[open]"))) event.preventDefault();
   closeHelpPopovers();
 });
 window.addEventListener("resize", () => {
@@ -307,7 +311,13 @@ function wireHelpPopover(trigger, panel) {
     closeHelpPopovers();
     homeParent = panel.parentElement;
     homeNext = panel.nextSibling;
-    document.body.appendChild(panel);
+    //: **Into the open modal, not `<body>`, when the "?" is inside one**
+    //: (INBOX 667: the Quick note's "?" showed nothing). A `showModal()`
+    //: dialog is in the top layer, above the whole document whatever the
+    //: z-index, and makes everything outside it inert, so a panel moved to
+    //: `<body>` opened underneath it and could not be reached. The same
+    //: escape `wireEscapedActionMenu` uses for its menus.
+    (trigger.closest("dialog[open]") || document.body).appendChild(panel);
     //: **Hidden before it is shown, revealed only by the placement**
     //: (INBOX 206: "popups still flicker for a split second at the top left
     //: and then appear in the right place"). Removing `hidden` first and

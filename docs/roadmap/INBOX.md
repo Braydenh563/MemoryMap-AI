@@ -119,18 +119,6 @@ with its owner named in the entry.
      The owner's server log at the time: "ERROR: browser: [HTTP 422] PUT /whiteboard/objects/57: Check the height and try again." then "WARN: browser: [Whiteboard] object 57 is stale: reloading the board".
      Placed: Sonnet agent.
 
-717. **The owner, 2026-10-06, verbatim**, with screenshots of the OCR
-     workspace toolbar (Regions switch, Fit, 100%, zoom, One page | Scroll,
-     engine select, Read this page again, a bare "all" field, Read pages, then
-     a second row: "Tesseract 5.5.3 is ready", Reads in [Default], Manage):
-     "these arent aligned. and can you redesign the ocr worspace controls to be
-     more modern, professional, learnable, accessible, usable and better ui/ux??
-     they also go onto two rows. the whole ocr workspace is just a bit iffy to
-     use and interact with". Then, after pressing the workspace's comment
-     button (the page's text landed in the chat composer under a "No model is
-     connected" banner and a skill offer): "I pressed the comment button on the
-     ocr workspace and idk what just happened". Placed: Opus agent.
-
 718. **The owner, 2026-10-06, verbatim**, with a screenshot of the Tidy
      review's "Apply automatically" switch (an outlined track with a grey knob,
      drawn thinner than the app's other switches, inside a filled chip): "this

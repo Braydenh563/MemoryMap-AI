@@ -45872,3 +45872,16 @@ and refuses a topic ("Select a shape, link or text box first").
      carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
      next step. Placed: with 696, the progress agent.
      Built (696, 700, 713), 2026-10-06: see CHANGELOG, Unreleased; commits c49736e, 636bfe0, fd68ea1, e643112.
+
+717. **The owner, 2026-10-06, verbatim**, with screenshots of the OCR
+     workspace toolbar (Regions switch, Fit, 100%, zoom, One page | Scroll,
+     engine select, Read this page again, a bare "all" field, Read pages, then
+     a second row: "Tesseract 5.5.3 is ready", Reads in [Default], Manage):
+     "these arent aligned. and can you redesign the ocr worspace controls to be
+     more modern, professional, learnable, accessible, usable and better ui/ux??
+     they also go onto two rows. the whole ocr workspace is just a bit iffy to
+     use and interact with". Then, after pressing the workspace's comment
+     button (the page's text landed in the chat composer under a "No model is
+     connected" banner and a skill offer): "I pressed the comment button on the
+     ocr workspace and idk what just happened". Placed: Opus agent.
+

@@ -343,7 +343,7 @@ function tidyFoot() {
   const end = document.createElement("span");
   end.className = "tidy-foot-end";
   if (review?.key === "link-reasons") {
-    end.appendChild(smallButton("ph:play Name all in the background", "Name every link reason the notes can, as a background job you can stop from Background tasks", tidyRunLinkReasons));
+    end.appendChild(smallButton("ph:play Add reasons to all in the background", "Add a reason to every link the notes can explain, as a background job you can stop from Settings, Background tasks", tidyRunLinkReasons));
   }
   const apply = smallButton(`ph:check ${tidyApplyWords(review?.key, n)}`, "Make the change on every ticked row", () => tidyApply(apply), false);
   apply.id = "tidy-apply";
@@ -352,9 +352,27 @@ function tidyFoot() {
   state.foot.append(count, all, none, end);
 }
 
+//: What Apply does, in the plain words of the change (INBOX 718: "what is
+//: naming???"): the bare verb while nothing is ticked, then the verb with
+//: the number and the thing it counts. Each review's description (`about`,
+//: tidy.py) uses the same words, so the button is never a word the sheet has
+//: not already said.
+const TIDY_APPLY = {
+  "link-reasons": ["Add reasons", "Add {n} reason", "Add {n} reasons"],
+  "weak-links": ["Remove links", "Remove {n} link", "Remove {n} links"],
+  "auto-tags": ["Remove tags", "Remove {n} tag", "Remove {n} tags"],
+  "rare-tags": ["Remove tags", "Remove {n} tag", "Remove {n} tags"],
+  "lookalike-tags": ["Merge tags", "Merge {n} set of tags", "Merge {n} sets of tags"],
+  uncategorised: ["Move notes", "Move {n} note", "Move {n} notes"],
+  duplicates: ["Merge notes", "Merge {n} set of notes", "Merge {n} sets of notes"],
+  "short-notes": ["Move to bin", "Move {n} note to bin", "Move {n} notes to bin"],
+  "stale-reminders": ["Mark done", "Mark {n} done", "Mark {n} done"],
+};
+
 function tidyApplyWords(key, n) {
-  const verb = { "weak-links": "Unlink", "auto-tags": "Remove", "rare-tags": "Remove", "lookalike-tags": "Merge", uncategorised: "Move", duplicates: "Merge", "short-notes": "Bin", "stale-reminders": "Mark done", "link-reasons": "Name" }[key] || "Apply";
-  return n ? `${verb} ${n}` : verb;
+  const words = TIDY_APPLY[key];
+  if (!words) return n ? `Apply to ${n}` : "Apply";
+  return n ? words[n === 1 ? 1 : 2].replace("{n}", String(n)) : words[0];
 }
 
 async function tidyApply(button) {
@@ -405,7 +423,7 @@ async function tidyRunLinkReasons() {
     toast(e.message, true);
     return null;
   });
-  if (result) toast("Naming link reasons in the background. Stop it from Settings, Background tasks.");
+  if (result) toast("Adding reasons in the background. Stop it from Settings, Background tasks.");
 }
 
 //: Recent runs: the last five, each with its Undo until it has been undone.

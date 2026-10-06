@@ -804,22 +804,25 @@ MORE_TOPICS.extend(
             "body": (
                 "Tidy is the broom in the Notes dock, beside the search help; the "
                 "number on it is how many things its reviews found. Every review is "
-                "a rule that needs no AI: Links to explain (links that only say "
-                "similar in meaning get what the two notes share, a tag, a name or a "
-                "week in one category), Weak automatic links, Tags Atlas added (tags "
-                "written by Atlas or a background pass, never changed by you, that "
-                "fit their note poorly), Tags used once, Tags that look alike, Notes "
-                "without a category (with the category their words point to), "
-                "Near-duplicate notes, Empty or very short notes, and Reminders long "
-                "past. Pick a review from the list, tick the rows (each says why it "
-                "is listed and what Apply will do), then Apply; one Undo puts the "
-                "batch back, from the toast, Ctrl+Z or Recent runs. Apply "
-                "automatically runs a review after each note is filed; merging, "
-                "binning and removing tags used once always ask. Links to explain "
-                "also has Name all in the background, a job you can stop in "
-                "Settings, Background tasks. The command palette and Tools and "
-                "features open Tidy too, and new links already say what their notes "
-                "share when they can."
+                "a rule that needs no AI. Pick a review from the list: Links to explain (Add reasons "
+                "gives a link that only says similar in meaning what the two notes "
+                "share, a tag, a name or a week), Weak automatic links (Remove "
+                "links), Tags Atlas added (tags written by Atlas or a background "
+                "pass, never changed by you, that fit their note poorly; Remove "
+                "tags), Tags used once (Remove tags), Tags that look alike (Merge "
+                "tags), Notes without a category (Move notes, to the category their "
+                "words point to), Near-duplicate notes (Merge notes), Empty or very "
+                "short notes (Move to bin) and Reminders long past (Mark done). "
+                "Each review's description says what its button will change. Tick "
+                "the rows (each says why it is listed and what the button will do), "
+                "then press the button; one Undo puts the batch back, from the "
+                "toast, Ctrl+Z or Recent runs. Apply automatically runs a review "
+                "after each note is filed; merging notes, binning and removing tags "
+                "used once never run on their own. Links to explain also has Add "
+                "reasons to all in the background, a job you can stop in Settings, "
+                "Background tasks. The command palette and Tools and features open "
+                "Tidy too, and new links already say what their notes share when "
+                "they can."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1383,7 +1386,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
     )),
     ("Filing, tags and categories", (
-        "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
+        "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
         "ask-chat", "answers-from-notes", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",

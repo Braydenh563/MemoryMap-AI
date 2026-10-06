@@ -380,3 +380,13 @@ def test_new_links_made_by_similarity_get_specific_reasons(ai_client, session):
     link = ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).json()["links"][0]
     assert link["reason"].startswith("Both tagged #jokes")
     _vector  # noqa: B018  # kept for tests that build vectors by hand
+
+
+def test_each_review_has_a_finds_line_and_a_description_that_names_its_change(client):
+    """INBOX 718: the overview row carries `finds` (what the rule looks for),
+    the review's own page `about` (which names what the button changes)."""
+    for review in client.get("/tidy").json()["reviews"]:
+        assert review["finds"] and review["finds"].endswith(".")
+        assert len(review["finds"]) <= 60, review["finds"]
+        assert "\u2014" not in review["finds"] and "!" not in review["finds"]
+        assert review["finds"] != review["about"]

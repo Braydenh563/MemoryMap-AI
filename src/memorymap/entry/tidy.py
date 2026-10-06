@@ -82,20 +82,59 @@ class Review:
     ticked: bool
     levels: tuple[str, ...] = ()
     level: str = ""
+    #: One short line for the overview row: what the review looks for. `about`
+    #: says it again at greater length and names what Apply will change.
+    finds: str = ""
 
 
 REVIEWS: dict[str, Review] = {
     r.key: r
     for r in (
-        Review("link-reasons", "Links to explain", "Links that only say “similar in meaning”, where the two notes share a tag, a name or a week.", True, True),
-        Review("weak-links", "Weak automatic links", "Links made from likeness alone, with nothing else in common and a weak score.", True, False, tuple(STRENGTH_LEVELS), "weak"),
-        Review("auto-tags", "Tags Atlas added", "Tags written by Atlas or a background pass, never changed by you, that fit their note poorly.", True, False, tuple(FIT_LEVELS), "medium"),
-        Review("rare-tags", "Tags used once", "Tags on one note only: a typo, or a label nothing else shares.", False, False),
-        Review("lookalike-tags", "Tags that look alike", "Tag names that differ only in case, spacing, hyphens or a plural.", True, True),
-        Review("uncategorised", "Notes without a category", "Notes in Uncategorised, with the category their words point to when there is a clear one.", True, True),
-        Review("duplicates", "Near-duplicate notes", "Notes that say much the same thing, compared word by word.", False, False),
-        Review("short-notes", "Empty or very short notes", "Notes of a word or two, with no links, files or pin.", False, False),
-        Review("stale-reminders", "Reminders long past", f"Reminders more than {STALE_DAYS} days past their day, never done and not repeating.", True, True),
+        Review(
+            "link-reasons", "Links to explain",
+            "These links only say “similar in meaning”. Add reasons gives each one what its two notes share: a tag, a name or a week.",
+            True, True, finds="Links that only say “similar in meaning”.",
+        ),
+        Review(
+            "weak-links", "Weak automatic links",
+            "Links made from likeness alone, with nothing else in common and a weak score. Remove links takes the ticked ones out; the notes stay.",
+            True, False, tuple(STRENGTH_LEVELS), "weak", finds="Links made from likeness alone.",
+        ),
+        Review(
+            "auto-tags", "Tags Atlas added",
+            "Tags written by Atlas or a background pass, never changed by you, that fit their note poorly. Remove tags takes the ticked ones off their notes.",
+            True, False, tuple(FIT_LEVELS), "medium", finds="Tags Atlas wrote that fit their note poorly.",
+        ),
+        Review(
+            "rare-tags", "Tags used once",
+            "Tags on one note only: a typo, or a label nothing else shares. Remove tags takes the ticked ones off their note.",
+            False, False, finds="Tags on a single note.",
+        ),
+        Review(
+            "lookalike-tags", "Tags that look alike",
+            "Tag names that differ only in case, spacing, hyphens or a plural. Merge tags turns each set into one tag on every note that had any of them.",
+            True, True, finds="Tag names that differ only in spelling.",
+        ),
+        Review(
+            "uncategorised", "Notes without a category",
+            "Notes in Uncategorised, with the category their words point to when there is a clear one. Move notes files each ticked note there.",
+            True, True, finds="Notes still in Uncategorised.",
+        ),
+        Review(
+            "duplicates", "Near-duplicate notes",
+            "Notes that say much the same thing, compared word by word. Merge notes keeps the first of each set, adds the others' words and tags to it, and moves the others to the bin.",
+            False, False, finds="Notes that say much the same thing.",
+        ),
+        Review(
+            "short-notes", "Empty or very short notes",
+            "Notes of a word or two, with no links, files or pin. Move to bin sends each ticked note to the recycle bin, where it can be restored.",
+            False, False, finds="Notes of a word or two with nothing attached.",
+        ),
+        Review(
+            "stale-reminders", "Reminders long past",
+            f"Reminders more than {STALE_DAYS} days past their day, never done and not repeating. Mark done ticks off each ticked reminder.",
+            True, True, finds="Reminders weeks past their day and never done.",
+        ),
     )
 }
 
@@ -568,12 +607,12 @@ _APPLY = {
 }
 
 _DONE_WORDS = {
-    "link-reasons": "Named {n} link reason{s}",
-    "weak-links": "Unlinked {n} weak link{s}",
+    "link-reasons": "Added reasons to {n} link{s}",
+    "weak-links": "Removed {n} weak link{s}",
     "auto-tags": "Removed {n} tag{s} Atlas added",
     "rare-tags": "Removed {n} tag{s} used once",
     "lookalike-tags": "Merged {n} set{s} of look-alike tags",
-    "uncategorised": "Filed {n} note{s}",
+    "uncategorised": "Moved {n} note{s} to a category",
     "duplicates": "Merged {n} set{s} of duplicates",
     "short-notes": "Moved {n} short note{s} to the bin",
     "stale-reminders": "Marked {n} old reminder{s} done",
@@ -727,7 +766,7 @@ def summary(session, config) -> dict:  # noqa: ANN001
             logger.warning("tidy review %s failed", key, exc_info=True)
             count = 0
         out.append({
-            "key": key, "label": review.label, "about": review.about, "count": count,
+            "key": key, "label": review.label, "about": review.about, "finds": review.finds, "count": count,
             "auto": autos[key], "can_auto": review.can_auto, "levels": list(review.levels), "level": review.level,
         })
     return {"reviews": out, "total": sum(r["count"] for r in out)}

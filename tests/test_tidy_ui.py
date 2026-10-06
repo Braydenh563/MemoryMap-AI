@@ -87,3 +87,32 @@ def test_one_spacing_token_between_the_blocks_of_the_sheet():
     history = _rule(css, ".tidy-history")
     assert "padding-inline: var(--space-4)" in history and "border:" in history
     assert "padding-block: var(--space-2)" in _rule(css, ".tidy-history-row")
+
+
+def _apply_table() -> dict[str, list[str]]:
+    tidy = _read("tidy.js")
+    block = tidy[tidy.index("const TIDY_APPLY = {") : tidy.index("function tidyApplyWords")]
+    table: dict[str, list[str]] = {}
+    for key, words in re.findall(r'"?([\w-]+)"?: \[([^\]]*)\]', block):
+        table[key] = re.findall(r'"([^"]*)"', words)
+    return table
+
+
+def test_every_review_button_says_what_it_changes_in_plain_words():
+    """INBOX 718: "what is naming???". Each review's button is a plain verb
+    with the thing it acts on, the same words the review's description uses
+    (so the sheet never names a button it has not explained), and no review
+    still says Name, Unlink or Apply alone."""
+    from memorymap.entry import tidy as rules
+
+    table = _apply_table()
+    assert set(table) == set(rules.REVIEWS)
+    for key, (bare, one, many) in table.items():
+        assert bare in rules.REVIEWS[key].about, f"{key}: the description never says '{bare}'"
+        assert "{n}" in one and "{n}" in many
+        for word in (bare, one, many):
+            assert not re.match(r"(Name|Unlink|Apply)\b", word), word
+    assert table["link-reasons"][0] == "Add reasons"
+    tidy = _read("tidy.js")
+    assert "Add reasons to all in the background" in tidy
+    assert "Name all in the background" not in tidy and "ph:check Name" not in tidy

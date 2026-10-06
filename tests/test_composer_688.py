@@ -170,14 +170,15 @@ def test_what_leads_with_the_note_named_by_the_question_and_shows_its_checklist(
 
 def test_when_leads_with_the_dated_sentence():
     first = _first_line(ask("When is the dentist check-up?"))
-    assert "**Dentist**" in first and first.endswith("Check-up booked for the 21st.")
+    #: INBOX 741: the sentence first, the note named once after it.
+    assert first == "Check-up booked for the 21st. (**Dentist**)" or first.endswith(": Check-up booked for the 21st. (**Dentist**)")
 
 
 def test_when_without_a_date_in_the_sentence_says_the_day_it_was_written():
     notes = [_note(1, "# Flights\n\nBooked, seats 14A and 14B on the evening plane.", 4)]
     result = ask("When did I book the flights?", notes)
     assert _first_line(result) == (
-        "From your note **Flights**, written 2 October: Booked, seats 14A and 14B on the evening plane."
+        "On 2 October you wrote: Booked, seats 14A and 14B on the evening plane. (**Flights**)"
     )
 
 
@@ -191,7 +192,7 @@ def test_when_lists_the_other_notes_in_the_order_they_were_written():
     text = result["text"]
     assert composer.PHRASES["timeline"] in text
     timeline = text.split(composer.PHRASES["timeline"], 1)[1]
-    days = re.findall(r"^- (\d+ \w+), in", timeline, re.M)
+    days = re.findall(r"^- (\d+ \w+): ", timeline, re.M)
     parsed = [date(2026, composer._MONTH_INDEX[d.split()[1].lower()], int(d.split()[0])) for d in days]
     assert len(parsed) == 2 and parsed == sorted(parsed)
 
@@ -240,8 +241,8 @@ def test_compare_draws_two_sides_with_measured_counts():
 def test_explain_keeps_the_notes_sentences_in_their_own_order():
     first = _first_line(ask("Why did the list feel slow?"))
     assert first.endswith(
-        ": It was not the database. Every row re-measured its own height on scroll. "
-        "Caching the height per row took a long list from 40ms a frame to 6."
+        "It was not the database. Every row re-measured its own height on scroll. "
+        "Caching the height per row took a long list from 40ms a frame to 6. (**Why the list felt slow**)"
     )
 
 
@@ -250,8 +251,9 @@ def test_status_leads_with_the_newest_and_walks_back_through_the_earlier():
     text = result["text"]
     first = _first_line(result)
     assert "**Sync rewrite, week 3**" in first and "3 October" in first
-    assert "The sync rewrite now keeps both versions and asks." in first
-    assert "\n\nBefore that, on 17 August, **Sync rewrite, first notes** said: The conflict rule" in text
+    assert "the sync rewrite now keeps both versions and asks." in first.lower()
+    assert "\n\nBefore that, on 17 August, the conflict rule" in text
+    assert "(**Sync rewrite, first notes**)" in text
 
 
 def test_yes_no_never_answers_yes_or_no():
@@ -266,10 +268,11 @@ def test_two_notes_that_may_disagree_are_said_as_a_but():
     result = ask("What is the launch date?")
     text = result["text"]
     assert "**Standup**" in _first_line(result)
-    assert "\n\nBut your newer note **Standup again** (yesterday) says: The launch date is the 21st" in text
+    assert "\n\nBut in a newer note, the launch date is the 21st" in text
+    assert "(**Standup again**)" in text
     assert composer.PHRASES["disagree_check"] in text
     #: Each side said once.
-    assert text.count("The launch date is the 21st") == 1 and text.count("The launch date is the 14th") == 1
+    assert text.lower().count("the launch date is the 21st") == 1 and text.lower().count("the launch date is the 14th") == 1
 
 
 def test_two_other_notes_that_may_disagree_are_named_older_first():
@@ -281,7 +284,7 @@ def test_two_other_notes_that_may_disagree_are_named_older_first():
     text = ask("What about the boiler pressure?", notes)["text"]
     assert composer.PHRASES["disagree_lead"] in text
     pair = text.split(composer.PHRASES["disagree_lead"], 1)[1]
-    assert pair.index("**Monday**") < pair.index("But the newer **Friday**")
+    assert pair.index("**Monday**") < pair.index("But in a newer note") < pair.index("**Friday**")
 
 
 def test_words_no_note_found_holds_are_named_in_the_closing_line():
@@ -370,7 +373,9 @@ def test_every_phrase_follows_the_copy_rules(phrase):
     assert "Oops" not in phrase
     letters = phrase.strip(" -*>“”():,.\n")
     if letters and letters[0].isalpha() and phrase[0].isalpha():
-        assert letters[0].isupper() or phrase.startswith(("a ", "one", "or")), phrase
+        #: The phrases that only ever follow other words: "or", "one of
+        #: your notes" and "your note" inside a citation's brackets.
+        assert letters[0].isupper() or phrase.startswith(("a ", "one", "or", "your note")), phrase
 
 
 def test_the_rule_holds_over_a_sweep_of_questions():
@@ -414,18 +419,15 @@ def test_a_sentence_that_leans_back_brings_the_one_it_leans_on():
         _note(2, "# Teach\n\nWrite a short post after each book. It keeps the beta testers reading.", 3),
     ]
     result = ask("What about the beta testers?", notes)
-    assert "Write a short post after each book. It keeps the beta testers reading." in result["text"]
+    #: After a joiner its first letter may be lowered ("Elsewhere, write ...").
+    assert "rite a short post after each book. It keeps the beta testers reading." in result["text"]
 
 
 def test_closest_match_wording_is_kept_for_the_first_result() -> None:
     """INBOX 724: the lead said "The closest match is your note" about the
-    third note found; "closest" is said only of the search's first result."""
-    import inspect
-
-    from memorymap.ai import composer as mod
-
-    body = inspect.getsource(mod._opening)
-    assert '["a", "b", "c", "d"] if s.rank == 0 else ["a", "b", "d"]' in body
+    third note found. INBOX 741 took every "Your note ... says" opening out,
+    so no phrase calls any note the closest match."""
+    assert not any("closest match" in value for value in composer.PHRASES.values())
 
 
 def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:

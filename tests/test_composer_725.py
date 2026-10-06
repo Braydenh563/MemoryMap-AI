@@ -138,7 +138,7 @@ def test_textrank_prefers_the_sentence_the_others_lean_towards():
 # --- joining by relation ---------------------------------------------------------------
 
 
-def test_a_second_note_on_the_subject_is_joined_with_also():
+def test_a_second_note_on_the_subject_is_said_with_no_also():
     notes = [
         _note(1, "# Week 2\n\n41 beta testers active this week.", 20),
         _note(2, "# Offline\n\nBeta testers active in the forum did not know the app works offline.", 10),
@@ -146,14 +146,18 @@ def test_a_second_note_on_the_subject_is_joined_with_also():
     ]
     text = ask("How many beta testers are active?", notes)["text"]
     second = text.split("\n\n")[1]
-    assert second.startswith(("**Offline** (26 September) also says:", "Also, in **Offline**", "**Offline** (26 September) adds:"))
+    #: INBOX 741: the sentence itself, its note named after it, never
+    #: "**Offline** also says:".
+    assert "Beta testers active in the forum did not know the app works offline. (**Offline**)" in second
+    assert not second.startswith("**Offline**") and "says" not in second
 
 
-def test_the_same_joining_words_never_come_twice_running():
+def test_the_same_joining_words_never_come_twice_in_one_answer():
+    joiners = {composer.PHRASES[k] for k in ("and_join", "on_top", "separately", "elsewhere", "another_note", "later_on", "then_on")}
     for question in ("Which books am I reading?", "What is the Harbor launch plan?", "What do my notes say about the beta?"):
         parts = [p[1] for p in ask(question)["parts"] if p[0] == "template"]
-        joins = [p for p in parts if p in {composer.PHRASES[k] for k in ("also_says", "adds", "also_in")}]
-        assert all(a != b for a, b in zip(joins, joins[1:])), joins
+        joins = [p for p in parts if p in joiners]
+        assert len(joins) == len(set(joins)), joins
 
 
 # --- question-shaped openings ---------------------------------------------------------

@@ -54,8 +54,13 @@ def test_nothing_is_said_twice(rows):
 
 def test_answers_read_as_sentences_joined_by_varied_words(rows):
     """Baseline: 3.2 joining phrases an answer, 27 different across the 25;
-    sentences of about seven words. The joins are what reads as written."""
+    sentences of about seven words. INBOX 741 took the per-note "Your note
+    ... says:" and "also says:" out (3.6 an answer, 44 different, before it;
+    2.56 and 34 after): fewer joins, each one varied and never repeated in an
+    answer, so the gate is on variety, not on how many."""
     summary = ev.summary(rows)
-    assert summary["connectives_per_answer"] >= 3.4
-    assert summary["connectives_distinct"] >= 40
+    assert summary["connectives_distinct"] >= 30
+    assert summary["lead_in_repeats"] == 0
+    assert summary["openers_distinct"] >= 10
+    assert summary["says_colon"] == 0
     assert 6 <= summary["mean_sentence_words"] <= 14

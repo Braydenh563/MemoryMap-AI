@@ -3281,12 +3281,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    segmented control say "you are here". Classic and the colour looks keep
    their filled tabs exactly (the owner's "the current look" option). */
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar button.active,
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg:not(.doc-sidebar-tabs) button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg button.active,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-chip.active {
-  /* Not the document sidebar's Documents/Outline strip (INBOX 446 (5)): it
-     is an underline tab strip (07-whiteboard-misc.css), and this rule
-     painted its selected tab a grey slab and took its accent underline
-     away, the one tab strip in the flat looks drawn both ways at once. */
   border-color: transparent;
   background: color-mix(in srgb, var(--ink) 11%, transparent);
   color: var(--ink);
@@ -9262,9 +9258,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   }
 }
 
+/* The corner sits on the row's first line (INBOX 676), not the row's
+   middle: `top: 50%` put the cluster's *top* at the middle, so it hung half
+   below a collapsed row and floated mid-card on an expanded one. The line
+   and the anchor are set at the end of this file ("The compact row"). */
 @media (hover: hover) {
   #entry-list.is-rows > li:not(:has(textarea)) .entry-meta-end {
-    top: 50%;
+    top: var(--row-anchor);
+    transform: none;
+  }
+
+  #entry-list.is-rows > li .entry-meta-end > .entry-actions {
+    top: 0;
     transform: translateY(-50%);
   }
 }
@@ -11230,4 +11235,83 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #doc-bookmarks-wrap:has(> .doc-outline:empty) {
   padding-block: var(--ring-room);
   margin-top: calc(var(--space-3) - var(--ring-room));
+}
+
+/* --- The compact row: one line, one anchor, one chevron (INBOX 676) ---
+   The owner: "the popup hover buttons arent correctly positioned, the
+   metadata isnt centred. when expanded the dropdown arrow is different and
+   bordered ... the dropdown and collapse should be a smooth animation".
+   Measured at 1440 (scratchpad/ui-sweeps/rows676.js): the metadata's centre
+   4.8px under the title's, the cluster 32.8 to 62px in a 49.6px row, the
+   open chevron a caret-up in a filled, bordered square.
+
+   1. The metadata. INBOX 505's step down under a card's text
+      (`margin-top: var(--space-4)`, above) reached the one-line row too and
+      pushed the chips and the time 9.6px down; the row grew to fit it. */
+#entry-list.is-rows > li:not(.row-expanded):not(.list-window-sentinel) > .entry-meta.entry-meta {
+  margin-top: 0;
+}
+
+/* 2. One anchor for the chevron and the cluster: the centre of the row's
+      first line, in both states. A collapsed row's line is at least one
+      control high (the 28px chevron and cluster fit it), so the anchor is
+      the top padding plus half that line, which is the collapsed row's own
+      middle and the expanded row's title line alike. Not `50%`: through the
+      open and close animation the row's height changes every frame, and a
+      chevron centred on it would ride down and back up with it. The track
+      starts at the top (`align-content`) for the same reason: a row closing
+      from 240px keeps its one line at the top while the box shrinks to it. */
+#entry-list.is-rows > li {
+  --row-anchor: calc(var(--space-3) + var(--target-min) / 2);
+  grid-template-rows: minmax(var(--target-min), auto);
+  align-content: start;
+}
+
+#entry-list.is-rows > li > .row-expand {
+  top: var(--row-anchor);
+  transform: translateY(-50%);
+}
+
+/* The open row's title is that same line, centred in it. */
+#entry-list.is-rows > li.row-expanded > .entry-title {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+}
+
+/* 3. One chevron. `aria-expanded="true"` is the icon button's "on" recipe
+      (a fill and an edge, for a menu that is open); a disclosure is not a
+      menu, so the button stays the ghost it is closed, and only the glyph
+      says which way the row is: it turns, over the interface motion token
+      (the Interface animations switch sets it to 0s). */
+#entry-list li > .row-expand.ghost.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+#entry-list li > .row-expand.ghost.ghost:hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+#entry-list li > .row-expand > .ph {
+  transition: transform var(--ui-base) var(--ease-out);
+}
+
+#entry-list li.row-expanded > .row-expand > .ph {
+  transform: rotate(180deg);
+}
+
+/* --- A note's buttons stay while its own menu is open (INBOX 679) ---
+   The owner: "the popup buttons on notes disappear when pressing the meatball
+   button and opening the menu". The strip is shown by `:hover` and
+   `:focus-within` on the note; a menu that would be clipped is moved to
+   `<body>` (`escapeMenuIfClipped`, menus.js), so pointing at it or focusing
+   an item left the note on both counts, and the strip faded out from under
+   its own open menu (measured in rows view: opacity 1 pressed, 0 with the
+   pointer on the menu). `openActionMenu` already marks the owning strip
+   `.menu-open` until the menu closes, so that is the third reason to show. */
+#entry-list > li .entry-actions.menu-open {
+  opacity: 1;
 }

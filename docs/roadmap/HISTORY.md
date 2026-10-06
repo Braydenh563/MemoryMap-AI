@@ -45455,3 +45455,104 @@ and refuses a topic ("Select a shape, link or text box first").
      to 3.3deg/2.0px; every arm act and mood, the arm's own turn 15.0 to
      3.3deg. Remaining: `agent-remaining/atlas669-1006.md`.
 
+676. **The owner, 2026-10-06, verbatim**, with two screenshots of the Notes
+     compact rows view (a collapsed row: chevron, title, a link snippet, the
+     category chip, tags and "1 week ago" sitting low, with the hover
+     buttons hanging half below the row's bottom edge; an expanded row: the
+     chevron now an up arrow in a bordered square button, the hover buttons
+     again low at the right with a stray circle after them): "hovering over
+     collapsed notes on the compact rows view the popup hover buttons arent
+     correctly positioned, the metadata isnt centred. when expanded the
+     dropdown arrow is different and bordered, it isnt clean, the arrow
+     should smoothly change, the dropdown and collapse should be a smooth
+     animation adn not sudden and janky." Placed: the 0.4.1 mini release, an
+     Opus agent. Fixed 2026-10-06: INBOX 505's card margin no longer reaches
+     a row (details centre 4.8px low, now 0); the chevron and the hover
+     cluster share one anchor, the first line's centre (cluster 32.8 to 62px
+     in a 49.6px row, now 7.4 to 36.6 in 44, open or closed); one ghost
+     chevron whose glyph turns; the toggle animates the row in place (one
+     frame 49.6 to 237.8px before, now no frame over 22% of the change,
+     reversible mid-way). `scratchpad/ui-sweeps/rows676.js`.
+678. **The owner, 2026-10-06, verbatim**, with two screenshots of one note
+     card, before and after "Show more" (the same four lines both times,
+     only the line spacing larger after): "this note has show more but it
+     doesnt have any text cut off, it just increases the spacing between the
+     rows". Two faults: "Show more" is offered for text that is not
+     clipped, and the clamped and expanded states set different line
+     heights. Placed: with 676, the rows agent (the same card code).
+     Fixed 2026-10-06: the fit is a ResizeObserver (`noteClampFit`), so a
+     card built hidden or in a later chunk is measured once laid out; the
+     clamped preview's own 1.3 leading is gone (19.1 to 22.8px a line
+     before, 22.8 both now). `scratchpad/ui-sweeps/rows678.js`.
+679. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "the popup buttons on notes disappear when pressing
+     the meatball button and opening the menu". The card's hover action
+     cluster hides while its own menu is open. Placed: with 676. Fixed
+     2026-10-06: `.entry-actions.menu-open` shows the strip (rows view: 0
+     on the escaped menu before, 1 now; 0 again once closed).
+     `scratchpad/ui-sweeps/rows679.js`.
+
+690. **The owner, 2026-10-06, verbatim.** "I highlighted a bunch of notes on
+     the graph and pressed link together but now I cant undo it :(" Fixed
+     2026-10-06: Link together pushes one undo for the links it made (by
+     id, so links already there are untouched), with Undo on its toast and
+     Ctrl+Z; a new Unlink on the graph's selection bar removes every link
+     between the selected notes, also undoable, which also takes back links
+     made before this fix (graph-canvas.js `gcUnlinkPairs`,
+     `gcRelinkPairs`; help_chat names both).
+
+675. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Focused view: a full-width card holding "Evening, Brayden."
+     over "You have 33 notes" at the left and "8:35 pm" over "Tuesday 6
+     October" at the far right, the middle empty. "can you improve the
+     dashboard hero section on the focused view??" Placed: the 0.4.1 mini
+     release, an Opus design agent. **Fixed (hero675-1006):** two columns,
+     the date and time one small line over the greeting, New note under
+     it, and four glance tiles (due today, today's meetings, to file, the
+     last note) from reads the dashboard already makes; the widest empty
+     strip of the hero went from 60/72/78% at 1024/1440/1920 to 3/2/2%
+     (`scratchpad/ui-sweeps/hero675.js`, `tests/test_inbox_675_hero.py`).
+677. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Compact view: a "Quick access" label, then five equal,
+     bordered, full-height boxes (New note, Sketch, Ask AI, Remind me,
+     Meeting notes) stretched across the whole row, each icon and word
+     left-aligned in a mostly empty box. "the quick access looks wierd and
+     not refined in the compact view". Placed: with 675, the dashboard
+     hero agent (same surface). **Fixed (hero675-1006):** a Compact tile is
+     as wide as its words at a button's measure, one line beside its label;
+     icon and words fill 98% of a tile at 390 to 1920 (were 33 to 68% mean,
+     25% the emptiest), light and dark (`scratchpad/ui-sweeps/quick677.js`,
+     `tests/test_inbox_677_quick_access.py`).
+
+682. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Documents sidebar's "Documents | Outline" tabs (square-cornered boxes,
+     the chosen one bordered): "should these have rounded edges to stay
+     conistent??" Recommendation, taken: yes, the radius table's value for a
+     control of that size (DESIGN.md), the chosen state drawn the way every
+     other tab strip draws it.
+     **Fixed, 2026-10-06**: root cause, `#doc-sidebar-tabs` was also a `.seg`, so
+     the flat looks' choice-control fill, edge and 0 corner drew its chosen tab as a
+     bordered slab; the class is gone (a lint holds it) and every `.tabs-line` tab
+     takes `--radius-md` on its hover fill and focus ring.
+683. **The owner, 2026-10-06, verbatim**, with two screenshots of a
+     pill-shaped floating bar "Copy | ... | X" (square-cornered fill on the
+     hovered "..." and a square focus ring on the X, both inside the round
+     pill): "the square active goes out of the circular pill". Every control
+     inside a pill takes a radius that sits inside it (concentric: the
+     pill's radius minus its padding, or fully round), for hover, active and
+     focus alike. Placed with 682: the 0.4.1 mini release, a Sonnet agent
+     that also sweeps for other square states inside rounded containers.
+     **Fixed, 2026-10-06**: the bar is the table's `.code-actions`; its buttons
+     took `--radius-inner`, 0 below a 12px corner setting. New tokens
+     `--radius-in-pill`, `--radius-in-choice`, `--radius-in-md`, a DESIGN.md
+     section and a lint; the sweep fixed the board zoom pill, the timeline week
+     well and the graph zoom strip (agent-remaining/radius682-1006.md).
+
+695. **The owner, 2026-10-06, verbatim**, with a screenshot of a package
+     bundle's ⋯ menu in Settings: "I pressed "select its packages" but it
+     didn navigate scroll me to them". Fixed 2026-10-06: the action awaits
+     the redraw, centres the bundle's first package row, focuses its tick
+     and says how many it selected (settings-packages.js);
+     scratchpad/ui-sweeps/pkgselect695.js: the Documents row centred and
+     focused, ticked, no errors.
+

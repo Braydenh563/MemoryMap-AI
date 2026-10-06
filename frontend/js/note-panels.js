@@ -317,3 +317,77 @@ function similarNoteRow(entry, other, onLinked) {
   wrap.appendChild(linkBtn);
   return wrap;
 }
+
+//: **Link mode** (a note card's "Link to another", the graph's link gesture):
+//: moved here from notes-list.js on 2026-10-06 for the boot-script gzip
+//: budget (INBOX 676 needed the room). Reached only by a gesture, called for
+//: its effect, so `LAZY_ENTRY_POINTS.notePanels` stands in for it until this
+//: file arrives (three seconds after boot at the latest).
+function beginOrCompleteLink(entry) {
+  //: **A draft and a saved note cannot be connected**, asked for directly,
+  //: and refused by `manager.create_link` whichever route asks. Caught here as
+  //: well so the answer arrives before the click that would fail: starting a
+  //: link from a draft and hunting for a target, only to be told no at the
+  //: end, is the worst order to learn a rule in.
+  //:
+  //: Two drafts are still fine; the rule is that drafts stay separate from the
+  //: notebook, not from each other.
+  if (linkSource !== null && linkSource !== entry.id) {
+    const source = allEntries.find((e) => e.id === linkSource);
+    if (source && Boolean(source.is_draft) !== Boolean(entry.is_draft)) {
+      const draftFirst = Boolean(source.is_draft);
+      linkSource = null;
+      renderEntries();
+      toast(
+        draftFirst
+          ? "A draft can't be linked to a saved note. Save the draft first."
+          : "A saved note can't be linked to a draft. Save the draft first.",
+        "info"
+      );
+      return;
+    }
+  }
+  if (linkSource === null) {
+    linkSource = entry.id;
+    toast("Now click Link on the entry you want to connect it to (Esc cancels).");
+    renderEntries();
+    return;
+  }
+  if (linkSource === entry.id) {
+    linkSource = null; // clicked the same one again = cancel
+    renderEntries();
+    return;
+  }
+  const source = linkSource;
+  const target = entry.id;
+  linkSource = null;
+  apiJson(`/entries/${source}/links`, {
+    method: "POST",
+    body: JSON.stringify({ target_id: target }),
+  })
+    .then((updated) => {
+      toast("Linked.");
+      let liveLinkId = updated.links.find((l) => l.entry_id === target)?.link_id;
+      pushUndo(
+        "Linked two notes",
+        async () => {
+          if (liveLinkId == null) return;
+          await api(`/entries/${source}/links/${liveLinkId}`, { method: "DELETE" });
+          await refreshEntries([source, target]);
+        },
+        async () => {
+          const redone = await apiJson(`/entries/${source}/links`, {
+            method: "POST",
+            body: JSON.stringify({ target_id: target }),
+          });
+          liveLinkId = redone.links.find((l) => l.entry_id === target)?.link_id ?? liveLinkId;
+          await refreshEntries([source, target]);
+        }
+      );
+      return refreshEntries([source, target]);
+    })
+    .catch((error) => {
+      toast(error.message, true);
+      renderEntries();
+    });
+}

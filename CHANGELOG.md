@@ -15,6 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Changed
 
 - Documents: the current line's highlight is half as strong, a place marker rather than a band.
+- Dashboard, Focused view: the greeting card is a hero again (INBOX 675). The date and time are one small line over the greeting, New note sits under it, and four tiles fill the rest: what is due today, today's meetings, the notes to file and the note you were last in, each a press away. No model needed. Compact view: Quick access tiles are as wide as their words, on one line, instead of five stretched, mostly empty boxes (INBOX 677).
 - Lock screen: "Forgot your password?" is a quiet link under Unlock rather than a bordered button between the field and it.
 - Note cards: the text runs further across a wide card (84 characters a line rather than 72).
 - Mind maps: a template dropped on a map with no central topic no longer makes one separate trunk per top-level topic. A template with several top-level topics (every built-in map template) gets a new central topic named after it, with them as its branches; a template with one top-level topic makes that topic the centre. A map that already has a central topic is unchanged, and a template still lands under the pointer and undoes in one step (INBOX 670).
@@ -26,6 +27,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Packages: "Select its packages" takes you to the bundle's packages, the first one in view with its tick focused, and says how many it selected.
+- Graph: Link together can be undone (its toast and Ctrl+Z), and a new Unlink on the selection bar removes the links between the selected notes, also undoable.
+- Notes, compact rows: a row's details (category, tags, time) sit on the title's line, centred with it, and the hover buttons sit inside the row on that line, open or closed, instead of hanging half below it. The open/close arrow is one quiet button whose arrow turns, with no filled, bordered square when open, and a row opens and closes with a short height animation (none with Interface animations off) that turns back smoothly if pressed again mid-way.
+- Note cards: Show more appears only when the preview actually hides text, measured once the card is laid out (a card drawn while hidden, in a later batch, or after a search used to keep it), and the preview and the opened note use the same line spacing.
+- Notes: a note's hover buttons stay shown while its own ⋯ menu is open, and hide again once it closes.
+- A control inside a rounded container now sits inside its corner, with its hover, pressed and keyboard-focus states (INBOX 682, 683). The Documents sidebar's "Documents | Outline" tabs were also a segmented control, so the flat looks drew the chosen tab as a grey, bordered, square slab; they are now the same underline tabs as Notes and Library, with a button-radius hover fill and focus ring. The table bar's "Copy | ... | X" drew square hover and focus shapes inside its capsule (a corner token that is 0 at a small radius setting); its buttons are fully round now, as are the board's zoom pill, the timeline's week well (concentric with the well) and the graph's zoom strip, whose focus ring was clipped to a single line. A new row in DESIGN.md and a lint hold the set.
 - The corner companion no longer stops a trackpad or wheel scroll: scrolling over it scrolls the list or board beneath.
 - Filing: the first note in a new notebook no longer waits behind the search model's first load. Loading it on a pause in typing shared the one queue filing uses, so on a fresh install the first note could say "Filing…" for as long as the download took.
 - A note that opens with a property block (any note of a type) shows its title, not "---", on the Timeline, and its preview no longer starts with the block's raw text. The note edit form keeps such a note's block out of the text box (the Properties sheet edits it) and finds its title under the block; a title typed there is written under the block instead of above it, where it turned every property into body text.

@@ -171,7 +171,9 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
           return;
         }
         close();
-        await loadEntries().catch(() => {});
+        //: The one note it made, not a re-read of the notebook (the
+        //: refresh ratchet, tests/test_refresh_entries.py).
+        await refreshEntries([made.id]).catch(() => {});
         if (then) then(made);
         //: Straight into the note: the meeting is where the writing happens.
         flashEntry(made.id);

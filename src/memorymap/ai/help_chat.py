@@ -1433,7 +1433,8 @@ HELP_TOPICS.extend(
                 "its reason and how sure, the two notes, and for a link Edit reason "
                 "and Remove, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
-                "notes, and the selection bar can Tag, Link together or make a Mind "
+                "notes, and the selection bar can Tag, Link together, Unlink (both "
+                "undoable with Ctrl+Z) or make a Mind "
                 "map of them, built from their links: the picked or most connected "
                 "note in the middle, linked notes under the note they link to, the "
                 "rest by category, the other links kept as cross-links, and Open on "
@@ -1696,7 +1697,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "dashboard-controls",
-            "keywords": ("quick access", "customise quick access", "highlight a tile", "tile colour", "quick start", "focused view", "full view", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
+            "keywords": ("quick access", "customise quick access", "highlight a tile", "tile colour", "quick start", "focused view", "full view", "due today", "today at a glance", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
             "body": (
                 "Dashboard controls. Under the greeting is the search box (Ctrl+P), "
                 "then Customise and a ... menu. The ... menu is for doing: "
@@ -1705,7 +1706,11 @@ HELP_TOPICS.extend(
                 "list of everything the app can do) and Commands (the command "
                 "palette). Customise arranges the page: View (Full, Compact or "
                 "Focused), Widgets and Edit layout, which show, hide and "
-                "rearrange widgets, then Edit quick access: Add or arrange opens "
+                "rearrange widgets. The Focused view folds Quick access away and "
+                "its greeting card holds New note and four tiles for today: what "
+                "is due today, today's meetings, the notes to file and the note "
+                "you were last in; press one to go there. Customise also has "
+                "Edit quick access: Add or arrange opens "
                 "a list of every command with the ones on your dashboard "
                 "checked and first. Check or uncheck as many as you like (up to "
                 "eight), drag a row or press Alt with Up or Down to reorder, "

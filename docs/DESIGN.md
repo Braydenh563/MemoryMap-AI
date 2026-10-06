@@ -109,6 +109,32 @@ The multipliers are chosen so each tier lands within a pixel of the value it
 replaced at the default 14px. **Never pin a tier to a constant**: the lint
 checks for this, because doing so silently disconnects the slider again.
 
+### Controls inside a rounded container
+
+**A control inside a rounded container takes a corner that sits inside it:
+fully round, or the container's corner minus its padding, and its hover fill,
+pressed fill and focus ring all follow it** (INBOX 683, the owner: "the square
+active goes out of the circular pill"). Outlines follow `border-radius` in
+current Chromium; a box-shadow ring must use the same corner. The button corner
+(`--radius-md`) is for a button on a surface, not for one inside a capsule: a
+rounded square drawn in a pill is the tell.
+
+| The container | The control's corner | Token |
+| --- | --- | --- |
+| A pill or a round well (`--radius-pill`): the table bar's "Copy, more, close", the board's zoom pill, the selection bar | Fully round | `--radius-in-pill` |
+| A choice-control track (`--radius-choice`) padded by one `--space-1`: the timeline's week well | The track's corner minus that padding, never under the button corner | `--radius-in-choice` |
+| A button-cornered strip (`--radius-md`) padded by one `--space-1`: the graph's zoom strip | The strip's corner minus that padding, never under the chip corner | `--radius-in-md` |
+| A bare tab in a `.tabs-line` strip (no container; INBOX 682) | The button corner, on all four corners | `--radius-md` |
+
+`--radius-inner` is **not** this token: it is a painted *surface's* corner
+inside a card, and it is 0 below a 12px corner setting, which is what drew
+"Copy | ... | X" as three rectangles in a capsule. A container that clips
+(`overflow: hidden`) cuts its controls' focus rings to a line; pad it and let
+it overflow instead (the graph zoom strip did). The check:
+`tests/test_ui_recipes.py` (`test_a_control_in_a_rounded_container_takes_the_container_tokens`),
+`scratchpad/ui-sweeps/radius682.js` (container and child corner at rest, hover
+and keyboard focus, light and dark, 1440 and 390).
+
 ### The page shell: `--page-gutter`, `--page-top`, `--page-bottom`
 
 ```
@@ -627,7 +653,7 @@ this table and its lint in the same commit as the feature, never after.
 | A reading beside the text being written (the margin reader's cards, WORLD_CLASS_PLAN I2) | `.doc-margin` (margin-reader.js): a column inside `.doc-source-wrap`'s row, holding at most three `.doc-margin-card`s on `--surface-2` with no border, each a kind label (`chip item-label`, `is-warn` for Differs), one sentence, a muted reason and ghost small actions; the stack starts level with its paragraph through `--doc-margin-offset`, and below 60rem the column goes under the editor with no offset. Nothing is ever written into the text | `tests/test_margin_reader_spec.py` |
 | A link you drag to the browser's bookmarks bar (the web clipper's Clip to MemoryMap, row 24) | `a.web-clip-bookmarklet`: an object, not a button: a dashed `--border` edge, `--accent-text` ink, `cursor: grab`, on `--control-h`, its `javascript:` address written at runtime (web-clip.js) and a press inside the app answered with a sentence; beside it a ghost Copy. The window it opens (`clip.html`, `.clip-page`, `.clip-card`) is the app's own tokens and button ramp: one filled Save, a ghost Close | `tests/test_webclip_page.py` |
 | A group of settings folded away until it is wanted | `details.settings-fold`: the `<summary>` carries the group's own label and **no control**: a button in a summary is a control inside a control (axe-core's nested-interactive, WCAG 4.1.2; INBOX 433). A head's '?' is the first child of a `div.fold-help-wrap` around the fold, `button.graph-help-toggle.fold-help`, and the summary keeps `<span class="fold-help-slot" aria-hidden="true">` where it was; `placeFoldHelp` (settings.js) draws the button over its slot, so the head looks exactly as it did (`scratchpad/ui-sweeps/foldhelp.js`). The graph's "Unpin all" is the one action left in a summary, a ratchet in `tests/test_nested_interactive.py`. The flat resting summary, the chevron and the hover fill come from 08-consistency.css's disclosure rules, which name the families by class, so a fold added to one of those four rules and not the others has no chevron or no hover. Open is remembered where it is a property of how the surface is used rather than of one visit. **A whole group of a long pane folds the same way**: `details.settings-group.settings-fold` with a unique `data-fold-key`, the group's `h3` in the `<summary>` (and its one '?' beside it, as above), the first group `open` in the markup; `wireSettingsFolds` (settings.js) keeps each key's open state per browser, a '?' in a closed head opens its group, and a deep link through `openSettingsModal` opens the fold it lands in. Closed, a group is one 51px row. Used by Settings' advanced groups, by the long panes (Appearance, Keyboard shortcuts, Extras, Skills) and by the graph's options panel, whose three tuned-once sections (Physics, Groups, Minimap) are folds | `tests/test_ui_recipes.py` |
-| A disclosure marker (the thing that says a row folds: a Settings fold, the help accordion, a task log, the Library's Contents, notes and outlines) | **One caret**: Phosphor `ph-caret-down` at 1em of its row, in the row's own colour, turned `rotate(-90deg)` while closed and upright when open, on `--motion-fast` (none under reduced motion). In markup it is `<i class="ph ph-caret-down contents-caret">`; on a `<summary>` it is the `::before` that 08-consistency.css's disclosure rule draws ("The chevron the native marker was hiding"), so a new fold family joins that rule's list rather than drawing its own. Never a triangle or chevron built from borders (INBOX 464 (14): a 5x6px border triangle in Settings beside the Library's 16px caret) | `tests/test_disclosure_marker.py` |
+| A disclosure marker (the thing that says a row folds: a Settings fold, the help accordion, a task log, the Library's Contents, notes and outlines) | **One caret**: Phosphor `ph-caret-down` at 1em of its row, in the row's own colour, turned `rotate(-90deg)` while closed and upright when open, on `--motion-fast` (none under reduced motion). In markup it is `<i class="ph ph-caret-down contents-caret">`; on a `<summary>` it is the `::before` that 08-consistency.css's disclosure rule draws ("The chevron the native marker was hiding"), so a new fold family joins that rule's list rather than drawing its own. Never a triangle or chevron built from borders (INBOX 464 (14): a 5x6px border triangle in Settings beside the Library's 16px caret). **A row that opens in place** (the Notes rows view, INBOX 676) has a button rather than a summary: one ghost icon button (`.row-expand`), the same in both states (`aria-expanded` never fills it), whose `ph-caret-down` turns `rotate(180deg)` open on `--ui-base`; the row's height animates in place from its current height (`toggleRowExpanded`, `--ui-slow`), so a second press turns back mid-way | `tests/test_disclosure_marker.py`, `tests/test_rows_676.py`, `scratchpad/ui-sweeps/rows676.js` |
 | Choosing files to bring in (an import, an upload) | **One step**: a ghost button carrying the verb ("Import files", "Import a folder", "Upload") over a hidden `input[type="file"]` it clicks; choosing the files starts the work. The picker's own Cancel is the way out before; after, a toast with Undo (`toastAction`) puts it back, for an import by binning exactly the notes it made (`undoImport` in settings-data.js, from the ids `/import/markdown` and `/import/document` return). Never the browser's own "Choose files" box beside a second button that does the work (INBOX 464 (18): three imports in Settings, Data were two steps each) | `tests/test_import_one_step.py` |
 | An on/off setting | `label.setting-check` with the switch first. **The switch stands on the group's text edge**: in a Settings group the row hangs its padding and edge outside the column (08-consistency.css, INBOX 464), so the switch lines up with the head, labels and hints and the hover fill bleeds into the group's padding; measured before, all 130 switch rows sat 9px inside the column. A checkbox `.check-row` is the same row: no fill when on (08-consistency.css), a `--divider` hairline between rows, `--space-4` from the switch to its label, and the switch first in the markup | `scratchpad/ui-sweeps/switches.js`, `scratchpad/ui-sweeps/switchalign.js`, `scratchpad/ui-sweeps/togglerows.js`, `tests/test_ui_recipes.py` |
 | Asking for the password for one action (unlocking private notes, turning sign-in off) | `askPasswordPrompt({title, message, submitLabel, submit})` in app.js: the lock screen's own card in `data-mode="prompt"`, lifted above the dialogs (`.lock-prompt`, z-index 1045), with "Not now" and Escape as the way out; `submit` throws to put its message under the field. Never a second password form: the `type="password"` fields are the lock card's, Change password's three, the sealed backup's two, and the new password and its confirmation on the "Forgot your password?" card (INBOX 663), which sets a password without the old one | `tests/test_lock_boundary.py` |
@@ -950,6 +976,8 @@ fails a rule that rounds a track any other way.
 | Inside a `.dock` bar: the bar's corner, which its buttons already use | `--radius-md` | 8.4px |
 | Inside the chat dock, where every control is a pill | `--radius-pill` | 999px |
 | A `.tabs-line` strip (`#notes-subtabs`, `#library-subtabs`, `#doc-sidebar-tabs`) | `0` | 0 |
+
+The tabs *inside* a `.tabs-line` strip are buttons and take `--radius-md` on all four corners for their hover fill and focus ring (INBOX 682); the chosen tab is the strip's 2px line and never a box, in every look, so no `.tabs-line` is also a `.seg` (that class gave `#doc-sidebar-tabs` the flat looks' filled, edged, square-cornered choice-control slab).
 
 The third row is the one-corner-per-row rule (08-consistency.css): a 15.4px
 well beside 8.4px buttons in the same bar was two radii in one strip, which

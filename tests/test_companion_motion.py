@@ -455,7 +455,8 @@ def test_a_walk_is_paced_too() -> None:
     # frame, 60 layouts and 120 paints a second, because the pacer let a
     # walk run at full rate. Paced from its first step: 20 and 39.
     tempo = _fn("nameMarkBuddyTempo")
-    assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");' in tempo
+    assert 'const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging") || !!nmb.visit;' in tempo
+    assert "nmb-walking" not in tempo[tempo.index("const busy") : tempo.index("const still")]
     move = _fn("nameMarkBuddyGo")
     walk = move[move.index('buddy.classList.add("nmb-walking");') :]
     assert "nmbTempo.seen = 0;" in walk[:300] and "setTimeout(nameMarkBuddyTempo, 0)" in walk[:400]
@@ -1446,7 +1447,7 @@ def test_an_act_or_a_walk_is_let_go_not_dropped():
     keyframe, since a lone keyframe is the end), off the pacer, and not
     under reduced motion; the companion's expressions cross over 0.6s."""
     blend = _fn("nameMarkBuddyBlend")
-    assert "nameMarkIdleQuiet()" in blend and "{ ...from, offset: 0 }" in blend
+    assert "nameMarkIdleQuiet()" in blend and "{ ...moved, offset: 0 }" in blend
     assert 'id: "nmb-blend"' in blend
     assert "nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in _fn("nameMarkBuddyAct")
     assert 'nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));' in AV
@@ -1534,3 +1535,59 @@ def test_the_large_view_of_a_face_is_alive_like_the_companion() -> None:
     follow = _fn("nameMarkViewerFollow")
     assert 'document.documentElement.dataset.avatarFollow === "off"' in follow
     assert 'style.setProperty("--nmv-x"' in follow and "requestAnimationFrame" in follow
+
+
+def test_inbox_669_an_ended_move_is_never_replayed_by_the_pacer() -> None:
+    # INBOX 669 (the owner: "when I click atlas, it often starts tilting to
+    # the left then just snaps back"; "atlas's arm movements are jerky").
+    # The pacer's list is read once a second, so it held an act's animations
+    # after the stylesheet had cancelled them, and `pause()` on a cancelled
+    # animation restarts it from its first frame: every act's gesture played
+    # a second time, stepped at 10Hz (atlas669-clicks.js). It skips them.
+    tempo = _fn("nameMarkBuddyTempo")
+    skip = tempo.index('if (states[i] === "idle" || states[i] === "finished")')
+    assert skip < tempo.index("anim.pause()") and skip < tempo.index("anim.play()")
+    # In the large view, drawn 2.2 times over, nothing is stepped.
+    assert "|| !!nmb.visit;" in tempo
+
+
+def test_inbox_669_no_rig_joint_turns_over_four_degrees_a_frame() -> None:
+    motion = (ROOT / "frontend" / "js" / "atlas-motion.js").read_text(encoding="utf-8")
+    spring = _fn("atlasRigSpring", motion)
+    assert "const ATLAS_RIG_MAX_SPEED = 200;" in motion
+    assert 200 / 60 < 4
+    # Clamped inside the integration step, before the position moves.
+    assert spring.index("ATLAS_RIG_MAX_SPEED") < spring.index("j.x += j.v * h;")
+
+
+def test_inbox_669_arm_gestures_start_and_end_at_the_arms_rest() -> None:
+    # A gesture's keyframes began and ended at rotate(0deg), the rest only
+    # of a calm standing arm: floating (-28deg) or her held-out arm (-50deg)
+    # swung to 0 first and swung past rest at the end (20 degrees a frame).
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    for name in ["nmb-wave", "nmb-wave-l", "nmb-scratch", "nmb-hide-l", "nmb-hide-r", "atl-wave", "atl-buddy-wave", "atl-buddy-wave-f", "atl-buddy-scratch"]:
+        body = re.search(r"@keyframes " + re.escape(name) + r" \{(.*?)\n\}", css, re.S).group(1)
+        assert not re.search(r"(^|\s)(0%|100%|from|to)[ ,{]", body), name
+
+
+def test_inbox_669_a_turn_hands_back_about_the_point_it_turned_on() -> None:
+    # Hanging by one hand turns the body about the hand; cut short, its
+    # class took the point away and the eased turn swung about the new one,
+    # 44px off in a frame in the large view (atlas669-clicks.js).
+    blend = _fn("nameMarkBuddyBlend")
+    held = blend.index("held.push({ anim, el, from });")
+    assert 'from.transformOrigin = style.transformOrigin;' in blend[:held]
+    assert "el.animate([{ ...moved, offset: 0 }]" in blend
+
+
+def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:
+    # A facepalm leans the body by a plain rule and stops its bob; at its
+    # end the bob came back over the rule's transition and the lean went in
+    # a frame (the head 9px). The blend reads the body before and after.
+    blend = _fn("nameMarkBuddyBlend")
+    before = blend.index('el.querySelector(".nm-buddy-char")')
+    after = blend.index("change();\n  const eased")
+    assert before < after
+    tail = blend[after:]
+    assert "BODY.filter((key) => style[key] !== from[key])" in tail and "el.animate([{ ...moved, offset: 0 }]" in tail
+    assert "if (eased.has(el)) continue;" in tail

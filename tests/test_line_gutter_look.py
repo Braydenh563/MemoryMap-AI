@@ -87,6 +87,7 @@ def test_the_caret_line_is_washed_only_while_the_numbers_show():
     assert "highlightActiveLine()" in _function("docCmGutter")
     assert "highlightActiveLine()" in _function("noteSurfaceGutter")
     theme = _function("docCmTheme")
-    assert '"&.cm-focused .cm-activeLine": { backgroundColor: "var(--hover-veil)" }' in theme
+    # Half the veil (INBOX 684: "a little too strong").
+    assert '"&.cm-focused .cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--hover-veil) 50%, transparent)" }' in theme
     # Nowhere else adds the extension, so numbers off means no line carries the class.
     assert DOCS.count("CM.view.highlightActiveLine()") == 2

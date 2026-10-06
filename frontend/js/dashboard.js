@@ -469,19 +469,19 @@ async function renderDashSubmessage() {
   const bits = [];
   if (stats) {
     const n = stats.total_entries;
-    bits.push(n === 0 ? "No notes yet" : `You have ${n} note${n === 1 ? "" : "s"}`);
+    bits.push(["notes", n === 0 ? "No notes yet" : `You have ${n} note${n === 1 ? "" : "s"}`]);
   }
   const due = (reminders || []).filter(
     (r) => !r.done && new Date(r.due_at) <= new Date()
   ).length;
-  if (due) bits.push(`${due} reminder${due === 1 ? "" : "s"} due`);
+  if (due) bits.push(["reminders", `${due} reminder${due === 1 ? "" : "s"} due`]);
   else {
     const open = (reminders || []).filter((r) => !r.done).length;
-    if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
+    if (open) bits.push(["reminders", `${open} reminder${open === 1 ? "" : "s"} coming up`]);
   }
   if (stats && stats.per_day) {
     const streak = dashStreak(stats.per_day);
-    if (streak > 1) bits.push(`${streak}-day capture streak`);
+    if (streak > 1) bits.push(["streak", `${streak}-day capture streak`]);
     //: Atlas celebrates a streak of three days or more, once a day at most
     //: (atlas.js, `atlasStreak`), and the companion cheers once when it grows
     //: (avatars.js). Here since INBOX 436 took the stat strip that used to
@@ -489,7 +489,18 @@ async function renderDashSubmessage() {
     atlasStreak(streak);
     nameMarkBuddyStreak(streak);
   }
-  el.textContent = bits.join(" · ");
+  //: One span per fact, its separator inside it, so a view can fold one fact
+  //: away whole: the Focused hero's glance says what is due (INBOX 675), and
+  //: hides the reminders fact here rather than saying it twice.
+  el.replaceChildren(
+    ...bits.map(([kind, text], i) => {
+      const bit = document.createElement("span");
+      bit.className = "dash-sub-bit";
+      bit.dataset.bit = kind;
+      bit.textContent = i ? ` · ${text}` : text;
+      return bit;
+    })
+  );
 }
 
 function renderDashboardGreeting() {
@@ -517,6 +528,180 @@ function renderDashboardGreeting() {
   // visible one was doing the same 59 times out of 60.
   startDashClock();
   renderDashSubmessage().catch(() => {});
+  renderDashGlance().catch(() => {});
+}
+
+//: **The Focused hero's glance** (INBOX 675, the owner, with a screenshot at
+//: about 2000px: "can you improve the dashboard hero section on the focused
+//: view??"). The banner was a greeting at one end, the time at the other and
+//: nothing between: the widest empty strip of it measured 60% of the hero at
+//: 1024, 72% at 1440 and 78% at 1920 (`scratchpad/ui-sweeps/hero675.js`). A
+//: hero earns that width by answering the question somebody opens a notebook
+//: with, which is "what needs me today", so the other half of it is four
+//: tiles: what is due today, today's meetings, the filings waiting and the
+//: note you were last in.
+//:
+//: Always four, in one order, each with a calm state: tiles that come and go
+//: with the day's data would move under the pointer and leave the empty
+//: middle back on a quiet day. Every number is a read the dashboard already
+//: makes (`dashReminders`, `fetchDashStats`, `dashEntries`, all shared with
+//: the widgets), so the glance costs no request and no model.
+//:
+//: Pure, so the arithmetic runs in node (tests/test_inbox_675_hero.py); `go`
+//: is a token `renderDashGlance` turns into the press, not a closure.
+function dashGlanceFacts({ reminders = [], stats = null, entries = [], now = new Date() } = {}) {
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const time = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const byDue = (a, b) => new Date(a.due_at) - new Date(b.due_at);
+  const open = (reminders || []).filter((r) => r && !r.done).sort(byDue);
+  const today = open.filter((r) => new Date(r.due_at) < endOfDay);
+  const overdue = today.filter((r) => new Date(r.due_at) <= now).length;
+  const next = open.find((r) => new Date(r.due_at) >= endOfDay);
+  let dueHint = "No reminders set";
+  if (today.length) {
+    const first = today[0];
+    const when = new Date(first.due_at);
+    dueHint = when <= now ? `${first.text}, overdue` : `${first.text} at ${time(when)}`;
+  } else if (next) {
+    dueHint = `Next: ${next.text}, ${new Date(next.due_at).toLocaleDateString([], { weekday: "long" })}`;
+  }
+  const due = {
+    id: "due",
+    icon: "ph:alarm",
+    count: today.length,
+    overdue,
+    label: today.length ? `${today.length} due today` : "Nothing due today",
+    hint: dueHint,
+    go: "reminders",
+  };
+
+  //: A meeting is a note typed Meeting with a `date:` in its property block,
+  //: the writer's wall clock (entry/meetings.py); today's are the ones whose
+  //: date is today's, the next one the first still to start.
+  const meetingsToday = [];
+  for (const entry of entries || []) {
+    const when = dashMeetingWhen(entry, now);
+    if (when) meetingsToday.push({ entry, when });
+  }
+  meetingsToday.sort((a, b) => a.when - b.when);
+  const upcoming = meetingsToday.find((m) => m.when >= now) || meetingsToday[meetingsToday.length - 1];
+  const name = (entry) => (entry.title || "").trim() || "A meeting";
+  const n = meetingsToday.length;
+  const meetings = {
+    id: "meetings",
+    icon: "ph:users-three",
+    count: n,
+    label: n ? `${n} meeting${n === 1 ? "" : "s"} today` : "No meetings today",
+    hint: !n
+      ? "Nothing on the calendar"
+      : upcoming.when >= now
+        ? `${name(upcoming.entry)} at ${time(upcoming.when)}`
+        : `${name(upcoming.entry)} was at ${time(upcoming.when)}`,
+    go: n ? { entry: upcoming.entry.id } : "meetings",
+  };
+
+  //: Null when the stats read failed: "Nothing to file" would be a claim.
+  const waiting = stats && Number.isFinite(stats.to_review) ? stats.to_review : null;
+  const review = {
+    id: "review",
+    icon: "ph:checks",
+    count: waiting,
+    label: waiting === null ? "Filings to check" : waiting ? `${waiting} to file` : "Nothing to file",
+    hint: waiting ? "Atlas was unsure where these go" : waiting === 0 ? "Every note has a home" : "Open the list",
+    go: "review",
+  };
+
+  const last = dashContinueNote(entries);
+  const lastTitle = last
+    ? (last.title || "").trim() || (last.content || "").split("\n").map((l) => l.replace(/^#{1,6}\s+/, "").trim()).find((l) => l && l !== "---") || "Your last note"
+    : "";
+  const resume = {
+    id: "continue",
+    icon: last ? "ph:arrow-u-up-left" : "ph:pencil-simple",
+    count: null,
+    label: last ? lastTitle : "No notes yet",
+    hint: last ? "Pick up where you left off" : "Your first note starts here",
+    go: last ? { entry: last.id } : "capture",
+  };
+  return [due, meetings, review, resume];
+}
+
+//: When a note is a meeting today: its `date:` as a local Date, or null. A
+//: date with no time is the start of the day, so it sorts first.
+function dashMeetingWhen(entry, now) {
+  const content = (entry && entry.content) || "";
+  if (!content.startsWith("---")) return null;
+  const end = content.indexOf("\n---", 3);
+  if (end < 0) return null;
+  const block = content.slice(3, end);
+  if (!/^type:\s*meeting\s*$/im.test(block)) return null;
+  const found = /^date:\s*(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/m.exec(block);
+  if (!found) return null;
+  const [, y, mo, d, h = "0", mi = "0"] = found;
+  if (Number(y) !== now.getFullYear() || Number(mo) !== now.getMonth() + 1 || Number(d) !== now.getDate()) return null;
+  return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+}
+
+//: Drawn at every view and shown at Focused only (the CSS): the reads are the
+//: widgets' own, so drawing it costs nothing, and a switch of view needs no
+//: render. Tiles are the tile recipe (`quickLinkButton`), toned for a card.
+async function renderDashGlance() {
+  const host = $("dash-glance");
+  if (!host) return;
+  //: The newest draw wins; its number is held on the host, not in a
+  //: top-level `let` (the global-scope ratchet).
+  const serial = String((Number(host.dataset.glanceDraw) || 0) + 1);
+  host.dataset.glanceDraw = serial;
+  //: Four placeholders first, so the hero holds its height while the reads
+  //: land (INBOX 577's rule for this banner: no shift at boot).
+  if (!host.childElementCount) {
+    for (let i = 0; i < 4; i++) {
+      const hold = document.createElement("span");
+      hold.className = "quick-link dash-glance-hold";
+      hold.setAttribute("aria-hidden", "true");
+      host.append(hold);
+    }
+  }
+  const [reminders, stats, entries] = await Promise.all([
+    dashReminders().catch(() => []),
+    fetchDashStats().catch(() => null),
+    dashEntries().catch(() => []),
+  ]);
+  if (serial !== host.dataset.glanceDraw || !host.isConnected) return;
+  const facts = dashGlanceFacts({ reminders, stats, entries });
+  const press = {
+    reminders: () => switchTab("reminders"),
+    meetings: () => showNotesFilter("tag:meeting"),
+    review: () => showNotesFilter("is:review"),
+    capture: () => startNewNote(),
+  };
+  host.replaceChildren(
+    ...facts.map((fact) => {
+      const run = typeof fact.go === "object" ? () => flashEntry(fact.go.entry) : press[fact.go];
+      const tile = quickLinkButton({ icon: fact.icon, label: fact.label, hint: fact.hint, run });
+      tile.classList.remove("quick-action");
+      tile.dataset.glance = fact.id;
+      tile.title = `${fact.label}. ${fact.hint}`;
+      //: A trailing caret: the tile is a way somewhere, and in a wide tile
+      //: it gives the far end something to say rather than an empty box.
+      const go = document.createElement("i");
+      go.className = "ph ph-caret-right dash-glance-go";
+      go.setAttribute("aria-hidden", "true");
+      tile.append(go);
+      //: A tile with nothing in it is quieter than one with something, so
+      //: the eye lands on what needs doing (and on overdue first).
+      if (fact.count === 0) tile.classList.add("is-calm");
+      if (fact.overdue) tile.classList.add("is-overdue");
+      return tile;
+    })
+  );
+}
+
+{
+  //: The hero's one action at Focused, where Quick access (whose first tile
+  //: is the same New note) is folded away.
+  const add = $("dash-hero-new");
+  if (add) add.addEventListener("click", () => startNewNote());
 }
 
 // The greeting can address you by name, but the setting for it is one field

@@ -18510,9 +18510,12 @@ function docCmTheme(CM) {
       //: `--hover-veil`, a translucent ink laid over whatever ground the line
       //: has, so it reads in light and dark and never covers the selection
       //: layer's tint; it shows only while the editor has the focus, the same
-      //: rule the number beside it follows.
+      //: rule the number beside it follows. Half the veil since INBOX 684
+      //: (the owner: "the active line highlighting is a little too strong"):
+      //: 0.045 white in dark, 0.035 ink in light, a place marker rather than
+      //: a band.
       ".cm-activeLine": { backgroundColor: "transparent" },
-      "&.cm-focused .cm-activeLine": { backgroundColor: "var(--hover-veil)" },
+      "&.cm-focused .cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--hover-veil) 50%, transparent)" },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch.cm-searchMatch-selected": { outline: "1px solid var(--accent)" },

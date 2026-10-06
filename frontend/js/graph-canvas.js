@@ -3165,14 +3165,48 @@ function gcWireSelectionDock(s = gcTab) {
     } else {
       for (let i = 1; i < nodes.length; i++) pairs.push([nodes[0], nodes[i]]);
     }
-    let made = 0;
+    //: **Undoable, like every other bulk change** (INBOX 690, the owner: "I
+    //: highlighted a bunch of notes on the graph and pressed link together
+    //: but now I cant undo it"). Each made link is kept by its id, so the
+    //: undo removes exactly those and no link that was already there.
+    const made = [];
     for (const [a, b] of pairs) {
       if (s.adj.get(a.id)?.has(b.id)) continue;
       const ok = await apiJson(`/entries/${a.id}/links`, { method: "POST", body: JSON.stringify({ target_id: b.id }) }).catch(() => null);
-      if (ok) made += 1;
+      const linkId = ok?.links?.find((link) => link.entry_id === b.id)?.link_id;
+      if (linkId != null) made.push({ from: a.id, to: b.id, linkId });
     }
-    toast(made ? `Linked ${made} pair${made === 1 ? "" : "s"}.` : "Those notes were already linked.");
     renderGraph();
+    if (!made.length) return toast("Those notes were already linked.");
+    const words = `${made.length} pair${made.length === 1 ? "" : "s"}`;
+    const action = pushUndo(`Linked ${words} on the graph`, () => gcUnlinkPairs(made), () => gcRelinkPairs(made));
+    toastAction(`Linked ${words}.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await gcUnlinkPairs(made);
+    });
+  });
+  //: The other half of Link together: every link between the selected
+  //: notes goes, undoable (INBOX 690: links already made, before the undo
+  //: above existed, can be taken back the same way they were made).
+  on("graph-selection-unlink", async () => {
+    const nodes = gcSelectedNodes(s).filter((node) => Number.isInteger(node.id));
+    const ids = new Set(nodes.map((node) => node.id));
+    const gone = [];
+    for (const node of nodes) {
+      const entry = await apiJson(`/entries/${node.id}`).catch(() => null);
+      for (const link of entry?.links || []) {
+        if (!ids.has(link.entry_id) || gone.some((g) => g.linkId === link.link_id)) continue;
+        gone.push({ from: node.id, to: link.entry_id, linkId: link.link_id, reason: link.reason || null });
+      }
+    }
+    if (!gone.length) return toast("None of the selected notes are linked to each other.");
+    await gcUnlinkPairs(gone);
+    const words = `${gone.length} link${gone.length === 1 ? "" : "s"}`;
+    const action = pushUndo(`Removed ${words} on the graph`, () => gcRelinkPairs(gone), () => gcUnlinkPairs(gone));
+    toastAction(`Removed ${words}.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await gcRelinkPairs(gone);
+    });
   });
   on("graph-selection-map", async () => {
     //: Notes only: a lens can put tags, categories and boards on the graph
@@ -4730,3 +4764,21 @@ function graphPaneWire() {
 }
 
 onDomReady(graphPaneWire);
+
+//: Remove and remake a set of links by note pair (INBOX 690). A remade link
+//: gets a new id, written back so the next undo or redo finds it.
+async function gcUnlinkPairs(pairs) {
+  for (const pair of pairs) {
+    await api(`/entries/${pair.from}/links/${pair.linkId}`, { method: "DELETE" }).catch(() => null);
+  }
+  renderGraph();
+}
+
+async function gcRelinkPairs(pairs) {
+  for (const pair of pairs) {
+    const body = JSON.stringify({ target_id: pair.to, reason: pair.reason || null });
+    const made = await apiJson(`/entries/${pair.from}/links`, { method: "POST", body }).catch(() => null);
+    pair.linkId = made?.links?.find((link) => link.entry_id === pair.to)?.link_id ?? pair.linkId;
+  }
+  renderGraph();
+}

@@ -1171,6 +1171,12 @@
         <h2 id="dash-greeting" class="dash-greeting"></h2>
         <p id="dash-submessage" class="dash-submessage"></p>
       </div>
+      <!-- INBOX 675: at the Focused view the hero's one action and a glance
+           of today (due, meetings, filings, the note you were last in), drawn
+           by `renderDashGlance` (dashboard.js). Shown at Focused only: Full
+           and Compact carry Quick access, whose first tile is New note. -->
+      <button type="button" id="dash-hero-new" class="dash-hero-new"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New note</button>
+      <div id="dash-glance" class="dash-glance" role="group" aria-label="Today at a glance"></div>
       <div class="dash-clock" aria-hidden="true">
         <span id="dash-clock-time" class="dash-clock-time"></span>
         <span id="dash-clock-date" class="dash-clock-date"></span>
@@ -1221,7 +1227,7 @@
           data-help-for="dash-help" aria-controls="dash-help" aria-expanded="false"
           title="About the dashboard" aria-label="About the dashboard"><i class="ph ph-question" aria-hidden="true"></i></button>
         <div class="help-body hidden" id="dash-help" role="dialog" aria-label="About the dashboard">
-          <p>Today at a glance: your recent notes, reminders and widgets. Search finds notes, documents, files and app actions, and Ctrl+K opens the command palette for commands and places. Customise, then Edit layout, lets you add, move, resize and remove widgets.</p>
+          <p>Today at a glance: your recent notes, reminders and widgets. Search finds notes, documents, files and app actions, and Ctrl+K opens the command palette for commands and places. Customise, then Edit layout, lets you add, move, resize and remove widgets. In the Focused view the greeting card shows what is due today, your meetings, the notes to file and the note you were last in.</p>
         </div>
         <span id="dash-more" class="dock-more dash-more"></span>
       </div>
@@ -3595,6 +3601,7 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="dock-chip" id="graph-selection-count" role="status">0 selected</span>
           <button id="graph-selection-tag" class="ghost small" type="button" title="Add one tag to every selected note"><i class="ph ph-tag ph-lead" aria-hidden="true"></i> Tag</button>
           <button id="graph-selection-link" class="ghost small" type="button" title="Link the selected notes to each other"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Link together</button>
+          <button id="graph-selection-unlink" class="ghost small" type="button" title="Remove every link between the selected notes (undoable)"><i class="ph ph-link-break ph-lead" aria-hidden="true"></i> Unlink</button>
           <button id="graph-selection-map" class="ghost small" type="button" title="Make a mind map of these notes, shaped by their links"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
           <button id="graph-selection-clear" class="ghost small icon-only" type="button" title="Clear the selection" aria-label="Clear the selection"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
@@ -4252,7 +4259,7 @@ Link to another note with [[its first few words]]."></textarea>
              outline, what it draws on, where it lives). Reported live: 
              asked for directly as its own tab strip, the same pattern
              #notes-subtabs already uses. -->
-        <div class="seg doc-sidebar-tabs tabs-line edge-fade" id="doc-sidebar-tabs" role="tablist"
+        <div class="doc-sidebar-tabs tabs-line edge-fade" id="doc-sidebar-tabs" role="tablist"
           aria-label="Document sidebar sections">
           <button role="tab" data-section="list" aria-selected="true"
             aria-controls="doc-sidebar-list">Documents</button>

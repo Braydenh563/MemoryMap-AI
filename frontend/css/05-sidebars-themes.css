@@ -2689,7 +2689,7 @@ body.resizing-sidebar {
 
 .code-actions > .code-copy {
   border: 0;
-  border-radius: var(--radius-inner);
+  border-radius: var(--radius-in-pill);
   background: transparent;
   box-shadow: none;
   color: var(--muted);
@@ -2731,7 +2731,7 @@ body.resizing-sidebar {
 
 .code-actions > .menu-wrap > button {
   border: 0;
-  border-radius: var(--radius-inner);
+  border-radius: var(--radius-in-pill);
   background: transparent;
   box-shadow: none;
   color: var(--muted);
@@ -4448,7 +4448,13 @@ button.is-on {
   background: transparent;
   border: none;
   box-shadow: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  /* **A tab is a button, so its hover fill and its focus ring take the one
+     button corner** (INBOX 682: "should these have rounded edges to stay
+     consistent"): `--radius-md` on all four corners, from the table in
+     DESIGN.md, not the `--radius-sm` of a chip that rounded only the top
+     (2.4px in the default look, which read as a square box). The 2px line
+     under the chosen tab is the strip's own `::before`, a straight edge. */
+  border-radius: var(--radius-md);
   color: var(--muted);
   font-size: var(--text-md);
   font-weight: 500;

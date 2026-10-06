@@ -2495,8 +2495,9 @@ body.scroll-top-visible .skills-split > .tab-main {
 
    The underline strip itself stays (that redesign is recorded above and is not
    being remade): what changes is that its hover and focus surface obeys
-   DESIGN.md's "one button radius". The bottom corners stay square so the 2px
-   underline is still a straight line under the label, and the fill gets the
+   DESIGN.md's "one button radius" (`--radius-md` on all four corners, INBOX 682:
+   the strip's `.tabs-line > button` rule; the 2px line is the strip's own
+   straight indicator), and the fill gets the
    `--space-2` of horizontal room every other pressable label in the app has,
    with the `gap` dropped a step so the two tabs sit the same distance apart as
    before the padding was added. */
@@ -12625,6 +12626,27 @@ button.finder-row:hover,
   gap: var(--space-2);
 }
 
+/* A Compact tile is one line (its hint is folded above), so it takes a
+   button's measure rather than a two-line tile's: the body size and the
+   control's padding, the icon one step up (INBOX 677). */
+#tab-dashboard[data-density="compact"] .quick-action {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
+}
+
+#tab-dashboard[data-density="compact"] .quick-action .quick-link-icon {
+  font-size: var(--text-lg);
+}
+
+/* On a phone the row scrolls sideways (the phone rules above), where a tile
+   kept a two-line tile's 82% of the screen with one word in it: as wide as
+   its words here too, so more of the row is on screen. */
+@media (max-width: 599.98px) {
+  #tab-dashboard[data-density="compact"] .launch-row-start > * {
+    flex: 0 0 auto;
+  }
+}
+
 /* **And the group labels move onto their own rows' line.** Measured at 1440:
    each of "Start something", "Jump to" and "Run a skill" costs 18px of label
    plus its 8px gap above a row of tiles that already says what it is, so the
@@ -12655,12 +12677,19 @@ button.finder-row:hover,
   }
 
   /* **One line, always** (owner: "when the dashboard is on the compact view,
-     I still want all these buttons to be on the same line and not wrap").
-     Equal shares of the row from a zero basis, and a label that ellipsises
-     rather than pushing a tile onto a second line; the tile's title carries
-     the whole name. */
+     I still want all these buttons to be on the same line and not wrap"),
+     **and each as wide as what it says** (INBOX 677, the owner: "the quick
+     access looks wierd and not refined in the compact view"). The first cut
+     gave every tile an equal share of the row from a zero basis, so at 1920
+     five one-line tiles were 331px each around a 100px label: measured by
+     `scratchpad/ui-sweeps/quick677.js`, the icon and words filled 33% of a
+     tile on average and 25% of the emptiest, five bordered boxes of mostly
+     nothing. Now a tile is its content's width and the row starts beside its
+     label, a run of buttons rather than a set of columns. It still shrinks
+     (a label ellipsises, the title carries the whole name) before it would
+     wrap. */
   #tab-dashboard[data-density="compact"] .launch-row-start > * {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
   }
 
@@ -12727,9 +12756,9 @@ button.finder-row:hover,
    control on the page moved every time the greeting changed. Do not remake
    the one-row head.
 
-   Focused is now Full's head at a smaller scale: a compact banner (greeting
-   and the name nudge on one line, the one-line summary under it, the time on
-   the right) and the search field full width beneath it, one step apart. */
+   Focused is the banner and the search field full width beneath it, one
+   step apart. The banner was a compact strip (greeting left, time right)
+   until INBOX 675 gave it a glance of today: see the block below. */
 #tab-dashboard[data-density="focused"] .dash-head {
   display: flex;
   flex-direction: column;
@@ -12741,15 +12770,43 @@ button.finder-row:hover,
   margin-bottom: 0;
 }
 
+/* **The Focused hero is a hero again** (INBOX 675, the owner, with a
+   screenshot at about 2000px: "can you improve the dashboard hero section on
+   the focused view??"). The compact banner above (INBOX 425's two rows) put
+   the greeting at one end and the time at the other with nothing between:
+   measured by `scratchpad/ui-sweeps/hero675.js`, the widest empty strip was
+   60% of the hero at 1024, 72% at 1440 and 78% at 1920. So the hero takes
+   two columns. The left is who and when: the date and time as one small line
+   over the greeting (the time is information, not a second headline; the
+   greeting is the one headline), the notebook line, and New note, the hero's
+   one filled action. The right is today at a glance (`renderDashGlance`,
+   dashboard.js): what is due, today's meetings, what is waiting to be filed
+   and the note you were last in, four tiles on the tile recipe, toned for a
+   card. The left column is as wide as its words (`fit-content`, held under
+   half), the glance takes the rest and lays its tiles four across where they
+   fit and two by two where they do not, so no width leaves a middle empty.
+   The search stays on its own row beneath (INBOX 425's decision). */
+.dash-hero-new,
+.dash-glance {
+  display: none;
+}
+
 #tab-dashboard[data-density="focused"] .dash-hero {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
+  display: grid;
+  grid-template-columns: fit-content(45%) minmax(0, 1fr);
+  grid-template-areas:
+    "when glance"
+    "text glance"
+    "action glance";
+  grid-template-rows: auto auto 1fr;
+  align-items: start;
+  column-gap: var(--space-8);
+  row-gap: var(--space-1);
+  padding: var(--space-6) var(--space-7);
 }
 
 #tab-dashboard[data-density="focused"] .dash-hero-text {
-  flex: 1 1 auto;
+  grid-area: text;
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -12759,7 +12816,7 @@ button.finder-row:hover,
 }
 
 #tab-dashboard[data-density="focused"] .dash-greeting {
-  font-size: var(--text-h3);
+  font-size: var(--text-h2);
   margin: 0;
 }
 
@@ -12773,25 +12830,155 @@ button.finder-row:hover,
   margin: 0;
 }
 
-/* The time, at the banner's scale: one line, right-aligned, the date under it
-   in the summary's size, so the banner has a right edge rather than ending
-   wherever the greeting does. */
+/* The glance says what is due, so the notebook line does not say it twice. */
+#tab-dashboard[data-density="focused"] .dash-sub-bit[data-bit="reminders"] {
+  display: none;
+}
+
+/* Date, then time, one small muted line: the markup keeps the time first
+   (Full and Compact stack it over the date), so the row runs reversed. */
 #tab-dashboard[data-density="focused"] .dash-clock {
-  flex: none;
-  text-align: right;
+  grid-area: when;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: var(--space-2);
+  text-align: left;
 }
 
-#tab-dashboard[data-density="focused"] .dash-clock-time {
-  font-size: var(--text-h3);
-  color: var(--ink); /* as on Full: the time is information, not an accent */
-}
-
+#tab-dashboard[data-density="focused"] .dash-clock-time,
 #tab-dashboard[data-density="focused"] .dash-clock-date {
+  margin: 0;
   font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--muted);
 }
 
+#tab-dashboard[data-density="focused"] .dash-clock-date::after {
+  content: "\b7";
+  margin-inline-start: var(--space-2);
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero-new {
+  grid-area: action;
+  display: inline-flex;
+  justify-self: start;
+  align-self: end;
+  margin-top: var(--space-4);
+}
+
+#tab-dashboard[data-density="focused"] .dash-glance {
+  grid-area: glance;
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+/* A tile inside a card is a tone (DESIGN.md, Surfaces): `--surface-2`, no
+   edge at rest, the tile recipe's accent under the pointer. */
+.dash-glance .quick-link {
+  background: var(--surface-2);
+  border-color: transparent;
+  padding: var(--space-3) var(--space-4);
+}
+
+.dash-glance .quick-link:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.dash-glance .quick-link-icon {
+  color: var(--accent-text);
+}
+
+/* One line each: the tile's title carries the whole of both. */
+.dash-glance .quick-link-hint {
+  -webkit-line-clamp: 1;
+}
+
+/* Nothing to do here: the words step back so the eye lands on what is. */
+.dash-glance .is-calm .quick-link-label {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.dash-glance .is-calm .quick-link-icon {
+  color: var(--muted);
+}
+
+.dash-glance .is-overdue .quick-link-icon {
+  color: var(--warn);
+}
+
+/* The placeholders hold the row's height while the reads land. */
+.dash-glance .dash-glance-hold {
+  pointer-events: none;
+}
+
+.dash-glance .dash-glance-hold > * {
+  visibility: hidden;
+}
+
+.dash-glance .dash-glance-go {
+  margin-inline-start: auto;
+  color: var(--muted);
+}
+
+/* Narrow: one column, in reading order, the glance two by two under the
+   action. */
+@media (max-width: 819.98px) {
+  #tab-dashboard[data-density="focused"] .dash-hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "when"
+      "text"
+      "action"
+      "glance";
+    grid-template-rows: none;
+    padding: var(--space-5);
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-hero-new {
+    margin: var(--space-3) 0 var(--space-4);
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+}
+
+/* A phone paints the time at the top of its own screen (the note at the
+   phone hero rules above), so the line keeps the date alone there. */
 @media (max-width: 599.98px) {
-  #tab-dashboard[data-density="focused"] .dash-clock {
+  #tab-dashboard[data-density="focused"] .dash-hero .dash-clock {
+    display: flex;
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-clock-time {
+    display: none;
+  }
+
+  #tab-dashboard[data-density="focused"] .dash-clock-date::after {
+    content: none;
+  }
+
+  /* Two by two in 332px: the label wraps rather than clipping to "1 meeting
+     to…", and the hint (the reminder's or meeting's name, which the widgets
+     under the hero list in full) is the part that folds. */
+  .dash-glance .quick-link {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .dash-glance .quick-link-label {
+    white-space: normal;
+  }
+
+  .dash-glance .quick-link-hint,
+  .dash-glance .dash-glance-go {
     display: none;
   }
 }

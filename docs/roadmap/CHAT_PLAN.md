@@ -264,6 +264,60 @@ and every run ends with a verification line and an Undo.
    read-only row that flag is a fact with no handler. Measured before the
    decision: the same note drew five chips in Browse and two in Ask.
 
+17. **The composed answer is the answer whenever no model runs, in Ask and in
+   Chat** (INBOX 725, the owner: "the composer response should also be able
+   to be viewed in chat messages", and "the ai still should be used as the
+   chat bot when it is available"). A running model answers every Chat turn
+   and every Ask turn unless From your notes is chosen; `_composed` is
+   unchanged and the Chat tab's no-model branch composes in place of
+   `extractive.answer`. Its chips are the composer's own next questions.
+
+18. **The composer's layout** (INBOX 725, the owner: "you make the composer
+   decisions"). The first line is the answer: the lead note named and its
+   sentence on the same line; a list of short phrases said as one sentence
+   ("lists four: A, B, C and D"), lowered to sentence case only when every
+   entry is written that way; a checklist with how many are ticked; a broad
+   question ("what do I know about") opened by "At least N of your notes
+   mention", said of the notes found. The other notes follow joined by how
+   they relate, never the same joining words twice running: "also" or
+   "adds" for the question's subject, "Later, on" for a newer note on the
+   same thread, "Separately" or "Elsewhere" for another topic, "But your
+   newer note" for a pair that may disagree. One topic to a paragraph, two
+   notes at most; a fact question (count, when, who, yes or no) brings at
+   most two other notes.
+
+19. **Meaning is the embedder's when it runs, shared words when not.**
+   Cosine 0.9 is one claim said twice, 0.55 one topic; the lexical twins are
+   Jaccard 0.6 and 0.12 over the words that are not the question's own. A
+   repeated sentence is said once with "(Your notes say this N times.)"; a
+   pair that differs in a figure or a "not" is never folded as a repeat. A
+   broad answer's lead is the note named for the subject, else the sentence
+   the others lean towards (TextRank weighted by score).
+
+20. **Tried and not kept, from the brief's list.** "For example" as a joiner:
+   nothing short of parsing tells a general sentence from an instance of it,
+   and a wrong "for example" states a relation the notes never did. "Because"
+   as a joiner: only a note's own "because" counts, used as a cue for why
+   questions. Pronouns: only "It" or "Its" for the note just named. Fusion:
+   only of a list's own entries, never two sentences into one.
+
+21. **Next questions and follow-ups need no model.** A composed answer offers
+   up to three: a tag two or more of the notes found share, a note found and
+   not quoted whose best sentence scored at least half the best, and the
+   question's own short subject asked the other way in time. "Tell me more"
+   is the last question again with what it quoted left out; "the second
+   one" is the second note the last answer named; a question whose only
+   subject is "it" or "that" takes the last question's subject.
+
+22. **With no model, Chat stays open and Agent mode closes** (INBOX 725, the
+   owner: "if the composer can respond in the chat, should the chat input bar
+   be enabled?? maybe agent mode should be disabled though unless needle is
+   used to call tools without an ai"). The box and Send are not model-gated;
+   the banner says Chat answers from your notes and what connecting a model
+   adds. Agent mode is greyed with its reason unless the Needle extra is on
+   disk (`/models/status` `tools_engine`), and then it runs on Needle and its
+   title says so; the saved mode is never changed by the gate.
+
 ## 5. Phases
 
 ### Phase 1: grounding and marks (one session; Brief 12)
@@ -311,6 +365,21 @@ call", so the paging never happened; that shape is now recovered as a call
 for a read (`provider.extract_text_tool_calls`, pass 5). **Still open**: the
 gate itself (8 of 8, and 80% of the skills with no invalid call) on a 3B
 after that fix, and the built-in skills pass, which is hours on these cores.
+
+### Phase 5: the composer, after INBOX 725 (open)
+Left from INBOX 725, each its own step: (a) when a model runs, feed it the
+composer's chosen sentences as context (the owner: "the composer can assist
+the ai"); (b) run the 25-question eval with a real embedder and set the
+cosine thresholds from it (decision 19's are reasoned, the lexical ones are
+measured); (c) a "Your notes, no AI" label on a composed Chat bubble, as
+Ask's chip has; (d) a picture attached as a file (`files` captions), not only
+one inside a mostly-picture note; (e) re-capture the eval's retrieval when
+search changes (`tests/fixtures/composer/showcase_725.json`); (f) "the
+composer acts" (the owner: "or the composer can somehow call tools and act
+like an agent"): deterministic commands parsed from a Chat message ("make a
+reminder for X on Friday", "tag these notes Y"), shown as the action they
+would take and confirmed before anything is written, the same confirm card
+an agent's write uses; Agent mode then opens with no model for those verbs.
 
 ## 6. Consistency rules
 

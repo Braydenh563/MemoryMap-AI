@@ -254,3 +254,40 @@ def test_it_takes_the_last_questions_subject():
 def test_a_question_that_stands_alone_is_left_alone(question):
     assert composer.follow_on(question, [{"question": "When is the dentist check-up?", "answer": "x"}]) is None
     assert composer.follow_on("tell me more", []) is None
+
+
+# --- the chips, in Ask and in Chat -----------------------------------------------------
+
+
+def test_a_composed_answers_next_questions_are_drawn_as_its_chips():
+    """The composed answer's `next` rides on its grounding event and is drawn
+    by the follow-up strips that already exist, in Ask and in Chat, with no
+    model call for them."""
+    from pathlib import Path
+
+    ask_js = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    assert "composedNext = Array.isArray(event.next) ? event.next : [];" in ask_js
+    assert "renderAskFollowups(question, answerRaw, answerMeta?.composed ? composedNext : null);" in ask_js
+    chat_js = Path("frontend/js/chat-attach.js").read_text(encoding="utf-8")
+    assert "composedNext = Array.isArray(event.next) ? event.next : [];" in chat_js
+    assert "offerFollowups(bubble, question, answerRaw, meta?.composed ? composedNext : null);" in chat_js
+    routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
+    assert '"next": result["next"],' in routes
+
+
+# --- Chat with no model -----------------------------------------------------------------
+
+
+def test_with_no_model_chat_stays_open_and_agent_mode_says_what_it_needs(client):
+    """INBOX 725, the owner: "if the composer can respond in the chat, should
+    the chat input bar be enabled?? maybe agent mode should be disabled
+    though unless needle is used to call tools without an ai"."""
+    from pathlib import Path
+
+    markup = Path("frontend/index.html").read_text(encoding="utf-8")
+    assert '<textarea id="chat-input" rows="1"' in markup and '<button id="chat-send">' in markup
+    status_js = Path("frontend/js/status.js").read_text(encoding="utf-8")
+    assert "const gated = aiIsOff() && !engine;" in status_js
+    assert "Chat answers from your notes" in status_js and "Chat cannot answer yet" not in status_js
+    status = client.get("/models/status").json()
+    assert status["ollama_running"] is False and "tools_engine" in status

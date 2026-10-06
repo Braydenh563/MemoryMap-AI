@@ -98,13 +98,12 @@ def test_chat_stream_offline_still_sends_results(client):
     #: **The notes answer for themselves now.** This used to assert on the
     #: word "Ollama", from a sentence saying the AI was unavailable, which was
     #: all the turn produced while holding the ranked notes that answered the
-    #: question. `extractive.answer` quotes the passage of each one that is
-    #: about the question, and says in its lead that it is quoting rather than
-    #: writing.
-    assert "No model is running" in answer
+    #: question. Since INBOX 725 the answer is composed from the notes'
+    #: sentences (`ai/composer.py`), and the meta says so.
+    assert meta["composed"] is True
     assert "cheese" in answer, "the note's own words have to be in the answer"
-    #: And grounded, exactly, by construction: an extractive answer cannot be
-    #: wrong about where a claim came from, because the claim is the passage.
+    #: And grounded, exactly, by construction: a composed answer cannot be
+    #: wrong about where a claim came from, because the claim is the sentence.
     grounding = [e for e in events if e["type"] == "grounding"]
     assert grounding and grounding[0]["sentences"], (
         "an offline answer made of the notes' own passages must carry the "

@@ -2145,21 +2145,24 @@ function askNotesOnTheRight() {
 //:
 //: Silent on every failure, including the AI not running: an answer that
 //: arrived is not made worse by having nothing to offer after it.
-async function renderAskFollowups(question, answer) {
+async function renderAskFollowups(question, answer, given = null) {
   const strip = $("ask-followups");
   if (!strip) return;
   strip.replaceChildren();
   strip.classList.add("hidden");
   if (!question || !answer) return;
-  let picks = [];
-  try {
-    picks = await apiJson("/chat/followups", {
-      method: "POST",
-      silent: true,
-      body: JSON.stringify({ question, answer }),
-    });
-  } catch {
-    return;
+  //: `given`: a composed answer's own next questions, already in hand.
+  let picks = given || [];
+  if (!given) {
+    try {
+      picks = await apiJson("/chat/followups", {
+        method: "POST",
+        silent: true,
+        body: JSON.stringify({ question, answer }),
+      });
+    } catch {
+      return;
+    }
   }
   if (!Array.isArray(picks) || !picks.length) return;
   const label = document.createElement("span");
@@ -2907,6 +2910,7 @@ async function askQuestion(preset) {
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
   let groundedSupport = null; // how much of the answer the notes backed
+  let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
   let groundedSentences = [];
@@ -3037,6 +3041,7 @@ async function askQuestion(preset) {
         //: reason: the answer is still streaming when this arrives, so a
         //: notice placed now would sit above prose that is still growing.
         groundedSupport = event.support || null;
+        composedNext = Array.isArray(event.next) ? event.next : [];
       },
     });
 
@@ -3104,9 +3109,10 @@ async function askQuestion(preset) {
       placeAnswerFigures(answerBox, answerMeta, question);
       renderAskAnswerFoot(answer, answerMeta);
       //: Not awaited: it is a second model call, and the answer is already on
-      //: screen. The same contract `offerFollowups` has in the Chat tab. Not
-      //: for an answer composed from the notes: that was asked of no model.
-      if (!answerMeta?.composed) renderAskFollowups(question, answerRaw);
+      //: screen. The same contract `offerFollowups` has in the Chat tab. An
+      //: answer composed from the notes brings its own (INBOX 725), built
+      //: from what it found and did not say, and asks no model for them.
+      renderAskFollowups(question, answerRaw, answerMeta?.composed ? composedNext : null);
     }
     askStatusText("");
     // Asking changes both quick-access lists, and, for a real (non-hint)

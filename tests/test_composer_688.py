@@ -433,7 +433,7 @@ def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:
     from pathlib import Path
 
     routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
-    assert routes.count('"by_model": False') >= 2
+    assert routes.count('"by_model": False') >= 1
     js = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
     body = js[js.index("function renderAnswerSupport") :]
     body = body[: body.index("\n}\n")]

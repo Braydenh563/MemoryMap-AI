@@ -1923,13 +1923,12 @@ function syncModelGatedControls(status = modelStatus) {
     "No model is connected, so this answers from your notes alone: the matching records are below."
   );
   renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
-  //: The Chat tab, the fourth surface that is nothing but the model (INBOX
-  //: 266 part 1): its box was disabled with no sentence anywhere near it. It
-  //: names where a question can still be asked, because that is the next
-  //: step for somebody who came here to ask one.
+  //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
+  //: answered from the notes by the composer, so the box stays open and the
+  //: line says what a model would add rather than that nothing answers.
   renderAiOfflineNotice(
     $("chat-offline"),
-    "No model is connected, so Chat cannot answer yet. Notes, Ask answers from your notes without one."
+    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode."
   );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
@@ -1941,6 +1940,7 @@ function syncModelGatedControls(status = modelStatus) {
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
   syncAgentPaletteAvailability();
+  renderChatModeSeg();
 }
 
 //: One line and one button, in a named container, or nothing at all. Rebuilt
@@ -2481,7 +2481,25 @@ function renderSearchEngineHealth(status) {
 // the same fact is how two of them end up disagreeing. These buttons just show
 // it and set it.
 function renderChatModeSeg() {
-  const agent = $("tools-toggle").checked;
+  //: **Agent mode needs something that can call tools** (INBOX 725, the
+  //: owner: "maybe agent mode should be disabled though unless needle is used
+  //: to call tools without an ai"). With no model and no Needle it is greyed
+  //: with its reason and Ask shows as the mode in use, without touching the
+  //: saved choice, which comes back with the model. With Needle ready it runs
+  //: there, and says so.
+  const engine = modelStatus?.tools_engine || null;
+  const gated = aiIsOff() && !engine;
+  const agentButton = document.querySelector('#chat-mode-seg [data-chat-mode="agent"]');
+  if (agentButton) {
+    if (agentButton.dataset.enabledTitle === undefined) agentButton.dataset.enabledTitle = agentButton.title;
+    agentButton.disabled = gated;
+    agentButton.title = gated
+      ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
+      : aiIsOff() && engine
+        ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
+        : agentButton.dataset.enabledTitle;
+  }
+  const agent = $("tools-toggle").checked && !gated;
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,
   // so nothing complained: but this function runs on every chat-mode change,

@@ -87,7 +87,7 @@ def test_ocr_media_retries_extraction(ai_client, monkeypatch):
     import memorymap.core.ocr as ocr_module
 
     monkeypatch.setattr(ocr_module, "extract_text", lambda path: "retried text")
-    monkeypatch.setattr(ocr_module, "unavailable_reason", lambda: "")
+    monkeypatch.setattr(ocr_module, "unavailable_reason", lambda *_args, **_kwargs: "")
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     ).json()["id"]

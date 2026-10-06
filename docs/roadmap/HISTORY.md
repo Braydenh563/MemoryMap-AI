@@ -45567,3 +45567,11 @@ and refuses a topic ("Select a shape, link or text box first").
      scratchpad/ui-sweeps/forgot703.js: chosen fill present light and dark,
      40/40px at 1440 and 60/60px at 390.
 
+704. **The owner, 2026-10-06, verbatim.** "you completely removed the audio
+     transcription feature by redesigning the meeting notes." The recorder
+     stayed (Tools and features, Ctrl+Shift+R, the meeting sheet) but its
+     Quick access tile became New meeting. Fixed 2026-10-06: New meeting has
+     "Start and record", which makes the meeting and opens the recorder
+     writing into its Notes; help_chat's meetings topic names it and the
+     shortcut. Not verified in a browser (usage).
+

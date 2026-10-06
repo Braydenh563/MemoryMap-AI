@@ -240,6 +240,15 @@ with its owner named in the entry.
      hover, inside the row's radius; a lint holds the rails to it. Placed:
      the next free Sonnet slot.
 
+705. **The owner, 2026-10-06, verbatim**, more for the next pass: the
+     composer formatting toolbar still meets its border at the right ("still
+     the offending formatting bar edges on the border"); a "go to bin" button
+     on the "Moved to the bin." notice; the title bar's app icon and the
+     header's logo clash ("these seem like the clash a bit... but idk");
+     Atlas and the companions "get annoyed every time I tap them multiple
+     times, can they alternate how they respond a little more??". Placed:
+     the next session (usage).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

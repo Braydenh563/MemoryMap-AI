@@ -27,6 +27,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Meetings: New meeting has Start and record, which starts the meeting and transcribes straight into its notes (recording had lost its Quick access tile).
 - Forgot your password: the card opens with its first path shown as chosen, and the reset command and its Copy button are one height.
 - Settings, Packages: "Select its packages" takes you to the bundle's packages, the first one in view with its tick focused, and says how many it selected.
 - Graph: Link together can be undone (its toast and Ctrl+Z), and a new Unlink on the selection bar removes the links between the selected notes, also undoable.

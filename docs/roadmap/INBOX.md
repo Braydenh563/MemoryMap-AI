@@ -236,6 +236,13 @@ with its owner named in the entry.
      edit form (closed, its words kept as the recoverable draft) so the next
      move does not ask again. Placed: with 710.
 
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

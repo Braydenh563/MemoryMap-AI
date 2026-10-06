@@ -126,6 +126,31 @@ with its owner named in the entry.
      closed while any app menu is open. Placed: the 0.4.1 mini release, the
      next free agent slot.
 
+691. **The owner, 2026-10-06, verbatim.** "also maybe a way to better sort
+     through links and tags without the ai?? like removing tags that dont
+     have a custom reason (reasons other than "similar in meaning") and that
+     have a low conficence score, maybe could be added in the notes tab??
+     like manual or automated ways to manage notes and other things
+     systemnatically and programatically nearly up to par with the ai but as
+     an option if the ai isnt available or as an alternative. needs to also
+     be known to the user, no use having them if the user doesnt know about
+     them. I feel like there are a lot of features hidden". Then: "also so
+     many notes get the reason "similar in meaning". the notes adn
+     management of things around them needs to be more dynamic and better.
+     world class". Placed: the 0.4.1 mini release, an Opus agent (audit,
+     then a Tidy surface in Notes, specific link reasons, discoverability).
+
+692. **The owner, 2026-10-06, verbatim**, with a screenshot of a sparse,
+     stretched force layout: "can you add a resuffle button or feature to
+     the graph to rearrange how the graph sits on the main force view??"
+     The graph has Unpin all and no re-layout. Placed: with 693, the next
+     free agent slot.
+
+693. **The owner, 2026-10-06, verbatim**, with a screenshot of the graph
+     where a link passes behind other notes' dots: "bit of overlap". Links
+     drawn through nodes they do not connect, and nodes close enough to
+     touch. Placed: with 692.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

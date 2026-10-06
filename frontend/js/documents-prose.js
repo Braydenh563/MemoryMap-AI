@@ -602,7 +602,7 @@ function docSuggestMenuItems(mark, count, answers, run) {
     );
   }
   for (const row of answers || []) {
-    items.push({ group: "finding", label: row.label, title: row.title, run: () => row.run() });
+    items.push({ group: "finding", label: row.label, title: row.title, disabled: row.disabled === true, run: () => row.run() });
   }
   return items;
 }
@@ -844,7 +844,16 @@ function docSuggestMenu(view, start, x, y) {
   closeDocSuggest();
   const offset = docCmView === view ? view.posAtCoords({ x, y }) : null;
   const finding = docSuggestFindingFor(mark, docProseFound, offset);
-  const answers = finding ? docFindingAnswerRows(finding) : [];
+  //: The finding's own sentence heads its group, a row that cannot be
+  //: pressed, so the candidates below it say what they are candidates for
+  //: (the popover this replaces opened with the same line).
+  const said = finding ? String(finding.message || "") : "";
+  const answers = finding
+    ? [
+        ...(said ? [{ label: `ph:info ${said.length > 60 ? `${said.slice(0, 57)}\u2026` : said}`, title: said, disabled: true, run: () => {} }] : []),
+        ...docFindingAnswerRows(finding),
+      ]
+    : [];
   const items = docSuggestMenuItems(mark, count, answers, {
     one: (accept) => () => docSuggestApply(view, docSuggestResolve(mark, accept)),
     all: (accept) => () => docSuggestAll(accept),

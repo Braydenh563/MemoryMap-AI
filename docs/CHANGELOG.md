@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Ask: a question that names a category as where its notes are ("Summarise my notes in Health.", one Ask suggests itself, or "my Work notes") is answered from that category; it was answered from whatever matched the words, other categories included, with a model and without
 - Filing: when a slow model's answer replaces the words-based stand-in, the composer's line follows it (it said "Filed under Health" and nothing said the model then moved the note to Work), and a move is said in a toast with Put it back
 - Command palette: Take the guided tour (Ctrl+K, "tour") opens the tour from anywhere; it was reachable only from the Dashboard's first-run tile and Settings, Help. The Guide's tour topic says so
 - Import: Markdown files and folders now join up their [[wiki links]] as links (the Graph showed an imported vault with none until each note was saved again), and choosing the same files again adds only what is new, saying how many were already in

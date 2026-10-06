@@ -756,6 +756,9 @@ const SEARCH_MODE_LABELS = {
   // a joke tagged joke/jokes/funny, asked about as "two weeks ago", was
   // actually three).
   outside_range: "matched, wrong time",
+  //: The question named a category ("notes in Health"): its notes, newest
+  //: first (search_manager._named_category).
+  category: "that category",
 };
 
 // Say something to a screen reader without putting anything on screen. Used

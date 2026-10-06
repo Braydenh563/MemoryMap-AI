@@ -4,7 +4,7 @@
 // source (global-setup.js); a model, when there is one, is covered by the
 // evals (`pytest -m evals`), never here.
 const { test, expect } = require("@playwright/test");
-const { watchErrors, openApp, openTab } = require("../helpers");
+const { watchErrors, openApp, openTab, api } = require("../helpers");
 
 async function browse(page) {
   await openTab(page, "notes");
@@ -56,6 +56,21 @@ test("Ask with no model answers from the notes, with numbered citations that ope
   const label = (await first.getAttribute("aria-label")).replace(/^Source \d+: /, "").slice(0, 20);
   await expect(page.locator("[role=dialog]:visible", { hasText: label }).first()).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("Ask's own suggestion, Summarise my notes in Health, answers from Health only", async ({ page }) => {
+  await openApp(page);
+  await openTab(page, "notes");
+  await page.click('#notes-subtabs [data-section="ask"]');
+  await page.fill("#question", "Summarise my notes in Health.");
+  await page.click("#ask-btn");
+  const sources = page.locator("#raw-results > li");
+  await expect.poll(() => sources.count()).toBeGreaterThan(2);
+  const ids = await sources.evaluateAll((rows) => rows.map((r) => Number(r.dataset.id)));
+  for (const id of ids) {
+    const note = await api(page, `/entries/${id}`);
+    expect(note.category, `source ${id} is not a Health note`).toBe("Health");
+  }
 });
 
 test("Chat with no model says what it needs instead of a dead Send", async ({ page }) => {

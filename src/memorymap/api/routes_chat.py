@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, extractive
+from memorymap.ai import budget as run_budget, composer, extractive
 from memorymap.ai import (
     agent,
     captioning,
@@ -434,6 +434,13 @@ class ChatRequest(BaseModel):
     #: only from them. Resolved into `note_ids` and `attached_notes_only` by
     #: `_apply_scope` before anything reads either.
     scope: Literal["questions"] | None = None
+    #: Who writes a notes-only answer (INBOX 688): "notes" asks for the answer
+    #: composed from the notes' own sentences (`ai/composer.py`) even while a
+    #: model runs; anything else is the model's, when one runs. The Ask box's
+    #: "AI" / "From your notes" switch sends it. A plain string rather than a
+    #: Literal, because the switch's stored value reaches here as read off the
+    #: device and an unknown word must mean the default, not a 422.
+    answer_from: str | None = Field(default=None, max_length=16)
 
 
 def _apply_scope(session: Session, body: ChatRequest) -> None:
@@ -1692,6 +1699,13 @@ class _StreamRequest:
     allowed_tools: list[str] | None
 
 
+def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
+    """Whether this turn's answer is composed from the notes (INBOX 688): an
+    Ask-box turn that asked for it, or any Ask-box turn with no model to ask.
+    The Chat tab keeps its own offline answer (`extractive`)."""
+    return bool(req.body.notes_only) and (req.body.answer_from == "notes" or not ollama_running)
+
+
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
     """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
     if prepared["stats"] is not None:
@@ -1768,6 +1782,27 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             }
             yield {"type": "related", "items": related}
         return
+    elif _composed(req, ollama_running):
+        #: **A composed answer** (INBOX 688): the notes' own sentences, chosen
+        #: by the question's shape and laid out as an answer, every clause a
+        #: quote or a measured value (`ai/composer.py` says how). One piece,
+        #: no stream to wait on; its grounding rows are exact, marked so, and
+        #: the re-grounding below leaves them alone.
+        result = composer.compose(
+            req.question,
+            prepared["notes"],
+            today=user_now(deps.get_config()).date(),
+            recent=str(prepared.get("search_mode") or "").endswith("recent"),
+        )
+        yield {"type": "answer", "delta": result["text"]}
+        if result["grounding"]:
+            yield {
+                "type": "grounding",
+                "sentences": result["grounding"],
+                "support": result["support"],
+                "exact": True,
+            }
+        return
     elif not ollama_running:
         #: **The notes answer for themselves.** Asked for directly: "I want to
         #: maximise the ability and function of all the application features
@@ -1801,6 +1836,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 "type": "grounding",
                 "sentences": offline["grounding"],
                 "support": grounding_support(offline["text"], offline["grounding"]),
+                #: Exact by construction, like the composed answer's: the
+                #: re-grounding after the stream used to replace these rows
+                #: with approximate ones (found by INBOX 688's audit).
+                "exact": True,
             }
         return
     else:
@@ -2005,6 +2044,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         as_of=None if req.skill else req.body.as_of,
     )
     ollama_running = req.ollama.is_running()
+    composed = _composed(req, ollama_running)
     #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
     #: backend answering, a turn that may use tools can still run them
     #: through the needle extra when it is installed (`ai/tool_fallback.py`
@@ -2018,7 +2058,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     tools_only = tools_provider is not req.ollama
     # In agent mode the model can act even when nothing matched, "save a
     # note about X" must work on an empty notebook.
-    will_answer = (ollama_running or tools_only) and (
+    will_answer = not composed and (ollama_running or tools_only) and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
@@ -2043,6 +2083,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 else req.model_manager.chat_model() if will_answer else None
             ),
             "ollama_running": ollama_running,
+            #: The Ask box labels the answer "Composed from your notes, no AI".
+            "composed": composed,
         }
     )
 
@@ -2050,7 +2092,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
-    if (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
+    if not composed and (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
         agent_events = _agent_events(req, prepared, tools_provider)
         first = _first_agent_event(req, agent_events)
         if first is None or first.get("type") == "unsupported":
@@ -2120,16 +2162,21 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         SentenceGrounder(
             prepared["notes"], meaning=search_chunks.meaning_scorer(req.session, deps.get_embeddings())
         )
-        if not agentic and not conversational and prepared["notes"]
+        if not agentic and not conversational and not composed and prepared["notes"]
         else None
     )
     #: The fence markers a small model echoes back are taken out of the
     #: answer before anything reads or saves it (`fence.AnswerScrubber`).
     scrubber = fence.AnswerScrubber()
+    #: Rows an answer brought with it, exact by construction (the composed
+    #: and the extractive answers): kept, saved, and never re-grounded.
+    exact_grounding: list[dict] | None = None
     try:
         for payload in events:
             kind = payload.get("type")
             live_rows: list[dict] = []
+            if kind == "grounding" and payload.get("exact"):
+                exact_grounding = payload.get("sentences") or []
             if kind == "answer":
                 payload = {**payload, "delta": scrubber.feed(payload.get("delta") or "")}
                 if not payload["delta"]:
@@ -2181,7 +2228,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: sentences by their offsets in this string, the saved turn stores it, and
     #: an export reads it back, so trimming anywhere else would leave three
     #: copies of the answer disagreeing about where sentence two starts.
-    trimmed_answer = trim_assistant_padding(answer_text)
+    #: Not a composed answer: its opening line is a fixed phrase, and its
+    #: quotes are the person's words, which no trim may touch.
+    trimmed_answer = answer_text if composed else trim_assistant_padding(answer_text)
     if trimmed_answer != answer_text:
         answer_text = trimmed_answer
         #: The browser has already drawn the untrimmed text, so it is sent the
@@ -2194,8 +2243,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: client was just sent (INBOX 241). A conversational turn, or one nothing
     #: could be grounded against, saves an empty list, which is the truth about
     #: that answer rather than a gap.
-    grounding: list[dict] = []
-    if not conversational and candidates and answer_text:
+    grounding: list[dict] = list(exact_grounding or [])
+    if exact_grounding is None and not conversational and candidates and answer_text:
         grounding = (
             ground_answer_sentences(
                 answer_text, candidates, numbered=len(prepared["notes"]),

@@ -114,11 +114,18 @@ def test_new_meeting_is_a_tagged_typed_note(client) -> None:
 
 
 def test_a_bad_when_is_refused(client) -> None:
-    assert client.post("/meetings", json={"title": "x", "when": "next tuesday"}).status_code == 422
+    refused = client.post("/meetings", json={"title": "x", "when": "next tuesday"})
+    assert refused.status_code == 422
 
 
 def test_a_meeting_made_from_its_type_carries_the_tag(client) -> None:
     made = client.post("/entries", json={"content": "# Retro", "note_type": "Meeting", "category": "Work"}).json()
+    assert "meeting" in made["tags"]
+
+
+def test_a_note_typed_meeting_by_its_text_carries_the_tag(client) -> None:
+    """The Capture box's Meeting template writes `type: Meeting` itself."""
+    made = client.post("/entries", json={"content": "---\ntype: Meeting\n---\n## Agenda\n", "category": "Work"}).json()
     assert "meeting" in made["tags"]
 
 
@@ -167,7 +174,8 @@ def test_an_item_with_no_time_asks_when(client) -> None:
 
 def test_a_changed_line_is_refused(client) -> None:
     note = _make(client)
-    assert client.post(f"/entries/{note['id']}/meeting/remind", json={"line": 0}).status_code == 409
+    refused = client.post(f"/entries/{note['id']}/meeting/remind", json={"line": 0})
+    assert refused.status_code == 409
 
 
 def test_append_writes_through_the_notes_route(client) -> None:
@@ -183,9 +191,8 @@ def test_append_writes_through_the_notes_route(client) -> None:
         json={"section": "Decisions", "lines": ["- Again"], "base_hash": "0" * 16},
     )
     assert stale.status_code == 409
-    assert client.post(
-        f"/entries/{note['id']}/meeting/append", json={"section": "Whatever", "lines": ["x"]}
-    ).status_code == 422
+    unknown = client.post(f"/entries/{note['id']}/meeting/append", json={"section": "Whatever", "lines": ["x"]})
+    assert unknown.status_code == 422
 
 
 def test_summarise_without_a_model_says_so(client) -> None:
@@ -271,4 +278,5 @@ def test_summarise_with_a_model(app_state, fake_ollama) -> None:
     assert body["lines"]["decisions"] == ["- Launch in November, from “Launch moves to November”"]
     assert body["actions"] == [] and body["dropped"] == 1
     #: Nothing was written: the note is as it was.
-    assert client.get(f"/entries/{note['id']}").json()["content"] == NOTE
+    kept = client.get(f"/entries/{note['id']}").json()
+    assert kept["content"] == NOTE

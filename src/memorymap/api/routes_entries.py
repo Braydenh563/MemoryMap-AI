@@ -63,6 +63,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
+from memorymap.entry import meetings as meeting_shape
 from memorymap.entry import properties as note_properties
 from memorymap.entry.tagnames import inline_tags, normalise_tags
 from memorymap.search import engine as search_engine
@@ -697,11 +698,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
         content = note_properties.with_type_fields(session, content, body.note_type, deps.get_config())
-        #: A Meeting made from its type is a meeting everywhere meetings are
-        #: listed (INBOX 644): the Library's chip and the Notes sidebar
-        #: count the tag, which the type alone never carried.
-        if body.note_type.strip().lower() == "meeting" and "meeting" not in {t.lower() for t in tags}:
-            tags = normalise_tags([*tags, "meeting"])
+    #: A note typed Meeting, however it was made (its type's New note, the
+    #: Capture template, an import), is a meeting everywhere meetings are
+    #: listed (INBOX 644): the Library's chip and the Notes sidebar's row
+    #: count the tag, which the type alone never carried.
+    if meeting_shape.is_meeting(content) and meeting_shape.MEETING_TAG not in {t.lower() for t in tags}:
+        tags = normalise_tags([*tags, meeting_shape.MEETING_TAG])
     try:
         entry = manager.create_entry(
             session,

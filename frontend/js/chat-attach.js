@@ -2030,7 +2030,7 @@ async function sendChatMessage(preset, opts = {}) {
           activityRun = addAgentRun({
             kind: "agent",
             name: agentRunTitle(question),
-            icon: "ph:robot",
+            icon: "ph:strategy",
           });
           openPanelForRun(activityRun);
         }

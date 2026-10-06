@@ -1083,7 +1083,7 @@ function renderTraceReadout(result) {
   //: fourth opinion about where a dropdown goes.
   const storyOpener = document.createElement("summary");
   storyOpener.className = "graph-trace-note story-mode-btn";
-  setLabel(storyOpener, "ph:magic-wand Generate from path");
+  setLabel(storyOpener, "ph:sparkle Generate from path");
   storyOpener.title = "Build something out of this path, using Atlas locally";
   const caret = document.createElement("i");
   caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
@@ -3791,7 +3791,7 @@ function openGraphLinkPanel(edge, nodes) {
   const generateBtn = document.createElement("button");
   generateBtn.type = "button";
   generateBtn.className = "ghost";
-  setLabel(generateBtn, "ph:magic-wand Generate");
+  setLabel(generateBtn, "ph:sparkle Generate");
   generateBtn.addEventListener("click", async () => {
     setBusy(generateBtn, true, "Generating…");
     try {

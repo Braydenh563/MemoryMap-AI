@@ -200,7 +200,7 @@ function nameMarkBuddyMenu(buddy, at = null) {
     } },
   ];
   if (spots[tab]) {
-    items.push({ group: "place", label: "ph:sparkle Let it choose its spot here", run: () => {
+    items.push({ group: "place", label: "ph:push-pin-slash Let it choose its spot here", run: () => {
       const next = { ...spots };
       delete next[tab];
       nameMarkBuddyKeepSpots(next);
@@ -262,7 +262,7 @@ function nameMarkBuddyMenu(buddy, at = null) {
   const look = document.getElementById("atlas-look")?.value || "auto";
   items.push({
     group: "who",
-    label: "ph:star-four Atlas look",
+    label: "ph:coat-hanger Atlas look",
     items: [["masculine", "Masculine"], ["feminine", "Feminine"], ["auto", "Auto: match your faces"]]
       .map(([value, label]) => ({ label: tick(look === value, label), run: () => choose("atlas-look", value) })),
   });

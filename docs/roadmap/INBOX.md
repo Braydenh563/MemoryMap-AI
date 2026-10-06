@@ -76,11 +76,6 @@ with its owner named in the entry.
      Placed: Sonnet agent.
      Then: "in the library".
 
-723. **The owner, 2026-10-06, verbatim**: "make sure all the icons for the ai
-     are consistent. also can you use a better icon for the agent?? i dont like
-     the robot". Measured: ph:sparkle 33 uses, ph:magic-wand 35, ph:robot 9,
-     ph:brain 5, ph:star-four 1, ph:asterisk 1. Placed: Opus agent.
-
 725. **The owner, 2026-10-06, verbatim**: "can you like maximise the application
      responses and sentence concatenation and responses?? I want it soooo good it is
      almost like a chat bot. make them something the world hasnt seen before like

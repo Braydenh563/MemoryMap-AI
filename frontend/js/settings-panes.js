@@ -1318,13 +1318,13 @@ function paletteCommands() {
     { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
     { label: "ph:clipboard-text Paste as a note", about: "What you copied, saved as a new note.", chord: "pasteNote", act: () => pasteClipboardAsNote() },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
-    { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
+    { label: "ph:sparkle Write a note from rough thoughts", reveal: "writing-room" },
     { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },
     // The popup agent (Ctrl+Shift+A) has real capability, it's the same
     // tool-calling agent as Chat's agent mode, just reachable from anywhere
     //, but was reachable only by already knowing that chord. This palette
     // is the app's own "what can I do here" list; it belongs in it.
-    { label: "ph:magic-wand Ask the agent anything", reveal: "agent-palette", chord: "askAgent" },
+    { label: "ph:strategy Ask the agent anything", reveal: "agent-palette", chord: "askAgent" },
     { label: "ph:palette New sketch", reveal: "sketch", chord: "quickSketch" },
     //: A command, not a search (INBOX 666: the palette is commands and
     //: places; finding a meeting is Find anything's). INBOX 644: there was
@@ -1350,7 +1350,7 @@ function paletteCommands() {
       // you were last reading, else your newest readable file; the decision and
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
-      label: "ph:book-open-text Read a document or image with AI",
+      label: "ph:sparkle Read a document or image with AI",
       reveal: "page-reader",
     },
     {

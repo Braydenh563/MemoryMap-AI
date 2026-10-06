@@ -128,3 +128,169 @@ def test_design_md_has_the_row_and_names_this_lint() -> None:
     design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
     assert "Overflow and menu icons" in design
     assert "tests/test_icon_conventions.py" in design
+
+
+# --- The AI and the agent (INBOX 723) ----------------------------------------
+#
+# The owner, 2026-10-06: "make sure all the icons for the ai are consistent.
+# also can you use a better icon for the agent?? i dont like the robot".
+# Measured before: the AI wore five glyphs (sparkle, magic wand, brain, robot,
+# four-pointed star) with no rule for which, and the same "Ask Atlas" job wore
+# a sparkle in one menu and a wand in the next. One glyph per meaning now:
+#
+# - `ph-sparkle`: the AI does something for you (describe, read, ask, suggest,
+#   draft, rewrite, file by meaning, the "AI off" mark).
+# - `ph-strategy`: the agent, which plans and then acts in steps on your
+#   behalf (Agent mode, the popup agent, Agent activity, its runs).
+# - `ph-lightning`: Skills (left as it was).
+# - `ph-magic-wand`: tidy or fix automatically, by rule, no model.
+# - `ph-brain`: what it remembers about you.
+# - `ph-asterisk`: a section break.
+#
+# Rule and rows: DESIGN.md, "AI and agent icons".
+
+PY = {
+    p.relative_to(ROOT / "src").as_posix(): p.read_text(encoding="utf-8")
+    for p in sorted((ROOT / "src" / "memorymap").rglob("*.py"))
+}
+
+AI_ICON = "sparkle"
+AGENT_ICON = "strategy"
+
+#: Where the agent glyph is drawn, by file. Each is the agent itself or one of
+#: its runs; a new place is a decision, so it is a line here.
+AGENT_ICON_PLACES = {
+    "index.html": 5,  # the popup agent's head and input, Agent activity, Agent mode (toggle, segment)
+    "agent-activity.js": 1,  # the status bar's runs
+    "chat-attach.js": 1,  # an agent turn's run in the activity panel
+    "chat.js": 1,  # a past turn answered in Agent mode
+    "editor.js": 1,  # the chat palette's Agent mode row
+    "phone-shell.js": 2,  # More sheet: Ask the agent, Agent activity
+    "settings-panes.js": 1,  # the command palette's Ask the agent anything
+    "settings-wiring.js": 1,  # the tools popup's Popup agent
+    "skills.js": 1,  # the nudge to switch to Agent mode
+    "status.js": 2,  # the status bar's agent button, a run's notification
+}
+
+#: Words one of which sits on or near every line that draws the agent glyph.
+AGENT_CONTEXT = re.compile(r"agent|\bruns?\b", re.IGNORECASE)
+
+#: What the wand may mean: tidy or fix automatically, by rule.
+WAND_MEANINGS = re.compile(r"\bFix\b|autocorrect|align", re.IGNORECASE)
+#: What the brain may mean: what it remembers.
+BRAIN_MEANINGS = re.compile(r"remember|memory", re.IGNORECASE)
+#: Words that say the AI or the agent is doing the work.
+AI_WORDS = re.compile(r"\bAI\b|Atlas|\bagent\b|\bmodel\b|by meaning|semantic", re.IGNORECASE)
+
+
+def _glyph_lines(glyph: str, sources: dict[str, str]) -> list[tuple[str, int, list[str]]]:
+    """(file, line index, lines) for each line that draws `glyph`, as
+    `ph-name` in markup and CSS or `ph:name` in a label string."""
+    found = []
+    pattern = re.compile(rf"\bph[-:]{glyph}(?![-\w])")
+    for name, text in sources.items():
+        lines = text.splitlines()
+        for number, line in enumerate(lines):
+            if pattern.search(line):
+                found.append((name, number, lines))
+    return found
+
+
+def _everywhere() -> dict[str, str]:
+    return {**_all_sources(), **PY}
+
+
+def test_the_robot_is_gone() -> None:
+    users = sorted({name for name, _, _ in _glyph_lines("robot", _everywhere())})
+    assert not users, f"the agent is ph-{AGENT_ICON} now; the robot is back in {users}"
+
+
+def test_the_agent_glyph_is_in_the_vendored_font() -> None:
+    style = (FRONT / "vendor" / "phosphor" / "style.css").read_text(encoding="utf-8")
+    assert f".ph-{AGENT_ICON}:before" in style
+    assert f".ph-{AI_ICON}:before" in style
+
+
+def test_the_agent_glyph_is_drawn_only_for_the_agent_and_its_runs() -> None:
+    hits = _glyph_lines(AGENT_ICON, _everywhere())
+    counts: dict[str, int] = {}
+    for name, _, _ in hits:
+        counts[name] = counts.get(name, 0) + 1
+    assert counts == AGENT_ICON_PLACES, f"the agent glyph by file {counts}; allowed {AGENT_ICON_PLACES}"
+    stray = []
+    for name, number, lines in hits:
+        window = " ".join(lines[max(0, number - 4) : number + 3])
+        if not AGENT_CONTEXT.search(window):
+            stray.append(f"{name}:{number + 1}: {lines[number].strip()[:140]}")
+    assert not stray, "the agent glyph on something that is not the agent or a run:\n  " + "\n  ".join(stray)
+
+
+def test_the_ai_glyph_is_never_the_agent() -> None:
+    """A line that names the agent wears the agent glyph, not the sparkle: the
+    popup agent's head wore a sparkle while its button wore a wand."""
+    offenders = [
+        f"{name}:{number + 1}: {lines[number].strip()[:140]}"
+        for name, number, lines in _glyph_lines(AI_ICON, _everywhere())
+        if re.search(r"\bagent\b", lines[number], re.IGNORECASE)
+    ]
+    assert not offenders, "the sparkle is the AI doing a thing for you, not the agent:\n  " + "\n  ".join(offenders)
+
+
+def test_the_wand_only_tidies_or_fixes_by_rule() -> None:
+    offenders = []
+    for name, number, lines in _glyph_lines("magic-wand", _everywhere()):
+        line = lines[number]
+        window = " ".join(lines[max(0, number - 1) : number + 2])
+        if AI_WORDS.search(line) or not WAND_MEANINGS.search(window):
+            offenders.append(f"{name}:{number + 1}: {line.strip()[:140]}")
+    assert not offenders, "the wand means tidy or fix by rule; the AI is ph-sparkle:\n  " + "\n  ".join(offenders)
+
+
+def test_the_brain_is_only_what_it_remembers() -> None:
+    offenders = [
+        f"{name}:{number + 1}: {lines[number].strip()[:140]}"
+        for name, number, lines in _glyph_lines("brain", _everywhere())
+        if not BRAIN_MEANINGS.search(lines[number])
+    ]
+    assert not offenders, "the brain means memory; the AI is ph-sparkle:\n  " + "\n  ".join(offenders)
+
+
+def test_the_four_pointed_star_and_the_asterisk_each_have_one_job() -> None:
+    """The four-pointed star sat beside the sparkle and read as a second AI
+    mark; the asterisk is the section break and nothing else."""
+    stars = sorted({name for name, _, _ in _glyph_lines("star-four", _everywhere())})
+    assert not stars, f"ph-star-four reads as the AI's sparkle: {stars}"
+    asterisks = [
+        f"{name}:{number + 1}"
+        for name, number, lines in _glyph_lines("asterisk", _everywhere())
+        if "Section break" not in lines[number]
+    ]
+    assert not asterisks, f"ph-asterisk is the section break only: {asterisks}"
+
+
+def test_a_label_that_says_with_ai_wears_the_sparkle() -> None:
+    """Measured in the lightbox's More menu: "Describe with AI" wore the
+    sparkle and "Read text with AI", one row under it, wore `ph-text-aa`."""
+    offenders = [
+        f"{name}: {match.group(0)}"
+        for name, text in JS.items()
+        for match in re.finditer(r'["`]ph:([\w-]+) [^"`\n]*\bwith AI\b', text)
+        if match.group(1) != AI_ICON
+    ]
+    assert not offenders, "a control that names the AI wears ph-sparkle:\n  " + "\n  ".join(offenders)
+
+
+def test_ask_and_agent_wear_the_two_glyphs_in_the_chat_dock() -> None:
+    ask = re.search(r'<button data-chat-mode="chat"[^>]*>\s*<i class="ph (ph-[\w-]+)', HTML)
+    agent = re.search(r'<button data-chat-mode="agent"[^>]*>\s*<i class="ph (ph-[\w-]+)', HTML)
+    assert ask and ask.group(1) == f"ph-{AI_ICON}", ask and ask.group(1)
+    assert agent and agent.group(1) == f"ph-{AGENT_ICON}", agent and agent.group(1)
+    assert f'ph-{AGENT_ICON} ph-lead" aria-hidden="true"></i> Agent activity' in HTML
+
+
+def test_design_md_has_the_ai_and_agent_row() -> None:
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    at = design.index("| AI and agent icons")
+    row = design[at : design.index("\n", at)]
+    assert f"ph-{AGENT_ICON}" in row and f"ph-{AI_ICON}" in row
+    assert "tests/test_icon_conventions.py" in row

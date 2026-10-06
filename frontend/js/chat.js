@@ -489,7 +489,7 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
   if (usedTools != null) {
     row.appendChild(
       metaItem(usedTools ? "Agent" : "Ask", {
-        icon: usedTools ? "ph:robot" : "ph:chat-circle",
+        icon: usedTools ? "ph:strategy" : "ph:sparkle",
         title: usedTools
           ? `Answered in Agent mode, ${aiNameNow()} could use tools.`
           : "Answered in Ask mode, read-only, no tools used.",

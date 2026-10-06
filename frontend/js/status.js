@@ -296,7 +296,7 @@ $("notif-activity-mode")?.addEventListener("change", async (event) => {
 const NOTIFICATION_ICONS = {
   reminder: "ph:alarm",
   task: "ph:gear",
-  run: "ph:lightning",
+  run: "ph:strategy",
   error: "ph:warning",
   export: "ph:download-simple",
   assist: "ph:sparkle",
@@ -2335,7 +2335,7 @@ function renderStatusBar() {
   if (agent) {
     agent.replaceChildren();
     const glyph = document.createElement("i");
-    glyph.className = "ph ph-magic-wand";
+    glyph.className = "ph ph-strategy";
     glyph.setAttribute("aria-hidden", "true");
     const word = document.createElement("span");
     //: UX-07: the name of the dialog it opens; "Ask" is Notes' and Chat's.
@@ -2351,7 +2351,7 @@ function renderStatusBar() {
   }
 
   //: The Guide, built the same way one control along (INBOX 207): it left the
-  //: header cluster with the wand, and the pair belongs together, one does
+  //: header cluster with the agent's button, and the pair belongs together, one does
   //: things to your notes and the other explains the app. A compass rather
   //: than the header's '?', because a '?' beside a labelled word reads as
   //: help about the word.

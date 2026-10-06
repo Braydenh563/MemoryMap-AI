@@ -1638,7 +1638,7 @@ function entryItem(entry, options = {}) {
         kebabMenu(
           [
             {
-              label: "ph:magic-wand File by meaning now",
+              label: "ph:sparkle File by meaning now",
               title: "Stop waiting for Atlas and file it by what it's about",
               run: stop("fallback", (category) => `Filed under “${category}” by meaning.`),
             },

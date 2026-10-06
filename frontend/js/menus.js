@@ -1588,7 +1588,7 @@ function buildMenuGroupButton(label, subItems) {
   const labelSpan = document.createElement("span");
   // setLabel, not textContent: these three group triggers ("AI actions",
   // "Connect", "Add") were the one label sink the sweep missed, so the note
-  // kebab menu rendered the literal text "ph:magic-wand AI actions".
+  // kebab menu rendered the literal text "ph:sparkle AI actions".
   setLabel(labelSpan, label);
   const arrow = document.createElement("span");
   arrow.className = "menu-submenu-arrow";
@@ -1874,7 +1874,7 @@ function entryOverflowMenu(entry) {
         run: () => reevaluateEntry(entry),
       },
       {
-        label: "ph:magic-wand Improve writing",
+        label: "ph:sparkle Improve writing",
         title: "Proofread or rewrite this note with AI",
         run: async () => {
           if (!(await openNoteEditor(entry.id))) return;
@@ -1887,7 +1887,7 @@ function entryOverflowMenu(entry) {
         // Recognising a title the note already wrote (a leading `# Heading`)
         // is free; writing one costs a real model call, so it's this
         // separate, on-request action rather than something automatic.
-        label: entry.title ? "ph:magic-wand Regenerate title" : "ph:magic-wand Generate title",
+        label: entry.title ? "ph:sparkle Regenerate title" : "ph:sparkle Generate title",
         title: "Write a short title for this note with AI",
         run: () => generateEntryTitle(entry),
       },
@@ -2119,7 +2119,7 @@ function entryOverflowMenu(entry) {
     //: A private note never goes to a model: the server refuses retitling
     //: and re-filing one, so the menu does not offer what would only toast
     //: a refusal (sweep 1004).
-    if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
+    if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:sparkle AI actions", aiItems));
     menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
     menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
     menu.appendChild(rule());

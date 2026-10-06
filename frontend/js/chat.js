@@ -2275,7 +2275,7 @@ const KEEP_RECENT_TURNS = 2;
 async function compressChatContext() {
   const covered = chatConv.turns.length - KEEP_RECENT_TURNS;
   if (covered < 2) {
-    toast("There isn't enough conversation to compress yet.", true);
+    toast("There isn't enough conversation to compress yet.");
     return;
   }
   const button = $("chat-compress");

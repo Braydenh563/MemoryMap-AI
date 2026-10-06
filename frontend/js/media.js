@@ -636,7 +636,7 @@ async function toggleDictation(button, targetInput) {
     voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
   }
   if (!voiceStatus.available) {
-    toast(voiceStatus.hint || "Voice capture isn't available.", true);
+    toast(voiceStatus.hint || "Voice capture isn't available.");
     return;
   }
   let stream;

@@ -10,7 +10,8 @@
 // the row's edge, the reader dot and popover, Read's menu, the ⋯ menu's
 // Manage, rings not clipped, the arrows on the rail and the reading, a
 // re-read that keeps the page, and Ask attaching a chip with an empty
-// composer. Prints PASS/FAIL lines and the numbers; exits 1 on a FAIL.
+// composer. MODE=smooth measures the interactions instead (see smooth()).
+// Prints PASS/FAIL lines and the numbers; exits 1 on a FAIL.
 const { boot } = require("./lib.js");
 
 const W = Number(process.env.W || 1440);
@@ -22,7 +23,7 @@ function check(label, ok, detail) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${label}${detail !== undefined ? `  ${detail}` : ""}`);
 }
 
-(async () => {
+async function main() {
   const phone = W < 600;
   const { browser, page } = await boot({
     viewport: { width: W, height: phone ? 844 : 900 },
@@ -283,7 +284,141 @@ function check(label, ok, detail) {
 
   await browser.close();
   process.exit(failures ? 1 : 0);
-})().catch((error) => {
+}
+
+// MODE=smooth (INBOX 717 item 5): the interactions on a stored three-page
+// reading. Page switching (does the reading pane empty, does it follow the
+// page), a re-read keeping the selected section, zoom keeping its centre, the
+// arrows on the reading, and typing in a reading never turning the page.
+const LONG = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of a long page.`).join("\n\n");
+
+async function smooth() {
+  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
+  // Three stored pages, each long enough to scroll the reading pane.
+  await page.route("**/page-reads*", (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    return route.fulfill({ json: { pages: [0, 1, 2].map((p) => ({ page: p, text: `Page ${p + 1}.\n\n${LONG}`, caption: "" })), message: "" } });
+  });
+  await page.route("**/ocr-page-read*", (route) =>
+    route.fulfill({ json: { text: `Page 2 again.\n\n${LONG}`, model: "test-reader" } }));
+  const make = await (await browser.newContext()).newPage();
+  await make.setContent(`<style>div{page-break-after:always;font:28px Georgia;padding:60px}</style>
+    <div>One</div><div>Two</div><div>Three</div>`);
+  const pdf = (await make.pdf({ format: "A4" })).toString("base64");
+  const media = await page.evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const fd = new FormData();
+    fd.append("file", new File([bytes], `smooth-${Date.now()}.pdf`, { type: "application/pdf" }));
+    fd.append("direct", "true");
+    const r = await fetch("/media/upload", { method: "POST", body: fd, headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() } });
+    return r.json();
+  }, pdf);
+  await page.evaluate(() => switchTab("library"));
+  await page.waitForTimeout(1200);
+  await page.evaluate(async (m) => {
+    const row = await apiJson(`/media/meta/${encodeURIComponent(m.url.split("/").pop())}`);
+    openOcrWorkspace({ ...row, _isImage: true }, []);
+  }, media);
+  await page.waitForTimeout(2500);
+
+  // Page switching: sample the reading pane every frame while page 2 loads.
+  const turn = await page.evaluate(async () => {
+    const list = document.getElementById("ocr-region-list");
+    const samples = [];
+    let sampling = true;
+    const tick = () => {
+      samples.push(list.children.length);
+      if (sampling) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    document.getElementById("ocr-next-page").click();
+    await new Promise((r) => setTimeout(r, 1500));
+    sampling = false;
+    const current = list.querySelector(".ocr-region.is-current-page");
+    const lr = list.getBoundingClientRect();
+    const cr = current?.getBoundingClientRect();
+    return {
+      emptyFrames: samples.filter((n) => n === 0).length,
+      frames: samples.length,
+      current: current?.dataset.page,
+      inView: cr ? cr.top >= lr.top - 1 && cr.top < lr.bottom : false,
+    };
+  });
+  check("turning the page never empties the reading pane", turn.emptyFrames === 0, `${turn.emptyFrames} of ${turn.frames} frames empty`);
+  check("the reading follows the page", turn.current === "1" && turn.inView, JSON.stringify(turn));
+
+  // A re-read keeps the selected section and where the pane was scrolled.
+  const reread = await page.evaluate(async () => {
+    const list = document.getElementById("ocr-region-list");
+    const row = list.querySelector('.ocr-region[data-page="1"]');
+    row.click();
+    list.scrollTop = Math.min(list.scrollHeight - list.clientHeight, row.offsetTop + 40);
+    const before = list.scrollTop;
+    const index = row.dataset.index;
+    document.getElementById("ocr-read-page").click();
+    await new Promise((r) => setTimeout(r, 1500));
+    return {
+      before,
+      after: list.scrollTop,
+      selected: list.querySelector(".ocr-region.is-active")?.dataset.index,
+      index,
+    };
+  });
+  check("a re-read keeps the selected section", reread.selected === reread.index, JSON.stringify(reread));
+
+  // Zoom keeps the point at the centre of the page pane.
+  const zoom = await page.evaluate(async () => {
+    const pane = document.getElementById("ocr-page-pane");
+    ocrSetZoom(2);
+    await new Promise((r) => setTimeout(r, 300));
+    pane.scrollTop = (pane.scrollHeight - pane.clientHeight) / 2;
+    pane.scrollLeft = (pane.scrollWidth - pane.clientWidth) / 2;
+    const centre = () => ({
+      x: (pane.scrollLeft + pane.clientWidth / 2) / pane.scrollWidth,
+      y: (pane.scrollTop + pane.clientHeight / 2) / pane.scrollHeight,
+    });
+    const before = centre();
+    ocrStepZoom(1);
+    await new Promise((r) => setTimeout(r, 300));
+    const after = centre();
+    ocrSetZoom(null);
+    return { before, after, drift: Math.max(Math.abs(before.x - after.x), Math.abs(before.y - after.y)) };
+  });
+  check("a zoom step keeps the centre of the page", zoom.drift < 0.03, JSON.stringify(zoom));
+
+  // The arrows walk the reading's sections; Enter goes to its page.
+  const keys = await page.evaluate(async () => {
+    const list = document.getElementById("ocr-region-list");
+    const first = list.querySelector(".ocr-region");
+    first.focus();
+    first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    const moved = document.activeElement?.dataset.index;
+    document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    const end = document.activeElement?.dataset.page;
+    document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 1200));
+    const stops = [...list.querySelectorAll(".ocr-region")].filter((r) => r.tabIndex === 0).length;
+    return { moved, end, page: ocrWorkspacePage, stops };
+  });
+  check("arrows walk the sections, one tab stop, Enter turns to the page",
+    keys.moved === "1" && keys.end === "2" && keys.page === 2 && keys.stops === 1, JSON.stringify(keys));
+
+  // Typing in a section never turns the page.
+  const typing = await page.evaluate(async () => {
+    const text = document.querySelector("#ocr-region-list .ocr-region-text");
+    text.focus();
+    const at = ocrWorkspacePage;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+    return { before: at, after: ocrWorkspacePage };
+  });
+  check("Left arrow in a reading's text moves the caret, not the page", typing.before === typing.after, JSON.stringify(typing));
+
+  await browser.close();
+  process.exit(failures ? 1 : 0);
+}
+
+(process.env.MODE === "smooth" ? smooth : main)().catch((error) => {
   console.error(error);
   process.exit(1);
 });

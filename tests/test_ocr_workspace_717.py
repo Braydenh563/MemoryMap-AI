@@ -55,7 +55,7 @@ def _markup() -> str:
 def _body(source: str, name: str) -> str:
     match = re.search(rf"(?:async )?function {name}\(", source)
     assert match, name
-    depth, i = 0, source.index("{", match.end())
+    depth, i = 0, source.index(") {", match.end()) + 2
     for j in range(i, len(source)):
         depth += {"{": 1, "}": -1}.get(source[j], 0)
         if depth == 0:
@@ -244,3 +244,15 @@ def test_rapidocr_is_a_choice_in_the_reader_popover():
     assert "prefs.get(OCR_READER_KEY" in loader
     assert "prefs.set(OCR_READER_KEY" in LIBRARY
     assert 'reader === "rapidocr" ? "&engine=rapidocr"' in _body(LIBRARY, "ocrRegionsUrl")
+
+
+def test_turning_a_page_and_zooming_keep_the_reader_s_place():
+    """Measured by `ocr717.js MODE=smooth`: a page turn emptied the reading
+    for 11 of 91 frames, and one zoom step moved the view's centre from 50% of
+    the page to 33%. Another page of the same file keeps its reading until the
+    answer replaces it; a zoom keeps its centre; a rebuild keeps the selection."""
+    load = _body(LIBRARY, "ocrLoadPage")
+    assert "sameFile" in load and 'if (!sameFile) $("ocr-region-list").replaceChildren();' in load
+    assert "ocrKeepCentre(() => ocrApplyZoom())" in _body(LIBRARY, "ocrSetZoom")
+    assert "ocrKeepCentre(() => ocrApplyZoom())" in _body(LIBRARY, "ocrStepZoom")
+    assert "ocrActiveRegion" in _body(LIBRARY, "ocrRenderRegions")

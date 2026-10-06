@@ -3888,7 +3888,13 @@ function ocrSyncStopButton() {
   button.classList.toggle("hidden", !record || !record.controller);
 }
 
+//: The section last selected, by page and index, so a re-read or a page turn
+//: that rebuilds the list puts the selection back (INBOX 717).
+let ocrActiveRegion = null;
+
 function ocrSelectRegion(index) {
+  const chosen = document.querySelector(`#ocr-region-list .ocr-region[data-index="${Number(index)}"]`);
+  ocrActiveRegion = chosen ? { index: Number(index), page: chosen.dataset.page } : null;
   for (const box of document.querySelectorAll("#ocr-boxes .ocr-box")) {
     box.classList.toggle("is-active", Number(box.dataset.index) === index);
   }
@@ -4387,6 +4393,13 @@ function ocrRenderRegions(body) {
     //: warning's colours, over a state that is not a fault.
     source.hidden = true;
   }
+  if (ocrActiveRegion) {
+    const again = list.querySelector(
+      `.ocr-region[data-index="${ocrActiveRegion.index}"][data-page="${ocrActiveRegion.page}"]`
+    );
+    again?.classList.add("is-active");
+    document.querySelector(`#ocr-boxes .ocr-box[data-index="${ocrActiveRegion.index}"]`)?.classList.add("is-active");
+  }
   ocrRoveSync(list, ".ocr-region");
   //: A find that survives a re-read: the rows were just rebuilt, so the filter
   //: has to be re-applied or a typed query silently stops filtering the moment
@@ -4790,6 +4803,11 @@ function ocrDocumentReading(body, storedPages, storedMessage) {
 }
 
 async function ocrLoadPage(image, page = 0, opts = {}) {
+  //: Another page of the same file keeps its reading on screen until the new
+  //: answer replaces it (INBOX 717, measured: turning a page of a stored
+  //: three-page reading emptied the pane for 11 of 91 frames, and the list's
+  //: scroll position went with it). A different file starts empty.
+  const sameFile = Boolean(ocrWorkspaceCurrent) && ocrRailKey(ocrWorkspaceCurrent) === ocrRailKey(image);
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
   //: Whatever page descriptions are on screen belong to the *previous* load.
@@ -4857,12 +4875,14 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   //: reads as "it stopped when I closed the window", which is exactly what
   //: was reported.
   const running = ocrReadInFlight(image);
-  $("ocr-message").textContent = running
-    ? `${running.label}: this keeps running if you close this window.`
-    : "Reading the page…";
-  $("ocr-message").classList.remove("hidden");
+  if (running || !sameFile) {
+    $("ocr-message").textContent = running
+      ? `${running.label}: this keeps running if you close this window.`
+      : "Reading the page…";
+    $("ocr-message").classList.remove("hidden");
+  }
   $("ocr-boxes").replaceChildren();
-  $("ocr-region-list").replaceChildren();
+  if (!sameFile) $("ocr-region-list").replaceChildren();
   //: **The read button is not a PDF button.** Asked for directly: *"make it not
   //: just reading text on the page but truly ... an all encompassing text and
   //: image ocr workspace, dont limit the feature."* It was hidden outright for
@@ -5668,8 +5688,24 @@ function ocrStepZoom(direction) {
       ? steps.find((step) => step > ocrZoom + 0.001)
       : [...steps].reverse().find((step) => step < ocrZoom - 0.001);
   ocrZoom = next ?? ocrZoom;
-  ocrApplyZoom();
+  ocrKeepCentre(() => ocrApplyZoom());
   ocrSyncZoomButtons();
+}
+
+//: **A zoom keeps what you were looking at in the middle** (INBOX 717,
+//: measured: one step in from 200% moved the pane's centre from 50% of the
+//: page to 33%, so the line being read slid off towards the bottom right).
+//: The centre is kept as a fraction of the content and put back after the
+//: page has its new size.
+function ocrKeepCentre(apply) {
+  const pane = $("ocr-page-pane");
+  if (!pane) return apply();
+  const x = (pane.scrollLeft + pane.clientWidth / 2) / Math.max(1, pane.scrollWidth);
+  const y = (pane.scrollTop + pane.clientHeight / 2) / Math.max(1, pane.scrollHeight);
+  apply();
+  pane.scrollLeft = x * pane.scrollWidth - pane.clientWidth / 2;
+  pane.scrollTop = y * pane.scrollHeight - pane.clientHeight / 2;
+  return undefined;
 }
 
 //: The strip describes one state, so it is painted from it rather than each
@@ -6579,7 +6615,7 @@ async function ocrOpenReaderSettings() {
 //: One way to set the zoom from anywhere (the strip, the keys, the menu).
 function ocrSetZoom(level) {
   ocrZoom = level;
-  ocrApplyZoom();
+  ocrKeepCentre(() => ocrApplyZoom());
   ocrSyncZoomButtons();
 }
 

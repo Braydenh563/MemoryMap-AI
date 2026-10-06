@@ -1447,7 +1447,7 @@ def test_an_act_or_a_walk_is_let_go_not_dropped():
     keyframe, since a lone keyframe is the end), off the pacer, and not
     under reduced motion; the companion's expressions cross over 0.6s."""
     blend = _fn("nameMarkBuddyBlend")
-    assert "nameMarkIdleQuiet()" in blend and "{ ...from, offset: 0 }" in blend
+    assert "nameMarkIdleQuiet()" in blend and "{ ...moved, offset: 0 }" in blend
     assert 'id: "nmb-blend"' in blend
     assert "nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in _fn("nameMarkBuddyAct")
     assert 'nameMarkBuddyBlend(buddy, () => buddy.classList.remove("nmb-walking"));' in AV
@@ -1577,7 +1577,7 @@ def test_inbox_669_a_turn_hands_back_about_the_point_it_turned_on() -> None:
     blend = _fn("nameMarkBuddyBlend")
     held = blend.index("held.push({ anim, el, from });")
     assert 'from.transformOrigin = style.transformOrigin;' in blend[:held]
-    assert "el.animate([{ ...from, offset: 0 }]" in blend
+    assert "el.animate([{ ...moved, offset: 0 }]" in blend
 
 
 def test_inbox_669_a_lean_held_by_a_rule_is_eased_back_too() -> None:

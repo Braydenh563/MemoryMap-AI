@@ -7790,8 +7790,12 @@ function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
   const eased = new Set();
   for (const { anim, el, from } of held) {
     if (el.getAnimations().includes(anim)) continue;
+    //: Only what moved (the body's note below says why).
+    const style = getComputedStyle(el);
+    const moved = Object.fromEntries(Object.keys(from).filter((key) => style[key] !== from[key]).map((key) => [key, from[key]]));
+    if (!Object.keys(moved).length) continue;
     //: `offset: 0`: a lone keyframe with none is the end, not the start.
-    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    el.animate([{ ...moved, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
     eased.add(el);
   }
   for (const { el, from } of bodies) {

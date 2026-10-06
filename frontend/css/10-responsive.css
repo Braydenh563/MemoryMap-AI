@@ -921,6 +921,31 @@ header#top-bar[data-scrolled="1"],
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
 }
 
+/* **The way out** (a sheet used to vanish in one frame, where a menu fades).
+   `openSheet` adds `.sheet-leaving` and removes the overlay once --motion-fast
+   has run (`close` reads the computed duration, so it is 0 and the removal is
+   at once under the reduced-motion hint and Interface animations "reduced",
+   both of which zero every transition). Opacity and a short drop only: no
+   layout. It takes no press while it leaves. */
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-overlay {
+    transition: opacity var(--motion-fast) var(--ease-out);
+  }
+
+  .sheet-overlay .sheet-card {
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+
+  .sheet-overlay.sheet-leaving {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sheet-overlay.sheet-leaving .sheet-card {
+    transform: translateY(var(--space-4));
+  }
+}
+
 /* Two classes: `.card h2` (a class and a tag) out-ranked a bare
    `.sheet-title` and kept its 9.6px bottom margin, so every sheet's title
    sat 4.8px above its X (sheetheads.js: New reminder, a category split). */
@@ -1250,7 +1275,29 @@ header#top-bar[data-scrolled="1"],
     padding-left: 0;
     border-left: 0;
   }
+
+  /* **The bar's targets are 44 CSS pixels, not 2.75rem** (OPEN.md, from the
+     last round: at 360 with Text size Large and Density Spacious the shell
+     was 368px wide and every tab scrolled sideways by 8px). The floor is a
+     rem, so Large text (18px root) made it 49.5px, and the phone header holds
+     six of them (the space switcher, Back, Undo, the AI dot, the bell, More)
+     beside a switcher wider than a square: 353px of controls in the 331 a
+     360 window leaves. A finger does not grow with the caption size, and 44
+     is the floor the band is built on; Small and Normal were already at or
+     under it, so only Large changes. The dock's own five columns are
+     proportional and were never the cause: they only followed the layout
+     viewport the header had stretched. Measured with `shellwidth.js`. */
+  header#top-bar {
+    --target-min: min(2.75rem, 44px);
+    /* The same cap on the height the bar's squares are levelled to, which
+       is also their minimum width (05-sidebars-themes.css, `icon-only`). */
+    --header-control-h: min(calc(var(--control-h-body) + 0.5rem), 44px);
+  }
 }
+
+/* The below-360 half of this fix (the bar's padding and gaps step down, the
+   targets never do) lives in 07-whiteboard-misc.css's one `max-width: 359.98px`
+   query: test_breakpoints.py allows exactly one of that width. */
 
 /* --- Phase 11 item 12: the status bar on a tablet is a touch bar ------------
    From 600 to 819 the pointer is a finger (this file's band 2 rule), and the

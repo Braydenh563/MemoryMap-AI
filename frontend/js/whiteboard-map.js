@@ -1666,6 +1666,19 @@ function wbMapInlineText(el, raw) {
   }
 }
 
+//: **The topic's current object, not the one its handlers were built with.**
+//: `wbBuildMapNode` runs once, when a node enters, and its handlers close over
+//: that `d`; a state refresh (`fetchWhiteboardState`, an undo, a reload of the
+//: board) replaces the object instances and d3 hands the node the new one, but
+//: the closures keep the old. The resize grip then read a size the node no
+//: longer had (found by `mapstrip.js`: a plain drag after "Back to the branch"
+//: put the cleared 25px text size back, and saved the old object's data over
+//: the new), and the link and reference doors opened the old target. Looked up
+//: by id at the moment of use.
+function wbMapLiveDatum(d) {
+  return (wbState.objects || []).find((o) => o.id === d.id) || d;
+}
+
 //: The static half of a map node, built once as the node enters the DOM.
 //:
 //: Everything that changes while a map is edited, text, colour, the chevron's
@@ -1780,7 +1793,7 @@ function wbBuildMapNode(el, d) {
     .on("pointerdown", (event) => event.stopPropagation())
     .on("click", (event) => {
       event.stopPropagation();
-      wbMapOpenLink(d);
+      wbMapOpenLink(wbMapLiveDatum(d));
     })
     .append("i").attr("class", "ph ph-link").attr("aria-hidden", "true");
 
@@ -1858,7 +1871,7 @@ function wbBuildMapNode(el, d) {
   } else {
     el.on("dblclick", (event) => {
       event.stopPropagation();
-      wbMapOpenReference(d);
+      wbMapOpenReference(wbMapLiveDatum(d));
     });
   }
 
@@ -1931,7 +1944,7 @@ function wbBuildMapNode(el, d) {
     .on("pointerdown", function (event) {
       event.stopPropagation();
       event.preventDefault();
-      wbMapStartResizeDrag(this, event, d);
+      wbMapStartResizeDrag(this, event, wbMapLiveDatum(d));
     });
 
   //: **Two ways to grow the map, in one row.** `+` makes a topic; the second

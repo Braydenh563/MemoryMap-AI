@@ -225,6 +225,9 @@ SHEET_RECIPE = {
     # The note page (UI Phase 11 item 2): full height, a back chevron.
     "sheet-page",
     "sheet-card-page",
+    # The way out: `openSheet`'s close adds it for --motion-fast, then removes
+    # the overlay (no exit under reduced motion).
+    "sheet-leaving",
 }
 
 

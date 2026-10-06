@@ -780,6 +780,9 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Phone header: at 360 wide with Text size Large and Density Spacious the shell was 368px wide and every tab scrolled sideways by 8px; the header's targets stay 44px in Large text and below 360 its padding and gaps step down, so the page no longer scrolls sideways at 320, 360 and 390 in any text size or density.
+- Phone action sheets (a ⋯ at 390) leave with the same short fade the menus have on Escape, on a press outside and on a row, instead of vanishing in one frame; nothing animates when Interface animations is set to reduced.
+- Mind maps: a topic's resize grip, link and reference doors now use the topic as it is now; after the map had refreshed, a plain drag of the grip put a cleared text size back and saved the older copy of the topic.
 - Mind maps: the left rail shows This map and Outline however the map was opened; from the board picker or straight after New board it kept a whiteboard's Notes, Layers and Pages, which only went back to Library (INBOX 657).
 - Mind maps: dragging a line's curve is undone by Ctrl+Z; the undo step used to hold the new curve (INBOX 658).
 - Timeline: the table's header row and the feed's date headers are opaque again when the list scrolls under them; their base layer had never painted, so rows showed through the labels (INBOX 655).

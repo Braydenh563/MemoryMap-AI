@@ -46012,3 +46012,12 @@ and refuses a topic ("Select a shape, link or text box first").
      connected" banner and a skill offer): "I pressed the comment button on the
      ocr workspace and idk what just happened". Placed: Opus agent.
 
+719. **The owner, 2026-10-06, verbatim**, with a screenshot of Notes in
+     compact rows (every row's metadata ends about 200px short of the row's
+     right edge): "blank space on right of compact rows view and when hovering
+     over the rows, the cursor is the text type cursor, not pointer". Then, with
+     the card view (the date sits at a different height on each card, pushed
+     down under the hover actions on one): "the last created or edited date
+     changes position each note, I think it should be consistent in the corner
+     or smth". Placed: Sonnet agent.
+

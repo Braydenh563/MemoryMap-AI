@@ -67,15 +67,6 @@ with its owner named in the entry.
      cut pill bottoms) is still open; 694 is not resolved.
 
 
-719. **The owner, 2026-10-06, verbatim**, with a screenshot of Notes in
-     compact rows (every row's metadata ends about 200px short of the row's
-     right edge): "blank space on right of compact rows view and when hovering
-     over the rows, the cursor is the text type cursor, not pointer". Then, with
-     the card view (the date sits at a different height on each card, pushed
-     down under the hover actions on one): "the last created or edited date
-     changes position each note, I think it should be consistent in the corner
-     or smth". Placed: Sonnet agent.
-
 722. **The owner, 2026-10-06, verbatim**, with screenshots of the Library's
      Everything tab in its lines view (each row starts about 110px in, an empty
      square box beside the hovered row's ⋯, and every row's ⋯ drawn as a filled,

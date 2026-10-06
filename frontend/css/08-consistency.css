@@ -9284,11 +9284,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   padding-block: var(--space-3);
 }
 
-@media (hover: hover) {
-  #entry-list.entry-list.is-rows > li:not(:has(textarea)) {
-    padding-inline-end: 6.5rem;
-  }
-}
+/* **No width is kept back for the hover actions** (INBOX 719, the owner:
+   "blank space on right of compact rows view"). A `padding-inline-end:
+   6.5rem` here held 104px at the end of every row at rest for the strip that
+   appears on hover, which is `position: absolute` and costs no width, so the
+   metadata lane ended 104px short of the row's edge on every row (measured at
+   1440 in Chromium). The lane runs to the row's padding
+   edge now and the time is its last item, one column down the list; on hover
+   the strip overlays the end of the row. */
 
 /* The corner sits on the row's first line (INBOX 676), not the row's
    middle: `top: 50%` put the cluster's *top* at the middle, so it hung half
@@ -9303,6 +9306,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #entry-list.is-rows > li .entry-meta-end > .entry-actions {
     top: 0;
     transform: translateY(-50%);
+    /* The strip ends inside the row's padding edge, where the time ends, so
+       none of the time's last glyph shows past it (measured: the strip's edge
+       was 17.6px in, the time's 16, which left a sliver of the "o" of "ago"
+       beside the ⋯). The corner box already sits `--space-4` in. */
+    right: var(--space-1);
   }
 }
 
@@ -11317,11 +11325,22 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   transform: translateY(-50%);
 }
 
-/* The open row's title is that same line, centred in it. */
+/* The open row's title is that same line, centred in it. Its end stays
+   clear of the hover strip, which overlays the row's top-right corner (five
+   targets wide: star, copy, edit, ⋯ and their gaps, INBOX 719). */
 #entry-list.is-rows > li.row-expanded > .entry-title {
   display: flex;
   align-items: center;
   min-height: var(--target-min);
+  padding-inline-end: calc(var(--target-min) * 5);
+}
+
+/* A collapsed row's preview is one line in its own grid column, nowhere near
+   the strip, so the float that keeps an opened card's first line out from
+   under it (`.entry-content::before`, above) would only cut 104px off the
+   preview's end for nothing. */
+#entry-list.is-rows > li:not(.row-expanded) > .entry-content::before {
+  display: none;
 }
 
 /* 3. One chevron. `aria-expanded="true"` is the icon button's "on" recipe
@@ -11443,4 +11462,54 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 
 :is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
   background: var(--ghost-btn-bg);
+}
+
+/* --- A row is a pointer target (INBOX 719) ---
+   The owner: "when hovering over the rows, the cursor is the text type
+   cursor, not pointer". Measured: `cursor: auto` on every row, which draws
+   the I-beam over any text under the pointer. A click on a compact row's body
+   opens or closes it (`li.addEventListener("click")`, note-cards.js), so the
+   whole row says so. Cards do nothing on a click, so they keep the plain
+   cursor; select mode, where the whole card is the checkbox, already has the
+   pointer (`.entry-list li.selectable`). An opened row's own text is real,
+   selectable text (a selection stands the click down), so it keeps the text
+   cursor there, and the row's buttons and chips keep their own. */
+#entry-list.is-rows > li:not(:has(textarea)) {
+  cursor: pointer;
+}
+
+#entry-list.is-rows > li.row-expanded > .entry-content {
+  cursor: auto;
+}
+
+/* --- A card's date is in the same corner on every card (INBOX 719) ---
+   The owner: "the last created or edited date changes position each note, I
+   think it should be consistent in the corner". It is the last item of the
+   card's details line, pushed to the card's bottom-right, and measured at
+   1440 it was 17px from the right and 7.4px from the bottom on every card
+   but two kinds, both fixed here (measured in Chromium):
+
+   1. **A note that is only a title** sat 104px to the left of the rest. The
+      actions' float (`.entry-content::before`, 6.5rem by 1em) belongs in the
+      body paragraph, and a title-only note leaves that paragraph empty, so
+      the float had no line to sit in, escaped the paragraph, and narrowed
+      the details line under it (a flex container avoids floats) by its
+      width. An empty body keeps no float.
+   2. **A one-line note** was 71px tall: the hover strip (17px to 46px from
+      the card's top) ended 6px below the date's top, so on hover the date
+      read as pushed down under the buttons. The strip's offset was counted
+      twice: `.entry-meta-end` is the positioned corner (`top: --space-3`) and
+      the strip inside it asked for `top: --space-3` again. It sits in the
+      corner itself now (9px to 38px), clear of the date line on the
+      shortest card, and the date is not moved to make room. Touch has its
+      own lane for the strip above the text (`padding-top`,
+      06-timeline-dialogs.css), and keeps what it measured. */
+#entry-list > li > .entry-content:empty::before {
+  display: none;
+}
+
+@media (hover: hover) {
+  #entry-list:not(.is-rows) > li .entry-meta-end > .entry-actions {
+    top: 0;
+  }
 }

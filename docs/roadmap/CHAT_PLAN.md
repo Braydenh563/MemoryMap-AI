@@ -523,3 +523,19 @@ Rules: the 725 constraints (every fact quoted or measured, a fixed tested
 phrasebook, offline, deterministic) hold everywhere; one style guide for the
 app's voice in DESIGN.md; each surface gets a measured eval like 725's.
 
+Addenda, the owner, 2026-10-06, verbatim: "also the composer could be used to
+write better and cheaper followup questions, suggested search results, auto
+fills, suggested stuff and more"; "the composer can assist the ai and
+complement features"; "the ai still should be used as the chat bot when it is
+available". So:
+
+8. **Cheap suggestions**: follow-up questions, suggested searches, autofill
+   (titles, tags, reminder wording, link reasons) composed first; a model is
+   asked only where it adds something the composer cannot.
+9. **The composer assists the model, never replaces it**: when a model is
+   running it is the chat bot; the composer supplies the grounded material
+   (the selected sentences, their order, the measured values) as the
+   model's context, checks the model's answer against the notes, and fills
+   in instantly while the model streams. With no model, the composer answers
+   on its own (INBOX 725).
+

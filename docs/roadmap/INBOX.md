@@ -88,6 +88,12 @@ with its owner named in the entry.
      picture in…"; titles cut mid-word; a capital after a comma): "its alright but
      it could definitely be better and be more complex and natural and easier for
      the user to understand." Goes with CHAT_PLAN Phase 5 and decisions 23-29.
+     Again, verbatim: "it just uses one word sentence joints and has no life or
+     complexity to it, and it needs improving and making better." Concretely: the
+     joins are single adverbs ("Separately,", "Later,", "Elsewhere,"); titles are
+     cut mid-word; quotes repeat their own titles; a capital follows a comma; no
+     summary sentence ties the notes together ("Your hobbies notes cover gaming,
+     the gym and golf"). First items for the next composer session.
 
 730. **The owner, 2026-10-06, verbatim**: "also would the composer be able to
      somewhat accurately put new notes into a category using meaning similarity,

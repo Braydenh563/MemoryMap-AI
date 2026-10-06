@@ -60,3 +60,18 @@ def test_an_opened_row_keeps_its_title_clear_of_the_actions():
     block = _block(css, "#entry-list.is-rows > li.row-expanded > .entry-title")
     assert "padding-inline-end: 6.5rem" not in block
     assert "padding-inline-end:" in block
+
+
+def test_a_row_is_a_pointer_target_where_a_click_opens_it():
+    css = _css()
+    block = _block(css, "#entry-list.is-rows > li:not(:has(textarea))")
+    assert "cursor: pointer" in block
+    # The opened row's own text is real, selectable text: it keeps its cursor.
+    body = _block(css, "#entry-list.is-rows > li.row-expanded > .entry-content")
+    assert "cursor: auto" in body
+
+
+def test_cards_keep_the_text_cursor_and_select_mode_keeps_the_pointer():
+    css = _css()
+    assert re.search(r"\.entry-list li\.selectable\s*\{[^}]*cursor:\s*pointer", css)
+    assert not re.search(r"#entry-list:not\(\.is-rows\)\s*>\s*li\s*\{[^}]*cursor:\s*pointer", css)

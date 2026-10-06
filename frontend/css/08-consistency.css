@@ -11466,3 +11466,21 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
   background: var(--ghost-btn-bg);
 }
+
+/* --- A row is a pointer target (INBOX 719) ---
+   The owner: "when hovering over the rows, the cursor is the text type
+   cursor, not pointer". Measured: `cursor: auto` on every row, which draws
+   the I-beam over any text under the pointer. A click on a compact row's body
+   opens or closes it (`li.addEventListener("click")`, note-cards.js), so the
+   whole row says so. Cards do nothing on a click, so they keep the plain
+   cursor; select mode, where the whole card is the checkbox, already has the
+   pointer (`.entry-list li.selectable`). An opened row's own text is real,
+   selectable text (a selection stands the click down), so it keeps the text
+   cursor there, and the row's buttons and chips keep their own. */
+#entry-list.is-rows > li:not(:has(textarea)) {
+  cursor: pointer;
+}
+
+#entry-list.is-rows > li.row-expanded > .entry-content {
+  cursor: auto;
+}

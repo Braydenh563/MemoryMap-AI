@@ -627,6 +627,27 @@ def _log(session, key: str, applied: int, undo: dict) -> AuditLog | None:  # noq
     )
 
 
+def _touched_entry_ids(session, undo: dict) -> list[int]:  # noqa: ANN001
+    """The notes a run (or its undo) changed, read off the undo payload, so
+    the app patches those rows (`refreshEntries(ids)`) and does not read the
+    whole notebook again (tests/test_refresh_entries.py). Reminders are not
+    notes and are not here."""
+    found: set[int] = set()
+    for item in undo.get("links", []):
+        link = session.get(EntryLink, item["id"])
+        if link is not None:
+            found.update((link.source_entry_id, link.target_entry_id))
+    for item in undo.get("unlinked", []):
+        found.update((int(item["source"]), int(item["target"])))
+    found.update(int(key) for key in (undo.get("tags") or {}))
+    found.update(int(item["id"]) for item in undo.get("moved", []))
+    for item in undo.get("merged", []):
+        found.add(int(item["keeper"]))
+        found.update(int(entry_id) for entry_id in item["binned"])
+    found.update(int(entry_id) for entry_id in undo.get("binned", []))
+    return sorted(found)
+
+
 def apply(session, key: str, ids: list[str], level: str | None = None) -> dict:  # noqa: ANN001
     """Act on the ticked rows `review` still finds. One transaction, one log
     row, one undo id. Raises KeyError for an unknown review."""
@@ -646,7 +667,12 @@ def apply(session, key: str, ids: list[str], level: str | None = None) -> dict: 
     row = _log(session, key, applied, undo)
     session.commit()
     link_facts.forget()
-    return {"applied": applied, "undo_id": row.id if row is not None else None, "message": row.detail if row is not None else ""}
+    return {
+        "applied": applied,
+        "undo_id": row.id if row is not None else None,
+        "message": row.detail if row is not None else "",
+        "entry_ids": _touched_entry_ids(session, undo),
+    }
 
 
 def _undo_payload(session, undo: dict) -> int:  # noqa: ANN001
@@ -704,13 +730,15 @@ def undo(session, undo_id: int) -> dict:  # noqa: ANN001
         raise LookupError("No tidy run with that number.")
     if row.payload.get("undone"):
         return {"restored": 0, "message": "Already undone."}
+    stored = row.payload.get("undo") or {}
+    touched = _touched_entry_ids(session, stored)
     with events.acting_as(ACTOR):
-        restored = _undo_payload(session, row.payload.get("undo") or {})
+        restored = _undo_payload(session, stored)
     row.payload = {**row.payload, "undone": True}
     manager.log_action(session, "restored", LOG_ENTITY, None, f"Undid: {row.detail}", payload={"undid": [row.id]})
     session.commit()
     link_facts.forget()
-    return {"restored": restored, "message": f"Undid: {row.detail}"}
+    return {"restored": restored, "message": f"Undid: {row.detail}", "entry_ids": touched}
 
 
 def history(session, limit: int = 20) -> list[dict]:  # noqa: ANN001

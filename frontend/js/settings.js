@@ -4462,8 +4462,11 @@ function renderJobOverview() {
       when.className = "muted task-detail";
       when.textContent = run.schedule || "";
       const go = smallButton("ph:play Run now", `Run ${run.label} now`, async () => {
-        const result = await apiJson(`/jobs/passes/${encodeURIComponent(run.kind)}/run`, { method: "POST" }).catch((e) => ({ started: false, message: e.message }));
-        toast(result.message, !result.started);
+        const result = await apiJson(`/jobs/passes/${encodeURIComponent(run.kind)}/run`, { method: "POST" }).catch((e) => ({ started: false, failed: true, error: e, message: e.message }));
+        //: Already running is an expected answer, a plain toast; a request
+        //: that threw is a fault, the red one.
+        if (result.failed) toast(result.error.message, true);
+        else toast(result.message, "info");
         refreshBackgroundTasks();
       });
       go.classList.add("job-run-now");

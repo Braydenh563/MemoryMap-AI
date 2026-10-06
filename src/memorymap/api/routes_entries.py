@@ -2722,7 +2722,7 @@ class LinkPatchBody(BaseModel):
     link_type: str | None = Field(default=None, max_length=24)
     props: dict | None = None
     #: INBOX 693: true for a link that runs both ways, false for one way,
-    #: null to let its type decide (`manager.link_runs_both_ways`).
+    #: null to let its type decide (`manager.is_two_way_link`).
     two_way: bool | None = None
 
     @field_validator("props")

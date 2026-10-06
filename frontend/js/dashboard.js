@@ -1498,6 +1498,9 @@ function featureCatalog() {
       // central feature." This browser and the command palette are the app's
       // two answers to that, and the reader had been in neither.
       { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
+      //: The reader's own row in Settings, Packages (the target `extra-row`,
+      //: which the OCR workspace's Manage and Install also go to).
+      { name: "Reading engines", desc: "Tesseract and RapidOCR, which read the text in pictures, and whether each is installed.", reveal: "extra-row", arg: "ocr" },
       { name: "Threads", desc: "Continue a thought to build a train of related notes.", reveal: "notes-thread" },
       { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", reveal: "notes-capture" },
       { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },

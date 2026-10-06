@@ -105,7 +105,7 @@ EXPECTED = {
     'library.js': [
         '"A note can\'t be linked to itself."',
         'chosen.said',
-        '"There is nothing to ask about yet."',
+        '"There is nothing to ask about yet. Read the page first."',
         '"There is nothing to copy yet."',
         '"There is nothing to save yet."',
         'updated.message || (image._isImage ? "No description was written. Is a vision model running in Settings > Models?" : "No description was written. Check a model is running in Settings > Models.")',

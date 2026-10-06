@@ -36,6 +36,7 @@ import re
 import shutil
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -626,19 +627,16 @@ def parse_typed_name(text: str) -> tuple[str | None, str]:
     """("hf", repo), ("ollama", name) or (None, why) for a typed name.
 
     owner/name with no tag is a Hugging Face repo; anything with a tag, or
-    no owner, is an Ollama name, checked by the same rules as Settings,
-    Models' "Download another model" (`model_cards.inspect_model_name`)."""
+    no owner, is an Ollama name, which the route checks by the same rules as
+    Settings, Models' "Download another model" (`model_cards.inspect_model_name`;
+    this module may not import `ai.model_cards`, which would close a cycle
+    through the model manager)."""
     text = (text or "").strip()
     if not text or ".." in text or any(ch.isspace() for ch in text):
         return None, "Type a Hugging Face repo (owner/name) or an Ollama name (name:tag)."
     if ":" not in text and _HF_REPO.match(text):
         return "hf", text
-    from memorymap.ai import model_cards
-
-    info = model_cards.inspect_model_name(text)
-    if not info.get("valid"):
-        return None, info.get("error") or "That is not a model name."
-    return "ollama", info["name"]
+    return "ollama", text
 
 
 def hub_metadata(repo: str) -> dict | None:
@@ -771,12 +769,25 @@ def remove(model_id: str) -> tuple[bool, str]:
     return True, f"{model.label} removed. Downloading it again is one click."
 
 
+#: "Is this repo the model search uses right now?", set by `core/deps.py`
+#: (`set_in_use_check`), which owns the model manager. A hook rather than an
+#: import: `deps` builds the embedding service, which reaches this module, and
+#: importing `deps` here closed the cycles
+#: `ai.embeddings -> core.embedmodels -> core.deps -> ai.embeddings` and
+#: `ai.model_manager -> core.embedmodels -> core.deps -> ai.model_manager`
+#: (`tests/test_no_import_cycles.py`). The default, no app (a script), is
+#: that nothing is in use.
+_in_use_check: Callable[[str], bool] = lambda repo: False  # noqa: E731
+
+
+def set_in_use_check(check: Callable[[str], bool]) -> None:
+    global _in_use_check
+    _in_use_check = check
+
+
 def _in_use(repo: str) -> bool:
     try:
-        from memorymap.core import deps
-
-        manager = deps.get_model_manager()
-        return manager.embedding_backend() != "ollama" and manager.embedding_st_model() == repo
+        return bool(_in_use_check(repo))
     except Exception:  # noqa: BLE001  # no app (a script): nothing is in use
         return False
 

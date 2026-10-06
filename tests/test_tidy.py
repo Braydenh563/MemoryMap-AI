@@ -158,8 +158,12 @@ def test_weak_links_lists_generic_weak_links_and_unlinks_with_undo(client, sessi
     done = _apply(client, "weak-links", [rows[0]["id"]])
     assert done["applied"] == 1
     assert session.query(EntryLink).filter_by(target_entry_id=b["id"]).count() == 0
+    #: The notes it touched, so the app patches two rows and does not re-read
+    #: the notebook (tests/test_refresh_entries.py).
+    assert done["entry_ids"] == sorted([a["id"], b["id"]])
 
-    _undo(client, done["undo_id"])
+    undone = _undo(client, done["undo_id"])
+    assert undone["entry_ids"] == done["entry_ids"]
     session.expire_all()
     back = session.query(EntryLink).filter_by(target_entry_id=b["id"]).one()
     assert back.reason == "similar in meaning" and back.reason_confidence == 0.58
@@ -289,6 +293,7 @@ def test_stale_reminders_are_marked_done_with_undo(client, session):
     done = _apply(client, "stale-reminders", [rows[0]["id"]])
     session.expire_all()
     assert session.get(Reminder, old.id).done
+    assert done["entry_ids"] == [], "a reminder is not a note"
     _undo(client, done["undo_id"])
     session.expire_all()
     assert not session.get(Reminder, old.id).done

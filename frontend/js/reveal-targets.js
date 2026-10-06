@@ -507,7 +507,7 @@ const REVEAL_TARGETS = {
   "ai-tool": { settings: "tools", sel: '#tool-list [data-tool="{arg}"]', built: "renderToolSettings", fallback: "settings-tools" },
   // One package's row in Settings, Packages (`extra-row-<id>`, settings-packages.js):
   // the OCR workspace's "RapidOCR, not installed" Install (INBOX 717).
-  "extra-row": { settings: "extras", sel: "#extra-row-{arg}", fallback: "settings-extras" },
+  "extra-row": { settings: "extras", sel: "#extra-row-{arg}", built: "renderExtras", fallback: "settings-extras" },
   "workspace-new": { open: () => openSpaceCreate(), el: "space-create-dialog", flash: false },
 
   // Data and control

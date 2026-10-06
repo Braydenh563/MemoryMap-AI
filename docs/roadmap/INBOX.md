@@ -228,14 +228,6 @@ with its owner named in the entry.
      bullet beside a task box), from one shared rule. Placed: the next free
      Sonnet slot.
 
-711. **The owner, 2026-10-06, verbatim**, with a screenshot of "Leave
-     without saving?" over the Documents list: "I already clicked that
-     button by switching tabs and it appeared again when I tried to go onto
-     the documents?? (I was on a note edit form and tried to switch to the
-     library and go to documents)". Leave confirmed once must settle the
-     edit form (closed, its words kept as the recoverable draft) so the next
-     move does not ask again. Placed: with 710.
-
 712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
      editor's ⋯ menu running past the bottom of the window: "this popup menu
      goes off the bottom of the screen". Every menu is clamped to the window:

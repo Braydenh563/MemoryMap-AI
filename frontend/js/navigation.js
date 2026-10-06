@@ -1683,7 +1683,17 @@ let tabSwitchDeclined = false;
 async function confirmLeavingUnsavedWork(name) {
   tabSwitchDeclined = false;
   if (prefs.get("activeTab", null) === name) return true;
-  if (!hasUnsavedWork()) return true;
+  //: **Only a document can lose words on a tab switch, and it saves first**
+  //: (INBOX 711, the owner: asked again and again after Leave, on a
+  //: document that read Saved, and "doesnt the document auto save??"). An
+  //: open note form stays open in Notes with its words kept (`noteFormDraft`)
+  //: and a reload offers them back, like the Capture box, so a switch away
+  //: is not a departure; asking about it on every move was the bug. A
+  //: document with edits in hand is saved now, and asked about only if
+  //: that save fails.
+  if (typeof docDirty === "undefined" || !docDirty) return true;
+  await saveDocument({ silent: true }).catch(() => {});
+  if (!docDirty) return true;
   const leave = await confirmDialog(
     "Leave without saving?\n\nWhat you were working on here hasn't been saved yet."
   );

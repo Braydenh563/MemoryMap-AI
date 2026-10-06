@@ -30,6 +30,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Switching tabs no longer asks "Leave without saving?" again and again: an open note form keeps its words, and a document with unsaved edits is saved first, asking only if that save fails.
 - Meetings: New meeting has Start and record, which starts the meeting and transcribes straight into its notes (recording had lost its Quick access tile).
 - Forgot your password: the card opens with its first path shown as chosen, and the reset command and its Copy button are one height.
 - Pressing the control that opened a menu closes it, everywhere: a dropdown list (Sort, Model, Priority, Repeat and every other select), a note's category chip and the board's Shapes button no longer shut on the press and open again on the click. Right-click or hold on Shapes closes it too.

@@ -45683,3 +45683,15 @@ and refuses a topic ("Select a shape, link or text box first").
      Settings sidebar agent.
      **Fixed: the open page's sections are one short block with a remembered toggle.**
 
+711. **The owner, 2026-10-06, verbatim**, with a screenshot of "Leave
+     without saving?" over the Documents list: "I already clicked that
+     button by switching tabs and it appeared again when I tried to go onto
+     the documents?? (I was on a note edit form and tried to switch to the
+     library and go to documents)". Leave confirmed once must settle the
+     edit form (closed, its words kept as the recoverable draft) so the next
+     move does not ask again. Fixed 2026-10-06: a tab switch no longer asks
+     about an open note form (it stays open in Notes with its words kept,
+     and a reload offers them back); a document with edits in hand is saved
+     first and asked about only if that save fails (navigation.js
+     `confirmLeavingUnsavedWork`; tests/test_unsaved_work_guard.py).
+

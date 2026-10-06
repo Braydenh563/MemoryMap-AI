@@ -216,6 +216,8 @@ MORE_TOPICS: list[dict] = [
             "search relevance", "minimum similarity", "above-average margin",
             "search engine", "semantic search", "embedding model", "re-index",
             "embedding models", "multilingual search", "change embedding model",
+            "pull a model", "pull a model by name", "found on this computer",
+            "uninstall embedding model", "reinstall embedding model", "cached models",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
         ),
@@ -230,7 +232,13 @@ MORE_TOPICS: list[dict] = [
             "multilingual ones (Multilingual E5, BGE M3, Qwen3), with each "
             "one's size, languages, context and licence: Use switches in one "
             "press, and a model under other terms (EmbeddingGemma) links to "
-            "them instead. Search index: Rebuild search index after an "
+            "them instead; each row's ⋯ has Use, Install or Reinstall, and "
+            "Uninstall (refused on the model in use). Found on this computer "
+            "lists embedding models already here (the Hugging Face cache, "
+            "Ollama, LM Studio), with Use where MemoryMap can load them and "
+            "why not where it cannot. Pull a model by name takes a Hugging Face "
+            "repo (owner/name) or an Ollama name and checks it online only when "
+            "you press Pull. Search index: Rebuild search index after an "
             "update or a restore, or if search stops finding notes you know "
             "are there. Search relevance: Minimum similarity and Above-average "
             "margin; raise them for fewer, surer results, lower them if search "

@@ -771,11 +771,18 @@ class ModelManager:
         in `core/embedmodels.py`. Anything else in the preference, an entry
         since removed or one not offered in one press, reads as the default:
         a repo id is a download, never free text."""
-        from memorymap.core import embedmodels
+        from memorymap.core import embedfind, embedmodels
 
         chosen = self._config.get_preference("embedding_st_model", embedmodels.DEFAULT_REPO)
         entry = embedmodels.EMBED_MODELS_BY_REPO.get(chosen)
-        return chosen if entry is not None and entry.one_press else embedmodels.DEFAULT_REPO
+        if entry is not None:
+            return chosen if entry.one_press else embedmodels.DEFAULT_REPO
+        #: Or one found on this disk that the engine loads as it is (the
+        #: owner's addendum to 700), checked again here: a folder deleted
+        #: since reads as the default rather than a model that is not there.
+        if isinstance(chosen, str) and chosen and embedfind.usable_repo(chosen):
+            return chosen
+        return embedmodels.DEFAULT_REPO
 
     def set_chat_model(self, name: str) -> None:
         # Chat model switches apply instantly, no re-index needed (§6.5).

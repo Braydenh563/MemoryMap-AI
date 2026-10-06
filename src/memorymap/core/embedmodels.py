@@ -32,6 +32,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -331,6 +332,9 @@ class DownloadState:
     step: str = ""
     log: list[str] = field(default_factory=list)
     started: float = 0.0
+    #: The model's name for the Background tasks row: a catalogue label, or
+    #: the repo a person typed into Pull a model by name (INBOX 700).
+    label: str = ""
     outcome: str = ""  # "" while running, then completed | failed
     #: Someone pressed Quit. Checked between download attempts, see
     #: `cancel()` for why that is the only place it can be checked.
@@ -526,10 +530,16 @@ def _run_download(model: EmbedModel) -> None:
                     _state.outcome = "cancelled"
                     _state.step = "Stopped just as it finished, the files are on disk."
                     return
+                #: Verified, not assumed (INBOX 700, "Reinstall re-downloads
+                #: and verifies"): the weights must be in the snapshot.
+                if not is_downloaded(model.repo):
+                    _state.outcome = "failed"
+                    _state.step = f"{model.label} arrived without its weights. Reinstall fetches it again."
+                    return
                 _state.outcome = "completed"
                 _state.step = (
-                    f"{model.label} is on this machine. Searching by meaning "
-                    "uses it from here on, no restart needed."
+                    f"{model.label} is on this machine. Pick it under Embedding "
+                    "models in Settings, Search and index to search with it."
                 )
                 return
             except Exception as exc:  # noqa: BLE001  # retry decides, not the type
@@ -576,18 +586,127 @@ def start(model_id: str) -> tuple[bool, str]:
             "arrives with “Search by meaning” in Settings, Packages. Install "
             "that first."
         )
+    return _begin_download(model)
+
+
+def _begin_download(model: EmbedModel) -> tuple[bool, str]:
     with _lock:
         if _state.running:
             return False, "Another model is already downloading."
         _state.running = True
         _state.model_id = model.id
+        _state.label = model.label
         _state.outcome = ""
         _state.step = "starting…"
         _state.log = []
         _state.started = time.time()
         _state.cancel_requested = False
-    threading.Thread(target=_run_download, args=(model,), daemon=True).start()
+    _spawn_download(model)
     return True, f"Downloading {model.label}."
+
+
+def _spawn_download(model: EmbedModel) -> None:
+    threading.Thread(target=_run_download, args=(model,), daemon=True).start()
+
+
+# -- Pull a model by name (INBOX 700, the owner's second addendum) -------------
+
+#: A Hugging Face repo id: owner/name, each part starting with a letter or
+#: digit, so no `..` and no path can be spelled with it.
+_HF_REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
+
+#: Licences a typed repo may have and still be fetched in one press: the
+#: open ones, the rule the catalogue keeps (Apache-2.0, MIT and their kin).
+OPEN_LICENCES = frozenset({"apache-2.0", "mit", "bsd-2-clause", "bsd-3-clause", "cc-by-4.0", "cc-by-sa-4.0", "cc0-1.0"})
+
+_ST_FILES = ("modules.json", "config_sentence_transformers.json")
+
+
+def parse_typed_name(text: str) -> tuple[str | None, str]:
+    """("hf", repo), ("ollama", name) or (None, why) for a typed name.
+
+    owner/name with no tag is a Hugging Face repo; anything with a tag, or
+    no owner, is an Ollama name, checked by the same rules as Settings,
+    Models' "Download another model" (`model_cards.inspect_model_name`)."""
+    text = (text or "").strip()
+    if not text or ".." in text or any(ch.isspace() for ch in text):
+        return None, "Type a Hugging Face repo (owner/name) or an Ollama name (name:tag)."
+    if ":" not in text and _HF_REPO.match(text):
+        return "hf", text
+    from memorymap.ai import model_cards
+
+    info = model_cards.inspect_model_name(text)
+    if not info.get("valid"):
+        return None, info.get("error") or "That is not a model name."
+    return "ollama", info["name"]
+
+
+def hub_metadata(repo: str) -> dict | None:
+    """The Hub's own record of `repo` (files, tags, licence), or None when
+    there is no such model. Called only on a Pull click: the one network
+    request on this screen besides a download, and said so beside the box."""
+    import requests
+
+    response = requests.get(f"https://huggingface.co/api/models/{repo}", timeout=15)
+    if response.status_code in (401, 404):
+        return None
+    response.raise_for_status()
+    return response.json()
+
+
+def hub_refusal(meta: dict) -> str:
+    """Why the built-in engine cannot use this repo, or "" when it can."""
+    names = {str(item.get("rfilename", "")) for item in meta.get("siblings") or []}
+    tags = {str(tag) for tag in meta.get("tags") or []}
+    if not any(name in names for name in _ST_FILES):
+        if any(name.lower().endswith(".gguf") for name in names):
+            return "It holds GGUF files, which the built-in engine can't load. Pull it in Ollama instead."
+        return "It isn't in sentence-transformers' format, so the built-in engine can't load it."
+    if not any(
+        name.rsplit("/", 1)[-1].startswith(("model", "pytorch_model")) and name.endswith((".safetensors", ".bin"))
+        for name in names
+    ):
+        return "It has no weights the built-in engine can read."
+    if "custom_code" in tags:
+        return "It needs Python code from its own repository to load, which MemoryMap never runs."
+    if meta.get("gated"):
+        return "It is gated behind terms on Hugging Face: read and accept them there first."
+    licence = str((meta.get("cardData") or {}).get("license") or "")
+    if not licence:
+        licence = next((tag.split(":", 1)[1] for tag in tags if tag.startswith("license:")), "")
+    if not licence:
+        return "It states no licence, so it is not fetched in one press."
+    if licence.lower() not in OPEN_LICENCES:
+        return f"Its licence is {licence}, not an open one MemoryMap fetches in one press: read its terms on Hugging Face."
+    return ""
+
+
+def start_typed(repo: str) -> tuple[bool, str]:
+    """Check `repo` on the Hub and, if the engine can use it, download it as
+    a Background task. The repo id was matched by `_HF_REPO` and is then
+    confirmed by the Hub itself before anything is written."""
+    if not _HF_REPO.match(repo or ""):
+        return False, "Type a Hugging Face repo as owner/name."
+    if repo in EMBED_MODELS_BY_REPO:
+        entry = EMBED_MODELS_BY_REPO[repo]
+        return start(entry.id) if entry.one_press else (False, entry.why_not)
+    if not can_download():
+        return False, (
+            "Downloading a model needs the huggingface_hub library, which "
+            "arrives with “Search by meaning” in Settings, Packages. Install "
+            "that first."
+        )
+    try:
+        meta = hub_metadata(repo)
+    except Exception:  # noqa: BLE001  # offline, refused or odd: one sentence
+        logger.info("couldn't reach Hugging Face for %s", repo, exc_info=True)
+        return False, "Couldn't reach Hugging Face to check that name. Check the connection and try again."
+    if meta is None:
+        return False, f"No model called {repo} on Hugging Face."
+    why = hub_refusal(meta)
+    if why:
+        return False, why
+    return _begin_download(EmbedModel(id="typed", repo=repo, label=repo, about="", size=""))
 
 
 def remove(model_id: str) -> tuple[bool, str]:
@@ -605,6 +724,9 @@ def remove(model_id: str) -> tuple[bool, str]:
         return False, "No such embedding model."
     if _state.running and _state.model_id == model.id:
         return False, "That model is downloading right now."
+    #: Never the one search uses (INBOX 700): switch first, then remove.
+    if _in_use(model.repo):
+        return False, f"{model.label} is in use for search: switch to another model first, then remove it."
     path = _model_dir(model)
     root = cache_root()
     try:
@@ -630,6 +752,16 @@ def remove(model_id: str) -> tuple[bool, str]:
             "It may be in use by a running model."
         )
     return True, f"{model.label} removed. Downloading it again is one click."
+
+
+def _in_use(repo: str) -> bool:
+    try:
+        from memorymap.core import deps
+
+        manager = deps.get_model_manager()
+        return manager.embedding_backend() != "ollama" and manager.embedding_st_model() == repo
+    except Exception:  # noqa: BLE001  # no app (a script): nothing is in use
+        return False
 
 
 def reset_for_tests() -> None:

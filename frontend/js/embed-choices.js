@@ -21,6 +21,9 @@ async function renderEmbedChoices() {
   if (!body) return;
   const now = Date.now() / 1000;
   list.replaceChildren(...body.choices.map((choice) => embedChoiceRow(choice, body, now)));
+  const found = body.found || [];
+  $("embed-found").replaceChildren(...found.map((row) => embedFoundRow(row, body)));
+  $("embed-found-empty").classList.toggle("hidden", found.length > 0);
   const done = body.switch || {};
   $("embed-choices-status").textContent = done.running ? "" : done.message || "";
   clearTimeout(embedChoicesUi.poll);
@@ -51,12 +54,40 @@ function embedChoiceRow(choice, body, now) {
 
   const actions = document.createElement("span");
   actions.className = "entry-actions";
-  if (!inUse && !moving && choice.one_press) {
-    const use = smallButton("ph:swap Use", `Switch search to ${choice.label}`, () => embedChoiceUse(choice));
-    use.disabled = Boolean(switching.running);
-    if (switching.running) use.title = "Wait for the switch in hand to finish.";
-    actions.appendChild(use);
-  } else if (!choice.one_press && choice.terms_url) {
+  if (choice.one_press) {
+    //: Use, Install or Reinstall, Uninstall (the owner's second addendum:
+    //: "options to modify, install, uninstall, reinstall embedded models").
+    //: Uninstall is refused on the model search uses, with the reason.
+    const busy = switching.running ? "Wait for the switch in hand to finish." : "";
+    const usedHere = inUse ? "In use for search: switch to another model first." : "";
+    actions.appendChild(
+      kebabMenu(
+        [
+          {
+            label: "ph:swap Use",
+            disabled: inUse || moving || Boolean(busy),
+            title: inUse ? "Search uses it now." : busy,
+            //: A muted item still runs (`kebabMenu`): it says why instead.
+            run: () => (inUse || moving || busy ? toast(inUse ? "Search uses it now." : busy || "It is switching now.", "info") : embedChoiceUse(choice)),
+          },
+          {
+            label: choice.downloaded ? "ph:arrow-clockwise Reinstall" : "ph:download-simple Install",
+            disabled: moving,
+            run: () => (moving ? toast("It is switching now.", "info") : embedChoiceInstall(choice)),
+          },
+          {
+            label: "ph:trash Uninstall",
+            danger: true,
+            disabled: !choice.downloaded || Boolean(usedHere),
+            title: usedHere || (choice.downloaded ? "" : "It is not on this computer."),
+            run: () =>
+              usedHere || !choice.downloaded ? toast(usedHere || "It is not on this computer.", "info") : embedChoiceUninstall(choice),
+          },
+        ],
+        `More for ${choice.label}`
+      )
+    );
+  } else if (choice.terms_url) {
     actions.appendChild(
       smallButton("ph:arrow-square-out Terms", `Read the terms for ${choice.label}`, () =>
         window.open(safeHref(choice.terms_url), "_blank", "noopener,noreferrer")
@@ -107,11 +138,109 @@ function embedChoiceRow(choice, body, now) {
   return li;
 }
 
+//: Install or Reinstall: a built-in model through the download the Packages
+//: list uses (verified once it lands), an Ollama one through Ollama's pull.
+//: Both are Background tasks with their progress.
+async function embedChoiceInstall(choice) {
+  const again = choice.downloaded;
+  if (!(await confirmDialog(
+    `${again ? "Download" : "Install"} ${choice.label}${again ? " again" : ""}?\n\n${choice.size}, from ` +
+      (choice.backend === "ollama" ? "the Ollama library" : "Hugging Face") + ". It needs the internet.",
+    { confirmLabel: again ? "Reinstall" : "Install" }
+  ))) return;
+  const result =
+    choice.backend === "ollama"
+      ? await apiJson("/models/pull", { method: "POST", body: JSON.stringify({ name: choice.model }) })
+          .then(() => ({ started: true, message: `Pulling ${choice.model}. Background tasks shows its progress.` }))
+          .catch((e) => ({ started: false, message: e.message }))
+      : await apiJson(`/embedding-models/${encodeURIComponent(choice.id)}/download${again ? "?reinstall=true" : ""}`, { method: "POST" })
+          .catch((e) => ({ started: false, message: e.message }));
+  toast(result.message, !result.started);
+  renderEmbedChoices();
+}
+
+async function embedChoiceUninstall(choice) {
+  if (!(await confirmDialog(`Uninstall ${choice.label}?\n\nIts files leave this computer; Install brings it back.`, { confirmLabel: "Uninstall" }))) return;
+  const result =
+    choice.backend === "ollama"
+      ? await apiJson("/models/delete", { method: "POST", body: JSON.stringify({ name: choice.model }) })
+          .then(() => ({ removed: true, message: `${choice.label} removed.` }))
+          .catch((e) => ({ removed: false, message: e.message }))
+      : await apiJson(`/embedding-models/${encodeURIComponent(choice.id)}`, { method: "DELETE" })
+          .catch((e) => ({ removed: false, message: e.message }));
+  toast(result.message, !result.removed);
+  renderEmbedChoices();
+}
+
+//: A model already on this computer (core/embedfind.py): Use when the engine
+//: loads it as it is, otherwise the reason in its own line.
+function embedFoundRow(row, body) {
+  const current = body.current || {};
+  const inUse = current.backend === row.backend && current.model === row.model;
+  const li = document.createElement("li");
+  li.className = "extras-row embed-choice";
+  const head = document.createElement("div");
+  head.className = "entry-meta";
+  const title = document.createElement("span");
+  title.className = "entry-title";
+  const name = document.createElement("strong");
+  name.textContent = row.label;
+  title.append(name, chip(row.where, "item-label"));
+  if (inUse) title.appendChild(chip("ph:check-circle In use", "item-label is-ok"));
+  head.appendChild(title);
+  const actions = document.createElement("span");
+  actions.className = "entry-actions";
+  if (row.usable && !inUse) {
+    const use = smallButton("ph:swap Use", `Switch search to ${row.label}`, () => embedChoiceUse({ ...row, size: "Already here" }));
+    use.disabled = Boolean((body.switch || {}).running);
+    actions.appendChild(use);
+  }
+  head.appendChild(actions);
+  li.appendChild(head);
+  if (row.why_not) {
+    const why = document.createElement("p");
+    why.className = "muted extras-caveat";
+    setLabel(why, `ph:info ${row.why_not}`);
+    li.appendChild(why);
+  }
+  return li;
+}
+
+//: Pull a model by name: a Hugging Face repo or an Ollama name, checked
+//: online only on this click, then a Background task with its progress.
+async function embedPullTyped() {
+  const input = $("embed-pull-name");
+  const name = input.value.trim();
+  const status = $("embed-pull-status");
+  if (!name) {
+    status.textContent = "Type a Hugging Face repo (owner/name) or an Ollama name (name:tag).";
+    input.focus();
+    return;
+  }
+  status.textContent = "Checking…";
+  const result = await apiJson("/embedding-models/pull", { method: "POST", body: JSON.stringify({ name }) })
+    .catch((e) => ({ started: false, message: e.message }));
+  status.textContent = result.message || "";
+  if (result.started) {
+    input.value = "";
+    toast(result.message, "info");
+  }
+  renderEmbedChoices();
+}
+
+$("embed-pull-go").addEventListener("click", embedPullTyped);
+$("embed-pull-name").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    embedPullTyped();
+  }
+});
+
 async function embedChoiceUse(choice) {
   const ok = await confirmDialog(
     `Switch search to ${choice.label}?\n\n${choice.size}, ` +
       (choice.backend === "ollama" ? "pulled into Ollama" : "downloaded to this machine") +
-      " once if it is not here yet. Every note is read again in the background; search keeps using the current model until that finishes.",
+      " once if it is not here yet, which needs the internet. Every note is read again in the background; search keeps using the current model until that finishes.",
     { confirmLabel: "Switch" }
   );
   if (!ok) return;

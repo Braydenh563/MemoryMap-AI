@@ -905,8 +905,15 @@ def set_embedding_backend(
         model = str(body.model)
     else:
         # A built-in model is an allowlist repo, never free text.
+        from memorymap.core import embedfind
+
         entry = embedmodels.EMBED_MODELS_BY_REPO.get(body.model or "")
-        model = entry.repo if entry and entry.one_press else manager.embedding_st_model()
+        if entry and entry.one_press:
+            model = entry.repo
+        elif body.model and embedfind.usable_repo(body.model):
+            model = body.model
+        else:
+            model = manager.embedding_st_model()
 
     # Switching backend is a fresh start: drop any cached failure so the
     # switch retries right away and the stale error banner clears at once

@@ -9097,7 +9097,15 @@ Link to another note with [[its first few words]]."></textarea>
                   Embedding models lists the choices with their size,
                   languages, how much text they read at once and their
                   licence. Use switches in one press for an open licence;
-                  others link to their terms.
+                  others link to their terms. Each row's ⋯ installs,
+                  reinstalls or uninstalls it (never the one in use).
+                </p>
+                <p>
+                  Found on this computer lists embedding models already on
+                  disk (the Hugging Face cache, Ollama, LM Studio), read
+                  without going online. Pull a model by name checks a Hugging
+                  Face repo or an Ollama name online when you press Pull,
+                  then downloads it as a background task.
                 </p>
                 <!-- INBOX 266 (5), measured: 104MB before the built-in model
                      loads, 774MB after. The only memory lever left once the
@@ -9143,6 +9151,23 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">Pick one; search keeps working on the current model while the new one reads your notes.</p>
               <ul id="embed-choices" class="extras-list" aria-label="Embedding models"></ul>
               <p id="embed-choices-status" class="muted small" role="status"></p>
+              <!-- The owner's addenda to 700: models already on this computer
+                   (core/embedfind.py, a read-only scan), and pulling one by
+                   name (POST /embedding-models/pull). -->
+              <h4 class="setting-subhead">Found on this computer</h4>
+              <ul id="embed-found" class="extras-list" aria-label="Embedding models found on this computer"></ul>
+              <p id="embed-found-empty" class="muted empty-line hidden">None found outside the list above.</p>
+              <h4 class="setting-subhead">Pull a model by name</h4>
+              <p class="muted">A Hugging Face repo (owner/name) or an Ollama name (name:tag); Pull checks it online, nothing is sent before.</p>
+              <div class="row embed-pull">
+                <div class="search-field">
+                  <i class="ph ph-download-simple search-field-icon" aria-hidden="true"></i>
+                  <input id="embed-pull-name" type="text" class="search-field-input" autocomplete="off" spellcheck="false"
+                    placeholder="BAAI/bge-small-en-v1.5 or nomic-embed-text" aria-label="Pull a model by name">
+                </div>
+                <button id="embed-pull-go" type="button" class="small ghost">Pull</button>
+              </div>
+              <p id="embed-pull-status" class="muted small" role="status"></p>
             </div>
             <!-- Not `hidden` any more: this used to appear only *while* a
                  re-index ran, and the only thing that could start one was

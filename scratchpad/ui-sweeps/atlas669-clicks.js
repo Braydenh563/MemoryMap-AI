@@ -74,8 +74,21 @@ async function sampler(page) {
     let lastCtx = '';
     const t0 = performance.now();
     S.t0 = t0;
+    // Read after every frame callback has run (the rig draws the arms in
+    // one), not inside this one: a callback registered before the rig's
+    // read the rig's previous frame, so a 50ms frame's step was counted
+    // against the next 16ms one. A message is the first task after the
+    // frame; if another frame has begun by then, that sample is dropped.
+    const port = new MessageChannel();
+    let pending = 0;
+    port.port1.onmessage = () => { const now = pending; pending = 0; if (document.timeline.currentTime === now) read(now); };
     const tick = (now) => {
       if (S.stop) return;
+      pending = now;
+      port.port2.postMessage(0);
+      requestAnimationFrame(tick);
+    };
+    const read = (now) => {
       const r = root();
       if (r) {
         const row = { t: +(now - t0).toFixed(1) };
@@ -116,7 +129,6 @@ async function sampler(page) {
         if (ctx !== lastCtx) { S.ctx.push([row.t, ctx]); lastCtx = ctx; }
         S.rows.push(row);
       }
-      requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   });

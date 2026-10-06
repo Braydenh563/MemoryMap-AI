@@ -1554,8 +1554,8 @@ def test_inbox_669_an_ended_move_is_never_replayed_by_the_pacer() -> None:
 def test_inbox_669_no_rig_joint_turns_over_four_degrees_a_frame() -> None:
     motion = (ROOT / "frontend" / "js" / "atlas-motion.js").read_text(encoding="utf-8")
     spring = _fn("atlasRigSpring", motion)
-    assert "const ATLAS_RIG_MAX_SPEED = 220;" in motion
-    assert 220 / 60 < 4
+    assert "const ATLAS_RIG_MAX_SPEED = 200;" in motion
+    assert 200 / 60 < 4
     # Clamped inside the integration step, before the position moves.
     assert spring.index("ATLAS_RIG_MAX_SPEED") < spring.index("j.x += j.v * h;")
 

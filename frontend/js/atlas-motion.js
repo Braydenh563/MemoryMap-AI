@@ -175,11 +175,11 @@ function atlasRigGesture(arm, raise, buddy) {
 //: time is a quarter to half a second whatever the move's size, so a
 //: hundred-degree raise peaked at 9 degrees a frame and a wave's turn
 //: back at 20 (atlas669-clicks.js), which at the large view's 2.2 times
-//: reads as a jump, not a swing. Capped at 220 degrees a second, under 4
+//: reads as a jump, not a swing. Capped at 200 degrees a second, under 4
 //: a frame at 60 a second: a small move keeps its spring, a big one
 //: cruises and settles, and a wave's swings (about 150 at their fastest)
 //: are untouched.
-const ATLAS_RIG_MAX_SPEED = 220;
+const ATLAS_RIG_MAX_SPEED = 200;
 function atlasRigSpring(j, target, dt, zeta) {
   if (j.t === null) j.t = target;
   const jump = Math.abs(target - j.t);

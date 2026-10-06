@@ -346,6 +346,12 @@ MAX_NOTE_CHARS = 900
 UNTOOLED_NOTE_CHARS = 2_400
 
 
+#: Said once above the notes when the composer cut any of them
+#: (`composer.brief`), so the model knows what "…" means and that a note it
+#: sees in part has more to it.
+BRIEF_HEADER = "(Each note is cut to the parts on my question, in its own words; … marks text left out.)"
+
+
 def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = True) -> str:
     """A note's text, short enough to sit beside nine others.
 
@@ -362,6 +368,13 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
     #: fence (row 24): the model is told what the text is, not just that it
     #: is quoted, and `from_outside` is the same flag the agent's guard reads.
     kind = "note from outside" if note.get("from_outside") else "note"
+    if note.get("briefed") and len(content) <= limit:
+        #: Cut by the composer to the parts on the question (`composer.brief`).
+        #: With tools the model is told how to read the rest; without, the
+        #: brief's one header line above the notes says what "…" means.
+        if can_fetch and note.get("id"):
+            return fence(kind, f"{content} [cut to the parts on this question, get_note({note['id']}) reads it all]")
+        return fence(kind, content)
     if len(content) <= limit:
         return fence(kind, content)
     note_id = note.get("id")
@@ -685,7 +698,9 @@ def build_messages(
     user_message = {
         "role": "user",
         "content": (
-            f"{_app_help(question)}My notes:\n{numbered}{dropped_hint}\n\n"
+            f"{_app_help(question)}My notes:"
+            f"{' ' + BRIEF_HEADER if any(note.get('briefed') for note in notes) else ''}"
+            f"\n{numbered}{dropped_hint}\n\n"
             f"My question: {question}{attached_hint}"
         ),
     }

@@ -1717,6 +1717,59 @@ def _composer_embed():  # noqa: ANN202
         return None
 
 
+def _assist(req: _StreamRequest, prepared: dict) -> None:
+    """The composer's two parts in a turn a model answers (CHAT_PLAN, "the
+    composer everywhere" 9 and 10; the owner, 2026-10-06: "ai should still be
+    the core when it is available, but the composer should be used to lessen
+    the load ... as well as cheapen the run cost of the ai").
+
+    `prepared["preview"]`: the composed answer, sent before the model's first
+    token and replaced by it (`composed_preview`). `prepared["model_notes"]`:
+    the notes cut to the parts on the question (`composer.brief`), what the
+    model reads; `prepared["notes"]` stays whole, since grounding the model's
+    answer and saving the turn read the notes as they are.
+
+    Neither for a skill or plan run (its steps read the notes their own way),
+    a counted answer, small talk, a "newest notes" question, a picture asked
+    about or attached (the composer reads words, and the model is asked about
+    what it sees), or a turn with nothing retrieved.
+    """
+    prepared["model_notes"] = prepared["notes"]
+    prepared["preview"] = None
+    if (
+        req.skill
+        or prepared["stats"] is not None
+        or not prepared["notes"]
+        or not intent.needs_retrieval(prepared["intent"])
+        or req.images_raw
+        or librarian.PICTURE_ASK.search(req.question or "")
+    ):
+        return
+    recent = str(prepared.get("search_mode") or "").endswith("recent")
+    embed = _composer_embed()
+    try:
+        composed = composer.compose(
+            req.question, prepared["notes"], today=user_now(deps.get_config()).date(), recent=recent, embed=embed
+        )
+        packed = composer.brief(req.question, prepared["notes"], recent=recent, embed=embed, composed=composed)
+    except Exception:  # noqa: BLE001  # the model answers from the notes as they are
+        logging.getLogger("memorymap.chat").exception("chat: the composer's brief failed")
+        return
+    if composed.get("grounding"):
+        prepared["preview"] = {
+            "type": "composed_preview",
+            "text": composed["text"],
+            "grounding": composed["grounding"],
+            "next": composed["next"],
+        }
+    if packed and packed["shortened"]:
+        prepared["model_notes"] = packed["notes"]
+        prepared["brief"] = {
+            "before": packed["chars_before"] // context.CHARS_PER_TOKEN,
+            "after": packed["chars_after"] // context.CHARS_PER_TOKEN,
+        }
+
+
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
     """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
     if prepared["stats"] is not None:
@@ -1831,9 +1884,14 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             }
         return
     else:
+        if prepared.get("preview"):
+            #: The composed answer at once, while the model writes its own;
+            #: the client draws it as a draft and the model's first token
+            #: replaces it (`_assist`).
+            yield prepared["preview"]
         messages = librarian.build_messages(
             f"{req.question}\n\n{req.image_context}" if req.image_context else req.question,
-            prepared["notes"],
+            prepared.get("model_notes") or prepared["notes"],
             style=prepared["style"],
             profile=prepared["profile"],
             history=req.history,
@@ -1868,6 +1926,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         "notes": len(messages[-1]["content"]) // context.CHARS_PER_TOKEN,
         "tool_schemas": 0,
     }
+    if prepared.get("brief"):
+        #: The notes' tokens before and after the composer cut them, so the
+        #: saving is a number on every turn rather than a claim.
+        composition_tokens["notes_brief"] = prepared["brief"]
     streamed_any = False
     try:
         for piece in req.ollama.chat_stream(req.model_manager.chat_model(), messages, req.mode):
@@ -1949,7 +2011,7 @@ def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterat
         agent_events = agent.run_agent(
             req.session,
             req.question,
-            prepared["notes"],
+            prepared.get("model_notes") or prepared["notes"],
             req.model_manager,
             tools_provider,
             mode=req.mode,
@@ -2071,6 +2133,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         or req.use_tools
         or not intent.needs_retrieval(prepared["intent"])
     )
+    if will_answer and not tools_only:
+        _assist(req, prepared)
 
     yield event(
         {

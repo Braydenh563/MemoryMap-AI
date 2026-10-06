@@ -239,6 +239,54 @@ def run(data: dict | None = None) -> list[dict]:
     return rows
 
 
+def _tokens(messages: list[dict]) -> tuple[int, int]:
+    """(whole prompt, the notes message) in tokens, at the app's own measure
+    (`context.CHARS_PER_TOKEN`, the same chars/4 the stats event reports)."""
+    from memorymap.ai import context
+
+    total = sum(len(m["content"]) for m in messages) // context.CHARS_PER_TOKEN
+    return total, len(messages[-1]["content"]) // context.CHARS_PER_TOKEN
+
+
+def context_rows(data: dict | None = None) -> list[dict]:
+    """The prompt a running model reads for each question, before and after
+    the composer's brief (`composer.brief`): the plain librarian prompt the
+    Ask box and Chat's Ask mode send (`librarian.build_messages`), unbudgeted
+    so the two are measured on the same notes."""
+    from memorymap.ai import librarian
+
+    data = data or load()
+    rows = []
+    for entry in data["questions"]:
+        notes = notes_for(entry, data)
+        recent = str(entry.get("search_mode") or "").endswith("recent")
+        packed = composer.brief(entry["question"], notes, recent=recent)
+        before = _tokens(librarian.build_messages(entry["question"], notes))
+        after = _tokens(librarian.build_messages(entry["question"], packed["notes"] if packed else notes))
+        rows.append(
+            {
+                "question": entry["question"],
+                "notes": notes,
+                "brief": packed,
+                "prompt_before": before[0],
+                "prompt_after": after[0],
+                "notes_before": before[1],
+                "notes_after": after[1],
+            }
+        )
+    return rows
+
+
+def context_summary(rows: list[dict]) -> dict:
+    total = {key: sum(r[key] for r in rows) for key in ("prompt_before", "prompt_after", "notes_before", "notes_after")}
+    return {
+        **total,
+        "briefed": sum(1 for r in rows if r["brief"]),
+        "prompt_saved": round(1 - total["prompt_after"] / total["prompt_before"], 3),
+        "notes_saved": round(1 - total["notes_after"] / total["notes_before"], 3),
+    }
+
+
 def summary(rows: list[dict]) -> dict:
     n = len(rows)
     return {
@@ -268,3 +316,4 @@ if __name__ == "__main__":  # pragma: no cover - the report's table
             f"{len(row['connectives'])} connectives{', FAIL ' + '; '.join(row['failures']) if row['failures'] else ''}"
         )
     print(json.dumps(summary(rows), indent=1))
+    print(json.dumps(context_summary(context_rows()), indent=1))

@@ -98,6 +98,13 @@ with its owner named in the entry.
      no-model composer (`ai/composer.py`, INBOX 688). Placed: Opus agent, as a
      CHAT_PLAN phase row.
 
+726. **The owner, 2026-10-06, verbatim**, with the graph's settings popover
+     (View: Layout, Shape, Colour, Size selects pushed to the far right, Trace,
+     Hide legend, Physics, Show): "the graph settings popup feels unceccessarily
+     wide and the text has barely any right margin". Also, verbatim, of the Chat
+     tab's sidebar: "there's quite a big gap on the right side of the chat
+     sidebar chat items" (placed with 722).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

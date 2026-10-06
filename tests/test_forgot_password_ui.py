@@ -27,7 +27,9 @@ def _function(source: str, name: str) -> str:
 
 def test_the_link_is_under_the_field_on_the_lock_card():
     card = INDEX[INDEX.index('id="lock-card"') : INDEX.index('id="lock-forgot-card"')]
-    assert card.index('id="lock-password"') < card.index('id="lock-forgot"') < card.index('id="lock-submit"')
+    # Under Unlock since the owner's "a small hyperlink below the unlock button".
+    assert card.index('id="lock-password"') < card.index('id="lock-submit"') < card.index('id="lock-forgot"')
+    assert 'id="lock-forgot" type="button" class="link-button lock-forgot"' in card
     assert "Forgot your password?" in card
 
 

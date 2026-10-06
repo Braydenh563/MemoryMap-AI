@@ -305,11 +305,6 @@
       <p id="lock-message" class="muted"></p>
       <input id="lock-password" type="password" placeholder="Password or PIN"
         aria-label="Password" autocomplete="current-password">
-      <!-- INBOX 663, the owner: "there is no forgot password option in the
-           lock screen." Shown on the unlock only: setup has nothing to
-           forget, and a prompt for one action has "Not now". Opens
-           #lock-forgot-card (account-recovery.js, lazy). -->
-      <button id="lock-forgot" type="button" class="ghost small lock-forgot">Forgot your password?</button>
       <!-- **What this password is for, said before it is chosen, not after.**
            Measured on five fresh data directories, 2026-09-21: the first screen
            a new person sees asked for a credential in 26 words that never said
@@ -328,6 +323,14 @@
            (unlocking private notes, turning sign-in off), never on the lock
            screen itself, which has no way round it. -->
       <button id="lock-cancel" type="button" class="ghost hidden">Not now</button>
+      <!-- INBOX 663, the owner: "there is no forgot password option in the
+           lock screen." Then, the same day: "a modernised subtle but
+           accessible button ... or a small hyperlink below the unlock
+           button". A quiet link under Unlock, the `.link-button` recipe,
+           shown on the unlock only: setup has nothing to forget, and a
+           prompt for one action has "Not now". Opens #lock-forgot-card
+           (account-recovery.js, lazy). -->
+      <button id="lock-forgot" type="button" class="link-button lock-forgot">Forgot your password?</button>
       <p id="lock-error" class="status error" role="alert"></p>
     </div>
     <!-- **Forgot your password?** (INBOX 663; the owner: "it needs to be

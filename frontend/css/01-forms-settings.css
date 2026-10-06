@@ -1719,7 +1719,7 @@ progress {
   display: block;
   overflow: visible;
   margin: 0 0 var(--space-2);
-  max-width: 72ch;
+  max-width: 84ch; /* the card view's measure (INBOX 673) */
   color: var(--ink);
 }
 
@@ -1782,12 +1782,14 @@ progress {
   transform: none;
 }
 
-/* Readable measure, in card view too. 72ch is inside the 65-75 the rule
-   asks for; `ch` rather than px so it tracks the user's own font-size
-   setting instead of fixing the line length in pixels and drifting off the
-   rule the moment anyone changes it. */
+/* Readable measure, in card view too. `ch` rather than px so it tracks the
+   user's own font-size setting instead of fixing the line length in pixels.
+   84ch since 2026-10-06 (INBOX 673, the owner: "can you make note content
+   like text extend a little more to the right??"): 72ch, inside the 65-75 a
+   long read wants, left a third of a wide card empty beside a short note,
+   and a card is a glance more than a long read. */
 .entry-list:not(.is-rows) .entry-content {
-  max-width: 72ch;
+  max-width: 84ch;
 }
 
 /* The AI Skills panel's own log rows (`renderSkillLogs`, library.js): 
@@ -2205,12 +2207,31 @@ button:not(.ghost) > .spinner {
   margin-top: var(--space-2);
 }
 
-/* "Forgot your password?" (INBOX 663) under the field: words in the accent
-   text colour on a ghost button, so it keeps the button's target height. Its
-   card is styled in recovery-lazy.css, loaded when it is pressed. */
+/* "Forgot your password?" (INBOX 663) as a quiet link under Unlock (the
+   owner: "subtle but accessible ... a small hyperlink below the unlock
+   button"): small muted words, underlined on hover and focus, in a box as
+   tall as a touch target needs. Its card is styled in recovery-lazy.css,
+   loaded when it is pressed. */
 .lock-card .lock-forgot {
-  margin: var(--space-1) 0 var(--space-2) auto;
+  display: block;
+  min-height: 32px;
+  margin: var(--space-2) auto 0;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.lock-card .lock-forgot:is(:hover, :focus-visible) {
   color: var(--accent-text);
+  text-decoration: underline;
+}
+
+@media (pointer: coarse) {
+  .lock-card .lock-forgot {
+    min-height: 44px;
+  }
 }
 
 /* On the unlock only: setup has nothing to forget, and a prompt for one

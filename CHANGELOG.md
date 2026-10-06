@@ -14,6 +14,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Lock screen: "Forgot your password?" is a quiet link under Unlock rather than a bordered button between the field and it.
+- Note cards: the text runs further across a wide card (84 characters a line rather than 72).
 - Mind maps: a template dropped on a map with no central topic no longer makes one separate trunk per top-level topic. A template with several top-level topics (every built-in map template) gets a new central topic named after it, with them as its branches; a template with one top-level topic makes that topic the centre. A map that already has a central topic is unchanged, and a template still lands under the pointer and undoes in one step (INBOX 670).
 - Fewer pill-shaped option wells, the last of the ones with four choices: Settings, Appearance, Font and Density are lists (each font row is set in its own face), the Graph's Layout is a list beside Colour and Size, and the suggestions inbox's four kinds (Links, Tensions, Names, Link types) are one list whose rows carry the counts, Links (3). The Attach picker's five sources stay as one strip across the dialog, each with its count (INBOX 670).
 - Meeting notes, redesigned (INBOX 644): New meeting (Quick access on the Dashboard, the command palette, Library's Create, Tools and features) asks for a title, when and who, then opens one shape of note: Agenda, Notes, Decisions and Action items, typed Meeting and tagged meeting. Notes has a Meetings row. A meeting's chip opens its sheet: Remind me turns an action item ("- [ ] Send the deck @Sam by Friday") into a real reminder with no AI, asking when if the line does not say; Summarise keeps only the decisions and action items whose source words are in the notes, shows them with those words, and adds them after your own lines only when asked, with Undo; Record into it adds a transcript under Notes. A saved recording is a meeting note now, without the uncited summary it used to prepend. A meeting sits on the Timeline at its own date. The Capture box's Meeting template is the same shape, and the m then v chord is named Record a meeting.
@@ -23,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The corner companion no longer stops a trackpad or wheel scroll: scrolling over it scrolls the list or board beneath.
 - Filing: the first note in a new notebook no longer waits behind the search model's first load. Loading it on a pause in typing shared the one queue filing uses, so on a fresh install the first note could say "Filing…" for as long as the download took.
 - A note that opens with a property block (any note of a type) shows its title, not "---", on the Timeline, and its preview no longer starts with the block's raw text. The note edit form keeps such a note's block out of the text box (the Properties sheet edits it) and finds its title under the block; a title typed there is written under the block instead of above it, where it turned every property into body text.
 - Tools & features: the search field no longer runs into the title and close button. It is the app's standard search field now, with its magnifier and room under the head for its focus ring.

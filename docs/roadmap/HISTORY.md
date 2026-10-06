@@ -45402,3 +45402,25 @@ and refuses a topic ("Select a shape, link or text box first").
      row pins them). `SEG_OF_FOUR_PLACED` holds that one entry. `seg670.js`,
      `kg9inbox.js` at 1440 and 390. Left: `agent-remaining/inbox670-1006.md`.
 
+672. **The owner, 2026-10-06, verbatim**, with a screenshot of the lock card
+     (a bordered "Forgot your password?" button between the field and
+     Unlock): "make the forgot password like amodernised subtle but
+     accessible button in like the corner or a small hyperlink below the
+     unlock button or smth". Fixed 2026-10-06: a `.link-button` under
+     Unlock, small muted words that take the accent and an underline on
+     hover and focus, 32px tall (44px under a coarse pointer);
+     tests/test_forgot_password_ui.py pins the order and the class.
+673. **The owner, 2026-10-06, verbatim**, with a screenshot of a note card
+     whose text stopped about two thirds across: "can you make note content
+     like text extend a little more to the right??" Fixed 2026-10-06: the
+     card's measure 72ch to 84ch (both views); measured at 1920 with the
+     rail open, the text 674 to 787px of a 1087px card
+     (scratchpad/ui-sweeps/notewidth.js).
+674. **The owner, 2026-10-06, verbatim.** "when hovering over the
+     companion, I cant two finger scroll on the trackpad". Fixed 2026-10-06:
+     the companion is `position: fixed`, so its scroll chain ended at the
+     document; a wheel on it now goes to the element beneath (a board pans by
+     its own handler) and otherwise scrolls the nearest scroller under the
+     pointer (avatars.js). scratchpad/ui-sweeps/buddywheel.js: nothing moved
+     before, `#tab-main` 400px after a 400px wheel.
+

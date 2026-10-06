@@ -6150,6 +6150,33 @@ function nameMarkBuddySupportSoon() {
 }
 document.addEventListener("wheel", nameMarkBuddySupportSoon, { passive: true, capture: true });
 document.addEventListener("pointerup", nameMarkBuddySupportSoon, { passive: true, capture: true });
+
+//: **A scroll over the companion scrolls what is under it** (INBOX 674, the
+//: owner: "when hovering over the companion, I cant two finger scroll on the
+//: trackpad"). It is `position: fixed`, so the browser's scroll chain from it
+//: ends at the document, which does not scroll in this app: the list under
+//: it never heard the wheel. The element beneath gets the same wheel (a
+//: board or map pans by its own handler), and when nothing there takes it,
+//: the nearest scroller under the pointer moves by the same amount.
+document.addEventListener("wheel", (event) => {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || event.ctrlKey || !buddy.contains(event.target)) return;
+  const under = document.elementsFromPoint(event.clientX, event.clientY).find((el) => !buddy.contains(el));
+  if (!under) return;
+  const passed = new WheelEvent("wheel", event);
+  under.dispatchEvent(passed);
+  if (passed.defaultPrevented) return event.preventDefault();
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+  for (let el = under; el && el !== document.documentElement; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    const y = event.deltaY && /auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight;
+    const x = event.deltaX && /auto|scroll/.test(style.overflowX) && el.scrollWidth > el.clientWidth;
+    if (!x && !y) continue;
+    event.preventDefault();
+    el.scrollBy({ left: x ? event.deltaX * unit : 0, top: y ? event.deltaY * unit : 0 });
+    return;
+  }
+}, { passive: false });
 setInterval(() => {
   if (!document.hidden && !nmb.away && document.getElementById("nm-buddy")) queueNameMarkBuddyCheck();
 }, 1500);

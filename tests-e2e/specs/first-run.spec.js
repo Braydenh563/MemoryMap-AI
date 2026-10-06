@@ -49,10 +49,13 @@ test("a sealed full backup restores the notebook as it was", async ({ page }) =>
     mimeType: "application/octet-stream",
     buffer: sealed,
   });
+  // It says Restored, then reloads itself to the lock screen 1.2 s later
+  // (settings-controls.js); wait for that navigation, not for a guess at it,
+  // so openApp cannot start signing in on the page that is about to go.
+  const reloaded = page.waitForEvent("domcontentloaded", { timeout: 30_000 });
   await page.locator(".confirm-overlay button:not(:has-text('Cancel'))").last().click();
   await expect(page.locator("#restore-bundle-status")).toContainText("Restored");
-  // It reloads to the lock screen; openApp signs in.
-  await page.waitForTimeout(1500);
+  await reloaded;
   await openApp(page);
   expect(await noteExists(page, kept), "the note in the backup came back").toBe(true);
   expect(await noteExists(page, lost), "the note written after the backup is gone").toBe(false);

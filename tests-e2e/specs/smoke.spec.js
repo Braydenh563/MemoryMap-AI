@@ -88,23 +88,19 @@ test("opening a saved conversation renders its messages", async ({ page }) => {
   await page.waitForSelector("#chat-messages", { timeout: 15_000 });
 
   // A conversation has to exist to be reopened, and the empty state has to
-  // have been shown first — that is what lends `#chat-suggest` away, and a
-  // test that skipped it would pass against the bug.
-  const conversationId = await page.evaluate(async () => {
-    const list = await apiJson("/conversations");
-    return list.length ? list[0].id : null;
-  });
-  test.skip(conversationId === null, "no saved conversations in this profile");
-
-  await page.evaluate((id) => openConversation(id), conversationId);
-  await page.waitForTimeout(500);
-
-  const rendered = await page.evaluate(
-    () => document.getElementById("chat-messages").children.length
+  // have been shown first, which is what lends `#chat-suggest` away. The
+  // seeded notebook has none and no model is running to make one, so it is
+  // saved through the API, the way the chat saves a turn: before this the
+  // test skipped itself on every CI run and could not fail.
+  const made = await page.evaluate(() =>
+    apiJson("/conversations", {
+      method: "POST",
+      body: JSON.stringify({ question: "Where did I put the spare key?", answer: "Under the blue pot by the door." }),
+    })
   );
-  expect(
-    rendered,
-    "a saved conversation opened with an empty transcript — see openConversation's #chat-suggest comment"
-  ).toBeGreaterThan(0);
+  await page.evaluate((id) => openConversation(id), made.id);
+  const messages = page.locator("#chat-messages");
+  await expect(messages, "a saved conversation opened with an empty transcript").toContainText("Under the blue pot");
+  await expect(messages).toContainText("spare key");
   expect(pageErrors, `uncaught exceptions: ${pageErrors.join("; ")}`).toEqual([]);
 });

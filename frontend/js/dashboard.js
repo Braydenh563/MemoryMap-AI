@@ -2486,10 +2486,72 @@ function buildArtParticles(p, categories, total, width, height) {
         amp: p.random(2, 9),
         size: p.random(2, 5),
         hue,
+        //: Which star this is across a Regenerate (INBOX 686): the n-th star
+        //: of a category glides to where the n-th star of that category goes.
+        cat: group.name,
+        idx: i,
       });
     }
   }
   return particles;
+}
+
+//: **Regenerate glides (INBOX 686**, the owner: "can you add a smooth
+//: animation for regenerating the notebook constelation??"). It used to tear
+//: the sketch down and mount a new one, so the sky changed in one frame. Now
+//: the live sketch is retargeted: every star eases from where it is drawn to
+//: its place in the new arrangement, a star with no partner fades and grows
+//: in where it lands, one left over fades out where it stands, and the lines
+//: (which read wrong while their stars are travelling) fade out and come back
+//: as the stars settle. A second Regenerate mid-way starts from the drawn
+//: positions, so nothing jumps.
+//:
+//: The bound the owner's ask is measured against: no star moves more than an
+//: eighth of its journey between two frames. A cubic ease-out starts at three
+//: times the average speed, so at the sketch's thirty frames a second over
+//: 800 ms the first frame would be 0.125 of the way, exactly on the line;
+//: the glide runs at sixty (`ART_GLIDE_FPS`) and drops back when it settles,
+//: which halves it. Measured first with the wall clock, the first frame was
+//: still 0.14 of the way: it was drawn 30 to 50 ms after the click, and a
+//: busy machine's late frames did the same mid-glide. Hence the glide's own
+//: clock below. `scratchpad/ui-sweeps/constellation686.js` measures it.
+const ART_GLIDE_MS = 800;
+const ART_GLIDE_FPS = 60;
+//: The most of the glide's clock one frame may spend: 25 ms is three fifths
+//: of an eighth of the journey even at the ease's fastest, its first frame.
+const ART_GLIDE_STEP_MS = 25;
+//: The quick cross-fade that replaces the glide when interface animations are
+//: off or less motion is asked for: a change of picture, not a journey.
+const ART_FADE_MS = 200;
+
+function artEaseOut(u) {
+  const k = 1 - Math.min(1, Math.max(0, u));
+  return 1 - k * k * k;
+}
+
+//: The lines' strength through a glide: from wherever they were (a glide
+//: interrupted while they were half gone starts from half), out by a third
+//: of the way, held out while the stars cross, back in over the last half.
+function artLineFade(from, u) {
+  if (u <= 0.3) return from * (1 - u / 0.3);
+  if (u <= 0.5) return 0;
+  return artEaseOut((u - 0.5) / 0.5);
+}
+
+//: Pair the stars drawn now with the next arrangement's. `shown` carries what
+//: the last frame drew (`x`, `y`, `vis`, `drawSize`); each next star gets a
+//: `from` (a partner's drawn state, or nothing: it grows in where it lands);
+//: unpaired shown stars, and stars still fading from an earlier glide, leave.
+function artRetarget(shown, leaving, next) {
+  const key = (s) => `${s.cat}\u0000${s.idx}`;
+  const drawn = new Map(shown.map((s) => [key(s), s]));
+  for (const star of next) {
+    const was = drawn.get(key(star));
+    star.from = was ? { x: was.x, y: was.y, vis: was.vis ?? 1, size: was.drawSize ?? was.size } : { x: null, y: null, vis: 0, size: 0 };
+    drawn.delete(key(star));
+  }
+  const gone = [...leaving, ...drawn.values()].filter((s) => (s.vis ?? 1) > 0.01);
+  return gone.map((s) => ({ ...s, from: { x: s.x, y: s.y, vis: s.vis ?? 1, size: s.drawSize ?? s.size } }));
 }
 
 async function renderArtWidget(body) {
@@ -2511,12 +2573,15 @@ async function renderArtWidget(body) {
   controls.appendChild(
     smallButton("ph:dice-five Regenerate", "A fresh arrangement of the same notes", () => {
       artNonce += 1;
-      startArt(holder);
+      //: The live sketch glides to it (INBOX 686); only a widget with no
+      //: sketch yet (p5 still loading) builds one.
+      if (artInstance) artInstance.regenerate();
+      else startArt(holder);
     })
   );
   controls.appendChild(
     smallButton("ph:floppy-disk Save PNG", "Save this artwork as an image", () => {
-      if (artInstance) artInstance.saveCanvas("memorymap-constellation", "png");
+      if (artInstance) artInstance.saveSettled();
     })
   );
   body.appendChild(controls);
@@ -2622,8 +2687,15 @@ async function startArt(holder) {
     let particles = [];
     let width = 0;
     const height = 220;
+    //: The glide in hand (INBOX 686): when it began, how strong the lines
+    //: were then, and the stars still fading out. `null` at rest.
+    let glide = null;
+    //: The quick cross-fade's picture of the old sky, and when it began.
+    let fade = null;
 
-    const scene = (t) => {
+    //: `settled` draws the arrangement the glide is heading for, whatever
+    //: point it has reached: what Save PNG saves.
+    const scene = (t, settled = false) => {
       // A soft vertical wash instead of a flat fill, more depth (Wave N).
       p.noStroke();
       const washHue = p.hue(p.color(accentHex));
@@ -2632,34 +2704,105 @@ async function startArt(holder) {
         p.fill(washHue, 30, shade, 1);
         p.rect(0, y, width, 4);
       }
-      for (const dot of particles) {
-        dot.x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
-        dot.y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
+      const now = p.millis();
+      //: The glide's own clock, advanced by each drawn frame and by no more
+      //: than `ART_GLIDE_STEP_MS` per frame: it starts at the first frame
+      //: drawn after the click, not at the click, and a late frame (a busy
+      //: machine) stalls the glide rather than jumping it.
+      if (glide && !settled) {
+        if (glide.last !== null) glide.elapsed += Math.min(now - glide.last, ART_GLIDE_STEP_MS);
+        glide.last = now;
       }
+      const u = glide && !settled ? Math.min(1, glide.elapsed / ART_GLIDE_MS) : 1;
+      const e = artEaseOut(u);
+      //: The drift goes on under the glide: a star eases from where it was
+      //: drawn towards its new place as that place drifts, so it arrives on
+      //: the moving point rather than on a still one and then lurching.
+      for (const dot of particles) {
+        const x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
+        const y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
+        const from = u < 1 ? dot.from : null;
+        dot.x = from && from.x !== null ? from.x + (x - from.x) * e : x;
+        dot.y = from && from.y !== null ? from.y + (y - from.y) * e : y;
+        dot.vis = from ? from.vis + (1 - from.vis) * e : 1;
+        dot.drawSize = from ? from.size + (dot.size - from.size) * e : dot.size;
+      }
+      const lines = u < 1 ? artLineFade(glide.lineFrom, u) : 1;
       // Faint connecting lines between nearby stars (O(n²), but n is
       // capped low enough that it stays cheap at 60fps).
-      for (let i = 0; i < particles.length; i++) {
+      for (let i = 0; lines > 0 && i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i];
           const b = particles[j];
           const d = p.dist(a.x, a.y, b.x, b.y);
           if (d < 70) {
-            p.stroke(a.hue, 65, dark ? 72 : 55, p.map(d, 0, 70, 0.45, 0));
+            p.stroke(a.hue, 65, dark ? 72 : 55, p.map(d, 0, 70, 0.45, 0) * lines * Math.min(a.vis, b.vis));
             p.strokeWeight(1);
             p.line(a.x, a.y, b.x, b.y);
           }
         }
       }
+      //: Stars with no place in the new sky fade where they stand, gone by
+      //: six tenths of the way so the arrivals are not crowded by them.
+      const leaving = u < 1 ? glide.leaving : [];
+      const out = artEaseOut(Math.min(1, u / 0.6));
+      for (const dot of leaving) dot.vis = dot.from.vis * (1 - out);
       // The stars themselves: a soft glow halo + a bright core, twinkling.
       p.noStroke();
-      for (const dot of particles) {
-        const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + dot.phase);
+      for (const dot of leaving.concat(particles)) {
+        const twinkle = (0.6 + 0.4 * Math.sin(t * 2 + dot.phase)) * dot.vis;
         p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
-        p.circle(dot.x, dot.y, dot.size * 4); // glow
+        p.circle(dot.x, dot.y, dot.drawSize * 4); // glow
         p.fill(dot.hue, 80, dark ? 78 : 48, twinkle);
-        p.circle(dot.x, dot.y, dot.size); // core
+        p.circle(dot.x, dot.y, dot.drawSize); // core
+      }
+      if (fade && !settled) {
+        const k = 1 - Math.min(1, (now - fade.start) / ART_FADE_MS);
+        const ctx = p.drawingContext;
+        ctx.save();
+        ctx.globalAlpha = k;
+        ctx.drawImage(fade.snap, 0, 0, width, height);
+        ctx.restore();
       }
     };
+
+    //: Regenerate (INBOX 686): the next arrangement, reached by a glide, or
+    //: by a cross-fade when interface animations are off or less motion is
+    //: asked for (read now, not at build: the switch may have moved since).
+    p.regenerate = () => {
+      if (!width) return;
+      p.randomSeed(artSeed(categories) + artNonce * 997);
+      const next = buildArtParticles(p, categories, total, width, height);
+      const now = p.millis();
+      if (reduceMotion || reducedMotionWanted() || document.documentElement.dataset.uiMotion === "off") {
+        const snap = document.createElement("canvas");
+        snap.width = p.drawingContext.canvas.width;
+        snap.height = p.drawingContext.canvas.height;
+        snap.getContext("2d").drawImage(p.drawingContext.canvas, 0, 0);
+        fade = { snap, start: now };
+        glide = null;
+        particles = next;
+        p.frameRate(ART_FRAME_RATE);
+        p.loop();
+        return;
+      }
+      const u = glide ? Math.min(1, glide.elapsed / ART_GLIDE_MS) : 1;
+      const lineFrom = glide && u < 1 ? artLineFade(glide.lineFrom, u) : 1;
+      const leaving = artRetarget(particles, glide && u < 1 ? glide.leaving : [], next);
+      glide = { elapsed: 0, last: null, lineFrom, leaving };
+      particles = next;
+      p.frameRate(ART_GLIDE_FPS);
+    };
+    //: Save PNG takes the settled sky, then puts the frame in hand back
+    //: before the browser paints, so the save never shows on screen.
+    p.saveSettled = () => {
+      const t = reduceMotion ? 0 : p.millis() * 0.0003;
+      scene(t, true);
+      p.saveCanvas("memorymap-constellation", "png");
+      scene(t);
+    };
+    //: What the stars are drawn at, for the sweep that measures the glide.
+    p.artStars = () => particles;
 
     p.setup = () => {
       width = holder.clientWidth || 300;
@@ -2690,7 +2833,18 @@ async function startArt(holder) {
     //: browser throttles a background tab to. The two are the same number:
     //: `frameCount * 0.005` at sixty frames a second advanced `t` by 0.3 a
     //: second, and `millis() * 0.0003` advances it by 0.3 a second full stop.
-    p.draw = () => scene(p.millis() * 0.0003);
+    p.draw = () => {
+      scene(reduceMotion ? 0 : p.millis() * 0.0003);
+      const now = p.millis();
+      if (glide && glide.elapsed >= ART_GLIDE_MS) {
+        glide = null;
+        p.frameRate(ART_FRAME_RATE);
+      }
+      if (fade && now - fade.start >= ART_FADE_MS) {
+        fade = null;
+        if (reduceMotion) p.noLoop();
+      }
+    };
     // Was missing entirely: width was measured once at setup and never
     // re-synced, so this canvas was the one p5 sketch in the app with no
     // resize handling at all (the sibling in the whiteboard has its own).
@@ -2708,6 +2862,7 @@ async function startArt(holder) {
       if (!next || next === width) return;
       width = next;
       p.resizeCanvas(width, height);
+      glide = null;
       particles = buildArtParticles(p, categories, total, width, height);
     };
     const observer = new ResizeObserver(resync);

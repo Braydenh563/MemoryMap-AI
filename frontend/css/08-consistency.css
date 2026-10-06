@@ -7602,6 +7602,8 @@ body .chip.item-label,
 /* The body's breath, on a box inside its sway box that holds the body's
    root and the lids' (atlas.js, INBOX 540): the lids breathe with the face. */
 .atl-lw-breathe { position: absolute; left: 0; top: 0; width: 64px; height: 92px; transform-origin: 31px 90px; will-change: transform; }
+/* The chest swells about the hips (INBOX 687, `atlasBreathFrame`). */
+.atl-layer-body .nmb-torso { transform-origin: 31px 60px; }
 /* The hair's own layer (INBOX 554, 564), in the breathing box under the
    body's root; its box sways it about the crown, a beat behind the body. */
 .atl-lw-breathe > .atl-lw-hair { position: absolute; left: 0; top: 0; width: 64px; height: 92px; transform-origin: 32px 15px; will-change: rotate; }
@@ -8934,7 +8936,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* INBOX 577 (the owner: "the companion or atlas's head goes large then
        small then large again"): the figure's breath lifts the body and
        barely widens it; it never stretches the head, and it starts at rest. */
-    & .atl-lw-breathe { animation: atl-breathe-rise 4.4s ease-in-out infinite; }
+    & .atl-lw-breathe { animation: atl-breathe-rise 4.6s ease-in-out infinite; }
+    /* The rise's period is the chest's swell's (INBOX 687, atlas-life.js,
+       `atlasBreathFrame`): 4.6s and 4.0s, clear of every idle sway and of
+       the large view's 4.3s bob, which the old 4.4s drifted against. */
     /* The hair trails the body's sway: the same clock, a beat later and a
        little wider about the crown (INBOX 554, 564). */
     & .atl-lw-hair[data-atlas-look="masculine"] { animation: atl-hair-trail 7.2s ease-in-out -2.5s infinite alternate; }
@@ -8963,7 +8968,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-lower[data-atlas-look="feminine"] { animation: atl-hem-wind 7.1s ease-in-out -3.55s infinite alternate; }
     /* His cloak catches the same wind on a clock of its own (INBOX 575). */
     & .atl-lw-lower[data-atlas-look="masculine"] { animation: atl-hem-wind 6.3s ease-in-out -3.15s infinite alternate; }
-    & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
+    & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 4s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
     /* (The happy moods stopped this flow while the wag ran on the layer; the

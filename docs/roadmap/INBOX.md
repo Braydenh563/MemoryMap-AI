@@ -44,32 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-640. **The owner, 2026-10-05, verbatim.** "Also like the smooth slide across
-     tabs." Placed: the motion agent (a sliding active indicator for tabs,
-     sub-tabs, segmented controls and the Settings sidebar, under the
-     Interface animations toggle).
-
-645. **The owner, 2026-10-05, verbatim.** "Once everything is done, update the
-     pr title and description, update the screenshots on the readme, can your
-     redesign and remake the GitHub pages landing site?? Make it professional
-     and in the image of MemoryMap AI. Make it detailed, and include key
-     links, it for some reason struggles to load the documents from the repo
-     so I think we should remove them and just have a solid landing site
-     which doesn't really have a problem with having to be kept up to date
-     yk?? Then once that is finished. Ensure all the documentation is
-     correct, make sure the release is ready for v0.4.0 and then lemme know
-     when it's ready to merge, before that do a final scan for bugs, security
-     flaws, codeql and ci issues you may have missed." Placed: the release
-     close-out, in this order once 640, 642 and the buildable items land
-     (641's remainder, 643, 644 and 646 went to the next PR, ROADMAP top):
-     fresh README screenshots (`docs/screenshots/`; **built**: all 22 retaken in dark from the showcase notebook with `readmeshots.js`, each under 400 KB, none with a toast, skeleton or open dialog), an Opus agent rebuilding
-     `docs/index.html` as a static landing page (no fetch of repo docs, links
-     out to GitHub instead; **built bdbad35**: one self-contained page, no
-     request beyond its own screenshots, no overflow at 320 to 1920, text
-     4.5:1 or better in light and dark, `tests/test_docs_site.py` pins it), a documentation correctness pass (**built**: README, INSTALL, MODELS, PRIVACY, SECURITY, TROUBLESHOOTING, ARCHITECTURE, CONTRIBUTING, RELEASING and DESIGN checked against the code, 2026-10-06), version 0.4.0
-     and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
-     then the PR title and description, then the owner is told it is ready.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

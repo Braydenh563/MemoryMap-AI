@@ -45979,3 +45979,13 @@ and refuses a topic ("Select a shape, link or text box first").
      `test_a_popup_chooses_a_kind_with_a_tab_strip`. The pickers' source
      pills are left in `agent-remaining/board715-1006.md`.
 
+720. **The owner, 2026-10-06, verbatim**, with the Ask history's pin and bin
+     buttons and the Agent activity panel captioning a pasted image: "these
+     buttons in the ask history panel are circles, shouldnt they be rounded
+     squares to stay consistent?? also I accidentally pressed ctrl v randomly on
+     the app when on the ask tab and it started captioning the image, I didnt
+     want to add the image, I should only be able to upload images where it is
+     intended". Fixed: `wbCommandsLive` (whiteboard-commands.js) now needs the
+     canvas rendered, so a board left open in the Library no longer takes a
+     paste on another tab; `.icon-btn` is `--radius-md`. tests/test_stray_paste_720.py.
+

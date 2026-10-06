@@ -3189,7 +3189,9 @@ li.link-source {
   background: none;
   border: none;
   box-shadow: none;
-  border-radius: var(--radius-pill);
+  /* A rounded square like every other quiet icon button (the owner,
+     2026-10-06: "these buttons in the ask history panel are circles"). */
+  border-radius: var(--radius-md);
   color: var(--muted);
   cursor: pointer;
 }

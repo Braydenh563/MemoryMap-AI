@@ -52,6 +52,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A stray Ctrl+V on another tab no longer drops an image onto a board left open in the Library (and starts captioning it); a board takes a paste only while it is on screen. The Ask history's pin and delete buttons are rounded squares like the app's other icon buttons (INBOX 720).
 - The mini Atlas avatar beside the name on an Ask answer, a Chat reply and the Guide no longer hangs under its row: the head is clipped to its 20px box (the companion's body and legs were drawn 11px below it, so the name sat at the top of a figure twice its height, with empty space under it) (INBOX 714).
 - Mind map: a topic's floating bar (colour, text size, Text, Shape, Branch line) no longer draws over the board's View, Edit or Board menus (INBOX 716). The top bar lifts above the floating bars while one of its menus is open; measured over the View menu, the menu answers every overlapping point where the bar used to answer 68 of 77.
 - Mind map: double-clicking a topic's resize grip to put its size back now saves (INBOX 716). It sent a height the server refuses, so the save was rejected, the board reloaded with the old size, and the next move of the topic brought the manual size back. The reset stores the height the text needs, the branch line follows the box the same moment, and Ctrl+Z puts the manual size back.

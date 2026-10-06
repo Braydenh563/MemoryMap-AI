@@ -61,7 +61,7 @@ def test_the_card_offers_both_paths_and_the_command():
 def test_the_code_is_lazy():
     source = app_js_text()
     assert 'accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"]' in source
-    assert 'accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey"]' in source
+    assert 'accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"]' in source
     assert "account-recovery.js" not in re.sub(r"<!--.*?-->", "", INDEX, flags=re.S)
     assert "recovery-lazy.css" not in INDEX
 
@@ -100,8 +100,12 @@ def test_the_key_is_put_nowhere_else():
 
 
 def test_settings_names_the_button_for_what_it_does():
+    # The row and its button are drawn by account-recovery.js since the boot
+    # scripts' total cap (2026-10-06); the pane awaits it through the stand-in.
     account = _function(app_js_text(), "renderAccount")
-    assert '"Replace it" : "Make a recovery key"' in account
+    assert "await recoveryAccountRow(info)" in account
+    lazy = (ROOT / "frontend" / "js" / "account-recovery.js").read_text(encoding="utf-8")
+    assert '"Replace it" : "Make a recovery key"' in _function(lazy, "recoveryAccountRow")
     controls = (ROOT / "frontend" / "js" / "settings-controls.js").read_text(encoding="utf-8")
     assert '$("account-recovery-make").addEventListener("click", () => makeRecoveryKey())' in controls
     assert "showRecoveryKey(result.recovery_key" in controls  # after a re-key

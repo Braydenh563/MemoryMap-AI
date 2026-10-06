@@ -361,3 +361,14 @@ async function makeRecoveryKey() {
   key = null;
   status.textContent = replacing ? "Recovery key replaced." : "Recovery key made.";
 }
+
+//: The Settings Account pane's recovery key row (settings-panes.js
+//: `renderAccount`, through the stand-in), and the one button beside it,
+//: named for what it will do.
+function recoveryAccountRow(info) {
+  const made = info.recovery_key_created_at;
+  const button = $("account-recovery-make");
+  button.textContent = made ? "Replace it" : "Make a recovery key";
+  button.dataset.replacing = made ? "yes" : "no";
+  return ["Recovery key", made ? `Made ${new Date(made).toLocaleDateString()}` : "None yet"];
+}

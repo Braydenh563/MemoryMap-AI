@@ -3349,3 +3349,27 @@ function initQuestionsView() {
     $("question")?.focus();
   });
 }
+
+//: From app.js (its cap), 2026-10-06; read at call time only.
+// --- capture templates (Wave B) ---------------------------------------------------
+
+const BUILTIN_TEMPLATES = [
+  { name: "Journal", content: "Journal: {date}\n\nToday I " },
+  { name: "Recipe", content: "Recipe: \n\nIngredients:\n- \n\nSteps:\n1. " },
+  { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
+  { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
+];
+
+
+async function loadTemplates() {
+  // Built-ins + the user's own (kept in preferences). Shared with the two
+  // other boot readers (A2): at boot this joins the one request in flight, and
+  // afterwards it reads the cache every PUT in this file keeps current, which
+  // is why `saveTemplateList` (PUT, then this) still shows the new template.
+  await loadPreferences().catch(() => prefsCache);
+  // Saved filters live in the same payload, so draw them while it's fresh.
+  renderSavedSearches();
+  //: The Capture box's picker reads `templateCatalogue()` when it opens
+  //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
+  //: template saved in Settings is in the next opening without a redraw.
+}

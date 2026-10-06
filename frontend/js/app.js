@@ -2242,9 +2242,9 @@ const LAZY_ENTRY_POINTS = {
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
   vault: ["unlockPrivateNotes", "ensureVaultOpen"],
-  accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey"],
+  accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
-  noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
+  noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
   meetings: ["openNewMeeting", "openMeetingSheet"],
   askHistory: [
     "toggleAskHistoryPanel",

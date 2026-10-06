@@ -702,7 +702,7 @@ def _payload_key(session: Session, similarity: bool, include_maps: bool, include
         session.execute(
             select(
                 EntryLink.id, EntryLink.source_entry_id, EntryLink.target_entry_id, EntryLink.reason,
-                EntryLink.reason_confidence, EntryLink.link_type,
+                EntryLink.reason_confidence, EntryLink.link_type, EntryLink.two_way,
             ).order_by(EntryLink.id)
         )
     )
@@ -942,6 +942,7 @@ def _build_graph(
             EntryLink.reason,
             EntryLink.reason_confidence,
             EntryLink.link_type,
+            EntryLink.two_way,
         )
     ):
         if link.source_entry_id in node_ids and link.target_entry_id in node_ids:
@@ -972,6 +973,9 @@ def _build_graph(
                         # existed, which reads as the flat "related" the
                         # graph has always shown.
                         "link_type": link.link_type,
+                        # INBOX 693: no arrow on a link that runs both ways
+                        # (its own choice, else its type's direction).
+                        "two_way": manager.link_runs_both_ways(link.two_way, link.link_type, types),
                     }
                 )
                 #: KG3: a typed link carries its name and inverse, for the

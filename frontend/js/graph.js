@@ -3664,9 +3664,30 @@ function openGraphLinkPeek(edge, event, nodes) {
       closeGraphLinkPeek();
       await graphRemoveLink(edge, sourceId);
     });
+    //: INBOX 693, the owner: "what if the user makes a link meaning for the
+    //: note link to be omnidirectional and not a directional link??". One
+    //: switch, pressed for a link that runs both ways; Arrows draws none on
+    //: it (`gcDraw`). Saved on the link (PATCH two_way).
+    const direction = smallButton("ph:arrows-left-right Two-way", "Two-way: this link runs both ways and is drawn with no arrow. One-way: from the note that made it", async () => {
+      const next = !edge.two_way;
+      try {
+        await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "PATCH", body: JSON.stringify({ two_way: next }) });
+      } catch (error) {
+        toast(error.message || "Couldn't change the link's direction.", true);
+        return;
+      }
+      for (const drawn of gcTab.edges) if (drawn.id === edge.id && drawn.kind === "link") drawn.two_way = next;
+      edge.two_way = next;
+      direction.setAttribute("aria-pressed", String(next));
+      gcRequestDraw();
+      toast(next ? "This link now runs both ways." : "This link now runs one way.");
+    });
+    direction.id = "graph-link-two-way";
+    direction.setAttribute("aria-pressed", String(Boolean(edge.two_way)));
     editReason.classList.add("ghost");
+    direction.classList.add("ghost");
     remove.classList.add("ghost", "danger");
-    actions.append(editReason, remove);
+    actions.append(editReason, direction, remove);
     panel.appendChild(actions);
   }
   document.body.appendChild(panel);

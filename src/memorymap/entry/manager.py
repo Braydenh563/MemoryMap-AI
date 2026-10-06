@@ -2201,6 +2201,31 @@ def set_link_props(session: Session, link: EntryLink, props: dict | None) -> Ent
     return link
 
 
+def set_link_two_way(session: Session, link: EntryLink, two_way: bool | None) -> EntryLink:
+    """Make a link run both ways or one way (INBOX 693), or null to let its
+    type decide again (`link_runs_both_ways`)."""
+    link.two_way = two_way
+    log_action(
+        session,
+        "relinked",
+        "entry",
+        link.source_entry_id,
+        f"-> entry {link.target_entry_id} ({'two-way' if two_way else 'one-way' if two_way is False else 'direction by type'})",
+    )
+    session.commit()
+    return link
+
+
+def link_runs_both_ways(link_two_way: bool | None, link_type: str | None, types: dict[str, dict]) -> bool:
+    """Whether a link is drawn with no arrow: its own choice when it has
+    one, else its type's (a type with no inverse has no direction), else one
+    way (INBOX 693)."""
+    if link_two_way is not None:
+        return bool(link_two_way)
+    kind = types.get(link_type or "")
+    return bool(kind) and not kind["directed"]
+
+
 def set_link_type(session: Session, link: EntryLink, link_type: str | None) -> EntryLink:
     """Give a link a kind, built-in or custom (KG3), or none (GRAPH_PLAN KG9:
     the inbox's type suggestions, and the link menu's Type). The caller has

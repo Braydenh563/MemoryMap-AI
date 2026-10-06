@@ -1690,7 +1690,8 @@ function gcDraw(s = gcTab) {
         edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
-    } else if (arrows && edge.kind === "link") {
+      // No arrow on a link that runs both ways (INBOX 693, `two_way` from /graph).
+    } else if (arrows && edge.kind === "link" && !edge.two_way) {
       const bow = curvedLinks ? gcBowPoint(a, b) : null;
       gcLinkSpark(bucket, a, bow, b, k, sparkRich);
       sparks += 1;

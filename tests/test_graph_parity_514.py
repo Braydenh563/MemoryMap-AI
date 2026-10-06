@@ -113,7 +113,7 @@ def test_the_frontend_asks_for_what_the_switches_say():
 def test_arrows_text_fade_thickness_and_link_force_reach_the_drawing():
     root = Path(__file__).resolve().parents[1] / "frontend" / "js"
     canvas = (root / "graph-canvas.js").read_text(encoding="utf-8")
-    assert 'else if (arrows && edge.kind === "link") {' in canvas and "gcLinkSpark(bucket, a, bow, b, k, sparkRich);" in canvas
+    assert 'else if (arrows && edge.kind === "link" && !edge.two_way) {' in canvas and "gcLinkSpark(bucket, a, bow, b, k, sparkRich);" in canvas
     assert "ctx.lineWidth = (style.width * widthScale * (bucket.wide ? 0.8 : 1)) / k;" in canvas
     assert "k > labelZoom" in canvas and "linkForce: Number(" in canvas
     worker = (root / "graph-worker.js").read_text(encoding="utf-8")

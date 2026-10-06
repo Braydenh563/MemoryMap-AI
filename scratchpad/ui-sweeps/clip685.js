@@ -168,8 +168,10 @@ const MEASURE = () => {
     }
     if (ring) {
       const exempt = {};
+      const gone = {};
       for (const k of clippersOf(owner)) {
         const pb = padBox(k.el, k.cs);
+        const kel0 = k.el;
         const o = over(ring, pb);
         const ctrl = over({ L: owner.getBoundingClientRect().left, T: owner.getBoundingClientRect().top, R: owner.getBoundingClientRect().right, B: owner.getBoundingClientRect().bottom }, pb);
         const sides = [];
@@ -185,7 +187,9 @@ const MEASURE = () => {
           const edge = { left: pb.L, top: pb.T, right: pb.R, bottom: pb.B }[s];
           // An outer clipper whose edge is the same line as an inner scroller's
           // is the same scrollport (a pane in a body that hides): exempt too.
-          if (exempt[s] !== undefined && Math.abs(edge - exempt[s]) <= 1) continue;
+          if (exempt[s] !== undefined && (kel0 === document.body || kel0 === document.documentElement)) continue;   // the viewport edge of content that scrolls to it
+          if (gone[s]) continue;   // the control is already past an inner clipper's edge on this side: scrolled out, not cut
+          if (exempt[s] !== undefined) continue;   // content at a scroller's moving edge: every outer clipper is the same story
           if (kel !== document.documentElement && kel !== document.body) {
             const moving = (s === 'top' && k.c.scrollY && kel.scrollTop > 1)
               || (s === 'bottom' && k.c.scrollY && kel.scrollTop + kel.clientHeight < kel.scrollHeight - 1)
@@ -195,7 +199,7 @@ const MEASURE = () => {
           }
           // The control itself past the edge on a scrolling axis is scroll,
           // not a ring problem; on the start side at rest it is a cut.
-          if (ctrl[s] > TOL) continue;
+          if (ctrl[s] > TOL) { gone[s] = true; continue; }
           sides.push(`${s} ${o[s].toFixed(1)}`);
         }
         if (sides.length) {
@@ -246,6 +250,46 @@ const MEASURE = () => {
       if (sides.length) push({ clipperEl: k.el, kind: 'border', how: 'border', sig: sig(el), owner: sig(el), clipper: sig(k.el), ov: `${k.cs.overflowX}/${k.cs.overflowY}${k.c.contain ? ' contain' : ''}${k.c.cp ? ' clip-path' : ''}`, sides, rect: [r.left, r.top, r.width, r.height].map(Math.round).join(',') });
     }
   }
+  // Text pass (INBOX 685, "Skill logs" and "Categories": the g cut off): a
+  // single line of text whose ink (the text range's box, ascent to descent)
+  // leaves the padding box of a clipping ancestor, or the box of its own
+  // overflow. Reported per element; `by` says which box cut it.
+  const textCuts = [];
+  const tseen = new Set();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let tn, nt = 0;
+  while ((tn = walker.nextNode()) && nt < 6000) {
+    const txt = tn.nodeValue.trim();
+    if (txt.length < 2) continue;
+    const host = tn.parentElement;
+    if (!host || host.closest('script,style,svg,.sr-only,[aria-hidden="true"]') || !vis(host)) continue;
+    nt++;
+    const range = document.createRange(); range.selectNodeContents(tn);
+    const rects = [...range.getClientRects()].filter((q) => q.width > 0 && q.height > 0);
+    if (rects.length !== 1) continue;           // a single line
+    const q = rects[0];
+    const cs = getComputedStyle(host);
+    const lh = parseFloat(cs.lineHeight) || q.height;
+    const scrollable = (k) => k.c.scrollY && (k.el.scrollTop > 1 || k.el.scrollTop + k.el.clientHeight < k.el.scrollHeight - 1);
+    for (const k of clippersOf(host).concat(isClip(cs).any ? [{ el: host, cs, c: isClip(cs) }] : [])) {
+      if (scrollable(k) && (q.bottom > padBox(k.el, k.cs).B || q.top < padBox(k.el, k.cs).T)) break;
+      const pb = padBox(k.el, k.cs);
+      const cut = q.bottom - pb.B;
+      const cutTop = pb.T - q.top;
+      if (!(k.c.y) ) continue;
+      if (q.right < pb.L || q.left > pb.R || q.bottom < pb.T || q.top > pb.B) continue;
+      // A descender or an ascender cut is a sliver of the line; more than that is the text scrolled away.
+      const bad = cut > 0.5 && cut <= q.height * 0.4 ? ['bottom', cut] : cutTop > 0.5 && cutTop <= q.height * 0.4 ? ['top', cutTop] : null;
+      if (!bad) continue;
+      if (k.c.scrollY && bad[0] === 'bottom' && k.el.scrollTop + k.el.clientHeight < k.el.scrollHeight - 1) break;
+      if (k.c.scrollY && bad[0] === 'top' && k.el.scrollTop > 1) break;
+      const key = sig(host) + '|' + sig(k.el) + '|' + bad[0];
+      if (tseen.has(key)) continue; tseen.add(key);
+      textCuts.push({ kind: 'text', how: 'ink', sig: sig(host), owner: `"${txt.slice(0, 24)}" lh ${lh.toFixed(1)}/${parseFloat(cs.fontSize)}px`, clipper: sig(k.el), ov: `${k.cs.overflowX}/${k.cs.overflowY}${k.c.contain ? ' contain' : ''}`, sides: [`${bad[0]} ${bad[1].toFixed(1)}`], rect: [q.left, q.top, q.width, q.height].map(Math.round).join(','), clipperEl: k.el });
+      break;
+    }
+  }
+  for (const f of textCuts) { f.where = whereCache.get(f.clipperEl) || (whereCache.set(f.clipperEl, declaredBy(f.clipperEl)), whereCache.get(f.clipperEl)); delete f.clipperEl; findings.push(f); }
   const dbg = [];
   if (window.__dbgSel) for (const el of document.querySelectorAll(window.__dbgSel)) {
     const r = el.getBoundingClientRect();
@@ -269,7 +313,8 @@ const empty = [];
     if (!r.measured) empty.push(label);
     const rings = r.findings.filter((f) => f.kind === 'ring').length;
     const borders = r.findings.filter((f) => f.kind === 'border').length;
-    console.log(`== ${label}: ${rings} rings, ${borders} borders clipped (${r.measured} focusables, ${r.borderMeasured} bordered)`);
+    const texts = r.findings.filter((f) => f.kind === 'text').length;
+    console.log(`== ${label}: ${rings} rings, ${borders} borders, ${texts} texts clipped (${r.measured} focusables, ${r.borderMeasured} bordered)`);
     for (const f of r.findings) { f.surface = label; all.push(f); if (VERBOSE) console.log(`   [${f.kind}] ${f.sig} in ${f.clipper} (${f.ov}) ${f.sides.join(', ')} @${f.rect}${f.where ? '\n        via ' + f.where : ''}`); }
     await page.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); });
   };
@@ -317,7 +362,9 @@ const empty = [];
     ['document templates', () => openDocTemplateDialog()],
     ['note templates', () => openNoteTemplateDialog()],
     ['graph controls sheet', () => { switchTab('graph'); openGraphControlsSheet(); }],
+    ['new meeting sheet', () => openNewMeeting()],
     ['feature model sheet', () => openFeatureModelSheet('chat')],
+    ['chat skills panel (the Pace pill)', () => { switchTab('chat'); const b = document.querySelector('#chat-skills-btn'); if (!b) throw new Error('no skills button'); b.click(); }],
   ];
   for (const [label, fn] of over) {
     const ok = await page.evaluate(`(async()=>{try{await (${fn.toString()})();return true;}catch(e){return false;}})()`);
@@ -351,7 +398,8 @@ const empty = [];
   }
   const rings = new Set(all.filter((f) => f.kind === 'ring').map((f) => f.sig + '|' + f.clipper));
   const borders = new Set(all.filter((f) => f.kind === 'border').map((f) => f.sig + '|' + f.clipper));
-  console.log(`TOTAL ring ${rings.size} unique (control, clipper), border ${borders.size}`);
+  const texts = new Set(all.filter((f) => f.kind === 'text').map((f) => f.sig + '|' + f.clipper));
+  console.log(`TOTAL ring ${rings.size} unique (control, clipper), border ${borders.size}, text ${texts.size}`);
   if (empty.length) console.log(`measured nothing: ${empty.join(', ')}`);
   await browser.close();
   process.exitCode = all.length ? 1 : 0;

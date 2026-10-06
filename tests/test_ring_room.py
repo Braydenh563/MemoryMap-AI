@@ -54,7 +54,20 @@ RING_ROOM: list[tuple[str, str, str]] = [
     ("library sections", ".library-view-section", "room"),
     ("document and library lists", ".doc-list", "room"),
     ("Settings nav", ".modal-nav", "room"),
+    ("a sheet's scrolling body (New meeting)", ".inbox-body", "room"),
+    ("chip, tile and filter strips", ".launch-row", "room"),
+    ("the Settings pane", ".modal-content", "room"),
+    ("menu rows", ".menu-item", "inset"),
+    ("timeline sort buttons", ".timeline-sort", "inset"),
 ]
+
+#: A pill track with an edge: its segments fill its inside, never the
+#: control height of the track's outside (INBOX 694).
+PILL_TRACKS = [".chat-dock-controls .seg > button"]
+
+#: Text that ellipsises sits in a line box of at least 1.25, or keeps its
+#: descender by a clip margin (INBOX 685: "Categories", "Skill logs").
+TEXT_ROOM = [(".sidebar-head h2", r"line-height:\s*1\.25"), (".tab-label", r"overflow-clip-margin")]
 
 SECTION_HEAD = "Ring room (INBOX 685"
 
@@ -98,3 +111,30 @@ def test_no_ring_is_hidden_to_make_it_fit():
     section = _section()
     assert not re.search(r"outline:\s*(?:none|0)\b", section)
     assert not re.search(r"outline-width:\s*0\b", section)
+
+
+def test_a_pill_track_with_an_edge_hands_its_inside_to_the_segments():
+    rules = _rules(_section())
+    for fragment in PILL_TRACKS:
+        assert any(
+            fragment in sel and re.search(r"height:\s*auto", body) and re.search(r"align-self:\s*stretch", body)
+            for sel, body in rules
+        ), f"{fragment} lost its fill-the-track rule"
+
+
+def test_clipped_single_lines_keep_their_descenders():
+    css = css_text()
+    for selector, want in TEXT_ROOM:
+        assert any(
+            re.search(want, body)
+            for sel, body in _rules(css)
+            if sel.split(",")[-1].strip().endswith(selector) or sel.strip().endswith(selector)
+        ), f"{selector} lost its descender room ({want})"
+    # no rule that ellipsises sets a line box shorter than the font
+    tight = []
+    for sel, body in _rules(css):
+        if re.search(r"text-overflow:\s*ellipsis", body):
+            lh = re.search(r"line-height:\s*([0-9.]+)\s*;", body)
+            if lh and float(lh.group(1)) < 1.2:
+                tight.append(sel)
+    assert tight in ([], [".tab-label"]) or all(".tab-label" in t for t in tight), tight

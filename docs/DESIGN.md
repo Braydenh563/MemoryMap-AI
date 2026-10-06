@@ -1186,6 +1186,17 @@ ratchets the counts so they cannot drift back.
 - **Hover changes tone, never position.** No `translateY`/`scale` on hover;
   no transitions on `left/top/width/height` except a progress bar filling.
 - **One focus ring**: the base `:focus-visible` (2px `--accent`, 2px offset).
+- **A ring is never cut off** (INBOX 685): the ring reaches `--ring-room`
+  (4px) past a control, so a container that clips (`overflow` other than
+  visible, `contain: paint`) and holds a control flush to its edge leaves that
+  room, as padding with the same negative margin (it scrolls) or
+  `overflow-clip-margin` (it clips), or draws the ring inside the control
+  (`outline-offset: -2px`, `--on-accent` on a chosen segment) when its children
+  fill it edge to edge (a tab strip, a list of rows, a pill). Never by hiding
+  the ring. A pill track with an edge hands its inside to its segments, and a
+  clipped single line keeps a line box of 1.25 or a clip margin. The containers
+  are listed in 08-consistency.css "Ring room" and held by
+  `tests/test_ring_room.py`; `scratchpad/ui-sweeps/clip685.js` finds the next.
 
 ## Control height
 

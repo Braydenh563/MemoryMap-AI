@@ -58,14 +58,6 @@ with its owner named in the entry.
      every trigger (kebabMenu, the action menus, custom selects, popovers,
      split buttons) and press each twice. Placed: with 680.
 
-685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Regenerate button's focus ring cut off along its left edge: "a lot of
-     borders get cut off on an edge." Focus rings and borders clipped by an
-     ancestor's `overflow`. Next: sweep every focusable control on every
-     surface for a ring outside its nearest clipping ancestor, and fix by
-     room (padding or an inset ring), never by hiding the ring. Placed: the
-     0.4.1 mini release, a Sonnet agent.
-
 686. **The owner, 2026-10-06, verbatim**, with a screenshot of the
      Dashboard's Notebook constellation: "can you add a smooth animation for
      regenerating the notebook constelation??" Regenerate redraws in one
@@ -150,7 +142,8 @@ with its owner named in the entry.
      Attach dialog's head and tabs): "the bottom of these pills gets cut
      off. aslo the bottom chat dock isnt responsive in design for the
      sidebar sizes. also the companion covers the attach popup". The cut
-     pills go to 685's clipping sweep; the dock's narrow layout and the
+     pills went to 685's sweep and are fixed (the segments take the track's
+     inside); the dock's narrow layout and the
      companion's stacking (it must sit under every dialog, menu and
      popover) to a Sonnet agent.
 

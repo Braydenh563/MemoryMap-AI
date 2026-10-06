@@ -45556,3 +45556,17 @@ and refuses a topic ("Select a shape, link or text box first").
      scratchpad/ui-sweeps/pkgselect695.js: the Documents row centred and
      focused, ticked, no errors.
 
+685. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Regenerate button's focus ring cut off along its left edge: "a lot of
+     borders get cut off on an edge." Focus rings and borders clipped by an
+     ancestor's `overflow`. Next: sweep every focusable control on every
+     surface for a ring outside its nearest clipping ancestor, and fix by
+     room (padding or an inset ring), never by hiding the ring. Placed: the
+     0.4.1 mini release, a Sonnet agent. Fixed 2026-10-06: the sweep
+     (`scratchpad/ui-sweeps/clip685.js`) found 59 clipped rings at 1440 and
+     61 at 390, now 0 and 0, by container in 08-consistency.css "Ring room"
+     (room or an inset ring, `--ring-room`, `tests/test_ring_room.py`). Also
+     fixed with it: the cut pill bottoms (694's first part), the "g" of
+     "Categories" and "Skill logs" (a line box of 1 under `overflow: hidden`),
+     the phone tab captions' descenders, the New meeting sheet's fields.
+

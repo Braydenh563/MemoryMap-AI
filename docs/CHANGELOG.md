@@ -27,6 +27,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Focus rings and borders no longer cut off at a container's edge (INBOX 685, 694): the Dashboard constellation's Regenerate, sub-tab strips, sidebar lists, the Documents and Library panes, the Settings pane and nav, quick-access tiles, filter chips, menus, the New meeting sheet and more drew their ring past a clipping parent. A sweep of every control on every surface found 59 clipped rings at 1440 and 61 at 390, now 0 and 0. The Ask | Agent and Pace: Auto | Manual pills no longer lose the chosen segment's bottom edge, and the headings "Categories" and "Skill logs" and the phone tab captions keep their descenders.
 - Settings, Packages: "Select its packages" takes you to the bundle's packages, the first one in view with its tick focused, and says how many it selected.
 - Graph: Link together can be undone (its toast and Ctrl+Z), and a new Unlink on the selection bar removes the links between the selected notes, also undoable.
 - Notes, compact rows: a row's details (category, tags, time) sit on the title's line, centred with it, and the hover buttons sit inside the row on that line, open or closed, instead of hanging half below it. The open/close arrow is one quiet button whose arrow turns, with no filled, bordered square when open, and a row opens and closes with a short height animation (none with Interface animations off) that turns back smoothly if pressed again mid-way.

@@ -51,7 +51,10 @@
    Graph/Library/Timeline/Reminders, the opposite of what §35L's comment says
    it was trying to guarantee. Leaving it to `.card h2` here. */
 .sidebar-head h2 {
-  line-height: 1;
+  /* Not 1: the heading ellipsises (`overflow: hidden` below), so a line box
+     the font's own height clipped the descender of "Categories" and "Skill
+     logs" (INBOX 685). 1.25 holds the ink. */
+  line-height: 1.25;
 }
 
 .sidebar-head>button {

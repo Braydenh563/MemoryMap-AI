@@ -131,6 +131,18 @@ with its owner named in the entry.
      (the sidebar resize recipe, keyboard steps too, height kept per document);
      also seen: Stop stays enabled after "Finished."
 
+737. **The owner, 2026-10-06, verbatim**: "can the debugging run for other languages
+     as well?? also error messages, syntax errors, code suggestions and more". Then:
+     "are there any more repos we can vendor??" Today: JS runs (sandboxed), syntax
+     checks cover js, ts and css (`DOC_CHECK_TREE`), completion covers js, ts, py,
+     css and html. Vendored: codemirror, d3, emmet, harper, p5, phosphor, wordlist.
+     Candidates, all to be checked for licence (AGPL-compatible inbound) and size,
+     lazy-loaded, offline: Pyodide (Python in the browser, large), mermaid.js
+     (already decided, BACKLOG steps 8 to 13), KaTeX (maths), a Lua or Ruby WASM
+     runner, a linter per language (eslint-linter-browserify, ruff-wasm). For
+     DOCUMENTS_PLAN: errors pinned to their line, syntax errors for py and html,
+     a run for Python first.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

@@ -1180,9 +1180,10 @@ Ollama stopped and no optional extras installed.
 A single-page app in **vanilla HTML/CSS/JS: no framework, no build step.**
 Served as static files by the same FastAPI server (so no CORS is needed). It
 is also a **PWA** (`manifest.webmanifest` + `sw.js`) with a mobile pass, a
-command palette (Ctrl/Cmd-K), a graph of the notebook in three layouts: a
+command palette (Ctrl/Cmd-K), a graph of the notebook in four layouts: a
 force-directed **web**, a **tree** (notebook → category → note, replies
-branching off the note they answer) and a **radial tree**, drawn with D3
+branching off the note they answer), a **radial tree** and an **arc**
+diagram, drawn with D3
 vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored,
 loaded on demand by `ensureP5` the first time something draws). No asset
 is ever loaded from a CDN, consistent with the offline-first rule. The
@@ -1208,15 +1209,15 @@ stripped (`api/asset_strip.py`); the files on disk keep them
 
 ### The scripts, their order, and the one scope they share
 
-Ninety-two JavaScript files in `frontend/js/`, in five kinds (39 load at boot, with `d3` beside them from `vendor/`; checked 2026-10-05):
+A hundred and seven JavaScript files in `frontend/js/`, in five kinds (38 load at boot; `d3` is fetched from `vendor/` with the Graph bundle, not at boot; checked 2026-10-06):
 
 | Kind | Files | Loaded |
 | --- | --- | --- |
 | Before first paint | `boot-guard.js`, `theme-boot.js` | in `<head>`, so the theme and the boot-failure guard apply before anything draws |
 | The app's own code | `app.js`, `prefs.js`, `store.js`, `note-cards.js`, `menus.js`, `lightbox.js`, `selection.js`, `notes-list.js`, `capture-ask.js`, `chat.js`, `chat-agent.js`, `chat-attach.js`, `sheets-selects.js`, `skills.js`, `shell-reminders.js`, `markdown.js`, `navigation.js`, `router.js`, `settings-panes.js`, `media.js`, `status.js`, `ai-tools.js`, `phone-shell.js`, `wiring.js`, `settings-wiring.js`, `spaces-find.js`, `agent-activity.js` | at the end of `<body>`, in this order |
-| The boot surfaces | `avatars.js`, `atlas.js`, `rich-picker.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js`, `tour.js` | straight after, in this order |
+| The boot surfaces | `avatars.js`, `atlas.js`, `rich-picker.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js` | straight after, in this order |
 | Lazy bundles | `graph.js` and `graph-canvas.js` (the Graph tab); `undo-store.js`, `documents-code.js`, `documents-prose.js`, `documents.js`, `margin-reader.js`, `whiteboard-map.js`, `whiteboard.js`, `whiteboard-commands.js`, `whiteboard-library.js`, `whiteboard-format.js`, `whiteboard-interchange.js`, `library.js` (Library and Documents) | on the first visit to the tab, by `ensureModule` from `LAZY_MODULES` in `app.js` |
-| Lazy pieces | one entry each in `LAZY_MODULES`: `lightbox-view.js`, `edit-conflict.js`, `categories-panel.js`, `tag-manager.js`, `chip-menus.js`, `note-history.js`, `ask-history.js`, `settings-data.js`, `settings-find.js` + `settings-models.js` (`settingsUi`), `tag-suggest.js`, `attachment-actions.js`, `ocr-engine.js`, `quick-note.js`, `field-clear.js`, `assistant-avatar.js`, `quick-access.js`, `notes-rail-spy.js`, `dash-boards.js`, `suggestions-inbox.js` + `entity-page.js` + `link-types.js` + `note-properties.js` (`inbox`), `model-bench.js`, `web-clip.js`, `app-import.js`, `usage-ledger.js`, and (2026-10-05) `reveal-targets.js`, `onboarding.js`, `update-dialogs.js`, `app-palette.js`, `note-panels.js` + `note-edit-panels.js` (`notePanels`), `attach-to.js`, `settings-controls.js` (no entry points: `openSettingsModal` awaits it on the first open) | on first use through `LAZY_ENTRY_POINTS`, to keep the boot scripts under their gzip budget; `quick-note.js` is fetched a few seconds after boot, because its outbox is for the moment the server is gone and a script cannot be fetched then |
+| Lazy pieces | one entry each in `LAZY_MODULES`: `lightbox-view.js`, `edit-conflict.js`, `categories-panel.js`, `tag-manager.js`, `chip-menus.js`, `note-history.js`, `ask-history.js`, `settings-data.js`, `settings-find.js` + `settings-models.js` (`settingsUi`), `tag-suggest.js`, `attachment-actions.js`, `ocr-engine.js`, `quick-note.js`, `field-clear.js`, `assistant-avatar.js`, `quick-access.js`, `notes-rail-spy.js`, `dash-boards.js`, `suggestions-inbox.js` + `entity-page.js` + `link-types.js` + `note-properties.js` (`inbox`), `model-bench.js`, `web-clip.js`, `app-import.js`, `usage-ledger.js`, and (2026-10-05) `reveal-targets.js`, `onboarding.js`, `update-dialogs.js`, `app-palette.js`, `note-panels.js` + `note-edit-panels.js` (`notePanels`), `attach-to.js`, `settings-controls.js` (no entry points: `openSettingsModal` awaits it on the first open), and, from the boot-budget moves, `tour.js` (the guided tour, when one starts or Settings, Help opens), `icon-picker.js` (the one emoji and icon picker), `nav-history.js` (the Back and Forward list's rows), `settings-packages.js`, `help-chat.js` (the Guide), `chord-guide.js`, `batch-space.js`, `note-templates.js`, `companion-menu.js`, `vault-unlock.js`, `pick-row.js`, `drag-edge.js`, `atlas-life.js` and `atlas-motion.js`, `ask-chart.js` (with `ask-history.js`), and `whiteboard-history.js` (with the boards) | on first use through `LAZY_ENTRY_POINTS`, to keep the boot scripts under their gzip budget; `quick-note.js` is fetched a few seconds after boot, because its outbox is for the moment the server is gone and a script cannot be fetched then |
 
 Plus five that are not scripts of the main page: `sw.js` (the service worker),
 `graph-worker.js` and `harper-worker.js` (web workers for the graph's layout
@@ -1372,7 +1373,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 750 files, 7,200+ tests,
+- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 830 files, 7,200+ tests,
   under nine minutes on four cores and about 25 serially). Uses a throwaway database and fakes every AI call
   (`tests/fakes.py` + `tests/conftest.py`), so it is fully offline. The
   routine local gate is `bash scripts/gate.sh --changed` (the lint set,

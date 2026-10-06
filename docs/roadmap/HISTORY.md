@@ -45492,3 +45492,12 @@ and refuses a topic ("Select a shape, link or text box first").
      on the escaped menu before, 1 now; 0 again once closed).
      `scratchpad/ui-sweeps/rows679.js`.
 
+690. **The owner, 2026-10-06, verbatim.** "I highlighted a bunch of notes on
+     the graph and pressed link together but now I cant undo it :(" Fixed
+     2026-10-06: Link together pushes one undo for the links it made (by
+     id, so links already there are untouched), with Undo on its toast and
+     Ctrl+Z; a new Unlink on the graph's selection bar removes every link
+     between the selected notes, also undoable, which also takes back links
+     made before this fix (graph-canvas.js `gcUnlinkPairs`,
+     `gcRelinkPairs`; help_chat names both).
+

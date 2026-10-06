@@ -81,6 +81,10 @@ NAME_VOTE = 0.6
 MIN_VOTE = 0.35
 MIN_SHARE = 0.7
 MIN_SUPPORT = 2
+#: Or a clear lead: the winner has at least this many times the runner-up's
+#: vote. A note with one stray word shared with another category ("oil",
+#: "hot") split the share under MIN_SHARE while its own category won by far.
+MIN_LEAD = 2.0
 #: How many notes it reads, newest first; enough for any real notebook's
 #: vocabulary and bounded so a huge one stays fast.
 MAX_EXAMPLES = 4000
@@ -131,7 +135,9 @@ def lexical_category(
     best_name, best = ranked[0]
     share = best / sum(votes.values())
     margin = best - (ranked[1][1] if len(ranked) > 1 else 0.0)
-    if best < MIN_VOTE or share < MIN_SHARE or supporters[best_name] < MIN_SUPPORT:
+    runner_up = ranked[1][1] if len(ranked) > 1 else 0.0
+    leads = runner_up == 0.0 or best >= MIN_LEAD * runner_up
+    if best < MIN_VOTE or (share < MIN_SHARE and not leads) or supporters[best_name] < MIN_SUPPORT:
         return None
     #: Confidence from how much of the vote the winner took, kept between 50
     #: and 85: this is word overlap, and saying so keeps it below anything a

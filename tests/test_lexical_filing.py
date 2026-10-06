@@ -71,6 +71,26 @@ def test_it_abstains_rather_than_guessing(client):
     assert status["filed_by"] == "none"
 
 
+def test_a_clear_lead_files_even_when_a_stray_word_splits_the_share(monkeypatch):
+    """CI's E2E run, 2026-10-06: "Tried a sourdough focaccia: 75% hydration,
+    olive oil, rosemary, baked hot" stayed Uncategorised with no model. The
+    tally (measured on the E2E fixture) gave its own category 2.6 times the
+    runner-up's vote but only 63% of the whole, because "oil" and "hot" also
+    sit in other categories' notes, and the share rule alone abstained.
+    `scratchpad/filing_eval.py`: coverage 0.15 to 0.17, precision 0.667 to
+    0.706 with the lead rule. A close race still abstains."""
+    from memorymap.ai import lexical_filing
+
+    def tally(votes, supporters):
+        monkeypatch.setattr(lexical_filing, "_tally", lambda *_a, **_k: (votes, supporters))
+
+    tally({"Cooking": 0.681, "Home": 0.264, "Health": 0.138}, {"Cooking": 3, "Home": 2, "Health": 1})
+    match = lexical_filing.lexical_category(None, "sourdough focaccia")
+    assert match is not None and match.name == "Cooking" and match.confidence < 85
+    tally({"Cooking": 0.6, "Home": 0.4}, {"Cooking": 3, "Home": 2})
+    assert lexical_filing.lexical_category(None, "a close race") is None
+
+
 def test_a_category_named_in_the_note_counts(client):
     _seed(client)
     status, _ = _file(client, "gym: new shoes arrived")

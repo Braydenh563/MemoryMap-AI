@@ -379,6 +379,9 @@ class AttachmentAnalyseBody(BaseModel):
     #: fixture, a clear, an import) just replaces the stored text and lets the
     #: sections be derived again.
     edited: bool = False
+    #: The local engine for `kind="ocr"` on a picture (INBOX 717): "" for the
+    #: automatic pick, or "tesseract" / "rapidocr" by name.
+    engine: str = Field(default="", max_length=20)
     #: Re-run even when there is already a value (a caption is written once
     #: and left alone otherwise, so nothing an AI wrote and a person read can
     #: silently change under them).
@@ -498,11 +501,12 @@ def analyse_attachment(
         # scan is one of the slowest things this app does, and "is it working
         # or is it stuck" is the same question whether the work is a model or
         # a binary.
-        if is_image and (reason := ocr.unavailable_reason()):
+        choice = _checked_engine(body.engine) if is_image else ""
+        if is_image and (reason := ocr.unavailable_reason(choice)):
             raise HTTPException(status_code=409, detail=reason)
         with filejobs.reading("ocr", attachment.id, attachment.filename):
             if is_image:
-                text = ocr.extract_text(path)
+                text = _local_text(path, choice)
             else:
                 # No `vision_reader` passed on purpose: this is the "read it
                 # locally, no model" path, and the vision kind below is the one
@@ -1958,6 +1962,9 @@ class OcrBody(BaseModel):
     #: fixture, a clear, an import) just replaces the stored text and lets the
     #: sections be derived again.
     edited: bool = False
+    #: The local engine to read with (INBOX 717): "" for the automatic pick,
+    #: or "tesseract" / "rapidocr" by name, validated like a reader.
+    engine: str = Field(default="", max_length=20)
 
 
 @router.post("/media/{upload_id}/ocr", response_model=MediaUploadOut)
@@ -1991,7 +1998,8 @@ def ocr_media(
     else:
         #: A missing engine used to come back as a 200 with no text, which the
         #: workspace painted as "Read <file>." over an empty panel. Say so.
-        reason = ocr.unavailable_reason()
+        choice = _checked_engine(body.engine)
+        reason = ocr.unavailable_reason(choice)
         if reason:
             raise HTTPException(status_code=409, detail=reason)
         media_dir = deps.get_config().data_dir / "media"
@@ -2000,7 +2008,7 @@ def ocr_media(
         #: "stand down when a vision model exists") are right for the
         #: background pass after an upload and wrong here: with a reading on
         #: the row, or a model running, "Read again" did nothing at all.
-        text = ocr.extract_text(media_dir / upload.filename)
+        text = _local_text(media_dir / upload.filename, choice)
         if text:
             upload.ocr_text = text
             session.commit()
@@ -2142,6 +2150,7 @@ def _pdf_regions_for(
     stored_label: str,
     key: tuple[str, int] | None = None,
     auto: bool = True,
+    choice: str = "",
 ) -> OcrRegionsOut:
     if not pdfpages.available():
         return OcrRegionsOut(
@@ -2199,7 +2208,7 @@ def _pdf_regions_for(
         #: page lives in a directory that is deleted three lines from here, so
         #: the store has to be keyed by the page of the document it came from.
         out = _regions_for(
-            page_path, stored_text if index == 0 else "", stored_label, key, index, auto
+            page_path, stored_text if index == 0 else "", stored_label, key, index, auto, choice
         )
     out.pages = count
     out.page = index
@@ -2370,6 +2379,7 @@ def _regions_for(
     key: tuple[str, int] | None = None,
     page: int = 0,
     auto: bool = True,
+    choice: str = "",
 ) -> OcrRegionsOut:
     """Region extraction with the honest fallback both callers below share.
 
@@ -2401,7 +2411,7 @@ def _regions_for(
     #: owner's setting) a picture the model had already read opened on an
     #: empty panel while the lightbox showed its text. Only the read is
     #: skipped now; what is stored still becomes the sections.
-    found = ocr.extract_regions(path) if auto else None
+    found = _local_regions(path, choice) if auto else None
     if found is not None:
         out = OcrRegionsOut(
             width=found["width"],
@@ -2468,6 +2478,7 @@ def media_ocr_regions(
     upload_id: int,
     page: int = 0,
     auto: bool = True,
+    engine: str = "",
     session: Session = Depends(get_session),
 ) -> OcrRegionsOut:
     """The page, region by region, what the OCR workspace draws its boxes
@@ -2489,9 +2500,9 @@ def media_ocr_regions(
     )
     key = _page_read_key(None, upload_id)
     if suffix == ".pdf":
-        return _pdf_regions_for(path, page, stored, label, key, auto)
+        return _pdf_regions_for(path, page, stored, label, key, auto, _checked_engine(engine))
     #: An image is a one page document, and page 0 is where its regions go.
-    out = _regions_for(path, stored, label, key, 0, auto)
+    out = _regions_for(path, stored, label, key, 0, auto, _checked_engine(engine))
     out.readings = _stored_readings(upload.vision_ocr_text, upload.vision_ocr_model, upload.ocr_text, out.source)
     return out
 
@@ -2501,6 +2512,7 @@ def attachment_ocr_regions(
     attachment_id: int,
     page: int = 0,
     auto: bool = True,
+    engine: str = "",
     session: Session = Depends(get_session),
 ) -> OcrRegionsOut:
     """`media_ocr_regions`'s sibling for an attached file. Two tables, two
@@ -2520,8 +2532,8 @@ def attachment_ocr_regions(
     )
     key = _page_read_key(attachment_id, None)
     if suffix == ".pdf":
-        return _pdf_regions_for(path, page, stored, label, key, auto)
-    out = _regions_for(path, stored, label, key, 0, auto)
+        return _pdf_regions_for(path, page, stored, label, key, auto, _checked_engine(engine))
+    out = _regions_for(path, stored, label, key, 0, auto, _checked_engine(engine))
     out.readings = _stored_readings(
         attachment.vision_ocr_text, attachment.vision_ocr_model, attachment.ocr_text, out.source
     )
@@ -2669,7 +2681,14 @@ def _vision_read_page(path: Path, index: int, reader: str = "vision") -> OcrPage
 #: uses the resolver its name promises. `"vision"` keeps meaning "the app's
 #: default choice" for every existing caller and stored preference, it maps
 #: to `resolve_ocr_model`, which is what a read has always actually done.
-READERS = ("vision", "ocr", "tesseract")
+#: **RapidOCR by name** (INBOX 717, the owner: "does the ocr worspace give
+#: rapidocr as an alternative??"). It was only ever the silent stand-in when
+#: Tesseract was not ready. `"tesseract"` stays the local reader's id with the
+#: automatic pick behind it (Tesseract when ready, else RapidOCR), because
+#: stored readings and every older caller say it; `"rapidocr"` reads with
+#: RapidOCR even when Tesseract is ready, and is refused when it is missing.
+READERS = ("vision", "ocr", "tesseract", "rapidocr")
+LOCAL_READERS = ("tesseract", "rapidocr")
 
 
 def _checked_reader(reader: str) -> str:
@@ -2677,7 +2696,9 @@ def _checked_reader(reader: str) -> str:
 
     A typo'd `?reader=tesserract` that quietly ran the vision model would
     charge a reader seconds of GPU time for a request they meant to be
-    instant, and tell them Tesseract had done it.
+    instant, and tell them Tesseract had done it. A named engine that is not
+    installed is refused the same way, with the reason, rather than read by
+    another one under its name.
     """
     name = (reader or "vision").strip().lower()
     if name not in READERS:
@@ -2685,7 +2706,42 @@ def _checked_reader(reader: str) -> str:
             status_code=400,
             detail=f"Pick one of these readers: {', '.join(READERS)}.",
         )
+    if name == "rapidocr" and not ocr.rapidocr_available():
+        raise HTTPException(status_code=400, detail=ocr.unavailable_reason("rapidocr"))
     return name
+
+
+def _engine_choice(reader: str) -> str:
+    """The `core.ocr` engine choice a local reader name stands for: `""` (the
+    automatic pick) for "tesseract", the engine itself for "rapidocr"."""
+    return "rapidocr" if reader == "rapidocr" else ""
+
+
+def _checked_engine(engine: str) -> str:
+    """The `?engine=` of a first look at a page: empty (automatic), or one of
+    the local engines, validated like a reader."""
+    name = (engine or "").strip().lower()
+    if not name:
+        return ""
+    if name not in ocr.LOCAL_ENGINES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pick one of these engines: {', '.join(ocr.LOCAL_ENGINES)}.",
+        )
+    if name == "rapidocr" and not ocr.rapidocr_available():
+        raise HTTPException(status_code=400, detail=ocr.unavailable_reason("rapidocr"))
+    return "rapidocr" if name == "rapidocr" else ""
+
+
+def _local_text(path: Path, choice: str = "") -> str:
+    """`ocr.extract_text`, naming the engine only when one was chosen (a fake
+    in a test, or an older caller, takes the path alone)."""
+    return ocr.extract_text(path, choice) if choice else ocr.extract_text(path)
+
+
+def _local_regions(path: Path, choice: str = "") -> dict | None:
+    """`ocr.extract_regions`, the same way as `_local_text`."""
+    return ocr.extract_regions(path, choice) if choice else ocr.extract_regions(path)
 
 
 def _page_read_key(attachment_id: int | None, upload_id: int | None) -> tuple[str, int] | None:
@@ -2958,21 +3014,24 @@ def _read_page(
     as its pages complete, which is also the only progress a range read has to
     report.
     """
+    local = reader in LOCAL_READERS
     token = vision_ocr.register_page_read(
         f"Reading page {index + 1} of {path.name}",
-        model=ocr.engine_name() if reader == "tesseract" else "",
+        model=ocr.engine_name(_engine_choice(reader)) if local else "",
     )
     try:
         result = (
-            _tesseract_read_page(path, index)
-            if reader == "tesseract"
+            _tesseract_read_page(path, index, _engine_choice(reader))
+            if local
             else _vision_read_page(path, index, reader)
         )
         #: Stored as each page completes, not once the whole range is done:
         #: the point is that a read which finishes after the workspace has been
         #: closed is not lost, and a range read that is interrupted half way
-        #: should keep the half it managed. See `PageRead`.
-        _remember_page_read(key, result, reader)
+        #: should keep the half it managed. See `PageRead`. A local reading is
+        #: stored under the local reader's id, "tesseract", whichever engine
+        #: ran; `model` says which one did (INBOX 717).
+        _remember_page_read(key, result, "tesseract" if local else reader)
         return result
     finally:
         vision_ocr.finish_page_read(token)
@@ -3043,7 +3102,7 @@ def _describe_page(
     )
 
 
-def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
+def _tesseract_read_page(path: Path, index: int, choice: str = "") -> OcrPageReadOut:
     """Rasterise one PDF page and read it with Tesseract.
 
     Same shape as `_vision_read_page` on purpose: the caller should not have
@@ -3061,7 +3120,7 @@ def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
                 "the “PDF pages” package in Settings, Packages."
             ),
         )
-    reason = ocr.unavailable_reason()
+    reason = ocr.unavailable_reason(choice)
     if reason:
         raise HTTPException(status_code=409, detail=reason)
     count = pdfpages.page_count(path)
@@ -3074,12 +3133,15 @@ def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
     with tempfile.TemporaryDirectory(prefix="mm-pagetess-") as scratch:
         page_path = Path(scratch) / f"page-{index}.png"
         page_path.write_bytes(png)
-        text = (ocr.extract_text(page_path) or "").strip()
+        text = (_local_text(page_path, choice) or "").strip()
+    #: The engine that read it, not the reader's id: the automatic pick can be
+    #: RapidOCR, and a chosen RapidOCR always is (INBOX 717).
+    engine = ocr.engine(choice) or "tesseract"
     return OcrPageReadOut(
         page=index,
         text=text,
-        model="tesseract" if text else "",
-        message="" if text else f"{ocr.engine_name()} found no text on page {index + 1}.",
+        model=engine if text else "",
+        message="" if text else f"{ocr.engine_name(choice)} found no text on page {index + 1}.",
     )
 
 
@@ -3265,7 +3327,7 @@ def _read_range(
             message=f"No pages matched that range. This document has {count} page(s).",
         )
     requested = len(indices)
-    limit = MAX_TESSERACT_RANGE_PAGES if reader == "tesseract" else MAX_RANGE_PAGES
+    limit = MAX_TESSERACT_RANGE_PAGES if reader in LOCAL_READERS else MAX_RANGE_PAGES
     capped = indices[:limit]
     pages = [_read_page(path, index, reader, key) for index in capped]
     read = sum(1 for page in pages if page.text)
@@ -3457,8 +3519,9 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     data = _region_image(crop)
     if mode == "read":
         reader = _checked_reader(reader)
-    if mode == "read" and reader == "tesseract":
-        reason = ocr.unavailable_reason()
+    local = mode == "read" and reader in LOCAL_READERS
+    if local:
+        reason = ocr.unavailable_reason(_engine_choice(reader))
         if reason:
             raise HTTPException(status_code=409, detail=reason)
     else:
@@ -3469,7 +3532,7 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     #: is: a dedicated document reader is tuned to transcribe, not to explain.
     model = (
         "tesseract"
-        if mode == "read" and reader == "tesseract"
+        if local
         else _reader_model(reader)
         if mode == "read"
         else deps.get_model_manager().resolve_vision_model(deps.get_ollama()) or ""
@@ -3483,7 +3546,7 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     label = "Describing" if mode == "describe" else "Reading"
     token = vision_ocr.register_page_read(
         f"{label} a region of page {page + 1}",
-        model=ocr.engine_name() if model == "tesseract" else model,
+        model=ocr.engine_name(_engine_choice(reader)) if local else model,
     )
     try:
         with tempfile.TemporaryDirectory(prefix="mm-region-") as scratch:
@@ -3494,8 +3557,8 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
                 #: lie about a crop, and what is wanted here is a description of
                 #: the *figure*, which is what the prompt asks for either way.
                 text = captioning.page_caption_text(crop_path, 0, 1, model, deps.get_ollama())
-            elif model == "tesseract":
-                text = (ocr.extract_text(crop_path) or "").strip()
+            elif local:
+                text = (_local_text(crop_path, _engine_choice(reader)) or "").strip()
             else:
                 text = (vision_ocr.vision_ocr_text(crop_path, model, deps.get_ollama()) or "").strip()
     finally:

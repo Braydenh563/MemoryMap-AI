@@ -131,6 +131,7 @@ _NOT_PRIMARY = {
 #: moves the one fill between them, so a dialog never shows two.
 STAGE_PAIRS = (
     ("doc-ai-panel", "doc-ai-run", "doc-ai-accept"),  # Suggest, then Replace
+    ("ocr-workspace", "ocr-read-page", "ocr-to-note"),  # Read, then Save as note (INBOX 717)
     ("ocr-workspace", "ocr-to-note", "ocr-edit-save"),  # editing the reading
     ("meeting-overlay", "meeting-record", "meeting-save"),  # Record, then Save
     ("settings-searchindex", "embedding-apply", "embedding-error-fix"),  # a broken model
@@ -213,7 +214,13 @@ def test_a_stage_gated_pair_hands_the_fill_over():
     code = "".join(p.read_text(encoding="utf-8") for p in (ROOT / "frontend" / "js").glob("*.js"))
     assert "function stagePrimary(a, b, bTurn)" in code
     for unit, first, later in STAGE_PAIRS:
-        assert parser.units.get(unit) == [first], (unit, parser.units.get(unit))
+        # A chain of stages (the OCR workspace: Read, then Save as note, then
+        # Save changes while editing): the markup's one filled button is the
+        # head of the chain, the first that is no pair's later one.
+        head = first
+        while any(u == unit and b == head for u, _, b in STAGE_PAIRS):
+            head = next(a for u, a, b in STAGE_PAIRS if u == unit and b == head)
+        assert parser.units.get(unit) == [head], (unit, parser.units.get(unit))
         assert re.search(rf'<button id="{later}" class="ghost[ "]', _markup()), later
         assert f'stagePrimary("{first}", "{later}", ' in code, f"{later} is never filled"
 

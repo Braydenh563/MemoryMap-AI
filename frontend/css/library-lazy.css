@@ -2539,3 +2539,423 @@ button.ghost.doc-template-choice.wb-template-choice {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- The OCR workspace tool row (INBOX 717). Here rather than in the boot
+   sheets: the workspace only ever opens with library.js, which this file
+   arrives with. Linked after the boot sheets, so it wins the `.dock` and
+   `.ocr-head` ties it means to win (padding, the zoom strip buttons). --- */
+
+/* **One row of tools, on the dock grammar** (INBOX 717, the owner: "these
+   arent aligned ... they also go onto two rows"). Measured before at 1440: a
+   36px tool row of ten controls that scrolled sideways, then a 32px engine
+   line under it. The dock's own rules give it the zones, the height and the
+   quiet controls; what is the workspace's own is here: it never wraps and
+   never scrolls, because `ocrFitDock` folds the lowest-priority controls into
+   the ⋯ menu until the row fits, and no zone shrinks under its controls, so
+   an overflow is visible to that measurement rather than hidden inside a
+   squeezed zone. `overflow` stays visible: a focus ring on the first or last
+   control is never cut (test_ocr_workspace_717.py). */
+.ocr-dock {
+  --control-h: var(--control-h-lg);
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+/* (0,2,0), and after the boot sheets: the phone's `.dock > .dock-actions`
+   (flex 0 1 auto, min-width 0) shrank the zone under its controls, which
+   then ran out of its left edge where no measurement of the zone saw them. */
+.dock.ocr-dock > * {
+  flex: none;
+  min-width: auto;
+}
+
+/* The words never break inside a control (the measured defect the old row
+   recorded: a label wrapped inside a button sized for one line). */
+.ocr-dock :is(button, summary) {
+  white-space: nowrap;
+}
+
+/* Folded: offered as a row of the ⋯ menu instead (`ocrSyncToolsMenu`). A
+   zone whose every control has folded goes too, or its gap stays behind. */
+.ocr-dock .is-folded,
+.ocr-dock > .dock-arrange:not(:has(> :not(.is-folded, .hidden))) {
+  display: none !important;
+}
+
+/* Tighter, before anything folds: Regions keeps its icon, its word goes (the
+   `.toolbar-word` recipe: hidden from the eye, kept for a screen reader). */
+.ocr-dock.is-tight .ocr-regions-toggle .toolbar-word,
+.ocr-dock.is-tightest .ocr-reader-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ocr-dock.is-tight .ocr-regions-toggle {
+  width: var(--control-h);
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.ocr-dock.is-tight .ocr-regions-toggle > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* A view toggle that is on carries the accent, the same "on is the accent"
+   rule a chosen segment follows. */
+.ocr-dock .ocr-regions-toggle[aria-pressed="true"] {
+  color: var(--accent-text);
+}
+
+.ocr-dock .ocr-regions-toggle[aria-disabled="true"] {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* **Zoom, one strip** (the graph zoom's recipe: a button-cornered strip
+   padded by one step, its buttons plain inside it). One well rather than four
+   loose controls, so out, level, in and Fit read as one control. */
+.ocr-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: var(--control-h);
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--field-inset);
+}
+
+.ocr-zoom > button {
+  height: calc(var(--control-h) - 4px);
+  min-height: 0;
+  margin: 0;
+  padding-block: 0;
+  border: 0;
+  border-radius: var(--radius-in-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.ocr-zoom > button.icon-only {
+  width: calc(var(--control-h) - 4px);
+  padding-inline: 0;
+}
+
+.ocr-zoom > button:hover:not(:disabled) {
+  background: var(--ghost-btn-bg);
+}
+
+.ocr-zoom > button:disabled {
+  color: var(--muted);
+}
+
+/* The readout is a button (press it for 100%), and tabular figures keep 75%
+   to 125% from shuffling the buttons beside it. */
+.ocr-zoom > .ocr-zoom-level {
+  min-width: 3.4rem;
+  padding-inline: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+
+.ocr-zoom > #ocr-zoom-fit[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+/* **The reader button**: the engine's dot, the reader's name, a caret. The
+   dot is the status the big "is ready" badge used to be, at the size of a
+   status and not of a control. */
+.ocr-reader-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 15rem;
+}
+
+.ocr-reader-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ocr-engine-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.ocr-engine-dot.is-ok {
+  background: var(--ok);
+}
+
+.ocr-engine-dot.is-warn {
+  background: var(--warn);
+}
+
+.ocr-engine-dot.is-busy {
+  background: var(--accent);
+  animation: ocr-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ocr-dot-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocr-engine-dot.is-busy {
+    animation: none;
+  }
+}
+
+/* The popover opens under its button and hangs left from its right edge: it
+   sits in the actions zone, near the dialog's right side. */
+.ocr-reader-menu > .dock-menu-list {
+  left: auto;
+  right: 0;
+  width: min(22rem, 86vw);
+  min-width: 0;
+}
+
+.ocr-reader-list .dock-menu-section > select,
+.ocr-reader-list .dock-menu-section > .select-shell {
+  width: 100%;
+  max-width: none;
+}
+
+/* **A split button** (DESIGN.md's index, INBOX 717): one filled action whose
+   default press is the common case and whose caret holds the others. Two
+   halves of one pill: the seam is a hairline in the filled colour's own ink,
+   and each half keeps the outer corners only. */
+.split-button {
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--control-h);
+}
+
+.split-button > .split-button-main,
+.split-button .split-button-caret {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+}
+
+.split-button > .split-button-main:not(:last-child) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.split-button > .split-button-slot {
+  display: inline-flex;
+}
+
+.split-button > .split-button-slot:empty {
+  display: none;
+}
+
+.split-button .split-button-caret {
+  width: calc(var(--control-h) - 4px);
+  padding-inline: 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-inline-start: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+
+/* The popover's own lines: the state, then the language over its select. */
+.ocr-reader-list .ocr-engine-line {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.ocr-engine-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.ocr-engine-lang-wrap.is-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+/* **The empty reading** (INBOX 717): what is here, the one press that fills
+   it, and the gesture nobody found. Quiet, one icon, near the pane's top: the
+   pane's first thing to read rather than one more status line. */
+.ocr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-6) auto 0;
+  max-width: 22rem;
+  text-align: center;
+}
+
+.ocr-empty-icon {
+  font-size: var(--text-h1);
+  color: var(--muted);
+}
+
+.ocr-empty-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ocr-empty-line {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* A row reached by the arrows draws the one focus ring inside its own box:
+   the list scrolls, and a ring outside the row is cut by it (INBOX 685). */
+.ocr-region:focus-visible,
+.ocr-rail-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* **The reading's actions, one row** (INBOX 717). Describe, Clean up and
+   Delete are rows of the reading's ⋯ (`ocrSyncMoreMenu`); their buttons stay
+   in the markup for their state and handlers. Copy all, Ask and the ⋯ start
+   the row, Save as note ends it. In the narrow pane (the 20rem column
+   07-whiteboard-misc.css gives it below 1100; above, it is 26rem and the
+   words fit) Copy all and Ask keep their icons and give up their words, the
+   `.toolbar-word` recipe, rather than wrapping Save as note onto a second
+   line. Below 600 the actions are the phone's thumb bar, which has its own. */
+.ocr-regions-foot {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+/* Wherever they are: below 600 the foot's buttons move to the thumb bar. */
+:is(.ocr-regions-foot, .ocr-phone-bar) > .ocr-in-menu {
+  display: none !important;
+}
+
+.ocr-regions-foot > #ocr-to-note {
+  margin-left: auto;
+}
+
+@media (min-width: 600px) and (max-width: 1099.98px) {
+  .ocr-regions-foot > :is(#ocr-copy-all, #ocr-to-chat) .toolbar-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ocr-regions-foot > :is(#ocr-copy-all, #ocr-to-chat) {
+    width: var(--control-h);
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .ocr-regions-foot > :is(#ocr-copy-all, #ocr-to-chat) > .ph-lead {
+    margin-inline-end: 0;
+  }
+}
+
+/* **Touch: one row still, and every stop a finger's size** (INBOX 717). The
+   phone's dock rule lets an actions zone wrap inside itself (a zone of many
+   actions takes a row of its own); this row folds instead, so it stays one
+   line (`ocrFitDock`), and its controls take the band's touch floor. */
+.dock.ocr-dock,
+.dock.ocr-dock > .dock-actions {
+  flex-wrap: nowrap;
+}
+
+.dock.ocr-dock > .dock-actions {
+  max-width: none;
+}
+
+@media (pointer: coarse), (max-width: 819.98px) {
+  .ocr-dock {
+    --control-h: max(var(--control-h-lg), var(--target-min));
+  }
+
+  .ocr-zoom {
+    padding: 0;
+  }
+
+  .ocr-zoom > button {
+    height: var(--control-h);
+  }
+
+  .ocr-zoom > button.icon-only {
+    width: var(--control-h);
+  }
+}
+
+/* The head on a phone: the title and the way back keep their room; the file
+   name (in the page's alt text and the reading's chip) gives it up, and the
+   page counter stops reserving 7.5rem for "Page 10 of 12". */
+@media (max-width: 599.98px) {
+  .sheet-card-page .ocr-file {
+    display: none;
+  }
+
+  .sheet-card-page .ocr-headline .dialog-head-title {
+    flex: none;
+  }
+
+  .sheet-card-page .ocr-page-label {
+    min-width: 0;
+  }
+}
+
+/* Find, over the reading: the magnifier stays beside the field (it wrapped
+   above it at 390 once the field took the touch floor). */
+.ocr-find {
+  flex-wrap: nowrap;
+}
+
+/* **The rail's switch, one row** (INBOX 717). It wrapped, "Images 0" on one
+   line and "Files 11 Pages 3" on the next, in the 9rem rail. Equal columns,
+   each tab its word over its count, so three fit side by side. */
+.ocr-rail-switch {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.ocr-rail-tab {
+  flex-direction: column;
+  gap: 0;
+  padding: var(--space-1) 0;
+  line-height: 1.25;
+}
+
+.ocr-rail-tab:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The not-installed sentence in the reader popover: a column there, so the
+   line's row basis (14rem) would be a 14rem-tall gap above Install. */
+.ocr-reader-list .ocr-engine-detail {
+  flex: none;
+}
+
+/* RapidOCR not installed: the line and its one action, under the picker. */
+.ocr-rapidocr-missing:not(.hidden) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}

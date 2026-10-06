@@ -33,9 +33,9 @@ const ocrEngineInstall = { running: false, step: "", failed: "" };
 //: just before); without it this asks. `settings` draws the Packages row's
 //: smaller version. `onChange` runs after something here changed the engine
 //: (an install finished, a language was chosen).
-async function ocrEngineMount(host, { readers = null, settings = false, onChange = null } = {}) {
+async function ocrEngineMount(host, { readers = null, settings = false, popover = false, onChange = null, onPaint = null } = {}) {
   if (!host) return null;
-  host._ocrEngine = { settings, onChange };
+  host._ocrEngine = { settings, popover, onChange, onPaint };
   host.classList.add("ocr-engine");
   ocrEngineHosts.add(host);
   if (readers && readers.engine) {
@@ -64,6 +64,7 @@ function ocrEnginePaintAll() {
       continue;
     }
     ocrEnginePaint(host);
+    host._ocrEngine?.onPaint?.();
   }
 }
 
@@ -98,7 +99,11 @@ function ocrEnginePaint(host) {
   line.className = "ocr-engine-line";
 
   if (ocrEngineInstall.running) {
-    line.appendChild(chip("ph:spin Installing Tesseract", "item-label ocr-engine-chip"));
+    line.appendChild(
+      opts.popover
+        ? ocrEngineStatusLine("Installing Tesseract", "is-busy")
+        : chip("ph:spin Installing Tesseract", "item-label ocr-engine-chip")
+    );
     const step = document.createElement("span");
     step.className = "muted ocr-engine-detail";
     step.textContent = ocrEngineInstall.step || "Starting…";
@@ -110,18 +115,18 @@ function ocrEnginePaint(host) {
   }
 
   if (engine.ready) {
-    if (!opts.settings) {
+    //: **In the workspace this is a popover now** (INBOX 717): the state is a
+    //: dot on the reader button and a quiet line here, not a filled badge in a
+    //: row of its own, and Manage is a row of the tool row's ⋯ menu.
+    if (opts.popover) {
+      line.appendChild(ocrEngineStatusLine(`${local}${isTesseract && engine.version ? ` ${engine.version}` : ""} is ready`, "is-ok"));
+    } else if (!opts.settings) {
       line.appendChild(
         chip(`ph:check-circle ${local}${isTesseract && engine.version ? ` ${engine.version}` : ""} is ready`, "item-label is-ok ocr-engine-chip")
       );
     }
     //: The language is Tesseract's; RapidOCR's models read what they read.
     if (isTesseract) line.appendChild(ocrEngineLanguagePicker(engine, opts));
-    if (!opts.settings) {
-      line.appendChild(
-        smallButton("ph:gear Manage", `Manage ${local} in Settings, Packages`, () => ocrEngineOpenSettings())
-      );
-    }
     host.appendChild(line);
     if (engine.language_note) {
       const note = document.createElement("p");
@@ -135,7 +140,11 @@ function ocrEnginePaint(host) {
   //: Not ready: say which half is missing, what still works, and give the one
   //: action. The sentence about the AI reader is the fallback the owner asked
   //: for, stated before the failure rather than after it.
-  line.appendChild(chip("ph:warning Tesseract can't read yet", "item-label is-warn ocr-engine-chip"));
+  line.appendChild(
+    opts.popover
+      ? ocrEngineStatusLine("Tesseract can't read yet", "is-warn")
+      : chip("ph:warning Tesseract can't read yet", "item-label is-warn ocr-engine-chip")
+  );
   const detail = document.createElement("span");
   detail.className = "muted ocr-engine-detail";
   const ai = readers.vision ? readers.vision_model : "";
@@ -161,12 +170,29 @@ function ocrEnginePaint(host) {
   }
 }
 
+//: The popover's state, the reader button's dot repeated beside its words: a
+//: quiet line, the size of a status rather than of a control.
+function ocrEngineStatusLine(words, state) {
+  const line = document.createElement("p");
+  line.className = "ocr-engine-status";
+  const dot = document.createElement("span");
+  dot.className = `ocr-engine-dot ${state}`;
+  dot.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.textContent = words;
+  line.append(dot, text);
+  return line;
+}
+
 function ocrEngineLanguagePicker(engine, opts) {
   const wrap = document.createElement("label");
-  wrap.className = "ocr-engine-lang-wrap";
+  //: In the popover the label stands over its select, the dock menu's own
+  //: section recipe: "Reads in [Default]" side by side sat its words off the
+  //: select's centre line (INBOX 717's screenshot).
+  wrap.className = opts.popover ? "ocr-engine-lang-wrap is-stacked" : "ocr-engine-lang-wrap";
   const label = document.createElement("span");
-  label.className = "muted ocr-engine-lang-label";
-  label.textContent = "Reads in";
+  label.className = opts.popover ? "dock-menu-label ocr-engine-lang-label" : "muted ocr-engine-lang-label";
+  label.textContent = opts.popover ? "Tesseract reads in" : "Reads in";
   const select = document.createElement("select");
   select.className = "ocr-engine-lang";
   select.setAttribute("aria-label", "Language Tesseract reads in");

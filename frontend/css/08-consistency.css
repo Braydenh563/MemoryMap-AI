@@ -9769,14 +9769,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   gap: var(--space-1);
 }
 
-/* The reader's page-range box is a control like its neighbours: the touch
-   floor on a phone (libreader.js measured it at 36px against 44). */
-@media (pointer: coarse), (max-width: 599.98px) {
-  .ocr-read-range .ocr-read-pages {
-    min-height: var(--target-min);
-  }
-}
-
 /* No companion while the app is locked (the owner: "the avatar shows even
    when the app is on the lock screen. it should only show when the app is
    unlocked"). */

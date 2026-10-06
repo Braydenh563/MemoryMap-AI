@@ -1292,7 +1292,7 @@ function reminderItem(reminder, label) {
     },
     { label: "ph:trash Delete", run: deleteReminder, group: "remove", danger: true }
   );
-  actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`));
+  actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`, { vertical: true }));
   row.appendChild(actions);
   li.appendChild(row);
 

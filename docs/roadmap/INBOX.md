@@ -96,25 +96,6 @@ with its owner named in the entry.
      the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
      release, an Opus agent when a slot frees.
 
-699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
-     package's row ("needle's own tools send usage data by default;
-     MemoryMap uses only its engine, which has no network code, and
-     switches that setting off anyway"): "is it possible to remove the part
-     of needle which sends usage data??" / "or even vendor it??" What is
-     true today (ai/needle_provider.py): the app loads only needle's native
-     engine with ctypes; the Python package and the command-line tool, which
-     carry the usage-data client, are never installed; the Linux engine was
-     read and imports no socket, connect, send or getenv. Decision taken:
-     not vendored (a 36 MB native engine plus weights per platform does not
-     belong in the repository, and the source build is not ours to
-     maintain); instead the download is pinned by SHA-256 per platform and,
-     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
-     and an engine that imports any network call is refused with a plain
-     message; the row's copy says this in one line. Placed: the next free
-     Sonnet slot.
-     Addendum, the owner, 2026-10-06, verbatim: "make sure that while the graph is impressive, it is alse very easy to understand and read, with minimised overlap and wierd spacing, everything has to have meaning and be intentional, not just for the looks. combine looks with systematic function"
-     Addendum, the owner, 2026-10-06, verbatim, with two graph screenshots (a wide flat layout with long hub arcs and stacked labels, rejected; the earlier clustered layout with wandering cross-cluster links): "see i dont want this. and it still looks messy. it needs to be clean, modern and profesisonal and stylistic"
-
 700. **The owner, 2026-10-06, verbatim.** "can you also add more embedding
      model options as alternatives in the models??" / "research the best
      ones available today". Research, 2026-10-06 (sources in the session
@@ -133,41 +114,6 @@ with its owner named in the entry.
      to their terms. Placed: the next free agent slot.
      Addendum, the owner, 2026-10-06, verbatim: "should there also be a way to detect and potentially use any other cached models the user may have?? like for embedding models and such??"
      Addendum, the owner, 2026-10-06, verbatim: "I feel like there should be the options to modify, install, uninstall, reinstall embedded models etc. also maybe a way to type a model name into a text box near the suggested model section and then pull in a model that is typed in the box if it exists?? like from ollama or huggingface."
-
-701. **The owner, 2026-10-06, verbatim.** "if something has a keyboard
-     shortcut, should they be added to the tooltips??" Recommendation,
-     taken: yes, the platform's way (Ctrl on Windows and Linux, the Cmd
-     symbol on macOS), "Bold (Ctrl+B)", from one table of shortcuts so a
-     changed binding changes its tooltip, with a lint that every bound
-     shortcut with a button has it in that button's title. Placed: the next
-     free Sonnet slot.
-
-702. **The owner, 2026-10-06, verbatim**, with screenshots of the Notes
-     Categories sidebar (hovered row: a blue-tinted fill, its ⋯ in its own
-     filled square) and the Chats sidebar (hovered row: a neutral grey fill,
-     a plain ⋯): "the hover and button styles on the notes sidebar is
-     different from the others. is that intentional??" Not intentional.
-     Decision taken: one sidebar row recipe for every rail (Notes, Chats,
-     Library, Documents, Timeline, Settings): the same hover fill, the same
-     current-row fill (the current row may carry the accent, hover never
-     does), and the row's ⋯ as a plain ghost icon that fills only on its own
-     hover, inside the row's radius; a lint holds the rails to it. Placed:
-     the next free Sonnet slot.
-
-706. **The owner, 2026-10-06, verbatim.** "also idk about ui or ux proper
-     usage of icons but can you make sure that the common and professional
-     ways to use icons and what icons are used where is correct?? like we
-     have been using majority of meatball icons but I think meatball,
-     kebab, bento box icons and more etc are better for use in various
-     situations and uses". Decision taken (platform conventions): ⋯
-     (meatball, horizontal) for an item's overflow in a horizontal row or
-     card; ⋮ (kebab, vertical) for overflow at the end of a vertical list
-     row or a narrow column/app bar; ⊞ (bento/grid) only for switching
-     between apps or spaces; ☰ (hamburger) only for opening navigation. A
-     DESIGN.md row and a lint pin which goes where; then an icon audit for
-     other misuse (the same glyph meaning two things, two glyphs for one).
-     Placed: a Sonnet agent with 699, 701, 702.
-
 
 713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
      processes like the night shift and stuff, is it possible to manually

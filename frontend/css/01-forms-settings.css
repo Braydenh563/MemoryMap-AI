@@ -218,7 +218,7 @@
 
 @media (hover: hover) {
   #sidebar li:hover {
-    background: var(--accent-soft);
+    background: var(--row-hover-bg);
   }
 }
 
@@ -3612,7 +3612,7 @@ mark.global-find-hit.global-find-current {
 }
 
 .modal-nav button:hover {
-  background: var(--accent-soft);
+  background: var(--row-hover-bg);
 }
 
 .modal-nav button.active {

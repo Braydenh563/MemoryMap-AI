@@ -226,7 +226,7 @@ async function openNoteTypesSheet() {
             openNoteTypesSheet();
             if (gone?.type) noteTypeDeleteUndo(gone.type);
           } },
-        ], `Actions for ${t.name}`));
+        ], `Actions for ${t.name}`, { vertical: true }));
         list.appendChild(row);
       }
       list.appendChild(sheetRow("ph ph-plus", "New note type…", async () => {

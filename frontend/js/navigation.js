@@ -904,10 +904,12 @@ function paintTabHistory() {
   paintStatusItem("status-back", {
     icon: "ph:caret-left",
     title: prev ? `Back to ${entryLabel(prev)}` : "Nothing to go back to",
+    shortcut: prev ? "navigateBack" : "",
   });
   paintStatusItem("status-forward", {
     icon: "ph:caret-right",
     title: next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to",
+    shortcut: next ? "navigateForward" : "",
   });
   // The settings modal's own copy of these two buttons, see their markup
   // comment for why a second copy exists instead of just raising the status

@@ -3600,7 +3600,7 @@ button.answer-figure-open {
 #conversation-list li.active-conv {
   border-left-color: var(--accent);
   border-left-width: 4px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: var(--accent-soft);
 }
 
 #conversation-list li.active-conv .conv-name {
@@ -3621,12 +3621,12 @@ button.answer-figure-open {
 
 @media (hover: hover) {
   #conversation-list li:hover {
-    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    background: var(--row-hover-bg);
   }
 }
 
 #conversation-list li.active-conv:hover {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--accent-soft);
 }
 
 #conversation-list li .entry-actions {

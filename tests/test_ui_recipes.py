@@ -4803,3 +4803,77 @@ def test_no_second_level_strip_is_also_a_choice_control() -> None:
         and {"seg", "tabs-line"} <= set(classes.group(1).split())
     ]
     assert not offenders, f"an element is both .seg and .tabs-line: {offenders}"
+
+
+# --- One sidebar row recipe for every rail (INBOX 702) ----------------------------
+#: A left rail's rows. Hover is the neutral `--row-hover-bg`, the current row
+#: may carry the accent (`--accent-soft`), and the row's ⋯ is a plain ghost
+#: icon that fills only under its own pointer. The owner, with two screenshots:
+#: "the hover and button styles on the notes sidebar is different from the
+#: others. is that intentional??" (a blue-tinted hover on Notes, grey on Chats).
+RAIL_ROWS = {
+    "#sidebar li": ("#sidebar li.active",),
+    "#category-list li": (),
+    "#conversation-list li": ("#conversation-list li.active-conv",),
+    ".modal-nav button": (".modal-nav button.active",),
+}
+#: Every `.sidebar-panel` is a rail with rows above, or is named here with why not.
+RAIL_PANELS = {
+    "sidebar": "Notes categories",
+    "chat-sidebar": "Chats",
+    "doc-sidebar": "Documents (cards with a resting fill; hover is the next neutral tier)",
+    "skills-sidebar": "Skill logs: a log, not a list of rows with a menu",
+}
+#: Wrappers of a row's ⋯ in a rail; the recipe rule in 08-consistency.css
+#: names each.
+RAIL_MENUS = ("#category-list li .category-actions", "#conversation-list li .entry-actions", ".doc-item .doc-item-menu")
+
+
+def _rail_background(body: str) -> str | None:
+    found = re.search(r"(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)", body)
+    return " ".join(found.group(1).split()) if found else None
+
+
+def test_a_rail_row_hovers_neutral_and_the_current_row_is_the_only_accent() -> None:
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    seen_hover: set[str] = set()
+    seen_current: set[str] = set()
+    offenders = []
+    for selector, body in _rules(css):
+        fill = _rail_background(body)
+        if fill is None:
+            continue
+        for part in (p.strip() for p in selector.split(",")):
+            for row, currents in RAIL_ROWS.items():
+                if part == f"{row}:hover":
+                    seen_hover.add(row)
+                    if fill != "var(--row-hover-bg)":
+                        offenders.append(f"{part} fills {fill}: a rail row hovers var(--row-hover-bg)")
+                for current in currents:
+                    if part in (current, f"{current}:hover"):
+                        seen_current.add(current)
+                        if fill != "var(--accent-soft)":
+                            offenders.append(f"{part} fills {fill}: the current row is var(--accent-soft)")
+    assert not offenders, "\n".join(offenders)
+    assert seen_hover >= {"#sidebar li", "#conversation-list li", ".modal-nav button"}, seen_hover
+    assert seen_current >= {"#sidebar li.active", "#conversation-list li.active-conv", ".modal-nav button.active"}, seen_current
+
+
+def test_every_rail_is_a_known_rail() -> None:
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    panels = set(re.findall(r'<aside[^>]*class="[^"]*\bsidebar-panel\b[^"]*"[^>]*id="([\w-]+)"', page))
+    panels |= set(re.findall(r'<aside[^>]*id="([\w-]+)"[^>]*class="[^"]*\bsidebar-panel\b', page))
+    assert panels == set(RAIL_PANELS), (
+        f"sidebar panels {sorted(panels)}; known {sorted(RAIL_PANELS)}: a new rail takes the row recipe "
+        "(DESIGN.md, 'A sidebar row') and joins RAIL_ROWS and RAIL_PANELS"
+    )
+
+
+def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() -> None:
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    plain = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button")]
+    hover = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button:hover")]
+    assert plain and hover, "the rail ⋯ recipe rule (08-consistency.css) is missing or no longer names every rail's menu"
+    assert _rail_background(plain[0]) == "transparent", "a rail ⋯ has no fill at rest or while its row is hovered"
+    assert _rail_background(hover[0]) == "var(--ghost-btn-bg)", "a rail ⋯ fills only under its own pointer"
+    assert "border-radius: var(--radius-md)" in plain[0], "the fill stays inside the row's own radius"

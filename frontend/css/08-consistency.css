@@ -11419,3 +11419,36 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   padding: var(--ring-room);
   margin: calc(-1 * var(--ring-room));
 }
+
+/* --- One sidebar row recipe for every rail (INBOX 702) ---
+   The owner, with two screenshots: the Notes sidebar's hovered row was a
+   blue-tinted fill with its ⋯ in a filled square, the Chats sidebar's a
+   neutral grey with a plain ⋯: "is that intentional??" It was not: each rail
+   had been styled on the day it was built. Measured before: hover filled
+   `--accent-soft` on Notes and the Settings list, 6% ink on Chats; the
+   current row 10% accent, 16% accent and `--accent-soft`.
+
+   The rule, for every row of a left rail (Notes categories, Chats, the
+   Documents list, the Settings sections, and any rail added later):
+   - **hover is neutral**: `--row-hover-bg`, never an accent tint, because
+     the accent means "this is the one you are in";
+   - **the current row may carry the accent**: `--accent-soft` (a rail may add
+     its own edge or title colour on top, never a second fill), and hovering
+     it changes nothing;
+   - **the row's ⋯ is a plain ghost icon**: no fill at rest or while the row
+     is hovered, `--ghost-btn-bg` only under its own pointer, drawn with the
+     row's own radius so the fill stays inside the row.
+   The Documents rows are cards that keep their resting `--surface-2` fill (an
+   owner report: "every row draws the same shape"); their hover is the next
+   neutral tier, which is why `tests/test_ui_recipes.py` names them apart.
+   Pinned there; DESIGN.md's recipe index has the row. */
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+:is(#category-list li .category-actions, #conversation-list li .entry-actions, .doc-item .doc-item-menu) button:hover {
+  background: var(--ghost-btn-bg);
+}

@@ -399,7 +399,7 @@
 
 @media (hover: hover) {
   #conversation-list li:hover {
-    background: var(--accent-soft);
+    background: var(--row-hover-bg);
   }
 }
 

@@ -2307,7 +2307,7 @@ function renderThemeToggle() {
   const dark = resolvedTheme() === "dark";
   setLabel(button, dark ? "ph:sun" : "ph:moon");
   const next = dark ? "light" : "dark";
-  button.title = `Switch to ${next} mode`;
+  button.title = shortcutTitle(`Switch to ${next} mode`, "toggleTheme");
   button.setAttribute("aria-label", `Switch to ${next} mode`);
 }
 

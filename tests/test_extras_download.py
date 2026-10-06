@@ -28,6 +28,7 @@ from pathlib import Path
 import pytest
 
 from memorymap.core import extra_downloads, extras
+from tests.native_binaries import elf64
 
 
 @pytest.fixture(autouse=True)
@@ -370,7 +371,7 @@ def test_the_install_reaches_the_task_history(client, monkeypatch, server):
 
 def test_needle_unpacks_the_engine_for_this_platform_only(client, monkeypatch, server):
     monkeypatch.setattr(extra_downloads, "platform_key", lambda: "linux-x86_64")
-    wheel = _zip({"needle/libneedle3.so": b"\x7fELF engine", "cactus_needle-3.0.1.dist-info/METADATA": b"m"})
+    wheel = _zip({"needle/libneedle3.so": elf64(["malloc", "free"], ["libc.so.6"]), "cactus_needle-3.0.1.dist-info/METADATA": b"m"})
     _point_at(
         monkeypatch,
         "needle",
@@ -405,3 +406,56 @@ def test_every_needle_platform_names_an_engine_file():
         if download.platform:
             assert download.unpack == "zip"
             assert [name for _m, name in download.members][0].startswith("libneedle3.")
+
+
+# --- the engine is read for network code before it is kept (INBOX 699) -------------
+
+
+def _install_needle_with(monkeypatch, server, engine: bytes):
+    monkeypatch.setattr(extra_downloads, "platform_key", lambda: "linux-x86_64")
+    wheel = _zip({"needle/libneedle3.so": engine})
+    _point_at(
+        monkeypatch,
+        "needle",
+        server,
+        {"engine.whl": wheel, "needle3.cact": b"weights", "LICENSE": b"Apache License"},
+    )
+    extras.start("needle")
+    _wait()
+    return extras.EXTRAS_BY_ID["needle"]
+
+
+def test_needle_engine_that_imports_a_network_call_is_refused(client, monkeypatch, server):
+    extra = _install_needle_with(monkeypatch, server, elf64(["malloc", "connect", "getaddrinfo"], ["libc.so.6"]))
+    state = extras.current()
+    assert state.outcome == "failed", state.step
+    assert "contains network code" in state.step
+    assert "connect" in "\n".join(state.log) and "getaddrinfo" in "\n".join(state.log)
+    assert not extra_downloads.folder(extra).exists(), "nothing of a refused engine is kept"
+    assert not extra_downloads.is_installed(extra)
+
+
+def test_needle_engine_that_cannot_be_read_is_refused(client, monkeypatch, server):
+    extra = _install_needle_with(monkeypatch, server, b"\x7fELF engine")
+    state = extras.current()
+    assert state.outcome == "failed"
+    assert "could not be checked" in state.step
+    assert not extra_downloads.folder(extra).exists()
+
+
+def test_needle_engine_downloads_are_all_inspected_and_pinned_per_platform():
+    extra = extras.EXTRAS_BY_ID["needle"]
+    engines = [d for d in extra.downloads if d.platform]
+    assert len(engines) == 8
+    assert len({d.platform for d in engines}) == 8, "one engine per platform"
+    for d in engines:
+        assert d.inspect_imports, d.platform
+        assert re.fullmatch(r"[0-9a-f]{64}", d.sha256), d.platform
+        assert "/b274efcb211a9eef48c9a88da4b43bd569696a39/" in d.url, "pinned to a commit"
+    for d in extra.downloads:
+        if not d.platform:
+            assert re.fullmatch(r"[0-9a-f]{64}", d.sha256)
+
+
+def test_needle_row_says_the_engine_is_checked_at_install():
+    assert "checks at install" in extras.EXTRAS_BY_ID["needle"].caveat

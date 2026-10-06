@@ -29,8 +29,12 @@ no `getenv`, `socket`, `connect` or `send`, and `strings` finds no URL and
 no telemetry name, so that library has no way to phone home; the README's
 sentence is presumably about needle's command-line binary and its Python
 package, neither of which is used here. The variables are set anyway,
-because the other platforms' engines were not read and the promise is cheap
-to keep. Not verified: a packet capture of a real run.
+because the promise is cheap to keep. INBOX 699, 2026-10-06: the install now
+reads the engine's imported symbols itself (`core/native_imports.py`, ELF, PE
+and Mach-O) and refuses one that imports a socket, name-lookup or HTTP call;
+all six pinned glibc, macOS and Windows engines were read that way and import
+none. Not verified: a packet capture of a real run, and the two musl engines'
+contents (their hashes are pinned; the install check covers them).
 
 **Only imported when installed.** `ai/tool_fallback.py` asks the extra's
 folder first and imports this module only when it is there, so an app

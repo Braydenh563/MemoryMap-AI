@@ -193,6 +193,57 @@ with its owner named in the entry.
      other misuse (the same glyph meaning two things, two glyphs for one).
      Placed: a Sonnet agent with 699, 701, 702.
 
+707. **The owner, 2026-10-06, verbatim.** "when loading the app after login,
+     the companion just appears with no animation". Placed: with 705, the
+     polish agent: an entrance (a short emerge or drop-in to its perch, under
+     the avatar motion switch and reduced motion), once per unlock.
+
+708. **The owner, 2026-10-06, verbatim**, with screenshots of the Meeting
+     notes recorder: "the stop and resume on the audio transcribe doesnt
+     work" (paused at 0:05, Stop and Resume shown, "Paused."), then the
+     recorder after Stop reading "Transcribed: review it below before
+     saving." over an empty transcript, and: "also these panels feel badly
+     designed and neglected". Next: reproduce with Chromium's fake
+     microphone (--use-fake-device-for-media-stream), fix Stop and Resume
+     from the paused state (and an empty transcript must say so, not
+     "Transcribed"), then redesign the recorder panel by DESIGN.md: one clear
+     state at a time (ready, recording with level and time, paused,
+     transcribing with progress, review), the transcript sized to its
+     content, actions grouped with one primary. Placed: the next free Opus
+     slot.
+
+709. **The owner, 2026-10-06, verbatim**, with a screenshot of a note's
+     "suggested links" row (each suggestion's text, then a separate "+"
+     button floating after it): "these plus buttons feel too separate from
+     their notes". Decision taken: each suggestion is one chip holding its
+     text and its add control (the + inside the chip's end, the whole chip
+     the hover target, its accessible name "Link to <title>"). Placed: with
+     691, the Tidy and links agent.
+
+710. **The owner, 2026-10-06, verbatim**, with screenshots of a task
+     checkbox in a note's editor (a large outlined box after a bullet) and in
+     the document editor (a smaller filled grey box after a bullet): "the
+     rendering of the selection tick boxes is different on the notes to the
+     document editor". One task-checkbox look for both editors (and no
+     bullet beside a task box), from one shared rule. Placed: the next free
+     Sonnet slot.
+
+712. **The owner, 2026-10-06, verbatim**, with a screenshot of the document
+     editor's ⋯ menu running past the bottom of the window: "this popup menu
+     goes off the bottom of the screen". Every menu is clamped to the window:
+     placed where it fits (below, else above), and when it cannot fit either
+     way, its height is capped to the room with its list scrolling inside.
+     Placed: with 710.
+
+713. **The owner, 2026-10-06, verbatim.** "for a bunch of the background
+     processes like the night shift and stuff, is it possible to manually
+     run them as well as manually stop or cancel them when they are
+     running??" Decision taken: every scheduled pass (the night shift and
+     the other maintenance passes) is listed in Background tasks with its
+     schedule and last run, a "Run now" on each, and a running job's row
+     carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
+     next step. Placed: with 696, the progress agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

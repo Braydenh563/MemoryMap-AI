@@ -15,6 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The needle engine is read before it is kept: the install parses the engine's imported symbols (ELF, PE and Mach-O, pure Python, nothing run) and refuses one that imports a socket, name-lookup or HTTP call, or that cannot be read, with a plain message and nothing kept; the downloads stay pinned by SHA-256 per platform, and the package row says so (INBOX 699).
 - Dashboard: the Notebook constellation's Regenerate glides to the new sky (INBOX 686). Each star eases from where it is to its place in the new arrangement over 0.8 s, unpaired stars fade in or out, and the lines fade out and back as the stars settle; a second Regenerate mid-way starts from where the stars are. With Interface animations off or reduced motion it is a quick cross-fade. Save PNG saves the settled sky, even mid-glide.
 - Atlas breathes where you can see it (INBOX 687): its chest swells a few percent about the hips, on a slow 4 to 5 second breath, while the head, the arms and the face keep their size. It stops with Avatar animation off and under reduced motion, and holds while Atlas is off screen.
 - Documents: the current line's highlight is half as strong, a place marker rather than a band.

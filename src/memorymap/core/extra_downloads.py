@@ -34,6 +34,11 @@ URL.
   folder first; only then is the folder moved into place, with a marker file
   that records the version. A cancelled or failed install leaves the
   previous state as it was.
+- **A native engine is read before it is kept** (INBOX 699). An entry that
+  marks a download `inspect_imports` has the file's imported symbols read
+  (`core/native_imports.py`: ELF, PE, Mach-O, pure Python, nothing loaded or
+  run); one that imports a socket, name-lookup or HTTP call, or cannot be
+  read at all, fails the install with nothing kept.
 - **HTTPS only**, except for a loopback address, which is what the tests'
   fake file server and a local mirror use.
 """
@@ -82,6 +87,9 @@ class Download:
     members: tuple[tuple[str, str], ...]
     #: A `platform_key()` this file is for, or "" for every platform.
     platform: str = ""
+    #: A native library whose imported symbols are read before it is kept
+    #: (INBOX 699): one that imports a network call is refused.
+    inspect_imports: bool = False
 
     def __post_init__(self) -> None:
         if self.unpack not in {"file", "tar", "zip"}:
@@ -258,6 +266,14 @@ REASONS = {
         "this version expects."
     ),
     "bad_archive": "The archive could not be read.",
+    "network_code": (
+        "{label}: this engine contains network code, so it was not installed. "
+        "MemoryMap only runs engines that cannot reach the network."
+    ),
+    "unreadable_engine": (
+        "{label}: the engine could not be checked for network code, so it was "
+        "not installed."
+    ),
     "unsupported": "This one has no download for this computer.",
     "nothing": "Nothing to download.",
 }
@@ -299,6 +315,24 @@ def _fetch(download: Download, dest: Path, state, label: str) -> None:
                 state.step = f"Downloading {label}: {_mb(received)} of {_mb(download.size)} MB"
     if digest.hexdigest() != download.sha256:
         raise DownloadFailed("checksum")
+
+
+def _check_engine(download: Download, written: list[str], staging: Path, state) -> None:
+    """Refuse a native engine that imports a network call (INBOX 699).
+
+    The names found go to the install log, not into the error: the error
+    carries only a code (see `DownloadFailed`)."""
+    from memorymap.core import native_imports
+
+    for name in written:
+        try:
+            found = native_imports.network_calls((staging / name).read_bytes())
+        except (native_imports.NotANativeLibrary, OSError) as exc:
+            raise DownloadFailed("unreadable_engine") from exc
+        if found:
+            state.log.append(f"{name} imports network calls: {', '.join(found[:12])}")
+            raise DownloadFailed("network_code")
+    state.log.append(f"{download.url.rsplit('/', 1)[-1]} imports no network calls")
 
 
 def _unpack(download: Download, fetched: Path, staging: Path) -> list[str]:
@@ -354,7 +388,11 @@ def install(extra, state) -> None:
             fetched = staging / ".download.part"
             _fetch(download, fetched, state, label)
             state.step = f"Unpacking {label}"
-            files += _unpack(download, fetched, staging)
+            unpacked = _unpack(download, fetched, staging)
+            if download.inspect_imports:
+                state.step = f"Checking {label} for network code"
+                _check_engine(download, unpacked, staging, state)
+            files += unpacked
             state.log.append(f"{download.url} sha256 {download.sha256} ok")
         (staging / MARKER).write_text(
             json.dumps({"version": extra.version, "files": files, "platform": platform_key()}),

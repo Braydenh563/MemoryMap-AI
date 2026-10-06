@@ -45683,3 +45683,20 @@ and refuses a topic ("Select a shape, link or text box first").
      Settings sidebar agent.
      **Fixed: the open page's sections are one short block with a remembered toggle.**
 
+699. **The owner, 2026-10-06, verbatim**, with a screenshot of the needle
+     package's row ("needle's own tools send usage data by default;
+     MemoryMap uses only its engine, which has no network code, and
+     switches that setting off anyway"): "is it possible to remove the part
+     of needle which sends usage data??" / "or even vendor it??" What is
+     true today (ai/needle_provider.py): the app loads only needle's native
+     engine with ctypes; the Python package and the command-line tool, which
+     carry the usage-data client, are never installed; the Linux engine was
+     read and imports no socket, connect, send or getenv. Decision taken:
+     not vendored (a 36 MB native engine plus weights per platform does not
+     belong in the repository, and the source build is not ours to
+     maintain); instead the download is pinned by SHA-256 per platform and,
+     at install, the engine's imported symbols are read (ELF, PE, Mach-O)
+     and an engine that imports any network call is refused with a plain
+     message; the row's copy says this in one line. Placed: the next free
+     Sonnet slot.
+

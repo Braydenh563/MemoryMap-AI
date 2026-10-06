@@ -5318,8 +5318,20 @@ $("graph-label-plates")?.addEventListener("change", (event) => {
   gcRequestDraw();
 });
 
+// INBOX 692: a new arrangement of the force layout, animated, then framed
+// (`gcReshuffle`, graph-canvas.js). Wired here, in the graph's own bundle,
+// beside the other Physics controls, so it can never be pressed before the
+// function it calls has loaded.
+$("graph-reshuffle")?.addEventListener("click", () => {
+  if (!gcReshuffle()) toast("Reshuffle works on the force layout: pick Force under Layout first.");
+});
+
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
+  //: The layout keeps dots clear of the lines as drawn (the worker's
+  //: `clearanceForce`, INBOX 693), and a curve and a straight line pass
+  //: different dots, so the forces hear about it and the map eases round.
+  if (!gcTab.tree) gcPost({ type: "params", params: gcWorkerParams(gcTab) });
   gcRequestDraw();
 });
 

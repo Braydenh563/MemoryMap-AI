@@ -1444,7 +1444,7 @@ HELP_TOPICS.extend(
                 "rest by category, the other links kept as cross-links, and Open on "
                 "the notice that follows. Display options, the gear, opens with View: Layout "
                 "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
-                "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
+                "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Reshuffle layout, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
                 "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
                 "Display (Labels, Label backgrounds, Curved "
                 "links, Cluster glow, Arrows), the similarity Strength "

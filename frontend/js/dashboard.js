@@ -1579,7 +1579,7 @@ function featureCatalog() {
     { group: "Map & discovery", items: [
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
-      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout.", reveal: "graph-physics" },
+      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout; Reshuffle layout deals a new one.", reveal: "graph-physics" },
       { name: "Suggestions", desc: "Links to add, disagreements, names to merge and link types, decided one by one.", reveal: "suggestions" },
       { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
       { name: "People and things", desc: "Everyone and everything your notes name, each with its own page.", reveal: "entities" },

@@ -117,7 +117,8 @@ def test_arrows_text_fade_thickness_and_link_force_reach_the_drawing():
     assert "ctx.lineWidth = (style.width * widthScale * (bucket.wide ? 0.8 : 1)) / k;" in canvas
     assert "k > labelZoom" in canvas and "linkForce: Number(" in canvas
     worker = (root / "graph-worker.js").read_text(encoding="utf-8")
-    assert "* linkScale;" in worker and ".strength(linkStrength);" in worker
+    # Times a cross-category factor since INBOX 693 (`crossStrength`).
+    assert "* linkScale * across;" in worker and ".strength(linkStrength);" in worker
 
 
 def test_arrows_are_off_by_default_and_drawn_as_sparks():

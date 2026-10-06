@@ -288,6 +288,9 @@ const GC_LABEL_LANDMARK_HUBS = 10;
 //: GC_LABEL_ZOOM, hovering or searching still names the rest.
 const GC_LABEL_ALL_SMALL = 20;
 const GC_LABEL_LANDMARK_SHARE = 0.35;
+//: A note with this many links is a hub, named at the overview of a grouped
+//: map besides each category's best-connected note (INBOX 693).
+const GC_LABEL_HUB_DEGREE = 5;
 //: How far a non-neighbour dims while something is hovered (§5 Phase 1).
 const GC_DIM_ALPHA = 0.2;
 
@@ -346,6 +349,10 @@ function gcIsNote(node) {
 //: a filing line, a contradiction) keep their own recipe. The number is the
 //: least opacity a tinted line of that kind is drawn at.
 const GC_EDGE_TINTED = { link: 0.55, thread: 0.6, entity: 0.55, document: 0.55 };
+//: A line between two category clusters, while grouped: this much of its
+//: kind's width and opacity (the line pass in `gcDraw`, INBOX 693).
+const GC_CROSS_WIDTH = 0.65;
+const GC_CROSS_ALPHA = 0.5;
 // GRAPH-SIM-BEGIN
 //: **Similarity is a backbone, not every pair** (INBOX 412, the owner: "when
 //: I tick similarity on the graph, this happens, is there a way to make it
@@ -491,15 +498,19 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
   //: moves there whole, so `labelBoxes` still says exactly where the text
   //: is, and the plate it is drawn on (`gcDrawLabels`) hides any line left
   //: beneath it.
+  let fewest = Infinity;
   const best = (spots, ok) => {
     let pick = null;
-    let fewest = Infinity;
+    fewest = Infinity;
     for (const spot of spots) {
       if (!ok(spot)) continue;
       //: Past six lines a place is simply crowded; counting on would only
       //: rank two bad places, at a cost every frame.
       const lines = lineCount ? lineCount(spot, Math.min(fewest, 6)) : 0;
-      if (lines === 0) return spot;
+      if (lines === 0) {
+        fewest = 0;
+        return spot;
+      }
       if (lines < fewest) {
         fewest = lines;
         pick = spot;
@@ -507,6 +518,27 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
     }
     return pick;
   };
+  //: **Never on a dot, never on a line, when there is any choice** (INBOX
+  //: 693, the owner's decision: "labels never over dots or lines").
+  //: Measured on the showcase notebook at the fit (graph692.js), 3 to 7
+  //: names sat on another note's dot and 5 to 14 had a line through them.
+  //: Two things gave way:
+  //: - a landmark (one of the best-connected notes) was let sit on a dot
+  //:   (GRAPH_PLAN, decision of 2026-09-26, measured on a 417-note map whose
+  //:   dense middle had no free place); the owner's newer decision ends the
+  //:   waiver: a landmark with no place off every dot is left off at this
+  //:   zoom like any other name, and zooming in gives it one. Room kept
+  //:   clear for a hub's name by the layout was tried twice and rejected (a
+  //:   lane beside each hub, then a box under it): at the overview a name is
+  //:   about as wide as its cluster, so clearing room for it pulled the
+  //:   clusters into streaks and the fit zoom from 0.77 to 0.48;
+  //: - an ordinary name went to the place crossing the fewest lines; now a
+  //:   name that would sit on a line is left off until the view gives it
+  //:   room (zoom in, or point at the note: its name is drawn on hover
+  //:   whatever it covers). Names asked for by name and landmarks still take
+  //:   their least-crossed place, on the plate that hides the line under it
+  //:   (`gcDrawLabels`), because an overview with no hub named is not
+  //:   clearer.
   for (const box of items) {
     const spots = [box, ...(box.alts || []).map((spot) => ({ ...box, ...spot, alts: undefined }))];
     if (box.force) {
@@ -515,9 +547,13 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
       placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || box);
       continue;
     }
-    const covers = box.landmark ? () => false : coversDisc;
-    const pick = best(spots, (spot) => !clashes(spot) && !covers(spot));
-    if (pick) placed.push(pick);
+    if (box.landmark) {
+      const pick = best(spots, (spot) => !clashes(spot) && !coversDisc(spot));
+      if (pick) placed.push(pick);
+      continue;
+    }
+    const pick = best(spots, (spot) => !clashes(spot) && !coversDisc(spot));
+    if (pick && fewest === 0) placed.push(pick);
   }
   return placed;
 }
@@ -734,7 +770,14 @@ function gcArrows(s = gcTab) {
   return box ? box.checked : prefs.get("graph-arrows", null) === "1";
 }
 
+//: **A line between two categories is straight** (INBOX 693, the owner:
+//: "cross-cluster links drawn short, straight or one gentle bend ... no long
+//: arcs spanning the canvas"): while notes gather by category (`_cluster`,
+//: set in `renderGraphCanvas`), its bow is its midpoint, so every caller
+//: (paint, hover, hit test, the label pass's line grid) draws and finds it
+//: straight. The worker's `clearCurve` makes the same exception.
 function gcBowPoint(a, b) {
+  if (a._cluster != null && a._cluster !== b._cluster) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
@@ -1599,7 +1642,20 @@ function gcDraw(s = gcTab) {
         ? a.colour
         : null;
     if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
-    const key = `${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
+    //: **A line between clusters is quiet until asked about** (INBOX 693,
+    //: the owner: cross-cluster links "thin and muted (only highlighted on
+    //: hover)"). The clusters are what the map says; the lines between them
+    //: are the footnote. Thinner and fainter, unless the pointer is on one
+    //: of its ends; a contradiction keeps its warning.
+    if (
+      a._cluster != null &&
+      a._cluster !== b._cluster &&
+      edge.link_type !== "contradicts" &&
+      !(hl.hovering && byHover)
+    ) {
+      style = { ...style, width: style.width * GC_CROSS_WIDTH, alpha: style.alpha * GC_CROSS_ALPHA };
+    }
+    const key =`${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
@@ -1763,14 +1819,33 @@ function gcDraw(s = gcTab) {
     const degree = (node) => (s.adj.get(node.id) || { size: 0 }).size;
     // A big map keeps its dozen hubs of degree 2+; a mid-sized one names
     // its best-connected third, a lone note included only if it has a link.
+    //: **Hubs only, while the map gathers by category** (INBOX 693, the
+    //: owner: "labels for hubs only by default plus collision-free placement
+    //: for the rest at zoom"). Measured on the showcase notebook at the fit,
+    //: the best-connected third named 23 notes, leaves among them, and the
+    //: names were what made a cluster look busy. Grouped, the overview names
+    //: each category's hub (its best-connected note, two links or more) and
+    //: any other note with `GC_LABEL_HUB_DEGREE` links, at most
+    //: GC_LABEL_LANDMARKS; the rest are named past the zoom gate.
+    const grouped = s.nodes.some((node) => node._cluster != null);
     const big = s.nodes.length > GC_LABEL_ALL_MAX;
-    const count = big
+    const count = big || grouped
       ? GC_LABEL_LANDMARKS
       : Math.max(8, Math.round(s.nodes.length * GC_LABEL_LANDMARK_SHARE));
-    const landmarks = drawn
-      .filter((node) => !node._dim && !already.has(node.id) && degree(node) >= (big ? 2 : 0))
-      .sort((a, b) => degree(b) - degree(a))
-      .slice(0, count);
+    let pool = drawn.filter((node) => !node._dim && !already.has(node.id) && degree(node) >= (big ? 2 : 0));
+    if (grouped && !big) {
+      const top = new Map();
+      for (const node of pool) {
+        const best = top.get(node._cluster);
+        if (degree(node) >= 2 && (!best || degree(node) > degree(best))) top.set(node._cluster, node);
+      }
+      const heads = new Set(top.values());
+      pool = pool.filter((node) => heads.has(node) || degree(node) >= GC_LABEL_HUB_DEGREE);
+      pool.sort((a, b) => Number(heads.has(b)) - Number(heads.has(a)) || degree(b) - degree(a));
+    } else {
+      pool.sort((a, b) => degree(b) - degree(a));
+    }
+    const landmarks = pool.slice(0, count);
     for (const node of landmarks) labelled.push(node);
   }
   //: Sprites at the zoom's own pixel size, so a node stays crisp at any
@@ -1961,15 +2036,11 @@ function gcDraw(s = gcTab) {
     // subject to the same test as everything else. The hovered or
     // keyboard-focused note is never in this trade: there is exactly one of
     // it, and it was pointed at.
-    //: **The landmarks may sit on a dot** (GRAPH_PLAN.md, "Decision made,
-    //: 2026-09-26"). The ten best-connected notes in view are what the map is
-    //: read by, and they live in its dense middle, where every place a name
-    //: could go is on some other dot: measured on the 417-note fixture, the
-    //: rule that a label never covers a dot named 0 of those ten at the fit
-    //: and 2 of ten at 2x, even with four places to try. So for them alone
-    //: the dot test is waived; the label test is not (no two names overlap),
-    //: and a covered dot still answers the pointer, because a canvas label is
-    //: paint and hit testing is on the notes (`gcNodeAtWorld`).
+    //: **The landmarks** are the ten best-connected notes in view, what the
+    //: map is read by. They were let sit on a dot (GRAPH_PLAN.md, "Decision
+    //: made, 2026-09-26"); since INBOX 693 they are not ("labels never over
+    //: dots or lines", the owner), and only keep the right to the place
+    //: crossing the fewest lines when none crosses none (`gcPlaceLabels`).
     const landmarkIds = new Set(
       drawn
         .filter((node) => !node._dim && (s.adj.get(node.id) || { size: 0 }).size >= 2)
@@ -2029,6 +2100,17 @@ function gcDraw(s = gcTab) {
             { x: node.x - r * 0.72 - 3 / k, y: node.y + r * 0.72 + 9 / k, align: "right" },
             { x: node.x + r * 0.72 + 3 / k, y: node.y - r * 0.72 - 9 / k, align: "left" },
             { x: node.x - r * 0.72 - 3 / k, y: node.y - r * 0.72 - 9 / k, align: "right" },
+            //: Then a step further out (INBOX 693): a name may no longer sit
+            //: on a dot or a line, and a hub in the middle of its cluster
+            //: (the layout puts it there now) has a leaf or a spoke at every
+            //: near place. Measured on the showcase notebook at the fit:
+            //: without these, three of its seven category hubs went unnamed.
+            { x: node.x, y: node.y + r + 27 / k, align: "center" },
+            { x: node.x, y: node.y - r - 27 / k, align: "center" },
+            { x: node.x + r + 20 / k, y: node.y + 12 / k, align: "left" },
+            { x: node.x - r - 20 / k, y: node.y + 12 / k, align: "right" },
+            { x: node.x + r + 20 / k, y: node.y - 12 / k, align: "left" },
+            { x: node.x - r - 20 / k, y: node.y - 12 / k, align: "right" },
           ].map((spot) => {
             const l = spot.align === "center" ? spot.x - width / 2 : spot.align === "left" ? spot.x : spot.x - width;
             return { ...spot, left: l - padX, right: l + width + padX, top: spot.y - half, bottom: spot.y + half };
@@ -3472,6 +3554,57 @@ function gcStop(s = gcTab) {
   gcPost({ type: "stop" }, s);
 }
 
+//: What the worker's forces are tuned by, read fresh from the controls'
+//: stored values. Sent with every `init`, and again on its own when a switch
+//: the forces depend on changes without a rebuild (Curved links).
+function gcWorkerParams(s = gcTab) {
+  return {
+    gravity: prefs.number("graph-gravity", 50, { min: 0, max: 100 }),
+    spread: prefs.number("graph-spread", 50, { min: 0, max: 100 }),
+    linkForce: Number(prefs.get("graph-link-force", null) || 50),
+    lengthByScore: prefs.get("graph-length-score", null) !== "0",
+    //: The tab's map only: a local map of one note's neighbours is
+    //: arranged by its links, and a ring of category places would pull
+    //: three notes apart.
+    groupBy: s.size === "full" && prefs.get("graph-group", null) !== "0",
+    //: Unlinked notes take a seat on a ring round the cluster (the worker's
+    //: `orbitForce`); a local map has none to seat.
+    orbit: s.size === "full",
+    //: The lines the worker keeps clear of dots are the lines drawn
+    //: (`clearanceForce`, INBOX 693): curved or straight.
+    curved: gcCurvedLinks(s),
+  };
+}
+
+//: **Reshuffle layout** (INBOX 692, the owner: "can you add a resuffle
+//: button or feature to the graph to rearrange how the graph sits on the
+//: main force view??"). A new seed for the worker (`reshuffle` there: the
+//: categories dealt round in a new order, every unpinned note sent to a new
+//: start near its category's new place, drawn moving rather than jumping,
+//: then the layout settles from full heat), and the camera framed on the
+//: result the way a first open frames it: once as it cools, once at rest
+//: (the tick handler's two fits, `gcStartWorker`), because the person
+//: asked for a new picture and should see all of it. Only the force
+//: layout: a tree, radial or arc layout is computed, not settled, and has
+//: nothing to shuffle. Returns whether it did anything.
+function gcReshuffle(s = gcTab) {
+  if (s.tree || !s.worker || !s.nodes.length) return false;
+  s.layoutSeed = 1 + Math.floor(Math.random() * 0x7ffffffe);
+  s.settledSig = null;
+  s.userZoomed = false;
+  s.fittedOnce = true;
+  gcSetAutoFitDone(s, false);
+  gcPost(
+    {
+      type: "reshuffle",
+      seed: s.layoutSeed,
+      animate: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+    },
+    s
+  );
+  return true;
+}
+
 //: `viewSeed`, when the caller is restoring a saved view, is
 //: `{alpha, freezeIds}`: the alpha to hand the worker's `init` (0 to start at
 //: rest, the decision above) and which node ids to freeze right after init
@@ -3641,19 +3774,11 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       //: changed nothing on this renderer (INBOX 412, measured).
       score: typeof e.score === "number" ? e.score : typeof e.reason_confidence === "number" ? e.reason_confidence : null,
     })),
-    params: {
-      gravity: prefs.number("graph-gravity", 50, { min: 0, max: 100 }),
-      spread: prefs.number("graph-spread", 50, { min: 0, max: 100 }),
-      linkForce: Number(prefs.get("graph-link-force", null) || 50),
-      lengthByScore: prefs.get("graph-length-score", null) !== "0",
-      //: The tab's map only: a local map of one note's neighbours is
-      //: arranged by its links, and a ring of category places would pull
-      //: three notes apart.
-      groupBy: s.size === "full" && prefs.get("graph-group", null) !== "0",
-      //: Unlinked notes take a seat on a ring round the cluster (the worker's
-      //: `orbitForce`); a local map has none to seat.
-      orbit: s.size === "full",
-    },
+    params: gcWorkerParams(s),
+    //: The arrangement a Reshuffle dealt (`gcReshuffle`), kept by every
+    //: re-render after it; 0 is the default map. Not in the hold signature
+    //: below: a reshuffle is already the settled layout it describes.
+    seed: s.layoutSeed || 0,
     world,
     // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout
     // at rest instead of relaxing it (see the decision on `viewSeed` above),
@@ -3996,9 +4121,15 @@ async function renderGraphCanvas(s = gcTab) {
     edge._path2d = null;
   }
   const maxDegree = gcMaxDegree(s, nodes);
+  //: Which category's cluster a note stands in, while the force layout
+  //: gathers by category (the worker's `groupBy`); null otherwise. Read by
+  //: `gcBowPoint` and the line pass: a line between clusters is straight and
+  //: quiet (INBOX 693).
+  const grouped = !s.tree && s.size === "full" && prefs.get("graph-group", null) !== "0";
   for (const node of nodes) {
     node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size, maxDegree);
     node.colour = s.colourOf(node);
+    node._cluster = grouped ? node.category || "" : null;
   }
   //: **A note with no position yet is placed here, not in the worker.**
   //: d3-force assigns its phyllotaxis spiral inside `forceSimulation`, which

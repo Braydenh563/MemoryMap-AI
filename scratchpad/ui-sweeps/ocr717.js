@@ -92,7 +92,7 @@ function check(label, ok, detail) {
     const innerRight = box.right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
     return {
       height: Math.round(box.height),
-      controlH: parseFloat(getComputedStyle(dock).getPropertyValue("--control-h")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
+      controlH: Math.max(...rects.map(({ r }) => r.height)),
       paddingY: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth),
       spread: Math.max(...centres) - Math.min(...centres),
       heights,
@@ -108,6 +108,15 @@ function check(label, ok, detail) {
     };
   });
   console.log(JSON.stringify(row));
+  const rail = await page.evaluate(() => ({
+    tab: document.querySelector("#ocr-rail-switch .is-active")?.dataset.mode,
+    items: document.querySelectorAll("#ocr-rail .ocr-rail-item").length,
+    tops: new Set([...document.querySelectorAll("#ocr-rail-switch .ocr-rail-tab")].map((t) => Math.round(t.getBoundingClientRect().top))).size,
+  }));
+  if (!phone) {
+    check(`${TAG}: a PDF opens on its own pages in the rail`, rail.tab === "pages" && rail.items === 3, JSON.stringify(rail));
+    check(`${TAG}: the rail's switch is one row`, rail.tops === 1, `${rail.tops} row(s)`);
+  }
   const oneRow = row.height <= Math.round(row.controlH + row.paddingY + 1);
   check(`${TAG}: the tool row is one row`, oneRow, `${row.height}px (control ${row.controlH} + ${row.paddingY})`);
   check(`${TAG}: every control on one centre line`, row.spread <= 1, `${row.spread.toFixed(2)}px spread`);
@@ -142,12 +151,13 @@ function check(label, ok, detail) {
   await page.evaluate(() => document.querySelector("#ocr-reader-menu > summary").click());
   await page.waitForTimeout(400);
   const pop = await page.evaluate(() => {
-    const list = document.querySelector("#ocr-reader-menu .dock-menu-list");
+    // On a phone a dock menu opens as a sheet, its list moved into it.
+    const list = document.getElementById("ocr-reader").closest(".dock-menu-list");
     const r = list.getBoundingClientRect();
     const label = list.querySelector(".ocr-engine-lang-label");
     const select = list.querySelector(".ocr-engine-lang-wrap .select-opener, .ocr-engine-lang-wrap select");
     return {
-      open: document.getElementById("ocr-reader-menu").open,
+      open: document.getElementById("ocr-reader-menu").open || Boolean(list.closest(".sheet-card")),
       inWindow: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
       text: list.textContent.replace(/\s+/g, " ").trim().slice(0, 160),
       stacked: label && select ? label.getBoundingClientRect().bottom <= select.getBoundingClientRect().top + 1 : null,
@@ -202,9 +212,16 @@ function check(label, ok, detail) {
   await page.waitForTimeout(1200);
   const read = await page.evaluate(() => ({
     rows: document.querySelectorAll("#ocr-region-list .ocr-region").length,
-    empty: Boolean(document.getElementById("ocr-empty")),
+    empty: !document.getElementById("ocr-empty").classList.contains("hidden"),
     label: document.getElementById("ocr-read-page-label").textContent,
   }));
+  if (!process.env.READY) {
+    // Nothing can read here: the read says what to do, and Ask has nothing.
+    const said = await page.evaluate(() => document.getElementById("ocr-message").textContent);
+    check(`${TAG}: a read that cannot run says what to do`, /reader menu|Settings/.test(said), said);
+    await browser.close();
+    process.exit(failures ? 1 : 0);
+  }
   check(`${TAG}: a read fills the reading and drops the empty state`, read.rows > 0 && !read.empty, JSON.stringify(read));
 
   // Ask: a chip, an empty composer, a toast.

@@ -2299,8 +2299,12 @@
   min-width: 0;
 }
 
-.ocr-dock > * {
+/* (0,2,0), and after the boot sheets: the phone's `.dock > .dock-actions`
+   (flex 0 1 auto, min-width 0) shrank the zone under its controls, which
+   then ran out of its left edge where no measurement of the zone saw them. */
+.dock.ocr-dock > * {
   flex: none;
+  min-width: auto;
 }
 
 /* The words never break inside a control (the measured defect the old row
@@ -2309,8 +2313,10 @@
   white-space: nowrap;
 }
 
-/* Folded: offered as a row of the ⋯ menu instead (`ocrSyncToolsMenu`). */
-.ocr-dock .is-folded {
+/* Folded: offered as a row of the ⋯ menu instead (`ocrSyncToolsMenu`). A
+   zone whose every control has folded goes too, or its gap stays behind. */
+.ocr-dock .is-folded,
+.ocr-dock > .dock-arrange:not(:has(> :not(.is-folded, .hidden))) {
   display: none !important;
 }
 
@@ -2570,7 +2576,8 @@
   justify-content: flex-start;
 }
 
-.ocr-regions-foot > .ocr-in-menu {
+/* Wherever they are: below 600 the foot's buttons move to the thumb bar. */
+:is(.ocr-regions-foot, .ocr-phone-bar) > .ocr-in-menu {
   display: none !important;
 }
 
@@ -2597,4 +2604,84 @@
   .ocr-regions-foot > :is(#ocr-copy-all, #ocr-to-chat) > .ph-lead {
     margin-inline-end: 0;
   }
+}
+
+/* **Touch: one row still, and every stop a finger's size** (INBOX 717). The
+   phone's dock rule lets an actions zone wrap inside itself (a zone of many
+   actions takes a row of its own); this row folds instead, so it stays one
+   line (`ocrFitDock`), and its controls take the band's touch floor. */
+.dock.ocr-dock,
+.dock.ocr-dock > .dock-actions {
+  flex-wrap: nowrap;
+}
+
+.dock.ocr-dock > .dock-actions {
+  max-width: none;
+}
+
+@media (pointer: coarse), (max-width: 819.98px) {
+  .ocr-dock {
+    --control-h: max(var(--control-h-lg), var(--target-min));
+  }
+
+  .ocr-zoom {
+    padding: 0;
+  }
+
+  .ocr-zoom > button {
+    height: var(--control-h);
+  }
+
+  .ocr-zoom > button.icon-only {
+    width: var(--control-h);
+  }
+}
+
+/* The head on a phone: the title and the way back keep their room; the file
+   name (in the page's alt text and the reading's chip) gives it up, and the
+   page counter stops reserving 7.5rem for "Page 10 of 12". */
+@media (max-width: 599.98px) {
+  .sheet-card-page .ocr-file {
+    display: none;
+  }
+
+  .sheet-card-page .ocr-headline .dialog-head-title {
+    flex: none;
+  }
+
+  .sheet-card-page .ocr-page-label {
+    min-width: 0;
+  }
+}
+
+/* Find, over the reading: the magnifier stays beside the field (it wrapped
+   above it at 390 once the field took the touch floor). */
+.ocr-find {
+  flex-wrap: nowrap;
+}
+
+/* **The rail's switch, one row** (INBOX 717). It wrapped, "Images 0" on one
+   line and "Files 11 Pages 3" on the next, in the 9rem rail. Equal columns,
+   each tab its word over its count, so three fit side by side. */
+.ocr-rail-switch {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.ocr-rail-tab {
+  flex-direction: column;
+  gap: 0;
+  padding: var(--space-1) 0;
+  line-height: 1.25;
+}
+
+.ocr-rail-tab:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The not-installed sentence in the reader popover: a column there, so the
+   line's row basis (14rem) would be a 14rem-tall gap above Install. */
+.ocr-reader-list .ocr-engine-detail {
+  flex: none;
 }

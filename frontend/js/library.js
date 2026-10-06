@@ -5306,7 +5306,13 @@ function ocrRenderRailSwitch(current) {
   //: rather than as a control that comes and goes.
   //: A one-page document offers no Pages segment, so "pages" mode would
   //: leave the rail empty and no tab lit (measured): fall back to Files.
-  if (ocrRailMode === "pages" && !segments.some((segment) => segment.id === "pages")) ocrRailMode = "files";
+  //: **Only once the count is known** (INBOX 717, measured): the sibling list
+  //: usually arrives before the page count, so a three-page PDF opened with
+  //: the rail on Files and its own pages one press away, and `ocrBuildPageRail`
+  //: then returned early because the mode was no longer "pages".
+  if (ocrRailMode === "pages" && ocrPagesKnown && !segments.some((segment) => segment.id === "pages")) {
+    ocrRailMode = "files";
+  }
   const usable = segments;
   host.classList.remove("hidden");
   for (const segment of usable) {
@@ -6411,6 +6417,12 @@ function ocrDockFits(dock) {
     const rect = zones[i].getBoundingClientRect();
     if (rect.right > inner + 0.5) return false;
     if (i > 0 && rect.left < zones[i - 1].getBoundingClientRect().right - 0.5) return false;
+    //: And one line: a zone (or the row) that wrapped has children on two.
+    if (i > 0 && Math.abs(rect.top - zones[0].getBoundingClientRect().top) > 2) return false;
+    const tops = [...zones[i].children].filter((el) => el.offsetParent !== null)
+      .map((el) => el.getBoundingClientRect())
+      .map((r) => r.top + r.height / 2);
+    if (tops.length && Math.max(...tops) - Math.min(...tops) > 2) return false;
   }
   return true;
 }

@@ -45989,3 +45989,15 @@ and refuses a topic ("Select a shape, link or text box first").
      canvas rendered, so a board left open in the Library no longer takes a
      paste on another tab; `.icon-btn` is `--radius-md`. tests/test_stray_paste_720.py.
 
+723. **The owner, 2026-10-06, verbatim**: "make sure all the icons for the ai
+     are consistent. also can you use a better icon for the agent?? i dont like
+     the robot". Measured: ph:sparkle 33 uses, ph:magic-wand 35, ph:robot 9,
+     ph:brain 5, ph:star-four 1, ph:asterisk 1. Placed: Opus agent.
+     Fixed 2026-10-06: one glyph per meaning (DESIGN.md, "AI and agent
+     icons"): `ph-sparkle` is the AI doing a thing for you, now also Chat's
+     Ask mode, every "with AI" label and the Use AI switch; the agent is
+     `ph-strategy` (a play drawn up, then made) in place of the robot, in
+     the 16 places `AGENT_ICON_PLACES` lists; the wand only tidies or fixes
+     by rule (3 places), the brain only remembers (4); the four-pointed star
+     and the robot are gone. Lint: `tests/test_icon_conventions.py`.
+

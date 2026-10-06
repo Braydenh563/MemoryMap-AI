@@ -1871,8 +1871,8 @@ async function switchTab(name) {
     // leave whatever the user last panned or zoomed to alone (graph.js).
     graphAutoFitDone = false;
     const layout = graphLayout();
-    const layoutInput = document.querySelector(`input[name="graph-layout"][value="${layout}"]`);
-    if (layoutInput) layoutInput.checked = true;
+    const layoutSelect = $("graph-layout");
+    if (layoutSelect) layoutSelect.value = layout;
     
     // Same for what the colours mean: a saved setting the control does not
     // show is a control that lies about the map beside it.

@@ -179,8 +179,8 @@ async function buildBoard(page) {
     await page.evaluate(() => switchTab('graph'));
     await page.waitForTimeout(1200);
     await page.evaluate(() => {
-      const i = document.querySelector('input[name="graph-layout"][value="force"]');
-      if (i) { i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true })); }
+      const i = document.getElementById('graph-layout');
+      if (i) { i.value = 'force'; i.dispatchEvent(new Event('change', { bubbles: true })); }
     });
     await page.waitForTimeout(7000);
     const g = await page.evaluate(() => {

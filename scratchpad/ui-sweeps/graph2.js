@@ -658,8 +658,8 @@ const check = (ok, what) => {
   // strip to the section itself, and this is what says the id still lands on
   // the thing setGraphPhysicsEnabled() means to dim.
   await page.evaluate(() => {
-    const tree = document.querySelector('input[name="graph-layout"][value="tree"]');
-    tree.checked = true;
+    const tree = document.getElementById("graph-layout");
+    tree.value = "tree";
     tree.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.waitForTimeout(2500);
@@ -668,8 +668,8 @@ const check = (ok, what) => {
     return el.classList.contains("is-disabled") && Number(getComputedStyle(el).opacity) < 1;
   });
   await page.evaluate(() => {
-    const force = document.querySelector('input[name="graph-layout"][value="force"]');
-    force.checked = true;
+    const force = document.getElementById("graph-layout");
+    force.value = "force";
     force.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await page.waitForTimeout(3000);

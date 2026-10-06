@@ -3514,13 +3514,17 @@ Link to another note with [[its first few words]]."></textarea>
             role="group" aria-labelledby="graph-view-label">
             <span class="muted dock-menu-label" id="graph-view-label">View</span>
             <div class="graph-option-row">
-              <span id="graph-layout-label">Layout</span>
-              <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
-                <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-                <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-                <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-                <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
-              </div>
+              <label for="graph-layout" id="graph-layout-label">Layout</label>
+              <!-- A list like Colour and Size beside it (INBOX 670): four
+                   layouts were a well of four. The id and the `change` event
+                   are what navigation.js and the saved views use. -->
+              <select id="graph-layout" class="ghost small" aria-labelledby="graph-layout-label"
+                title="How the map is laid out">
+                <option value="force">Force</option>
+                <option value="tree">Tree</option>
+                <option value="radial">Radial</option>
+                <option value="arc">Arc</option>
+              </select>
             </div>
             <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
                  The legend follows the rule and every legend entry toggles

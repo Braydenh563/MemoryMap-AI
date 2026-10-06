@@ -2839,7 +2839,6 @@ SEG_OF_FOUR_PLACED = {
     #: and `test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog`
     #: holds that shape. A list there would hide the counts and add a click.
     "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them as equal segments, pinned",
-    "graph-layout": "the Graph's four layouts, radio-backed; placed",
 }
 
 
@@ -2888,7 +2887,7 @@ def test_a_pill_well_holds_two_or_three_choices() -> None:
     wells.feed(html)
     wide = {name for name, count in wells.found.items() if count >= 4}
     assert wide <= set(SEG_OF_FOUR_PLACED), f"a new pill well of four or more: {sorted(wide - set(SEG_OF_FOUR_PLACED))}"
-    for name in ("questions-state", "skills-kind", "font-seg", "density-seg"):
+    for name in ("questions-state", "skills-kind", "font-seg", "density-seg", "graph-layout"):
         assert name not in wells.found, f"#{name} is a select (INBOX 665, 670), not a well"
         assert f'<select id="{name}"' in html
 

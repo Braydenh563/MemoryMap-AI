@@ -69,14 +69,14 @@ async function coldPage(browser) {
     const before = await page.evaluate(() => typeof graphSimulation);
     await page.evaluate(() => {
       switchTab('graph');
-      const radio = document.querySelector('input[name="graph-layout"][value="tree"]');
-      radio.checked = true;
+      const radio = document.getElementById('graph-layout');
+      radio.value = 'tree';
       radio.dispatchEvent(new Event('change', { bubbles: true }));
     });
     await page.waitForTimeout(6000);
     const after = await page.evaluate(() => ({
       stored: localStorage.getItem('graph-layout'),
-      checked: document.querySelector('input[name="graph-layout"][value="tree"]').checked,
+      checked: document.getElementById('graph-layout').value === 'tree',
       dimmed: document.getElementById('graph-physics')?.classList.contains('is-disabled'),
       nodes: typeof gcTab !== 'undefined' ? gcTab.nodes.length : -1,
     }));

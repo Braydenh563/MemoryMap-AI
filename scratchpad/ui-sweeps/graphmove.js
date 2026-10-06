@@ -71,8 +71,8 @@ function top(map, n) {
   // Force, explicitly: the drag below only exists in the force layout, and the
   // stored layout is whatever the last sweep left behind.
   await page.evaluate(() => {
-    const i = document.querySelector('input[name="graph-layout"][value="force"]');
-    i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true }));
+    const i = document.getElementById('graph-layout');
+    i.value = 'force'; i.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.waitForTimeout(5000); // let the simulation settle: this is about the gesture
   await counters(page);
@@ -212,8 +212,8 @@ function top(map, n) {
   // and a relayout still repaints the dots rather than leaving the last set.
   console.log(`minimap frame ${frameBefore} -> ${frameAfter} (${dotsBefore} dots before the pan)`);
   await page.evaluate(() => {
-    const i = document.querySelector('input[name="graph-layout"][value="tree"]');
-    i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true }));
+    const i = document.getElementById('graph-layout');
+    i.value = 'tree'; i.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.waitForTimeout(1600);
   const dotsTree = await page.evaluate(() => document.querySelectorAll('#graph-minimap-dots circle').length);

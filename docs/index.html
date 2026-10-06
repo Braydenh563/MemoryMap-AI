@@ -279,13 +279,15 @@
     .hero .lede strong { color: var(--night-ink); font-weight: 600; }
     .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2.25rem; }
     .facts {
-      list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem 0;
+      list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem;
       margin-top: 1.75rem; color: var(--night-muted); font-size: 0.92rem;
     }
-    .facts li { display: inline-flex; align-items: center; }
-    .facts li + li::before {
-      content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--star); margin-inline: 0.8rem; opacity: 0.8;
+    .facts li { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .facts li::before {
+      content: ""; width: 9px; height: 5px; flex: none; margin-top: -3px;
+      border-left: 2px solid var(--star); border-bottom: 2px solid var(--star); transform: rotate(-45deg);
     }
+    @media (max-width: 479px) { .hero .cta .btn { flex: 1 1 100%; } }
     .hero-figure { position: relative; margin-top: calc(-1 * var(--overlap)); }
     .hero-figure .frame { position: relative; border-color: rgba(255, 255, 255, 0.12); }
     .pin {
@@ -296,9 +298,9 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
     }
     @media (min-width: 720px) { .pin { display: grid; } }
-    .pin-1 { left: 23.4%; top: 23.6%; }
-    .pin-2 { left: 52.6%; top: 46.4%; }
-    .pin-3 { left: 61.2%; top: 33.4%; }
+    .pin-1 { left: 22%; top: 23.6%; }
+    .pin-2 { left: 21.8%; top: 47%; }
+    .pin-3 { left: 59.7%; top: 46%; }
     .key { list-style: none; display: grid; gap: 1rem 2rem; grid-template-columns: minmax(0, 1fr); margin-top: 1.5rem; color: var(--muted); font-size: 0.98rem; }
     @media (min-width: 720px) { .key { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     .key li { display: flex; gap: 0.75rem; align-items: baseline; }
@@ -417,7 +419,7 @@
     .tile p { margin-top: 0.35rem; color: var(--muted); font-size: 0.95rem; }
     .t-atlas .shot { background: #0d1226; }
     .t-atlas .shot img { object-fit: contain; object-position: center; }
-    .t-phone .shot img { aspect-ratio: auto; max-height: 34rem; object-fit: cover; object-position: top center; }
+    .t-phone .shot img { aspect-ratio: 780 / 1688; max-height: 34rem; object-fit: cover; object-position: top center; }
     @media (min-width: 640px) {
       .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .t-wide { grid-column: span 2; }
@@ -425,15 +427,17 @@
     }
     @media (min-width: 1024px) {
       .bento { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-      .t-timeline { grid-column: span 4; }
+      .bento .t-timeline { grid-column: span 4; }
       .t-phone { grid-column: span 2; grid-row: span 2; }
       .t-s2 { grid-column: span 2; }
       .t-s3 { grid-column: span 3; }
-      .t-wide { grid-column: span 2; }
     }
-    .t-phone .shot { flex: 1; display: flex; }
-    .t-phone .shot img { flex: 1; min-height: 0; height: 100%; max-height: none; }
-    @media (max-width: 639px) { .t-phone .shot img { max-height: 34rem; } }
+    /* Below the two-column bento the phone shows at its own shape, capped;
+       in the grid it fills whatever height its two rows give it. */
+    @media (min-width: 640px) {
+      .t-phone .shot { flex: 1; position: relative; min-height: 20rem; }
+      .t-phone .shot img { position: absolute; inset: 0; height: 100%; max-height: none; }
+    }
     .extras { margin-top: 2.5rem; list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 2.5rem; }
     @media (min-width: 720px) { .extras { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (min-width: 1100px) { .extras { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -633,7 +637,7 @@
       </svg>
       <div class="wrap">
         <div class="hero-copy">
-          <p class="kicker">Offline notebook for Windows, macOS and Linux</p>
+          <p class="kicker">Offline notebook &middot; Windows, macOS, Linux</p>
           <h1 id="hero-title">A notebook that files itself.</h1>
           <p class="lede"><strong>Write a thought and a local AI files it, tags it and links it to what you already wrote.</strong> Ask a question and the answer cites the notes it came from. All of it runs on your computer.</p>
           <div class="cta">

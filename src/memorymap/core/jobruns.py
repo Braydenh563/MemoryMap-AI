@@ -39,7 +39,9 @@ run.
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -120,8 +122,32 @@ def peek_database(db=None):  # noqa: ANN001, ANN201
     return _database(db)
 
 
+#: Lines a running job keeps for its row's "What it's doing" fold.
+LOG_LINES = 50
+
+#: Runs that have started and not finished, for `live()` (INBOX 1006: the
+#: owner asked for "actual progress feedback and a log" on the background
+#: passes, which ran without ever appearing in `/tasks`). Process memory only:
+#: a restart ends the runs, and `mark_interrupted` settles their rows.
+_live: list["Run"] = []
+_live_lock = threading.Lock()
+
+
+def live() -> list[dict]:
+    """Every run in flight as a `/tasks`-shaped dict, oldest first."""
+    with _live_lock:
+        runs = list(_live)
+    return [run.snapshot() for run in runs]
+
+
 class Run:
-    """The handle `job_run` yields. Set `result`; call `cancel` for a stop."""
+    """The handle `job_run` yields. Set `result`; call `cancel` for a stop.
+
+    While it runs, `step`, `plan` and `say` feed the Background tasks row:
+    a bar, named steps and a short plain-sentence log. Say what is being
+    done in words; never put exception text in a line (it reaches the screen,
+    and a traceback belongs in the server log).
+    """
 
     def __init__(self, kind: str, db) -> None:  # noqa: ANN001  # DatabaseManager or None
         self.kind = kind
@@ -135,6 +161,61 @@ class Run:
         self._finished = False
         #: What the row said before this run began, for `skip`.
         self._before: dict | None = None
+        self._started_epoch = time.time()
+        self._done = 0
+        self._total = 0
+        self._what = ""
+        self._plan: list[str] = []
+        self._log: deque[str] = deque(maxlen=LOG_LINES)
+
+    # -- live progress ---------------------------------------------------------
+
+    def plan(self, labels: list[str]) -> None:
+        """Name the steps up front; `step(done)` then marks them off."""
+        self._plan = [str(label) for label in labels]
+        self._total = len(self._plan)
+
+    def step(self, done: int, total: int | None = None, what: str = "") -> None:
+        """`done` of `total` finished (total omitted: the plan's length, or
+        unchanged). `what` names the thing in hand, e.g. "Embedding notes"."""
+        self._done = max(0, int(done))
+        if total is not None:
+            self._total = max(0, int(total))
+        if what:
+            self._what = what
+
+    def say(self, line: object) -> None:
+        """Add one plain sentence to the log; only the last `LOG_LINES` stay."""
+        text = _clip(line)
+        if text:
+            self._log.append(text)
+
+    def snapshot(self) -> dict:
+        total = self._total
+        done = min(self._done, total) if total else self._done
+        progress = max(0.0, min(1.0, done / total)) if total else None
+        if total:
+            counts = f"{done} of {total}"
+            detail = f"{self._what}: {counts}" if self._what else counts
+        else:
+            detail = self._what
+        steps = [
+            {
+                "label": label,
+                "outcome": "completed" if i < done else "running" if i == done else "queued",
+                "word": "working" if i == done else "",
+            }
+            for i, label in enumerate(self._plan)
+        ]
+        return {
+            "kind": self.kind,
+            "label": KINDS.get(self.kind, self.kind),
+            "started": self._started_epoch,
+            "progress": progress,
+            "detail": detail,
+            "log": list(self._log),
+            "steps": steps,
+        }
 
     def skip(self) -> None:
         """This was not a run after all (the switch is off, nothing was due):
@@ -156,6 +237,9 @@ class Run:
     # -- the two writes -------------------------------------------------------
 
     def start(self) -> None:
+        with _live_lock:
+            if self not in _live:
+                _live.append(self)
         if self._db is None:
             return
         try:
@@ -185,6 +269,9 @@ class Run:
     def finish(self) -> None:
         """Write the ending. Idempotent: the second call is a no-op, so a
         caller that finishes by hand can still sit inside a `finally`."""
+        with _live_lock:
+            if self in _live:
+                _live.remove(self)
         if self._db is None or self._finished:
             return
         self._finished = True

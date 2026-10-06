@@ -430,3 +430,82 @@ def test_every_kind_in_the_overview_is_written_by_some_job():
     written = set(re.findall(r'(?:job_run|begin)\("([a-z-]+)"', text))
     written |= set(taskhistory.LAST_RUN_KINDS.values())
     assert set(jobruns.KINDS) <= written, set(jobruns.KINDS) - written
+
+
+# -- live runs: progress, steps and a log while a job runs (INBOX 1006) -------
+
+
+def _task_rows(client) -> list[dict]:
+    return client.get("/tasks").json()["tasks"]
+
+
+def test_a_running_job_run_is_listed_with_progress_and_log(client):
+    with jobruns.job_run("embeddings-backfill") as run:
+        run.step(3, 12, "Embedding notes")
+        run.say("Embedded 3 of 12 notes.")
+        rows = [r for r in _task_rows(client) if r["label"] == "Embeddings backfill"]
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["progress"] == pytest.approx(0.25)
+        assert row["detail"] == "Embedding notes: 3 of 12"
+        assert row["log"] == ["Embedded 3 of 12 notes."]
+        assert row["started"] > 0
+    assert not [r for r in _task_rows(client) if r["label"] == "Embeddings backfill"]
+
+
+def test_a_failed_run_leaves_the_live_list(client):
+    with pytest.raises(RuntimeError):
+        with jobruns.job_run("resurface"):
+            _fail(RuntimeError("boom"))
+    assert not [r for r in _task_rows(client) if r["label"] == "Resurfacing"]
+
+
+def test_the_log_keeps_the_last_fifty_lines_and_clips_each(client):
+    with jobruns.job_run("maintenance") as run:
+        for n in range(80):
+            run.say(f"line {n}")
+        run.say("x" * 900)
+        live = next(r for r in jobruns.live() if r["kind"] == "maintenance")
+        assert len(live["log"]) == 50
+        assert live["log"][0] == "line 31" and len(live["log"][-1]) <= 300
+
+
+def test_named_steps_show_done_running_and_waiting(client):
+    with jobruns.job_run("backup") as run:
+        run.plan(["Copy", "Verify", "Prune"])
+        run.step(1, 3)
+        steps = next(r for r in jobruns.live() if r["kind"] == "backup")["steps"]
+        assert [s["outcome"] for s in steps] == ["completed", "running", "queued"]
+        assert [s["label"] for s in steps] == ["Copy", "Verify", "Prune"]
+
+
+def test_a_pass_run_through_the_pool_is_one_row_not_two(client, monkeypatch):
+    import threading
+    import time
+
+    from memorymap.core import passes
+
+    gate = threading.Event()
+
+    def slow():
+        with jobruns.job_run("resurface") as run:
+            run.step(1, 2)
+            assert gate.wait(10)
+
+    passes.reset_for_tests()
+    monkeypatch.setitem(passes.RUNNERS, "resurface", slow)
+    try:
+        started = client.post("/jobs/passes/resurface/run").json()["started"]
+        assert started is True
+        deadline = time.monotonic() + 10
+        rows = []
+        while time.monotonic() < deadline:
+            rows = [r for r in _task_rows(client) if r["label"] == "Resurfacing"]
+            if rows and rows[0]["progress"] is not None:
+                break
+            time.sleep(0.02)
+        assert len(rows) == 1 and rows[0]["progress"] == pytest.approx(0.5)
+        assert rows[0]["cancellable"] is False  # resurfacing has no step to stop at
+    finally:
+        gate.set()
+        passes.reset_for_tests()

@@ -334,6 +334,37 @@ def collect() -> list[dict]:
     if switch:
         tasks.append({"kind": "embed-switch", **switch})
 
+    # The scheduled passes report as they go (INBOX 1006): a bar, named steps
+    # and a short log, from the run record's live handle (`jobruns.live`). A
+    # pass already listed above (the pool's "job-pass" row for a Run now, the
+    # autonomous row) is filled in; one the pool never saw (the start-up
+    # housekeeping, a scheduled backup) gets its own row, so no pass runs
+    # unseen.
+    from memorymap.core import passes
+
+    for live in jobruns.live():
+        if live["kind"] not in passes.PASS_KINDS:
+            continue
+        row = next(
+            (
+                t
+                for t in tasks
+                if (t["kind"] == "autonomous" and live["kind"] == "autonomous")
+                or (t["kind"] == "job-pass" and not t.get("queued") and t.get("name") == live["label"])
+            ),
+            None,
+        )
+        if row is None:
+            row = {"kind": "job-pass", "name": live["label"], "label": live["label"], "detail": "", "queued": False}
+            tasks.append(row)
+        row["progress"] = live["progress"]
+        row["log"] = live["log"]
+        row["started"] = live["started"]
+        if live["steps"]:
+            row["steps"] = live["steps"]
+        if live["detail"]:
+            row["detail"] = live["detail"]
+
     _stamp_started(tasks)
 
     # **One table decides, not eight hard-coded booleans.** Every entry above
@@ -343,8 +374,6 @@ def collect() -> list[dict]:
     # canceller. A flag repeated at eight call sites is a flag that drifts;
     # this reads the same table the cancel endpoint dispatches through, so the
     # button appears exactly where pressing it does something.
-    from memorymap.core import passes
-
     for task in tasks:
         task["cancellable"] = (
             task["kind"] in bgtasks.CANCELLABLE_KINDS

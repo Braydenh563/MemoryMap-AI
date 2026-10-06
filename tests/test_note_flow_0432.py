@@ -129,7 +129,9 @@ def test_an_open_edit_keeps_its_text_through_a_redraw():
     assert "noteFormDraft.id === entry.id" in form
     assert "draft ? draft.content :" in form and "draft ? draft.title :" in form
     # The title is its own field and goes back on as the leading heading.
-    assert "withTitle(textarea.value.trim(), titleInput.value)" in form
+    #: Under the note's property block, held aside while editing (meetings-644).
+    assert "const typed = textarea.value.trim();" in form
+    assert "parts.block : \"\") + withTitle(typed, titleInput.value)" in form
     # Cleared only on purpose: Save and Cancel (closeNoteForm).
     assert "noteFormDraft = null" in form
     assert "noteFormDraft = null" in _function(_read("note-edit-panels.js"), "closeNoteForm")

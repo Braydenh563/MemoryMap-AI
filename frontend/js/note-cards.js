@@ -1155,6 +1155,12 @@ const MEDIA_PAGE_SIZE = 200;
 //: ever used shows a favourite as a star that has changed colour. So both
 //: states draw `ph:star` and the difference is `is-favourite`, plus
 //: `aria-pressed`, which is what makes the state readable without the colour.
+//: A meeting note (INBOX 644): typed Meeting, or tagged `meeting` as every
+//: meeting is (`entry/meetings.py`'s `is_meeting`, the same two tests).
+function noteIsMeeting(entry) {
+  return entry.tags.includes("meeting") || /^meeting$/i.test(entry.properties?.type?.[0] || "");
+}
+
 function favouriteButton(entry) {
   //: `.favourite-btn` names the control for the phone's swipe (`initRowSwipe`),
   //: which presses it rather than carrying a second copy of the toggle.
@@ -1711,6 +1717,9 @@ function entryItem(entry, options = {}) {
   //: `hashtag` marks a real tag: `tag` alone is also the quiet look the
   //: documents, the source and the space borrow, and only a tag gets the #.
   for (const tag of entry.tags) {
+    //: The meeting chip says it, and opens the meeting (INBOX 644): a
+    //: "#meeting" beside it was the same fact twice on one line.
+    if (options.actions && tag === "meeting" && !entry.is_board) continue;
     const tagChip = options.actions
       ? chip(tag, "tag hashtag", (event) => {
         event.stopPropagation();
@@ -2027,6 +2036,17 @@ function entryItem(entry, options = {}) {
     meta.insertBefore(lockedChip, meta.firstChild);
   }
   if (entry.pinned) meta.insertBefore(chip("ph:star favourite"), meta.firstChild);
+  //: **A meeting says so, and the chip is its way in** (INBOX 644): the
+  //: meeting sheet, with its action items as reminders, its decisions,
+  //: Summarise and Record. The draft chip's shape: a fact you press.
+  if (options.actions && !entry.is_board && noteIsMeeting(entry)) {
+    const meetingChip = chip("ph:users-three meeting", "meeting", (event) => {
+      event.stopPropagation();
+      openMeetingSheet(entry.id);
+    });
+    meetingChip.title = "Open the meeting";
+    meta.insertBefore(meetingChip, meta.firstChild);
+  }
   // A draft (the selection popup's "Save as draft note", the Writing Room's
   // "Save as note"): the Drafts filter finds them, and **the chip publishes**,
   // said on it, since "click to clear the label" read as no way to publish.

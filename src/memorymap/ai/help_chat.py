@@ -490,9 +490,36 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The microphone icon on the note composer dictates a note using "
             "local Whisper: nothing sent anywhere. \"Record a meeting or "
-            "lecture\" (reachable from the Dashboard or the command palette) "
-            "transcribes a longer recording and can pull out decisions and "
-            "action items. Read-aloud plays a note or answer back to you."
+            "lecture\" (the command palette, Ctrl+Shift+R, or a meeting's Record "
+            "into it) transcribes a longer recording and saves it as a meeting "
+            "note, the transcript under Notes. Read-aloud plays a note or "
+            "answer back to you."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    #: INBOX 644: meetings are one shape of note with a sheet of their own.
+    {
+        "id": "meetings",
+        "keywords": (
+            "meeting", "meetings", "meeting notes", "new meeting", "agenda",
+            "action item", "action items", "attendees", "minutes", "standup",
+            "decisions", "summarise meeting",
+        ),
+        "body": (
+            "New meeting (the Dashboard's Quick access, the command palette, "
+            "Library's Create, Tools and features) asks for a title, when and "
+            "who, then opens the meeting as a note with Agenda, Notes, Decisions "
+            "and Action items. Write an action item as \"- [ ] Send the deck "
+            "@Sam by Friday\": @Name is its owner, the plain words its due. "
+            "The meeting chip on the note (or its ... menu, Meeting) opens the "
+            "meeting sheet: Remind me makes an action item a reminder, asking "
+            "when if the line does not say; Summarise finds the decisions and "
+            "action items in your notes, each with the words it came from, and "
+            "adds them only when you press Add (Undo takes them back); Record "
+            "into it transcribes on this machine and adds the transcript under "
+            "Notes; Date and people changes when and who. Everything but "
+            "Summarise works with no AI. Every meeting is under Notes, "
+            "Meetings, and sits on the Timeline at its own date."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -743,7 +770,7 @@ _KEYWORDS_ADD: dict[str, tuple[str, ...]] = {
     "websearch": ("internet", "web", "google", "browse the web", "search the internet", "search online"),
     "privacy": ("private", "leave my computer", "left my computer", "left this computer", "where your data went", "data leave", "sent anywhere", "privacy", "spy"),
     "undo-bin": ("delete", "by mistake", "bin", "get back", "recover"),
-    "voice": ("speak", "speech", "record", "meeting notes"),
+    "voice": ("speak", "speech", "record", "transcribe a recording"),
     "autonomous": ("background", "automatically", "overnight"),
     "command-palette": ("ctrl k", "commands"),
     "extract-notes": ("pull notes out", "split into notes", "from a chat", "out of a chat"),
@@ -1689,8 +1716,8 @@ HELP_TOPICS.extend(
                 "Reset highlights clears the colours (the first tile is "
                 "highlighted again); Reset quick access goes back to the "
                 "defaults. Quick access "
-                "starts as New note, Ask AI, Sketch, Remind me and Meeting "
-                "notes. All of it is "
+                "starts as New note, Ask AI, Sketch, Remind me and New "
+                "meeting. All of it is "
                 "remembered per user. Press m then d to come back here from "
                 "anywhere."
             ),
@@ -1712,8 +1739,8 @@ HELP_TOPICS.extend(
                 "files and actions), and ? lists every shortcut, which Settings, "
                 "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
-                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
-                "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
+                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Record "
+                "a meeting), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
                 "selected text, Ctrl+Shift+K opens the quick sketch pad, and "

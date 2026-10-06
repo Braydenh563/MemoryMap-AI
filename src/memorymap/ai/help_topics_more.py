@@ -1220,7 +1220,8 @@ TOPIC_META: dict[str, dict] = {
     #: every entry by its title, and an id read aloud ("Files images") is not one.
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
-    "voice": {"title": "Dictation, meetings and read aloud", "path": "Notes tab, the microphone"},
+    "voice": {"title": "Dictation, recording and read aloud", "path": "Notes tab, the microphone"},
+    "meetings": {"title": "Meeting notes", "path": "Dashboard, New meeting; a meeting's meeting chip"},
     "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Writing room, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},
     "ocr-workspace": {"title": "The OCR workspace", "path": "Read text, on any image or PDF"},
@@ -1295,7 +1296,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Writing notes", (
         "capture", "quick-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
-        "write-with-atlas", "translate", "extract-notes", "voice",
+        "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
     )),
     ("Filing, tags and categories", (
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",

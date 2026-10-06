@@ -53,6 +53,7 @@ from memorymap.api import (
     routes_duplicates,
     routes_drafts,
     routes_learned,
+    routes_meetings,
     routes_mentions,
     routes_inbox,
     routes_entities,
@@ -1139,6 +1140,7 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_auth.router)
     app.include_router(routes_entries.router, dependencies=locked)
     app.include_router(routes_mentions.router, dependencies=locked)
+    app.include_router(routes_meetings.router, dependencies=locked)
     app.include_router(routes_inbox.router, dependencies=locked)
     app.include_router(routes_entities.router, dependencies=locked)
     app.include_router(routes_relations.router, dependencies=locked)

@@ -707,13 +707,17 @@ async function toggleDictation(button, targetInput) {
 // control before it's saved" shape the persona-peek and compression-summary
 // features already use elsewhere.
 //
-// Action-item extraction (the other half of §17's ask, "extract action items
-// into reminders") is deliberately not built here. It needs a real model
-// call this sandbox cannot exercise, faster-whisper itself is not installed
-// here either, so even the transcription step is untested past its request
-// shape: and guessing at that prompt's behaviour without a way to check it
-// is exactly what CLAUDE.md's standing caveat warns against. Recording it as
-// open rather than quietly shipping an unverified guess.
+// **A recording is a meeting's, not a note of its own** (INBOX 644). Saved,
+// a transcript becomes a meeting note in the one shape (`POST /meetings`,
+// the transcript under Notes), or goes under Notes of the meeting it was
+// opened from (`openMeetingRecorder({ entryId })`, the meeting sheet's
+// Record into it). The action items and decisions are the meeting sheet's
+// (meetings.js): each item a reminder on demand, and Summarise, whose every
+// line carries the words it came from. The uncited summary this save used
+// to prepend is gone: a line nobody can check against the transcript is
+// not one to file under the person's name. faster-whisper is not installed
+// in the sandbox, so the transcription itself is untested past its request
+// shape (CLAUDE.md's standing caveat).
 
 let meetingRecorder = null;
 let meetingStream = null;
@@ -866,8 +870,16 @@ function resetMeetingUI() {
   $("meeting-wave")?.classList.add("hidden");
 }
 
+//: The meeting a recording goes into, or null for a new one: set by the
+//: meeting sheet's Record into it (meetings.js `meetingRecordInto`), which
+//: also puts `.meeting-into` on the overlay (the name field goes, the save
+//: says where the words land). Every other way in is a new meeting.
+let meetingTarget = null;
+
 async function openMeetingRecorder() {
   overlayReturnFocus = document.activeElement;
+  meetingTarget = null;
+  $("meeting-overlay").classList.remove("meeting-into");
   resetMeetingUI();
   $("meeting-overlay").classList.remove("hidden");
   $("meeting-record").focus();
@@ -1032,62 +1044,14 @@ async function saveMeetingDocument() {
   }
 }
 
+//: The save itself is meetings.js's (`meetingSaveTranscript`, the lazy
+//: bundle the meeting sheet is in): a new meeting in the one shape, or the
+//: transcript under the Notes of the meeting it was opened from. The title,
+//: when one was typed, names the meeting (every list shows a note's first
+//: line as its name; without one a recording was named by its first word).
 async function saveMeetingNote() {
   const content = $("meeting-transcript").value.trim();
-  if (!content) return;
-  const status = $("meeting-status");
-  const button = $("meeting-save");
-  button.disabled = true;
-  status.classList.remove("error");
-  setLabel(status, "ph:spin Summarizing…");
-  try {
-    // Best-effort, same contract as suggest-tags: a model that's offline or
-    // errors must never block filing the note, so any failure here just
-    // means no summary block gets prepended, not a stalled save.
-    let summary = "";
-    try {
-      const result = await apiJson("/voice/summarize", {
-        method: "POST",
-        body: JSON.stringify({ text: content }),
-      });
-      summary = (result?.summary || "").trim();
-    } catch {
-      summary = "";
-    }
-
-    setLabel(status, "ph:spin Filing…");
-    // Tagged, not force-categorised: filing still goes through the same
-    // AI-or-keyword pipeline as any other capture (routes_entries.py), so a
-    // meeting about a specific project lands there rather than in a generic
-    // "Meetings" bucket regardless of what it was actually about. The tag is
-    // what makes every meeting findable as a class either way.
-    // The title, when one was typed, becomes the note's first line: which is
-    // what every list in this app shows as its name. Without it a saved
-    // recording is titled by whatever word the transcript happens to open on.
-    const title = ($("meeting-title")?.value || "").trim();
-    const body = summary ? `${summary}\n\n---\n\n${content}` : content;
-    const saved = await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({
-        content: title ? `${title}\n\n${body}` : body,
-        tags: ["meeting"],
-      }),
-    });
-    toast(filedByText(saved));
-    await loadEntries();
-    // The overlay is about to close, so this jumps straight to the note
-    // rather than leaving an "offer" button behind in a dialog nobody is
-    // looking at anymore (`offerJumpToNewNote`'s pattern, used from the
-    // Capture tab you're still sitting on), `flashEntry` handles its own
-    // navigation to Notes → Browse.
-    closeMeetingRecorder();
-    flashEntry(saved.id);
-  } catch (error) {
-    status.textContent = error.message;
-    status.classList.add("error");
-  } finally {
-    button.disabled = false;
-  }
+  if (content && (await ensureModule("meetings"))) await meetingSaveTranscript(content, ($("meeting-title")?.value || "").trim(), meetingTarget);
 }
 
 // --- Wave H: read-aloud (the browser's local voices) --------------------------------

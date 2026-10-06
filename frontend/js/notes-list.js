@@ -2278,7 +2278,9 @@ function renderEntries() {
       ? "Favourites"
       : activeCategory
         ? `${activeCategory} notes`
-        : "All notes";
+        : noteSearch === "tag:meeting"
+          ? "Meetings"
+          : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
@@ -2545,7 +2547,7 @@ function renderSidebar() {
     const li = document.createElement("li");
     //: "All" is the row for no filter at all, so it is not lit while Drafts
     //: or Favourites is (INBOX 432: two rows looked chosen at once).
-    if (category === activeCategory && !draftsOnly && !favouritesOnly) markSidebarRowCurrent(li);
+    if (category === activeCategory && !draftsOnly && !favouritesOnly && !(!category && noteSearch === "tag:meeting")) markSidebarRowCurrent(li);
     const name = document.createElement("span");
     name.className = "category-name";
     //: Every name on one edge (INBOX 437 (4)): All takes a glyph as Drafts
@@ -2601,31 +2603,44 @@ function renderSidebar() {
 
   addRow("All", allEntries.filter(noteListed).length, null);
 
+  //: **One shape for the rows that are not categories** (Drafts, Favourites,
+  //: Meetings): a glyph and a name, a count, the current one marked, a press
+  //: that filters. Three hand-built copies of these eleven lines were how the
+  //: second and third came to exist; INBOX 644's Meetings made it a helper.
+  const filterRow = (label, count, current, title, run) => {
+    const li = document.createElement("li");
+    li.className = "category-drafts-row";
+    if (current) markSidebarRowCurrent(li);
+    wireSidebarRowKeys(li);
+    const name = document.createElement("span");
+    name.className = "category-name";
+    setLabel(name, label);
+    const badge = document.createElement("span");
+    badge.className = "count";
+    badge.textContent = count;
+    li.append(name, badge);
+    if (title) li.title = title;
+    li.addEventListener("click", run);
+    ul.appendChild(li);
+    return li;
+  };
+  const toggleFilter = (drafts) => () => {
+    if (drafts) draftsOnly = !draftsOnly;
+    else favouritesOnly = !favouritesOnly;
+    if (drafts) favouritesOnly = false;
+    else draftsOnly = false;
+    activeCategory = null;
+    showNotesSection("browse");
+    renderSidebar();
+    renderEntries();
+  };
+
   // A drafts count, not a category, asked for directly: a Drafts filter
   // findable in the same place categories are, so a note drafted with the
   // AI (Writing Room) or captured from a selection isn't only markable one
   // at a time via its own chip (entryItem). Always shown, even at 0, so it
   // stays discoverable rather than appearing only once something lands in it.
-  const draftCount = allEntries.filter((e) => e.is_draft).length;
-  const draftRow = document.createElement("li");
-  draftRow.className = "category-drafts-row";
-  if (draftsOnly) markSidebarRowCurrent(draftRow);
-  wireSidebarRowKeys(draftRow);
-  const draftName = document.createElement("span");
-  draftName.className = "category-name";
-  setLabel(draftName, "ph:pencil-simple-line Drafts");
-  const draftBadge = document.createElement("span");
-  draftBadge.className = "count";
-  draftBadge.textContent = draftCount;
-  draftRow.append(draftName, draftBadge);
-  draftRow.addEventListener("click", () => {
-    draftsOnly = !draftsOnly;
-    favouritesOnly = false;
-    activeCategory = null;
-    showNotesSection("browse");
-    renderSidebar();
-    renderEntries();
-  });
+  filterRow("ph:pencil-simple-line Drafts", allEntries.filter((e) => e.is_draft).length, draftsOnly, "", toggleFilter(true));
 
   // **Favourites.** Asked for as "a favourites folder or side parallel category
   // that isnt an actual category but could be treated as one if toggled", so
@@ -2636,29 +2651,26 @@ function renderSidebar() {
   //
   // The notes it collects are the pinned ones (see `favouritesOnly`), no new
   // flag, no second place to star something.
-  const favouriteCount = allEntries.filter((e) => e.pinned && noteListed(e)).length;
-  const favouriteRow = document.createElement("li");
-  favouriteRow.className = "category-drafts-row";
-  if (favouritesOnly) markSidebarRowCurrent(favouriteRow);
-  wireSidebarRowKeys(favouriteRow);
-  const favouriteName = document.createElement("span");
-  favouriteName.className = "category-name";
-  setLabel(favouriteName, "ph:star Favourites");
-  const favouriteBadge = document.createElement("span");
-  favouriteBadge.className = "count";
-  favouriteBadge.textContent = favouriteCount;
-  favouriteRow.append(favouriteName, favouriteBadge);
-  favouriteRow.title = "Notes you have starred, they also float to the top of every list";
-  favouriteRow.addEventListener("click", () => {
-    favouritesOnly = !favouritesOnly;
-    draftsOnly = false;
-    activeCategory = null;
-    showNotesSection("browse");
-    renderSidebar();
-    renderEntries();
-  });
-  ul.appendChild(draftRow);
-  ul.appendChild(favouriteRow);
+  filterRow(
+    "ph:star Favourites",
+    allEntries.filter((e) => e.pinned && noteListed(e)).length,
+    favouritesOnly,
+    "Notes you have starred, they also float to the top of every list",
+    toggleFilter(false)
+  );
+
+  //: **Meetings** (INBOX 644: "tucked away"; the Library had a Meetings chip,
+  //: the Notes tab nothing). Over what every meeting already carries, the
+  //: `meeting` tag (`entry/meetings.py`), so the filter is `tag:meeting` in
+  //: the box, visible and editable as a tag chip's is. Always shown, so it is
+  //: there to find before the first meeting.
+  filterRow(
+    "ph:users-three Meetings",
+    allEntries.filter((e) => e.tags.includes("meeting") && noteListed(e)).length,
+    noteSearch === "tag:meeting" && !draftsOnly && !favouritesOnly,
+    "",
+    () => filterNotesByTag("meeting")
+  ).classList.add("category-meetings-row");
   //: Tags, beside Drafts and Favourites (INBOX 432): a sheet of every tag
   //: (categories-panel.js `openTagsSheet`), not a second long list here.
   const tagRow = document.createElement("li");

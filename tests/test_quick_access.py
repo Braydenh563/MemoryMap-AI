@@ -131,7 +131,7 @@ def test_the_row_never_draws_more_than_eight():
 def test_the_default_ids_are_the_only_hard_coded_tiles():
     start = _block(DASH, "const QUICK_START = [", "\n];\n")
     assert re.findall(r'\bid: "([^"]+)"', start) == DEFAULT_IDS
-    assert re.findall(r'label: "([^"]+)"', start) == ["New note", "Ask AI", "Sketch", "Remind me", "Meeting notes"]
+    assert re.findall(r'label: "([^"]+)"', start) == ["New note", "Ask AI", "Sketch", "Remind me", "New meeting"]
 
 
 def test_the_row_draws_from_the_command_catalogue_not_a_list_of_its_own():

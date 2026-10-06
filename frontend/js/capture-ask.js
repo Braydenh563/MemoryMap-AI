@@ -406,9 +406,14 @@ function openDocumentFromNote(documentId) {
 // note (§43), so a title typed here reads back identically to one typed
 // as the note's own first line. Only prepended when the title box actually
 // has something in it, so a note with no title is unchanged from today.
+//: **Under the property block, never above it** (meetings-644 audit, item 6).
+//: A note of a type opens with its `---` block, and a block is a block only
+//: at the very top: a title written above it turned every property into
+//: body text. So the heading goes after the closing fence when there is one.
 function withTitle(content, title) {
   const trimmed = (title || "").trim();
-  return trimmed ? `# ${trimmed}\n\n${content}` : content;
+  const body = stripFrontmatter(content);
+  return trimmed ? `${content.slice(0, content.length - body.length)}# ${trimmed}\n\n${body.replace(/^\n+/, "")}` : content;
 }
 
 // Shared by saveEntry and saveEntryAsDraft: clear the capture box and every

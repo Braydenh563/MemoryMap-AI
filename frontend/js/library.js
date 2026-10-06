@@ -1943,9 +1943,11 @@ const LIBRARY_CREATE_BY_KIND = {
       newChatConversation();
     },
   },
+  //: A meeting note (INBOX 644); the recorder is inside it, and still the
+  //: Record a meeting command.
   meeting: {
-    label: "ph:microphone Transcribe audio",
-    run: () => openMeetingRecorder(),
+    label: "ph:plus New meeting",
+    run: () => openNewMeeting(),
   },
   // Asked for directly: "I want ways to make custom knowledge graphs that are
   // like mindmaps where I can add and remove nodes, move them around, change
@@ -2046,7 +2048,7 @@ const LIBRARY_CREATE_HINTS = {
   mindmap: ["ph:tree-structure", "A tree of topics round one central idea, with branches you fold and colour."],
   board: ["ph:squares-four", "A canvas of cards, sketches and links you arrange freely."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
-  meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
+  meeting: ["ph:users-three", "A meeting note: agenda, notes, decisions, action items."],
   file: ["ph:upload-simple", "A PDF, an image or any file you already have."],
 };
 
@@ -2058,7 +2060,7 @@ const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "ch
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.
-const LIBRARY_CREATE_CHORDS = { note: "newNote", document: "newDocument", chat: "newChat", meeting: "recordMeeting" };
+const LIBRARY_CREATE_CHORDS = { note: "newNote", document: "newDocument", chat: "newChat" };
 
 function openLibraryCreatePicker() {
   const overlay = document.createElement("div");

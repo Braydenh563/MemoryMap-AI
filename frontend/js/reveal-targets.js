@@ -445,6 +445,8 @@ const REVEAL_TARGETS = {
   "graph-physics": { tab: "graph", open: revealGraphOptions, el: "graph-physics" },
   //: KG4: note types and their fields.
   "note-types": { open: () => openNoteTypesSheet(), sel: '[data-sheet="note-types"] .sheet-card', built: "openNoteTypesSheet", flash: false },
+  //: New meeting (INBOX 644): its sheet, the title field first.
+  "meeting-new": { open: () => openNewMeeting(), sel: '[data-sheet="new-meeting"] .sheet-card', built: "openNewMeeting", flash: false },
   //: KG3: the kinds of link, the built-ins and a person's own.
   "relation-types": { open: () => openRelationTypesSheet(), sel: '[data-sheet="relation-types"] .sheet-card', built: "openRelationTypesSheet", flash: false },
   //: KG5: every person, place and thing named in the notes.

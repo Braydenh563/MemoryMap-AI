@@ -1874,6 +1874,11 @@ function entryOverflowMenu(entry) {
         run: () => expandNoteIntoDocument(entry),
       },
       { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
+      //: A meeting's sheet (INBOX 644): its action items, decisions,
+      //: Summarise and Record into it. The meeting chip opens the same.
+      ...(noteIsMeeting(entry)
+        ? [{ label: "ph:users-three Meeting", run: () => openMeetingSheet(entry.id) }]
+        : []),
       //: KG4: the note's properties and type, as a table.
       {
         label: "ph:list-bullets Properties",

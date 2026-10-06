@@ -57,6 +57,8 @@ SCRIPTS = (
     "palette.js",
     "avatars.js",
     "atlas.js",
+    #: New meeting and the meeting sheet (INBOX 644), a lazy bundle.
+    "meetings.js",
 )
 
 

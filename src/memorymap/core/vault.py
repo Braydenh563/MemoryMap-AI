@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.core import crypto
-from memorymap.core.database import LinkReason, Vault
+from memorymap.core.database import LinkReason, Vault, utcnow
 
 # Set on unlock, cleared on lock. Deliberately module-level: this app is
 # single-user, and one process holds one notebook, so there is one key.
@@ -213,6 +213,75 @@ def rewrap(session: Session, new_password: str) -> bool:
     salt = crypto.new_salt()
     row.kdf_salt = salt
     row.wrapped_dek = crypto.wrap_dek(_dek, new_password, salt)
+    return True
+
+
+# --- the recovery key (INBOX 663) ------------------------------------------
+#
+# A second wrap of the same DEK, by a key the owner keeps somewhere else. Four
+# moves, and each one leaves at most one recovery key that works:
+#
+#   make or replace  `issue_recovery`  needs the DEK in hand (unlocked)
+#   use              `open_with_recovery` then `issue_recovery` again: a used
+#                    key is spent, so the reset hands out its successor
+#   re-key           the rotation calls `issue_recovery` with the new DEK when
+#                    a key existed, since the old one wraps the old DEK
+#   reset without it the vault row goes, and with it every wrap
+#
+# The key string is a local in each of these and nothing else: never a
+# column, never a log line, never an audit detail.
+
+
+def has_recovery(session: Session) -> bool:
+    row = _row(session)
+    return bool(row is not None and row.recovery_wrapped_dek)
+
+
+def recovery_created_at(session: Session):  # noqa: ANN201  # datetime | None
+    row = _row(session)
+    return row.recovery_created_at if row is not None and row.recovery_wrapped_dek else None
+
+
+def issue_recovery(session: Session, dek: bytes | None = None) -> str | None:
+    """Wrap the DEK (the loaded one, or `dek`) under a fresh recovery key and
+    return the key, to be shown once. Any earlier key stops working, because
+    its wrap is overwritten in the same row. None without a vault or a key."""
+    row = _row(session)
+    dek = dek if dek is not None else _dek
+    if row is None or dek is None:
+        return None
+    recovery_key = crypto.new_recovery_key()
+    canonical = crypto.normalise_recovery_key(recovery_key)
+    salt = crypto.new_salt()
+    row.recovery_salt = salt
+    row.recovery_wrapped_dek = crypto.wrap_dek(dek, canonical, salt)
+    row.recovery_created_at = utcnow()
+    return recovery_key
+
+
+def open_with_recovery(session: Session, typed: str) -> bytes | None:
+    """The DEK the recovery key unwraps, or None: no vault, no recovery key,
+    not a key's shape, or the wrong key. The caller cannot tell these apart
+    on purpose (see `routes_auth.recover`). Nothing is loaded into memory."""
+    row = _row(session)
+    canonical = crypto.normalise_recovery_key(typed)
+    if row is None or not row.recovery_wrapped_dek or not row.recovery_salt or canonical is None:
+        return None
+    try:
+        return crypto.unwrap_dek(bytes(row.recovery_wrapped_dek), canonical, bytes(row.recovery_salt))
+    except crypto.DecryptionError:
+        return None
+
+
+def rewrap_with(session: Session, dek: bytes, new_password: str) -> bool:
+    """`rewrap` for a DEK not loaded yet: the recovery reset holds it before
+    any session does."""
+    row = _row(session)
+    if row is None:
+        return False
+    salt = crypto.new_salt()
+    row.kdf_salt = salt
+    row.wrapped_dek = crypto.wrap_dek(dek, new_password, salt)
     return True
 
 

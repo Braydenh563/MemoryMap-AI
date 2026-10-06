@@ -258,6 +258,14 @@ class Vault(Base):
     kdf_salt: Mapped[bytes] = mapped_column(LargeBinary(32))
     wrapped_dek: Mapped[bytes] = mapped_column(LargeBinary(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: The same data key wrapped a second time, by the recovery key (INBOX
+    #: 663; crypto.new_recovery_key). Null until one is made. The key itself
+    #: is never stored: only its salt and what it wraps, so this row alone
+    #: still reveals nothing. Replacing the key, using it, or re-keying the
+    #: vault rewrites all three, which is what makes an old key dead.
+    recovery_salt: Mapped[bytes | None] = mapped_column(LargeBinary(32), default=None)
+    recovery_wrapped_dek: Mapped[bytes | None] = mapped_column(LargeBinary(128), default=None)
+    recovery_created_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class Category(Base, WorkspaceMixin):

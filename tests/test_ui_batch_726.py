@@ -38,3 +38,15 @@ def test_graph_options_sections_pad_both_sides_equally():
     assert "scrollbar-gutter" not in _css("02-chat-graph.css").split(".graph-overlay .graph-options {")[-1][:900], (
         "`scrollbar-gutter: stable both-edges` clipped the selects' right borders (INBOX 726)"
     )
+
+
+def test_boards_filter_gap_is_set_after_the_ring_room_rule():
+    text = _css("08-consistency.css")
+    ring = text.index(":is(.launch-row, .library-filters, #chat-suggest) {")
+    gap = text.index(":is(#library-boards-filter, #reminder-filter) {")
+    assert gap > ring, "the gap must come after the `:is()` whose #chat-suggest id outranks a lone id"
+    body = _rule(text, ":is(#library-boards-filter, #reminder-filter)")
+    assert "margin-bottom: calc(var(--space-6) - var(--ring-room))" in body
+    # The earlier lone-id rules never applied; they must not come back.
+    assert not re.search(r"(?m)^#library-boards-filter\s*\{", _css("00-tokens-shell.css"))
+    assert not re.search(r"(?m)^#reminder-filter\s*\{", _css("07-whiteboard-misc.css"))

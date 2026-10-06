@@ -45548,3 +45548,11 @@ and refuses a topic ("Select a shape, link or text box first").
      section and a lint; the sweep fixed the board zoom pill, the timeline week
      well and the graph zoom strip (agent-remaining/radius682-1006.md).
 
+695. **The owner, 2026-10-06, verbatim**, with a screenshot of a package
+     bundle's ⋯ menu in Settings: "I pressed "select its packages" but it
+     didn navigate scroll me to them". Fixed 2026-10-06: the action awaits
+     the redraw, centres the bundle's first package row, focuses its tick
+     and says how many it selected (settings-packages.js);
+     scratchpad/ui-sweeps/pkgselect695.js: the Documents row centred and
+     focused, ticked, no errors.
+

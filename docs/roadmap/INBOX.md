@@ -154,6 +154,27 @@ with its owner named in the entry.
      companion's stacking (it must sit under every dialog, menu and
      popover) to a Sonnet agent.
 
+696. **The owner, 2026-10-06, verbatim.** "also I pressed install on the
+     package bundles and the buttons disabled and it just stayed as the 2/3
+     packages I had installed until it just suddenly updated, there was no
+     progress indicator or anything. does verything show in the background
+     tasks?? also the running background task stuff dont have progress bars
+     or indicators, they are just flat rows". Next: a bundle install shows
+     per-package progress in its row (queued, installing with a determinate
+     or indeterminate bar, done), every long job appears in Background
+     tasks, and a running task row carries a progress bar (determinate when
+     the job reports steps) and its elapsed time. Placed: the 0.4.1 mini
+     release, an Opus agent when a slot frees.
+
+697. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's "Help and About" group heading above its "Help" row: "I was
+     clicking on the header thinking it was the help page until i realised
+     it was the header". Group headings read as rows. Decision taken: a
+     heading is drawn as a quiet small label (the DESIGN.md section label,
+     not a row's size and weight, no hover), and a press on one opens its
+     group's first page so the click is never dead. Placed: with 680, the
+     Settings sidebar agent.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

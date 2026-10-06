@@ -27,6 +27,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Packages: "Select its packages" takes you to the bundle's packages, the first one in view with its tick focused, and says how many it selected.
 - Graph: Link together can be undone (its toast and Ctrl+Z), and a new Unlink on the selection bar removes the links between the selected notes, also undoable.
 - Notes, compact rows: a row's details (category, tags, time) sit on the title's line, centred with it, and the hover buttons sit inside the row on that line, open or closed, instead of hanging half below it. The open/close arrow is one quiet button whose arrow turns, with no filled, bordered square when open, and a row opens and closes with a short height animation (none with Interface animations off) that turns back smoothly if pressed again mid-way.
 - Note cards: Show more appears only when the preview actually hides text, measured once the card is laid out (a card drawn while hidden, in a later batch, or after a search used to keep it), and the preview and the opened note use the same line spacing.

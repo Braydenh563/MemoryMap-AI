@@ -189,6 +189,23 @@ async function openBookmarkAttachPicker(entry, done) {
   done();
 }
 
+//: **A note's text as the edit form holds it** (meetings-644 audit, item 6):
+//: the property block aside, the leading heading as the Title, the rest as the
+//: body. A note of a type opens with its `---` block, so the heading was never
+//: at offset 0 and the Title stayed empty, and the block's raw lines were the
+//: first thing in the box (until the editor mounted and hid them, if it did).
+//: The block is the Properties sheet's to edit; the form puts it back on save.
+function noteFormParts(content) {
+  const source = String(content || "");
+  const afterBlock = stripFrontmatter(source);
+  const heading = /^\n*#[ \t]+([^\n]+)\n*/.exec(afterBlock);
+  return {
+    block: source.slice(0, source.length - afterBlock.length),
+    title: heading ? heading[1].trim() : "",
+    body: heading ? afterBlock.slice(heading[0].length) : afterBlock,
+  };
+}
+
 //: The note edit form, moved from notes-list.js (boot gzip): `entryItem`
 //: reaches it through its stand-in (`LAZY_ENTRY_POINTS.notePanels`), and the
 //: bundle is fetched a few seconds after boot so the first Edit is not a wait.
@@ -199,26 +216,21 @@ function renderEditForm(li, entry) {
   //: finding and editing its "# " line by hand). Not a stored field: the
   //: leading heading is split off into it and put back on save, the shape
   //: `withTitle` writes in Capture, so the two cannot disagree.
-  //: The heading is looked for after the note's property block, where a note
-  //: of a type keeps it (meetings-644 audit, item 6): at offset 0 the fence
-  //: hid it, the Title stayed empty and the `# ` line stayed in the body.
-  //: The block stays in the text box, in front of the body, as it was.
-  const source = entry.content || "";
-  const afterBlock = stripFrontmatter(source);
-  const blockText = source.slice(0, source.length - afterBlock.length);
-  const heading = /^\n*#[ \t]+([^\n]+)\n*/.exec(afterBlock);
+  //: The property block is held aside and the heading looked for after it
+  //: (`noteFormParts`, meetings-644 audit item 6).
+  const parts = noteFormParts(entry.content);
   const titleInput = document.createElement("input");
   titleInput.type = "text";
   titleInput.maxLength = 200;
   titleInput.className = "note-edit-title";
   titleInput.placeholder = "Title";
   titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
-  titleInput.value = draft ? draft.title : heading ? heading[1].trim() : "";
+  titleInput.value = draft ? draft.title : parts.title;
   titleInput.addEventListener("input", () => { noteFormDirty = true; });
   const textarea = document.createElement("textarea");
   textarea.rows = 3;
   textarea.setAttribute("aria-label", "Note text"); // its editor takes this name (noteSurfaceName)
-  textarea.value = draft ? draft.content : heading ? blockText + afterBlock.slice(heading[0].length) : entry.content;
+  textarea.value = draft ? draft.content : parts.body;
   textarea.addEventListener("input", () => { noteFormDirty = true; });
   //: A stable id, because three separate features key off one: the "/" menu
   //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
@@ -387,7 +399,10 @@ function renderEditForm(li, entry) {
         //: An emptied box used to save as "Note saved." while quietly
         //: keeping the old text (INBOX 432). Said instead, with the way to
         //: actually remove a note.
-        const written = withTitle(textarea.value.trim(), titleInput.value);
+        //: The held block goes back on top, unless the box now has a block
+        //: of its own (typed, or a draft kept before the block was held).
+        const typed = textarea.value.trim();
+        const written = (stripFrontmatter(typed) === typed ? parts.block : "") + withTitle(typed, titleInput.value);
         if (!written.trim()) {
           toast("A note needs some text. To remove it, use Move to bin in its menu.", "info");
           return;
@@ -422,9 +437,9 @@ function renderEditForm(li, entry) {
             }
             if (answer === "theirs") {
               Object.assign(entry, current);
-              const theirs = /^#[ \t]+([^\n]+)\n*/.exec(current.content || "");
-              titleInput.value = theirs ? theirs[1].trim() : "";
-              textarea.value = theirs ? current.content.slice(theirs[0].length) : current.content || "";
+              Object.assign(parts, noteFormParts(current.content));
+              titleInput.value = parts.title;
+              textarea.value = parts.body;
               noteFormDirty = false;
             }
             return;
@@ -585,7 +600,10 @@ async function offerKeptNoteEdit() {
   const kept = prefs.json(NOTE_EDIT_KEPT, {});
   if (!Number.isInteger(kept.id) || editingId !== null) return;
   const note = await apiJson(`/entries/${kept.id}`, { silent: true }).catch(() => null);
-  if (!note || withTitle(String(kept.content || "").trim(), kept.title) === note.content) {
+  const keptText = withTitle(String(kept.content || "").trim(), kept.title);
+  //: The form holds a typed note's block aside, so a kept body is the note's
+  //: text after its block.
+  if (!note || keptText === note.content || (note.content.startsWith("---") && note.content.endsWith(`\n${keptText}`))) {
     forgetNoteEditLocally();
     return;
   }

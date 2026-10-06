@@ -166,7 +166,7 @@ async function sheetAudit(page, sel, label) {
   const row = await page.$('.library-create-picker [role="radio"]:has-text("New meeting"), .library-create-picker button:has-text("New meeting")');
   say(Boolean(row), 'Library Create lists New meeting');
   if (row) {
-    await row.dblclick().catch(() => {});
+    await row.click().catch(() => {});
     await page.waitForTimeout(400);
     let open = await page.$('[data-sheet="new-meeting"] .sheet-card');
     if (!open) {

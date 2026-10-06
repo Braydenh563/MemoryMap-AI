@@ -15,7 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
-- A note that opens with a property block (any note of a type) shows its title, not "---", on the Timeline, and its preview no longer starts with the block's raw text. The note edit form finds such a note's title under the block, and a title typed there is written under the block instead of above it, where it turned every property into body text.
+- A note that opens with a property block (any note of a type) shows its title, not "---", on the Timeline, and its preview no longer starts with the block's raw text. The note edit form keeps such a note's block out of the text box (the Properties sheet edits it) and finds its title under the block; a title typed there is written under the block instead of above it, where it turned every property into body text.
 - Tools & features: the search field no longer runs into the title and close button. It is the app's standard search field now, with its magnifier and room under the head for its focus ring.
 - The "?" in the Quick note (and any other dialog) opens its help again. It opened underneath the dialog, where it could not be seen or reached; the first Escape now closes the help and leaves the note open.
 - Filing: the first note in a new notebook with no AI model no longer waits for the search model to load. With nothing filed yet there is nothing to compare it against, so it is not embedded on the way to Uncategorised; that load, skipped at launch for an empty notebook, could keep the first note at "Filing…" for over 20 seconds.

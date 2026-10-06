@@ -48,6 +48,7 @@ from memorymap.core.database import (
     like_escape,
 )
 from memorymap.core import events
+from memorymap.core.lookahead import Ahead
 from memorymap.entry import timewords
 from memorymap.entry.tagnames import normalise_tags
 
@@ -2541,6 +2542,39 @@ def _heading_text(stripped: str) -> str | None:
     return text
 
 
+def _md_links(text: str, image: bool) -> str:
+    """`![alt](src)` removed, or `[text](src)` reduced to its text.
+
+    What `!\\[[^\\]]*\\]\\([^)]*\\)` and `\\[([^\\]]*)\\]\\([^)]*\\)` did, with
+    the same answers, but linear: those scanned to the end of the line from
+    every unclosed `[`, so a first line of `[[[[...` (a note's own text, a
+    paste) took 0.3 to 0.8 s at 20 KB (final scan, 2026-10-06). The next `]`
+    and the next `)` are looked up through `Ahead`, which remembers its last
+    hit, so each is found once per stretch rather than once per `[`.
+    """
+    opener = "![" if image else "["
+    size = len(text)
+    close, paren = Ahead(text, r"\]"), Ahead(text, r"\)")
+    out: list[str] = []
+    done = scan = 0
+    while True:
+        start = text.find(opener, scan)
+        if start < 0:
+            break
+        mid = close.first(start + len(opener))
+        if text.startswith("](", mid):
+            end = paren.first(mid + 2)
+            if end < size:
+                out.append(text[done:start])
+                if not image:
+                    out.append(text[start + 1 : mid])
+                done = scan = end + 1
+                continue
+        scan = start + 1
+    out.append(text[done:])
+    return "".join(out)
+
+
 def plain_label(content: str, limit: int = 80) -> str:
     """A note's first line as a *person* would read it, for a chip or a card.
 
@@ -2570,7 +2604,7 @@ def plain_label(content: str, limit: int = 80) -> str:
         break
     first = re.sub(r"^#{1,6}\s*", "", first)          # heading markers
     first = re.sub(r"^[-*+]\s+|^>\s*", "", first)     # list bullet / quote
-    first = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", first)  # images, alt and all
+    first = _md_links(first, image=True)               # images, alt and all
     #: **Before the markdown link rule, because that one cannot see this.**
     #: `[text](url)` needs the `(url)` to match, so `[[a wiki link]]` fell
     #: straight through it and every chip for a note whose first line links
@@ -2580,7 +2614,7 @@ def plain_label(content: str, limit: int = 80) -> str:
     #: brackets. Same rule as the markdown link below: the link keeps its
     #: text, because the text is what the note says.
     first = wiki_plain(first)
-    first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
+    first = _md_links(first, image=False)              # links keep their text
     first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
     first = re.sub(r"\s+", " ", first).strip()
     return first[:limit]

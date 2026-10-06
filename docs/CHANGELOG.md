@@ -7,6 +7,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-06
+
+### Highlights
+
+- Capture and filing, checked end to end: a note typed in Capture is saved, filed and findable after a reload, with or without an AI model. 49 browser tests now run on every change, including the flows that were broken in 0.3.32.
+- Works fully with no AI model: filing by your notebook's own words, search, Ask with cited sources, reminders from plain words, and clear next steps wherever a model would help.
+- Filing certainty you can trust: a model's pick never reads 100%, drops when your notes disagree, and offers other categories to tap when it is unsure.
+- Nothing lost: unsaved edits to a note or a document survive a reload or a closed window and are offered back; deletes go to the bin or can be undone.
+- Mind maps: a real hierarchy by default (a central topic, main branches, leaves), four looks, per-level styles, copy and paste style, and topic icons.
+- An emoji and icon library: 1,500 icons and nearly 500 emoji, placed as stickers on boards and maps or inserted from the editors' toolbars.
+- Whiteboard: drag an item onto a delete target to remove it (with Undo); links follow an item while it turns.
+- The Writing room (was Write with Atlas), chat progress that says what Atlas is doing, refreshed Atlas avatars, and a clearer "AI off" status.
+- Interface animations: subtle, cheap motion (a sliding tab indicator, menus that grow from their button, toasts that slide in), with its own switch in Appearance.
+- The document editor: a current-line highlight with line numbers, and whole-line copy and cut, as in VS Code.
+- Security: HTTPS for other devices on your network, a stronger password rule, private notes kept out of saved answers, backups and the search index, and nothing touches the network until you allow update checks.
+- Windows: the installer and packaged app were audited (17 fixes), and every build now installs, upgrades over the last release and uninstalls in CI.
+- A new GitHub Pages site and fresh README screenshots.
+
 ### Security
 
 - Agent mode: a very long question with a long dotted run in it (a pasted list of versions or addresses) no longer stalls the turn before it starts; the check for sites you named took over a minute on 64,000 characters and now reads it in one pass (the final scan, 2026-10-06).

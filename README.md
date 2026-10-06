@@ -355,7 +355,7 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 | [CHANGELOG](CHANGELOG.md) | What changed, release by release |
 | [SECURITY](SECURITY.md) | How to report a vulnerability |
 
-**Status.** Version 0.3.32. This is a beta (`0.x`). Capture, chat with
+**Status.** Version 0.4.0. This is a beta (`0.x`). Capture, chat with
 checkable answers, the graph, documents, boards and mind maps, the OCR
 workspace, private notes and themes are built and stable, with desktop builds
 for Windows and Linux. Settings, Help has a guided tour of the real controls.

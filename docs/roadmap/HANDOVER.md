@@ -313,22 +313,16 @@ state now. The line-by-line ledger of what is left is
 | TIMELINE_PLAN | Phases 1 to 4, section 7's two measurements | Nothing (the "auto" scale thresholds were tuned 2026-10-04) |
 | WORLD_CLASS_PLAN / SESSION_BRIEFS | Briefs 1 to 34 written; the row check of 2026-09-24, F3, `similar_pairs`, S1 to S3 and S5, the llama.cpp runner | The ranked list of 38 (plan section 8): Brief 15's LAN tail, B2 durable jobs, D2, I1, chunk vectors then I6, I3 |
 
-### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
+### State of the branch (`claude/notes-flow-rebuild`, PR #162)
 
-**Now (2026-10-04, PR 162):** merged today: the UI round with all eight
-design skills and its twenty audit items (464 resolved), the backend speed
-pass (472: static files compressed once and kept on disk, pure ASGI
-middleware, the unlock gate's cached owner), Atlas recalc (idle 115 to 5 ms
-per 2.6 s), documents and whiteboard/mind map plan tails (shape text,
-connector labels, map tasks, notes, numbering), plain error wording on both
-sides with ratchets (`test_plain_errors.py`, `test_server_detail_wording.py`),
-the product polish sweep. Running: README screenshots and Atlas section
-(431 g, Opus), first-run polish (472, Opus), leftover touch and Library
-fixes (Sonnet), core error wording (Sonnet). Tools added: `apibench.js`,
-`asgi_bench.py`, `cpuprof.js`, `notesfull.js`, `killport.sh` (never put
-"uvicorn" and a port in a command's own text: the kill matches the shell),
-`changelog_union.py` (every agent merge conflicts on CHANGELOG). Push once
-per batch: frequent pushes cancel CI before a run completes.
+**Now (2026-10-06, PR 162):** release 0.4.0 is ready to merge: version
+bumped (`__version__`, pyproject, README, every `?v=` stamp), CHANGELOG
+`[0.4.0] - 2026-10-06` with a Highlights block (release.yml cuts the notes
+under 120,000 bytes with a link), CI green on every job including the 49
+E2E browser tests and the Windows install/upgrade/uninstall. Final scan:
+`agent-remaining/final-scan-1006.md` (5 open, none blocking). After the
+merge: tag `v0.4.0` on main; then the next PR from ROADMAP's top block
+(OneNote ideas and meeting notes, the code editor, the rest of 641).
 
 **Before that (2026-10-03 night, PR 162):** merged since evening: Library pages and
 whiteboard/mind map audits (445), job last-run status (438), note making

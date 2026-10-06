@@ -130,12 +130,20 @@ def _strip_closers(text: str) -> str:
 #: similarity of 0.54". None of it means anything to the reader. Each pattern
 #: needs the number, so "the similarity between the plans" and "(id badge in
 #: the drawer)" are left alone.
+#: **A leading `\s*` must not restart inside a whitespace run.** Written
+#: plain, `\s*\(...` was tried from every character of a run that is not
+#: followed by the bracket after all (20,000 spaces then a letter: 15 s on a
+#: model reply; the final scan's `py/polynomial-redos` item 4). `(?<!\s)`
+#: starts it only at the head of a run, which is where the leftmost match began
+#: anyway, so the same text is removed. The last pattern's optional comma is
+#: spelled as two branches for the same reason: `,\s*` from a comma, a run
+#: from its head.
 _METADATA = (
     (re.compile(r"\((?:note\s+)?id[:\s#]*\d+\)\s*\[[^\]\n]{1,40}\]\s*", re.I), ""),
-    (re.compile(r"\s*\((?:note\s+)?id[:\s#]*\d+\)", re.I), ""),
-    (re.compile(r"\s*\((?:similarity|score)[:\s]*[01]?\.\d+\)", re.I), ""),
-    (re.compile(r"\s*\(matched:[^()\n]{1,80}\)", re.I), ""),
-    (re.compile(r",?\s*(?:with\s+)?(?:a\s+)?similarity(?:\s+score)?(?:\s+of|:)?\s*[01]?\.\d+,?", re.I), ""),
+    (re.compile(r"(?<!\s)\s*\((?:note\s+)?id[:\s#]*\d+\)", re.I), ""),
+    (re.compile(r"(?<!\s)\s*\((?:similarity|score)[:\s]*[01]?\.\d+\)", re.I), ""),
+    (re.compile(r"(?<!\s)\s*\(matched:[^()\n]{1,80}\)", re.I), ""),
+    (re.compile(r"(?:,\s*|(?<!\s)\s*)(?:with\s+)?(?:a\s+)?similarity(?:\s+score)?(?:\s+of|:)?\s*[01]?\.\d+,?", re.I), ""),
     (re.compile(r"\bnote id\s*#?\d+\b", re.I), "the note"),
 )
 

@@ -124,3 +124,61 @@ def test_inline_split_matches_the_old_pattern():
     ]
     for text in cases:
         assert inline_split(text) == old.split(text), repr(text)
+
+
+# --- ai/answer_trim.py: strip_prompt_metadata --------------------------------
+
+_METADATA_PUMPS = {
+    "spaces-then-letter": " " * N + "x",
+    "spaces-then-open": " " * N + "(similarity",
+    "spaces-then-id": " " * N + "(id 1",
+    "comma-then-spaces": "," + " " * N,
+    "similarity-then-spaces": "similarity" + " " * N,
+    "newlines": "\n" * N + "x",
+    "tabs-between-words": "a" + "\t" * N + "b",
+}
+
+
+@pytest.mark.parametrize("text", _METADATA_PUMPS.values(), ids=_METADATA_PUMPS.keys())
+def test_strip_prompt_metadata_is_linear_on_whitespace_runs(text):
+    from memorymap.ai.answer_trim import strip_prompt_metadata
+
+    assert _timed(lambda: strip_prompt_metadata(text)) < BUDGET
+
+
+def test_strip_prompt_metadata_matches_the_old_patterns():
+    from memorymap.ai.answer_trim import strip_prompt_metadata
+
+    old = (
+        (re.compile(r"\((?:note\s+)?id[:\s#]*\d+\)\s*\[[^\]\n]{1,40}\]\s*", re.I), ""),
+        (re.compile(r"\s*\((?:note\s+)?id[:\s#]*\d+\)", re.I), ""),
+        (re.compile(r"\s*\((?:similarity|score)[:\s]*[01]?\.\d+\)", re.I), ""),
+        (re.compile(r"\s*\(matched:[^()\n]{1,80}\)", re.I), ""),
+        (re.compile(r",?\s*(?:with\s+)?(?:a\s+)?similarity(?:\s+score)?(?:\s+of|:)?\s*[01]?\.\d+,?", re.I), ""),
+        (re.compile(r"\bnote id\s*#?\d+\b", re.I), "the note"),
+    )
+
+    def reference(text: str) -> str:
+        for pattern, replacement in old:
+            text = pattern.sub(replacement, text)
+        return text
+
+    alphabet = [
+        " ", "  ", "\n", "\t", ",", ", ", "(", ")", "[", "]", "Work", "id", "note ", "note id ", "similarity", "score", "of", "with ", "a ",
+        "0.54", ".5", "1", "0", ".", ":", "#", "matched:", "x", "(id 3)", "(note id 3) [Work]", "(similarity: 0.5)", "(matched: a, b)",
+    ]
+    cases = list(_random_strings(alphabet, count=3000, length=14)) + [
+        "",
+        "your dentist note (note id 3) said so",
+        "1. (id 4) [Work] the roof",
+        "a similarity of 0.54, so",
+        "a , with a similarity score of 0.5 , b",
+        "x  (similarity: 0.5)  y (score 0.25)",
+        "the similarity between the plans",
+        "see (id badge in the drawer) and (matched: roof, quote)",
+        "note id #7 and Note ID 8",
+        " , similarity 0.5",
+        "x ,similarity: .5, y",
+    ]
+    for text in cases:
+        assert strip_prompt_metadata(text) == reference(text), repr(text)

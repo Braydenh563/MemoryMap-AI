@@ -3150,16 +3150,19 @@ function focusSettingsHeading(name) {
   head.focus({ preventScroll: true });
 }
 
-for (const button of document.querySelectorAll("#settings-nav button")) {
+//: A group heading (INBOX 697) is in the loop too: a press on it opens its
+//: group's first page rather than doing nothing.
+for (const button of document.querySelectorAll("#settings-nav button, #settings-nav .nav-group-label")) {
   button.addEventListener("click", (event) => {
-    showSettingsSection(button.dataset.section);
+    const name = (button.dataset.section ? button : button.nextElementSibling.querySelector("[data-section]:not(.hidden)")).dataset.section;
+    showSettingsSection(name);
     //: **A pointer click keeps the focus in the list** (INBOX 467, the owner:
     //: "I cant navigate on the settings navigation side bar with arrows"),
     //: so Up and Down walk on from the section clicked, as in every settings
     //: window's sidebar; a click in the pane gives the reading keys to the
     //: pane. Enter or Space (`detail` 0) still hands the focus to the
     //: section's heading, where a keyboard user reads on.
-    if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(button.dataset.section);
+    if (!settingsNavWalking && event.detail === 0) focusSettingsHeading(name);
     else if (!settingsNavWalking) button.focus({ preventScroll: true });
   });
 }

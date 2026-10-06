@@ -45648,3 +45648,38 @@ and refuses a topic ("Select a shape, link or text box first").
      ask-compose.js), the answer whenever no model runs; the ten questions
      before and after in docs/roadmap/agent-remaining/composer688-1006.md.
 
+680. **The owner, 2026-10-06, verbatim.** "should the settings sidebar
+     scroll a little to show the quick access in page sections if scrolling
+     on that settings page??" Recommendation, taken: yes; as a Settings page
+     scrolls, the sidebar keeps the current in-page section's link in view
+     (scrolled to nearest, smoothly under the motion switch, never stealing
+     focus). Placed: the 0.4.1 mini release, a Sonnet agent.
+     **Fixed (dcf6a66): the Settings sidebar follows the page.**
+681. **The owner, 2026-10-06, verbatim**, with a screenshot of a note
+     card's open ⋯ menu: "not all dropdown elements close when pressing that
+     element again". Every menu, dropdown and popover trigger toggles: a
+     second press on the control that opened it closes it. Next: inventory
+     every trigger (kebabMenu, the action menus, custom selects, popovers,
+     split buttons) and press each twice. Placed: with 680.
+     **Fixed: every menu trigger toggles; inventory in agent-remaining/toggles681-1006.md.**
+697. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's "Help and About" group heading above its "Help" row: "I was
+     clicking on the header thinking it was the help page until i realised
+     it was the header". Group headings read as rows. Decision taken: a
+     heading is drawn as a quiet small label (the DESIGN.md section label,
+     not a row's size and weight, no hover), and a press on one opens its
+     group's first page so the click is never dead. Placed: with 680, the
+     Settings sidebar agent.
+     **Fixed: a group heading is a quiet label and opens its first page.**
+698. **The owner, 2026-10-06, verbatim**, with a screenshot of the Settings
+     sidebar's Help page expanded into its thirteen in-page sections, pushing
+     the next pages far down: "these sub tabs on the settings sidebar are
+     good but annoying when I am trying to flick through multiple settings
+     pages". Decision taken: the page list stays one compact list; the
+     current page's sections show as a short "On this page" block that does
+     not push the other pages down (collapsed to the current section with a
+     toggle to show all, remembered), and the arrow keys and a click move
+     page to page without opening sections. Placed: with 680/697, the
+     Settings sidebar agent.
+     **Fixed: the open page's sections are one short block with a remembered toggle.**
+

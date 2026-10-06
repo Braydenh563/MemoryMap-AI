@@ -32,8 +32,11 @@ const path = require("path");
 
 const PORT = Number(process.env.MEMORYMAP_E2E_PORT || 8799);
 const FRESH_PORT = PORT + 1;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
-const FRESH_URL = `http://127.0.0.1:${FRESH_PORT}`;
+//: MEMORYMAP_E2E_URL and MEMORYMAP_E2E_FRESH_URL drive servers someone else
+//: started instead (each on its own empty data dir): how the same specs were
+//: run against the v0.3.32 release to compare (e2e-1005.md).
+const BASE_URL = process.env.MEMORYMAP_E2E_URL || `http://127.0.0.1:${PORT}`;
+const FRESH_URL = process.env.MEMORYMAP_E2E_FRESH_URL || `http://127.0.0.1:${FRESH_PORT}`;
 const DATA_ROOT = process.env.MEMORYMAP_E2E_DATA_DIR || path.join(os.tmpdir(), `memorymap-e2e-${PORT}`);
 const PYTHON = process.env.MEMORYMAP_PYTHON || "python";
 
@@ -111,7 +114,10 @@ module.exports = defineConfig({
       },
     },
   ],
-  webServer: [server(PORT, path.join(DATA_ROOT, "notebook")), server(FRESH_PORT, path.join(DATA_ROOT, "fresh"))],
+  webServer: [
+    process.env.MEMORYMAP_E2E_URL ? null : server(PORT, path.join(DATA_ROOT, "notebook")),
+    process.env.MEMORYMAP_E2E_FRESH_URL ? null : server(FRESH_PORT, path.join(DATA_ROOT, "fresh")),
+  ].filter(Boolean),
 });
 
 module.exports.BASE_URL = BASE_URL;

@@ -243,14 +243,12 @@ Password `testpassword123`; `THEME=dark` for dark.
   a long stretch of fixes each individually measured correct against the
   branch: a browser tab opened fresh always fetches current files, the
   desktop window did not. **Fixed, not a manual step**: every local
-  CSS/JS URL is stamped `?v=<__version__>`, and `RevalidatedStatic` in
-  `src/memorymap/api/app.py` now splices a `_BOOT_TOKEN` (fixed once per
-  server process) onto every one of those stamps inside `index.html`'s
-  own served body, so a fresh launch of either script always gets its
-  own stamp and can never reuse a previous launch's cache; `__version__`
-  alone still governs what a *released* build caches for a year. If this
-  report recurs anyway on a head after `dd2d843`, the bug is real, not a
-  cache: reproduce it, do not repeat the deleted-`webview`-folder advice
+  CSS/JS URL is stamped `?v=<__version__>-<hash of that file>`
+  (`_stamp_for` in `src/memorymap/api/app.py`, audit FE-02), so an edited
+  file always gets a new URL and an unchanged one stays cached. This
+  replaced `_BOOT_TOKEN`, a per-process stamp that made every launch a cold
+  load. If this report recurs anyway on a current head, the bug is real, not
+  a cache: reproduce it, do not repeat the deleted-`webview`-folder advice
   this replaced.
 
 ## 6. Reviewing work that came from somewhere else
@@ -271,7 +269,7 @@ new" is a fact rather than a guess.
 
 - **Do not install torch or `sentence-transformers`.** Install by hand:
   `python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt cryptography python-multipart pytest httpx ruff defusedxml`
-- `python -m pytest -n auto tests/`: 5,700+ tests, all green; about 25
+- `python -m pytest -n auto tests/`: about 9,000 tests, all green; about 25
   minutes serial, under 9 across four cores (pytest-xdist, in
   requirements.txt; `gate.sh --full` and CI use it). Keep it that way, but run it locally only when absolutely
   needed (`scripts/gate.sh --full`: the end of a large agent task, the

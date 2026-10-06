@@ -3321,10 +3321,16 @@ dialog::backdrop {
    surface's tint on an opaque base: text scrolling under it never shows
    through, and at rest it reads as the surface (`stripground.js`). */
 .note-composer > .note-toolbar {
-  margin-bottom: 0;
+  /* **Inset from the surface's border (INBOX 705).** The strip ran full width,
+     so its tint met the bordered edge on the left and right ("still the
+     offending formatting bar edges on the border"). Measured at 1440, 1920 and
+     390, capture and the edit form: the controls were already 6.4px inside
+     the inner box, it was the strip's own ground touching. It now floats one
+     step in, as its own rounded tint, so nothing it paints reaches the
+     border; the controls keep the strip's padding inside it. */
+  margin: 0 var(--space-2) var(--space-1);
   border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-md);
   background: linear-gradient(var(--input-bg), var(--input-bg)), var(--modal-bg-opaque);
 }
 

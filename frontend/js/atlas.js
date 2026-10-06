@@ -3641,7 +3641,9 @@ document.addEventListener("click", (event) => {
     atlasWake();
     return;
   }
-  atlasPokeIndex = (atlasPokeIndex + 1) % ATLAS_POKES.length;
+  //: Not in a fixed order: the next one is any other, so taps do not read as
+  //: a loop (INBOX 705).
+  atlasPokeIndex = (atlasPokeIndex + 1 + Math.floor(Math.random() * (ATLAS_POKES.length - 1))) % ATLAS_POKES.length;
   //: Held long enough to read (it snapped back after 1.8s, the companion's
   //: report), then eased back over 1.2s rather than cut.
   setAtlasMood(ATLAS_POKES[atlasPokeIndex], ATLAS_POKE_HOLD_MS, { quiet: true, backEaseMs: ATLAS_POKE_BACK_MS });

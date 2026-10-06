@@ -45709,3 +45709,16 @@ and refuses a topic ("Select a shape, link or text box first").
      "Categories" and "Skill logs" (a line box of 1 under `overflow: hidden`),
      the phone tab captions' descenders, the New meeting sheet's fields.
 
+705. **The owner, 2026-10-06, verbatim**, more for the next pass: the
+     composer formatting toolbar still meets its border at the right ("still
+     the offending formatting bar edges on the border"); a "go to bin" button
+     on the "Moved to the bin." notice; the title bar's app icon and the
+     header's logo clash ("these seem like the clash a bit... but idk");
+     Atlas and the companions "get annoyed every time I tap them multiple
+     times, can they alternate how they respond a little more??". Placed:
+     the next session (usage).
+707. **The owner, 2026-10-06, verbatim.** "when loading the app after login,
+     the companion just appears with no animation". Placed: with 705, the
+     polish agent: an entrance (a short emerge or drop-in to its perch, under
+     the avatar motion switch and reduced motion), once per unlock.
+

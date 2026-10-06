@@ -1209,7 +1209,7 @@ async function binNoteWithUndo(entry) {
     settleUndoFromToast(action);
     await restoreIt();
     toast("Note restored.");
-  });
+  }, { also: GO_TO_BIN });
 }
 
 let notesSpanMemo = { list: null, many: false };

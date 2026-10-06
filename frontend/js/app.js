@@ -1090,6 +1090,29 @@ function startApp() {
   // Warm the filing model, retry stand-ins (routes_models.warm_filing).
   api("/models/warm-filing", { method: "POST", silent: true }).catch(() => {});
 
+  // The desktop window's own title bar already shows the app's icon, so the
+  // header's logo tile under it is the same mark twice (INBOX 705). The server
+  // says whether this page runs in that window (`window_hook`, the same
+  // answer the documents full screen asks); the answer is kept on this
+  // device so the next launch paints without the tile, rather than drawing
+  // it and pulling it back when the reply lands. A browser tab keeps it.
+  try {
+    document.documentElement.dataset.chrome = localStorage.getItem("windowChrome") || "";
+  } catch (error) {
+    // No storage: the reply below still sets it for this session.
+  }
+  apiJson("/desktop/fullscreen", { silent: true })
+    .then((state) => {
+      const chrome = state?.available ? "native" : "";
+      document.documentElement.dataset.chrome = chrome;
+      try {
+        localStorage.setItem("windowChrome", chrome);
+      } catch (error) {
+        // Not kept; the next launch asks again.
+      }
+    })
+    .catch(() => {});
+
   // A failed load must be visible, not a silently empty page, and one
   // broken endpoint must never stop the rest of the app from coming up.
   // Every bootstrap step is isolated so a single rejection surfaces a toast

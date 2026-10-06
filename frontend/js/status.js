@@ -1227,7 +1227,10 @@ function toastActionButton(note, label, run) {
 
 //: `opts`: `go`, where the action leads as plain data, so its row in the
 //: bell still works after a reload; `record: false` for a notice that is
-//: already in the bell (`keepToastAction`).
+//: already in the bell (`keepToastAction`); `also: {label, run}`, a second
+//: button beside the first (a bin notice's "Go to bin" next to its Undo,
+//: INBOX 705). It is the toast's own and is not kept in the bell: its row
+//: keeps the one action it always had.
 function toastAction(message, actionLabel, onAction, opts = {}) {
   const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
@@ -1237,9 +1240,16 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.className = "toast-msg";
   text.textContent = message;
   note.toastTimer = setTimeout(() => dismissToast(note), 8000);
-  note.append(text, toastActionButton(note, actionLabel, run), toastCloseButton(note, note.toastTimer));
+  const buttons = [toastActionButton(note, actionLabel, run)];
+  if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
+  note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
   toastStack(box, () => box.appendChild(note));
 }
+
+//: The second button of every "Moved to the bin." notice: the bin is the
+//: Library with "Include the bin" ticked (`library-bin` in REVEAL_TARGETS), so
+//: this is the same place Settings and Ctrl+K "Open the bin" lead to.
+const GO_TO_BIN = { label: "Go to bin", run: () => revealFeature("library-bin") };
 
 // --- the server-down banner (WORLD_CLASS_PLAN 22.1 item 6) ------------------
 //

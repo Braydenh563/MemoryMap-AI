@@ -259,6 +259,35 @@ function settingsIndexGo(name, head) {
   head.focus({ preventScroll: true });
 }
 
+//: **The sidebar follows the page** (INBOX 680, the owner: should it "scroll a
+//: little to show the quick access in page sections"). When the marked link
+//: changes it is scrolled into the sidebar's view, to the nearest edge rather
+//: than the centre, with the sidebar's own `scrollTop` (never `scrollIntoView`,
+//: which walks every ancestor, and never `focus`). It leaves the sidebar alone
+//: while the pointer is over it or the person scrolled it in the last 600ms;
+//: its own scroll is not counted as theirs. Smooth only under the motion
+//: switches (reduced motion, Interface animations).
+function settingsNavFollow(link) {
+  const box = nearestScrollParent(link);
+  if (box === document.documentElement) return;
+  if (!box._followWired) {
+    box._followWired = true;
+    box.addEventListener("scroll", () => {
+      if (performance.now() - (box._followAt || 0) > 700) box._userScrollAt = performance.now();
+    }, { passive: true });
+  }
+  if (box.matches(":hover") || performance.now() - (box._userScrollAt || 0) < 600) return;
+  const have = box.getBoundingClientRect();
+  const at = link.getBoundingClientRect();
+  const pad = 8;
+  const delta = at.top < have.top + pad ? at.top - have.top - pad : at.bottom > have.bottom - pad ? at.bottom - have.bottom + pad : 0;
+  if (!delta) return;
+  const root = document.documentElement;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches || root.dataset.motion === "reduced" || root.dataset.uiMotion === "off";
+  box._followAt = performance.now();
+  box.scrollTo({ top: box.scrollTop + delta, behavior: still ? "auto" : "smooth" });
+}
+
 //: Mark the head the pane is scrolled to. `aria-current="location"` is the
 //: whole state; the paint is the stylesheet's.
 function settingsIndexMark(name) {
@@ -278,7 +307,10 @@ function settingsIndexMark(name) {
   else if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) current = links.length - 1;
   links.forEach((link, i) => {
     if (i === current) {
-      if (link.getAttribute("aria-current") !== "location") link.setAttribute("aria-current", "location");
+      if (link.getAttribute("aria-current") !== "location") {
+        link.setAttribute("aria-current", "location");
+        settingsNavFollow(link);
+      }
     } else if (link.hasAttribute("aria-current")) {
       link.removeAttribute("aria-current");
     }

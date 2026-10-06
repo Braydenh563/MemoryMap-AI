@@ -28,23 +28,36 @@ const { boot } = require("./lib.js");
   }
   // Some prose to select: the app's own empty-state copy is always there.
   const target = await page.evaluate(() => {
-    const el = [...document.querySelectorAll("p, .muted, h2, .entry-content, li")]
-      .find((n) => {
-        const r = n.getBoundingClientRect();
-        return (n.textContent || "").trim().length > 30 && r.width > 120 && r.height > 8
-          && n.checkVisibility?.() && !n.closest("input, textarea, select, .selection-popup");
-      });
+    //: A plain paragraph first. The notes list's rows (`li`) were the first
+    //: match and a drag that starts on a row's padding selects nothing (the
+    //: row is its own control), so no popup ever appeared and the sweep
+    //: timed out waiting for it.
+    const usable = (n) => {
+      const r = n.getBoundingClientRect();
+      return (n.textContent || "").trim().length > 30 && r.width > 120 && r.height > 8
+        && n.checkVisibility?.() && !n.closest("input, textarea, select, .selection-popup");
+    };
+    // In selector order, not document order: querySelectorAll on a list
+    // returns the rows (`li`) first, whatever order the selectors are in.
+    let el = null;
+    for (const sel of ["p", "h2", ".muted", ".entry-content", "li"]) {
+      el = [...document.querySelectorAll(sel)].find(usable);
+      if (el) break;
+    }
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    return { x: r.x + 8, y: r.y + r.height / 2, w: r.width, text: el.textContent.trim().slice(0, 40) };
+    return { x: r.x + 8, y: r.y + r.height / 2, w: r.width, tag: el.tagName.toLowerCase(), text: el.textContent.trim().slice(0, 40) };
   });
   if (!target) { console.log("no prose to select"); await browser.close(); return; }
-  console.log("selecting: " + JSON.stringify(target.text));
+  console.log("selecting: " + JSON.stringify(target.text) + " in <" + target.tag + ">");
   await page.mouse.move(target.x, target.y);
   await page.mouse.down();
   await page.mouse.move(target.x + Math.min(160, target.w - 20), target.y, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(600);
+  const picked = await page.evaluate(() => String(getSelection()).length);
+  console.log("selection length " + picked);
+  if (!picked) { console.log("FAIL: the drag selected nothing"); await browser.close(); process.exit(1); }
 
   const open = async (label) => {
     // Watch every animation frame between the click and settling, so a single
@@ -97,5 +110,11 @@ const { boot } = require("./lib.js");
     console.log(`VERDICT height first=${one.settled.h} second=${two.settled.h} ` +
       (one.settled.h < two.settled.h - 4 ? "COLLAPSED ON FIRST OPEN" : "same"));
   }
+  // The two claims, as a verdict: not collapsed the first time, and no frame
+  // painted at the window's top-left corner before it reached its place.
+  const corner = frames.flatMap((f) => f.frames).filter((f) => f.left < 8 && f.top < 8 && f.vis === "visible");
+  const bad = !one.settled || !two.settled || one.settled.h < two.settled.h - 4 || one.items < 4 || corner.length;
+  console.log(bad ? `FAIL: collapsed or flickering (corner frames: ${corner.length})` : "PASS: same height both opens, no corner frame");
   await browser.close();
+  if (bad) process.exit(1);
 })().catch((e) => { console.log("ERR " + e.message); process.exit(1); });

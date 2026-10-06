@@ -215,13 +215,25 @@ def _stamp_for(rel: str) -> str:
 
 
 def asset_stamps() -> dict[str, str]:
-    """Every script a page can load after boot, mapped to its stamp: what
-    `lazyAssetStamp` (frontend/js/app.js) reads for a lazy bundle or a
-    worker, so a file loaded on demand is stamped by its own bytes too."""
-    return {
+    """Every script and stylesheet a page can load after boot, mapped to its
+    stamp: what `lazyAssetStamp` (frontend/js/app.js) reads for a lazy bundle
+    or a worker, so a file loaded on demand is stamped by its own bytes too.
+
+    **Stylesheets as well as scripts.** A lazy bundle's own stylesheet
+    (`/css/library-lazy.css` in `LAZY_MODULES`) was not in the map, so it
+    took app.js's stamp, and a stamped URL is cached `immutable` for a year:
+    an edited library-lazy.css with app.js unchanged was the same URL, and
+    the desktop window, whose cache outlives every launch, kept the old
+    rules (the trap in CLAUDE.md section 5)."""
+    stamps = {
         f"/js/{p.name}": _stamp_for(f"/js/{p.name}")
         for p in sorted((FRONTEND_DIR / "js").glob("*.js"))
     }
+    stamps.update(
+        (f"/css/{p.name}", _stamp_for(f"/css/{p.name}"))
+        for p in sorted((FRONTEND_DIR / "css").glob("*.css"))
+    )
+    return stamps
 
 
 _index_cache: dict[str, object] = {}
@@ -1226,6 +1238,20 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
             # download handler: so exports have to be written by the server
             # instead (§35E). Set by `python -m memorymap --desktop`.
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
+        }
+
+    @app.get("/instance", tags=["system"])
+    def instance() -> dict[str, str]:
+        """Which notebook this server is serving, for a launch deciding
+        whether a MemoryMap already on its port is *this* one (WORLD_CLASS 423
+        g). Open like `/health`: the asking process has no session. It carries
+        a hash of the resolved data directory (`instance_lock.data_dir_id`),
+        never the path."""
+        from memorymap.core import instance_lock
+
+        return {
+            "app": "MemoryMap AI",
+            "data_dir_id": instance_lock.data_dir_id(deps.get_config().data_dir),
         }
 
     @app.post("/instance/focus", include_in_schema=False)

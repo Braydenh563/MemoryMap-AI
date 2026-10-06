@@ -406,7 +406,6 @@ select.ai-unavailable {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--card);
-  transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
 }
 
 /* A card on its own, outside a row of them: a file linked in a note's text,
@@ -1255,7 +1254,7 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform var(--motion-fast) var(--ease-out);
+  transition: transform var(--ui-fast) var(--ease-out);
 }
 
 .callout-foldable[open] > .callout-head::after {
@@ -1855,7 +1854,7 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   background: linear-gradient(to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%);
   opacity: 0.5;
   border-radius: var(--radius-sm);
-  transition: background var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), opacity var(--ui-fast) var(--ease-out);
   touch-action: none;
 }
 
@@ -1922,12 +1921,6 @@ body.resizing-sidebar {
      there is no room beside it to resize into. */
   .web-panel-resize {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-resize {
-    transition: none;
   }
 }
 
@@ -3959,7 +3952,7 @@ button.outline-twist:focus-visible {
   text-align: left;
   box-shadow: none;
   color: var(--ink);
-  transition: border-color var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+  transition: border-color var(--ui-base) var(--ease-out), transform var(--ui-base) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -4063,15 +4056,6 @@ button.is-on {
   line-height: 1.35;
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-  .theme-card,
-  .theme-card:hover {
-    transition: none;
-    transform: none;
-  }
-}
-
 /* --- the day-one dashboard ------------------------------------------------------
    A dozen widgets each saying "nothing here yet" made a working app look
    broken on the day someone starts using it. One card, a few real actions,
@@ -4129,7 +4113,6 @@ button.is-on {
   box-shadow: none;
   cursor: pointer;
   text-align: left;
-  transition: background var(--motion-base) var(--ease-out);
 }
 
 .start-step:hover {
@@ -4160,15 +4143,6 @@ button.is-on {
   font-size: 0.8rem;
   max-width: 46rem;
   margin: 0.4rem auto 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  .start-step,
-  .start-step:hover {
-    transition: none;
-    transform: none;
-  }
 }
 
 /* Keyboard focus on the map. The graph takes one tab stop and the arrows move
@@ -4381,7 +4355,7 @@ button.is-on {
    *under* it was the same pill in a card, so two levels of navigation read as
    one. A second level is text on the page: no box, no fill, a hairline under
    the strip and a 2px accent line under the chosen tab (Linear, GitHub,
-   Material's secondary tabs). Notes' "Your notes / Capture / Write with Atlas /
+   Material's secondary tabs). Notes' "Your notes / Capture / Writing room /
    Ask", Library's "All ... Contents" and the document sidebar's "Documents /
    Outline" are all this one recipe: one height, one gap, one padding, **no
    icons** (Library never had them, the labels are clear, and an icon on one
@@ -4475,7 +4449,7 @@ button.is-on {
   font-size: var(--text-md);
   font-weight: 500;
   white-space: nowrap;
-  transition: color var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+  transition: color var(--ui-base) var(--ease-out), background-color var(--ui-base) var(--ease-out);
 }
 
 /* The chosen tab: ink, and the 2px line. It is a transform (compositor), so
@@ -4490,7 +4464,7 @@ button.is-on {
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--accent-text);
   transform: scaleX(0);
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 .tabs-line > button.active,
@@ -4507,13 +4481,6 @@ button.is-on {
 .tabs-line > button:not(.active):not([aria-selected="true"]):hover {
   background: var(--hover-veil);
   color: var(--ink);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tabs-line > button,
-  .tabs-line > button::after {
-    transition: none;
-  }
 }
 
 /* Agent mode reads as a mode you switch into, not a checkbox you tick, so the
@@ -5759,7 +5726,6 @@ textarea.autogrow {
   min-height: var(--row-h);
   padding: 0 var(--space-1) 0 var(--space-3);
   border-radius: var(--radius-sm);
-  transition: background var(--motion-fast) var(--ease-out);
 }
 
 .doc-dictionary-row:hover,
@@ -5778,7 +5744,7 @@ textarea.autogrow {
    screen, where nothing hovers, it is always there. */
 .doc-dictionary-remove {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .doc-dictionary-row:hover .doc-dictionary-remove,
@@ -5844,13 +5810,6 @@ textarea.autogrow {
 .doc-dictionary-setting-text small,
 .doc-dictionary-dialog .setting-check small {
   display: block;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .doc-dictionary-row,
-  .doc-dictionary-remove {
-    transition: none;
-  }
 }
 
 /* **The suggestions panel's head** (INBOX 549, the panel-head recipe): the
@@ -6631,7 +6590,6 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 .embed-card:hover {

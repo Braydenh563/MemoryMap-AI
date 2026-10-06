@@ -27,7 +27,7 @@
 //   6. a list row at rest draws nothing of its own over its text.
 // `WIDTH=768 HEIGHT=1024` and `WIDTH=1024 HEIGHT=768` run the same gate on a
 // tablet.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
 
 const W = Number(process.env.WIDTH || 390);
 const H = Number(process.env.HEIGHT || 844);
@@ -59,8 +59,7 @@ const TABS = [
 
   for (const [tab, contentSel] of TABS) {
     if (tab === 'board') {
-      await page.evaluate(() => switchTab('library'));
-      await page.waitForTimeout(600);
+      await openBoardsTab(page);
       const id = Number(process.env.BOARD || 0) || await page.evaluate(async () => {
         const r = await (await api('/whiteboard/boards')).json();
         const list = Array.isArray(r) ? r : (r.boards || []);
@@ -68,7 +67,7 @@ const TABS = [
         return b ? b.id : 0;
       }).catch(() => 0);
       await page.evaluate((i) => openWhiteboardBoard(i), id).catch((e) => errs.push('open board: ' + e.message.slice(0, 80)));
-      await page.waitForTimeout(2200);
+      await waitForBoardOpen(page).catch((e) => errs.push('board not on screen: ' + e.message.slice(0, 80)));
       // A fresh text box in its editing state: it read 203>198 here once (its
       // grips, not its content: see `drawnPast`), and nothing else puts one
       // on the board, so the check below would never see it.
@@ -280,32 +279,72 @@ const TABS = [
     console.log(`  ${tab.padEnd(10)} chrome ${String(r.chrome ?? '-').padStart(3)}px (${r.chrome ? Math.round(r.chrome / H * 100) : '-'}%)  content at y=${r.contentTop ?? '-'}  [${(r.bands || []).join(', ')}]`);
     for (const line of bad) console.log('      ' + line);
   }
-  // The status bar's transient state below 600: it comes back for a running
-  // job or an activity (the embedding model loading after a restart is the
-  // common one), and when it does it must be a touch bar standing on the tab
-  // bar, not the desktop strip of seven 28px items it once came back as.
+  // Where the page stops and the status bar begins, on every tab at the width
+  // asked for (OPEN.md: "the status bar folds into the top bar under 680";
+  // measured, it is not folded at any width and does not overlap: 1093x614,
+  // 1024x600, 820x600, 700x700, 681x800, 640x700, 600x700 all end the page
+  // exactly where the bar begins, 37 to 52px of it). The bar's own height is
+  // printed, so a fold that someday happens is a change in a number.
+  {
+    const stops = [];
+    for (const tab of ['dashboard', 'notes', 'chat', 'library', 'timeline', 'reminders']) {
+      await page.evaluate((t) => switchTab(t), tab);
+      await page.waitForTimeout(700);
+      const g = await page.evaluate(() => {
+        const sb = document.getElementById('status-bar').getBoundingClientRect();
+        const dock = document.getElementById('phone-tab-dock');
+        const pg = document.querySelector('.tab-page:not(.hidden)').getBoundingClientRect();
+        const foot = dock && dock.checkVisibility() ? dock.getBoundingClientRect().top : sb.top;
+        return { sbH: Math.round(sb.height), pageBottom: Math.round(pg.bottom), foot: Math.round(Math.min(foot, sb.height ? sb.top : foot)) };
+      });
+      if (g.pageBottom > g.foot + 1) { console.log(`      ${tab}: the page runs to ${g.pageBottom}, under the bar or dock at ${g.foot}`); failures += 1; }
+      stops.push(`${tab} ${g.pageBottom}/${g.foot}`);
+    }
+    console.log(`  page end / bar top: ${stops.join(', ')}  (status bar ${W < 600 ? 'folded away below 600' : 'its own band'})`);
+  }
+  // The status bar's transient state below 600: it comes back for the three
+  // things a person has to see without asking (a running job, offline, power
+  // saver: `10-responsive.css`, "one bar at the foot of a phone"), and when it
+  // does it must be a touch bar standing on the tab bar, not the desktop strip
+  // of seven 28px items it once came back as. The agent's runs and the plain
+  // activity are NOT among them (INBOX 430: folded into More), so showing
+  // either must leave the bar at 0px. This probe un-hid `#status-activity` and
+  // read "0px tall" as a finding for a long time: it was reading the one
+  // element the phone bar deliberately keeps away.
   if (W < 600) {
-    const t = await page.evaluate(() => {
-      const a = document.getElementById('status-activity');
-      const was = a.classList.contains('hidden');
-      a.classList.remove('hidden');
-      if (!a.textContent.trim()) a.textContent = 'Sweep probe activity';
+    const read = (id, text) => page.evaluate(({ id, text }) => {
+      const el = document.getElementById(id);
+      const was = el.classList.contains('hidden');
+      const off = el.classList.contains('status-slot-off');
+      el.classList.remove('hidden', 'status-slot-off');
+      const kept = el.textContent;
+      if (!el.textContent.trim()) el.textContent = text;
       const bar = document.getElementById('status-bar').getBoundingClientRect();
       const tabs = document.getElementById('phone-tab-dock').getBoundingClientRect();
       const items = [...document.querySelectorAll('#status-bar button, #status-bar .chip')]
         .filter((e) => e.checkVisibility())
-        .map((e) => ({ id: e.id, h: Math.round(e.getBoundingClientRect().height) }));
-      if (was) a.classList.add('hidden');
-      return { barH: Math.round(bar.height), barBottom: Math.round(bar.bottom), tabsTop: Math.round(tabs.top), items };
-    });
-    const bad = [];
-    if (t.barH < 44) bad.push(`the bar came back ${t.barH}px tall`);
-    if (t.barBottom > t.tabsTop + 1) bad.push(`the bar runs under the tab bar (${t.barBottom} past ${t.tabsTop})`);
-    const small = t.items.filter((i) => i.h < 44);
-    if (small.length) bad.push('items under 44px: ' + small.map((i) => `${i.id} ${i.h}`).join(', '));
-    console.log(`  status bar, transient: ${t.barH}px, ${t.items.length} item(s)`);
-    for (const line of bad) console.log('      ' + line);
-    failures += bad.length;
+        .map((e) => ({ id: e.id, tag: e.tagName, h: Math.round(e.getBoundingClientRect().height) }));
+      const out = { barH: Math.round(bar.height), barBottom: Math.round(bar.bottom), tabsTop: Math.round(tabs.top), items };
+      el.textContent = kept;
+      if (was) el.classList.add('hidden');
+      if (off) el.classList.add('status-slot-off');
+      return out;
+    }, { id, text });
+    for (const [id, text] of [['status-task', 'Sweep probe job'], ['offline-indicator', 'Offline'], ['power-saver-indicator', 'Power saver']]) {
+      const t = await read(id, text);
+      const bad = [];
+      if (t.barH < 44) bad.push(`the bar came back ${t.barH}px tall`);
+      if (t.barBottom > t.tabsTop + 1) bad.push(`the bar runs under the tab bar (${t.barBottom} past ${t.tabsTop})`);
+      // Controls only: the offline and power saver chips are `role="status"` labels, not something a finger presses.
+      const small = t.items.filter((i) => i.tag === 'BUTTON' && i.h < 44);
+      if (small.length) bad.push('items under 44px: ' + small.map((i) => `${i.id} ${i.h}`).join(', '));
+      console.log(`  status bar, transient (${id}): ${t.barH}px, ${t.items.length} item(s)`);
+      for (const line of bad) console.log('      ' + line);
+      failures += bad.length;
+    }
+    const quiet = await read('status-activity', 'Sweep probe activity');
+    console.log(`  status bar with only the activity showing: ${quiet.barH}px (must stay 0: folded into More)`);
+    if (quiet.barH !== 0) { console.log(`      the activity brought the bar back at ${quiet.barH}px`); failures += 1; }
   }
   for (const line of [...new Set(errs)]) console.log('  ' + line);
   failures += new Set(errs).size;

@@ -475,14 +475,36 @@ button:hover:not(:disabled) {
    with this change: with the cue no longer touching `transform`, restating
    the centring is unnecessary, and its `scale(0.985)` would have multiplied
    with this rule's. */
-button {
-  transition: translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out);
+button,
+.chip-interactive {
+  transition: scale var(--ui-fast) var(--ease-out), background-color var(--ui-fast) var(--ease-out),
+    outline-color var(--ui-fast) var(--ease-out);
 }
 
-button:active:not(:disabled) {
-  translate: 0 1px;
-  scale: 0.985;
+/* **The press** (the motion pass, 2026-10-05): a 3% scale and the ground a
+   step deeper, on `--ui-fast`, for every button and every button chip
+   through this one rule. The deeper ground is the hover's own step for a
+   solid button (a finger has no hover) and the hover veil over any other
+   ground; the 1px drop it had beside the scale is gone, a scale reads as a
+   press on its own. */
+button:active:not(:disabled),
+.chip-interactive:active {
+  scale: 0.97;
+  --button-ground: var(--accent-surface-hover);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
+}
+
+/* **A focus ring eases in** rather than snapping on: every button and
+   summary carries its ring at rest, transparent, so the focus only changes
+   its colour (`outline-color`, on `--ui-fast` above), which is paint, not
+   layout. Not under forced colours, where the system paints a transparent
+   outline as a visible one. */
+@media (forced-colors: none) {
+  button,
+  summary {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
 }
 
 button:disabled {
@@ -2608,7 +2630,7 @@ button:not(.ghost) > .spinner {
 .contents-caret {
   flex: 0 0 auto;
   color: var(--muted);
-  transition: transform var(--motion-fast) var(--ease-out);
+  transition: transform var(--ui-fast) var(--ease-out);
 }
 
 .contents-section.is-folded .contents-caret,
@@ -2863,7 +2885,7 @@ button:not(.ghost) > .spinner {
 
 #entry-list .link-connection > .menu-wrap {
   opacity: 0;
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 #entry-list li:hover .link-connection > .menu-wrap,
@@ -2888,7 +2910,7 @@ button:not(.ghost) > .spinner {
    covers a tabbed-to chip, and on touch because there is no hover there. */
 #entry-list .chip.link .unlink {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #entry-list li:hover .chip.link .unlink,
@@ -3037,7 +3059,6 @@ li.link-source {
   border-radius: var(--radius-md);
   background: var(--card-bg);
   cursor: pointer;
-  transition: background-color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
 }
 
 .ask-history-item:hover,
@@ -3187,7 +3208,7 @@ li.link-source {
 #toast-box.is-yielding > .toast.toast {
   opacity: 0.12;
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .toast {
@@ -3204,30 +3225,32 @@ li.link-source {
   max-width: 24rem;
   box-shadow: var(--glass-shadow);
   font-size: 0.92rem;
-  /* Arrives and leaves: a fade and 4px of travel, the menus' own entrance
-     distance, on `translate` so no transform the toast carries is replaced.
+  /* Arrives and leaves: a fade and a step of travel from its edge, on
+     `translate` so no transform the toast carries is replaced.
      `dismissToast` (status.js) adds `.is-leaving` and removes the toast when
-     the animation ends. Under reduced motion the blanket rules cut both to
-     nothing, and the toast simply appears and goes. */
-  animation: toast-in var(--motion-slow) var(--ease-out);
+     the animation ends. Interface animations decides it, not reduced
+     motion: off, `--ui-*` is 0 and the toast simply appears and goes. */
+  animation: toast-in var(--ui-slow) var(--ease-out);
 }
 
 .toast.is-leaving {
-  animation: toast-out var(--motion-base) var(--ease-out) forwards;
+  animation: toast-out var(--ui-exit) var(--ease-out) forwards;
   pointer-events: none;
 }
 
+/* From the edge it lives on (the bottom), a step rather than 4px, so the
+   arrival reads; the others make room by sliding (`toastStack`, status.js). */
 @keyframes toast-in {
   from {
     opacity: 0;
-    translate: 0 4px;
+    translate: 0 var(--space-4);
   }
 }
 
 @keyframes toast-out {
   to {
     opacity: 0;
-    translate: 0 4px;
+    translate: 0 var(--space-4);
   }
 }
 
@@ -5255,6 +5278,31 @@ select {
 :is(.msg, .help-chat-msg) .progress-line > .progress-musing,
 .progress-line.ask-progress > .progress-musing {
   grid-column: 1 / -1;
+}
+
+/* **Motion off: the label is the line** (INBOX 649). `progressLine` clips the
+   stepped indicator's own word (it would repeat the label) and gives the grid
+   one column; the label takes over the slow opacity pulse that word had, so a
+   reduced-motion reader still sees that the app is working (INBOX 36). */
+.progress-line-still {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.progress-line-still > .progress-musing,
+:is(.msg, .help-chat-msg) .progress-line-still > .progress-musing {
+  grid-column: 1;
+}
+
+.progress-line-still > .progress-line-label {
+  animation: typing-word-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Declared, not exempted, for the reason `.typing-dots-stepped .typing-word`
+     gives: this class exists only when motion is already off. */
+  .progress-line-still > .progress-line-label {
+    animation: typing-word-pulse 2.4s ease-in-out infinite;
+  }
 }
 
 

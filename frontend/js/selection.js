@@ -1106,16 +1106,17 @@ function openSelectionMenuFromKeyboard() {
 //: pressed element here for its top level to pick up while the button is
 //: still down, with where the pointer is now, since a hand already resting at
 //: the edge sends no further move (qa-1005: the first drag scrolled 0px).
-let dragEdgePress = null;
+//: drag-edge.js sets `ready` once it can scroll on its own.
+const EDGE_SCROLL_HELD = { press: null, ready: false };
 document.addEventListener("mousedown", (event) => {
-  if (typeof dragEdgeZone === "function" || event.button !== 0) return;
+  if (EDGE_SCROLL_HELD.ready || event.button !== 0) return;
   if (!event.target.closest?.("#entry-list, .library-view-section")) return;
-  dragEdgePress = { target: event.target, x: event.clientX, y: event.clientY };
+  EDGE_SCROLL_HELD.press = { target: event.target, x: event.clientX, y: event.clientY };
   ensureModule("dragEdge");
 }, true);
 document.addEventListener("mousemove", (event) => {
-  if (dragEdgePress) Object.assign(dragEdgePress, { x: event.clientX, y: event.clientY });
+  if (EDGE_SCROLL_HELD.press) Object.assign(EDGE_SCROLL_HELD.press, { x: event.clientX, y: event.clientY });
 }, true);
 document.addEventListener("mouseup", () => {
-  dragEdgePress = null;
+  EDGE_SCROLL_HELD.press = null;
 }, true);

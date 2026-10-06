@@ -8892,11 +8892,11 @@ onDomReady(() => {
             // Lands on the boards gallery, not straight onto a canvas, one
             // door onto the whiteboard, asked for directly, replacing the
             // old always-opens-the-last-board behaviour.
-            //: Placeholders now when the boards' own bundle (about 900 KB)
-            //: is still to come: its gallery draws them, but only once it has
-            //: arrived, and until then the sub-tab was blank (qa-1005,
-            //: skeletons.js at 390). The gallery clears them with its own.
-            if (typeof wbLeaveFullscreen !== "function") showSkeletons($("library-boards-grid"), 4);
+            //: Placeholders before the boards' own bundle (about 900 KB)
+            //: arrives: until then the sub-tab was blank (qa-1005). Drawn
+            //: every time, not behind a probe for the bundle: the gallery
+            //: replaces them with its own on its first paint either way.
+            showSkeletons($("library-boards-grid"), 4);
             wbShowBoardsLanding();
           } else if (targetId === "library-view-docs") {
             renderLibraryDocuments();
@@ -11020,5 +11020,30 @@ function showDetailDialog(title, text) {
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     ok.focus();
+  });
+}
+
+//: **Remind me, from any object's menu** (WORLD_CLASS_PLAN 1.3, row 15): a
+//: note in the Library, a document, a board or a map. The text and one of
+//: the presets the Reminders form has; the exact time is the tab's own form.
+async function remindAbout({ title, entryId = null, documentId = null }) {
+  const answer = await promptDialog("Remind me", `Follow up: ${String(title || "").trim()}`.slice(0, 200), {
+    confirmLabel: "Set reminder",
+    segment: {
+      label: "When",
+      value: "tomorrow",
+      options: [
+        { value: "1h", label: "In an hour" },
+        { value: "tonight", label: "Tonight" },
+        { value: "tomorrow", label: "Tomorrow" },
+        { value: "nextweek", label: "Next week" },
+      ],
+    },
+  });
+  const text = answer && typeof answer.text === "string" ? answer.text.trim() : "";
+  if (!text) return false;
+  return addReminder(text, presetDate(answer.choice || "tomorrow"), entryId, { documentId }).catch((error) => {
+    toast(error.message, true);
+    return false;
   });
 }

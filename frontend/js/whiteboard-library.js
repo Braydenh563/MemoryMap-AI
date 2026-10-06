@@ -232,6 +232,44 @@ function wbLibIconEntry(name) {
   };
 }
 
+//: **A sticker from the icon and emoji picker** (MINDMAP_PLAN.md decision
+//: 44), centred on `at`: an emoji is a text object drawn as its glyph alone
+//: (`sticker`), an icon the library's own vector icon, so it recolours and
+//: exports as a shape. One Undo step either way.
+const WB_STICKER_SIZE = 96;
+
+async function wbPlaceSticker(choice, at = null) {
+  if (!choice) return null;
+  const point = at || wbLibCentre();
+  if (choice.kind === "icon") {
+    await wbLoadIcons();
+    const entry = wbLibIconEntry(choice.value);
+    if (!entry) {
+      toast("That icon is not in the library's set.", true);
+      return null;
+    }
+    await wbLibPlace(entry, point);
+    return entry;
+  }
+  const half = WB_STICKER_SIZE / 2;
+  const made = await wbCreateObject("text", { content: choice.value, sticker: true },
+    point[0] - half, point[1] - half, WB_STICKER_SIZE, WB_STICKER_SIZE, 2);
+  if (made) wbAnnounce("Sticker placed.");
+  return made;
+}
+
+//: The board's Insert, Emoji and icons…: the picker stays open, so several
+//: can be placed or dragged; a pick lands in the middle of the view.
+function wbOpenStickerPicker() {
+  const anchor = document.querySelector('[aria-controls="wb-insert-menu"]');
+  pickIconOrEmoji({
+    anchor,
+    title: "Emoji and icons to place",
+    keepOpen: true,
+    onPick: (choice) => wbPlaceSticker(choice),
+  });
+}
+
 //: What a map's library shows: branches and templates; a board's: the rest.
 function wbLibFits(entry) {
   const map = wbIsMap();
@@ -1233,6 +1271,38 @@ onDomReady(() => {
     const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
     wbLibPlace(wbLibState.libDragging, [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k], { onto });
     wbLibState.libDragging = null;
+  }, true);
+  //: **An icon or an emoji dragged from the picker** (MINDMAP_PLAN.md
+  //: decision 44): onto a map topic it is that topic's icon, anywhere else a
+  //: sticker under the pointer. Capture, as the library's own drop above is,
+  //: so the note drop's handler never sees it.
+  canvas?.addEventListener("dragover", (e) => {
+    if (e.dataTransfer?.types?.includes("application/x-memorymap-icon")) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }, true);
+  canvas?.addEventListener("drop", (e) => {
+    if (!e.dataTransfer?.types?.includes("application/x-memorymap-icon")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    let choice = null;
+    try {
+      choice = JSON.parse(e.dataTransfer.getData("application/x-memorymap-icon"));
+    } catch {
+      choice = window.iconPickerDragging;
+    }
+    window.iconPickerDragging = null;
+    if (!choice || (choice.kind !== "emoji" && choice.kind !== "icon") || typeof choice.value !== "string") return;
+    const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
+    const topic = onto != null ? wbFindItem("object", onto) : null;
+    if (topic && WB_MAP_KINDS.has(topic.kind)) {
+      wbMapSetTopicIcon(topic, choice.value);
+      return;
+    }
+    const t = d3.zoomTransform(canvas);
+    const o = wbCanvasOriginRect();
+    wbPlaceSticker(choice, [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k]);
   }, true);
   document.getElementById("wb-lib-more")?.addEventListener("click", (e) => {
     const r = e.currentTarget.getBoundingClientRect();

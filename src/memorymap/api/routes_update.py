@@ -334,14 +334,18 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         DETACHED_PROCESS = 0x00000008
         CREATE_NEW_PROCESS_GROUP = 0x00000200
         subprocess.Popen(  # noqa: S603  # fixed args, path is our own download, no shell
-            [str(installer_path), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
+            # /RELAUNCH=1: this process is the running app and is about to
+            # exit, so the installer opens it again when it is done
+            # (installer.iss, ShouldRelaunch). A silent install otherwise
+            # never starts the app: the launch entry is skipifsilent.
+            [str(installer_path), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/RELAUNCH=1"],
             creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
             close_fds=True,
         )
         _state.outcome = "launched"
         _state.step = (
-            "Installing in the background, close and reopen MemoryMap AI in a "
-            "minute or two to start using the new version."
+            "Installing in the background. MemoryMap AI closes now and reopens "
+            "by itself in a minute or two, on the new version."
         )
         logger.info("update installer launched (%s), exiting to let it run", asset_name)
     except (PermissionError, OSError):
@@ -784,4 +788,10 @@ def _exit_once_launched(watched: _ApplyState | None = None, attempt: int | None 
     if still_mine() and state.outcome == "launched":
         time.sleep(EXIT_DELAY_SECONDS)  # let the last status poll's response actually go out
         if still_mine():
+            # The notebook's lock goes before the exit that skips every
+            # `finally`: the installer the person reopens the app after must
+            # not find a lock naming this pid (core/instance_lock.py).
+            from memorymap.core import instance_lock
+
+            instance_lock.release()
             exit_now(0)

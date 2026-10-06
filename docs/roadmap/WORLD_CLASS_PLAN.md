@@ -827,7 +827,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
 | 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
 | 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
-| 26 | ~~H7~~ | ~~boot JS under 1 MB~~ built (691,724 bytes as served, `tests/test_boot_budget.py` gates it; the corrected 2026-10-05 measure, H7); every list over 200 rows measured 2026-10-05 (chunk-on-scroll, scroll p95 under 25 ms, `ui-sweeps/s2-1005.js` MODE=rows); left: first paint under 300 ms is not measured | S | `boottime.js` |
+| 26 | ~~H7~~ | ~~boot JS under 1 MB~~ built (691,724 bytes as served, `tests/test_boot_budget.py` gates it; the corrected 2026-10-05 measure, H7); every list over 200 rows measured 2026-10-05 (chunk-on-scroll, scroll p95 under 25 ms, `ui-sweeps/s2-1005.js` MODE=rows); first paint measured 2026-10-05 (`boottime.js`, fresh data dir, 1440, five cold loads, load average 10 on four cores): DOMContentLoaded median 585 ms, first contentful paint median 272 ms, dashboard panel readable (text in it, splash gone) median 974 ms (920 to 1,326); not optimised; left: the 300 ms line on the reference laptop with a quiet machine, and the 974 ms to the dashboard's text | S | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
@@ -1262,7 +1262,7 @@ M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
 **State 2026-09-24:** (b) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`). Corrected 2026-10-05 (audit ARCH-08): the centroid exclusion had no caller and the corrections query could not see the re-files `update_entry` records; both are wired now (`janitor._semantic_category`, `tests/test_save_cost_flat.py`); the "Learned from you" line with a filing accuracy number is not in Settings. S.
 
-**State 2026-10-05:** (b) the loop's store is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, `open_after_ask`), and its centroid consumer is wired (`learning.excluded_categories`, called by `janitor._semantic_category`; audit ARCH-08, fixed 2026-10-05, and a refile made in the app reaches it since row 20 fixed `corrections(kind="refile")`); **still not wired:** `filing_evidence` has no caller. The "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
+**State 2026-10-05:** (b) the loop's store is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, `open_after_ask`), and its centroid consumer is wired (`learning.excluded_categories`, called by `janitor._semantic_category`; audit ARCH-08, fixed 2026-10-05, and a refile made in the app reaches it since row 20 fixed `corrections(kind="refile")`); and its evidence half is wired too (`librarian.evidence_note` in `filing_prompt`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", I7). The "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
@@ -2624,9 +2624,8 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
     `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
     whichever of `vision_ocr_text`/`ocr_text` are set and saves what
     changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
-    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()`
-    treats any MemoryMap on the port as ours, whatever its data dir: compare
-    the data dir in `/instance` first. (h) Chat replies saved before
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any MemoryMap on the port for this one: built
+    (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", 423(g)). (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
     finishes: find the thread that holds it. (fixed: every sync route

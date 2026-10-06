@@ -394,14 +394,14 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 
 .notes-rail-body[aria-busy="true"] {
   opacity: 0.6;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 /* INBOX 571: the column follows the note being read (notes-rail-spy.js), so
    a change of subject cross-fades rather than snapping, and the card it is
    about wears a left accent hairline, inset from the card's rounded corners. */
 .notes-rail-body {
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .notes-rail-body.is-switching {
@@ -2184,7 +2184,6 @@ label.setting-check,
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   cursor: pointer;
   margin: 0;
 }
@@ -2711,7 +2710,7 @@ span > .chip {
   opacity: 0;
   visibility: hidden;
   transform: translateY(0.5rem);
-  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out), visibility var(--motion-slow) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out), transform var(--ui-slow) var(--ease-out), visibility var(--ui-slow) var(--ease-out);
 }
 
 .scroll-top.visible {
@@ -2730,12 +2729,6 @@ span > .chip {
   .scroll-top {
     right: 1rem;
     bottom: calc(var(--status-bar-h) + var(--space-3));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scroll-top {
-    transition: none;
   }
 }
 
@@ -2810,7 +2803,7 @@ span > .chip {
      category itself along the right-hand edge of every row. */
   pointer-events: none;
   background: inherit;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #category-list li:hover .category-actions,
@@ -2845,7 +2838,7 @@ span > .chip {
 #category-list li:has(.category-actions):hover .count,
 #category-list li:has(.category-actions):focus-within .count {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 /* Touch has no hover, so the controls are simply always there, which used
@@ -2858,12 +2851,6 @@ span > .chip {
   #category-list li:has(.category-actions) .category-actions {
     position: static;
     opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .category-actions {
-    transition: none;
   }
 }
 
@@ -2974,9 +2961,6 @@ span > .chip {
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition:
-    background var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
 }
 
 .note-picker-row {
@@ -3073,8 +3057,8 @@ span > .chip {
   color: transparent;
   font-size: var(--text-sm);
   transition:
-    background var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
+    background var(--ui-fast) var(--ease-out),
+    border-color var(--ui-fast) var(--ease-out);
 }
 
 :is(.note-picker-row, .note-picker-cell):has(.note-picker-box:checked) .note-picker-check {
@@ -3549,6 +3533,19 @@ span > .chip {
   min-width: 0;
 }
 
+/* On a phone one nowrap row left each select 62px with its value cut to 16px
+   ("D…"): what to write takes its own line, tone, length and Use notes share
+   the next. */
+@media (max-width: 599.98px) {
+  .draft-controls.draft-desk-controls {
+    flex-wrap: wrap;
+  }
+
+  .draft-desk-controls > .select-shell:first-child {
+    flex-basis: 100%;
+  }
+}
+
 /* A source is a fact about this request (which notes it is written from),
    which is what `.chip` means; the X inside it is the one action a fact is
    allowed to carry, and it is how you take the fact back. */
@@ -3840,7 +3837,7 @@ span > .chip {
   top: 0.3rem;
   right: 0.3rem;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .doc-item:hover .doc-item-menu,
@@ -3913,7 +3910,7 @@ span > .chip {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .doc-list-item:hover .doc-list-menu,
@@ -5205,7 +5202,7 @@ span > .chip {
   /* The hairline the old dock used to separate itself from the transcript is
      redundant now that it has a border of its own. */
   border-top: 1px solid var(--border);
-  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
+  transition: border-color var(--ui-fast) var(--ease-out);
 }
 
 /* The whole card takes focus, the way a single field would. This is the
@@ -6028,7 +6025,6 @@ input.doc-title-input::placeholder {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
   cursor: default;
-  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .manage-cat-row:hover {
@@ -6324,7 +6320,7 @@ button.manage-cat-count:hover {
   border-color: transparent;
   box-shadow: none;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .manage-cat-menu > button:hover,

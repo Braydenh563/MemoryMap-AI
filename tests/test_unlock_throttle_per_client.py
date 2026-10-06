@@ -47,6 +47,12 @@ def test_one_clients_wrong_guesses_do_not_lock_out_another(app):
     guesser = _from(app, "192.168.1.50")
     for _ in range(routes_auth._FAILURE_ALLOWANCE + 1):
         guesser.post("/auth/unlock", json={"password": "wrong guess"})
+    # The same remedy as the test below, for the same reason: six misses earn
+    # a two-second wait, and on a loaded CI runner (Python 3.11, 2026-10-06)
+    # the bcrypt checks between them outlasted it, so the guesser's correct
+    # password got a 200. More entries in the same bucket keep the test about
+    # the property, not about how fast this machine hashes.
+    routes_auth._failed_by_client["192.168.1.50"].extend([time.time()] * 5)
     assert guesser.post("/auth/unlock", json={"password": "the owner"}).status_code == 429
     owner = _from(app, "127.0.0.1")
     assert owner.post("/auth/unlock", json={"password": "the owner"}).status_code == 200

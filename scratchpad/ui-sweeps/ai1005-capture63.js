@@ -10,7 +10,7 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(2500);
   await page.evaluate(() => switchTab('notes'));
   await page.waitForTimeout(1200);
-  for (const name of (process.env.SUBS || 'Capture,Write with Atlas,Ask').split(',')) {
+  for (const name of (process.env.SUBS || 'Capture,Writing room,Ask').split(',')) {
     await page.evaluate((label) => {
       const b = [...document.querySelectorAll('#tab-notes button')].find((x) => x.textContent.trim() === label && x.offsetParent);
       b?.click();

@@ -58,6 +58,8 @@ const VH = Number(process.env.VH || (VW < 600 ? 844 : 900));
   await page.waitForTimeout(700);
 
   const k = await page.evaluate(() => d3.zoomTransform(document.getElementById("whiteboard-container")).k);
+  const view = await page.evaluate(() => { const t = d3.zoomTransform(document.getElementById("whiteboard-container")); return { x: t.x, y: t.y, k: t.k }; });
+  const home = await page.evaluate((ids) => Object.fromEntries(["outer", "inner", "sticky"].map((n) => [n, (({ x, y }) => ({ x, y }))(wbState.objects.find((o) => o.id === ids[n]))])), ids);
   const hit = await page.evaluate((id) => {
     const title = document.querySelector(`.wb-object[data-id="${id}"] .wb-frame-title`);
     const r = title.getBoundingClientRect();
@@ -109,11 +111,64 @@ const VH = Number(process.env.VH || (VW < 600 ? 844 : 900));
     for (const n of ["inner", "sticky"]) wbMultiSelection.add(wbMultiKey("object", ids[n]));
     wbApplySelectionHighlight();
   });
+  // Back to where the objects were made, and the view to the fit: the four
+  // drags above carry the pair 4 x 284 units right, to the viewport's edge,
+  // where the edge auto-pan (bm1005-edgepan) takes over the next drag (this
+  // case read dx 1,070 to 1,355 for a 284 move at 390 before this reset).
+  await page.evaluate(({ ids, home, view }) => {
+    clearWbSelection();
+    for (const n of ["outer", "inner", "sticky"]) Object.assign(wbState.objects.find((o) => o.id === ids[n]), home[n]);
+    renderWhiteboardNow();
+    d3.select(document.getElementById("whiteboard-container")).call(wbZoom.transform, d3.zoomIdentity.translate(view.x, view.y).scale(view.k));
+  }, { ids, home, view });
+  await page.waitForTimeout(700);
   await drag("the inner frame and its sticky selected, the inner title dragged", (ids) => {
     clearWbSelection();
     for (const n of ["inner", "sticky"]) wbMultiSelection.add(wbMultiKey("object", ids[n]));
     wbApplySelectionHighlight();
   }, "inner", ["inner", "sticky"]);
+  // Nested frames whose tops are close (OPEN.md: "Frames and the map plan's
+  // rest": at a phone's fitted zoom they share the grown title area and the
+  // inner one wins it; aim at the outer title's words). Measured, with the
+  // inner frame's top 0, 20, 60 and 150 board units below the outer's: where a
+  // press lands over the outer title's words, over the middle of its grown
+  // area, and what share of the outer's title box the inner's takes.
+  const nest = await page.evaluate(async ({ ids, view, home }) => {
+    const gaps = [0, 20, 60, 150];
+    const rows = [];
+    clearWbSelection();
+    for (const n of ["outer", "inner", "sticky"]) Object.assign(wbState.objects.find((o) => o.id === ids[n]), home[n]);
+    const outer = wbState.objects.find((o) => o.id === ids.outer);
+    d3.select(document.getElementById("whiteboard-container")).call(wbZoom.transform, d3.zoomIdentity.translate(view.x, view.y).scale(view.k));
+    for (const gap of gaps) {
+      const inner = wbState.objects.find((o) => o.id === ids.inner);
+      inner.y = outer.y + gap;
+      inner.x = outer.x + 40;
+      renderWhiteboardNow();
+      await new Promise((r) => setTimeout(r, 120));
+      const oTitle = document.querySelector(`.wb-object[data-id="${ids.outer}"] .wb-frame-title`);
+      const iTitle = document.querySelector(`.wb-object[data-id="${ids.inner}"] .wb-frame-title`);
+      const o = oTitle.getBoundingClientRect();
+      const i = iTitle.getBoundingClientRect();
+      const owner = (x, y) => {
+        const at = document.elementFromPoint(x, y);
+        return at === oTitle ? "outer" : at === iTitle ? "inner" : at ? `${at.tagName.toLowerCase()}.${String(at.className.baseVal ?? at.className).split(" ")[0]}#${at.id}` : "none";
+      };
+      // The words sit at the title's foot, on its left: a few pixels in.
+      const words = owner(o.left + 6, o.bottom - 6);
+      const mid = owner(o.left + o.width / 2, o.top + o.height / 2);
+      let lost = 0;
+      let n = 0;
+      for (let y = o.top + 1; y < o.bottom; y += 2) {
+        for (let x = o.left + 1; x < o.right; x += 2) { n += 1; if (owner(x, y) === "inner") lost += 1; }
+      }
+      rows.push({ gap, outerTitle: [Math.round(o.left), Math.round(o.top), Math.round(o.right), Math.round(o.bottom)], innerTitle: [Math.round(i.left), Math.round(i.top), Math.round(i.right), Math.round(i.bottom)], words, mid, innerShare: +(lost / n).toFixed(2) });
+    }
+    return rows;
+  }, { ids, view, home });
+  for (const r of nest) console.log(`nested gap ${String(r.gap).padStart(3)}  words->${r.words}  middle->${r.mid}  inner takes ${Math.round(r.innerShare * 100)}% of the outer title  ${JSON.stringify({ o: r.outerTitle, i: r.innerTitle })}`);
+  ok("a press on the outer title's words reaches the outer frame at every nesting gap", nest.every((r) => r.words === "outer"), JSON.stringify(nest.map((r) => r.words)));
+  ok("no gap hands the inner frame the whole of the outer title", nest.every((r) => r.innerShare < 1), JSON.stringify(nest.map((r) => r.innerShare)));
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${pass}/${pass + fail} at ${VW}x${VH} ${process.env.THEME || "light"}`);
   await browser.close();

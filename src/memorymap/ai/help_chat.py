@@ -114,7 +114,7 @@ HELP_TOPICS: list[dict] = [
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
             "Use a template, dictate with the microphone icon, sketch with the "
-            "palette icon, or run \"Improve\" to proofread first. Write with Atlas has "
+            "palette icon, or run \"Improve\" to proofread first. The Writing room has "
             "\"Split into notes\", which turns a block of pasted text into several "
             "AI-drafted, auto-linked notes."
         ),
@@ -138,7 +138,14 @@ HELP_TOPICS: list[dict] = [
             "does every change and web request. "
             "Conversations save and rename in the sidebar. The same agent also "
             "pops open over any tab with Ctrl/Cmd+Shift+A, so you don't have to "
-            "switch to Chat first."
+            "switch to Chat first. While an answer is coming, the line under "
+            "it says what is happening: Reaching Atlas while it waits for the "
+            "first word, Reading your notes while it searches, Waking the "
+            "model when a model is slow to load, Atlas is thinking while it "
+            "reasons, Atlas is writing while the answer streams, and Atlas "
+            "is followed by the tool's name when it uses one (a persona's "
+            "name replaces Atlas). With Progress indicators set to Still it "
+            "is the same words, without the moving dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -316,11 +323,15 @@ HELP_TOPICS: list[dict] = [
             "Settings, Appearance controls theme (light/dark/system), accent "
             "colour, fonts, density, glass effects and the animated background. "
             "High-contrast and reduce-motion options are there for comfort and "
-            "accessibility. Density's Auto, the default, is Compact on a window "
+            "accessibility: Reduce motion stills Atlas, the background art, the "
+            "graph and the whiteboard, and Interface animations (on by default) "
+            "keeps the short fades and slides of menus, dialogs and tabs and a "
+            "button's press even then; turn it off and they are instant. "
+            "Density's Auto, the default, is Compact on a window "
             "700px tall or less and the look's own spacing on a taller one. "
             "Performance mode (Effects & accessibility) turns off "
-            "the frosted-glass blur, the animations and the animated background "
-            "and slows the graph physics, for a slow or small machine; Auto "
+            "the frosted-glass blur, the large animations and the animated "
+            "background and slows the graph physics, for a slow or small machine; Auto "
             "switches it on by itself on a machine with 2 cores or 4 GB or fewer, "
             "and On or Off overrides that."
         ),
@@ -337,9 +348,15 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("status bar", "statusbar", "bottom bar", "bottom strip", "the strip"),
         "body": (
             "The status bar is the strip along the bottom of every screen. It "
-            "shows what the local model is doing, your note count, open and due "
-            "reminders, back and forward, undo and redo, Commands with its "
-            "Ctrl/Cmd+K hint, and three icons: the wand for the popup agent, the "
+            "shows what the local model is doing (a grey sparkle with a slash "
+            "means no model is connected and the notebook works without one), "
+            "your note count, open and due "
+            "reminders, back and forward (the small arrow beside them, or a "
+            "right-click on either, lists the places you have been: an icon, the "
+            "note's or document's title, a thumbnail when a note opens with a "
+            "picture, and the tab in muted text under it), undo and redo, "
+            "Commands with its Ctrl/Cmd+K hint, and three icons: the wand for "
+            "the popup agent, the "
             "compass for Atlas the guide, and the magnifying glass for Find "
             "anything (hover one for its name and keys). The offline "
             "badge, the power-saver badge and the running-job slot appear only "
@@ -362,7 +379,8 @@ HELP_TOPICS: list[dict] = [
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
             "Ctrl+Shift+Z redo (on a phone, More then Commands opens the "
-            "palette), Alt+Left and Alt+Right back and forward, Ctrl+, "
+            "palette), Alt+Left and Alt+Right back and forward, a double-click "
+            "on Notes or Library in the top bar back to its first sub-tab, Ctrl+, "
             "settings, Ctrl+Shift+L light or dark, Ctrl+Shift+Y show or hide the "
             "companion, Ctrl+Alt+R reload clearing "
             "cached files. Make: Ctrl+Shift+N a new note, Alt+N a quick note saved "
@@ -554,9 +572,9 @@ HELP_TOPICS: list[dict] = [
         "id": "extract-notes",
         "keywords": ("extract notes", "rough thoughts", "writing room", "draft"),
         "body": (
-            "Split into notes, in the More menu of Write with Atlas (Notes "
+            "Split into notes, in the More menu of the Writing room (Notes "
             "tab), turns a block of pasted free text into several AI-drafted, "
-            "auto-linked notes instead of one long one. Write with Atlas is "
+            "auto-linked notes instead of one long one. The Writing room is "
             "for turning rough, unstructured thoughts into a proper note "
             "before it's saved. A document's menu and a selection of cards on "
             "a board have Extract notes, which does the same for a document "
@@ -759,14 +777,14 @@ HELP_TOPICS.extend(
                 "write an essay", "write an email", "draft",
             ),
             "body": (
-                "Notes tab, Write with Atlas: pick what to write (draft a note, "
+                "Notes tab, Writing room: pick what to write (draft a note, "
                 "continue or rewrite the draft, bullets to prose, prose to bullets, "
                 "or translate), add notes as sources if you want it grounded in "
                 "them, and press Write. The draft stays in the box to edit; save it "
                 "as a note when it reads right. Which model writes is set on the "
                 "same row, or in Settings, Models."
             ),
-            "badge": {"label": "Write with Atlas", "tab": "notes"},
+            "badge": {"label": "Writing room", "tab": "notes"},
         },
         {
             "id": "security",
@@ -891,7 +909,7 @@ HELP_TOPICS.extend(
             "id": "translate",
             "keywords": ("translate", "translation", "translator", "language", "another language", "spanish", "french", "german", "chinese", "japanese"),
             "body": (
-                "Write with Atlas translates: put the text in the box and press "
+                "The Writing room translates: put the text in the box and press "
                 "Translate, or pick a language under Translate into in the menu "
                 "beside Draft. The local model keeps every fact, name, number and "
                 "the markdown, and leaves code and links alone. It needs a model "
@@ -1000,7 +1018,8 @@ HELP_TOPICS.extend(
             "body": (
                 "Mind maps live in the Library, under Boards & maps; New, then Mind "
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
-                "onto another moves its whole branch. Right-click a topic for the "
+                "onto another moves its whole branch (onto Drop here to delete, at "
+                "the foot, deletes the topic and its branch). Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
                 "map looks sets its branch colours (eight palettes, classic first), its "
                 "font and the look every topic follows unless it was given its own; a "
@@ -1045,6 +1064,7 @@ HELP_TOPICS.extend(
                 "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
                 "comment on a card", "comment on an item", "comments on the board", "comment thread",
                 "present", "presentation", "slides", "slideshow",
+                "drag to delete", "drop to delete", "drag onto delete", "trash an item",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards & maps; Ctrl+Shift+B opens it). "
@@ -1062,8 +1082,9 @@ HELP_TOPICS.extend(
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
                 "Shift and a corner keeps proportions, [ and ] move one step back or "
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
-                "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
-                "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Y redoes. "
+                "Ctrl+Alt+V copy and paste a style, Delete (or a drop on the bin at "
+                "the foot) removes, Esc cancels a "
+                "drag or goes back to Select. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
                 "for the menu, double-click a line to bend "
@@ -1298,7 +1319,9 @@ HELP_TOPICS.extend(
                 "the arrows keep the column, Enter goes to the cell below, and "
                 "rows pasted from a spreadsheet fill the cells. Pasting from a "
                 "web page, Word or Google Docs keeps headings, bold, italics, "
-                "lists and links; Ctrl+Shift+V pastes plain text."
+                "lists and links; Ctrl+Shift+V pastes plain text. With nothing "
+                "selected, Ctrl+C and Ctrl+X copy and cut the whole line, and "
+                "pasting that line puts it above the one you are on."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

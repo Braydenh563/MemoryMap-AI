@@ -53,11 +53,12 @@ function initDragSelectEdgeScroll() {
     d.el = e.button === 0 ? dragEdgeZone(e.target) : null;
   }, true);
   //: **A drag already under way when this file arrives** (selection.js's
-  //: `dragEdgePress`): the press that fetched it, picked up here so the very
+  //: `EDGE_SCROLL_HELD`): the press that fetched it, picked up here so the very
   //: first drag after boot scrolls too. Before, a drag begun in the first
   //: seconds (before the preload) or on a slow disk did nothing at the edge
   //: (qa-1005, `search1005-lazy.js` FIRST=1: 0px, then 432px).
-  const held = typeof dragEdgePress !== "undefined" && dragEdgePress;
+  EDGE_SCROLL_HELD.ready = true;
+  const held = EDGE_SCROLL_HELD.press;
   if (held) {
     Object.assign(d, { el: dragEdgeZone(held.target), x: held.x, y: held.y });
     if (d.el) d.frame = requestAnimationFrame(dragEdgeTick);

@@ -225,6 +225,9 @@ SHEET_RECIPE = {
     # The note page (UI Phase 11 item 2): full height, a back chevron.
     "sheet-page",
     "sheet-card-page",
+    # The way out: `openSheet`'s close adds it for --motion-fast, then removes
+    # the overlay (no exit under reduced motion).
+    "sheet-leaving",
 }
 
 
@@ -562,7 +565,7 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     body = ""
     for selector, rule in _rules(css):
-        if selector.strip() == "button:active:not(:disabled)":
+        if selector.split(",")[0].strip() == "button:active:not(:disabled)":
             body = rule
             break
     assert body, "the global press cue rule has gone missing"
@@ -570,7 +573,8 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
         "the press cue must use `translate`/`scale`, not `transform`: "
         "`transform` replaces a button's own centring and makes it jump"
     )
-    assert "translate:" in body and "scale:" in body
+    # The motion pass (2026-10-05): a scale alone, 0.97, reads as the press.
+    assert "scale: 0.97" in body and "translate:" not in body
 
 
 def test_no_dialog_is_a_direct_child_of_a_page() -> None:
@@ -3208,8 +3212,10 @@ def test_a_script_built_dialog_opens_with_the_dialog_head() -> None:
 #: The board library's tiles are the same shape as a space's icons: a grid of
 #: pictures you place, walked in two directions, each opening its menu by
 #: right-click or Shift+F10 rather than holding a ⋯ (WHITEBOARD_PLAN decision
-#: 25; DESIGN.md, "A grid of things you place").
-HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2, "whiteboard-library.js": 1}
+#: 25; DESIGN.md, "A grid of things you place"). The icon and emoji picker is
+#: the third grid of glyphs (MINDMAP_PLAN decision 43; DESIGN.md, "An icon or
+#: an emoji, picked or dragged"): its tiles are dragged as well as picked.
+HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "icon-picker.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2, "whiteboard-library.js": 1}
 
 
 def test_only_the_rich_picker_stamps_its_anatomy() -> None:
@@ -3534,12 +3540,14 @@ def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
     checkbox visually hidden), pictures are a grid, and the keys walk it:
     arrows, Home and End, Enter is Done, the tabs' arrows switch source."""
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
-    # The list renderer is lazy (attach-to.js, op4-1005); the row stays at boot.
+    # The list renderer is lazy (attach-to.js, op4-1005); the row is lazy too
+    # (pick-row.js), named by the attachTo and library bundles.
     lazy = (ROOT / "frontend" / "js" / "attach-to.js").read_text(encoding="utf-8") + "\nfunction "
     render = _function_body(lazy, "renderNotePickerList")
     assert "async function renderNotePickerList" not in js
     assert "notePickerRow(shape, row)" in render and "renderNotePickerOtherSource" not in js
-    row = _function_body(js, "notePickerRow")
+    row_js = (ROOT / "frontend" / "js" / "pick-row.js").read_text(encoding="utf-8") + "\nfunction "
+    row = _function_body(row_js, "notePickerRow")
     assert '"visually-hidden note-picker-box"' in row and "richPickerTile(" in row and "note-picker-check" in row
     assert "grid: true" in _function_body(js, "notePickerShape")
     keys = _function_body(js, "notePickerKeydown")
@@ -3962,6 +3970,41 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     assert "Unlock ${locked} locked item" in wb
 
 
+def test_drag_to_delete_is_one_target_on_the_three_drags() -> None:
+    """INBOX 660 (DESIGN.md's drag-to-delete row): the three item drags (a
+    card, a box or topic, a shape) mark their gesture as a move, and each
+    one's end asks `wbTrashTake` before it saves anything, so a drop on the
+    target is put back and then deleted, never saved and then deleted. The
+    delete is the selection's own, one Undo step (`wbRecordGesture`) with a
+    toast; the target is a floating panel (on the glass-off list), hidden
+    from the tree, and its styles ride the Library bundle, not the boot CSS."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    lazy = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    for kind in ("sketch", "object", "node"):
+        assert f'wbBeginGesture(() => wbRestoreMove("{kind}", d), true)' in wb, kind
+        assert f'wbTrashTake(d._gesture, "{kind}", d);' in wb, kind
+    assert wb.count("wbTrashTake(d._gesture,") == 3, "one target, asked at the three drags' ends and nowhere else"
+    obj_end = wb[wb.index("async function objDragEnd(") :]
+    assert obj_end.index("wbTrashTake(") < obj_end.index("delete d._bulkOrigin;"), "asked while the drag still holds its origin"
+    node_end = wb[wb.index("async function dragEndNode(") :]
+    assert node_end.index("wbTrashTake(") < node_end.index("await wbSaveNode(d);")
+    delete = wb[wb.index("async function wbTrashDelete(") :]
+    delete = delete[: delete.index("\n}\n")]
+    assert "await wbRecordGesture(" in delete and 'toastAction(words, "Undo"' in delete
+    take = wb[wb.index("function wbTrashTake(") :]
+    take = take[: take.index("\n}\n")]
+    assert "gesture.restore?.()" in take and "gesture.cancelled = true;" in take
+    target = wb[wb.index("function wbTrashTarget(") :]
+    target = target[: target.index("\n}\n")]
+    assert '"whiteboard-floating-panel wb-trash card glass hidden"' in target
+    assert 'setAttribute("aria-hidden", "true")' in target
+    assert "!wbGesture.overTrash" in wb, "the edge pan holds still over the target"
+    assert ".whiteboard-floating-panel.wb-trash {" in lazy and ".wb-trash.wb-trash-hot {" in lazy
+    for css in CSS:
+        if css.name != "library-lazy.css":
+            assert "wb-trash" not in css.read_text(encoding="utf-8"), css.name
+
+
 def test_presenting_is_one_mode_with_one_bar() -> None:
     """WHITEBOARD_PLAN decision 16 (DESIGN.md's presentation row): the View
     menu's row starts it, board only; one host class hides the chrome and
@@ -4056,13 +4099,53 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
     the width was in the rows (the group labels sit above them and are all
-    narrower). Between 600 and 1023px the dots drop their gap; their own
-    transparent ring keeps them apart. `scratchpad/ui-sweeps/sketchbar.js`
-    is the measurement; this keeps the rule from being lost in a merge."""
+    narrower). From 820 to 1023px the dots drop their gap; their own
+    transparent ring keeps them apart. Below 820 they are 2rem with a target a
+    gap wider than the disc, so the gap must stay (the band used to start at
+    600 and 6 pairs of targets overlapped at 700 on Large text with Spacious).
+    `scratchpad/ui-sweeps/sketchbar.js` is the measurement; this keeps the
+    rule from being lost in a merge."""
     css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
-    at = css.index("@media (min-width: 600px) and (max-width: 1023px) {")
+    assert "@media (min-width: 600px) and (max-width: 1023px) {\n  /* The long-hand" not in css
+    at = css.index("@media (min-width: 820px) and (max-width: 1023px) {")
     block = css[at : css.index("\n}", at)]
     assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block
+
+
+def test_the_writing_rooms_selects_get_their_own_line_on_a_phone() -> None:
+    """OPEN.md, "Writing Room at phone width": one nowrap row held what to
+    write, tone, length and Use notes, so each select was 62px wide at 390 with
+    its value cut to 16px. Below 600 the row wraps and the first select takes
+    the line; `scratchpad/ui-sweeps/phonecapture.js` measures the three values
+    (89, 65 and 59px shown of what they need)."""
+    css = (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8")
+    at = css.index("@media (max-width: 599.98px) {\n  .draft-controls.draft-desk-controls {")
+    block = css[at : css.index("\n}\n", at)]
+    assert "flex-wrap: wrap;" in block
+    assert ".draft-desk-controls > .select-shell:first-child" in block and "flex-basis: 100%;" in block
+
+
+def test_a_menu_fades_out_through_the_one_class_every_close_path_sets() -> None:
+    """OPEN.md, perfpolish: menus left instantly though they entered with a
+    reveal. Every close path (the opener again, Escape, a press outside,
+    `closeActionMenus`) is `.hidden`, so the exit is CSS: opacity and a
+    discrete `display` transition, no press taken while it goes. A menu moved
+    to the body goes home after the fade, in both places that move one home
+    (`closeActionMenus` and `wireEscapedActionMenu`'s observer), because moving
+    a node cancels a transition. `scratchpad/ui-sweeps/kebabfirst.js` samples
+    the frames: 4 part way, gone by about 150ms, on all eight kebab and select
+    close paths."""
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    # The motion pass (2026-10-05): the exit runs on Interface animations'
+    # `--ui-exit` and shrinks back as it fades; on the closed state only.
+    at = css.index(".action-menu.hidden {\n  opacity: 0;\n  scale: 0.96;\n  pointer-events: none;")
+    block = css[at : css.index("}", at)]
+    assert "opacity var(--ui-exit) var(--ease-out)" in block
+    assert "display var(--ui-exit) linear allow-discrete" in block
+    menus = (ROOT / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
+    assert "restoreEscapedMenuAfterExit(menu);" in menus[menus.index("function closeActionMenus()") :][:900]
+    assert "const exit = menuExitMs(menu);" in menus, "the escape observer must wait for the exit too"
+    assert "function menuExitMs(menu)" in menus
 
 
 def test_a_locked_load_is_not_logged_as_a_failure() -> None:
@@ -4514,3 +4597,15 @@ def test_the_autonomous_override_names_what_it_falls_back_to():
     body = _function_body(js, "renderAutonomousModelPicker")
     assert "Same as utility model (currently ${fallback})" in body
     assert "status.utility_model || status.chat_model" in body
+
+
+def test_the_ocr_toolbars_segment_track_grows_round_its_touch_buttons() -> None:
+    """OPEN.md, "the OCR workspace head": `.ocr-head .seg` is `height:
+    var(--control-h)`, and below 600 the segments lift to `--target-min`, so
+    the 32px page-size track sat 12px short of its 44px buttons and the
+    buttons 6px below their neighbours (`wbtopbar.js` with `ONLY=ocr`). The
+    track grows round them on the same band."""
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    at = css.index("  .sheet-card-page .ocr-toolbar .seg-compact {\n")
+    block = css[at : css.index("}", at)]
+    assert "height: auto;" in block and "min-height: var(--target-min);" in block

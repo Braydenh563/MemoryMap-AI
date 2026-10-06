@@ -970,7 +970,9 @@ async function cmdPaletteAsk(text) {
   const answerBox = document.createElement("div");
   answerBox.className = "agent-step step-answer bubble-answer";
   //: Chat's own waiting line, musing included.
-  answerBox.appendChild(progressLine("Thinking…", { persona: askedPersona, words: true }));
+  //: Driven by `streamChat` below (`progress`), INBOX 649.
+  const askLine = progressLine(null, { persona: askedPersona, words: true });
+  answerBox.appendChild(askLine);
   stepsHolder.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
   paintPersonaAvatar(agentAvatar, askedWriter, 20); // now attached, so p5 can measure and draw
@@ -1043,6 +1045,7 @@ async function cmdPaletteAsk(text) {
   setLabel($("command-palette-status"), `ph:spin Working on: ${shortAsk}`);
   try {
     await streamChat({
+      progress: askLine,
       question: text,
       // The same window the Ask box uses, and for the same reason: enough
       // for a follow-up to mean something, short enough that a small local

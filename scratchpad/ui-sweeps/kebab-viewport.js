@@ -310,19 +310,37 @@ async function runWbMenus(viewport) {
   return out;
 }
 
+// The whole sweep is ~80s on an idle machine, which is the Bash tool's own
+// limit with no room to spare (it was reported as timing out in the dock-menu
+// family, where it was only the clock running out). ONLY=menus|dock|wb runs one
+// family, each well inside it. Every line that is not an OK is a failure now:
+// "opener not found" and "did not open" used to print and still exit 0.
+const ONLY = process.env.ONLY || 'all';
 (async () => {
-  await run({ width: 1440, height: 900 });
-  await run({ width: 1024, height: 768 });
-  await runDockMenus({ width: 1440, height: 900 });
-  // Short enough that every one of these lists opens with less room below
-  // its button than its own content needs -- the shape actually reported.
-  await runDockMenus({ width: 1440, height: 300 });
-  // 1280x640 is the shape the whiteboard menus were reported at; 1440x900
-  // is the control, where nothing should need to escape anything.
-  await runWbMenus({ width: 1440, height: 900 });
-  await runWbMenus({ width: 1280, height: 640 });
-  // Shorter than the tallest menu's own content, so escaping the clipper is
-  // not enough on its own and the cap plus `overflow-y: auto` has to carry
-  // the last rows: the "scrolls when taller" half of the report.
-  await runWbMenus({ width: 1280, height: 420 });
+  const all = [];
+  const want = (name) => ONLY === 'all' || ONLY === name;
+  if (want('menus')) {
+    all.push(...await run({ width: 1440, height: 900 }));
+    all.push(...await run({ width: 1024, height: 768 }));
+  }
+  if (want('dock')) {
+    all.push(...await runDockMenus({ width: 1440, height: 900 }));
+    // Short enough that every one of these lists opens with less room below
+    // its button than its own content needs -- the shape actually reported.
+    all.push(...await runDockMenus({ width: 1440, height: 300 }));
+  }
+  if (want('wb')) {
+    // 1280x640 is the shape the whiteboard menus were reported at; 1440x900
+    // is the control, where nothing should need to escape anything.
+    all.push(...await runWbMenus({ width: 1440, height: 900 }));
+    all.push(...await runWbMenus({ width: 1280, height: 640 }));
+    // Shorter than the tallest menu's own content, so escaping the clipper is
+    // not enough on its own and the cap plus `overflow-y: auto` has to carry
+    // the last rows: the "scrolls when taller" half of the report.
+    all.push(...await runWbMenus({ width: 1280, height: 420 }));
+  }
+  const bad = all.filter((l) => /FAIL|not found|did not open|no document|opener/.test(l));
+  const ok = all.filter((l) => /\bOK\b/.test(l)).length;
+  console.log(bad.length ? `\nFAILED: ${bad.length} (${ok} OK)\n${bad.join('\n')}` : `\nALL OK: ${ok} checks`);
+  process.exit(bad.length ? 1 : 0);
 })();

@@ -3702,7 +3702,19 @@ function wbPickStyle(source, keys) {
   return out;
 }
 
+//: A sticker's glyph size: most of its box's shorter side (decision 44).
+function wbStickerSize(obj) {
+  return Math.max(12, Math.round(Math.min(obj.width || 96, obj.height || 96) * 0.72));
+}
+
 function wbCopySelectedStyle() {
+  //: A map topic's look (MINDMAP_PLAN.md decision 42): pasted onto topics
+  //: only, refused on a shape the way a shape's is refused on a text box.
+  const topic = wbSelectedMapNode();
+  if (topic) {
+    wbCopiedStyle = { kind: "topic", style: wbMapTopicStyle(topic) };
+    return toast("Style copied. Select topics and press Ctrl+Alt+V.");
+  }
   const sketch = wbSelectedSketchOrNull();
   if (sketch) {
     let parsed = null;
@@ -3716,7 +3728,7 @@ function wbCopySelectedStyle() {
     wbCopiedStyle = { kind: "object", style: wbPickStyle(obj.data, WB_OBJECT_STYLE_KEYS) };
     return toast("Style copied. Select a text box and press Ctrl+Alt+V.");
   }
-  toast("Select a shape, link or text box first.");
+  toast("Select a shape, link, text box or topic first.");
 }
 
 async function wbPasteCopiedStyle() {
@@ -3734,7 +3746,14 @@ async function wbPasteCopiedStyle() {
     const list = wbState[WB_LIST_BY_KIND[entry.kind]] || [];
     const item = list.find((i) => i.id === entry.id);
     if (!item) continue;
-    if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
+    if (wbCopiedStyle.kind === "topic") {
+      if (entry.kind === "object" && WB_MAP_KINDS.has(item.kind)) {
+        await wbMapSetNodeStyle(item, { ...wbCopiedStyle.style });
+        applied += 1;
+      } else {
+        skipped += 1;
+      }
+    } else if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
       await wbSaveSketchProps(item, { ...wbCopiedStyle.style });
       applied += 1;
     } else if (entry.kind === "object" && wbCopiedStyle.kind === "object" && item.kind === "text") {
@@ -5527,8 +5546,10 @@ function wbApplyBulkMove(origin, dx, dy) {
 //: drag that begins the gesture, because only it knows what it changed.
 let wbGesture = null;
 
-function wbBeginGesture(restore) {
-  wbGesture = { restore, cancelled: false };
+//: `move` marks the three item drags (a card, a box or topic, a shape), the
+//: gestures the delete target answers (`wbTrashTake`).
+function wbBeginGesture(restore, move = false) {
+  wbGesture = { restore, cancelled: false, move };
   return wbGesture;
 }
 
@@ -5547,8 +5568,142 @@ function wbCancelGesture() {
     gesture.restore?.();
   } finally {
     wbClearAlignmentGuides();
+    wbTrashHide();
   }
   return true;
+}
+
+//: **Drag to delete** (INBOX 660, the owner: "I want to be able to drag
+//: elements on the whiteboard and mindmap onto a popup delete button to
+//: delete them"; Miro, Freeform and every phone home screen do it). While a
+//: card, a box, a shape or a map topic is carried, a target floats at the
+//: foot of the canvas (`.wb-trash`, a `.whiteboard-floating-panel`, so the
+//: glass-off list already holds it); the pointer over it turns it to the
+//: error ink and says "Release to delete". Let go there and the drag is put
+//: back first (the gesture's own `restore`, so nothing moved is saved), then
+//: what was carried is deleted as one Undo step (`wbRecordGesture`, the
+//: selection's own delete) with a toast offering Undo. A topic takes its
+//: branch, as its Delete does (the server deletes the subtree). Escape, or a
+//: drop anywhere else, leaves it a plain move or no move. Keyboard people
+//: keep Delete; the target is pointer-only and hidden from the tree, and its
+//: two states are said in the board's live region.
+//:
+//: It sits above the edge auto-pan's band (3.5rem, `wbEdgePan.band`), so the
+//: board does not scroll away while the pointer travels to it, and the pan
+//: holds still while the pointer is over it.
+const wbTrash = { el: null, rect: null, down: [0, 0] };
+
+function wbTrashTarget() {
+  if (wbTrash.el?.isConnected) return wbTrash.el;
+  const host = document.getElementById("wb-present-bar")?.parentElement;
+  if (!host) return null;
+  wbTrash.el = document.createElement("div");
+  wbTrash.el.className = "whiteboard-floating-panel wb-trash card glass hidden";
+  wbTrash.el.setAttribute("aria-hidden", "true");
+  const icon = document.createElement("i");
+  icon.className = "ph ph-trash";
+  const label = document.createElement("span");
+  label.className = "wb-trash-label";
+  wbTrash.el.append(icon, label);
+  host.appendChild(wbTrash.el);
+  return wbTrash.el;
+}
+
+function wbTrashSetHot(hot) {
+  const el = wbTrashTarget();
+  if (!el) return;
+  el.classList.toggle("wb-trash-hot", hot);
+  el.querySelector(".wb-trash-label").textContent = hot ? "Release to delete" : "Drop here to delete";
+}
+
+function wbTrashHide() {
+  wbTrash.rect = null;
+  if (wbTrash.el) wbTrash.el.classList.add("hidden");
+}
+
+window.addEventListener("pointerdown", (e) => { wbTrash.down = [e.clientX, e.clientY]; }, true);
+window.addEventListener("pointermove", (e) => {
+  const g = wbGesture;
+  if (!g || !g.move || g.cancelled) {
+    if (wbTrash.rect) wbTrashHide();
+    return;
+  }
+  if (!wbTrash.rect) {
+    //: Shown on the drag's first few pixels, never on a click.
+    if (Math.hypot(e.clientX - wbTrash.down[0], e.clientY - wbTrash.down[1]) < 6) return;
+    const el = wbTrashTarget();
+    if (!el) return;
+    wbTrashSetHot(false);
+    el.classList.remove("hidden");
+    wbTrash.rect = el.getBoundingClientRect();
+  }
+  const r = wbTrash.rect;
+  const pad = 8;
+  const over = e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
+  if (over !== Boolean(g.overTrash)) {
+    g.overTrash = over;
+    wbTrashSetHot(over);
+    wbAnnounce(over ? "Over Delete. Release to delete, or move away to keep it." : "Off Delete.");
+  }
+}, true);
+window.addEventListener("pointercancel", () => wbTrashHide(), true);
+
+//: Called first thing by each item drag's end, while the drag still holds
+//: what `restore` needs. True when the drop was on the target: the move is
+//: put back, the gesture is marked cancelled (so the end saves nothing) and
+//: the delete is under way.
+function wbTrashTake(gesture, kind, d) {
+  const hit = Boolean(gesture && gesture === wbGesture && gesture.move && !gesture.cancelled && gesture.overTrash);
+  wbTrashHide();
+  if (!hit) return false;
+  const keys = wbDragIsBulkMove(kind, d.id) ? [...wbMultiSelection] : [wbMultiKey(kind, d.id)];
+  gesture.cancelled = true;
+  try {
+    gesture.restore?.();
+  } finally {
+    wbClearAlignmentGuides();
+  }
+  wbTrashDelete(keys);
+  return true;
+}
+
+async function wbTrashDelete(keys) {
+  const rank = { sketch: 0, node: 1, object: 2 };
+  const ordered = [...keys].sort((a, b) => rank[a.split(":")[0]] - rank[b.split(":")[0]]);
+  const find = (key) => {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    return [kind, (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id)];
+  };
+  const map = wbIsMap();
+  const topics = () => (wbState.objects || []).filter((o) => WB_MAP_KINDS.has(o.kind)).length;
+  const topicsBefore = map ? topics() : 0;
+  wbMultiSelection.clear();
+  clearWbSelection();
+  await wbRecordGesture(async () => {
+    for (const key of ordered) {
+      const [kind, item] = find(key);
+      if (!item) continue;
+      if (kind === "sketch") await wbDeleteSketchRef?.(item);
+      else if (kind === "node") await wbDeleteNodeRef?.(item);
+      else await wbDeleteObjectRef?.(item);
+    }
+  });
+  wbApplySelectionHighlight();
+  wbScheduleRender();
+  const gone = ordered.filter((key) => !find(key)[1]).length;
+  if (!gone) return;
+  const step = wbUndoStack[wbUndoStack.length - 1];
+  const topicsGone = map ? topicsBefore - topics() : 0;
+  const words = topicsGone
+    ? `Deleted ${topicsGone} topic${topicsGone === 1 ? "" : "s"}.`
+    : `Deleted ${gone === 1 ? "1 item" : `${gone} items`}.`;
+  wbAnnounce(words);
+  toastAction(words, "Undo", async () => {
+    //: The toast's Undo is the stack's own step, and only while it is the
+    //: last thing done: Ctrl+Z may already have taken it back.
+    if (wbUndoStack[wbUndoStack.length - 1] === step) await wbUndo();
+  });
 }
 
 //: Put a moved item (and whatever moved with it) back where the drag found
@@ -6411,6 +6566,20 @@ function wbBuildContextMenu(kind) {
             well?.click();
           }
         });
+    });
+
+    //: **Its look as a thing to move about** (MINDMAP_PLAN.md decisions 41
+    //: and 42): Miro's and Photoshop's copy and paste style, and
+    //: Illustrator's Redefine, which hands this topic's look to its level.
+    subItem("Look", sub => {
+      sub("Copy this topic's style", "Ctrl+Alt+C", () => wbCopySelectedStyle());
+      if (wbCopiedStyle?.kind === "topic") sub("Paste style onto this topic", "Ctrl+Alt+V", () => wbPasteCopiedStyle());
+      const level = wbMapLevelOf(mapNode);
+      if (level !== undefined) {
+        sub(`Use this look for ${WB_MAP_LEVEL_NAMES[level]}`,
+          "Every topic at this level that was never given its own look follows", () => wbMapUseLookForLevel(mapNode.id));
+      }
+      sub("How this map looks…", "The hierarchy and each level's look", () => wbMapThemeDialog());
     });
 
     subItem("Lines", sub => {
@@ -9136,7 +9305,10 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       //: And its number on a numbered map (decision 17), as the canvas
       //: draws it: after the box, before the label.
       const place = wbMapNumberOf(exportMapIndex, obj.id);
-      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: An emoji icon is a character, so it travels (decision 46); a
+      //: Phosphor one is the icon font's, which does not.
+      const icon = obj.data?.icon && !/^[a-z0-9-]+$/.test(obj.data.icon) ? `${obj.data.icon} ` : "";
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28, 4, 7.5);
       //: In the map's own face when it has one (§13e's remainder): the file is
       //: the second place a map's text is drawn, and a serif map exported in
       //: sans-serif is two pictures of one map.
@@ -9144,6 +9316,13 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
         fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
         fontFamily: wbMapFontStack() || "sans-serif",
       }));
+    } else if (obj.kind === "text" && obj.data.sticker) {
+      //: A sticker exports as its glyph, centred, at the size it is drawn.
+      const size = wbStickerSize(obj);
+      parts.push(
+        `<text x="${obj.width / 2}" y="${obj.height / 2}" font-size="${size}" text-anchor="middle" ` +
+          `dominant-baseline="central">${wbSvgEscape(obj.data.content || "")}</text>`
+      );
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -12782,7 +12961,7 @@ async function initWhiteboard() {
   function wbEdgePanWanted() {
     if (!(wbEdgePan.buttons & 1) || WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "pan") return false;
     if (wbMarqueeEl && wbMarqueeStart && !wbMarqueeStart.pending) return true;
-    return Boolean(wbGesture && !wbGesture.cancelled && !wbEdgePan.turn);
+    return Boolean(wbGesture && !wbGesture.cancelled && !wbGesture.overTrash && !wbEdgePan.turn);
   }
   //: Screen pixels a frame along one axis: positive moves the board's
   //: content towards the far edge (so the near side comes into view).
@@ -13832,6 +14011,11 @@ async function fetchWhiteboardState() {
     // thing on every single board open.
     await wbRefreshMapState();
     wbSyncMapChrome();
+    //: Here, the one fetch every way onto a board goes through, not only in
+    //: `openWhiteboardBoard`: a map reached from the board picker or made by
+    //: New board kept the board's rail (Notes, Layers, Pages), whose tabs a
+    //: map sends back to Library, so only Library answered (INBOX 657).
+    wbSyncSidebarKind();
     await refreshBoardList();
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
@@ -15663,7 +15847,7 @@ function wbRenderMultiSelectionHandles() {
   stem = group.append("line")
     .attr("class", "wb-rotate-handle-stem")
     .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
-  let spin = null;
+  let spin = null, spinLinks = [];
   spinDot = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
@@ -15674,6 +15858,11 @@ function wbRenderMultiSelectionHandles() {
           event.sourceEvent.stopPropagation();
           spin = wbMultiSnapshot(boxes);
           const rows = spin;
+          //: Each link touching a turned card or box, once (a link between two
+          //: selected items is one path), so its ends follow the turn live.
+          const index = wbLinkSketchIndex();
+          spinLinks = [...new Set(rows.filter((r) => r.entry.kind !== "sketch")
+            .flatMap((r) => wbLinkedSketchesFor(r.entry.item.id, r.entry.kind, index)))];
           groupGesture = wbBeginGesture(() => {
             wbRestoreMultiSnapshot(rows);
             group.attr("transform", null);
@@ -15714,6 +15903,7 @@ function wbRenderMultiSelectionHandles() {
             const el = document.querySelector(WB_SELECTOR_BY_KIND[row.entry.kind](item.id));
             if (el) el.style.transform = wbItemTransform(item);
           }
+          if (spinLinks.length) wbUpdateLinkedSketches(null, spinLinks);
           //: The outline turns with what it contains rather than being
           //: recomputed as a new upright box: a box that stayed level while
           //: its contents turned is the "doesnt rotate with them" half of the
@@ -16109,7 +16299,7 @@ function renderWhiteboard() {
       d._dragOriginalD = parsed ? parsed.d : null;
       d._moveUndoBefore = WB_KIND_INFO.sketch.payload(d);
       d._altCopy = Boolean(event.sourceEvent?.altKey);
-      d._gesture = wbBeginGesture(() => wbRestoreMove("sketch", d));
+      d._gesture = wbBeginGesture(() => wbRestoreMove("sketch", d), true);
       // Raw (never-snapped) running totals, applied fresh from the
       // *original* d each frame, the same fix as `dragging`'s own comment
       // above: re-snapping an already-snapped value every frame discards
@@ -16203,8 +16393,13 @@ function renderWhiteboard() {
         d._linkKind = null;
         return r;
       }
+      if (d._dragOriginalD == null) {
+        delete d._linkedSketches;
+        return;
+      }
+      //: Dropped on the delete target: put back, then deleted (INBOX 660).
+      wbTrashTake(d._gesture, "sketch", d);
       delete d._linkedSketches;
-      if (d._dragOriginalD == null) return;
       const finalD = d._dragLiveD;
       const bulkOrigin = d._bulkOrigin;
       const moveBefore = d._moveUndoBefore;
@@ -16595,6 +16790,10 @@ function renderWhiteboard() {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.node.payload(d);
+        //: The links touching it, found once: a turn moves their endpoints
+        //: as much as a move does, and without this they stayed where the
+        //: unturned box had them until the next move (INBOX 647).
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "node");
         d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -16608,10 +16807,12 @@ function renderWhiteboard() {
           event.sourceEvent.shiftKey
         );
         el.style.transform = wbItemTransform(d);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        delete d._linkedSketches;
         const cancelled = wbEndGesture(d._gesture);
         delete d._gesture;
         //: A press that turned nothing (each half of a double-click is one)
@@ -17207,7 +17408,7 @@ function renderWbObjects(canvas) {
     d._raised = false;
     d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
     d._altCopy = Boolean(event.sourceEvent?.altKey);
-    d._gesture = wbBeginGesture(() => wbRestoreMove("object", d));
+    d._gesture = wbBeginGesture(() => wbRestoreMove("object", d), true);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -17302,6 +17503,8 @@ function renderWbObjects(canvas) {
   async function objDragEnd(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) { const r = dragEndNode.call(this, event, d); d._linkKind = null; return r; }
+    //: Dropped on the delete target: put back, then deleted (INBOX 660).
+    wbTrashTake(d._gesture, "object", d);
     d._linkedSketches = null;
     // Dropped: the paths this drag held references to are about to be
     // replaced by the next render, and a stale element would be updated in
@@ -17502,6 +17705,10 @@ function renderWbObjects(canvas) {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.object.payload(d);
+        //: The links touching it, found once: a turn moves their endpoints
+        //: as much as a move does, and without this they stayed where the
+        //: unturned box had them until the next move (INBOX 647).
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
         d._gesture = wbBeginGesture(() => wbRestoreBox("object", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -17515,10 +17722,12 @@ function renderWbObjects(canvas) {
           event.sourceEvent.shiftKey
         );
         el.style.transform = wbItemTransform(d);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        delete d._linkedSketches;
         const cancelled = wbEndGesture(d._gesture);
         delete d._gesture;
         if (cancelled || (before && (before.rotation || 0) === (d.rotation || 0))) return;
@@ -17531,6 +17740,9 @@ function renderWbObjects(canvas) {
   // node: `wbMapColors` walks the whole tree by design (see its own comment),
   // and calling it from inside a per-node callback would walk it once per node.
   const mapIndex = wbIsMap() ? wbMapIndex() : null;
+  //: Each topic's level (MINDMAP_PLAN.md decision 38), before anything is
+  //: painted or measured: its look, and so its size, depend on it.
+  if (mapIndex) wbMapLevels(mapIndex);
   const mapColors = mapIndex ? wbMapNodeColors(mapIndex) : null;
   const mapFills = mapIndex ? wbMapFills(mapIndex) : null;
   const mapHidden = mapIndex ? wbMapConcealed(mapIndex) : null;
@@ -17817,12 +18029,16 @@ function renderWbObjects(canvas) {
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
+      //: **A sticker** (MINDMAP_PLAN.md decision 44): an emoji with no card,
+      //: its glyph sized to its box, so resizing it is resizing the emoji.
+      const sticker = Boolean(d.data.sticker);
+      el.classed("wb-sticker", sticker);
       //: A card with a fill and no ink of its own takes the ink that reads
       //: on that fill (`wbCoreInkFor`), not the theme's: a dark blue card in
       //: the light theme drew dark text on it (the owner at release, the
       //: README's board shot).
       textEl.style("color", d.data.color || (d.data.bg && wbCoreInkFor(d.data.bg)) || "")
-        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .style("font-size", sticker ? `${wbStickerSize(d)}px` : d.data.font_size ? `${d.data.font_size}px` : "")
         .style("text-align", d.data.align || "")
         .style("font-weight", d.data.bold ? "700" : "")
         .style("font-style", d.data.italic ? "italic" : "");
@@ -17868,8 +18084,18 @@ function renderWbObjects(canvas) {
       //: A topic this pass did not repaint is the size it last measured (a
       //: move is not a resize), and a culled one was not repainted either.
       if (!repainted.has(this) || this.classList.contains("wb-culled")) {
-        if (d.width && d.height) {
-          wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+        //: **The height it was last measured at, not the stored one.** A state
+        //: fetched from the server hands every topic back the server's
+        //: placeholder height (120), while the element on screen is what its
+        //: text needs (44 for one line): a topic this pass did not repaint
+        //: took the 120 into the cache, and `wbMapNodeSize` then put a pan,
+        //: a ring and an edge end 38px off the box (`mapstrip.js` at 1440, 12px
+        //: at 390: the "94px" row, 2 x 47). An element measured once keeps its
+        //: own number; one never measured and not culled is read now below.
+        const known = this._wbMeasuredH;
+        if (d.width && (known || (d.height && this.classList.contains("wb-culled")))) {
+          wbMapNodeSizeCache.set(d.id, { w: d.width, h: known || d.height });
+          if (known) d.height = known;
           return;
         }
         if (this.classList.contains("wb-culled")) return;
@@ -17877,6 +18103,7 @@ function renderWbObjects(canvas) {
       const h = this.offsetHeight;
       if (!h) return;
       wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
+      this._wbMeasuredH = h;
       d.height = h;
     });
   }
@@ -17920,7 +18147,7 @@ function wbObjectPaintKey(d, ctx) {
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
-    `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
+    `|${ctx.fills?.get(d.id) ?? ""}|${wbMapLevelOf(d) ?? ""}` +
     //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
     //: changes this topic's "1/2" without changing anything of its own.
     `|${wbMapTaskTallyKey(index, d.id)}` +
@@ -18098,7 +18325,7 @@ function dragStart(event, d) {
     // Snapshotted before anything below can mutate `d`.
     d._moveUndoBefore = WB_KIND_INFO.node.payload(d);
     d._altCopy = Boolean(event.sourceEvent?.altKey);
-    d._gesture = wbBeginGesture(() => wbRestoreMove("node", d));
+    d._gesture = wbBeginGesture(() => wbRestoreMove("node", d), true);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -18297,6 +18524,8 @@ async function dragEndNode(event, d) {
     }
     d.linkSourceAnchor = null;
   } else {
+    //: Dropped on the delete target: put back, then deleted (INBOX 660).
+    wbTrashTake(d._gesture, "node", d);
     wbClearAlignmentGuides();
     // Sync back to API.
     //
@@ -18809,7 +19038,6 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   await wbMigrateBackground();
   wbApplyBackground();
-  wbSyncSidebarKind();
   renderWbGestureHints();
   //: Rendered now rather than on the next frame, because the framing below
   //: measures the nodes it is about to fit (a map node is `height: auto`, so
@@ -19230,7 +19458,7 @@ const WB_RECORDED = [
   "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",
   "wbMapSetLayout", "wbMapInsertBetween", "wbMapOutdent", "wbMapMoveAmongSiblings",
   "wbApplyMapTemplate", "wbMapTidy", "wbGroupSelection", "wbUngroupSelection",
-  "wbPasteCopiedStyle", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
+  "wbPasteCopiedStyle", "wbMapUseLookForLevel", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
 ];
 for (const name of WB_RECORDED) {
   const plain = window[name];

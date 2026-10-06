@@ -2335,9 +2335,60 @@ function matchReasonBadge(info) {
 // that always has time to arrive first.
 const STREAM_IDLE_TIMEOUT_MS = 150_000;
 
+//: **How long after the notes are in before "Waking the model…"** (INBOX 649).
+//: A model already in memory starts its first token well inside this; one
+//: that is being loaded from disk does not, and that quiet is the only signal
+//: the stream gives, so it is the one honest basis for the phase.
+const MODEL_LOAD_HINT_MS = 5000;
+
+//: **The one place the phase vocabulary meets the stream** (INBOX 649). A
+//: caller that passes `progress` (a `progressLine`) gets its words and shape
+//: driven from the events that really arrive: the request leaving is "Reaching
+//: Atlas…", the server's `status: searching` is "Reading your notes…", `meta`
+//: keeps that while notes were found (the model is reading them) and a quiet
+//: five seconds after it is "Waking the model…", the first reasoning delta is
+//: "Atlas is thinking…", the first answer delta "Atlas is writing…", and a
+//: tool call "Atlas is <verb>…". Every surface that streams shares this, so
+//: none of them keeps a vocabulary of its own. The handlers still run, after
+//: the phase, so a caller can say more but not less.
+function streamChat(options) {
+  const progress = options.progress;
+  if (!progress) return streamChatEvents(options);
+  let timer = null;
+  const phase = (name, detail) => progress.setPhase?.(name, detail);
+  phase("reaching");
+  return streamChatEvents({
+    ...options,
+    onStatus: (event) => {
+      phase("reading");
+      return options.onStatus?.(event);
+    },
+    onMeta: (meta) => {
+      phase(meta?.raw_results?.length ? "reading" : "reaching");
+      timer = setTimeout(() => phase("loading"), MODEL_LOAD_HINT_MS);
+      return options.onMeta?.(meta);
+    },
+    onThinking: (delta) => {
+      clearTimeout(timer);
+      phase("thinking");
+      return options.onThinking?.(delta);
+    },
+    onAnswer: (delta) => {
+      clearTimeout(timer);
+      phase("writing");
+      return options.onAnswer?.(delta);
+    },
+    onTool: (event) => {
+      clearTimeout(timer);
+      phase("tool", event.ok ? toolPhaseVerb(event.label) : null);
+      return options.onTool?.(event);
+    },
+  }).finally(() => clearTimeout(timer));
+}
+
 // The one NDJSON stream reader, shared by the Notes quick-ask and the
 // Chat tab (Wave C). Callers own all rendering via the handlers.
-async function streamChat({
+async function streamChatEvents({
   question,
   history,
   persona,
@@ -2363,6 +2414,7 @@ async function streamChat({
   answeringAgent,
   signal,
   onMeta,
+  onStatus,
   onPlan,
   onStep,
   onResult,
@@ -2523,6 +2575,9 @@ async function streamChat({
         continue;
       }
       if (event.type === "meta") onMeta(event);
+      //: The first byte the server flushes, before retrieval (routes_chat.py,
+      //: `_stream_lines`); it was ignored here until the phase line used it.
+      else if (event.type === "status" && onStatus) onStatus(event);
       else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "step" && onStep) onStep(event);
       else if (event.type === "result" && onResult) onResult(event);
@@ -2798,12 +2853,9 @@ async function askQuestion(preset) {
   }
   //: After the reset, not before it: the progress line lives inside the
   //: answer box now, so creating it first would only have it wiped.
-  const progress = askStatusBusy(
-    modelStatus && modelStatus.embedding_ready
-      ? "Searching your notes by meaning…"
-      : "Searching your notes…"
-  );
-  const say = (text) => (progress ? progress.setStatus(text) : askStatusText(text));
+  //: No words of its own: `streamChat` drives the phase line from the events
+  //: (INBOX 649), "Reaching Atlas…" until the server says it is searching.
+  const progress = askStatusBusy(null);
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
   //: The whole foot goes with it, not only the grounding chips: a sources
@@ -2856,6 +2908,7 @@ async function askQuestion(preset) {
   try {
     // Stream: raw results arrive first, then thinking/answer tokens live.
     await streamChat({
+      progress,
       question,
       history: conversation.slice(-MAX_CLIENT_HISTORY),
       // Sent per turn now that this box has its own picker. It always obeyed
@@ -2875,7 +2928,6 @@ async function askQuestion(preset) {
         renderChatMeta(meta);
         answerMeta = meta;
         groundingRawResults = meta.raw_results || [];
-        say("Reading your notes…");
       },
       onThinking: (delta) => {
         //: Only a stray placeholder, never the progress line itself: that is
@@ -2889,7 +2941,6 @@ async function askQuestion(preset) {
         thinkingBox.open = true;
         thinkingBox.thinkingRaw = (thinkingBox.thinkingRaw || "") + delta;
         thinkingPaint(thinkingBox, thinkingBox.thinkingRaw); // follows the newest line
-        say("The model is thinking…");
       },
       onAnswer: (delta) => {
         //: The first answer token is the moment "waiting" becomes "writing",
@@ -2903,11 +2954,9 @@ async function askQuestion(preset) {
         // before the request because the dots own the "nothing yet" state.
         answerBox.classList.add("is-streaming", "is-generating");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
-        //: The indicator changes shape with the stage, not only its words: a
-        //: three-dot "thinking" animation beside the sentence "the model is
-        //: writing" is the exact mismatch reported of the Chat tab.
-        progress?.setPhase("writing");
-        say("The model is writing…");
+        //: The indicator's shape and words follow the stage (`streamChat`
+        //: sets "writing" before this runs): a three-dot "thinking" animation
+        //: beside the sentence "writing" is the mismatch reported of Chat.
         if (progress && progress.previousElementSibling !== answerBox) answerBox.after(progress);
       },
       onHint: (event) => {

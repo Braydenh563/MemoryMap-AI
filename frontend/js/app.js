@@ -767,39 +767,6 @@ function askPasswordPrompt({ title, message, submitLabel, submit }) {
   });
 }
 
-//: "Unlock private notes": the vault's key, for a session that started
-//: without the password. The token is kept; only the key is loaded.
-async function unlockPrivateNotes() {
-  const opened = await askPasswordPrompt({
-    title: "Unlock private notes",
-    message: "Enter your password to read your private notes.",
-    submitLabel: "Unlock",
-    submit: (password) =>
-      apiJson("/auth/unlock-vault", {
-        method: "POST",
-        body: JSON.stringify({ password }),
-        // 401 here is "wrong password", said beside the field.
-        ownsAuthErrors: true,
-      }),
-  });
-  if (!opened) return false;
-  vaultOpen = true;
-  toast("Private notes unlocked.");
-  await loadEntries().catch(() => {});
-  return true;
-}
-
-//: True when the vault's key is loaded, asking for the password if not.
-async function ensureVaultOpen() {
-  if (vaultOpen === true) return true;
-  const info = await apiJson("/auth/account").catch(() => null);
-  if (info && info.vault_open) {
-    vaultOpen = true;
-    return true;
-  }
-  return unlockPrivateNotes();
-}
-
 //: Modal dialogs and popovers sit in the top layer, above the lock screen,
 //: and make it inert: a lock left them readable and the password field
 //: untypeable. They are put away while it shows and back, as they were,
@@ -1989,12 +1956,16 @@ const LAZY_MODULES = {
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
   reveal: ["/js/reveal-targets.js"],
   onboarding: ["/js/onboarding.js"],
+  tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
   appPalette: ["/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
-  attachTo: ["/js/attach-to.js"],
+  attachTo: ["/js/pick-row.js", "/js/attach-to.js"],
+  vault: ["/js/vault-unlock.js"],
+  //: The one icon and emoji picker, on first use (MINDMAP_PLAN decision 43): see icon-picker.js.
+  iconPicker: ["/css/icon-picker.css", "/js/icon-picker.js"],
   //: Settings groups, each file's header says which (WORLD_CLASS_PLAN rows 21 to 27).
   modelBench: ["/js/model-bench.js"],
   webClip: ["/js/web-clip.js"],
@@ -2025,6 +1996,8 @@ const LAZY_MODULES = {
   companionMenu: ["/js/companion-menu.js"],
   //: A held drag-selection scrolling a list at its edge (drag-edge.js), preloaded below.
   dragEdge: ["/js/drag-edge.js"],
+  //: The back/forward list's rows (INBOX 654): see nav-history.js.
+  navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2042,6 +2015,8 @@ const LAZY_MODULES = {
     "/css/library-lazy.css",
     //: First: the stored undo histories both editors read (undo-store.js).
     "/js/undo-store.js",
+    //: The Attach picker's row, drawn synchronously by the board pickers.
+    "/js/pick-row.js",
     "/js/documents-code.js",
     "/js/documents-prose.js",
     "/js/documents.js",
@@ -2144,11 +2119,10 @@ function lazyScript(file) {
 function ensureModule(name) {
   const files = LAZY_MODULES[name];
   if (!files) return Promise.resolve(false);
-  const pending = lazyModuleLoads.get(name);
-  if (pending) return pending;
-  const loaded = Promise.all(files.map(lazyScript)).then((results) => results.every(Boolean));
-  lazyModuleLoads.set(name, loaded);
-  return loaded;
+  if (!lazyModuleLoads.has(name)) {
+    lazyModuleLoads.set(name, Promise.all(files.map(lazyScript)).then((results) => results.every(Boolean)));
+  }
+  return lazyModuleLoads.get(name);
 }
 
 //: **The note editor's door, kept at boot.** The rendering editor every note
@@ -2220,8 +2194,9 @@ document.addEventListener("keydown", (event) => {
   const lines = value.slice(lineStart, lineEnd).split("\n");
   let next;
   if (event.shiftKey) {
-    if (!lines.some((line) => /^( {1,2}|\t)/.test(line))) return;
-    next = lines.map((line) => line.replace(/^( {1,2}|\t)/, ""));
+    const indent = /^( {1,2}|\t)/;
+    if (!lines.some((line) => indent.test(line))) return;
+    next = lines.map((line) => line.replace(indent, ""));
   } else {
     next = lines.map((line) => `  ${line}`);
   }
@@ -2274,6 +2249,8 @@ const LAZY_ENTRY_POINTS = {
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
   chordGuide: ["showTabJumpHint"],
+  //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
+  iconPicker: ["openIconPicker"],
   //: Async, and reached from a Settings pane drawn before the window's own await.
   settingsControls: ["refreshSearxngHost"],
   settingsData: [
@@ -2296,9 +2273,11 @@ const LAZY_ENTRY_POINTS = {
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],
+  tour: ["openTour", "renderTourReplay"],
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
+  vault: ["unlockPrivateNotes", "ensureVaultOpen"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
   askHistory: [

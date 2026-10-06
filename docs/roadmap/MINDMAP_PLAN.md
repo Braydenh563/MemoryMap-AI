@@ -1646,3 +1646,126 @@ transport for its tests and the no-model fallback measured in a sweep:
   checked against the notebook, each marked supported, contradicted or not
   found, with the note.
 
+
+## 14. Core nodes, levels and the icon library (INBOX 641, 642; mc1, 2026-10-05)
+
+The owner, 2026-10-05: "I'm still not happy on the mindmap with how the core
+nodes work and can be customised as well as with the icons in them", and "an
+emoji and icon widget library which can be dragged and placed in the
+whiteboard and mindmap and which are also available in text editors and
+formatting toolbars". Read against Coggle, XMind, Miro, Illustrator and
+Photoshop.
+
+### 14.1 Measured before anything was designed
+
+Moved to HISTORY.md ("Moved from the plans, 2026-10-05 (MINDMAP_PLAN §14, mc1)"), with the build record: the centre, a branch and a leaf drew identically (13.6px, 400, 31px).
+
+### 14.2 What the five apps do, and what is taken
+
+| App | What it does | Taken as |
+| --- | --- | --- |
+| XMind | A theme styles Central topic, Main topic and Subtopic separately; floating topics have their own | Levels (decision 38) and the hierarchy presets (decision 39) |
+| Coggle | The centre is a large bold card; branches are thick tapered lines; deeper topics are text on the line | The Outline preset; main branches thick by default |
+| Illustrator | Graphic styles: a named look, linked, "Redefine graphic style" updates every object wearing it; Symbols dragged from a panel; the eyedropper copies appearance | Level styles are linked looks; "Use this look for its level" is Redefine (decision 41); stickers (decision 44) |
+| Photoshop | Copy and Paste layer style; the Glyphs panel: search, recent, insert into text | Copy and paste a topic's style (decision 42); the picker's search and Recent row (decision 43) |
+| Miro | Copy style and Paste style (Ctrl+Alt+C, V); an icon and emoji panel dragged onto the board; reactions | Paste style reaches topics; drag from the picker onto the canvas |
+
+Not taken now, kept open under INBOX 641: Illustrator's linked symbol
+instances (edit one, every placed copy follows), Photoshop's layer effects
+(shadow, glow, stroke per topic), Miro's reaction stamps and voting, and the
+whiteboard half of 641's research (beyond stickers).
+
+### 14.3 Decisions made (do not remake)
+
+38. **A topic draws as its level unless told otherwise** (taken 2026-10-05,
+    mc1). Three levels: 0 is the centre (a root with topics under it, or the
+    only topic on the map), 1 the main branches (its children), 2 every
+    topic deeper, and a free root with nothing under it (a floating topic,
+    XMind's own fourth style, drawn as a sub-topic). The level is worked out
+    in the render's one walk of the tree (`wbMapLevels`) and painted as
+    `data-level`, never stored on a topic: dragging a branch to another
+    parent changes its look with its place, which is what a level means.
+39. **The hierarchy is a named preset on the theme, resolved at paint**
+    (decision 9's rule, extended). `theme.hierarchy` names one of four:
+    Classic (the default, stored as no value: centre 22px bold on a pill
+    filled in the accent, main branches 17px bold with a tinted card and a
+    thick line), Outline (Coggle: the centre as Classic, everything else
+    plain text on its line), Boxed (XMind: a filled box per level) and Flat
+    (every topic as before this section, for a person who wants that). Every
+    map made before this draws Classic, since the owner asked for a
+    hierarchy by default; Flat is one choice away and one Undo back.
+40. **A level's own look overrides its preset, and a topic's own look
+    overrides both** (taken 2026-10-05). `theme.levels` holds up to seven
+    fields per level (text size, bold, italic, box shape, edge bar, fill,
+    line thickness), sent and stored whole, so Undo puts the whole set back.
+    The order a field is read in: the topic's own value, its level's,
+    its preset's, the map-wide theme's, the app's. The map-wide theme stays
+    what it was (decision 8's ten fields), now underneath the levels: setting
+    every topic's size map-wide no longer flattens the centre.
+41. **"Use this look for its level" is Illustrator's Redefine** (taken
+    2026-10-05). On a topic's menu: the topic's own looks (the level fields)
+    are written into its level's style and dropped from the topic, one
+    request for the theme and one per changed topic, one Undo step, so every
+    topic at that level that was never told otherwise follows. "Reset to
+    branch" stays the way back for one topic.
+42. **Copy style and Paste style reach topics** (taken 2026-10-05). Ctrl+Alt+C
+    on a topic copies its look (`WB_MAP_STYLE_KEYS` less `link`, the line's
+    label and its waypoint: what a topic *is* never travels); Ctrl+Alt+V
+    pastes onto every selected topic, one Undo step. A topic's style pasted
+    on a shape, or a shape's on a topic, is refused out loud as before.
+43. **One icon and emoji picker, one lazy module** (taken 2026-10-05).
+    `icon-picker.js` and its stylesheet, fetched on first use by
+    `pickIconOrEmoji` (editor.js: app.js is at its gzip ratchet), never a
+    second grid: a `.help-popover.icon-picker`
+    placed by `placeHelpPopover`, a search field, Emoji and Icons as a `.seg`,
+    a Recent row first (this device, twenty), category heads, and one
+    `role="listbox"` grid of `role="option"` tiles (arrows move, Enter
+    picks, Escape closes and gives focus back). Icons are the vendored
+    Phosphor names read off its own stylesheet (no list to keep in step);
+    emoji are a curated set of about 470 in nine groups with their
+    Unicode names, written as escapes like `DOC_EMOJI_SOURCE`. Nothing is
+    fetched. Every tile is draggable, carrying its glyph as text (so a drop
+    into any text box inserts it) and as `application/x-memorymap-icon`.
+44. **A dropped icon is a sticker; dropped on a topic it is that topic's
+    icon** (taken 2026-10-05). On a board or a map's empty canvas: an emoji
+    becomes a text object with `sticker: true` (no card, the glyph sized to
+    its box, resized as any object is); a Phosphor icon is the Library's own
+    vector icon (`wbLibIconEntry`, placed through `/place`, so it recolours
+    and exports as a shape). Dropped on a topic, either sets `data.icon`.
+    Each is one Undo step. The board's Insert menu opens the picker for a
+    person without a mouse; a picked tile is placed at the middle of the view.
+45. **A topic's icon is one slot: a Phosphor name or one emoji** (taken
+    2026-10-05). `data.icon` keeps its name and widens its rule: either the
+    Phosphor pattern it had or a single emoji (at most 16 code points, no
+    ASCII, no markup); the paint pass tells them apart by that pattern. The
+    exports carry it as `_icon` already. Decision 34 stands: markers stay
+    Phosphor only, because a marker is read across a map and an emoji is
+    drawn differently by every system.
+46. **In text, an emoji is a character and an icon is `:ph-name:`** (taken
+    2026-10-05). The note and document formatting toolbars, the document's
+    Insert menu and the "/" menu open the picker; an emoji goes in as itself
+    (it survives any export), an icon as the token `:ph-name:`, which the
+    reading view draws as the glyph (`renderInlineMarkdown`, outside code)
+    and every other reader sees as the words.
+47. **The Centre's Enter adds a main branch** (taken 2026-10-05; XMind and
+    Coggle). On the level-0 topic, Enter and Shift+Enter add a child, since a
+    second centre is never what was meant; a floating topic's Enter keeps
+    adding a free topic beside it.
+
+### 14.4 What is open
+
+Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
+(MINDMAP_PLAN §14, mc1)"). Open, from INBOX 641 and §14.2's "not taken now":
+
+- **Linked stickers** (Illustrator's symbols): edit one placed icon or emoji
+  and every copy follows. Needs a `library_ref` that is followed, which
+  decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
+- **Topic effects** (Photoshop's layer styles): shadow and glow per topic and
+  per level; a level field each, under decision 40's rule.
+- **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
+- **The whiteboard half of 641's research**, beyond stickers.
+- The exported picture draws every topic as one box: the levels, shapes and a
+  Phosphor icon do not reach PNG or SVG (an emoji icon does, as text).
+- The document editor's `:shortcode:` completion keeps its own 248-entry table
+  (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
+  can wait on the picker's script.

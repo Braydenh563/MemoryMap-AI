@@ -72,7 +72,7 @@ def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
         __import__("pathlib").Path(__file__).resolve().parent.parent
         / "frontend" / "js" / "help-chat.js"
     ).read_text(encoding="utf-8")
-    assert "async function helpChatStreamTurn({ pending, signal, body })" in settings
+    assert "async function helpChatStreamTurn({ pending, signal, body, line = null })" in settings
     assert 'api.stream("/help/ask/stream"' in settings
     #: The one-shot route stays as the fallback for a proxy that buffers.
     assert 'return apiJson("/help/ask", {' in settings

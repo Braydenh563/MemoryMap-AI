@@ -462,6 +462,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "progress": None,
         "flag": None,
         "markers": None,
+        #: An emoji placed as a sticker (MINDMAP_PLAN decision 44); None on a plain text.
+        "sticker": None,
     }
 
     moved = board_client.put(

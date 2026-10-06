@@ -49,34 +49,47 @@ with its owner named in the entry.
      sub-tabs, segmented controls and the Settings sidebar, under the
      Interface animations toggle).
 
-641. **The owner, 2026-10-05, verbatim.** "can we take anything more from
-     applications like coggle.it, adobe illustrator, adobe photoshop, and miro
-     for the whiteboard and mind map?? I'm still not happy on the mindmap with
-     how the core nodes work and can be customised as well as with the icons
-     in them." Placed: an Opus research and design pass. It compares those
-     four apps against the board and the map, then redesigns the map's core
-     nodes and node icons, and writes the result into MINDMAP_PLAN and
-     WHITEBOARD_PLAN with decisions, before anything is built.
+645. **The owner, 2026-10-05, verbatim.** "Once everything is done, update the
+     pr title and description, update the screenshots on the readme, can your
+     redesign and remake the GitHub pages landing site?? Make it professional
+     and in the image of MemoryMap AI. Make it detailed, and include key
+     links, it for some reason struggles to load the documents from the repo
+     so I think we should remove them and just have a solid landing site
+     which doesn't really have a problem with having to be kept up to date
+     yk?? Then once that is finished. Ensure all the documentation is
+     correct, make sure the release is ready for v0.4.0 and then lemme know
+     when it's ready to merge, before that do a final scan for bugs, security
+     flaws, codeql and ci issues you may have missed." Placed: the release
+     close-out, in this order once 640, 642 and the buildable items land
+     (641's remainder, 643, 644 and 646 went to the next PR, ROADMAP top):
+     fresh README screenshots (`docs/screenshots/`), an Opus agent rebuilding
+     `docs/index.html` as a static landing page (no fetch of repo docs, links
+     out to GitHub instead; **built bdbad35**: one self-contained page, no
+     request beyond its own screenshots, no overflow at 320 to 1920, text
+     4.5:1 or better in light and dark, `tests/test_docs_site.py` pins it), a documentation correctness pass, version 0.4.0
+     and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
+     then the PR title and description, then the owner is told it is ready.
 
-642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
-     library which can be dragged and placed in the whiteboard and mindmap and
-     which are also available in text editors and formatting toolbars."
-     Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
-     local), draggable onto boards and maps and insertable from the editors'
-     formatting toolbars.
-
-643. **The owner, 2026-10-05, verbatim.** "Can we take anything from
-     Microsoft onenote??" Placed: with 641, as a research pass over notes,
-     pages, sections, ink and tags, compared with what MemoryMap has.
-
-644. **The owner, 2026-10-05, verbatim.** "Can you also redesign and expand
-     and improve the meeting notes feature?? I feel like it is neglected and a
-     bit left behind and tucked away." With it: "Hold the release until these
-     things are done. Just make sure all the open items are completed as well,
-     that there are no bugs, and that everything is polished." Placed: the
-     Opus research and design pass with 641 to 643, then a build agent.
-     Decision taken: release 0.4.0 waits for 640 to 644 and every buildable
-     non-backlog open item.
+648. **The owner, 2026-10-05, verbatim.** "Make sure you finish everything that
+     is left except for the large backlog, work toast and token efficiently.
+     Polish all the small things that make the app feel more professional and
+     reliable. For ma the largest things that make me not want to use an app
+     are ui issues, loss of work to data with no way to retrieve or undo it,
+     poor usability and learnability, and features that don't work how they
+     should. The small things pile up and then I don't want to put my time and
+     effort into actually using the application. I don't want this to happen.
+     I want to be able to use it without worry like a professional
+     application, I want a satisfying experience and the same for my friends
+     who I try to get to use the program. Make sure it is the best thing to
+     ever grace the planet even if no ai model is available. And I was
+     wondering if we should rename the write with atlas/ai subtab to the
+     writing room or smth??" Placed: the end-to-end agent's brief now covers,
+     per flow, no unrecoverable loss (undo, trash or confirm; unsaved edits
+     survive a tab switch, reload and restart), every flow with no model
+     configured, and learnability (labels, tooltips, empty states). Decision
+     taken on the rename: the sub-tab is "Writing room" (built this commit;
+     the panel id was already `writing-room`, the Guide still answers to
+     "write with atlas").
 
 ## Placed (last 20, newest first)
 

@@ -853,59 +853,8 @@ function closeNavHistoryMenu() {
   if (held) $("status-nav-history")?.focus({ preventScroll: true });
 }
 
-function renderNavHistoryMenu() {
-  const menu = $("status-nav-history-menu");
-  if (!menu) return;
-  menu.replaceChildren();
-  if (!tabHistory.stack.length) {
-    const empty = document.createElement("div");
-    empty.className = "muted";
-    empty.style.padding = "0.4rem 0.6rem";
-    empty.textContent = "Nowhere visited yet this session.";
-    menu.appendChild(empty);
-    return;
-  }
-  // Asked for directly: "instead of squishing it, just make it scrollable
-  // and/or cap the history stored". Both, and this is the cap half. The
-  // stack itself stays at TAB_HISTORY_CAP so Back/Forward can still walk a
-  // long way; what gets capped is how much of it this menu draws, because a
-  // jump list is for the handful of places you were just at - past a dozen
-  // rows you are reading a log, not picking a destination. The `.hidden`
-  // path below and `max-height`/`overflow-y: auto` in
-  // 02-chat-graph.css keep the rest scrollable rather than clipped.
-  const NAV_HISTORY_SHOWN = 12;
-  const oldest = Math.max(0, tabHistory.stack.length - NAV_HISTORY_SHOWN);
-  for (let i = tabHistory.stack.length - 1; i >= oldest; i--) {
-    const entry = tabHistory.stack[i];
-    const current = i === tabHistory.index;
-    const item = document.createElement(current ? "div" : "button");
-    if (!current) item.type = "button";
-    item.className = current ? "nav-history-item nav-history-current" : "nav-history-item";
-    item.setAttribute("role", "menuitem");
-    setLabel(item, `${current ? "ph:map-pin " : ""}${entryLabel(entry)}`);
-    if (current) {
-      item.title = "You're here";
-      //: Focusable by the arrows only, so a history of one (the page you are
-      //: on) still has a row for ArrowDown to land on.
-      item.tabIndex = -1;
-      item.setAttribute("aria-current", "page");
-    } else {
-      item.addEventListener("click", () => {
-        closeNavHistoryMenu();
-        goToTabHistory(i);
-      });
-    }
-    menu.appendChild(item);
-  }
-  // Say so rather than silently truncating: a jump list that quietly forgets
-  // where you were is worse than one that admits its own limit.
-  if (oldest > 0) {
-    const more = document.createElement("div");
-    more.className = "muted text-xs nav-history-more";
-    more.textContent = `${oldest} older ${oldest === 1 ? "step" : "steps"} not shown`;
-    menu.appendChild(more);
-  }
-}
+//: The rows (`renderNavHistoryMenu`) are nav-history.js's, a lazy bundle
+//: fetched by the first press (`LAZY_MODULES.navHistory`).
 
 // Opens upward, anchored to whichever of the three triggers was used, the
 // status bar sits at the very bottom of the screen, so there is no "below"
@@ -913,9 +862,9 @@ function renderNavHistoryMenu() {
 // inline top/left computed here is the same escape-a-container shape
 // `wireEscapedActionMenu` already uses for the Documents kebab, just
 // triggered manually instead of by a class toggle.
-function openNavHistoryMenu(anchorEl) {
+async function openNavHistoryMenu(anchorEl) {
   const menu = $("status-nav-history-menu");
-  if (!menu) return;
+  if (!menu || !(await ensureModule("navHistory"))) return;
   renderNavHistoryMenu();
   menu.classList.remove("hidden");
   $("status-nav-history")?.setAttribute("aria-expanded", "true");
@@ -2168,7 +2117,7 @@ const NOTES_SECTION_STORE = "notesSection";
 // --- a new session starts at the front of every tab ----------------------------
 //
 // Reported directly: "Ive had times where I log into the app, click on the
-// notes tab, and the tab is selected on 'Write with Atlas' instead of 'Your
+// notes tab, and the tab is selected on 'Writing room' instead of 'Your
 // Notes' because that must have been what I was on last."
 //
 // **Which sub-tab you are on is not a preference; it is where you happen to

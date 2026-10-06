@@ -1188,7 +1188,7 @@
           <button role="tab" data-section="capture" aria-selected="false"
             aria-controls="capture" tabindex="-1">Capture</button>
           <button role="tab" data-section="writing-room" aria-selected="false"
-            aria-controls="writing-room" tabindex="-1">Write with Atlas</button>
+            aria-controls="writing-room" tabindex="-1">Writing room</button>
           <button role="tab" data-section="ask" aria-selected="false"
             aria-controls="ask" tabindex="-1">Ask</button>
           <button role="tab" data-section="questions" aria-selected="false"
@@ -1326,6 +1326,7 @@
               <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> <span class="toolbar-word">List</span></button>
               <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Task</span></button>
               <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="emoji" title="Emoji or icon" aria-label="Emoji or icon"><i class="ph ph-smiley" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <!-- Live or Source (INBOX 430): the box renders as you type; this
                    shows the markdown as typed instead (wiring.js setNoteSource). -->
@@ -1480,20 +1481,20 @@ Link to another note with [[its first few words]]."></textarea>
                thing it is for. "Draft" is the surface's single primary and the
                rest of the desk is what it acts on. -->
           <div class="dock" data-dock-name="writing-room" role="toolbar"
-            aria-label="Writing desk controls">
+            aria-label="Writing room controls">
             <div class="dock-identity">
-              <h2 id="writing-room-heading">Write with Atlas</h2>
+              <h2 id="writing-room-heading">Writing room</h2>
             </div>
             <div class="dock-actions">
-              <!-- Which model writes it: the Write with Atlas row of
+              <!-- Which model writes it: the Writing room row of
                    Settings, Models, the same preference through the same
                    call (`syncFeatureModelSelects`), so the two agree. In the
                    dock rather than with the draft's own options: it is a
                    choice about the surface, not about this draft, and beside
                    them it pushed "Use notes" onto a second row at 1440. -->
               <select id="draft-feature-model" class="small-select feature-model-select"
-                aria-label="Model for Write with Atlas"
-                title="The model that writes here, the same choice as the Write with Atlas row in Settings, Models"><option value="">Inherited</option></select>
+                aria-label="Model for the Writing room"
+                title="The model that writes here, the same choice as the Writing room row in Settings, Models"><option value="">Inherited</option></select>
               <button id="draft-cancel" class="ghost hidden" type="button"
                 title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
               <button id="draft-undo" class="ghost small" type="button" disabled
@@ -1731,7 +1732,7 @@ Link to another note with [[its first few words]]."></textarea>
                    header, not the query row: there it and the length select
                    left the question box 290px of an 810px row at the desktop
                    window, and it is a choice about the surface, not the
-                   question (the same move Write with Atlas made). -->
+                   question (the same move Writing room made). -->
               <select id="ask-feature-model" class="small-select feature-model-select"
                 aria-label="Model for the Ask tab"
                 title="The model that answers here, the same choice as the Ask tab row in Settings, Models"><option value="">Inherited</option></select>
@@ -4638,6 +4639,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="doc-dock-menu-item" data-md="codeblock" title="Code block"><i class="ph ph-code-block ph-lead" aria-hidden="true"></i> Code block</button>
               <button type="button" class="doc-dock-menu-item" data-md="table" title="Table"><i class="ph ph-table ph-lead" aria-hidden="true"></i> Table</button>
               <button type="button" class="doc-dock-menu-item" data-md="hr" title="Divider"><i class="ph ph-minus ph-lead" aria-hidden="true"></i> Divider</button>
+              <button type="button" class="doc-dock-menu-item" data-md="emoji" title="Emoji or icon"><i class="ph ph-smiley ph-lead" aria-hidden="true"></i> Emoji or icon…</button>
             </div>
           </details>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
@@ -5941,6 +5943,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="open-library"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span>Shapes, icons and frames…</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="insert-sticker"><i class="ph ph-smiley-sticker ph-lead" aria-hidden="true"></i><span>Emoji and icons…</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="import-diagram" data-wb-surface="board"><i class="ph ph-flow-arrow ph-lead" aria-hidden="true"></i><span>Mermaid or board SVG…</span></button>
             </div>
             <div class="wb-menu-section">
@@ -6325,7 +6328,9 @@ Link to another note with [[its first few words]]."></textarea>
             Double-click a line to label it, and its grip to straighten it.
             More, Branch draws a boundary round a branch or summarises a
             topic (select several side by side to summarise them together);
-            More, Topic, Comment… starts a thread on it. View, Present
+            More, Topic, Comment… starts a thread on it. More, Look copies a
+            topic's style, pastes it, or gives it to every topic at its level;
+            View, How this map looks sets the hierarchy and each level. View, Present
             branches shows the map one branch at a time; Esc ends it.
           </p>
           <p>
@@ -6917,6 +6922,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="">No fill</option>
                 <option value="self" data-short="This topic">Fill this topic</option>
                 <option value="branch" data-short="Its branch">Fill with its branch</option>
+                <option value="solid" data-short="Solid">Solid colour</option>
               </select>
             </div>
           </div>
@@ -8689,7 +8695,7 @@ Link to another note with [[its first few words]]."></textarea>
                   a small quick one for the Guide.
                 </p>
                 <p>
-                  The Chat tab, the Ask tab and Write with Atlas each have the
+                  The Chat tab, the Ask tab and the Writing room each have the
                   same choice in a dropdown beside where you type. It is the
                   same setting: change it in either place and the other follows.
                 </p>
@@ -9880,13 +9886,38 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
 
             <!-- ---------- Effects & accessibility ---------- -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="motion-help" aria-controls="motion-help" aria-expanded="false"
+                title="About motion" aria-label="About motion">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="appearance-effects">
-              <summary><h3 class="inline-h3">Effects &amp; accessibility</h3></summary>
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Effects &amp; accessibility</h3>
+                <span class="fold-help-slot" aria-hidden="true"></span>
+              </div></summary>
+              <div class="help-body hidden" id="motion-help" role="dialog" aria-label="About motion">
+                <p>
+                  Two switches, two kinds of motion. Reduce motion stills the
+                  large movement: Atlas, the background art, the graph's
+                  layout and the whiteboard, and so does your system's
+                  reduced-motion setting.
+                </p>
+                <p>
+                  Interface animations are the short ones that say what
+                  happened: a button pressing in, a menu or dialog opening from
+                  where you clicked, a tab's marker sliding to the new tab, a
+                  list settling, a toast arriving. They are on by default and
+                  play even with Reduce motion on; turn them off and every one
+                  of them is instant.
+                </p>
+              </div>
 
               <div class="setting-row" id="perf-mode-row">
                 <div class="setting-label">
                   <span>Performance mode</span>
-                  <small class="muted">Flat panels, no animations, slower graph physics. Auto: on for a machine with 2 cores or 4 GB or fewer.</small>
+                  <small class="muted">Flat panels, still background, slower graph physics. Auto: on for a machine with 2 cores or 4 GB or fewer.</small>
                   <small class="muted hint-inline hidden" id="perf-mode-hint"></small>
                 </div>
                 <select id="perf-mode" class="small-select setting-control" aria-label="Performance mode">
@@ -9972,9 +10003,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <div class="setting-label">
                   <span>Progress indicators</span>
                   <small class="muted">
-                    Thinking and writing dots. These are feedback rather than
-                    decoration, so they keep moving through Reduce motion below
-                    unless you say otherwise.
+                    The dots and the line beside them that says what Atlas is
+                    doing (reaching, reading your notes, thinking, writing).
+                    These are feedback rather than decoration, so they keep
+                    moving through Reduce motion below unless you say otherwise.
                   </small>
                   <small class="muted hint-inline hidden" id="progress-motion-hint"></small>
                 </div>
@@ -9999,11 +10031,23 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="reduce-motion-toggle">
                 <span>
                   Reduce motion
-                  <small class="muted">Turns off animations and transitions.</small>
+                  <small class="muted">Stills the large movement: Atlas, the background art, the graph and the whiteboard.</small>
+                </span>
+              </label>
+
+              <!-- The interface's own motion, a switch of its own (the owner,
+                   2026-10-05): on by default, and on means it plays even with
+                   Reduce motion or the system's reduced-motion setting on. -->
+              <label class="setting-check" id="ui-motion-row">
+                <input type="checkbox" id="ui-motion-toggle" checked>
+                <span>
+                  Interface animations
+                  <small class="muted">Short fades and slides as menus, dialogs and tabs open, and a press on buttons.</small>
                 </span>
               </label>
 
             </details>
+            </div>
 
             <!-- ---------- Atlas and faces ----------
                  Its own fold rather than the tail of Effects & accessibility
@@ -13172,11 +13216,8 @@ Link to another note with [[its first few words]]."></textarea>
        whose own tail starts the art; this file only defines. -->
   <script src="/js/bg-art.js?v=0.3.32"></script>
   <script src="/js/settings.js?v=0.3.32"></script>
-  <!-- The guided tour (tour.js). Last, and its position is not load-bearing:
-       every cross-file call it makes (switchTab, showNotesSection, toast) runs
-       from a step or a listener, never while the file is being parsed. app.js
-       reaches back the same way, behind a `typeof openTour === "function"`
-       guard, so a page served without this file still boots. -->
-  <script src="/js/tour.js?v=0.3.32"></script>
+  <!-- The guided tour (tour.js) is a lazy bundle (`tour` in LAZY_MODULES,
+       app.js): `openTour` and `renderTourReplay` are stand-ins that fetch it
+       the first time a tour starts or Settings, Help is shown. -->
 </body>
 </html>

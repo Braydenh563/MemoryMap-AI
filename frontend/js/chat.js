@@ -2615,6 +2615,51 @@ function stopThinkingWordRotation(dots) {
   dots._thinkingWordTimer = null;
 }
 
+//: **One phase vocabulary for every chat surface** (INBOX 649, the owner: the
+//: "thinking..." text "should change based on the state like for if it is
+//: waiting for the first token, thinking, or writing etc. maybe the wording
+//: can be more atlas themed ... just to help with information architecture").
+//: Decided, not to be remade: waiting for the first token "Reaching Atlas…",
+//: a model loading "Waking the model…", retrieval "Reading your notes…",
+//: reasoning tokens "Atlas is thinking…", answer text "Atlas is writing…", a
+//: tool call "Atlas is <tool verb>…". A persona's name replaces Atlas. The
+//: indicator keeps its own two shapes (dots, or the writing trace under
+//: "writing", which CSS keys off `data-phase`); only the words have six
+//: states. Every surface
+//: drives it through `progressLine(...).setPhase(name, detail)`, and the shared
+//: stream client (`streamChat`, capture-ask.js) does so from the events that
+//: really arrive, so no surface invents a stage.
+const PROGRESS_PHASES = {
+  reaching: (who) => `Reaching ${who}…`,
+  loading: () => "Waking the model…",
+  reading: () => "Reading your notes…",
+  thinking: (who) => `${who} is thinking…`,
+  writing: (who) => `${who} is writing…`,
+  tool: (who, verb) => `${who} is ${verb || "using a tool"}…`,
+};
+
+function progressPhaseText(phase, persona = null, detail = null) {
+  if (!PROGRESS_PHASES[phase]) return null;
+  return PROGRESS_PHASES[phase](personaDisplayName(persona), detail);
+}
+
+//: **A tool's own label, as the verb of the sentence.** The harness labels a
+//: call in the past tense once it has run (`ph:books Listed notes`, `Searched
+//: notes for “x”`), the only label there is; its first word becomes the
+//: present participle ("listing notes", "searching notes for “x”"). Regular
+//: past tenses lose their `ed` and gain `ing` (`Saved` to `saving`, `Tagged` to
+//: `tagging`), the few irregulars the harness uses are listed, and a label that does not
+//: open with a verb ("No path between #1 and #2") gives null, which the phase
+//: renders as "using a tool".
+const TOOL_VERB_IRREGULAR = { read: "reading", found: "finding", put: "putting", got: "getting", took: "taking", drew: "drawing" };
+
+function toolPhaseVerb(label) {
+  const [first = "", ...rest] = String(label || "").replace(/^ph:[\w-]+\s*/, "").trim().split(/\s+/);
+  const lower = first.toLowerCase();
+  const verb = TOOL_VERB_IRREGULAR[lower] || (/^[a-z]{3,}ed$/.test(lower) && `${lower.slice(0, -2)}ing`);
+  return verb ? [verb, ...rest].join(" ") : null;
+}
+
 //: `words`: opt in, not automatic. Most callers (an OCR read, a caption, a
 //: generic "Loading…") are not "the AI is thinking about your question",
 //: and a persona's voice rotating beside them would be decoration with
@@ -2622,7 +2667,8 @@ function stopThinkingWordRotation(dots) {
 //: caller (the same value the request itself was sent with, `chat-attach.js`'s
 //: own `sentPersona`, `palette.js`'s `askedPersona`), never read back off a
 //: live picker here.
-function typingDots(label = "Thinking…", { persona = null, words = false } = {}) {
+function typingDots(label = null, { persona = null, words = false } = {}) {
+  label = label || progressPhaseText("reaching", persona);
   const dots = document.createElement("span");
   //: `typing-dots` is kept as the class even though this is now two
   //: indicators: existing CSS keys off it, and so does the code that removes
@@ -2652,6 +2698,7 @@ function typingDots(label = "Thinking…", { persona = null, words = false } = {
     //: cross-fade or the line would stutter on each token.
     dots.setPhase = (phase) => {
       const next = phase === "writing" ? "writing" : "thinking";
+      dots.dataset.phaseName = phase;
       if (dots.dataset.phase !== next) {
         dots.dataset.phase = next;
         if (next === "writing") stopThinkingWordRotation(dots);
@@ -2682,13 +2729,17 @@ function typingDots(label = "Thinking…", { persona = null, words = false } = {
   dots.classList.add("typing-dots-stepped");
   const word = document.createElement("span");
   word.className = "typing-word";
-  word.textContent = "Thinking";
+  //: The caller's own words first (`label` is this branch's whole voice), then
+  //: the phase vocabulary's, so a standalone indicator under reduced motion
+  //: says "Atlas is writing…" rather than one of two bare words.
+  word.textContent = label;
   dots.appendChild(word);
-  dots.setPhase = (phase) => {
+  dots.setPhase = (phase, detail) => {
     const next = phase === "writing" ? "writing" : "thinking";
-    if (dots.dataset.phase === next) return;
+    dots.dataset.phaseName = phase;
     dots.dataset.phase = next;
-    word.textContent = next === "writing" ? "Writing" : "Thinking";
+    const text = progressPhaseText(phase, persona, detail);
+    if (text && word.textContent !== text) word.textContent = text;
   };
   return dots;
 }
@@ -2719,15 +2770,33 @@ const MUSING_DELAY_MS = 2500;
 //: minute-long wait is not one sentence.
 const MUSING_ROTATE_MS = 7000;
 
-function progressLine(initial = "Thinking…", opts = {}) {
+function progressLine(initial = null, opts = {}) {
+  initial = initial || progressPhaseText("reaching", opts.persona);
   const wrap = document.createElement("span");
   wrap.className = "progress-line";
   const indicator = typingDots(initial, opts);
   wrap.appendChild(indicator);
+  //: **Motion off: one line of words, not two.** The stepped indicator is a
+  //: pulsing word of its own, which beside this line's label would read
+  //: "Reaching Atlas… Reaching Atlas…". Here the label is the readable,
+  //: pulsing line (`.progress-line-still`), and the indicator stays in the
+  //: accessibility tree, clipped, because it is the row's `role="status"`.
+  if (indicator.classList.contains("typing-dots-stepped")) {
+    wrap.classList.add("progress-line-still");
+    indicator.classList.add("visually-hidden");
+  }
   //: Forwarded rather than reached for: callers hold the `progressLine`, not
   //: the dots inside it, and a caller poking at `.querySelector(".typing-dots")`
   //: would break the moment this component changed shape.
-  wrap.setPhase = (phase) => indicator.setPhase?.(phase);
+  //: One call changes the indicator's shape and the words beside it, from the
+  //: one table (`PROGRESS_PHASES`); `setStatus` stays for a caller's own line
+  //: (a step's name) and is idempotent on the same text.
+  wrap.setPhase = (phase, detail) => {
+    indicator.setPhase?.(phase, detail);
+    wrap.dataset.phaseName = phase;
+    const text = progressPhaseText(phase, opts.persona, detail);
+    if (text) wrap.setStatus(text);
+  };
   //: The dots are always dots now, stepped rather than bouncing when motion
   //: is off: so the label is always its own node. It used to be *replaced*
   //: by the indicator under reduced motion, which is how the digest widget

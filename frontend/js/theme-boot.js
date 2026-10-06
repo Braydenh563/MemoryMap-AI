@@ -75,6 +75,7 @@
   _r.dataset.perf = perf ? "on" : "off";
   _r.dataset.glass = perf ? "off" : pref("glass", "on");
   _r.dataset.motion = perf ? "reduced" : pref("motion", "auto");
+  _r.dataset.uiMotion = pref("ui-motion", "on");
   _r.dataset.themePreset = themePreset || "";
   _r.style.setProperty("--radius", pref("radius", "14") + "px");
   _r.style.setProperty("--glass-blur", pref("glass-blur", "14") + "px");

@@ -70,6 +70,26 @@ const PHONE = process.env.PHONE === '1';
     }
     if (x.border !== '0px' || x.bg !== 'rgba(0, 0, 0, 0)') bad.push(`the close X is a chip, not part of the shell: border ${x.border}, ground ${x.bg}`);
   }
+  // Overflow at the width the sweep runs at (OPEN.md: "table full view at
+  // phone width"): a table of fourteen wide columns, so the panel has
+  // something to overflow with. The panel stays inside the window and the page
+  // does not scroll sideways; the table scrolls inside its own box.
+  await page.evaluate(() => {
+    const full = document.querySelector('.md-table-block.is-full');
+    const t = full.querySelector('table');
+    if (!t || t.rows[0].cells.length >= 14) return;
+    for (let i = 2; i < 16; i++) { for (const [n, r] of [...t.rows].entries()) { const c = r.insertCell(); c.textContent = n ? 'a fairly long cell value ' + i : 'Column ' + i; } }
+  });
+  await page.waitForTimeout(200);
+  const fit = await page.evaluate(() => {
+    const full = document.querySelector('.md-table-block.is-full');
+    const r = full.getBoundingClientRect();
+    const de = document.documentElement;
+    return { overflow: de.scrollWidth - de.clientWidth, l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), vw: innerWidth, vh: innerHeight };
+  });
+  console.log(`full fit     ${JSON.stringify(fit)}`);
+  if (fit.overflow > 0) bad.push(`the page scrolls ${fit.overflow}px sideways with the table full view open`);
+  if (fit.l < 0 || fit.t < 0 || fit.r > fit.vw || fit.b > fit.vh) bad.push(`the full view runs outside the window: ${fit.l},${fit.t} to ${fit.r},${fit.b} in ${fit.vw}x${fit.vh}`);
   await page.click('.md-table-block.is-full .md-table-close');
   await page.waitForTimeout(300);
   const afterX = await page.evaluate(() => ({

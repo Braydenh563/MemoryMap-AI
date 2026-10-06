@@ -141,4 +141,47 @@ async function boot(opts={}) {
   //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
   return {browser, ctx, page, OUT, signIn: way};
 }
-module.exports = {boot, OUT, PW, BASE};
+// Open the Library on its Boards & maps sub-tab and wait until the board code
+// has arrived, for a sweep that is about a board (OPEN.md: "board sweeps that
+// only click the Library tab time out").
+//
+// Two traps, both measured. The Library reopens on the sub-tab it was last
+// left on (it is mirrored to the server, so a fresh browser context inherits
+// whatever another sweep left), so a sweep that only presses the Library tab
+// can land on Files or Images and wait for a board that never loads. And the
+// board code is a lazy bundle that the Boards sub-tab fetches: a fixed sleep
+// after the press is a guess at how long that takes on a loaded machine, so it
+// waits for the functions instead. The press is repeated inside the wait, since
+// switching to the Library restores the last sub-tab a moment *after* the
+// switch and can undo a press made too early (`skeletons.js` found that).
+//
+// `fns` are the functions to wait for: `initWhiteboard` and `wbOpenSidebar` are
+// defined only by the bundle (a stand-in answers to `openWhiteboardBoard` and a
+// few more from the start, so those say nothing about whether it has loaded).
+async function openBoardsTab(page, fns = ['initWhiteboard', 'wbOpenSidebar'], timeout = 20000) {
+  await page.evaluate(() => switchTab('library'));
+  await page.waitForFunction(({ names }) => {
+    const button = document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]');
+    if (!button) return false;
+    if (!button.classList.contains('active')) { button.click(); return false; }
+    return names.every((f) => typeof window[f] === 'function');
+  }, { names: fns }, { timeout, polling: 100 });
+}
+
+// After `openWhiteboardBoard(id)` has been called: wait until the board is on
+// screen (its top bar and its canvas laid out) and its first render has put
+// its objects on the page, instead of a sleep sized for an idle machine.
+// `objects` is how many `.wb-object` the board is known to hold (0 for an empty
+// one, which has nothing to wait for).
+async function waitForBoardOpen(page, objects = 0, timeout = 20000) {
+  await page.waitForFunction((n) => {
+    const bar = document.getElementById('wb-topbar');
+    const box = document.getElementById('whiteboard-container');
+    if (!bar || !bar.offsetParent || !box || !box.offsetParent) return false;
+    return document.querySelectorAll('#whiteboard-container .wb-object').length >= n;
+  }, objects, { timeout, polling: 100 });
+  // One frame for the render's own follow-ups (the fit, the guides).
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+}
+
+module.exports = {boot, OUT, PW, BASE, openBoardsTab, waitForBoardOpen};

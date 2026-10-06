@@ -364,6 +364,7 @@ function settingsIndexBuild(name) {
   }
   //: Under the pane's own link: the sidebar's second level.
   $("settings-nav")?.querySelector(`button[data-section="${CSS.escape(name)}"]`)?.after(list);
+  glideStrip(list); // its rail slides as you scroll the pane (shell-reminders.js)
   settingsIndexJump(name, heads);
   if (scroller && !settingsIndexScrollers.has(scroller)) {
     settingsIndexScrollers.add(scroller);

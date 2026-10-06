@@ -102,6 +102,10 @@ REACHED_AFTER_LOAD = {
     #: WORLD_CLASS_PLAN section 17 row 4: called inside
     #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
     #: has loaded by the time the call runs.
+    #: nav-history.js (INBOX 654): `openNavHistoryMenu` awaits
+    #: `ensureModule("navHistory")` and returns when it failed, so the render
+    #: runs only once the bundle is in.
+    "renderNavHistoryMenu": "navHistory, called by openNavHistoryMenu after awaiting ensureModule('navHistory')",
     "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it

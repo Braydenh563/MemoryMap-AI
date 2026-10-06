@@ -160,6 +160,8 @@ const WB_COMMANDS = [
   { id: "insert-frame", group: "Insert", icon: "ph:frame-corners", label: "Frame", keys: "F", surface: "board", run: wbTool("frame") },
   { id: "insert-image", group: "Insert", icon: "ph:image", label: "Image from a file", keys: "I", surface: "board", run: wbClickId("wb-add-image") },
   { id: "insert-note", group: "Insert", icon: "ph:note-pencil", label: "A note from the library", keys: "", surface: "both", run: wbClickId("wb-add-note") },
+  //: MINDMAP_PLAN decision 44: a sticker, or (dropped on a topic) its icon.
+  { id: "insert-sticker", group: "Insert", icon: "ph:smiley-sticker", label: "Emoji and icon stickers", menu: "Emoji and icons…", keys: "", surface: "both", run: () => wbOpenStickerPicker() },
   // Tools
   { id: "tool-select", group: "Tools", icon: "ph:cursor", label: "Select tool", keys: "V", surface: "both", run: wbTool("select") },
   { id: "tool-pan", group: "Tools", icon: "ph:hand", label: "Hand tool", keys: "H", surface: "both", run: wbTool("pan") },
@@ -350,6 +352,7 @@ const WB_HELP_SECTIONS = [
     { cmd: "cut" }, { cmd: "duplicate" },
     { icon: "ph:copy", label: "Copy as you drag", keys: ["Alt+drag"] },
     { cmd: "delete" },
+    { icon: "ph:trash", label: "Delete by dropping on the target at the foot (a topic takes its branch)", keys: ["drag"] },
     { icon: "ph:arrows-out-cardinal", label: "Nudge, further", keys: ["arrows", "Shift+arrows"] },
     { icon: "ph:x", label: "Cancel a drag, back to Select", keys: ["Esc"] },
     { icon: "ph:text-t", label: "A text box on the empty board", keys: ["double-click"] },

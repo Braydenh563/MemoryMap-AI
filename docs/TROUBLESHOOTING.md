@@ -93,7 +93,8 @@ executable bit, which leaves a launcher that will not start and says nothing.
 ## The AI status says the AI is off
 
 The AI status sits in the status bar at the foot of the window, and "AI off" is
-amber, not red. It is a supported state: the app is built to degrade. Capture and
+a grey sparkle with a slash through it, not amber or red; hover or focus it for
+"Notebook ready · AI off". It is a supported state: the app is built to degrade. Capture and
 full-text search work exactly as normal, and only auto-filing and chat answers
 need a model. Red is reserved for a model that failed to load or a server that
 cannot be reached, which is rarer, because it needs the server to be reachable but

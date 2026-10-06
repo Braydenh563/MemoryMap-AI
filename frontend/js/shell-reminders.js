@@ -278,67 +278,83 @@ if (window.ResizeObserver) {
 }
 $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
 
-//: **The top bar's tab glides** (the owner, 2026-10-04; 08-consistency.css,
-//: "the top bar's tab glides on the compositor"). `.tab-glide` takes the
-//: active tab's place and size at once (custom properties), then a
-//: `transform` animation moves it from where it was last drawn, so a click
-//: mid-glide carries on. Seen by a class observer (click, keys, switchTab);
-//: a resize or the webfont re-places it without a move.
-function tabGlideInit() {
-  const bar = $("tab-bar");
-  if (!bar || bar.querySelector(":scope > .tab-glide")) return;
-  const box = document.createElement("span");
-  box.className = "tab-glide";
-  box.setAttribute("aria-hidden", "true");
-  bar.appendChild(box);
+//: **One sliding indicator for every strip** (the owner, 2026-10-04: "a
+//: slight css sliding animation ... cheap but looks professional", and
+//: 2026-10-05: "Also like the smooth slide across tabs"; 08-consistency.css,
+//: "one sliding indicator"). The top bar, the sub-tab strips, every
+//: segmented control, the Settings sections and a pane's groups: the strip's
+//: `::before` takes the chosen option's place and size at once (custom
+//: properties), then a `transform` animation moves it from where it was
+//: drawn, so a frame of the glide lays nothing out and a click mid-glide
+//: carries on from there. Its length is `--ui-slow`, which Interface
+//: animations sets to 0 when off; reduced motion does not stop it. A strip
+//: is wired the first time the pointer or the focus reaches it (the top bar
+//: at boot); a class, `aria-selected` or `aria-current` change moves it, and
+//: a resize or the webfont re-places it.
+const GLIDE_STRIPS = "#tab-bar, #settings-nav, .settings-nav-groups, .tabs-line, .seg:not(.seg-multi):not(.wb-export-seg)";
+const GLIDE_CHOSEN = ':scope > .active, :scope > [aria-selected="true"], :scope > [role="group"] > .active, :scope > [aria-current="location"]';
+function glideStrip(strip) {
+  if (!strip || strip.glide) return;
   let at = null;
   const place = (move) => {
-    const tab = bar.querySelector(":scope > button.active");
-    const docked = Boolean(bar.closest("#phone-tab-dock"));
-    if (!tab || docked || !tab.offsetWidth) {
-      if (bar.classList.contains("has-glide")) bar.classList.remove("has-glide");
+    const tab = strip.querySelector(GLIDE_CHOSEN);
+    if (!tab || !tab.offsetWidth || strip.closest("#phone-tab-dock")) {
+      if (strip.classList.contains("has-glide")) strip.classList.remove("has-glide");
       at = null;
       return;
     }
     const r = tab.getBoundingClientRect();
-    const o = bar.getBoundingClientRect();
-    const x = r.left - o.left - bar.clientLeft + bar.scrollLeft;
-    const next = { tab, x, y: r.top - o.top - bar.clientTop + bar.scrollTop, w: r.width, h: r.height };
-    if (at && at.x === next.x && at.y === next.y && at.w === next.w && at.h === next.h) return;
-    //: Where the box is drawn this frame, mid-glide included.
+    const o = strip.getBoundingClientRect();
+    const next = {
+      tab,
+      x: r.left - o.left - strip.clientLeft + strip.scrollLeft,
+      y: r.top - o.top - strip.clientTop + strip.scrollTop,
+      w: r.width,
+      h: r.height,
+    };
+    if (at && ["x", "y", "w", "h"].every((k) => at[k] === next[k])) return;
+    //: Where the indicator is drawn this frame, mid-glide included: its
+    //: resting box plus the running transform (origin top left).
     let from = null;
     if (move && at && at.tab !== tab) {
-      const seen = box.getBoundingClientRect();
-      from = { x: seen.left - o.left - bar.clientLeft + bar.scrollLeft, w: seen.width };
+      const m = new DOMMatrix(getComputedStyle(strip, "::before").transform);
+      from = { x: at.x + m.e, y: at.y + m.f, w: at.w * m.a, h: at.h * m.d };
     }
-    for (const [key, value] of Object.entries({ x: next.x, y: next.y, w: next.w, h: next.h })) {
-      box.style.setProperty(`--tab-glide-${key}`, `${value}px`);
-    }
-    if (!bar.classList.contains("has-glide")) bar.classList.add("has-glide");
+    for (const k of ["x", "y", "w", "h"]) strip.style.setProperty(`--glide-${k}`, `${next[k]}px`);
+    if (!strip.classList.contains("has-glide")) strip.classList.add("has-glide");
     at = next;
-    const root = document.documentElement;
-    const still = matchMedia("(prefers-reduced-motion: reduce)").matches || root.dataset.motion === "reduced";
-    if (!from || still || !box.animate) return;
-    for (const running of box.getAnimations()) running.cancel();
-    const tokens = getComputedStyle(root);
-    box.animate(
-      [{ transform: `translateX(${from.x - next.x}px) scaleX(${from.w / next.w})` }, { transform: "none" }],
-      {
-        duration: (parseFloat(tokens.getPropertyValue("--motion-slow")) || 0.2) * 1000,
-        easing: tokens.getPropertyValue("--ease-in-out").trim() || "ease-in-out",
-      }
+    const tokens = getComputedStyle(strip);
+    const ms = parseFloat(tokens.getPropertyValue("--ui-slow")) * 1000;
+    if (!from || !ms || !window.KeyframeEffect || !("pseudoElement" in KeyframeEffect.prototype)) return;
+    for (const running of strip.getAnimations({ subtree: true })) {
+      if (running.effect?.pseudoElement === "::before") running.cancel();
+    }
+    strip.animate(
+      [
+        { transform: `translate(${from.x - next.x}px, ${from.y - next.y}px) scale(${from.w / next.w}, ${from.h / next.h})` },
+        { transform: "none" },
+      ],
+      { duration: ms, easing: tokens.getPropertyValue("--ease-in-out").trim() || "ease-in-out", pseudoElement: "::before" }
     );
   };
-  new MutationObserver(() => place(true)).observe(bar, { attributes: true, attributeFilter: ["class"], subtree: true });
+  strip.glide = place;
+  new MutationObserver(() => place(true)).observe(strip, {
+    attributes: true,
+    attributeFilter: ["class", "aria-selected", "aria-current"],
+    subtree: true,
+  });
   if (window.ResizeObserver) {
     const sized = new ResizeObserver(() => place(false));
-    sized.observe(bar);
-    for (const tab of bar.querySelectorAll(":scope > button")) sized.observe(tab);
+    sized.observe(strip);
+    for (const option of strip.querySelectorAll("button")) sized.observe(option);
   }
   document.fonts?.ready?.then(() => place(false));
   place(false);
 }
-tabGlideInit();
+for (const type of ["pointerover", "focusin"]) {
+  document.addEventListener(type, (event) => glideStrip(event.target.closest?.(GLIDE_STRIPS)), { passive: true, capture: true });
+}
+glideStrip($("tab-bar"));
 
 // Same edge-fade, generalised for every other `.edge-fade` strip (Notes
 // sub-tabs, Library sub-tabs, the document sidebar's tabs): none of them
@@ -1308,31 +1324,6 @@ function reminderTarget(reminder) {
     return { icon: "ph:note-pencil", label: "ph:note-pencil Open its note", open: () => flashEntry(reminder.entry_id) };
   }
   return null;
-}
-
-//: **Remind me, from any object's menu** (WORLD_CLASS_PLAN 1.3, row 15): a
-//: note in the Library, a document, a board or a map. The text and one of
-//: the presets the Reminders form has; the exact time is the tab's own form.
-async function remindAbout({ title, entryId = null, documentId = null }) {
-  const answer = await promptDialog("Remind me", `Follow up: ${String(title || "").trim()}`.slice(0, 200), {
-    confirmLabel: "Set reminder",
-    segment: {
-      label: "When",
-      value: "tomorrow",
-      options: [
-        { value: "1h", label: "In an hour" },
-        { value: "tonight", label: "Tonight" },
-        { value: "tomorrow", label: "Tomorrow" },
-        { value: "nextweek", label: "Next week" },
-      ],
-    },
-  });
-  const text = answer && typeof answer.text === "string" ? answer.text.trim() : "";
-  if (!text) return false;
-  return addReminder(text, presetDate(answer.choice || "tomorrow"), entryId, { documentId }).catch((error) => {
-    toast(error.message, true);
-    return false;
-  });
 }
 
 // Relative time that works both ways: "in 2 hours" (future) and "3 days ago"

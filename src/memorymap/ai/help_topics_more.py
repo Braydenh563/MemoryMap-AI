@@ -372,7 +372,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "save a theme", "my own theme", "custom css", "text size",
             "corner rounding", "zoom level", "colour scheme", "color scheme",
-            "build a scheme", "border style", "shadow",
+            "build a scheme", "border style", "shadow", "interface animations",
         ),
         "body": (
             "Settings, Appearance. Themes: save and switch your own. Theme & "
@@ -381,7 +381,11 @@ MORE_TOPICS: list[dict] = [
             "Typography & layout: Text size, Font, Density, Corner rounding, "
             "Zoom, Border style and Shadow intensity. Effects & accessibility: "
             "Performance mode, the glass's sheen, blur and opacity, Progress "
-            "indicators and Reduce motion. Advanced has Custom CSS. Ctrl+Shift+L "
+            "indicators, Reduce motion (stills Atlas, the background art, the "
+            "graph and the whiteboard) and Interface animations (on by default: "
+            "a button's press, menus and dialogs opening, a tab's sliding marker, "
+            "even with Reduce motion on; off makes them instant). Advanced has "
+            "Custom CSS. Ctrl+Shift+L "
             "switches light and dark from anywhere."
         ),
         "badge": {"label": "Appearance", "section": "appearance"},
@@ -1055,7 +1059,8 @@ MORE_TOPICS.extend(
                 "through, while the focused control is under it. For a screen "
                 "reader every tab has one main landmark, editors and panels have "
                 "names, and resize grips say how wide a panel is. Settings, "
-                "Appearance has High contrast, Reduce motion, Text size and Zoom."
+                "Appearance has High contrast, Reduce motion, Interface animations, "
+                "Text size and Zoom."
             ),
             "badge": {"label": "Appearance", "section": "appearance"},
         },
@@ -1073,6 +1078,54 @@ MORE_TOPICS.extend(
                 "them are asked. Nothing on the map changes. Your marks are kept "
                 "for that map on this device, a branch you missed says so next "
                 "time, and the end says how many you recalled. Esc stops."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "emoji-and-icons",
+            "keywords": (
+                "emoji", "emojis", "icon", "icons", "sticker", "stickers", "emoji picker",
+                "icon picker", "insert an emoji", "insert an icon", "drag an icon", ":ph-",
+            ),
+            "body": (
+                "Emoji and icons. One picker holds every Phosphor icon the app ships "
+                "and about 470 emoji: type to search, Recent first, Emoji or Icons "
+                "above, arrows and Enter to choose, Escape to close. On a board or a "
+                "map, Insert, Emoji and icons… keeps it open: press one to place it "
+                "in the middle of the view, or drag it where it goes. An emoji lands "
+                "as a sticker (no card, resize it like any item), an icon as a shape "
+                "you can recolour; dropped on a map topic, either becomes that "
+                "topic's icon. Each is one Undo step. In a note or a document, the "
+                "smiley in the formatting toolbar (the document's Insert menu) or "
+                "Emoji or icon in the / menu puts one at the caret: an emoji as "
+                "itself, an icon as :ph-name:, which reading shows as the icon."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "mind-map-look",
+            "keywords": (
+                "central topic", "centre topic", "center topic", "main branch", "map levels",
+                "hierarchy", "level style", "map style", "bigger centre", "core nodes",
+                "solid fill", "topic style", "topic icon", "emoji on a topic", "icon picker",
+            ),
+            "body": (
+                "How a map's topics look. A map draws as a hierarchy: the centre "
+                "large, bold and filled, each main branch bold on a tinted card "
+                "with a thick line, deeper topics plain. Enter on the centre adds "
+                "a main branch. A topic's own size, shape or fill always beats "
+                "its level's: the Text and Shape menus over a selected topic set "
+                "them, and Fill offers Solid colour. View, How this map looks picks "
+                "the hierarchy (Classic, Outline with plain text on the lines, "
+                "Boxed, or Flat for every topic alike) and, under Centre, Main "
+                "branches or Sub-topics, that level's size, weight, box, edge bar, "
+                "fill and line. A topic's menu, Look: Copy this topic's style and "
+                "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
+                "Use this look for its level, which hands the topic's own look to "
+                "every topic at its level. Each is one Undo step. A topic's icon: "
+                "the Text menu's Icon row has eleven, and More icons and emoji… "
+                "opens every Phosphor icon and about 470 emoji, searchable, with "
+                "your recent ones first; an emoji or an icon, one per topic."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1150,18 +1203,18 @@ TOPIC_META: dict[str, dict] = {
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
     "voice": {"title": "Dictation, meetings and read aloud", "path": "Notes tab, the microphone"},
-    "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Write with Atlas, More, Split into notes"},
+    "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Writing room, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},
     "ocr-workspace": {"title": "The OCR workspace", "path": "Read text, on any image or PDF"},
     "document-history": {"title": "A document's history", "path": "A document's ... menu, History"},
     "writing-checks": {"title": "Spelling, grammar and wording", "path": "The document editor"},
     "notebook-questions": {"title": "Questions about your notebook", "path": "Chat tab, or Ask on the Notes tab"},
     "contradictions": {"title": "Notes that disagree", "path": "Dashboard tab"},
-    "write-with-atlas": {"title": "Write with Atlas", "path": "Notes tab, Write with Atlas"},
+    "write-with-atlas": {"title": "Writing room", "path": "Notes tab, Writing room"},
     "search": {"title": "Searching everything", "path": "Ctrl+P, or the dashboard's search box"},
     "links": {"title": "Linking notes", "path": "Type [[ in a note"},
     "performance": {"title": "When the app feels slow", "path": "Settings, Appearance"},
-    "translate": {"title": "Translating", "path": "Notes tab, Write with Atlas"},
+    "translate": {"title": "Translating", "path": "Notes tab, Writing room"},
     "tags-categories": {"title": "Tags and categories", "path": "A note's own row, or Capture's Filing menu"},
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
     "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
@@ -1174,6 +1227,8 @@ TOPIC_META: dict[str, dict] = {
     "documents-features": {"title": "Document editor features", "path": "Library tab, Documents"},
     "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
     "mind-map-study": {"title": "Study the map", "path": "Library tab, Boards & maps, a map's board menu"},
+    "mind-map-look": {"title": "How a map's topics look", "path": "Library tab, Boards & maps, a map"},
+    "emoji-and-icons": {"title": "Emoji and icons", "path": "A board or map's Insert menu; a topic's Text menu"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1236,7 +1291,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "margin-reader",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study",
+        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

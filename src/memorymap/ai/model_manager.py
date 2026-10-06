@@ -357,7 +357,7 @@ FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         key="writing",
-        label="Write with Atlas",
+        label="Writing room",
         role="chat",
         note="Drafts and revisions on the Notes tab's writing desk.",
     ),

@@ -232,7 +232,7 @@
   /* Not clickable while invisible, an unhovered bubble must not swallow a
      click aimed at the text under this. */
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
   z-index: 2;
 }
 
@@ -293,7 +293,7 @@
   font-size: 0.8rem;
   line-height: 1.5;
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out);
 }
 
 /* One style for both roles. The user's used to be translucent white because
@@ -601,18 +601,11 @@ details.tool-chip > summary::after {
   margin-left: auto;
   flex: 0 0 auto;
   opacity: 0.7;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 details.tool-chip[open] > summary::after {
   transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  details.tool-chip > summary::after {
-    transition: none;
-  }
 }
 
 details.tool-chip > summary::-webkit-details-marker {
@@ -782,17 +775,11 @@ details.tool-chip[open] > .tool-chip-body {
   border-bottom: 0.24rem solid transparent;
   transform: rotate(0deg);
   transform-origin: 40% 50%;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 .agent-step.step-thinking[open] summary::before {
   transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-step.step-thinking summary::before {
-    transition: none;
-  }
 }
 
 .agent-step.step-thinking[open] summary {
@@ -832,17 +819,11 @@ details.tool-chip[open] > .tool-chip-body {
   border-bottom: 0.24rem solid transparent;
   transform: rotate(0deg);
   transform-origin: 40% 50%;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 .agent-step.step-plan[open] summary::before {
   transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-step.step-plan summary::before {
-    transition: none;
-  }
 }
 
 .agent-step.step-plan .plan-steps {
@@ -1242,7 +1223,7 @@ body.graph-fullscreen-on .sidebar-panel {
   color: var(--ink);
   cursor: pointer;
   box-shadow: none;
-  transition: background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), transform var(--ui-fast) var(--ease-out);
 }
 
 .graph-zoom-btn:hover {
@@ -2108,8 +2089,10 @@ body.graph-fullscreen-on .sidebar-panel {
    those sit above their rows and are all narrower than them. Between the
    phone band and 1024 the dots drop the gap between them: a dot's own 2px
    transparent ring already keeps the coloured discs 4px apart, so seven
-   colours stay seven distinct targets, 27px narrower at Large text. */
-@media (min-width: 600px) and (max-width: 1023px) {
+   colours stay seven distinct targets, 27px narrower at Large text. From 820
+   only: below it the dots are 2rem with a target a gap wider than the disc,
+   and with no gap the targets overlap (6 pairs at 700, Large and Spacious). */
+@media (min-width: 820px) and (max-width: 1023px) {
   /* The long-hand, for the axis this is about: `gap: 0` would be a fourth
      distinct row gap in the toolbar family (`test_ui_signatures.py`). */
   .sketch-toolbar .wb-tool-section-row.sketch-colors {
@@ -2628,24 +2611,40 @@ kbd {
    with the hint on: the emblem's transform identical 500ms apart on the lock
    screen, the dashboard, the top bar and the chat. `:where()` counts for
    nothing, so the blanket is a bare `*` again as far as the cascade is
-   concerned. `tests/test_emblem_turns.py` holds it there. */
+   concerned. `tests/test_emblem_turns.py` holds it there.
+
+   The polish set's own animations (a menu's or popover's grow, a toast)
+   are exempt too while Interface animations is on: the owner's switch, not
+   this hint, decides them (DESIGN.md, "Interface animations"). */
 @media (prefers-reduced-motion: reduce) {
 
-  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *)),
+  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast))),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    /* Zero, not 0.01ms: every element's `transition-property` is `all`
-       unless it says otherwise, so a tiny duration gave every element a
-       real transition on every property, and a rect read straight after a
-       style write was where the element had been. The companion's menu was
-       placed from such a rect, 276 to 565px from it (the owner, several
-       times; `companionmenulow.js`). A zero duration and delay start none;
-       `tests/test_motion_tokens.py` holds it. */
+    scroll-behavior: auto !important;
+  }
+
+  /* **Transitions are the interface's own switch's** (the owner,
+     2026-10-05): with Interface animations on they play under this hint,
+     so this half applies only while that switch is off, and to the
+     decorative surfaces (the graph, the whiteboard, the companion's parts),
+     which keep the hint whatever the switch says. Zero, not 0.01ms: every
+     element's `transition-property` is `all` unless it says otherwise, so a
+     tiny duration gave every element a real transition on every property,
+     and a rect read straight after a style write was where the element had
+     been. The companion's menu was placed from such a rect, 276 to 565px
+     from it (the owner, several times; `companionmenulow.js`). A zero
+     duration and delay start none; `tests/test_motion_tokens.py` holds it. */
+  :where(:root:not([data-ui-motion="on"])) *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *)),
+  :where(:root:not([data-ui-motion="on"])) *::before,
+  :where(:root:not([data-ui-motion="on"])) *::after,
+  :where(#graph-svg, .graph-minimap, #whiteboard-container) *,
+  :where(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *::before,
+  :where(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *::after {
     transition-duration: 0s !important;
     transition-delay: 0s !important;
-    scroll-behavior: auto !important;
   }
 }
 
@@ -2890,17 +2889,37 @@ kbd {
   --blob-a: rgba(147, 51, 234, 0.20);
 }
 
-/* Manual "reduce motion" override (Appearance): kill transitions/animations
-   for users who want a still UI regardless of their OS setting. */
-:root[data-motion="reduced"] *,
+/* Manual "reduce motion" override (Appearance): still the animations for
+   people who want a still UI regardless of their OS setting. Transitions
+   follow Interface animations, as under the system hint above: stilled only
+   while that switch is not on, and always on the decorative surfaces. */
+:root[data-motion="reduced"] *:where(:not([data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast))),
 :root[data-motion="reduced"] *::before,
 :root[data-motion="reduced"] *::after {
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
+:root[data-motion="reduced"]:where(:not([data-ui-motion="on"])) *,
+:root[data-motion="reduced"]:where(:not([data-ui-motion="on"])) *::before,
+:root[data-motion="reduced"]:where(:not([data-ui-motion="on"])) *::after,
+:root[data-motion="reduced"] :where(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure),
+:root[data-motion="reduced"] :where(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *,
+:root[data-motion="reduced"] :where(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *::before,
+:root[data-motion="reduced"] :where(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *::after {
   /* Zero, for the reason written at the system hint's blanket above. */
   transition-duration: 0s !important;
   transition-delay: 0s !important;
-  scroll-behavior: auto !important;
+}
+
+/* Interface animations off: every transition of the interface is instant,
+   reduced motion or not; the decorative surfaces keep their own switches. */
+:root[data-ui-motion="off"] *:where(:not(:is(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *)),
+:root[data-ui-motion="off"] *:where(:not(:is(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *))::before,
+:root[data-ui-motion="off"] *:where(:not(:is(#graph-svg, .graph-minimap, #whiteboard-container, #nm-buddy, .name-mark, .nm-atlas, .nm-figure) *))::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
 }
 
 /* **The exception: things that say work is happening.**
@@ -5618,7 +5637,6 @@ mark.lightbox-hit {
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 .chat-source-row:hover,
@@ -5692,7 +5710,6 @@ mark.lightbox-hit {
   background: var(--inner);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
 }
 
 .link-card:hover,
@@ -5747,7 +5764,7 @@ mark.lightbox-hit {
    quieter, borderless look of a fact. */
 .chat-source-card.is-openable {
   cursor: pointer;
-  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+  transition: border-color var(--ui-fast) var(--ease-out), background var(--ui-fast) var(--ease-out);
 }
 
 .chat-source-card.is-openable:hover,
@@ -5897,7 +5914,7 @@ mark.lightbox-hit {
   border-radius: var(--radius-sm);
   padding-inline: var(--space-1);
   margin-inline-start: calc(var(--space-1) * -1);
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out);
   /* Reported: "the icon is out of alignment". The pencil below used to be an
      `::after` on a *block* heading, so it sat on the heading's text baseline
      at `--text-sm`, visibly low against a 1.25rem title, and only ever seen
@@ -5930,7 +5947,7 @@ mark.lightbox-hit {
   font-size: var(--text-sm);
   line-height: 1;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .chat-title:hover::after,

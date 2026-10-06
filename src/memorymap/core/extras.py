@@ -265,15 +265,51 @@ def _frozen_target_args() -> list[str]:
     target = frozen_extras_dir()
     if target is None:
         return []
-    platform = sysconfig.get_platform().replace("-", "_").replace(".", "_")
+    platforms = _pip_platforms(sysconfig.get_platform().replace("-", "_").replace(".", "_"))
     return [
         "--target", str(target),
         "--upgrade",
         "--only-binary=:all:",
         "--implementation", "cp",
         "--python-version", f"{sys.version_info.major}.{sys.version_info.minor}",
-        "--platform", platform,
+        *(arg for platform in platforms for arg in ("--platform", platform)),
     ]
+
+
+def _pip_platforms(platform: str, glibc: str | None = None) -> list[str]:
+    """The wheel platform tags this interpreter runs, for pip's `--platform`.
+
+    **On Linux the interpreter's own tag matches no wheel anyone publishes.**
+    `sysconfig` says `linux_x86_64`, and PyPI's compiled wheels are tagged
+    `manylinux_2_17_x86_64` and the like, which pip does not derive from it
+    when `--platform` is given. So on the packaged Linux app every extra
+    with a compiled wheel failed to resolve: `--install-extras docx` ended
+    in "ResolutionImpossible" because no lxml wheel matched (measured on a
+    Linux build). Windows (`win_amd64`) and macOS tags are used as they are.
+    The manylinux tags run from this machine's glibc down to 2.17, the
+    oldest any current wheel targets, plus their legacy aliases.
+    """
+    if not platform.startswith("linux_"):
+        return [platform]
+    arch = platform[len("linux_"):]
+    if glibc is None:
+        import platform as _platform
+
+        libc, glibc = _platform.libc_ver()
+        if libc != "glibc":
+            return [platform]
+    try:
+        major, minor = (int(part) for part in glibc.split(".")[:2])
+    except ValueError:
+        return [platform]
+    tags = [f"manylinux_{major}_{m}_{arch}" for m in range(minor, 16, -1)] if major == 2 else []
+    if major == 2 and minor >= 17:
+        tags.append(f"manylinux2014_{arch}")
+    if major == 2 and minor >= 12:
+        tags.append(f"manylinux2010_{arch}")
+    if major == 2 and minor >= 5:
+        tags.append(f"manylinux1_{arch}")
+    return [*tags, platform]
 
 
 def _pip_base_command() -> list[str] | None:
@@ -1162,6 +1198,20 @@ def _run_uninstall(extra: Extra) -> None:
 _REQUIREMENT_EXTRAS_RE = re.compile(r"\[[^\]]*\]")
 
 
+def _requirements_path() -> Path:
+    """`requirements.txt`, from a checkout or from the packaged app's bundle.
+
+    `parents[3]` of this file is the repo root from source; in a PyInstaller
+    build it is the folder *above* the bundle, where there is no such file,
+    so every extra a packaged app installed went in unconstrained, free to
+    pull a numpy or a tokenizers the rest of the app was never built against.
+    Both specs bundle the file at the root, beside alembic.ini.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "requirements.txt"
+    return Path(__file__).resolve().parents[3] / "requirements.txt"
+
+
 def _constraints_copy(req_path: Path) -> Path | None:
     """A version of `req_path` pip will actually accept as a `-c` file.
 
@@ -1195,7 +1245,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         # Constrain every extra install against requirements.txt so an optional
         # package's own dependency resolution can't drag a base package (e.g.
         # tokenizers, numpy) to a version the rest of the app doesn't expect.
-        req_path = Path(__file__).resolve().parents[3] / "requirements.txt"
+        req_path = _requirements_path()
         constraints_copy = _constraints_copy(req_path) if req_path.is_file() else None
         constraint = ["-c", str(constraints_copy)] if constraints_copy else []
 

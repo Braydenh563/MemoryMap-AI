@@ -1128,84 +1128,12 @@ function notePickerEmpty(list, text, action) {
   list.appendChild(li);
 }
 
-function notePickerRow(shape, row) {
-  const li = document.createElement("li");
-  const label = document.createElement("label");
-  label.className = shape.grid ? "note-picker-cell" : "note-picker-row";
-  const box = document.createElement("input");
-  box.type = "checkbox";
-  box.className = "visually-hidden note-picker-box";
-  box.checked = shape.isOn(row);
-  box.addEventListener("change", () => {
-    if (box.checked) {
-      // Refused rather than silently dropped: the caps exist because four
-      // whole files is already more than most local models can hold, and a
-      // tick that comes straight back off reads as a broken control.
-      if (shape.add(row) === false) {
-        box.checked = false;
-        toast(shape.full || "That's as many as one message can carry.", true);
-      }
-    } else {
-      shape.remove(row);
-    }
-    updateNotePickerCount();
-  });
-  const name = document.createElement("span");
-  name.className = "note-picker-text";
-  name.textContent = shape.label(row);
-  const meta = document.createElement("span");
-  meta.className = "note-picker-meta";
-  meta.append(...shape.meta(row));
-  const lines = document.createElement("span");
-  lines.className = "note-picker-lines";
-  lines.append(name, meta);
-  const check = document.createElement("span");
-  check.className = "note-picker-check";
-  check.setAttribute("aria-hidden", "true");
-  const tick = document.createElement("i");
-  tick.className = "ph ph-check";
-  check.appendChild(tick);
-  const thumbUrl = shape.thumb?.(row);
-  if (thumbUrl) {
-    //: A picture's cell: the picture is the identifier, so the name is its
-    //: tooltip and the one line under it is the caption (or where it is used).
-    label.title = meta.textContent === name.textContent ? name.textContent : `${name.textContent}: ${meta.textContent}`;
-    lines.classList.add("note-picker-cell-text");
-    label.append(box, notePickerThumb(thumbUrl), check, lines);
-  } else {
-    const tile = richPickerTile({ icon: shape.icon(row), face: shape.face?.(row) || null });
-    //: A failed page puts the glyph back (capture: `error` does not bubble).
-    tile.addEventListener("error", () => tile.replaceWith(richPickerTile({ icon: shape.icon(row) })), true);
-    label.append(box, tile, lines, check);
-  }
-  li.appendChild(label);
-  return li;
-}
-
 function notePickerPage(url) {
   const img = document.createElement("img");
   img.alt = "";
   img.loading = "lazy";
   img.src = mediaSrc(url);
   return img;
-}
-
-//: The picture in a frame that keeps every cell one size: cropped to fill,
-//: lazily loaded, and the app's missing-file glyph (not the browser's torn
-//: page) when the file has gone. Empty alt: the name is the cell's own label.
-function notePickerThumb(url) {
-  const thumb = document.createElement("span");
-  thumb.className = "note-picker-thumb";
-  const img = document.createElement("img");
-  img.alt = "";
-  img.loading = "lazy";
-  img.addEventListener("error", () => {
-    img.remove();
-    thumb.classList.add("is-missing");
-  });
-  img.src = url;
-  thumb.appendChild(img);
-  return thumb;
 }
 
 //: The list is one tab stop: the row at `index` takes it, the rest are -1.
@@ -1307,45 +1235,6 @@ function setNotePickerSource(source, { focus = "search" } = {}) {
   search.placeholder = `Search your ${notePickerShape(source).nouns}…`;
   renderNotePickerList();
   if (focus === "search") search.focus();
-}
-
-function updateNotePickerCount() {
-  // Every store, not just notes: a count that only ever mentioned notes would
-  // say "Nothing attached yet" with three files ticked in front of you.
-  const counts = {
-    notes: attachedNoteIds.length,
-    documents: attachedDocuments.length,
-    files: attachedFiles.length,
-    images: attachedImages.length,
-    maps: attachedBoards.length,
-  };
-  const words = { notes: "note", documents: "document", files: "file", images: "image", maps: "mind map" };
-  const parts = Object.entries(counts)
-    .filter(([, n]) => n)
-    .map(([key, n]) => `${n} ${words[key]}${n === 1 ? "" : "s"}`);
-  $("note-picker-count").textContent = parts.length ? `${parts.join(", ")} attached` : "Nothing attached yet";
-  const clear = $("note-picker-clear");
-  clear.disabled = !parts.length;
-  clear.title = parts.length ? "Take everything off this message" : "Nothing is attached yet";
-  //: A count on each source's tab, so what is held in the other four is
-  //: visible from this one without walking them.
-  for (const button of document.querySelectorAll("#note-picker-sources [data-picker-source]")) {
-    let badge = button.querySelector(".note-picker-tab-count");
-    const n = counts[button.dataset.pickerSource] || 0;
-    if (!n) {
-      badge?.remove();
-      button.removeAttribute("aria-label");
-      continue;
-    }
-    if (!badge) {
-      badge = document.createElement("span");
-      badge.className = "note-picker-tab-count";
-      badge.setAttribute("aria-hidden", "true");
-      button.appendChild(badge);
-    }
-    badge.textContent = String(n);
-    button.setAttribute("aria-label", `${button.firstChild.textContent.trim()}, ${n} attached`);
-  }
 }
 
 // **On a phone the panel is a sheet**, the same fix `openChatDockMore`
@@ -1775,7 +1664,7 @@ async function sendChatMessage(preset, opts = {}) {
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
-  const pendingLine = progressLine("Thinking…", { persona: sentPersona, words: true });
+  const pendingLine = progressLine(null, { persona: sentPersona, words: true });
   pending.appendChild(pendingLine);
   stepsHolder.appendChild(pending);
   // The placeholder trails the work rather than vanishing at the first event,
@@ -1792,12 +1681,9 @@ async function sendChatMessage(preset, opts = {}) {
     if (stepsHolder.lastElementChild === pending) return;
     stepsHolder.appendChild(pending);
   };
-  // Every string this is given comes from an event that really happened, 
-  // see `progressLine` on why it must never invent a stage.
-  const say = (text) => pendingLine.setStatus?.(text);
-  //: The indicator's shape follows the stage, not only its words: the chat
-  //: tab never called `setPhase`, so streaming text still showed three dots.
-  const phase = (name) => pendingLine.setPhase?.(name);
+  //: The line's words and shape are driven by `streamChat` itself (`progress:
+  //: pendingLine` below), from the events that really arrive (INBOX 649), so
+  //: no handler in this turn names a stage of its own.
   // **The turn is marked as generating for its whole length, not just until
   // the first event.** Reported as "none of the generating animations work",
   // and this is the mechanism: `clearPending` above runs on the first event
@@ -1993,6 +1879,7 @@ async function sendChatMessage(preset, opts = {}) {
       }
     }, 5000);
     await streamChat({
+      progress: pendingLine,
       question,
       history: chatHistoryToSend(),
       persona: sentPersona,
@@ -2020,8 +1907,6 @@ async function sendChatMessage(preset, opts = {}) {
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
-        const found = m?.raw_results?.length || 0;
-        say(found ? `Read ${found} note${found === 1 ? "" : "s"}, writing…` : "Writing…");
       },
       onRelated: (event) => {
         renderRelatedElsewhere(groundingHolder, event.items);
@@ -2102,18 +1987,15 @@ async function sendChatMessage(preset, opts = {}) {
         clearPending();
         timeline.thinking(delta);
         //: Reasoning is still waiting, as far as the reader is concerned:
-        //: nothing of the answer exists yet. Set explicitly rather than left
-        //: alone, so a turn that thinks *after* writing goes back to dots.
-        phase("thinking");
+        //: `streamChat` sets the "thinking" phase (dots) before this runs, so
+        //: a turn that thinks *after* writing goes back to dots.
         status.textContent = "The model is thinking…";
         chatScrollToEnd();
       },
       onAnswer: (delta) => {
         clearPending();
         timeline.answer(delta);
-        phase("writing");
         status.textContent = "The model is writing…";
-        say("Writing the answer…");
         chatScrollToEnd();
       },
       onTool: (event) => {
@@ -2156,9 +2038,6 @@ async function sendChatMessage(preset, opts = {}) {
         }
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
-        // The tool's own label, so the line under the timeline names the
-        // step that is running rather than a generic "working".
-        say((event.label || "Working…").replace(/^ph:[\w-]+\s*/, ""));
         chatScrollToEnd();
       },
       onConfirm: (event) => {

@@ -307,9 +307,10 @@ const show = (o) => console.log("    " + JSON.stringify(o));
   check("the dialog is the app's own card, not one with its own chrome",
     dialog.card && /modal-card/.test(dialog.cardClasses || ""), dialog.cardClasses);
   //: Ten topic fields in three groups, and since §13e's remainder the map's
-  //: own two (branch colours and font) in a fourth, first.
-  check("twelve fields in four named groups, from the recipe index's own rows",
-    dialog.selects === 9 && dialog.checks === 3 && dialog.heads.length === 4,
+  //: own two (branch colours and font) in a fourth, first; since §14 the
+  //: hierarchy select above them (decision 39), a tenth select.
+  check("thirteen fields in four named groups, from the recipe index's own rows",
+    dialog.selects === 10 && dialog.checks === 3 && dialog.heads.length === 4,
     `${dialog.selects} selects, ${dialog.checks} switches, ${(dialog.heads || []).join(" | ")}`);
   check("and it fits without scrolling at this size",
     !dialog.overflows && dialog.viewMenuClosed,

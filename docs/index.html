@@ -1,908 +1,1082 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MemoryMap AI</title>
-  <meta name="description" content="Your thoughts, mapped by a local AI. 100% offline, on your machine." />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' role='img' aria-label='MemoryMap AI'%3E%3Cdefs%3E%3ClinearGradient id='tile' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%235b7cff'/%3E%3Cstop offset='55%25' stop-color='%234f6df5'/%3E%3Cstop offset='100%25' stop-color='%23a927d8'/%3E%3C/linearGradient%3E%3ClinearGradient id='sheen' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='0.22'/%3E%3Cstop offset='60%25' stop-color='%23ffffff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='23' fill='url(%23tile)'/%3E%3Crect width='100' height='100' rx='23' fill='url(%23sheen)'/%3E%3Cg stroke='%23ffffff' stroke-width='5.5' stroke-linecap='round' opacity='0.92'%3E%3Cpath d='M50 50 50 20'/%3E%3Cpath d='M50 50 78.5 40.7'/%3E%3Cpath d='M50 50 67.6 74.3'/%3E%3Cpath d='M50 50 32.4 74.3'/%3E%3Cpath d='M50 50 21.5 40.7'/%3E%3C/g%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='50' cy='20' r='7.5'/%3E%3Ccircle cx='78.5' cy='40.7' r='7.5'/%3E%3Ccircle cx='67.6' cy='74.3' r='7.5'/%3E%3Ccircle cx='32.4' cy='74.3' r='7.5'/%3E%3Ccircle cx='21.5' cy='40.7' r='7.5'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='13' fill='%234f6df5'/%3E%3Ccircle cx='50' cy='50' r='9.5' fill='%23ffffff'/%3E%3C/svg%3E" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <meta name="description" content="MemoryMap AI is a fully offline, local-first notebook where a local AI files your notes and answers questions about them. No account, no cloud, no telemetry. Free and open source.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#4f6df5">
+  <meta property="og:title" content="MemoryMap AI">
+  <meta property="og:description" content="A fully offline, local-first notebook where a local AI files your notes and answers questions about them.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' role='img' aria-label='MemoryMap AI'%3E%3Cdefs%3E%3ClinearGradient id='tile' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%235b7cff'/%3E%3Cstop offset='55%25' stop-color='%234f6df5'/%3E%3Cstop offset='100%25' stop-color='%23a927d8'/%3E%3C/linearGradient%3E%3ClinearGradient id='sheen' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='0.22'/%3E%3Cstop offset='60%25' stop-color='%23ffffff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='23' fill='url(%23tile)'/%3E%3Crect width='100' height='100' rx='23' fill='url(%23sheen)'/%3E%3Cg stroke='%23ffffff' stroke-width='5.5' stroke-linecap='round' opacity='0.92'%3E%3Cpath d='M50 50 50 20'/%3E%3Cpath d='M50 50 78.5 40.7'/%3E%3Cpath d='M50 50 67.6 74.3'/%3E%3Cpath d='M50 50 32.4 74.3'/%3E%3Cpath d='M50 50 21.5 40.7'/%3E%3C/g%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='50' cy='20' r='7.5'/%3E%3Ccircle cx='78.5' cy='40.7' r='7.5'/%3E%3Ccircle cx='67.6' cy='74.3' r='7.5'/%3E%3Ccircle cx='32.4' cy='74.3' r='7.5'/%3E%3Ccircle cx='21.5' cy='40.7' r='7.5'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='13' fill='%234f6df5'/%3E%3Ccircle cx='50' cy='50' r='9.5' fill='%23ffffff'/%3E%3C/svg%3E">
+  <!--
+    This page is deliberately static and self-contained (INBOX 645). The page
+    it replaced fetched the repository's Markdown documents at run time and
+    rendered them in tabs; those fetches failed often enough that the owner
+    asked for "a solid landing site which doesn't really have a problem with
+    having to be kept up to date". So: no fetch of any kind, no external
+    fonts, scripts or stylesheets, images only from ./screenshots/ by relative
+    path, and every link to a document is an absolute GitHub URL, which
+    always shows the current text. The copy names no version, no count and
+    no date, so it cannot go stale as the app grows. tests/test_docs_site.py
+    holds these rules.
+
+    Colours, radii and type are the app's own (frontend/css/00-tokens-shell.css):
+    the same page gradient and blobs, ink, muted and accent, a 14px radius
+    with inner corners at 0.6 of it, and the system UI font. The muted and
+    link colours are a step darker (light) than the app's, because here they
+    sit straight on the blob, not on a glass card; each was measured at 4.5:1
+    or better against the blob's centre.
+  -->
+  <script>
+    /* Restore a theme the visitor chose, before first paint, so a dark
+       reader never sees a light flash. Storage can throw (private windows,
+       blocked site data); the page then simply follows the system. */
+    try {
+      var saved = localStorage.getItem("mm-site-theme");
+      if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+    } catch (e) { /* follow the system */ }
+  </script>
   <style>
     :root {
-      --page: linear-gradient(135deg,#e9edfb 0%,#f6f2ec 45%,#e6f1f2 100%);
-      --blob-a: rgba(79,109,245,.20); --blob-b: rgba(157,88,245,.14);
-      --card: rgba(255,255,255,.55); --inner: rgba(255,255,255,.40);
-      --gb: rgba(255,255,255,.65);
-      --gs: 0 8px 32px rgba(31,38,135,.14);
-      --ink: #1f2430; --muted: #5b6472; --faint: #9aa1b4;
-      --accent: #4f6df5; --as: rgba(79,109,245,.13);
-      --chip: rgba(31,36,48,.07); --border: rgba(31,36,48,.10);
-      --r: 13px; --blur: 18px;
-      --mono: ui-monospace,'Space Mono','Cascadia Code',Consolas,monospace;
+      color-scheme: light;
+      --page-a: #e9edfb;
+      --page-b: #f6f2ec;
+      --page-c: #e6f1f2;
+      --blob-a: rgba(79, 109, 245, 0.18);
+      --blob-b: rgba(157, 88, 245, 0.13);
+      --ink: #1f2430;
+      --muted: #464e5b;
+      --accent: #4664f0;
+      --accent-text: #2c44b5;
+      --accent-soft: rgba(79, 109, 245, 0.12);
+      --on-accent: #ffffff;
+      --card: rgba(255, 255, 255, 0.62);
+      --card-solid: #fcfdff;
+      --card-strong: rgba(255, 255, 255, 0.82);
+      --border: rgba(31, 36, 48, 0.10);
+      --glass-border: rgba(255, 255, 255, 0.65);
+      --chip: rgba(31, 36, 48, 0.06);
+      --code-bg: rgba(31, 36, 48, 0.06);
+      --header-bg: rgba(240, 242, 250, 0.78);
+      --shadow: 0 1px 2px rgba(31, 36, 48, 0.06), 0 10px 30px rgba(31, 36, 48, 0.08);
+      --shadow-lift: 0 2px 4px rgba(31, 36, 48, 0.08), 0 18px 44px rgba(31, 36, 48, 0.14);
+      --scrim: rgba(17, 20, 32, 0.72);
+      --radius: 14px;
+      --radius-md: calc(var(--radius) * 0.6);
+      --radius-sm: calc(var(--radius) * 0.3);
+      --radius-pill: 999px;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     }
-    [data-theme="dark"] {
-      --page: linear-gradient(135deg,#0e1017 0%,#171a26 45%,#0f1720 100%);
-      --blob-a: rgba(123,144,247,.16); --blob-b: rgba(88,235,245,.07);
-      --card: rgba(29,33,46,.55); --inner: rgba(255,255,255,.05);
-      --gb: rgba(255,255,255,.10); --gs: 0 8px 32px rgba(0,0,0,.45);
-      --ink: #e7e9ee; --muted: #9aa1ad; --faint: #5a6070;
-      --accent: #8b9df8; --as: rgba(123,144,247,.18);
-      --chip: rgba(255,255,255,.07); --border: rgba(255,255,255,.09);
-    }
-    @media (prefers-color-scheme:dark) {
+    @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --page: linear-gradient(135deg,#0e1017 0%,#171a26 45%,#0f1720 100%);
-        --blob-a: rgba(123,144,247,.16); --blob-b: rgba(88,235,245,.07);
-        --card: rgba(29,33,46,.55); --inner: rgba(255,255,255,.05);
-        --gb: rgba(255,255,255,.10); --gs: 0 8px 32px rgba(0,0,0,.45);
-        --ink: #e7e9ee; --muted: #9aa1ad; --faint: #5a6070;
-        --accent: #8b9df8; --as: rgba(123,144,247,.18);
-        --chip: rgba(255,255,255,.07); --border: rgba(255,255,255,.09);
+        color-scheme: dark;
+        --page-a: #0e1017;
+        --page-b: #171a26;
+        --page-c: #0f1720;
+        --blob-a: rgba(123, 144, 247, 0.16);
+        --blob-b: rgba(88, 235, 245, 0.07);
+        --ink: #e7e9ee;
+        --muted: #b4bac5;
+        --accent: #8b9df8;
+        --accent-text: #a8b6fb;
+        --accent-soft: rgba(123, 144, 247, 0.16);
+        --on-accent: #10131c;
+        --card: rgba(255, 255, 255, 0.045);
+        --card-solid: #181b25;
+        --card-strong: rgba(24, 27, 37, 0.92);
+        --border: rgba(255, 255, 255, 0.10);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --chip: rgba(255, 255, 255, 0.08);
+        --code-bg: rgba(255, 255, 255, 0.06);
+        --header-bg: rgba(14, 16, 23, 0.78);
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 10px 30px rgba(0, 0, 0, 0.30);
+        --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.35), 0 18px 44px rgba(0, 0, 0, 0.45);
       }
     }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    html {
-      scroll-behavior:smooth; scroll-padding-top:4.5rem;
-      min-height:100%;
-      background:
-        radial-gradient(600px 400px at 12% 6%, var(--blob-a), transparent 70%),
-        radial-gradient(700px 500px at 88% 92%, var(--blob-b), transparent 70%),
-        var(--page);
-      background-attachment:fixed;
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --page-a: #0e1017;
+      --page-b: #171a26;
+      --page-c: #0f1720;
+      --blob-a: rgba(123, 144, 247, 0.16);
+      --blob-b: rgba(88, 235, 245, 0.07);
+      --ink: #e7e9ee;
+      --muted: #b4bac5;
+      --accent: #8b9df8;
+      --accent-text: #a8b6fb;
+      --accent-soft: rgba(123, 144, 247, 0.16);
+      --on-accent: #10131c;
+      --card: rgba(255, 255, 255, 0.045);
+      --card-solid: #181b25;
+      --card-strong: rgba(24, 27, 37, 0.92);
+      --border: rgba(255, 255, 255, 0.10);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --chip: rgba(255, 255, 255, 0.08);
+      --code-bg: rgba(255, 255, 255, 0.06);
+      --header-bg: rgba(14, 16, 23, 0.78);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 10px 30px rgba(0, 0, 0, 0.30);
+      --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.35), 0 18px 44px rgba(0, 0, 0, 0.45);
     }
-    body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);line-height:1.6;min-height:100vh;}
-    img{display:block;max-width:100%;}
-    a{color:var(--accent);text-decoration:none;}
-    a:hover{text-decoration:underline;}
-    :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px;}
-    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
-    .g{
-      background:var(--card);
-      backdrop-filter:blur(var(--blur)) saturate(140%);
-      -webkit-backdrop-filter:blur(var(--blur)) saturate(140%);
-      border:1px solid var(--gb);
-      border-radius:var(--r);
-      box-shadow:var(--gs);
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 5rem; -webkit-text-size-adjust: 100%; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
     }
-    nav{
-      position:sticky;top:0;z-index:50;
-      display:flex;align-items:center;gap:1.2rem;
-      padding:.5rem 1.75rem;
-      border-bottom:1px solid var(--gb);
-      background:var(--card);
-      backdrop-filter:blur(20px) saturate(150%);
-      -webkit-backdrop-filter:blur(20px) saturate(150%);
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--ink);
+      background-color: var(--page-a);
+      background-image:
+        radial-gradient(56rem 36rem at 8% -6rem, var(--blob-a), transparent 70%),
+        radial-gradient(48rem 34rem at 96% 10rem, var(--blob-b), transparent 70%),
+        radial-gradient(52rem 40rem at 0% 55%, var(--blob-b), transparent 70%),
+        linear-gradient(135deg, var(--page-a) 0%, var(--page-b) 45%, var(--page-c) 100%);
+      background-repeat: no-repeat;
+      overflow-wrap: break-word;
     }
-    .nav-logo{display:flex;align-items:center;gap:.55rem;flex:0 0 auto;text-decoration:none!important;color:inherit;}
-    .nav-logo svg{width:22px;height:22px;flex-shrink:0;}
-    .nav-logo span{font-family:var(--mono);font-size:.86rem;font-weight:700;letter-spacing:.01em;white-space:nowrap;}
-    .nav-tabs{display:flex;gap:.1rem;flex:1;overflow-x:auto;scrollbar-width:none;}
-    .nav-tabs::-webkit-scrollbar{display:none;}
-    .nav-tabs a{
-      white-space:nowrap;padding:.3rem .8rem;
-      border-radius:8px;font-size:.83rem;font-weight:500;
-      color:var(--muted);
-      transition:background .14s,color .14s;
+    img { max-width: 100%; height: auto; }
+    a { color: var(--accent-text); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+    a:hover { text-decoration-thickness: 2px; }
+    :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; border-radius: var(--radius-sm); }
+    code, pre { font-family: var(--mono); font-size: 0.9em; }
+    code { color: var(--ink); background: var(--code-bg); padding: 0.08em 0.36em; border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+    h1, h2, h3, h4 { line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
+    p { margin: 0; }
+    ul { margin: 0; padding: 0; }
+
+    .skip {
+      position: absolute; left: 1rem; top: -4rem; z-index: 100;
+      background: var(--accent); color: var(--on-accent);
+      padding: 0.6rem 1rem; border-radius: var(--radius-md); font-weight: 600; text-decoration: none;
     }
-    .nav-tabs a:hover,.nav-tabs a.on{background:var(--as);color:var(--ink);text-decoration:none;}
-    .nav-end{margin-left:auto;display:flex;gap:.45rem;align-items:center;flex:0 0 auto;}
-    .btn-sm{
-      display:inline-flex;align-items:center;gap:.35rem;
-      padding:.28rem .75rem;border-radius:8px;
-      font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;
-      transition:filter .12s,background .13s;border:none;
+    .skip:focus { top: 1rem; }
+    .wrap { width: min(1160px, 100% - 32px); margin-inline: auto; }
+
+    /* Header */
+    .site-header {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--header-bg);
+      -webkit-backdrop-filter: blur(14px) saturate(150%);
+      backdrop-filter: blur(14px) saturate(150%);
+      border-bottom: 1px solid var(--border);
     }
-    .btn-ghost{background:var(--chip);color:var(--ink);border:1px solid var(--gb);}
-    .btn-ghost:hover{background:var(--as);}
-    .btn-accent{background:var(--accent);color:#fff;}
-    [data-theme="dark"] .btn-accent{color:#0e1017;}
-    .btn-accent:hover{filter:brightness(1.08);}
-    .stars-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);text-decoration:none!important;}
-    .stars-badge:hover{color:var(--ink);}
-    .stars-badge svg{width:13px;height:13px;fill:currentColor;opacity:.7;}
-    .hero{position:relative;max-width:780px;margin:6rem auto 0;padding:0 1.5rem;}
-    .hero-board{position:absolute;top:-2rem;right:-2.5rem;width:340px;height:auto;pointer-events:none;opacity:.6;z-index:0;}
-    .mm-card rect{fill:var(--card);stroke:var(--gb);stroke-width:1.2;}
-    .mm-card .mm-pin{fill:var(--accent);}
-    .mm-thread{fill:none;stroke:var(--accent);stroke-width:1.3;opacity:.45;stroke-linecap:round;}
-    @media(max-width:980px){.hero-board{display:none;}}
-    .hero>*{position:relative;z-index:1;}
-    .hero-eyebrow{
-      display:inline-flex;align-items:center;gap:.5rem;
-      margin-bottom:1.5rem;
-      font-family:var(--mono);
-      font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-      color:var(--muted);
+    .bar { display: flex; align-items: center; gap: 1rem; min-height: 3.75rem; }
+    .brand { display: inline-flex; align-items: center; gap: 0.6rem; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+    .brand svg { width: 30px; height: 30px; flex: none; }
+    .brand .ai { color: var(--muted); font-weight: 600; }
+    .nav { display: none; gap: 0.25rem; margin-left: 0.75rem; }
+    .nav a { color: var(--muted); text-decoration: none; font-size: 0.92rem; font-weight: 500; padding: 0.4rem 0.65rem; border-radius: var(--radius-pill); }
+    .nav a:hover { color: var(--ink); background: var(--chip); }
+    .bar-end { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+    @media (min-width: 880px) { .nav { display: flex; } }
+    /* At the narrowest phones the header keeps the mark, the theme switch and
+       a GitHub icon; the word moves to the accessible name only. */
+    @media (max-width: 400px) {
+      .bar { gap: 0.5rem; }
+      .bar .btn-sm { padding-inline: 0.7rem; }
+      .bar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     }
-    .hero-eyebrow::before,.hero-eyebrow::after{content:'';flex:1;height:1px;background:var(--border);}
-    .hero-eyebrow::before{max-width:3rem;}
-    .hero-eyebrow::after{max-width:3rem;}
-    .hero h1{font-family:'Space Mono',var(--mono);font-size:clamp(1.7rem,4.2vw,2.9rem);font-weight:700;letter-spacing:-.01em;line-height:1.2;margin-bottom:1.4rem;}
-    .hero h1 em{font-style:normal;color:var(--accent);}
-    .hero-sub{font-size:clamp(.95rem,1.4vw,1.1rem);color:var(--muted);max-width:56ch;line-height:1.75;margin-bottom:.9rem;}
-    .hero-flow{font-size:.82rem;color:var(--faint);font-family:var(--mono);margin-bottom:2.2rem;letter-spacing:.01em;}
-    .hero-ctas{display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:3.5rem;}
-    .btn-lg{
-      display:inline-flex;align-items:center;gap:.4rem;
-      padding:.7rem 1.5rem;border-radius:10px;
-      font-size:.92rem;font-weight:600;font-family:inherit;cursor:pointer;
-      transition:filter .12s,transform .08s,background .13s;border:none;
+
+    .icon-btn {
+      display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem;
+      border-radius: var(--radius-pill); border: 1px solid var(--border);
+      background: var(--card); color: var(--ink); cursor: pointer; padding: 0;
     }
-    .btn-lg:hover{transform:translateY(-1px);}
-    .btn-lg.primary{background:var(--accent);color:#fff;box-shadow:0 4px 18px rgba(79,109,245,.28);}
-    [data-theme="dark"] .btn-lg.primary{color:#0e1017;}
-    .btn-lg.primary:hover{filter:brightness(1.07);}
-    .btn-lg.secondary{background:var(--chip);color:var(--ink);border:1px solid var(--gb);}
-    .btn-lg.secondary:hover{background:var(--as);}
-    .tabs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
-    .section-label{font-family:var(--mono);font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:1.4rem;}
-    .tab-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.2rem;}
-    .tab-pill{
-      padding:.3rem .85rem;border-radius:999px;
-      font-family:var(--mono);
-      font-size:.79rem;font-weight:700;cursor:pointer;
-      background:var(--chip);color:var(--muted);
-      border:1px solid var(--border);
-      transition:background .13s,color .13s,border-color .13s;
+    .icon-btn:hover { background: var(--chip); }
+    .icon-btn svg { width: 18px; height: 18px; }
+    .theme-toggle .sun { display: none; }
+    :root[data-theme="dark"] .theme-toggle .sun { display: block; }
+    :root[data-theme="dark"] .theme-toggle .moon { display: none; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .theme-toggle .sun { display: block; }
+      :root:not([data-theme="light"]) .theme-toggle .moon { display: none; }
     }
-    .tab-pill.on,.tab-pill:hover{background:var(--as);color:var(--ink);border-color:var(--accent);}
-    .tab-pane{display:none;animation:fade .22s ease;}
-    .tab-pane.on{display:block;}
-    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-    .tab-card{padding:1.5rem 1.75rem;}
-    .tab-card h3{font-family:var(--mono);font-size:.95rem;font-weight:700;margin-bottom:.55rem;}
-    .tab-card p{font-size:.9rem;color:var(--muted);max-width:68ch;line-height:1.7;}
-    .tab-card code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;font-family:var(--mono);}
-    .qs-section{max-width:720px;margin:0 auto 5rem;padding:0 1.5rem;}
-    .qs-card{padding:1.75rem 2rem;}
-    .qs-card h2{font-family:var(--mono);font-size:1.1rem;font-weight:700;margin-bottom:1.1rem;}
-    .platform-tabs{display:flex;gap:.3rem;margin-bottom:1.1rem;}
-    .ptab{
-      padding:.25rem .75rem;border-radius:8px;
-      font-family:var(--mono);
-      font-size:.78rem;font-weight:700;cursor:pointer;
-      background:var(--chip);color:var(--muted);border:1px solid var(--border);
-      transition:background .13s,color .13s;
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      min-height: 2.75rem; padding: 0.6rem 1.15rem;
+      border-radius: var(--radius-pill); border: 1px solid transparent;
+      font: inherit; font-weight: 600; font-size: 0.97rem; text-decoration: none; cursor: pointer;
+      transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease), background-color 0.16s var(--ease);
     }
-    .ptab.on,.ptab:hover{background:var(--as);color:var(--ink);}
-    .pcontent{display:none;}
-    .pcontent.on{display:block;}
-    pre{
-      background:var(--inner);border:1px solid var(--border);
-      border-radius:9px;padding:1rem 1.1rem;
-      overflow-x:auto;font-size:.82rem;line-height:1.65;
-      font-family:var(--mono);
-      margin:.75rem 0 1rem;
+    .btn svg { width: 18px; height: 18px; flex: none; }
+    .btn-primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 6px 18px rgba(70, 100, 240, 0.28); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(70, 100, 240, 0.34); }
+    .btn-secondary { background: var(--card-strong); color: var(--ink); border-color: var(--border); }
+    .btn-secondary:hover { background: var(--card-solid); transform: translateY(-1px); }
+    .btn-sm { min-height: 2.5rem; padding: 0.4rem 0.95rem; font-size: 0.9rem; }
+
+    /* Sections */
+    section { padding-block: clamp(3.5rem, 7vw, 6rem); }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--accent-text); margin-bottom: 0.75rem;
     }
-    code{font-family:var(--mono);font-size:.85em;}
-    p code,li code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;}
-    .note{
-      font-size:.83rem;color:var(--muted);
-      border-left:2px solid var(--accent);
-      padding:.6rem .9rem;border-radius:0 8px 8px 0;
-      background:var(--as);margin:.8rem 0;
+    .section-head { max-width: 46rem; margin-bottom: clamp(2rem, 4vw, 3rem); }
+    .section-head h2 { font-size: clamp(1.7rem, 3.6vw, 2.4rem); }
+    .section-head p { margin-top: 0.85rem; color: var(--muted); font-size: 1.08rem; }
+    .card {
+      background: var(--card); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
     }
-    .ref-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
-    .ref-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
-    .dpill{
-      padding:.3rem .85rem;border-radius:999px;
-      font-family:var(--mono);
-      font-size:.79rem;font-weight:700;cursor:pointer;
-      background:var(--chip);color:var(--muted);
-      border:1px solid var(--border);
-      transition:background .13s,color .13s;
+    .more-link { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600; text-decoration: none; }
+    .more-link:hover { text-decoration: underline; }
+    .more-link svg { width: 16px; height: 16px; }
+
+    /* Hero */
+    .hero { padding-top: clamp(3rem, 7vw, 5.5rem); padding-bottom: 0; }
+    .hero h1 { font-size: clamp(2.3rem, 6.2vw, 4.1rem); font-weight: 800; letter-spacing: -0.025em; max-width: 15ch; }
+    .hero .lede { margin-top: 1.25rem; font-size: clamp(1.08rem, 2vw, 1.3rem); color: var(--muted); max-width: 40rem; }
+    .hero .lede strong { color: var(--ink); font-weight: 600; }
+    .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 1.5rem 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 0.92rem; }
+    .hero-meta li { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .hero-meta svg { width: 16px; height: 16px; color: var(--accent-text); flex: none; }
+    .hero-shot { margin-top: clamp(2.5rem, 5vw, 3.75rem); }
+    .hero-shot .shot { box-shadow: var(--shadow-lift); }
+    .hero-shot figcaption { margin-top: 0.75rem; text-align: center; }
+
+    /* Screenshots */
+    figure { margin: 0; }
+    .shot {
+      display: block; overflow: hidden; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--card-solid);
+      box-shadow: var(--shadow); color: inherit;
+      transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
     }
-    .dpill.on{background:var(--as);color:var(--ink);border-color:var(--accent);}
-    .dpill:hover{background:var(--as);color:var(--ink);}
-    .mm-ref-body{
-      padding:1.75rem 2rem;
-      min-height:22rem;
-      overflow-x:hidden;
+    .shot img { display: block; width: 100%; height: auto; }
+    a.shot:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+    figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 0.6rem; }
+
+    /* The loop */
+    .loop { display: grid; gap: 1rem; grid-template-columns: 1fr; counter-reset: step; }
+    @media (min-width: 820px) { .loop { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .step { padding: 1.5rem; position: relative; }
+    .step-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .step-icon { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: var(--radius-md); background: var(--accent-soft); color: var(--accent-text); }
+    .step-icon svg { width: 22px; height: 22px; }
+    .step-num { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+    .step h3 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .step p { color: var(--muted); }
+    .flow {
+      margin-top: 1.25rem; padding: 0.85rem 1.1rem; border-radius: var(--radius-md);
+      background: var(--code-bg); font-family: var(--mono); font-size: 0.88rem; color: var(--muted);
+      display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; align-items: center;
     }
-    .mm-ref-body h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
-    .mm-ref-body h2{font-size:1.05rem;font-weight:700;margin:1.8rem 0 .6rem;padding-top:.4rem;border-top:1px solid var(--border);}
-    .mm-ref-body h2:first-child{margin-top:0;border-top:none;padding-top:0;}
-    .mm-ref-body h3{font-size:.93rem;font-weight:700;margin:1.2rem 0 .4rem;color:var(--ink);}
-    .mm-ref-body h4{font-size:.88rem;font-weight:600;margin:1rem 0 .35rem;color:var(--ink);}
-    .mm-ref-body p{font-size:.88rem;color:var(--muted);margin-bottom:.75rem;max-width:72ch;line-height:1.78;}
-    .mm-ref-body ul,.mm-ref-body ol{padding-left:1.4rem;margin-bottom:.85rem;margin-top:.2rem;}
-    .mm-ref-body li{font-size:.88rem;color:var(--muted);line-height:1.74;margin-bottom:.3rem;}
-    .mm-ref-body li>ul,.mm-ref-body li>ol{margin-top:.25rem;margin-bottom:.25rem;}
-    .mm-ref-body li p{margin-bottom:.25rem;}
-    .mm-ref-body li strong,.mm-ref-body p strong{color:var(--ink);}
-    .mm-ref-body .ref-code-wrap{position:relative;margin:.5rem 0 1rem;}
-    .mm-ref-body pre{
-      background:var(--inner);border:1px solid var(--border);
-      border-radius:9px;padding:.85rem 1rem;
-      overflow-x:auto;font-size:.8rem;line-height:1.6;
-      font-family:var(--mono);
-      max-width:100%;margin:0;
+    .flow span[aria-hidden] { color: var(--ink); font-weight: 700; }
+
+    /* Feature tour */
+    .tour { display: grid; gap: clamp(3rem, 7vw, 5.5rem); }
+    .feature { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); align-items: center; }
+    @media (min-width: 940px) {
+      .feature { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 3rem; }
+      .feature.flip .feature-text { order: 2; }
+      .feature.flip .feature-media { order: 1; }
     }
-    .mm-ref-body .copy-btn{
-      position:absolute;top:.45rem;right:.5rem;
-      padding:.18rem .55rem;border-radius:6px;
-      font-size:.72rem;font-weight:600;cursor:pointer;
-      background:var(--chip);color:var(--muted);border:1px solid var(--border);
-      font-family:inherit;transition:background .13s,color .13s;
-      opacity:.7;
+    .feature-text h3 { font-size: clamp(1.4rem, 2.6vw, 1.75rem); margin-bottom: 0.75rem; }
+    .feature-text > p { color: var(--muted); font-size: 1.04rem; }
+    .ticks { list-style: none; margin-top: 1.1rem; display: grid; gap: 0.55rem; }
+    .ticks li { position: relative; padding-left: 1.6rem; }
+    .ticks li::before {
+      content: ""; position: absolute; left: 0; top: 0.5em; width: 0.85rem; height: 0.5rem;
+      border-left: 2px solid var(--accent-text); border-bottom: 2px solid var(--accent-text);
+      transform: translateY(-35%) rotate(-45deg);
     }
-    .mm-ref-body .copy-btn:hover{opacity:1;background:var(--as);color:var(--ink);}
-    .mm-ref-body code{font-family:var(--mono);font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
-    .mm-ref-body pre code{background:none;padding:0;font-size:inherit;white-space:pre;}
-    .mm-ref-body table{width:100%;border-collapse:collapse;font-size:.84rem;margin:.6rem 0 1.1rem;overflow-x:auto;display:block;}
-    .mm-ref-body th{text-align:left;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:2px solid var(--border);background:var(--chip);}
-    .mm-ref-body td{padding:.42rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
-    .mm-ref-body td:first-child{color:var(--ink);font-weight:500;}
-    .mm-ref-body a{color:var(--accent);}
-    .mm-ref-body details{margin:.5rem 0;border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;}
-    .mm-ref-body summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink);}
-    .mm-ref-body blockquote{
-      border-left:3px solid var(--accent);
-      padding:.55rem .9rem;
-      margin:.8rem 0;
-      background:var(--as);
-      border-radius:0 8px 8px 0;
-      font-size:.87rem;
-      color:var(--muted);
+    .pair { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 600px) { .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .duo { display: grid; gap: 1rem; grid-template-columns: minmax(0, 3fr) minmax(0, 1.1fr); align-items: end; }
+    .duo .portrait { max-width: 15rem; justify-self: end; width: 100%; }
+    .phone-row { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); align-items: center; }
+    .phone-row .portrait { max-width: 16rem; width: 100%; }
+
+    .grid-title { margin-top: clamp(3.5rem, 7vw, 5rem); margin-bottom: 1.25rem; font-size: 1.35rem; }
+    .gallery { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 620px) { .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 980px) { .gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .tile { padding: 0.75rem; display: flex; flex-direction: column; }
+    .tile .shot { border-radius: var(--radius-md); box-shadow: none; }
+    .tile h4 { font-size: 1.02rem; margin: 0.9rem 0.35rem 0.3rem; }
+    .tile p { color: var(--muted); font-size: 0.93rem; margin: 0 0.35rem 0.35rem; }
+
+    .extras { margin-top: 1.25rem; padding: clamp(1.25rem, 3vw, 2rem); }
+    .extras h3 { font-size: 1.2rem; margin-bottom: 1rem; }
+    .extras ul { list-style: none; display: grid; gap: 0.6rem 2rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 700px) { .extras ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1040px) { .extras ul { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .extras li { position: relative; padding-left: 1.1rem; color: var(--muted); }
+    .extras li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--accent); }
+    .extras li strong { color: var(--ink); font-weight: 600; }
+
+    /* Privacy */
+    .points { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 640px) { .points { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1000px) { .points { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .point { padding: 1.35rem 1.4rem; }
+    .point svg { width: 24px; height: 24px; color: var(--accent-text); margin-bottom: 0.75rem; }
+    .point h3 { font-size: 1.08rem; margin-bottom: 0.4rem; }
+    .point p { color: var(--muted); font-size: 0.96rem; }
+    .after { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+
+    /* Install */
+    .installs { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 900px) { .installs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .install { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .install h3 { font-size: 1.15rem; display: flex; align-items: center; gap: 0.55rem; }
+    .install h3 svg { width: 22px; height: 22px; color: var(--accent-text); flex: none; }
+    .install p { color: var(--muted); font-size: 0.96rem; }
+    .install .more-link { margin-top: auto; padding-top: 0.25rem; }
+    pre {
+      margin: 0; padding: 0.9rem 1rem; border-radius: var(--radius-md);
+      background: var(--code-bg); border: 1px solid var(--border);
+      overflow-x: auto; line-height: 1.55; font-size: 0.86rem; max-width: 100%;
     }
-    .mm-ref-body blockquote p{margin:.25rem 0;color:var(--muted);max-width:none;}
-    .mm-ref-body blockquote p:first-child{margin-top:0;}
-    .mm-ref-body blockquote p:last-child{margin-bottom:0;}
-    .mm-ref-body hr{border:none;border-top:1px solid var(--border);margin:1.4rem 0;}
-    .mm-ref-status{
-      display:flex;align-items:center;justify-content:center;gap:.5rem;
-      padding:3rem;font-size:.88rem;color:var(--muted);
+    pre code { background: none; padding: 0; overflow-wrap: normal; font-size: inherit; }
+    .first-run { margin-top: 1.25rem; padding: clamp(1.25rem, 3vw, 1.75rem); display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 900px) { .first-run { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+    .first-run h3 { font-size: 1.1rem; margin-bottom: 0.6rem; }
+    .first-run ol { margin: 0; padding-left: 1.3rem; display: grid; gap: 0.4rem; }
+    .first-run p { color: var(--muted); font-size: 0.96rem; }
+
+    /* Models */
+    .models { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 820px) { .models { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .model { padding: 1.5rem; }
+    .model h3 { font-size: 1.15rem; margin-bottom: 0.5rem; }
+    .model p { color: var(--muted); }
+    .model .ticks { font-size: 0.96rem; }
+
+    /* FAQ */
+    .faq { display: grid; gap: 0.75rem; max-width: 52rem; }
+    .faq details { padding: 0; overflow: hidden; }
+    .faq summary {
+      cursor: pointer; list-style: none; padding: 1.05rem 3rem 1.05rem 1.25rem; font-weight: 600; position: relative;
+      border-radius: var(--radius);
     }
-    .mm-spinner{
-      width:20px;height:20px;flex-shrink:0;
-      border:2px solid var(--border);border-top-color:var(--accent);
-      border-radius:50%;animation:spin .7s linear infinite;
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after {
+      content: ""; position: absolute; right: 1.3rem; top: 50%; width: 0.55rem; height: 0.55rem;
+      border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+      transform: translateY(-70%) rotate(45deg); transition: transform 0.16s var(--ease);
     }
-    @keyframes spin{to{transform:rotate(360deg)}}
-    .mm-ref-error{
-      display:flex;flex-direction:column;align-items:center;
-      gap:.7rem;padding:2.5rem;text-align:center;
-      font-size:.88rem;color:var(--muted);
+    .faq details[open] summary::after { transform: translateY(-30%) rotate(-135deg); }
+    .faq .answer { padding: 0 1.25rem 1.15rem; color: var(--muted); }
+    .faq .answer p + p { margin-top: 0.6rem; }
+
+    /* Footer */
+    .site-footer { border-top: 1px solid var(--border); padding-block: 3rem 2.5rem; margin-top: 2rem; background: var(--card); }
+    .foot { display: grid; gap: 2rem; grid-template-columns: minmax(0, 1fr); }
+    @media (min-width: 720px) { .foot { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); } }
+    .foot h2 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.8rem; }
+    .foot ul { list-style: none; display: grid; gap: 0.45rem; }
+    .foot a { color: var(--ink); text-decoration: none; }
+    .foot a:hover { color: var(--accent-text); text-decoration: underline; }
+    .foot .about p { color: var(--muted); font-size: 0.94rem; margin-top: 0.75rem; max-width: 22rem; }
+    .legal { margin-top: 2.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.88rem; }
+
+    /* Lightbox: progressive. Without script each screenshot is a plain link
+       to the full-size image. */
+    dialog.lightbox {
+      border: 0; padding: 0; background: transparent; color: #f2f4f8;
+      max-width: min(1440px, 100vw - 32px); max-height: calc(100vh - 32px); width: auto;
     }
-    .mm-ref-error svg{opacity:.5;}
-    .mm-ref-error a{color:var(--accent);}
-    .mm-retry-btn{
-      display:inline-flex;align-items:center;gap:.3rem;
-      padding:.3rem .85rem;border-radius:8px;
-      font-size:.82rem;font-weight:600;cursor:pointer;
-      background:var(--chip);color:var(--ink);border:1px solid var(--border);
-      font-family:inherit;transition:background .13s;
+    dialog.lightbox::backdrop { background: var(--scrim); }
+    .lightbox-inner { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+    .lightbox img { display: block; max-width: 100%; max-height: calc(100vh - 7rem); width: auto; height: auto; border-radius: var(--radius-md); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+    .lightbox-bar { display: flex; align-items: center; gap: 1rem; width: 100%; }
+    .lightbox-bar p { flex: 1; font-size: 0.92rem; color: #f2f4f8; }
+    .lightbox-close {
+      flex: none; min-height: 2.5rem; padding: 0.4rem 1rem; border-radius: var(--radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.14); color: #ffffff; font: inherit; font-weight: 600; cursor: pointer;
     }
-    .mm-retry-btn:hover{background:var(--as);}
-    .mm-stale-note{
-      display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
-      font-size:.78rem;color:var(--muted);
-      background:var(--as);border-left:2px solid var(--accent);
-      padding:.5rem .85rem;border-radius:0 8px 8px 0;margin-bottom:1.2rem;
-    }
-    .mm-stale-note button{
-      font-family:inherit;font-size:.76rem;font-weight:600;cursor:pointer;
-      background:var(--chip);color:var(--ink);border:1px solid var(--border);
-      border-radius:6px;padding:.15rem .55rem;
-    }
-    footer{text-align:center;padding:2.5rem 1.5rem 3rem;font-size:.8rem;color:var(--faint);border-top:1px solid var(--border);}
-    footer a{color:var(--accent);}
-    .reveal{opacity:0;transform:translateY(14px);transition:opacity .45s ease,transform .45s ease;}
-    .reveal.in{opacity:1;transform:none;}
-    @media(max-width:600px){
-      .hero{margin-top:4rem;}
-      .hero h1{font-size:1.55rem;}
-      .qs-card,.tab-card,.mm-ref-body{padding:1.2rem 1.1rem;}
-    }
+    .lightbox-close:focus-visible { outline-color: #ffffff; }
   </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
-<nav>
-  <a class="nav-logo" href="#top">
-    <svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
-      <defs>
-        <linearGradient id="navTile" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#5b7cff"/>
-          <stop offset="55%" stop-color="#4f6df5"/>
-          <stop offset="100%" stop-color="#a927d8"/>
-        </linearGradient>
-        <linearGradient id="navSheen" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
-          <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <rect width="100" height="100" rx="23" fill="url(#navTile)"/>
-      <rect width="100" height="100" rx="23" fill="url(#navSheen)"/>
-      <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
-        <path d="M50 50 50 20"/>
-        <path d="M50 50 78.5 40.7"/>
-        <path d="M50 50 67.6 74.3"/>
-        <path d="M50 50 32.4 74.3"/>
-        <path d="M50 50 21.5 40.7"/>
-      </g>
-      <g fill="#ffffff">
-        <circle cx="50" cy="20" r="7.5"/>
-        <circle cx="78.5" cy="40.7" r="7.5"/>
-        <circle cx="67.6" cy="74.3" r="7.5"/>
-        <circle cx="32.4" cy="74.3" r="7.5"/>
-        <circle cx="21.5" cy="40.7" r="7.5"/>
-      </g>
-      <circle cx="50" cy="50" r="13" fill="#4f6df5"/>
-      <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
-    </svg>
-    <span>MemoryMap <span style="opacity:.5">AI</span></span>
-  </a>
-  <div class="nav-tabs">
-    <a href="#features">Features</a>
-    <a href="#quickstart">Quick start</a>
-    <a href="#reference">Docs</a>
-  </div>
-  <div class="nav-end">
-    <a href="https://github.com/Braydenh563/MemoryMap-AI/stargazers" target="_blank" rel="noopener" class="stars-badge" aria-label="GitHub stars">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
-      <img src="https://img.shields.io/github/stars/Braydenh563/MemoryMap-AI?style=flat&label=&color=e0806e&labelColor=transparent&logo=none" alt="Stars" height="16" style="display:inline;vertical-align:middle;" loading="lazy" onerror="this.style.display='none'" />
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="MemoryMap AI, back to top">
+      <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="markTile" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#5b7cff"/>
+            <stop offset="55%" stop-color="#4f6df5"/>
+            <stop offset="100%" stop-color="#a927d8"/>
+          </linearGradient>
+          <linearGradient id="markSheen" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+            <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <rect width="100" height="100" rx="23" fill="url(#markTile)"/>
+        <rect width="100" height="100" rx="23" fill="url(#markSheen)"/>
+        <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
+          <path d="M50 50 50 20"/><path d="M50 50 78.5 40.7"/><path d="M50 50 67.6 74.3"/><path d="M50 50 32.4 74.3"/><path d="M50 50 21.5 40.7"/>
+        </g>
+        <g fill="#ffffff">
+          <circle cx="50" cy="20" r="7.5"/><circle cx="78.5" cy="40.7" r="7.5"/><circle cx="67.6" cy="74.3" r="7.5"/><circle cx="32.4" cy="74.3" r="7.5"/><circle cx="21.5" cy="40.7" r="7.5"/>
+        </g>
+        <circle cx="50" cy="50" r="13" fill="#4f6df5"/>
+        <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
+      </svg>
+      <span>MemoryMap <span class="ai">AI</span></span>
     </a>
-    <button class="btn-sm btn-ghost" id="themeBtn" aria-label="Toggle theme">&#x2600;&#xFE0F;</button>
-    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="btn-sm btn-accent">GitHub &#x2197;</a>
-  </div>
-</nav>
-
-<section class="hero" id="top">
-  <svg class="hero-board" viewBox="0 0 440 380" aria-hidden="true">
-    <path class="mm-thread" d="M120,50 C170,20 210,60 260,100" />
-    <path class="mm-thread" d="M180,133 C160,170 150,190 180,230" />
-    <path class="mm-thread" d="M290,176 C260,200 220,210 190,236" />
-    <g class="mm-card" transform="translate(60,40) rotate(-6)">
-      <rect x="0" y="0" width="120" height="86" rx="3"/>
-      <circle class="mm-pin" cx="60" cy="8" r="4"/>
-    </g>
-    <g class="mm-card" transform="translate(230,90) rotate(4)">
-      <rect x="0" y="0" width="120" height="86" rx="3"/>
-      <circle class="mm-pin" cx="60" cy="8" r="4"/>
-    </g>
-    <g class="mm-card" transform="translate(120,220) rotate(-3)">
-      <rect x="0" y="0" width="120" height="86" rx="3"/>
-      <circle class="mm-pin" cx="60" cy="8" r="4"/>
-    </g>
-  </svg>
-  <div class="hero-eyebrow">Local-first &nbsp;&middot;&nbsp; 100 % offline &nbsp;&middot;&nbsp; Open source</div>
-  <h1>Your thoughts, mapped<br>by a <em>local AI</em>.</h1>
-  <p class="hero-sub">Type a thought, a local AI files it. Ask a question in plain English and get back a conversational answer <em>and</em> the raw notes behind it, side by side, so you can check it. No account. No cloud. No telemetry.</p>
-  <p class="hero-flow">capture text &rarr; AI files it &rarr; ask a question &rarr; answer + the notes behind it</p>
-  <div class="hero-ctas">
-    <a href="#quickstart" class="btn-lg primary">Get started</a>
-    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="btn-lg secondary">View on GitHub</a>
-  </div>
-</section>
-
-<section class="tabs-section reveal" id="features">
-  <p class="section-label">Seven tabs, all offline</p>
-  <div class="tab-row" role="tablist">
-    <button class="tab-pill on" role="tab" data-tab="dashboard">Dashboard</button>
-    <button class="tab-pill" role="tab" data-tab="notes">Notes</button>
-    <button class="tab-pill" role="tab" data-tab="chat">Chat</button>
-    <button class="tab-pill" role="tab" data-tab="graph">Graph</button>
-    <button class="tab-pill" role="tab" data-tab="library">Library</button>
-    <button class="tab-pill" role="tab" data-tab="timeline">Timeline</button>
-    <button class="tab-pill" role="tab" data-tab="reminders">Reminders</button>
-  </div>
-  <div id="pane-dashboard" class="tab-pane on g tab-card" role="tabpanel"><h3>Dashboard</h3><p>Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange.</p></div>
-  <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel"><h3>Notes</h3><p>Your notes, Capture, Write with Atlas, Ask and Questions: five sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p></div>
-  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode has 65 tools: search and read your notes, create, tag, link and organise, set reminders, open a web page, place and connect cards and shapes on a board, with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
-  <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel"><h3>Graph</h3><p>Your notes as a map: force-directed, or as a tree or radial tree. Click a node to edit it in place, see its images, or drop one note onto another to link them. <strong>Trace</strong> answers the question a graph is uniquely good at: pick any two notes and see the chain of links, replies and shared tags that connects them, named step by step. Colour by cluster to see which notes can actually reach each other, and how many are connected to nothing at all. The same traversal is what the AI uses: it can trace a path and read your notebook's structure, not just search it.</p></div>
-  <div id="pane-library" class="tab-pane g tab-card" role="tabpanel"><h3>Library</h3><p>Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles and previews, bulk selection, grid or list. The long-form <strong>document editor</strong> opens from here, and so does the <strong>whiteboard</strong>: note cards and freehand sketches on a canvas you can pan and zoom, where a board is itself a note and so is searchable and filable like any other.</p></div>
-  <div id="pane-timeline" class="tab-pane g tab-card" role="tabpanel"><h3>Timeline</h3><p>Every note plotted on a time axis, at what it is <em>about</em> when a phrase like "next week" resolves to a date, and at when it was written otherwise, in bands by category or tag, at a bucket size you pick.</p></div>
-  <div id="pane-reminders" class="tab-pane g tab-card" role="tabpanel"><h3>Reminders</h3><p>Due dates with priority, repeats, snooze and notifications, or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p></div>
-</section>
-
-<section class="qs-section reveal" id="quickstart">
-  <p class="section-label">Quick start</p>
-  <div class="qs-card g">
-    <h2>Running MemoryMap AI</h2>
-    <p style="font-size:.88rem;color:var(--muted);margin-bottom:1rem;">Windows and Linux have a ready-made download on the <a href="https://github.com/Braydenh563/MemoryMap-AI/releases/latest" target="_blank" rel="noopener">latest release</a>. From source you need <strong>Python 3.11+</strong>, and that is all.</p>
-    <div class="platform-tabs">
-      <button class="ptab on" data-p="win">Windows</button>
-      <button class="ptab" data-p="mac">macOS / Linux</button>
-      <button class="ptab" data-p="manual">Manual</button>
+    <nav class="nav" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#install">Install</a>
+      <a href="#models">Models</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="bar-end">
+      <button class="icon-btn theme-toggle" type="button" id="theme-toggle" aria-label="Switch to dark theme" hidden>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="btn btn-secondary btn-sm" href="https://github.com/Braydenh563/MemoryMap-AI">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span class="bar-label">GitHub</span>
+      </a>
     </div>
-    <div class="pcontent on" id="p-win">
-      <p style="font-size:.87rem;color:var(--muted);">Run <code>MemoryMap-AI-Setup-*.exe</code> from the latest release, or from source double-click <code>start.bat</code> in the repo root. The launcher builds the virtual environment, installs everything, starts the server and opens <code>http://localhost:8000</code>.</p>
-      <p style="font-size:.87rem;color:var(--muted);margin-top:.5rem;">For a dedicated desktop window use <code>start-desktop.bat</code>.</p>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="wrap">
+      <p class="eyebrow">Local-first, offline, open source</p>
+      <h1 id="hero-title">A notebook that files itself.</h1>
+      <p class="lede"><strong>MemoryMap AI is a fully offline, local-first notebook where a local AI files your notes and answers questions about them.</strong> Write a thought and it is filed, tagged and linked to what you already wrote. Ask a question and get an answer beside the notes it came from, with each sentence cited so you can check it.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/Braydenh563/MemoryMap-AI/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>
+          Download the latest release
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/Braydenh563/MemoryMap-AI">View the source on GitHub</a>
+      </div>
+      <ul class="hero-meta" aria-label="At a glance">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>No account</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>No telemetry</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Works with no AI model</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Windows, macOS and Linux</li>
+      </ul>
+      <figure class="hero-shot">
+        <a class="shot" href="screenshots/dashboard.png" data-caption="The dashboard: reminders, recent notes, favourites, quick capture, boards and recent documents at a glance.">
+          <img src="screenshots/dashboard.png" width="1440" height="900" fetchpriority="high" decoding="async"
+               alt="The MemoryMap AI dashboard in the dark theme: a greeting with the note count, reminders and capture streak, a search box, quick actions, and widgets for reminders, recently added notes, favourites, quick capture, boards and recent documents.">
+        </a>
+        <figcaption>The dashboard, your notebook at a glance. Select any screenshot to see it full size.</figcaption>
+      </figure>
     </div>
-    <div class="pcontent" id="p-mac"><p style="font-size:.87rem;color:var(--muted);">On Linux, unpack <code>MemoryMap-AI-*-linux-x86_64.tar.gz</code> from the latest release and run <code>MemoryMap AI</code>. From source on either:</p><pre>./start.sh</pre><p style="font-size:.87rem;color:var(--muted);">For a desktop window: <code>./start.sh --desktop</code></p></div>
-    <div class="pcontent" id="p-manual"><pre>git clone https://github.com/Braydenh563/MemoryMap-AI.git
+  </section>
+
+  <section id="loop" aria-labelledby="loop-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">The core loop</p>
+        <h2 id="loop-title">Capture a thought. It files itself. Ask about it later.</h2>
+        <p>Most notebooks leave the filing to you. MemoryMap reads each note as you save it, decides where it belongs, and turns your notes into something you can question.</p>
+      </div>
+      <div class="loop">
+        <article class="card step">
+          <div class="step-top">
+            <span class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
+            <span class="step-num" aria-hidden="true">01</span>
+          </div>
+          <h3>Capture</h3>
+          <p>Type, paste, draw, dictate or import. A quick note opens over any tab with <code>Alt</code>+<code>N</code>. Markdown, <code>#tags</code> and <code>[[wiki links]]</code> work as you type, and voice is transcribed on your machine.</p>
+        </article>
+        <article class="card step">
+          <div class="step-top">
+            <span class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8"/></svg></span>
+            <span class="step-num" aria-hidden="true">02</span>
+          </div>
+          <h3>Filed for you</h3>
+          <p>A local model picks a category by meaning, suggests tags and links the note to the ones it relates to, showing how sure it was. Keep each suggestion with one press, or file by hand.</p>
+        </article>
+        <article class="card step">
+          <div class="step-top">
+            <span class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M9 10.5h6"/></svg></span>
+            <span class="step-num" aria-hidden="true">03</span>
+          </div>
+          <h3>Ask</h3>
+          <p>Ask in plain English. The answer comes back beside the notes it was built from, with a numbered citation after each sentence, so you never have to take it on trust.</p>
+        </article>
+      </div>
+      <p class="flow" aria-label="capture a thought, Atlas files it, ask a question, an answer with the notes behind it">
+        <span>capture a thought</span><span aria-hidden="true">&rarr;</span>
+        <span>Atlas files it</span><span aria-hidden="true">&rarr;</span>
+        <span>ask a question</span><span aria-hidden="true">&rarr;</span>
+        <span>an answer, with the notes behind it</span>
+      </p>
+    </div>
+  </section>
+
+  <section id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Feature tour</p>
+        <h2 id="features-title">Everything a thinking notebook needs, on your own machine</h2>
+        <p>Around the core loop sit a long-form editor, boards and mind maps, a graph of how your notes connect, a timeline, reminders, and Atlas, an assistant that can act on the notebook for you.</p>
+      </div>
+
+      <div class="tour">
+        <article class="feature">
+          <div class="feature-text">
+            <p class="eyebrow">Notes</p>
+            <h3>Write in fragments, find it organised</h3>
+            <p>Notes are captured, filed into a category, tagged and linked to what they relate to, so a loose thought lands next to its neighbours without you lifting a finger.</p>
+            <ul class="ticks">
+              <li>Categories, tags and spaces you can rename, merge, split and move, each step undoable</li>
+              <li>Pins, threads, attachments, revision history and a recycle bin</li>
+              <li>A search box that understands tags, categories, exact phrases and exclusions</li>
+            </ul>
+          </div>
+          <figure class="feature-media">
+            <a class="shot" href="screenshots/notes.png" data-caption="Notes: captured, filed into a category, tagged and linked.">
+              <img src="screenshots/notes.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="The Notes tab: categories down the left with their counts, and note cards newest first, each showing its category, tags and the notes it links to.">
+            </a>
+          </figure>
+        </article>
+
+        <article class="feature flip">
+          <div class="feature-text">
+            <p class="eyebrow">Ask</p>
+            <h3>Answers you can check</h3>
+            <p>Ask your own notes a question and get a conversational answer with a numbered citation to the note behind each sentence. The matching notes sit beside it, so checking takes a glance.</p>
+            <ul class="ticks">
+              <li>Grounded in your notes, not the open web</li>
+              <li>Questions collects the questions your notes ask in passing, and marks one answered when a later note answers it</li>
+              <li>Without a model, full-text search with stemming and spelling correction still finds it</li>
+            </ul>
+          </div>
+          <figure class="feature-media">
+            <a class="shot" href="screenshots/ask.png" data-caption="Ask: an answer with a numbered citation after each sentence, and the matching notes beside it.">
+              <img src="screenshots/ask.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="Notes, Ask: the question what do I still need to book for Portugal, answered with the train tickets and the hire car, a numbered citation after each sentence, and the matching notes listed beside it.">
+            </a>
+          </figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature-text">
+            <p class="eyebrow">Chat and agent mode</p>
+            <h3>A conversation with your notebook</h3>
+            <p>Chat is saved and resumable. Switch on agent mode and Atlas can search, link, organise, set reminders and build boards for you, with every step shown as it happens.</p>
+            <ul class="ticks">
+              <li>Anything destructive asks first, and so does any change after it has read a web page or an imported note</li>
+              <li>Skills run multi-step jobs as a visible checklist, and you can write your own</li>
+              <li>A small-model mode gives a small model one step and one tool at a time</li>
+            </ul>
+          </div>
+          <figure class="feature-media">
+            <a class="shot" href="screenshots/chat.png" data-caption="Chat: a saved conversation with citations, suggested next questions, and skills, web search, plan and agent mode beside the box.">
+              <img src="screenshots/chat.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="Chat: a saved conversation about a product launch, the answer as a numbered list with citations, the notes it was grounded in, suggested next questions, and the composer with skills, web search, plan and agent mode.">
+            </a>
+          </figure>
+        </article>
+
+        <article class="feature flip">
+          <div class="feature-text">
+            <p class="eyebrow">Graph</p>
+            <h3>See how your thinking connects</h3>
+            <p>The graph draws your notes as a map coloured by category. Dense clusters, loose webs and notes on their own are visible at once, and every link carries the reason it was made.</p>
+            <ul class="ticks">
+              <li>Click a note to edit it in place, or drop one onto another to link them</li>
+              <li>Trace the chain of links between any two notes, named step by step</li>
+              <li>Force, tree, radial and arc layouts</li>
+            </ul>
+          </div>
+          <figure class="feature-media">
+            <a class="shot" href="screenshots/graph.png" data-caption="Graph: clusters, loose webs and notes on their own, coloured by category.">
+              <img src="screenshots/graph.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="The Graph: notes drawn as a map coloured by category, with a dense cluster of work notes, a dense cluster of trip notes, a looser web of reading and recipes, and loose notes on their own.">
+            </a>
+          </figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature-text">
+            <p class="eyebrow">Documents</p>
+            <h3>Long-form writing, with checks that stay local</h3>
+            <p>A proper editor for the things that outgrow a note, with Live, Source, Split and Read views. Spelling and grammar checks run on your computer, and a document reopens where you left it.</p>
+            <ul class="ticks">
+              <li>Version history, focus mode and code files with line numbers</li>
+              <li>The Writing room turns rough thoughts into a proper note, or a pasted block into several linked notes</li>
+              <li>Export as Markdown, HTML, PDF or Word</li>
+            </ul>
+          </div>
+          <figure class="feature-media">
+            <a class="shot" href="screenshots/documents.png" data-caption="Documents: a long-form editor with Live, Source, Split and Read views.">
+              <img src="screenshots/documents.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="Documents: a launch brief open in the editor with headings, a bulleted list and a table, the recent documents beside it and the word count below.">
+            </a>
+          </figure>
+        </article>
+
+        <article class="feature flip">
+          <div class="feature-text">
+            <p class="eyebrow">Boards and mind maps</p>
+            <h3>Think on a canvas</h3>
+            <p>Boards hold cards, sketches, images and shapes that contain text, joined by connectors that carry a label. Turn a board into a mind map with numbered branches, topics that are tasks, and a note behind any topic.</p>
+            <ul class="ticks">
+              <li>A library of shapes, flowchart symbols and icons</li>
+              <li>Mind maps export as Markdown, OPML or FreeMind, and import XMind</li>
+              <li>A board is searchable and fileable like any note</li>
+            </ul>
+          </div>
+          <div class="feature-media pair">
+            <figure>
+              <a class="shot" href="screenshots/whiteboard.png" data-caption="A board: cards, shapes that hold text, and labelled connectors.">
+                <img src="screenshots/whiteboard.png" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="A board: a banner, coloured cards in two columns, and a release flow of shapes with text inside them, joined by connectors labelled yes, no and after a week.">
+              </a>
+              <figcaption>A board</figcaption>
+            </figure>
+            <figure>
+              <a class="shot" href="screenshots/map.png" data-caption="A mind map: numbered branches, tasks with ticks, and a note behind any topic.">
+                <img src="screenshots/map.png" width="1440" height="900" loading="lazy" decoding="async"
+                     alt="A mind map of a trip laid out both ways from the root, with numbered branches, topics that are tasks with ticks and a done count on their parent, and a mark on the topics that hold a note.">
+              </a>
+              <figcaption>A mind map</figcaption>
+            </figure>
+          </div>
+        </article>
+
+        <article class="feature">
+          <div class="feature-text">
+            <p class="eyebrow">Atlas</p>
+            <h3>A companion who keeps the notebook</h3>
+            <p>Atlas is the star spirit behind the filing, the answers and the agent. Keep it in the corner of any page, or choose yourself, a persona or a character of your own, each with a drawn face.</p>
+            <ul class="ticks">
+              <li>A popup agent does things from any tab with <code>Ctrl</code>+<code>Shift</code>+<code>A</code></li>
+              <li>Every step it takes is shown, and anything destructive asks first</li>
+              <li>The corner companion is optional and can be switched off</li>
+            </ul>
+          </div>
+          <div class="feature-media duo">
+            <a class="shot" href="screenshots/companion.png" data-caption="The corner companion: Atlas settled beside a saved conversation.">
+              <img src="screenshots/companion.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="Chat with Atlas as the corner companion, settled beside a saved conversation.">
+            </a>
+            <a class="shot portrait" href="screenshots/atlas.png" data-caption="Atlas, the star spirit who keeps your notebook.">
+              <img src="screenshots/atlas.png" width="520" height="592" loading="lazy" decoding="async"
+                   alt="Atlas, delighted: a small astral figure on a night-sky tile, eyes closed in a wide smile, a ring of orbiting stars round its head and a nebula stream curling round its body.">
+            </a>
+          </div>
+        </article>
+
+        <article class="feature flip">
+          <div class="feature-text">
+            <p class="eyebrow">On a phone</p>
+            <h3>Your notebook, from the sofa</h3>
+            <p>The server listens on your computer only. Switch on access for your own network in Settings and a phone or tablet can open it, always behind your password and over HTTPS. The layout becomes one column, with the tabs at your thumb.</p>
+            <ul class="ticks">
+              <li>A note saved while the server is away waits on the device and is sent once it is back</li>
+              <li>Keyboard and screen reader support, and a layout that holds at high zoom</li>
+            </ul>
+          </div>
+          <div class="feature-media phone-row">
+            <a class="shot portrait" href="screenshots/phone.png" data-caption="On a phone: one column, the tabs at your thumb.">
+              <img src="screenshots/phone.png" width="780" height="1688" loading="lazy" decoding="async"
+                   alt="The Notes tab at phone width in the dark theme: one column of note cards, a New note button and the tab bar along the bottom.">
+            </a>
+            <a class="shot" href="screenshots/theme-split.png" data-caption="Light or dark: every theme comes in both, or follows your system.">
+              <img src="screenshots/theme-split.png" width="1440" height="900" loading="lazy" decoding="async"
+                   alt="The dashboard split down the middle, the left half in the light theme and the right half in the dark theme.">
+            </a>
+          </div>
+        </article>
+      </div>
+
+      <h3 class="grid-title">And around it</h3>
+      <div class="gallery">
+        <article class="card tile">
+          <a class="shot" href="screenshots/timeline.png" data-caption="Timeline: every note and reminder on a time axis.">
+            <img src="screenshots/timeline.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="The Timeline: notes and reminders in a feed with a header per day, each row with its category, tags and time, and a density strip down the right.">
+          </a>
+          <h4>Timeline</h4>
+          <p>Every note and reminder on a time axis, placed by what it is about when a note names a date.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/library.png" data-caption="Library: everything you have made, in one place.">
+            <img src="screenshots/library.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="The Library: chats, boards, mind maps, documents and notes as cards in one grid, with a filter chip for each kind.">
+          </a>
+          <h4>Library</h4>
+          <p>Notes, documents, chats, boards, files and bookmarks in one place, with an activity log of what you did.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/reminders.png" data-caption="Reminders: due dates with priority and repeats, linked to the note they came from.">
+            <img src="screenshots/reminders.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="Reminders: a magic add box, a form with date, time, priority and repeat, and the list of open reminders, each linked to the note it came from.">
+          </a>
+          <h4>Reminders</h4>
+          <p>Type &ldquo;call Sam tomorrow evening&rdquo; and it is scheduled, with priority, repeats and snooze.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/palette.png" data-caption="The command palette: one box for every command, note, document and board.">
+            <img src="screenshots/palette.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="The command palette: the word launch matching notes, a document, a board and reminders at once, with a preview of the chosen note.">
+          </a>
+          <h4>Command palette</h4>
+          <p><code>Ctrl</code>+<code>K</code> reaches any command, note, document, file or board from anywhere.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/agent.png" data-caption="The popup agent: ask Atlas to do something from any tab.">
+            <img src="screenshots/agent.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="The popup agent over the Notes tab: Atlas beside the title, a box to ask it to do something, and starters grouped by capture, find, summarise and remind.">
+          </a>
+          <h4>Popup agent</h4>
+          <p>Ask Atlas to capture, find, summarise or remind without leaving the page you are on.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/focus.png" data-caption="Focus mode: the page and nothing else, with the writing checks beside it.">
+            <img src="screenshots/focus.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="Documents in focus mode: the page alone under a slim bar, with the writing suggestions panel open beside it.">
+          </a>
+          <h4>Focus mode</h4>
+          <p>The page and nothing else, with the writing checks beside it when you want them.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/settings.png" data-caption="Settings: themes, your own accent, type, density and corners, and every setting searchable.">
+            <img src="screenshots/settings.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="Settings, Appearance: the themes as swatches, with saved looks below and the section list on the left.">
+          </a>
+          <h4>Settings and themes</h4>
+          <p>Themes in light and dark, your own accent, type, density and corners, and a search across every setting.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/your-look.png" data-caption="Your look: a face drawn from your name, every part yours to choose.">
+            <img src="screenshots/your-look.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="Settings, Profile, Your look: a face drawn from the name Maya, a shuffle button, and a picker for each part: look, mood, hair, hair colour, skin, clothes, headwear, eyewear and what you hold.">
+          </a>
+          <h4>Your look</h4>
+          <p>A face drawn from your name for you and every persona, and every part of it yours to change.</p>
+        </article>
+        <article class="card tile">
+          <a class="shot" href="screenshots/activity.png" data-caption="Activity: a record of what you did, one line each.">
+            <img src="screenshots/activity.png" width="1440" height="900" loading="lazy" decoding="async"
+                 alt="Library, Activity: one line per thing you did, newest first, with when, what was done, and the detail.">
+          </a>
+          <h4>Activity</h4>
+          <p>A plain record of what you and Atlas did, one line each, newest first.</p>
+        </article>
+      </div>
+
+      <div class="card extras">
+        <h3>Also in the box</h3>
+        <ul>
+          <li><strong>Import</strong> folders of Markdown, PDF, Word and slide decks, Notion, Obsidian, Evernote and Apple Notes; importing twice adds only what is new</li>
+          <li><strong>Read images</strong> with a vision model or local OCR, and correct each region before it becomes a note</li>
+          <li><strong>Voice notes</strong> and meeting recordings, transcribed on your machine</li>
+          <li><strong>A web clipper</strong> bookmarklet for saving pages as notes</li>
+          <li><strong>A background librarian</strong> that tags, links and flags duplicates on your schedule, and never deletes</li>
+          <li><strong>Private notes</strong>, encrypted at rest and kept out of search, the graph and every AI tool</li>
+          <li><strong>Export</strong> notes as JSON, CSV or Markdown, or a full backup sealed with a password</li>
+          <li><strong>A dashboard</strong> with your capture streak, a weekly digest and the widgets you choose</li>
+          <li><strong>A guided tour</strong> of the real controls, and errors written as plain sentences that say what to do</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Privacy and offline</p>
+        <h2 id="privacy-title">Your notes never leave your machine unless you send them</h2>
+        <p>MemoryMap is built for the things you would not paste into a website. There is no service behind it: the app, the AI and your notes all run on your own computer.</p>
+      </div>
+      <div class="points">
+        <article class="card point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 20c0-3.3 3.1-6 7-6 1.4 0 2.7.3 3.8.9M16 16l5 5M21 16l-5 5"/></svg>
+          <h3>No account</h3>
+          <p>Nothing to sign up for. The password you choose on first launch protects the app on your computer and never goes anywhere.</p>
+        </article>
+        <article class="card point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M3 3l18 18"/></svg>
+          <h3>No telemetry</h3>
+          <p>The app does not report what you do, how often, or anything else. There is no analytics and no crash reporting service.</p>
+        </article>
+        <article class="card point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+          <h3>One file, in a folder you choose</h3>
+          <p>Your notes are a single SQLite database beside your uploads and a daily backup. Copy the folder and you have copied everything.</p>
+        </article>
+        <article class="card point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>
+          <h3>Online only when you say so</h3>
+          <p>Web search and the update check are off until you turn them on, and web search sends only your search words. Settings, Privacy lists every connection the app has made.</p>
+        </article>
+        <article class="card point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <h3>Private notes, encrypted</h3>
+          <p>Mark a note private and it is encrypted at rest with a key derived from your password, and kept out of search, the graph and every AI tool.</p>
+        </article>
+        <article class="card point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+          <h3>Works with no AI model</h3>
+          <p>Without a model, notes are filed as Uncategorised, search uses full-text matching with stemming and spelling correction, and every other feature keeps working.</p>
+        </article>
+      </div>
+      <p class="after">
+        <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/PRIVACY.md">Read the privacy model<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md">Report a vulnerability<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </p>
+    </div>
+  </section>
+
+  <section id="install" aria-labelledby="install-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Install</p>
+        <h2 id="install-title">Up and running in a few minutes</h2>
+        <p>Pick the way that suits you. Only running from source needs a terminal, and the launcher does the setup for you.</p>
+      </div>
+      <div class="installs">
+        <article class="card install">
+          <h3><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5l7.5-1v7H3zM11.5 4.4L21 3v8.5h-9.5zM3 12.5h7.5v7L3 18.5zM11.5 12.5H21V21l-9.5-1.4z"/></svg>Windows</h3>
+          <p>Download <code>MemoryMap-AI-Setup-*.exe</code> from the latest release and run it. The app opens in its own window.</p>
+          <p>Windows may show a &ldquo;protected your PC&rdquo; screen because the installer is not code-signed yet. The install guide shows what to click.</p>
+          <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/INSTALL.md#windows-installer">Windows installer guide<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="card install">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 9l3 2.5L7 14M12 14h5M9 21h6"/></svg>Linux</h3>
+          <p>Download <code>MemoryMap-AI-*-linux-x86_64.tar.gz</code> from the same page, unpack it and run <code>MemoryMap AI</code>.</p>
+          <pre><code>tar -xzf MemoryMap-AI-*-linux-x86_64.tar.gz</code></pre>
+          <p>The window needs GTK and WebKit, which most desktops already have.</p>
+          <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/INSTALL.md#linux-package">Linux package guide<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+        <article class="card install">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>macOS, or any platform from source</h3>
+          <p>Clone the repository and run the start script. It builds a private Python environment, installs everything and opens the app.</p>
+<pre><code>git clone https://github.com/Braydenh563/MemoryMap-AI.git
 cd MemoryMap-AI
-python3 -m venv .venv &amp;&amp; source .venv/bin/activate
-pip install -r requirements.txt &amp;&amp; pip install -e .
-python -m memorymap</pre></div>
-    <div class="note">MemoryMap works without AI: keyword search and <code>Uncategorised</code> filing always work. For auto-filing and chat answers install <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> and run <code>ollama pull llama3.2</code>. Switch models any time from <strong>Settings &rarr; Models</strong>.</div>
-  </div>
-</section>
+./start-desktop.sh</code></pre>
+          <p>Use <code>./start.sh</code> for a browser tab instead of a window. On Windows the same scripts are <code>start-desktop.bat</code> and <code>start.bat</code>. Add <code>--doctor</code> to check the machine and print a fix for each problem.</p>
+          <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/INSTALL.md#launcher-script">Step-by-step install guide<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </article>
+      </div>
+      <div class="card first-run">
+        <div>
+          <h3>Your first five minutes</h3>
+          <ol>
+            <li>Choose a password when the app first opens.</li>
+            <li>Add a local model, or skip it for now: the notebook works without one, and filing and answers switch on when you add it.</li>
+            <li>Write a note, then ask about it in Notes, Ask.</li>
+          </ol>
+        </div>
+        <div>
+          <h3>Good to know</h3>
+          <p>Search by meaning uses a built-in model that the app fetches the first time it is needed, a one-time download. Settings, Search and index says when it is running. Updating and uninstalling are covered in the <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/INSTALL.md#updating">install guide</a>, and common problems in <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/TROUBLESHOOTING.md">troubleshooting</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-<section class="ref-section reveal" id="reference">
-  <p class="section-label">Documentation</p>
-  <div class="ref-pick">
-    <button class="dpill on" data-doc="architecture">Architecture</button>
-    <button class="dpill" data-doc="roadmap">Roadmap</button>
-    <!-- The roadmap was split when it passed 4,500 lines; these three are the
-         other parts of it, and without them this panel offered the index and
-         hid the contents. -->
-    <button class="dpill" data-doc="backlog">Backlog</button>
-    <button class="dpill" data-doc="history">Built so far</button>
-    <button class="dpill" data-doc="design">Design system</button>
-    <button class="dpill" data-doc="install">Install</button>
-    <button class="dpill" data-doc="models">Choosing a model</button>
-    <button class="dpill" data-doc="privacy">Privacy</button>
-    <button class="dpill" data-doc="troubleshooting">Troubleshooting</button>
-    <button class="dpill" data-doc="changelog">Changelog</button>
-    <button class="dpill" data-doc="contributing">Contributing</button>
-    <button class="dpill" data-doc="security">Security</button>
-  </div>
-  <div class="mm-ref-body g" id="mmRefBody">
-    <div class="mm-ref-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>
-  </div>
-  <p style="font-size:.76rem;color:var(--faint);margin-top:.55rem;text-align:right;">
-    Pulled live from <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a>, always up to date.
-  </p>
-</section>
+  <section id="models" aria-labelledby="models-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Models</p>
+        <h2 id="models-title">Bring your own local model</h2>
+        <p>MemoryMap talks to a model running on your own computer or network. Pick one that fits your machine, from a laptop with no GPU upwards, and change it any time in Settings, Models.</p>
+      </div>
+      <div class="models">
+        <article class="card model">
+          <h3>Ollama</h3>
+          <p>The simplest route. Install Ollama, pull a model that suits your hardware, and choose it in Settings, Models. The model guide suggests one for each size of machine.</p>
+          <ul class="ticks">
+            <li>Small models run on an ordinary laptop with no GPU</li>
+            <li>Separate picks for tools, thinking and vision</li>
+          </ul>
+        </article>
+        <article class="card model">
+          <h3>llama.cpp and other local servers</h3>
+          <p>Anything that serves the OpenAI API works too: llama.cpp&rsquo;s <code>llama-server</code>, LM Studio, Jan and vLLM. Enter the address in Settings, Models, Model backend and press Connect; no restart.</p>
+          <ul class="ticks">
+            <li>&ldquo;Keep Atlas on this machine&rdquo; is on by default and refuses a model address that is not local</li>
+            <li>A small-model mode keeps small models on task, one step at a time</li>
+          </ul>
+        </article>
+      </div>
+      <p class="after">
+        <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/MODELS.md">Choose a model for your machine<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="more-link" href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/MODELS.md#not-using-ollama">Using a server other than Ollama<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </p>
+    </div>
+  </section>
 
-<footer>
-  <p>MemoryMap AI, built by <a href="https://github.com/Braydenh563" target="_blank" rel="noopener">Brayden Hoyle</a> &nbsp;&middot;&nbsp; <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a> &nbsp;&middot;&nbsp; <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0 License</a></p>
+  <section id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">FAQ</p>
+        <h2 id="faq-title">Questions people ask</h2>
+      </div>
+      <div class="faq">
+        <details class="card">
+          <summary>Is it free?</summary>
+          <div class="answer"><p>Yes. MemoryMap AI is free and open source under the GNU Affero General Public License. You may use, study, modify and share it, and anything built on it stays under the same licence.</p></div>
+        </details>
+        <details class="card">
+          <summary>Do I need a powerful computer or a GPU?</summary>
+          <div class="answer"><p>No. The app itself is light, and small models run on an ordinary laptop with no GPU. A bigger model gives better answers if your machine can hold one; the <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/MODELS.md">model guide</a> suggests one for each size of machine.</p></div>
+        </details>
+        <details class="card">
+          <summary>Does it work without any AI?</summary>
+          <div class="answer"><p>Yes. With no model, notes are filed as Uncategorised, tags are suggested from similar notes, search uses full-text matching with stemming and spelling correction, and documents, boards, mind maps, the graph, the timeline and reminders all keep working.</p></div>
+        </details>
+        <details class="card">
+          <summary>Where are my notes stored?</summary>
+          <div class="answer"><p>In one folder on your computer: a single SQLite file for your notes, your uploads, your preferences, and a daily backup. You can move the folder anywhere, and export everything as JSON, CSV or Markdown, or as a password-sealed backup.</p></div>
+        </details>
+        <details class="card">
+          <summary>Does anything go online?</summary>
+          <div class="answer"><p>Only what you switch on. Web search and the update check are off by default, a model address that is not local is refused unless you allow it, and Settings, Privacy lists every connection the app has made. There is no telemetry.</p></div>
+        </details>
+        <details class="card">
+          <summary>Can I use it on my phone?</summary>
+          <div class="answer"><p>Yes, from your own network. The server listens on your computer only until you switch on network access in Settings, Account &amp; security. A phone then opens it in its browser, behind your password and over HTTPS.</p></div>
+        </details>
+        <details class="card">
+          <summary>Can I bring my notes from another app?</summary>
+          <div class="answer"><p>Yes. It imports folders of Markdown, PDF, Word and slide decks, and exports from Notion, Obsidian, Evernote and Apple Notes. Importing the same thing twice adds only what is new.</p></div>
+        </details>
+        <details class="card">
+          <summary>Why does Windows warn me about the installer?</summary>
+          <div class="answer"><p>The installer is not code-signed yet, so Windows SmartScreen shows a &ldquo;protected your PC&rdquo; screen the first time. The <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/INSTALL.md#windows-installer">install guide</a> shows exactly what to click, and the source for every build is on GitHub.</p></div>
+        </details>
+        <details class="card">
+          <summary>How do I report a bug or a security problem?</summary>
+          <div class="answer"><p>Open an <a href="https://github.com/Braydenh563/MemoryMap-AI/issues">issue on GitHub</a> for bugs and ideas. For a vulnerability, follow the <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md">security policy</a> rather than opening a public issue.</p></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot">
+      <div class="about">
+        <a class="brand" href="#top">
+          <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><rect width="100" height="100" rx="23" fill="url(#markTile)"/><g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92"><path d="M50 50 50 20"/><path d="M50 50 78.5 40.7"/><path d="M50 50 67.6 74.3"/><path d="M50 50 32.4 74.3"/><path d="M50 50 21.5 40.7"/></g><g fill="#ffffff"><circle cx="50" cy="20" r="7.5"/><circle cx="78.5" cy="40.7" r="7.5"/><circle cx="67.6" cy="74.3" r="7.5"/><circle cx="32.4" cy="74.3" r="7.5"/><circle cx="21.5" cy="40.7" r="7.5"/></g><circle cx="50" cy="50" r="13" fill="#4f6df5"/><circle cx="50" cy="50" r="9.5" fill="#ffffff"/></svg>
+          <span>MemoryMap <span class="ai">AI</span></span>
+        </a>
+        <p>A fully offline, local-first notebook where a local AI files your notes and answers questions about them.</p>
+      </div>
+      <nav aria-labelledby="foot-project">
+        <h2 id="foot-project">Project</h2>
+        <ul>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI">GitHub repository</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/releases">Releases</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/issues">Issues</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md">Changelog</a></li>
+        </ul>
+      </nav>
+      <nav aria-labelledby="foot-docs">
+        <h2 id="foot-docs">Documentation</h2>
+        <ul>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/INSTALL.md">Install guide</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/MODELS.md">Choosing a model</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ARCHITECTURE.md">Architecture</a></li>
+        </ul>
+      </nav>
+      <nav aria-labelledby="foot-policy">
+        <h2 id="foot-policy">Policies</h2>
+        <ul>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/PRIVACY.md">Privacy</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md">Security policy</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/CONTRIBUTING.md">Contributing</a></li>
+          <li><a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE">Licence (AGPL-3.0)</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="legal">MemoryMap AI is free software, built by <a href="https://github.com/Braydenh563">Brayden Hoyle</a> and released under the GNU Affero General Public License.</p>
+  </div>
 </footer>
 
+<dialog class="lightbox" id="lightbox" aria-label="Screenshot, full size">
+  <div class="lightbox-inner">
+    <img id="lightbox-img" alt="" decoding="async">
+    <div class="lightbox-bar">
+      <p id="lightbox-caption"></p>
+      <button class="lightbox-close" type="button" id="lightbox-close">Close</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
-// ── Theme ─────────────────────────────────────────────────────────────────────
-const html = document.documentElement;
-const themeBtn = document.getElementById('themeBtn');
-let theme = html.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-const applyTheme = t => { html.setAttribute('data-theme', t); themeBtn.textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19'; };
-applyTheme(theme);
-themeBtn.addEventListener('click', () => { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(theme); });
-
-// ── Feature tabs ──────────────────────────────────────────────────────────────
-document.querySelectorAll('.tab-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('on'));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
-    pill.classList.add('on');
-    document.getElementById('pane-' + pill.dataset.tab).classList.add('on');
-  });
-});
-
-// ── Platform tabs ─────────────────────────────────────────────────────────────
-document.querySelectorAll('.ptab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.ptab').forEach(x => x.classList.remove('on'));
-    document.querySelectorAll('.pcontent').forEach(x => x.classList.remove('on'));
-    t.classList.add('on');
-    document.getElementById('p-' + t.dataset.p).classList.add('on');
-  });
-});
-
-// ── Nav highlight ─────────────────────────────────────────────────────────────
-const navLinks = document.querySelectorAll('.nav-tabs a');
-const sio = new IntersectionObserver(es => {
-  es.forEach(e => {
-    if (e.isIntersecting) {
-      navLinks.forEach(a => a.classList.remove('on'));
-      const hit = [...navLinks].find(a => a.getAttribute('href') === '#' + e.target.id);
-      if (hit) hit.classList.add('on');
+  /* Two small enhancements; the page reads completely without them. */
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById("theme-toggle");
+    var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    function current() {
+      var chosen = root.getAttribute("data-theme");
+      if (chosen === "light" || chosen === "dark") return chosen;
+      return media && media.matches ? "dark" : "light";
     }
-  });
-}, { rootMargin: '-20% 0px -70% 0px' });
-document.querySelectorAll('section[id]').forEach(s => sio.observe(s));
-
-// ── Scroll reveal ─────────────────────────────────────────────────────────────
-const ro = new IntersectionObserver(es => {
-  es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ro.unobserve(e.target); } });
-}, { threshold: 0.06 });
-document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
-
-// ── Ref loader ───────────────────────────────────────────────────────────────
-// Fix for the "docs won't load" issue - two separate bugs, now both fixed:
-//  1. The old 3rd fallback URL was malformed - it literally contained markdown
-//     link syntax "[https://...](https://...)" inside the JS string, so it could
-//     never succeed as a fetch target. It's gone; raw.githubusercontent.com and
-//     jsdelivr are the only fallbacks now, in that order.
-//  2. GitHub Pages here is set to serve from the "main" branch's /docs folder,
-//     which means THIS page is actually docs/index.html, and docs/ARCHITECTURE.md
-//     + docs/ROADMAP.md sit right next to it - reachable at the SAME origin with
-//     no "docs/" prefix at all. CHANGELOG.md, CONTRIBUTING.md and SECURITY.md
-//     live at the repo root instead, which Pages never publishes under this
-//     source setting - those three always need the raw/jsdelivr fallback.
-//  Same-origin requests can't be touched by ad/tracker blocklists (those key on
-//  cross-origin CDN/proxy-style domains), so the two docs that can load
-//  same-origin now do, unconditionally. A last-resort localStorage cache covers
-//  genuine outages so a repeat visitor still sees content instead of a dead panel.
-//
-//  3. THE ONE THAT WAS STILL BREAKING IT, and neither of the above could fix:
-//     **there was no `.nojekyll`.** GitHub Pages runs Jekyll over /docs by
-//     default, and Jekyll does not publish source `.md` files: it *converts*
-//     them, so `ARCHITECTURE.md` was never at this origin at all and the
-//     same-origin candidate 404'd on every load, every time, for everyone.
-//     That left the two cross-origin fallbacks carrying the whole feature,
-//     which is exactly the shape of "it won't load even with my adblocker off".
-//     Jekyll was also parsing `{{placeholders}}` in the docs as Liquid
-//     variables and rendering them away. `docs/.nojekyll` turns the whole
-//     pipeline off: the markdown is served byte-for-byte, same-origin, and the
-//     braces stay literal.
-const BRANCH    = 'main';
-const PAGE_BASE = location.pathname.replace(/[^/]*$/, ''); // same-origin site root (= repo's /docs folder)
-const RAW_BASE  = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
-const CDN_BASE  = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
-const GH_BASE   = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
-
-// path: where it lives in the repo (used for raw/jsdelivr + the "Read on GitHub" link)
-// same: filename relative to THIS page, only set for docs Pages actually publishes
-const DOC_MAP = {
-  architecture: { path: 'docs/ARCHITECTURE.md',      same: 'ARCHITECTURE.md' },
-  roadmap:      { path: 'docs/ROADMAP.md',           same: 'ROADMAP.md' },
-  backlog:      { path: 'docs/roadmap/BACKLOG.md',   same: 'roadmap/BACKLOG.md' },
-  history:      { path: 'docs/roadmap/HISTORY.md',   same: 'roadmap/HISTORY.md' },
-  design:       { path: 'docs/DESIGN.md',            same: 'DESIGN.md' },
-  install:      { path: 'docs/INSTALL.md',           same: 'INSTALL.md' },
-  models:       { path: 'docs/MODELS.md',            same: 'MODELS.md' },
-  privacy:      { path: 'docs/PRIVACY.md',           same: 'PRIVACY.md' },
-  troubleshooting: { path: 'docs/TROUBLESHOOTING.md', same: 'TROUBLESHOOTING.md' },
-  // These three live at the repo root, which Pages never publishes under this
-  // source setting, so a copy sits in /docs beside this page and
-  // `tests/test_docs_site.py` fails the build if the two ever differ. Before
-  // that they were the only tabs that *had* to reach a cross-origin host, and
-  // they were the ones that stayed broken.
-  changelog:    { path: 'CHANGELOG.md',              same: 'CHANGELOG.md' },
-  contributing: { path: 'CONTRIBUTING.md',           same: 'CONTRIBUTING.md' },
-  security:     { path: 'SECURITY.md',               same: 'SECURITY.md' },
-};
-
-const mmCache = {};
-const mmFrame = document.getElementById('mmRefBody');
-let mmActive  = 'architecture';
-
-function esc(t) {
-  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function inline(t) {
-  return t
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_\s][^_\n]*)_/g, '<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
-}
-
-// ── Markdown renderer ─────────────────────────────────────────────────────────
-function mdToHtml(raw) {
-  const s = raw
-    .replace(/<img[^>]*>/gi, '')
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
-    .replace(/\[!\[([^\]]*)\]\([^)]+\)\]\([^)]+\)/g, '')
-    .trim();
-
-  const lines = s.split('\n');
-  const parts = [];
-
-  let inPre = false, preLang = '', preLines = [];
-  let inTable = false;
-  let bqBuf = [];
-  let lists = [];
-  let liPending = false;
-
-  function closeLi() {
-    if (liPending) { parts.push('</li>'); liPending = false; }
-  }
-
-  function closeListsTo(depth) {
-    while (lists.length > depth) {
-      closeLi();
-      parts.push('</' + lists.pop() + '>');
+    function sync() {
+      toggle.setAttribute("aria-label", current() === "dark" ? "Switch to light theme" : "Switch to dark theme");
     }
-  }
-
-  function flushBq() {
-    if (!bqBuf.length) return;
-    parts.push('<blockquote>');
-    let para = [];
-    bqBuf.forEach(ln => {
-      if (!ln.trim()) {
-        if (para.length) { parts.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; }
-      } else { para.push(ln); }
+    toggle.hidden = false;
+    sync();
+    toggle.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("mm-site-theme", next); } catch (e) { /* not remembered, still applied */ }
+      sync();
     });
-    if (para.length) parts.push('<p>' + inline(para.join(' ')) + '</p>');
-    parts.push('</blockquote>');
-    bqBuf = [];
-  }
+    if (media && media.addEventListener) media.addEventListener("change", sync);
 
-  function flushTable() {
-    if (inTable) { parts.push('</tbody></table>'); inTable = false; }
-  }
-
-  function flushAll() {
-    flushBq();
-    flushTable();
-    closeListsTo(0);
-  }
-
-  function parseList(l) {
-    const u = l.match(/^( {0,6})[*\-+] +(.+)/);
-    if (u) return { indent: u[1].length, tag: 'ul', content: u[2] };
-    const o = l.match(/^( {0,6})\d+[.):]? +(.+)/);
-    if (o) return { indent: o[1].length, tag: 'ol', content: o[2] };
-    return null;
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (line.trimStart().startsWith('```')) {
-      if (!inPre) {
-        flushAll();
-        inPre = true;
-        preLang = line.trim().slice(3).trim();
-        preLines = [];
-      } else {
-        parts.push(
-          '<div class="ref-code-wrap"><pre><code' +
-          (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>' +
-          esc(preLines.join('\n')) + '</code></pre>' +
-          '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>'
-        );
-        inPre = false; preLang = '';
+    /* Lightbox: each screenshot is a link to its full-size image, which is
+       what a visitor without script gets. With script it opens in a dialog. */
+    var dialog = document.getElementById("lightbox");
+    if (!dialog || typeof dialog.showModal !== "function") return;
+    var big = document.getElementById("lightbox-img");
+    var caption = document.getElementById("lightbox-caption");
+    var opener = null;
+    document.addEventListener("click", function (event) {
+      var link = event.target.closest ? event.target.closest("a.shot") : null;
+      if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      var thumb = link.querySelector("img");
+      big.src = link.getAttribute("href");
+      big.alt = thumb ? thumb.alt : "";
+      if (thumb && thumb.getAttribute("width")) {
+        big.setAttribute("width", thumb.getAttribute("width"));
+        big.setAttribute("height", thumb.getAttribute("height"));
       }
-      continue;
-    }
-    if (inPre) { preLines.push(line); continue; }
-
-    const hm = line.match(/^(#{1,6}) +(.+)/);
-    if (hm) {
-      flushAll();
-      const lv = Math.min(hm[1].length + 1, 6);
-      parts.push('<h' + lv + '>' + inline(hm[2].trim()) + '</h' + lv + '>');
-      continue;
-    }
-
-    if (/^[-*_]{3,}\s*$/.test(line.trim()) && !parseList(line)) {
-      flushAll();
-      parts.push('<hr>');
-      continue;
-    }
-
-    if (/^> ?/.test(line)) {
-      flushTable(); closeListsTo(0);
-      bqBuf.push(line.replace(/^> ?/, ''));
-      continue;
-    }
-    if (bqBuf.length) flushBq();
-
-    if (line.trim().startsWith('|')) {
-      if (/^[\s|:-]+$/.test(line)) continue;
-      closeListsTo(0);
-      const cells = line.split('|').slice(1, -1).map(c => c.trim());
-      if (!inTable) {
-        parts.push('<table><thead><tr>');
-        cells.forEach(c => parts.push('<th>' + inline(c) + '</th>'));
-        parts.push('</tr></thead><tbody>');
-        inTable = true;
-      } else {
-        parts.push('<tr>');
-        cells.forEach(c => parts.push('<td>' + inline(c) + '</td>'));
-        parts.push('</tr>');
-      }
-      continue;
-    }
-    if (inTable) flushTable();
-
-    const li = parseList(line);
-    if (li) {
-      flushBq(); flushTable();
-      const depth = li.indent < 2 ? 1 : 2;
-
-      if (depth === 1) {
-        closeListsTo(1);
-        if (lists.length === 0) {
-          parts.push('<' + li.tag + '>');
-          lists.push(li.tag);
-        } else if (lists[0] !== li.tag) {
-          closeListsTo(0);
-          parts.push('<' + li.tag + '>');
-          lists.push(li.tag);
-        } else {
-          closeLi();
-        }
-      } else {
-        if (lists.length === 0) {
-          parts.push('<' + li.tag + '>');
-          lists.push(li.tag);
-        }
-        if (lists.length < 2) {
-          parts.push('<' + li.tag + '>');
-          lists.push(li.tag);
-        } else {
-          closeLi();
-        }
-      }
-
-      let content = inline(li.content);
-      while (i + 1 < lines.length) {
-        const nxt = lines[i + 1];
-        if (nxt.trim() === '') {
-          let j = i + 2;
-          while (j < lines.length && !lines[j].trim()) j++;
-          if (j < lines.length && /^ {2,}/.test(lines[j]) && !parseList(lines[j])) {
-            i = j - 1;
-          } else break;
-        } else if (/^ {2,}/.test(nxt) && !parseList(nxt)) {
-          content += ' ' + inline(nxt.trim());
-          i++;
-        } else break;
-      }
-
-      parts.push('<li>' + content);
-      liPending = true;
-      continue;
-    }
-
-    if (!line.trim()) {
-      flushBq(); flushTable();
-      let j = i + 1;
-      while (j < lines.length && !lines[j].trim()) j++;
-      if (j >= lines.length || !parseList(lines[j])) closeListsTo(0);
-      continue;
-    }
-
-    flushAll();
-    parts.push('<p>' + inline(line) + '</p>');
-  }
-
-  flushAll();
-  if (inPre) {
-    parts.push(
-      '<div class="ref-code-wrap"><pre><code>' + esc(preLines.join('\n')) + '</code></pre>' +
-      '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>'
-    );
-  }
-  return parts.join('');
-}
-
-// ── Copy button ───────────────────────────────────────────────────────────────
-function mmCopyCode(btn) {
-  const code = btn.previousElementSibling && btn.previousElementSibling.querySelector('code');
-  if (!code) return;
-  navigator.clipboard.writeText(code.innerText).then(() => {
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
-  }).catch(() => {
-    btn.textContent = 'Error';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
-  });
-}
-
-// ── Fetch with timeout ────────────────────────────────────────────────────────
-function fetchWithTimeout(url, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(url, { cache: 'no-store' })
-      .then(r => { clearTimeout(t); resolve(r); })
-      .catch(e => { clearTimeout(t); reject(e); });
-  });
-}
-
-// ── localStorage cache helpers (last-resort, survives full network failure) ───
-function cacheGet(key) {
-  try {
-    const raw = localStorage.getItem('mm-doc-' + key);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) { return null; }
-}
-function cacheSet(key, html) {
-  try {
-    localStorage.setItem('mm-doc-' + key, JSON.stringify({ html, ts: Date.now() }));
-  } catch (e) { /* storage disabled/full - not critical, skip silently */ }
-}
-
-// ── Load doc ──────────────────────────────────────────────────────────────────
-async function loadDoc(key) {
-  mmActive = key;
-  history.replaceState(null, '', '#tab-' + key);
-  mmFrame.innerHTML = '<div class="mm-ref-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>';
-
-  if (mmCache[key]) { mmFrame.innerHTML = mmCache[key]; return; }
-
-  const { path, same } = DOC_MAP[key];
-  const ghUrl = GH_BASE + path;
-  const bust = '?t=' + Date.now();
-
-  const candidates = [];
-  if (same) candidates.push(PAGE_BASE + same + bust); // 1. same-origin - immune to cross-origin blocklist rules
-  candidates.push(RAW_BASE + path + bust);             // 2. GitHub's own raw host
-  candidates.push(CDN_BASE + path + bust);             // 3. jsdelivr mirror
-
-  async function tryFetch(url) {
-    const r = await fetchWithTimeout(url, 8000);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const t = await r.text();
-    if (!t || !t.trim()) throw new Error('empty');
-    return t;
-  }
-
-  let md = null, lastErr = null;
-  for (const url of candidates) {
-    try { md = await tryFetch(url); break; }
-    catch (e) { lastErr = e; }
-  }
-
-  if (mmActive !== key) return;
-
-  if (md) {
-    try {
-      const rendered = mdToHtml(md);
-      if (rendered && rendered.trim()) {
-        mmCache[key] = rendered;
-        cacheSet(key, rendered);
-        mmFrame.innerHTML = rendered;
-        return;
-      }
-      lastErr = new Error('render empty');
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-
-  // All network attempts failed - fall back to a previously cached copy, if any.
-  const cached = cacheGet(key);
-  if (cached) {
-    mmFrame.innerHTML =
-      '<div class="mm-stale-note">Showing a saved copy from an earlier visit, may be out of date.' +
-      '<button onclick="delete mmCache[\'' + key + '\'];loadDoc(\'' + key + '\')">Try live version</button></div>' +
-      cached.html;
-    return;
-  }
-
-  mmFrame.innerHTML =
-    '<div class="mm-ref-error">' +
-    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
-    '<span>Couldn\'t load this document' + (lastErr && lastErr.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
-    '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
-    '<button class="mm-retry-btn" onclick="delete mmCache[\'' + key + '\'];loadDoc(\'' + key + '\')">&#x21BA;&nbsp;Retry</button>' +
-    '<a href="' + ghUrl + '" target="_blank" rel="noopener" class="mm-retry-btn">Read on GitHub &rarr;</a>' +
-    '</div></div>';
-}
-
-// ── Pill clicks ───────────────────────────────────────────────────────────────
-document.querySelectorAll('.dpill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    document.querySelectorAll('.dpill').forEach(p => p.classList.remove('on'));
-    pill.classList.add('on');
-    loadDoc(pill.dataset.doc);
-  });
-});
-
-// ── Deep-link + initial load ──────────────────────────────────────────────────
-function resolveHashDoc() {
-  const m = location.hash.match(/^#tab-(\w+)$/);
-  if (m && DOC_MAP[m[1]]) {
-    document.querySelectorAll('.dpill').forEach(p => p.classList.toggle('on', p.dataset.doc === m[1]));
-    return m[1];
-  }
-  return 'architecture';
-}
-
-// Execute strictly after the DOM has fully parsed and stabilized
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => loadDoc(resolveHashDoc()));
-} else {
-  loadDoc(resolveHashDoc());
-}
+      caption.textContent = link.getAttribute("data-caption") || "";
+      opener = link;
+      dialog.showModal();
+    });
+    function close() { dialog.close(); }
+    document.getElementById("lightbox-close").addEventListener("click", close);
+    dialog.addEventListener("click", function (event) { if (event.target === dialog) close(); });
+    dialog.addEventListener("close", function () { if (opener) opener.focus(); });
+  })();
 </script>
 </body>
 </html>

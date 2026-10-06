@@ -946,6 +946,22 @@ function renderAgentActivityMode() {
 // already been read is just something left to wait out otherwise, the
 // timer clears when this fires, so a stray late setTimeout can't reach for
 // a note the click already removed.
+//: **Toasts stack smoothly** (the motion pass, 2026-10-05): a toast arriving
+//: or leaving moves the others, and they slide there by `translate` over
+//: `--ui-base` from where they were (measured, changed, played back) rather
+//: than jumping a toast's height between two frames. Interface animations
+//: off makes `--ui-base` 0 and they jump.
+function toastStack(box, change) {
+  const was = [...box.children].map((t) => [t, t.getBoundingClientRect().top]);
+  change();
+  const cs = getComputedStyle(box);
+  const ms = parseFloat(cs.getPropertyValue("--ui-base")) * 1000;
+  for (const [t, top] of ms ? was : []) {
+    const dy = top - t.getBoundingClientRect().top;
+    if (dy && t.isConnected) t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: cs.getPropertyValue("--ease-out") });
+  }
+}
+
 //: **A toast leaves the way it came** (INBOX 399 (4)): it fades and drops
 //: 4px on the same curve it arrived on (`.toast.is-leaving`,
 //: 01-forms-settings.css) rather than vanishing between two frames, which
@@ -954,7 +970,7 @@ function renderAgentActivityMode() {
 function dismissToast(note) {
   if (!note.isConnected || note.classList.contains("is-leaving")) return;
   note.classList.add("is-leaving");
-  const done = () => note.remove();
+  const done = () => note.isConnected && toastStack(note.parentElement, () => note.remove());
   note.addEventListener("animationend", done, { once: true });
   setTimeout(done, 400);
 }
@@ -1129,7 +1145,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
     clearTimeout(timer);
     dismissToast(note);
   });
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
 }
 
 // A toast with one action button, used for Undo (Wave J). The button
@@ -1154,7 +1170,7 @@ function toastProgress(message) {
   text.className = "toast-msg";
   setLabel(text, `ph:spin ${message}`);
   note.append(text);
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
   return {
     say(next) {
       setLabel(text, `ph:spin ${next}`);
@@ -1204,7 +1220,7 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.textContent = message;
   note.toastTimer = setTimeout(() => dismissToast(note), 8000);
   note.append(text, toastActionButton(note, actionLabel, run), toastCloseButton(note, note.toastTimer));
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
 }
 
 // --- the server-down banner (WORLD_CLASS_PLAN 22.1 item 6) ------------------
@@ -1246,7 +1262,7 @@ function showServerDownBanner() {
   button.textContent = "Retry";
   button.addEventListener("click", () => retryServerNow());
   note.append(text, button, toastCloseButton(note, null));
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
   serverDownNote = note;
 }
 
@@ -1941,7 +1957,7 @@ function syncAgentPaletteAvailability() {
 //
 //   idle  … grey    haven't heard back yet, says nothing either way
 //   ok    ✓ green   everything the AI can do is available
-//   off   ○ grey    no model connected, the supported offline way to run
+//   off   AI sparkle, slashed, grey: no model connected, the offline way to run
 //   warn  ! amber   loading or rebuilding, app works
 //   error ✕ red     something is broken and won't fix itself
 function aiStatusState() {
@@ -2049,6 +2065,31 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: **"AI off" is the app's AI sparkle with a slash** (INBOX 656, the owner:
+//: "can the no ai available ai status icon be better??"). It was a hollow
+//: ring, which said nothing; the sparkle is what every AI control here wears
+//: (Ask, Refine, the agent), and the slash, cut clear of it by a mask so it
+//: reads at 14px, says it is not connected. It stays in the muted ink on the
+//: chip, never amber: the notebook is fine, which is the card's first words.
+//: An svg in `currentColor`, not the icon font plus a pseudo-element, so it
+//: costs the boot stylesheet nothing and centres by the dot's own grid.
+function aiOffGlyph() {
+  const ns = "http://www.w3.org/2000/svg";
+  const make = (tag, attrs, parent) => {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    if (parent) parent.appendChild(el);
+    return el;
+  };
+  const svg = make("svg", { class: "ai-off-glyph", viewBox: "0 0 16 16", width: "14", height: "14", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false" });
+  const mask = make("mask", { id: "ai-off-gap", maskUnits: "userSpaceOnUse", x: "0", y: "0", width: "16", height: "16" }, make("defs", {}, svg));
+  make("rect", { width: "16", height: "16", fill: "white", stroke: "none" }, mask);
+  make("path", { d: "M2.5 2.5L13.5 13.5", stroke: "black", "stroke-width": "3.4" }, mask);
+  make("path", { d: "M8 1.4Q9.9 6.1 14.6 8Q9.9 9.9 8 14.6Q6.1 9.9 1.4 8Q6.1 6.1 8 1.4Z", mask: "url(#ai-off-gap)" }, svg);
+  make("path", { d: "M2.5 2.5L13.5 13.5" }, svg);
+  return svg;
+}
+
 //: **How the last answer went, on the AI dot** (WORLD_CLASS_PLAN, Placed
 //: 2026-09-09 item 99 (c)): the model, the time it took and how much of its
 //: window the question filled, set by the chat when a turn ends.
@@ -2071,7 +2112,10 @@ function renderAiPill() {
   //: baseline in every font and the icon font's dots sit above the middle,
   //: 3px off either way (INBOX 435, measured); a box of known size is
   //: centred by the dot's own grid. ✓, ! and ✕ are within half a pixel.
-  button.querySelector(".ai-status-dot").textContent = state.level === "idle" ? "" : AI_STATUS_GLYPH[state.level];
+  const dot = button.querySelector(".ai-status-dot");
+  if (state.level === "off") {
+    if (!dot.querySelector(".ai-off-glyph")) dot.replaceChildren(aiOffGlyph());
+  } else dot.textContent = state.level === "idle" ? "" : AI_STATUS_GLYPH[state.level];
   // The button's own name for screen readers and for the native tooltip, so
   // the information is reachable without opening anything.
   const summary = `AI status: ${state.title}`;
@@ -2674,7 +2718,12 @@ function taskKey(task) {
 //: for work nobody asked for and nothing waits on; filing a note already has
 //: its own line under the composer. They still get a row in the run list and
 //: still say so when they fail.
-const QUIET_TASK_KINDS = new Set(["job-warm-filing", "job-file-entry", "filing-late"]);
+//: Start-up upkeep and Settings downloads too (INBOX 653).
+const QUIET_TASK_KINDS = new Set([
+  "job-warm-filing", "job-file-entry", "filing-late",
+  "embeddings", "embedding-model", "reindex", "searxng-start", "searxng",
+  "job-caption", "caption", "page-read", "pull", "extra",
+]);
 
 function noticeTaskTransitions(running, history) {
   const now = new Map(running.map((task) => [taskKey(task), task]));

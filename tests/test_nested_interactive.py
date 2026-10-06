@@ -148,7 +148,8 @@ def test_each_fold_help_sits_beside_its_fold_over_a_slot():
         INDEX,
         re.S,
     )
-    assert len(wraps) == 9, len(wraps)
+    # Ten: Effects & accessibility gained the motion help (2026-10-05).
+    assert len(wraps) == 10, len(wraps)
     for attrs, summary in wraps:
         assert "fold-help" in attrs and "data-help-for=" in attrs, attrs
         assert '<span class="fold-help-slot" aria-hidden="true"></span>' in summary

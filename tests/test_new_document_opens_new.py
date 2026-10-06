@@ -169,3 +169,29 @@ def test_a_door_into_a_library_sub_tab_waits_for_the_library():
                 if 'switchTab("library")' in before and not waited:
                     offenders.append(f"{path.name}:{i + 1}")
     assert not offenders, offenders
+
+
+def test_a_press_on_a_boards_button_from_outside_waits_for_the_boards_code():
+    """The class behind New board, New mind map and the Dashboard's boards
+    widget's New board (navigation.js): FE-03(c) made the Library tab load
+    library.js alone, so a `$("wb-...").click()` from a file outside the
+    boards' bundle reached a button with no listener on a first visit and did
+    nothing. v0.3.32 loaded the whole bundle with the tab and these worked.
+    Every such press waits for `ensureModule("library")` in the lines before
+    it."""
+    bundle = {
+        "documents.js", "documents-code.js", "documents-prose.js", "margin-reader.js",
+        "whiteboard.js", "whiteboard-map.js", "whiteboard-library.js", "whiteboard-commands.js",
+        "whiteboard-format.js", "whiteboard-history.js", "whiteboard-interchange.js",
+    }
+    offenders = []
+    for path in sorted(JS.glob("*.js")):
+        if path.name in bundle:
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if '$("wb-boards-new' in line and ".click()" in line:
+                before = "\n".join(lines[max(0, i - 6) : i])
+                if 'ensureModule("library")' not in before:
+                    offenders.append(f"{path.name}:{i + 1}")
+    assert not offenders, offenders

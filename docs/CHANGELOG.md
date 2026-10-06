@@ -41,6 +41,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The mini Atlas avatar beside the name on an Ask answer, a Chat reply and the Guide no longer hangs under its row: the head is clipped to its 20px box (the companion's body and legs were drawn 11px below it, so the name sat at the top of a figure twice its height, with empty space under it) (INBOX 714).
 - Menus stay inside the window: one rule (below the opener, else above, else capped with the list scrolling) places the document editor's ⋯ menu and ends every generic menu open, and the ⋯ menu is placed again when the window is resized or its rows change, so its last row is no longer left past the bottom edge (INBOX 712).
 - Task checkboxes: the note editor and the document editor draw one box (the text's size, muted outline, accent fill and a drawn checkmark when done) from one rule, and a task line no longer has a bullet beside its box (INBOX 710).
 - Meeting recorder: one state at a time (ready, recording with the level line and clock, paused, transcribing with a progress bar and the length of the audio, review). Stop works from Paused (the held audio is requested first), Pause no longer says Resume on the next recording, closing the recorder no longer transcribes a discard, and an empty transcript says "Nothing was heard in that recording." instead of "Transcribed". The transcript box is sized to its words, and the save actions are two groups with Discard last (INBOX 708).

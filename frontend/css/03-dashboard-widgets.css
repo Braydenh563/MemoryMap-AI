@@ -3347,6 +3347,14 @@ button.answer-figure-open {
   display: inline-flex;
   line-height: 0;
   vertical-align: middle;
+  /* **The box is the avatar** (INBOX 714: "the mini atlas avatar on causes a
+     rather wide gap below"). The head's SVG is 20px square, but the companion's
+     body and legs are drawn outside its viewBox and an SVG root's overflow was
+     visible: measured 31.4px of figure hanging 11px under a 20px box, the
+     name at its top, so the row read twice its height with empty space under
+     the name. Clipped, it is the head and shoulders the miniature was drawn
+     as, and adds nothing below the name line. */
+  overflow: clip;
 }
 
 /* The app emblem as an assistant's head (Appearance, Assistant avatar;

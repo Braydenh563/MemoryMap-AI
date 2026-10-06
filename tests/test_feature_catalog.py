@@ -67,6 +67,9 @@ SCRIPTS = (
     "whiteboard-library.js",
     "whiteboard-format.js",
     "whiteboard-interchange.js",
+    #: Lazy bundles a catalogue row opens: New meeting (INBOX 644), Tidy (INBOX 691).
+    "meetings.js",
+    "tidy.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short

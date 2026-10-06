@@ -853,6 +853,23 @@ details[open] > .about-whats-new::before,
   max-width: 9rem;
 }
 
+/* Tidy's count (INBOX 691) on the broom's corner, the phone More's run count
+   (`.tab-badge`, 10-responsive.css) in the accent: news, not a fault. Out of
+   the flow, so the glyph keeps the icon run's 32px. */
+.notes-tidy {
+  position: relative;
+}
+
+.notes-tidy > .tab-badge {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  right: calc(-1 * var(--space-1));
+  margin-left: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  pointer-events: none;
+}
+
 @media (max-width: 1399.98px) {
   [data-dock-name="notes"] .dock-word {
     position: absolute;

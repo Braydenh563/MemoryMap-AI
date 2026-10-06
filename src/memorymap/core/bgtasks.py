@@ -141,6 +141,22 @@ def _cancel_searxng_start(_name: str) -> tuple[bool, str]:
     return True, "Stopped SearXNG."
 
 
+def _cancel_tidy_link_reasons(_name: str) -> tuple[bool, str]:
+    """Tidy's link reason pass (INBOX 691): a queued one is cancelled, a
+    running one stops at its next chunk with what it named kept (and
+    undoable from Tidy's history)."""
+    from memorymap.core import jobstore
+    from memorymap.entry import tidy
+
+    queued = jobstore.cancel_queued("tidy-link-reasons")
+    if tidy.is_running():
+        tidy.request_stop()
+        return True, "Asked the link reason pass to stop."
+    if queued:
+        return True, "Stopped before it started."
+    return False, "Nothing is naming link reasons."
+
+
 #: kind (as `/tasks` reports it) → canceller. `embeddings` is deliberately
 #: absent: the warmup is one blocking model load inside sentence-transformers
 #: with nothing to check a flag between, so the panel says so rather than
@@ -153,6 +169,7 @@ CANCELLERS: dict[str, Callable[[str], tuple[bool, str]]] = {
     "embedding-model": _cancel_embedding_model,
     "searxng": _cancel_searxng_install,
     "searxng-start": _cancel_searxng_start,
+    "tidy-link-reasons": _cancel_tidy_link_reasons,
 }
 
 #: What the Tasks panel puts a Quit button on. Derived from the table rather

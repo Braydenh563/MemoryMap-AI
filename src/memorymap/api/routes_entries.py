@@ -530,6 +530,12 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 except Exception:
                     logger.warning("couldn't keep tag suggestions for entry %s", entry_id, exc_info=True)
                     session.rollback()
+                # Tidy's reviews a person switched on (INBOX 691, off by
+                # default): after filing, as `system:tidy`, each run undoable
+                # from Tidy's history. Never raises.
+                from memorymap.entry import tidy
+
+                tidy.run_automatic(session)
     except Exception:
         logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
         try:

@@ -72,6 +72,9 @@ HANDLERS: dict[str, str] = {
     "vision-pdf": "memorymap.ai.vision_ocr:pdf_vision_ocr_and_store",
     "document": "memorymap.ai.docreader:read_document_and_store",
     "file-entry": "memorymap.api.routes_entries:_file_entry_in_background",
+    #: Tidy's link reason pass (INBOX 691): idempotent, a named link no
+    #: longer matches, so a resumed pass repeats nothing.
+    "tidy-link-reasons": "memorymap.entry.tidy:respecify_all",
 }
 
 #: A lease lasts this long without a heartbeat. Long enough that a busy

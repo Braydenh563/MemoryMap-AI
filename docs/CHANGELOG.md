@@ -9,11 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Tidy (INBOX 691): the broom in the Notes dock, with a count of what it found, opens rule-based reviews that need no AI: links to explain, weak automatic links, tags Atlas added that fit poorly, tags used once, tags that look alike, notes without a category (with the category their words point to), near-duplicate notes, empty or very short notes, and reminders long past. Each row says why it is listed and what Apply will do; one Undo puts a batch back (toast, Ctrl+Z or Recent runs). A review can be set to apply automatically after each note is filed; merging, binning and removing tags used once always ask. Also in the command palette, Tools and features and the Guide.
 - Forgot your password? on the lock screen, on the computer the notebook lives on. With a recovery key (160 random bits shown once after setup, or made and replaced in Settings, Account & security) you set a new password and keep your private notes; every other session is signed out and the used key is replaced by a new one. Without it, the same reset as `python -m memorymap --reset-password`, now one shared function: ordinary notes, documents, boards and settings are kept and private notes stay sealed. The key is never stored or logged, wrong keys wait like wrong passwords, another device is refused, and re-encrypting private notes replaces the key.
 - The recovery key's Download .txt in the desktop app opens a Save dialog that starts in Documents and refuses the notebook's own folder, rather than saving into the exports folder beside the notebook, where anyone who copied the folder would have the key to its private notes. A browser tab keeps its ordinary download.
 
 ### Changed
 
+- Link reasons say what the two notes share (INBOX 691): "Both tagged #portugal; both mention Lisbon and Porto", "“Glaze tests” names “Kiln plan”", "Written two days apart, both in Travel", rather than "similar in meaning", which is kept only when likeness is all there is. New links and the link suggestions get them at once; Tidy names the existing ones, one by one or in a background job that can be stopped and undone. On the showcase notebook, 38 of 48 generic reasons became specific.
+- A note's suggested links are one chip each, the note and its + together, the whole chip the press (INBOX 709).
+- Tools and features lists Manage tags, Filings to check and Find duplicates, which were reachable only from a menu, a typed filter or Settings.
 - Documents: the current line's highlight is half as strong, a place marker rather than a band.
 - Dashboard, Focused view: the greeting card is a hero again (INBOX 675). The date and time are one small line over the greeting, New note sits under it, and four tiles fill the rest: what is due today, today's meetings, the notes to file and the note you were last in, each a press away. No model needed. Compact view: Quick access tiles are as wide as their words, on one line, instead of five stretched, mostly empty boxes (INBOX 677).
 - Lock screen: "Forgot your password?" is a quiet link under Unlock rather than a bordered button between the field and it.

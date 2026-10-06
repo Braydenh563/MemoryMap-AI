@@ -1405,6 +1405,9 @@ $("manage-categories-btn").addEventListener("click", () => openManageCategories(
 $("manage-categories-foot").addEventListener("click", () => openManageCategories());
 //: The tag manager (tag-manager.js, lazy): the Notes ⋯ menu and Settings
 //: (INBOX 447 (4)); the sidebar's Tags row and the palette open it too.
+//: Tidy (INBOX 691, tidy.js): fetched once the boot is done, so its count is on the dock.
+$("notes-tidy").addEventListener("click", () => openTidySheet());
+setTimeout(() => ensureModule("tidy"), 4e3);
 $("notes-manage-tags").addEventListener("click", () => {
   $("notes-more-menu")?.removeAttribute("open");
   openTagsSheet();

@@ -425,3 +425,26 @@ def test_a_sentence_that_leans_back_brings_the_one_it_leans_on():
     ]
     result = ask("What about the beta testers?", notes)
     assert "Write a short post after each book. It keeps the beta testers reading." in result["text"]
+
+
+def test_closest_match_wording_is_kept_for_the_first_result() -> None:
+    """INBOX 724: the lead said "The closest match is your note" about the
+    third note found; "closest" is said only of the search's first result."""
+    import inspect
+
+    from memorymap.ai import composer as mod
+
+    body = inspect.getsource(mod._lead)
+    assert '["a", "b", "c"] if s.rank == 0 else ["a", "b"]' in body
+
+
+def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:
+    """INBOX 724: "this message needs to be altered as a model wasnt used"."""
+    from pathlib import Path
+
+    routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
+    assert routes.count('"by_model": False') >= 2
+    js = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    body = js[js.index("function renderAnswerSupport") :]
+    body = body[: body.index("\n}\n")]
+    assert "support.by_model === false" in body and "no model wrote any of it" in body

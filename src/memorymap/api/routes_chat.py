@@ -1799,7 +1799,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             yield {
                 "type": "grounding",
                 "sentences": result["grounding"],
-                "support": result["support"],
+                #: `by_model: False`: no model wrote a word of it, so a low count
+                #: is the app's own joining words and picture readings, and the
+                #: notice says that rather than "the model's own writing".
+                "support": {**result["support"], "by_model": False},
                 "exact": True,
             }
         return
@@ -1835,7 +1838,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             yield {
                 "type": "grounding",
                 "sentences": offline["grounding"],
-                "support": grounding_support(offline["text"], offline["grounding"]),
+                "support": {**grounding_support(offline["text"], offline["grounding"]), "by_model": False},
                 #: Exact by construction, like the composed answer's: the
                 #: re-grounding after the stream used to replace these rows
                 #: with approximate ones (found by INBOX 688's audit).

@@ -731,7 +731,11 @@ def _lead(out: _Answer, s: Sentence, shape: str, question: str) -> None:
     elif shape == "yesno":
         out.t(_pick(question, "lead", ["closest_a", "closest_b"])).name(view).t("closest_end")
     else:
-        style = _pick(question, "lead", ["a", "b", "c"])
+        #: "The closest match" only for the search's own first result: the
+        #: lead is the sentence that says most about the question, which can
+        #: sit in the third note found (the owner, 2026-10-06: "it said the
+        #: closest match is my gary sketch, even though it is the 3rd match").
+        style = _pick(question, "lead", ["a", "b", "c"] if s.rank == 0 else ["a", "b"])
         out.t(f"says_{style}").name(view).t(f"says_{style}_end")
 
 

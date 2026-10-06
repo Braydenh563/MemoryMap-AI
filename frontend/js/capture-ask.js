@@ -1637,11 +1637,17 @@ function renderAnswerSupport(answerEl, support) {
   line.className = "notice notice-warn answer-support";
   line.setAttribute("role", "note");
   const { supported = 0, sentences = 0 } = support;
+  //: No model wrote an answer composed from the notes (INBOX 724, the owner:
+  //: "this message needs to be altered as a model wasnt used"): what is not
+  //: quoted is the app's own joining words and how it read the pictures.
   setLabel(
     line,
-    `ph:warning Only ${supported} of ${sentences} sentences here ` +
-      `${supported === 1 ? "comes" : "come"} from your notes. ` +
-      "The rest is the model's own writing, treat it as a draft."
+    support.by_model === false
+      ? `ph:info Only ${supported} of ${sentences} sentences here ${supported === 1 ? "is" : "are"} quoted ` +
+          "word for word from your notes. The rest is this app's joining words or how it read your pictures; no model wrote any of it."
+      : `ph:warning Only ${supported} of ${sentences} sentences here ` +
+          `${supported === 1 ? "comes" : "come"} from your notes. ` +
+          "The rest is the model's own writing, treat it as a draft."
   );
   first.parentElement.insertBefore(line, first);
 }

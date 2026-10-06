@@ -45989,3 +45989,15 @@ and refuses a topic ("Select a shape, link or text box first").
      canvas rendered, so a board left open in the Library no longer takes a
      paste on another tab; `.icon-btn` is `--radius-md`. tests/test_stray_paste_720.py.
 
+724. **The owner, 2026-10-06, verbatim**, with four screenshots of an Ask answer
+     in "Your notes, no AI": "it said the closest match is my gary sketch, even
+     though it is the 3rd match. i think it is because it has the most amount of
+     links or connections but idk". Then, of the notice above it ("Only 1 of 4
+     sentences here comes from your notes. The rest is the model's own writing"):
+     "also this message needs to be altered as a model wasnt used". Fixed: the
+     lead is the sentence that says most about the question (BM25 over
+     sentences), not the first result, so "The closest match" is now said only
+     of the first result (`composer._lead`); a composed or extractive answer's
+     support carries `by_model: False` and the notice says the rest is the
+     app's joining words or picture readings (capture-ask.js).
+

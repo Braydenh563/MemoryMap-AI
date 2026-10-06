@@ -52,6 +52,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask without AI: “The closest match is your note” is said only of the search’s first result, and an answer no model wrote no longer says the rest is “the model’s own writing” (INBOX 724).
 - A confirm opened from the lightbox (Delete) now shows above it rather than behind it (INBOX 721).
 - A stray Ctrl+V on another tab no longer drops an image onto a board left open in the Library (and starts captioning it); a board takes a paste only while it is on screen. The Ask history's pin and delete buttons are rounded squares like the app's other icon buttons (INBOX 720).
 - The mini Atlas avatar beside the name on an Ask answer, a Chat reply and the Guide no longer hangs under its row: the head is clipped to its 20px box (the companion's body and legs were drawn 11px below it, so the name sat at the top of a figure twice its height, with empty space under it) (INBOX 714).

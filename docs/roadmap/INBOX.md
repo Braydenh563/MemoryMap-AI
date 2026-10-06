@@ -89,24 +89,6 @@ with its owner named in the entry.
      the panel id was already `writing-room`, the Guide still answers to
      "write with atlas").
 
-650. **The owner, 2026-10-05, verbatim.** "Can you also update the small
-     miniature atlas male and female avatar icons that go in the corner of
-     chat bubbles?? They aren't up to date and they look like aliens" Placed:
-     the next Opus slot (`assistantAvatar` in chat-agent.js draws
-     `atlasDraw(size)` under 28px, not the current `atlasAvatar` look).
-
-660. **The owner, 2026-10-05, verbatim.** "also I want to be able to drag
-     elements on the whiteboard and mindmap onto a popup delete button to
-     delete them" Placed: the next Opus slot, with 650 and 656: a delete
-     target that appears while an item is dragged (board and map), drop
-     deletes with Undo and a toast, Escape cancels.
-
-656. **The owner, 2026-10-05, verbatim, with a screenshot of the status bar's
-     hollow-circle AI dot and its "Notebook ready · chat AI off" card.** "can
-     the no ai available ai status icon be better??" Placed: the next Opus
-     slot, with 650 (the avatars): a glyph that says "AI off, notebook fine",
-     not an empty ring.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

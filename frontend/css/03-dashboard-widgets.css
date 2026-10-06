@@ -4009,9 +4009,16 @@ button.answer-figure-open {
    rows out of it. Still a control height (30px, unchanged) and never
    smaller than the touch-target floor the row's own `min-height` still
    enforces; only the air around the rows is tightened. */
+/* **Equal side gaps** (INBOX 726, the owner: "barely any right margin").
+   Measured with the vertical scrollbar showing: label left edge 8px from the
+   panel's edge, control right edge 8px from the scrollport's, and with the
+   scrollbar's own track beside the controls that read as no margin at all.
+   One `--space-6` on both sides, so left and right stay equal whether or not
+   the panel scrolls. `scrollbar-gutter: stable both-edges` was tried for this
+   and clipped the selects' right borders, so the padding does the work. */
 .graph-options .dock-menu-section {
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-6);
 }
 
 /* Six independent switches, two to a row, halving the "Show" section's

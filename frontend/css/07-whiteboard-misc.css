@@ -5046,21 +5046,50 @@ summary:not(.icon-only):not(.icon-button) {
 
 /* **The offer must not cover the thing it is an offer about.** Measured at
    390x844 on a new map: the old card wrapped to 335x237 at the top of the
-   canvas over the map's only topic (y 411 to 455). The tiles are one row
-   that scrolls at every width, so the card is a fixed height; at phone width
-   the explaining line goes, the title and the X stay. */
+   canvas over the map's only topic (y 411 to 455), and with a head over the
+   tiles the card ran under the selected root's own bar. At phone width the
+   head's words go (the card's group is still named by them) and the card is
+   one row: the tiles that scroll, then the X; the hint wraps under them. */
 @media (max-width: 48rem) {
-  .wb-map-templates-sub {
-    display: none;
-  }
-
   .wb-map-templates {
-    padding: var(--space-2) var(--space-3);
+    flex-flow: row wrap;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
     gap: var(--space-1);
   }
 
   .wb-map-templates-head {
-    justify-content: space-between;
+    display: contents;
+  }
+
+  .wb-map-templates-title,
+  .wb-map-templates-sub {
+    display: none;
+  }
+
+  .wb-map-templates-row {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  #wb-map-templates-dismiss {
+    order: 1;
+    flex: none;
+  }
+
+  .wb-map-first-hint {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .wb-map-template-tile.ghost {
+    flex-basis: 4.5rem;
+    width: 4.5rem;
+    padding: var(--space-1);
+  }
+
+  .wb-map-template-tile .wb-lib-thumb {
+    height: 2.25rem;
   }
 }
 

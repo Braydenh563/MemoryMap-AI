@@ -200,7 +200,9 @@ function wbBoardThumbSpec(element) {
   let title = span / 22;
   for (const f of frames) {
     const len = Math.max(4, words(f.data).length);
-    title = Math.min(title, ((f.w || 100) - inset * 2) / (0.6 * len));
+    //: 0.7em a letter: a bold title in capitals and wide letters ("Why 1",
+    //: "Wednesday") measured past 0.6 in the browser.
+    title = Math.min(title, ((f.w || 100) - inset * 2) / (0.7 * len));
   }
   title = R(Math.max(6, title));
   const notes = items.filter((i) => i.kind === "object" && i.type !== "frame" && i.type !== "image" && words(i.data));
@@ -354,7 +356,10 @@ async function wbOpenTemplateGallery(kind = "board") {
     const art = document.createElement("div");
     art.className = "wb-template-preview-art";
     art.append(wbTemplatePicture(choice, kind));
-    preview.replaceChildren(caption, art);
+    const inner = document.createElement("div");
+    inner.className = "wb-template-preview-inner";
+    inner.append(caption, art);
+    preview.replaceChildren(inner);
     if (!nameField.dataset.typed) nameField.value = choice.ref ? choice.name : "";
   };
   const row = (choice) => {

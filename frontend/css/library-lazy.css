@@ -2458,6 +2458,9 @@ button.ghost.doc-template-choice.wb-template-choice {
 }
 
 .wb-template-choice-words > .muted {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2466,9 +2469,15 @@ button.ghost.doc-template-choice.wb-template-choice {
 /* The preview: the chosen template's name and hint at the top, on the
    padding the document templates' page has, then its picture large. */
 .doc-template-preview.wb-template-preview {
+  mask-image: none;
+}
+
+/* The grid is a wrapper's, so the preview keeps the recipe's own display and
+   is still left out below 44rem, every row carrying its own picture. */
+.wb-template-preview-inner {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  mask-image: none;
+  height: 100%;
 }
 
 .wb-template-preview-text {

@@ -613,3 +613,14 @@ available". So:
    in instantly while the model streams. With no model, the composer answers
    on its own (INBOX 725).
 
+**North star for the composer** (the owner, 2026-10-06, verbatim): "I want the
+composer to be soooo good that users dont even need to install ai ... some of
+my friends dont like ai and probs wont want to install a local model so I want
+it to be the best and most capable and well spoken, coherent, well made
+composer the world has seen." Next session: the Phase 5 rows and
+`agent-remaining/composer725-1006.md` (link reasons from sentence pairs, the
+composer feeding a running model, "the composer acts"), each measured on the
+725 eval. The owner may run this phase with a Fable planning pass later, by
+their own call when usage allows (standing order 4 bars Fable agents unless
+the owner says otherwise).
+

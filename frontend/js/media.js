@@ -643,7 +643,7 @@ async function toggleDictation(button, targetInput) {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
-    toast("Microphone access was blocked, allow it in your browser.", true);
+    toast("Microphone access was blocked, allow it in your browser.", "info");
     return;
   }
   //: **The button's resting label, read once and kept.** Reported: the word
@@ -1094,7 +1094,7 @@ async function saveMeetingNote() {
 
 function speakText(text) {
   if (!("speechSynthesis" in window)) {
-    toast("This browser has no text-to-speech voices.", true);
+    toast("This browser has no text-to-speech voices.", "info");
     return;
   }
   if (speechSynthesis.speaking) {

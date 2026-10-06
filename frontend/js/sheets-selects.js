@@ -1693,7 +1693,7 @@ function editChatAnswer(handles, turnIndex, current) {
   save.addEventListener("click", async () => {
     const next = box.value.trim();
     if (!next) {
-      toast("An empty answer isn't a correction: delete the message instead.", true);
+      toast("An empty answer isn't a correction: delete the message instead.", "info");
       return;
     }
     if (chatConv.id) {

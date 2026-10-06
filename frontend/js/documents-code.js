@@ -1511,7 +1511,7 @@ async function docEmmetWrap() {
   const text = docEmmetWrapText(view.state.sliceDoc(from, to), indent, abbr);
   const expansion = docEmmetExpansion(window.EMMET, abbr, syntax, text);
   if (!expansion) {
-    toast(`Emmet cannot read "${abbr}" as an abbreviation.`, true);
+    toast(`Emmet cannot read "${abbr}" as an abbreviation.`, "info");
     return false;
   }
   docEmmetLastWrap = abbr;
@@ -4202,7 +4202,7 @@ async function docFormatCode(scope = "auto") {
   const type = docFileType();
   const view = docCmView;
   if (type.previewable || ["txt", "csv"].includes(type.ext)) {
-    toast("Formatting is for code documents.", true);
+    toast("Formatting is for code documents.", "info");
     return false;
   }
   if (!view || !CM) {
@@ -4214,20 +4214,20 @@ async function docFormatCode(scope = "auto") {
   const sel = state.selection.main;
   const selection = scope === "selection" || (scope === "auto" && !sel.empty);
   if (selection && sel.empty) {
-    toast("Select the lines to format first.", true);
+    toast("Select the lines to format first.", "info");
     return false;
   }
   const refusal = DOC_CHECK_TREE.has(type.ext)
     ? docFormatTreeRefusal(CM, state, type.ext)
     : await docFormatRemoteRefusal(type.ext, text);
   if (refusal) {
-    toast(refusal, true);
+    toast(refusal, "info");
     return false;
   }
   //: The server check is a round trip; typing during it would make the
   //: result a format of text that is no longer there.
   if (docCmView !== view || view.state.doc.toString() !== text) {
-    toast("The text changed while it was being checked. Format again.", true);
+    toast("The text changed while it was being checked. Format again.", "info");
     return false;
   }
   const unit = type.indent || "  ";
@@ -4252,7 +4252,7 @@ async function docFormatCode(scope = "auto") {
     if (!result.error) changes = docFormatChanges(text, result.text);
   }
   if (result.error) {
-    toast(result.error, true);
+    toast(result.error, "info");
     return false;
   }
   if (!changes.length) {
@@ -4317,7 +4317,7 @@ function docApplyCodeFix(view, source, key, name, from) {
   const CM = window.CM6;
   const fix = CM && docCodeFixNow(view, source, key, name, from);
   if (!fix) {
-    toast("That fix no longer applies: the text has changed since it was offered.", true);
+    toast("That fix no longer applies: the text has changed since it was offered.", "info");
     return;
   }
   view.dispatch({

@@ -106,7 +106,7 @@ function toggleAskHistoryPanel() {
 async function viewAskHistoryTurn(id) {
   const turn = await apiJson(`/ask-history/${id}`).catch(() => null);
   if (!turn) {
-    toast("That question is no longer in your history.", true);
+    toast("That question is no longer in your history.", "info");
     return;
   }
   $("suggested-questions").classList.add("hidden");

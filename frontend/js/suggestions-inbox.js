@@ -510,7 +510,7 @@ function inboxLinksPane(suggestions) {
       if (result.updated) parts.push(`marked ${result.updated}`);
       if (result.rewritten) parts.push(`wrote a real reason for ${result.rewritten}`);
       if (parts.length) toast(`Links: ${parts.join(", ")}.`);
-      else if (result.ai_unavailable) toast("Marked what I could, Atlas isn't running, so none could be put into words yet.", true);
+      else if (result.ai_unavailable) toast("Marked what I could, Atlas isn't running, so none could be put into words yet.", "info");
       else toast("Every link already has a reason.");
     },
   );
@@ -554,7 +554,7 @@ function inboxLinksPane(suggestions) {
       setBusy(suggestReasons, false);
       if (!done) return;
       if (done.filled) toast(`Filled in ${done.filled} reason${done.filled === 1 ? "" : "s"}.`);
-      else if (done.result.ai_unavailable) toast("Atlas isn't running, so no reasons could be guessed.", true);
+      else if (done.result.ai_unavailable) toast("Atlas isn't running, so no reasons could be guessed.", "info");
       else toast("Couldn't guess a reason for any of these.");
     },
   );

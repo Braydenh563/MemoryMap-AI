@@ -1084,7 +1084,7 @@ function wbApplyBackground() {
 async function wbSetBackground(patch, { undo = true } = {}) {
   const id = window.currentBoardId;
   if (!id) {
-    toast("The default board keeps the theme's look. Make a board of your own to give it one.", true);
+    toast("The default board keeps the theme's look. Make a board of your own to give it one.", "info");
     wbApplyBackground();
     return false;
   }
@@ -8481,7 +8481,7 @@ function wbOpenComments(kind, id, anchor = null) {
     }
     const thread = wbItemComments(kind, now);
     if (thread.length >= WB_COMMENTS_MAX) {
-      toast(`A thread holds ${WB_COMMENTS_MAX} comments. Delete one first.`, true);
+      toast(`A thread holds ${WB_COMMENTS_MAX} comments. Delete one first.`, "info");
       return;
     }
     box.value = "";
@@ -9585,7 +9585,7 @@ function wbReviewMapProposal(proposal) {
       smallButton("Create the map", "Create the map", () => {
         const text = outline.value.trim();
         if (!text) {
-          toast("There is nothing in the outline to build.", true);
+          toast("There is nothing in the outline to build.", "info");
           return;
         }
         close({ name: name.value.trim() || proposal.name || "Generated map", outline: text });
@@ -9656,13 +9656,13 @@ async function wbImportOutlineFile(event) {
     return;
   }
   if (!content.trim()) {
-    toast("That file is empty.", true);
+    toast("That file is empty.", "info");
     return;
   }
   if (content.length > WB_MAX_IMPORT_CHARS) {
     toast(
       `That outline is ${content.length.toLocaleString()} characters: the limit is ${WB_MAX_IMPORT_CHARS.toLocaleString()}.`,
-      true
+      "info"
     );
     return;
   }
@@ -9864,7 +9864,7 @@ async function wbExportPdf(scope) {
   const win = window.open("", "_blank");
   if (!win) {
     URL.revokeObjectURL(url);
-    toast("Allow pop-ups to export as PDF, it opens Print, then Save as PDF.", true);
+    toast("Allow pop-ups to export as PDF, it opens Print, then Save as PDF.", "info");
     return;
   }
   win.document.write(
@@ -11917,7 +11917,7 @@ async function initWhiteboard() {
     closeAllWbMenus();
     const boardId = window.currentBoardId ?? null;
     if (!boardId) {
-      toast("The default board cannot change kind. Make a new board to start a mind map.", true);
+      toast("The default board cannot change kind. Make a new board to start a mind map.", "info");
       return;
     }
     const becomingMap = !wbIsMap();
@@ -13864,7 +13864,7 @@ async function initWhiteboard() {
     //: 2026-09-09, beside an "Error creating node: {}" that said nothing.
     const entryId = Number.parseInt(dropped, 10);
     if (!Number.isInteger(entryId) || entryId <= 0) {
-      toast("Drop a note from the Library onto the board. That was not a note.", true);
+      toast("Drop a note from the Library onto the board. That was not a note.", "info");
       return;
     }
     
@@ -18609,7 +18609,7 @@ onDomReady(() => {
     if (!file) return;
     e.preventDefault();
     if (!/\.(opml|xml|mm|xmind|md|markdown|txt)$/i.test(file.name)) {
-      toast("Drop an outline to import it: OPML, FreeMind, XMind, Markdown or plain text.", true);
+      toast("Drop an outline to import it: OPML, FreeMind, XMind, Markdown or plain text.", "info");
       return;
     }
     wbImportOutlineFile({ target: { files: [file], value: "" } });

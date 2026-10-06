@@ -2394,7 +2394,7 @@ function docSectionRange(headings, index, lineCount) {
 function docRunControl(id, what) {
   const el = $(id);
   if (!el) {
-    toast(`${what} is not available here.`, true);
+    toast(`${what} is not available here.`, "info");
     return;
   }
   el.click();
@@ -2863,7 +2863,7 @@ function renderDocOutline() {
         docOutlineDragIndex = -1;
         docOutlineClearDrop();
         if (!docOutlineMoveSection(from, index, after)) {
-          toast("That section cannot go inside itself.", true);
+          toast("That section cannot go inside itself.", "info");
         }
       });
     }
@@ -6187,12 +6187,12 @@ function docBlockRefAtCaret() {
 async function docCopyBlockRef() {
   const title = (currentDoc?.title || "").trim();
   if (!title) {
-    toast("Give the document a title first, a block link is named by it.", true);
+    toast("Give the document a title first, a block link is named by it.", "info");
     return;
   }
   const made = docBlockRefAtCaret();
   if (!made || !made.id) {
-    toast("Put the caret in a paragraph first.", true);
+    toast("Put the caret in a paragraph first.", "info");
     return;
   }
   const reference = `[[${title}#^${made.id}]]`;
@@ -6209,7 +6209,7 @@ async function docCopyBlockRef() {
 function docRevealBlock(blockId) {
   const found = docBlockFind(docText(), blockId);
   if (!found) {
-    toast("That block is not in this document any more.", true);
+    toast("That block is not in this document any more.", "info");
     return false;
   }
   const surface = docSurface();
@@ -9451,7 +9451,7 @@ function docWikiTargetLabel(target) {
 
 function docOpenResolvedWikiTarget(target, name) {
   if (!target) {
-    toast(`Nothing called "${name}" yet.`, true);
+    toast(`Nothing called "${name}" yet.`, "info");
     return;
   }
   if (target.kind === "block") {
@@ -11523,7 +11523,7 @@ function docHistoryDelta(words) {
 }
 
 async function openDocHistory() {
-  if (!currentDoc) return toast("Open a document first.", true);
+  if (!currentDoc) return toast("Open a document first.", "info");
   const dialog = $("doc-history-dialog");
   const list = $("doc-history-list");
   const empty = $("doc-history-empty");
@@ -13349,7 +13349,7 @@ async function docFocusToggleFullscreen() {
     if (await docDesktopFullscreenToggle()) {
       docFocusOwnsFullscreen = docDesktopFs().full;
     } else {
-      toast("Full screen is not available in this window.", true);
+      toast("Full screen is not available in this window.", "info");
     }
     docFocusSyncFullscreen();
     docSurface()?.focus();
@@ -13364,7 +13364,7 @@ async function docFocusToggleFullscreen() {
       docFocusOwnsFullscreen = true;
     }
   } catch {
-    toast("Full screen is not available in this window.", true);
+    toast("Full screen is not available in this window.", "info");
   }
   docFocusSyncFullscreen();
   docSurface()?.focus();
@@ -15683,7 +15683,7 @@ function docProseFix(finding) {
   //: which is the one failure a writing aid must never have.
   if (box.value.slice(finding.start, finding.end) !== finding.text) {
     renderDocProse();
-    return toast("That text has changed, the list is refreshed.", true);
+    return toast("That text has changed, the list is refreshed.", "info");
   }
   box.value = docProseApply(box.value, finding);
   markDocDirty();
@@ -15706,7 +15706,7 @@ function docProseFixAll() {
     text = docProseApply(text, finding);
     applied += 1;
   }
-  if (!applied) return toast("Nothing left to fix.", true);
+  if (!applied) return toast("Nothing left to fix.", "info");
   box.value = text;
   markDocDirty();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -17409,7 +17409,7 @@ function docSuggestAnswers(finding, opts = {}) {
     setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
     askAi.title = "Have the local model suggest two or three other ways to put this";
     askAi.addEventListener("click", async () => {
-      if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
+      if (!currentDoc || !currentDoc.id) return toast("Save the document first.", "info");
       setLabel(askAi, "ph:hourglass Thinking\u2026");
       askAi.disabled = true;
       const body = await apiJson(`/documents/${currentDoc.id}/rephrase`, {
@@ -17426,7 +17426,7 @@ function docSuggestAnswers(finding, opts = {}) {
         askAi.disabled = false;
         return toast(
           (body && body.message) || "No other wordings came back for that one.",
-          true
+          "info"
         );
       }
       askAi.remove();
@@ -17767,7 +17767,7 @@ const DOC_AI_REVIEW_SELECTION_CHARS = 1200;
 function docAiDiscussInChat() {
   const box = docSurface();
   const text = (box?.text || "").trim();
-  if (!text) return toast("Nothing to discuss yet.", true);
+  if (!text) return toast("Nothing to discuss yet.", "info");
   const input = document.getElementById("chat-input");
   if (!input) return toast("The chat isn't available right now.", true);
   const range = box ? box.selection() : null;
@@ -17847,9 +17847,9 @@ async function docAiReview() {
   }
   const box = docSurface();
   const full = box?.text || "";
-  if (!full.trim()) return toast("Nothing to check yet.", true);
+  if (!full.trim()) return toast("Nothing to check yet.", "info");
   const doc = currentDoc || (await ensureDocumentExists().catch(() => null));
-  if (!doc) return toast("Nothing to check yet.", true);
+  if (!doc) return toast("Nothing to check yet.", "info");
   const range = box.selection();
   const selection = range.to > range.from ? full.slice(range.from, range.to) : "";
   const controller = new AbortController();
@@ -18064,7 +18064,7 @@ async function docDictionaryAddTyped() {
   const search = $("doc-dictionary-search");
   const word = (search?.value || "").trim();
   if (!word) return;
-  if (!docDictionaryWordOk(word)) return toast("One word at a time: letters, with an apostrophe or hyphen inside.", true);
+  if (!docDictionaryWordOk(word)) return toast("One word at a time: letters, with an apostrophe or hyphen inside.", "info");
   if (!docDictionary().has(word.toLowerCase())) await docDictionaryAdd(word);
   if (search) search.value = "";
   renderDocDictionary();
@@ -18081,7 +18081,7 @@ async function docDictionaryImport(file) {
   const incoming = [...new Set(text.split(/[\r\n,;\t]+/).map((w) => w.trim().toLowerCase()).filter(docDictionaryWordOk))];
   const have = docDictionary();
   const fresh = incoming.filter((word) => !have.has(word));
-  if (!incoming.length) return toast("No words found in that file. One word per line.", true);
+  if (!incoming.length) return toast("No words found in that file. One word per line.", "info");
   if (fresh.length) await docDictionaryWrite([...have, ...fresh]);
   renderDocDictionary();
   renderDocProse();
@@ -18092,7 +18092,7 @@ async function docDictionaryImport(file) {
 
 function docDictionaryExport() {
   const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
-  if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", true);
+  if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", "info");
   //: Through `saveFile`, so the desktop window (which swallows an anchor's
   //: download) saves it too (audit FE-16).
   return saveFile("writing-dictionary.txt", new Blob([`${words.join("\n")}\n`], { type: "text/plain" }));

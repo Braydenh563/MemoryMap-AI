@@ -1102,7 +1102,24 @@ function plainHttpError(status, detail, fallback = "") {
 
 let lastToastKey = "";
 let lastToastAt = 0;
+//: **An error toast is for a fault; a situation the app expects is a plain one**
+//: (the owner's end-to-end pass: Dictate without the voice add-on, Compress on
+//: an empty chat, Add on an empty reminder all showed red and "Report this",
+//: which reads as a broken app). Two ways in, one rule:
+//: - a call site that knows the situation passes `"info"` (a check on what
+//:   the person entered, nothing to do yet, a missing add-on): a plain toast,
+//:   no "Report this", and it ignores "mute notifications" because it answers
+//:   something the person just pressed;
+//: - a call site that passes `true` for a failed request gets the same
+//:   treatment when the server answered with a 4xx, which is a refusal by
+//:   design (`api()` in app.js notes each 4xx message in `toast.refused`).
+//: Only a 5xx, a network failure or an unexpected exception keeps the red
+//: style and the report button. `tests/test_error_toasts.py` pins both.
 function toast(message, isError = false, { exempt = false } = {}) {
+  if (isError === "info" || (isError === true && [...toast.refused].some((m) => String(message).includes(m)))) {
+    isError = false;
+    exempt = true;
+  }
   if (!exempt && !isError && notificationsMuted()) return;
   const key = `${isError ? "1" : "0"}:${message}`;
   const now = Date.now();
@@ -1147,6 +1164,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
   });
   toastStack(box, () => box.appendChild(note));
 }
+toast.refused = new Set();
 
 // A toast with one action button, used for Undo (Wave J). The button
 // stays until clicked or the toast times out (a bit longer than usual,

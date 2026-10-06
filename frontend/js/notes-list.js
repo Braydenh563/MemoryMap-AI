@@ -145,7 +145,7 @@ function beginOrCompleteLink(entry) {
         draftFirst
           ? "A draft can't be linked to a saved note. Save the draft first."
           : "A saved note can't be linked to a draft. Save the draft first.",
-        true
+        "info"
       );
       return;
     }

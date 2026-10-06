@@ -1583,7 +1583,7 @@ function reminderEditForm(reminder) {
     smallButton("Save", "", async () => {
       const text = textInput.value.trim();
       if (!text || !dueInput.value) {
-        toast("A reminder needs text and a time.", true);
+        toast("A reminder needs text and a time.", "info");
         return;
       }
       await apiJson(`/reminders/${reminder.id}`, {

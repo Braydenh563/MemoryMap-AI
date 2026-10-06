@@ -1126,7 +1126,7 @@ function closeLogs() {
 async function copyLogs() {
   const shown = logRecords.filter(logMatchesFilters);
   if (!shown.length) {
-    toast("Nothing to copy: the filters above are hiding every record.", true);
+    toast("Nothing to copy: the filters above are hiding every record.", "info");
     return;
   }
   const text = shown.map(logRecordText).join("\n");
@@ -1878,13 +1878,13 @@ async function saveCurrentLook() {
   const input = $("custom-theme-name");
   const name = input.value.trim().slice(0, 30);
   if (!name) {
-    toast("Give the look a name first.", true);
+    toast("Give the look a name first.", "info");
     input.focus();
     return;
   }
   const existing = savedThemes();
   if (existing.length >= MAX_CUSTOM_THEMES && !existing.some((t) => t.name === name)) {
-    toast(`You can keep ${MAX_CUSTOM_THEMES} saved looks: delete one first.`, true);
+    toast(`You can keep ${MAX_CUSTOM_THEMES} saved looks: delete one first.`, "info");
     return;
   }
   const snapshot = { name, ...currentLookValues() };

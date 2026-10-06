@@ -1612,7 +1612,7 @@ async function runWebSearch() {
 // first and offered rather than failing silently.
 async function askAboutPage(url, title) {
   if (!(prefsCache && prefsCache.web_search_enabled)) {
-    toast("Turn on Web search first, reading a page needs it.", true);
+    toast("Turn on Web search first, reading a page needs it.", "info");
     return;
   }
   // Reading a page is a tool call, so agent mode has to be on for this turn.

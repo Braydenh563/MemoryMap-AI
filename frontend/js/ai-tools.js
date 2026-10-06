@@ -682,7 +682,7 @@ function renderFeatureModels(status) {
 function openFeatureModelSheet(key) {
   const row = featureModelRow(key);
   if (!row) {
-    toast("Models aren't available yet. Open Settings, Models to check.", true);
+    toast("Models aren't available yet. Open Settings, Models to check.", "info");
     return;
   }
   openSheet({
@@ -1123,7 +1123,7 @@ let improveCustomInstruction = "";
 function openImprove(targetTextarea) {
   const text = targetTextarea.value.trim();
   if (!text) {
-    toast("Write something first, then improve it.", true);
+    toast("Write something first, then improve it.", "info");
     return;
   }
   improveTarget = targetTextarea;
@@ -1223,7 +1223,7 @@ async function applyEmbeddingBackend() {
   // Guard the #1 misconfiguration: a chat model chosen as the search engine.
   if (backend === "ollama") {
     if (!model) {
-      toast("Pick an embedding model first, e.g. nomic-embed-text.", true);
+      toast("Pick an embedding model first, e.g. nomic-embed-text.", "info");
       return;
     }
     if (!looksLikeEmbeddingModel(model)) {

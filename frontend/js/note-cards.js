@@ -2333,7 +2333,7 @@ async function showNoteInGraph(id, { document: isDocument = false } = {}) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   if (!node || !Number.isFinite(node.x)) {
-    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, true);
+    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, "info");
     return;
   }
   focusGraphNode(node);

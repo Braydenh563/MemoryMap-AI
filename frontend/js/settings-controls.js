@@ -493,6 +493,9 @@ $("pref-background-filing").addEventListener("change", (e) =>
   setPreference("background_filing", e.target.checked)
 );
 
+$("pref-semantic-auto-install").addEventListener("change", (e) =>
+  setPreference("semantic_auto_install", e.target.checked)
+);
 $("pref-warm-search-model").addEventListener("change", (e) =>
   setPreference("warm_search_model_at_launch", e.target.checked)
 );

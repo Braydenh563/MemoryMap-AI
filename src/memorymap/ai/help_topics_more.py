@@ -220,11 +220,19 @@ MORE_TOPICS: list[dict] = [
             "uninstall embedding model", "reinstall embedding model", "cached models",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
+            "install search by meaning automatically", "dont install", "refuse install",
+            "cancel install", "sentence-transformers", "2 gb download",
         ),
         "body": (
             "Settings, Search and index. Search engine: the built-in one "
             "(recommended, about 650 MB of memory while the app is open) or an "
-            "Ollama embedding model such as nomic-embed-text; changing it "
+            "Ollama embedding model such as nomic-embed-text. The built-in one "
+            "needs the sentence-transformers package (about 2 GB with PyTorch), "
+            "which MemoryMap installs in the background the first time it is "
+            "needed, with a notice that says so and a Don't install button; "
+            "the switch Install search by meaning automatically turns that "
+            "off, and search then uses keywords until you press Install in "
+            "Settings, Packages. Changing the engine "
             "re-reads every note in the background (Background tasks shows it, "
             "with Stop) and search keeps using the current model until the new "
             "one has read every note. Embedding models lists the choices, from "

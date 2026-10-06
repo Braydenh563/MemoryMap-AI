@@ -100,6 +100,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # Bring the user's own SearXNG up with the app. Off by default: starting a
     # container is not something a local-first app does unasked.
     "searxng_autostart": False,
+    # Install `sentence-transformers` (about 2 GB with PyTorch) on its own the
+    # first time search by meaning finds it missing (ai/embeddings.py). On by
+    # default because the built-in engine is the default engine; the owner:
+    # "the user should be able to cancel or refuse the auto install", so off
+    # means it is never started, search stays on keywords, and Settings,
+    # Packages keeps its manual Install.
+    "semantic_auto_install": True,
     "searxng_url": "",
     "search_provider": "auto",
     # Which dialect the chat backend speaks (§6). "ollama" is the native

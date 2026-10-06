@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Search by meaning: you can refuse or stop its automatic install. Settings, Search and index has a switch, Install search by meaning automatically (on by default; off means it is never started and search stays on keywords), and the first time the app starts the install itself a notice says so, how big it is, and offers Don't install.
 - Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.
 - Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.
 - Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.

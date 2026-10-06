@@ -981,6 +981,12 @@ function renderEmbeddingPicker(status) {
       text =
         "Installing sentence-transformers for the built-in model. This happens once and " +
         "can take several minutes. Prefer not to wait? Pick nomic-embed-text from Ollama below.";
+    } else if (status.builtin_embedding_installed === false && prefsCache?.semantic_auto_install === false) {
+      //: The owner refused the automatic install: say what that left.
+      text =
+        "The built-in model needs sentence-transformers, which you have chosen not to install " +
+        "automatically. Search uses keywords. Install it from Settings, Packages, or pick " +
+        "nomic-embed-text from Ollama below.";
     } else if (status.builtin_embedding_installed === false) {
       text =
         "The built-in model needs sentence-transformers, which the app installs by itself " +

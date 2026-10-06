@@ -998,10 +998,19 @@ class EmbeddingService:
             return
         if not isinstance(exc, ModuleNotFoundError) or "sentence_transformers" not in str(exc):
             return
+        # The owner's refusal ("the user should be able to cancel or refuse
+        # the auto install"): Settings, Search and index. Checked before the
+        # once-per-process flag is spent, so switching it back on lets the
+        # next failed embed install without a restart.
+        from memorymap.core import deps
+
+        if not deps.get_config().get_preference("semantic_auto_install", True):
+            logger.info("sentence-transformers is missing and the auto-install is switched off")
+            return
         self._auto_install_attempted = True
         from memorymap.core import extras
 
-        started, message = extras.start("semantic")
+        started, message = extras.start("semantic", auto=True)
         if not started:
             # Already installed (so this was a *different* failure, sound
             # but broken, `reinstall`'s job, not this one's), already

@@ -286,6 +286,9 @@ def collect() -> list[dict]:
                 "progress": None,
                 "log": list(pip.log),
                 "started": pip.started or None,
+                #: The app began this one itself (search by meaning's
+                #: auto-install), so the page can offer "Don't install".
+                "auto": pip.auto,
             }
         )
 

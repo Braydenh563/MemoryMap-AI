@@ -9212,6 +9212,39 @@ Link to another note with [[its first few words]]."></textarea>
                    starts by itself the first time the built-in model is needed
                    (embeddings._maybe_auto_install_missing_package). -->
               <p id="builtin-embed-note" class="muted small hidden" role="status"></p>
+              <!-- The owner: "the user should be able to cancel or refuse the
+                   auto install of sentence transformers". Off means it is
+                   never started on its own; Settings, Packages keeps its
+                   Install, and a running one is stopped from Background
+                   tasks (or the first-time notice's Don't install). -->
+              <div class="row help-head">
+                <label class="check-row">
+                  <input type="checkbox" id="pref-semantic-auto-install">
+                  <span>Install search by meaning automatically</span>
+                </label>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="semantic-auto-install-help" aria-controls="semantic-auto-install-help" aria-expanded="false"
+                  title="About installing search by meaning" aria-label="About installing search by meaning">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted small">Off, search stays on keywords until you press Install in Settings, Packages.</p>
+              <div class="help-body hidden" id="semantic-auto-install-help" role="dialog" aria-label="About installing search by meaning">
+                <p>
+                  Search by meaning needs one Python package, sentence-transformers,
+                  which brings PyTorch with it: about 2 GB, downloaded once, and
+                  it needs the internet. With this on, MemoryMap starts that
+                  install by itself the first time it is needed. It runs in the
+                  background (Settings, Background tasks shows it, with Stop)
+                  and search uses keywords until it finishes.
+                </p>
+                <p>
+                  Turn it off to refuse the install. Nothing is downloaded, and
+                  search by keywords keeps working. You can still install it
+                  yourself from Settings, Packages, or pick an Ollama embedding
+                  model below instead.
+                </p>
+              </div>
               <label class="check-row">
                 <input type="radio" name="emb-backend" value="ollama">
                 <span>Ollama embedding model</span>

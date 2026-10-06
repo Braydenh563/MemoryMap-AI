@@ -45872,3 +45872,21 @@ and refuses a topic ("Select a shape, link or text box first").
      carries Stop (the existing `/tasks/cancel`), cancelling cleanly at its
      next step. Placed: with 696, the progress agent.
      Built (696, 700, 713), 2026-10-06: see CHANGELOG, Unreleased; commits c49736e, 636bfe0, fd68ea1, e643112.
+
+716. **The owner, 2026-10-06, verbatim**, three mind map bugs with screenshots.
+     (1) "I double clicked to reset the sizing on a mindmap node and the link
+     didnt update" (the branch line still ends at the old, larger box).
+     (2) "then I moved the reset node and it went back to my manually upscaled
+     size". (3) With the View menu open over a selected node: "mindmap node
+     popup tools go in front of dropdown menus" (the node's floating format
+     bar, colour, 17px, Text, Shape, Branch line, draws over the menu).
+     The owner's server log at the time: "ERROR: browser: [HTTP 422] PUT /whiteboard/objects/57: Check the height and try again." then "WARN: browser: [Whiteboard] object 57 is stale: reloading the board".
+     Placed: Sonnet agent.
+     Fixed 2026-10-06: (1) and (2) were one fault: the grip's double-click reset
+     sent height null, the object schema refuses it (422), `wbSaveObject` took
+     that for a stale board and reloaded the manual size. The reset now stores
+     the height the text needs, redraws the line at once and pushes an Undo
+     step (`wbFitToText`). (3) The top bar (z 20, a stacking context) holds the
+     menus, the topic's bar is a sibling at 22; the top bar lifts to 24 while
+     a menu is open. Sweeps: `mapreset716.js`, `mapstripmenu716.js`.
+

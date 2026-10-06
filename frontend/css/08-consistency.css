@@ -6024,10 +6024,30 @@ body .chip.item-label,
   height: 0;
   z-index: 44;
   pointer-events: none;
+  /* Fades with the full-screen flag below, and back. */
+  transition: opacity var(--motion-base) var(--ease-out), visibility 0s linear 0s;
 }
 
 #nm-buddy-band.nmb-riding {
   overflow: clip;
+}
+
+/* **Gone while anything fills the window** (INBOX 726, the owner: "I can see
+   atlas on the edges when on the full screen graph", then "the same full
+   screen companion issue with other full screens probably too", then "not
+   just atlas but the companion"). Keyed on the companion's container, so it
+   holds for every avatar the companion can be (Atlas, you, a persona, your
+   own character), mini or full, and for anything riding in it; and on one
+   flag on the root that every full-screen surface sets (wiring.js,
+   `watchFullscreenSurface`), so no surface is named here. Its own fade, not
+   the tab-away cut of `.nmb-away`: leaving a full screen brings it back the
+   same way. `visibility` follows the fade out (delayed) and leads the fade
+   in, so a hidden companion is never a target for the pointer. */
+:root[data-fullscreen] #nm-buddy-band {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--ease-out), visibility 0s linear var(--motion-base);
 }
 
 /* The shutter (avatars.js, `nameMarkBuddyRideFrames`): riding, a clipping
@@ -11391,6 +11411,21 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :is(.launch-row, .library-filters, #chat-suggest) {
   padding-block: var(--ring-room);
   margin-block: calc(-1 * var(--ring-room));
+}
+
+/* **The chips' gap to what is below them** (INBOX 726, the owner: "no
+   vertical gap", of the Library's Boards / Maps filter row; "reported
+   twice" before). The two rules that gave the boards row and the Reminders
+   row a `margin-bottom: var(--space-4)` never applied: the `:is()` above
+   takes the specificity of its most specific argument, `#chat-suggest`, an
+   id, so it out-ranks a lone id selector that comes earlier, and the
+   negative margin won (measured: chips to grid 0px on both). Restated here,
+   after it. The Library's own row sits in a card with 16px of padding under
+   its chips (17px measured to the card's edge), so the row is given that:
+   `--space-6` visible, less the 4px of ring room the padding already
+   supplies. */
+:is(#library-boards-filter, #reminder-filter) {
+  margin-bottom: calc(var(--space-6) - var(--ring-room));
 }
 
 /* The chat's suggestions fill the page's width (`max-width: 100%`), so the

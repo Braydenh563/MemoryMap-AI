@@ -10723,12 +10723,6 @@ input[type="file"] {
   min-width: 0;
 }
 
-/* The Reminders filter chips sit under their dock with the same breathing
-   room the Library's do above its grid. */
-#reminder-filter {
-  margin-bottom: var(--space-4);
-}
-
 /* A card whose menu is open comes to the front. A glass card is a stacking
    context (its backdrop filter makes it one), so a menu's own z-index cannot
    climb out of the card it sits in, and the card *after* it paints over the

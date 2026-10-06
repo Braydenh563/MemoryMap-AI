@@ -1352,6 +1352,51 @@ function toggleGraphFullscreen() {
 }
 
 $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
+
+//: **One flag for "something fills the whole window"** (INBOX 726, the owner:
+//: "I can see atlas on the edges when on the full screen graph", then "the
+//: same full screen companion issue with other full screens probably too").
+//: The companion floats over the page at z-index 44; a full-screen surface
+//: is a fixed card with rounded corners at 1000, so the companion showed
+//: round its edges. `<html data-fullscreen="graph whiteboard">` lists the
+//: surfaces that are up, and the companion's own container fades out on any
+//: of them (08-consistency.css, `#nm-buddy-band`), whichever avatar it is
+//: drawing. Each surface is *watched* rather than told: a full screen is left
+//: from many places (Escape, the back button, a tab switch, the palette), and
+//: the one that forgot to say so is the one that leaves the companion gone.
+//: The class is the truth, so the class is what is observed. A new full-screen
+//: surface must be registered here; `tests/test_ui_batch_726.py` fails if a
+//: `*fullscreen` class is toggled anywhere that no watch names.
+const fullscreenSurfaces = new Set();
+
+function setFullscreenSurface(name, on) {
+  fullscreenSurfaces[on ? "add" : "delete"](name);
+  if (fullscreenSurfaces.size) document.documentElement.dataset.fullscreen = [...fullscreenSurfaces].join(" ");
+  else delete document.documentElement.dataset.fullscreen;
+}
+
+function watchFullscreenSurface(name, id, isUp) {
+  const el = $(id);
+  if (!el) return;
+  const sync = () => setFullscreenSurface(name, isUp(el) && !el.closest(".hidden"));
+  const watch = new MutationObserver(sync);
+  watch.observe(el, { attributes: true, attributeFilter: ["class"] });
+  //: A tab switched away from leaves its full screen class on, under `hidden`.
+  for (const page of document.querySelectorAll(".tab-page")) watch.observe(page, { attributes: true, attributeFilter: ["class"] });
+  sync();
+}
+
+watchFullscreenSurface("graph", "graph-card", (el) => el.classList.contains("graph-fullscreen"));
+//: The board, a mind map (a board with a tree) and Present frames (which
+//: enters the same full screen first).
+watchFullscreenSurface("whiteboard", "library-view-whiteboard", (el) => el.classList.contains("wb-fullscreen"));
+//: The document's focus mode, which is also the only caller of the browser's
+//: own `requestFullscreen` (documents.js), so that is covered by it.
+watchFullscreenSurface("documents", "tab-documents", (el) => el.classList.contains("doc-focus"));
+//: The OCR workspace is a modal over the whole window (shown, not full-screen
+//: by class); the lightbox sets its own flag when it opens and closes
+//: (lightbox-view.js), since it is built and removed rather than shown.
+watchFullscreenSurface("ocr", "ocr-workspace", (el) => !el.classList.contains("hidden"));
 // Escape leaves full screen ("restore on Esc"), guarded on the class. INBOX
 // 275: listener order does not stop an event, so anything open over the map
 // (the lightbox, a dialog) owns its Escape through `activeOverlay()`, which

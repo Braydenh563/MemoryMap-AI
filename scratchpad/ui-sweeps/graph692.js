@@ -180,6 +180,8 @@ function measure(page) {
 (async () => {
   const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
   try {
+    // SHAPE=organic|clusters|galaxy|rings picks the force layout's Shape.
+    await page.evaluate((shape) => { if (shape) localStorage.setItem('graph-shape', shape); }, process.env.SHAPE || '');
     await page.evaluate(() => switchTab('graph'));
     // The options panel is remembered open; a measurement is of the map alone.
     const closeOptions = () => page.evaluate(() => {
@@ -207,9 +209,9 @@ function measure(page) {
       const moved = before.filter((p, i) => m.positions[i] && Math.hypot(p[0] - m.positions[i][0], p[1] - m.positions[i][1]) > 20).length;
       m.reshuffle = { moved, of: before.length, alphaAfter400ms: +(mid.alpha || 0).toFixed(2) };
     }
-    await page.screenshot({ path: `${OUT}/graph692-${theme}${process.env.RESHUFFLE ? '-reshuffle' : ''}.png` });
+    await page.screenshot({ path: `${OUT}/graph692-${process.env.SHAPE || 'default'}-${theme}${process.env.RESHUFFLE ? '-reshuffle' : ''}.png` });
     delete m.positions;
-    console.log(JSON.stringify({ theme, settleMs, ...m }));
+    console.log(JSON.stringify({ shape: process.env.SHAPE || 'default', theme, settleMs, ...m }));
   } finally {
     await browser.close();
   }

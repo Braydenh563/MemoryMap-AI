@@ -5326,6 +5326,23 @@ $("graph-reshuffle")?.addEventListener("click", () => {
   if (!gcReshuffle()) toast("Reshuffle works on the force layout: pick Force under Layout first.");
 });
 
+// INBOX 693: the force layout's Shape (`gcShape`, the worker's `SHAPES`).
+// Remembered; a change re-lays the map out from where every note stands, so
+// the notes travel to the new shape rather than jumping to it.
+(() => {
+  const shape = $("graph-shape");
+  if (!shape) return;
+  // graph-canvas.js (and `gcShape`) loads after this file: an unknown value
+  // leaves a select empty, so that is the test for one.
+  shape.value = prefs.get("graph-shape", null) || "organic";
+  if (!shape.value) shape.value = "organic";
+  shape.addEventListener("change", () => {
+    localStorage.setItem("graph-shape", shape.value);
+    graphHighlightIds = null;
+    renderGraph();
+  });
+})();
+
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
   //: The layout keeps dots clear of the lines as drawn (the worker's

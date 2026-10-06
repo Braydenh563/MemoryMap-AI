@@ -85,7 +85,7 @@ const world = { left: -1200, top: -900, right: 1200, bottom: 900, aspect: 900 / 
 const init = {
   type: "init", epoch: 1, nodes: nodes.map((n) => (pinned && n.id === pinned.id ? { ...n, fx: pinned.x, fy: pinned.y, x: pinned.x, y: pinned.y } : n)),
   edges, world, alpha: 1,
-  params: { gravity: 50, spread: 50, linkForce: 50, lengthByScore: true, groupBy: true, orbit: true, curved: opts.curved !== false },
+  params: { gravity: 50, spread: 50, linkForce: 50, lengthByScore: true, groupBy: true, orbit: true, curved: opts.curved !== false, shape: opts.shape || "organic" },
 };
 // Place as the main thread does (the phyllotaxis spiral), so the run is the
 // app's own start.
@@ -167,8 +167,7 @@ def _geometry(positions, edges, curved=True):
     through = 0
     for s, t in edges:
         a, b = at[s], at[t]
-        # A line between two categories is drawn straight while grouped.
-        if curved and a[4] == b[4]:
+        if curved:
             c = _bow(a, b)
             pts = [
                 (
@@ -239,25 +238,30 @@ node_only = pytest.mark.skipif(shutil.which("node") is None, reason="node is not
 
 
 @node_only
-@pytest.mark.parametrize("curved", [True, False])
-def test_no_link_runs_through_a_note_it_does_not_join_and_no_two_notes_touch(curved):
-    run = _run(curved=curved)
+@pytest.mark.parametrize(
+    "shape,curved",
+    [("organic", True), ("organic", False), ("clusters", True), ("galaxy", True)],
+)
+def test_no_link_runs_through_a_note_it_does_not_join_and_no_two_notes_touch(shape, curved):
+    """In every Shape (the owner, 693: "all shapes keep 0 overlap")."""
+    run = _run(curved=curved, shape=shape)
     assert run["firstTicks"] > 0
-    touching, through = _geometry(run["first"], run["edges"], curved)
+    # Only Organic draws its lines curved (`_straight`, `clearCurve`).
+    touching, through = _geometry(run["first"], run["edges"], curved and shape == "organic")
     assert touching == 0
     assert through == 0
 
 
 @node_only
 def test_hubs_sit_at_the_heart_of_their_category_with_space_between_categories():
-    run = _run()
+    run = _run(shape="clusters")
     assert _hub_central(run["first"], run["edges"]) < 0.4
     assert _moat(run["first"], run["edges"]) >= 24
 
 
 @node_only
 def test_reshuffle_reseeds_the_unpinned_notes_animates_and_settles_clean():
-    run = _run(reshuffle=12345, pin=True)
+    run = _run(reshuffle=12345, pin=True, shape="clusters")
     before = {p[0]: p for p in run["first"]}
     after = {p[0]: p for p in run["after"]}
     moved = sum(
@@ -272,10 +276,10 @@ def test_reshuffle_reseeds_the_unpinned_notes_animates_and_settles_clean():
     # and it reports a hot layout so the main thread's fit waits for it.
     assert run["firstFrameAlpha"] >= 0.9
     assert run["shuffleTicks"] > 20
-    touching, through = _geometry(run["after"], run["edges"])
+    touching, through = _geometry(run["after"], run["edges"], curved=False)
     assert (touching, through) == (0, 0)
     # The same seed lays the same map out: a reshuffle is a choice, not noise.
-    again = _run(reshuffle=12345, pin=True)
+    again = _run(reshuffle=12345, pin=True, shape="clusters")
     assert again["after"] == run["after"]
 
 
@@ -300,7 +304,7 @@ def test_loose_notes_sit_together_and_the_bridging_category_in_the_middle():
     """The owner's second pass (693): "orphans gathered into a tidy group per
     category or at their cluster's rim", and no note "floating between
     clusters with no clear home"."""
-    run = _run()
+    run = _run(shape="clusters")
     positions, edges = run["first"], run["edges"]
     linked = {s for s, _ in edges} | {t for _, t in edges}
     loose = [p for p in positions if p[4] == "Home" and p[0] not in linked]
@@ -320,3 +324,23 @@ def test_loose_notes_sit_together_and_the_bridging_category_in_the_middle():
             gy = sum(p[2] for p in members) / len(members)
             middle[group] = ((gx - cx) ** 2 + (gy - cy) ** 2) ** 0.5
     assert min(middle, key=middle.get) == "Ideas"
+
+
+def test_the_shape_control_is_saved_and_reaches_the_worker():
+    """INBOX 693: "different preferred shapes or ways of structuring the
+    force graph", one control, Organic (the layout the notebook had) first
+    and the default."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    view = html[html.index('id="graph-view-section"') :]
+    view = view[: view.index("</div>\n            <!-- GRAPH_PLAN Phase 3")]
+    assert 'id="graph-shape"' in view
+    options = view[view.index('id="graph-shape"') :]
+    options = options[: options.index("</select>")]
+    assert [part.split('"')[0] for part in options.split('value="')[1:]] == ["organic", "clusters", "galaxy"]
+    graph = (JS / "graph.js").read_text(encoding="utf-8")
+    assert 'localStorage.setItem("graph-shape", shape.value)' in graph
+    canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
+    assert "shape: gcShape(s)," in canvas
+    assert 'const SHAPES = new Set(["organic", "clusters", "galaxy"]);' in WORKER
+    help_text = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "Shape (Organic, Clusters or Galaxy)" in help_text

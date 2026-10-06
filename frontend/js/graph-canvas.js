@@ -440,7 +440,7 @@ function gcSimilarityBand(score, lo, hi) {
 //: dot. The dots go into a grid so a big map costs a few cell reads per
 //: label rather than a scan of every note. `blocked` are boxes no label may
 //: take at all (the topic plates, KG6), forced ones included where they can.
-function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
+function gcPlaceLabels(items, discs, lineCount = null, blocked = [], bounds = null) {
   let cell = 0;
   for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
   cell = Math.max(cell * 4, 1);
@@ -475,7 +475,13 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
     }
     return false;
   };
+  //: A place past the edge of the canvas is no place (INBOX 693: names "cut
+  //: by the viewport"); `bounds` is the canvas in world units.
+  const outside = (box) =>
+    bounds !== null &&
+    (box.left < bounds.left || box.right > bounds.right || box.top < bounds.top || box.bottom > bounds.bottom);
   const clashes = (box) => {
+    if (outside(box)) return true;
     for (const list of [placed, blocked]) for (const other of list) {
       if (
         box.left < other.right &&
@@ -544,7 +550,7 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
     if (box.force) {
       //: Asked for by name: drawn whatever it lands on, at the clearest
       //: place that covers no label and no dot if there is one.
-      placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || box);
+      placed.push(best(spots, (spot) => !clashes(spot) && !coversDisc(spot)) || gcClampBox(box, bounds));
       continue;
     }
     if (box.landmark) {
@@ -556,6 +562,15 @@ function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
     if (pick && fewest === 0) placed.push(pick);
   }
   return placed;
+}
+//: A box moved the least it must to lie inside `bounds` (a name asked for by
+//: name, with nowhere clear to go, still reads whole at the canvas's edge).
+function gcClampBox(box, bounds) {
+  if (!bounds) return box;
+  const dx = Math.max(0, bounds.left - box.left) - Math.max(0, box.right - bounds.right);
+  const dy = Math.max(0, bounds.top - box.top) - Math.max(0, box.bottom - bounds.bottom);
+  if (!dx && !dy) return box;
+  return { ...box, x: box.x + dx, y: box.y + dy, left: box.left + dx, right: box.right + dx, top: box.top + dy, bottom: box.bottom + dy };
 }
 //: **The drawn links as a grid of short segments**, for `gcPlaceLabels` to
 //: ask whether a name would sit on one. World units, so a zoom keeps it; it
@@ -777,7 +792,7 @@ function gcArrows(s = gcTab) {
 //: (paint, hover, hit test, the label pass's line grid) draws and finds it
 //: straight. The worker's `clearCurve` makes the same exception.
 function gcBowPoint(a, b) {
-  if (a._cluster != null && a._cluster !== b._cluster) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  if (a._straight || (a._cluster != null && a._cluster !== b._cluster)) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
@@ -1819,7 +1834,7 @@ function gcDraw(s = gcTab) {
     const degree = (node) => (s.adj.get(node.id) || { size: 0 }).size;
     // A big map keeps its dozen hubs of degree 2+; a mid-sized one names
     // its best-connected third, a lone note included only if it has a link.
-    //: **Hubs only, while the map gathers by category** (INBOX 693, the
+    //: **Hubs only, in every shape but Organic** (INBOX 693, the
     //: owner: "labels for hubs only by default plus collision-free placement
     //: for the rest at zoom"). Measured on the showcase notebook at the fit,
     //: the best-connected third named 23 notes, leaves among them, and the
@@ -1827,7 +1842,9 @@ function gcDraw(s = gcTab) {
     //: each category's hub (its best-connected note, two links or more) and
     //: any other note with `GC_LABEL_HUB_DEGREE` links, at most
     //: GC_LABEL_LANDMARKS; the rest are named past the zoom gate.
-    const grouped = s.nodes.some((node) => node._cluster != null);
+    // Every shape but Organic (`_straight`), whose overview keeps its
+    // best-connected third on pills, the look the owner kept.
+    const grouped = s.nodes.some((node) => node._straight);
     const big = s.nodes.length > GC_LABEL_ALL_MAX;
     const count = big || grouped
       ? GC_LABEL_LANDMARKS
@@ -1836,8 +1853,8 @@ function gcDraw(s = gcTab) {
     if (grouped && !big) {
       const top = new Map();
       for (const node of pool) {
-        const best = top.get(node._cluster);
-        if (degree(node) >= 2 && (!best || degree(node) > degree(best))) top.set(node._cluster, node);
+        const best = top.get(node.category || "");
+        if (degree(node) >= 2 && (!best || degree(node) > degree(best))) top.set(node.category || "", node);
       }
       const heads = new Set(top.values());
       pool = pool.filter((node) => heads.has(node) || degree(node) >= GC_LABEL_HUB_DEGREE);
@@ -2150,7 +2167,16 @@ function gcDraw(s = gcTab) {
     //: 1,100 links, for names that are moving anyway. The names step to
     //: their clear places when it settles, cross-fading (`gcDrawLabels`).
     const lines = s.tree || s.dragNode || s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks);
-    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null, s.topicPlates || []);
+    // The canvas itself, a few pixels in: a name is never cut by its edge
+    // (INBOX 693, labels "cut by the viewport"; `gcPlaceLabels`).
+    const inset = 4 / k;
+    const frame = {
+      left: -t.x / k + inset,
+      top: -t.y / k + inset,
+      right: (s.dims.w - t.x) / k - inset,
+      bottom: (s.dims.h - t.y) / k - inset,
+    };
+    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null, s.topicPlates || [], frame);
     placedLabels = placed;
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
@@ -3573,7 +3599,19 @@ function gcWorkerParams(s = gcTab) {
     //: The lines the worker keeps clear of dots are the lines drawn
     //: (`clearanceForce`, INBOX 693): curved or straight.
     curved: gcCurvedLinks(s),
+    //: How the force layout arranges itself (INBOX 693, `#graph-shape`; the
+    //: worker's `SHAPES`).
+    shape: gcShape(s),
   };
+}
+
+//: The Shape control's value: the tab's own, remembered; a pane beside a
+//: note is always Organic, the shape a neighbourhood of a few notes reads in.
+const GC_SHAPES = ["organic", "clusters", "galaxy"];
+function gcShape(s = gcTab) {
+  if (s.size !== "full") return "organic";
+  const saved = prefs.get("graph-shape", null);
+  return GC_SHAPES.includes(saved) ? saved : "organic";
 }
 
 //: **Reshuffle layout** (INBOX 692, the owner: "can you add a resuffle
@@ -4121,15 +4159,17 @@ async function renderGraphCanvas(s = gcTab) {
     edge._path2d = null;
   }
   const maxDegree = gcMaxDegree(s, nodes);
-  //: Which category's cluster a note stands in, while the force layout
-  //: gathers by category (the worker's `groupBy`); null otherwise. Read by
-  //: `gcBowPoint` and the line pass: a line between clusters is straight and
-  //: quiet (INBOX 693).
-  const grouped = !s.tree && s.size === "full" && prefs.get("graph-group", null) !== "0";
+  //: Which category's cluster a note stands in, in the Clusters shape; null
+  //: otherwise. Read by `gcBowPoint` and the line pass: a line between
+  //: clusters is straight and quiet. `_straight`: every line is drawn
+  //: straight, in every shape but Organic (INBOX 693, the owner: curved lines
+  //: crossing "through the middle of the hub"; the worker's `clearCurve`).
+  const shape = s.tree ? null : gcShape(s);
   for (const node of nodes) {
     node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size, maxDegree);
     node.colour = s.colourOf(node);
-    node._cluster = grouped ? node.category || "" : null;
+    node._cluster = shape === "clusters" ? node.category || "" : null;
+    node._straight = Boolean(shape) && shape !== "organic";
   }
   //: **A note with no position yet is placed here, not in the worker.**
   //: d3-force assigns its phyllotaxis spiral inside `forceSimulation`, which

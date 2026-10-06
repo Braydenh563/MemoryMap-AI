@@ -305,3 +305,20 @@ def test_a_name_that_only_ends_like_the_site_still_parks(monkeypatch, session):
     ])
     assert ran == ["get_note"], ran
     assert confirms == ["read_url", "read_url"], confirms
+
+
+def test_the_named_site_reader_is_linear_on_a_long_dotted_question():
+    """`_ADDRESS` restarted at every label of a dotted run: 16,000 characters
+    of `a.a.a.` took 3.8 s, 64,000 over a minute, on the chat request path
+    (the final scan, 2026-10-06; CodeQL's `py/polynomial-redos`). A match now
+    starts only where a host can, not inside one."""
+    import time
+
+    started = time.perf_counter()
+    agent._hosts_named("a." * 32000)
+    assert time.perf_counter() - started < 0.5
+    assert agent._hosts_named("check https://www.Example.org/a and docs.python.org, x@mail.example.com") == {
+        "example.org",
+        "docs.python.org",
+        "mail.example.com",
+    }

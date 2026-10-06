@@ -123,18 +123,6 @@ with its owner named in the entry.
      room (padding or an inset ring), never by hiding the ring. Placed: the
      0.4.1 mini release, a Sonnet agent.
 
-686. **The owner, 2026-10-06, verbatim**, with a screenshot of the
-     Dashboard's Notebook constellation: "can you add a smooth animation for
-     regenerating the notebook constelation??" Regenerate redraws in one
-     frame. Placed: an Opus agent, with 687.
-
-687. **The owner, 2026-10-06, verbatim.** "does the companion or at least
-     atlas have a subtle breathing look??" Next: check what a resting
-     companion and Atlas do now (sample the figure per frame at rest); if
-     nothing breathes, add a slow, small breath (a few percent of scale on
-     the torso, about 4 to 5 s a cycle, never in the face's features),
-     under the avatar motion switch and reduced motion. Placed: with 686.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

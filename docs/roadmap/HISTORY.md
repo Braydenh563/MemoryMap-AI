@@ -45455,3 +45455,35 @@ and refuses a topic ("Select a shape, link or text box first").
      to 3.3deg/2.0px; every arm act and mood, the arm's own turn 15.0 to
      3.3deg. Remaining: `agent-remaining/atlas669-1006.md`.
 
+686. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Dashboard's Notebook constellation: "can you add a smooth animation for
+     regenerating the notebook constelation??" Regenerate redraws in one
+     frame. Placed: an Opus agent, with 687. **Fixed** 2026-10-06
+     (motion686-1006): Regenerate retargets the live sketch (dashboard.js,
+     `artRetarget`, `p.regenerate`): stars paired by category and index
+     ease out over 800 ms on the glide's own clock (at most 25 ms a frame,
+     60 fps while it runs), new ones grow in, leftovers fade, the lines fade
+     out and back; a second Regenerate starts from the drawn positions.
+     Interface animations off and reduced motion: a 200 ms cross-fade. Save
+     PNG saves the settled sky. `constellation686.js`: largest step 0.071
+     and 0.094 of a star's journey (light, dark; bound 1/8), interrupted
+     0.094 and 0.081; before, the canvas was torn down, two frames blank,
+     and the sky swapped whole.
+687. **The owner, 2026-10-06, verbatim.** "does the companion or at least
+     atlas have a subtle breathing look??" Next: check what a resting
+     companion and Atlas do now (sample the figure per frame at rest); if
+     nothing breathes, add a slow, small breath (a few percent of scale on
+     the torso, about 4 to 5 s a cycle, never in the face's features),
+     under the avatar motion switch and reduced motion. Placed: with 686.
+     **Fixed** 2026-10-06 (motion686-1006). Measured first
+     (`breath687.js`, 10 s at rest): Atlas's breath swung the torso 0.6%
+     (0.1px on the companion, 0.2px in the large view) and the head as
+     much, so nothing breathed to the eye; the generated-face companion
+     already breathes 2 to 3% as a whole. Now the chest swells 3.5% wide
+     and 2.5% tall about the hips on the rise's clock (4.6s, her 4.0s, clear
+     of the idle clocks), written ten times a second from the tail's loop
+     (atlas-life.js, `atlasBreathFrame`): torso 0.7px on the companion and
+     1.5px in the large view, head unchanged, still under Avatar animation
+     Off, only the old slowed rise under reduced motion. 669's click sweep:
+     0 steps over its limits in all four cases.
+

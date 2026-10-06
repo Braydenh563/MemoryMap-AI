@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Background jobs: a document that cannot be read, and a job that cannot be resumed after a restart, now show a plain sentence instead of the converter's or decoder's own error text. The detail stays in the log with its traceback.
 - Questions: a question's note title is found by a loop over its first 60 characters instead of a pattern CodeQL read as quadratic. It measured linear already (a few milliseconds on 200 KB), so nothing changes on screen; the same titles come back.
 - Ask: a model reply with a very long run of spaces or blank lines no longer stalls while note ids and match scores are stripped from it. The four patterns that began with optional whitespace now start only at the head of a run: 14 to 15 s on 20 KB before, under 0.01 s now, with the same text removed.
 - Documents: exporting a document whose text has a long run of unclosed markup (`{++`, `[`, `![a](`) no longer takes seconds. The inline markup splitter reads the text in one pass: 0.7 to 1.9 s on 20 KB before, under 0.02 s now, with the same pieces.

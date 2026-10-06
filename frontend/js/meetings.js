@@ -175,7 +175,7 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
         if (then) then(made);
         //: Straight into the note: the meeting is where the writing happens.
         flashEntry(made.id);
-        if (typeof openNoteEditor === "function") openNoteEditor(made.id);
+        openNoteEditor(made.id);
         toastAction("Meeting started. Its action items, summary and recording are under its meeting chip.", "Open", () => openMeetingSheet(made.id));
       };
       create.addEventListener("click", make);
@@ -214,7 +214,7 @@ function meetingActionRow(entryId, item, redraw) {
   if (item.done) facts.push("Done");
   if (item.owner) facts.push(`Owner ${item.owner}`);
   if (item.reminder_due) {
-    const due = typeof parseServerTime === "function" ? parseServerTime(item.reminder_due) : new Date(item.reminder_due);
+    const due = parseServerTime(item.reminder_due) || new Date(item.reminder_due);
     facts.push(`Reminder ${due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`);
   }
   if (facts.length) {
@@ -245,7 +245,7 @@ async function meetingRemind(entryId, item, button, redraw, when = "") {
       method: "POST",
       body: JSON.stringify({ line: item.line, when, tz_offset_minutes: -new Date().getTimezoneOffset() }),
     });
-    const due = typeof parseServerTime === "function" ? parseServerTime(made.due_at) : new Date(made.due_at);
+    const due = parseServerTime(made.due_at) || new Date(made.due_at);
     toastAction(`Reminder set for ${due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.`, "Show", () => switchTab("reminders"));
     redraw();
   } catch (error) {
@@ -484,6 +484,6 @@ async function meetingSaveTranscript(content, title, target) {
 //: its name) and swaps the save's words (02-chat-graph.css).
 function meetingRecordInto(entryId) {
   openMeetingRecorder();
-  meetingTarget = entryId;
+  $("meeting-overlay").dataset.target = String(entryId);
   $("meeting-overlay").classList.add("meeting-into");
 }

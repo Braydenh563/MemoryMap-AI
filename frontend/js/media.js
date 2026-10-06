@@ -874,11 +874,12 @@ function resetMeetingUI() {
 //: meeting sheet's Record into it (meetings.js `meetingRecordInto`), which
 //: also puts `.meeting-into` on the overlay (the name field goes, the save
 //: says where the words land). Every other way in is a new meeting.
-let meetingTarget = null;
+//: Held on the overlay (`data-target`), not a top-level `let` (the
+//: global-scope ratchet).
 
 async function openMeetingRecorder() {
   overlayReturnFocus = document.activeElement;
-  meetingTarget = null;
+  delete $("meeting-overlay").dataset.target;
   $("meeting-overlay").classList.remove("meeting-into");
   resetMeetingUI();
   $("meeting-overlay").classList.remove("hidden");
@@ -1051,7 +1052,7 @@ async function saveMeetingDocument() {
 //: line as its name; without one a recording was named by its first word).
 async function saveMeetingNote() {
   const content = $("meeting-transcript").value.trim();
-  if (content && (await ensureModule("meetings"))) await meetingSaveTranscript(content, ($("meeting-title")?.value || "").trim(), meetingTarget);
+  if (content && (await ensureModule("meetings"))) await meetingSaveTranscript(content, ($("meeting-title")?.value || "").trim(), Number($("meeting-overlay").dataset.target) || null);
 }
 
 // --- Wave H: read-aloud (the browser's local voices) --------------------------------

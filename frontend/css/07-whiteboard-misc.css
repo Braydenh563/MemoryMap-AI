@@ -2495,8 +2495,9 @@ body.scroll-top-visible .skills-split > .tab-main {
 
    The underline strip itself stays (that redesign is recorded above and is not
    being remade): what changes is that its hover and focus surface obeys
-   DESIGN.md's "one button radius". The bottom corners stay square so the 2px
-   underline is still a straight line under the label, and the fill gets the
+   DESIGN.md's "one button radius" (`--radius-md` on all four corners, INBOX 682:
+   the strip's `.tabs-line > button` rule; the 2px line is the strip's own
+   straight indicator), and the fill gets the
    `--space-2` of horizontal room every other pressable label in the app has,
    with the `gap` dropped a step so the two tabs sit the same distance apart as
    before the padding was added. */

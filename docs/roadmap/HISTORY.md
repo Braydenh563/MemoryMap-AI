@@ -45524,3 +45524,27 @@ and refuses a topic ("Select a shape, link or text box first").
      25% the emptiest), light and dark (`scratchpad/ui-sweeps/quick677.js`,
      `tests/test_inbox_677_quick_access.py`).
 
+682. **The owner, 2026-10-06, verbatim**, with a screenshot of the
+     Documents sidebar's "Documents | Outline" tabs (square-cornered boxes,
+     the chosen one bordered): "should these have rounded edges to stay
+     conistent??" Recommendation, taken: yes, the radius table's value for a
+     control of that size (DESIGN.md), the chosen state drawn the way every
+     other tab strip draws it.
+     **Fixed, 2026-10-06**: root cause, `#doc-sidebar-tabs` was also a `.seg`, so
+     the flat looks' choice-control fill, edge and 0 corner drew its chosen tab as a
+     bordered slab; the class is gone (a lint holds it) and every `.tabs-line` tab
+     takes `--radius-md` on its hover fill and focus ring.
+683. **The owner, 2026-10-06, verbatim**, with two screenshots of a
+     pill-shaped floating bar "Copy | ... | X" (square-cornered fill on the
+     hovered "..." and a square focus ring on the X, both inside the round
+     pill): "the square active goes out of the circular pill". Every control
+     inside a pill takes a radius that sits inside it (concentric: the
+     pill's radius minus its padding, or fully round), for hover, active and
+     focus alike. Placed with 682: the 0.4.1 mini release, a Sonnet agent
+     that also sweeps for other square states inside rounded containers.
+     **Fixed, 2026-10-06**: the bar is the table's `.code-actions`; its buttons
+     took `--radius-inner`, 0 below a 12px corner setting. New tokens
+     `--radius-in-pill`, `--radius-in-choice`, `--radius-in-md`, a DESIGN.md
+     section and a lint; the sweep fixed the board zoom pill, the timeline week
+     well and the graph zoom strip (agent-remaining/radius682-1006.md).
+

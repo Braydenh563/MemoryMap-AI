@@ -9284,11 +9284,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   padding-block: var(--space-3);
 }
 
-@media (hover: hover) {
-  #entry-list.entry-list.is-rows > li:not(:has(textarea)) {
-    padding-inline-end: 6.5rem;
-  }
-}
+/* **No width is kept back for the hover actions** (INBOX 719, the owner:
+   "blank space on right of compact rows view"). A `padding-inline-end:
+   6.5rem` here held 104px at the end of every row at rest for the strip that
+   appears on hover, which is `position: absolute` and costs no width, so the
+   metadata lane ended 104px short of the row's edge on every row (measured at
+   1440, scratchpad/ui-sweeps/rows719.js). The lane runs to the row's padding
+   edge now and the time is its last item, one column down the list; on hover
+   the strip overlays the end of the row. */
 
 /* The corner sits on the row's first line (INBOX 676), not the row's
    middle: `top: 50%` put the cluster's *top* at the middle, so it hung half
@@ -11325,11 +11328,22 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   transform: translateY(-50%);
 }
 
-/* The open row's title is that same line, centred in it. */
+/* The open row's title is that same line, centred in it. Its end stays
+   clear of the hover strip, which overlays the row's top-right corner (five
+   targets wide: star, copy, edit, ⋯ and their gaps, INBOX 719). */
 #entry-list.is-rows > li.row-expanded > .entry-title {
   display: flex;
   align-items: center;
   min-height: var(--target-min);
+  padding-inline-end: calc(var(--target-min) * 5);
+}
+
+/* A collapsed row's preview is one line in its own grid column, nowhere near
+   the strip, so the float that keeps an opened card's first line out from
+   under it (`.entry-content::before`, above) would only cut 104px off the
+   preview's end for nothing. */
+#entry-list.is-rows > li:not(.row-expanded) > .entry-content::before {
+  display: none;
 }
 
 /* 3. One chevron. `aria-expanded="true"` is the icon button's "on" recipe

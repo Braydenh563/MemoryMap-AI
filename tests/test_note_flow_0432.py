@@ -270,7 +270,8 @@ def test_a_row_is_one_line_with_the_time_at_its_end():
     after, measured at 1440 in Chromium, thirteen to a screen against nine."""
     css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
     assert "padding-top: 1.4em;" not in css
-    assert "#entry-list.entry-list.is-rows > li:not(:has(textarea)) {\n    padding-inline-end: 6.5rem;" in css
+    # No width held back for the hover strip (INBOX 719): it overlays the end.
+    assert "padding-inline-end: 6.5rem" not in css
     assert ":not(:has(> .entry-title)) > .entry-content {\n  grid-column: 1 / 3;" in css
 
 

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask and Chat with no model read questions typed the way people type: 250 slang and text-speak words (pls, ty, u, r, wym, rn, abt, b4, 2moro, gonna, lemme), misspelt asking words by a keyboard-aware edit distance ("wjen", "hoow mny", "lattest"), run-together and split words ("whenis", "wh en"), emoji and all caps; a question with no asking word is matched by meaning to example questions; "ty", "lol" and an emoji alone get a short reply instead of a search (INBOX 741).
 - Ask and Chat with no model understand more: casual and indirect questions ("can you remind me when...", "any idea if..."), typos and text-speak in the question ("whn is the launch", "hw mny", "abt", "ur"), two questions in one message, "what about the boiler?" and "why?" after an answer, "briefly" and "in detail", where-questions and a few synonyms; a short question two notes fit equally asks which was meant, and small talk gets a warm reply rather than "the AI model isn't running" (INBOX 741).
 - Ask and Chat with no model: an answer from your notes says the note's own sentence first and names the note once after it, by its heading or the day it was written, instead of opening every sentence with "Your note ... says:" and a pile of "also"; joining words vary and never repeat in one answer (INBOX 741).
 - Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.

@@ -443,6 +443,77 @@ def voice_summary(rows: list[dict]) -> dict:
     }
 
 
+# --- the noise eval (INBOX 741): questions typed the way people type ---------------
+#
+# The owner: "does it cover any and ALL typos, maybe use similarity or
+# meaning, cover all slang like pls, ty, lol, u, r, wym, etc?". Two sets,
+# reported apart because they mean different things:
+#
+# - **hand**: `fixtures/composer/noise_741.json`, eighty questions written the
+#   way people type. The repairs were built against these, so they show what
+#   is covered, not how well it generalises.
+# - **derived**: every clean question of both evals put through five fixed
+#   kinds of noise nobody tuned against (all caps; all lowercase with no
+#   punctuation; an emoji after it; one slip to a neighbouring key in its
+#   first word; a vowel dropped from its first word). The kind expected is
+#   the clean question's own: noise must not change what it asks.
+
+NOISE = Path(__file__).parent / "fixtures" / "composer" / "noise_741.json"
+
+#: The neighbour a slipped finger hits instead, one per letter, fixed.
+_SLIP = dict(zip("abcdefghijklmnopqrstuvwxyz", "snvsrgfjokjkbmplwtdyibeczt"))
+
+
+def _noisy(question: str) -> list[tuple[str, str]]:
+    first, _, rest = question.partition(" ")
+    variants = [
+        ("caps", question.upper()),
+        ("lower_no_punctuation", re.sub(r"[^\w\s'-]", "", question.lower())),
+        ("emoji", f"{question} \U0001F914"),
+    ]
+    if len(first) >= 3 and first[1].isalpha():
+        slipped = first[0] + _SLIP.get(first[1].lower(), first[1]) + first[2:]
+        variants.append(("slip", f"{slipped} {rest}".strip()))
+    vowels = [i for i, c in enumerate(first) if c.lower() in "aeiou" and i > 0]
+    if len(first) >= 4 and vowels:
+        dropped = first[: vowels[0]] + first[vowels[0] + 1 :]
+        variants.append(("dropped_vowel", f"{dropped} {rest}".strip()))
+    return variants
+
+
+def run_noise(module=composer) -> list[dict]:  # noqa: ANN001
+    """Every noisy question classified by `module`, against the kind expected."""
+    rows: list[dict] = []
+    for entry in json.loads(NOISE.read_text(encoding="utf-8"))["questions"]:
+        got = module.classify(entry["question"])
+        rows.append({"set": "hand", "kind": "hand", "question": entry["question"], "expect": entry["expect"], "got": got})
+    clean = [e["question"] for e in load()["questions"]] + [
+        e["question"] for e in load_voice()["questions"] if e["category"] in ("kinds", "untitled") and e["expect"] != "multi"
+    ]
+    for question in clean:
+        expect = composer.classify(question)
+        for kind, noisy in _noisy(question):
+            rows.append({"set": "derived", "kind": kind, "question": noisy, "expect": expect, "got": module.classify(noisy)})
+    for row in rows:
+        row["right"] = row["got"] == row["expect"]
+    return rows
+
+
+def noise_summary(rows: list[dict]) -> dict:
+    out: dict[str, str] = {}
+    for key in ("hand", "derived"):
+        subset = [r for r in rows if r["set"] == key]
+        out[key] = f"{sum(r['right'] for r in subset)}/{len(subset)}"
+    kinds: dict[str, list[int]] = {}
+    for r in rows:
+        if r["set"] == "derived":
+            tally = kinds.setdefault(r["kind"], [0, 0])
+            tally[0] += r["right"]
+            tally[1] += 1
+    out["derived_by_noise"] = {k: f"{v[0]}/{v[1]}" for k, v in sorted(kinds.items())}
+    return out
+
+
 if __name__ == "__main__":  # pragma: no cover - the report's table
     import sys
 
@@ -464,3 +535,9 @@ if __name__ == "__main__":  # pragma: no cover - the report's table
             if row["failures"] or not row["kind_right"]:
                 print(f"- {row['question']}: {row['shape']} (expected {row['expect']}) {'; '.join(row['failures'])}")
         print(json.dumps(voice_summary(voice_rows), indent=1))
+    if "--noise" in sys.argv:
+        noise_rows = run_noise()
+        for row in noise_rows:
+            if not row["right"]:
+                print(f"- [{row['set']}/{row['kind']}] {row['question']!r}: {row['got']} (expected {row['expect']})")
+        print(json.dumps(noise_summary(noise_rows), indent=1))

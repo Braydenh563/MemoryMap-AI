@@ -75,7 +75,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 
-from memorymap.ai import grounding
+from memorymap.ai import grounding, question_noise
 from memorymap.search import query as query_understanding
 
 #: At most this many quoted points in one answer. Six is about what reads as an
@@ -319,7 +319,12 @@ _ASKING_WORDS = frozenset(
 _WRAPPERS = (
     re.compile(r"^(?:hey|hi|hello|ok|okay|so|um+|uh+|right|quick question|question|hmm+)\b[,.!:]?\s+", re.I),
     re.compile(r"^(?:please\s+)?(?:can|could|would|will) you\s+(?:please\s+)?(?:tell me|remind me(?: of)?|let me know|check|find(?: out)?|look up|show me|say|help me (?:find|remember))\s+", re.I),
-    re.compile(r"^(?:do|does) (?:you|anyone) (?:know|remember|recall)\s+", re.I),
+    re.compile(r"^(?:(?:do|does) )?(?:you|anyone) (?:know|remember|recall)\s+", re.I),
+    re.compile(
+        r"^(?:i do not know|i don't know|i dunno|to be honest|honestly|not going to lie|by the way|"
+        r"ty|thanks|thank you|thx|yo|lol|haha|ok|okay|oh|ah|so)\b[,.!:]?\s+",
+        re.I,
+    ),
     re.compile(r"^(?:any idea|no idea|not sure)\s+", re.I),
     re.compile(
         r"^i(?:'m| am)? (?:forgot|forget|can't remember|cannot remember|don't remember|do not remember|wonder|was wondering|"
@@ -351,106 +356,11 @@ _ANYTHING_ON = re.compile(
 )
 
 
-#: Text-speak and dropped apostrophes, spelled out before anything reads the
-#: question (INBOX 741, the owner: the composer must cope with "whn is the
-#: launch", "hw many", "wat did i say abt lisbon", "u", "ur", "abt"). Only
-#: words that are never anything else: "r" and "y" are read only where a
-#: question word goes.
-TEXT_SPEAK = {
-    "u": "you", "ur": "your", "abt": "about", "bout": "about", "wat": "what", "wot": "what", "wht": "what",
-    "whn": "when", "wen": "when", "hw": "how", "wher": "where", "whr": "where", "wer": "where", "hu": "who",
-    "pls": "please", "plz": "please", "thx": "thanks", "ty": "thanks", "tmrw": "tomorrow", "tmr": "tomorrow",
-    "2day": "today", "2moro": "tomorrow", "b4": "before", "gonna": "going to", "wanna": "want to",
-    "dunno": "do not know", "idk": "I do not know", "lmk": "let me know", "smth": "something", "sth": "something",
-    "ppl": "people", "bday": "birthday", "hv": "have", "shld": "should", "cld": "could", "wld": "would",
-    "mny": "many", "mch": "much", "abt.": "about", "im": "I am", "ive": "I have", "dont": "do not",
-    "didnt": "did not", "doesnt": "does not", "cant": "cannot", "isnt": "is not", "wasnt": "was not",
-    "arent": "are not", "havent": "have not", "wont": "will not", "youre": "you are", "theyre": "they are",
-    "cuz": "because", "coz": "because", "bc": "because", "w/": "with", "w/o": "without", "rn": "right now",
-    "atm": "at the moment", "whats": "what is", "hows": "how is", "wheres": "where is", "whos": "who is",
-    "whens": "when is", "whys": "why is", "asap": "as soon as possible", "msg": "message", "nxt": "next", "lst": "last",
-}
-#: Only where a question word goes: "r u sure", "y is the list slow".
-_SPEAK_LEAD = {"y": "why", "r": "are"}
-
-#: The words that decide what kind of question it is, which a typo must not
-#: hide: "whn" is "when", "hw mny" is "how many", "lastest" is "latest".
-#: Search corrects the subject against the notebook's own words; these are
-#: the composer's own small vocabulary, matched by edit distance.
-QUESTION_WORDS = (
-    "what", "when", "where", "who", "why", "how", "which", "whose", "many", "much", "often", "long",
-    "compare", "versus", "between", "difference", "latest", "status", "progress", "explain", "summarise",
-    "summarize", "overview", "anything", "everything", "recently", "remind", "tell", "list", "does", "should",
-)
-#: Real words a question word is one letter from, never "corrected": "then"
-#: is not "when", "show" is not "how", "hat" is not "what".
-_REAL_NEAR = frozenset(
-    """then than them they there here hat that wet wit show shy now new few hen ten men who how why
-    any man main may mean mash lunch bunch such song along last lost late lest list lust state stat
-    plain explains between does dose goes dues when what where which while whole whose those these
-    lift gift wish wash with tell tall till fell sell well bell many much long""".split()
-)
-
-
-def _distance(a: str, b: str, cap: int = 3) -> int:
-    """Edit distance with a swap of two neighbours as one edit ("hwo" is one
-    from "who"): the typos a thumb makes."""
-    if abs(len(a) - len(b)) >= cap:
-        return cap
-    prev2: list[int] = []
-    prev = list(range(len(b) + 1))
-    for i, ca in enumerate(a, 1):
-        cur = [i] + [0] * len(b)
-        for j, cb in enumerate(b, 1):
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
-            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
-                cur[j] = min(cur[j], prev2[j - 2] + 1)
-        prev2, prev = prev, cur
-    return min(prev[-1], cap)
-
-
-def _question_word(token: str, after: str = "") -> str | None:
-    """The question word a misspelt token means, or None: one edit for a
-    word of up to five letters, two past seven, and only when one word is
-    nearest (a tie is a guess, and a guess is not made)."""
-    low = token.lower()
-    if len(low) < 3 or low in _REAL_NEAR or low in QUESTION_WORDS or not low.isalpha():
-        return None
-    allowed = 1 if len(low) <= 7 else 2
-    scored = sorted((_distance(low, word), word) for word in QUESTION_WORDS)
-    best = [word for d, word in scored if d == scored[0][0]]
-    if scored[0][0] > allowed:
-        return None
-    #: "hwo" is one swap from "how" and from "who": the word after it says
-    #: which ("hwo many" asks how, "hwo asked" asks who).
-    if set(best) == {"how", "who"}:
-        return "how" if after.lower() in ("many", "much", "often", "long", "do", "does", "did", "to", "come", "is", "are", "was", "can", "should") else "who"
-    return best[0] if len(best) == 1 else None
-
-
 def _respell(text: str) -> str:
-    """Text-speak spelled out and misspelt question words put right, word by
-    word, the rest left as typed."""
-    tokens = text.split(" ")
-    out: list[str] = []
-    for i, token in enumerate(tokens):
-        core = re.match(r"^([\w/'.]*?)([?!.,:;]*)$", token)
-        word, tail = (core.group(1), core.group(2)) if core else (token, "")
-        low = word.lower().rstrip(".") if word.lower() != "abt." else word.lower()
-        if low in TEXT_SPEAK:
-            out.append(TEXT_SPEAK[low] + tail)
-            continue
-        if (i == 0 or (i == 1 and out and out[0].lower() in QUESTION_WORDS)) and low in _SPEAK_LEAD:
-            out.append(_SPEAK_LEAD[low] + tail)
-            continue
-        #: A question word is looked for where one goes: the opening words,
-        #: the word after "how", and the longer words that name a kind of
-        #: question ("lastest", "diffrence").
-        where_asked = i <= 1 or (i and out[-1].lower() == "how") or len(low) >= 6
-        after = tokens[i + 1].strip("?!.,:;") if i + 1 < len(tokens) else ""
-        fixed = _question_word(low, after) if where_asked else None
-        out.append((fixed + tail) if fixed else token)
-    return " ".join(out)
+    """Slang and text-speak spelled out, misspelt asking words put right,
+    run-together words split (`question_noise`, INBOX 741: "does it cover
+    any and ALL typos ... all slang like pls, ty, lol, u, r, wym")."""
+    return question_noise.repair(text)
 
 
 def rephrase(question: str) -> str:
@@ -459,7 +369,7 @@ def rephrase(question: str) -> str:
     is spelled out and a misspelt question word put right first ("whn is
     the launch" reads "when is the launch"). Never adds a word of the
     subject the person did not write."""
-    text = _respell(" ".join((question or "").split()))
+    text = _respell(" ".join((question or "").split())).lstrip(".,;:!?-*~ ")
     for _ in range(4):
         before = text
         for pattern in _WRAPPERS:
@@ -480,9 +390,12 @@ def _yes_no_wrapped(question: str) -> bool:
     return bool(_IF.match(rephrase(question)))
 
 
-def classify(question: str) -> str:
+def classify(question: str, embed=None) -> str:  # noqa: ANN001
     """The question's shape: one of `SHAPES`, "what" when nothing else fits.
-    Read after its casual wrapper is off (`rephrase`)."""
+    Read after its casual wrapper is off (`rephrase`); a question no rule
+    reads and that opens with no asking word ("dentist date?", "reason the
+    list was slow") is matched by meaning to example questions of each kind
+    (`question_noise.guess_kind`, by `embed` when given)."""
     text = rephrase(question)
     if _IF.match(text):
         return "yesno"
@@ -493,6 +406,10 @@ def classify(question: str) -> str:
     for name, pattern in _SHAPE_RULES:
         if pattern.search(text):
             return name
+    if not _ASKS_FIRST.match(text):
+        guessed = question_noise.guess_kind(text, embed)
+        if guessed:
+            return guessed
     return "what"
 
 
@@ -2278,12 +2195,12 @@ def _fit_terms(terms: list[str], views: list[NoteView]) -> list[str]:
         if len(stem) < 4 or _holds(stem, vocabulary):
             fitted.append(term)
             continue
-        allowed = 1 if len(stem) <= 7 else 2
+        allowed = question_noise.allowance(stem)
         near = sorted(
-            (_distance(stem, word), word) for word in vocabulary
+            (question_noise.distance(stem, word), word) for word in vocabulary
             if word[:1] == stem[:1] and len(word) >= max(4, len(stem)) and len(word) - len(stem) <= allowed
         )
-        best = [word for d, word in near if near and d == near[0][0]]
+        best = [word for d, word in near if near and d <= near[0][0] + 0.1]
         fitted.append(best[0] if near and near[0][0] <= allowed and len(best) == 1 else term)
     return fitted
 
@@ -2327,6 +2244,11 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "No need to apologise. What would you like to try?",
         "Not at all. Ask it another way and I will look again.",
     ),
+    "laugh": (
+        "Glad something made you smile. Anything else I can find?",
+        "Ha. What next?",
+        "Good to hear. Ask whenever you like.",
+    ),
     "ack": (
         "Good. Anything else?",
         "All right. What next?",
@@ -2358,7 +2280,7 @@ _SOCIAL_KIND = (
 def social(message: str, intent: str = "smalltalk", previous: str = "") -> str:
     """The app's reply to small talk with no model running: warm, short, and
     never the reply the turn before gave."""
-    kind = "about_app" if intent == "about_app" else next(
+    kind = "about_app" if intent == "about_app" else question_noise.social_kind(message) or next(
         (name for name, pattern in _SOCIAL_KIND if pattern.search(message or "")), "ack"
     )
     options = [line for line in SOCIAL[kind] if line != (previous or "").strip()] or list(SOCIAL[kind])
@@ -2410,7 +2332,7 @@ def compose(
     out = _Answer({v.id: v for v in views_list}, today)
     out.subject = {_stem(t) for t in subject_terms(question)}
     out.previous = (previous or "").lstrip()
-    shape = "recent" if recent else classify(question)
+    shape = "recent" if recent else classify(question, embed)
     typed = subject_terms(question) if shape != "recent" else []
     terms = _fit_terms(typed, views_list)
     out.question = question

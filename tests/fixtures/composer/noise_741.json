@@ -1,0 +1,341 @@
+{
+ "questions": [
+  {
+   "question": "whenis the dentist",
+   "expect": "when"
+  },
+  {
+   "question": "wh en is the dentist check up",
+   "expect": "when"
+  },
+  {
+   "question": "howmany beta testers r active",
+   "expect": "count"
+  },
+  {
+   "question": "how manny testers are active",
+   "expect": "count"
+  },
+  {
+   "question": "hoe many testers are active",
+   "expect": "count"
+  },
+  {
+   "question": "WHEN IS THE DENTIST",
+   "expect": "when"
+  },
+  {
+   "question": "WHY DID THE LIST FEEL SLOW",
+   "expect": "explain"
+  },
+  {
+   "question": "when is the dentist 🦷",
+   "expect": "when"
+  },
+  {
+   "question": "how many beta testers 🤔",
+   "expect": "count"
+  },
+  {
+   "question": "where is the spare key 🔑🔑",
+   "expect": "where"
+  },
+  {
+   "question": "wehn is the launch",
+   "expect": "when"
+  },
+  {
+   "question": "whne is the boiler service due",
+   "expect": "when"
+  },
+  {
+   "question": "wjen is the dentist",
+   "expect": "when"
+  },
+  {
+   "question": "qhen is the dentist",
+   "expect": "when"
+  },
+  {
+   "question": "whrre is the spare key",
+   "expect": "where"
+  },
+  {
+   "question": "whre should we stay in lisbon",
+   "expect": "where"
+  },
+  {
+   "question": "waht is the harbor launch plan",
+   "expect": "what"
+  },
+  {
+   "question": "whta should i pack for portugal",
+   "expect": "what"
+  },
+  {
+   "question": "hwy did the list feel slow",
+   "expect": "explain"
+  },
+  {
+   "question": "wy did the list feel slow",
+   "expect": "explain"
+  },
+  {
+   "question": "y tho is the list slow",
+   "expect": "explain"
+  },
+  {
+   "question": "hw do i sharpen my knife",
+   "expect": "explain"
+  },
+  {
+   "question": "how doi sharpen my knife",
+   "expect": "explain"
+  },
+  {
+   "question": "hwo asked for a public api",
+   "expect": "who"
+  },
+  {
+   "question": "whoo asked for a public api",
+   "expect": "who"
+  },
+  {
+   "question": "wat r the launch risks",
+   "expect": "list"
+  },
+  {
+   "question": "what r my launch risks",
+   "expect": "list"
+  },
+  {
+   "question": "wats the lattest on the sync rewrite",
+   "expect": "status"
+  },
+  {
+   "question": "any updates on the sync rewrite rn",
+   "expect": "status"
+  },
+  {
+   "question": "hows it going with the half marathon",
+   "expect": "status"
+  },
+  {
+   "question": "compair lisbon and porto",
+   "expect": "compare"
+  },
+  {
+   "question": "lisbon vs porto pls",
+   "expect": "compare"
+  },
+  {
+   "question": "diffrence btwn lisbon and porto",
+   "expect": "compare"
+  },
+  {
+   "question": "is ur pricing page signed off yet",
+   "expect": "yesno"
+  },
+  {
+   "question": "did i pay the trip budget lol",
+   "expect": "yesno"
+  },
+  {
+   "question": "wym the store listing",
+   "expect": "what"
+  },
+  {
+   "question": "idk when the dentist is",
+   "expect": "when"
+  },
+  {
+   "question": "tbh how long is the train to porto",
+   "expect": "count"
+  },
+  {
+   "question": "pls tell me when the dentist is",
+   "expect": "when"
+  },
+  {
+   "question": "plz remind me abt the photo spots",
+   "expect": "what"
+  },
+  {
+   "question": "ty can u tell me when the boiler service is",
+   "expect": "when"
+  },
+  {
+   "question": "lol wat did i write abt sourdough",
+   "expect": "what"
+  },
+  {
+   "question": "hey wats up with the support backlog",
+   "expect": "what"
+  },
+  {
+   "question": "yo whens bin day",
+   "expect": "when"
+  },
+  {
+   "question": "u kno when the dentist is",
+   "expect": "when"
+  },
+  {
+   "question": "do u know who asked for an api",
+   "expect": "who"
+  },
+  {
+   "question": "cn u tell me how many tickets r open",
+   "expect": "count"
+  },
+  {
+   "question": "gimme the launch risks",
+   "expect": "what"
+  },
+  {
+   "question": "lemme know when train tickets open",
+   "expect": "when"
+  },
+  {
+   "question": "wanna know how much the trip costs",
+   "expect": "count"
+  },
+  {
+   "question": "how much is it gonna cost for the trip",
+   "expect": "count"
+  },
+  {
+   "question": "whats the reason the list was slow",
+   "expect": "what"
+  },
+  {
+   "question": "reason the list was slow",
+   "expect": "explain"
+  },
+  {
+   "question": "dentist date?",
+   "expect": "when"
+  },
+  {
+   "question": "dentist when",
+   "expect": "when"
+  },
+  {
+   "question": "spare key where",
+   "expect": "where"
+  },
+  {
+   "question": "address of the lisbon hotel",
+   "expect": "where"
+  },
+  {
+   "question": "progress on the onboarding rewrite",
+   "expect": "status"
+  },
+  {
+   "question": "steps to sharpen my knife",
+   "expect": "explain"
+  },
+  {
+   "question": "number of screenshots for the store listing",
+   "expect": "count"
+  },
+  {
+   "question": "price of the trip",
+   "expect": "count"
+  },
+  {
+   "question": "explian y the list was slow",
+   "expect": "explain"
+  },
+  {
+   "question": "summrise my notes on lisbon",
+   "expect": "what"
+  },
+  {
+   "question": "whn r train tickets released",
+   "expect": "when"
+  },
+  {
+   "question": "hw oftn do i feed the starter",
+   "expect": "count"
+  },
+  {
+   "question": "how ofen do i feed the starter",
+   "expect": "count"
+  },
+  {
+   "question": "who's the designer we r hiring",
+   "expect": "who"
+  },
+  {
+   "question": "whos hiring the designer",
+   "expect": "who"
+  },
+  {
+   "question": "what's the latest w/ harbor",
+   "expect": "status"
+  },
+  {
+   "question": "when's the dentist",
+   "expect": "when"
+  },
+  {
+   "question": "where'd i put the spare key",
+   "expect": "where"
+  },
+  {
+   "question": "WHAT IS THE LATEST ON THE SYNC REWRITE",
+   "expect": "status"
+  },
+  {
+   "question": "How Many Beta Testers Are Active",
+   "expect": "count"
+  },
+  {
+   "question": "wHeN iS tHe DeNtIsT",
+   "expect": "when"
+  },
+  {
+   "question": "when is the dentist???",
+   "expect": "when"
+  },
+  {
+   "question": "when is the dentist!!",
+   "expect": "when"
+  },
+  {
+   "question": "...when is the dentist",
+   "expect": "when"
+  },
+  {
+   "question": "when is the dentist, ty",
+   "expect": "when"
+  },
+  {
+   "question": "ok so when is the dentist",
+   "expect": "when"
+  },
+  {
+   "question": "um how many beta testers r active",
+   "expect": "count"
+  }
+ ],
+ "social": [
+  "ty",
+  "thx",
+  "lol",
+  "lmao",
+  "hahaha",
+  "ok thx",
+  "ty for the help",
+  "👍",
+  ":)",
+  "gn",
+  "brb",
+  "np",
+  "kk",
+  "omg lol",
+  "tysm"
+ ]
+}

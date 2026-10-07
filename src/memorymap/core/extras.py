@@ -765,6 +765,10 @@ class InstallState:
     #: True once someone asked for it to stop, so the failure that follows is
     #: reported as a cancellation rather than as pip having gone wrong.
     cancelled: bool = False
+    #: True when the app began this install itself (search by meaning found
+    #: its package missing) rather than a person pressing Install, so the
+    #: interface can say so and offer "Don't install" (routes_tasks, `auto`).
+    auto: bool = False
 
 
 #: One at a time, process-wide. Two pips against one environment is a way to
@@ -1428,6 +1432,7 @@ def _claim(extra: Extra, step: str) -> None:
     _state.log = []
     _state.started = time.time()
     _state.cancelled = False
+    _state.auto = False
 
 
 def _busy() -> bool:
@@ -1464,7 +1469,7 @@ def _run_single(worker, extra: Extra, *args: object) -> None:  # noqa: ANN001
         _forget_footprints()
 
 
-def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
+def start(extra_id: str, reinstall: bool = False, auto: bool = False) -> tuple[bool, str]:
     """Begin an install. Returns (started, message).
 
     Never raises on a bad id, the id comes from a request, and an unknown one
@@ -1486,6 +1491,7 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
         if is_installed(extra) and not reinstall:
             return False, f"{extra.label} is already installed."
         _claim(extra, "starting pip…" if extra.kind == "pip" else "Starting the download…")
+        _state.auto = auto
     worker = _run_download_install if extra.kind == "download" else _run_install
     _dispatch(_run_single, worker, extra, reinstall, name=extra.label)
     return True, f"{'Reinstalling' if reinstall else 'Installing'} {extra.label}."

@@ -50,7 +50,7 @@ def test_a_missing_package_triggers_extras_start_once(app_state, monkeypatch):
     )
     calls = []
     monkeypatch.setattr(
-        extras, "start", lambda extra_id, reinstall=False: (calls.append(extra_id) or (False, "mocked"))
+        extras, "start", lambda extra_id, reinstall=False, auto=False: (calls.append(extra_id) or (False, "mocked"))
     )
 
     service.embed_text("something to embed")
@@ -69,7 +69,7 @@ def test_a_different_failure_never_triggers_an_install(app_state, monkeypatch):
         service, "_load_st_model", lambda: (_ for _ in ()).throw(RuntimeError("out of memory"))
     )
     started = []
-    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False: (started.append(1), (False, ""))[1])
+    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False, auto=False: (started.append(1), (False, ""))[1])
 
     service.embed_text("something to embed")
 
@@ -91,7 +91,7 @@ def test_auto_install_does_nothing_when_extras_refuses_to_start(app_state, monke
         "_load_st_model",
         lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'sentence_transformers'")),
     )
-    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False: (False, "Already installed."))
+    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False, auto=False: (False, "Already installed."))
 
     service.embed_text("something to embed")  # must not raise
 
@@ -120,7 +120,7 @@ def test_auto_install_retries_the_load_once_the_background_install_finishes(
     )
     fake_state = extras.InstallState(running=True, extra_id="semantic")
     monkeypatch.setattr(extras, "current", lambda: fake_state)
-    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False: (True, "Installing."))
+    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False, auto=False: (True, "Installing."))
 
     service.embed_text("something to embed")
     assert service.last_error is not None  # the original failure, recorded as usual
@@ -147,7 +147,7 @@ def test_a_missing_package_is_a_sentence_not_a_traceback(app_state, monkeypatch,
         "_load_st_model",
         lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'sentence_transformers'")),
     )
-    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False: (False, "unavailable"))
+    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False, auto=False: (False, "unavailable"))
 
     with caplog.at_level("WARNING"):
         service.embed_text("something to embed")

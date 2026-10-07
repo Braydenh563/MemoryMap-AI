@@ -984,7 +984,7 @@ function renderEmbeddingPicker(status) {
     } else if (status.builtin_embedding_installed === false) {
       text =
         "The built-in model needs sentence-transformers, which the app installs by itself " +
-        "the first time it is needed (a one-time download that needs the internet). " +
+        "the first time it is needed if the switch below is on (a one-time download that needs the internet). " +
         "Or pick nomic-embed-text from Ollama below instead.";
     }
     note.textContent = text;

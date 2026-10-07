@@ -408,6 +408,8 @@ class PreferencesBody(BaseModel):
     auto_update_enabled: bool | None = None
     update_channel: Literal["stable", "main"] | None = None
     searxng_autostart: bool | None = None
+    # Whether the app may install search by meaning itself: see core.config.
+    semantic_auto_install: bool | None = None
     session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
     # The desktop launcher's console window: see core.config's own comment.
     show_console_on_startup: bool | None = None
@@ -766,6 +768,7 @@ def get_preferences() -> dict:
         "update_channel": config.get_preference("update_channel", "stable"),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
+        "semantic_auto_install": config.get_preference("semantic_auto_install", True),
         "search_provider": websearch.normalise_provider(
             config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
         ),

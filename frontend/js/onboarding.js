@@ -187,6 +187,8 @@ function renderOnboardingActions(models, notebook) {
 
   box.classList.toggle("hidden", offers.length === 0);
   for (const button of offers) box.appendChild(button);
+  if (models?.builtin_embedding_installed === false)
+    semanticOnboardingOffer(box);
 }
 
 function renderOnboardingSlide() {

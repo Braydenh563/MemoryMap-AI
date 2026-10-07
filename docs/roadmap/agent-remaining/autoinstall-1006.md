@@ -27,3 +27,15 @@ Also in the same log: `janitor: couldn't warm the filing model (Chat with
 'llama3.2' failed: ... not found)`. On a fresh install with no chat model
 pulled, the janitor should not warm a default model it never checked exists;
 skip it quietly and let Settings, Models say no chat model is chosen.
+
+The owner, verbatim, with Settings, Chat model showing "Atlas was running
+“llama3.2”, which is not installed any more" on a fresh install while
+gemma-4-E4B and four others are installed: "the app should detect and smart
+choose the available models if the user has one or more on first launch".
+Fix: on first launch (and whenever the chosen model is missing), pick from
+the installed models instead of defaulting to llama3.2: the chat model by
+the bench's fit and size for this machine (the largest that fits memory,
+instruction-tuned, not an OCR or vision-only model), the background-jobs
+model as the smallest capable one, images and reading text by their own
+kind (VL, OCR). Say once what was chosen and why, with Change; never say
+"was running llama3.2" for a model the person never had.

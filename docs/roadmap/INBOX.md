@@ -194,6 +194,11 @@ with its owner named in the entry.
      (`composer_voice.py`, built, not yet on screen) as its bubbles, and
      springy, interruptible transitions between poses. "ro" for "or" is in the
      typo table (question_noise.py).
+     Then, verbatim, with Atlas in the onboarding welcome card and an oval
+     frame: "atlas goes out of the border". The figure's tail, swirl and orbit
+     spill past the oval's ring: either clip the figure to the frame
+     (`overflow: clip` with the frame's radius, as the mini avatar now is) or
+     scale it to fit inside with a margin; same for every framed Atlas.
 
 744. **The owner, 2026-10-07, verbatim**, with Chat answering "test notes" (no
      model): "whiteboard shows as a note and clicking it takes me to the notes page.

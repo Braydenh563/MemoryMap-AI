@@ -196,7 +196,10 @@ def answers_shape(result: dict, shape: str) -> bool:
     measures = [p[1] for p in line if p[0] == "measure"]
     dated = any(re.search(r"\d+ [A-Z][a-z]+|today|yesterday", m) for m in measures)
     if text.rstrip().endswith(":") and not quoted and shape not in ("list", "compare", "recent"):
-        return False
+        #: A list the person wrote, introduced by its count ("Your note
+        #: **Launch risks** lists three:") with its entries on the lines
+        #: below, is the list answer's own layout, whatever was asked.
+        return bool(measures) and any(p[0] == "quote" for p in result["parts"][len(line):len(line) + 4])
     if shape == "count":
         return bool(_FIGURE.search(quoted))
     if shape == "when":
@@ -291,6 +294,7 @@ def context_summary(rows: list[dict]) -> dict:
 #: they come twice in one answer (INBOX 741, the owner: "ur note starting
 #: with this says this. also ur not starting with this says this").
 JOINERS = ("and_join", "on_top", "separately", "elsewhere", "another_note", "later_on", "then_on", "before_that",
+           "earlier_on", "and_on", "latest_a", "latest_b", "latest_c", "going_by", "notes_have",
            "open_notes", "open_wrote", "open_put", "open_figure", "open_date", "closest_a", "closest_b")
 
 
@@ -333,6 +337,289 @@ def summary(rows: list[dict]) -> dict:
     }
 
 
+# --- the voice eval (INBOX 741): about a hundred questions -------------------------
+#
+# The 25 above plus `fixtures/composer/voice_741.json`: casual and indirect
+# questions, typos and text-speak, every question kind, follow-ons read
+# against the turn before, and a notebook of short untitled jottings (the
+# kind "your note starting with ... says" came from). Its notes are retrieved
+# here by a fixed lexical stand-in for the route's search (`retrieve`), so the
+# eval is deterministic and needs no server; the 25 keep the route's own.
+
+VOICE = Path(__file__).parent / "fixtures" / "composer" / "voice_741.json"
+
+
+def load_voice() -> dict:
+    return json.loads(VOICE.read_text(encoding="utf-8"))
+
+
+def untitled_notes(voice: dict, on: date) -> list[dict]:
+    from datetime import timedelta
+
+    return [
+        {"id": n["id"], "content": n["content"], "created_at": (on - timedelta(days=n["days_ago"])).isoformat(), "tags": []}
+        for n in voice["untitled"]
+    ]
+
+
+def retrieve(question: str, notes: list[dict], limit: int = 8) -> list[dict]:
+    """The notes a search would hand the composer, best first: a question
+    word in a note's heading counts double, in its body once, a typo matched
+    to the notebook's own words as search does. A stand-in, fixed so the
+    eval measures the composer and not the search."""
+    views = [v for v in (composer.read_note(n, i) for i, n in enumerate(notes)) if v]
+    terms = composer._fit_terms(composer.subject_terms(question), views)
+    stems = {composer._stem(t) for t in terms}
+    scored = []
+    for view in views:
+        score = sum(
+            2.0 * composer._holds(t, view.title_words) + composer._holds(t, view.words) + 0.5 * composer._holds(t, view.filed_words)
+            for t in stems
+        )
+        if score > 0:
+            scored.append((-score, str(view.note.get("created_at")), view.note))
+    scored.sort(key=lambda row: (row[0], [-ord(c) for c in row[1]]))
+    return [note for _, _, note in scored[:limit]]
+
+
+def _syllables(word: str) -> int:
+    w = re.sub(r"[^a-z]", "", word.lower())
+    if not w:
+        return 0
+    groups = len(re.findall(r"[aeiouy]+", w))
+    if w.endswith("e") and not w.endswith(("le", "ee")) and groups > 1:
+        groups -= 1
+    return max(1, groups)
+
+
+def reading_ease(text: str) -> float:
+    """Flesch reading ease of the answer as read: 60 to 70 is plain English,
+    higher is easier."""
+    plain = _MARKDOWN.sub("", text)
+    sentences = [s for s in _SENTENCE_END.split(plain) if s.strip()]
+    words = plain.split()
+    if not sentences or not words:
+        return 0.0
+    syllables = sum(_syllables(w) for w in words)
+    return 206.835 - 1.015 * len(words) / len(sentences) - 84.6 * syllables / len(words)
+
+
+def run_voice(module=composer) -> list[dict]:  # noqa: ANN001
+    """Every voice question composed by `module` (the composer, or an older
+    copy of it for a before-and-after), each with its measures, in order, the
+    turn before's answer passed where `module.compose` takes one."""
+    import inspect
+
+    data = load()
+    voice = load_voice()
+    on = today(data)
+    showcase = [{**n, "connected": False} for n in data["notes"]]
+    jottings = untitled_notes(voice, on)
+    takes_previous = "previous" in inspect.signature(module.compose).parameters
+    rows: list[dict] = []
+    previous_text = ""
+    for entry in voice["questions"]:
+        pool = jottings if entry.get("notebook") == "untitled" else showcase
+        question, said, asked_from = entry["question"], "", ""
+        if entry.get("previous"):
+            before = module.compose(entry["previous"], retrieve(entry["previous"], pool), today=on)
+            follow = module.follow_on(question, [{"question": entry["previous"], "answer": before["text"]}])
+            if follow:
+                question, said, asked_from = follow.question, follow.said, entry["previous"]
+        notes = retrieve(question, pool)
+        kwargs = {"today": on, "said": said}
+        if takes_previous:
+            kwargs["previous"] = previous_text
+        result = module.compose(question, notes, **kwargs)
+        failures = trace_failures(result, question, notes, on, asked_from) if notes else []
+        factual = _factual_parts(result)
+        untitled_ids = {n["id"] for n in jottings}
+        rows.append(
+            {
+                "category": entry["category"],
+                "question": entry["question"],
+                "expect": entry["expect"],
+                "shape": result["shape"],
+                "text": result["text"],
+                "result": result,
+                "failures": failures,
+                "grounded": 1.0 if not factual else (factual - len([f for f in failures if "row" not in f])) / factual,
+                "kind_right": result["shape"] == entry["expect"],
+                "first_line": answers_shape(result, result["shape"]),
+                "words": len(result["text"].split()),
+                "mean_sentence": (lambda ls: sum(ls) / len(ls) if ls else 0.0)(sentence_lengths(result["text"])),
+                "ease": reading_ease(result["text"]),
+                "opener": opener(result),
+                "lead_in_repeats": lead_in_repeats(result),
+                #: The owner's complaint, counted: a note with no heading named
+                #: by its first words.
+                "named_by_first_words": sum(1 for p in result["parts"] if p[0] == "title" and p[2] in untitled_ids),
+                "says_colon": len(re.findall(r"\b(?:says|said): ", result["text"])),
+            }
+        )
+        previous_text = result["text"]
+    return rows
+
+
+def voice_summary(rows: list[dict]) -> dict:
+    n = len(rows)
+    by: dict[str, list[int]] = {}
+    for r in rows:
+        tally = by.setdefault(r["category"], [0, 0])
+        tally[0] += r["kind_right"]
+        tally[1] += 1
+    answered = [r for r in rows if r["result"]["grounding"]]
+    return {
+        "questions": n,
+        "answered": len(answered),
+        "grounded": min(r["grounded"] for r in rows),
+        "kind_right": sum(r["kind_right"] for r in rows),
+        "kind_right_by_category": {k: f"{v[0]}/{v[1]}" for k, v in sorted(by.items())},
+        "first_line_answers": sum(1 for r in answered if r["first_line"]),
+        "says_colon": sum(r["says_colon"] for r in rows),
+        "named_by_first_words": sum(r["named_by_first_words"] for r in rows),
+        "lead_in_repeats": sum(1 for r in rows if r["lead_in_repeats"]),
+        "openers_distinct": len({r["opener"] for r in rows}),
+        #: Two answers in a row opening with the same words: "no template
+        #: repeated in a session" (CHAT_PLAN decision 25), said as a count.
+        "same_opener_twice_running": sum(
+            1 for a, b in zip(rows, rows[1:]) if a["opener"] == b["opener"] and a["opener"] not in ("(quote)", "(asked)")
+        ),
+        "words_mean": round(sum(r["words"] for r in answered) / max(1, len(answered)), 1),
+        "mean_sentence_words": round(sum(r["mean_sentence"] for r in answered) / max(1, len(answered)), 1),
+        "reading_ease": round(sum(r["ease"] for r in answered) / max(1, len(answered)), 1),
+    }
+
+
+# --- the noise eval (INBOX 741): questions typed the way people type ---------------
+#
+# The owner: "does it cover any and ALL typos, maybe use similarity or
+# meaning, cover all slang like pls, ty, lol, u, r, wym, etc?". Two sets,
+# reported apart because they mean different things:
+#
+# - **hand**: `fixtures/composer/noise_741.json`, eighty questions written the
+#   way people type. The repairs were built against these, so they show what
+#   is covered, not how well it generalises.
+# - **derived**: every clean question of both evals put through five fixed
+#   kinds of noise nobody tuned against (all caps; all lowercase with no
+#   punctuation; an emoji after it; one slip to a neighbouring key in its
+#   first word; a vowel dropped from its first word). The kind expected is
+#   the clean question's own: noise must not change what it asks.
+
+NOISE = Path(__file__).parent / "fixtures" / "composer" / "noise_741.json"
+
+#: The neighbour a slipped finger hits instead, one per letter, fixed.
+_SLIP = dict(zip("abcdefghijklmnopqrstuvwxyz", "snvsrgfjokjkbmplwtdyibeczt"))
+
+
+def _noisy(question: str) -> list[tuple[str, str]]:
+    first, _, rest = question.partition(" ")
+    variants = [
+        ("caps", question.upper()),
+        ("lower_no_punctuation", re.sub(r"[^\w\s'-]", "", question.lower())),
+        ("emoji", f"{question} \U0001F914"),
+    ]
+    if len(first) >= 3 and first[1].isalpha():
+        slipped = first[0] + _SLIP.get(first[1].lower(), first[1]) + first[2:]
+        variants.append(("slip", f"{slipped} {rest}".strip()))
+    vowels = [i for i, c in enumerate(first) if c.lower() in "aeiou" and i > 0]
+    if len(first) >= 4 and vowels:
+        dropped = first[: vowels[0]] + first[vowels[0] + 1 :]
+        variants.append(("dropped_vowel", f"{dropped} {rest}".strip()))
+    return variants
+
+
+def run_noise(module=composer) -> list[dict]:  # noqa: ANN001
+    """Every noisy question classified by `module`, against the kind expected."""
+    rows: list[dict] = []
+    for entry in json.loads(NOISE.read_text(encoding="utf-8"))["questions"]:
+        got = module.classify(entry["question"])
+        rows.append({"set": "hand", "kind": "hand", "question": entry["question"], "expect": entry["expect"], "got": got})
+    clean = [e["question"] for e in load()["questions"]] + [
+        e["question"] for e in load_voice()["questions"] if e["category"] in ("kinds", "untitled") and e["expect"] != "multi"
+    ]
+    for question in clean:
+        expect = composer.classify(question)
+        for kind, noisy in _noisy(question):
+            rows.append({"set": "derived", "kind": kind, "question": noisy, "expect": expect, "got": module.classify(noisy)})
+    for row in rows:
+        row["right"] = row["got"] == row["expect"]
+    return rows
+
+
+def noise_summary(rows: list[dict]) -> dict:
+    out: dict[str, str] = {}
+    for key in ("hand", "derived"):
+        subset = [r for r in rows if r["set"] == key]
+        out[key] = f"{sum(r['right'] for r in subset)}/{len(subset)}"
+    kinds: dict[str, list[int]] = {}
+    for r in rows:
+        if r["set"] == "derived":
+            tally = kinds.setdefault(r["kind"], [0, 0])
+            tally[0] += r["right"]
+            tally[1] += 1
+    out["derived_by_noise"] = {k: f"{v[0]}/{v[1]}" for k, v in sorted(kinds.items())}
+    return out
+
+
+def run_conversation() -> list[dict]:
+    """Every conversational turn of `noise_741.json`, in order, each replied
+    to with the turn before's reply passed in, as Chat does: the kind of
+    reply, whether a search would have fired, and the reply itself."""
+    from memorymap.ai import intent
+
+    rows: list[dict] = []
+    previous = ""
+    last_question = "What is the latest on the sync rewrite?"
+    for entry in json.loads(NOISE.read_text(encoding="utf-8"))["conversation"]:
+        message, expect = entry["message"], entry["expect"]
+        small = intent.classify(message) == intent.SMALLTALK
+        if expect.startswith("question:"):
+            got = "smalltalk" if small else f"question:{composer.classify(message)}"
+            reply = ""
+        else:
+            got = composer.social_kind(message) if small else "searched"
+            reply = composer.social(message, "smalltalk", previous, last_question) if small else ""
+        rows.append({"message": message, "expect": expect, "got": got, "right": got == expect, "searched": not small, "reply": reply})
+        previous = reply or previous
+    return rows
+
+
+def conversation_summary(rows: list[dict]) -> dict:
+    social = [r for r in rows if not r["expect"].startswith("question:")]
+    replies = [r["reply"] for r in social if r["reply"]]
+    return {
+        "turns": len(rows),
+        "right_kind": f"{sum(r['right'] for r in rows)}/{len(rows)}",
+        "searched_small_talk": sum(1 for r in social if r["searched"]),
+        "same_reply_twice_running": sum(1 for a, b in zip(replies, replies[1:]) if a == b),
+        "distinct_replies": len(set(replies)),
+    }
+
+
+def run_did_you_mean() -> dict:
+    """How often "Did you mean ...?" is offered over the hand-written noisy
+    questions, and how often the reading answered or the one offered is the
+    kind the question asked for."""
+    data = load()
+    on = today(data)
+    pool = [{**n, "connected": False} for n in data["notes"]]
+    fired = right = right_without = 0
+    for entry in json.loads(NOISE.read_text(encoding="utf-8"))["questions"]:
+        question = entry["question"]
+        result = composer.compose(question, retrieve(question, pool), today=on)
+        chips = [n for n in result["next"] if n.startswith("Did you mean")]
+        if not chips:
+            continue
+        fired += 1
+        follow = composer.follow_on(chips[0], [{"question": question, "answer": result["text"]}])
+        offered = composer.classify(follow.question) if follow else None
+        right += result["shape"] == entry["expect"] or offered == entry["expect"]
+        right_without += result["shape"] == entry["expect"]
+    total = len(json.loads(NOISE.read_text(encoding="utf-8"))["questions"])
+    return {"questions": total, "fired": fired, "right_with_offer": right, "right_without_offer": right_without}
+
+
 if __name__ == "__main__":  # pragma: no cover - the report's table
     import sys
 
@@ -347,3 +634,25 @@ if __name__ == "__main__":  # pragma: no cover - the report's table
         )
     print(json.dumps(summary(rows), indent=1))
     print(json.dumps(context_summary(context_rows()), indent=1))
+
+
+    if "--voice" in sys.argv:
+        voice_rows = run_voice()
+        for row in voice_rows:
+            if "-v" in sys.argv:
+                print(f"#### [{row['category']}] {row['question']} [{row['shape']}, expected {row['expect']}]\n\n{row['text']}\n")
+            if row["failures"] or not row["kind_right"]:
+                print(f"- {row['question']}: {row['shape']} (expected {row['expect']}) {'; '.join(row['failures'])}")
+        print(json.dumps(voice_summary(voice_rows), indent=1))
+    if "--noise" in sys.argv:
+        noise_rows = run_noise()
+        for row in noise_rows:
+            if not row["right"]:
+                print(f"- [{row['set']}/{row['kind']}] {row['question']!r}: {row['got']} (expected {row['expect']})")
+        print(json.dumps(noise_summary(noise_rows), indent=1))
+        conversation = run_conversation()
+        for row in conversation:
+            if not row["right"]:
+                print(f"- {row['message']!r}: {row['got']} (expected {row['expect']})")
+        print(json.dumps(conversation_summary(conversation), indent=1))
+        print(json.dumps(run_did_you_mean(), indent=1))

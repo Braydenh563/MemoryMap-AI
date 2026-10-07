@@ -90,6 +90,13 @@ def classify(message: str) -> str:
     if not text:
         return SMALLTALK
 
+    # "ty", "lol", "ok thx", "hahaha", an emoji alone: small talk typed the
+    # way people type it (INBOX 741), answered as such, never searched for.
+    from memorymap.ai import question_noise
+
+    if question_noise.social_kind(message):
+        return SMALLTALK
+
     # "hey, what did I write about pasta" is a question wearing a greeting.
     if _NOTE_WORDS.search(text):
         return NOTES

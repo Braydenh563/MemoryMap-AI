@@ -1803,10 +1803,14 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         # Small talk: no notes, no grounding, no "I couldn't find any
         # notes matching that" in reply to "hey".
         if not ollama_running:
-            offline = (
-                librarian.OFFLINE_ABOUT_APP
-                if prepared["intent"] == "about_app"
-                else librarian.OFFLINE_SMALLTALK
+            #: The app's own voice, warm and varied (INBOX 741): with no model
+            #: running Chat still answers from the notes, so small talk says
+            #: so rather than "the AI model isn't running".
+            offline = composer.social(
+                req.question,
+                prepared["intent"],
+                str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
+                str((req.history or [{}])[-1].get("question") or "") if req.history else "",
             )
             yield {"type": "answer", "delta": offline}
             return
@@ -1866,6 +1870,8 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             recent=str(prepared.get("search_mode") or "").endswith("recent"),
             embed=_composer_embed(),
             said=follow.said if follow else "",
+            #: The turn before's answer, so this one opens differently (INBOX 741).
+            previous=str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
         )
         yield {"type": "answer", "delta": result["text"]}
         if result["grounding"]:

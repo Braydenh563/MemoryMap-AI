@@ -194,6 +194,20 @@ with its owner named in the entry.
      companion code) and widen what drives it (answers found, nothing found,
      reminders done, idle, time of day), each visible within a few seconds.
 
+743. **The owner, 2026-10-07, verbatim**: "and I want more mouse interaction with the
+     companion like rubbing its head. flipping it upside down?? doing things or
+     event triggers that get it to change emotion ro behavior. \"ro\" is an or
+     misspell. also the behaviour of the companion is not often reflected in the
+     enlarged view. better popup messages and more varied. more life and natural
+     biological behaviour and transitions and actions and movement etc."
+     With 742 (moods rarely change), one next-PR track: pointer gestures (rub
+     the head by moving back and forth over it, drag and flip upside down, hold,
+     poke, toss), app events as mood triggers, the enlarged view mirroring the
+     corner companion's live state, the composer's companion remarks
+     (`composer_voice.py`, built, not yet on screen) as its bubbles, and
+     springy, interruptible transitions between poses. "ro" for "or" is in the
+     typo table (question_noise.py).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

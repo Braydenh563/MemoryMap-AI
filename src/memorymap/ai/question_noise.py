@@ -282,6 +282,7 @@ _SOCIAL_FILLER = frozenset(
 SLANG.update({
     #: Common English misspellings (the owner, 2026-10-07: "are common typos all accounted for??").
     "realy": "really",
+    "ro": "or",
     "beleive": "believe",
     "belive": "believe",
     "acheive": "achieve",

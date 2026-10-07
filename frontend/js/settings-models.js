@@ -413,7 +413,15 @@ function buildModelCard(model, state) {
     primary.classList.add("model-card-primary");
     actions.appendChild(primary);
   }
-  if (state.kind !== "downloading") actions.appendChild(kebabMenu(modelMenuItems(model, state), `More for ${model.name}`));
+  const menu = state.kind !== "downloading" && kebabMenu(modelMenuItems(model, state), `More for ${model.name}`);
+  //: **No main button: the menu sits in the head, top right** (the owner,
+  //: 2026-10-06, "wierd gaps on model cards"). An installed card's foot held
+  //: only the ⋯, pinned to the bottom under an empty band.
+  if (!primary && menu) {
+    head.appendChild(menu);
+    return card;
+  }
+  if (menu) actions.appendChild(menu);
   card.appendChild(actions);
   return card;
 }

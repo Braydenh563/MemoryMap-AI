@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Installed models: a card with no main button carries its ⋯ in the top-right corner beside the name, instead of alone at the bottom under an empty gap.
 - Packages: a stopped install leaves nothing behind. What it had installed so far (torch can be 2 GB) is removed, pip's temporary folder is deleted, and installs keep no download cache.
 - Chat and the agent: Undo on a change to several notes at once (tagging two notes, moving several board items) works; it used to fail because the app did not recognise the undo.
 - Background tasks: the scheduled passes (night shift, backup, resurfacing, embeddings backfill, housekeeping, autonomous) now appear while they run, with a progress bar, named steps and a short log of what they are doing.

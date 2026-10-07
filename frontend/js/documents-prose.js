@@ -709,7 +709,17 @@ function docSuggestActive() {
 }
 
 function setDocSuggestMode(on) {
-  if (!currentDoc || !currentDoc.id) return toast("Save the document first.", "info");
+  if (!currentDoc || !currentDoc.id) {
+    renderDocSuggestState();
+    return toast("Save the document first.", "info");
+  }
+  //: Suggestions are prose markup; a code or plain-text file has none. The
+  //: switch used to flip back off with no word why (the owner, 2026-10-07:
+  //: "this suggest changes toggle doesnt work").
+  if (on && !docFileType().previewable) {
+    renderDocSuggestState();
+    return toast("Suggest changes works in text documents, not code or plain files.", "info");
+  }
   const modes = docSuggestModes();
   if (on) modes[currentDoc.id] = true;
   else delete modes[currentDoc.id];
@@ -898,6 +908,8 @@ function renderDocSuggestState() {
   const count = docCmView ? docSuggestParse(docCmView.state.doc.toString()).length : 0;
   const box = $("doc-suggest-mode");
   if (box) box.checked = on;
+  const row = $("doc-suggest-row");
+  if (row) row.hidden = !!currentDoc && !docFileType().previewable;
   const chip = $("doc-suggest-status");
   if (chip) {
     chip.hidden = !on && !count;

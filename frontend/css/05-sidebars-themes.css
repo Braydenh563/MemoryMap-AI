@@ -6236,10 +6236,16 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 
 /* One chip height on the line, the category's and the tags', with room
    inside each (the owner: "there is no padding around the tag entries"). */
-.note-edit-meta .chip {
+.note-edit-meta .chip,
+.note-edit-meta > .chip.category.note-edit-category {
+  box-sizing: border-box;
   height: 1.625rem;
   min-height: 0;
+  margin-block: 0;
+  padding-block: 0;
   padding-inline: var(--space-2);
+  align-self: center;
+  line-height: 1;
 }
 
 .note-edit-meta .note-edit-tag-input {

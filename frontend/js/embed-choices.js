@@ -56,7 +56,7 @@ function embedChoiceRow(choice, body, now) {
   title.className = "entry-title";
   const name = document.createElement("strong");
   name.textContent = choice.label;
-  title.append(name, chip(choice.backend === "ollama" ? "Ollama" : "Built in", "item-label"));
+  title.append(name, chip(choice.backend === "ollama" ? "Through Ollama" : "Runs in the app", "item-label"));
   if (inUse) title.appendChild(chip("ph:check-circle In use", "item-label is-ok"));
   else if (choice.default) title.appendChild(chip("Default", "item-label"));
   head.appendChild(title);

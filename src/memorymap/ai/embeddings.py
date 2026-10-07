@@ -907,12 +907,22 @@ class EmbeddingService:
             from memorymap.core import embedmodels
 
             if embedmodels.is_downloaded(repo):
-                logger.warning(
-                    "%s is on this computer but would not load (%s); staying offline. "
-                    "Reinstall it from Settings, Models to fetch it again.",
-                    repo,
-                    safe_value(str(exc), 200),
-                )
+                #: **Repaired, not handed over** (the owner, 2026-10-07: "things
+                #: should be auto fixed for the user"; a fresh install had a
+                #: folder with no files). One online fetch fills what is
+                #: missing, once a process, unless the person switched
+                #: automatic installs off (`semantic_auto_install`).
+                models = getattr(self, "_models", None)
+                allowed = models is None or models._config.get_preference("semantic_auto_install", True)
+                if allowed and not getattr(self, "_repair_tried", False):
+                    self._repair_tried = True
+                    logger.warning("%s is on this computer but would not load (%s); fetching its files again", repo, safe_value(str(exc), 200))
+                    try:
+                        return SentenceTransformer(repo)
+                    except Exception as again:  # noqa: BLE001  # offline, or the Hub refused
+                        logger.warning("%s could not be fetched again (%s)", repo, safe_value(str(again), 200))
+                else:
+                    logger.warning("%s is on this computer but would not load (%s); staying offline", repo, safe_value(str(exc), 200))
                 raise EmbeddingCacheBroken(
                     "The search-by-meaning model's files on this computer would not load. "
                     "Reinstall it from Settings, Models."
@@ -969,7 +979,9 @@ class EmbeddingService:
                 )
                 logger.warning("sentence-transformers is not installed (%s)", self.last_error)
                 return None
-            self.last_error = f"{type(exc).__name__}: {exc}"
+            #: Our own sentence as it is; another library's error keeps its
+            #: class name, which the Settings diagnosis reads (DLL, CUDA).
+            self.last_error = str(exc) if isinstance(exc, EmbeddingCacheBroken) else f"{type(exc).__name__}: {exc}"
             logger.exception("embedding backend failed")
             return None
 

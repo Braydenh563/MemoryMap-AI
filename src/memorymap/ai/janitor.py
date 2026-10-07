@@ -753,7 +753,9 @@ def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None
         )
         logger.info("janitor: filing model warmed up")
     except Exception as exc:  # noqa: BLE001
-        logger.warning("janitor: couldn't warm the filing model (%s)", safe_value(str(exc), 200))
+        #: A model never pulled (a fresh install's default) is not a fault.
+        level = logging.INFO if "not found" in str(exc).lower() else logging.WARNING
+        logger.log(level, "janitor: couldn't warm the filing model (%s)", safe_value(str(exc), 200))
 
 
 def _chat_within_deadline(

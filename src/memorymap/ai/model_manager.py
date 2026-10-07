@@ -1055,3 +1055,27 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
             name=name,
             duration_ms=(time.monotonic() - started) * 1000,
         )
+
+
+#: Names that are not a general chat model: reading text, pictures only,
+#: embeddings. Matched as words in the model's name.
+_NOT_CHAT = ("ocr", "embed", "vl", "vision", "llava", "moondream", "minicpm-v", "rerank")
+#: The largest a model may be (on disk) to be chosen without asking.
+_CHOOSE_MAX_BYTES = 10 * 1024**3
+
+
+def choose_installed_chat_model(installed: list[dict]) -> str | None:
+    """The chat model to use when the stored one is not installed (the owner,
+    2026-10-07: "the app should detect and smart choose the available models
+    if the user has one or more on first launch"): the largest general chat
+    model up to 10 GB on disk, else None."""
+    import re
+
+    def is_chat(name: str) -> bool:
+        words = set(re.split(r"[^a-z0-9.]+", name.lower()))
+        return not any(word in words or name.lower().startswith(word) for word in _NOT_CHAT)
+
+    fits = [m for m in installed if m.get("name") and is_chat(m["name"]) and int(m.get("size") or 0) <= _CHOOSE_MAX_BYTES]
+    if not fits:
+        return None
+    return max(fits, key=lambda m: int(m.get("size") or 0))["name"]

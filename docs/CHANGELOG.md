@@ -59,6 +59,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A fresh install mends itself: a search-by-meaning model whose files are missing is fetched again once (unless automatic installs are off) instead of asking you to reinstall it, and its message no longer starts with an error's code name. A chat model that is not installed (a fresh install's llama3.2) is replaced at launch by the largest general chat model you have. The embedding list says Runs in the app or Through Ollama instead of Built in, and a model never pulled is no longer logged as a warning.
 - Boards and maps: Shift-dragging a selection rectangle (or lasso) adds to what was selected, including a single object selected first, and Shift pressed partway through the drag counts.
 - Ask and Chat: the "1 of 4 from your notes" button sits on its own line under the sources, at the left, not wherever the row wrapped it.
 - The mini Atlas beside a reply is round, not cut off in a square. Notes, compact rows: collapsing a row with the pointer no longer leaves its buttons showing until a click elsewhere.

@@ -46,11 +46,22 @@ def test_a_cached_model_loads_without_going_online(fake_st):
     assert fake_st.calls == [True]
 
 
-def test_a_model_on_disk_that_will_not_load_stays_offline(fake_st, monkeypatch):
+def test_a_model_on_disk_that_will_not_load_is_fetched_again_once(fake_st, monkeypatch):
+    """The owner, 2026-10-07: "things should be auto fixed for the user"."""
     fake_st.local_works = False
     monkeypatch.setattr(embedmodels, "is_downloaded", lambda repo: True)
+    service = _service()
+    service._load_st_model()
+    assert fake_st.calls == [True, False]  # one repair fetch
+
+
+def test_with_automatic_installs_off_a_broken_model_stays_offline(fake_st, monkeypatch):
+    fake_st.local_works = False
+    monkeypatch.setattr(embedmodels, "is_downloaded", lambda repo: True)
+    service = _service()
+    service._models = types.SimpleNamespace(_config=types.SimpleNamespace(get_preference=lambda key, default=None: False))
     with pytest.raises(embeddings.EmbeddingCacheBroken, match="Reinstall it from Settings"):
-        _service()._load_st_model()
+        service._load_st_model()
     assert fake_st.calls == [True]  # no online attempt
 
 

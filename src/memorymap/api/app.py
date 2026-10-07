@@ -603,6 +603,25 @@ passes.register_housekeeping("purge-bin", _purge_step)
 passes.register_housekeeping("compact-history", _compact_step)
 
 
+def _choose_chat_model_if_missing() -> None:
+    """The stored chat model is not installed (a fresh install's llama3.2):
+    use the best one that is, and log it. Ollama not running: nothing to do."""
+    from memorymap.ai import model_manager as mm
+
+    config, ollama = deps.get_config(), deps.get_ollama()
+    if ollama is None or not ollama.is_running():
+        return
+    installed = ollama.list_models()
+    names = {m.get("name") for m in installed}
+    current = config.get_preference("chat_model", "llama3.2")
+    if current in names or f"{current}:latest" in names:
+        return
+    chosen = mm.choose_installed_chat_model(installed)
+    if chosen:
+        config.set_preference("chat_model", chosen)
+        logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
+
+
 def _startup_maintenance() -> None:
     """The once-per-launch housekeeping, off the path to the first byte
     (ARCH-19). Looked up on the module at call time, so a test can stand in
@@ -615,6 +634,7 @@ def _startup_maintenance() -> None:
             ("_purge_expired_bin_entries", "Clear expired notes from the bin"),
             ("_compact_event_log", "Tidy the edit history"),
             ("_backup_if_due", "Back up if today's is due"),
+            ("_choose_chat_model_if_missing", "Choose a chat model you have"),
         )
         run.plan([words for _, words in steps])
         for index, (step, words) in enumerate(steps):

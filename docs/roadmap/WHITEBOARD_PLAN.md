@@ -888,3 +888,12 @@ Held by the boardmap-1005 agent; the built halves are in HISTORY.md
      the kind's defaults (a map topic back to following the map), content and
      position kept, one undo step, in the command palette as a board command,
      help text updated.
+
+- **The edge arrows also ignore resize and drag** (the owner, 2026-10-07,
+  verbatim: "can you fix the edge arrows and line arrows not moving or
+  rotating with the objects??", "the arrows dont resize either", with a
+  resized text box whose side triangles stayed at its old size). With 740:
+  the triangles outside each side of a selected object sit just outside the
+  midpoint of each edge of its current box, rotated with it, updated live
+  during drag, resize and rotate; bound connectors follow the same way (746).
+  Measure with getBoundingClientRect after each of the three.

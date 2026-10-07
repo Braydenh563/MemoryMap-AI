@@ -325,7 +325,7 @@ chips, composer follow-ups while a model runs
 (`composer-acts-1006.md`), the composer-everywhere screens
 (`composer-everywhere-1006.md`), `composer-model-1006.md`,
 `bgprogress-1006.md` (autonomous pass with no model, night pairing speed),
-`autoinstall-1006.md`; then INBOX 727 to 741.
+`autoinstall-1006.md`; then WHITEBOARD_PLAN "Placed from INBOX, 2026-10-07" (edge arrows on rotate, resize and drag; template connectors following their shapes; Reset style), DOCUMENTS_PLAN's live code blocks with completion, then INBOX 727 to 745.
 
 **Now (2026-10-06, PR 167, 0.4.1):** 0.4.1 is ready to merge from
 `claude/mini-release-0.4.1` (forgot-password flow plus INBOX 663 to 726). Next

@@ -13531,7 +13531,8 @@ async function initWhiteboard() {
     if (start.place && e.shiftKey) [x, y] = wbSquareCorner(start, x, y);
     const mx = Math.min(start.x, x), my = Math.min(start.y, y);
     const mw = Math.abs(x - start.x), mh = Math.abs(y - start.y);
-    const shiftKey = start.shiftKey;
+    //: Shift at the press or at the release adds (the owner, 2026-10-07).
+    const shiftKey = start.shiftKey || e.shiftKey;
     wbEndMarqueeDrag();
     // Too small to be a deliberate drag, the plain "click" listener above
     // already handles this as a click-to-clear-selection instead (or, with
@@ -13548,6 +13549,9 @@ async function initWhiteboard() {
       return;
     }
     if (!shiftKey) wbMultiSelection.clear();
+    //: The one item selected before a Shift-drag stays in: it lives in
+    //: `wbSelectedItem`, not the set, and was dropped (the owner, 2026-10-07).
+    else if (wbSelectedItem) wbMultiSelection.add(wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id));
     for (const node of wbState.nodes) {
       if (node.locked) continue; // decision 15: out of reach until unlocked
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
@@ -13689,6 +13693,9 @@ async function initWhiteboard() {
     wbEndLassoDrag();
     if (points.length < 3) return; // a tap, not a loop, nothing to select
     if (!shiftKey) wbMultiSelection.clear();
+    //: The one item selected before a Shift-drag stays in: it lives in
+    //: `wbSelectedItem`, not the set, and was dropped (the owner, 2026-10-07).
+    else if (wbSelectedItem) wbMultiSelection.add(wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id));
     for (const node of wbState.nodes) {
       if (node.locked) continue; // decision 15: out of reach until unlocked
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));

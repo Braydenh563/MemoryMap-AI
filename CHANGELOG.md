@@ -59,6 +59,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Boards and maps: Shift-dragging a selection rectangle (or lasso) adds to what was selected, including a single object selected first, and Shift pressed partway through the drag counts.
 - Ask and Chat: the "1 of 4 from your notes" button sits on its own line under the sources, at the left, not wherever the row wrapped it.
 - The mini Atlas beside a reply is round, not cut off in a square. Notes, compact rows: collapsing a row with the pointer no longer leaves its buttons showing until a click elsewhere.
 - Ask and Chat read about 120 common misspellings as meant ("realy", "beleive", "remeber", "wierd", "wether").

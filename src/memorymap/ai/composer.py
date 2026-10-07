@@ -75,7 +75,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 
-from memorymap.ai import grounding, question_noise
+from memorymap.ai import composer_tables, grounding, question_noise
 from memorymap.search import query as query_understanding
 
 #: At most this many quoted points in one answer. Six is about what reads as an
@@ -255,6 +255,19 @@ PHRASES: dict[str, str] = {
     "next_latest_a": "What is the latest on ",
     "next_when_a": "When did I write about ",
 }
+#: The voices' variants of the joining phrases and openers (`composer_tables`):
+#: ordinary entries, so every closed-set check covers them.
+PHRASES.update(composer_tables.EXTRA_PHRASES)
+
+def phrase_options(key: str, voice: str | None = None) -> tuple[str, ...]:
+    """Every wording of `key`: the original and the variants of `voice`, or of
+    both voices when none is named (the tests, which pin a phrase by its key,
+    ask for all of them: the question picks which one an answer uses)."""
+    names = {key}
+    for name in composer_tables.VOICES if voice is None else (voice,):
+        names.update(composer_tables.VOICE_VARIANTS[name].get(key, ()))
+    return tuple(sorted(PHRASES[n] for n in names))
+
 
 #: Number words for counts a reader takes in at a glance. Measured values,
 #: spelled the way a sentence spells them; past twelve the digits read better.
@@ -315,7 +328,7 @@ _ASKING_WORDS = frozenset(
     find look show help kind sort bit quick quickly briefly short detail
     detailed full whole remind possible maybe okay ok hey hi
     whereabouts address place put decide decided conclude concluded""".split()
-)
+) | composer_tables.EXTRA_ASKING_WORDS
 
 #: The wrappers a casual or indirect question comes in, taken off before its
 #: shape and its subject are read (INBOX 741, the owner: "better to
@@ -343,15 +356,22 @@ _WRAPPERS = (
     re.compile(r"^(?:and|but|also|plus)\s+(?=(?:what|when|where|who|why|how|which|is|are|do|does|did|can|should)\b)", re.I),
     re.compile(r"^(?:right|alright|cool|nice|great|got it|k|kk|sure|fair enough|makes sense)\b[,.!:]?\s+(?=\w)", re.I),
     re.compile(r"^(?:in short|in brief|briefly|quickly|quick one|tl;?dr|in a word|in detail)\b[,:]?\s+", re.I),
+    *(re.compile(pattern, re.I) for pattern in composer_tables.EXTRA_WRAPPERS),
 )
 #: "dentist when?", "spare key where": the question word typed last.
 _LAST_WORD = re.compile(r"^(?P<rest>[^?]+?)[,\s]+(?P<q>when|where|who|why|how many|how much|how long|how often)\s*(?P<p>\?*)$", re.I)
 _ASKS_FIRST = re.compile(r"^(?:what|when|where|who|whom|whose|why|how|which|is|are|do|does|did|can|could|should|will|would|was|were|has|have|had|am|if|whether|compare|list|name|tell|explain)\b", re.I)
-_TRAILERS = re.compile(r"(?:[,\s]+(?:please|thanks|thank you|again|for me|real quick|quickly|by any chance))+\s*([?.!]*)\s*$", re.I)
+_TRAILERS = re.compile(
+    r"(?:[,\s]+(?:please|thanks|thank you|again|for me|real quick|quickly|by any chance|"
+    + "|".join(re.escape(t) for t in composer_tables.EXTRA_TRAILERS)
+    + r"))+\s*([?.!]*)\s*$",
+    re.I,
+)
 #: "whats", "how's" and the rest, spelled out so the shape rules read them.
 _CONTRACTIONS = (
     (re.compile(r"^(what|how|where|when|who|why)(?:'s|s)\b", re.I), r"\1 is"),
     (re.compile(r"^(what|how|where|when|who|why)(?:'re)\b", re.I), r"\1 are"),
+    *((re.compile(pattern, re.I), spelled) for pattern, spelled in composer_tables.EXTRA_CONTRACTIONS),
 )
 #: "if the deposit is paid", left after "any idea", asks yes or no.
 _IF = re.compile(r"^(?:if|whether)\s+", re.I)
@@ -411,6 +431,8 @@ def classify(question: str, embed=None) -> str:  # noqa: ANN001
     #: sourdough": everything on a subject, however they open.
     if _ANYTHING_ON.match(text) or re.match(r"^how many (?:of my )?notes\b", text, re.I):
         return "what"
+    if _COMPARE_EXTRA.search(text) and compare_sides(text):
+        return "compare"
     for name, pattern in _SHAPE_RULES:
         if pattern.search(text):
             return name
@@ -473,7 +495,7 @@ SYNONYM_GROUPS = (
     ("hire", "hiring", "recruit"),
     ("launch", "release", "ship"),
     ("pack", "packing", "bring"),
-)
+) + composer_tables.EXTRA_SYNONYM_GROUPS
 
 
 def _build_synonyms() -> dict[str, frozenset[str]]:
@@ -534,6 +556,12 @@ _COMPARE_SIDES = (
     re.compile(r"\bcompare (?P<a>.+?) (?:and|with|to|vs\.?|versus) (?P<b>.+?)[?.!]*$", re.I),
     re.compile(r"^(?P<a>[\w' -]+?) (?:vs\.?|versus) (?P<b>.+?)[?.!]*$", re.I),
 )
+#: The patterns that name a comparison by more than a bare "vs" are tried first:
+#: "pros and cons of A vs B" is not a "vs" with "pros and cons of A" on its left.
+_COMPARE_SIDES = (*composer_tables.EXTRA_COMPARE_SIDES, *_COMPARE_SIDES)
+#: The extra comparison words ("cheaper than", "compared with", "pros and cons
+#: of ... and ..."), read as a comparison only when both sides can be named.
+_COMPARE_EXTRA = re.compile(composer_tables.COMPARE_SHAPE_EXTRA, re.I)
 
 
 def compare_sides(question: str) -> tuple[str, str] | None:
@@ -618,8 +646,13 @@ LEAD_INS = (
     "so basically", "ok so", "okay so", "right so", "so", "also", "anyway", "anyhow", "plus", "oh", "well",
     "ok", "okay", "right", "basically", "honestly", "and", "but", "then", "now", "by the way", "btw", "fyi",
     "in any case", "to be honest", "tbh", "note to self", "quick note", "update", "edit",
+    *composer_tables.EXTRA_LEAD_INS,
 )
-LEAD_INS_BARE = ("so basically", "basically", "honestly", "to be honest", "tbh", "btw", "fyi")
+LEAD_INS_BARE = (
+    "so basically", "basically", "honestly", "to be honest", "tbh", "btw", "fyi", "frankly", "essentially", "personally",
+    "genuinely", "seriously", "apparently", "evidently", "simply", "literally", "just so you know", "for what it is worth",
+    "to be fair", "in fairness", "to be clear", "just to say",
+)
 _LEAD_IN = "|".join(re.escape(w) for w in sorted(LEAD_INS, key=len, reverse=True))
 _LEAD_IN_BARE = "|".join(re.escape(w) for w in sorted(LEAD_INS_BARE, key=len, reverse=True))
 _DISCOURSE = re.compile(
@@ -1097,10 +1130,31 @@ class _Answer:
         self.question = ""
         #: Asked for briefly ("in short", "quick"): no opener, no second list.
         self.brief = False
+        #: The register the joining phrases and openers are written in.
+        self.voice = composer_tables.DEFAULT_VOICE
+
+    def opened_with(self, text: str) -> bool:
+        """Whether the answer the turn before gave began with `text`."""
+        return bool(self.previous) and self.previous.startswith(text.strip() or text)
+
+    def voiced(self, name: str) -> str:
+        """The `PHRASES` key that says what `name` says in this answer's
+        voice: one of its variants, chosen by the question so the same
+        question is always answered in the same words, and never one the turn
+        before opened with while another is left. The second half of a pair
+        ("On " and " you wrote: ") takes its first half's variant."""
+        by_voice = composer_tables.VOICE_VARIANTS[self.voice]
+        lead = composer_tables.PAIRED.get(name, name)
+        leads, mine = by_voice.get(lead), by_voice.get(name)
+        if not leads or not mine:
+            return name
+        usable = [i for i, key in enumerate(leads) if not self.opened_with(PHRASES[key])] or list(range(len(leads)))
+        digest = hashlib.sha1(f"voice:{lead}:{self.question.strip().lower()}".encode()).digest()
+        return mine[usable[digest[0] % len(usable)]]
 
     def t(self, *names: str) -> _Answer:
         for name in names:
-            self.parts.append(("template", PHRASES[name]))
+            self.parts.append(("template", PHRASES[self.voiced(name)]))
         return self
 
     def m(self, text: str) -> _Answer:
@@ -1323,7 +1377,7 @@ def _joined(out: _Answer, keys: list[str], unit: list[Sentence], terms: list[str
     if when:
         out.m(out.day(when))
     if _lowered(unit[0]) and not colon:
-        if when or not PHRASES[keys[-1]].endswith(" "):
+        if when or not PHRASES[out.voiced(keys[-1])].endswith(" "):
             out.t("comma")
         _quotes(out, unit, terms, lower_first=True)
     else:
@@ -1391,8 +1445,17 @@ _OPENERS = (
 def _unlike_before(out: _Answer, keys: list[str]) -> list[str]:
     """`keys` less any the turn before opened with, in their order; all of
     them when every one did."""
-    fresh = [k for k in keys if not out.previous.startswith(PHRASES[k].strip() or PHRASES[k])]
+    fresh = [k for k in keys if not _said_before(out, k)]
     return fresh or keys
+
+
+def _said_before(out: _Answer, key: str) -> bool:
+    """Whether the turn before opened with `key`'s words in any variant of
+    either voice."""
+    names = {key}
+    for voice in composer_tables.VOICES:
+        names.update(composer_tables.VOICE_VARIANTS[voice].get(key, ()))
+    return any(out.opened_with(PHRASES[name]) for name in names)
 
 
 def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
@@ -1431,8 +1494,8 @@ def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
     #: Not the opener the turn before opened with, and after a turn that
     #: opened with a bare quote, a worded one when there is one: two answers
     #: in a row never start alike (INBOX 741, vary openers across turns).
-    fresh = [o for o in options if not (o and out.previous.startswith(PHRASES[o]))]
-    if out.previous and not any(out.previous.startswith(PHRASES[o]) for o in _OPENERS):
+    fresh = [o for o in options if not (o and _said_before(out, o))]
+    if out.previous and not any(_said_before(out, o) for o in _OPENERS):
         fresh = [o for o in fresh if o] or fresh
     key = _pick(question, "lead", fresh or options)
     if key == "going_by" and _lowered(s):
@@ -2317,6 +2380,10 @@ SOCIAL: dict[str, tuple[str, ...]] = {
     ),
 }
 
+for _kind, _more in composer_tables.SOCIAL_NATURAL_EXTRA.items():
+    SOCIAL[_kind] = SOCIAL[_kind] + _more
+SOCIAL_PROFESSIONAL = composer_tables.SOCIAL_PROFESSIONAL
+
 _SOCIAL_KIND = (
     ("morning", re.compile(r"\bgood (?:morning|afternoon|evening|day)\b|^morning\b", re.I)),
     ("thanks", re.compile(r"\b(?:thanks?|thank you|ta|cheers|nice one|appreciated?)\b", re.I)),
@@ -2335,7 +2402,9 @@ NEXT_STEPS = (
     "Say “tell me more” for more on “{subject}”.",
     "I can say more about “{subject}” if you like.",
     "Want the latest on “{subject}” next?",
+    *composer_tables.NEXT_STEPS_EXTRA,
 )
+NEXT_STEPS_PROFESSIONAL = composer_tables.NEXT_STEPS_PROFESSIONAL
 
 
 def social_kind(message: str, intent: str = "smalltalk") -> str:
@@ -2347,14 +2416,16 @@ def social_kind(message: str, intent: str = "smalltalk") -> str:
     )
 
 
-def social(message: str, intent: str = "smalltalk", previous: str = "", last_question: str = "") -> str:
+def social(message: str, intent: str = "smalltalk", previous: str = "", last_question: str = "", voice: str = composer_tables.DEFAULT_VOICE) -> str:
     """The app's reply to a conversational turn with no model running (INBOX
     741: "any and all conversational messages"): warm, short, of the turn's
     kind, never the reply the turn before gave, and after an acknowledgement
     or thanks, a next step on what was being talked about."""
     kind = social_kind(message, intent)
     before = (previous or "").strip()
-    options = [line for line in SOCIAL[kind] if not before.startswith(line)] or list(SOCIAL[kind])
+    professional = composer_tables.voice_of(voice) == "professional"
+    lines = (SOCIAL_PROFESSIONAL if professional else SOCIAL)[kind]
+    options = [line for line in lines if not before.startswith(line)] or list(lines)
     #: Salted by the turn before as well as the message, so "ok" after "ok"
     #: lands on another line.
     line = _pick(f"{message}|{before[:40]}", f"social:{kind}", options)
@@ -2362,7 +2433,7 @@ def social(message: str, intent: str = "smalltalk", previous: str = "", last_que
     if kind in _NEXT_STEP_KINDS and subject and len(subject) <= 40:
         #: Never two questions back to back: after a line that asks, the
         #: next step is said, not asked.
-        steps = [n for n in NEXT_STEPS if not (line.endswith("?") and n.endswith("?"))]
+        steps = [n for n in (NEXT_STEPS_PROFESSIONAL if professional else NEXT_STEPS) if not (line.endswith("?") and n.endswith("?"))]
         step = _pick(f"{message}|{subject}", "social:next", steps).format(subject=subject)
         line = f"{line} {step}"
     return line
@@ -2376,14 +2447,15 @@ def _did_you_mean(unsure: list[dict]) -> list[list[tuple]]:
     return [[("template", PHRASES["did_you_mean_a"]), ("corrected", unsure[0]["alternative"]), ("template", PHRASES["did_you_mean_b"])]]
 
 
-def _nothing(shape: str, unsure: list[dict] | None = None) -> dict:
+def _nothing(shape: str, unsure: list[dict] | None = None, voice: str = composer_tables.DEFAULT_VOICE) -> dict:
     chips = _did_you_mean(unsure or [])
+    key = composer_tables.VOICE_VARIANTS[composer_tables.voice_of(voice)]["nothing"][0]
     return {
-        "text": PHRASES["nothing"],
+        "text": PHRASES[key],
         "grounding": [],
         "support": grounding.support("", []),
         "shape": shape,
-        "parts": [("template", PHRASES["nothing"])],
+        "parts": [("template", PHRASES[key])],
         "next": ["".join(part[1] for part in chip) for chip in chips],
         "next_parts": chips,
     }
@@ -2398,6 +2470,7 @@ def compose(
     embed=None,  # noqa: ANN001
     said: str = "",
     previous: str = "",
+    voice: str = composer_tables.DEFAULT_VOICE,
 ) -> dict:
     """`{"text", "grounding", "support", "shape", "parts", "next", "next_parts"}`
     for one question.
@@ -2409,19 +2482,24 @@ def compose(
     then measured by cosine, and without it by shared words. `said` is the
     earlier answer a "tell me more" follows (`follow_on`): what it quoted is
     left out. `previous` is the answer the turn before gave: this one does
-    not open with the same words.
+    not open with the same words. `voice` is the register the connecting
+    words are written in, "natural" or "professional" (the `composer_voice`
+    preference); the notes' own sentences are quoted the same in both.
     """
+    voice = composer_tables.voice_of(voice)
     today = today or date.today()
     if not recent and not said:
         parts = split_parts(question)
         if len(parts) > 1:
-            multi = _multi(question, parts, notes, today=today, embed=embed)
+            multi = _multi(question, parts, notes, today=today, embed=embed, voice=voice)
             if multi:
                 return multi
     views_list = [v for v in (read_note(n, i) for i, n in enumerate(notes or [])) if v]
     out = _Answer({v.id: v for v in views_list}, today)
     out.subject = {_stem(t) for t in subject_terms(question)}
     out.previous = (previous or "").lstrip()
+    out.voice = voice
+    out.question = question
     shape = "recent" if recent else classify(question, embed)
     typed = subject_terms(question) if shape != "recent" else []
     unsure: list[dict] = []
@@ -2450,7 +2528,7 @@ def compose(
                 said=said,
             )
             if not chosen:
-                return _nothing(shape, unsure)
+                return _nothing(shape, unsure, voice)
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
                 broad = False
@@ -2463,7 +2541,7 @@ def compose(
                 _clarify(out, shape, terms, lead, meaning, views_list)
             _missing(out, terms, views_list)
     if not out.rows:
-        return _nothing(shape, unsure)
+        return _nothing(shape, unsure, voice)
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
     next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]

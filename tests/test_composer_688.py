@@ -190,8 +190,8 @@ def test_when_lists_the_other_notes_in_the_order_they_were_written():
     ]
     result = ask("When is the boiler service?", notes)
     text = result["text"]
-    assert composer.PHRASES["timeline"] in text
-    timeline = text.split(composer.PHRASES["timeline"], 1)[1]
+    heading = next(w for w in composer.phrase_options("timeline") if w in text)
+    timeline = text.split(heading, 1)[1]
     days = re.findall(r"^- (\d+ \w+): ", timeline, re.M)
     parsed = [date(2026, composer._MONTH_INDEX[d.split()[1].lower()], int(d.split()[0])) for d in days]
     assert len(parsed) == 2 and parsed == sorted(parsed)
@@ -232,7 +232,13 @@ def test_a_list_of_plain_phrases_reads_in_sentence_case():
 def test_compare_draws_two_sides_with_measured_counts():
     result = ask("Compare Lisbon and Porto")
     text = result["text"]
-    assert text.startswith("Of the notes found, one mentions Lisbon and one mentions Porto. " + composer.PHRASES["each_side"])
+    assert text.startswith(
+        tuple(
+            f"{lead}one mentions Lisbon and one mentions Porto. {each}"
+            for lead in composer.phrase_options("of_found") + composer.phrase_options("across_found")
+            for each in composer.phrase_options("each_side")
+        )
+    )
     assert "**Lisbon** (one note)" in text and "**Porto** (one note)" in text
     lisbon, porto = text.split("**Porto**", 1)
     assert "Alfama" in lisbon and "Ribeira" in porto
@@ -262,7 +268,7 @@ def test_yes_no_never_answers_yes_or_no():
     #: INBOX 741: a sentence holding every word asked is said as the notes'
     #: answer ("Going by your notes, ..."), never as a yes or a no.
     assert first.startswith(
-        ("The closest your notes come is", "Nothing here says it outright", "Going by your notes", composer.PHRASES["notes_have"])
+        tuple(text for key in ("closest_a", "closest_b", "going_by", "notes_have") for text in composer.phrase_options(key))
     )
     assert "Beta testers did not know Harbor works offline." in first
     assert not re.search(r"\b(yes|no)\b[,.]", result["text"].split("\n\n", 1)[0], re.I)
@@ -272,9 +278,9 @@ def test_two_notes_that_may_disagree_are_said_as_a_but():
     result = ask("What is the launch date?")
     text = result["text"]
     assert "**Standup**" in _first_line(result)
-    assert "\n\nBut in a newer note, the launch date is the 21st" in text
+    assert any(f"\n\n{w}, the launch date is the 21st" in text for w in composer.phrase_options("but_newer"))
     assert "(**Standup again**)" in text
-    assert composer.PHRASES["disagree_check"] in text
+    assert any(wording in text for wording in composer.phrase_options("disagree_check"))
     #: Each side said once.
     assert text.lower().count("the launch date is the 21st") == 1 and text.lower().count("the launch date is the 14th") == 1
 
@@ -286,14 +292,15 @@ def test_two_other_notes_that_may_disagree_are_named_older_first():
         _note(3, "# Friday\n\nThe boiler pressure was at 0.8 bar this morning.", 2),
     ]
     text = ask("What about the boiler pressure?", notes)["text"]
-    assert composer.PHRASES["disagree_lead"] in text
-    pair = text.split(composer.PHRASES["disagree_lead"], 1)[1]
-    assert pair.index("**Monday**") < pair.index("But in a newer note") < pair.index("**Friday**")
+    lead = next(w for w in composer.phrase_options("disagree_lead") if w in text)
+    pair = text.split(lead, 1)[1]
+    but = next(w for w in composer.phrase_options("but_newer") if w in pair)
+    assert pair.index("**Monday**") < pair.index(but) < pair.index("**Friday**")
 
 
 def test_words_no_note_found_holds_are_named_in_the_closing_line():
     result = ask("What hotel is near the Porto lodge?")
-    assert result["text"].endswith("None of these notes mention “hotel”.")
+    assert result["text"].endswith(tuple(f"{w}“hotel”." for w in composer.phrase_options("missing")))
 
 
 def test_the_closing_line_is_left_out_when_nothing_matched_at_all():

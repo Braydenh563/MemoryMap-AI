@@ -319,6 +319,26 @@
   {
    "question": "um how many beta testers r active",
    "expect": "count"
+  },
+  {
+   "question": "hwo is the half marathon going",
+   "expect": "status"
+  },
+  {
+   "question": "hwo is the designer we are hiring",
+   "expect": "who"
+  },
+  {
+   "question": "hwo is the sync rewrite going",
+   "expect": "status"
+  },
+  {
+   "question": "whn did i bok the trains",
+   "expect": "when"
+  },
+  {
+   "question": "wat did i say abt the sourdogh",
+   "expect": "what"
   }
  ],
  "social": [
@@ -337,5 +357,315 @@
   "kk",
   "omg lol",
   "tysm"
+ ],
+ "conversation": [
+  {
+   "message": "k",
+   "expect": "ack"
+  },
+  {
+   "message": "kk",
+   "expect": "ack"
+  },
+  {
+   "message": "ok",
+   "expect": "ack"
+  },
+  {
+   "message": "okay",
+   "expect": "ack"
+  },
+  {
+   "message": "okey",
+   "expect": "ack"
+  },
+  {
+   "message": "right ok",
+   "expect": "ack"
+  },
+  {
+   "message": "alright.",
+   "expect": "ack"
+  },
+  {
+   "message": "aight",
+   "expect": "ack"
+  },
+  {
+   "message": "got it",
+   "expect": "ack"
+  },
+  {
+   "message": "cool",
+   "expect": "ack"
+  },
+  {
+   "message": "nice",
+   "expect": "ack"
+  },
+  {
+   "message": "sure",
+   "expect": "ack"
+  },
+  {
+   "message": "yep",
+   "expect": "ack"
+  },
+  {
+   "message": "yeah",
+   "expect": "ack"
+  },
+  {
+   "message": "nah",
+   "expect": "ack"
+  },
+  {
+   "message": "fair",
+   "expect": "ack"
+  },
+  {
+   "message": "makes sense",
+   "expect": "ack"
+  },
+  {
+   "message": "gotcha",
+   "expect": "ack"
+  },
+  {
+   "message": "word",
+   "expect": "ack"
+  },
+  {
+   "message": "bet",
+   "expect": "ack"
+  },
+  {
+   "message": "ok cool",
+   "expect": "ack"
+  },
+  {
+   "message": "sounds good",
+   "expect": "ack"
+  },
+  {
+   "message": "fair enough",
+   "expect": "ack"
+  },
+  {
+   "message": "noted",
+   "expect": "ack"
+  },
+  {
+   "message": "perfect",
+   "expect": "ack"
+  },
+  {
+   "message": "ty",
+   "expect": "thanks"
+  },
+  {
+   "message": "thx",
+   "expect": "thanks"
+  },
+  {
+   "message": "thanks",
+   "expect": "thanks"
+  },
+  {
+   "message": "cheers",
+   "expect": "thanks"
+  },
+  {
+   "message": "appreciate it",
+   "expect": "thanks"
+  },
+  {
+   "message": "thank you so much",
+   "expect": "thanks"
+  },
+  {
+   "message": "tysm",
+   "expect": "thanks"
+  },
+  {
+   "message": "ok thx",
+   "expect": "thanks"
+  },
+  {
+   "message": "hi",
+   "expect": "greeting"
+  },
+  {
+   "message": "hey",
+   "expect": "greeting"
+  },
+  {
+   "message": "yo",
+   "expect": "greeting"
+  },
+  {
+   "message": "sup",
+   "expect": "greeting"
+  },
+  {
+   "message": "hello there",
+   "expect": "greeting"
+  },
+  {
+   "message": "morning",
+   "expect": "morning"
+  },
+  {
+   "message": "good morning",
+   "expect": "morning"
+  },
+  {
+   "message": "gn",
+   "expect": "bye"
+  },
+  {
+   "message": "bye",
+   "expect": "bye"
+  },
+  {
+   "message": "cya",
+   "expect": "bye"
+  },
+  {
+   "message": "ttyl",
+   "expect": "bye"
+  },
+  {
+   "message": "see you",
+   "expect": "bye"
+  },
+  {
+   "message": "lol",
+   "expect": "laugh"
+  },
+  {
+   "message": "lmao",
+   "expect": "laugh"
+  },
+  {
+   "message": "haha",
+   "expect": "laugh"
+  },
+  {
+   "message": "hahahaha",
+   "expect": "laugh"
+  },
+  {
+   "message": "omg",
+   "expect": "reaction"
+  },
+  {
+   "message": "wow",
+   "expect": "reaction"
+  },
+  {
+   "message": "damn",
+   "expect": "reaction"
+  },
+  {
+   "message": "oof",
+   "expect": "reaction"
+  },
+  {
+   "message": "rip",
+   "expect": "reaction"
+  },
+  {
+   "message": "😂",
+   "expect": "reaction"
+  },
+  {
+   "message": "👍",
+   "expect": "ack"
+  },
+  {
+   "message": "no way",
+   "expect": "reaction"
+  },
+  {
+   "message": "how r u",
+   "expect": "how"
+  },
+  {
+   "message": "how are you",
+   "expect": "how"
+  },
+  {
+   "message": "wyd",
+   "expect": "how"
+  },
+  {
+   "message": "whats up",
+   "expect": "how"
+  },
+  {
+   "message": "hows it going",
+   "expect": "how"
+  },
+  {
+   "message": "sorry",
+   "expect": "sorry"
+  },
+  {
+   "message": "my bad",
+   "expect": "sorry"
+  },
+  {
+   "message": "oops",
+   "expect": "sorry"
+  },
+  {
+   "message": "huh",
+   "expect": "confused"
+  },
+  {
+   "message": "wym",
+   "expect": "confused"
+  },
+  {
+   "message": "?",
+   "expect": "confused"
+  },
+  {
+   "message": "wait what",
+   "expect": "confused"
+  },
+  {
+   "message": "i dont get it",
+   "expect": "confused"
+  },
+  {
+   "message": "what do you mean",
+   "expect": "confused"
+  },
+  {
+   "message": "ok and what about the trip budget",
+   "expect": "question:what"
+  },
+  {
+   "message": "ok so when is the dentist",
+   "expect": "question:when"
+  },
+  {
+   "message": "thanks, and how many beta testers are active",
+   "expect": "question:count"
+  },
+  {
+   "message": "lol ok where is the spare key",
+   "expect": "question:where"
+  },
+  {
+   "message": "cool cool, whats the latest on the sync rewrite",
+   "expect": "question:status"
+  },
+  {
+   "message": "right, why was the list slow",
+   "expect": "question:explain"
+  }
  ]
 }

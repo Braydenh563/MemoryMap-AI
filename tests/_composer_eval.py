@@ -514,6 +514,64 @@ def noise_summary(rows: list[dict]) -> dict:
     return out
 
 
+def run_conversation() -> list[dict]:
+    """Every conversational turn of `noise_741.json`, in order, each replied
+    to with the turn before's reply passed in, as Chat does: the kind of
+    reply, whether a search would have fired, and the reply itself."""
+    from memorymap.ai import intent
+
+    rows: list[dict] = []
+    previous = ""
+    last_question = "What is the latest on the sync rewrite?"
+    for entry in json.loads(NOISE.read_text(encoding="utf-8"))["conversation"]:
+        message, expect = entry["message"], entry["expect"]
+        small = intent.classify(message) == intent.SMALLTALK
+        if expect.startswith("question:"):
+            got = "smalltalk" if small else f"question:{composer.classify(message)}"
+            reply = ""
+        else:
+            got = composer.social_kind(message) if small else "searched"
+            reply = composer.social(message, "smalltalk", previous, last_question) if small else ""
+        rows.append({"message": message, "expect": expect, "got": got, "right": got == expect, "searched": not small, "reply": reply})
+        previous = reply or previous
+    return rows
+
+
+def conversation_summary(rows: list[dict]) -> dict:
+    social = [r for r in rows if not r["expect"].startswith("question:")]
+    replies = [r["reply"] for r in social if r["reply"]]
+    return {
+        "turns": len(rows),
+        "right_kind": f"{sum(r['right'] for r in rows)}/{len(rows)}",
+        "searched_small_talk": sum(1 for r in social if r["searched"]),
+        "same_reply_twice_running": sum(1 for a, b in zip(replies, replies[1:]) if a == b),
+        "distinct_replies": len(set(replies)),
+    }
+
+
+def run_did_you_mean() -> dict:
+    """How often "Did you mean ...?" is offered over the hand-written noisy
+    questions, and how often the reading answered or the one offered is the
+    kind the question asked for."""
+    data = load()
+    on = today(data)
+    pool = [{**n, "connected": False} for n in data["notes"]]
+    fired = right = right_without = 0
+    for entry in json.loads(NOISE.read_text(encoding="utf-8"))["questions"]:
+        question = entry["question"]
+        result = composer.compose(question, retrieve(question, pool), today=on)
+        chips = [n for n in result["next"] if n.startswith("Did you mean")]
+        if not chips:
+            continue
+        fired += 1
+        follow = composer.follow_on(chips[0], [{"question": question, "answer": result["text"]}])
+        offered = composer.classify(follow.question) if follow else None
+        right += result["shape"] == entry["expect"] or offered == entry["expect"]
+        right_without += result["shape"] == entry["expect"]
+    total = len(json.loads(NOISE.read_text(encoding="utf-8"))["questions"])
+    return {"questions": total, "fired": fired, "right_with_offer": right, "right_without_offer": right_without}
+
+
 if __name__ == "__main__":  # pragma: no cover - the report's table
     import sys
 
@@ -541,3 +599,9 @@ if __name__ == "__main__":  # pragma: no cover - the report's table
             if not row["right"]:
                 print(f"- [{row['set']}/{row['kind']}] {row['question']!r}: {row['got']} (expected {row['expect']})")
         print(json.dumps(noise_summary(noise_rows), indent=1))
+        conversation = run_conversation()
+        for row in conversation:
+            if not row["right"]:
+                print(f"- {row['message']!r}: {row['got']} (expected {row['expect']})")
+        print(json.dumps(conversation_summary(conversation), indent=1))
+        print(json.dumps(run_did_you_mean(), indent=1))

@@ -1757,6 +1757,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 req.question,
                 prepared["intent"],
                 str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
+                str((req.history or [{}])[-1].get("question") or "") if req.history else "",
             )
             yield {"type": "answer", "delta": offline}
             return

@@ -236,10 +236,16 @@ PHRASES: dict[str, str] = {
     "missing": "None of these notes mention ",
     "newest_lead": "Your ",
     "newest_mid": " newest notes",
+    #: No answer, said plainly and asked back (CHAT_PLAN decision 24; INBOX
+    #: 741: "when nothing matches at all, it asks a short clarifying
+    #: question instead of returning nothing").
     "nothing": (
-        "None of the notes found share enough with your question to quote. "
-        "The matching notes are listed beside this answer."
+        "Nothing in the notes found answers that. Which note would it be in, "
+        "or how else might you have put it?"
     ),
+    # An unsure reading of a misspelt word, offered the other way.
+    "did_you_mean_a": "Did you mean “",
+    "did_you_mean_b": "”?",
     # What to ask next: a note's name, a tag or the question's own words in a
     # fixed question.
     "next_note_a": "What does “",
@@ -334,6 +340,8 @@ _WRAPPERS = (
     re.compile(r"^(?:remind me|tell me|show me|let me know)\s+(?=(?:what|when|who|where|why|how|which|if|whether)\b)", re.I),
     re.compile(r"^(?:remind me)\s+(?:of|about)\s+", re.I),
     re.compile(r"^please\s+", re.I),
+    re.compile(r"^(?:and|but|also|plus)\s+(?=(?:what|when|where|who|why|how|which|is|are|do|does|did|can|should)\b)", re.I),
+    re.compile(r"^(?:right|alright|cool|nice|great|got it|k|kk|sure|fair enough|makes sense)\b[,.!:]?\s+(?=\w)", re.I),
     re.compile(r"^(?:in short|in brief|briefly|quickly|quick one|tl;?dr|in a word|in detail)\b[,:]?\s+", re.I),
 )
 #: "dentist when?", "spare key where": the question word typed last.
@@ -1979,6 +1987,8 @@ _SWAP = re.compile(
 )
 #: "why?", "and when?", "how come?": the asking word alone, about the turn
 #: before's subject.
+#: The "Did you mean “how”?" chip, pressed.
+_MEANT = re.compile(r"^\s*did you mean\s+[“\"']?(.+?)[”\"']?\s*\?*\s*$", re.I)
 _BARE = re.compile(r"^\s*(?:(?:and|but|so|ok|okay)[, ]+)?(why|when|where|who|how come|how many|how much|how|since when)\s*[?.!]*\s*$", re.I)
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 
@@ -2039,7 +2049,19 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
             resolved = text[: ordinal.start()] + f"“{name}”" + text[ordinal.end():]
             return FollowOn(resolved, previous, "", "ordinal")
         return None
-    bare = _BARE.match(text)
+    meant = _MEANT.match(text)
+    if meant:
+        word = meant.group(1).strip()
+        tokens = re.findall(r"[\w']+", previous)
+        candidates = [t for t in tokens if t.lower() != word.lower() and len(t) >= 2]
+        if not candidates:
+            return None
+        typed = min(candidates, key=lambda t: question_noise.distance(t, word))
+        if question_noise.distance(typed, word) > max(1.0, question_noise.allowance(word) + 0.5):
+            return None
+        resolved = re.sub(rf"\b{re.escape(typed)}\b", word, previous, count=1)
+        return FollowOn(resolved, previous, "", "did_you_mean")
+    bare = _BARE.match(text) or _BARE.match(rephrase(text))
     if bare:
         subject = _asked_span(previous, subject_terms(previous))
         if subject:
@@ -2052,7 +2074,7 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
             resolved = " ".join(w for w in (word.capitalize(), verb, subject) if w) + "?"
             return FollowOn(resolved, previous, "", "bare")
         return None
-    swap = _SWAP.match(text)
+    swap = _SWAP.match(text) or _SWAP.match(rephrase(text))
     if swap:
         other = (swap.group("x") or swap.group("y") or "").strip()
         terms = subject_terms(previous)
@@ -2178,7 +2200,7 @@ def _clarify(out: _Answer, shape: str, terms: list[str], lead: Sentence, meaning
     out.t("para", "clarify_a").name(out.views[lead.note_id]).t("clarify_or").name(out.views[rivals[0].note_id]).t("qmark")
 
 
-def _fit_terms(terms: list[str], views: list[NoteView]) -> list[str]:
+def _fit_terms(terms: list[str], views: list[NoteView], report: list | None = None) -> list[str]:
     """The question's words, each one no note holds put right against the
     notes' own words ("lisbn" is "lisbon" when a note says Lisbon): one
     edit for a short word, two for a long one, and only to a single nearest
@@ -2201,7 +2223,14 @@ def _fit_terms(terms: list[str], views: list[NoteView]) -> list[str]:
             if word[:1] == stem[:1] and len(word) >= max(4, len(stem)) and len(word) - len(stem) <= allowed
         )
         best = [word for d, word in near if near and d <= near[0][0] + 0.1]
-        fitted.append(best[0] if near and near[0][0] <= allowed and len(best) == 1 else term)
+        chosen = best[0] if near and near[0][0] <= allowed and len(best) == 1 else term
+        fitted.append(chosen)
+        if chosen != term and report is not None:
+            #: A second note word nearly as near makes the reading unsure:
+            #: "Did you mean “hostel”?" is offered beside the answer.
+            others = [w for d, w in near if w != chosen and d <= allowed and d - near[0][0] <= question_noise.UNSURE_GAP]
+            if others:
+                report.append({"typed": term, "chosen": chosen, "alternative": others[0]})
     return fitted
 
 
@@ -2249,6 +2278,16 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Ha. What next?",
         "Good to hear. Ask whenever you like.",
     ),
+    "reaction": (
+        "I know. Anything you want to look up about it?",
+        "Quite something. What next?",
+        "Fair reaction. Want me to find anything else?",
+    ),
+    "confused": (
+        "Sorry, that was not clear. Ask it another way, or say “tell me more” for the rest of what I found.",
+        "Let me try again: put it in other words, or name the note you mean.",
+        "My answer may have missed. Which part should I look at again?",
+    ),
     "ack": (
         "Good. Anything else?",
         "All right. What next?",
@@ -2277,25 +2316,64 @@ _SOCIAL_KIND = (
 )
 
 
-def social(message: str, intent: str = "smalltalk", previous: str = "") -> str:
-    """The app's reply to small talk with no model running: warm, short, and
-    never the reply the turn before gave."""
-    kind = "about_app" if intent == "about_app" else question_noise.social_kind(message) or next(
+#: The kinds of turn after which the reply may offer the next step on what
+#: was being talked about ("Say “tell me more” for more on “sync rewrite”.").
+_NEXT_STEP_KINDS = ("ack", "thanks", "laugh", "reaction")
+NEXT_STEPS = (
+    "Say “tell me more” for more on “{subject}”.",
+    "I can say more about “{subject}” if you like.",
+    "Want the latest on “{subject}” next?",
+)
+
+
+def social_kind(message: str, intent: str = "smalltalk") -> str:
+    """The kind of conversational turn `message` is: one of `SOCIAL`."""
+    if intent == "about_app":
+        return "about_app"
+    return question_noise.social_kind(message) or next(
         (name for name, pattern in _SOCIAL_KIND if pattern.search(message or "")), "ack"
     )
-    options = [line for line in SOCIAL[kind] if line != (previous or "").strip()] or list(SOCIAL[kind])
-    return _pick(message or "", f"social:{kind}", options)
 
 
-def _nothing(shape: str) -> dict:
+def social(message: str, intent: str = "smalltalk", previous: str = "", last_question: str = "") -> str:
+    """The app's reply to a conversational turn with no model running (INBOX
+    741: "any and all conversational messages"): warm, short, of the turn's
+    kind, never the reply the turn before gave, and after an acknowledgement
+    or thanks, a next step on what was being talked about."""
+    kind = social_kind(message, intent)
+    before = (previous or "").strip()
+    options = [line for line in SOCIAL[kind] if not before.startswith(line)] or list(SOCIAL[kind])
+    #: Salted by the turn before as well as the message, so "ok" after "ok"
+    #: lands on another line.
+    line = _pick(f"{message}|{before[:40]}", f"social:{kind}", options)
+    subject = _asked_span(last_question, subject_terms(last_question)) if last_question else ""
+    if kind in _NEXT_STEP_KINDS and subject and len(subject) <= 40:
+        #: Never two questions back to back: after a line that asks, the
+        #: next step is said, not asked.
+        steps = [n for n in NEXT_STEPS if not (line.endswith("?") and n.endswith("?"))]
+        step = _pick(f"{message}|{subject}", "social:next", steps).format(subject=subject)
+        line = f"{line} {step}"
+    return line
+
+
+def _did_you_mean(unsure: list[dict]) -> list[list[tuple]]:
+    """One "Did you mean “how”?" chip for the first unsure reading: pressing
+    it asks the question again with that word (`follow_on`)."""
+    if not unsure:
+        return []
+    return [[("template", PHRASES["did_you_mean_a"]), ("corrected", unsure[0]["alternative"]), ("template", PHRASES["did_you_mean_b"])]]
+
+
+def _nothing(shape: str, unsure: list[dict] | None = None) -> dict:
+    chips = _did_you_mean(unsure or [])
     return {
         "text": PHRASES["nothing"],
         "grounding": [],
         "support": grounding.support("", []),
         "shape": shape,
         "parts": [("template", PHRASES["nothing"])],
-        "next": [],
-        "next_parts": [],
+        "next": ["".join(part[1] for part in chip) for chip in chips],
+        "next_parts": chips,
     }
 
 
@@ -2334,7 +2412,9 @@ def compose(
     out.previous = (previous or "").lstrip()
     shape = "recent" if recent else classify(question, embed)
     typed = subject_terms(question) if shape != "recent" else []
-    terms = _fit_terms(typed, views_list)
+    unsure: list[dict] = []
+    question_noise.repair(" ".join((question or "").split()), unsure)
+    terms = _fit_terms(typed, views_list, unsure)
     out.question = question
 
     def meaning_for(side_terms: list[str]) -> _Meaning:
@@ -2358,7 +2438,7 @@ def compose(
                 said=said,
             )
             if not chosen:
-                return _nothing(shape)
+                return _nothing(shape, unsure)
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
                 broad = False
@@ -2371,10 +2451,10 @@ def compose(
                 _clarify(out, shape, terms, lead, meaning, views_list)
             _missing(out, terms, views_list)
     if not out.rows:
-        return _nothing(shape)
+        return _nothing(shape, unsure)
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
-    next_parts = _next_questions(question, shape, terms, views_list, cited)
+    next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]
     return {
         "text": out.text,
         "grounding": out.rows,

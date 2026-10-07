@@ -117,7 +117,7 @@ SOCIAL: dict[str, str] = {
     "hahaha": "laugh", "hehe": "laugh", "xd": "laugh", "lolz": "laugh", "lolol": "laugh",
     "np": "ack", "nw": "ack", "yw": "ack", "gg": "ack", "k": "ack", "kk": "ack", "ok": "ack",
     "okk": "ack", "okie": "ack", "oki": "ack", "okay": "ack", "cool": "ack", "nice": "ack",
-    "ikr": "ack", "omg": "ack", "wow": "ack", "yep": "ack", "yup": "ack", "yeah": "ack",
+    "ikr": "ack", "omg": "reaction", "wow": "reaction", "yep": "ack", "yup": "ack", "yeah": "ack",
     "yea": "ack", "nah": "ack", "nope": "ack", "jk": "ack", "nvm": "ack", "fair": "ack",
     "gm": "morning", "gn": "bye", "gnight": "bye", "brb": "bye", "cya": "bye", "ttyl": "bye",
     "bye": "bye", "byee": "bye", "later": "bye", "hiya": "greeting", "hi": "greeting",
@@ -149,16 +149,70 @@ def strip_symbols(text: str) -> str:
     return " ".join(text.split())
 
 
+#: Conversational turns of more than one word, read whole (INBOX 741, the
+#: owner: "k is also ok", "right ok", "alright. any and all conversational
+#: messages"). Longest first, so "wait what" is confusion before "what" is
+#: anything at all.
+SOCIAL_PHRASES: dict[str, str] = {
+    "got it": "ack", "makes sense": "ack", "that makes sense": "ack", "sounds good": "ack",
+    "right ok": "ack", "ok right": "ack", "fair enough": "ack", "all good": "ack", "no worries": "ack",
+    "never mind": "ack", "fair point": "ack", "good to know": "ack", "i see": "ack", "ah i see": "ack",
+    "oh ok": "ack", "oh okay": "ack", "ok cool": "ack", "cool cool": "ack", "will do": "ack",
+    "that works": "ack", "perfect thanks": "thanks", "thank you": "thanks", "thanks a lot": "thanks",
+    "appreciate it": "thanks", "much appreciated": "thanks", "thanks so much": "thanks",
+    "good morning": "morning", "morning all": "morning", "good afternoon": "greeting",
+    "good evening": "greeting", "good night": "bye", "see you": "bye", "see ya": "bye",
+    "talk later": "bye", "talk to you later": "bye", "catch you later": "bye", "im off": "bye",
+    "how are you": "how", "how r u": "how", "how are u": "how", "how r you": "how", "hows it going": "how",
+    "how is it going": "how", "how's it going": "how", "whats up": "how", "what's up": "how",
+    "what is up": "how", "how you doing": "how", "how are things": "how", "you good": "how",
+    "what are you doing": "how", "what you up to": "how", "what are you up to": "how",
+    "my bad": "sorry", "my mistake": "sorry", "sorry about that": "sorry",
+    "wait what": "confused", "come again": "confused", "say again": "confused", "sorry what": "confused",
+    "i dont get it": "confused", "i don't get it": "confused", "i dont understand": "confused",
+    "i don't understand": "confused", "what do you mean": "confused", "what does that mean": "confused",
+    "not sure what you mean": "confused", "that doesnt make sense": "confused",
+    "that doesn't make sense": "confused", "no idea what that means": "confused",
+    "oh no": "reaction", "oh wow": "reaction", "no way": "reaction", "thats great": "reaction",
+    "that's great": "reaction", "nice one": "thanks", "well done": "reaction", "oh dear": "reaction",
+    "who are you": "who", "whats your name": "who", "what's your name": "who",
+}
+
+#: One-word turns that are not in `SOCIAL` above: reactions and confusion.
+SOCIAL.update({
+    "okey": "ack", "alright": "ack", "aight": "ack", "ight": "ack", "right": "ack", "sure": "ack",
+    "gotcha": "ack", "word": "ack", "bet": "ack", "noted": "ack", "understood": "ack", "great": "ack",
+    "awesome": "ack", "perfect": "ack", "sweet": "ack", "lovely": "ack", "fine": "ack", "agreed": "ack",
+    "true": "ack", "same": "ack", "yes": "ack", "no": "ack", "yeh": "ack", "ya": "ack", "mhm": "ack",
+    "damn": "reaction", "oof": "reaction", "rip": "reaction", "yikes": "reaction", "whoa": "reaction",
+    "woah": "reaction", "ugh": "reaction", "wild": "reaction", "crazy": "reaction", "dang": "reaction",
+    "huh": "confused", "wym": "confused", "wdym": "confused", "eh": "confused", "hm": "confused",
+    "hmm": "confused", "hmmm": "confused", "what": "confused", "confused": "confused",
+    "wyd": "how", "morning": "morning", "evening": "greeting", "night": "bye", "goodbye": "bye",
+    "apologies": "sorry", "oops": "sorry", "appreciated": "thanks", "thankyou": "thanks",
+})
+
+
 def social_kind(message: str) -> str | None:
-    """The kind of small talk a message is when every word of it is small
-    talk ("ty", "lol", "ok thx", "haha nice"), else None."""
+    """The kind of conversational turn a message is when every part of it is
+    one ("ty", "lol", "ok thx", "right ok", "wait what", "how r u", an emoji
+    alone), else None: a turn with a question in it is a question."""
     raw = (message or "").strip()
     if raw and not strip_symbols(raw):
-        return "ack"
-    words = [w for w in re.split(r"[^\w']+", strip_symbols(raw).lower()) if w and w not in _SOCIAL_FILLER]
-    if not words:
+        return "reaction" if re.search(r"[\U0001F600-\U0001F64F]", raw) else "ack"
+    text = strip_symbols(raw).lower()
+    if re.fullmatch(r"[?\s]+", text):
+        return "confused"
+    text = " ".join(re.split(r"[^\w']+", text)).strip()
+    kinds: list[str] = []
+    for phrase in sorted(SOCIAL_PHRASES, key=len, reverse=True):
+        pattern = rf"(?:^|\s){re.escape(phrase)}(?=\s|$)"
+        if re.search(pattern, text):
+            kinds.append(SOCIAL_PHRASES[phrase])
+            text = re.sub(pattern, " ", text)
+    words = [w for w in text.split() if w and w not in _SOCIAL_FILLER]
+    if not words and not kinds:
         return None
-    kinds = []
     for word in words:
         if _LAUGH.match(word):
             kinds.append("laugh")
@@ -166,8 +220,8 @@ def social_kind(message: str) -> str | None:
             kinds.append(SOCIAL[word])
         else:
             return None
-    #: "ok thanks" is thanks; "lol ok" is laughter: the most telling word.
-    for kind in ("thanks", "sorry", "bye", "morning", "greeting", "how", "laugh"):
+    #: "ok thanks" is thanks; "lol ok" is laughter: the most telling part.
+    for kind in ("confused", "thanks", "sorry", "bye", "morning", "greeting", "how", "who", "reaction", "laugh"):
         if kind in kinds:
             return kind
     return "ack"
@@ -280,6 +334,9 @@ def allowance(word: str) -> float:
     return 2.0
 
 
+_HOW_NEXT = frozenset("many much often long do does did to come can should far old big".split())
+
+
 def nearest(word: str, vocabulary, after: str = "") -> str | None:  # noqa: ANN001
     """The one vocabulary word `word` is a typo of, or None: within its
     allowance, and nearer than any other by a clear margin (a tie is a
@@ -296,9 +353,32 @@ def nearest(word: str, vocabulary, after: str = "") -> str | None:  # noqa: ANN0
         return None
     best = [v for d, v in scored if d <= scored[0][0] + 0.1]
     if set(best) == {"how", "who"}:
-        how = after.lower() in ("many", "much", "often", "long", "do", "does", "did", "to", "come", "is", "are", "was", "can", "should")
+        how = after.lower() in _HOW_NEXT
         return "how" if how else "who"
     return best[0] if len(best) == 1 else None
+
+
+#: How near a second reading must come to the chosen one, or how far the
+#: chosen one may sit within its allowance, before the reading is unsure and
+#: a "Did you mean ...?" offers the other (INBOX 741, the owner: "composer
+#: could have clean fallback with did you mean to substitute??").
+UNSURE_GAP = 0.35
+UNSURE_SHARE = 0.75
+
+
+def alternative(word: str, chosen: str, vocabulary) -> str | None:  # noqa: ANN001
+    """The other word `word` could have meant when the reading as `chosen`
+    is unsure, else None."""
+    low = word.lower()
+    limit = allowance(low)
+    if not limit:
+        return None
+    mine = distance(low, chosen)
+    others = sorted((distance(low, v), v) for v in vocabulary if v != chosen and abs(len(v) - len(low)) <= 2)
+    near = [v for d, v in others if d <= limit and d - mine <= UNSURE_GAP]
+    if near:
+        return near[0]
+    return None
 
 
 def _split(word: str) -> str | None:
@@ -314,9 +394,10 @@ def _split(word: str) -> str | None:
     return None
 
 
-def repair(text: str) -> str:
+def repair(text: str, report: list | None = None) -> str:
     """Slang spelled out, asking words put right, run-together words split
-    and split words joined. The subject's words are left as typed."""
+    and split words joined. The subject's words are left as typed. An unsure
+    repair is added to `report` as {"typed", "chosen", "alternative"}."""
     tokens = strip_symbols(text).split(" ")
     out: list[str] = []
     i = 0
@@ -342,8 +423,17 @@ def repair(text: str) -> str:
             #: Past the opening words only the long words that name a kind
             #: of question are repaired ("diffrence", "lastest"): a subject
             #: word near a small word ("slow", "show") is the subject.
+            pool = ASKING
             if not fixed and len(low) >= 6:
-                fixed = nearest(low, KIND_WORDS, after)
+                fixed, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
+            if fixed and report is not None:
+                other = alternative(low, fixed, pool)
+                #: "hwo many" is how and "hwo asked" is who: the next word
+                #: settles it, and nothing is offered.
+                if {fixed, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
+                    other = None
+                if other:
+                    report.append({"typed": word, "chosen": fixed, "alternative": other})
             out.append((fixed + tail) if fixed else token)
         i += 1
     return " ".join(w for w in out if w)

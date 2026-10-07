@@ -27,3 +27,14 @@ then merge.
    dark, 1440 and 390: the Did you mean chip and the clarifying question.
 3. The noisy-question set's coverage (owner: "any and ALL typos ... all
    slang"): what is still missed, from the eval.
+
+## Next: the Guide through the composer (tried 2026-10-07, not shipped)
+`help_chat.offline_answer` pastes whole topic paragraphs with no model. Feeding
+`topics_for(question)` to `composer.compose` as notes (content
+`"# <Topic>\n" + body`) picks the answering sentences and handles typos
+("remindr", "tmrw", "wat"), but the composer speaks in the notes' voice:
+"Here is what you wrote:", "From your notes:", "(one of your notes)", and
+follow-ups like "When did I write about lock?". Needs a `voice="help"`
+register in composer.py (lead-ins, citations and follow-ups about the app,
+not the person's writing) before `offline_answer` uses it. Do it after
+`wip/composer-vocab` is merged (same file).

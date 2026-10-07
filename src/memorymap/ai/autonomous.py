@@ -597,6 +597,10 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
 
         if changes:
             detail = f"{detail} Changed {len(changes)} thing(s)."
+        elif outcome == "completed":
+            #: "Finished analysing and linking notes." with nothing changed read
+            #: as work done (the owner, 2026-10-07: "what did it do tho??").
+            detail = "Looked over your notes and found nothing to change."
         _remember_pass(outcome, changes)
         if outcome == "failed":
             run.fail(detail)

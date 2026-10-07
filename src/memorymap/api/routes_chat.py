@@ -2583,11 +2583,13 @@ def execute_confirmed_tool(
     if body.name not in tools.TOOLS:
         raise HTTPException(status_code=404, detail=f"There is no tool called '{body.name}'.")
     result = tools.execute_tool(session, body.name, body.arguments)
-    #: Inline, not `_refuse_failed`: CodeQL reads the check in place as the
-    #: barrier between a tool's error text and the response (#552).
     if "error" in result:
         _refuse_failed(body.name, result)
-    return {key: value for key, value in result.items() if key != "error"}
+    #: Named fields only, never the whole result: a tool's result can carry
+    #: text written for the model, and CodeQL (#552, #553) follows any
+    #: whole-result return to the exception text. The Confirm card reads
+    #: `label`; `undo` lets a confirmed change be taken back.
+    return {"label": str(result.get("label") or ""), "undo": result.get("undo")}
 
 
 def _refuse_failed(name: str, result: dict) -> None:

@@ -2918,7 +2918,7 @@ button:not(.ghost) > .spinner {
 }
 
 .exports-name {
-  flex: 1 1 0;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2931,7 +2931,7 @@ button:not(.ghost) > .spinner {
 }
 
 .import-dir-path-input {
-  flex: 1 1 0;
+  flex: 1;
 }
 
 .account-idle-ttl-select {
@@ -5007,7 +5007,7 @@ html.modal-open body {
    and wrapped the button onto its own line for the sake of a span with
    nothing in it. A zero basis lets it take only what is left over. */
 .dashboard-persona-row .status {
-  flex: 1 1 0;
+  flex: 1;
   min-width: 0;
 }
 
@@ -6522,7 +6522,7 @@ select {
 }
 
 .model-card-name {
-  flex: 1 1 0;
+  flex: 1;
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;

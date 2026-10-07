@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Note edit form: a tag chip's name and its × sit centred on one line.
 - Documents: Suggest changes is hidden on code and plain-text files, where it cannot work, and says why instead of switching itself back off. Note edit form: the category chip and the tags are one height on one line.
 - Settings, Installed models: a card with no main button carries its ⋯ in the top-right corner beside the name, instead of alone at the bottom under an empty gap.
 - Packages: a stopped install leaves nothing behind. What it had installed so far (torch can be 2 GB) is removed, pip's temporary folder is deleted, and installs keep no download cache.

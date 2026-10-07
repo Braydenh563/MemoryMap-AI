@@ -976,9 +976,7 @@ header#top-bar select,
   overflow-wrap: anywhere;
 }
 
-/* A running job's Stop is always shown (the owner, 2026-10-06): the list is
-   an `.entry-list`, whose note-card rule hid row actions until hover, and a
-   control that stops something should not have to be found. */
+/* Stop is always shown, not on hover like a note card's actions. */
 #task-list li .entry-actions {
   opacity: 1;
 }

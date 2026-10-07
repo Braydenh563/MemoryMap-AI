@@ -12,6 +12,8 @@ it writes (`/chat/stream`'s `composed_preview`).
 
 from __future__ import annotations
 
+import re
+
 import json
 
 import pytest
@@ -94,10 +96,13 @@ def test_every_part_of_the_brief_is_the_notes_own_words(rows):
             if not new.get("briefed"):
                 continue
             flat = _flat(old["content"])
+            #: A checklist's items are read without their "- [x]" marks (the
+            #: words are still the note's own), so compare against that too.
+            unticked = _flat(re.sub(r"(?m)^\s*[-*+]\s+\[[ xX]\]\s+", "", old["content"]))
             for part in new["content"].split(" … "):
                 part = part.strip(" …").removeprefix(composer.read_note(old, 0).title).strip()
                 if part:
-                    assert part in flat or _flat(part) in flat, (row["question"], part)
+                    assert part in flat or _flat(part) in flat or _flat(part) in unticked, (row["question"], part)
 
 
 def test_the_brief_holds_everything_the_composed_answer_quotes(rows):

@@ -205,6 +205,12 @@ PHRASES: dict[str, str] = {
     "another_note": "On another note",
     "later_on": "Later, on ",
     "then_on": "Then on ",
+    "earlier_on": "Earlier, on ",
+    "and_on": "And on ",
+    "latest_c": "As of ",
+    "in_cap": "In ",
+    "you_listed": " you listed ",
+    "across_found": "Across the notes found, ",
     "before_that": "Before that, on ",
     "echo": " (Your notes say this ",
     "echo_end": " times.)",
@@ -302,7 +308,7 @@ _ASKING_WORDS = frozenset(
     something stuff info information details please thanks thank check
     find look show help kind sort bit quick quickly briefly short detail
     detailed full whole remind possible maybe okay ok hey hi
-    whereabouts address place put""".split()
+    whereabouts address place put decide decided conclude concluded""".split()
 )
 
 #: The wrappers a casual or indirect question comes in, taken off before its
@@ -323,7 +329,11 @@ _WRAPPERS = (
     re.compile(r"^(?:remind me|tell me|show me|let me know)\s+(?=(?:what|when|who|where|why|how|which|if|whether)\b)", re.I),
     re.compile(r"^(?:remind me)\s+(?:of|about)\s+", re.I),
     re.compile(r"^please\s+", re.I),
+    re.compile(r"^(?:in short|in brief|briefly|quickly|quick one|tl;?dr|in a word|in detail)\b[,:]?\s+", re.I),
 )
+#: "dentist when?", "spare key where": the question word typed last.
+_LAST_WORD = re.compile(r"^(?P<rest>[^?]+?)[,\s]+(?P<q>when|where|who|why|how many|how much|how long|how often)\s*(?P<p>\?*)$", re.I)
+_ASKS_FIRST = re.compile(r"^(?:what|when|where|who|whom|whose|why|how|which|is|are|do|does|did|can|could|should|will|would|was|were|has|have|had|am|if|whether|compare|list|name|tell|explain)\b", re.I)
 _TRAILERS = re.compile(r"(?:[,\s]+(?:please|thanks|thank you|again|for me|real quick|quickly|by any chance))+\s*([?.!]*)\s*$", re.I)
 #: "whats", "how's" and the rest, spelled out so the shape rules read them.
 _CONTRACTIONS = (
@@ -430,7 +440,7 @@ def _respell(text: str) -> str:
         if low in TEXT_SPEAK:
             out.append(TEXT_SPEAK[low] + tail)
             continue
-        if i == 0 and low in _SPEAK_LEAD:
+        if (i == 0 or (i == 1 and out and out[0].lower() in QUESTION_WORDS)) and low in _SPEAK_LEAD:
             out.append(_SPEAK_LEAD[low] + tail)
             continue
         #: A question word is looked for where one goes: the opening words,
@@ -459,6 +469,9 @@ def rephrase(question: str) -> str:
             text = pattern.sub(spelled, text)
         if text == before:
             break
+    last = _LAST_WORD.match(text)
+    if last and not _ASKS_FIRST.match(text):
+        text = f"{last.group('q')} {last.group('rest')}{last.group('p')}"
     return text or _respell(" ".join((question or "").split()))
 
 
@@ -601,7 +614,7 @@ _COMPARE_SIDES = (
 def compare_sides(question: str) -> tuple[str, str] | None:
     """The two things a comparison names, as typed: ("Lisbon", "Porto")."""
     for pattern in _COMPARE_SIDES:
-        match = pattern.search((question or "").strip())
+        match = pattern.search(rephrase(question))
         if match:
             a, b = match.group("a").strip(" ,"), match.group("b").strip(" ,")
             if subject_terms(a) and subject_terms(b):
@@ -926,6 +939,12 @@ def _score(shape: str, terms: list[str], views: list[NoteView]) -> list[Sentence
             s.score = 0.0
             continue
         s.score = relevance + _cue(shape, s.text) + 0.4 / (1 + s.rank)
+        #: A sentence that only names the subject ("Store listing copy", a
+        #: task on someone's checklist) says nothing about it: measured on
+        #: the voice eval, it led "what did I decide about the store
+        #: listing" over the note called "Store listing".
+        if len(stems) >= 2 and len([w for w in s.words if w not in stems]) <= 1:
+            s.score *= 0.5
         if shape == "status":
             s.score += recency.get(s.note_id, 0.0)
         if view.note.get("connected"):
@@ -1416,7 +1435,11 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
                 out.t("line")
             out.item(s, terms)
         return
-    if lead == "opening":
+    if lead == "opening" and _unlike_before(out, ["your_note_cap", "in_cap"])[0] == "in_cap":
+        #: "In **Reading list** you listed four: ...", after a turn that
+        #: opened "Your note ...".
+        out.t("in_cap").name(view).t("you_listed")
+    elif lead == "opening":
         if view.titled:
             out.t("your_note_cap", "space")
         out.name(view, cap=True).t("lists")
@@ -1438,6 +1461,13 @@ _OPENERS = (
     "open_notes", "open_wrote", "open_put", "open_figure", "open_date", "open_where",
     "closest_a", "closest_b", "going_by", "notes_have", "wrote_on_a",
 )
+
+
+def _unlike_before(out: _Answer, keys: list[str]) -> list[str]:
+    """`keys` less any the turn before opened with, in their order; all of
+    them when every one did."""
+    fresh = [k for k in keys if not out.previous.startswith(PHRASES[k].strip() or PHRASES[k])]
+    return fresh or keys
 
 
 def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
@@ -1669,7 +1699,7 @@ def _earlier(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None:
         out.t("para")
         unit = sorted((s for s in sentences if s.note_id == note_id), key=lambda s: s.order)
         if view.written:
-            _joined(out, ["before_that" if i == 0 else "then_on"], unit, terms, view.written)
+            _joined(out, [("before_that", "then_on", "earlier_on")[i] if i < 3 else "and_on"], unit, terms, view.written)
         else:
             _quotes(out, unit, terms)
         out.cite(view)
@@ -1756,7 +1786,7 @@ def _compare(out: _Answer, sides: tuple[str, str], views: list[NoteView], meanin
     if not (a_only or b_only):
         return False
     counts = [len({s.note_id for s in picks}) for picks in (a_only, b_only)]
-    out.t("of_found")
+    out.t(_unlike_before(out, ["of_found", "across_found"])[0])
     for i, (label, n) in enumerate(zip(sides, counts)):
         if i:
             out.t("and")
@@ -1886,7 +1916,7 @@ def _body(
         view = out.views[lead.note_id]
         same = sorted(_with_context(out, [s for s in ordered if s.note_id == lead.note_id and s.kind == "prose"]), key=lambda s: s.order)
         if view.written:
-            key = _pick(question, "lead", ["latest_a", "latest_b"])
+            key = _pick(question, "lead", _unlike_before(out, ["latest_a", "latest_b", "latest_c"]))
             _joined(out, [key], same or [lead], terms, view.written, colon=key == "latest_b")
         else:
             out.t("latest_undated")

@@ -1,0 +1,553 @@
+{
+ "today": "2026-10-06",
+ "untitled": [
+  {
+   "id": 101,
+   "days_ago": 3,
+   "content": "dentist moved to thurs 23rd at 4pm, bring the insurance card"
+  },
+  {
+   "id": 102,
+   "days_ago": 5,
+   "content": "called mum, she wants to come over for sunday lunch. need to buy chicken and potatoes"
+  },
+  {
+   "id": 103,
+   "days_ago": 20,
+   "content": "car mot due end of november. the garage on king st said 45 for it"
+  },
+  {
+   "id": 104,
+   "days_ago": 12,
+   "content": "remember jake's birthday is 12 nov, he likes those craft beers from the market"
+  },
+  {
+   "id": 105,
+   "days_ago": 40,
+   "content": "spare key is under the blue plant pot by the back door"
+  },
+  {
+   "id": 106,
+   "days_ago": 30,
+   "content": "wifi password for the cabin is pinecone42, the router is in the hall cupboard"
+  },
+  {
+   "id": 107,
+   "days_ago": 2,
+   "content": "gym: did 3x5 squats at 60kg, knee felt fine after"
+  },
+  {
+   "id": 108,
+   "days_ago": 9,
+   "content": "book club pick for december is The Remains of the Day"
+  },
+  {
+   "id": 109,
+   "days_ago": 6,
+   "content": "electric bill was 84 this month, way up from 61 in august"
+  },
+  {
+   "id": 110,
+   "days_ago": 25,
+   "content": "idea: an app that reminds you to water plants based on the weather forecast"
+  },
+  {
+   "id": 111,
+   "days_ago": 15,
+   "content": "parking at the station costs 6 a day, the long stay car park is cheaper"
+  },
+  {
+   "id": 112,
+   "days_ago": 1,
+   "content": "sam said the project deadline slipped to the 30th"
+  },
+  {
+   "id": 113,
+   "days_ago": 8,
+   "content": "i think the project deadline is still the 23rd, need to check with sam"
+  },
+  {
+   "id": 114,
+   "days_ago": 18,
+   "content": "lisbon hotel booked, the room has a balcony. deposit paid, the rest is due on arrival"
+  },
+  {
+   "id": 115,
+   "days_ago": 4,
+   "content": "vet appointment for biscuit on friday at 10, she needs her booster"
+  }
+ ],
+ "questions": [
+  {
+   "category": "untitled",
+   "question": "when is the dentist",
+   "expect": "when",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "wat time is the dentist",
+   "expect": "when",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "where is the spare key",
+   "expect": "where",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "whats the wifi password for the cabin",
+   "expect": "what",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "how much was the electric bill",
+   "expect": "count",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "when is jakes birthday",
+   "expect": "when",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "what does mum want",
+   "expect": "what",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "is the lisbon hotel deposit paid",
+   "expect": "yesno",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "what did sam say about the deadline",
+   "expect": "what",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "when is the project deadline",
+   "expect": "when",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "how much is parking at the station",
+   "expect": "count",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "what is the book club reading in december",
+   "expect": "what",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "when is the mot due",
+   "expect": "when",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "how did the squats go",
+   "expect": "explain",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "any idea when biscuit's vet appointment is",
+   "expect": "when",
+   "notebook": "untitled"
+  },
+  {
+   "category": "untitled",
+   "question": "remind me about that plant watering idea",
+   "expect": "what",
+   "notebook": "untitled"
+  },
+  {
+   "category": "casual",
+   "question": "hey can you remind me when the dentist check-up is",
+   "expect": "when"
+  },
+  {
+   "category": "casual",
+   "question": "any idea how many beta testers are active?",
+   "expect": "count"
+  },
+  {
+   "category": "casual",
+   "question": "hows the sync rewrite going",
+   "expect": "status"
+  },
+  {
+   "category": "casual",
+   "question": "any news on the onboarding rewrite?",
+   "expect": "status"
+  },
+  {
+   "category": "casual",
+   "question": "whats the deal with the pricing page",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "i forgot what the launch risks were",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "do you know who asked for a public api",
+   "expect": "who"
+  },
+  {
+   "category": "casual",
+   "question": "could you tell me what to pack for portugal please",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "is there anything about the boiler",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "how many notes mention sourdough",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "catch me up on the half marathon",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "so what did i decide about the store listing",
+   "expect": "what"
+  },
+  {
+   "category": "casual",
+   "question": "dentist when?",
+   "expect": "when"
+  },
+  {
+   "category": "casual",
+   "question": "spare key where",
+   "expect": "where"
+  },
+  {
+   "category": "typo",
+   "question": "whn is the launch",
+   "expect": "when"
+  },
+  {
+   "category": "typo",
+   "question": "hw many tickets are in the support backlog",
+   "expect": "count"
+  },
+  {
+   "category": "typo",
+   "question": "wat did i say abt lisbon",
+   "expect": "what"
+  },
+  {
+   "category": "typo",
+   "question": "y did the list feel slow",
+   "expect": "explain"
+  },
+  {
+   "category": "typo",
+   "question": "wher should we stay in lisbon",
+   "expect": "where"
+  },
+  {
+   "category": "typo",
+   "question": "whats the lastest on the sync rewrite",
+   "expect": "status"
+  },
+  {
+   "category": "typo",
+   "question": "compre lisbon and porto",
+   "expect": "compare"
+  },
+  {
+   "category": "typo",
+   "question": "hwo asked for a public api",
+   "expect": "who"
+  },
+  {
+   "category": "typo",
+   "question": "how mny weeks is the half marathon plan",
+   "expect": "count"
+  },
+  {
+   "category": "typo",
+   "question": "wen is the boiler service due",
+   "expect": "when"
+  },
+  {
+   "category": "typo",
+   "question": "is ur pricing page signed off",
+   "expect": "yesno"
+  },
+  {
+   "category": "typo",
+   "question": "wht should i eat in lisbon",
+   "expect": "what"
+  },
+  {
+   "category": "typo",
+   "question": "how lng is the train from lisbon to porto",
+   "expect": "count"
+  },
+  {
+   "category": "typo",
+   "question": "diffrence between the sourdough log and the starter feeding",
+   "expect": "compare"
+  },
+  {
+   "category": "typo",
+   "question": "hw do i sharpen my knife",
+   "expect": "explain"
+  },
+  {
+   "category": "typo",
+   "question": "y does easy pace matter",
+   "expect": "explain"
+  },
+  {
+   "category": "typo",
+   "question": "remind me abt the photo spots",
+   "expect": "what"
+  },
+  {
+   "category": "typo",
+   "question": "wat r the launch risks",
+   "expect": "list"
+  },
+  {
+   "category": "typo",
+   "question": "whn do train tickets open",
+   "expect": "when"
+  },
+  {
+   "category": "typo",
+   "question": "hw often do i feed the starter",
+   "expect": "count"
+  },
+  {
+   "category": "typo",
+   "question": "wher does the fiddle leaf go",
+   "expect": "where"
+  },
+  {
+   "category": "typo",
+   "question": "whos the designer we are hiring",
+   "expect": "who"
+  },
+  {
+   "category": "typo",
+   "question": "explian why the list was slow",
+   "expect": "explain"
+  },
+  {
+   "category": "typo",
+   "question": "waht is the lastest on harbor",
+   "expect": "status"
+  },
+  {
+   "category": "typo",
+   "question": "how mch is the trip budget",
+   "expect": "count"
+  },
+  {
+   "category": "typo",
+   "question": "hey wat did i write abt the garden",
+   "expect": "what"
+  },
+  {
+   "category": "typo",
+   "question": "whn is bin day",
+   "expect": "when"
+  },
+  {
+   "category": "kinds",
+   "question": "Why did the sync rewrite need a new conflict rule?",
+   "expect": "explain"
+  },
+  {
+   "category": "kinds",
+   "question": "How should I fuel on long runs?",
+   "expect": "explain"
+  },
+  {
+   "category": "kinds",
+   "question": "How often do I feed the starter?",
+   "expect": "count"
+  },
+  {
+   "category": "kinds",
+   "question": "How many screenshots does the store listing need?",
+   "expect": "count"
+  },
+  {
+   "category": "kinds",
+   "question": "Who is the support backlog waiting on?",
+   "expect": "who"
+  },
+  {
+   "category": "kinds",
+   "question": "Where should I take photos in Lisbon?",
+   "expect": "where"
+  },
+  {
+   "category": "kinds",
+   "question": "Where does the fiddle leaf go?",
+   "expect": "where"
+  },
+  {
+   "category": "kinds",
+   "question": "Is the onboarding rewrite merged?",
+   "expect": "yesno"
+  },
+  {
+   "category": "kinds",
+   "question": "Did the home insurance go up?",
+   "expect": "yesno"
+  },
+  {
+   "category": "kinds",
+   "question": "Should I repot the houseplants?",
+   "expect": "yesno"
+  },
+  {
+   "category": "kinds",
+   "question": "What is on the race day checklist?",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "Which books are on my reading list?",
+   "expect": "list"
+  },
+  {
+   "category": "kinds",
+   "question": "Compare the half marathon plan and week 4",
+   "expect": "compare"
+  },
+  {
+   "category": "kinds",
+   "question": "Lisbon vs Porto",
+   "expect": "compare"
+  },
+  {
+   "category": "kinds",
+   "question": "What is the latest on the Harbor launch?",
+   "expect": "status"
+  },
+  {
+   "category": "kinds",
+   "question": "What did I learn from The Mom Test?",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "What is the point of Four Thousand Weeks?",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "Briefly, what is the Harbor launch plan?",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "Tell me everything about the Portugal trip",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "Give me an overview of the garden",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "In short, why was the list slow?",
+   "expect": "explain"
+  },
+  {
+   "category": "kinds",
+   "question": "When is the boiler service and how do I sharpen my knife?",
+   "expect": "multi"
+  },
+  {
+   "category": "kinds",
+   "question": "What should I pack? When do train tickets open?",
+   "expect": "multi"
+  },
+  {
+   "category": "kinds",
+   "question": "How much is the trip budget and who asked for an API?",
+   "expect": "multi"
+  },
+  {
+   "category": "kinds",
+   "question": "What is in my notes about sleep?",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "What do I know about Sintra?",
+   "expect": "what"
+  },
+  {
+   "category": "kinds",
+   "question": "What happened with the support backlog?",
+   "expect": "status"
+  },
+  {
+   "category": "kinds",
+   "question": "How is the half marathon training going?",
+   "expect": "status"
+  },
+  {
+   "category": "follow",
+   "question": "what about the boiler service?",
+   "expect": "when",
+   "previous": "When is the dentist check-up?"
+  },
+  {
+   "category": "follow",
+   "question": "tell me more",
+   "expect": "count",
+   "previous": "How many beta testers are active?"
+  },
+  {
+   "category": "follow",
+   "question": "the second one",
+   "expect": "what",
+   "previous": "What do I know about sourdough?"
+  },
+  {
+   "category": "follow",
+   "question": "why?",
+   "expect": "explain",
+   "previous": "When is the boiler service due?"
+  },
+  {
+   "category": "follow",
+   "question": "and when?",
+   "expect": "when",
+   "previous": "Who asked for a public API?"
+  }
+ ]
+}

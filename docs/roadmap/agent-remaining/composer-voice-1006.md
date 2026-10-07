@@ -63,3 +63,9 @@ notes' voice ("Here is what you wrote:", "(one of your notes)", "When did I
 write about lock?"). Needs a `voice="help"` register before it is used.
 
 The settings-row sweep `scratchpad/ui-sweeps/voice1006.js` lives on `wip/composer-vocab` only (scratchpad cap): `git show origin/wip/composer-vocab:scratchpad/ui-sweeps/voice1006.js`.
+
+Owner's test case for the help voice (2026-10-07): "How do I change the
+widgets?" got the whole Dashboard paragraph. The answer is its one sentence:
+"Open Customise beside the search box: Edit layout and Widgets show, hide
+and rearrange them; the layout is remembered." A how-to question gets the
+step sentence first, the rest of the topic behind "More about the Dashboard".

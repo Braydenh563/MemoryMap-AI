@@ -155,19 +155,6 @@ with its owner named in the entry.
      "Untitled map 2", "Untitled document 4" (the next free number per kind), the
      name selected for typing over, renamed later from the title.
 
-740. **The owner, 2026-10-06, verbatim**, with an OKR board from the new templates
-     (frame titles "Objective one", hints "A goal worth the quarter") and a rotated
-     sticky note: "I cant edit the text under the titles in these objects?I rotated
-     an object int he whiteboard (a sticky note) and the arrows jsut off the middle
-     of each edge didnt rotate with it". Two bugs: the template frames' hint line
-     (INBOX 715's `hint` field) has no edit path, double-click should edit it like
-     the title; the quick-connect arrows beside each edge stay axis-aligned on a
-     rotated object, they must sit off its rotated edges.
-     Then, verbatim: "also the arrow head styles in the whiteboard have no
-     variations, not different arrow heads". Connector ends need a set of heads
-     (none, arrow, open arrow, triangle, circle, diamond, bar), per end, in the
-     connector toolbar.
-
 741. **The owner, 2026-10-06, verbatim**: "will the composer get better at writing,
      sentence structure, more variations and natural language, betetr to understand,
      more biological. more social, more engaging, better at responding and answering
@@ -246,30 +233,11 @@ with its owner named in the entry.
      (c) A note's own questions on the note (a line under it, "2 open
      questions", opening them), and the Questions list grouped by note.
 
-746. **The owner, 2026-10-07, verbatim**, with a board made from the flowchart
-     template (Start, Do the first step, Did it work?, Try again, End) after
-     dragging its shapes apart: "while dragging shapes, the arrows and lines dont
-     move with". The template's connectors (frontend/board-library/templates.json;
-     shapes carry a `key`) stayed where they were drawn: either they are created
-     as free arrows with fixed ends instead of connectors bound to the shapes'
-     keys, or the binding is lost when the template lands
-     (`/board-library/new-board`). Next PR: every template connector is bound
-     at both ends, a drag of a bound shape moves its connectors live, and a
-     test drags each built-in template's shapes and checks every connector
-     still meets its shapes. With 740 (arrows on rotated shapes).
-
-747. **The owner, 2026-10-07, verbatim**: "also in the whiteboard and mindmap,
-     there's no way to reset a object back to default style". No such action
-     exists (grep "Reset style" in whiteboard*.js finds nothing; a map topic's
-     Text, Shape and Branch panels each have their own reset arrow, INBOX 670,
-     but nothing resets the whole object). Next PR: "Reset style" on every
-     object's floating bar menu and right-click menu, and for a multi-selection:
-     colour, fill, stroke, text size and weight, shape and line style back to
-     the kind's defaults (a map topic back to following the map), content and
-     position kept, one undo step, in the command palette as a board command,
-     help text updated.
-
 ## Placed (last 20, newest first)
+
+- 2026-10-07: 740, 746, 747 (connector arrows on rotated shapes, template
+  connectors that do not follow, Reset style) placed in WHITEBOARD_PLAN.md,
+  "Placed from INBOX, 2026-10-07".
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in
   WHITEBOARD_PLAN.md and 607, 609, 610 (map from the graph, smooth

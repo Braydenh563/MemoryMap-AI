@@ -17,8 +17,19 @@ from tests import _composer_eval as ev
 # --- 1. slang -----------------------------------------------------------------
 
 
-def test_the_slang_table_holds_at_least_two_hundred_entries():
-    assert len(question_noise.SLANG) >= 200
+def test_the_slang_table_holds_at_least_four_hundred_entries():
+    assert len(question_noise.SLANG) >= 400
+
+
+@pytest.mark.parametrize(("word", "kind"), sorted((w, k) for w, k in question_noise.SOCIAL.items() if w not in ("so", "much")))
+def test_each_small_talk_word_is_read_as_its_kind(word, kind):
+    assert question_noise.social_kind(word) == kind
+
+
+@pytest.mark.parametrize(("phrase", "kind"), sorted(question_noise.SOCIAL_PHRASES.items()))
+def test_each_small_talk_phrase_is_read_as_its_kind(phrase, kind):
+    assert question_noise.social_kind(phrase) == kind
+    assert question_noise.social_kind(phrase.upper() + "!!") == kind
 
 
 @pytest.mark.parametrize(("typed", "meant"), sorted(question_noise.SLANG.items()))

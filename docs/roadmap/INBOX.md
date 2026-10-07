@@ -246,6 +246,18 @@ with its owner named in the entry.
      (c) A note's own questions on the note (a line under it, "2 open
      questions", opening them), and the Questions list grouped by note.
 
+746. **The owner, 2026-10-07, verbatim**, with a board made from the flowchart
+     template (Start, Do the first step, Did it work?, Try again, End) after
+     dragging its shapes apart: "while dragging shapes, the arrows and lines dont
+     move with". The template's connectors (frontend/board-library/templates.json;
+     shapes carry a `key`) stayed where they were drawn: either they are created
+     as free arrows with fixed ends instead of connectors bound to the shapes'
+     keys, or the binding is lost when the template lands
+     (`/board-library/new-board`). Next PR: every template connector is bound
+     at both ends, a drag of a bound shape moves its connectors live, and a
+     test drags each built-in template's shapes and checks every connector
+     still meets its shapes. With 740 (arrows on rotated shapes).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

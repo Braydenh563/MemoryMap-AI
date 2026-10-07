@@ -36,3 +36,16 @@ exit 0.
 - 80ec91e silent update reopens the app: the updater passes `/RELAUNCH=1`, a silent-only `[Run]` entry in installer.iss starts it. Not verified: no Windows here; an update from a build older than this one has no such flag, so that first update still needs a manual reopen.
 - 6b1693a start.bat reads `%~dp0`/`%~f0` and cds before `enabledelayedexpansion` (a nested setlocal; every endlocal is followed by an exit). Not verified on cmd.
 - bae18a3 both specs filter `__pycache__` from `a.datas`; not run under PyInstaller (not installed here), the filter is tested on the entry shapes.
+
+## Next PR: the installer's optional packages (the owner, 2026-10-07)
+
+Verbatim, with the 0.4.1 Setup window at "Installing the optional packages
+you picked..." under a full green bar and a greyed Cancel: "there's no
+indicator for the optional packages install and I cant minimise or close the
+window as it is doing that". Setup waits on pip (`Exec` until terminated), so
+its window cannot repaint, minimise or cancel for the minutes torch takes.
+Fix: Setup records the packages picked and finishes at once; the app installs
+them on first launch as a background task (progress, log and Stop, the
+bgprogress work of 2026-10-06; a stopped install rolls back, `extras._roll_back`).
+If any install stays in Setup, run it without waiting and keep the window live
+with a marquee bar, the current package's name and a working Cancel.

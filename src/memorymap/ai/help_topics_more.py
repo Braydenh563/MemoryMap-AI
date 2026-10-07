@@ -258,12 +258,16 @@ MORE_TOPICS: list[dict] = [
         "id": "answer-style",
         "keywords": (
             "answer style", "concise", "detailed", "shorter answers",
-            "longer answers", "friendly",
+            "longer answers", "friendly", "professional wording", "formal wording",
+            "natural wording", "wording when no model", "composer voice",
         ),
         "body": (
             "Settings, Personas, Answer style: how Atlas words its answers, "
             "Friendly (the default), Concise or Detailed, whichever persona is "
-            "active."
+            "active. Below it, Wording when no model is running sets the "
+            "register of the short connecting phrases Atlas writes when it "
+            "answers from your notes without a model: Natural (the default) "
+            "or Professional. Your notes are quoted the same either way."
         ),
         "badge": {"label": "Answer style", "section": "personas", "target": "pref-style"},
     },

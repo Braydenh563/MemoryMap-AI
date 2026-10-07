@@ -211,7 +211,7 @@ def answers_shape(result: dict, shape: str) -> bool:
     return bool(quoted)
 
 
-def run(data: dict | None = None) -> list[dict]:
+def run(data: dict | None = None, voice: str = "natural") -> list[dict]:
     """Every question composed, with its measures."""
     data = data or load()
     on = today(data)
@@ -219,7 +219,7 @@ def run(data: dict | None = None) -> list[dict]:
     for entry in data["questions"]:
         notes = notes_for(entry, data)
         recent = str(entry.get("search_mode") or "").endswith("recent")
-        result = composer.compose(entry["question"], notes, today=on, recent=recent)
+        result = composer.compose(entry["question"], notes, today=on, recent=recent, voice=voice)
         factual = _factual_parts(result)
         failures = trace_failures(result, entry["question"], notes, on)
         lengths = sentence_lengths(result["text"])

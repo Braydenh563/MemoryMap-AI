@@ -724,6 +724,7 @@ async function renderPrefs() {
   $("pref-search-min-sim").value = prefsCache.search_min_similarity;
   $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
+  $("pref-voice").value = prefsCache.composer_voice;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   paintUserMarks();
@@ -902,12 +903,9 @@ async function savePrefs(options = {}) {
     const searchZMargin = Number.isFinite(zMarginRaw) ? Math.min(3, Math.max(0, zMarginRaw)) : 0.5;
     $("pref-search-min-sim").value = searchMinSim;
     $("pref-search-z-margin").value = searchZMargin;
-    // Only this section's own fields. Background tasks' checkboxes
-    // (autonomous_tasks_enabled and everything under it) save independently
-    // via `setPreference` now: see the comment on `renderAutonomousSettings`
-    // for why folding them in here was the actual cause of "preferences keep
-    // getting deleted": this form's DOM may never have been rendered this
-    // session, and sending its stale defaults back overwrote real values.
+    // Only this section's own fields: Background tasks' checkboxes save
+    // independently via `setPreference` (see `renderAutonomousSettings`: a
+    // form never rendered this session sent stale defaults and overwrote them).
     const payload = {
       display_name: $("pref-display-name").value.trim(),
       avatar_style: typeof ownNameMarkStyle === "function" ? ownNameMarkStyle() : undefined,

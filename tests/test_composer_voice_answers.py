@@ -97,7 +97,9 @@ def test_a_where_question_leads_with_the_sentence_that_names_a_place():
 def test_a_yes_no_answered_in_the_notes_words_never_says_yes_or_no():
     notes = [_note(1, "# Lisbon\n\nThe hotel deposit is paid, the rest is due on arrival.", 5)]
     text = ask("Is the hotel deposit paid?", notes)["text"]
-    assert text.startswith(("Going by your notes, the hotel deposit is paid", composer.PHRASES["notes_have"]))
+    assert text.startswith(
+        tuple(f"{w}, the hotel deposit is paid" for w in composer.phrase_options("going_by")) + composer.phrase_options("notes_have")
+    )
     assert not text.lower().startswith(("yes", "no"))
 
 

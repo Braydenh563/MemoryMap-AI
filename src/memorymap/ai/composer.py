@@ -158,6 +158,11 @@ PHRASES: dict[str, str] = {
     "closest_a": "The closest your notes come is this: ",
     "closest_b": "Nothing here says it outright. The nearest is: ",
     "going_by": "Going by your notes",
+    # A question that could mean two notes: answered by the likelier, then
+    # asked which was meant.
+    "clarify_a": "Did you mean ",
+    "clarify_or": " or ",
+    "qmark": "?",
     "notes_have": "Here is what your notes say on that: ",
     "open_where": "Here is where you noted it: ",
     # The citation: a titled note by its heading, in bold; a note with no
@@ -1933,6 +1938,108 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
     return None
 
 
+# --- a question in two parts, and one that could mean two things -------------
+
+#: Where one question ends and the next begins inside one message: a question
+#: mark with more after it, or "and" before a question word ("when is the
+#: dentist and what should I pack"). At most `MAX_PARTS` are answered.
+_PART_BREAK = re.compile(r"(?<=\?)\s+(?=\S)")
+_PART_AND = re.compile(
+    r",?\s+(?:and|also|plus)\s+(?=(?:what|when|who|where|why|how|which|is|are|do|does|did|can|should|will)\b)",
+    re.I,
+)
+MAX_PARTS = 3
+
+
+def split_parts(question: str) -> list[str]:
+    """The questions one message asks, each as typed: two or three, or the
+    one. A comparison is one question however many "and"s it has."""
+    text = " ".join((question or "").split())
+    if not text or _SHAPE_RULES[0][1].search(text):
+        return [text]
+    pieces: list[str] = []
+    for chunk in _PART_BREAK.split(text):
+        pieces.extend(p for p in _PART_AND.split(chunk) if p.strip())
+    #: Each part must ask about something of its own: "and how?" is not a
+    #: second question, it leans on the first.
+    pieces = [p.strip(" ,") for p in pieces]
+    if len(pieces) < 2 or any(len(subject_terms(p)) == 0 for p in pieces):
+        return [text]
+    return pieces[:MAX_PARTS]
+
+
+def _multi(question: str, parts: list[str], notes: list[dict], **kwargs) -> dict | None:
+    """Each part answered on its own, under the person's own words for it in
+    bold: "**When is the dentist?** Check-up booked for the 21st."."""
+    answers = [(part, compose(part, notes, **kwargs)) for part in parts]
+    answers = [(part, a) for part, a in answers if a["grounding"]]
+    if len(answers) < 2:
+        return None
+    pieces: list[tuple] = []
+    rows: list[dict] = []
+    seen: set[tuple] = set()
+    nexts: list[list[tuple]] = []
+    for i, (part, answer) in enumerate(answers):
+        if i:
+            pieces.append(("template", PHRASES["para"]))
+        label = part.rstrip("?.! ")
+        pieces += [("template", PHRASES["bold"]), ("asked", label[0].upper() + label[1:]), ("template", PHRASES["qmark"])]
+        pieces += [("template", PHRASES["bold"]), ("template", PHRASES["space"])]
+        pieces += list(answer["parts"])
+        for row in answer["grounding"]:
+            if (row["note_id"], row["start"]) not in seen:
+                seen.add((row["note_id"], row["start"]))
+                rows.append(row)
+        nexts += [p for p in answer["next_parts"] if p not in nexts]
+    text = "".join(piece[1] for piece in pieces)
+    return {
+        "text": text,
+        "grounding": rows,
+        "support": grounding.support("\n\n".join(row["sentence"] for row in rows), rows),
+        "shape": "multi",
+        "parts": pieces,
+        "next": ["".join(part[1] for part in p) for p in nexts[:3]],
+        "next_parts": nexts[:3],
+    }
+
+
+#: Two notes this close in score, on different topics, both named for what
+#: was asked, and a question this short: it could mean either.
+CLARIFY_RATIO = 0.85
+
+
+def _clarify(out: _Answer, shape: str, terms: list[str], lead: Sentence, meaning: _Meaning, views: list[NoteView]) -> None:
+    """"Did you mean **Boiler service** or **House**?" after an answer to a
+    short question two notes answer about equally and differently. The
+    likelier is answered first, so the question is never all the reply."""
+    if shape not in ("what", "yesno", "when", "where", "who") or not 1 <= len(terms) <= 2:
+        return
+    best: dict[int, Sentence] = {}
+    for view in views:
+        for sentence in view.sentences:
+            if sentence.score and (view.id not in best or sentence.score > best[view.id].score):
+                best[view.id] = sentence
+    top = best.get(lead.note_id)
+    if not top or not out.views[lead.note_id].titled:
+        return
+    stems = {_stem(t) for t in terms}
+    rivals = [
+        s for note_id, s in best.items()
+        if note_id != lead.note_id
+        and out.views[note_id].titled
+        and not out.views[note_id].note.get("connected")
+        and s.score >= CLARIFY_RATIO * top.score
+        and not meaning.same_topic(s, top)
+        and stems & out.views[note_id].title_words
+    ]
+    #: The lead's heading holding more of the words asked than the rival's
+    #: settles it: that note is the one called what was asked about.
+    lead_hits = len(stems & out.views[lead.note_id].title_words)
+    if len(rivals) != 1 or lead_hits > len(stems & out.views[rivals[0].note_id].title_words):
+        return
+    out.t("para", "clarify_a").name(out.views[lead.note_id]).t("clarify_or").name(out.views[rivals[0].note_id]).t("qmark")
+
+
 def _nothing(shape: str) -> dict:
     return {
         "text": PHRASES["nothing"],
@@ -1966,6 +2073,12 @@ def compose(
     left out.
     """
     today = today or date.today()
+    if not recent and not said:
+        parts = split_parts(question)
+        if len(parts) > 1:
+            multi = _multi(question, parts, notes, today=today, embed=embed)
+            if multi:
+                return multi
     views_list = [v for v in (read_note(n, i) for i, n in enumerate(notes or [])) if v]
     out = _Answer({v.id: v for v in views_list}, today)
     out.subject = {_stem(t) for t in subject_terms(question)}
@@ -1997,6 +2110,8 @@ def compose(
             lead = _body(out, shape, chosen, terms, question, meaning, broad, {s.key for s in pair} if pair else set())
             if pair:
                 _disagreements(out, pair, lead, terms)
+            elif not broad:
+                _clarify(out, shape, terms, lead, meaning, views_list)
             _missing(out, terms, views_list)
     if not out.rows:
         return _nothing(shape)

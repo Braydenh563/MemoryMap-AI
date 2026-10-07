@@ -104,3 +104,41 @@ def test_a_yes_no_answered_in_the_notes_words_never_says_yes_or_no():
 def test_how_many_notes_is_answered_with_the_measured_count():
     text = ask("how many notes mention the beta?")["text"]
     assert text.startswith("At least ")
+
+
+# --- two questions in one, and one that could mean two notes ----------------
+
+
+def test_two_questions_in_one_message_are_each_answered_under_their_own_words():
+    result = ask("When is the dentist check-up and why did the list feel slow?")
+    text = result["text"]
+    assert result["shape"] == "multi"
+    assert text.startswith("**When is the dentist check-up?** ")
+    assert "\n\n**Why did the list feel slow?** " in text
+    assert "Check-up booked for the 21st." in text and "It was not the database." in text
+
+
+def test_a_comparison_is_one_question_whatever_its_ands():
+    assert composer.split_parts("Compare Lisbon and Porto") == ["Compare Lisbon and Porto"]
+    assert composer.split_parts("When is the dentist and how?") == ["When is the dentist and how?"]
+
+
+def test_a_short_question_two_notes_answer_differently_asks_which_was_meant():
+    notes = [
+        _note(1, "# Boiler service\n\nThe boiler service is due in March.", 5),
+        _note(2, "# Boiler pressure\n\nThe boiler pressure was low this morning.", 3),
+    ]
+    text = ask("What about the boiler?", notes)["text"]
+    assert text.rstrip().endswith("Did you mean **Boiler service** or **Boiler pressure**?") or text.rstrip().endswith(
+        "Did you mean **Boiler pressure** or **Boiler service**?"
+    )
+    #: The likelier is answered first: the question is never the whole reply.
+    assert not text.startswith("Did you mean")
+
+
+def test_a_question_its_note_is_named_for_is_not_asked_back():
+    notes = [
+        _note(1, "# Boiler service\n\nThe boiler service is due in March.", 5),
+        _note(2, "# House\n\nThe boiler is in the loft, the service hatch is stiff.", 3),
+    ]
+    assert "Did you mean" not in ask("When is the boiler service?", notes)["text"]

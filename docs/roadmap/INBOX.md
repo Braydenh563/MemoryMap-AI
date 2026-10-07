@@ -251,6 +251,12 @@ with its owner named in the entry.
      loading) before placing itself. The card must stay hidden until its
      target exists and is measured, then appear in place; and the continue
      should say where it goes.
+     Then, verbatim, with the Library tour at "A card's menu, 3 of 5": "the
+     hover menu button doesn show on the tour". The step highlights the card's
+     ⋯, which only shows on hover, so the ring frames an empty square. A tour
+     step that points at a hover-only control reveals it while the step is up
+     (a class on the card, removed on the next step), and a sweep checks every
+     tour step's target is visible and non-empty.
 
 ## Placed (last 20, newest first)
 

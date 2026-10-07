@@ -341,11 +341,115 @@ _ANYTHING_ON = re.compile(
 )
 
 
+#: Text-speak and dropped apostrophes, spelled out before anything reads the
+#: question (INBOX 741, the owner: the composer must cope with "whn is the
+#: launch", "hw many", "wat did i say abt lisbon", "u", "ur", "abt"). Only
+#: words that are never anything else: "r" and "y" are read only where a
+#: question word goes.
+TEXT_SPEAK = {
+    "u": "you", "ur": "your", "abt": "about", "bout": "about", "wat": "what", "wot": "what", "wht": "what",
+    "whn": "when", "wen": "when", "hw": "how", "wher": "where", "whr": "where", "wer": "where", "hu": "who",
+    "pls": "please", "plz": "please", "thx": "thanks", "ty": "thanks", "tmrw": "tomorrow", "tmr": "tomorrow",
+    "2day": "today", "2moro": "tomorrow", "b4": "before", "gonna": "going to", "wanna": "want to",
+    "dunno": "do not know", "idk": "I do not know", "lmk": "let me know", "smth": "something", "sth": "something",
+    "ppl": "people", "bday": "birthday", "hv": "have", "shld": "should", "cld": "could", "wld": "would",
+    "mny": "many", "mch": "much", "abt.": "about", "im": "I am", "ive": "I have", "dont": "do not",
+    "didnt": "did not", "doesnt": "does not", "cant": "cannot", "isnt": "is not", "wasnt": "was not",
+    "arent": "are not", "havent": "have not", "wont": "will not", "youre": "you are", "theyre": "they are",
+    "cuz": "because", "coz": "because", "bc": "because", "w/": "with", "w/o": "without", "rn": "right now",
+    "atm": "at the moment", "whats": "what is", "hows": "how is", "wheres": "where is", "whos": "who is",
+    "whens": "when is", "whys": "why is", "asap": "as soon as possible", "msg": "message", "nxt": "next", "lst": "last",
+}
+#: Only where a question word goes: "r u sure", "y is the list slow".
+_SPEAK_LEAD = {"y": "why", "r": "are"}
+
+#: The words that decide what kind of question it is, which a typo must not
+#: hide: "whn" is "when", "hw mny" is "how many", "lastest" is "latest".
+#: Search corrects the subject against the notebook's own words; these are
+#: the composer's own small vocabulary, matched by edit distance.
+QUESTION_WORDS = (
+    "what", "when", "where", "who", "why", "how", "which", "whose", "many", "much", "often", "long",
+    "compare", "versus", "between", "difference", "latest", "status", "progress", "explain", "summarise",
+    "summarize", "overview", "anything", "everything", "recently", "remind", "tell", "list", "does", "should",
+)
+#: Real words a question word is one letter from, never "corrected": "then"
+#: is not "when", "show" is not "how", "hat" is not "what".
+_REAL_NEAR = frozenset(
+    """then than them they there here hat that wet wit show shy now new few hen ten men who how why
+    any man main may mean mash lunch bunch such song along last lost late lest list lust state stat
+    plain explains between does dose goes dues when what where which while whole whose those these
+    lift gift wish wash with tell tall till fell sell well bell many much long""".split()
+)
+
+
+def _distance(a: str, b: str, cap: int = 3) -> int:
+    """Edit distance with a swap of two neighbours as one edit ("hwo" is one
+    from "who"): the typos a thumb makes."""
+    if abs(len(a) - len(b)) >= cap:
+        return cap
+    prev2: list[int] = []
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+        prev2, prev = prev, cur
+    return min(prev[-1], cap)
+
+
+def _question_word(token: str, after: str = "") -> str | None:
+    """The question word a misspelt token means, or None: one edit for a
+    word of up to five letters, two past seven, and only when one word is
+    nearest (a tie is a guess, and a guess is not made)."""
+    low = token.lower()
+    if len(low) < 3 or low in _REAL_NEAR or low in QUESTION_WORDS or not low.isalpha():
+        return None
+    allowed = 1 if len(low) <= 7 else 2
+    scored = sorted((_distance(low, word), word) for word in QUESTION_WORDS)
+    best = [word for d, word in scored if d == scored[0][0]]
+    if scored[0][0] > allowed:
+        return None
+    #: "hwo" is one swap from "how" and from "who": the word after it says
+    #: which ("hwo many" asks how, "hwo asked" asks who).
+    if set(best) == {"how", "who"}:
+        return "how" if after.lower() in ("many", "much", "often", "long", "do", "does", "did", "to", "come", "is", "are", "was", "can", "should") else "who"
+    return best[0] if len(best) == 1 else None
+
+
+def _respell(text: str) -> str:
+    """Text-speak spelled out and misspelt question words put right, word by
+    word, the rest left as typed."""
+    tokens = text.split(" ")
+    out: list[str] = []
+    for i, token in enumerate(tokens):
+        core = re.match(r"^([\w/'.]*?)([?!.,:;]*)$", token)
+        word, tail = (core.group(1), core.group(2)) if core else (token, "")
+        low = word.lower().rstrip(".") if word.lower() != "abt." else word.lower()
+        if low in TEXT_SPEAK:
+            out.append(TEXT_SPEAK[low] + tail)
+            continue
+        if i == 0 and low in _SPEAK_LEAD:
+            out.append(_SPEAK_LEAD[low] + tail)
+            continue
+        #: A question word is looked for where one goes: the opening words,
+        #: the word after "how", and the longer words that name a kind of
+        #: question ("lastest", "diffrence").
+        where_asked = i <= 1 or (i and out[-1].lower() == "how") or len(low) >= 6
+        after = tokens[i + 1].strip("?!.,:;") if i + 1 < len(tokens) else ""
+        fixed = _question_word(low, after) if where_asked else None
+        out.append((fixed + tail) if fixed else token)
+    return " ".join(out)
+
+
 def rephrase(question: str) -> str:
     """The question with its casual wrapper off: "hey, can you remind me
-    when the dentist is please?" reads as "when the dentist is?". Never adds
-    a word the person did not write, except a spelled-out contraction."""
-    text = " ".join((question or "").split())
+    when the dentist is please?" reads as "when the dentist is?". Text-speak
+    is spelled out and a misspelt question word put right first ("whn is
+    the launch" reads "when is the launch"). Never adds a word of the
+    subject the person did not write."""
+    text = _respell(" ".join((question or "").split()))
     for _ in range(4):
         before = text
         for pattern in _WRAPPERS:
@@ -355,7 +459,7 @@ def rephrase(question: str) -> str:
             text = pattern.sub(spelled, text)
         if text == before:
             break
-    return text or " ".join((question or "").split())
+    return text or _respell(" ".join((question or "").split()))
 
 
 def _yes_no_wrapped(question: str) -> bool:
@@ -1042,6 +1146,13 @@ class _Answer:
         #: joiner that ends in a comma, so its first letter is lowered.
         self.subject: set[str] = set()
         self.lower_next = False
+        #: The answer the turn before gave, so this one opens differently.
+        self.previous = ""
+        #: The question as typed: a word the answer says it asked about is
+        #: one of its words, never a corrected one.
+        self.question = ""
+        #: Asked for briefly ("in short", "quick"): no opener, no second list.
+        self.brief = False
 
     def t(self, *names: str) -> _Answer:
         for name in names:
@@ -1323,12 +1434,21 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
         out.item(s, terms)
 
 
+_OPENERS = (
+    "open_notes", "open_wrote", "open_put", "open_figure", "open_date", "open_where",
+    "closest_a", "closest_b", "going_by", "notes_have", "wrote_on_a",
+)
+
+
 def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
     """What comes before the strongest sentence on the first line, which is
     the answer: often nothing, the sentence itself, or a short opener chosen
     by the question so answers in a row do not start alike. The note is not
     named here; its citation follows the quote (`_Answer.cite`)."""
     view = out.views[s.note_id]
+    if out.brief and shape not in ("yesno", "when"):
+        #: Asked for briefly: the sentence itself, nothing before it.
+        return
     if shape == "count" and _NUMBER_CUE.search(s.text):
         options = ["", "open_figure", "open_notes"]
     elif shape == "when" and _DATE_CUE.search(s.text):
@@ -1353,7 +1473,13 @@ def _opening(out: _Answer, s: Sentence, shape: str, question: str) -> None:
         options = ["", "open_where", "open_notes"]
     else:
         options = ["", "open_notes", "open_wrote"]
-    key = _pick(question, "lead", options)
+    #: Not the opener the turn before opened with, and after a turn that
+    #: opened with a bare quote, a worded one when there is one: two answers
+    #: in a row never start alike (INBOX 741, vary openers across turns).
+    fresh = [o for o in options if not (o and out.previous.startswith(PHRASES[o]))]
+    if out.previous and not any(out.previous.startswith(PHRASES[o]) for o in _OPENERS):
+        fresh = [o for o in fresh if o] or fresh
+    key = _pick(question, "lead", fresh or options)
     if key == "going_by" and _lowered(s):
         out.t("going_by", "comma")
         out.lower_next = True
@@ -1408,7 +1534,7 @@ def _lead_block(out: _Answer, shape: str, lead: Sentence, chosen: list[Sentence]
         _opening(out, lead if lead in prose else prose[0], shape, question)
         _quotes(out, prose, terms)
         out.cite(view)
-    if items and shape != "when":
+    if items and shape != "when" and not out.brief:
         out.t("para")
         _list_block(out, view, items, terms, "continued")
 
@@ -1605,6 +1731,7 @@ def _missing(out: _Answer, terms: list[str], views: list[NoteView]) -> None:
     missing = [
         t for t in terms
         if len(t) >= _MISSING_MIN and _stem(t) not in found and not (_alternatives(_stem(t)) & quoted)
+        and (not out.question or t.lower() in out.question.lower())
     ]
     if not missing or len(missing) == len(terms):
         return
@@ -1665,6 +1792,24 @@ _BROAD = re.compile(
     r"|what do (?:i|you) have on\b|how many (?:of my )?notes\b|catch me up on\b|fill me in on\b|bring me up to speed on\b)",
     re.I,
 )
+
+#: "briefly", "in short", "quick": the lead note alone. "in detail",
+#: "everything": more points than an ordinary answer (INBOX 741, length
+#: fitted to the question).
+_BRIEF = re.compile(r"\b(briefly|in brief|in short|short answer|quick(?:ly)?|tl;?dr|in a (?:word|sentence|line)|just tell me)\b", re.I)
+_FULL = re.compile(r"\b(in detail|in depth|more detail|detailed|thorough(?:ly)?|the full|everything|all (?:the|of the))\b", re.I)
+FULL_POINTS = 9
+
+
+def length_wish(question: str) -> str:
+    """"brief", "full" or "": how long the person asked the answer to be."""
+    text = question or ""
+    if _BRIEF.search(text):
+        return "brief"
+    if _FULL.search(text):
+        return "full"
+    return ""
+
 
 #: A broad question names at most this many notes, one sentence each.
 BROAD_NOTES = 5
@@ -1778,7 +1923,14 @@ def _body(
     _lead_block(out, shape, lead, chosen, terms, question)
     rest = [s for s in chosen if s.note_id != lead.note_id and s.key not in skip]
     if shape in FACT_SHAPES:
-        keep = list(dict.fromkeys(s.note_id for s in rest))[:FACT_OTHERS]
+        #: A lead that holds every word asked and what the shape looks for
+        #: (a date for a "when") has answered: one more note at most, so a
+        #: one-fact question gets a one-fact answer.
+        #: A "when" keeps its timeline of the other dated mentions.
+        strong = shape != "when" and _cue(shape, lead.text) > 0 and out.subject and all(
+            _holds(t, set(lead.words) | out.views[lead.note_id].title_words) for t in out.subject
+        )
+        keep = list(dict.fromkeys(s.note_id for s in rest))[: 1 if strong else FACT_OTHERS]
         rest = [s for s in rest if s.note_id in keep]
     if shape == "when" and rest:
         _timeline(out, rest, terms)
@@ -1871,6 +2023,16 @@ _MORE = re.compile(
 _ORDINALS = {"first": 0, "1st": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2, "fourth": 3, "4th": 3, "fifth": 4, "5th": 4, "last": -1}
 _ORDINAL = re.compile(r"\bthe (first|1st|second|2nd|third|3rd|fourth|4th|fifth|5th|last) (?:one|note)\b", re.I)
 _PRONOUN = re.compile(r"\b(it|that|this|them|those|they)\b", re.I)
+#: "what about the boiler?", "and the boiler?", "how about Porto": the turn
+#: before asked again of something else (INBOX 741, turn-aware follow-ons).
+_SWAP = re.compile(
+    r"^\s*(?:(?:and|but|ok|okay|so)[, ]+)?(?:what|how) about\s+(?P<x>.+?)\s*[?.!]*$"
+    r"|^\s*(?:and|but)\s+(?P<y>(?!(?:what|when|who|where|why|how|which|is|are|do|does|did)\b)\S.*?)\s*\?+\s*$",
+    re.I,
+)
+#: "why?", "and when?", "how come?": the asking word alone, about the turn
+#: before's subject.
+_BARE = re.compile(r"^\s*(?:(?:and|but|so|ok|okay)[, ]+)?(why|when|where|who|how come|how many|how much|how|since when)\s*[?.!]*\s*$", re.I)
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 
 
@@ -1929,6 +2091,35 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
             name = names[index]
             resolved = text[: ordinal.start()] + f"“{name}”" + text[ordinal.end():]
             return FollowOn(resolved, previous, "", "ordinal")
+        return None
+    bare = _BARE.match(text)
+    if bare:
+        subject = _asked_span(previous, subject_terms(previous))
+        if subject:
+            start = previous.lower().find(subject.lower())
+            article = re.search(r"\b(?:the|my|our|a|an)\s+$", previous[:start], re.I)
+            subject = previous[article.start():start] + subject if article else subject
+            word = bare.group(1).lower()
+            word = "why" if word == "how come" else word
+            verb = {"why": "", "how": "do I", "how many": "", "how much": "is", "since when": ""}.get(word, "is")
+            resolved = " ".join(w for w in (word.capitalize(), verb, subject) if w) + "?"
+            return FollowOn(resolved, previous, "", "bare")
+        return None
+    swap = _SWAP.match(text)
+    if swap:
+        other = (swap.group("x") or swap.group("y") or "").strip()
+        terms = subject_terms(previous)
+        subject = _asked_span(previous, terms)
+        #: Only a question with a shape of its own is asked again of the
+        #: new subject; "what about X" after a plain "what" is its own
+        #: question, and stands as typed.
+        if other and subject and classify(previous) not in ("what", "recent") and subject_terms(other):
+            start = previous.lower().find(subject.lower())
+            before = previous[:start]
+            if re.search(r"\b(the|my|a|an)\s+$", before, re.I):
+                other = re.sub(r"^(the|my|a|an)\s+", "", other, flags=re.I)
+            resolved = before + other + previous[start + len(subject):]
+            return FollowOn(resolved, previous, "", "swap")
         return None
     if _PRONOUN.search(text) and not [t for t in subject_terms(text) if not _PRONOUN.fullmatch(t)]:
         subject = _asked_span(previous, subject_terms(previous))
@@ -2040,6 +2231,110 @@ def _clarify(out: _Answer, shape: str, terms: list[str], lead: Sentence, meaning
     out.t("para", "clarify_a").name(out.views[lead.note_id]).t("clarify_or").name(out.views[rivals[0].note_id]).t("qmark")
 
 
+def _fit_terms(terms: list[str], views: list[NoteView]) -> list[str]:
+    """The question's words, each one no note holds put right against the
+    notes' own words ("lisbn" is "lisbon" when a note says Lisbon): one
+    edit for a short word, two for a long one, and only to a single nearest
+    word. For scoring only: the answer never prints a word the person did
+    not type."""
+    vocabulary: set[str] = set()
+    for view in views:
+        vocabulary |= view.words | view.title_words | view.filed_words
+    fitted: list[str] = []
+    for term in terms:
+        stem = _stem(term)
+        #: Four letters at least, the same first letter, and never to a
+        #: shorter word: "peru" is not a typo of "per", "hotle" is of "hotel".
+        if len(stem) < 4 or _holds(stem, vocabulary):
+            fitted.append(term)
+            continue
+        allowed = 1 if len(stem) <= 7 else 2
+        near = sorted(
+            (_distance(stem, word), word) for word in vocabulary
+            if word[:1] == stem[:1] and len(word) >= max(4, len(stem)) and len(word) - len(stem) <= allowed
+        )
+        best = [word for d, word in near if near and d == near[0][0]]
+        fitted.append(best[0] if near and near[0][0] <= allowed and len(best) == 1 else term)
+    return fitted
+
+
+# --- small talk, in the app's own voice ----------------------------------------
+
+#: What the composer says to "hi", "thanks", "how are you", "bye" and "what
+#: can you do" when no model is running (INBOX 741, the owner: "more social,
+#: more engaging"). Warm and brief, Atlas's voice by default (CHAT_PLAN
+#: decision 26); each kind has several, chosen by the message, so the same
+#: greeting twice in a row is not answered word for word the same. Nothing
+#: here says anything about the notes: these are the app's own words.
+SOCIAL: dict[str, tuple[str, ...]] = {
+    "greeting": (
+        "Hello. Ask me anything about your notes and I will answer from what you wrote.",
+        "Hi. What would you like to find in your notes?",
+        "Hello again. What is on your mind?",
+        "Hi there. I can tell you when something is, what you decided, or what the latest is on a project.",
+    ),
+    "morning": (
+        "Good morning. What would you like to look up?",
+        "Morning. Your notes are ready when you are.",
+    ),
+    "thanks": (
+        "You are welcome.",
+        "Glad that helped.",
+        "Any time. Ask again whenever you need something from your notes.",
+        "Happy to help.",
+    ),
+    "how": (
+        "All good here, and your notes are in order. What can I find for you?",
+        "Doing well, thanks for asking. What would you like to know?",
+        "Fine, thank you. Anything you want to look up?",
+    ),
+    "bye": (
+        "Bye for now. Your notes will be here.",
+        "See you soon.",
+        "Take care. Everything you wrote is saved.",
+    ),
+    "sorry": (
+        "No need to apologise. What would you like to try?",
+        "Not at all. Ask it another way and I will look again.",
+    ),
+    "ack": (
+        "Good. Anything else?",
+        "All right. What next?",
+        "Noted. Ask whenever you like.",
+    ),
+    "who": (
+        "I am the notebook's assistant. With no model running I answer from your notes in their own words.",
+        "I am here to find things in your notes and say what they say.",
+    ),
+    "about_app": (
+        "I answer from your notes: ask when something is, who said what, what the latest is on a project, or "
+        "what you know about a subject. Connecting a model adds writing, summaries in its own words and tools.",
+        "Ask me about anything you wrote down: a date, a decision, a list, how a project is going. Two questions "
+        "in one message work too. Connecting a model adds writing and tools.",
+    ),
+}
+
+_SOCIAL_KIND = (
+    ("morning", re.compile(r"\bgood (?:morning|afternoon|evening|day)\b|^morning\b", re.I)),
+    ("thanks", re.compile(r"\b(?:thanks?|thank you|ta|cheers|nice one|appreciated?)\b", re.I)),
+    ("how", re.compile(r"\bhow(?:'?s| is| are)(?: it going| things| you|you)\b|\bwhat'?s up\b|\bare you (?:ok|okay|there|awake|alive)\b", re.I)),
+    ("bye", re.compile(r"\b(?:bye|goodbye|good night|night|see (?:ya|you)|later|cya)\b", re.I)),
+    ("sorry", re.compile(r"\b(?:sorry|my bad)\b", re.I)),
+    ("who", re.compile(r"\bwho are you\b|\byour name\b", re.I)),
+    ("greeting", re.compile(r"^\W*(?:hi|hey|hello|hiya|yo|sup|howdy)\b", re.I)),
+)
+
+
+def social(message: str, intent: str = "smalltalk", previous: str = "") -> str:
+    """The app's reply to small talk with no model running: warm, short, and
+    never the reply the turn before gave."""
+    kind = "about_app" if intent == "about_app" else next(
+        (name for name, pattern in _SOCIAL_KIND if pattern.search(message or "")), "ack"
+    )
+    options = [line for line in SOCIAL[kind] if line != (previous or "").strip()] or list(SOCIAL[kind])
+    return _pick(message or "", f"social:{kind}", options)
+
+
 def _nothing(shape: str) -> dict:
     return {
         "text": PHRASES["nothing"],
@@ -2060,6 +2355,7 @@ def compose(
     recent: bool = False,
     embed=None,  # noqa: ANN001
     said: str = "",
+    previous: str = "",
 ) -> dict:
     """`{"text", "grounding", "support", "shape", "parts", "next", "next_parts"}`
     for one question.
@@ -2070,7 +2366,8 @@ def compose(
     given, is the embedder's `embed_many` (texts in, vectors out): meaning is
     then measured by cosine, and without it by shared words. `said` is the
     earlier answer a "tell me more" follows (`follow_on`): what it quoted is
-    left out.
+    left out. `previous` is the answer the turn before gave: this one does
+    not open with the same words.
     """
     today = today or date.today()
     if not recent and not said:
@@ -2082,8 +2379,11 @@ def compose(
     views_list = [v for v in (read_note(n, i) for i, n in enumerate(notes or [])) if v]
     out = _Answer({v.id: v for v in views_list}, today)
     out.subject = {_stem(t) for t in subject_terms(question)}
+    out.previous = (previous or "").lstrip()
     shape = "recent" if recent else classify(question)
-    terms = subject_terms(question) if shape != "recent" else []
+    typed = subject_terms(question) if shape != "recent" else []
+    terms = _fit_terms(typed, views_list)
+    out.question = question
 
     def meaning_for(side_terms: list[str]) -> _Meaning:
         pool = sorted(_score(shape, side_terms, views_list), key=lambda s: (-s.score, s.rank, s.order))[:MEANING_POOL]
@@ -2097,15 +2397,20 @@ def compose(
             shape = "what" if shape == "compare" else shape
             broad = shape == "what" and bool(_BROAD.match(rephrase(question)))
             meaning = meaning_for(terms)
+            wish = length_wish(question)
             chosen = select(
                 shape, terms, views_list,
-                limit=BROAD_NOTES if broad else MAX_POINTS,
+                limit=BROAD_NOTES if broad else FULL_POINTS if wish == "full" else MAX_POINTS,
                 meaning=meaning,
                 per_note=1 if broad else MAX_PER_NOTE,
                 said=said,
             )
             if not chosen:
                 return _nothing(shape)
+            if wish == "brief":
+                chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
+                broad = False
+                out.brief = True
             pair = _disagreement(chosen)
             lead = _body(out, shape, chosen, terms, question, meaning, broad, {s.key for s in pair} if pair else set())
             if pair:

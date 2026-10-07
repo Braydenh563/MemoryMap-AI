@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask and Chat with no model understand more: casual and indirect questions ("can you remind me when...", "any idea if..."), typos and text-speak in the question ("whn is the launch", "hw mny", "abt", "ur"), two questions in one message, "what about the boiler?" and "why?" after an answer, "briefly" and "in detail", where-questions and a few synonyms; a short question two notes fit equally asks which was meant, and small talk gets a warm reply rather than "the AI model isn't running" (INBOX 741).
 - Ask and Chat with no model: an answer from your notes says the note's own sentence first and names the note once after it, by its heading or the day it was written, instead of opening every sentence with "Your note ... says:" and a pile of "also"; joining words vary and never repeat in one answer (INBOX 741).
 - Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.
 - Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.

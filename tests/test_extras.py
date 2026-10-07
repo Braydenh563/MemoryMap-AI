@@ -724,3 +724,35 @@ def test_the_installer_page_runs_the_apps_own_installer():
     assert {"semantic", "voice", "documents", "pdfpages", "docx"} <= set(sent)
     for extra_id in sent:
         assert extra_id in extras.EXTRAS_BY_ID
+
+
+def test_a_cancelled_install_leaves_nothing_behind(client, monkeypatch, tmp_path):
+    """The owner: "make sure the cancelled install doesnt leave it half
+    installed and taking up space". pip installs a requirement's
+    dependencies one by one, so a stop after torch landed used to leave it;
+    its temporary folders and its download cache were left too."""
+    target = tmp_path / "extras"
+    (target / "already_here").mkdir(parents=True)
+    monkeypatch.setattr(extras, "frozen_extras_dir", lambda: target)
+    seen = {}
+
+    class _StoppedPip:
+        def __init__(self, command, **kwargs):
+            seen["command"] = command
+            seen["tmp"] = extras.Path(kwargs["env"]["TMPDIR"])
+            (seen["tmp"] / "pip-unpack-x").mkdir()
+            # Two dependencies already in place when Stop is pressed.
+            (target / "torch").mkdir()
+            (target / "torch-2.0.dist-info").mkdir()
+            extras._state.cancelled = True
+            self.stdout = []
+
+        def wait(self):
+            return -15
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _StoppedPip)
+    extras._run_install(extras.EXTRAS_BY_ID["semantic"], reinstall=False)
+    assert extras._state.outcome == "cancelled"
+    assert sorted(p.name for p in target.iterdir()) == ["already_here"]
+    assert not seen["tmp"].exists()
+    assert "--no-cache-dir" in seen["command"]

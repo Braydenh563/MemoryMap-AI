@@ -13,6 +13,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Packages: a stopped install leaves nothing behind. What it had installed so far (torch can be 2 GB) is removed, pip's temporary folder is deleted, and installs keep no download cache.
 - Chat and the agent: Undo on a change to several notes at once (tagging two notes, moving several board items) works; it used to fail because the app did not recognise the undo.
 - Background tasks: the scheduled passes (night shift, backup, resurfacing, embeddings backfill, housekeeping, autonomous) now appear while they run, with a progress bar, named steps and a short log of what they are doing.
 - Ask and Chat with no model: an answer from your notes says the note's own sentence first and names the note once after it, by its heading or the day it was written, instead of opening every sentence with "Your note ... says:" and a pile of "also"; joining words vary and never repeat in one answer (INBOX 741).

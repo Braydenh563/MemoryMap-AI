@@ -1003,10 +1003,11 @@ def cancel() -> tuple[bool, str]:
     set. `terminate()` is the only stop that stops it, and it is what someone
     who pressed Quit meant.
 
-    Safe to leave half-installed: pip installs into a staging directory and
-    moves the result into place, so a terminated install leaves the
-    environment as it was rather than half-written. The extras panel re-reads
-    `is_installed` on its next poll and will simply still say "not installed".
+    Not left half-installed: pip writes each package through a staging
+    directory, but a requirement's dependencies land one by one, so
+    `_run_install` rolls back whatever is new once pip has exited
+    (`_roll_back`) and removes pip's temporary folder. The extras panel
+    re-reads `is_installed` on its next poll and says "not installed".
     """
     if _bulk.running:
         #: A bulk action stops whole: the package in hand the way a single
@@ -1236,9 +1237,56 @@ def _constraints_copy(req_path: Path) -> Path | None:
     return Path(tmp_path)
 
 
+def _installed_snapshot() -> set[str]:
+    """What is installed before pip starts: the packaged build's extras
+    folder entries, or the running environment's distribution names."""
+    target = frozen_extras_dir()
+    if target is not None:
+        return {child.name for child in target.iterdir()} if target.is_dir() else set()
+    from importlib import metadata
+
+    return {_canonical(str(d.metadata.get("Name") or "")) for d in metadata.distributions()}
+
+
+def _roll_back(before: set[str]) -> None:
+    """Take out what a stopped install put in (the owner: "make sure the
+    cancelled install doesnt leave it half installed and taking up space").
+    pip installs a requirement's dependencies one at a time, so a Stop after
+    torch landed left torch. Only what was not there before goes; anything
+    the person already had stays, even if a reinstall touched it."""
+    target = frozen_extras_dir()
+    if target is not None:
+        root = target.resolve()
+        for child in list(target.iterdir()) if target.is_dir() else []:
+            if child.name in before or root not in child.resolve().parents:
+                continue
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink(missing_ok=True)
+        _state.log.append("Removed what it had installed so far.")
+        return
+    new = sorted(_installed_snapshot() - before)
+    pip_base = _pip_base_command()
+    if not new or pip_base is None:
+        return
+    try:
+        subprocess.run(  # noqa: S603  # names pip itself reported installed, no shell
+            [*pip_base, "uninstall", "--yes", "--disable-pip-version-check", *new],
+            capture_output=True, timeout=600, check=False, creationflags=NO_WINDOW,
+        )
+        _state.log.append(f"Removed what it had installed so far: {', '.join(new)}.")
+    except (OSError, subprocess.SubprocessError):
+        _logger.warning("Couldn't remove a stopped install's packages", exc_info=True)
+
+
 def _run_install(extra: Extra, reinstall: bool = False) -> None:
     """pip, in a worker thread, with its output kept for the panel."""
     constraints_copy: Path | None = None
+    #: pip's own temporary folder, removed whatever happens: a terminated pip
+    #: leaves its unpacked wheels (gigabytes for torch) in the system temp.
+    pip_tmp = Path(tempfile.mkdtemp(prefix="memorymap-pip-"))
+    before = _installed_snapshot()
     try:
         # `sys.executable -m pip` and never a bare `pip`, see
         # `_pip_base_command`'s own docstring for why that's not quite right
@@ -1266,7 +1314,10 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             # has it and do nothing at all, which is the one outcome that
             # helps nobody. `--no-cache-dir` for the same reason: a corrupt
             # cached wheel would otherwise be reinstalled faithfully.
-            *(["--force-reinstall", "--no-cache-dir"] if reinstall else []),
+            *(["--force-reinstall"] if reinstall else []),
+            # And always: a cache holds every wheel downloaded (torch is about
+            # 2 GB), kept after a finished install and after a stopped one.
+            "--no-cache-dir",
             *_frozen_target_args(),
             *extra.packages,
             *constraint,
@@ -1279,6 +1330,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             text=True,
             bufsize=1,
             creationflags=NO_WINDOW,
+            env={**os.environ, "TMPDIR": str(pip_tmp), "TEMP": str(pip_tmp), "TMP": str(pip_tmp)},
         )
         _state.process = process
         for line in process.stdout or []:
@@ -1339,6 +1391,8 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             # stops being read.
             _state.outcome = "cancelled"
             _state.step = "Stopped before it finished."
+            _roll_back(before)
+        shutil.rmtree(pip_tmp, ignore_errors=True)
         # See the module docstring's numbered note above `_logger`: this call
         # was missing entirely until now, which is the actual reason a failed
         # *install* never reached Settings → Logs, `_run_uninstall` had it,

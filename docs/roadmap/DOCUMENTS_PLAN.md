@@ -1330,3 +1330,15 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
 
 - ~~`docRevealForSuggest` will not bring a table-cell word into view~~ Not reproduced at 1440 or 390; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)" (`revealcell.js`).
 - ~~`editor.js` sweep describes the retired editor~~ Re-pointed at `docSurface()`: 78 of the old 89 checks remain and pass; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005)".
+
+## Placed from INBOX, 2026-10-07 (next PR)
+
+- **Live code blocks in a prose document** (the owner, verbatim: "also I want
+  to be able to make special code blocks where the code editor works and code
+  autofill and suggestions work for the stated language in that codeblock",
+  with a fenced ```html block in Live view). A fenced block with a language
+  becomes an embedded code editor in Live: syntax colour, indenting, bracket
+  matching and the completion the code documents already have for that
+  language (documents-code.js), its language shown and changeable on the
+  block, Escape or the arrow keys out of it back into the prose. Stored as the
+  same fenced Markdown, so Source, export and print are unchanged.

@@ -188,6 +188,12 @@ with its owner named in the entry.
      its title or topic once, then speak the content directly ("You planned
      Lisbon for May; the hotel is booked") with the citation as a marker.
 
+742. **The owner, 2026-10-07, verbatim**: "atlas doesnt seem to change emotions alot
+     if at all?? maybe log that for next pr". Next PR: measure how often Atlas's
+     mood changes in a session (the mood triggers in atlas-life.js and
+     companion code) and widen what drives it (answers found, nothing found,
+     reminders done, idle, time of day), each visible within a few seconds.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

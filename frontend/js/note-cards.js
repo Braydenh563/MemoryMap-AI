@@ -1418,6 +1418,10 @@ function entryItem(entry, options = {}) {
     expand.addEventListener("click", (event) => {
       event.stopPropagation();
       toggleRowExpanded(entry.id);
+      //: A pointer press leaves no focus behind: kept, it held the row's
+      //: :focus-within actions open until a click elsewhere (the owner,
+      //: 2026-10-07). A keyboard press (detail 0) keeps its focus.
+      if (event.detail) expand.blur();
     });
     li.appendChild(expand);
   }

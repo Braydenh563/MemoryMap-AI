@@ -3360,6 +3360,7 @@ button.answer-figure-open {
      the name. Clipped, it is the head and shoulders the miniature was drawn
      as, and adds nothing below the name line. */
   overflow: clip;
+  border-radius: 50%;
 }
 
 /* The app emblem as an assistant's head (Appearance, Assistant avatar;

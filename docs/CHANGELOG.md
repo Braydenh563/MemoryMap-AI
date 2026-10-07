@@ -59,6 +59,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The mini Atlas beside a reply is round, not cut off in a square. Notes, compact rows: collapsing a row with the pointer no longer leaves its buttons showing until a click elsewhere.
 - Ask and Chat read about 120 common misspellings as meant ("realy", "beleive", "remeber", "wierd", "wether").
 - The Guide answers again, with or without a model: every answer had ended in "Something went wrong asking that".
 - Chat: an answer composed from your notes carries "Your notes, no AI"; with no model running, "Rewrite this shorter" and "Explain it more simply" are not offered. Typos like "writtne" and "mu" are read as "written" and "my". The graph no longer flashes zoomed in before it fits the view.

@@ -259,7 +259,11 @@ def test_status_leads_with_the_newest_and_walks_back_through_the_earlier():
 def test_yes_no_never_answers_yes_or_no():
     result = ask("Does Harbor work offline?")
     first = _first_line(result)
-    assert first.startswith(("The closest your notes come is", "Nothing here says it outright"))
+    #: INBOX 741: a sentence holding every word asked is said as the notes'
+    #: answer ("Going by your notes, ..."), never as a yes or a no.
+    assert first.startswith(
+        ("The closest your notes come is", "Nothing here says it outright", "Going by your notes", composer.PHRASES["notes_have"])
+    )
     assert "Beta testers did not know Harbor works offline." in first
     assert not re.search(r"\b(yes|no)\b[,.]", result["text"].split("\n\n", 1)[0], re.I)
 

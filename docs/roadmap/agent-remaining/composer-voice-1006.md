@@ -14,8 +14,8 @@ clarifying question when nothing is found). Its tests are
 agent's `tests/test_composer_voice.py` has the same name) and
 `tests/test_composer_voice_turns.py`.
 
-## Not merged
-`wip/composer-voice` (31243bd): the step in progress at the restart, about 20
+## Merged after the restart
+`wip/composer-voice` (31243bd): the step in progress at the restart, tests green on merge, about 20
 lines of composer.py, 12 of tests, and a browser sweep
 `scratchpad/ui-sweeps/voice741.js`. Not gated. Run its tests and the gate,
 then merge.
@@ -23,7 +23,7 @@ then merge.
 ## Remaining
 1. The eval numbers for the whole track (before and after) were not reported:
    run `tests/_composer_eval.py` and record them here.
-2. Browser check of Ask and Chat with no model (the sweep above), light and
+2. Browser check of Ask and Chat with no model (`scratchpad/ui-sweeps/voice741.js`, kept on branch `wip/composer-voice` only, under the scratchpad cap: `git show wip/composer-voice:scratchpad/ui-sweeps/voice741.js`), light and
    dark, 1440 and 390: the Did you mean chip and the clarifying question.
 3. The noisy-question set's coverage (owner: "any and ALL typos ... all
    slang"): what is still missed, from the eval.

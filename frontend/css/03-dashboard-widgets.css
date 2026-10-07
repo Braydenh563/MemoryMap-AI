@@ -2598,6 +2598,11 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
+/* The evidence button on its own line under the sources, at the left. */
+.ev-foot {
+  flex-basis: 100%;
+}
+
 .answer-grounding.hidden {
   display: none;
 }

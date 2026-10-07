@@ -1798,7 +1798,10 @@ function renderAnswerGrounding(
       target.appendChild(chip);
     }
   }
-  target.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
+  const foot = document.createElement("div");
+  foot.className = "ev-foot";
+  foot.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
+  target.appendChild(foot);
   target.classList.remove("hidden");
 }
 

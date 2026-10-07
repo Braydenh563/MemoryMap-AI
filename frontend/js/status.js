@@ -2754,6 +2754,8 @@ async function refreshBackgroundTasks() {
   const body = await apiJson("/tasks", { silent: true }).catch(() => null);
   backgroundTasks = (body && body.tasks) || [];
   noticeTaskTransitions(backgroundTasks, (body && body.history) || []);
+  const auto = backgroundTasks.find((t) => t.auto);
+  if (auto || lazyModuleLoads.has("semanticNotice")) semanticInstallNotice(auto);
   renderStatusBar();
   // One fetch, not two: the panel renders from this payload rather than asking
   // again a few milliseconds later.

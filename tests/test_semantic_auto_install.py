@@ -158,3 +158,33 @@ def test_the_guide_tells_the_choice():
         + Path(help_topics_more.__file__).read_text(encoding="utf-8")
     )
     assert "Install search by meaning automatically" in text
+
+
+# --- the first-time notice (a lazy module) ----------------------------------
+
+
+def test_the_notice_is_lazy_and_reached_from_the_task_poll():
+    js = ROOT / "frontend" / "js"
+    assert 'semanticNotice: ["/js/semantic-notice.js"]' in (js / "app.js").read_text(encoding="utf-8")
+    status = (js / "status.js").read_text(encoding="utf-8")
+    assert "backgroundTasks.find((t) => t.auto)" in status
+    assert "semanticInstallNotice(auto)" in status
+    assert '"semanticInstallNotice", "semanticOnboardingOffer"' in (js / "app.js").read_text(encoding="utf-8")
+    # Lazy means not a boot script.
+    assert "semantic-notice.js" not in (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+
+
+def test_the_notice_says_the_size_and_can_refuse_and_undo():
+    text = (ROOT / "frontend" / "js" / "semantic-notice.js").read_text(encoding="utf-8")
+    assert "about 2 GB" in text and "Keyword search" in text
+    assert "Don't install" in text
+    assert '"/tasks/cancel"' in text
+    assert "semantic_auto_install: on" in text
+    assert '"Undo"' in text and "/extras/semantic/install" in text
+    assert "\u2014" not in text
+
+
+def test_the_welcome_card_offers_the_same_choice():
+    js = ROOT / "frontend" / "js"
+    assert "semanticOnboardingOffer(box)" in (js / "onboarding.js").read_text(encoding="utf-8")
+    assert "function semanticOnboardingOffer" in (js / "semantic-notice.js").read_text(encoding="utf-8")

@@ -713,6 +713,7 @@ async function renderPrefs() {
   if (prefsSaveInFlight) await prefsSaveInFlight.catch(() => {});
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
+  $("pref-semantic-auto-install").checked = prefsCache.semantic_auto_install ?? true;
   //: The saved look, and its controls (avatars.js).
   if (typeof setOwnNameMarkStyle === "function") {
     setOwnNameMarkStyle(prefsCache.avatar_style || {});
@@ -769,7 +770,6 @@ function renderAutonomousSettings() {
   $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
-  $("pref-semantic-auto-install").checked = prefsCache.semantic_auto_install ?? true;
   $("pref-filing-wait").value = prefsCache.filing_wait_seconds || 15;
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;

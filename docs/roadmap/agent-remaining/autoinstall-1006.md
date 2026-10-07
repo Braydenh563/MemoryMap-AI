@@ -39,3 +39,11 @@ instruction-tuned, not an OCR or vision-only model), the background-jobs
 model as the smallest capable one, images and reading text by their own
 kind (VL, OCR). Say once what was chosen and why, with Change; never say
 "was running llama3.2" for a model the person never had.
+
+The owner, verbatim, of Settings, Search and index's embedding list (every
+row from MiniLM to EmbeddingGemma badged "Built in"): "it says these models
+are built in??". "Built in" meant "runs in the app, not through Ollama" but
+reads as "shipped with the app". Rename the badge to the engine ("Runs in the
+app" against "Through Ollama"), and give each row its real state: Downloaded
+(with its size on disk), Not downloaded (Use downloads it first), or Files
+missing (the fresh-install case above, with Reinstall).

@@ -344,3 +344,40 @@ def test_the_professional_reply_is_never_the_one_before_and_offers_a_professiona
 @pytest.mark.parametrize("step", composer_tables.NEXT_STEPS_EXTRA + composer_tables.NEXT_STEPS_PROFESSIONAL)
 def test_every_next_step_follows_the_copy_rules_and_has_its_slot(step):
     assert "{subject}" in step and EM_DASH not in step and "!" not in step and step[0].isupper()
+
+
+# --- the setting ---------------------------------------------------------------------------
+
+
+def test_the_voice_is_a_preference_that_defaults_to_natural_and_refuses_other_values(client):
+    assert client.get("/preferences").json()["composer_voice"] == "natural"
+    assert client.put("/preferences", json={"composer_voice": "professional"}).status_code == 200
+    assert client.get("/preferences").json()["composer_voice"] == "professional"
+    assert client.put("/preferences", json={"composer_voice": "shouty"}).status_code == 422
+    assert client.put("/preferences", json={"composer_voice": "natural"}).status_code == 200
+    assert client.get("/preferences").json()["composer_voice"] == "natural"
+
+
+def test_chat_with_no_model_follows_the_voice_preference(client):
+    from tests.test_composer_route_688 import _ask
+
+    client.put("/preferences", json={"composer_voice": "professional"})
+    out = _ask(client, "thanks", use_tools=False)
+    assert out["text"] in composer.SOCIAL_PROFESSIONAL["thanks"]
+    client.put("/preferences", json={"composer_voice": "natural"})
+    out = _ask(client, "thanks", use_tools=False)
+    assert out["text"] in composer.SOCIAL["thanks"]
+
+
+def test_a_composed_chat_answer_follows_the_voice_preference(ai_client, session):
+    from tests.test_composer_route_688 import _ask, _seed
+
+    _seed(session)
+    ai_client.put("/preferences", json={"composer_voice": "professional"})
+    natural_only = {
+        composer.PHRASES[k] for keys in composer_tables.VOICE_VARIANTS["natural"].values() for k in keys
+    } - {composer.PHRASES[k] for keys in composer_tables.VOICE_VARIANTS["professional"].values() for k in keys}
+    for question in ("What is the Harbor launch plan?", "When is the dentist check-up?", "What about the Harbor launch?"):
+        out = _ask(ai_client, question, notes_only=True, use_tools=False, answer_from="notes")
+        assert out["meta"][0]["composed"] is True
+        assert not any(phrase in out["text"] for phrase in natural_only if phrase.strip(" :,."))

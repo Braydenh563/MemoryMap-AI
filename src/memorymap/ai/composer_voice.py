@@ -585,12 +585,12 @@ def asks(query: str) -> bool:
     return bool(composer.subject_terms(text))
 
 
-def one_line(question: str, notes: list[dict], *, today: date, embed=None) -> dict | None:  # noqa: ANN001
+def one_line(question: str, notes: list[dict], *, today: date, embed=None, voice: str = "natural") -> dict | None:  # noqa: ANN001
     """The composed answer's first line, for above Find anything's results:
     the line the composer writes to answer the question's shape on its own
     (`composer.compose`, measured 25 of 25 on its eval). None when the notes
     hold nothing to quote."""
-    result = composer.compose(question, notes, today=today, embed=embed)
+    result = composer.compose(question, notes, today=today, embed=embed, voice=voice)
     if not result.get("grounding"):
         return None
     parts: list[tuple] = []

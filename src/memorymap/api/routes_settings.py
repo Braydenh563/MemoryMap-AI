@@ -311,6 +311,9 @@ class PreferencesBody(BaseModel):
     search_min_similarity: float | None = Field(default=None, ge=0, le=1)
     search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
+    #: The register the composer writes its connecting words in when no model
+    #: answers (`ai/composer_tables.py`): plain and friendly, or formal.
+    composer_voice: Literal["natural", "professional"] | None = None
     #: **The writing checker's own two settings.** Both belong on the server
     #: rather than in `localStorage`, and the reason is the same for each: a
     #: dictionary you have to rebuild when you clear your browser data is a
@@ -721,6 +724,7 @@ def get_preferences() -> dict:
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
+        "composer_voice": config.get_preference("composer_voice", "natural"),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),

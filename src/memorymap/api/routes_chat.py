@@ -1706,6 +1706,16 @@ def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
     return bool(req.body.notes_only) and (req.body.answer_from == "notes" or not ollama_running)
 
 
+def _composer_voice() -> str:
+    """The register the composer writes its connecting words in, from the
+    `composer_voice` preference: "natural" (the default) or "professional"."""
+    try:
+        value = deps.get_config().get_preference("composer_voice", "natural")
+    except Exception:  # noqa: BLE001  # no preference is the default voice
+        return "natural"
+    return value if value in ("natural", "professional") else "natural"
+
+
 def _composer_embed():  # noqa: ANN202
     """The embedder's `embed_many` when a backend is ready, else None: the
     composer then measures meaning by shared words (INBOX 725, embeddings
@@ -1749,7 +1759,8 @@ def _assist(req: _StreamRequest, prepared: dict) -> None:
     embed = _composer_embed()
     try:
         composed = composer.compose(
-            req.question, prepared["notes"], today=user_now(deps.get_config()).date(), recent=recent, embed=embed
+            req.question, prepared["notes"], today=user_now(deps.get_config()).date(), recent=recent, embed=embed,
+            voice=_composer_voice(),
         )
         packed = composer.brief(req.question, prepared["notes"], recent=recent, embed=embed, composed=composed)
     except Exception:  # noqa: BLE001  # the model answers from the notes as they are
@@ -1811,6 +1822,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 prepared["intent"],
                 str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
                 str((req.history or [{}])[-1].get("question") or "") if req.history else "",
+                voice=_composer_voice(),
             )
             yield {"type": "answer", "delta": offline}
             return
@@ -1870,6 +1882,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             recent=str(prepared.get("search_mode") or "").endswith("recent"),
             embed=_composer_embed(),
             said=follow.said if follow else "",
+            voice=_composer_voice(),
             #: The turn before's answer, so this one opens differently (INBOX 741).
             previous=str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
         )

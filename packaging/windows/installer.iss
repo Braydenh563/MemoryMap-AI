@@ -130,7 +130,11 @@ Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAp
 ; defaults that re-ran a 2 GB search-by-meaning download, hidden, inside
 ; every update, while the person was told to reopen the app in a minute.
 ; A scripted install names what it wants: /EXTRAS=documents,docx.
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-extras {code:GetSelectedExtras}"; StatusMsg: "Installing the optional packages you picked..."; Flags: runhidden waituntilterminated runasoriginaluser; Check: HasSelectedExtras
+; Not run here any more (the owner, 2026-10-07: Setup froze on this line for
+; the minutes torch takes, no progress, no minimise, no cancel). CurStepChanged
+; writes the ticked ids to pending-extras.txt in the data folder, and the app
+; installs them on first launch as a background task with progress and Stop
+; (api/app.py `_install_pending_extras`).
 ; Launch the app after installation (existing behaviour).
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent
 ; The in-app updater's silent install reopens the app it closed: it passes
@@ -346,6 +350,19 @@ function HasSelectedExtras: Boolean;
   one box was ticked. }
 begin
   Result := (GetSelectedExtras('') <> '');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+{ The ticked packages, for the app to install on its first launch. }
+var
+  Dir: String;
+begin
+  if (CurStep = ssPostInstall) and HasSelectedExtras then
+  begin
+    Dir := ExpandConstant('{userappdata}\MemoryMap AI');
+    ForceDirectories(Dir);
+    SaveStringToFile(Dir + '\pending-extras.txt', GetSelectedExtras(''), False);
+  end;
 end;
 
 function ShouldRelaunch: Boolean;

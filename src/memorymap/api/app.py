@@ -603,6 +603,24 @@ passes.register_housekeeping("purge-bin", _purge_step)
 passes.register_housekeeping("compact-history", _compact_step)
 
 
+def _install_pending_extras() -> None:
+    """The optional packages ticked in Setup (installer.iss writes their ids
+    to pending-extras.txt), installed now as one background job with its
+    progress and Stop, instead of freezing Setup's window for minutes."""
+    from pathlib import Path
+
+    from memorymap.core import extras
+
+    pending = Path(deps.get_config().data_dir) / "pending-extras.txt"
+    if not pending.is_file():
+        return
+    ids = [part.strip() for part in pending.read_text(encoding="utf-8").split(",") if part.strip()]
+    pending.unlink(missing_ok=True)
+    if ids:
+        started, message = extras.start_bulk("install", ids)
+        logging.getLogger("memorymap.startup").info("packages picked in Setup %s: %s", ids, message)
+
+
 def _choose_chat_model_if_missing() -> None:
     """The stored chat model is not installed (a fresh install's llama3.2):
     use the best one that is, and log it. Ollama not running: nothing to do."""
@@ -635,6 +653,7 @@ def _startup_maintenance() -> None:
             ("_compact_event_log", "Tidy the edit history"),
             ("_backup_if_due", "Back up if today's is due"),
             ("_choose_chat_model_if_missing", "Choose a chat model you have"),
+            ("_install_pending_extras", "Install the packages picked in Setup"),
         )
         run.plan([words for _, words in steps])
         for index, (step, words) in enumerate(steps):

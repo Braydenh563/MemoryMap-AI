@@ -705,11 +705,14 @@ def test_a_source_install_is_untouched(monkeypatch):
 def test_the_installer_page_runs_the_apps_own_installer():
     """The wizard's optional-packages page and Settings > Packages are one
     code path: installer.iss calls the exe with extras ids, never a separate
-    script that installs somewhere else."""
+    script that installs somewhere else. Since 2026-10-07 Setup hands the ids
+    to the app (pending-extras.txt), which installs them through the same
+    `extras.start_bulk` as Settings, rather than freezing its own window."""
     from pathlib import Path
 
     iss = (Path(__file__).resolve().parents[1] / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
-    assert "--install-extras {code:GetSelectedExtras}" in iss
+    assert "pending-extras.txt" in iss and "GetSelectedExtras('')" in iss
+    assert "waituntilterminated runasoriginaluser; Check: HasSelectedExtras" not in iss
     assert "install-extras.ps1" not in iss
     import re
 
@@ -756,3 +759,17 @@ def test_a_cancelled_install_leaves_nothing_behind(client, monkeypatch, tmp_path
     assert sorted(p.name for p in target.iterdir()) == ["already_here"]
     assert not seen["tmp"].exists()
     assert "--no-cache-dir" in seen["command"]
+
+
+def test_packages_picked_in_setup_install_on_first_launch(client, monkeypatch, app_state):
+    from pathlib import Path
+
+    from memorymap.api import app as app_module
+
+    started = []
+    monkeypatch.setattr(extras, "start_bulk", lambda action, ids=None, bundle="": (started.append((action, ids)), (True, "ok"))[1])
+    pending = Path(app_state.data_dir) / "pending-extras.txt"
+    pending.write_text("semantic,documents", encoding="utf-8")
+    app_module._install_pending_extras()
+    assert started == [("install", ["semantic", "documents"])]
+    assert not pending.exists()

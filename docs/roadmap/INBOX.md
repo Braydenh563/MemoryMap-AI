@@ -199,6 +199,11 @@ with its owner named in the entry.
      spill past the oval's ring: either clip the figure to the frame
      (`overflow: clip` with the frame's radius, as the mini avatar now is) or
      scale it to fit inside with a margin; same for every framed Atlas.
+     Then, verbatim: "the show companion notification button was poorly shown
+     but I didnt screenshot it in time". Not seen yet: reproduce the notice
+     that offers to show the companion (first run, after hiding it, or a
+     notification with a Show companion action), measure its button against
+     the toast-with-action recipe in DESIGN.md, and fix what is off.
 
 744. **The owner, 2026-10-07, verbatim**, with Chat answering "test notes" (no
      model): "whiteboard shows as a note and clicking it takes me to the notes page.

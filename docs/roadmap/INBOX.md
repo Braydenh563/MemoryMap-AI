@@ -208,6 +208,19 @@ with its owner named in the entry.
      springy, interruptible transitions between poses. "ro" for "or" is in the
      typo table (question_noise.py).
 
+744. **The owner, 2026-10-07, verbatim**, with Chat answering "test notes" (no
+     model): "whiteboard shows as a note and clicking it takes me to the notes page.
+     also it didn mention other matching records i dont think". Sources listed 5
+     (test, test board, test draft, a test-driven development note, a picture
+     note); the answer quoted 2. Next PR: (a) check the search result's kind for
+     "test board" (`raw_results` in routes_chat meta; the card takes
+     `source.kind`, chat-agent.js near `Sources:`): a board must say board and
+     open the board; (b) the composer names the sources it did not quote ("3
+     more notes match by title: test, test board, test draft") rather than
+     leaving them unsaid; (c) the "Only 1 of 4 sentences here is quoted" notice
+     reads as an alarm on an ordinary answer: word it calmly or show it only
+     when most of the answer is not quoted.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

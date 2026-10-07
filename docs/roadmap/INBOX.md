@@ -237,6 +237,12 @@ with its owner named in the entry.
      so a re-read does not bring them back.
      (c) A note's own questions on the note (a line under it, "2 open
      questions", opening them), and the Questions list grouped by note.
+     (d) First run, verbatim: "should it have gone straight to the graph
+     tour?? i clicked add some example notes". Add some example notes opened
+     the Graph with its tour running ("Moving around, 1 of 3"). It should add
+     the notes, stay put (or show them in Notes) and say so in a toast with
+     "See them on the graph" and "Take the tour"; a tour starts only when
+     asked for. Grep the example-notes action in onboarding.js and tour.js.
 
 ## Placed (last 20, newest first)
 

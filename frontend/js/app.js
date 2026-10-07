@@ -2305,7 +2305,7 @@ const LAZY_ENTRY_POINTS = {
   quickAccess: ["quickAccessEdit"],
   inbox: ["openSuggestionsInbox", "openEntityPage", "openEntitiesSheet", "openLinkTypeSheet", "openRelationTypesSheet", "openNotePropertiesSheet", "openNoteTypesSheet", "openQueryTable", "showQueryOnGraph"],
   assistantAvatar: ["assistantEmblemInto"],
-  quickNote: ["openQuickNote", "pasteClipboardAsNote", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox", "renderPendingNoteRows"],
+  quickNote: ["openQuickNote", "pasteClipboardAsNote", "saveChatAnswerAsNote", "reminderFromChatAnswer", "createNoteSafely", "noteOutboxAdd", "flushNoteOutbox", "renderPendingNoteRows"],
   graph: [
     "clearTrace",
     "closeGraphNewNote",

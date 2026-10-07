@@ -20,7 +20,7 @@ const SEMANTIC_NOTICE_KEY = "mm-semantic-notice-seen";
 
 function semanticNoticeSeenBefore() {
   try {
-    return localStorage.getItem(SEMANTIC_NOTICE_KEY) === "1";
+    return prefs.get(SEMANTIC_NOTICE_KEY, "") === "1";
   } catch (error) {
     return false;
   }

@@ -63,6 +63,7 @@ function assistantLabel() {
 const MSG_ACTIONS_VISIBLE = 5;
 
 function chatMessageActions(actions) {
+  actions = actions.filter(Boolean);
   const row = document.createElement("div");
   row.className = "msg-actions";
   const make = (action) => {
@@ -159,6 +160,7 @@ function chatTurnTranscript(bubble, text) {
 }
 
 function assistantMessageActions({ bubble, text, question, onEdit }) {
+  const off = aiIsOff();
   return chatMessageActions([
     {
       label: "ph:copy",
@@ -170,7 +172,7 @@ function assistantMessageActions({ bubble, text, question, onEdit }) {
       title: "Regenerate from here",
       onClick: () => regenerateFromBubble(bubble),
     },
-    {
+    off ? null : {
       label: "ph:scissors",
       title: "Rewrite this shorter",
       onClick: () =>
@@ -178,7 +180,7 @@ function assistantMessageActions({ bubble, text, question, onEdit }) {
           "Rewrite your last answer to be shorter, keep every fact, cut the padding."
         ),
     },
-    {
+    off ? null : {
       label: "ph:student",
       title: "Explain it more simply",
       onClick: () =>
@@ -206,63 +208,6 @@ function assistantMessageActions({ bubble, text, question, onEdit }) {
       onClick: () => deleteChatTurn(bubble),
     },
   ]);
-}
-
-// One-click capture from a chat answer. The text-selection popup's "Save as
-// draft note" already reaches chat bubbles, but only for whatever's
-// highlighted: this needs no selection at all, so the whole answer is one
-// press away instead of a select-then-click.
-async function saveChatAnswerAsNote(question, answer) {
-  try {
-    const content = question ? `${question}\n\n${answer}` : answer;
-    await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
-    });
-    toast("Saved as a draft note.");
-    // Unconditional, not gated on the Notes tab being the one currently
-    // open. Reported: a note saved from Chat "didn't show up in the
-    // drafts" - it *was* saved, but `entries` (the in-memory list Notes
-    // renders from) was never refetched, since switchTab("notes") doesn't
-    // reload it either. The stale list only caught up whenever something
-    // else happened to call loadEntries() next. refreshAfterToolChanges()
-    // already calls this with no such guard, for the same reason.
-    loadEntries();
-  } catch (error) {
-    toast(error.message || "Couldn't save that note.", true);
-  }
-}
-
-// Same one-click idea for reminders. No AI parse and no due-date prompt, 
-// either would need a round trip or a decision before anything is saved,
-// which is exactly what "one click" was asked to avoid, so this picks a
-// plain default (tomorrow, 9am) and creates the reminder right away; the
-// toast's "Edit" action jumps straight to it in the Reminders tab for
-// anyone who wants a different time.
-async function reminderFromChatAnswer(answer) {
-  const text = answer.length > 100 ? answer.slice(0, 97).trim() + "…" : answer;
-  const due = new Date();
-  due.setDate(due.getDate() + 1);
-  due.setHours(9, 0, 0, 0);
-  try {
-    const reminder = await apiJson("/reminders", {
-      method: "POST",
-      body: JSON.stringify({
-        text: `Follow up: ${text}`,
-        due_at: due.toISOString(),
-        priority: "normal",
-        recurring: "none",
-      }),
-    });
-    askNotificationPermission();
-    loadReminders();
-    toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
-      editingReminderId = reminder.id;
-      return flashReminder(reminder.id);
-    }, { go: { open: "reminder", id: reminder.id } });
-  } catch (error) {
-    toast(error.message || "Couldn't set a reminder.", true);
-  }
 }
 
 // The offer to carry on, shown under a turn that stopped before it was done.

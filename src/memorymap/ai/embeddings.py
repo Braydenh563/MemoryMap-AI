@@ -1012,9 +1012,9 @@ class EmbeddingService:
         # the auto install"): Settings, Search and index. Checked before the
         # once-per-process flag is spent, so switching it back on lets the
         # next failed embed install without a restart.
-        from memorymap.core import deps
-
-        if not deps.get_config().get_preference("semantic_auto_install", True):
+        #: Through the model manager's own config, not `core.deps`, which
+        #: imports this module (tests/test_no_import_cycles.py).
+        if not self._models._config.get_preference("semantic_auto_install", True):
             logger.info("sentence-transformers is missing and the auto-install is switched off")
             return
         self._auto_install_attempted = True

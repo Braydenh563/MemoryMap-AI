@@ -2301,6 +2301,7 @@ async function sendChatMessage(preset, opts = {}) {
   }
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
+  if (meta?.composed && answerRaw) bubble.appendChild(chip("ph:notebook Your notes, no AI", "item-label"));
   if (answerRaw || toolEvents.length) {
     bubble.appendChild(
       messageMetaLine({

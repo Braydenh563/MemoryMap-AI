@@ -3742,6 +3742,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           if (!s.fittedOnce) {
             s.fittedOnce = true;
             fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+            gcReveal(s);
           } else if (message.alpha < 0.08) {
             gcSetAutoFitDone(s, true);
             if (!s.userZoomed) {
@@ -3775,6 +3776,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
         }
         s.fitAgainAtEnd = false;
+        gcReveal(s);
         // GRAPH_PLAN Phase 5: the settle a restored view's unplaced notes
         // forced is over, so the notes it held still (`viewSeed.freezeIds`,
         // below) are released the same way a drag's freeze is: `thaw`, no
@@ -3791,9 +3793,17 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       // already have positions (inherited, pinned or spiral), so the canvas
       // still draws a static graph.
       gcRequestDraw(s);
+      gcReveal(s);
     };
   }
   s.fittedOnce = false;
+  //: Hidden until the first fit (the owner, 2026-10-07: "the crazy starting
+  //: zoom in on the graph before it fits"): the first frames drew at the
+  //: default camera. Shown at that fit, or after 1.5 s whatever happens.
+  if (!gcAutoFitDone(s) && s.canvas) {
+    s.canvas.style.opacity = "0";
+    setTimeout(() => gcReveal(s), 1500);
+  }
   const init = {
     type: "init",
     epoch: s.epoch,
@@ -4975,4 +4985,11 @@ async function gcRelinkPairs(pairs) {
     pair.linkId = made?.links?.find((link) => link.entry_id === pair.to)?.link_id ?? pair.linkId;
   }
   renderGraph();
+}
+
+function gcReveal(s) {
+  if (s.canvas && s.canvas.style.opacity === "0") {
+    s.canvas.style.transition = "opacity var(--ui-fast) var(--ease-out)";
+    s.canvas.style.opacity = "";
+  }
 }

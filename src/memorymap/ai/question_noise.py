@@ -111,6 +111,8 @@ SLANG: dict[str, str] = {
 #: money, work, study, health, travel, home, people, feelings, tasks and places.
 #: Same rule as above: only forms that are never anything else in a question.
 SLANG.update({
+    #: "mu" is "my" one key over (the owner's "what have i writtne about mu uni classes").
+    "mu": "my",
     "hte": "the", "adn": "and", "nad": "and", "taht": "that", "waht": "what", "wich": "which",
     "whihc": "which", "wihch": "which", "whcih": "which", "becasue": "because", "becuase": "because",
     "beacuse": "because", "bcoz": "because", "thier": "their", "yer": "your", "recieve": "receive",
@@ -279,8 +281,10 @@ _SOCIAL_FILLER = frozenset(
 
 #: Laughter typed long ("hahahaha", "lmaooo", "lollll").
 _LAUGH = re.compile(r"^(?:(?:ha|he|ah){2,}h?|lo+l+(?:o+l+)*|lmf?a+o+|xd+)$", re.I)
+#: One range for the supplementary symbols block: a second range inside it
+#: (U+1F900 to U+1F9FF) was redundant (CodeQL #551, overly large range).
 _EMOJI = re.compile(
-    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F900-\U0001F9FF\U00002300-\U000023FF\U0000FE0F\U0000200D]+"
+    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U00002300-\U000023FF\U0000FE0F\U0000200D]+"
 )
 #: Emoticons, read as small talk too.
 _EMOTICON = re.compile(r"(?:^|\s)(?:[:;=8][-']?[)(DPp/\\|*]+|<3|\^_?\^)(?=\s|$)")
@@ -477,7 +481,8 @@ ASKING = frozenset(
 #: The long words that name a kind of question, repaired wherever they are.
 KIND_WORDS = frozenset(
     """compare versus between difference latest status progress update explain
-    summarise summarize overview anything everything recently newest""".split()
+    summarise summarize overview anything everything recently newest
+    written writing thought mentioned""".split()
 )
 
 #: Real words one edit from an asking word, never "corrected": "then" is not

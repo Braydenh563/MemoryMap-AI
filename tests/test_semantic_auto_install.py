@@ -35,6 +35,10 @@ def _allow_auto_install(monkeypatch):
     # The suite may run with the guard on; these tests are about the
     # preference, so the env var must not be what stops the install.
     monkeypatch.delenv("MEMORYMAP_NO_AUTO_INSTALL", raising=False)
+    yield
+    # A test here starts a fake install (`_no_dispatch`) that never finishes;
+    # left running it showed up in every later /tasks test on the worker.
+    extras.reset_for_tests()
 
 
 def test_the_preference_defaults_to_on():

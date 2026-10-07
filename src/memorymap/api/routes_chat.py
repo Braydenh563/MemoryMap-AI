@@ -2574,27 +2574,29 @@ def execute_confirmed_tool(
         calls = [(str(step.get("tool") or ""), step.get("arguments") or {}) for step in body.steps]
         if not calls or any(name not in tools.TOOLS for name, _ in calls):
             raise HTTPException(status_code=404, detail="That undo names a step this app does not have.")
-        # Last change first, the way a stack of edits is taken back.
-        results = [_execute_one(session, name, arguments) for name, arguments in reversed(calls)]
-        return {"label": f"Undid {len(results)} changes.", "results": results}
+        # Last change first, the way a stack of edits is taken back. Each
+        # step's own result is not sent back: the button only needs to know it
+        # worked, and a tool's result can carry text written for the model.
+        for name, arguments in reversed(calls):
+            _refuse_failed(name, tools.execute_tool(session, name, arguments))
+        return {"label": f"Undid {len(calls)} changes."}
     if body.name not in tools.TOOLS:
         raise HTTPException(status_code=404, detail=f"There is no tool called '{body.name}'.")
-    return _execute_one(session, body.name, body.arguments)
-
-
-def _execute_one(session: Session, name: str, arguments: dict) -> dict:
-    if name not in tools.TOOLS:
-        raise HTTPException(status_code=404, detail=f"There is no tool called '{name}'.")
-    result = tools.execute_tool(session, name, arguments)
-    if "error" in result:
-        # `result["error"]` is written for the model (it names the tool and
-        # its arguments), so it goes to the log and the person reads a
-        # sentence about what happened to their click.
-        logging.getLogger("memorymap.chat").warning(
-            "confirmed tool %r failed: %s", safe_value(name, 40), safe_value(result["error"], 300)
-        )
-        raise HTTPException(
-            status_code=400,
-            detail="That couldn't be done. The note or item may have changed since you asked, so check it and try again.",
-        )
+    result = tools.execute_tool(session, body.name, body.arguments)
+    _refuse_failed(body.name, result)
     return result
+
+
+def _refuse_failed(name: str, result: dict) -> None:
+    """A failed confirmed call is a 400 with a sentence about the click.
+    `result["error"]` is written for the model (it names the tool and its
+    arguments), so it goes to the log, not to the person."""
+    if "error" not in result:
+        return
+    logging.getLogger("memorymap.chat").warning(
+        "confirmed tool %r failed: %s", safe_value(name, 40), safe_value(result["error"], 300)
+    )
+    raise HTTPException(
+        status_code=400,
+        detail="That couldn't be done. The note or item may have changed since you asked, so check it and try again.",
+    )

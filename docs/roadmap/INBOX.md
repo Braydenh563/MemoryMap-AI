@@ -221,6 +221,31 @@ with its owner named in the entry.
      reads as an alarm on an ordinary answer: word it calmly or show it only
      when most of the answer is not quoted.
 
+745. **The owner, 2026-10-07, verbatim**: "note dates arent in the corner like i
+     asked, i thought that was fixed. also notes ask questions but there is no way
+     to view the questions asked by notes if they have any from the notes
+     themselves"; then, of the Questions list (11 open: "What daring deed hath
+     led thee to this street?", "- \"If you were a spice, which one would you be
+     and why?", "\" or \"What's the most adventurous thing...", "What's an
+     astronaut's favorite drink?", "Why did the student eat his homework?"):
+     "these are just random questions form my notes?? I didnt actually have any
+     questions for myself, they are unrelated and mostly from test notes".
+     Next PR:
+     (a) Card dates: INBOX 719 put the time at the bottom right of the card's
+     content; a card stretched taller than its content (grid rows) shows it
+     mid-card. Pin it to the card's own bottom edge, measured on cards of
+     unequal height in one row.
+     (b) Open questions (`ai/facts.py` candidates, kind "question"): only the
+     person's own open questions. Skip a question inside quotation marks, a
+     list item or example ("Examples:", "like \"..."), a line starting with a
+     quote fragment, a joke setup (answered on the next line), dialogue or
+     script (Act, Scene), and pasted or AI-written guide text; strip markdown
+     (`**`, `- `, `* `) from the question and from the note title shown. Re-run
+     on the owner's 11: none of them should remain. Tombstone what is dropped,
+     so a re-read does not bring them back.
+     (c) A note's own questions on the note (a line under it, "2 open
+     questions", opening them), and the Questions list grouped by note.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

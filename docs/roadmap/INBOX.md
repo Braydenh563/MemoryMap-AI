@@ -258,6 +258,17 @@ with its owner named in the entry.
      test drags each built-in template's shapes and checks every connector
      still meets its shapes. With 740 (arrows on rotated shapes).
 
+747. **The owner, 2026-10-07, verbatim**: "also in the whiteboard and mindmap,
+     there's no way to reset a object back to default style". No such action
+     exists (grep "Reset style" in whiteboard*.js finds nothing; a map topic's
+     Text, Shape and Branch panels each have their own reset arrow, INBOX 670,
+     but nothing resets the whole object). Next PR: "Reset style" on every
+     object's floating bar menu and right-click menu, and for a multi-selection:
+     colour, fill, stroke, text size and weight, shape and line style back to
+     the kind's defaults (a map topic back to following the map), content and
+     position kept, one undo step, in the command palette as a board command,
+     help text updated.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

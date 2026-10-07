@@ -61,3 +61,5 @@ its cap: any JS added next needs a trim elsewhere.
 `composer.compose` the composer picks the right sentences but speaks in the
 notes' voice ("Here is what you wrote:", "(one of your notes)", "When did I
 write about lock?"). Needs a `voice="help"` register before it is used.
+
+The settings-row sweep `scratchpad/ui-sweeps/voice1006.js` lives on `wip/composer-vocab` only (scratchpad cap): `git show origin/wip/composer-vocab:scratchpad/ui-sweeps/voice1006.js`.

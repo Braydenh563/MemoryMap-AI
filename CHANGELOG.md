@@ -7,32 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-### Added
-
-- Composer vocabulary: a `composer_voice` setting (Settings, Personas, Answer style: natural or professional) chooses the register of the connecting phrases when no model answers; every joining phrase and opener has several variants in each voice (99 phrases to 341), 148 synonym groups across everyday topics, comparison forms (cheaper than, compared with, pros and cons), 35 wrappers, 847 slang and text-speak entries, and more small talk and next steps; grounded stays 1.0.
-- Ask and Chat with a model running: the model reads the notes cut by the composer to the parts on the question (17.3% fewer prompt tokens over the 25 showcase questions), and the composed answer is sent first as a `composed_preview` event.
-
-### Fixed
-
-- Note edit form: a tag chip's name and its × sit centred on one line.
-- Documents: Suggest changes is hidden on code and plain-text files, where it cannot work, and says why instead of switching itself back off. Note edit form: the category chip and the tags are one height on one line.
-- Settings, Installed models: a card with no main button carries its ⋯ in the top-right corner beside the name, instead of alone at the bottom under an empty gap.
-- Packages: a stopped install leaves nothing behind. What it had installed so far (torch can be 2 GB) is removed, pip's temporary folder is deleted, and installs keep no download cache.
-- Chat and the agent: Undo on a change to several notes at once (tagging two notes, moving several board items) works; it used to fail because the app did not recognise the undo.
-- Background tasks: the scheduled passes (night shift, backup, resurfacing, embeddings backfill, housekeeping, autonomous) now appear while they run, with a progress bar, named steps and a short log of what they are doing.
-- Ask and Chat with no model reply in kind to any conversational turn (k, ok, right ok, alright, got it, ty, lol, omg, oof, an emoji, how r u, wyd, sorry, huh, wym, "?", wait what) without searching, from a varied set that never repeats twice running and, after an ok or a thanks, offers the next step on what you were discussing; "ok and what about the trip" answers the question. An unsure typo reading offers one "Did you mean ...?" chip that asks again with the other word, and a question nothing answers gets a short clarifying question (INBOX 741).
-- Ask and Chat with no model read questions typed the way people type: 250 slang and text-speak words (pls, ty, u, r, wym, rn, abt, b4, 2moro, gonna, lemme), misspelt asking words by a keyboard-aware edit distance ("wjen", "hoow mny", "lattest"), run-together and split words ("whenis", "wh en"), emoji and all caps; a question with no asking word is matched by meaning to example questions; "ty", "lol" and an emoji alone get a short reply instead of a search (INBOX 741).
-- Ask and Chat with no model understand more: casual and indirect questions ("can you remind me when...", "any idea if..."), typos and text-speak in the question ("whn is the launch", "hw mny", "abt", "ur"), two questions in one message, "what about the boiler?" and "why?" after an answer, "briefly" and "in detail", where-questions and a few synonyms; a short question two notes fit equally asks which was meant, and small talk gets a warm reply rather than "the AI model isn't running" (INBOX 741).
-- Ask and Chat with no model: an answer from your notes says the note's own sentence first and names the note once after it, by its heading or the day it was written, instead of opening every sentence with "Your note ... says:" and a pile of "also"; joining words vary and never repeat in one answer (INBOX 741).
-- Search by meaning: you can refuse or stop its automatic install. Settings, Search and index has a switch, Install search by meaning automatically (on by default; off means it is never started and search stays on keywords), and the first time the app starts the install itself a notice says so, how big it is, and offers Don't install.
-- Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.
-- Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.
-- Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.
-
 ## [0.4.1] - 2026-10-06
 
 ### Added
 
+- Composer vocabulary: a `composer_voice` setting (Settings, Personas, Answer style: natural or professional) chooses the register of the connecting phrases when no model answers; every joining phrase and opener has several variants in each voice (99 phrases to 341), 148 synonym groups across everyday topics, comparison forms (cheaper than, compared with, pros and cons), 35 wrappers, 847 slang and text-speak entries, and more small talk and next steps; grounded stays 1.0.
+- Ask and Chat with a model running: the model reads the notes cut by the composer to the parts on the question (17.3% fewer prompt tokens over the 25 showcase questions), and the composed answer is sent first as a `composed_preview` event.
 - Answers from your notes read like a chat answer (INBOX 725): the answer on the first line, the other notes joined by how they relate (also, later, separately, or but when two may disagree), a sentence several notes repeat said once with how many say it, short lists said as one sentence, a few questions to ask next under it, and tell me more or the second one following on from the answer before. Every sentence is still quoted from a note. The Chat tab answers the same way whenever no model is running; a running model still answers.
 - Graph: Reshuffle layout, beside Unpin all under Physics (INBOX 692). The categories are dealt round again and every unpinned note moves to a new start, drawn moving, then the map settles and fits the view.
 - Graph: lines say what they are on three channels (INBOX 693): solid for a link and dashed for a match in meaning; thicker and stronger the surer (a closer match, a reason the app found with more confidence); faint between two categories in Clusters. The legend keys the ones the map has.
@@ -79,6 +59,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Note edit form: a tag chip's name and its × sit centred on one line.
+- Documents: Suggest changes is hidden on code and plain-text files, where it cannot work, and says why instead of switching itself back off. Note edit form: the category chip and the tags are one height on one line.
+- Settings, Installed models: a card with no main button carries its ⋯ in the top-right corner beside the name, instead of alone at the bottom under an empty gap.
+- Packages: a stopped install leaves nothing behind. What it had installed so far (torch can be 2 GB) is removed, pip's temporary folder is deleted, and installs keep no download cache.
+- Chat and the agent: Undo on a change to several notes at once (tagging two notes, moving several board items) works; it used to fail because the app did not recognise the undo.
+- Background tasks: the scheduled passes (night shift, backup, resurfacing, embeddings backfill, housekeeping, autonomous) now appear while they run, with a progress bar, named steps and a short log of what they are doing.
+- Ask and Chat with no model reply in kind to any conversational turn (k, ok, right ok, alright, got it, ty, lol, omg, oof, an emoji, how r u, wyd, sorry, huh, wym, "?", wait what) without searching, from a varied set that never repeats twice running and, after an ok or a thanks, offers the next step on what you were discussing; "ok and what about the trip" answers the question. An unsure typo reading offers one "Did you mean ...?" chip that asks again with the other word, and a question nothing answers gets a short clarifying question (INBOX 741).
+- Ask and Chat with no model read questions typed the way people type: 250 slang and text-speak words (pls, ty, u, r, wym, rn, abt, b4, 2moro, gonna, lemme), misspelt asking words by a keyboard-aware edit distance ("wjen", "hoow mny", "lattest"), run-together and split words ("whenis", "wh en"), emoji and all caps; a question with no asking word is matched by meaning to example questions; "ty", "lol" and an emoji alone get a short reply instead of a search (INBOX 741).
+- Ask and Chat with no model understand more: casual and indirect questions ("can you remind me when...", "any idea if..."), typos and text-speak in the question ("whn is the launch", "hw mny", "abt", "ur"), two questions in one message, "what about the boiler?" and "why?" after an answer, "briefly" and "in detail", where-questions and a few synonyms; a short question two notes fit equally asks which was meant, and small talk gets a warm reply rather than "the AI model isn't running" (INBOX 741).
+- Ask and Chat with no model: an answer from your notes says the note's own sentence first and names the note once after it, by its heading or the day it was written, instead of opening every sentence with "Your note ... says:" and a pile of "also"; joining words vary and never repeat in one answer (INBOX 741).
+- Search by meaning: you can refuse or stop its automatic install. Settings, Search and index has a switch, Install search by meaning automatically (on by default; off means it is never started and search stays on keywords), and the first time the app starts the install itself a notice says so, how big it is, and offers Don't install.
+- Background tasks: a running job's Stop button is always shown, not only while the pointer is over its row.
+- Night shift: Run now (Background jobs, and the Dashboard's Read my notes now) reads as far as the scheduled pass does, 20,000 tokens unless set otherwise, instead of stopping after a few notes when a model is running.
+- Ctrl+K: words typed and Enter pressed straight after opening the command palette for the first time are kept while it loads, rather than lost.
 - Menus placed by the shared rule stop at the status bar's top, so the document ⋯ no longer runs under it; a task tick box has room before its words.
 - The header's Quit button is at full strength like its neighbours; dimmed, it read as disabled.
 - Chat and Ask: the "No model is connected" line has a close button; closing it hides that line until you start the app again, and a new session shows it (INBOX 732).

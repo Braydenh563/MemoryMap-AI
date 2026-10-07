@@ -315,6 +315,18 @@ state now. The line-by-line ledger of what is left is
 
 ### State of the branch (`claude/notes-flow-rebuild`, PR #162)
 
+**Now (2026-10-07, main, 0.4.1 complete):** everything since PR 167 is on main
+and folded into CHANGELOG 0.4.1 (composer voice and vocabulary, background
+progress, auto-install refusal and rollback, composer brief for a running
+model). The owner re-tags `v0.4.1` at main's head. Next PR, in order: the
+composer's `voice="help"` and the Guide through it, Chat's missing follow-up
+chips, composer follow-ups while a model runs
+(`agent-remaining/composer-voice-1006.md`); then `wip/composer-acts`
+(`composer-acts-1006.md`), the composer-everywhere screens
+(`composer-everywhere-1006.md`), `composer-model-1006.md`,
+`bgprogress-1006.md` (autonomous pass with no model, night pairing speed),
+`autoinstall-1006.md`; then INBOX 727 to 741.
+
 **Now (2026-10-06, PR 167, 0.4.1):** 0.4.1 is ready to merge from
 `claude/mini-release-0.4.1` (forgot-password flow plus INBOX 663 to 726). Next
 session, in order: INBOX 727 to 736 (Ask search indicator, missing similarity

@@ -47,3 +47,17 @@ reads as "shipped with the app". Rename the badge to the engine ("Runs in the
 app" against "Through Ollama"), and give each row its real state: Downloaded
 (with its size on disk), Not downloaded (Use downloads it first), or Files
 missing (the fresh-install case above, with Reinstall).
+
+The owner, verbatim, with the status bar's red AI dot open on "Search AI
+didn't load / EmbeddingCacheBroken: The search-by-meaning model's files on
+this computer would not load. Reinstall it from Settings, Models.": "things
+should be auto fixed for the user". So: a broken or missing model cache is
+repaired by the app, not handed to the person. On EmbeddingCacheBroken (and
+on a model whose files are missing), start the reinstall itself as a visible
+background task (the same path as Reinstall, `semantic_auto_install` still
+respected), keep keyword search working meanwhile, and turn the dot to a
+working state with "Fixing search by meaning..."; only if the fix fails
+twice, or there is no network, ask the person, in plain words with one
+button. Also: no exception class names in what the person reads
+("EmbeddingCacheBroken:" is shown verbatim today), and Settings → Logs is
+named only when there is something a person can do with it.

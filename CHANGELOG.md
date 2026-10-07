@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Composer vocabulary: a `composer_voice` setting (Settings, Personas, Answer style: natural or professional) chooses the register of the connecting phrases when no model answers; every joining phrase and opener has several variants in each voice (99 phrases to 341), 148 synonym groups across everyday topics, comparison forms (cheaper than, compared with, pros and cons), 35 wrappers, 847 slang and text-speak entries, and more small talk and next steps; grounded stays 1.0.
 - Ask and Chat with a model running: the model reads the notes cut by the composer to the parts on the question (17.3% fewer prompt tokens over the 25 showcase questions), and the composed answer is sent first as a `composed_preview` event.
 
 ### Fixed

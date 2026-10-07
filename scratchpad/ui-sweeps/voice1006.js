@@ -10,12 +10,13 @@ const { boot } = require('./lib.js');
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
   await page.waitForTimeout(2500);
   await page.evaluate(() => openSettingsModal('personas'));
+  console.log(await page.evaluate(() => { const e = document.getElementById('pref-voice'); let n = e, out = []; while (n && out.length < 6) { out.push((n.id || n.className || n.tagName).toString().slice(0, 30) + ':' + (n.getBoundingClientRect().width | 0)); n = n.parentElement; } return out.join(' < '); }));
   await page.waitForTimeout(2500);
   const m = await page.evaluate(() => {
     const sel = document.getElementById('pref-voice');
     const style = document.getElementById('pref-style');
     const row = sel.closest('.row');
-    const r = sel.getBoundingClientRect(), s = style.getBoundingClientRect(), rr = row.getBoundingClientRect();
+    const r = sel.closest('.select-shell').getBoundingClientRect(), s = style.closest('.select-shell').getBoundingClientRect(), rr = row.getBoundingClientRect();
     const pane = row.closest('.settings-group').getBoundingClientRect();
     return {
       value: sel.value, options: [...sel.options].map((o) => o.value),
@@ -34,7 +35,7 @@ const { boot } = require('./lib.js');
   }));
   await page.selectOption('#pref-voice', 'professional');
   await page.waitForTimeout(800);
-  const saved = await page.evaluate(async () => (await (await fetch('/preferences')).json()).composer_voice);
+  const saved = await page.evaluate(async () => (typeof prefsCache === 'object' && prefsCache.composer_voice) + ' / selected ' + document.getElementById('pref-voice').value);
   console.log('saved', saved);
   await page.screenshot({ path: (process.env.SCRATCH || '.') + `/shots/voice1006-${W}.png` });
   console.log('errors', errors);

@@ -27,3 +27,31 @@ then merge.
    dark, 1440 and 390: the Did you mean chip and the clarifying question.
 3. The noisy-question set's coverage (owner: "any and ALL typos ... all
    slang"): what is still missed, from the eval.
+
+## Vocabulary expansion (2026-10-06, the owner: "just expand its vocabulary")
+Built (commits 3df6d27, 118aa18, and the Settings commit after them):
+- `question_noise.py`: SLANG 255 to 847 entries (second table: misspellings and
+  text-speak across time, money, work, study, health, travel, home, people,
+  feelings, tasks, places); SOCIAL words 130 to 253, SOCIAL_PHRASES 81 to 227.
+- `ai/composer_tables.py` (new, data only): voices `natural` (default) and
+  `professional`, `VOICE_VARIANTS` per phrase key; PHRASES 99 to 341;
+  SYNONYM_GROUPS 20 to 148; LEAD_INS 30 to 65 (bare 7 to 28); wrappers 12 to 35;
+  contractions 2 to 11; compare patterns 3 to 12 (than, compared with, pros and
+  cons, differs from, comparison of); comparison words are asking words; social
+  lines 34 to 68 plus a professional set; next steps 3 to 9 plus professional.
+- `compose(..., voice=)` and `social(..., voice=)`; preference `composer_voice`
+  (Settings, Personas, Answer style, `#pref-voice`, help `composer-voice-help`,
+  Guide topic `answer-style`); routes_chat reads it.
+- Tests: `tests/test_composer_tables.py` (every variant, synonym group, wrapper,
+  compare form, lead-in and social line), `test_question_noise.py` (every slang,
+  social word and phrase). Browser sweep `scratchpad/ui-sweeps/voice1006.js`.
+Numbers, before to after: grounded 1.0 to 1.0 (both voices); distinct openers
+11 to 15 (showcase), 18 to 38 (90-question voice set); connectives distinct
+33 to 41; noisy set hand 83/85 to 83/85, derived 301/303 to 301/303; kind right
+90/90 and 77/77 turns unchanged; distinct small-talk replies 36 to 65.
+Left: other languages' wrappers; professional variants for the next-question
+chips and the citation phrases (`mention_*`, `lists`, `echo`, which are tied to
+their grammar); the Settings row checked in Chromium at 1440 and 390 on the
+light theme only (dark not run); `scripts/gate.sh --staged` run on the first
+two commits, run again for the last. static-compression total is 2 bytes under
+its cap: any JS added next needs a trim elsewhere.

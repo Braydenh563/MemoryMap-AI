@@ -350,12 +350,20 @@ def test_every_next_step_follows_the_copy_rules_and_has_its_slot(step):
 
 
 def test_the_voice_is_a_preference_that_defaults_to_natural_and_refuses_other_values(client):
-    assert client.get("/preferences").json()["composer_voice"] == "natural"
-    assert client.put("/preferences", json={"composer_voice": "professional"}).status_code == 200
-    assert client.get("/preferences").json()["composer_voice"] == "professional"
-    assert client.put("/preferences", json={"composer_voice": "shouty"}).status_code == 422
-    assert client.put("/preferences", json={"composer_voice": "natural"}).status_code == 200
-    assert client.get("/preferences").json()["composer_voice"] == "natural"
+    def voice() -> str:
+        prefs = client.get("/preferences").json()
+        return prefs["composer_voice"]
+
+    def put(value: str) -> int:
+        response = client.put("/preferences", json={"composer_voice": value})
+        return response.status_code
+
+    assert voice() == "natural"
+    assert put("professional") == 200
+    assert voice() == "professional"
+    assert put("shouty") == 422
+    assert put("natural") == 200
+    assert voice() == "natural"
 
 
 def test_chat_with_no_model_follows_the_voice_preference(client):

@@ -243,6 +243,14 @@ with its owner named in the entry.
      the notes, stay put (or show them in Notes) and say so in a toast with
      "See them on the graph" and "Take the tour"; a tour starts only when
      asked for. Grep the example-notes action in onboarding.js and tour.js.
+     Then, verbatim: "well it added them then I pressed the continue or
+     whatever button and a wierd blank tour panel showed in the top left corner
+     for a couple seconds then it righted itself and went to the graph tour".
+     So the tour came from onboarding's continue, and its card drew empty at
+     the top left (no target yet: the Graph tab and its lazy code still
+     loading) before placing itself. The card must stay hidden until its
+     target exists and is measured, then appear in place; and the continue
+     should say where it goes.
 
 ## Placed (last 20, newest first)
 

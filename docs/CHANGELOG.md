@@ -59,6 +59,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Guide answers again, with or without a model: every answer had ended in "Something went wrong asking that".
 - Chat: an answer composed from your notes carries "Your notes, no AI"; with no model running, "Rewrite this shorter" and "Explain it more simply" are not offered. Typos like "writtne" and "mu" are read as "written" and "my". The graph no longer flashes zoomed in before it fits the view.
 - Note edit form: a tag chip's name and its × sit centred on one line.
 - Documents: Suggest changes is hidden on code and plain-text files, where it cannot work, and says why instead of switching itself back off. Note edit form: the category chip and the tags are one height on one line.

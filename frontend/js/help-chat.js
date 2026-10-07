@@ -413,10 +413,12 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
   let buffered = "";
   let text = "";
   let done = null;
-  const take = (line) => {
-    if (!line.trim()) return;
+  //: `raw`, not `line`: that name is the progress line above, and a string
+  //: shadowing it threw on the first delta ("Something went wrong").
+  const take = (raw) => {
+    if (!raw.trim()) return;
     let event;
-    try { event = JSON.parse(line); } catch { return; }
+    try { event = JSON.parse(raw); } catch { return; }
     if (event.type === "thinking") {
       think.hidden = false;
       line?.setPhase("thinking");
@@ -440,7 +442,7 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
     buffered += decoder.decode(chunk.value, { stream: true });
     const lines = buffered.split("\n");
     buffered = lines.pop() || "";
-    for (const line of lines) take(line);
+    for (const raw of lines) take(raw);
   }
   take(buffered);
   line?.remove();

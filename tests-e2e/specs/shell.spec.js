@@ -115,3 +115,15 @@ test("Ctrl+K types ahead while the palette's own script is still loading", async
   await expect(page.locator("#tab-library")).toBeVisible();
   await expect(page.locator("#palette-overlay")).toBeHidden();
 });
+
+test("the Guide answers from the app's own help with no model", async ({ page }) => {
+  // A received line shadowed the progress line in the stream reader, so the
+  // first piece of every answer threw and the Guide said "Something went wrong".
+  await openApp(page);
+  await page.evaluate(() => openHelpChat());
+  await page.fill("#help-chat-input", "how do I export documents?");
+  await page.click("#help-chat-send");
+  const reply = page.locator(".help-chat-msg.is-assistant:not(.is-pending)").last();
+  await expect(reply).toContainText("Documents");
+  await expect(reply).not.toContainText("Something went wrong");
+});

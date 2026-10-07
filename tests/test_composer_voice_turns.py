@@ -123,3 +123,15 @@ def test_a_misspelt_subject_is_matched_to_the_notes_own_word_but_never_printed()
 def test_a_short_unknown_word_is_not_forced_onto_a_note_word():
     result = ask("What is the capital of Peru?")
     assert result["text"] == composer.PHRASES["nothing"]
+
+
+def test_small_talk_between_turns_is_skipped_by_a_follow_on():
+    history = HISTORY + [{"question": "ty", "answer": "You are welcome."}]
+    read = composer.follow_on("what about the boiler service?", history)
+    assert read is not None and read.question == "When is the boiler service?"
+
+
+def test_newer_notes_are_never_joined_with_then():
+    for question in ("What do my notes say about running?", "wat did i say abt lisbon"):
+        text = ask(question)["text"]
+        assert "Then on " not in text

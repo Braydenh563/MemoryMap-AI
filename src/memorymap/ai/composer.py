@@ -1563,9 +1563,15 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
                 #: in **Sketches** shows ..."): no joiner before it.
                 _quotes(out, unit, terms)
             elif relation == "later":
-                last = "then_on" if "later_on" in used else "later_on"
-                used.add(last)
-                _joined(out, [last], unit, terms, view.written)
+                #: "Later, on" once, "And on" once, then the sentence alone:
+                #: newer notes are not in date order among themselves here,
+                #: so "Then on" (which says "after that") is never used.
+                last = next((k for k in ("later_on", "and_on") if k not in used), "")
+                if last:
+                    used.add(last)
+                    _joined(out, [last], unit, terms, view.written)
+                else:
+                    _quotes(out, unit, terms)
             else:
                 #: The same subject mostly needs no joiner: the sentence and
                 #: its citation are enough, and a pile of "also" is what the
@@ -2026,7 +2032,13 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
     - A question whose only subject is "it" or "that" takes the earlier
       question's subject in its place.
     """
-    turns = [t for t in (history or []) if str(t.get("question") or "").strip()]
+    #: Small talk between ("ty", "lol ok") is not the turn a follow-on leans
+    #: on: "what about the boiler?" after "ty" still means the question
+    #: before the thanks (measured in Chat, INBOX 741).
+    turns = [
+        t for t in (history or [])
+        if str(t.get("question") or "").strip() and not question_noise.social_kind(str(t.get("question") or ""))
+    ]
     if not turns:
         return None
     last = turns[-1]

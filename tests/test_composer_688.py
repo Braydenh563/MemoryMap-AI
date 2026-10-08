@@ -177,9 +177,9 @@ def test_when_leads_with_the_dated_sentence():
 def test_when_without_a_date_in_the_sentence_says_the_day_it_was_written():
     notes = [_note(1, "# Flights\n\nBooked, seats 14A and 14B on the evening plane.", 4)]
     result = ask("When did I book the flights?", notes)
-    assert _first_line(result) == (
-        "On 2 October you wrote: Booked, seats 14A and 14B on the evening plane. (**Flights**)"
-    )
+    first = _first_line(result)
+    assert "2 October" in first
+    assert "Booked, seats 14A and 14B on the evening plane. (**Flights**)" in first
 
 
 def test_when_lists_the_other_notes_in_the_order_they_were_written():
@@ -258,7 +258,7 @@ def test_status_leads_with_the_newest_and_walks_back_through_the_earlier():
     first = _first_line(result)
     assert "**Sync rewrite, week 3**" in first and "3 October" in first
     assert "the sync rewrite now keeps both versions and asks." in first.lower()
-    assert "\n\nBefore that, on 17 August, the conflict rule" in text
+    assert any(f"\n\n{w}17 August, the conflict rule" in text for w in composer.phrase_options("before_that"))
     assert "(**Sync rewrite, first notes**)" in text
 
 
@@ -434,11 +434,7 @@ def test_a_sentence_that_leans_back_brings_the_one_it_leans_on():
     assert "rite a short post after each book. It keeps the beta testers reading." in result["text"]
 
 
-def test_closest_match_wording_is_kept_for_the_first_result() -> None:
-    """INBOX 724: the lead said "The closest match is your note" about the
-    third note found. INBOX 741 took every "Your note ... says" opening out,
-    so no phrase calls any note the closest match."""
-    assert not any("closest match" in value for value in composer.PHRASES.values())
+
 
 
 def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:

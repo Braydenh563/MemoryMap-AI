@@ -2355,72 +2355,143 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Hi. What would you like to find in your notes?",
         "Hello again. What is on your mind?",
         "Hi there. I can tell you when something is, what you decided, or what the latest is on a project.",
+        "Greetings. What can I look up for you today?",
+        "Hey. Just let me know what you need from your records.",
+        "Hello! I am ready to search your notes.",
+        "Hi! Ask away, I have all your notes ready."
     ),
     "morning": (
         "Good morning. What would you like to look up?",
         "Morning. Your notes are ready when you are.",
+        "Good morning to you! What are we searching for today?",
+        "Morning! Let me know what you need to check.",
+        "Good morning! I am ready to delve into your notes.",
+        "Morning. Ask me about anything you have jotted down."
     ),
     "thanks": (
         "You are welcome.",
         "Glad that helped.",
         "Any time. Ask again whenever you need something from your notes.",
         "Happy to help.",
+        "No problem at all.",
+        "You got it. Anything else?",
+        "My pleasure. What else can we find?",
+        "Happy to assist. Let me know if you need more."
     ),
     "how": (
         "All good here, and your notes are in order. What can I find for you?",
         "Doing well, thanks for asking. What would you like to know?",
         "Fine, thank you. Anything you want to look up?",
+        "I am doing great! What's next on our search list?",
+        "Doing fine, all systems running. What should we look for?",
+        "Everything is excellent. How can I assist you with your notes?",
+        "I am well, thanks. Let's dig into your records.",
+        "Great! Let me know what you want to find."
     ),
     "bye": (
         "Bye for now. Your notes will be here.",
         "See you soon.",
         "Take care. Everything you wrote is saved.",
+        "Goodbye. Feel free to return when you need me.",
+        "Catch you later. I'll keep your notes safe.",
+        "Farewell. Let me know if you need anything else later.",
+        "See you next time! Your notes are secured.",
+        "Bye! Have a great day ahead."
     ),
     "sorry": (
         "No need to apologise. What would you like to try?",
         "Not at all. Ask it another way and I will look again.",
+        "It's completely fine. What can I do for you?",
+        "Don't worry about it. Let's try again.",
+        "No problem! We can always run another search.",
+        "That's okay. What are you looking for?",
+        "It is no trouble. Let me know what you need.",
+        "All good. Let's find what you need in your notes."
     ),
     "laugh": (
         "Glad something made you smile. Anything else I can find?",
         "Ha. What next?",
         "Good to hear. Ask whenever you like.",
+        "Haha, very nice. What should we look up now?",
+        "Glad you found that funny. Ready for the next question?",
+        "Nice one! Anyway, what's next?",
+        "Heh. Let me know if you need to search anything else.",
+        "Glad you're in a good mood! What can I search for you?"
     ),
     "reaction": (
         "I know. Anything you want to look up about it?",
         "Quite something. What next?",
         "Fair reaction. Want me to find anything else?",
+        "Absolutely. Shall we search for something else?",
+        "Totally. Let me know what to look up.",
+        "Understood. Anything more to check?",
+        "I hear you loud and clear. What next?",
+        "Indeed. Let me know if you have another question."
     ),
     "confused": (
         "Sorry, that was not clear. Ask it another way, or say “tell me more” for the rest of what I found.",
         "Let me try again: put it in other words, or name the note you mean.",
         "My answer may have missed. Which part should I look at again?",
+        "Apologies, I didn't get that. Mind rephrasing your question?",
+        "I seem to be a bit confused. Can you try asking in a different way?",
+        "Hmm, I didn't understand. Could you try wording it differently?",
+        "I'm not quite following. Can you tell me exactly what note to look for?",
+        "Could you clarify? Let's try searching one more time."
     ),
     "ack": (
         "Good. Anything else?",
         "All right. What next?",
         "Noted. Ask whenever you like.",
+        "Got it. What else can I find?",
+        "Understood. Ready when you are.",
+        "Okay. Let me know if you need more.",
+        "Acknowledged. Let's move on to the next search.",
+        "Sure thing. What is next on the list?"
     ),
     "who": (
         "I am the notebook's assistant. With no model running I answer from your notes in their own words.",
         "I am here to find things in your notes and say what they say.",
+        "I am a search assistant designed to retrieve exactly what you have written in your notes.",
+        "I am your dedicated notebook assistant. Ask a question and I'll find it in your records.",
+        "I am an AI assistant focused on fetching answers strictly from your documented notes."
     ),
     "about_app": (
         "I answer from your notes: ask when something is, who said what, what the latest is on a project, or "
         "what you know about a subject. Connecting a model adds writing, summaries in its own words and tools.",
         "Ask me about anything you wrote down: a date, a decision, a list, how a project is going. Two questions "
         "in one message work too. Connecting a model adds writing and tools.",
+        "I'm built to read your notes and report back exactly what you recorded. Try asking about a specific event or task.",
+        "I help you comb through your notes without needing to summarize them. Ask me when something happened or who said what."
     ),
     "compliment": (
         "I am glad to hear that. What can I find for you next?",
         "Thank you! Ready for the next question.",
+        "That's kind of you. What else should we search for?",
+        "I appreciate the praise! What's next?",
+        "Thanks! I'm here whenever you need another search.",
+        "Thank you! I strive to be helpful. What can I look up?",
+        "Much appreciated. Anything else in your notes to find?",
+        "Glad I could be of service. Let me know what else you need."
     ),
     "insult": (
         "I'm sorry to hear that. I'm a simple bot, but I try my best.",
         "Apologies. Let's try rephrasing the question.",
+        "My apologies. I will try to get it right next time.",
+        "I am sorry if I let you down. How can I improve this search?",
+        "I'll try to do better! Let's search again.",
+        "Sorry about that. Could you try asking in a different way?",
+        "My bad. I'm limited to exact matches in your notes, so try a different wording.",
+        "Apologies for the frustration. What should we look for instead?"
     ),
     "emotion": (
         "I understand. What can I help you find?",
         "Okay. I am here when you need to search your notes.",
+        "I hear you. Take your time, and let me know what you need.",
+        "Got it. Whenever you are ready, I can search your notes.",
+        "I'm sorry to hear that. What can I look up for you?",
+        "That's totally fair. Let's focus on what we can find in your notes.",
+        "Understood. I am here to assist with any searches you need.",
+        "I can imagine. Let me know what you want to review in your notes."
     ),
 }
 

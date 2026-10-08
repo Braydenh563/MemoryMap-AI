@@ -31,31 +31,33 @@ NOTES = "notes"
 # Bare greetings and pleasantries. Matched whole so "hi" routes here but
 # "hidden costs of the new plan" does not.
 _SMALLTALK_PATTERNS = (
-    r"h(?:i|ey|ello|iya)",
-    r"yo|sup|howdy",
-    r"good (?:morning|afternoon|evening|day)",
-    r"how(?:'?s| is| are)(?: it going| things| you|you)?",
-    r"what'?s up",
-    r"thanks?(?: you| a lot| so much)?|ta|cheers|nice one",
-    r"(?:ok(?:ay)?|cool|great|awesome|nice|lol|haha|sure|right|yep|yes|no|nope)",
-    r"(?:good ?)?(?:bye|night)|see (?:ya|you)|later|cya",
-    r"you'?re welcome|no worries|np",
-    r"sorry|my bad",
-    r"who are you|what(?:'?s| is) your name",
-    r"are you (?:there|awake|ok|okay|alive)",
+    r"h(?:i|ey|ello|iya|ello+)",
+    r"yo|sup|howdy|greetings|salutations",
+    r"good (?:morning|afternoon|evening|day|night)",
+    r"how(?:'?s| is| are)(?: it going| things| you|you| ya| your day)?",
+    r"what'?s up|what'?s new|what'?s good|whats happening",
+    r"thanks?(?: you| a lot| so much| a bunch| a million)?|ta|cheers|nice one|appreciate it|gracias",
+    r"(?:ok(?:ay)?|cool|great|awesome|nice|lol|haha|sure|right|yep|yes|no|nope|alright|sweet|dope|amazing|brilliant)",
+    r"(?:good ?)?(?:bye|night)|see (?:ya|you)|later|cya|catch ya|peace|farewell",
+    r"you'?re welcome|no worries|np|not at all|anytime|my pleasure",
+    r"sorry|my bad|apologies|excuse me|whoops",
+    r"who are you|what(?:'?s| is) your name|tell me about yourself",
+    r"are you (?:there|awake|ok|okay|alive|real|human|ai|a robot)",
+    r"nice to meet you|glad to meet you",
 )
 
 # "What can you do?", questions about the assistant rather than the notebook.
 _ABOUT_APP_PATTERNS = (
     r"what can (?:you|this|the app|memorymap) do",
-    r"what (?:are|do) (?:you|your) (?:capable of|abilities|features|tools)",
-    r"what (?:tools|features|skills|commands) (?:do|can) you (?:have|use|offer)",
-    r"what are you able to do",
+    r"what (?:are|do) (?:you|your) (?:capable of|abilities|features|tools|powers|limits|limitations)",
+    r"what (?:tools|features|skills|commands|actions) (?:do|can) you (?:have|use|offer|run|execute)",
+    r"what are you able to do|how can you help(?: me)?",
     r"how (?:do|does) (?:this|the app|memorymap|you) work",
-    r"(?:show|list|tell) me (?:your|the|what) (?:tools|features|commands|skills)",
-    r"what (?:should|can) i ask",
-    r"help me get started|how do i (?:start|use this)",
-    r"what are you(?: for)?",
+    r"(?:show|list|tell) me (?:your|the|what) (?:tools|features|commands|skills|capabilities)",
+    r"what (?:should|can) i (?:ask|tell you|say)",
+    r"(?:help me|how to) get started|how do i (?:start|use this|navigate)",
+    r"what are you(?: for)?|why do you exist|what is your purpose",
+    r"who made you|who created you",
 )
 
 # Words that mean the message really is about the notebook, even when it is
@@ -63,7 +65,9 @@ _ABOUT_APP_PATTERNS = (
 _NOTE_WORDS = re.compile(
     r"\b(note|notes|entry|entries|wrote|written|saved|capture[ds]?|remember(?:ed)?|"
     r"remind(?:er|ers)?|tag|tags|categor(?:y|ies)|notebook|search|find|summar(?:y|ise|ize)|"
-    r"digest|todo|task|list|graph|journal|log)\b",
+    r"digest|todo|task|list|graph|journal|log|brainstorm|idea|ideas|knowledge|docs|"
+    r"project|projects|plan|plans|schedule|events|meeting|meetings|draft|drafts|writing|"
+    r"document|documents|thoughts|think|thinking|insight|insights)\b",
     re.IGNORECASE,
 )
 

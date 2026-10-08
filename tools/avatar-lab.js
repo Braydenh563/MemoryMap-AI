@@ -26,11 +26,11 @@ function appearancePref(key, fallback) {
   if (key === "avatar-buddy") return "persona";
   return fallback;
 }
-function nameMarkBuddyCue() {}
-function nameMarkBuddyAct() {}
-function syncNameMarkBuddy() {}
-function paintDashEmblem() {}
-function repaintOwnFace() {}
+function nameMarkBuddyCue() { }
+function nameMarkBuddyAct() { }
+function syncNameMarkBuddy() { }
+function paintDashEmblem() { }
+function repaintOwnFace() { }
 //: Served by the app, the renderers are at "/"; opened as a file, they are
 //: beside this folder.
 const ROOT = location.protocol === "file:" ? "../frontend/" : "/";

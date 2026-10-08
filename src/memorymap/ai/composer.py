@@ -90,7 +90,7 @@ MAX_PER_NOTE = 3
 #: A sentence scoring under this share of the best one is not in the same
 #: league (the reasoning of `extractive.RELATIVE_FLOOR`: BM25 magnitudes move
 #: with the pool, so only a ratio survives a different notebook).
-RELATIVE_FLOOR = 0.3
+RELATIVE_FLOOR = 0.15
 
 #: What a question word found in a note's heading is worth, per word, and once
 #: more when the heading holds every one of them: "Harbor launch plan" is the
@@ -135,9 +135,9 @@ PHRASES: dict[str, str] = {
     "colon": ": ",
     "comma": ", ",
     "stop": ".",
-    "open_quote": "“",
+    "open_quote": "> “",
     "close_quote": "”",
-    "open_paren": " [*",
+    "open_paren": " — [*",
     "close_paren": "*]",
     "and": " and ",
     "or": " or ",
@@ -705,12 +705,22 @@ def _rewrite_quote(text: str) -> str:
     """Light rewrites for grammar, tense and person, marked (CHAT_PLAN decision 23)."""
     replacements = (
         (re.compile(r"\b[Ii] am\b"), "you are", "You are"),
+        (re.compile(r"\b[Ii]'m\b"), "you're", "You're"),
         (re.compile(r"\b[Ii] was\b"), "you were", "You were"),
+        (re.compile(r"\b[Ii]'ve\b"), "you've", "You've"),
+        (re.compile(r"\b[Ii]'ll\b"), "you'll", "You'll"),
+        (re.compile(r"\b[Ii]'d\b"), "you'd", "You'd"),
         (re.compile(r"\b[Ii]\b"), "you", "You"),
         (re.compile(r"\b[Mm]y\b"), "your", "Your"),
         (re.compile(r"\b[Mm]e\b"), "you", "You"),
         (re.compile(r"\b[Mm]ine\b"), "yours", "Yours"),
         (re.compile(r"\b[Mm]yself\b"), "yourself", "Yourself"),
+        (re.compile(r"\b[Ww]e\b"), "you", "You"),
+        (re.compile(r"\b[Ww]e're\b"), "you're", "You're"),
+        (re.compile(r"\b[Ww]e've\b"), "you've", "You've"),
+        (re.compile(r"\b[Uu]s\b"), "you", "You"),
+        (re.compile(r"\b[Oo]ur\b"), "your", "Your"),
+        (re.compile(r"\b[Oo]urs\b"), "yours", "Yours"),
         (re.compile(r"\bb4\b"), "before", "Before"),
     )
     for pattern, lower_rep, upper_rep in replacements:
@@ -1234,6 +1244,8 @@ class _Answer:
         letter lowered inside a sentence); the row cites what is printed."""
         text = s.text if shown is None else shown
         kind = "picture" if s.kind.startswith("picture") else "quote"
+        if kind == "quote":
+            text = f'> *"{text}"*'
         self.parts.append((kind, text, s.note_id))
         self.last_note = s.note_id
         if s.key in self.cited:
@@ -1364,11 +1376,11 @@ def _quotes(out: _Answer, sentences: list[Sentence], terms: list[str], lower_fir
                 out.t("echo").m(out.count(1 + len(s.echoes))).t("echo_end")
             continue
         if s.kind == "picture":
-            out.t("picture_in").name(out.views[s.note_id]).t("picture_shows").q(s, terms)
+            out.t("picture_in").name(out.views[s.note_id]).m(": ").q(s, terms)
             if not s.text.endswith((".", "?", "…")):
                 out.t("stop")
         elif s.kind == "picture_text":
-            out.t("picture_in").name(out.views[s.note_id]).t("picture_reads", "open_quote").q(s, terms)
+            out.t("picture_in").name(out.views[s.note_id]).m(" has these words in it: ").t("open_quote").q(s, terms)
             out.t("close_quote", "stop")
         else:
             out.q(s, terms)
@@ -1383,14 +1395,7 @@ FUSE_MAX_ITEMS = 6
 FUSE_MAX_WORDS = 10
 
 
-def _fusable(items: list[Sentence]) -> bool:
-    """Every entry a phrase lifted whole from the list (no sentence of its own
-    inside it, no colon), short enough to read in one breath."""
-    return (
-        2 <= len(items) <= FUSE_MAX_ITEMS
-        and all(s.kind == "item" for s in items)
-        and all(len(s.text.split()) <= FUSE_MAX_WORDS and not re.search(r"[.!?:;]\s*$|:\s", s.text) for s in items)
-    )
+
 
 
 def _sentence_case(items: list[Sentence]) -> bool:
@@ -1418,15 +1423,7 @@ def _joined(out: _Answer, keys: list[str], unit: list[Sentence], terms: list[str
         _quotes(out, unit, terms)
 
 
-def _list_sentence(out: _Answer, items: list[Sentence], terms: list[str]) -> None:
-    """" A, B and C." from the list's own entries."""
-    lower = _sentence_case(items)
-    for i, s in enumerate(items):
-        if i:
-            out.t("and" if i == len(items) - 1 else "comma")
-        shown = s.text[0].lower() + s.text[1:] if lower else s.text
-        out.q(s, terms, shown)
-    out.t("stop")
+
 
 
 def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list[str], lead: str) -> None:
@@ -1458,11 +1455,7 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
     else:
         out.t("it_lists")
     out.m(out.count(len(items)))
-    if _fusable(items):
-        out.t("colon")
-        _list_sentence(out, items, terms)
-        return
-    out.t("end_colon", "para")
+    out.t("colon", "para")
     for i, s in enumerate(items):
         if i:
             out.t("line")
@@ -1649,9 +1642,8 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
     used: set[str] = set()
     for group in _clusters(meaning, units):
         for g, unit in enumerate(group):
-            #: Two notes to a paragraph at most: a topic's paragraph that runs
-            #: on through five notes reads as a wall.
-            out.t("space" if g % 2 else "para")
+            #: A paragraph break for every new note, making it much easier to read.
+            out.t("para")
             view = out.views[unit[0].note_id]
             relation = _relation(out, meaning, unit[0], said or [lead], lead)
             if unit[0].kind.startswith("picture") and len(unit) == 1:
@@ -2074,7 +2066,9 @@ def _next_questions(question: str, shape: str, terms: list[str], views: list[Not
 
 _MORE = re.compile(
     r"^\s*(?:tell me more|more|go on|continue|keep going|say more|what else|anything else|and|more please|"
-    r"more about (?:that|it|this|those))\s*[?.]*\s*$",
+    r"more about (?:that|it|this|those)|"
+    r"any other notes|any more|any others|are there any (?:other|more) notes|what else is there|what else do you have|any other mentions)"
+    r"\s*[?.]*\s*$",
     re.I,
 )
 _ORDINALS = {"first": 0, "1st": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2, "fourth": 3, "4th": 3, "fifth": 4, "5th": 4, "last": -1}

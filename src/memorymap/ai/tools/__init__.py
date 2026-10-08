@@ -911,6 +911,35 @@ def _notebook_overview(session: Session, args: dict) -> dict:
     }
 
 
+
+def _search_help(session: Session, args: dict) -> dict:
+    """Reads the app's internal guide for a feature."""
+    from memorymap.ai import help_chat
+    query = args.get("query") or ""
+    text = help_chat.help_block_for(query)
+    return {
+        "guide_text": text,
+        "label": f"ph:book-open Consulted guide for '{_clip(query, 40)}'",
+    }
+
+def _get_app_navigation(session: Session, args: dict) -> dict:
+    """Provides URL paths to different sections of the app."""
+    return {
+        "links": {
+            "Notes": "/notes",
+            "Chat / Agent": "/chat",
+            "Categories": "/categories",
+            "Tags": "/tags",
+            "Library (Files)": "/library",
+            "Settings": "/settings",
+            "Search": "/search",
+            "Whiteboards": "/boards"
+        },
+        "instructions": "To provide a nav link, use markdown like [Go to Settings](/settings).",
+        "label": "ph:compass Checked app navigation links",
+    }
+
+
 def _get_current_time(session: Session, args: dict) -> dict:
     """Time-aware answers: the model can ask what 'now' is.
 
@@ -3344,6 +3373,24 @@ TOOLS: dict[str, ToolSpec] = {
             destructive=True,
         ),
         ToolSpec(
+            "search_help",
+            "Search the app's built-in help guide to learn how to use features, tabs, and settings in MemoryMap.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "What feature to learn about"}
+                },
+                "required": ["query"],
+            },
+            _search_help,
+        ),
+        ToolSpec(
+            "get_app_navigation",
+            "Get the URLs for the different sections of the app, so you can provide helpful markdown navigation links to the user.",
+            {"type": "object", "properties": {}},
+            _get_app_navigation,
+        ),
+        ToolSpec(
             "get_current_time",
             "Get the current local date and time. Use this for time-aware "
             "answers and to compute reminder times.",
@@ -3795,6 +3842,9 @@ CORE_TOOLS = [
     "get_current_time",
     "create_note",
     "save_user_preference",
+
+    "search_help",
+    "get_app_navigation",
 ]
 
 # Groups, and the words that ask for them. Generous on purpose: a cue that

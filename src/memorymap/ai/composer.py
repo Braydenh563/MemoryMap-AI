@@ -137,8 +137,8 @@ PHRASES: dict[str, str] = {
     "stop": ".",
     "open_quote": "> “",
     "close_quote": "”",
-    "open_paren": " — [*",
-    "close_paren": "*]",
+    "open_paren": " [***",
+    "close_paren": "***]",
     "and": " and ",
     "or": " or ",
     # The opening (INBOX 741, the owner: "rn the ask chat messages just say,
@@ -385,6 +385,12 @@ _ANYTHING_ON = re.compile(
     re.I,
 )
 
+from memorymap.vendor.rake import Rake as _RakeExtractor
+from memorymap.vendor.vaderSentiment import SentimentIntensityAnalyzer as _VaderAnalyzer
+
+_RAKE = _RakeExtractor("src/memorymap/vendor/SmartStoplist.txt")
+_VADER = _VaderAnalyzer()
+
 
 from memorymap.ai.fast_matcher import matcher as fast_matcher
 
@@ -606,6 +612,8 @@ class NoteView:
     rank: int
     title: str
     written: date | None
+    sentiment: float = 0.0
+    keywords: list[str] = field(default_factory=list)
     sentences: list[Sentence] = field(default_factory=list)
     words: set[str] = field(default_factory=set)
     title_words: set[str] = field(default_factory=set)
@@ -796,6 +804,7 @@ def read_note(note: dict, rank: int) -> NoteView | None:
     filed = [str(t) for t in (note.get("tags") or [])] + [str(note.get("category") or "")]
     view.filed_words = set(_words(" ".join(filed)))
     view.words = set(_words(content))
+    
     in_fence = False
     in_pictures = False
     offset = 0
@@ -2658,6 +2667,48 @@ def compose(
         return _nothing(shape, unsure, voice)
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
+    
+    # Inject soulful VADER and RAKE metadata into the output
+    primary_note = None
+    for note_id in cited:
+        if note_id in out.views:
+            primary_note = out.views[note_id]
+            break
+            
+    if primary_note:
+        soul = ""
+        # LAZY EVALUATION: Only run heavy NLP on the finalized, chosen note!
+        # This reduces algorithm complexity from O(N) to O(1) per query.
+        content = str(primary_note.note.get("content") or "")
+        try:
+            s_score = _VADER.polarity_scores(content)["compound"]
+            kw = [k[0].title() for k in _RAKE.run(content)[:3]]
+        except Exception:
+            s_score = 0
+            kw = []
+
+        import hashlib
+        h = hashlib.md5(question.encode()).digest()[0]
+
+        if s_score > 0.7:
+            phrases = ["*(This is wonderfully positive!)*", "*(You sound ecstatic here!)*", "*(Love the energy in this note!)*"]
+            soul += f"{phrases[h % len(phrases)]}\n\n"
+        elif s_score > 0.3:
+            phrases = ["*(A great, positive entry.)*", "*(This has a really nice tone!)*", "*(Feeling good in this one!)*"]
+            soul += f"{phrases[h % len(phrases)]}\n\n"
+        elif s_score < -0.7:
+            phrases = ["*(This sounds deeply stressful. I'm here for you.)*", "*(This looks like a really heavy entry. Take a deep breath.)*", "*(Venting is good. This note sounds really tough.)*"]
+            soul += f"{phrases[h % len(phrases)]}\n\n"
+        elif s_score < -0.3:
+            phrases = ["*(This note feels a bit heavy.)*", "*(Sounds like you were dealing with some friction here.)*", "*(A bit of a stressful note, but good to have recorded.)*"]
+            soul += f"{phrases[h % len(phrases)]}\n\n"
+            
+        if kw:
+            soul += f"**Key themes:** {', '.join(kw)}\n\n"
+            
+        if soul:
+            out.parts.insert(0, ("soul", soul))
+            
     next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]
     return {
         "text": out.text,

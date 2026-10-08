@@ -243,6 +243,7 @@ PHRASES: dict[str, str] = {
         "Nothing in the notes found answers that. Which note would it be in, "
         "or how else might you have put it?"
     ),
+    "which_note": "Which note would it be in, or how else might you have put it?",
     # An unsure reading of a misspelt word, offered the other way.
     "did_you_mean_a": "Did you mean “",
     "did_you_mean_b": "”?",
@@ -699,6 +700,34 @@ def _title(content: str) -> tuple[str, int]:
     return (name + "…" if len(words) > UNTITLED_WORDS else name), 0
 
 
+def _rewrite_quote(text: str) -> str:
+    """Light rewrites for grammar, tense and person, marked (CHAT_PLAN decision 23)."""
+    replacements = (
+        (re.compile(r"\b[Ii] am\b"), "you are", "You are"),
+        (re.compile(r"\b[Ii] was\b"), "you were", "You were"),
+        (re.compile(r"\b[Ii]\b"), "you", "You"),
+        (re.compile(r"\b[Mm]y\b"), "your", "Your"),
+        (re.compile(r"\b[Mm]e\b"), "you", "You"),
+        (re.compile(r"\b[Mm]ine\b"), "yours", "Yours"),
+        (re.compile(r"\b[Mm]yself\b"), "yourself", "Yourself"),
+        (re.compile(r"\bb4\b"), "before", "Before"),
+    )
+    for pattern, lower_rep, upper_rep in replacements:
+        def repl(m: re.Match) -> str:
+            val = m.group(0)
+            if val.istitle() or val.isupper():
+                if m.start() == 0:
+                    return upper_rep
+                if val == "I":
+                    return lower_rep
+                return upper_rep
+            if m.start() == 0:
+                return upper_rep
+            return lower_rep
+        text = pattern.sub(repl, text)
+    return text
+
+
 def _unit(view: NoteView, content: str, start: int, end: int, kind: str, done: bool | None) -> Sentence | None:
     """One sentence, trimmed as the rule allows, its offsets moved to match."""
     raw = content[start:end]
@@ -718,6 +747,9 @@ def _unit(view: NoteView, content: str, start: int, end: int, kind: str, done: b
         text = (cut[:space] if space > MAX_QUOTE_CHARS // 2 else cut).rstrip(" ,;:") + "…"
     if text[0].islower():
         text = text[0].upper() + text[1:]
+    
+    text = _rewrite_quote(text)
+    
     words = _words(text)
     #: A fragment of one or two words ("Booked.", "Ideas") is not a claim and
     #: reads as noise quoted on its own. A list item is read inside its list,
@@ -2528,7 +2560,15 @@ def compose(
                 said=said,
             )
             if not chosen:
-                return _nothing(shape, unsure, voice)
+                scored = _score(shape, terms, views_list)
+                if scored:
+                    closest = max(scored, key=lambda s: s.score)
+                    out.t("closest_b" if shape in FACT_SHAPES else "closest_a")
+                    out.q(closest, terms)
+                    out.cite(out.views[closest.note_id])
+                    out.t("para", "which_note")
+                else:
+                    return _nothing(shape, unsure, voice)
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
                 broad = False

@@ -87,7 +87,7 @@ def _in_note(text: str, content: str) -> bool:
     body = text.rstrip("…").rstrip(".")
     if not body:
         return False
-    flat = _flat(content)
+    flat = composer._rewrite_quote(_flat(content))
     return body[1:] in flat and (body in flat or body[0].lower() + body[1:] in flat or body[0].upper() + body[1:] in flat)
 
 
@@ -131,7 +131,7 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
             failures.append(f"unknown part kind {kind!r}")
     for row in result["grounding"]:
         content = by_id[row["note_id"]]["content"]
-        span = _flat(content[row["start"]:row["end"]])
+        span = composer._rewrite_quote(_flat(content[row["start"]:row["end"]]))
         body = row["sentence"].rstrip("…").rstrip(".")
         if not (span[:1].lower() == body[:1].lower() and span[1:].startswith(body[1:])):
             failures.append(f"row {row['sentence']!r} does not point at its own text: {span!r}")

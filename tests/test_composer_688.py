@@ -171,7 +171,7 @@ def test_what_leads_with_the_note_named_by_the_question_and_shows_its_checklist(
 def test_when_leads_with_the_dated_sentence():
     first = _first_line(ask("When is the dentist check-up?"))
     #: INBOX 741: the sentence first, the note named once after it.
-    assert first == "Check-up booked for the 21st. (**Dentist**)" or first.endswith(": Check-up booked for the 21st. (**Dentist**)")
+    assert first == "Check-up booked for the 21st. [***Dentist***]" or first.endswith(": Check-up booked for the 21st. [***Dentist***]")
 
 
 def test_when_without_a_date_in_the_sentence_says_the_day_it_was_written():
@@ -179,7 +179,7 @@ def test_when_without_a_date_in_the_sentence_says_the_day_it_was_written():
     result = ask("When did I book the flights?", notes)
     first = _first_line(result)
     assert "2 October" in first
-    assert "Booked, seats 14A and 14B on the evening plane. (**Flights**)" in first
+    assert "Booked, seats 14A and 14B on the evening plane. [***Flights***]" in first
 
 
 def test_when_lists_the_other_notes_in_the_order_they_were_written():
@@ -239,7 +239,7 @@ def test_compare_draws_two_sides_with_measured_counts():
             for each in composer.phrase_options("each_side")
         )
     )
-    assert "**Lisbon** (one note)" in text and "**Porto** (one note)" in text
+    assert "**Lisbon** [*one note*]" in text and "**Porto** [*one note*]" in text
     lisbon, porto = text.split("**Porto**", 1)
     assert "Alfama" in lisbon and "Ribeira" in porto
 
@@ -248,7 +248,7 @@ def test_explain_keeps_the_notes_sentences_in_their_own_order():
     first = _first_line(ask("Why did the list feel slow?"))
     assert first.endswith(
         "It was not the database. Every row re-measured its own height on scroll. "
-        "Caching the height per row took a long list from 40ms a frame to 6. (**Why the list felt slow**)"
+        "Caching the height per row took a long list from 40ms a frame to 6. [***Why the list felt slow***]"
     )
 
 
@@ -259,7 +259,7 @@ def test_status_leads_with_the_newest_and_walks_back_through_the_earlier():
     assert "**Sync rewrite, week 3**" in first and "3 October" in first
     assert "the sync rewrite now keeps both versions and asks." in first.lower()
     assert any(f"\n\n{w}17 August, the conflict rule" in text for w in composer.phrase_options("before_that"))
-    assert "(**Sync rewrite, first notes**)" in text
+    assert "[***Sync rewrite, first notes***]" in text
 
 
 def test_yes_no_never_answers_yes_or_no():
@@ -279,7 +279,7 @@ def test_two_notes_that_may_disagree_are_said_as_a_but():
     text = result["text"]
     assert "**Standup**" in _first_line(result)
     assert any(f"\n\n{w}, the launch date is the 21st" in text for w in composer.phrase_options("but_newer"))
-    assert "(**Standup again**)" in text
+    assert "[***Standup again***]" in text
     assert any(wording in text for wording in composer.phrase_options("disagree_check"))
     #: Each side said once.
     assert text.lower().count("the launch date is the 21st") == 1 and text.lower().count("the launch date is the 14th") == 1

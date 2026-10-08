@@ -137,8 +137,8 @@ PHRASES: dict[str, str] = {
     "stop": ".",
     "open_quote": "“",
     "close_quote": "”",
-    "open_paren": " (",
-    "close_paren": ")",
+    "open_paren": " [*",
+    "close_paren": "*]",
     "and": " and ",
     "or": " or ",
     # The opening (INBOX 741, the owner: "rn the ask chat messages just say,
@@ -2517,6 +2517,10 @@ NEXT_STEPS = (
     "Say “tell me more” for more on “{subject}”.",
     "I can say more about “{subject}” if you like.",
     "Want the latest on “{subject}” next?",
+    "Should we dive deeper into “{subject}”?",
+    "I'm ready to find more on “{subject}” if you need it.",
+    "Let's see what else there is on “{subject}”.",
+    "Anything else you need on “{subject}”?",
     *composer_tables.NEXT_STEPS_EXTRA,
 )
 NEXT_STEPS_PROFESSIONAL = composer_tables.NEXT_STEPS_PROFESSIONAL

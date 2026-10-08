@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import re
 
-VOICES = ("natural", "professional")
+VOICES = ("natural", "professional", "genz")
 DEFAULT_VOICE = "natural"
 
 
@@ -43,11 +43,28 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     # Openers: said before the strongest sentence, which is the answer.
     "open_notes": {
         "natural": [
-            "Here is what your notes say: ", "Your notes say: ", "Looking through your notes: ",
-            "Here is what I found in your notes: ", "What your notes have: ", "Hmm, let me look. Your notes say: ",
-            "Let's see. Here is what your notes have: ", "Give me a second to check. Your notes say: ",
-            "Alright, based on your notes: ", "Okay, checking your notes: ", "Found it. Your notes say: ",
-            "Just checked your notes: ", "According to what you jotted down: ", "Here's the relevant note: "
+            'Here is what your notes say: ',
+            'Your notes say: ',
+            'Looking through your notes: ',
+            'Let me check... alright, here is what your notes have: ',
+            'Hm, glancing through your notes: ',
+            "Ah, let's see what your notes say: ",
+            'Here is what I found in your notes: ',
+            'What your notes have: ',
+            'Hmm, let me look. Your notes say: ',
+            "Let's see. Here is what your notes have: ",
+            'Give me a second to check. Your notes say: ',
+            'Alright, based on your notes: ',
+            'Okay, checking your notes: ',
+            'Found it. Your notes say: ',
+            'Just checked your notes: ',
+            'According to what you jotted down: ',
+            "Here's the relevant note: ",
+            'Hm, here is what your notes say: ',
+            'Ah, your notes say: ',
+            "Let's see... looking through your notes: ",
+            'Mm, let me check... alright, here is what your notes have: ',
+            'Hmm, hm, glancing through your notes: '
         ],
         "professional": [
             "According to your notes: ", "Your notes record the following: ", "Per your notes: ",
@@ -58,9 +75,21 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "open_wrote": {
         "natural": [
-            "This is what you wrote: ", "You wrote: ", "Here is how you put it: ", "Your own words: ",
-            "Here is what you jotted down: ", "This is how you worded it: ", "In your own words: ",
-            "Exactly as you wrote it: ", "You mentioned this: ", "This is what you had to say: "
+            'This is what you wrote: ',
+            'You wrote: ',
+            'Here is how you put it: ',
+            'Your own words: ',
+            'Here is what you jotted down: ',
+            'This is how you worded it: ',
+            'In your own words: ',
+            'Exactly as you wrote it: ',
+            'You mentioned this: ',
+            'This is what you had to say: ',
+            'Hm, this is what you wrote: ',
+            'Ah, you wrote: ',
+            "Let's see... here is how you put it: ",
+            'Mm, your own words: ',
+            'Hmm, here is what you jotted down: '
         ],
         "professional": [
             "You recorded the following: ", "As you wrote it: ", "In your own words: ",
@@ -70,9 +99,22 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "open_put": {
         "natural": [
-            "Here is how your notes put it: ", "This is how you put it: ", "Your notes word it like this: ",
-            "In your notes it reads: ", "This is how it's phrased: ", "Your notes put it this way: ",
-            "Here is the phrasing you used: ", "This is exactly how it is noted: ", "The notes express it as: "
+            'Here is how your notes put it: ',
+            'This is how you put it: ',
+            'Your notes word it like this: ',
+            'Mm, here is how you worded it: ',
+            "Let's see... your notes phrase it like this: ",
+            'Ah, this is how you put it: ',
+            'In your notes it reads: ',
+            "This is how it's phrased: ",
+            'Your notes put it this way: ',
+            'Here is the phrasing you used: ',
+            'This is exactly how it is noted: ',
+            'The notes express it as: ',
+            'Hm, here is how your notes put it: ',
+            "Let's see... your notes word it like this: ",
+            'Mm, mm, here is how you worded it: ',
+            "Hmm, let's see... your notes phrase it like this: "
         ],
         "professional": [
             "Your notes state it as follows: ", "Your notes phrase it as follows: ", "The wording in your notes is: ",
@@ -82,9 +124,23 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "open_figure": {
         "natural": [
-            "Here is the figure you noted: ", "The figure in your notes: ", "You noted this number: ",
-            "The number written down: ", "Here's the amount you jotted down: ", "The number you saved: ",
-            "I found this figure: ", "This is the exact amount in your notes: ", "Here's the number: "
+            'Here is the figure you noted: ',
+            'The figure in your notes: ',
+            'You noted this number: ',
+            "Hmm, let's see... the figure you noted: ",
+            'Ah, the number in your notes: ',
+            'Mm, you jotted down this number: ',
+            'The number written down: ',
+            "Here's the amount you jotted down: ",
+            'The number you saved: ',
+            'I found this figure: ',
+            'This is the exact amount in your notes: ',
+            "Here's the number: ",
+            'Hm, here is the figure you noted: ',
+            'Ah, the figure in your notes: ',
+            "Let's see... you noted this number: ",
+            "Mm, hmm, let's see... the figure you noted: ",
+            'Hmm, ah, the number in your notes: '
         ],
         "professional": [
             "The figure recorded in your notes: ", "The recorded figure: ", "The number on record: ",
@@ -94,9 +150,23 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "open_date": {
         "natural": [
-            "Here is the date you noted: ", "The date in your notes: ", "You noted this date: ",
-            "The date written down: ", "Here's the exact date: ", "This is the day you saved: ",
-            "The day noted down: ", "I found this date: ", "This is the time you mentioned: "
+            'Here is the date you noted: ',
+            'The date in your notes: ',
+            'You noted this date: ',
+            "Let's see, the date you noted: ",
+            'Ah, found the date: ',
+            'Mm, here is the day you wrote down: ',
+            'The date written down: ',
+            "Here's the exact date: ",
+            'This is the day you saved: ',
+            'The day noted down: ',
+            'I found this date: ',
+            'This is the time you mentioned: ',
+            'Hm, here is the date you noted: ',
+            'Ah, the date in your notes: ',
+            "Let's see... you noted this date: ",
+            "Mm, let's see, the date you noted: ",
+            'Hmm, ah, found the date: '
         ],
         "professional": [
             "The date recorded in your notes: ", "The recorded date: ", "The date on record: ",
@@ -106,9 +176,20 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "open_where": {
         "natural": [
-            "This is where you noted it: ", "The place in your notes: ", "You noted the place like this: ",
-            "Where it says: ", "Here's the location you saved: ", "The spot mentioned in your notes: ",
-            "This is the location: ", "I found this place: ", "The whereabouts noted: "
+            'This is where you noted it: ',
+            'The place in your notes: ',
+            'You noted the place like this: ',
+            'Where it says: ',
+            "Here's the location you saved: ",
+            'The spot mentioned in your notes: ',
+            'This is the location: ',
+            'I found this place: ',
+            'The whereabouts noted: ',
+            'Hm, this is where you noted it: ',
+            'Ah, the place in your notes: ',
+            "Let's see... you noted the place like this: ",
+            'Mm, where it says: ',
+            "Hmm, here's the location you saved: "
         ],
         "professional": [
             "The location recorded in your notes: ", "Your notes give the location as follows: ", "The recorded location: ",
@@ -118,10 +199,20 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "closest_a": {
         "natural": [
-            "The nearest thing in your notes is this: ", "Not quite, but this is close: ", "Your notes come closest with this: ",
-            "This is the closest I can find: ", "I couldn't find an exact match, but here is the closest note: ",
-            "This isn't an exact match, but it's the closest: ", "Here's the most relevant thing I could find: ",
-            "It doesn't say it perfectly, but this comes close: ", "The best match I could find is this: "
+            'The nearest thing in your notes is this: ',
+            'Not quite, but this is close: ',
+            'Your notes come closest with this: ',
+            'This is the closest I can find: ',
+            "I couldn't find an exact match, but here is the closest note: ",
+            "This isn't an exact match, but it's the closest: ",
+            "Here's the most relevant thing I could find: ",
+            "It doesn't say it perfectly, but this comes close: ",
+            'The best match I could find is this: ',
+            'Hm, the nearest thing in your notes is this: ',
+            'Ah, not quite, but this is close: ',
+            "Let's see... your notes come closest with this: ",
+            'Mm, this is the closest I can find: ',
+            "Hmm, i couldn't find an exact match, but here is the closest note: "
         ],
         "professional": [
             "The nearest entry in your notes reads: ", "The closest relevant entry is: ", "No entry answers this directly. The closest reads: ",
@@ -132,10 +223,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "closest_b": {
         "natural": [
-            "Nothing says that outright. The nearest is: ", "Your notes do not say it directly. The closest is: ",
-            "No note puts it exactly. The nearest is: ", "I couldn't find a direct answer. The closest is: ",
-            "Nothing hits the nail on the head. The nearest note is: ", "There's no direct mention, but this comes close: ",
-            "Your notes don't state it plainly. Here is the closest match: ", "No direct answer found, but here is the next best thing: "
+            'Nothing says that outright. The nearest is: ',
+            'Your notes do not say it directly. The closest is: ',
+            'No note puts it exactly. The nearest is: ',
+            "I couldn't find a direct answer. The closest is: ",
+            'Nothing hits the nail on the head. The nearest note is: ',
+            "There's no direct mention, but this comes close: ",
+            "Your notes don't state it plainly. Here is the closest match: ",
+            'No direct answer found, but here is the next best thing: ',
+            'Hm, nothing says that outright. The nearest is: ',
+            'Ah, your notes do not say it directly. The closest is: ',
+            "Let's see... no note puts it exactly. The nearest is: ",
+            "Mm, i couldn't find a direct answer. The closest is: ",
+            'Hmm, nothing hits the nail on the head. The nearest note is: '
         ],
         "professional": [
             "Nothing states this directly. The nearest entry is: ", "No entry answers this directly. The closest is: ",
@@ -146,9 +246,21 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "going_by": {
         "natural": [
-            "Based on your notes", "From what your notes say", "Judging by your notes", "Reading your notes",
-            "According to what you wrote", "Going by what is jotted down", "Looking at your records",
-            "If we go by your notes", "As far as your notes say", "From the looks of your notes"
+            'Based on your notes',
+            'From what your notes say',
+            'Judging by your notes',
+            'Reading your notes',
+            'According to what you wrote',
+            'Going by what is jotted down',
+            'Looking at your records',
+            'If we go by your notes',
+            'As far as your notes say',
+            'From the looks of your notes',
+            'Hm, based on your notes',
+            'Ah, from what your notes say',
+            "Let's see... judging by your notes",
+            'Mm, reading your notes',
+            'Hmm, according to what you wrote'
         ],
         "professional": [
             "According to your notes", "Based on the notes on file", "Per your notes", "As your notes record it",
@@ -158,9 +270,20 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "notes_have": {
         "natural": [
-            "Your notes say this on that: ", "This is what your notes say on that: ", "Here is what your notes have on that: ",
-            "On that, your notes say: ", "As for that, your notes say: ", "Regarding that, here is what you wrote: ",
-            "Here's what is jotted down on the matter: ", "This is what you saved about that: ", "On this topic, your notes say: "
+            'Your notes say this on that: ',
+            'This is what your notes say on that: ',
+            'Here is what your notes have on that: ',
+            'On that, your notes say: ',
+            'As for that, your notes say: ',
+            'Regarding that, here is what you wrote: ',
+            "Here's what is jotted down on the matter: ",
+            'This is what you saved about that: ',
+            'On this topic, your notes say: ',
+            'Hm, your notes say this on that: ',
+            'Ah, this is what your notes say on that: ',
+            "Let's see... here is what your notes have on that: ",
+            'Mm, on that, your notes say: ',
+            'Hmm, as for that, your notes say: '
         ],
         "professional": [
             "Your notes record the following on that: ", "On this point, your notes state: ", "The relevant notes state: ",
@@ -170,8 +293,23 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "and_join": {
         "natural": [
-            "Also ", "Plus ", "As well, ", "And ", "In addition, ", "Not to mention, ", "And also, ",
-            "Along with that, ", "Together with that, ", "Plus, ", "Oh, and ", "Also, "
+            'Also ',
+            'Plus ',
+            'As well, ',
+            'And ',
+            'In addition, ',
+            'Not to mention, ',
+            'And also, ',
+            'Along with that, ',
+            'Together with that, ',
+            'Plus, ',
+            'Oh, and ',
+            'Also, ',
+            'Hm, also ',
+            'Ah, plus ',
+            "Let's see... as well, ",
+            'Mm, and ',
+            'Hmm, in addition, '
         ],
         "professional": [
             "In addition, ", "Additionally, ", "Furthermore, ", "Moreover, ", "Further, ",
@@ -180,8 +318,20 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "on_top": {
         "natural": [
-            "Besides that", "On top of this", "Beyond that", "As well as that", "Along with that",
-            "Not only that, but", "To add to that", "Another thing", "More than that"
+            'Besides that',
+            'On top of this',
+            'Beyond that',
+            'As well as that',
+            'Along with that',
+            'Not only that, but',
+            'To add to that',
+            'Another thing',
+            'More than that',
+            'Hm, besides that',
+            'Ah, on top of this',
+            "Let's see... beyond that",
+            'Mm, as well as that',
+            'Hmm, along with that'
         ],
         "professional": [
             "In addition to this", "Moreover", "Further to this", "Beyond this", "As a supplementary point",
@@ -190,8 +340,20 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "separately": {
         "natural": [
-            "On a separate note", "Apart from that", "Aside from that", "In a different note",
-            "Unrelated to that", "Moving to something else", "On another topic", "Elsewhere", "Meanwhile"
+            'On a separate note',
+            'Apart from that',
+            'Aside from that',
+            'In a different note',
+            'Unrelated to that',
+            'Moving to something else',
+            'On another topic',
+            'Elsewhere',
+            'Meanwhile',
+            'Hm, on a separate note',
+            'Ah, apart from that',
+            "Let's see... aside from that",
+            'Mm, in a different note',
+            'Hmm, unrelated to that'
         ],
         "professional": [
             "As a separate point", "Distinct from the above", "As a distinct matter", "In a separate context",
@@ -200,8 +362,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "elsewhere": {
         "natural": [
-            "In another place", "Somewhere else", "Over in another note", "In a different spot",
-            "From a different note", "Another entry says", "I also found this elsewhere", "Elsewhere in your notes"
+            'In another place',
+            'Somewhere else',
+            'Over in another note',
+            'In a different spot',
+            'From a different note',
+            'Another entry says',
+            'I also found this elsewhere',
+            'Elsewhere in your notes',
+            'Hm, in another place',
+            'Ah, somewhere else',
+            "Let's see... over in another note",
+            'Mm, in a different spot',
+            'Hmm, from a different note'
         ],
         "professional": [
             "In a separate entry", "Elsewhere in your notes", "In a further entry", "In another location",
@@ -210,8 +383,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "another_note": {
         "natural": [
-            "Changing tack", "Moving on", "On a different note", "Switching gears",
-            "Looking at something else", "In another entry", "From another angle", "Turning to another note"
+            'Changing tack',
+            'Moving on',
+            'On a different note',
+            'Switching gears',
+            'Looking at something else',
+            'In another entry',
+            'From another angle',
+            'Turning to another note',
+            'Hm, changing tack',
+            'Ah, moving on',
+            "Let's see... on a different note",
+            'Mm, switching gears',
+            'Hmm, looking at something else'
         ],
         "professional": [
             "Turning to another matter", "On a different matter", "As for a different entry", "Addressing a distinct topic",
@@ -220,8 +404,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "later_on": {
         "natural": [
-            "Later still, on ", "A little later, on ", "After that, on ", "Fast forward to ",
-            "Then, moving forward to ", "Some time later, on ", "Further along, on ", "Down the line, on "
+            'Later still, on ',
+            'A little later, on ',
+            'After that, on ',
+            'Fast forward to ',
+            'Then, moving forward to ',
+            'Some time later, on ',
+            'Further along, on ',
+            'Down the line, on ',
+            'Hm, later still, on ',
+            'Ah, a little later, on ',
+            "Let's see... after that, on ",
+            'Mm, fast forward to ',
+            'Hmm, then, moving forward to '
         ],
         "professional": [
             "Subsequently, on ", "At a later date, on ", "Afterwards, on ", "In a subsequent entry, dated ",
@@ -230,8 +425,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "then_on": {
         "natural": [
-            "Next, on ", "Following that, on ", "Soon after, on ", "Right after, on ",
-            "Then on ", "Moving to ", "And then on ", "The next note, on "
+            'Next, on ',
+            'Following that, on ',
+            'Soon after, on ',
+            'Right after, on ',
+            'Then on ',
+            'Moving to ',
+            'And then on ',
+            'The next note, on ',
+            'Hm, next, on ',
+            'Ah, following that, on ',
+            "Let's see... soon after, on ",
+            'Mm, right after, on ',
+            'Hmm, then on '
         ],
         "professional": [
             "Thereafter, on ", "Following this, on ", "At the next entry, on ", "In the following record, dated ",
@@ -240,8 +446,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "earlier_on": {
         "natural": [
-            "Earlier still, on ", "A little earlier, on ", "Going back, on ", "Before all that, on ",
-            "Stepping back to ", "Looking back at ", "In a past note, on ", "Beforehand, on "
+            'Earlier still, on ',
+            'A little earlier, on ',
+            'Going back, on ',
+            'Before all that, on ',
+            'Stepping back to ',
+            'Looking back at ',
+            'In a past note, on ',
+            'Beforehand, on ',
+            'Hm, earlier still, on ',
+            'Ah, a little earlier, on ',
+            "Let's see... going back, on ",
+            'Mm, before all that, on ',
+            'Hmm, stepping back to '
         ],
         "professional": [
             "Previously, on ", "At an earlier date, on ", "Prior to this, on ", "In a preceding entry, dated ",
@@ -250,8 +467,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "and_on": {
         "natural": [
-            "Also on ", "Plus on ", "And again on ", "Another one on ", "There's also this on ",
-            "And here is another on ", "As well as on ", "Not forgetting this from "
+            'Also on ',
+            'Plus on ',
+            'And again on ',
+            'Another one on ',
+            "There's also this on ",
+            'And here is another on ',
+            'As well as on ',
+            'Not forgetting this from ',
+            'Hm, also on ',
+            'Ah, plus on ',
+            "Let's see... and again on ",
+            'Mm, another one on ',
+            "Hmm, there's also this on "
         ],
         "professional": [
             "In addition, on ", "Additionally, on ", "Furthermore, on ", "A further entry on ",
@@ -260,8 +488,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "before_that": {
         "natural": [
-            "Before then, on ", "Prior to that, on ", "Even earlier, on ", "Just before that, on ",
-            "Rewinding a bit to ", "Back before that, on ", "Beforehand, on ", "Preceding that, on "
+            'Before then, on ',
+            'Prior to that, on ',
+            'Even earlier, on ',
+            'Just before that, on ',
+            'Rewinding a bit to ',
+            'Back before that, on ',
+            'Beforehand, on ',
+            'Preceding that, on ',
+            'Hm, before then, on ',
+            'Ah, prior to that, on ',
+            "Let's see... even earlier, on ",
+            'Mm, just before that, on ',
+            'Hmm, rewinding a bit to '
         ],
         "professional": [
             "Preceding this, on ", "Before this, on ", "At an earlier point, on ", "Prior to that occurrence, on ",
@@ -270,8 +509,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "latest_a": {
         "natural": [
-            "Latest of all, on ", "The most recent one, on ", "Newest of all, on ", "The very latest from ",
-            "Right at the end, on ", "The newest update on ", "Bringing it up to date on ", "Most recently, on "
+            'Latest of all, on ',
+            'The most recent one, on ',
+            'Newest of all, on ',
+            'The very latest from ',
+            'Right at the end, on ',
+            'The newest update on ',
+            'Bringing it up to date on ',
+            'Most recently, on ',
+            'Hm, latest of all, on ',
+            'Ah, the most recent one, on ',
+            "Let's see... newest of all, on ",
+            'Mm, the very latest from ',
+            'Hmm, right at the end, on '
         ],
         "professional": [
             "Most recently, as of ", "The most recent entry, dated ", "The latest entry, on ", "The final record, dated ",
@@ -280,8 +530,18 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "latest_b": {
         "natural": [
-            "The freshest, from ", "The latest, from ", "Newest of all, from ", "The most recent update, from ",
-            "The absolute newest, from ", "Bringing us to the present, from ", "The latest word, from "
+            'The freshest, from ',
+            'The latest, from ',
+            'Newest of all, from ',
+            'The most recent update, from ',
+            'The absolute newest, from ',
+            'Bringing us to the present, from ',
+            'The latest word, from ',
+            'Hm, the freshest, from ',
+            'Ah, the latest, from ',
+            "Let's see... newest of all, from ",
+            'Mm, the most recent update, from ',
+            'Hmm, the absolute newest, from '
         ],
         "professional": [
             "The most recent entry, from ", "The latest entry, from ", "The newest entry, from ", "The most current record, originating from ",
@@ -290,8 +550,18 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "latest_c": {
         "natural": [
-            "Up to ", "As things stood on ", "Right up until ", "As of ",
-            "Where things left off on ", "The status as of ", "By the time of "
+            'Up to ',
+            'As things stood on ',
+            'Right up until ',
+            'As of ',
+            'Where things left off on ',
+            'The status as of ',
+            'By the time of ',
+            'Hm, up to ',
+            'Ah, as things stood on ',
+            "Let's see... right up until ",
+            'Mm, as of ',
+            'Hmm, where things left off on '
         ],
         "professional": [
             "As recorded on ", "Current as of ", "Effective until ", "As of the record dated ",
@@ -300,8 +570,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "latest_undated": {
         "natural": [
-            "The newest one: ", "The latest one: ", "The last one: ", "The freshest note: ",
-            "The most recent update: ", "Here is the latest: ", "The newest thing saved: ", "The most current note: "
+            'The newest one: ',
+            'The latest one: ',
+            'The last one: ',
+            'The freshest note: ',
+            'The most recent update: ',
+            'Here is the latest: ',
+            'The newest thing saved: ',
+            'The most current note: ',
+            'Hm, the newest one: ',
+            'Ah, the latest one: ',
+            "Let's see... the last one: ",
+            'Mm, the freshest note: ',
+            'Hmm, the most recent update: '
         ],
         "professional": [
             "The most recent entry: ", "The latest entry: ", "The newest entry: ", "The most current record: ",
@@ -310,9 +591,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "of_found": {
         "natural": [
-            "Among the notes found, ", "Looking at the notes found, ", "Out of the notes I looked at, ",
-            "From the notes I could find, ", "Of the ones retrieved, ", "Taking these notes, ",
-            "Looking through this batch, ", "Of the relevant notes, "
+            'Among the notes found, ',
+            'Looking at the notes found, ',
+            'Out of the notes I looked at, ',
+            'From the notes I could find, ',
+            'Of the ones retrieved, ',
+            'Taking these notes, ',
+            'Looking through this batch, ',
+            'Of the relevant notes, ',
+            'Hm, among the notes found, ',
+            'Ah, looking at the notes found, ',
+            "Let's see... out of the notes I looked at, ",
+            'Mm, from the notes I could find, ',
+            'Hmm, of the ones retrieved, '
         ],
         "professional": [
             "Of the notes retrieved, ", "Among the notes retrieved, ", "From the compiled entries, ",
@@ -322,9 +613,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "across_found": {
         "natural": [
-            "Looking across the notes found, ", "Taking the notes found together, ", "If we look at all these notes, ",
-            "Across the board in these notes, ", "Combining what I found, ", "Taking everything retrieved into account, ",
-            "In summary of the found notes, ", "Across all the results, "
+            'Looking across the notes found, ',
+            'Taking the notes found together, ',
+            'If we look at all these notes, ',
+            'Across the board in these notes, ',
+            'Combining what I found, ',
+            'Taking everything retrieved into account, ',
+            'In summary of the found notes, ',
+            'Across all the results, ',
+            'Hm, looking across the notes found, ',
+            'Ah, taking the notes found together, ',
+            "Let's see... if we look at all these notes, ",
+            'Mm, across the board in these notes, ',
+            'Hmm, combining what I found, '
         ],
         "professional": [
             "Across the notes retrieved, ", "Taken together, the notes retrieved show that ", "A holistic view of the entries indicates ",
@@ -335,10 +636,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     # Disagreement.
     "disagree_lead": {
         "natural": [
-            "Your notes might not agree here. ", "Your notes may say different things here. ", "Careful, your notes may disagree here. ",
-            "There's a bit of a contradiction in your notes here. ", "Watch out, your notes conflict on this. ",
-            "It looks like you have conflicting notes on this. ", "Your notes don't completely align here. ",
-            "Just a heads up, your notes differ here. "
+            'Your notes might not agree here. ',
+            'Your notes may say different things here. ',
+            'Careful, your notes may disagree here. ',
+            "There's a bit of a contradiction in your notes here. ",
+            'Watch out, your notes conflict on this. ',
+            'It looks like you have conflicting notes on this. ',
+            "Your notes don't completely align here. ",
+            'Just a heads up, your notes differ here. ',
+            'Hm, your notes might not agree here. ',
+            'Ah, your notes may say different things here. ',
+            "Let's see... careful, your notes may disagree here. ",
+            "Mm, there's a bit of a contradiction in your notes here. ",
+            'Hmm, watch out, your notes conflict on this. '
         ],
         "professional": [
             "Your notes may conflict on this point. ", "There may be a discrepancy in your notes. ", "Your notes appear to differ here. ",
@@ -349,8 +659,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "but_newer": {
         "natural": [
-            "Yet in a newer note", "Then again, in a newer note", "But looking at a newer note", "However, a more recent note says",
-            "On the other hand, a newer note", "Although a fresher note says", "Conversely, a newer note", "Then a later note mentions"
+            'Yet in a newer note',
+            'Then again, in a newer note',
+            'But looking at a newer note',
+            'However, a more recent note says',
+            'On the other hand, a newer note',
+            'Although a fresher note says',
+            'Conversely, a newer note',
+            'Then a later note mentions',
+            'Hm, yet in a newer note',
+            'Ah, then again, in a newer note',
+            "Let's see... but looking at a newer note",
+            'Mm, however, a more recent note says',
+            'Hmm, on the other hand, a newer note'
         ],
         "professional": [
             "However, in a newer note", "By contrast, in a newer note", "Conversely, in a newer note", "A more recent entry, however, indicates",
@@ -359,8 +680,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "but_older": {
         "natural": [
-            "Yet in an older note", "Then again, in an older note", "But looking at an older note", "However, a past note says",
-            "On the other hand, an older note", "Although a prior note says", "Conversely, an older note", "Then an earlier note mentions"
+            'Yet in an older note',
+            'Then again, in an older note',
+            'But looking at an older note',
+            'However, a past note says',
+            'On the other hand, an older note',
+            'Although a prior note says',
+            'Conversely, an older note',
+            'Then an earlier note mentions',
+            'Hm, yet in an older note',
+            'Ah, then again, in an older note',
+            "Let's see... but looking at an older note",
+            'Mm, however, a past note says',
+            'Hmm, on the other hand, an older note'
         ],
         "professional": [
             "However, in an older note", "By contrast, in an older note", "Conversely, in an older note", "An earlier entry, however, indicates",
@@ -369,8 +701,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "but_other": {
         "natural": [
-            "Yet in another note", "Then again, in another note", "But looking elsewhere", "However, a different note says",
-            "On the other hand, another note", "Although a separate note says", "Conversely, a different note", "Then a separate entry mentions"
+            'Yet in another note',
+            'Then again, in another note',
+            'But looking elsewhere',
+            'However, a different note says',
+            'On the other hand, another note',
+            'Although a separate note says',
+            'Conversely, a different note',
+            'Then a separate entry mentions',
+            'Hm, yet in another note',
+            'Ah, then again, in another note',
+            "Let's see... but looking elsewhere",
+            'Mm, however, a different note says',
+            'Hmm, on the other hand, another note'
         ],
         "professional": [
             "However, in another note", "By contrast, in another note", "Conversely, in another note", "A separate entry, however, indicates",
@@ -379,10 +722,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "disagree_check": {
         "natural": [
-            " They may disagree, so it is worth checking which is current.", " That may not match, so it is worth checking which is current.",
-            " These could conflict, so check which one is current.", " Since they differ, you might want to see which is correct.",
-            " It's worth verifying which one is right since they conflict.", " Because of this mismatch, you should check the latest status.",
-            " You might want to double-check this discrepancy.", " Take a look to see which one still applies."
+            ' They may disagree, so it is worth checking which is current.',
+            ' That may not match, so it is worth checking which is current.',
+            ' These could conflict, so check which one is current.',
+            ' Since they differ, you might want to see which is correct.',
+            " It's worth verifying which one is right since they conflict.",
+            ' Because of this mismatch, you should check the latest status.',
+            ' You might want to double-check this discrepancy.',
+            ' Take a look to see which one still applies.',
+            'Hm,  They may disagree, so it is worth checking which is current.',
+            'Ah,  That may not match, so it is worth checking which is current.',
+            "Let's see...  These could conflict, so check which one is current.",
+            'Mm,  Since they differ, you might want to see which is correct.',
+            "Hmm,  It's worth verifying which one is right since they conflict."
         ],
         "professional": [
             " These entries may conflict, so it is advisable to confirm which is current.", " These may be inconsistent, so please confirm which is current.",
@@ -394,8 +746,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     # Lists and comparisons.
     "timeline": {
         "natural": [
-            "Oldest first:", "Here they are, oldest first:", "In the order they were written:", "Going chronologically:",
-            "From the beginning:", "Starting with the oldest:", "In timeline order:", "Here is the timeline:"
+            'Oldest first:',
+            'Here they are, oldest first:',
+            'In the order they were written:',
+            'Going chronologically:',
+            'From the beginning:',
+            'Starting with the oldest:',
+            'In timeline order:',
+            'Here is the timeline:',
+            'Hm, oldest first:',
+            'Ah, here they are, oldest first:',
+            "Let's see... in the order they were written:",
+            'Mm, going chronologically:',
+            'Hmm, from the beginning:'
         ],
         "professional": [
             "In chronological order:", "Listed chronologically:", "In order of entry:", "Presented in chronological sequence:",
@@ -404,8 +767,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "each_side": {
         "natural": [
-            "Here is what each one says.", "This is what each says.", "Here is each side.", "Looking at both:",
-            "Here is the breakdown for each.", "This covers both of them.", "For each of them, here's the detail:", "Here is what we have for both."
+            'Here is what each one says.',
+            'This is what each says.',
+            'Here is each side.',
+            'Looking at both:',
+            'Here is the breakdown for each.',
+            'This covers both of them.',
+            "For each of them, here's the detail:",
+            'Here is what we have for both.',
+            'Hm, here is what each one says.',
+            'Ah, this is what each says.',
+            "Let's see... here is each side.",
+            'Mm, looking at both:',
+            'Hmm, here is the breakdown for each.'
         ],
         "professional": [
             "Each is set out below.", "Each side follows.", "The notes on each side follow.", "Details for each are provided below.",
@@ -414,9 +788,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "side_none": {
         "natural": [
-            "Nothing found is about this one by itself.", "Nothing here is only about this one.", "I didn't find anything specifically on this.",
-            "There's no standalone note for this one.", "This one doesn't have its own specific mention.", "Nothing focuses solely on this.",
-            "I have nothing on just this one alone.", "There isn't a note isolated to this."
+            'Nothing found is about this one by itself.',
+            'Nothing here is only about this one.',
+            "I didn't find anything specifically on this.",
+            "There's no standalone note for this one.",
+            "This one doesn't have its own specific mention.",
+            'Nothing focuses solely on this.',
+            'I have nothing on just this one alone.',
+            "There isn't a note isolated to this.",
+            'Hm, nothing found is about this one by itself.',
+            'Ah, nothing here is only about this one.',
+            "Let's see... i didn't find anything specifically on this.",
+            "Mm, there's no standalone note for this one.",
+            "Hmm, this one doesn't have its own specific mention."
         ],
         "professional": [
             "Nothing found addresses this side on its own.", "No entry found concerns this side alone.", "There is no isolated documentation for this subject.",
@@ -426,8 +810,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "both": {
         "natural": [
-            "Both at once", "Both in one place", "Combining both", "Looking at the two together",
-            "Taking both into account", "For the two combined", "Together", "Both sides considered"
+            'Both at once',
+            'Both in one place',
+            'Combining both',
+            'Looking at the two together',
+            'Taking both into account',
+            'For the two combined',
+            'Together',
+            'Both sides considered',
+            'Hm, both at once',
+            'Ah, both in one place',
+            "Let's see... combining both",
+            'Mm, looking at the two together',
+            'Hmm, taking both into account'
         ],
         "professional": [
             "Both combined", "Taken together", "In combination", "Evaluating both simultaneously",
@@ -436,9 +831,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     "missing": {
         "natural": [
-            "None of these notes say anything about ", "These notes do not mention ", "I couldn't find any mention of ",
-            "There's nothing in these notes regarding ", "None of the notes bring up ", "These don't talk about ",
-            "No note seems to mention ", "I see no reference to "
+            'None of these notes say anything about ',
+            'These notes do not mention ',
+            "I couldn't find any mention of ",
+            "There's nothing in these notes regarding ",
+            'None of the notes bring up ',
+            "These don't talk about ",
+            'No note seems to mention ',
+            'I see no reference to ',
+            'Hm, none of these notes say anything about ',
+            'Ah, these notes do not mention ',
+            "Let's see... i couldn't find any mention of ",
+            "Mm, there's nothing in these notes regarding ",
+            'Hmm, none of the notes bring up '
         ],
         "professional": [
             "None of the notes found mention ", "No note found mentions ", "The notes found make no mention of ",
@@ -448,7 +853,9 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
     },
     # No answer: one voice each, since the wording must stay a question.
     "nothing": {
-        "natural": [],
+        "natural": [
+            
+        ],
         "professional": ["None of the notes found answers that. Which note might hold it, or how else might it be phrased?"],
     },
 }
@@ -458,8 +865,19 @@ _FAMILIES: dict[str, dict[str, list[str]]] = {
 _PAIRS: dict[str, dict[str, list[str]]] = {
     "wrote_on_a": {
         "natural": [
-            "You wrote this on ", "Back on ", "On ", "Written on ", "Jotted down on ",
-            "Saved on ", "Noted on ", "From "
+            'You wrote this on ',
+            'Back on ',
+            'On ',
+            'Written on ',
+            'Jotted down on ',
+            'Saved on ',
+            'Noted on ',
+            'From ',
+            'Hm, you wrote this on ',
+            'Ah, back on ',
+            "Let's see... on ",
+            'Mm, written on ',
+            'Hmm, jotted down on '
         ],
         "professional": [
             "Recorded on ", "Dated ", "Entered on ", "As of ", "Documented on ",
@@ -468,8 +886,19 @@ _PAIRS: dict[str, dict[str, list[str]]] = {
     },
     "wrote_on_b": {
         "natural": [
-            ": ", " you wrote: ", " you noted: ", " it says: ", " you recorded: ",
-            " you mentioned: ", " you saved this: ", " you had this: "
+            ': ',
+            ' you wrote: ',
+            ' you noted: ',
+            ' it says: ',
+            ' you recorded: ',
+            ' you mentioned: ',
+            ' you saved this: ',
+            ' you had this: ',
+            'Hm, : ',
+            'Ah,  you wrote: ',
+            "Let's see...  you noted: ",
+            'Mm,  it says: ',
+            'Hmm,  you recorded: '
         ],
         "professional": [
             ": ", ": ", ": ", ", your notes state: ", ", it is documented: ",
@@ -647,6 +1076,57 @@ EXTRA_SYNONYM_GROUPS: tuple[tuple[str, ...], ...] = (
     ("faster", "quicker", "speedier"),
     ("pros", "advantages", "benefits", "upsides"),
     ("cons", "disadvantages", "drawbacks", "downsides"),
+    
+    # Tech / Digital Expansion
+    ("laptop", "computer", "pc", "mac", "macbook"),
+    ("phone", "mobile", "cell", "smartphone", "iphone", "android"),
+    ("app", "application", "software", "program", "tool"),
+    ("website", "site", "webpage", "portal", "url"),
+    ("password", "passcode", "pin", "code", "credential", "credentials"),
+    ("wifi", "internet", "connection", "network", "broadband"),
+    ("email", "mail", "inbox"),
+    ("message", "text", "sms", "chat", "dm"),
+    ("document", "doc", "file", "pdf", "spreadsheet", "presentation", "deck", "slides"),
+    
+    # Travel / Transport Expansion
+    ("flight", "plane", "airplane", "aircraft", "jet"),
+    ("hotel", "motel", "accommodation", "airbnb", "resort"),
+    ("trip", "vacation", "holiday", "getaway", "tour", "journey"),
+    ("car", "vehicle", "auto", "automobile", "ride", "truck", "van"),
+    ("ticket", "pass", "boarding pass", "fare"),
+    ("passport", "id", "identification", "license"),
+    ("airport", "terminal", "gate"),
+    
+    # Home / Living Expansion
+    ("house", "apartment", "flat", "home", "residence", "property"),
+    ("furniture", "couch", "bed", "table", "chair", "desk"),
+    ("kitchen", "living room", "bedroom", "bathroom", "lounge", "garage"),
+    ("laundry", "washing", "clothes", "dry cleaning"),
+    ("groceries", "food", "shopping", "supermarket", "store"),
+    
+    # Food / Drink Expansion
+    ("breakfast", "lunch", "dinner", "meal", "supper", "brunch"),
+    ("coffee", "tea", "drink", "beverage", "caffeine"),
+    ("recipe", "cooking", "baking", "dish"),
+    
+    # Events / Activities Expansion
+    ("party", "celebration", "gathering", "bash", "get together"),
+    ("workout", "exercise", "gym", "training", "fitness"),
+    ("movie", "film", "cinema", "show", "theatre"),
+    ("concert", "gig", "performance"),
+    
+    # Actions / Misc Expansion
+    ("buy", "purchase", "get", "acquire", "order"),
+    ("sell", "vend", "trade", "auction"),
+    ("make", "create", "build", "construct", "produce"),
+    ("find", "locate", "discover", "search", "seek"),
+    ("stop", "halt", "end", "terminate"),
+    ("begin", "commence", "initiate"),
+    ("idea", "concept", "thought", "notion", "brainstorm"),
+    ("problem", "issue", "trouble", "difficulty", "hitch", "bug", "glitch"),
+    ("solution", "answer", "fix", "workaround", "resolution"),
+    ("question", "query", "inquiry"),
+    ("opinion", "view", "perspective", "stance", "thoughts"),
 )
 
 # --- comparison ---------------------------------------------------------------------
@@ -734,6 +1214,8 @@ EXTRA_WRAPPERS: tuple[str, ...] = (
     r"^(?:pull up|bring up|search for) (?:my notes|the notes) (?:on|about)?\b\s+",
     r"^(?:any idea|any clue)\b\s+(?=(?:what|when|where|who|why|how|if)\b)",
     r"^(?:i was wondering|i am wondering)\b\s+(?=(?:what|when|where|who|why|how|if)\b)",
+    r"^(?:give me|show me|gimme)\b[,.:]?\s+",
+    r"^(?:bro|bruh|broski|brotato|buddy|mate|dude|man)\b[,.:]?\s+",
 )
 
 #: Closing phrases dropped after the question ("... if you can", "... thank you
@@ -755,7 +1237,8 @@ EXTRA_TRAILERS: tuple[str, ...] = (
     "as soon as you can", "whenever you're ready", "whenever youre ready",
     "if you don't mind me asking", "if you do not mind me asking", "por favor",
     "if you'd be so kind", "if you would be so kind", "if you wouldn't mind looking", "if you wouldnt mind looking",
-    "if you can find it", "if you could find it", "if you manage to find it"
+    "if you can find it", "if you could find it", "if you manage to find it",
+    "bro", "bruh", "broski", "brotato", "buddy", "mate", "dude", "man", "my guy", "dog", "dawg"
 )
 
 #: "what'd", "where're" and the rest: (pattern, replacement) pairs for
@@ -813,6 +1296,13 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Hello again! Need me to find something?",
         "Hey, I'm ready. What's on your mind?",
         "Hi there. How can I help with your notes?"
+        "Hm, what can I find for you?",
+        "Ah, hey there. Want to look something up?",
+        "Well hello. Need me to find something?",
+        "Mm, let's see what we can find for you today.",
+        "Hmm, I'm ready. What's on your mind?",
+        "Ah, hello again! Ready to dig into your notes?",
+        "Let's see... how can I help with your notes today?",
     ),
     "morning": (
         "Good morning. What would you like to check first?",
@@ -823,6 +1313,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Morning! Let me know what you need from your records.",
         "Good morning. I'm ready when you are.",
         "Morning. Let's find what you're looking for."
+        "Hm, good morning. What would you like to check first?",
+        "Well, good morning. Your notes are all here.",
+        "Ah, morning! Ready to dig into your notes?",
+        "Mm, morning. Let's find what you're looking for.",
+        "Let's see... good morning to you. What should we look up?",
     ),
     "compliment": (
         "Aw, thanks! What can I look up for you next?",
@@ -833,6 +1328,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Glad I could help. Want me to dig up anything else?",
         "You're too kind. What else can we find in your notes?",
         "Thank you! Ready for the next question whenever you are."
+        "Hm, I try my best! Anything else to check?",
+        "Ah, thanks! Ask away when you're ready.",
+        "Well, that's very kind. What's next on the agenda?",
+        "Mm, I appreciate it! Anything else I can find?",
+        "Let's see... you're too kind. What else can we find?",
     ),
     "insult": (
         "Ouch, sorry about that. Try asking it another way?",
@@ -843,6 +1343,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Sorry to let you down. How about we try searching another way?",
         "I'll take the hit. What should we look for instead?",
         "My apologies. Let's see if we can get it right this time."
+        "Hm, my bad! I'll try to do better. What should we look up?",
+        "Ah, sorry! Let's try again. What are we looking for?",
+        "Well, apologies. I'll take the hit. What should we look for instead?",
+        "Mm, sorry to let you down. How about we try searching another way?",
+        "Hmm, my mistake. Let's see if we can get it right this time.",
     ),
     "emotion": (
         "I hear you. Take your time. What can I help you find?",
@@ -853,6 +1358,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "I understand. Let's focus on what we can find in your notes.",
         "It happens to the best of us. What can I look up for you?",
         "I've got you covered. What do you need from your notes?"
+        "Hm, I hear you. Take your time. What can I help you find?",
+        "Ah, got it. I'm here when you're ready to check your notes.",
+        "Well, that's completely understandable. Let me know what you want to look up.",
+        "Mm, I'm sorry to hear that. Whenever you're ready, I'm here.",
+        "Hmm, it happens to the best of us. What can I look up for you?",
     ),
     "thanks": (
         "No problem. Ask again whenever you like.",
@@ -863,6 +1373,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "You bet. What else can I find?",
         "Of course! Anything more you want to check?",
         "Not a problem. Ask away."
+        "Hm, no problem. Ask again whenever you like.",
+        "Ah, glad to help.",
+        "Well, you are most welcome. Anything else to look up?",
+        "Mm, happy to assist. What's next?",
+        "Hmm, of course! Anything more you want to check?",
     ),
     "how": (
         "Good, thanks. What would you like to find?",
@@ -873,6 +1388,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "I'm well. Let's dive into your notes.",
         "Doing good! Ready to find whatever you need.",
         "I'm fine. What would you like to review?"
+        "Hm, good, thanks. What would you like to find?",
+        "Ah, all well here. Anything you want to check in your notes?",
+        "Well, doing fine. What can I look up for you?",
+        "Mm, everything's running smoothly here. What's on your mind?",
+        "Hmm, doing good! Ready to find whatever you need.",
     ),
     "bye": (
         "Goodbye for now. Your notes are saved.",
@@ -883,6 +1403,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Take care! Your notes aren't going anywhere.",
         "Until next time. Have a good one.",
         "Goodbye! I'll be here if you need me."
+        "Hm, goodbye for now. Your notes are saved.",
+        "Ah, talk soon. Everything you wrote is here.",
+        "Well, catch you later. Your notes will be right here.",
+        "Mm, bye! Come back whenever you need to check something.",
+        "Hmm, take care! Your notes aren't going anywhere.",
     ),
     "sorry": (
         "That is fine. What would you like to look up?",
@@ -893,6 +1418,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "No worries at all. What should we search for?",
         "It's fine, really. Let me know what you need.",
         "All good! Let's move on to the next search."
+        "Hm, that is fine. What would you like to look up?",
+        "Ah, no harm done. Ask it again and I will have another look.",
+        "Well, it's all good. Let's try again.",
+        "Mm, don't worry about it. What can I find for you?",
+        "Hmm, it's fine, really. Let me know what you need.",
     ),
     "laugh": (
         "Ha, good. What would you like to find next?",
@@ -903,6 +1433,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Heh. Let me know if you need me to find anything else.",
         "Always good for a laugh. Ready for the next question?",
         "Funny stuff. What else is in your notes?"
+        "Hm, glad that landed. Anything else to look up?",
+        "Ah, nice. Ask me whenever you are ready.",
+        "Well, haha, right? Anyway, what's next?",
+        "Mm, glad you're amused! What should we look at now?",
+        "Hmm, funny stuff. What else is in your notes?",
     ),
     "reaction": (
         "Right. Want me to look anything up about it?",
@@ -913,6 +1448,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Yep. What else can I dig up?",
         "I know, right? What should we look for next?",
         "Makes sense. Need me to find anything else?"
+        "Hm, fair enough. Shall I find something else?",
+        "Ah, I hear you. What next?",
+        "Well, totally. Want to check anything else?",
+        "Mm, yep. What else can I dig up?",
+        "Hmm, makes sense. Need me to find anything else?",
     ),
     "confused": (
         "Sorry about that. Try asking it in different words, or name the note you mean.",
@@ -923,6 +1463,11 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Hmm, I didn't get that. Maybe try using the exact note title?",
         "I'm not sure I understand. Could you rephrase?",
         "I might have misunderstood. Mind saying that a different way?"
+        "Hm, sorry about that. Try asking it in different words.",
+        "Ah, that was unclear. Say it another way and I will look again.",
+        "Well, I didn't quite catch that. Could you phrase it differently?",
+        "Mm, I'm a bit lost. Can you try asking in another way?",
+        "Hmm, I'm not sure I understand. Could you rephrase?",
     ),
     "ack": (
         "Sure. Ask when you are ready.",
@@ -933,18 +1478,31 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Acknowledged. Ready when you are.",
         "Alright. What should we look for now?",
         "Will do. Any other questions?"
+        "Hm, sure. Ask when you are ready.",
+        "Ah, understood. What next?",
+        "Well, right. Anything else to look up?",
+        "Mm, got it. What else?",
+        "Hmm, alright. What should we look for now?",
     ),
     "who": (
         "I am your notebook's assistant. I find things in your notes and say what they say.",
         "I answer questions from your notes. Ask me when something is, or what you decided.",
         "I'm your assistant for searching notes. Ask me a question and I'll find the answer in your records.",
         "I help you search your notes. Try asking me about something you've written down."
+        "Hm, I am your notebook's assistant. I find things in your notes.",
+        "Ah, I answer questions from your notes. Ask me when something is.",
+        "Well, I'm your assistant for searching notes. Ask me a question.",
+        "Mm, I help you search your notes. Try asking me about something you've written down.",
     ),
     "about_app": (
         "Ask me when something is, who said what, how a project stands or what the latest is, and I will answer "
         "from your notes in their own words. Connecting a model adds writing and tools.",
         "I'm designed to retrieve answers directly from your notes. Ask me anything you've recorded, and I'll find it.",
         "I answer questions based solely on what you've jotted down. Ask about a date, a task, or a past decision."
+        "Hm, ask me when something is, who said what, how a project stands.",
+        "Ah, I'm designed to retrieve answers directly from your notes.",
+        "Well, I answer questions based solely on what you've jotted down.",
+        "Mm, connecting a model adds writing and tools.",
     ),
 }
 
@@ -955,110 +1513,207 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "Good day. What would you like to look up in your notes?",
         "Hello. I can answer questions from what you have recorded.",
         "Welcome back. What would you like to review?",
+        "Hm, what can I find for you?",
+        "Ah, hey there. Want to look something up?",
+        "Well hello. Need me to find something?",
+        "Mm, let's see what we can find for you today.",
+        "Hmm, I'm ready. What's on your mind?",
+        "Ah, hello again! Ready to dig into your notes?",
+        "Let's see... how can I help with your notes today?",
     ),
     "morning": (
         "Good morning. What would you like to review?",
         "Good morning. Your notes are available whenever you are ready.",
         "Good morning. How may I assist?",
+        "Hm, good morning. What would you like to check first?",
+        "Well, good morning. Your notes are all here.",
+        "Ah, morning! Ready to dig into your notes?",
+        "Mm, morning. Let's find what you're looking for.",
+        "Let's see... good morning to you. What should we look up?",
     ),
     "thanks": (
         "You are welcome.",
         "My pleasure. Please ask again whenever you need something from your notes.",
         "Glad to be of help.",
         "Not at all. Is there anything else you would like to review?",
+        "Hm, no problem. Ask again whenever you like.",
+        "Ah, glad to help.",
+        "Well, you are most welcome. Anything else to look up?",
+        "Mm, happy to assist. What's next?",
+        "Hmm, of course! Anything more you want to check?",
     ),
     "how": (
         "Well, thank you. How may I help with your notes?",
         "Very well, thank you. What would you like to look up?",
         "I am well. What would you like to find in your notes?",
+        "Hm, good, thanks. What would you like to find?",
+        "Ah, all well here. Anything you want to check in your notes?",
+        "Well, doing fine. What can I look up for you?",
+        "Mm, everything's running smoothly here. What's on your mind?",
+        "Hmm, doing good! Ready to find whatever you need.",
     ),
     "bye": (
         "Goodbye. Your notes remain saved.",
         "Thank you. Everything you recorded is saved.",
         "Until next time.",
+        "Hm, goodbye for now. Your notes are saved.",
+        "Ah, talk soon. Everything you wrote is here.",
+        "Well, catch you later. Your notes will be right here.",
+        "Mm, bye! Come back whenever you need to check something.",
+        "Hmm, take care! Your notes aren't going anywhere.",
     ),
     "sorry": (
         "There is no need to apologise. How may I help?",
         "No problem. Please rephrase the question and I will look again.",
         "That is quite all right. What would you like to look up?",
+        "Hm, that is fine. What would you like to look up?",
+        "Ah, no harm done. Ask it again and I will have another look.",
+        "Well, it's all good. Let's try again.",
+        "Mm, don't worry about it. What can I find for you?",
+        "Hmm, it's fine, really. Let me know what you need.",
     ),
     "laugh": (
         "Glad to hear it. Is there anything else you would like to review?",
         "Understood. How may I help next?",
         "Very good. Please ask whenever you are ready.",
+        "Hm, glad that landed. Anything else to look up?",
+        "Ah, nice. Ask me whenever you are ready.",
+        "Well, haha, right? Anyway, what's next?",
+        "Mm, glad you're amused! What should we look at now?",
+        "Hmm, funny stuff. What else is in your notes?",
     ),
     "reaction": (
         "Understood. Would you like me to look up anything related?",
         "Noted. Is there anything else you would like to review?",
         "Of course. How may I help next?",
+        "Hm, fair enough. Shall I find something else?",
+        "Ah, I hear you. What next?",
+        "Well, totally. Want to check anything else?",
+        "Mm, yep. What else can I dig up?",
+        "Hmm, makes sense. Need me to find anything else?",
     ),
     "confused": (
         "My apologies, that was unclear. Please rephrase the question, or name the note you mean.",
         "I may have missed the point. Which part would you like me to review again?",
         "Let me try again. Could you put the question in other words?",
+        "Hm, sorry about that. Try asking it in different words.",
+        "Ah, that was unclear. Say it another way and I will look again.",
+        "Well, I didn't quite catch that. Could you phrase it differently?",
+        "Mm, I'm a bit lost. Can you try asking in another way?",
+        "Hmm, I'm not sure I understand. Could you rephrase?",
     ),
     "ack": (
         "Understood. Is there anything else?",
         "Noted. Please ask whenever you are ready.",
         "Very good. What would you like to review next?",
+        "Hm, sure. Ask when you are ready.",
+        "Ah, understood. What next?",
+        "Well, right. Anything else to look up?",
+        "Mm, got it. What else?",
+        "Hmm, alright. What should we look for now?",
     ),
     "who": (
         "I am the notebook's assistant. Without a model running, I answer from your notes in their own words.",
         "I locate entries in your notes and report what they say.",
+        "Hm, I am your notebook's assistant. I find things in your notes.",
+        "Ah, I answer questions from your notes. Ask me when something is.",
+        "Well, I'm your assistant for searching notes. Ask me a question.",
+        "Mm, I help you search your notes. Try asking me about something you've written down.",
     ),
     "about_app": (
         "I answer from your notes: when something is, who said what, what the latest is on a project, or what "
         "you have recorded on a subject. Connecting a model adds writing, summaries and tools.",
         "Ask about anything you have recorded: a date, a decision, a list or the status of a project. Several "
         "questions in one message are also answered. Connecting a model adds writing and tools.",
+        "Hm, ask me when something is, who said what, how a project stands.",
+        "Ah, I'm designed to retrieve answers directly from your notes.",
+        "Well, I answer questions based solely on what you've jotted down.",
+        "Mm, connecting a model adds writing and tools.",
     ),
     "compliment": (
         "Thank you. Is there anything else you would like to review?",
         "I appreciate the feedback. What would you like to review next?",
+        "Hm, I try my best! Anything else to check?",
+        "Ah, thanks! Ask away when you're ready.",
+        "Well, that's very kind. What's next on the agenda?",
+        "Mm, I appreciate it! Anything else I can find?",
+        "Let's see... you're too kind. What else can we find?",
     ),
     "insult": (
         "My apologies if the results were unhelpful. How may I improve the search?",
         "I will strive to do better. Please rephrase the question and I will look again.",
+        "Hm, my bad! I'll try to do better. What should we look up?",
+        "Ah, sorry! Let's try again. What are we looking for?",
+        "Well, apologies. I'll take the hit. What should we look for instead?",
+        "Mm, sorry to let you down. How about we try searching another way?",
+        "Hmm, my mistake. Let's see if we can get it right this time.",
     ),
     "emotion": (
         "Understood. How may I assist you with your notes?",
         "Noted. What would you like to review today?",
+        "Hm, I hear you. Take your time. What can I help you find?",
+        "Ah, got it. I'm here when you're ready to check your notes.",
+        "Well, that's completely understandable. Let me know what you want to look up.",
+        "Mm, I'm sorry to hear that. Whenever you're ready, I'm here.",
+        "Hmm, it happens to the best of us. What can I look up for you?",
     ),
 }
 
 #: Next steps offered after an acknowledgement, each with a "{subject}" slot.
 NEXT_STEPS_EXTRA: tuple[str, ...] = (
-    "Ask for more on “{subject}” if you like.",
-    "I can look up the latest on “{subject}” if you want.",
-    "Say “what else” and I will look further into “{subject}”.",
-    "Want to know when you last wrote about “{subject}”?",
-    "I can pull out the dates for “{subject}” as well.",
-    "Say “more” for the rest of what your notes say on “{subject}”.",
-    "If you want, I can dig deeper into “{subject}”.",
-    "Let me know if you want the full history of “{subject}”.",
-    "Say “tell me everything” and I'll find all mentions of “{subject}”.",
-    "I can check if there's anything else about “{subject}”.",
-    "Would you like me to find related notes for “{subject}”?",
-    "Need me to summarize your notes on “{subject}”?",
-    "I can also check when “{subject}” first came up.",
-    "Say the word and I'll list everything else you wrote on “{subject}”.",
-    "Want to review the other notes about “{subject}”?",
-    "Should I keep looking for more about “{subject}”?"
+    "Would you like me to find out more about “{subject}”?",
+    "I can dig up more on “{subject}” if you need it.",
+    "Let me know if you want the rest of the notes on “{subject}”.",
+    "Should I keep looking for more on “{subject}”?",
+    "There might be more on “{subject}”, want me to check?",
+    "Say the word and I'll find more on “{subject}”.",
+    "I'm happy to pull up more on “{subject}” if that helps.",
+    "Want me to dive deeper into “{subject}”?",
+    "Tell me if you need anything else on “{subject}”.",
+    "I can check for other mentions of “{subject}”.",
+    "Should we explore “{subject}” further?",
+    "If you want, I can look for more details on “{subject}”.",
+    "Want to see what else you wrote about “{subject}”?",
+    "Let me know if you'd like me to continue searching for “{subject}”.",
+    "Say “more” if you want to see other notes on “{subject}”.",
+    "Hm, I can also look for more on “{subject}” if you like.",
+    "Ah, let me know if you need the rest of the notes on “{subject}”.",
+    "Mm, want to dive deeper into “{subject}”?",
+    "Let's see... I can find more on “{subject}” if you need.",
+    "There's likely more on “{subject}” in your notes.",
+    "I can always check for more info on “{subject}”.",
+    "Let me know if you want me to expand on “{subject}”.",
+    "Do you want me to pull up everything you have on “{subject}”?",
+    "Should I gather all other mentions of “{subject}”?",
+    "Need any further clarification on “{subject}”?",
+    "I can run another search on “{subject}” if you want.",
+    "Let me know if you want to know anything else about “{subject}”.",
+    "I'm ready to keep digging into “{subject}”.",
+    "Want to see if there's any related info to “{subject}”?",
+    "I can check for context around “{subject}” if you like.",
+    "Would it help to see more notes on “{subject}”?",
 )
 NEXT_STEPS_PROFESSIONAL: tuple[str, ...] = (
-    "I can provide further detail on “{subject}” if required.",
-    "Say “tell me more” for additional detail on “{subject}”.",
-    "I can also retrieve the latest entry on “{subject}”.",
-    "Please ask if you would like the dates recorded for “{subject}”.",
-    "I can review the remaining entries on “{subject}” on request.",
-    "Would you like the most recent update on “{subject}”?",
-    "Further documentation on “{subject}” is available if needed.",
-    "I can compile a comprehensive history of “{subject}” for you.",
-    "If necessary, I can retrieve all recorded instances of “{subject}”.",
-    "Say the word and I will cross-reference entries on “{subject}”.",
-    "Should you require it, I can locate earlier records of “{subject}”.",
-    "Additional notes concerning “{subject}” can be supplied upon request.",
-    "I am able to extract further specifics regarding “{subject}”.",
-    "Please advise if you need the full context for “{subject}”.",
-    "I can append subsequent findings on “{subject}” if you wish."
+    "Would you like me to retrieve further information on “{subject}”?",
+    "I can locate additional records regarding “{subject}” if required.",
+    "Please advise if you need more details on “{subject}”.",
+    "Should I continue searching the documentation for “{subject}”?",
+    "There may be further entries on “{subject}”. Shall I proceed?",
+    "I am available to extract more data on “{subject}”.",
+    "Would you like a deeper analysis of the notes on “{subject}”?",
+    "Please inform me if additional context on “{subject}” is necessary.",
+    "I can review the files for other mentions of “{subject}”.",
+    "Should we examine “{subject}” in greater detail?",
+    "If required, I can provide more comprehensive notes on “{subject}”.",
+    "Would you care to review further entries concerning “{subject}”?",
+    "Please indicate if you wish me to expand on “{subject}”.",
+    "I can retrieve all corresponding records for “{subject}”.",
+    "Should I compile all remaining mentions of “{subject}”?",
+    "Do you require further clarification regarding “{subject}”?",
+    "I can execute an additional query for “{subject}” upon request.",
+    "Please let me know if you seek further information about “{subject}”.",
+    "I am prepared to continue investigating “{subject}”.",
+    "Would it be beneficial to retrieve related data on “{subject}”?",
+    "I can examine the surrounding context of “{subject}” if you prefer.",
+    "Shall I present additional documentation on “{subject}”?",
 )

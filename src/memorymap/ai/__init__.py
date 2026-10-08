@@ -21,3 +21,6 @@ is not decorated with this: that text is the user speaking, not the app.
 """
 
 AI_NAME = "Atlas"
+
+from . import user_config
+user_config.apply_user_config()

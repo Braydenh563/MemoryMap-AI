@@ -240,10 +240,10 @@ PHRASES: dict[str, str] = {
     #: 741: "when nothing matches at all, it asks a short clarifying
     #: question instead of returning nothing").
     "nothing": (
-        "Nothing in the notes found answers that. Which note would it be in, "
-        "or how else might you have put it?"
+        "Nothing in the notes found answers that. Could you rephrase your question, "
+        "or is there a specific note I should check? (You can also ask me to 'search the web' or use a skill.)"
     ),
-    "which_note": "Which note would it be in, or how else might you have put it?",
+    "which_note": "Which note would it be in, or how else might you have put it? (Or ask me to 'search the web')",
     # An unsure reading of a misspelt word, offered the other way.
     "did_you_mean_a": "Did you mean “",
     "did_you_mean_b": "”?",
@@ -285,26 +285,27 @@ _WEEKDAYS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
 #: latest" is a status before it is a "what", and a comparison can open with
 #: any word at all.
 _SHAPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("compare", re.compile(r"\b(compare|versus|vs\.?|differences? between)\b", re.I)),
-    ("count", re.compile(r"^\s*how (many|much|often|long)\b|\bnumber of\b", re.I)),
-    ("when", re.compile(r"^\s*(when|what (date|day|time|month|year)|which (date|day|month))\b", re.I)),
-    ("who", re.compile(r"^\s*(who|whom|whose)\b", re.I)),
+    ("compare", re.compile(r"\b(compare|versus|vs\.?|differences? between|difference|similarities|similar to|better than|worse than|compared to)\b", re.I)),
+    ("count", re.compile(r"^\s*(how (many|much|often|long)|number of|quantity of|amount of|total of)\b", re.I)),
+    ("when", re.compile(r"^\s*(when|what (date|day|time|month|year)|which (date|day|month)|how long ago|what time frame|what timeframe)\b", re.I)),
+    ("who", re.compile(r"^\s*(who|whom|whose|which (person|guy|girl|team)|what person)\b", re.I)),
     (
         "status",
         re.compile(
             r"\b(latest|status|progress|update on|updates on|newest|most recent|so far|"
-            r"where (am i|are we|is it|are things) (with|on)|any (news|word) (on|about)|"
-            r"how far along|what happened (with|to)|how (is|are) .{2,60}? (going|coming along|getting on))\b",
+            r"where (am i|are we|is it|are things|do things stand) (with|on)|any (news|word) (on|about)|"
+            r"how far along|what happened (with|to)|how (is|are) .{2,60}? (going|coming along|getting on)|"
+            r"what is the state of|current state of)\b",
             re.I,
         ),
     ),
-    ("where", re.compile(r"^\s*(where|whereabouts|what (address|place|street|room))\b", re.I)),
+    ("where", re.compile(r"^\s*(where|whereabouts|what (address|place|street|room|city|country|location)|which location|where exactly|at what place)\b", re.I)),
     (
         "explain",
-        re.compile(r"^\s*(why|how come|explain|what (made|makes|caused|causes)|how (do|does|did|can|could|should|to|is|are|was|were|would))\b", re.I),
+        re.compile(r"^\s*(why|how come|explain|what (made|makes|caused|causes)|how (do|does|did|can|could|should|to|is|are|was|were|would)|give me the reason|reasons for|reason why|tell me why|walk me through)\b", re.I),
     ),
-    ("list", re.compile(r"^\s*(list|which|name)\b|^\s*what are (the|my|all)\b", re.I)),
-    ("yesno", re.compile(r"^\s*(is|are|do|does|did|can|could|was|were|has|have|had|should|will|would|am)\b", re.I)),
+    ("list", re.compile(r"^\s*(list|which|name)\b|^\s*(what are (the|my|all)|give me a list of|show me all|can you list|enumerate|all of the)\b", re.I)),
+    ("yesno", re.compile(r"^\s*(is|are|do|does|did|can|could|was|were|has|have|had|should|will|would|am|shall)\b", re.I)),
 )
 
 SHAPES = ("what", *(name for name, _ in _SHAPE_RULES), "recent")

@@ -590,8 +590,9 @@ const AGENT_INTENT_RE = new RegExp(
   "\\b(?:" +
     "delete|remove|archive|rename|merge|de-?duplicate|dedupe|" +
     "tag|untag|re-?tag|link|unlink|organi[sz]e|tidy|clean ?up|sort|categori[sz]e|" +
-    "create|make|add|save|append|update|edit|change|move|" +
+    "create|make|add|save|append|update|edit|change|move|modify|adjust|fix|repair|" +
     "schedule|remind me|set a reminder|" +
+    "draft|outline|generate|plan|build|format|translate|" +
     "summari[sz]e (?:my|all|the|every)|go through (?:my|all|the)" +
     ")\\b",
   "i"

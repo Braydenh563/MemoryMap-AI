@@ -717,6 +717,23 @@ EXTRA_WRAPPERS: tuple[str, ...] = (
     r"^(?:in your notes|from my notes|in my notes|according to my notes|from your notes)\b[,:]?\s+",
     r"^(?:for me|for my records)\b[,:]?\s+",
     r"^(?:hello|hi|hey|dear (?:assistant|atlas|notebook))\b[,.:]?\s+(?=\w)",
+    
+    # New massive expansion:
+    r"^(?:quick question|i have a quick question)\b[,.:]?\s+(?=(?:what|when|where|who|why|how|is|are|do|does|did|can|could)\b)",
+    r"^(?:do you know|would you know)\b[,.:]?\s+(?=(?:what|when|where|who|why|how)\b)",
+    r"^(?:i )?(?:cant|cannot|can't) (?:remember|recall|think of)\b[,.:]?\s+(?=(?:what|when|where|who|why|how)\b)",
+    r"^(?:by any chance)\b[,.:]?\s+(?=(?:do|does|did|is|are|was|were|can|could)\b)",
+    r"^(?:let me ask you|let me ask)\b[,.:]?\s+",
+    r"^(?:im not sure|i am not sure|i'm not sure)\b[,.:]?\s+(?=(?:if|whether|what|when|where|who|why|how)\b)",
+    r"^(?:can you|could you|would you) (?:help me (?:with|remember)|refresh my memory (?:on|about)?)\b[,.:]?\s+",
+    r"^(?:hey )?(?:bot|ai|assistant|computer)[,.:]?\s+",
+    r"^(?:tell me|remind me) (?:again )?\b[,.:]?\s+(?=(?:what|when|where|who|why|how)\b)",
+    r"^(?:can you|could you) (?:check|find) (?:my notes|the notes) (?:for|on)?\b[,.:]?\s+",
+    r"^(?:what does it say|what do my notes say) (?:about|on|regarding)\b\s+",
+    r"^(?:give me|show me) (?:the latest on|everything on|all notes on)\b\s+",
+    r"^(?:pull up|bring up|search for) (?:my notes|the notes) (?:on|about)?\b\s+",
+    r"^(?:any idea|any clue)\b\s+(?=(?:what|when|where|who|why|how|if)\b)",
+    r"^(?:i was wondering|i am wondering)\b\s+(?=(?:what|when|where|who|why|how|if)\b)",
 )
 
 #: Closing phrases dropped after the question ("... if you can", "... thank you
@@ -727,6 +744,18 @@ EXTRA_TRAILERS: tuple[str, ...] = (
     "much appreciated", "appreciate it",
     "when you can", "whenever you can", "no rush", "no hurry", "just curious", "out of curiosity", "for reference",
     "for the record", "thanks a lot", "many thanks", "thanks so much",
+    
+    # New massive expansion:
+    "if you wouldn't mind", "if you wouldnt mind", "please and thank you", "pls and ty", "pretty please",
+    "when you have a sec", "when you have a second", "when you have a minute", "when you have time",
+    "if it's not too much trouble", "if its not too much trouble", "if it is not too much trouble",
+    "if it's easy", "if its easy", "if that's alright", "if that is alright",
+    "i'd appreciate it", "id appreciate it", "i would appreciate it", "thank you", "thanks", "ty", "tysm",
+    "just wondering", "just asking", "just so i know", "just so I know",
+    "as soon as you can", "whenever you're ready", "whenever youre ready",
+    "if you don't mind me asking", "if you do not mind me asking", "por favor",
+    "if you'd be so kind", "if you would be so kind", "if you wouldn't mind looking", "if you wouldnt mind looking",
+    "if you can find it", "if you could find it", "if you manage to find it"
 )
 
 #: "what'd", "where're" and the rest: (pattern, replacement) pairs for
@@ -753,6 +782,22 @@ EXTRA_LEAD_INS: tuple[str, ...] = (
     "as mentioned", "as promised", "as usual", "as always", "in brief", "side note", "small note", "a note",
     "one more thing", "another thing", "actually", "anyways", "alright", "all right", "yeah", "hmm", "so yeah",
     "ok so then", "right then", "okay then", "update to self",
+    
+    # New massive expansion:
+    "important note", "quick update", "just an update", "update", "memo to self", "note to self",
+    "reminder", "just a reminder", "quick reminder", "brief note", "small reminder",
+    "to recap", "recap", "tl;dr", "tldr", "long story short", "the bottom line is", "bottom line",
+    "key takeaway", "takeaway", "in a nutshell", "simply put", "to cut a long story short",
+    "by the way", "btw", "oh and", "oh, and", "also", "and another thing", "moving on",
+    "on a related note", "speaking of which", "incidentally", "as an aside",
+    "for what it's worth", "fwiw", "to be honest", "tbh", "to be fair", "tbf", "not gonna lie", "ngl",
+    "at the end of the day", "basically", "essentially", "fundamentally", "ultimately",
+    "anyway", "anyhow", "regardless", "nevertheless", "that being said", "having said that",
+    "on second thought", "wait", "hold on", "actually, scratch that", "scratch that",
+    "so", "well", "okay", "ok", "right", "sure", "listen", "look", "see",
+    "guess what", "fun fact", "believe it or not", "you know what",
+    "just to clarify", "to be clear", "for clarity", "let me clarify", "just making sure",
+    "as expected", "no surprise", "unsurprisingly", "naturally", "obviously", "clearly"
 )
 
 # --- small talk ---------------------------------------------------------------------
@@ -989,6 +1034,16 @@ NEXT_STEPS_EXTRA: tuple[str, ...] = (
     "Want to know when you last wrote about “{subject}”?",
     "I can pull out the dates for “{subject}” as well.",
     "Say “more” for the rest of what your notes say on “{subject}”.",
+    "If you want, I can dig deeper into “{subject}”.",
+    "Let me know if you want the full history of “{subject}”.",
+    "Say “tell me everything” and I'll find all mentions of “{subject}”.",
+    "I can check if there's anything else about “{subject}”.",
+    "Would you like me to find related notes for “{subject}”?",
+    "Need me to summarize your notes on “{subject}”?",
+    "I can also check when “{subject}” first came up.",
+    "Say the word and I'll list everything else you wrote on “{subject}”.",
+    "Want to review the other notes about “{subject}”?",
+    "Should I keep looking for more about “{subject}”?"
 )
 NEXT_STEPS_PROFESSIONAL: tuple[str, ...] = (
     "I can provide further detail on “{subject}” if required.",
@@ -997,4 +1052,13 @@ NEXT_STEPS_PROFESSIONAL: tuple[str, ...] = (
     "Please ask if you would like the dates recorded for “{subject}”.",
     "I can review the remaining entries on “{subject}” on request.",
     "Would you like the most recent update on “{subject}”?",
+    "Further documentation on “{subject}” is available if needed.",
+    "I can compile a comprehensive history of “{subject}” for you.",
+    "If necessary, I can retrieve all recorded instances of “{subject}”.",
+    "Say the word and I will cross-reference entries on “{subject}”.",
+    "Should you require it, I can locate earlier records of “{subject}”.",
+    "Additional notes concerning “{subject}” can be supplied upon request.",
+    "I am able to extract further specifics regarding “{subject}”.",
+    "Please advise if you need the full context for “{subject}”.",
+    "I can append subsequent findings on “{subject}” if you wish."
 )

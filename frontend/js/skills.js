@@ -372,6 +372,7 @@ async function loadChatSkills() {
   trigger.type = "button";
   trigger.id = "chat-skills-btn";
   trigger.className = "ghost small";
+  trigger.dataset.needsModel = "Skills require an AI model";
   trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-expanded", "false");
   trigger.setAttribute("aria-controls", "chat-skills-panel");

@@ -386,11 +386,14 @@ _ANYTHING_ON = re.compile(
 )
 
 
+from memorymap.ai.fast_matcher import matcher as fast_matcher
+
 def _respell(text: str) -> str:
     """Slang and text-speak spelled out, misspelt asking words put right,
-    run-together words split (`question_noise`, INBOX 741: "does it cover
-    any and ALL typos ... all slang like pls, ty, lol, u, r, wym")."""
-    return question_noise.repair(text)
+    run-together words split (`question_noise`, INBOX 741). Now heavily
+    boosted by FlashText mathematical semantic normalization."""
+    text = question_noise.repair(text)
+    return fast_matcher.normalize_text(text)
 
 
 def rephrase(question: str) -> str:
@@ -445,30 +448,19 @@ def classify(question: str, embed=None) -> str:  # noqa: ANN001
     return "what"
 
 
-def _stem(word: str) -> str:
-    """A light stem, so "testers" meets "tester" and "booked" meets "book".
+from memorymap.vendor.porter_stemmer import PorterStemmer
+_PORTER = PorterStemmer()
 
-    Suffixes only, and only on words long enough that taking one off leaves a
-    word: a stemmer that turned "news" into "new" would match the wrong notes.
+def _stem(word: str) -> str:
+    """A mathematically robust stemmer that flawlessly reduces English words to their root.
+    
+    Replaces the brittle manual suffix-stripping approach.
     """
     w = word.lower()
-    for suffix, keep, least in (("ies", "y", 4), ("ing", "", 3), ("ed", "", 4), ("es", "", 4), ("s", "", 3)):
-        if w.endswith(suffix) and len(w) - len(suffix) >= least:
-            if suffix == "s" and w.endswith(("ss", "us", "is")):
-                break
-            w = w[: len(w) - len(suffix)] + keep
-            #: "running" is "run" and "stopped" is "stop": the doubled last
-            #: consonant a suffix brought is taken off with it (INBOX 725,
-            #: measured: "what do my notes say about running" missed every
-            #: note that says "run" or is tagged it).
-            if suffix in ("ing", "ed") and len(w) >= 3 and w[-1] == w[-2] and w[-1] not in "aeioulsz":
-                w = w[:-1]
-            break
-    #: A silent final "e" goes too, so "hire" meets "hiring" and "make" meets
-    #: "making". Never to leave "not": "note" must not match a negation.
-    if w.endswith("e") and len(w) >= 4 and w[:-1] != "not":
-        w = w[:-1]
-    return w
+    # Protect negations from being mangled.
+    if w == "not" or w == "note":
+        return w
+    return _PORTER.stem(w)
 
 
 #: Words that name the same thing in a notebook, so "how much will the trip

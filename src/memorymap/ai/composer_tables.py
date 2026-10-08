@@ -42,7 +42,7 @@ def voice_of(value: object) -> str:
 _FAMILIES: dict[str, dict[str, list[str]]] = {
     # Openers: said before the strongest sentence, which is the answer.
     "open_notes": {
-        "natural": ["Here is what your notes say: ", "Your notes say: ", "Looking through your notes: ", "Here is what I found in your notes: ", "What your notes have: "],
+        "natural": ["Here is what your notes say: ", "Your notes say: ", "Looking through your notes: ", "Here is what I found in your notes: ", "What your notes have: ", "Hmm, let me look. Your notes say: ", "Let's see. Here is what your notes have: ", "Give me a second to check. Your notes say: "],
         "professional": ["According to your notes: ", "Your notes record the following: ", "Per your notes: ", "The relevant entry in your notes reads: ", "Your records show: ", "From the notes on file: "],
     },
     "open_wrote": {
@@ -501,6 +501,21 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Morning. Ask me about anything you wrote down.",
         "Good morning. Your notes are all here.",
     ),
+    "compliment": (
+        "Aw, thanks! What can I look up for you next?",
+        "I try my best! Anything else to check?",
+        "Thanks! Ask away when you're ready.",
+    ),
+    "insult": (
+        "Ouch, sorry about that. Try asking it another way?",
+        "My bad! I'll try to do better. What should we look up?",
+        "Sorry! Let's try again. What are we looking for?",
+    ),
+    "emotion": (
+        "I hear you. Take your time. What can I help you find?",
+        "Got it. I'm here when you're ready to check your notes.",
+        "That's completely understandable. Let me know what you want to look up.",
+    ),
     "thanks": (
         "No problem. Ask again whenever you like.",
         "Glad to help.",
@@ -614,6 +629,18 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "you have recorded on a subject. Connecting a model adds writing, summaries and tools.",
         "Ask about anything you have recorded: a date, a decision, a list or the status of a project. Several "
         "questions in one message are also answered. Connecting a model adds writing and tools.",
+    ),
+    "compliment": (
+        "Thank you. Is there anything else you would like to review?",
+        "I appreciate the feedback. What would you like to review next?",
+    ),
+    "insult": (
+        "My apologies if the results were unhelpful. How may I improve the search?",
+        "I will strive to do better. Please rephrase the question and I will look again.",
+    ),
+    "emotion": (
+        "Understood. How may I assist you with your notes?",
+        "Noted. What would you like to review today?",
     ),
 }
 

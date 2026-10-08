@@ -2410,6 +2410,18 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Ask me about anything you wrote down: a date, a decision, a list, how a project is going. Two questions "
         "in one message work too. Connecting a model adds writing and tools.",
     ),
+    "compliment": (
+        "I am glad to hear that. What can I find for you next?",
+        "Thank you! Ready for the next question.",
+    ),
+    "insult": (
+        "I'm sorry to hear that. I'm a simple bot, but I try my best.",
+        "Apologies. Let's try rephrasing the question.",
+    ),
+    "emotion": (
+        "I understand. What can I help you find?",
+        "Okay. I am here when you need to search your notes.",
+    ),
 }
 
 for _kind, _more in composer_tables.SOCIAL_NATURAL_EXTRA.items():

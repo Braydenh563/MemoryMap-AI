@@ -271,6 +271,16 @@ SOCIAL: dict[str, str] = {
     "heyyy": "greeting", "yo": "greeting", "sup": "greeting", "hello": "greeting",
     "wassup": "how", "wbu": "how", "hbu": "how", "xoxo": "bye", "ily": "thanks",
     "sorry": "sorry", "soz": "sorry", "sry": "sorry",
+    # Compliments
+    "good": "compliment", "great": "compliment", "amazing": "compliment", "awesome": "compliment",
+    "best": "compliment", "smart": "compliment", "brilliant": "compliment", "perfect": "compliment",
+    "good bot": "compliment", "good job": "compliment",
+    # Insults
+    "bad": "insult", "stupid": "insult", "dumb": "insult", "useless": "insult", "idiot": "insult",
+    "terrible": "insult", "awful": "insult", "worst": "insult",
+    # Emotions
+    "tired": "emotion", "stressed": "emotion", "happy": "emotion", "sad": "emotion",
+    "angry": "emotion", "frustrated": "emotion", "exhausted": "emotion",
 }
 
 #: Words that ride along with small talk without making it a question:

@@ -257,6 +257,19 @@ def suggest_tags(
         if words and all(word in wanted_set for word in words):
             spelled.setdefault(key, tag)
             votes[key] = votes.get(key, 0.0) + TAG_NAME_VOTE
+            
+    #: 1. Global Taxonomy Tagging (Flashtext)
+    try:
+        from memorymap.ai.taxonomy import extract_keywords
+        taxonomy_keywords = extract_keywords(content)
+        for kw in taxonomy_keywords:
+            kw_key = kw.casefold()
+            spelled.setdefault(kw_key, kw)
+            # Massive weight for direct taxonomy concept matches
+            votes[kw_key] = votes.get(kw_key, 0.0) + 1.5
+    except Exception:
+        pass
+        
     ranked = sorted(
         (key for key, vote in votes.items() if vote >= TAG_MIN_VOTE and key not in have_folded),
         key=lambda key: votes[key],
@@ -314,6 +327,16 @@ def _tally(
             continue
         votes[name] = votes.get(name, 0.0) + similarity * weight
         supporters[name] = supporters.get(name, 0) + 1
+    #: 1. Global Taxonomy (Flashtext)
+    try:
+        from memorymap.ai.taxonomy import extract_dynamic_categories
+        taxonomy_matches = extract_dynamic_categories(content)
+        for cat in taxonomy_matches:
+            # Massive weight for direct taxonomy concept matches
+            votes[cat] = votes.get(cat, 0.0) + 2.0
+            supporters[cat] = supporters.get(cat, 0) + 2
+    except Exception:
+        pass
 
     #: Naming the category is a vote of its own ("gym: new shoes").
     for name in notes_in:

@@ -135,7 +135,7 @@ PHRASES: dict[str, str] = {
     "colon": ": ",
     "comma": ", ",
     "stop": ".",
-    "open_quote": "> “",
+    "open_quote": "“",
     "close_quote": "”",
     "open_paren": " [***",
     "close_paren": "***]",
@@ -400,7 +400,7 @@ _VADER = _VaderAnalyzer()
 
 from memorymap.ai.fast_matcher import matcher as fast_matcher
 
-from memorymap.vendor.spellchecker import SpellChecker as _SpellCheckerCore
+from spellchecker import SpellChecker as _SpellCheckerCore
 _SPELLCHECK = _SpellCheckerCore(distance=1)
 
 def _respell(text: str) -> str:
@@ -1274,7 +1274,7 @@ class _Answer:
         text = s.text if shown is None else shown
         kind = "picture" if s.kind.startswith("picture") else "quote"
         if kind == "quote":
-            text = f'> *"{text}"*'
+            text = f'"{text}"'
         self.parts.append((kind, text, s.note_id))
         self.last_note = s.note_id
         if s.key in self.cited:

@@ -4979,7 +4979,7 @@ _HOW_NEXT = frozenset("many much often long do does did to come can should far o
 import warnings
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    from memorymap.vendor.thefuzz import process
+    from thefuzz import process
 
 def nearest(word: str, vocabulary, after: str = "") -> str | None:  # noqa: ANN001
     """The one vocabulary word `word` is a typo of, or None. Uses thefuzz for robust matching."""

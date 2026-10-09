@@ -2146,11 +2146,13 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         and intent.needs_retrieval(prepared["intent"])
         and bool(prepared["notes"])
     )
-    will_answer = not composed and (ollama_running or tools_only) and (
+    conversational = not intent.needs_retrieval(prepared["intent"])
+    model_can_answer = ollama_running if conversational else (ollama_running or tools_only)
+    will_answer = not composed and model_can_answer and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
-        or not intent.needs_retrieval(prepared["intent"])
+        or conversational
     )
     if will_answer and not tools_only:
         _assist(req, prepared)

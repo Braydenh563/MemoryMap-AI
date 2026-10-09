@@ -125,7 +125,8 @@ _VOCABULARY = (
     "busiest active time date day week weeks month months year recent "
     "longest shortest biggest words written writing wordcount "
     "stale forgotten untouched abandoned "
-    "together alongside pairs pair"
+    "together alongside pairs pair "
+    "statistics stats overview summary"
 ).split()
 
 #: Words shorter than this are left alone. "tp" is not a typo for "top" in any
@@ -207,6 +208,7 @@ def looks_like_a_question_about_the_notebook(message: str) -> bool:
         #: matcher rather than by reading the code.
         or re.search(r"\bwords?\b|word ?count|writ(?:ten|ing)", text)
         or re.search(r"stale|forgotten|untouched|abandoned", text)
+        or re.search(r"statistics|stats|overview|summary", text)
     )
 
 
@@ -252,6 +254,8 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _stale_notes(session)
     if _asks(text, _TAG_WORDS, r"together|alongside|\bpairs?\b|combination|co-?occur"):
         return _tag_pairs(session)
+    if _asks(text, r"statistics|stats|overview|summary"):
+        return _general_stats(session)
     return None
 
 
@@ -337,6 +341,7 @@ def _document_count(session: Session) -> StatAnswer:
 
 
 def _most_linked(session: Session) -> StatAnswer:
+    # ... graph logic remains ...
     """The notes at the centre of the graph.
 
     Uses NetworkX graph theory to calculate the PageRank of the entire notebook.
@@ -574,4 +579,25 @@ def _tag_pairs(session: Session) -> StatAnswer:
         f"#{top_a} and #{top_b} appear together most often, on {_plural(top_n, 'note')}. "
         f"The top {len(common)} pairings are listed below.",
         [{"label": f"#{a} + #{b}", "count": n} for (a, b), n in common],
+    )
+
+
+def _general_stats(session: Session) -> StatAnswer:
+    note_total = session.scalar(_visible(select(func.count(Entry.id)))) or 0
+    cat_total = session.scalar(_visible(select(func.count(func.distinct(Entry.category_id))))) or 0
+    doc_total = session.scalar(_visible(select(func.count(func.distinct(Document.id))).join(Document, Document.entry_id == Entry.id))) or 0
+    
+    rows = session.scalars(_visible(select(Entry.tags))).all()
+    distinct_tags = len({tag for raw in rows for tag in _tags_of(raw)})
+    
+    return StatAnswer(
+        "notebook_summary",
+        f"You have {_plural(note_total, 'note')} and {_plural(doc_total, 'document')} "
+        f"across {_plural(cat_total, 'category')}, using {_plural(distinct_tags, 'distinct tag')}.",
+        [
+            {"label": "Notes", "count": note_total},
+            {"label": "Documents", "count": doc_total},
+            {"label": "Categories", "count": cat_total},
+            {"label": "Tags", "count": distinct_tags}
+        ]
     )

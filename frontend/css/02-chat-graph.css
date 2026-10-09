@@ -729,7 +729,7 @@ details.tool-chip[open] > .tool-chip-body {
   /* Measured from the step's own left edge, which sits the gutter's
      1.25rem in from the rail's frame. */
   left: calc(var(--rail-x) - 1.25rem - var(--rail-node) / 2);
-  top: 0.55rem;
+  top: 0.75rem;
   width: var(--rail-node);
   height: var(--rail-node);
   border-radius: 50%;

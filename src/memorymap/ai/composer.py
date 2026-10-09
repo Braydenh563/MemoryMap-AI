@@ -285,6 +285,12 @@ _WEEKDAYS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
 #: latest" is a status before it is a "what", and a comparison can open with
 #: any word at all.
 _SHAPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("utility", re.compile(r"^\s*(what is the time|what time is it|what is today\'s date|what date is it|what day is it|what day of the week is it|create note|add note|new note|remind me|set a timer)\b", re.I)),
+    ("summary", re.compile(r"^\s*(summarize|summarise|summary|overview|give me a summary|give me an overview)\b", re.I)),
+    ("math", re.compile(r"^\s*(what is|calculate)\s+\d+\s*[\+\-\*\/]\s*\d+", re.I)),
+    ("reading_time", re.compile(r"^\s*(how long to read|reading time|how long will this take to read)\b", re.I)),
+    ("translate", re.compile(r"(?:translate(?: this)?(?: to| into)?|say that in|how do i say .* in|->\s*|to\s+)([a-zA-Z]+)\b", re.I)),
+    ("convert", re.compile(r"^\s*(convert|how many) ([0-9\.]+)\s*([a-zA-Z]+) (to|in) ([a-zA-Z]+)\b", re.I)),
     ("compare", re.compile(r"\b(compare|versus|vs\.?|differences? between|difference|similarities|similar to|better than|worse than|compared to)\b", re.I)),
     ("count", re.compile(r"^\s*(how (many|much|often|long)|number of|quantity of|amount of|total of)\b", re.I)),
     ("when", re.compile(r"^\s*(when|what (date|day|time|month|year)|which (date|day|month)|how long ago|what time frame|what timeframe)\b", re.I)),
@@ -394,11 +400,33 @@ _VADER = _VaderAnalyzer()
 
 from memorymap.ai.fast_matcher import matcher as fast_matcher
 
+from memorymap.vendor.spellchecker import SpellChecker as _SpellCheckerCore
+_SPELLCHECK = _SpellCheckerCore(distance=1)
+
 def _respell(text: str) -> str:
     """Slang and text-speak spelled out, misspelt asking words put right,
     run-together words split (`question_noise`, INBOX 741). Now heavily
-    boosted by FlashText mathematical semantic normalization."""
+    boosted by FlashText mathematical semantic normalization and standard
+    spellchecking."""
     text = question_noise.repair(text)
+    
+    # Gracefully correct basic spelling mistakes for better matches
+    words = text.split()
+    corrected = []
+    for w in words:
+        clean_w = w.strip(".,;:!?")
+        if clean_w.isalpha():
+            cw = _SPELLCHECK.correction(clean_w)
+            if cw and cw != clean_w.lower():
+                # keep original casing if possible
+                if clean_w.istitle():
+                    cw = cw.capitalize()
+                elif clean_w.isupper():
+                    cw = cw.upper()
+                w = w.replace(clean_w, cw)
+        corrected.append(w)
+    text = " ".join(corrected)
+    
     return fast_matcher.normalize_text(text)
 
 
@@ -1670,15 +1698,44 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
                 #: two colons and no sentence.
                 pool = ["", "and_join", "on_top"] if relation == "also" and _lowered(unit[0]) else [""]
                 if relation != "also":
-                    pool = ["separately", "elsewhere", "another_note"]
-                options = [o for o in pool if o not in used] or [""]
-                last = _pick(f"{question}:{view.id}", "join", options)
-                if last:
-                    used.add(last)
-                if last:
-                    _joined(out, [last], unit, terms)
+                    # Use RAKE to extract the topic of the new note to create a smooth transition
+                    note_text = " ".join([s.text for s in unit])
+                    keywords = _RAKE.run(note_text)
+                    valid_keywords = [k[0] for k in keywords if len(k[0]) > 2]
+                    if valid_keywords:
+                        kw = valid_keywords[0]
+                        transition = _pick(f"{question}:{view.id}", "dynamic_join", [
+                            f"Regarding {kw}",
+                            f"On the topic of {kw}",
+                            f"As for {kw}",
+                            f"Turning to {kw}"
+                        ])
+                        out.m(transition)
+                        if _lowered(unit[0]):
+                            out.t("comma")
+                            _quotes(out, unit, terms, lower_first=True)
+                        else:
+                            out.t("colon")
+                            _quotes(out, unit, terms)
+                    else:
+                        pool = ["separately", "elsewhere", "another_note"]
+                        options = [o for o in pool if o not in used] or [""]
+                        last = _pick(f"{question}:{view.id}", "join", options)
+                        if last:
+                            used.add(last)
+                        if last:
+                            _joined(out, [last], unit, terms)
+                        else:
+                            _quotes(out, unit, terms)
                 else:
-                    _quotes(out, unit, terms)
+                    options = [o for o in pool if o not in used] or [""]
+                    last = _pick(f"{question}:{view.id}", "join", options)
+                    if last:
+                        used.add(last)
+                    if last:
+                        _joined(out, [last], unit, terms)
+                    else:
+                        _quotes(out, unit, terms)
             out.cite(view)
             said.extend(unit)
 
@@ -2198,6 +2255,25 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
         if subject:
             resolved = _PRONOUN.sub(lambda _match: subject, text, count=1)
             return FollowOn(resolved, previous, "", "pronoun")
+
+    # SMART CONTEXT MIXER:
+    # Dynamically track topic changes or continuations using RAKE and keyword heuristics.
+    text_lower = text.lower()
+    is_explicit_continuation = any(w in text_lower for w in ["other", "more", "else", "also", "too"])
+    has_pronoun = bool(_PRONOUN.search(text_lower))
+    
+    current_kws = {k[0] for k in _RAKE.run(text) if k[1] > 1.0}
+    prev_kws = {k[0] for k in _RAKE.run(previous) if k[1] > 1.0}
+    
+    is_overlapping_topic = bool(current_kws and prev_kws and not current_kws.isdisjoint(prev_kws))
+    
+    if is_explicit_continuation or has_pronoun or is_overlapping_topic:
+        # It's a follow-up. Blend the questions to keep the full context (e.g. timeframe, verb, old topic)
+        # We also pass 'said' if it's an explicit continuation so we don't repeat the exact same notes.
+        said_hist = "\n".join(str(t.get("answer") or "") for t in turns[-3:]) if is_explicit_continuation else ""
+        resolved = f"{previous}. {text}"
+        return FollowOn(resolved, previous, said_hist, "smart_context")
+        
     return None
 
 
@@ -2628,8 +2704,94 @@ def compose(
 
     if shape == "recent":
         _newest(out, views_list)
+    elif shape == "reading_time":
+        word_count = sum(len(v.words) for v in views_list)
+        mins = max(1, round(word_count / 238)) # average adult reading speed
+        out.m(f"Across the {len(views_list)} notes retrieved, there are {word_count} words. It should take you roughly {mins} minute{'s' if mins != 1 else ''} to read them.")
+        out.parts.insert(0, ("action", {"type": "reading_time", "words": word_count, "minutes": mins}))
+    elif shape == "translate":
+        lang_match = re.search(r'(?:translate(?: this)?(?: to| into)?|say that in|how do i say .* in|->\s*|to\s+)([a-zA-Z]+)\b', question.lower())
+        target_lang = lang_match.group(1).title() if lang_match else "Another Language"
+        out.m(f"I am ready to translate the retrieved notes into {target_lang}.")
+        out.parts.insert(0, ("action", {"type": "translate", "language": target_lang}))
+    elif shape == "convert":
+        try:
+            from memorymap.vendor.pint import UnitRegistry
+            ureg = UnitRegistry()
+            # Try to match the whole query or fallback to regex extraction
+            conv_match = re.search(r'([0-9\.]+)\s*([a-zA-Z]+)\s*(?:to|in|into)\s*([a-zA-Z]+)', question.lower())
+            if not conv_match:
+                raise ValueError("Could not parse conversion.")
+            amount, unit_from, unit_to = conv_match.groups()
+            
+            quantity = float(amount) * ureg(unit_from)
+            result = quantity.to(unit_to)
+            
+            # Format nicely
+            rounded = round(result.magnitude, 4)
+            if rounded.is_integer():
+                rounded = int(rounded)
+            out.m(f"**{amount} {unit_from}** is equal to **{rounded} {unit_to}**.")
+            out.parts.insert(0, ("action", {"type": "convert", "amount": amount, "from": unit_from, "to": unit_to, "result": rounded}))
+        except Exception:
+            out.m("I'm not sure what units you want to convert, or the conversion isn't supported.")
+    elif shape == "math":
+        try:
+            expr_match = re.search(r'([0-9\+\-\*\/\(\)\.\s]+)', question.lower())
+            if not expr_match:
+                raise ValueError
+            expr = expr_match.group(1).strip()
+            
+            from memorymap.vendor.simpleeval import simple_eval
+            res = simple_eval(expr)
+            
+            out.m(f"The answer is {res}.")
+            out.parts.insert(0, ("action", {"type": "math", "expression": expr, "result": res}))
+        except Exception:
+            out.m("I'm not sure how to calculate that.")
+    elif shape == "utility":
+        text_lower = question.lower()
+        from datetime import datetime
+        if "time" in text_lower:
+            now = datetime.now().strftime("%I:%M %p")
+            out.m(f"It is currently {now}.")
+            out.parts.insert(0, ("action", {"type": "get_time", "result": now}))
+        elif "date" in text_lower or "day" in text_lower:
+            day_str = today.strftime("%A, %B %d, %Y")
+            out.m(f"Today is {day_str}.")
+            out.parts.insert(0, ("action", {"type": "get_date", "result": day_str}))
+        elif any(w in text_lower for w in ["create", "add", "new", "remind", "set"]):
+            kw = [k[0] for k in _RAKE.run(text_lower) if k[1] > 1.0]
+            subject = kw[0] if kw else "that"
+            if "remind" in text_lower or "timer" in text_lower:
+                out.m(f"I've noted your request to be reminded about '{subject}'.")
+                out.parts.insert(0, ("action", {"type": "remind", "subject": subject}))
+            else:
+                out.m(f"I am ready to create your note about '{subject}'.")
+                out.parts.insert(0, ("action", {"type": "create_note", "subject": subject}))
+        else:
+            out.m("I am ready to help you with that action.")
     else:
-        sides = compare_sides(question) if shape == "compare" else None
+        if shape == "summary":
+            meaning = meaning_for(terms)
+            chosen = select("what", terms, views_list, limit=10, meaning=meaning, per_note=1)
+            if chosen:
+                out.m("Here is a categorized summary of what I found in your notes:")
+                out.t("para")
+                order = []
+                for s in chosen:
+                    if s.note_id not in order:
+                        order.append(s.note_id)
+                units = [sorted((s for s in chosen if s.note_id == i), key=lambda s: s.order) for i in order]
+                for group in _clusters(meaning, units):
+                    best_s = max((s for unit in group for s in unit), key=lambda s: s.score)
+                    kws = _RAKE.run(best_s.text)
+                    theme = kws[0][0].title() if kws else "Key Point"
+                    out.t("bullet").m(f"**{theme}:** ").q(best_s, terms).cite(out.views[best_s.note_id]).t("line")
+            else:
+                out.m("I couldn't find any notes to summarize on this topic.")
+        else:
+            sides = compare_sides(question) if shape == "compare" else None
         if not (sides and _compare(out, sides, views_list, meaning_for)):
             shape = "what" if shape == "compare" else shape
             broad = shape == "what" and bool(_BROAD.match(rephrase(question)))
@@ -2668,47 +2830,6 @@ def compose(
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
     
-    # Inject soulful VADER and RAKE metadata into the output
-    primary_note = None
-    for note_id in cited:
-        if note_id in out.views:
-            primary_note = out.views[note_id]
-            break
-            
-    if primary_note:
-        soul = ""
-        # LAZY EVALUATION: Only run heavy NLP on the finalized, chosen note!
-        # This reduces algorithm complexity from O(N) to O(1) per query.
-        content = str(primary_note.note.get("content") or "")
-        try:
-            s_score = _VADER.polarity_scores(content)["compound"]
-            kw = [k[0].title() for k in _RAKE.run(content)[:3]]
-        except Exception:
-            s_score = 0
-            kw = []
-
-        import hashlib
-        h = hashlib.md5(question.encode()).digest()[0]
-
-        if s_score > 0.7:
-            phrases = ["*(This is wonderfully positive!)*", "*(You sound ecstatic here!)*", "*(Love the energy in this note!)*"]
-            soul += f"{phrases[h % len(phrases)]}\n\n"
-        elif s_score > 0.3:
-            phrases = ["*(A great, positive entry.)*", "*(This has a really nice tone!)*", "*(Feeling good in this one!)*"]
-            soul += f"{phrases[h % len(phrases)]}\n\n"
-        elif s_score < -0.7:
-            phrases = ["*(This sounds deeply stressful. I'm here for you.)*", "*(This looks like a really heavy entry. Take a deep breath.)*", "*(Venting is good. This note sounds really tough.)*"]
-            soul += f"{phrases[h % len(phrases)]}\n\n"
-        elif s_score < -0.3:
-            phrases = ["*(This note feels a bit heavy.)*", "*(Sounds like you were dealing with some friction here.)*", "*(A bit of a stressful note, but good to have recorded.)*"]
-            soul += f"{phrases[h % len(phrases)]}\n\n"
-            
-        if kw:
-            soul += f"**Key themes:** {', '.join(kw)}\n\n"
-            
-        if soul:
-            out.parts.insert(0, ("soul", soul))
-            
     next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]
     return {
         "text": out.text,

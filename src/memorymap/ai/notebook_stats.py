@@ -339,34 +339,49 @@ def _document_count(session: Session) -> StatAnswer:
 def _most_linked(session: Session) -> StatAnswer:
     """The notes at the centre of the graph.
 
-    Counts both directions: a note everything points *at* is as central as one
-    that points at everything, and a "best connected" answer that counted only
-    outgoing links would rank the note you happened to write last.
+    Uses NetworkX graph theory to calculate the PageRank of the entire notebook.
+    This goes beyond just counting links, it ranks notes by their true centrality
+    in your knowledge graph (a note linked to by highly central notes is more
+    important than a note with many links from isolated notes).
     """
-    counts: Counter[int] = Counter()
+    import networkx as nx
+    
+    G = nx.DiGraph()
     for source, target in session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)).all():
-        counts[source] += 1
-        counts[target] += 1
-    if not counts:
+        G.add_edge(source, target)
+        
+    if len(G.nodes) == 0:
         return StatAnswer("linked", "None of your notes are linked to each other yet.")
-    top_ids = [entry_id for entry_id, _ in counts.most_common(TOP_N)]
+        
+    # Calculate PageRank
+    ranks = nx.pagerank(G)
+    
+    # Sort by highest rank
+    ranked_nodes = sorted(ranks.items(), key=lambda x: x[1], reverse=True)
+    top_ids = [entry_id for entry_id, rank in ranked_nodes[:TOP_N]]
+    
     rows = session.scalars(_visible(select(Entry).where(Entry.id.in_(top_ids)))).all()
     by_id = {row.id: row for row in rows}
     facts = []
+    
     for entry_id in top_ids:
         row = by_id.get(entry_id)
         if row is None:
             continue  # binned or private since the link was made
+            
+        # Display the PageRank percentage
+        score = round(ranks[entry_id] * 100, 1)
+        
         facts.append(
             {
                 "label": (row.content or "").strip().split("\n")[0][:60],
-                "count": counts[entry_id],
+                "count": f"{score}% centrality",
                 "id": row.id,
             }
         )
     if not facts:
         return StatAnswer("linked", "None of your visible notes are linked to each other yet.")
-    listed = "; ".join(f"“{fact['label']}” ({fact['count']} links)" for fact in facts[:5])
+    listed = "; ".join(f"“{fact['label']}” ({fact['count']})" for fact in facts[:5])
     return StatAnswer("linked", f"Your most connected notes are {listed}.", facts)
 
 

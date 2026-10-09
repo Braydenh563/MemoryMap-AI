@@ -4976,47 +4976,52 @@ def allowance(word: str) -> float:
 _HOW_NEXT = frozenset("many much often long do does did to come can should far old big".split())
 
 
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from memorymap.vendor.thefuzz import process
+
 def nearest(word: str, vocabulary, after: str = "") -> str | None:  # noqa: ANN001
-    """The one vocabulary word `word` is a typo of, or None: within its
-    allowance, and nearer than any other by a clear margin (a tie is a
-    guess, and no guess is made, except "how" against "who", which the next
-    word settles)."""
+    """The one vocabulary word `word` is a typo of, or None. Uses thefuzz for robust matching."""
     low = word.lower()
     if low in vocabulary or low in VOCABULARY or low in REAL_WORDS or not low.isalpha():
         return None
-    limit = allowance(low)
-    if not limit:
+    
+    # Extract the top 2 matches to check for ties
+    results = process.extract(low, vocabulary, limit=2)
+    if not results:
         return None
-    scored = sorted((distance(low, v), v) for v in vocabulary if abs(len(v) - len(low)) <= 2)
-    if not scored or scored[0][0] > limit:
+        
+    best_match, best_score = results[0]
+    
+    # If the score is too low, we don't consider it a match
+    # A score of 80 is a good threshold for "near enough" in short words
+    threshold = 85 if len(low) <= 4 else 75
+    if best_score < threshold:
         return None
-    best = [v for d, v in scored if d <= scored[0][0] + 0.1]
-    if set(best) == {"how", "who"}:
-        how = after.lower() in _HOW_NEXT
-        return "how" if how else "who"
-    return best[0] if len(best) == 1 else None
-
-
-#: How near a second reading must come to the chosen one, or how far the
-#: chosen one may sit within its allowance, before the reading is unsure and
-#: a "Did you mean ...?" offers the other (INBOX 741, the owner: "composer
-#: could have clean fallback with did you mean to substitute??").
-UNSURE_GAP = 0.35
-UNSURE_SHARE = 0.75
+        
+    # Check for a tie between "how" and "who"
+    if len(results) == 2:
+        second_match, second_score = results[1]
+        if best_score == second_score and set([best_match, second_match]) == {"how", "who"}:
+            how = after.lower() in _HOW_NEXT
+            return "how" if how else "who"
+            
+    return best_match
 
 
 def alternative(word: str, chosen: str, vocabulary) -> str | None:  # noqa: ANN001
     """The other word `word` could have meant when the reading as `chosen`
     is unsure, else None."""
     low = word.lower()
-    limit = allowance(low)
-    if not limit:
-        return None
-    mine = distance(low, chosen)
-    others = sorted((distance(low, v), v) for v in vocabulary if v != chosen and abs(len(v) - len(low)) <= 2)
-    near = [v for d, v in others if d <= limit and d - mine <= UNSURE_GAP]
-    if near:
-        return near[0]
+    
+    results = process.extract(low, vocabulary, limit=3)
+    
+    for match, score in results:
+        # If we find a close match that isn't the chosen one, offer it
+        if match != chosen and score >= 75:
+            return match
+            
     return None
 
 

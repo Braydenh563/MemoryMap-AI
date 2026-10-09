@@ -676,7 +676,7 @@ function renderChatNudge() {
       run: () => setChatMode("agent"),
     });
   }
-  if (!chatNudgeDismissed.has("skill")) {
+  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && typeof aiIsOff === 'function' && !aiIsOff()) {
     const skill = skillMatchingDraft(text);
     if (skill) {
       offers.push({

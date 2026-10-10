@@ -100,6 +100,7 @@ EXPECTED = {
         '"The dictionary is empty, so there is nothing to export."',
     ],
     'graph.js': [
+        '`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`',
         '"Nothing to export yet."',
     ],
     'library.js': [
@@ -117,9 +118,6 @@ EXPECTED = {
     'media.js': [
         '"Microphone access was blocked, allow it in your browser."',
         '"This browser has no text-to-speech voices."',
-    ],
-    'note-cards.js': [
-        '`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`',
     ],
     'note-edit-panels.js': [
         '"A note needs some text. To remove it, use Move to bin in its menu."',

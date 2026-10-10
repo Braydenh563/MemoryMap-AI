@@ -259,6 +259,8 @@ with its owner named in the entry.
 
 ## Placed (last 20, newest first)
 
+- 2026-10-10: 764 placed as CHAT_PLAN decision 60 and the amendment to 32 and 58.
+
 - 2026-10-10: 762 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the mapnotes agent.
 
 - 2026-10-10: 760 and 761 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the carddate and mapnotes agents.

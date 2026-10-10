@@ -46293,6 +46293,13 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      whiteboard keydown handlers return first when `e.key` is not a string;
      `tests/test_keydown_without_key.py` pins it.
 
+764. **The owner, 2026-10-10, verbatim.** "with the insights, what if the user
+     confirms insights?? the insights and context understanding and general
+     user query/prompt understanding needs to be flawless." Placed: CHAT_PLAN
+     decision 60 (a confirmed insight becomes a fact the owner vouched for; a
+     dismissed one is learned and stays quiet), amending decision 32 in place,
+     and decision 58's understanding column set to the owner's bar.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

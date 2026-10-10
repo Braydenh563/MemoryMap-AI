@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the design agent (Brief 56, merged 2026-10-10)
+
+- 110 distinct controls show no change on keyboard focus (`a11yname.js`, 312 stops over 14 surfaces): every `.status-item`, the `.ghost.small` buttons, the status bar; a focus ring rule in the stylesheet's grammar (Brief 57).
+- Eight dialogs open as centred cards at 390 and should be bottom sheets (extract, history, connections, binned, run a skill, board keys, meeting notes, features): Brief 59.
+- Six of 14 content docks show more than seven items at 1440 (Notes 10, Graph 9, Library 9, Chat 8, Timeline 8, Boards 8); fold by count, 13.1 row 2 (Brief 57).
+- The markup has 18 overlays plus the built confirm and the tour card, not the plan's 15; `$S/design/hierarchy.json` lists each with its size (Brief 59 reads it first).
+- Not measured by Brief 56: 1024 and 820 widths, dark-theme counts, a Chat with a conversation, the document AI panel, a board with a selection.
+- The 13.0 gate's "every offence per decision" for decisions 9 to 17 are stylesheet counts from the plan's method paragraph, not from the sweep; still to be read from code (Brief 57).
+
 ## Settings and help
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": INBOX 235, the Settings Help page and the Models order; INBOX 237, the built-in Librarian persona is Atlas; "Advanced response settings" sits 20.8px right of its siblings; `#settings-tools`'s intro; scratchpad/ui-sweeps/help-popovers.js is not built; "Not one of the seven tabs carries a `data-help-for` popover"; The learning loop's Settings section (I9's frontend) is not built.

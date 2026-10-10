@@ -154,3 +154,82 @@ def test_a_select_opener_name_contains_the_words_on_its_face():
     sync = sync[: sync.index("opener.disabled = select.disabled;")]
     assert 'opener.setAttribute(' in sync and '`${label}: ${shown}`' in sync
     assert "select-opener-icon" in sync, "an icon-only opener shows no text and keeps the plain label"
+
+
+# The 13 buttons that `index.html` ships with no text, `aria-label` or
+# `title` (Brief 56, `scratchpad/ui-sweeps/hierarchy.js`): the plan counted
+# them as unlabelled icon-only buttons from the markup alone. Observed in the
+# running app, none of them is: JS paints each before it can be seen (the
+# status bar's `paintStatusItem`, the Logs dock's `renderCopyLogsLabel`), and
+# the live scan of 20 surfaces, 7 menus per surface and 19 dialogs found no
+# visible control without a name. The set is pinned so a new empty button in
+# the markup fails here, with the painter it has to have named in the message.
+EMPTY_MARKUP_BUTTONS = {
+    "status-notes", "status-reminders", "status-task", "status-activity",
+    "status-command", "status-agent", "status-guide", "status-find",
+    "status-back", "status-forward", "status-undo", "status-redo", "logs-copy",
+}
+
+
+def _all_js() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in sorted((FRONTEND / "js").glob("*.js")))
+
+
+def _empty_markup_buttons() -> set[str]:
+    from html.parser import HTMLParser
+
+    found: set[str] = set()
+
+    class Parser(HTMLParser):
+        current = None
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "button":
+                self.current = {"attrs": dict(attrs), "text": ""}
+
+        def handle_data(self, data):
+            if self.current is not None:
+                self.current["text"] += data
+
+        def handle_endtag(self, tag):
+            if tag != "button" or self.current is None:
+                return
+            attrs, text = self.current["attrs"], self.current["text"]
+            self.current = None
+            if not text.strip() and not attrs.get("aria-label") and not attrs.get("title"):
+                found.add(attrs.get("id") or f"<button class={attrs.get('class')!r}>")
+
+    Parser().feed(_read("index.html"))
+    return found
+
+
+def test_an_empty_markup_button_is_one_that_js_paints():
+    found = _empty_markup_buttons()
+    assert found == EMPTY_MARKUP_BUTTONS, (
+        "a button in index.html has no text, aria-label or title: give it one, "
+        f"or paint it from JS and add its id here. Difference: {sorted(found ^ EMPTY_MARKUP_BUTTONS)}"
+    )
+    js = _all_js()
+    for button_id in EMPTY_MARKUP_BUTTONS:
+        assert f'paintStatusItem("{button_id}"' in js or f'$("{button_id}")' in js, button_id
+    # The status items are named by the text paintStatusItem writes into them.
+    paint = _function(js, "paintStatusItem")
+    assert "button.replaceChildren();" in paint and "text.textContent = label;" in paint
+
+
+def test_buttons_js_builds_hidden_are_named_when_they_show():
+    # hierarchy.js found these in the DOM with no name while `hidden`; each is
+    # named in the pass that un-hides it.
+    js = _all_js()
+    map_js = _read("whiteboard-map.js")
+    for marker in (
+        'box.setAttribute("aria-label", task === "done" ? "Done" : "Not done");',
+        'noteMark.setAttribute("aria-label", "Open the note behind this topic");',
+        'link.setAttribute("aria-label", `Open the page this topic links to`);',
+        'chevron.setAttribute("aria-label", chevron.title);',
+        'badge.setAttribute("aria-label", label);',
+    ):
+        assert marker in map_js, marker
+    ai = _read("ai-tools.js")
+    assert "badge.hidden = !name;" in ai and "badge.textContent = missing" in ai
+    assert "renderCopyLogsLabel" in js

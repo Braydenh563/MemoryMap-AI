@@ -232,7 +232,7 @@ function openStatistics() {
   const body = document.createElement("div");
   body.className = "stats-body";
   body.setAttribute("aria-busy", "true");
-  body.textContent = "Counting...";
+  body.textContent = "Counting…";
   card.append(head, about, helpBody, body);
   overlay.appendChild(card);
   document.body.appendChild(overlay);

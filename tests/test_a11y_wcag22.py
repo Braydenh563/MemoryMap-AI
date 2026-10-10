@@ -168,6 +168,9 @@ EMPTY_MARKUP_BUTTONS = {
     "status-notes", "status-reminders", "status-task", "status-activity",
     "status-command", "status-agent", "status-guide", "status-find",
     "status-back", "status-forward", "status-undo", "status-redo", "logs-copy",
+    #: The utility clock chip (Brief 89): hidden until a timer or stopwatch
+    #: runs, and `paintUtilityChip` (utility-tools.js) names it before it shows.
+    "status-timer",
 }
 
 

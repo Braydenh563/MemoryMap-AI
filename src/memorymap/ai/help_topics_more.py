@@ -694,7 +694,7 @@ MORE_TOPICS: list[dict] = [
     {
         "id": "statistics",
         "keywords": (
-            "statistics", "stats", "how many notes", "word count of my notebook", "notebook statistics",
+            "statistics", "stats", "notes per month", "word count of my notebook", "notebook statistics",
             "this week", "weekly review", "week in review", "growth per month", "usage statistics",
         ),
         "body": (
@@ -747,7 +747,7 @@ MORE_TOPICS: list[dict] = [
     {
         "id": "insert-template",
         "keywords": (
-            "insert template", "insert a template", "snippet", "snippets", "boilerplate",
+            "insert template", "insert a template", "text snippet", "reusable text", "boilerplate",
             "template into a note", "paste a template",
         ),
         "body": (

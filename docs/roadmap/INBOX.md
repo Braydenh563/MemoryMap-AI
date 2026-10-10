@@ -178,12 +178,6 @@ with its owner named in the entry.
      blob over the caption); the Gary note (title, sketch, links); the [[
      picker listing it as "Gary The Moss Monster :D Gary The Moss M..." and
      the preview repeating the title four times with no sketch.
-785. **UI, the owner 2026-10-10 22:33Z, screenshot.** "Also I think the
-     buttons in the headers in the questions subtab need to be redesigned"
-     (Notes, Questions: each source note's header is a full bordered button
-     with a note icon; the first is inside a highlighted band. Also seen: a
-     question cut at a quote, ""If you were a spice, ..." then "" or "What's
-     the most adventurous thing ...".)
 786. **UI, the owner 2026-10-10 22:40Z, screenshot.** "no spacing between the
      button and this text in the dashboard hero section" (the hero line "You
      have 34 notes · Patterns: university, 4 times since 16 July" with its ⋯

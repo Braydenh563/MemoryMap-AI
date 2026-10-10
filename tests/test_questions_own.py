@@ -90,3 +90,55 @@ def test_a_note_says_how_many_open_questions_it_asks(client, session):
     only = client.get("/questions", params={"state": "open", "entry_id": asks.id}).json()
     assert only["total"] == 2 and {item["entry_id"] for item in only["items"]} == {asks.id}
     assert client.get("/questions", params={"state": "open", "entry_id": quiet.id}).json()["total"] == 0
+
+
+ICE_BREAKERS = (
+    "Before diving into deeper conversation, use light-hearted ice breakers like "
+    '"If you were a spice, which one would you be and why?" or '
+    '"What\'s the most adventurous thing you\'ve ever done?"'
+)
+
+
+def test_a_quoted_prompt_pair_gives_no_fragment_and_no_question():
+    """INBOX 785: the owner's note, two quoted prompts in one sentence. The
+    splitter cuts it at each `?`, leaving a piece that opens on `" or "`; the
+    prompts are quoted, so neither is the person's own question (745 (b)), and
+    no piece of the sentence is kept as one."""
+    assert _questions(ICE_BREAKERS) == []
+    assert _questions("Ice breakers\n\n" + ICE_BREAKERS + "\n\nShould I renew the lease before June?") == [
+        "Should I renew the lease before June?"
+    ]
+
+
+def _store_old_fragments(session, content: str) -> int:
+    """The rows the splitter used to store for `content`: every sentence ending
+    in a question mark, quoted or not, as the old rule did."""
+    entry = Entry(content=content, tags=json.dumps([]))
+    session.add(entry)
+    session.commit()
+    for text, start, end in facts.sentences(content):
+        if text.endswith("?"):
+            session.add(DerivedFact(entry_id=entry.id, kind="question", text=text, span_start=start, span_end=end,
+                                    model="local", confidence=0.9, computed_at=utcnow()))
+    session.commit()
+    return entry.id
+
+
+def test_stored_fragments_do_not_reach_the_list_before_a_pass_runs(client, session):
+    """The rows were stored on 2026-10-07 and the night pass that tombstones
+    them (`_retire_not_own_questions`) runs only with background tasks on, so
+    the owner still saw `" or "What's the most ...` hours after the rule was
+    fixed (INBOX 785). Reading the list retires them."""
+    entry_id = _store_old_fragments(session, ICE_BREAKERS + "\n\nShould I renew the lease before June?")
+    assert session.query(DerivedFact).filter_by(entry_id=entry_id, kind="question", deleted_at=None).count() == 3
+    body = client.get("/questions?state=open").json()
+    assert [item["display"] for item in body["items"]] == ["Should I renew the lease before June?"]
+    assert body["counts"]["open"] == 1
+    assert not any(item["text"].lstrip().startswith(('"', "”")) for item in body["items"])
+    session.expire_all()
+    assert session.query(DerivedFact).filter_by(entry_id=entry_id, kind="question", deleted_at=None).count() == 1
+
+
+def test_a_note_card_does_not_count_the_retired_fragments(client, session):
+    entry_id = _store_old_fragments(session, ICE_BREAKERS)
+    assert client.get("/questions/counts", params={"ids": str(entry_id)}).json()["counts"] == {}

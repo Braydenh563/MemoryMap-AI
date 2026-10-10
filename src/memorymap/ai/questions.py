@@ -148,6 +148,7 @@ def open_counts(session: Session, entry_ids: list[int]) -> dict[str, int]:
     (INBOX 745 (c): a card says "2 open questions")."""
     if not entry_ids:
         return {}
+    facts._retire_not_own_questions(session)
     rows = list(session.scalars(
         facts._visible(select(DerivedFact))
         .where(DerivedFact.kind == "question", DerivedFact.entry_id.in_(entry_ids))
@@ -170,6 +171,11 @@ def listing(
     Python after the states are known. Measured against the gate (500
     questions under 100 ms) by `tests/test_questions_view.py`.
     """
+    #: Rows an older rule stored (a quoted prompt, a piece of one cut at its
+    #: closing quote) leave the list now, not at the next night pass: that
+    #: pass runs only with background tasks on, and the list kept showing
+    #: `" or "What's the most ...` hours after the rule was fixed (INBOX 785).
+    facts._retire_not_own_questions(session)
     questions = list(
         session.scalars(
             facts._visible(select(DerivedFact))

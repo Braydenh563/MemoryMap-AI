@@ -70,6 +70,8 @@ CSS_FILES = [
     CSS_DIR / "utilities-lazy.css",
     #: The live captions dock (captions.js, Brief 82).
     CSS_DIR / "captions-lazy.css",
+    #: The Notes tab's Questions view (questions-view.js loads it).
+    CSS_DIR / "questions-lazy.css",
 ]
 
 

@@ -77,6 +77,9 @@ async function loadQuestions({ more = false } = {}) {
   //: note" one start together, and the slower answer drew last (measured:
   //: the unfiltered list replaced the filtered one).
   const seq = (questionsView.seq = (questionsView.seq || 0) + 1);
+  //: Its own sheet (app.js `lazyScript` gives a .css file a <link>), awaited
+  //: before the first row is drawn so the list never shows unstyled.
+  const styled = lazyScript("/css/questions-lazy.css");
   let reply;
   try {
     const one = questionsView.entry ? `&entry_id=${questionsView.entry.id}` : "";
@@ -85,6 +88,7 @@ async function loadQuestions({ more = false } = {}) {
     surfaceFailed(list, "your questions", () => loadQuestions());
     return;
   }
+  await styled;
   if (seq !== questionsView.seq) return;
   if (!more) {
     list.replaceChildren();
@@ -101,7 +105,7 @@ async function loadQuestions({ more = false } = {}) {
       head.className = "question-group";
       const open = document.createElement("button");
       open.type = "button";
-      open.className = "ghost small";
+      open.className = "question-group-link";
       open.title = "Open the note that asks these";
       setLabel(open, `ph:note ${item.note_title || "A note"}`);
       open.addEventListener("click", () => flashEntry(item.entry_id));

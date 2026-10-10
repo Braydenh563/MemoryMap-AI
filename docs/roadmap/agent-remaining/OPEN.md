@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the pickers agent (INBOX 784, 785, merged 2026-10-10)
+
+Detail: [pickers-1010.md](../archive/agent-remaining/pickers-1010.md).
+
+- Questions split at quote marks: INBOX 745 (b) decided a quoted prompt is not the person's own question, so the extractor rejects them; the fragments were old rows, now retired on read. Keeping quoted prompts as questions would reverse 745 (b): the owner's call.
+- The attached-image thumbnail path in the [[ preview (attachmentObjectUrl) was not driven, only inline images.
+
 ## Left by the agentgate agent (INBOX 778, merged 2026-10-10)
 
 Detail: [agentgate-1010.md](../archive/agent-remaining/agentgate-1010.md).

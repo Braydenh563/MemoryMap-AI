@@ -1141,7 +1141,9 @@ function editorLinkMatches(needle) {
       id: `note-${entry.id}`,
       group: "Notes",
       icon: "ph:note",
-      label: noteLabel(entry, 60),
+      //: The note's opening line only: its whole text flattened read as the
+      //: title then the picture's alt text then the title again (INBOX 784).
+      label: noteLabel({ content: (entry.content || "").split("\n")[0] }, 60),
       hint: "note",
       //: The note itself, for the preview: its first lines are what "is
       //: this the one I mean" is answered by (`editorRenderPreview`).
@@ -1350,7 +1352,7 @@ function editorRenderMenu() {
 }
 
 //: **The preview**, for "/" rows and for a note a "[[" row would link to
-//: (its first lines, `richPickerLines`), and only with room for it (44rem, the
+//: (an excerpt and its first picture, `richPickerNote`), and only with room for it (44rem, the
 //: width the template dialog's preview also needs before it shows). What it
 //: renders is the row's `sample`, through `renderMarkdown`, the renderer the
 //: page itself uses, so the preview is the block and not a picture of it.
@@ -1368,10 +1370,16 @@ function editorRenderPreview(item) {
   if (!show) return;
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
-  let sample = item.entry ? richPickerLines(item.entry.content) : null;
-  if (!sample && item.sample) {
+  let sample = null;
+  if (item.sample) {
     sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
+    //: A narrow pane: the bar's Copy is an icon like its ⋯, so the caption
+    //: keeps one line and the two buttons sit side by side.
+    for (const copy of sample.querySelectorAll(".code-copy")) {
+      copy.classList.add("icon-only");
+      copy.querySelector(".ph-text")?.remove();
+    }
   }
   richPickerPreview(pane, {
     icon: editorMenuIcon(item),
@@ -1381,6 +1389,7 @@ function editorRenderPreview(item) {
     sample,
     keys: item.keys,
   });
+  if (item.entry) richPickerNote(pane, item);
 }
 
 //: Move the highlight without redrawing the list: the row's classes, the

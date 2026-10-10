@@ -2,9 +2,9 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5137, frontend ids 2301, CSS sections 487, backend routes 515, backend modules 4170, test files 998, tests 9232, plan headings 957.
+Counts: frontend functions 5139, frontend ids 2301, CSS sections 487, backend routes 515, backend modules 4170, test files 999, tests 9241, plan headings 959.
 
-## Frontend functions (5137)
+## Frontend functions (5139)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -1232,45 +1232,44 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `toggleAutonomousPanel` | frontend/js/phone-shell.js:2074 |
 | `watchEmblemVisibility` | frontend/js/phone-shell.js:40 |
 
-### frontend/js/wiring.js (35)
+### frontend/js/wiring.js (34)
 
 | Name | File:line |
 |---|---|
 | `addAtlasLine` | frontend/js/wiring.js:248 |
-| `applyPendingChatTitle` | frontend/js/wiring.js:787 |
-| `applyPlanMode` | frontend/js/wiring.js:1497 |
+| `applyPendingChatTitle` | frontend/js/wiring.js:777 |
+| `applyPlanMode` | frontend/js/wiring.js:1487 |
 | `askAtlasAbout` | frontend/js/wiring.js:237 |
-| `chatRecallStep` | frontend/js/wiring.js:848 |
-| `clearDueNudges` | frontend/js/wiring.js:1767 |
-| `closeGlobalFind` | frontend/js/wiring.js:674 |
-| `dashboardGreetingPersona` | frontend/js/wiring.js:953 |
-| `escapeForFind` | frontend/js/wiring.js:452 |
-| `escapeHtml` | frontend/js/wiring.js:437 |
-| `globalFindClearHighlights` | frontend/js/wiring.js:510 |
-| `globalFindRun` | frontend/js/wiring.js:521 |
-| `globalFindShowActive` | frontend/js/wiring.js:593 |
-| `globalFindStep` | frontend/js/wiring.js:606 |
-| `globalFindWalkableRoot` | frontend/js/wiring.js:485 |
-| `initGraphOptionFolds` | frontend/js/wiring.js:1070 |
+| `chatRecallStep` | frontend/js/wiring.js:838 |
+| `clearDueNudges` | frontend/js/wiring.js:1757 |
+| `closeGlobalFind` | frontend/js/wiring.js:664 |
+| `dashboardGreetingPersona` | frontend/js/wiring.js:943 |
+| `escapeForFind` | frontend/js/wiring.js:442 |
+| `globalFindClearHighlights` | frontend/js/wiring.js:500 |
+| `globalFindRun` | frontend/js/wiring.js:511 |
+| `globalFindShowActive` | frontend/js/wiring.js:583 |
+| `globalFindStep` | frontend/js/wiring.js:596 |
+| `globalFindWalkableRoot` | frontend/js/wiring.js:475 |
+| `initGraphOptionFolds` | frontend/js/wiring.js:1060 |
 | `initHelpToggles` | frontend/js/wiring.js:257 |
-| `noteSourceOn` | frontend/js/wiring.js:919 |
-| `nudgeDueShown` | frontend/js/wiring.js:1771 |
-| `openGlobalFind` | frontend/js/wiring.js:612 |
-| `openReminderCompose` | frontend/js/wiring.js:1660 |
-| `paintDashboardPersonaMark` | frontend/js/wiring.js:959 |
+| `noteSourceOn` | frontend/js/wiring.js:909 |
+| `nudgeDueShown` | frontend/js/wiring.js:1761 |
+| `openGlobalFind` | frontend/js/wiring.js:602 |
+| `openReminderCompose` | frontend/js/wiring.js:1650 |
+| `paintDashboardPersonaMark` | frontend/js/wiring.js:949 |
 | `reflectOnlineState` | frontend/js/wiring.js:16 |
-| `renameCurrentConversation` | frontend/js/wiring.js:761 |
-| `renderPlanToggle` | frontend/js/wiring.js:1484 |
-| `renderWebSearchToggle` | frontend/js/wiring.js:1440 |
-| `setFullscreenSurface` | frontend/js/wiring.js:1307 |
-| `setGraphOptionsOpen` | frontend/js/wiring.js:1091 |
-| `setNoteSource` | frontend/js/wiring.js:934 |
-| `settingsSectionContaining` | frontend/js/wiring.js:498 |
-| `startNewNote` | frontend/js/wiring.js:1363 |
-| `syncNoteSourceButtons` | frontend/js/wiring.js:927 |
-| `timelineSelectableRows` | frontend/js/wiring.js:1415 |
-| `toggleSelectAllRows` | frontend/js/wiring.js:1401 |
-| `watchFullscreenSurface` | frontend/js/wiring.js:1313 |
+| `renameCurrentConversation` | frontend/js/wiring.js:751 |
+| `renderPlanToggle` | frontend/js/wiring.js:1474 |
+| `renderWebSearchToggle` | frontend/js/wiring.js:1430 |
+| `setFullscreenSurface` | frontend/js/wiring.js:1297 |
+| `setGraphOptionsOpen` | frontend/js/wiring.js:1081 |
+| `setNoteSource` | frontend/js/wiring.js:924 |
+| `settingsSectionContaining` | frontend/js/wiring.js:488 |
+| `startNewNote` | frontend/js/wiring.js:1353 |
+| `syncNoteSourceButtons` | frontend/js/wiring.js:917 |
+| `timelineSelectableRows` | frontend/js/wiring.js:1405 |
+| `toggleSelectAllRows` | frontend/js/wiring.js:1391 |
+| `watchFullscreenSurface` | frontend/js/wiring.js:1303 |
 
 ### frontend/js/settings-wiring.js (43)
 
@@ -1718,15 +1717,14 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `atlasWatchFigure` | frontend/js/atlas.js:3295 |
 | `setAtlasMood` | frontend/js/atlas.js:3570 |
 
-### frontend/js/rich-picker.js (9)
+### frontend/js/rich-picker.js (8)
 
 | Name | File:line |
 |---|---|
 | `richPickerFillLabel` | frontend/js/rich-picker.js:42 |
 | `richPickerGroup` | frontend/js/rich-picker.js:103 |
 | `richPickerIconClass` | frontend/js/rich-picker.js:27 |
-| `richPickerLines` | frontend/js/rich-picker.js:170 |
-| `richPickerPreview` | frontend/js/rich-picker.js:187 |
+| `richPickerPreview` | frontend/js/rich-picker.js:171 |
 | `richPickerRow` | frontend/js/rich-picker.js:118 |
 | `richPickerSetActive` | frontend/js/rich-picker.js:154 |
 | `richPickerSplitLabel` | frontend/js/rich-picker.js:33 |
@@ -1736,19 +1734,19 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `askAboutSelection` | frontend/js/editor.js:2021 |
+| `askAboutSelection` | frontend/js/editor.js:2030 |
 | `calloutHint` | frontend/js/editor.js:284 |
 | `calloutKindOf` | frontend/js/editor.js:292 |
 | `calloutRewriteHead` | frontend/js/editor.js:306 |
 | `chatCommands` | frontend/js/editor.js:577 |
-| `codeFamilyFor` | frontend/js/editor.js:2224 |
+| `codeFamilyFor` | frontend/js/editor.js:2233 |
 | `editorApplyAction` | frontend/js/editor.js:451 |
 | `editorApplyNamed` | frontend/js/editor.js:509 |
 | `editorBackOverTrail` | frontend/js/editor.js:895 |
 | `editorBlock` | frontend/js/editor.js:760 |
 | `editorBlockRows` | frontend/js/editor.js:801 |
 | `editorCaretPoint` | frontend/js/editor.js:1015 |
-| `editorChoiceDialog` | frontend/js/editor.js:2045 |
+| `editorChoiceDialog` | frontend/js/editor.js:2054 |
 | `editorCloseMenu` | frontend/js/editor.js:1056 |
 | `editorCodeLanguageRows` | frontend/js/editor.js:789 |
 | `editorCommands` | frontend/js/editor.js:908 |
@@ -1756,55 +1754,55 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `editorFinishFence` | frontend/js/editor.js:1073 |
 | `editorFuzzyMatch` | frontend/js/editor.js:314 |
 | `editorFuzzyRank` | frontend/js/editor.js:334 |
-| `editorGroupStarts` | frontend/js/editor.js:1432 |
-| `editorHandleInput` | frontend/js/editor.js:1577 |
+| `editorGroupStarts` | frontend/js/editor.js:1441 |
+| `editorHandleInput` | frontend/js/editor.js:1586 |
 | `editorHintAllPlaceholders` | frontend/js/editor.js:216 |
 | `editorHintPlaceholder` | frontend/js/editor.js:190 |
 | `editorInsertBlock` | frontend/js/editor.js:525 |
 | `editorInsertBoardObject` | frontend/js/editor.js:555 |
 | `editorInsertBookmarkLink` | frontend/js/editor.js:542 |
 | `editorLinkMatches` | frontend/js/editor.js:1120 |
-| `editorLoadFiles` | frontend/js/editor.js:1241 |
-| `editorMenuIcon` | frontend/js/editor.js:1281 |
-| `editorMenuList` | frontend/js/editor.js:1286 |
-| `editorNextGroupStart` | frontend/js/editor.js:1442 |
+| `editorLoadFiles` | frontend/js/editor.js:1243 |
+| `editorMenuIcon` | frontend/js/editor.js:1283 |
+| `editorMenuList` | frontend/js/editor.js:1288 |
+| `editorNextGroupStart` | frontend/js/editor.js:1451 |
 | `editorNotifyHost` | frontend/js/editor.js:373 |
-| `editorOpenMenu` | frontend/js/editor.js:1498 |
+| `editorOpenMenu` | frontend/js/editor.js:1507 |
 | `editorOpenMenuByShortcut` | frontend/js/editor.js:173 |
 | `editorPickGlyph` | frontend/js/editor.js:432 |
 | `editorPositionMenu` | frontend/js/editor.js:1029 |
 | `editorRankCommands` | frontend/js/editor.js:1113 |
 | `editorRecentIds` | frontend/js/editor.js:733 |
-| `editorRefreshMenu` | frontend/js/editor.js:1512 |
+| `editorRefreshMenu` | frontend/js/editor.js:1521 |
 | `editorRememberBlock` | frontend/js/editor.js:742 |
-| `editorRenderMenu` | frontend/js/editor.js:1290 |
-| `editorRenderPreview` | frontend/js/editor.js:1360 |
-| `editorRevealRow` | frontend/js/editor.js:1409 |
-| `editorRunItem` | frontend/js/editor.js:1454 |
-| `editorSetActive` | frontend/js/editor.js:1389 |
+| `editorRenderMenu` | frontend/js/editor.js:1292 |
+| `editorRenderPreview` | frontend/js/editor.js:1362 |
+| `editorRevealRow` | frontend/js/editor.js:1418 |
+| `editorRunItem` | frontend/js/editor.js:1463 |
+| `editorSetActive` | frontend/js/editor.js:1398 |
 | `editorSplice` | frontend/js/editor.js:398 |
 | `editorSurfaceFor` | frontend/js/editor.js:105 |
 | `editorSurfaceKind` | frontend/js/editor.js:72 |
 | `editorTokenAt` | frontend/js/editor.js:1089 |
-| `inlineAiAvailable` | frontend/js/editor.js:2409 |
-| `inlineAiClose` | frontend/js/editor.js:2448 |
-| `inlineAiDescribeScope` | frontend/js/editor.js:2389 |
-| `inlineAiElement` | frontend/js/editor.js:2283 |
-| `inlineAiOpen` | frontend/js/editor.js:2414 |
-| `inlineAiPosition` | frontend/js/editor.js:2368 |
-| `inlineAiRetry` | frontend/js/editor.js:2470 |
-| `inlineAiSubmit` | frontend/js/editor.js:2481 |
-| `inlineAiUndo` | frontend/js/editor.js:2461 |
-| `isEditorSurface` | frontend/js/editor.js:1923 |
-| `offerToCreateWikiTarget` | frontend/js/editor.js:2110 |
+| `inlineAiAvailable` | frontend/js/editor.js:2418 |
+| `inlineAiClose` | frontend/js/editor.js:2457 |
+| `inlineAiDescribeScope` | frontend/js/editor.js:2398 |
+| `inlineAiElement` | frontend/js/editor.js:2292 |
+| `inlineAiOpen` | frontend/js/editor.js:2423 |
+| `inlineAiPosition` | frontend/js/editor.js:2377 |
+| `inlineAiRetry` | frontend/js/editor.js:2479 |
+| `inlineAiSubmit` | frontend/js/editor.js:2490 |
+| `inlineAiUndo` | frontend/js/editor.js:2470 |
+| `isEditorSurface` | frontend/js/editor.js:1932 |
+| `offerToCreateWikiTarget` | frontend/js/editor.js:2119 |
 | `pickIconOrEmoji` | frontend/js/editor.js:424 |
-| `selectionBarElement` | frontend/js/editor.js:1790 |
-| `selectionBarHide` | frontend/js/editor.js:1851 |
-| `selectionBarShow` | frontend/js/editor.js:1856 |
-| `selectionBarSync` | frontend/js/editor.js:1927 |
-| `selectionContextFrom` | frontend/js/editor.js:1969 |
-| `selectionContextSource` | frontend/js/editor.js:2002 |
-| `selectionOffsets` | frontend/js/editor.js:1979 |
+| `selectionBarElement` | frontend/js/editor.js:1799 |
+| `selectionBarHide` | frontend/js/editor.js:1860 |
+| `selectionBarShow` | frontend/js/editor.js:1865 |
+| `selectionBarSync` | frontend/js/editor.js:1936 |
+| `selectionContextFrom` | frontend/js/editor.js:1978 |
+| `selectionContextSource` | frontend/js/editor.js:2011 |
+| `selectionOffsets` | frontend/js/editor.js:1988 |
 | `skillCommands` | frontend/js/editor.js:645 |
 
 ### frontend/js/dashboard.js (142)
@@ -4143,6 +4141,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `toggleReferences` | frontend/js/note-panels.js:205 |
 | `toggleRelated` | frontend/js/note-panels.js:51 |
 
+### frontend/js/note-pick-preview.js (4)
+
+| Name | File:line |
+|---|---|
+| `notePickExcerpt` | frontend/js/note-pick-preview.js:25 |
+| `notePickText` | frontend/js/note-pick-preview.js:20 |
+| `notePickThumb` | frontend/js/note-pick-preview.js:44 |
+| `richPickerNote` | frontend/js/note-pick-preview.js:59 |
+
 ### frontend/js/note-properties.js (12)
 
 | Name | File:line |
@@ -4227,12 +4234,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `initQuestionsView` | frontend/js/questions-view.js:148 |
+| `initQuestionsView` | frontend/js/questions-view.js:152 |
 | `loadQuestions` | frontend/js/questions-view.js:72 |
 | `questionButton` | frontend/js/questions-view.js:19 |
 | `questionRow` | frontend/js/questions-view.js:25 |
 | `questionWhen` | frontend/js/questions-view.js:14 |
-| `questionsForNote` | frontend/js/questions-view.js:140 |
+| `questionsForNote` | frontend/js/questions-view.js:144 |
 
 ### frontend/js/quick-access.js (8)
 
@@ -8594,7 +8601,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/00-tokens-shell.css | 4255 |
 | frontend/css/01-forms-settings.css | 5950 |
 | frontend/css/02-chat-graph.css | 5902 |
-| frontend/css/03-dashboard-widgets.css | 5158 |
+| frontend/css/03-dashboard-widgets.css | 5127 |
 | frontend/css/04-chat-dock-appearance.css | 6385 |
 | frontend/css/05-sidebars-themes.css | 5964 |
 | frontend/css/06-timeline-dialogs.css | 3703 |
@@ -8610,6 +8617,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/icon-picker.css | 100 |
 | frontend/css/library-lazy.css | 3686 |
 | frontend/css/nav-history-lazy.css | 89 |
+| frontend/css/questions-lazy.css | 84 |
 | frontend/css/quickadd-lazy.css | 35 |
 | frontend/css/recovery-lazy.css | 115 |
 | frontend/css/search-lazy.css | 85 |
@@ -10353,13 +10361,13 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_payload` | src/memorymap/ai/questions.py:47 |
 | `_plain` | src/memorymap/ai/questions.py:79 |
 | `_title` | src/memorymap/ai/questions.py:87 |
-| `listing` | src/memorymap/ai/questions.py:163 |
+| `listing` | src/memorymap/ai/questions.py:164 |
 | `open_counts` | src/memorymap/ai/questions.py:146 |
-| `open_note_ids` | src/memorymap/ai/questions.py:276 |
-| `set_state` | src/memorymap/ai/questions.py:217 |
+| `open_note_ids` | src/memorymap/ai/questions.py:282 |
+| `set_state` | src/memorymap/ai/questions.py:223 |
 | `state_of` | src/memorymap/ai/questions.py:70 |
-| `summary` | src/memorymap/ai/questions.py:204 |
-| `visible_question` | src/memorymap/ai/questions.py:212 |
+| `summary` | src/memorymap/ai/questions.py:210 |
+| `visible_question` | src/memorymap/ai/questions.py:218 |
 
 ### src/memorymap/ai/reading.py (21)
 
@@ -14508,7 +14516,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (9232)
+## Tests (9241)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -15130,6 +15138,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_note_making.py | 1 |
 | tests/test_note_meta_line.py | 5 |
 | tests/test_note_offers.py | 9 |
+| tests/test_note_pick_preview.py | 6 |
 | tests/test_note_preview_groups.py | 5 |
 | tests/test_note_preview_lines.py | 5 |
 | tests/test_note_properties_kg4.py | 10 |
@@ -15237,7 +15246,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_query_rollups_kg7.py | 4 |
 | tests/test_query_understanding.py | 20 |
 | tests/test_question_noise.py | 26 |
-| tests/test_questions_own.py | 5 |
+| tests/test_questions_own.py | 8 |
 | tests/test_questions_spec.py | 9 |
 | tests/test_quick_access.py | 26 |
 | tests/test_quickadd.py | 12 |
@@ -15513,7 +15522,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (957)
+## Plan headings (959)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -16303,6 +16312,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-10 (code as documents) | docs/roadmap/DOCUMENTS_PLAN.md:1576 |
 | Placed from INBOX, 2026-10-10 (filing suggestions) | docs/roadmap/WORLD_CLASS_PLAN.md:4183 |
 | Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744) | docs/roadmap/CHAT_PLAN.md:1736 |
+| Placed from INBOX, 2026-10-10 (the owner on feature depth) | docs/roadmap/MINDMAP_PLAN.md:1826 |
+| Placed from INBOX, 2026-10-10 (the owner on feature depth) | docs/roadmap/WHITEBOARD_PLAN.md:1552 |
 | Placed from INBOX, 2026-10-10 (the owner's afternoon reports) | docs/roadmap/UI_MODERNISATION_PLAN.md:1577 |
 | Placed from INBOX, 2026-10-10 (the owner's morning UI reports) | docs/roadmap/UI_MODERNISATION_PLAN.md:1566 |
 | Placed from INBOX: 107d, the segmented mini bars | docs/roadmap/DOCUMENTS_PLAN.md:589 |

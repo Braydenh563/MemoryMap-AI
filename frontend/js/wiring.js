@@ -434,16 +434,6 @@ $("chat-tune-search").addEventListener("click", () => {
 // out loud, because a list that silently stops at eight is a list that has
 // lost your chats.
 
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 // A typed find query is a literal, not a pattern: "a.b" must not match
 // "axb", and an unbalanced "(" must not throw. CodeQL also flags the
 // unescaped shape, and this file has already shipped one polynomial-ReDoS.

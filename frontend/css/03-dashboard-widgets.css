@@ -4922,37 +4922,6 @@ button.answer-figure-open {
   overflow-wrap: anywhere;
 }
 
-/* The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7): the morning
-   card's finding row, a question over where it was asked, and the
-   answered-by link under it as a quiet ghost line that wraps. */
-.dash-list.questions-list {
-  margin: var(--space-2) 0 0;
-}
-
-.dash-list.questions-list > li.question-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  cursor: default;
-}
-
-.question-row > .dash-list-text {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.question-row .question-answer-link {
-  align-self: flex-start;
-  height: auto;
-  min-height: 0;
-  margin-top: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  font-weight: 400;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
 .questions-lead:empty {
   display: none;
 }

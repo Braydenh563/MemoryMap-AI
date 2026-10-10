@@ -1,0 +1,84 @@
+/* The Notes tab's Questions view (WORLD_CLASS_PLAN I3, row 7), loaded by
+   questions-view.js on its first show: the morning card's finding row, a
+   question over where it was asked, and the answered-by link under it as a
+   quiet ghost line that wraps. */
+.dash-list.questions-list {
+  margin: var(--space-2) 0 0;
+}
+
+.dash-list.questions-list > li.question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.question-row > .dash-list-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.question-row .question-answer-link {
+  align-self: flex-start;
+  height: auto;
+  min-height: 0;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* **A group is a heading, not a button** (INBOX 785: "the buttons in the
+   headers in the questions subtab need to be redesigned"). Each note's
+   questions sit under its title as a link-styled heading with the note's
+   icon, a hover underline and a quiet ground, not a bordered button in a
+   tinted band; it stays under the sub-tab strip while its questions scroll
+   (`--notes-sticky-top`, written by `initNotesSubtabHeightToken`, less the
+   strip's own bottom margin so no row shows in the gap), on the opaque modal
+   colour so a row sliding under it is hidden. */
+.question-group {
+  position: sticky;
+  top: calc(var(--notes-sticky-top) - var(--space-4));
+  z-index: 1;
+  margin: var(--space-3) 0 0;
+  padding-block: var(--space-1);
+  background: var(--modal-bg-opaque);
+}
+
+.question-group:first-child {
+  margin-top: 0;
+}
+
+.question-group-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  margin-inline-start: calc(var(--space-2) * -1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.question-group-link .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.question-group-link:hover,
+.question-group-link:focus-visible {
+  background: var(--surface-2);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}

@@ -47244,6 +47244,13 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      option when I was on the chat with no ai running :(" (status.js
      `agentModeAvailable` greys it only when `ollama_running === false`.)
 
+785. **UI, the owner 2026-10-10 22:33Z, screenshot.** "Also I think the
+     buttons in the headers in the questions subtab need to be redesigned"
+     (Notes, Questions: each source note's header is a full bordered button
+     with a note icon; the first is inside a highlighted band. Also seen: a
+     question cut at a quote, ""If you were a spice, ..." then "" or "What's
+     the most adventurous thing ...".)
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

@@ -371,11 +371,13 @@ _read = read.__wrapped__
 FOLLOW_TURNS = 5
 
 _AGAIN = r"^(?:and |ok |okay )?(?:same again|again|do (?:that|it) again|one more time|repeat that)[.?]*$"
-_SAME_FOR = r"^(?:and |ok |okay |now |then )?(?:(?:the )?same (?:for|on)|what about|how about|and for|and on)\s+(?P<x>.+?)[?.]*$"
+#: `follow` folds whitespace and strips the trailing mark first, so single
+#: spaces and an unqualified tail keep these linear (CodeQL).
+_SAME_FOR = r"^(?:and |ok |okay |now |then )?(?:(?:the )?same (?:for|on)|what about|how about|and for|and on) (?P<x>.+)$"
 _PRONOUN = (r"^(?:and |then |now |ok |okay |also |please )*(?P<verb>delete|bin|pin|unpin|open|summarise|summarize|rename|move|tag)"
             r"\s+(?:that one|this one|the note|it|that)\b(?P<rest>.*)$")
 _OTHER = r"\bthe other(?: one| note)?\b"
-_TOO = r"^(?:and |also )?(?:the )?(?P<x>.+?)(?: note)? (?:too|as well)[.?]*$"
+_TOO = r"^(?:and |also )?(?:the )?(?P<x>.+?)(?: note)? (?:too|as well)$"
 
 
 def _turn_object(turn: dict, now: datetime) -> str | None:
@@ -418,7 +420,7 @@ def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str
     raw = " ".join(str(text or "").split())
     if not turns or not raw:
         return None
-    low = raw.lower()
+    low = raw.lower().rstrip("?.")
     if re.match(_AGAIN, low):
         return str(turns[-1]["text"]), "again"
     if re.search(_OTHER, low):
@@ -467,7 +469,7 @@ def _follow_same(said: str, turns: list[dict], now: datetime) -> tuple[str, str]
             continue
         obj = _turn_object(turn, now)
         if obj and obj.lower() in before.lower():
-            return _swap_object(before, obj, re.sub(r"^the\s+|\s+note$", "", said, flags=re.I)), "subject"
+            return _swap_object(before, obj, re.sub(r"^the | note$", "", said, flags=re.I)), "subject"
     return None
 
 

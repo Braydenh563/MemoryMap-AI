@@ -11,7 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import act_registry, composer, help_chat, reading  # noqa: F401  (reading and composer set the Guide's hooks)
+from memorymap.ai import act_registry, composer, help_chat, reading
+
+#: Importing `reading` sets the Guide's reader hook on the act registry (act_registry.py).
+READER_LOADED = reading.__name__
 
 BANK = json.loads((Path(__file__).parent / "fixtures" / "help_questions.json").read_text(encoding="utf-8"))
 

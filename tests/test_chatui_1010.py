@@ -224,10 +224,12 @@ def test_the_folded_capture_strip_opens_when_pressed():
     """"The note capture subtab formatting toolbar wont open". Measured: before
     the box was focused the strip held only Source and the drawn word
     "Formatting", a label with nothing to press; a press on the word now
-    focuses the box and the strip opens (Bold, Italic, ... 30 tools)."""
+    focuses the box and the strip opens (Bold, Italic, ... 30 tools). The
+    press goes through `startNewNote`, the one path that shows Capture before
+    focusing (tests/test_note_making.py), so the box is never focused hidden."""
     lst = frontend_text("notes-list.js")
     body = lst[lst.index("function foldNoteToolbarForFirstPaint() {") :][:1500]
-    assert '$("entry-content").focus();' in body
+    assert 'startNewNote();' in body
 
 
 def test_the_glide_follows_a_row_that_moves():

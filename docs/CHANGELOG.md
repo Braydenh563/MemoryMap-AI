@@ -67,6 +67,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Filing: a sensitive note is held on every path (words, embedder, model) until the Settings switch is on, and only a category named as the sensitive topic itself holds a note; "Dad Jokes" was held as Relationships.
+- Draft tag suggestions with a model running no longer fail on an unbound name; the "I meant ..." correction follow-on no longer fails on its second form.
+- The code editor's output grip states its height to assistive technology and remembers it through the preferences door; the Word writer's load failure offers Try again.
 - Graph and Library: pinning a dragged group of notes and renaming a topic now say so when the save fails, instead of failing silently.
 - Ask: the match reason ("70% similar") now folds to its icon last on a crowded details line, after the tags and the other word facts, so every matching record shows its number or none does (INBOX 728).
 - Notes: a card's time now sits at the card's foot, the same 7px above its edge on every card (INBOX 760); a note with links showed it 48 to 113px up (80 to 146px at 390 against 7px with none), and "ago · edited" has its space back.

@@ -421,6 +421,12 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)
+
+The measure60 agent's Built line, moved from WORLD_CLASS_PLAN 26.3 at its step boundary (standing order 10); the numbers stay in 26.4 and 26.5.
+
+Built Brief 60, 26.0 and 26a, decision 63): WORLD_CLASS_PLAN 26.4 and 26.5 (numbers); `tests/test_no_silent_except.py` (21), `tests/test_routes_named.py` (49), `tests/test_background_registry.py` (26), ruff `T201` on `src`, `scripts/complexity.py` and `tests/test_complexity.py` (260 functions over 15, cycles), `scripts/handlers.py` and `tests/test_frontend_wake_sources.py` (97 file and kind rows), `scripts/profile_routes.py`, `scratchpad/ui-sweeps/frames.js` with its at-rest budget; rows in the five surface plans; item 434's progress records moved to HISTORY to fit the plan cap.
+
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)
 
 The safety agent's Built block (never lose a note), moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10).
@@ -47443,3 +47449,46 @@ most used first.
      "N open questions" on a card, the list grouped by note and kept to one;
      (d) the welcome stays with a toast, the tour card hidden until placed,
      hover-only targets revealed, toursteps.js checks each target.
+
+## Moved from the plans, 2026-10-10 (measure60)
+
+From WORLD_CLASS_PLAN.md, "Placed from INBOX, 2026-10-05", item 434 (the note-making audit), verbatim; moved to keep the plan under its size cap.
+
+     **Progress 2026-10-03 (capture agent):** the audit is
+     `scratchpad/ui-sweeps/captureaudit.js` (every path: keys, ms to the
+     list, ms to filed, server down mid-save, reload). Fixed, each measured
+     before and after: an image pasted into Capture and a file dropped on it
+     vanished (0 cards; now 1 and 2); a save with the server down said
+     "Failed to fetch" and was never sent (now held on this device by the
+     outbox in quick-note.js, synced 144 ms after the server answers, saved
+     once by `client_key`); Quick note (Alt+N, palette) saves from any tab
+     without leaving it (caret 26 to 61 ms, in the list 145 to 266 ms; the
+     Drafts and Tana quick-capture shape); `#word` tags a note (was []);
+     the draft keeps its title and tags through a reload (both were lost);
+     the palette's New note began every note with a blank line; the graph's
+     new note and the dashboard widget waited on filing. A pasted link
+     offers the page as a note when the web is allowed (the clipper had no
+     door). Decided against: "/" for a category in the box, since "/" is
+     the blocks menu there. Open: deferred filing takes 1.2 to 2.5 s on this
+     sandbox with no chat model (the embedding pass, server side; the note
+     is in the list long before); staged pictures and files cannot be held offline (the
+     words stay in the box, saying so); the desktop window, real
+     clipboards and a real server crash between commit and answer are not
+     verified (the dedupe map is in memory).
+     **Progress 2026-10-04 (filing-speed agent): the open 1.2 to 2.5 s is
+     fixed by cause.** It was never the model load or the notebook size: one
+     `encode()` of a note-sized text on torch's default intra-op pool (one
+     thread per core) pays barrier waits that dwarf the arithmetic whenever
+     another process wants a core. Median per encode, 70-character note:
+     4 threads idle 39 ms; 4 threads machine busy 2,192 ms; 1 thread busy
+     79 ms. `embeddings.py` now sets one thread in the encoding thread before
+     each encode (`MEMORYMAP_EMBED_THREADS` raises it). Live server, no model,
+     captureaudit `filed_ms` (capture, selection, graph, dashboard): 1700,
+     1156, 1639, 1380 to 90, 175, 27, 91; `filing_api_time.py` median 1251 to
+     81 ms. Counted, not timed, tests: `test_embedding_threads.py`,
+     `test_background_filing_cost.py` (at most two encodes a job, statements
+     flat from 4 to 40 notes). Profiler: `scratchpad/filing_profile.py`. Open:
+     the first note after a launch still waits for the model's cold load
+     (6.8 s measured: torch import), because filing by meaning embeds the
+     note before it settles; changing that changes what gets filed, so it is
+     the owner's call: made a switch (509).

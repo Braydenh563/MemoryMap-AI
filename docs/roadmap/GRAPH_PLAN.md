@@ -597,3 +597,8 @@ decision above; turning a topic into a category is Brief 39b's.
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
 
 - **VC11, D3 hierarchy layouts as a category overview** (M, rank 11). D3's hierarchy module is 15 exports with 2 called; `treemap`, `pack` and `partition` would show the notebook's categories by size. Measure: a treemap of the categories at 1,000 notes renders in under 100 ms and every rectangle's area is within 1% of its note count; reachable from the graph's view switch with a `data-help-for` popover.
+
+## Placed from Brief 60, 2026-10-10 (the measured census)
+
+- The graph is not idle at rest: `scratchpad/ui-sweeps/frames.js` counted 1, 9 and 10 long tasks (58 to 70 ms) in 3 s, 150 to 170 ms of script a second and 38 to 52 gaps over 20 ms of 83 to 134 frames, 2.5 s after the tab opened; a drag was 12 to 44 gaps over 20 ms of 302. Find what still runs (the force simulation after it settles, or a redraw loop) and stop it at rest; target zero long tasks (WORLD_CLASS 26.5).
+- `/graph` is 22 ms for 45 KB of 71 notes; 10 of that is `_payload_key` (`routes_graph.py:667`). Not measured at 5,000 notes.

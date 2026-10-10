@@ -3092,44 +3092,9 @@ Briefs 485, 496, 493, 484, 486 and 490 are all built (each carries its "Built:" 
      better with one; (3) robustness (draft kept through reloads and
      crashes, offline save queued, never a lost keystroke); (4) the gaps
      the audit finds, fixed by impact, each measured.
-     **Progress 2026-10-03 (capture agent):** the audit is
-     `scratchpad/ui-sweeps/captureaudit.js` (every path: keys, ms to the
-     list, ms to filed, server down mid-save, reload). Fixed, each measured
-     before and after: an image pasted into Capture and a file dropped on it
-     vanished (0 cards; now 1 and 2); a save with the server down said
-     "Failed to fetch" and was never sent (now held on this device by the
-     outbox in quick-note.js, synced 144 ms after the server answers, saved
-     once by `client_key`); Quick note (Alt+N, palette) saves from any tab
-     without leaving it (caret 26 to 61 ms, in the list 145 to 266 ms; the
-     Drafts and Tana quick-capture shape); `#word` tags a note (was []);
-     the draft keeps its title and tags through a reload (both were lost);
-     the palette's New note began every note with a blank line; the graph's
-     new note and the dashboard widget waited on filing. A pasted link
-     offers the page as a note when the web is allowed (the clipper had no
-     door). Decided against: "/" for a category in the box, since "/" is
-     the blocks menu there. Open: deferred filing takes 1.2 to 2.5 s on this
-     sandbox with no chat model (the embedding pass, server side; the note
-     is in the list long before); staged pictures and files cannot be held offline (the
-     words stay in the box, saying so); the desktop window, real
-     clipboards and a real server crash between commit and answer are not
-     verified (the dedupe map is in memory).
-     **Progress 2026-10-04 (filing-speed agent): the open 1.2 to 2.5 s is
-     fixed by cause.** It was never the model load or the notebook size: one
-     `encode()` of a note-sized text on torch's default intra-op pool (one
-     thread per core) pays barrier waits that dwarf the arithmetic whenever
-     another process wants a core. Median per encode, 70-character note:
-     4 threads idle 39 ms; 4 threads machine busy 2,192 ms; 1 thread busy
-     79 ms. `embeddings.py` now sets one thread in the encoding thread before
-     each encode (`MEMORYMAP_EMBED_THREADS` raises it). Live server, no model,
-     captureaudit `filed_ms` (capture, selection, graph, dashboard): 1700,
-     1156, 1639, 1380 to 90, 175, 27, 91; `filing_api_time.py` median 1251 to
-     81 ms. Counted, not timed, tests: `test_embedding_threads.py`,
-     `test_background_filing_cost.py` (at most two encodes a job, statements
-     flat from 4 to 40 notes). Profiler: `scratchpad/filing_profile.py`. Open:
-     the first note after a launch still waits for the model's cold load
-     (6.8 s measured: torch import), because filing by meaning embeds the
-     note before it settles; changing that changes what gets filed, so it is
-     the owner's call: made a switch (509).
+     Built across 2026-10-03 and 2026-10-04 (capture audit, filing speed); both progress records moved to HISTORY.md,
+     "Moved from the plans, 2026-10-10 (measure60)". Open: staged pictures and files cannot be held offline; the desktop window,
+     real clipboards and a server crash between commit and answer are not verified.
 
 ## Placed from the owner's list, 2026-10-10
 
@@ -3973,11 +3938,47 @@ part built; sync (B6) designed only.
 
 | Phase | Builds | Gate | Brief |
 | --- | --- | --- | --- |
-| 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60 (Sonnet, medium) |
-| 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60 (Sonnet, medium) |
+| 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60, built 2026-10-10 (26.4 and 26.5 hold the numbers) |
+| 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)"): seeds 21, 49, 26; complexity 260 over 15; wake sources 97 rows |
 | 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
 | 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |
 | 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high) |
+
+### 26.4 Measured, 2026-10-10 (Brief 60, numbers only)
+
+Machine: 4 cores at load average 4 to 9 from other sessions, so every wall time is a loaded figure. The scripts are in the Brief 60 report; the three counts that became ratchets are in `tests/`.
+
+| Measure | Number | Note |
+| --- | --- | --- |
+| `import memorymap.api.app`, cold | 2.9 to 3.8 s (3.3 s under `-X importtime`), 205 `memorymap` modules, torch not loaded | decision 56 caps this at 1.5 s: not met |
+| Heaviest `memorymap` imports (cumulative / self) | `ai.autonomous` 767 / 0 ms (pulls `ai.agent` 503), `ai.help_chat` 271 / 261, `api.routes_search` 226 / 226, `api.routes_chat` 148, `core.database` 145, `api.routes_documents` 146, `api.routes_whiteboard` 135, `api.routes_files` 129 | `fastapi.openapi.models` 128 |
+| Import of single modules | `ai.composer` 0.11 s, `ai.question_noise` 0.02 s (cap 0.2 s: met), `ai.agent` 0.94 s, `search.engine` 0.62 s | standalone, after `ai.agent`'s own deps |
+| Resident memory, empty notebook | 11 MB bare interpreter; 108 MB after import; 129 MB after startup; 130 MB after 5 s idle | embedder not loaded at startup (torch and sentence_transformers absent from `sys.modules`) |
+| Resident memory with the embedder | 647 MB after the first `embed_text` (`BAAI/bge-small-en-v1.5`, torch 2.14 CPU), first embed 6.6 s | so the embedder is already lazy on an empty notebook; the 776 MB of 19.1 included a notebook's warmed matrix and a loaded model. Not measured: a populated notebook (the warm-up thread loads the model when vectors exist) |
+| Tables / explicit indexes / foreign keys | 56 / 78 / 29 (the plan's 21 and 44 counted ORM classes and named indexes) | |
+| Foreign keys with no index leading on the column | 5: `entity_mentions.entry_id`, `entity_mentions.entity_id`, `document_bookmarks.document_id`, `document_bookmarks.bookmark_id`, `entry_bookmarks.bookmark_id` | deleting an entry or entity scans `entity_mentions` |
+| `Model.col` filter pairs in `src` with no leading index | 64 of 125; most used: `entries.is_deleted` x121, `entries.is_private` x54, `entries.is_board` x37, `entries.is_draft` x21, `audit_log.entity_id` x16, `entries.content` x15 (a `LIKE`), `categories.name` x9, `documents.archived_at` x9 | flags are low-cardinality, so a partial index on live entries is the candidate, not one per flag; `audit_log.entity_id` and `entity_mentions.*` are the plain misses. Not measured: query plans at 5,000 notes |
+| Routes | 498 method and path pairs, 437 distinct paths (FastAPI 0.143 route table, `include_router` prefixes counted) | the 470 of the opening paragraph came from a decorator regex |
+| Routes whose path no test names | 49 (census 24.5 said 54 and undercounts: its `{param}` wildcard matched any run of characters) | seeded in `tests/test_routes_named.py`; documents 14, entries 9, conversations 6, board library 5, whiteboard 4, reminders 2, categories 2, tidy 2, one each for learned, media, models, questions, review-queue. Path match only: a route reached by a loop over verbs (`f"/documents/{id}/{verb}"`) counts as unnamed |
+| Broad `except` (bare, `Exception`, `BaseException`) | 315, of which 0 bare, 237 carry a `# noqa: BLE001` reason | |
+| Broad `except` that neither logs nor re-raises | 89; 21 of those end in `pass`, `continue` or `return None` | the 21 are seeded in `tests/test_no_silent_except.py`; the other 68 return a fallback value and are not ratcheted |
+| `print(` outside the command line | 0 in `src` (25, all in `__main__.py`); 71 in `scratchpad/`, 1 each in four tests | the plan's 36 was wrong; ruff `T201` is on for `src` with `__main__.py` exempt |
+| Thread, timer, executor and task sites outside `core/jobs.py` and `core/jobruns.py` | 26: 4 server and tray (`__main__`: boot thread, two serve tasks, tray), 7 user-started long jobs (autonomous 2, model pull, embedding download, SearXNG install, update 2), 8 startup and one-shot helpers (embedding warm-up, package auto-install, SearXNG start, model-list probe, DNS probe, filing-chat deadline, SearXNG pump, web prefetch executor), 2 timers (shutdown, durable-queue resume), 5 request background tasks | seeded in `tests/test_background_registry.py`; `core/background.py` does not exist yet, so no site is registered, only counted |
+
+### 26.5 Complexity, cycles, hot routes and frames, 2026-10-10 (decision 63, numbers only)
+
+| Measure | Number |
+| --- | --- |
+| Functions over cyclomatic 15 (`scripts/complexity.py`, same rule as 24.1) | 260 of about 3,700; 133 over 20, 49 over 30, 12 over 50. Seeded in `tests/complexity_seed.json` by `tests/test_complexity.py` (new or growing fails, shrinking is forced) |
+| The ten worst | `ai/factgraph.py::_note_facts` 105, `api/routes_chat.py::_stream_lines` 105, `ai/agent.py::run_agent` 78, `ai/composer.py::_compose` 72, `api/routes_tasks.py::collect` 71, `api/routes_chat.py::_plain_events` 70, `search/engine.py::search` 69, `ai/recognise.py::span` 66, `ai/composer.py::_follow_one` 65, `ai/lexical_filing.py::decide` 59 (then `search_manager._retrieve` 57, `skill_runner._run_one_step` 53) |
+| Import cycles | none at load (235 modules, 922 edges); one group of 20 modules (the `ai` package) when imports inside functions count; both held by `tests/test_complexity.py` |
+| Hot routes, cProfile in-process (`scripts/profile_routes.py`, the README showcase notebook: 71 notes, 3 documents, a board, a map, 4 chats), median of 5 | `/entries` 52 ms (109 KB), `/insights/patterns` 28, `/categories` 28, `/resurface` 26, `/documents` 24, `/activity` 23, `/graph` 22 (45 KB), `/most-opened` 22 (2 bytes), `/insights/stats` 19, `/search` 13. A 2-byte answer costs 22 ms, so the middleware chain is the floor, not the route |
+| Top of the profile (cumulative, app code only) | `list_entries` 59 ms a call, of it `_to_out_bulk` 26 ms and `_to_out` 0.48 ms a note (375 calls) with `_tag_reasons` 0.11 ms a note; `insights.from_session` 19 ms; `graph._payload_key` 10 ms of the graph's 10; `links_for_entries_bulk` 5 ms. `_to_out` at 0.48 ms a note is about 2.4 s for a page of 5,000 notes: not measured at that size |
+| Frontend wake sources (`python scripts/handlers.py`) | 138 `requestAnimationFrame` (whiteboard.js 18, documents.js 14, avatars.js 9), 58 `pointermove`/`mousemove` (whiteboard.js 15), 35 scroll, 7 wheel, 31 `ResizeObserver` (library.js 5), 38 `MutationObserver` (avatars.js 5), 9 `IntersectionObserver`, 12 `setInterval`. Always on: `atlas.js:3624` mood check, `avatars.js:6198` every 1.5 s, `bg-art.js:1991` covered and idle check, `status.js:829` reminder poll; the rest run only while a timer, a meeting or a focus session is open. Per-file counts of four kinds are seeded in `tests/wake_sources_seed.json` (`tests/test_frontend_wake_sources.py`) |
+| Frames, `scratchpad/ui-sweeps/frames.js`, 3 s each, companion off except its own row, load 5 to 9 on 4 cores | whiteboard rest 0 long tasks, 0 gaps over 20 ms; drag 1 gap over 20 ms of 253. Mind map rest 0 and 0; drag 4 gaps over 20 ms of 605, 1 long task of 50 ms. Graph rest 1, 9 and 10 long tasks (58 to 70 ms each, script 150 to 170 ms a second) and 38 to 52 gaps over 20 ms; drag 12 to 44 of 302, 0 to 4 long tasks. Companion (Atlas) rest 4 to 6 long tasks and 37 to 45 gaps over 20 ms; the pointer sweep and wheel 201 to 510 gaps over 20 ms of 278 to 611, 7 to 58 long tasks, worst gap 250 to 367 ms |
+| At-rest ratchet | `REST_BUDGET` in `frames.js`: whiteboard 0, mind map 0, graph 10, companion 6 long tasks in 3 s; the sweep exits 1 above it. The target is zero on all four; graph and companion are the two to fix |
+
+Not verified: the frame figures are one machine under load (a quiet re-run is the number to trust); the `recalcs` counter equals the frame count on every surface including a control, so it is not read as a finding; the companion row is a pointer sweep, because the companion has no drag; the profile runs sync handlers inline (no thread pool), so it is a single-request figure.
 
 ## 27. Every feature, its utility and its popups, 2026-10-10 (Fable)
 

@@ -70,9 +70,15 @@ extend-exclude = [".claude/skills", "src/memorymap/vendor"]
 # re-raise, log with `exc_info`, or carry `# noqa: BLE001  # <reason>`,
 # because a handler that says nothing turns a fault into silence (the
 # "feature that never ran once" shape). Enabled 2026-09-26 at zero findings.
-select = ["E4", "E7", "E9", "F", "BLE001"]
+# T201 (WORLD_CLASS_PLAN 26.2, decision 57): `print` is for the command line
+# (`__main__.py`, 25 calls) and for scripts; anything else in `src` goes to
+# the logger. Measured 2026-10-10: no `print` in `src` outside `__main__.py`.
+select = ["E4", "E7", "E9", "F", "BLE001", "T201"]
 
 [tool.ruff.lint.per-file-ignores]
+# T201 applies to `src` only; the command line there prints by design.
+"!src/**" = ["T201"]
+"src/memorymap/__main__.py" = ["T201"]
 # `__all__` lists names this module resolves lazily through a PEP 562
 # module `__getattr__` (see the comment above it) rather than binding them
 # with a real import — the whole point being to not import the four split

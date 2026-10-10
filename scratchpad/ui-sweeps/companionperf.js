@@ -11,7 +11,7 @@
 // trace or profiler (each would cost frames of its own), MS of idle only,
 // reported per minute and per 10s. A kind may carry a state after a colon:
 // me:hidden (document.hidden, as a minimised window), me:locked (lockNow), me:reduced (the
-// system asks for less motion), me:animoff (Appearance, Avatar animation off).
+// system asks for less motion), me:appreduce (the app's own Reduce motion), me:animoff (Appearance, Avatar animation off).
 // Exits 1 when the companion adds more than 1ms of scripting per frame
 // while scrolling, more than 0.2ms per frame idle, or more than 120ms a
 // second of main thread idle, over the page with it off.
@@ -108,6 +108,7 @@ async function idleRun() {
     await cdp.send('Performance.enable');
     await page.evaluate(([k, st]) => {
       localStorage.removeItem('nm-buddy-spots');
+      if (st === 'appreduce') { localStorage.setItem('motion', 'reduced'); document.documentElement.dataset.motion = 'reduced'; }
       if (st === 'animoff') { localStorage.setItem('avatar-motion', 'off'); document.documentElement.dataset.avatarMotion = 'off'; }
       const b = document.getElementById('avatar-buddy'); b.value = k; b.dispatchEvent(new Event('change', { bubbles: true }));
     }, [kind, state || '']);

@@ -64,6 +64,8 @@ CSS_FILES = [
     CSS_DIR / "quickadd-lazy.css",
     #: The search box's kind chip, Show more and saved-search rows (search.js).
     CSS_DIR / "search-lazy.css",
+    #: Atlas's faces at 28 and 20px (atlas.js `atlasSheet`, Brief 34 continues).
+    CSS_DIR / "atlas-lazy.css",
 ]
 
 

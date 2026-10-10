@@ -8210,12 +8210,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        living tail wags now, atlas.js, and the flow runs on: INBOX 600.) */
   }
 }
-/* The system's reduced-motion hint: every loop slows right down and keeps
-   what it says.
+/* The system's reduced-motion hint: every loop stops and Atlas keeps its
+   pose (Brief 34 decision 7, INBOX 772: slowed to 9s, the loops were 1,579
+   style recalcs a minute at rest). The app's own Reduce setting is out of
+   every loop's gate above (`:not([data-motion="reduced"])`).
    `!important` because the loops are declared under the motion gates
-   above, whose selectors out-rank this one; the app-wide kill in
-   02-chat-graph.css used to hide that by freezing everything first, and
-   now leaves faces and the companion to this block. */
+   above, whose selectors out-rank this one. */
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live.atl-figure-box,
   :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live.atl-figure-box {
@@ -8227,35 +8227,30 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
+  #nm-buddy .atl-classic-box { animation: none !important; }
   .nm-live.atl-figure-box {
-    &[data-atlas-mood="delighted"], &[data-atlas-mood="laughing"], &[data-atlas-mood="sleepy"], &[data-atlas-mood="love"], &[data-atlas-mood="confused"] { animation-duration: 9s !important; }
+    &[data-atlas-mood="delighted"], &[data-atlas-mood="laughing"], &[data-atlas-mood="sleepy"], &[data-atlas-mood="love"], &[data-atlas-mood="confused"] { animation: none !important; }
   }
   .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-blink.nm-blinks .atl-lid, .atl-blink.nm-blinks > :is(.atl-lashes,.atl-liner:not(.atl-liner-low)), .atl-sway, .atl-tail-swish, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
-    animation-duration: 9s !important;
+    animation: none !important;
   }
-  /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
-  .atl-lw-body[data-atlas-look="masculine"] { animation-duration: 14s !important; }
-  .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
-  .atl-lw-breathe { animation-duration: 9s !important; }
+  /* The layered figure's loops (atlas.js, `atlasDrawFigure`) stop the same way. */
+  .atl-lw-body[data-atlas-look="masculine"] { animation: none !important; }
+  .atl-lw-body[data-atlas-look="feminine"] { animation: none !important; }
+  .atl-lw-breathe { animation: none !important; }
   .atl-lw-hair[data-atlas-look="masculine"], .atl-lw-hair[data-atlas-look="feminine"], .atl-lw-tip { animation: none !important; }
-  .atl-lw-tail { animation-duration: 9s !important; }
+  .atl-lw-tail { animation: none !important; }
   .atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }
   :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back), .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { animation: none !important; }
-  /* Her float and the dress's wind (INBOX 554) stop; a mood's body move
-     keeps its slowed loop (above). */
   .atl-lw-lower[data-atlas-look="feminine"], .atl-lw-lower[data-atlas-look="masculine"] { animation: none !important; }
   .nm-live {
     &.atl-figure-box[data-atlas-look="feminine"]:not([data-atlas-mood="delighted"], [data-atlas-mood="laughing"], [data-atlas-mood="sleepy"], [data-atlas-mood="love"], [data-atlas-mood="confused"]) { animation: none !important; }
   }
   .nm-atlas {
-    &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
-    /* Round 6: the skirt drifts slower still; the nebula holds still. */
-    &.atl-layer-lower { animation-duration: 12s !important; }
-    /* Round 9: the hair's flow holds still with it; the tail's second
-       sway slows to 9s with its swish, as every other loop here. */
+    &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation: none !important; }
+    &.atl-layer-lower { animation: none !important; }
     &:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, & .atl-zf, &[data-atlas-mood="sleepy"].atl-layer-fx-1, &[data-atlas-mood="sleepy"].atl-layer-fx-2 { animation: none !important; }
-    &[data-atlas-mood="love"].atl-layer-fx-1, &[data-atlas-mood="love"].atl-layer-fx-2 { animation-duration: 9s !important; }
+    &[data-atlas-mood="love"].atl-layer-fx-1, &[data-atlas-mood="love"].atl-layer-fx-2 { animation: none !important; }
   }
 }
 @keyframes atl-breathe { 50% { transform: scale(0.99, 1.018); } }

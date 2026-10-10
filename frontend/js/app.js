@@ -1900,6 +1900,8 @@ const LAZY_MODULES = {
   atlasMotion: ["/js/atlas-motion.js"],
   //: Atlas the Guide as a chat (help-chat.js's header), on first ask.
   helpChat: ["/css/help-chat-lazy.css", "/js/help-chat.js"],
+  //: Atlas's mood cues and bold small-size brows (atlas.js `atlasSheet`).
+  atlasFaces: ["/css/atlas-lazy.css"],
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).

@@ -2037,6 +2037,57 @@ function atlasHandProps(armR, armL, look) {
 //: fills (behind the head); the head's fill and rim shade; the ears and
 //: wisps over it; the specular, blush, eyes, brows, mouths, then the
 //: extras.
+//: **The mood cue** (Brief 34 continues, the owner: "I barely get to see
+//: atlas change expression"): at 28px the face is about 8px and at 20px
+//: about 6px, so a mood carried by a lid or a brow is one face to the eye
+//: (atlasfacediff.js measured 2 distinct of 15 at 28px, 1 at 20px). Real
+//: mascot work adds one bold sign beside the head that survives the size:
+//: a note, sparkles, a heart, Zs, a mark. Drawn once at the head and tiny
+//: levels, every sign hidden by its own attribute until atlas-lazy.css
+//: shows the one `data-atlas-mood` names; nothing here runs per frame.
+const ATLAS_CUES = {
+  happy: (g) => {
+    atlasMake("ellipse", { class: "atl-cue-ink-fill", cx: -1.6, cy: 3.6, rx: 2.4, ry: 1.8, transform: "rotate(-22 -1.6 3.6)" }, g);
+    atlasMake("path", { class: "atl-cue-ink", d: "M0.6 3.2V-5.6Q3.6 -4.6 3.8 -1.4" }, g);
+  },
+  delighted: (g) => { atlasSpark(g, -1, -1.4, 4.8, "atl-sparkle"); atlasSpark(g, 3.6, 4.2, 2.6, "atl-sparkle"); },
+  laughing: (g) => atlasMake("path", { class: "atl-cue-ink", d: "M-3.6 -5L0.4 -1.6M-4.6 1.2H0.6M-3.6 6.6L0.4 3.6" }, g),
+  thinking: (g) => {
+    for (const [x, y, r] of [[2.4, 4.6, 1.3], [-0.4, 0.4, 1.9], [-2.2, -5, 2.6]]) atlasMake("circle", { class: "atl-cue-dot", cx: x, cy: y, r }, g);
+  },
+  curious: (g) => atlasSpark(g, 0, 0, 5.4, "atl-sparkle"),
+  surprised: (g) => {
+    atlasMake("path", { class: "atl-cue-ink atl-cue-bold", d: "M-1 -7L0 1.6M2.6 -6.4L2 -1" }, g);
+    atlasMake("circle", { class: "atl-cue-ink-fill", cx: 0, cy: 5.4, r: 1.8 }, g);
+  },
+  confused: (g) => {
+    atlasMake("path", { class: "atl-cue-ink atl-cue-bold", d: "M-3.4 -3Q-3.4 -6.6 0 -6.6Q3.4 -6.6 3.4 -3.4Q3.4 -1.2 1 0Q0 0.6 0 2.4" }, g);
+    atlasMake("circle", { class: "atl-cue-ink-fill", cx: 0, cy: 5.6, r: 1.5 }, g);
+  },
+  sleepy: (g) => atlasMake("path", { class: "atl-cue-ink atl-cue-z", d: "M-4.6 -0.4h5l-5 5.4h5M1.4 -6.6h3.6l-3.6 3.8h3.6" }, g),
+  //: Sad's tear runs down the cheek under the eye, so it is not worried's
+  //: drop at the temple.
+  sad: (g) => { atlasDrop(g, 6.6, 11.4, 2.8, "atl-drop"); atlasMake("path", { class: "atl-cue-ink", d: "M-3.6 -3.4Q0 -6.4 3.6 -3.4" }, g); },
+  proud: (g) => atlasMake("path", { class: "atl-sparkle", d: "M0 -6L1.8 -1.9L6 -1.6L2.8 1.2L3.8 5.6L0 3.3L-3.8 5.6L-2.8 1.2L-6 -1.6L-1.8 -1.9Z" }, g),
+  shy: (g) => atlasMake("path", { class: "atl-cue-blush", d: "M-3.6 2.4L-1.6 -2.4M-0.6 3.4L1.4 -1.4M2.4 4.4L4.4 -0.4" }, g),
+  determined: (g) => atlasMake("path", { class: "atl-cue-flame", d: "M0 6.4C-4 6.4 -5.4 2.6 -3.4 -0.8C-2.4 1.2 -1.2 1.4 -1 -0.6C-0.8 -3.6 1.2 -5.8 2.4 -7C2.2 -3.6 5.2 -1.8 4.4 2.2C3.9 4.8 2.2 6.4 0 6.4Z" }, g),
+  love: (g) => atlasHeart(g, 0, 0.6, 5.2, "atl-heart"),
+  worried: (g) => { atlasDrop(g, -1, -1.6, 3.2, "atl-drop"); atlasDrop(g, 3.6, 4.8, 2, "atl-drop"); },
+};
+
+function atlasCue(parent, tiny) {
+  const cue = atlasMake("g", { class: "atl-cue", transform: tiny ? "translate(14.6 17.4) scale(1.25)" : "translate(13.2 17.6) scale(1.2)" }, parent);
+  for (const [mood, draw] of Object.entries(ATLAS_CUES)) draw(atlasMake("g", { class: `atl-cue-${mood}`, opacity: 0 }, cue));
+  return cue;
+}
+
+//: The cue's rules and the small sizes' bolder brows are a lazy sheet, not
+//: boot CSS (tests/test_boot_budget.py); until it lands every sign stays
+//: hidden by its attribute and the face is the one it was.
+function atlasSheet() {
+  ensureModule("atlasFaces");
+}
+
 function atlasHead(parent, id, level, look, hairAt = null) {
   const tiny = level === "tiny";
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
@@ -2061,14 +2112,14 @@ function atlasHead(parent, id, level, look, hairAt = null) {
   }
   for (const [x, y] of ATLAS_GEO.cheeks) atlasMake("ellipse", { class: "atl-cheek", cx: x, cy: y, rx: tiny ? 3.2 : 3, ry: tiny ? 1.9 : 1.8 }, sway);
   for (const eye of ATLAS_GEO.eyes) atlasEye(sway, id, eye, tiny, spec.lashes);
-  if (!tiny) {
-    for (const [x, y, side] of ATLAS_GEO.brows) {
-      const brow = atlasGroup(sway, `atl-brow atl-brow-${side > 0 ? "l" : "r"}`, [x, y]);
-      const d = spec.brow === "straight"
-        ? `M${x - 2.8 * side} ${y - 0.1}Q${x} ${y - 0.8} ${x + 2.8 * side} ${y + 0.5}`
-        : `M${x - 2.6 * side} ${y - 0.2}Q${x - 0.3 * side} ${y - 1.9} ${x + 2.6 * side} ${y + 0.8}`;
-      atlasMake("path", { class: `atl-stroke atl-brow-line atl-brow-${spec.brow}`, d }, brow);
-    }
+  //: Brows at every size: the tiny bust had none, and a brow is what tells
+  //: worried, sad and determined apart at 20px (atlas-lazy.css makes them bold).
+  for (const [x, y, side] of ATLAS_GEO.brows) {
+    const brow = atlasGroup(sway, `atl-brow atl-brow-${side > 0 ? "l" : "r"}`, [x, y]);
+    const d = spec.brow === "straight"
+      ? `M${x - 2.8 * side} ${y - 0.1}Q${x} ${y - 0.8} ${x + 2.8 * side} ${y + 0.5}`
+      : `M${x - 2.6 * side} ${y - 0.2}Q${x - 0.3 * side} ${y - 1.9} ${x + 2.6 * side} ${y + 0.8}`;
+    atlasMake("path", { class: `atl-stroke atl-brow-line atl-brow-${spec.brow}`, d }, brow);
   }
   const [mx, my] = ATLAS_GEO.mouth;
   const place = atlasMake("g", { transform: tiny ? `translate(${mx} ${my - 0.6}) scale(0.62) translate(-32 -38)` : `translate(${mx} ${my}) scale(0.5) translate(-32 -38)` }, sway);
@@ -2086,6 +2137,7 @@ function atlasHead(parent, id, level, look, hairAt = null) {
     }
   }
   if (!tiny) atlasExtras(sway);
+  if (tiny || level === "head") atlasCue(sway, tiny);
   //: Thinking, a hand at the chin (the reference sheet): drawn here, over
   //: the head, because the body's own arm is drawn under it; the CSS shows
   //: it and hides the resting right arm while Atlas thinks.
@@ -3128,6 +3180,7 @@ function atlasLids(parent, look, shut = 1) {
 }
 
 function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) {
+  atlasSheet();
   if (level === "figure") return atlasDrawFigure(mood);
   if (atlasStyle() === "classic") return atlasClassicMark(size, mood);
   const spec = ATLAS_LEVELS[level] || ATLAS_LEVELS.head;
@@ -3212,6 +3265,7 @@ function atlasFigure() {
   figure.className = "nm-figure nm-live atl-figure-box";
   //: The look on the box too, for her idle float (INBOX 554, the CSS).
   figure.dataset.atlasLook = atlasLook();
+  atlasSheet();
   figure.appendChild(atlasDrawFigure(atlasMoodNow));
   atlasWatchFigure(figure);
   atlasBlinkStart();

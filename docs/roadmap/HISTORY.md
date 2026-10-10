@@ -456,6 +456,31 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (Brief 34, the companion, second round)
+
+The companion2 agent's Built block (standing order 10); the first round is below, the rest of Brief 34 (step 5, the idle cost) is in OPEN.md.
+
+- Faces at small sizes (step 1): one mood sign beside the head and bold brows
+  at 28 and 20 px, from a lazy sheet (`frontend/css/atlas-lazy.css`, atlas.js
+  `ATLAS_CUES`, `atlasCue`, `atlasSheet`). Distinct faces of 15 by pixel diff
+  (atlasfacediff.js and .py, DIFF=96 FRAC=0.03, any channel): light 28px 2 to
+  15, 20px 1 to 15; dark 28px 11-13 to 15, 20px 10-11 to 15; both looks.
+- Tail at rest on the compositor (step 2): path draws a minute at rest 900
+  (15 a second) to 83 (taildraws probe, 88% of the time resting); Atlas idle
+  layouts a minute 760 to 534-842 and script 1,930 to 854-1,512 ms over four
+  30s runs (companionperf.js IDLE=1, a loaded machine).
+- Reduce motion (step 3, INBOX 772): 0 Atlas animations run under the
+  system hint (were slowed to 9s); recalcs a minute 171 (hint) and 141 (app
+  Reduce, new `x:appreduce` state), layouts 36 and 9.
+- Calm's arms (step 4): angle off straight down, full size, both looks: 0 to
+  5 degrees in all three variants before, -34 to 56 after (atlasarms.js).
+- Smoothness (step 5, atlassmooth.js): reaction latency from the end of the
+  debounce to the first frame with the mood: 47, 53, 86, 90 and 169 ms
+  (load 5 on four cores, errors.js running); snaps in ten minutes at 60 Hz:
+  one (both hands at once, hanging, 261s); distinct in ten minutes: 7 acts,
+  7 tail acts, 3 arm variants (17 motions) and 9 moods. Measured only; no
+  change was made for step 5.
+
 ## Moved from the plans, 2026-10-10 (CHAT_PLAN F5, Brief 84)
 
 The atlas84 agent's Built block (standing order 10), decision 59's four steps in order, the scorecard re-run after each.

@@ -1686,7 +1686,13 @@ def test_nothing_runs_behind_the_lock_and_an_idle_page_is_not_polled() -> None:
     frame = _fn("atlasTailFrame", life)
     assert 'data-atlas-hidden' in frame and "tail.calm" in frame and "ATLAS_TAIL_CALM_MS" in frame
     # The large view keeps the frame loop: it is the one thing on screen.
-    assert '!box.closest(".nm-viewer-figure")' in frame
+    assert '!box.closest(".nm-viewer-figure")' in _fn("atlasTailCalm", life)
+    # At rest the tail is a held drawing swayed on the compositor (Brief 34
+    # continues, step 2): its layer root's transform, nothing drawn per beat.
+    assert "atlasTailRest(tail, p)" in frame and "tail.resting" in frame
+    rest = _fn("atlasTailRest", life)
+    assert "svg.animate(" in rest and "transform:" in rest and "setAttribute" not in rest
+    assert "getComputedStyle(svg).transform" in _fn("atlasTailUnrest", life)
     atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
     sync = _fn("atlasHiddenSync", atlas)
     assert "lock-overlay" in sync and "atlasTailWake(box)" in sync

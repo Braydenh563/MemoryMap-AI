@@ -190,6 +190,7 @@ function atlasTailAttach(box) {
   const specks = core?.querySelector(".atl-speck");
   const tail = {
     box,
+    svg,
     spec,
     rest,
     paths: {
@@ -216,6 +217,9 @@ function atlasTailAttach(box) {
     raf: 0,
     tick: 0,
     drawn: false,
+    settle: 0,
+    resting: false,
+    sway: null,
   };
   box.atlasTail = tail;
   box.dataset.atlTail = "live";
@@ -242,7 +246,9 @@ function atlasTailPick(tail, state, now) {
   tail.goal = { curl: base.curl + jit(-0.18, 0.18), amp: base.amp * jit(0.8, 1.25), period: base.period * jit(0.85, 1.2), k: base.k * jit(0.85, 1.15) };
   tail.act = act;
   tail.state = state;
-  tail.until = now + (base.ms || 4000 + Math.random() * 5000);
+  const calm = !base.ms && atlasTailCalm(tail, tail.box);
+  tail.until = now + (base.ms || (calm ? 9000 + Math.random() * 9000 : 4000 + Math.random() * 5000));
+  tail.settle = now + ATLAS_TAIL_SETTLE_MS;
 }
 function atlasTailFrame(tail, now) {
   tail.raf = 0;
@@ -258,6 +264,16 @@ function atlasTailFrame(tail, now) {
   atlasPropsFrame(box, live, tail.tick);
   //: And the chest's breath (`atlasBreathFrame`).
   atlasBreathFrame(box, live, now);
+  //: Resting on the compositor (`atlasTailRest`): nothing to draw while the
+  //: state holds and the act has not run out; the breath and the props
+  //: above are all this beat does.
+  if (tail.resting) {
+    if (live && atlasTailCalm(tail, box) && atlasLowerState(box.closest("#nm-buddy"), box) === tail.state && now < tail.until) {
+      tail.raf = setTimeout(() => atlasTailFrame(tail, performance.now()), ATLAS_TAIL_REST_BEAT_MS);
+      return;
+    }
+    atlasTailUnrest(tail);
+  }
   if (live && tail.tick % 2 && tail.drawn && !tail.calm) {
     tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     return;
@@ -312,8 +328,11 @@ function atlasTailFrame(tail, now) {
   //: read as the same sway, and a timer between them asks for no frames.
   //: Walking, carried, gesturing, startled or glad, and always in the large
   //: view, where it is the one thing on screen, it keeps the frame loop.
-  tail.calm = live && ATLAS_TAIL_CALM.has(tail.state) && !!box.closest("#nm-buddy") && !box.closest(".nm-viewer-figure");
-  if (live && tail.calm) {
+  tail.calm = live && atlasTailCalm(tail, box);
+  if (live && tail.calm && now >= tail.settle) {
+    atlasTailRest(tail, p);
+    tail.raf = setTimeout(() => atlasTailFrame(tail, performance.now()), ATLAS_TAIL_REST_BEAT_MS);
+  } else if (live && tail.calm) {
     tail.raf = setTimeout(() => {
       tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     }, ATLAS_TAIL_CALM_MS);
@@ -322,6 +341,50 @@ function atlasTailFrame(tail, now) {
 }
 const ATLAS_TAIL_CALM = new Set(["idle", "sit", "lie", "think", "sad"]);
 const ATLAS_TAIL_CALM_MS = 66;
+function atlasTailCalm(tail, box) {
+  return ATLAS_TAIL_CALM.has(tail.state) && !!box.closest("#nm-buddy") && !box.closest(".nm-viewer-figure");
+}
+//: **At rest the tail goes to the compositor** (Brief 34 continues, step 2;
+//: decision 7, under 1ms a minute beyond the face): fifteen path draws a
+//: second were about 770 layouts and 2s of script a minute at rest in the
+//: corner. A calm act now draws for `ATLAS_TAIL_SETTLE_MS` while its springs
+//: ease into it (no snap), then holds that drawn shape and sways the tail's
+//: own layer root about its root, a Web Animation of `transform` only (the
+//: companion's pacer leaves layer roots alone), the act's swing and period
+//: from its table, so a curl sways slow and small and a sway wide. Calm acts
+//: hold 9 to 18s here, not 4 to 9, so the redraws are rare; a new act, a new
+//: state, the large view or a walk takes the live loop back, the layer
+//: easing home from wherever its sway was. `data-atl-tail` says which.
+const ATLAS_TAIL_SETTLE_MS = 1600;
+//: The resting beat is also the chest's (`atlasBreathFrame`): at 2.5 steps a
+//: second its 0.7px swell moves under 0.2px a step, and each step is a style
+//: recalc and a layout of the body's drawing (recalc.js: the breath at 10 a
+//: second was 550 recalcs and 200 layouts a minute of Atlas at rest).
+const ATLAS_TAIL_REST_BEAT_MS = 400;
+function atlasTailRest(tail, p) {
+  const { box, svg } = tail;
+  tail.resting = true;
+  box.dataset.atlTail = "rest";
+  if (!svg?.animate) return;
+  const vb = svg.viewBox?.baseVal;
+  const [rx, ry] = tail.rest[0];
+  if (vb?.width) svg.style.transformOrigin = `${atlasFix(((rx - vb.x) / vb.width) * 100)}% ${atlasFix(((ry - vb.y) / vb.height) * 100)}%`;
+  const deg = atlasFix(Math.min(7, Math.max(1.5, (p.amp * 180) / Math.PI * 0.3)));
+  const at = (d, k) => ({ transform: `rotate(${d}deg) scale(${k})` });
+  tail.sway = svg.animate([at(0, 1), at(deg, 1.015), at(0, 1), at(-deg, 0.99), at(0, 1)], {
+    duration: Math.round(Math.max(2.4, p.period) * 1000), iterations: Infinity, easing: "ease-in-out",
+  });
+}
+function atlasTailUnrest(tail) {
+  const { box, svg } = tail;
+  tail.resting = false;
+  box.dataset.atlTail = "live";
+  if (!tail.sway) return;
+  const from = getComputedStyle(svg).transform;
+  tail.sway.cancel();
+  tail.sway = null;
+  if (from && from !== "none") svg.animate([{ transform: from }, { transform: "none" }], { duration: 400, easing: "cubic-bezier(0.33, 0, 0.2, 1)" });
+}
 function atlasTailDraw(tail, bend, stretch) {
   const { pts, turn, segs } = atlasTailShape(tail.rest, bend, stretch);
   const d = atlasTailPaths(tail.spec, segs);
@@ -469,8 +532,16 @@ function atlasBreathFrame(box, live, now) {
   box.atlasTorsos ||= [...box.querySelectorAll(".atl-layer-body .nmb-torso")];
   let k = 0;
   if (live) {
-    const rise = box.querySelector(".atl-lw-breathe")?.getAnimations()[0];
-    const period = rise ? +rise.effect.getComputedTiming().duration : box.dataset.atlasLook === "feminine" ? 4000 : 4600;
+    //: The rise's animation is looked up once in a while, not every step:
+    //: `getAnimations` brings the page's style up to date to answer, a
+    //: second recalc each step.
+    if (!box.atlasRise || now > (box.atlasRiseAt || 0)) {
+      box.atlasRise = box.querySelector(".atl-lw-breathe")?.getAnimations()[0] || null;
+      box.atlasRisePeriod = box.atlasRise ? +box.atlasRise.effect.getComputedTiming().duration : 0;
+      box.atlasRiseAt = now + 5000;
+    }
+    const rise = box.atlasRise?.playState === "idle" ? null : box.atlasRise;
+    const period = rise ? box.atlasRisePeriod : box.dataset.atlasLook === "feminine" ? 4000 : 4600;
     const at = rise && rise.currentTime !== null ? +rise.currentTime : now;
     k = (1 - Math.cos((2 * Math.PI * at) / period)) / 2;
   }

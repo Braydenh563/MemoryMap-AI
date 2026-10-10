@@ -333,6 +333,48 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the atlas84 and companion2 agents (Briefs 84 and 34, merged 2026-10-10)
+
+Atlas everywhere (Brief 84, CHAT_PLAN F5, the four steps built):
+
+- "new ways to do and output info" (INBOX 758): the Ask box ignores the `chart` event (capture-ask.js Ask handlers, ~3065); only the Chat tab draws it (chat-attach.js `onChart`).
+- "the other one" (decision 57) in Chat: `routes_chat._spoken_act` sends `objects` only when the client puts them on history turns; chat-attach.js does not yet send each answer's note titles.
+- "more access" (INBOX 758): write tools that are not acts (create_category, rename_tag, delete_tag, merge_categories, board and map tools) are named by the reading but not run with no model; each needs an act row in `act_registry._ACTS` with an inverse.
+- The Guide's "how do I set a reminder" first line is the topic's first matching sentence ("The Reminders tab groups items..."), not the step that sets one: `composer.help_line` picks by shared words (composer.py `help_line`).
+- INBOX 731 (the Guide failing with a model): not touched; the model-path fallback in `help_chat.answer_stream` still needs the log line read.
+- Guide rows 4 to 6 (CHAT_PLAN "The Guide" table): trust-surface topics, the weekly unused feature, typos through the word list (VC15).
+
+- Brief 84, not verified: the Guide's new first line and act topics in a browser (API and unit tests only); no real model.
+
+The companion (Brief 34, second round: faces at 28 and 20 px, the tail on the compositor, reduce motion, calm's arms; smoothness measured only):
+
+- The rest of Atlas's idle cost is the companion's own behaviour, not the
+  tail: with the tail and breath switched off, 670 recalcs and 130 layouts a
+  minute remain (recalc probe), all from avatars.js timers. Decision 7's 1 ms
+  needs the behaviour picker and perch checks profiled next.
+- The chest's breath still writes the torso's `scale` 2.5 times a second at
+  rest (atlas-life.js `atlasBreathFrame`): a recalc and a layout each. Zero
+  needs the torso on its own layer root (a drawing change, `atlasDrawFigure`).
+- 104px faces (the welcome, the large view): 2 to 3 of 15 distinct in light by
+  the same metric; the cue is drawn only at the head and tiny levels. The
+  owner's "I barely get to see atlas change expression" may also mean the
+  companion figure (12px face); a cue on the figure is the next step.
+- Step 5 not built: one curve table for every joint (120 to 400 ms), the
+  idle pool's never-within-five rule and a reaction budget a minute beyond
+  the existing 6s gap (avatars.js `NMB_REACT_GAP`). The one snap (both hands
+  jumping over 4px out of stillness while hanging, atlassmooth.js) is likely
+  the held arms' crossfade (`atlasRigRead`, -158 degrees); one latency trial
+  of five was over 100 ms, the frame wait under load.
+- Arm angle over a walk cycle not measured (atlasarms.js measures still
+  poses; the walk swing is the rig's, atlas-motion.js `atlasRigFrame`).
+- `#nm-buddy:has(.atl-figure) .nm-buddy-char` and the lower layer still slow
+  to 6s under the hint (08-consistency.css, the block after the chin hand
+  rule) rather than stopping: they may carry acts, so left for a driven check.
+- Companion movement Full keeps the script loops (tail, rings) under Reduce
+  by design (`atlasMotionOK`); the CSS loops stop under the hint regardless.
+
+- Brief 34, not verified: the arm angle over a walk cycle; 104 px faces (2 to 3 of 15 distinct in light); no real WebView2 or WebKitGTK; all timings from a loaded machine.
+
 ## Left by the wb77 and ide1 agents (Briefs 77 and 69, merged 2026-10-10)
 
 Whiteboard (Brief 77, rows 1 to 4 built; 8 and 9 not started):

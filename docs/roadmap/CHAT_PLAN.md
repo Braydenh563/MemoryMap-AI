@@ -1740,6 +1740,7 @@ Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets
 54. **Computed sentences** (the catalogue's proposal 1, taken): allowed in utility answers only, always with "Read as", never mixed into a claim about the notes.
 55. **The app speaks in one voice**: system copy moves to the realiser surface by surface; no big bang.
 56. **No network in the deterministic layer**: currency and the like are dated tables that say their date.
+57. **The bar is a voice assistant's, offline** (the owner, 2026-10-10, INBOX 748): any surface's bar takes a spoken-style sentence with pronouns, follow-ups ("and the other one", "no, tomorrow") and compound requests, answers in one line with the act it took, asks one question when a slot is missing, never more, and offers the next likely act; measured by Brief 64's corpus extended with 200 spoken-style lines, each with its expected act.
 
 ### 5. Phases with gates
 

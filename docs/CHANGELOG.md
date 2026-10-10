@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Plans: the code editor as an IDE (DOCUMENTS_PLAN 23: one run protocol, TypeScript, SQL, CSS, SVG and p5 runs and previews, tests, a Python debugger on `bdb` in Pyodide and a JavaScript one on an interpreter, the panels and consoles; Briefs 69 to 71), a voice-assistant bar for the deterministic layer (CHAT_PLAN decision 57) and learnability measured (UI_MODERNISATION_PLAN 12z).
 - Plans: the whole-app table's "today" column measured at 5,001 notes (WORLD_CLASS_PLAN 24.6b and 25.2: boot, list paint, search, board and document opens, idle CPU, memory, widgets, settings help, shortcuts, undo, the bundle), with the sweeps under scratchpad/ui-sweeps/measure-*.
 - Plans: the deterministic layer as the foundation under every surface (CHAT_PLAN "The deterministic foundation": the research read, where it joins each surface, five modules, decisions 46 to 56, Briefs 64 to 68).
 - Plans: the design review (UI_MODERNISATION_PLAN Phase 13: sixteen principles measured against the stylesheet and the markup, every surface, decisions 9 to 22, Briefs 56 to 59), the backend review (WORLD_CLASS_PLAN 26, decisions 55 to 62, Briefs 60 to 63) and the features and popups pass (WORLD_CLASS_PLAN 27, decisions 63 to 66).

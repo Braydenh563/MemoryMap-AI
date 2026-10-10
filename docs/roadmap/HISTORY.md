@@ -46135,6 +46135,27 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      First visible frame k 1.21 (worst 2.5) to 0.785, settled 0.788
      (`scratchpad/ui-sweeps/graphfirstframe.js`, 60 notes).
 
+748. **The owner, 2026-10-10, verbatim**: "I also need a major major improvement
+     and expansion of the code editor, it needs to have everything and more that
+     vs code has. it needs a just as good and better design, it needs all the
+     features,even the multitude of small features and functions and shortcuts.
+     it needs to be a full debugger, and be able to run and preview and test
+     more than just python and the python one needs a lot of improvements and
+     extensions. keep imrpoiving and restructuring and expanding the
+     deterministic stuff. it needs to be like the apple's siri of the app but
+     better because siri is ass. I think you cna do better." Triage: the
+     editor's everyday feel stays Brief 42 (DOCUMENTS 21); run, preview and
+     test for more languages, the debugger and the IDE shell are DOCUMENTS_PLAN
+     23 (decisions D1 to D9, Briefs 69 to 71); the assistant bar is CHAT_PLAN
+     decision 57 under the deterministic foundation.
+
+749. **The owner, 2026-10-10, verbatim**: "I need sfull improvement in ui/ux,
+     design, utlity, usability, accessibility, learnability, backend and
+     functions and more." Triage: already the programme (WORLD_CLASS 25 every
+     surface, 26 the backend, 27 the features; UI_MODERNISATION Phase 12 WCAG
+     2.2 and density, Phase 13 the design review); learnability had no row, so
+     it is now Phase 12's "12z Learnability" with its measures.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.
@@ -46169,4 +46190,3 @@ Orientation reads are the largest token cost, so every plan and planning file ha
      sure you impress me." Triage: the deterministic layer as the app's
      foundation, researched and placed in CHAT_PLAN "The deterministic
      foundation, 2026-10-10" (decisions, the integration map, briefs).
-

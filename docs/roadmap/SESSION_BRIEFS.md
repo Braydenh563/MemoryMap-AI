@@ -2054,3 +2054,27 @@ the note editor's offers, the dashboard digest, documents' counts, the
 whiteboard and mind map acts, the graph, library and settings filters,
 import recognition, the Guide's generated act topics, the agent's tools,
 and system copy through the realiser surface by surface (decision 55).
+
+## Briefs 69 to 71 (DOCUMENTS_PLAN 23: the IDE; after Brief 42)
+
+### Brief 69 (Opus, high): run, preview and test (I1)
+DOCUMENTS 23 decisions D1, D4 to D7 and D9. Files: `documents-code.js`
+("Run, and its output"), new `frontend/js/run/*.js`, `api/run_sandbox.py`,
+`core/extras.py`, `09-editor.css`. Each vendored file measured gzipped and
+decided before it lands (sucrase, sql.js, pytest wheel). Numbers: a `.ts`,
+`.sql`, `.css`, `.svg` and p5 document each run or preview in the sweep;
+tests listed with state and time; Python `input()` answered from the panel.
+
+### Brief 70 (Opus, high): the debugger (I2)
+D2 and D3. Files: `api/run_sandbox.py` (the two headers), the Python
+sandbox worker, new `frontend/vendor/js-interpreter`, `frontend/js/run/debug-*.js`,
+the breakpoint gutter in `documents-code.js`. Numbers: a scripted session
+per language hits a breakpoint, steps three times, reads a watched value and
+stops on an exception; the time from Debug to the first stop.
+
+### Brief 71 (Opus, high): the IDE shell (I3)
+D8 and the shell rows of DOCUMENTS 23. Files: `documents-code.js`,
+`09-editor.css`, `help_chat.py`, `help_topics_more.py`, `test_manual_parity.py`.
+Numbers: palette command count; every keybinding on the sheet exercised by
+`scratchpad/ui-sweeps/code-keys.js`; the four panels' heights remembered
+across a reload.

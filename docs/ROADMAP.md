@@ -124,6 +124,8 @@ companion) is a surface onto the same notebook and the same engine.
 | 10 | Atlas and the companion: moods that change, gestures, lifelike motion, the enlarged view | 34 (Opus) | OPEN.md Atlas rows |
 | 11 | Audio: meeting notes apart from dictation, voice memos, live captions; long-form preference at first run | WORLD_CLASS_PLAN "Audio in the notebook" | WORLD_CLASS_PLAN |
 | 12 | Packaging: Docker image, reuse of system Python packages, installer's optional packages | 40 then 17 | BACKLOG |
+| 13 | The code editor as an IDE: run, preview and test for TypeScript, SQL, CSS, SVG and p5; the Python and JavaScript debuggers; the panels, consoles and palette | 69 to 71 (Opus), after 42 | DOCUMENTS_PLAN 23 |
+| 14 | Learnability measured on a fresh profile (time to a saved note, tour targets, help coverage, Guide answers, shortcut discovery) | 41 (Opus) | UI_MODERNISATION_PLAN 12z |
 
 ### After the bugs: the parity programme (the owner, 2026-10-10)
 

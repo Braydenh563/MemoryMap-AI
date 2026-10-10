@@ -272,6 +272,10 @@ with its owner named in the entry.
 
 ## Placed (last 20, newest first)
 
+- 2026-10-10: 748 placed in DOCUMENTS_PLAN 23, SESSION_BRIEFS Briefs 69 to
+  71 and CHAT_PLAN decision 57; 749 placed in UI_MODERNISATION_PLAN "12z
+  Learnability" and the existing programme sections.
+
 - 2026-10-07: 740, 746, 747 (connector arrows on rotated shapes, template
   connectors that do not follow, Reset style) placed in WHITEBOARD_PLAN.md,
   "Placed from INBOX, 2026-10-07".

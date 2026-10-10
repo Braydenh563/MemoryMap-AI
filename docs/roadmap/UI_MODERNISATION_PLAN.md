@@ -1371,6 +1371,23 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
 - "There needs to be more utility on all features app wide and more ui/ux cleansing"
   Recommendation: this is the Brief 41 refinement pass plus the Brief 38 topic and note-property work applied on every surface. Also carried by Brief 41 and Brief 38.
 
+### 12z Learnability, 2026-10-10 (INBOX 749)
+
+The owner asked for "learnability" by name; no plan measured it. Five
+numbers, each a Playwright run on a fresh profile, kept in
+`scratchpad/ui-sweeps/learn.js` and reported in Brief 41's five lines:
+
+| Measure | Today | Bar |
+| --- | --- | --- |
+| Time from first paint to a saved note, with no help opened | unmeasured | under 60 s |
+| Tour steps whose target is visible and non-empty (INBOX 745) | unmeasured | all |
+| Controls with a `data-help-for` popover, per surface | unmeasured | every control not self-describing |
+| Guide questions answered from `help_chat.py` for the twenty first-week tasks | unmeasured | 20 of 20 |
+| Keyboard shortcuts discoverable from the surface (a sheet or a tooltip) | unmeasured | all |
+
+Decision: learnability work is a row here, measured by these five, never a
+new plan; the first-run queue (Brief 37) and the Guide's topics carry it.
+
 ## Phase 13: the design review, every surface against the principles (Fable, 2026-10-10)
 
 The owner, 2026-10-10: "do the same thing for the apps design, learnability,

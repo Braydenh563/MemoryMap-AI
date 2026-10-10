@@ -1259,6 +1259,101 @@ is built, HISTORY.md. **Not verified:** the chat context's commands press
 controls in the chat dock, so a change there has to be measured against that
 dock rather than assumed.
 
+## 23. The code editor as an IDE: run, preview, test and debug (INBOX 748)
+
+Placed 2026-10-10. Section 21 and Brief 42 give the editor VS Code's
+everyday feel. The owner's ask goes past that: "a full debugger", "run and
+preview and test more than just python", "the python one needs a lot of
+improvements and extensions". What exists: `.js` runs in a worker and `.html`
+renders in a frame inside `/documents/run-sandbox` (`api/run_sandbox.py`);
+`.py` runs in the sandbox's Python twin once the Pyodide extra is installed
+(`core/extras.py`); output is a panel of rows under the editor, ten seconds
+and five hundred rows (`documents-code.js`, "Run, and its output"). No
+breakpoints, no stepping, no tests, no REPL, no TypeScript, SQL, CSS or SVG.
+
+**What VS Code has that matters here, and what cannot be had offline in a
+browser.** VS Code's debugger is a Debug Adapter Protocol client; the work is
+in the adapters, which are native processes. The app's rule (ROADMAP policy
+1: plain JS or WASM, offline, lazy, licence beside it) rules those out, and
+rules in two real debuggers: Python through `bdb` inside Pyodide, and
+JavaScript through an interpreter that steps. Both give the four views a
+debugger is (breakpoints, call stack, variables, watch) and the five actions
+(continue, step over, into, out, stop). Compiled languages (C, Rust, Go,
+Java, C#) do not run here and the panel says so in one line, as TypeScript's
+row does today.
+
+### Decisions made (do not re-decide)
+
+- D1. **One run protocol for every language**: `{kind, source, path, stdin,
+  tests}` in and `{row, level, line, col}` rows out, over `postMessage` to
+  the sandbox; a language is a module in `frontend/js/run/` that implements
+  `run`, optional `preview`, optional `test`, optional `debug`. The panel,
+  the Stop state and the limits are shared, never per language.
+- D2. **The Python debugger is `bdb` in the Pyodide worker**, not a
+  re-implementation: a `Bdb` subclass posts each stop (frame, line, locals,
+  globals, the stack) and blocks on `Atomics.wait` over a `SharedArrayBuffer`
+  until the main thread posts the next action. The sandbox pages therefore
+  carry `Cross-Origin-Opener-Policy: same-origin` and
+  `Cross-Origin-Embedder-Policy: require-corp`; `test_run_sandbox.py` checks
+  the headers. Breakpoints are `set_break`, conditions are evaluated there,
+  exceptions stop at the raise with the traceback, and the watch list is
+  evaluated in the stopped frame. Where `SharedArrayBuffer` is unavailable
+  (a webview without the headers), Run still works and Debug says why.
+- D3. **The JavaScript debugger is JS-Interpreter** (Neil Fraser, Apache-2.0,
+  ES5, about 150 KB minified, pure JS, no network), vendored under
+  `frontend/vendor/js-interpreter` with its licence and a `test_vendor_manifest`
+  row; ES2015 and later is first lowered by `sucrase` (MIT; measured before
+  vendoring, expected about 500 KB gzipped under 200 KB) where it can be,
+  and the panel names the construct it cannot step. Plain Run keeps the
+  worker's native engine; Debug uses the interpreter. Scripts that use the
+  DOM debug against a stub `document` and say so.
+- D4. **TypeScript runs**: `sucrase` strips the types (no checking) and the
+  row that said "does not compile" becomes "runs without type checking". The
+  same pass handles JSX for p5 and plain scripts.
+- D5. **SQL runs against SQLite in the browser**: `sql.js` (MIT, SQLite
+  compiled to WASM, about 1.3 MB, lazy, measured first) under
+  `frontend/vendor/sqljs`; a `.sql` document's Run shows each statement's
+  result as a table in the output panel, with an in-memory database per run
+  and a "load this CSV document as a table" action. Never the app's own
+  database.
+- D6. **Previews are a kind of run**: `.css` previews against a sample
+  document, `.svg` and `.md` render in the sandbox frame, `.html` as today,
+  the p5 kind (INBOX 735) runs in the frame with `p5.min.js`; every preview
+  refreshes on save and on a 400 ms idle when "Preview live" is on.
+- D7. **Tests are a kind of run**: Python runs `unittest` discovery over the
+  document (and `pytest` where the extra carries Pyodide's own pytest
+  wheel, measured and decided in Brief 69); JavaScript gets a 150-line
+  `describe`, `it`, `expect` harness of the app's own in the worker. The
+  Tests panel lists each test with its state, time and failure diff, and a
+  failing assertion is a diagnostic on its line in the editor.
+- D8. **Two consoles**: a Python REPL (Pyodide, the document's namespace
+  after a run) and a JavaScript REPL (the worker's global after a run), as
+  one panel tab beside Output, Problems, Tests and Debug. The panels are one
+  `.dock` recipe from DESIGN.md with a drag handle, remembered height and a
+  keyboard toggle each (Ctrl+J, Ctrl+Shift+M, Ctrl+Shift+Y, Ctrl+Shift+D).
+- D9. **The Python improvements are deterministic and local**: `ruff-wasm`
+  for lint and format (Brief 42 decides vendoring on its size), stdlib
+  completion from a generated table (`scripts/gen_python_completions.py`
+  over the vendored Pyodide's `inspect` at install time, not shipped),
+  signature help from the same table, `print` and `input` through the
+  panel (stdin is a field), matplotlib and numpy only if the extra ships
+  them (measured in Brief 69; not by default), and "Run selection" and
+  "Run cell" over `# %%` markers.
+
+### Phases
+
+| Phase | Brief | Deliverable | Measured by |
+| --- | --- | --- | --- |
+| I1 run, preview, test | 69 | D1 protocol, D4 TypeScript, D5 SQL, D6 previews, D7 tests, D9 Python | one sweep per kind in `scratchpad/ui-sweeps/code-run.js`; sizes gzipped per vendored file |
+| I2 the debugger | 70 | D2 Python, D3 JavaScript, the four views and five actions | a scripted debug session per language: breakpoint hit, step counts, a watched value, an exception stop |
+| I3 the IDE shell | 71 | D8 panels and consoles, command palette inside the editor, outline, breadcrumbs, go to symbol, split view, a keybindings sheet, the problems panel fed by every linter | palette commands count; keybindings sheet against VS Code's defaults, each one tested with Playwright |
+
+Help moves with each phase (standing order 13): the `data-help-for`
+popovers on Run, Debug and the panels, the Guide topic `code-run`, and
+`test_manual_parity.py`. Not verified until built: Pyodide's `bdb` under
+`Atomics.wait` inside this sandbox's policy, and whether the app's desktop
+webview honours the two headers.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

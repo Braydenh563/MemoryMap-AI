@@ -389,6 +389,30 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
     return _to_out(session, reminder)
 
 
+class WhenBody(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+    tz_offset_minutes: int | None = Field(default=None, ge=-840, le=840)
+
+
+@router.post("/when")
+def read_when(body: WhenBody) -> dict:
+    """A typed date or time ("next friday", "3pm") as wall-clock parts.
+
+    The date and time pickers' typed entry (UI_MODERNISATION_PLAN Phase 12
+    decision 5): `ai/when` reads it with no model, on the person's clock, and
+    nothing is made. 422 when the words are not a time.
+    """
+    from memorymap.ai import when
+
+    zone = timezone(timedelta(minutes=body.tz_offset_minutes or 0))
+    at = when.resolve(body.text, utcnow().astimezone(zone))
+    if at is None:
+        raise HTTPException(status_code=422, detail="I couldn't read a date or time from that.")
+    if at.tzinfo is not None:
+        at = at.astimezone(zone)
+    return {"date": at.strftime("%Y-%m-%d"), "time": at.strftime("%H:%M")}
+
+
 @router.post("/parse", status_code=201)
 def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_session)) -> dict:
     """Magic Add: parse natural language into a reminder and create it.

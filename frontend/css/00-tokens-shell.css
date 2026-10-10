@@ -4,7 +4,6 @@
    something to refract.
    Theming: light is the default; dark kicks in either from the OS
    preference or from the manual toggle (data-theme on <html>). */
-
 /* Native form-control chrome (a <select>'s popped-open option list, in
    particular) is drawn by the OS/browser, not this stylesheet, without
    `color-scheme` telling it which palette to use, it defaults to light
@@ -37,27 +36,22 @@
   inherits: false;
   initial-value: 24px;
 }
-
 @property --wb-grid-offset-x {
   syntax: "<length>";
   inherits: false;
   initial-value: 0px;
 }
-
 @property --wb-grid-offset-y {
   syntax: "<length>";
   inherits: false;
   initial-value: 0px;
 }
-
 :root {
   color-scheme: light;
 }
-
 :root[data-mode="dark"] {
   color-scheme: dark;
 }
-
 /* **`--accent-text`: the accent, when it is words** (INBOX 426, round 4;
    the decision: links and accent-coloured text use a text-safe token, the
    accent itself stays for fills). An accent is chosen for how it looks as
@@ -76,30 +70,25 @@
    token on none, lowest 4.71:1 (pure cyan picked, light, on a settings
    group's 224 grey). An accent already on the safe side keeps its
    lightness; only a very vivid one loses some chroma.
-
    The fallback is the accent itself, for an engine without relative colour
    syntax: a `var()` of a colour it could not parse would be invalid where
    it is used and paint nothing at all (CLAUDE.md section 5's trap). */
 :root {
   --accent-text: var(--accent);
 }
-
 @supports (color: oklch(from red l c h)) {
   :root {
     --accent-text: oklch(from var(--accent) min(l, 0.45) min(c, 0.16) h);
   }
-
   :root[data-mode="dark"] {
     --accent-text: oklch(from var(--accent) max(l, 0.8) min(c, 0.12) h);
   }
 }
-
 select option,
 select optgroup {
   background-color: var(--modal-bg);
   color: var(--ink);
 }
-
 :root {
   /* --- the spacing scale (§35L) --------------------------------------------
      Extracted, not invented. This file had 667 margin/padding/gap
@@ -108,12 +97,10 @@ select optgroup {
      measurable form of the reported problem: "the way spacing, alignment and
      margins of all the ui features in each tab aren't consistent and it
      changes each tab".
-
      The steps below are the modes of that distribution, so adopting them
      moved every off-scale value by at most 0.1rem, invisible on its own, and
      collectively the difference between elements that line up and elements
      that nearly do.
-
      Use these for new work. A raw rem in a margin, padding or gap is now the
      exception that should be explaining itself in a comment. */
   /* Density is one multiplier over the whole scale, not a set of overrides.
@@ -282,7 +269,6 @@ select optgroup {
      four and nothing else, which is what "make all the ui elements consistent"
      needs to be true by construction rather than by review. Each token is one
      of the four things that make a pane read as glass instead of tinted paint:
-
      --glass-filter   what happens to the page behind it. Blur plus a little
                       saturation so what shows through stays colourful.
                       `brightness` was here too and is gone on dark: it lifted
@@ -427,7 +413,6 @@ select optgroup {
      mature system (Apple HIG grouped lists, Material's tonal surfaces,
      Linear) does the opposite: **a line on the outermost surface only, and
      everything inside grouped by tone and whitespace.**
-
      --surface-1  the pane: .card, the modal, a popover. Glass, and the one
                   tier that may carry a hairline/rim.
      --surface-2  a group inside a pane: a settings group, a list row. A
@@ -453,7 +438,6 @@ select optgroup {
      precisely the texture the report called "a bunch of ai generated slop
      features joined together", because nothing quite lines up and no size
      means anything.
-
      Snapping moved nothing by more than 0.05rem, except 1.6→1.7rem. Sizes
      above 2.2rem are single hero elements and are left alone. */
   --text-xs: 0.7rem;
@@ -475,7 +459,6 @@ select optgroup {
      and its clock, the only users, were the largest type in the app and the
      first "demo" tell the owner named. Still a full step over --text-h2. */
   --text-display: 2.2rem;
-
   /* How tall the scrolling page area is, the viewport minus the top bar.
      Sidebars need this as a *definite* length: they are sticky, and a sticky
      box only scrolls internally if it has a height that does not depend on its
@@ -490,7 +473,6 @@ select optgroup {
      Anything sized against the window has to come through here for exactly
      that reason. */
   --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h));
-
   /* The page shell. One inset for every tab, see .tab-page. */
   /* The sidebar collapse toggle's own size, and the lane a heading row must
      leave clear for it: the toggle plus its inset plus a gap. Declared here so
@@ -520,13 +502,11 @@ select optgroup {
      the ui on the pages and the floating panels currently lose a lot of
      space… the ui needs to seemlessly adapt and perfect itself on any
      resolution and not just be squashed but still fit somehow."
-
      Measured before this: the gutter was a flat 32px at 1024, 1280, 1440
      *and* 1920, then dropped to 12.8px below one breakpoint. That is a step
      function, and it is exactly what "altered to try and fit" looks like
      from the inside: a 1024px laptop paid the same 64px of side margin as
      a 1920px monitor, out of a third of the horizontal room.
-
      `clamp` makes it continuous: it tracks the viewport between a floor
      that keeps content off the edge on a phone and the same 2rem ceiling on
      a wide screen, so nothing about the roomy case changes and every narrow
@@ -536,7 +516,6 @@ select optgroup {
      `--control-h` is a *strip's* declared height and is scoped per toolbar
      (see DESIGN.md); this is a global minimum that applies to a control
      wherever it sits, including the many that belong to no strip at all.
-
      Measured across six screens: `button.small`, the most-used control
      class in the app, rendered at 19, 24, 25, 26 and 30px depending only
      on whether it happened to hold an icon, a word, or both, because
@@ -544,7 +523,6 @@ select optgroup {
      heights for one class is the "assembled rather than designed" failure
      DESIGN.md's control-height section is about, at a larger scale than the
      four pixels that prompted it.
-
      1.75rem is 28px at the default root size, clearing WCAG 2.2 AA's 24px
      minimum target with room for a border. A `min-height`, not a `height`,
      so a strip that declares a taller `--control-h` still wins and a
@@ -568,7 +546,6 @@ select optgroup {
      by side on one row all take, so that a row of mixed control *types* is
      one row and not a staircase, reported as "ui elements are different
      heights" with a screenshot of an input at 45px beside a button at 28px.
-
      It was `--header-control-h`, but that lived on the header element, so
      every use of it outside the header silently resolved to nothing and the
      `min-height` that read it was dropped as invalid, measured that way
@@ -581,6 +558,10 @@ select optgroup {
      24px target floor with room; under a coarse pointer the 44px floor
      (`--target-min`) still governs. */
   --control-h-lg: 2rem;
+  /* Phase 12 decision 1: docks, toolbars and sub-menu bars are dense, a finger gets 40. */
+  --control-h-dense: 1.75rem;
+  --control-h-touch: 2.5rem;
+  --topbar-h: 2.75rem;
   /* The composers' own control height, one step above the strips (INBOX
      446 (5)): Capture, Write with AI, Ask, the note composer, a document's
      AI card and the reminder list bar act on what you write, and DESIGN.md
@@ -610,7 +591,6 @@ select optgroup {
      (TIMELINE_PLAN.md §6 asks for the rows to sit on the list-row tokens), and
      the next list that needs a row height reads it here rather than picking
      one.
-
      Taller than `--control-h-lg` because a row is not a control: at full
      density it holds a title over a snippet. It deliberately does **not**
      multiply by `--density`, for the reason the hit-target floor does not: a
@@ -664,10 +644,8 @@ select optgroup {
      plus the last card's own padding, so every page ended in a 40px band of
      nothing above the status bar. One number on all four edges. */
   --page-bottom: var(--page-gutter);
-
   /* How tall a sticky sidebar may be: the page, minus the page's own padding.
      Both ends of it.
-
      Three rules used to write this out by hand as
      `calc(var(--page-viewport) - var(--page-top) - var(--space-4))`, the top
      padding, and then a gap step standing in for the bottom one. `--space-4`
@@ -677,13 +655,11 @@ select optgroup {
      sidebar and then the notes sidebar, because it was never one sidebar's
      bug: it was one expression written three times with the same term
      missing.
-
      Named and derived, so the next sidebar cannot get it wrong and a change to
      the page's padding reaches all of them. This is the same argument
      `--page-viewport` itself makes one comment above; the lesson is that a
      `calc` repeated in three rules is a constant that has not been named yet. */
   --page-sticky-h: calc(var(--page-viewport) - var(--page-top) - var(--page-bottom));
-
   /* How tall the status bar is (§36D). Declared here rather than left to the
      bar's own content, because two kinds of thing need to agree with it and
      neither is inside it: the bar itself, and every `position: fixed` control
@@ -693,7 +669,6 @@ select optgroup {
      Not a spacing token: it is a component's size, the role --header-control-h
      and --control-h play for the header and the chat dock. */
   --status-bar-h: 2.3rem;
-
   /* How much room a scrolling list has to leave at its own bottom so its
      last row's own controls are not silently unclickable under
      `.scroll-top` (the fixed back-to-top button, bottom-right on every
@@ -706,7 +681,6 @@ select optgroup {
      edge, directly under the button sitting on top of it, geometry a
      screenshot does not show because the button is *supposed* to float
      there.
-
      **INBOX 33 shrank this and made it conditional.** The original formula
      added `.scroll-top`'s full viewport-relative offset (`--status-bar-h`
      plus a gap) on top of its own height and a second gap: correct for how
@@ -722,7 +696,6 @@ select optgroup {
      `body.scroll-top-visible` says the button is actually on screen to
      clear (navigation.js's `initScrollTopButton`). */
   --scroll-top-clearance: calc(2.75rem + var(--space-4));
-
   /* How much of the window the on-screen keyboard is currently covering
      (UI_MODERNISATION_PLAN.md Phase 9). Zero here and written by app.js from
      `visualViewport` while a keyboard is open, the two bottom docks you
@@ -737,11 +710,9 @@ select optgroup {
      CLAUDE.md: a value that is invalid where it is *used*, not where it is
      set, does its damage nowhere near the code that caused it. */
   --keyboard-inset: 0px;
-
   /* Everything that can sit under a strip at the bottom of a card, as one
      length: the keyboard above, and the home indicator. Named because it was
      spelled out three times and the third spelling was the one that lost.
-
      `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets `padding-block`
      at (0,2,0) and beat the `.doc-toolbar` rule in 07 that carries this sum
      at (0,1,0): specificity beats file order, so the formatting strip read
@@ -750,14 +721,12 @@ select optgroup {
      shown and the covered strip stubbed at 336px: expanded, 6.4px to
      342.4px; collapsed, 4px to 4px. Both of those bars are strips you type
      at, and a keyboard covers a collapsed one exactly as thoroughly.
-
      So each rule now states its own base term and adds this, and a fourth
      bottom dock is one `calc` rather than a fourth chance to get the sum
      wrong. `env(safe-area-inset-bottom, 0px)` keeps its fallback because it
      is the platform's property, not a token this stylesheet declares, and
      `test_style_scale.py`'s no-fallback rule is about the latter. */
   --dock-bottom-inset: calc(var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
-
   --radius: 14px;
   /* --- the corner scale (§35L) ---------------------------------------------
      Three tiers derived from --radius, which is the slider in Settings →
@@ -766,7 +735,6 @@ select optgroup {
      that slider did. So choosing square corners squared the cards and left
      every chip, popup and button rounded, and adjacent surfaces at 8px and
      10px read as belonging to different applications.
-
      The multipliers are picked so that at the default 14px each tier lands
      within a pixel of the value it replaced (4.2, 8.4, 11.2): so this
      changes almost nothing today and makes the whole interface respond to
@@ -802,7 +770,6 @@ select optgroup {
      strip, INBOX 683 sweep). */
   --radius-in-md: max(var(--radius-sm), calc(var(--radius-md) - var(--space-1)));
   --radius-in-choice: max(var(--radius-md), calc(var(--radius-choice) - var(--space-1)));
-
   /* --- aliases for a second set of token names (audit of §40) ---------------
      Twenty-three declarations across the newer components reached for names
      from a different vocabulary, `--card-bg`, `--glass-bg`, `--text`, `--bg`,
@@ -812,7 +779,6 @@ select optgroup {
      nothing, borders that drew nothing, shadows that cast nothing. Nothing
      complained, because a stylesheet has no way to say "I meant a token that
      exists", hence the new lint in test_style_scale.
-
      Aliased rather than rewritten at all twenty-three sites: the names are
      reasonable and someone will reach for them again, and pointing them at the
      real tokens makes them theme-aware for free, in all twelve palettes. */
@@ -844,7 +810,6 @@ select optgroup {
   --sw-card: var(--card);
   --sw-border: var(--border);
   --sw-accent: var(--accent);
-
   /* The width a collapsed sidebar springs back to when you hover it. JS
      overrides this per-sidebar (`applySidebarWidth` sets it on the element
      from the saved width), but the default belongs here: written only as a
@@ -852,7 +817,6 @@ select optgroup {
      for every sidebar the user had never dragged, and nothing in the
      stylesheet said so. */
   --saved-width: 280px;
-
   /* The label column of a settings row (`.setting-label`, and the wider
      variant Search relevance needs for "Minimum similarity"). Named so every
      row in a group lines its control up on the same edge -- measured before
@@ -862,7 +826,6 @@ select optgroup {
   --form-label-col: 9rem;
   --form-label-col-wide: 11rem;
   /* pills and round buttons.
-
      14px, not 18px. Blur radius is the exponential term in a
      backdrop-filter's cost, and the published band worth staying inside is
      8-15px; this app renders 15-35 blurred layers on a tab (measured, see
@@ -886,7 +849,6 @@ select optgroup {
      directly ("can you make the sheen strength adjustable??"), the same day
      the sheen itself shipped. */
   --glass-sheen-strength: 1;
-
   /* Fallback mode when glass is turned off. Overrides the semi-transparent
      backgrounds and borders with solid colours so contrast holds up without
      the blur behind it. */
@@ -895,7 +857,6 @@ select optgroup {
   --fallback-inner: #f8f9fa;
   --fallback-modal: #ffffff;
 }
-
 /* Interface animations off: the polish is instant (the tokens above). */
 :root[data-ui-motion="off"] {
   --ui-fast: 0s;
@@ -904,9 +865,7 @@ select optgroup {
   --ui-exit: 0s;
   --ui-step: 0s;
 }
-
 /* Base application of Appearance settings.
-
    **`file` and `hidden` are excluded, and this rule is why a borderless
    control can grow a 3px border out of nowhere.** `border: none`, whether
    the app writes it or the browser's own stylesheet does, which it does for
@@ -916,14 +875,12 @@ select optgroup {
    does, and `medium` reappears: 3px, in whatever colour `border-color`
    happens to inherit, on an element every stylesheet involved believes has
    no border.
-
    Reported as the popup agent's input looking wrong; measured there as
    `3px solid rgb(205, 213, 224)` while its own rule said `border: none`. A
    sweep of the seven tabs, the palette and five Settings sections for the
    3px fingerprint found fifteen elements carrying it, the palette's
    textarea and the file pickers on the Data settings page being the ones a
    person can actually see.
-
    `hidden` never renders, so it is excluded for tidiness rather than effect;
    `file` is the one that mattered. The list is otherwise unchanged: an
    element that *does* draw a border still tracks the Appearance setting,
@@ -941,7 +898,6 @@ select,
 .sidebar {
   border-style: var(--border-style) !important;
 }
-
 /* Dark palette. CSS has no variables-for-variables, so the block
    appears twice: once for the manual toggle, once for the OS default. */
 :root[data-mode="dark"] {
@@ -962,7 +918,6 @@ select,
      dark but idk if thats an actual thing or if the values are different".
      Measured (`scratchpad/ui-sweeps/shadowpref.js`), and two of the values
      really are different in ways nothing intended:
-
        - `--shadow-sm` had **no dark value at all**. It is declared once, in
          the alias block, as `rgba(31, 38, 135, ...)`, a blue-violet ink that
          reads on white paper and is invisible on a #0e1017 page, so the whole
@@ -973,7 +928,6 @@ select,
          `--shadow-lg` with it; dark's were byte-identical at both settings,
          because these were literals rather than multiples of the token the
          slider writes.
-
      The literals are kept exactly, as multiples of `--shadow-intensity` that
      land on them at its 5% default (7x, 8.4x, 11x), so nothing about the
      default look changes and the control now reaches both modes. The inks
@@ -1023,7 +977,6 @@ select,
   --divider: rgba(255, 255, 255, 0.08);
   --glass-specular: rgba(255, 255, 255, 0.14);
 }
-
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
@@ -1044,7 +997,6 @@ select,
        dark but idk if thats an actual thing or if the values are different".
        Measured (`scratchpad/ui-sweeps/shadowpref.js`), and two of the values
        really are different in ways nothing intended:
-
          - `--shadow-sm` had **no dark value at all**. It is declared once, in
            the alias block, as `rgba(31, 38, 135, ...)`, a blue-violet ink that
            reads on white paper and is invisible on a #0e1017 page, so the whole
@@ -1055,7 +1007,6 @@ select,
            `--shadow-lg` with it; dark's were byte-identical at both settings,
            because these were literals rather than multiples of the token the
            slider writes.
-
        The literals are kept exactly, as multiples of `--shadow-intensity` that
        land on them at its 5% default (7x, 8.4x, 11x), so nothing about the
        default look changes and the control now reaches both modes. The inks
@@ -1104,14 +1055,11 @@ select,
     --glass-specular: rgba(255, 255, 255, 0.14);
   }
 }
-
 * {
   box-sizing: border-box;
 }
-
 /* **A theme switch is one repaint** (INBOX 202, the owner: "switching between
    light and dark mode is realllly glitchy and takes a bit to load").
-
    Measured (`scratchpad/ui-sweeps/chrome202.js`): a click on the theme button
    starts 24 CSS transitions, on background-color and the four border colours,
    at 120ms, 160ms and 200ms depending on which rule each surface took its
@@ -1121,7 +1069,6 @@ select,
    three speeds, over a ground that is itself mid-transition, with 79
    `backdrop-filter` surfaces re-compositing against it. That is what reads as
    glitchy.
-
    `settings.js` (`repaintThemeAtOnce`) holds this class for the two frames it
    takes to apply and paint the new values, so the window changes in one step
    and the transitions are back before anything else can want one.
@@ -1132,7 +1079,6 @@ select,
 :root.theme-switching *::after {
   transition: none !important;
 }
-
 /* The glass backdrop lives on <html>, not <body>, so the optional
    generative-art canvas (a fixed, z-index:-1 child of <body>) can sit
    between the gradient and the app content (Wave J). */
@@ -1152,24 +1098,20 @@ html {
     var(--page);
   background-attachment: fixed;
 }
-
 /* --- the scroll container (§36A) --------------------------------------------
    The window used to be the scrolling element, and the header sat on top of it
    with `position: sticky`. So the page scrollbar ran the full height of the
    viewport, starting at pixel zero, behind the top bar, and the two visibly
    collided (screenshotted).
-
    The fix is structural rather than cosmetic: the window does not scroll at
    all now. `body` is exactly one viewport tall and lays its children out in a
    column; the header takes the height it needs and the visible page takes the
    rest, with its own scrollbar. The scrollbar therefore begins where the
    content begins, below the header, which is what was asked for.
-
    This is also the prerequisite for anything sticky *inside* a page (§36A's
    chat headers): sticky positioning resolves against the nearest scrolling
    ancestor, and while that was the window, a header inside a page could not
    stick to the top of the page.
-
    Safe because every other direct child of <body>, the lock screen, all seven
    modal overlays, the toast box, the skip link, is `position: fixed`, so none
    of them is in this flex column. */
@@ -1183,7 +1125,6 @@ html {
    notebook it throws away the whole session, and the arrows that appear are
    the browser's, not this app's, so there is nothing in here to make them
    behave.
-
    `overscroll-behavior-x: none` is the declaration that turns that gesture off
    - it has to be on the root as well as the body, because the propagation the
    gesture rides is from the viewport. Vertical overscroll is left alone: pull-
@@ -1193,7 +1134,6 @@ html {
 html {
   overscroll-behavior-x: none;
 }
-
 body {
   overscroll-behavior-x: none;
   margin: 0;
@@ -1215,7 +1155,6 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
-
 /* **A link is the accent, everywhere, unless something says otherwise.**
    There was no base rule, so every plain `<a>` (Settings' "Get it from
    ollama.com", help text, rendered answers without their own class) drew in
@@ -1226,16 +1165,13 @@ body {
   color: var(--accent-text);
   text-underline-offset: 0.15em;
 }
-
 :where(a):hover {
   text-decoration-thickness: 2px;
 }
-
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
 :root[data-font="serif"] {
   --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
 }
-
 /* `monospace` (the final fallback) resolves to whatever the OS/browser
    picks when none of the named fonts above it are installed, in one
    sandbox this project has tested in, that resolution visually glitched a
@@ -1247,41 +1183,32 @@ body {
 :root[data-font="mono"] {
   --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
 }
-
 :root[data-font="arial"] {
   --ui-font: Arial, Helvetica, sans-serif;
 }
-
 :root[data-font="georgia"] {
   --ui-font: Georgia, serif;
 }
-
 :root[data-font="times"] {
   --ui-font: "Times New Roman", Times, serif;
 }
-
 :root[data-font="verdana"] {
   --ui-font: Verdana, Geneva, sans-serif;
 }
-
 :root[data-font="tahoma"] {
   --ui-font: Tahoma, Geneva, sans-serif;
 }
-
 :root[data-font="trebuchet"] {
   --ui-font: "Trebuchet MS", Helvetica, sans-serif;
 }
-
 :root[data-font="helvetica"] {
   --ui-font: Helvetica, Arial, sans-serif;
 }
-
 /* --- Sans-serif system font override (macOS fix) --- */
 /* Force a sans-serif font on the entire page to fix the “italic bug” on macOS */
 :root {
   --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-
 /* Ambient background art: behind everything, ignores clicks (Wave J). */
 .bg-art-canvas {
   position: fixed;
@@ -1291,30 +1218,15 @@ body {
   width: 100vw !important;
   height: 100vh !important;
 }
-
 /* Wave L rework: one compact, sticky top bar, brand · tabs · controls.
    The old two-row header + tab strip spent ~120px before any content. */
 header#top-bar {
-  /* One height for every control in the bar, the tabs, the theme toggle, the
-     lock, Settings and Quit. Not a spacing token, for the same reason
-     `--control-h` in the chat dock is not one: a hit target is a control's own
-     size, and snapping it to a gap step would make it drift with the density
-     setting. 2rem is what the header buttons already were, so this levels the
-     others up to the value the majority already used rather than moving
-     everything.
-
-     **Raised from 2rem to 2.25rem.** Reported: "the buttons and spaces
-     elements in the top bar are too small". 32px is the WCAG-ish floor, not
-     a comfortable size for the app's most-used row: the tab you switch with
-     all day and the five icon buttons beside it. 36px reads as deliberate
-     rather than cramped, still leaves the bar shorter than its 3.7rem
-     height, and every control in the bar moves together because they all
-     read this one token. */
-  /* **One height for everything in the bar** (INBOX 465, the owner: "make
-     all the elements in the top bar consistent in size and height"): the
-     tab strip's, 36px tabs in their 4px well. Measured before: logo 34,
-     space picker 32, tab strip 44, the five icon buttons 32. */
-  --header-control-h: calc(var(--control-h-body) + 0.5rem);
+  /* **One height for everything in the bar** (INBOX 465): 36px squares and
+     the tab strip's 36px well, in a 44px bar (Phase 12 decision 1, the owner
+     2026-10-10: "the topbar is a little large"; measured 64 before, with 44px
+     squares and a 44px strip). Not a spacing token: a hit target does not
+     move with density. */
+  --header-control-h: var(--control-h-body);
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */
@@ -1346,7 +1258,8 @@ header#top-bar {
      inline the two bands disagreed about the *bottom*, 0.6rem above the
      logo and 0.4rem below it, on a phone, from two rules that each looked
      right on its own. */
-  --header-pad-y: var(--space-4);
+  /* Phase 12: the bar is 44 (`--topbar-h`, was 64); the padding is what is left. */
+  --header-pad-y: max(2px, calc((var(--topbar-h) - var(--header-control-h) - 1px) / 2));
   --header-pad-x: var(--page-gutter);
   padding: var(--header-pad-y) var(--header-pad-x);
   background: var(--card);
@@ -1357,7 +1270,6 @@ header#top-bar {
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
-
 /* The wordmark is the first thing that may go: it is decoration next to the
    tabs, and reclaiming it buys a whole tab's worth of room. */
 header#top-bar h1 {
@@ -1374,7 +1286,6 @@ header#top-bar h1 {
      fixed, and either fully readable or, below the mobile breakpoint, gone. */
   flex: 0 0 auto;
 }
-
 /* The header gives up space in a deliberate order as the window narrows:
    the wordmark first (decoration), then the status pill (its text is
    duplicated in Settings), then tab padding, and only then do tabs scroll.
@@ -1390,13 +1301,11 @@ header#top-bar h1 {
     --header-pad-x: var(--space-6);
   }
 }
-
 /* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
    were still hiding the app's own name on ordinary windows, which was
    reported twice. It is not decoration, it is what tells you which app this
    is: so it now survives to the mobile breakpoint, where the header becomes
    a different shape anyway.
-
    This is only safe because the tab strip can shrink (see the base `#tab-bar`
    rule). Before that, keeping the wordmark meant the header overflowed itself
    by up to 215px and pushed the controls out of the window; now the tabs
@@ -1407,24 +1316,20 @@ header#top-bar h1 {
     padding-inline: var(--space-5);
   }
 }
-
 @media (max-width: 940px) {
   header#top-bar {
     gap: var(--space-4);
   }
-
   #tab-bar button {
     padding-inline: var(--space-4);
     font-size: 0.92rem;
   }
 }
-
 @media (max-width: 599.98px) {
   header#top-bar h1 {
     display: none;
   }
 }
-
 /* The wordmark gives way before the tabs do (INBOX 465): with every control
    at the bar's one 44px height the strip wrapped to a second row at 1280.
    The logo stays, so the bar still says whose it is; the name is in the
@@ -1433,17 +1338,14 @@ header#top-bar h1 {
   header#top-bar h1 {
     display: none;
   }
-
   /* And the tabs' sides close in by a step (16px to 12px a side, the 36px
      height and 16px labels kept): 1280 was still 56px short of one row. */
   header#top-bar #tab-bar button {
     padding-inline: var(--space-5);
   }
 }
-
 /* When the tabs really do scroll, say so with a fade at the edge instead of
    letting a label look chopped off.
-
    This used to live in a `max-width: 820px` media query that also tried to
    set `flex: 0 1 auto`. The flex never applied: the base `#tab-bar` rule
    below declares `flex` too and sits ~70 lines LATER at equal specificity,
@@ -1452,17 +1354,14 @@ header#top-bar h1 {
    `.header-controls` was crushed to 76px around 201px of buttons, which is
    the desktop window's controls sitting over the wordmark that was reported.
    The shrink now lives on the base rule, where nothing overrides it.
-
    The fade is driven by a class rather than a width range, because a width
    range is the wrong test: whether the tabs scroll depends on the pill's
    current text and the wordmark as much as on the window, so any fixed
    breakpoint both faded a tab bar that fitted and left a scrolling one
    looking chopped off. syncTabOverflowFade measures it instead.
-
    **Reported, and it was two mistakes in one rule:** "the reminders tab in
    the top bar is partially faded out on the right." Reminders is the last
    tab, so it wore the whole of both.
-
    1. The fade said "the bar scrolls", not "there is more that way". Once you
       had scrolled to the end, or when the overflow was a handful of pixels , 
       the last tab was dimmed with nothing hidden behind it, which reads as a
@@ -1476,13 +1375,11 @@ header#top-bar h1 {
      unreadable behind it. */
   --tab-fade: 1.5rem;
 }
-
 /* When the seven tabs cannot fit beside the wordmark and the header buttons,
    they take a row of their own rather than scrolling out of reach. Photographed
    on a real window: "Dashboard" clipped to "oard" against the left edge.
    Fading that edge says the tab is there; it does not make it readable, and a
    nav you have to drag sideways is a nav people stop using.
-
    **This is not the wrap that was reported broken.** The header used to wrap
    *itself*, and because `.header-controls` carries `margin-left: auto` the
    controls were what dropped, to a second row, pinned right, at almost every
@@ -1494,7 +1391,6 @@ header#top-bar.tabs-wrapped {
   flex-wrap: wrap;
   row-gap: 0;
 }
-
 /* **The row is broken by an empty line, so the well can hug its tabs**
    (INBOX 479). The strip used to take the row by being 100% wide, which drew
    its inset well across the whole window: at 820, 788px of well round 430px
@@ -1507,7 +1403,6 @@ header#top-bar.tabs-wrapped::after {
   flex-basis: 100%;
   height: 0;
 }
-
 header#top-bar.tabs-wrapped #tab-bar {
   order: 3;
   flex: 0 0 auto;
@@ -1516,7 +1411,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin-inline: auto;
   margin-top: 0.5rem;
 }
-
 /* Generic version of the same edge-fade `#tab-bar` uses, for every other
    horizontally-scrolling tab strip (Notes sub-tabs, Library sub-tabs, the
    document sidebar's tabs): same reasoning: a tab a phone/tablet width
@@ -1528,41 +1422,34 @@ header#top-bar.tabs-wrapped #tab-bar {
 .edge-fade {
   --tab-fade: 1.5rem;
 }
-
 .edge-fade.fade-end {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
   mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
 }
-
 .edge-fade.fade-start {
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
   mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
 }
-
 .edge-fade.fade-start.fade-end {
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
       #000 calc(100% - var(--tab-fade)), transparent 100%);
   mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
       #000 calc(100% - var(--tab-fade)), transparent 100%);
 }
-
 #tab-bar.fade-end {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
   mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
 }
-
 #tab-bar.fade-start {
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
   mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
 }
-
 #tab-bar.fade-start.fade-end {
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
       #000 calc(100% - var(--tab-fade)), transparent 100%);
   mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
       #000 calc(100% - var(--tab-fade)), transparent 100%);
 }
-
 .header-controls {
   display: flex;
   gap: 0.5rem;
@@ -1584,7 +1471,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      The tab strip is what gives up space now, by scrolling. */
   flex: 0 0 auto;
 }
-
 /* The buttons keep their size; only the pill beside them collapses. And they
    are the same height as the tabs, which is the whole point of
    `--header-control-h`, see the note on it above. */
@@ -1594,7 +1480,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding-block: 0;
   margin: 0;
 }
-
 /* Live "what is the AI doing?" indicator.
    Its text changes as status polls land ("checking…" → "word search on · AI
    search unavailable"), and every change used to re-lay-out the header: the
@@ -1606,7 +1491,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    header for a message that reads "AI ready" almost all the time. That slot
    was most of what squeezed the tabs and the wordmark. It is now a dot: a
    colour AND a glyph, with the sentence on hover, focus or click.
-
    The glyph is not decoration. Colour alone fails for anyone with a colour
    vision deficiency and in high-contrast mode, so ✓ / ! / ✕ carries the same
    meaning the green / amber / red does. */
@@ -1616,7 +1500,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   align-items: center;
   flex: 0 0 auto;
 }
-
 .ai-status {
   /* Square by construction. `aspect-ratio` alongside the explicit height means
      the circle survives anything that changes one dimension without the other
@@ -1639,7 +1522,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-height: 1;
   box-shadow: none;
 }
-
 .ai-status-dot {
   font-size: 0.8rem;
   font-weight: 700;
@@ -1653,7 +1535,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      a 28px dot: 0.17em at this font size. */
   /* transform: translateY(0.17em); */
 }
-
 /* The "checking" state's three dots (status.js), drawn rather than typed so
    they sit in the exact middle of the dot (INBOX 435). The ellipsis this
    replaced rode the baseline and was lifted by a font-tuned translate that
@@ -1663,12 +1544,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   height: 0.25em;
   background: radial-gradient(circle, currentColor 0.11em, transparent 0.13em) 0 50% / 0.34em 100% repeat-x;
 }
-
 .ai-status[data-level="idle"] {
   background: var(--chip-bg);
   color: var(--muted);
 }
-
 /* No model connected (INBOX 472): the supported way to run, so neutral. The
    glyph is the AI sparkle with a slash (INBOX 656, `aiOffGlyph` in
    status.js), a block so the grid centres its box exactly. */
@@ -1676,31 +1555,25 @@ header#top-bar.tabs-wrapped #tab-bar {
   background: var(--chip-bg);
   color: var(--muted);
 }
-
 .ai-off-glyph {
   display: block;
 }
-
 .ai-status[data-level="ok"] {
   background: var(--ok-soft);
   color: var(--ok);
 }
-
 .ai-status[data-level="warn"] {
   background: var(--warn-soft);
   color: var(--warn);
 }
-
 .ai-status[data-level="error"] {
   background: var(--error-soft);
   color: var(--error);
 }
-
 .ai-status:hover,
 .ai-status:focus-visible {
   border-color: currentColor;
 }
-
 /* The message. It now hangs *upward* from the dot, because the dot moved to
    the status bar at the foot of the window (§36D): anchored below, it would
    open off the bottom of the screen every time.
@@ -1732,7 +1605,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   pointer-events: none;
   transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast) var(--ease-out);
 }
-
 .ai-status-wrap:hover .ai-status-popup,
 .ai-status:focus-visible+.ai-status-popup,
 .ai-status-popup.pinned {
@@ -1740,51 +1612,42 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 1;
   pointer-events: auto;
 }
-
 .ai-status-popup strong {
   color: var(--ink);
 }
-
 .ai-status-detail {
   color: var(--muted);
   /* The embedding error is a real multi-line message. */
   white-space: pre-line;
   line-height: 1.45;
 }
-
 /* --- optional extras (Settings) ---------------------------------------------- */
 .extras-list {
   list-style: none;
   margin: var(--space-5) 0 0;
   padding: 0;
 }
-
 .extras-row {
   padding: var(--space-5) 0;
   border-top: 1px solid var(--divider);
 }
-
 .extras-row:first-child {
   border-top: none;
 }
-
 .extras-enables {
   margin: var(--space-2) 0 0;
   font-size: var(--text-md);
 }
-
 .extras-meta {
   margin: var(--space-1) 0 0;
   font-size: var(--text-sm);
   font-family: var(--mono, ui-monospace, monospace);
 }
-
 .extras-caveat {
   margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
   color: var(--warn);
 }
-
 /* The action column sits at the row's right edge instead of trailing the
    title, so every row's buttons share one left edge however long its name is
    -- the badges no longer have to act as the spacer between the two. */
@@ -1802,12 +1665,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-wrap: nowrap;
   align-items: flex-start;
 }
-
 /* (The first `.extras-row .entry-title` and `.entry-actions` rules that
    stood here were folded into the two below, which overrode every value
    they set but `margin: 0` and `flex: 0 0 auto`: same result, fewer bytes
    in the boot stylesheet, INBOX 595.) */
-
 /* The name and its "Installed"/"Not ready yet" chip are one flex item, not
    two. Reported: "there are also still wrapping issues in the packages tab
    with the buttons, titles, and badges" -- measured on the Tesseract row
@@ -1843,7 +1704,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      2026-10-05): a one-line name sat 5px above the centre of Install. */
   min-height: var(--control-h-lg);
 }
-
 .extras-row .entry-actions {
   flex: 0 0 auto;
   margin-left: auto;
@@ -1861,7 +1721,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-
 /* The install-in-progress state: a step description over a progress bar,
    right-aligned like every other row action. Its own class rather than
    inline styles: the CSP's `style-src: 'self'` (no unsafe-inline) blocks
@@ -1874,7 +1733,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   align-items: flex-end;
   gap: 0.25rem;
 }
-
 .extras-install-progress-text {
   font-size: 0.8rem;
   max-width: 15rem;
@@ -1882,12 +1740,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .extras-install-progress-bar {
   width: 10rem;
   margin: 0;
 }
-
 /* An extra the app cannot use yet. The whole row is dimmed, not just its
    button: the point is that this is a row you can read and not act on, and
    dimming only the control leaves a full-brightness description of a feature
@@ -1896,15 +1752,12 @@ header#top-bar.tabs-wrapped #tab-bar {
 .extras-row:has(.extras-soon) {
   opacity: 0.62;
 }
-
 .extras-row:has(.extras-soon) .extras-caveat {
   opacity: 1;
 }
-
 .extras-soon {
   cursor: default;
 }
-
 /* Tick and name, one group: the name wraps beside its tick (INBOX 595). */
 .extras-name {
   display: flex;
@@ -1912,12 +1765,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-3);
   max-width: 100%;
 }
-
 .extras-name > strong {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-
 /* --- the Library (§4, §36F) --------------------------------------------------
    §36F set this tab a test as well as a job: *"the test of whether §35L
    actually holds: if a new tab built from the tokens still needs its own
@@ -1927,7 +1778,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    each the way DESIGN.md's control-strip rule requires. The one number that is
    not a token is the card grid's minimum column, which is a *layout* decision
    about how much text a card must fit rather than a step on a spacing scale.
-
    A library is for **finding something you made**, which is a different job
    from the Notes tab's "work with what I have", hence bigger units, more
    metadata on each, and the controls at the top instead of down the side. */
@@ -1943,11 +1793,9 @@ header#top-bar.tabs-wrapped #tab-bar {
      the fractional case away entirely. */
   --control-h: var(--control-h-lg);
 }
-
 /* **Every Library sub-tab's header row is one height now.** Reported: "the
    button elements in the top row of each library subtab are all different
    sizes and proportions between tabs?? it needs to remain consistent."
-
    Measured across all seven, and it was worse than tab-to-tab drift: the
    Documents, Skills, Contents and All headers rendered their controls at 28px,
    Boards and the Documents list at 32px, and the media headers had **both
@@ -1955,7 +1803,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    button's height fell out of whichever class it happened to carry, so
    `button.small` gave 28 (the `--target-min` floor) and a plain `button` gave
    32, in the same strip.
-
    `--control-h` is borrowed from `.library-toolbar` deliberately rather than
    picking a third number: the toolbar sits directly beneath this row inside
    the same card, and a header at one height above a toolbar at another is the
@@ -1979,13 +1826,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   min-height: var(--control-h);
   align-items: center;
 }
-
 /* The sizing rule that used to sit here moved to 07-whiteboard-misc.css. It is
    the same selector, and it had to move for cascade order: this is the *first*
    stylesheet, so `.library-head button` at (0,1,1) tied with every
    `button.small` / `button.ghost.graph-help-toggle` rule in the later files and
    lost the tie to source order, measured, four controls stayed at 32px. */
-
 /* --- the overview strip ------------------------------------------------------
    A management screen opens with the state of the thing it manages. Each tile
    is a filter, which is what keeps it from being decoration, the same test
@@ -1996,13 +1841,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
-
 .library-overview-note {
   flex-basis: 100%;
   margin: 0;
   font-size: var(--text-sm);
 }
-
 /* --- the strips that appear only when they apply ---------------------------- */
 .library-contextbar {
   display: flex;
@@ -2016,11 +1859,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   background: var(--accent-soft);
   font-size: var(--text-md);
 }
-
 .library-contextbar.hidden {
   display: none;
 }
-
 /* --- `.selectbar`: the bar stays with you while the selection does ----------
    INBOX 165, verbatim: "I want the selected bars to be sticky to the top of
    the screen when scrolling". Reported against the Library's own "1 selected,
@@ -2030,13 +1871,11 @@ header#top-bar.tabs-wrapped #tab-bar {
    before, with `scratchpad/ui-sweeps/selstick.js`: the Notes bar started at
    y=212 and was at y=-465 with the list scrolled to its end, 677px of scroll
    putting the whole bar out of reach.
-
    One class for every one of them, and it is the whole recipe (DESIGN.md,
    "A bar of actions for the things you have selected"): the Library's five
    bars, the Notes list's `#batch-bar` and the timeline table's own, which
    were a bare `.row` and now wear the same accent-bordered strip as the
    rest. A selection is a selection wherever you make it.
-
    **The ground is stacked, not tinted, and that is the bug this recipe has
    already been through once.** `--accent-soft` is a 14% wash (20% in dark):
    at rest it sits on a card and reads as a tint, but a sticky bar has the
@@ -2045,7 +1884,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    this, "the bar is clear so it is hard to see", and its answer is the one
    taken here: the tint stacked over an opaque base, so the resting tone is
    unchanged and the strip is never see-through.
-
    **`top` is a token, because two sticky things in one scroller park in the
    same band.** Commit 27167e3 records the cost of missing it: the note
    editor's formatting bar and the Notes sub-tab strip both took `top: 0` in
@@ -2055,7 +1893,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    Library's sections are their own scrollers, the strip is a sibling above
    them, so nothing is above the section's own top edge), and `#tab-notes`
    sets it to the strip height `initNotesSubtabHeightToken` already measures.
-
    The z-index is one below the sub-tab strips' 20 for the same reason the
    formatting bar is: the strip is navigation and belongs on top. */
 :root {
@@ -2064,7 +1901,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      are each their own scroller and the strip is a sibling above them. */
   --selectbar-top: 0px;
 }
-
 .selectbar {
   position: sticky;
   top: var(--selectbar-top);
@@ -2073,7 +1909,6 @@ header#top-bar.tabs-wrapped #tab-bar {
     linear-gradient(var(--accent-soft), var(--accent-soft)),
     var(--modal-bg-opaque);
 }
-
 /* The bar that stops below the Notes sub-tab strip. `--notes-sticky-top` is
    written onto this page by `initNotesSubtabHeightToken` (phone-shell.js) and carries
    the strip's measured height plus its bottom margin; the `0px` that stylesheet
@@ -2081,35 +1916,29 @@ header#top-bar.tabs-wrapped #tab-bar {
 #tab-notes {
   --selectbar-top: var(--notes-sticky-top);
 }
-
 .library-contextbar-end {
   display: flex;
   gap: var(--space-2);
   margin-left: auto;
 }
-
 .library-contextbar button {
   height: var(--control-h);
   margin: 0;
   padding-block: 0;
 }
-
 .library-selected-count {
   font-weight: 600;
 }
-
 .library-view button {
   height: var(--control-h);
   margin: 0;
   padding-block: 0;
 }
-
 /* A label and the control it names are one thing, so they sit closer to each
    other than to anything else in the row. */
 .library-sort {
   margin: 0;
 }
-
 .library-search {
   flex: 1 1 16rem;
   /* `min-width: 0` let this shrink to a sliver with no visible placeholder
@@ -2128,26 +1957,22 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: 0;
   padding-block: 0;
 }
-
 .library-sort {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-md);
 }
-
 .library-sort select {
   height: var(--control-h);
   margin: 0;
   padding-block: 0;
 }
-
 .library-filters {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-
 .library-chip {
   display: inline-flex;
   align-items: center;
@@ -2169,25 +1994,21 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
   font-weight: 500;
 }
-
 @media (hover: hover) {
   .library-chip:hover {
     background: var(--ghost-btn-bg);
     color: var(--ink);
   }
 }
-
 .library-chip.active {
   background: var(--accent-surface);
   border-color: var(--accent);
   color: var(--on-accent);
   font-weight: 600;
 }
-
 :root[data-mode="dark"] .library-chip.active {
   color: #0e1017;
 }
-
 .library-chip-count {
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
@@ -2196,11 +2017,9 @@ header#top-bar.tabs-wrapped #tab-bar {
      chip's count keeps the chip's own on-accent colour. */
   color: var(--muted);
 }
-
 .library-chip.active .library-chip-count {
   color: inherit;
 }
-
 /* Activity answers "what did I do", not "what kind of thing is this", the
    other ten chips all filter by kind, so it sat among them looking like an
    eleventh kind rather than the different question it actually is. Set
@@ -2211,7 +2030,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    It's still last in DOM order (renderLibraryFilters appends it after every
    kind chip), so the divider alone reads as "separate from the row before
    it" without needing to be pushed anywhere.
-
    **No `margin-left: auto`.** `.library-filters` wraps (flex-wrap), and an
    auto-margin item in a wrapping flex row gets shoved onto a lonely row of
    its own the moment the chips before it don't all fit on one line, a
@@ -2223,7 +2041,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding-left: calc(var(--space-5) + var(--space-2));
   border-left: 1px solid var(--border);
 }
-
 .library-grid {
   /* How wide a card's spine is. One value, so the seven kind-colours below
      cannot drift apart: see the note on the spine. */
@@ -2233,7 +2050,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   column-width: 17rem;
   column-gap: var(--space-6);
 }
-
 .library-card {
   display: flex;
   flex-direction: column;
@@ -2250,30 +2066,25 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
   font-weight: 400;
 }
-
 .library-card:hover,
 .library-card:focus-visible {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
-
 .library-card {
   position: relative;
 }
-
 .library-card-thumb {
   margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) 0;
   max-height: 240px;
   border-bottom: 1px solid var(--border);
   display: block;
 }
-
 /* The ⋯, top-right, revealed on hover or focus the way the note cards' actions
    are: a permanent one on every card in a grid is a column of dots down the
    page competing with the titles beside them. `focus-within` rather than
    `:focus` so it survives the menu opening, and `hover: none` keeps it visible
    on touch, where there is nothing to hover with.
-
    `.menu-wrap.library-card-menu`, not `.library-card-menu` alone: this
    element already carries `.menu-wrap` (`02-chat-graph.css`), which sets
    `position: relative`, same specificity as a plain `.library-card-menu`,
@@ -2294,14 +2105,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0;
   transition: opacity var(--ui-fast) var(--ease-out);
 }
-
 .library-card:hover .library-card-menu,
 .library-card:focus-visible .library-card-menu,
 .library-card:focus-within .library-card-menu,
 .library-card.tour-reveal .library-card-menu {
   opacity: 1;
 }
-
 /* `.menu-wrap.library-card-menu`, matching the rule above rather than the
    short name, and that is the whole reason this comment exists: written as
    `.library-card-menu` alone this override is one class against the compound
@@ -2315,7 +2124,6 @@ header#top-bar.tabs-wrapped #tab-bar {
     opacity: 1;
   }
 }
-
 /* Room for it, always, reserved rather than taken, or every title reflows the
    moment the pointer arrives. */
 .library-card-top {
@@ -2325,12 +2133,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   min-width: 0;
   padding-right: var(--space-8);
 }
-
 .library-card-icon {
   flex: 0 0 auto;
   font-size: var(--text-lg);
 }
-
 .library-card-title {
   /* Two lines, then ellipsis. One line loses too many document titles; three
      makes the cards ragged, and a grid whose rows are different heights is the
@@ -2347,7 +2153,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-
 .library-card-preview {
   margin: 0;
   color: var(--muted);
@@ -2360,7 +2165,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-clamp: 3;
   -webkit-box-orient: vertical;
 }
-
 /* A note has no title and no filename, its own words are the only way to
    recognise it, so three lines was showing a third of what the card had room
    for. Reported as "I can't see a lot of the response in the cards". Eight,
@@ -2371,7 +2175,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   -webkit-line-clamp: 8;
   line-clamp: 8;
 }
-
 /* Markdown rendered inline inside a preview must not change the line height, 
    a clamp counts lines, and a card whose emphasis made it taller would break
    the row it sits in. */
@@ -2381,7 +2184,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: var(--radius-sm);
   background: var(--chip-bg);
 }
-
 .library-card-meta {
   display: flex;
   justify-content: space-between;
@@ -2393,14 +2195,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--muted);
   font-size: var(--text-sm);
 }
-
 /* --- the spine ---------------------------------------------------------------
    Asked for directly: *"I want the library to have a library bookshelf kinda
    theme."* This is that idea taken literally and kept useful, every card wears
    a coloured **spine** down its left edge, the way a book on a shelf shows you
    its spine and nothing else. The colour is the kind, so a shelf of mixed
    things is scannable by edge alone before you read a single title.
-
    It is `inset box-shadow` rather than `border-left` because a border changes
    the box and would shift every title by 4px relative to a card that has no
    spine. And it is a shape *plus* a colour, the icon beside the title carries
@@ -2408,37 +2208,29 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-note {
   box-shadow: inset var(--library-spine) 0 0 var(--accent);
 }
-
 .library-document {
   box-shadow: inset var(--library-spine) 0 0 var(--ok);
 }
-
 .library-chat {
   box-shadow: inset var(--library-spine) 0 0 var(--warn);
 }
-
 .library-file {
   box-shadow: inset var(--library-spine) 0 0 var(--error);
 }
-
 .library-tag {
   box-shadow: inset var(--library-spine) 0 0 var(--muted);
 }
-
 .library-archived {
   box-shadow: inset var(--library-spine) 0 0 var(--border);
 }
-
 .library-archived .library-card-title {
   text-decoration: line-through;
 }
-
 /* A private note shows that it is one and nothing else. */
 .library-card.library-private .library-card-title {
   color: var(--muted);
   font-style: italic;
 }
-
 /* The image a file actually is. Fixed height so a shelf of photos keeps its
    rows level: a grid whose rows are different heights is the thing that reads
    as unconsidered, and it is worse here than anywhere because these cards are
@@ -2450,11 +2242,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: var(--radius-sm);
   background: var(--chip-bg);
 }
-
 .library-card-tick {
   align-self: center;
 }
-
 /* --- rows instead of cards ---------------------------------------------------
    Cards to browse, rows to manage: a list shows forty things at once with
    their metadata lined up in columns, which is what you want when the job is
@@ -2474,21 +2264,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-direction: column;
   gap: var(--space-2);
 }
-
 .library-list .library-card {
   flex-direction: row;
   align-items: center;
   gap: var(--space-5);
   padding: var(--space-3) var(--space-5);
 }
-
 /* **A fixed track, not a percentage.** Reported with a screenshot: "the
    middle content in the library lines view isnt aligned." `flex: 1 1 40%`
    on both halves makes each row's split depend on *its own* content, so the
    preview column started at a different x on every single row, the
    alignment failure DESIGN.md's CARP section is about, repeated once per
    item down the whole list.
-
    A fixed basis means every title occupies the same width and every preview
    therefore begins on the same edge, which is the entire point of a list
    view. `min-width: 0` so a long title ellipsises inside its track instead
@@ -2498,7 +2285,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   min-width: 0;
   padding-right: 0;
 }
-
 .library-list .library-card-preview {
   flex: 1 1 auto;
   min-width: 0;
@@ -2514,7 +2300,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   -webkit-line-clamp: 1;
   margin: 0;
 }
-
 /* An audit-log entry's own preview can run to the full 400-char budget
    (routes_library.py's ACTIVITY_DETAIL_CHARS) and, unlike every other kind
    here, has nowhere else to read the rest, the grid view already shows it
@@ -2524,7 +2309,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    not unclamped: list view's row-alignment is still worth keeping for
    every *other* kind sharing this list, so this stays a real (generous)
    cap rather than "as tall as the text wants to be". */
-
 /* **Fixed, like the two tracks above it, and for the same reason.** Reported
    again: "the line view in the library all subtab is broken and elements
    arent aligned or consistent in position." The title and preview columns
@@ -2532,7 +2316,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    followed whichever category name a row happened to carry, and the ⋯ after
    it therefore started at a different x on every row. Half a list view is not
    a list view.
-
    Right-aligned inside its own track so the dates line up on their right
    edge, which is how a column of dates is read. */
 .library-list .library-card-meta {
@@ -2551,7 +2334,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding-top: 0;
   gap: var(--space-5);
 }
-
 /* **A Rows line starts with its kind icon, whatever else the list holds**
    (INBOX 722: "theres a wierd gap at the start of the library all tab lines
    view"). This used to reserve a 3rem `::before` slot on every row without a
@@ -2566,27 +2348,22 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-list .library-card-meta {
   order: 2;
 }
-
 .library-list .library-card-menu {
   order: 3;
 }
-
 .library-list .library-card-thumb {
   width: 3rem;
   height: 2.2rem;
   flex: 0 0 auto;
   order: 1;
 }
-
 .library-list .library-card-menu {
   position: static;
   opacity: 1;
 }
-
 .library-empty {
   margin: var(--space-6) 0 0;
 }
-
 /* The Boards & Images gallery (HANDOVER.md §53/§56). A board card is now the
    same `<article role="button">` shape `.library-card` already is (it grew
    a kebab menu of its own, rename/delete, which can't live inside a plain
@@ -2595,13 +2372,11 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-board-card {
   cursor: pointer;
 }
-
 .library-image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
   gap: var(--space-6);
 }
-
 .library-image-tile {
   margin: 0;
   border: 1px solid var(--glass-border);
@@ -2621,14 +2396,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
 }
-
 /* Had no styling at all before, a plain inline button between the image
    and caption, not the corner overlay a delete control on a tile usually
    is anywhere else in this app. Hover/focus-revealed so a grid of images
    doesn't carry a permanent row of trash-can icons; the buttons themselves
    stay in the DOM (not display:none) so they're still keyboard-reachable
    without hovering.
-
    Edit and delete are laid out as a flex pair sharing one absolutely-
    positioned wrapper, rather than each button computing its own `right`
    offset independently. Two buttons each doing their own math (delete at
@@ -2654,7 +2427,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      buttons for uploaded images sometimes get cut off in different window
      resolutions and sizes"*, with a screenshot showing the row running off the
      tile's left edge.
-
      The row holds up to FIVE buttons (edit, delete, caption, OCR, vision-OCR)
      and the grid above it is `minmax(11rem, 1fr)`, so a tile is 11rem wide at
      the narrow end while the row needs roughly 14. Anchored only by `right`, a
@@ -2663,7 +2435,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      merely ugly: the leftmost button is clipped away and cannot be clicked at
      all. Which button that is depends on how many the image has, which is why
      it looked intermittent.
-
      Setting both edges gives the row the tile's real width to work in, and
      `flex-wrap` spends it downwards: a second row of buttons over the image,
      which is always reachable, instead of sideways into the clip. */
@@ -2677,7 +2448,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.6;
   transition: opacity var(--ui-base) var(--ease-out);
 }
-
 .library-image-menu-list {
   /* **Fixed, not absolute**: see the long note above `placeMenu` in
      library.js. Two ancestors of this menu clip horizontally
@@ -2700,19 +2470,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow);
 }
-
 /* (`.menu-flip-left`/`.menu-flip-up` lived here. They flipped this menu
    between two *fixed anchors* on its offset parent, which was the best a
    clipped absolute element could do; `placeMenu` positions the fixed menu
    freely against the viewport now and both classes had no remaining
    setter.) */
-
 .library-image-menu-item {
   text-align: left;
   width: 100%;
   white-space: nowrap;
 }
-
 /* **Visible before you hover it.** Reported: "there is no elipse button on
    files in the files library subtab", there is, on every tile, and it was at
    `opacity: 0` until the pointer happened to land on the tile. A control
@@ -2725,19 +2492,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-actions {
   opacity: 0.6;
 }
-
 /* **The row is a container, so only its buttons may take a click.** Reported:
    "I cant click the select radio buttons in any of the images in the library
    images subtab." Measured with `elementFromPoint` at the centre of each
    tick: every one returned `DIV.library-image-actions`, not the checkbox.
-
    The cause is the `left` that was added to this row (see its main rule
    above) so the buttons could wrap instead of running off the tile's edge on
    a narrow window. `left` *and* `right` stretch the box across the full width
    of the tile, and the tick sits at the tile's top-left: under a transparent
    part of a box at `z-index: 2` that still takes every pointer event landing
    on it.
-
    Raising the tick's own z-index would fix this one control and leave the
    rest of that strip of thumbnail dead to clicks. `pointer-events` fixes the
    class: the row itself stops being a target, each control inside it goes
@@ -2746,17 +2510,14 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-actions {
   pointer-events: none;
 }
-
 .library-image-actions > * {
   pointer-events: auto;
 }
-
 .library-image-tile:hover .library-image-actions,
 .library-image-tile:focus-within .library-image-actions,
 .library-image-actions:focus-within {
   opacity: 1;
 }
-
 /* A device with no hover has no way to trigger the reveal above at all, 
    touch is binary (tap = click), it never sends the hover a mouse would.
    Left at opacity:0 there, rename/delete were unreachable except by
@@ -2768,7 +2529,6 @@ header#top-bar.tabs-wrapped #tab-bar {
     opacity: 1;
   }
 }
-
 .library-image-tile img {
   display: block;
   width: 100%;
@@ -2778,7 +2538,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* Was the tile's `overflow: hidden` doing this; see the note there. */
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
 }
-
 /* The "Attach from Library" picker (app.js's attachFromLibrary) reuses this
    same tile/grid shape rather than a third gallery layout, the button
    itself just resets the browser's own button chrome so the image/icon
@@ -2789,7 +2548,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow-y: auto;
   padding-right: var(--space-2);
 }
-
 .library-attach-pick {
   display: block;
   width: 100%;
@@ -2800,7 +2558,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: none;
   cursor: pointer;
 }
-
 .library-attach-pick .ph {
   display: flex;
   align-items: center;
@@ -2811,7 +2568,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--muted);
   background: var(--inner);
 }
-
 /* The caption becomes the rename field in place, so the field has to occupy
    exactly the caption's box: a full-width input that changed the tile's
    height would make the whole grid reflow while you type in one cell of it. */
@@ -2826,7 +2582,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   font: inherit;
   color: var(--ink);
 }
-
 .library-image-tile figcaption {
   padding: var(--space-3);
   font-size: var(--text-md);
@@ -2836,11 +2591,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .library-image-tile figcaption:hover {
   color: var(--accent-text);
 }
-
 /* **The picture and its name are one object** (INBOX 56). The name under the
    thumbnail was the second of six blocks stacked at one weight; on the
    picture it is a caption, which is what it has always been. The frame is
@@ -2851,7 +2604,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
   overflow: hidden;
 }
-
 /* **A card with nothing in it is short, not padded** (INBOX 115: "the bottom
    of the image cards in the library images subsaection needs a desperate
    redesign"). Measured at 1440x900 before this, on three cards seeded full,
@@ -2859,14 +2611,12 @@ header#top-bar.tabs-wrapped #tab-bar {
    every tile to its row's height while the picture was pinned at 9rem. The
    emptiest card therefore carried about 73px of nothing under its last
    label, and the fullest one still fit: the height was never the content's.
-
    The grid still wants equal heights, a gallery whose cards do not line up
    is a worse answer, so the slack goes to the one part of a picture card
    that is worth more of it. The tile is a column, the frame is the only
    child that grows, and the picture fills whatever the frame ends up being.
    A card with a long description keeps the 9rem floor; the card beside it
    with none gets a taller photograph instead of a taller hole.
-
    **A two-row subgrid was built, measured and taken back out**, because the
    owner's third report ("the cards are uneven in height because some have the
    disclosure and some do not") sounds exactly like the case for one. With
@@ -2883,7 +2633,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    live: one facts line instead of two rows (`.library-image-meta`,
    07-whiteboard-misc.css) and two type sizes instead of three
    (`.library-image-caption` below).
-
    `:has(> .library-image-frame)` rather than a grid class, because the frame
    is exactly what makes a tile a picture card: the Files rows and the
    "Attach from Library" picker (app.js) build the same tile without one, and
@@ -2892,7 +2641,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: flex;
   flex-direction: column;
 }
-
 .library-image-tile > .library-image-frame {
   /* **The picture does not grow with the row** (INBOX 174, the owner: "when
      I extend the text in image cards, the images of other ones extend").
@@ -2916,7 +2664,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      nothing at all. */
   max-height: 9rem;
 }
-
 /* Filling a frame whose height its siblings decide. `inset: 0` against the
    frame's own positioning context resolves at whatever height flex ends up
    giving it; `height: 100%` would need that height to be definite before
@@ -2928,12 +2675,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   height: 100%;
   object-fit: cover;
 }
-
 /* **The focus ring on the card's own action** (INBOX 164). The thumbnail is the
    control that opens the picture, and it is the control a keyboard now reaches
    (`role="button"`, `tabindex="0"`, set in library.js, where the reasons are):
    a control that takes focus and shows nothing is reachable and still unusable.
-
    Drawn *inside* the picture with a negative offset rather than around it. The
    frame clips (`overflow: hidden`, for the rounded top corners), so a ring on
    the outside of an element that fills the frame at `inset: 0` is clipped away
@@ -2947,18 +2692,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   outline-offset: -4px;
   box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.65);
 }
-
 /* A scrim, not a bar: a solid strip would be a second surface on the card,
    and the picture behind the name is worth keeping. Built from --scrim, the
    token the command palette's dim already uses, mixed towards black so it
    carries white text over a *white* photograph too: --scrim alone is 0.45
    alpha, which leaves white-on-white at about 3.2:1, under AA for text this
    size. The mix takes it to about 0.67 and roughly 6:1.
-
    White ink rather than --ink, for the reason `.lightbox-info` records about
    its own panel: this is a fixed dark surface in both themes, so a theme
    token that flips would be wrong on one of them.
-
    **The scrim is solid where the words are and only fades above them.** A
    gradient that starts fading at the bottom edge puts the text in the middle
    of its own ramp: measured with scratchpad/pngpixel.py on the seeded
@@ -2976,7 +2718,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    The band is doing its job in both cases and looking like two different
    components while it does it, which on a wall of twenty thumbnails is the
    thing the eye actually picks up.
-
    One flat, near-opaque ground instead, so the band is the same shape, the
    same tone and the same height on every card whatever is behind it. It is
    still built from `--scrim` mixed towards black for the contrast reason
@@ -2991,19 +2732,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: #fff;
   background: color-mix(in srgb, var(--scrim) 45%, #000 55%);
 }
-
 .library-image-frame figcaption:hover {
   color: #fff;
   text-decoration: underline;
 }
-
 /* Renaming in place: the input is over the scrim, so it carries its own
    legible ground rather than white-on-photograph. */
 .library-image-frame .library-image-rename-input {
   color: #fff;
   border-bottom-color: #fff;
 }
-
 /* A vision model's own description of the image, below the filename, 
    deliberately not <figcaption> (that already names the filename above;
    this is metadata about what's IN the picture, not what it's called).
@@ -3027,14 +2765,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-4);
   padding: 0 var(--space-4) var(--space-4);
 }
-
 /* With every field in it hidden (an image with no description asked for),
    the box was its bottom padding alone: a 10px blank band under each
    picture's caption (INBOX 437 (4)). */
 .library-image-fields:not(:has(> :not(.hidden))) {
   display: none;
 }
-
 /* **One disclosure, on the app's own <details> recipe** (details.tool-chip,
    02-chat-graph.css): the marker is replaced by a caret that turns, and the
    body is hidden by an author rule when closed rather than by trusting the
@@ -3059,18 +2795,15 @@ header#top-bar.tabs-wrapped #tab-bar {
      two-class selector to beat that one, which is the shape of a decision
      being quietly remade. */
 }
-
 .library-image-reading > summary:hover {
   color: var(--ink);
 }
-
 /* **The count is a line you read, not a control you press** (INBOX 118: the
    fold "sets two unrelated facts in one control"). Where a picture is used
    and whether anything has read it were one summary line for one revision,
    `.library-image-facts`, whose rules stood here; the two facts have two
    shapes now, and this is the first of them. Nothing opens, nothing toggles,
    so there is no ground, no border and no caret.
-
    Measured before this rule existed, at 1440 dark on the seeded row: the
    paragraph rendered at 16px with 16px of user-agent margin above and below
    it, against 12px for the description it sits under and 12px for the fold
@@ -3085,7 +2818,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-
 /* The two blocks that moved inside the fold were written as sections of the
    card's outside: a rule above the usage chips, an inset on the byline. In
    here the fold's own padding and gap already separate them, and a hairline
@@ -3095,11 +2827,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding: 0;
   border-top: 0;
 }
-
 .library-image-reading-body > .library-image-provenance {
   padding: 0;
 }
-
 /* A transcription has no length limit and a grid row is as tall as its
    tallest card, so one opened reading of a dense page would otherwise set the
    height of every card beside it. It scrolls at about a card's worth instead.
@@ -3115,11 +2845,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   max-height: 11rem;
   overflow-y: auto;
 }
-
 .library-image-reading > summary::-webkit-details-marker {
   display: none;
 }
-
 /* **The caret leads the label, it does not trail the row.** Reported on
    2026-09-09: "the text extracted from this file dropdown doesnt even have a
    dropdown arrow and make sure it is aligned with the text". It had one, as
@@ -3127,7 +2855,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    pixels past a short label, but a Files row's summary is the full width of
    the row, so the caret sat about 300px away from the words it belongs to,
    with nothing between them. A marker that far from its label is not a marker.
-
    Leading, which is also what every other disclosure in this app does (the
    chat's `.agent-step` and `details.tool-chip` both draw theirs before the
    text) and therefore what DESIGN.md's <details> recipe means. */
@@ -3141,28 +2868,23 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.7;
   transition: transform var(--ui-base) var(--ease-out);
 }
-
 .library-image-reading[open] > summary::before {
   transform: rotate(90deg);
 }
-
 .library-image-reading:not([open]) > .library-image-reading-body {
   display: none;
 }
-
 .library-image-reading[open] > .library-image-reading-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-3);
 }
-
 .library-image-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
-
 /* **A field label, not a heading shouting at you.** Reported with a
    screenshot: "the ui and tags in the image captions and ocr need a
    redesign." Uppercase + letter-spaced + semibold is the loudest type in the
@@ -3180,7 +2902,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-weight: 500;
   color: var(--muted);
 }
-
 .library-image-field-label::before {
   content: "";
   flex: 0 0 auto;
@@ -3189,7 +2910,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
-
 /* **Provenance is a byline, not two pills** (INBOX 56). The three model
    badges that used to live here (`.library-image-caption-badge`,
    `.library-image-vision-ocr-badge`, `.library-image-ocr-badge`) were
@@ -3204,11 +2924,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-
 .library-image-provenance.hidden {
   display: none;
 }
-
 /* **Two type sizes on a picture card, not three.** Measured at 1440 on the
    seeded gallery: the filename on the photograph was 13.6px, the description
    12px (from a `text-sm` utility on the element) and the count and the fold
@@ -3229,7 +2947,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      unbreakable string defeated "Show more" as well as the card boundary. */
   overflow-wrap: anywhere;
 }
-
 /* **An opened caption grows the card by a bounded amount** (INBOX 174, with
    the fixed picture above): "Show more" used to let a long caption take the
    row to 411px and every card beside it with it. Up to about six lines
@@ -3239,22 +2956,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   max-height: 9.6rem;
   overflow-y: auto;
 }
-
 /* **A clamp must cut between lines, never through them.** Reported: "the text
    in image captions and ocr text in the images and files subtabs gets cut off
    half way through the letters horizontally if collapsed".
-
    `-webkit-line-clamp` clips at the line box, and the line box here is
    fractional -- 1.5 x 11.2px = 16.8px -- so the clip lands mid-pixel and the
    descenders of the last line (g, j, p, q, y) sit in the part that is thrown
    away. `overflow: hidden` then slices them horizontally, which is exactly the
    shape CLAUDE.md records for the nav-history popup: a box a fraction shorter
    than its own content.
-
    A taller line box fixes it at any font size: 1.6 puts the descender well
    inside the line rather than at its edge, and the fraction that is lost is
    then leading, not ink.
-
    **Not reproduced in this sandbox** -- there is no OCR'd content in it, so
    this is the identified cause removed, not an observed repair. If it
    persists, measure `clientHeight` against `2 * line-height` on the clamped
@@ -3263,7 +2976,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-ocr.library-image-ocr-clamped {
   line-height: 1.6;
 }
-
 /* **Two lines, and the same two on every card** (INBOX 118: "no two cards are
    the same height and their bottoms do not align"). It was three for one
    revision, on the reading that the paragraph is the card's one piece of
@@ -3276,7 +2988,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    caption, the shape the rest of this card is built as, and the whole
    description is one hover away in the element's own title, one click away
    in the editor it opens, and in the lightbox.
-
    **And no bottom padding while it is clamped.** `overflow: hidden` clips at
    the *padding* box, not the content box, so the paragraph's own 8px of
    bottom padding showed 8px of the next line under the ellipsis: a sliced
@@ -3295,12 +3006,10 @@ header#top-bar.tabs-wrapped #tab-bar {
    the pictures 144 to 229.1px; with the second line held open, every card
    carrying a description and a facts line is the same height inside and its
    picture is the same size.
-
    `lh` is the line box of this element, so it tracks the clamped line-height
    above rather than restating it: two lines of whatever the description is set
    in. Where the unit is not supported the declaration is dropped and the card
    behaves as it did, capped but not reserved.
-
    Picture cards only (`:has(> .library-image-frame)`, the same test the tile's
    own layout uses): a Files row is full width, stands on its own, and has no
    neighbour whose height it has to agree with, so reserving a line there would
@@ -3312,21 +3021,17 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
   padding-bottom: 0;
 }
-
 .library-image-tile:has(> .library-image-frame) .library-image-caption.library-image-caption-clamped {
   min-height: 2lh;
 }
-
 /* The same clip, the same cause, on the two readings inside the fold. */
 .library-image-ocr.library-image-ocr-clamped,
 .library-image-vision-ocr.library-image-vision-ocr-clamped {
   padding-bottom: 0;
 }
-
 .library-image-caption-empty {
   font-style: italic;
 }
-
 /* The description's More/Less toggle is a real tonal button now, not
    `.entry-more`'s accent-coloured link (INBOX 56: three accent links stacked
    down a card read as its three actions). It sits at the paragraph's own
@@ -3337,7 +3042,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   align-self: flex-start;
   margin: 0 0 var(--space-3);
 }
-
 .library-image-caption-input {
   width: 100%;
   min-width: 0;
@@ -3352,7 +3056,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
   resize: none;
 }
-
 /* Tesseract's own reading of text in the image (core/ocr.py): same
    always-visible, click-to-edit shape as .library-image-caption, asked for
    directly ("allow the user to access, view, and edit OCR extracted
@@ -3374,11 +3077,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   max-height: 18rem;
   overflow-y: auto;
 }
-
 .library-image-ocr-empty {
   font-style: italic;
 }
-
 /* Same clamp/toggle shape as .library-image-caption above, asked for
    directly ("make the ocr extracted text in the image gallery collapsible
    and expandable like the image captions as well"), since a long
@@ -3389,14 +3090,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .library-image-vision-ocr.library-image-vision-ocr-clamped {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .library-image-ocr-input {
   width: 100%;
   min-width: 0;
@@ -3411,7 +3110,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
   resize: none;
 }
-
 /* A vision model's verbatim transcription of text found in the image
    ("extractor mode"), same box shape as .library-image-caption, but never
    click-to-edit (there is nothing to type by hand here) and hidden
@@ -3423,18 +3121,14 @@ header#top-bar.tabs-wrapped #tab-bar {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-
 .library-image-vision-ocr.hidden {
   display: none;
 }
-
 @media (max-width: 599.98px) {
-
   .library-grid {
     gap: var(--space-4);
   }
 }
-
 /* --- the status bar (§36D) ---------------------------------------------------
    A real flex row at the foot of the body, not a fixed overlay. The body is
    already `display: flex; flex-direction: column; overflow: hidden` with
@@ -3450,7 +3144,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 .status-slot-off {
   display: none !important;
 }
-
 /* The checkboxes that drive it: the same pill toggle as everywhere else,
    wrapped so a narrow settings panel wraps between them. */
 .status-bar-items {
@@ -3458,7 +3151,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-wrap: wrap;
   gap: var(--space-3);
 }
-
 /* **Two utility classes that were used twenty times and never existed.**
    Found while measuring the AI Skills cards: `class="muted text-sm"` appears
    throughout app.js, library.js and index.html, and there was no `.text-sm`
@@ -3467,17 +3159,14 @@ header#top-bar.tabs-wrapped #tab-bar {
    rendering at the default body size since the day it was written, and the
    author of each one had no way to notice: the markup reads as correct and
    the intent is obvious.
-
    Declared here, next to the tokens they name. Two rules, and they make
    twenty existing elements finally do what they say. */
 .text-sm {
   font-size: var(--text-sm);
 }
-
 .text-xs {
   font-size: var(--text-xs);
 }
-
 #status-bar {
   /* One height for the strip and everything in it, DESIGN.md's control-height
      rule, the same reason `--header-control-h` exists. Not a spacing token: a
@@ -3519,33 +3208,27 @@ header#top-bar.tabs-wrapped #tab-bar {
      changes, which is exactly what the header was rebuilt to stop doing. */
   white-space: nowrap;
 }
-
 .status-spacer {
   flex: 1 1 auto;
 }
-
 /* --- the bar's three zones ---------------------------------------------------
    INBOX 307, the owner: "I feel like the navigation and undo/redo buttons keep
    getting pushed further and further to the left on the bottom bar, is there a
    better way to restructure the right side of the bottom bar??"
-
    He is right, and it is drift rather than a placement mistake: the run after
    the spacer was one flat list, so each control added to the bar was appended
    at its right end and moved the pair before it along. Measured at 1440 before
    this, reading right to left in the order they were added: Find (2026-09-20),
    Guide, Ask the agent, Command palette, then redo 391px from the right edge
    of the bar and the navigation group 467px.
-
    Moving them back would last until the next feature, so the bar has zones
    with one order and one owner for its right end (index.html carries the same
    note, `tests/test_status_bar_grammar.py` holds it):
-
      state    what the app is holding or doing. Takes the left end and is the
               only zone that shrinks, because none of it is a control.
      tools    the doorways. The only zone that grows.
      control  back, forward, history, undo, redo. Fixed membership, and it
               ends the bar.
-
    A zone is the same flex run the bar itself was, with the bar's own gap, so
    the spacing between two controls is the same whether or not a zone boundary
    falls between them. */
@@ -3555,7 +3238,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-3);
   min-width: 0;
 }
-
 /* The state zone is the one that gives way: a long background-job label is the
    server's text and can be any length, and shortening it costs nothing, while
    a control that shrinks out of reach costs the press. */
@@ -3568,11 +3250,9 @@ header#top-bar.tabs-wrapped #tab-bar {
      only because the bar around them does not clip on that axis, so the
      layout was one `overflow` change away from hiding the only thing in this
      app that says what the local model is doing.
-
      A zone whose reported box does not contain what it draws is also why an
      earlier reading called the dot invisible on a phone: the number said 0
      and the pixels said otherwise. `min-content` keeps the two honest.
-
      **It did not let a job's label shorten, though it said so** (libtl-0926).
      A `nowrap` label's min-content is its whole width, so a running job at
      1024 ("Re-indexing notes for search", 208px) pushed Redo to 1075.6 and
@@ -3601,12 +3281,10 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .status-zone[data-status-zone="tools"],
 .status-zone[data-status-zone="control"] {
   flex: 0 0 auto;
 }
-
 /* The seam that says the right end is a different kind of thing: everything
    left of it opens something, everything right of it moves you or changes what
    you already have. The same divider `.status-nav` uses one group further in,
@@ -3615,7 +3293,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding-left: var(--space-3);
   border-left: 1px solid var(--border);
 }
-
 /* Below 400 the bar scrolls sideways rather than dropping a control (the block
    further down this file), and on a scrolling bar "the right end" is not a
    place anybody can see: it is the part you have to drag the bar to reach. So
@@ -3630,7 +3307,6 @@ header#top-bar.tabs-wrapped #tab-bar {
     border-left: 0;
   }
 }
-
 .status-item {
   display: inline-flex;
   align-items: center;
@@ -3653,13 +3329,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .status-item:hover,
 .status-item:focus-visible {
   background: var(--chip-bg);
   color: var(--ink);
 }
-
 /* Undo/Redo (status-undo/status-redo): empty-stack is the default state on
    every fresh load, so it has to read as "nothing to do here" rather than a
    broken button: dimmed and inert, same shape as a disabled toolbar icon
@@ -3669,7 +3343,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   cursor: default;
   pointer-events: none;
 }
-
 /* **The counts are quiet** (INBOX 618): the number in the item's own muted
    ink and the body weight, not a 600 in full ink. They are glanced at, not
    read, and two bold numbers were the loudest things in the bar. */
@@ -3678,7 +3351,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-
 /* **Agent, Guide and Find are icons at every width** (INBOX 618), as they
    already were below 1024: Commands stays the one worded doorway. The word
    stays in the accessibility tree (the visually-hidden recipe, never
@@ -3693,7 +3365,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-
 /* Something is waiting on you. Warn rather than error: a due reminder is the
    app working, not the app broken, the same distinction the AI status dot
    draws between "no AI at all" (amber) and "the model failed to load" (red). */
@@ -3701,15 +3372,12 @@ header#top-bar.tabs-wrapped #tab-bar {
 .status-item.status-due b {
   color: var(--warn);
 }
-
 .status-task {
   color: var(--accent-text);
 }
-
 .status-task b {
   color: var(--accent-text);
 }
-
 .status-key {
   padding: 0 var(--space-2);
   border: 1px solid var(--border);
@@ -3718,18 +3386,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-family: var(--mono, ui-monospace, monospace);
   line-height: 1.35;
 }
-
 /* In the bar the dot is one item among several rather than the only round
    thing in a row of squares, so it comes down to the strip's own height. */
 #status-bar .ai-status {
   width: var(--status-h);
   height: var(--status-h);
 }
-
 #status-bar .emblem-mark {
   flex: 0 0 auto;
 }
-
 /* Below 1024 the bar had no slack: at 820 its items filled it exactly, and
    a background task (the filing model warming up adds a spinner and turns
    "1 run" into "1 running", 62px) pushed the last zone 34px past the window,
@@ -3740,7 +3405,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   #status-command .status-key {
     display: none;
   }
-
   /* That alone was not enough at 721 (25px over, busy). Ask, Guide and Find
      carry an icon each, so below 1024 they show only it; the word stays in
      the accessibility tree (the visually-hidden recipe, not display: none)
@@ -3759,9 +3423,7 @@ header#top-bar.tabs-wrapped #tab-bar {
     white-space: nowrap;
   }
 }
-
 @media (max-width: 599.98px) {
-
   /* A phone's scarce dimension is height, and two of these five are the two a
      phone can least use: the keyboard hint needs a keyboard, and the notebook
      size is on the dashboard's first screen anyway. What survives is what you
@@ -3771,13 +3433,11 @@ header#top-bar.tabs-wrapped #tab-bar {
     padding-inline: var(--space-5);
     gap: var(--space-2);
   }
-
   #status-notes,
   #status-command {
     display: none;
   }
 }
-
 /* --- the status bar on a small phone --------------------------------------
    Measured at 320x844, after the header was made to fit: the page still
    scrolled sideways, 355 in 320, and the bar was the cause. Its six surviving
@@ -3786,17 +3446,14 @@ header#top-bar.tabs-wrapped #tab-bar {
    deliberately `nowrap`, because a wrapped status bar changes the height of
    the window's furniture as its own text changes, which is the fault the
    header was rebuilt to stop.
-
    So the bar scrolls rather than the page, with the edge fade every other
    strip that can overflow already uses. Nothing is hidden: at this width the
    alternative is dropping a control, and undo, redo and Back are exactly the
    controls a phone has no other route to. 360 and up are unaffected, they
    fit.
-
    UI_MODERNISATION_PLAN Phase 11 replaces this properly: one action and a
    sheet, the same answer it gives the top bar. */
 @media (max-width: 400px) {
-
   #status-bar {
     overflow-x: auto;
     /* The bar is one line inside a declared height; a horizontal scrollbar
@@ -3804,17 +3461,15 @@ header#top-bar.tabs-wrapped #tab-bar {
     overflow-y: hidden;
     scrollbar-width: none;
   }
-
   #status-bar::-webkit-scrollbar {
     display: none;
   }
 }
-
 /* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
 #tab-bar {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
+  gap: 2px;
+  padding: 2px;
   border-radius: var(--radius-lg);
   /* A well, not a slab. Every raised surface in the app now carries a lit top
      edge; a bar of tabs is the opposite kind of thing, a channel the active
@@ -3827,7 +3482,6 @@ header#top-bar.tabs-wrapped #tab-bar {
     inset 0 -1px 0 var(--glass-edge);
   /* Scroll rather than wrap when the window is genuinely too narrow.
      min-width:0 is what actually lets a flex item shrink below its content.
-
      The tabs are still the LAST thing to give up space, everything beside
      them shrinks first, because the flex basis is `auto` and the wordmark,
      the pill and the tab padding all collapse at their own breakpoints
@@ -3844,16 +3498,13 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow-x: auto;
   scrollbar-width: none;
 }
-
 #tab-bar::-webkit-scrollbar {
   display: none;
 }
-
 #tab-bar button {
   flex: 0 0 auto;
   white-space: nowrap;
 }
-
 #tab-bar button {
   background: transparent;
   border: none;
@@ -3871,26 +3522,24 @@ header#top-bar.tabs-wrapped #tab-bar {
      topbar are too small and should probably be back to their original
      size"). The density pass (446 (5)) had taken them to the hit-target
      floor with 13.6px labels in a 2.4px well; the main way around the app
-     is the one strip that should not be dense. 36px tabs, 16px labels, a
-     4px well, as before. */
-  height: var(--control-h-body);
+     is the one strip that should not be dense. Phase 12 keeps the 16px
+     labels and takes the tabs to 32 in a 2px well, so the strip is the bar's
+     36 (decision 1). */
+  height: var(--control-h-lg);
   padding: 0 var(--space-6);
   font-size: var(--text-body);
   box-shadow: none;
 }
-
 #tab-bar button.active {
   background: var(--accent-surface);
   color: var(--on-accent);
 }
-
 /* Bold is wider, so a bold selected tab moved every tab after it with the
    selection (INBOX 464 (9): "Notes" at x=549 on Dashboard, 543 on Notes).
    The selected label keeps the resting weight; its fill says it is the one
    you are on. It was also drawn heavier with a stroke, which no longer is
    (INBOX 618: "the active tab without extra bold"): the filled pill and a
    heavier label said the same thing twice. */
-
 /* The tabs you are not on answer the pointer (INBOX 405): full ink and the
    veil, where they used to get only `button:hover`'s 7% brightness, which on
    muted text on a light bar made the label paler, not stronger. */
@@ -3898,11 +3547,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
   background: var(--hover-veil);
 }
-
 :root[data-mode="dark"] #tab-bar button.active {
   color: #0e1017;
 }
-
 /* --- the page shell (§35L) --------------------------------------------------
    Every tab used to draw its own outer gutter, and no two agreed. The side
    inset was 2rem in five different rules, but the space above the first
@@ -3911,7 +3558,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    .tab-page's own 0.8rem. So content began 1.8rem down one tab and 0.8rem
    down the next, which is the page-level form of the reported problem:
    "spacing, alignment and margins… changes each tab".
-
    One shell owns the inset now. A page's own container contributes only its
    internal gap, never its distance from the window. */
 /* --- what a wide screen is for -------------------------------------------
@@ -3919,7 +3565,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    adjusted and changed to do all screen resolutions, don't just squish
    elements onto the page, actually make it professionally designed for every
    resolution."
-
    The failure at the wide end was the opposite of squishing, and it was
    measured rather than guessed. At 2560x1440 the Reminders form's
    "Remind me to..." field stretched to roughly 1450px, a single-line text
@@ -3927,18 +3572,15 @@ header#top-bar.tabs-wrapped #tab-bar {
    1700px apart, too far to read as one row. Nothing overflowed; everything
    simply grew, which is what a layout does when nobody has decided how wide
    it should be.
-
    DESIGN.md's own alignment test says the same thing in a number. Distinct
    left edges of elements wider than 120px, measured at 2560x1440 before this:
    Dashboard **54**, Graph **64**, Library **46**, against the 37/35/25 that
    file records at 1440x900. The app was getting *less* aligned the more room
    it was given.
-
    So the content column has a maximum and centres past it. This is what every
    comparable app does (Notion, Linear, Obsidian) for the same reason: past
    about 1500px a reading-and-forms layout gains nothing from more width and
    loses the ability to relate the left of a row to its right.
-
    `.tab-page` itself stays full width because it is the scrolling element, 
    capping it would strand the scrollbar in the middle of the window. The cap
    goes on its children instead. Canvas pages opt out below: a graph, a
@@ -3950,13 +3592,11 @@ header#top-bar.tabs-wrapped #tab-bar {
      between panels and bars seems a bit too large or excessive at times, the
      ui has had a lot of issues with features being squished to overly and
      unusable sizes and proportions."
-
      Those are one problem, not two: space spent on outer chrome is space
      denied to the panels inside it. Measured on the Notes tab at 1600px, the
      window gave 50px of margin on *each* side, 18px of real gutter plus 32px
      of leftover from this cap, and the note list ended up with 74% of the
      window. At 1920 the leftover alone would have been 210px a side.
-
      1800px keeps a ceiling, because this app does put prose in the middle
      column and an unbounded line length is its own unreadability, but it stops
      a wide monitor paying a wide margin for the privilege. The real gutter
@@ -3980,7 +3620,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow-y: auto;
   overflow-x: hidden;
 }
-
 /* The content column. `width: 100%` alongside the cap so a child that would
    otherwise size to its content still fills the column, and `margin-inline:
    auto` centres it once the window is wider than the cap. */
@@ -3996,7 +3635,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      Cross-axis alignment is the property that actually owns this. */
   align-self: center;
 }
-
 /* A canvas uses every pixel. These three are the surfaces where more width is
    more information rather than a longer line to read: the graph, the timeline
    and the whiteboard/library canvas. Capping them would be the mirror of the
@@ -4005,14 +3643,12 @@ header#top-bar.tabs-wrapped #tab-bar {
 #tab-timeline {
   --content-max: none;
 }
-
 /* Direct children of a page are already inside the gutter, so they carry only
    the rhythm between them. */
 .tab-page>.card,
 .tab-page>.card.placeholder {
   margin: 0 0 var(--space-6);
 }
-
 .layout {
   display: grid;
   flex: 1 0 auto;
@@ -4049,16 +3685,13 @@ header#top-bar.tabs-wrapped #tab-bar {
      rather than a deliberate one. */
   align-items: stretch;
 }
-
 /* Grid *items* have the same auto-minimum, so the floor has to be repeated
    here or the track's minmax(0, …) is undone by the item inside it. */
 .layout>* {
   min-width: 0;
 }
-
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
    column actually shrink below its content's natural width.
-
    **720 became 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3): an iPad in
    portrait is 768 or 810 CSS px, and at 721-819 this app was giving a tablet
    a desktop two-column layout with a 197px sidebar against a 600px content
@@ -4069,7 +3702,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    rather than a stacked row, so the row naming below only has to hand the
    height to the one child left in flow. */
 @media (max-width: 819.98px) {
-
   /* The shell tightens once, for every tab, instead of each page shrinking its
      own gutter to a different number (§35L). */
   :root {
@@ -4081,7 +3713,6 @@ header#top-bar.tabs-wrapped #tab-bar {
     --page-top: var(--space-3);
     --page-bottom: var(--space-3);
   }
-
   .layout {
     grid-template-columns: minmax(0, 1fr);
     /* **One row, not two.** This used to say `auto minmax(0, 1fr)`, and the
@@ -4091,7 +3722,6 @@ header#top-bar.tabs-wrapped #tab-bar {
        Measured at 390px before that fix, the Notes category strip (30px of
        chips) sat in a 211px card with 180px of empty band under it and the
        first note began at y=509.
-
        Two rows were right while the sidebar stacked above the content. In
        this band it is `position: fixed` (07-whiteboard-misc.css) and a fixed
        child is not a grid item at all, so a second row would be empty and
@@ -4099,12 +3729,10 @@ header#top-bar.tabs-wrapped #tab-bar {
        arriving from a different direction. */
     grid-template-rows: minmax(0, 1fr);
   }
-
   .layout>* {
     min-width: 0;
   }
 }
-
 /* --- the glass card -------------------------------------------------------- */
 /* Frosted cards over the animated background only: see the note inside
    `.card` below. `data-bg-art` is set by applyAppearance() (settings.js). */
@@ -4112,7 +3740,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
 }
-
 /* A dialog floats over arbitrary content, so it keeps the full glass recipe
    (DESIGN.md, Glass & materials); it is open for seconds, not at rest. */
 .card.modal-card,
@@ -4120,7 +3747,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
 }
-
 .card {
   background: var(--card);
   /* No blur on a content panel. Measured at 1366x768 (weight.js, INBOX 49):
@@ -4136,7 +3762,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      rim, the border and the 55% fill stay, so a card still reads as a pane.
      `:root[data-perf="on"]` (Performance mode) and `[data-glass="off"]`
      take the remaining blur off too.
-
      The one exception is the rule right below: with the animated background
      on, the card blur comes back. The owner's words: "with the glass, I
      still want to be able to see background animations if I have them on,
@@ -4184,7 +3809,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
 }
-
 /* The compact card: widgets, sidebars, anything in a column under ~20rem.
    Dense inside, because the column is the constraint. */
 .card.compact,
@@ -4193,7 +3817,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   --card-pad-y: var(--space-6);
   --card-pad-x: var(--space-6);
 }
-
 /* **A card inside a card is a tone, never a second bordered pane.** The
    border budget (DESIGN.md → Surface tiers): one hairline on the outermost
    pane; groups inside it are `--surface-2`. A nested `.card` used to draw
@@ -4207,7 +3830,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-
 /* The sheen is what reads as *glass* rather than *tinted paint*, over the
    page's own gradient (no texture of its own beyond two soft blobs), a plain
    `var(--card)` fill blurs whatever's behind it into another smooth
@@ -4217,7 +3839,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    alpha itself never changed (confirmed live: `--card`'s rgba is identical
    at every blur setting), but nothing was carrying the *glass* read on its
    own once there was little contrast behind a card to blur.
-
    A separate, own opt-in rather than baked into `.card` unconditionally
    (asked for directly, after the first pass did exactly that): off when
    glass itself is off, `[data-glass="off"]`'s own fallback rule already
@@ -4227,7 +3848,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    the moment glass itself is switched on from off, so turning glassmorphism
    on gets the full look without a second trip to a checkbox, while still
    leaving that checkbox able to turn just the sheen back off on its own.
-
    Both rgba stops below are scaled by `--glass-sheen-strength` (0–1) through
    the same color-mix-with-transparent trick `--glass-opacity` already uses: 
    mixing a colour with transparent can only ever dial its own alpha down,
@@ -4236,10 +3856,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 :root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
   /* **`background-image`, not the `background` shorthand: and that is a
      correctness fix, not a tidy-up.**
-
      Reported: the sheen "screws with contrast and makes popup windows like
      the settings modal really hard to read on light mode".
-
      The shorthand set both layers *and* the colour, re-declaring the fill as
      `var(--card)`. This selector is (0,4,0); `.modal-card`, which sets
      `background: var(--modal-bg)` and says in its own comment "nearly opaque:
@@ -4248,7 +3866,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      reverted every dialog in the app to full page-card glass, and the page's
      own gradient blobs came through the text. Worst in light mode, where the
      ink is dark and the thing bleeding through is bright.
-
      `background-image` layers the sheen over whatever fill the element
      already chose, so a card keeps `--card`, a modal keeps `--modal-bg`, and
      the whiteboard panels keep theirs. */
@@ -4263,7 +3880,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      same highlight regardless of how big it is. */
   /* **Second pass, after "I still think it is a bit much and over done".**
      Three changes, each from the same published guidance:
-
      - The peak drops from 0.16 to 0.10. The advice on transparency is that
        the difference between readable and washed-out is a few points of
        alpha, not a redesign -- "use small opacity tweaks".
@@ -4287,13 +3903,11 @@ header#top-bar.tabs-wrapped #tab-bar {
      every card that has the sheen on. */
   box-shadow: var(--glass-shadow), var(--glass-rim);
 }
-
 /* A white sheen on a dark surface reads as light catching glass. On a light
    surface it is white on near-white: it adds nothing to the glass read and
    only flattens the fill it is sitting on. Halved rather than removed, so the
    strength slider still does something in both themes and the two do not look
    like different components.
-
    **`data-mode`, not `data-theme`.** `data-theme` is only stamped when
    somebody picks Light or Dark by hand; under "System" -- the default -- it is
    absent entirely, so `:not([data-theme="dark"])` matched a dark desktop too
@@ -4305,7 +3919,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      alpha (0.42 light, 0.10 dark), so both modes read the same rule. */
   background-image: var(--glass-catch);
 }
-
 /* Center icon-only buttons by squaring their padding.
    `summary` alongside `button`: the Documents dock's "⋯" menu and the Image
    Gallery's kebab (library.js) both carry `icon-button` on a `<summary>`
@@ -4324,7 +3937,6 @@ summary.icon-button {
   align-items: center;
   justify-content: center;
 }
-
 /* **A button holding one icon is square, whether or not anyone remembered
    the class.** Reported directly, as part of why controls "feel like just
    shapes with text in them": "some single icon or character buttons are
@@ -4332,14 +3944,12 @@ summary.icon-button {
    twenty-one of them were, the whole header set (notifications, theme,
    settings, lock, quit) at **44x32**, the status bar's history and undo
    controls at 32x28, the chat composer's at 52x44.
-
    The cause is that `.icon-only` above has to be remembered per button, and
    for most of these it never was: they are `class="ghost small"` around a
    lone `<i class="ph …">`, so they inherit `button.small`'s text padding
    (`0 0.8rem`) and come out wider than they are tall. Matching on the
    *content* instead of on a class fixes every one of them at once and keeps
    the next one honest without anybody having to remember.
-
    `align-self: center` is load-bearing, not tidiness: `aspect-ratio` only
    decides a dimension nothing else has decided, so an icon button in a
    stretching flex row has BOTH width and height imposed from outside and
@@ -4352,7 +3962,6 @@ summary.icon-button {
    `stretch` (grid) has *both* dimensions imposed from outside and comes out
    rectangular regardless: measured at 28x51 on a button that already
    carried `.icon-only`, which is why the class alone was never enough.
-
    **Do not try to do this by matching content instead of the class.** A
    `button:has(> i.ph:only-child)` rule looks like it would catch every
    icon-only button in the app at once, and it was tried: `:only-child`
@@ -4368,17 +3977,14 @@ summary.icon-button {
   justify-self: center;
   flex: 0 0 auto;
 }
-
 /* **A glyph that is the whole control is centred by layout, not by baseline.**
    Reported: "the icons the arrow buttons and in some ellipse kebab buttons are
    not centred". Measured on the status bar's own back/forward/undo/redo: the
    icon's box sat 1.36px above the button's centre, and the caret-up one 2.42px
    to the left of it, small enough to look like bad drawing rather than a bug,
    which is why it survived.
-
    Two independent causes, both of them rules that are *right* for the case
    they were written for:
-
    - `.ph { vertical-align: -0.12em }` optically drops a glyph onto the text
      baseline beside a label. When the icon is the control's only content it
      has no label to align with, and where a helper wraps it in a `<span>`
@@ -4388,7 +3994,6 @@ summary.icon-button {
    - `.ph-lead { margin-inline-end: 0.35em }` is the gap before a label. On an
      icon with no label after it, that margin is 0.35em of dead space on one
      side only: which is exactly half of the 2.42px measured offset, doubled.
-
    So: neutralise both inside an icon-only control, and make any wrapper span
    centre its child rather than baseline-align it. */
 .icon-only .ph,
@@ -4396,7 +4001,6 @@ summary.icon-button {
   vertical-align: 0;
   margin-inline-end: 0;
 }
-
 .icon-only > span,
 .icon-button > span {
   display: inline-flex;
@@ -4404,7 +4008,6 @@ summary.icon-button {
   justify-content: center;
   line-height: 1;
 }
-
 /* Reported live, with a screenshot: the Settings modal's back/forward
    nav arrows sit noticeably larger and boxier than "Close" right beside
    them (43px square against Close's 30px). `.small`'s own `padding:
@@ -4426,7 +4029,6 @@ summary.small.icon-only,
 summary.small.icon-button {
   padding-inline: 0.3em;
 }
-
 /* The incremental renderer's chunk marker. Zero height, no list marker, no
    part in layout: it exists only to be watched by an IntersectionObserver,
    and `aria-hidden` plus no `data-id` keeps it out of the keyboard walk and
@@ -4438,7 +4040,6 @@ summary.small.icon-button {
   border: 0;
   list-style: none;
 }
-
 /* --- back / forward through pages --------------------------------------------
    In the status bar, immediately before undo/redo. Asked for specifically to
    be distinguishable from that pair, so as well as a different icon shape
@@ -4454,7 +4055,6 @@ summary.small.icon-button {
   gap: var(--space-1);
   margin-right: var(--space-2);
 }
-
 /* A disabled arrow stays visible rather than vanishing: a control that
    disappears when it has nothing to do shifts everything beside it, and the
    status bar reshuffling as you navigate is worse than a dimmed arrow. */
@@ -4462,7 +4062,6 @@ summary.small.icon-button {
   opacity: 0.35;
   cursor: default;
 }
-
 /* --- boot splash ------------------------------------------------------------
    The pre-paint theme script above stamps colour/palette before first paint
    so the app never flashes the wrong theme; this closes the same gap for
@@ -4495,7 +4094,6 @@ summary.small.icon-button {
   opacity: 1;
   transition: opacity var(--motion-slow) var(--ease-out);
 }
-
 /* Its own leaving class, not `.hidden`: that one is `display: none
    !important` (02-chat-graph.css), which beat the opacity here, so the fade
    never ran and the splash cut out (INBOX 577). */
@@ -4503,7 +4101,6 @@ summary.small.icon-button {
   opacity: 0;
   pointer-events: none;
 }
-
 .boot-splash-mark {
   display: flex;
   align-items: center;
@@ -4512,19 +4109,16 @@ summary.small.icon-button {
   font-weight: 600;
   color: var(--ink);
 }
-
 .boot-splash-mark img {
   width: 40px;
   height: 40px;
 }
-
 /* Reuses .typing-dots (01-forms-settings.css) rather than a second spinner
    component: same visual language the chat/dashboard "thinking" states
    already use, so the very first thing a user sees matches the last. */
 .boot-splash-dots span {
   background: var(--muted);
 }
-
 /* Reported: the splash "doesn't actually progress", it never had a real
    progress bar, only the dots above. `/auth/status` is one round trip, so
    there is no real multi-step progress to report honestly; this animates
@@ -4539,14 +4133,12 @@ summary.small.icon-button {
   background: var(--border);
   overflow: hidden;
 }
-
 /* Full width, scaled down, rather than a growing width (INBOX 308, the
    owner: animations should be "done the cheapest they can be"). A width
    animation lays out on every frame of the 2.4s crawl; measured on this
    bar with scratchpad/ui-sweeps/animcost.js, 121 layouts against a control
    floor of 3. `transform` is composited, so the same crawl costs none.
    Two things the conversion has to get right, both of them here:
-
    - The rounded ends belong to the track above, not to this element: a
      scaled box scales its own border-radius into an ellipse. The track is
      `overflow: hidden` with the pill radius, so it clips this fill's left
@@ -4566,34 +4158,28 @@ summary.small.icon-button {
   transition: transform var(--motion-slow) var(--ease-out);
   animation: boot-splash-progress-crawl 2.4s ease-out forwards;
 }
-
 @keyframes boot-splash-progress-crawl {
   0% { transform: scaleX(0.08); }
   50% { transform: scaleX(0.55); }
   100% { transform: scaleX(0.9); }
 }
-
 .boot-splash-progress-fill.done {
   animation: none;
   transform: scaleX(1);
 }
-
 @media (prefers-reduced-motion: reduce) {
   .boot-splash-dots span {
     animation: none;
   }
-
   .boot-splash {
     transition: none;
   }
-
   .boot-splash-progress-fill {
     animation: none;
     transform: scaleX(0.9);
     transition: none;
   }
 }
-
 /* The one tip line. Muted and small: it is there for the second or two of
    a cold start, and it must never compete with the progress bar above it
    or the failure line below. */
@@ -4605,7 +4191,6 @@ summary.small.icon-button {
   line-height: 1.5;
   text-align: center;
 }
-
 /* The splash's own failure line. Only ever created by the watchdog in
    index.html: a boot that works removes the splash before this can exist. */
 .boot-splash-error {
@@ -4616,7 +4201,6 @@ summary.small.icon-button {
   line-height: 1.5;
   text-align: center;
 }
-
 /* The way out. Styled by hand rather than with the app's own button classes:
    this may be on screen because a stylesheet or a script never arrived, so it
    must look like a button using only what is already in this file. */
@@ -4631,12 +4215,10 @@ summary.small.icon-button {
   font-size: var(--text-md);
   cursor: pointer;
 }
-
 .boot-splash-reload:hover,
 .boot-splash-reload:focus-visible {
   border-color: var(--accent);
 }
-
 /* --- one ⋯ button, everywhere (INBOX 722) ---------------------------------------
    This block used to give the Library's tiles, cards and lines an opaque chip
    (`--modal-bg-opaque`, a 1px border, `--shadow-sm`) so a ⋯ could be seen over
@@ -4646,7 +4228,6 @@ summary.small.icon-button {
    buttons have a visible outline, is that consistent with the rest of the
    app??". Every `kebabMenu` opener is a plain ghost icon now, styled once in
    08-consistency.css under `.kebab-opener`; nothing here dresses it. */
-
 /* **The content column scrolls down, never sideways.**
    Reported: "there's a horizontal scrollbar on the notes tab capture
    subtab". Measured at 1440, 1280 and 1100px: `main` reported scrollWidth
@@ -4657,7 +4238,6 @@ summary.small.icon-button {
    laid out to the pre-scrollbar width is then 9px too wide on the axis that
    is also set to `auto` -- so a second, horizontal scrollbar appears to
    scroll nine pixels of nothing.
-
    `clip` rather than `hidden`: both stop the scrollbar, but `hidden` makes
    the box a scroll container programmatically (scrollLeft still works, and
    focusing something inside can scroll it sideways with no way back), while
@@ -4667,7 +4247,6 @@ summary.small.icon-button {
 .layout > .tab-main {
   overflow-x: clip;
 }
-
 /* The kind chips above the boards grid: their gap to the first row of cards
    is set in 08-consistency.css, beside the ring-room rule that was
    overriding it from here (INBOX 726). */

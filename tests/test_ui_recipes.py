@@ -5172,3 +5172,73 @@ def test_what_a_field_was_read_as_is_one_chip_row() -> None:
         if p.name not in own and re.search(r"""["'`]/(?:api/)?read\?""", p.read_text(encoding="utf-8"))
     ]
     assert not readers, f"a surface asking /read itself rather than through quickAddAttach: {readers}"
+# Phase 12 decisions 2 and 3 (UI_MODERNISATION_PLAN; DESIGN.md, the ten rules
+# 4 and 6). An icon button answers hover and focus by colouring its glyph,
+# never with a box behind it; measured before, 334 of 334 icon buttons drew
+# one (`scratchpad/ui-sweeps/hoverbox.js`). The grammar is written as tokens
+# nulled on the icon button itself, so a hover rule may still name one of the
+# nulled tokens; any other background on an icon's hover is the box back.
+_ICON_HOVER_OK = re.compile(
+    r"^(transparent|none|var\(--(ghost-btn-bg|surface-2|chip-bg|hover-veil)\))\s*(!important)?$"
+)
+_NOT = re.compile(r":not\((?:[^()]|\([^()]*\))*\)")
+
+
+def _served_rules():
+    from memorymap.api.asset_strip import strip_for_path
+
+    for path in CSS:
+        served = strip_for_path(path.name, path.read_bytes()).decode("utf-8")
+        served = re.sub(r"@(media|supports|container)[^{]*\{", "", served)
+        for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", served):
+            yield path.name, [s.strip() for s in m.group(1).split(",")], m.group(2)
+
+
+def test_an_icon_button_answers_hover_with_its_glyph_not_a_box() -> None:
+    forms = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    rule = re.search(r":is\(button, summary\):is\(\.icon-only, \.icon-button[^)]*\) \{([^}]*)\}", forms)
+    assert rule and "--ghost-btn-bg: transparent" in rule.group(1), (
+        "the hover grammar's token rule is gone from 01-forms-settings.css"
+    )
+    assert re.search(r":is\(\.icon-only, \.icon-button[^)]*\):is\(:hover, :focus-visible\) \{\s*--ink: var\(--accent-text\)", forms)
+    boxes = []
+    for name, sels, body in _served_rules():
+        hits = [s for s in sels if ":hover" in s and re.search(r"\.icon-(only|button)\b", _NOT.sub("", s))]
+        if not hits:
+            continue
+        for value in re.findall(r"(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)", body):
+            if not _ICON_HOVER_OK.match(value.strip()):
+                boxes.append(f"{name}: {hits[0][:80]} -> {value.strip()[:40]}")
+    assert not boxes, "an icon button's hover paints a box (DESIGN.md, the ten rules, 4):\n" + "\n".join(boxes)
+
+
+def test_every_help_trigger_is_one_shape() -> None:
+    """The owner: "Some tooltip buttons are circles and some are rounded squares"."""
+    round_ = []
+    for name, sels, body in _served_rules():
+        if not any(re.search(r"graph-help-toggle|data-help-for", s) for s in sels):
+            continue
+        for value in re.findall(r"(?:^|;)\s*border-radius\s*:\s*([^;]+)", body):
+            if re.search(r"50%|999|radius-pill", value):
+                round_.append(f"{name}: {sels[0][:70]} -> {value.strip()}")
+    assert not round_, "a help trigger is drawn round; it takes the button radius:\n" + "\n".join(round_)
+
+
+def test_a_date_or_time_field_is_the_picker_recipe() -> None:
+    """Phase 12 decision 5: the page's date and time fields are enhanced at boot,
+    keep their native value (a write repaints, a focus lands on the face) and
+    read typed words with `ai/when`, never a second picker built by hand."""
+    selects = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    boot = selects[selects.index("function watchForSelects()"):]
+    boot = boot[: boot.index("new MutationObserver")]
+    assert 'querySelectorAll(\'input:is([type="date"], [type="time"])\')' in boot and "enhanceDateField(field)" in boot
+    body = selects[selects.index("function enhanceDateField(input)"):]
+    body = body[: body.index("\n}\n")]
+    for need in ('Object.defineProperty(input, "value"', "input.focus = (options) => opener.focus(options)",
+                 'ensureModule("dateField")', "dateFieldWire(input, opener, panel, label, isTime)"):
+        assert need in body, need
+    panel = (ROOT / "frontend" / "js" / "date-field.js").read_text(encoding="utf-8")
+    for need in ("wireHelpPopover(opener, panel)", '"/reminders/when"', '"timeline-monthpop-grid"'):
+        assert need in panel, need
+    others = [p.name for p in JS if p.name != "date-field.js" and "/reminders/when" in p.read_text(encoding="utf-8")]
+    assert not others, f"a second typed-date reader: {others}"

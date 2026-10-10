@@ -17,7 +17,10 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
 async function measure(page, rootSel) {
   return page.evaluate((rootSel) => {
     const vw = window.innerWidth;
-    const vis = (e) => { const b = e.getBoundingClientRect(); const s = getComputedStyle(e); return b.width > 0 && b.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+    // `contentVisibilityAuto`: a card a window off screen is not drawn, and
+    // measuring it lays it out unfitted (the note card's details line folds
+    // its tags when it is drawn; scrolled into view, 40 of 40 fit at 390).
+    const vis = (e) => { if (!e.checkVisibility({ contentVisibilityAuto: true })) return false; const b = e.getBoundingClientRect(); const s = getComputedStyle(e); return b.width > 0 && b.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
     const name = (e) => {
       let s = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '');
       const cls = [...e.classList].filter((c) => !/^(hidden|active|open|selected)$/.test(c)).slice(0, 2);
@@ -27,10 +30,20 @@ async function measure(page, rootSel) {
     };
     const roots = rootSel.split(',').map((s) => document.querySelector(s.trim())).filter((r) => r && vis(r));
     const out = { overflow: [], docks: [], clip: [], page: document.documentElement.scrollWidth > vw + 1 ? document.documentElement.scrollWidth - vw : 0, root: roots.length > 0, bars: 0, pairs: 0 };
+    // Visually hidden text (the clip-path: inset(50%) or 1px-box pattern a
+    // dock uses for a word folded behind its icon) is meant to be clipped:
+    // counting it reported the Notes dock's folded words as overflow.
+    const srOnly = (e) => {
+      for (let x = e; x; x = x.parentElement) {
+        const s = getComputedStyle(x);
+        if (s.clipPath === 'inset(50%)' || (s.position === 'absolute' && x.clientWidth <= 1 && s.overflow === 'hidden')) return true;
+      }
+      return false;
+    };
     for (const root of roots) {
       // overflow
       for (const e of root.querySelectorAll('*')) {
-        if (!vis(e) || e.closest('svg, canvas, [aria-hidden="true"], .visually-hidden, .sr-only')) continue;
+        if (!vis(e) || e.closest('svg, canvas, [aria-hidden="true"], .visually-hidden, .sr-only') || srOnly(e)) continue;
         const s = getComputedStyle(e);
         if (s.position === 'fixed') continue;
         const d = e.scrollWidth - e.clientWidth;
@@ -65,7 +78,7 @@ async function measure(page, rootSel) {
       while ((n = walker.nextNode())) {
         if (!n.nodeValue.trim()) continue;
         const p = n.parentElement;
-        if (!p || p.closest('script, style, svg, canvas, option, [aria-hidden="true"], .visually-hidden, .sr-only, .hidden') || !vis(p)) continue;
+        if (!p || p.closest('script, style, svg, canvas, option, [aria-hidden="true"], .visually-hidden, .sr-only, .hidden') || !vis(p) || srOnly(p)) continue;
         const pr = p.getBoundingClientRect();
         if (pr.right < 0 || pr.left > vw) continue;
         range.selectNodeContents(n);

@@ -112,6 +112,7 @@ REACHED_AFTER_LOAD = {
     "webFollowUp": "webClip, called in sendChatMessage after `await ensureModule('webClip')` in the same condition",
     "readerBookmark": "webClip, the reader's bookmark button, whose listener awaits ensureModule('webClip') first",
     "saveWebPageAsNote": "webClip, the reader's Save button, on screen only after showWebReader (same bundle) drew a page",
+    "dateFieldWire": "dateField, called in enhanceDateField's first press after `await ensureModule('dateField')` in the same condition",
     #: WORLD_CLASS_PLAN section 17 row 4: called inside
     #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
     #: has loaded by the time the call runs.

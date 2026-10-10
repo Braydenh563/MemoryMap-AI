@@ -1849,6 +1849,8 @@ const LAZY_MODULES = {
   //: Quick note and the note outbox (INBOX 434): see quick-note.js.
   quickNote: ["/js/quick-note.js"],
   fieldClear: ["/js/field-clear.js"],
+  //: A date or time field's panel (Phase 12): see date-field.js.
+  dateField: ["/js/date-field.js"],
   //: The app emblem as an assistant head (INBOX 463 (2)): assistant-avatar.js.
   assistantAvatar: ["/js/assistant-avatar.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.

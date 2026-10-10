@@ -993,6 +993,80 @@ function enhanceAllSelects(root) {
   }
 }
 
+//: **A date or a time, picked** (UI_MODERNISATION_PLAN Phase 12 decision 5;
+//: the owner: "the reminder dropdowns for setting datetimes and stuff, they
+//: need a custom style"). The native field keeps the value, so every caller
+//: that reads or writes `.value` is unchanged (a write repaints the face, a
+//: `.focus()` lands on the face); what is seen and tabbed to is the select
+//: recipe's opener, and what opens is the help popover shell holding the
+//: Timeline month pop's grid (DESIGN.md, "A date picked from a month") or the
+//: times of the day in the person's clock. A phrase typed in its field ("next
+//: friday", "3pm") is read by `ai/when` on the reminders route. The fields in
+//: the page at boot are enhanced; one built later stays native. The panel is a
+//: lazy piece (date-field.js, the boot scripts are at their gzip cap): the
+//: first press loads it, wires it and presses again.
+function dateFieldFace(value, isTime) {
+  if (isTime) {
+    const [h, m] = value.split(":").map(Number);
+    return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const day = new Date(`${value}T00:00:00`);
+  const year = day.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return day.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year });
+}
+
+function enhanceDateField(input) {
+  if (!input || input.dataset.dateField || !/^(date|time)$/.test(input.type)) return;
+  input.dataset.dateField = "1";
+  const isTime = input.type === "time";
+  const label = input.getAttribute("aria-label") || (isTime ? "Time" : "Date");
+  const shell = document.createElement("span");
+  shell.className = "select-shell date-field";
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "select-opener";
+  opener.setAttribute("aria-haspopup", "dialog");
+  opener.setAttribute("aria-expanded", "false");
+  const icon = document.createElement("i");
+  icon.className = `ph ${isTime ? "ph-clock" : "ph-calendar-blank"} select-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  const face = document.createElement("span");
+  face.className = "select-value";
+  opener.append(icon, face);
+  const panel = document.createElement("div");
+  panel.className = "timeline-monthpop hidden";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", label);
+  input.parentNode.insertBefore(shell, input);
+  shell.append(input, opener, panel);
+  input.classList.add("select-native-hidden");
+  input.tabIndex = -1;
+  input.setAttribute("aria-hidden", "true");
+  const paint = () => {
+    const value = input.value;
+    face.textContent = value ? dateFieldFace(value, isTime) : label;
+    opener.setAttribute("aria-label", `${label}: ${value ? face.textContent : "not set"}`);
+  };
+  const native = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  Object.defineProperty(input, "value", {
+    configurable: true,
+    get() { return native.get.call(this); },
+    set(value) { native.set.call(this, value); paint(); },
+  });
+  input.focus = (options) => opener.focus(options);
+  paint();
+  const first = async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    opener.removeEventListener("click", first, true);
+    if (await ensureModule("dateField")) {
+      dateFieldWire(input, opener, panel, label, isTime);
+      opener.click();
+    }
+  };
+  opener.addEventListener("click", first, true);
+}
+
 // **Focus a `<select>`. Never call `.focus()` on one directly.**
 // `enhanceSelect` hides the native control (`tabIndex = -1`, `aria-hidden`)
 // behind a `.select-opener`, so `select.focus()` focuses nothing and keys go
@@ -1018,6 +1092,7 @@ function focusSelect(select) {
 // than asking every render path to remember to call this.
 function watchForSelects() {
   enhanceAllSelects(document);
+  for (const field of document.querySelectorAll('input:is([type="date"], [type="time"])')) enhanceDateField(field);
   annotateSliders(document);
   new MutationObserver((records) => {
     for (const record of records) {

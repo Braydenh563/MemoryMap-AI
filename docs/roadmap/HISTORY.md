@@ -457,6 +457,26 @@ decisions 51 to 54 and 60, one commit each with its numbers.
   attaches the reminder to it, 10 of 10 phrasings on the route ("on friday
   at 9 remind me to ..." was not read before); the words after the colon are
   the person's own.
+## Moved from the plans, 2026-10-10 (UI_MODERNISATION Phase 12)
+
+Brief 41, steps 1 to 4 and 6, and step 5's pickers. Measured on a 40-note
+fixture at 1440 unless named, light and dark; base e583d76de.
+
+### Census before (step 1, 2026-10-10, head e583d76de, 40 seeded notes, 1440x900 light)
+- Top bar 64px (squares and tab strip 44, tabs 36 in a 4px well); chrome above content 64 to 233px (7.1 to 25.9%).
+- Controls per tab (`density.js`): 36px the commonest on Capture, Ask, Library and Timeline; 28, 32, 36 and 44 on every tab; docks 32 with 28px segments.
+- Role heights (`perf2-1005-census.js`): icon-only twelve heights (14.5 to 146), filled five, plain nine, tab 36, segment@dock 28.
+- Hover boxes (`hoverbox.js`, new): 334 of 334 icon-only buttons draw a box on hover; their radii 4.8px (306), 2.4px (23), 999px (5).
+- Overflow and clip (`overlap.js`, light): 142/6, 94/5, 35/17, 37/20, 30/16 at 320, 390, 820, 1024, 1440; the worst `#entry-list .entry-meta.note-meta` (136x, 229px at 320 and 390), `.wb-tool-section-label` 56px, `#select-btn .dock-word` 40px.
+
+### Built
+- Step 1: the ten rules in DESIGN.md ("Density, hover and WCAG 2.2"), from the ui-ux-pro-max UX guidelines, Fluent 2, VS Code, Teams and WCAG 2.2; `hoverbox.js` new.
+- Step 2: `--control-h-dense` 28, `--control-h-lg` 32, `--control-h-touch` 40, `--topbar-h` 44. Top bar 64 to 44 (squares and strip 44 to 36, tabs 36 to 32); chrome above content on Notes 233 to 201, Dashboard 64 to 44, Capture 116 to 88; every tab's dock one 28px height (`dock32` probe: 0 controls over 28 on eight tabs); phone bar unchanged at 57.8. Literal heights a ratchet (`test_style_scale.py`).
+- Step 3: icon hover boxes 334 to 0 of 334, light and dark (box tokens nulled on the icon button); `.tabs-line` 36 to 28 with a grey 2px underline on hover; help triggers one shape (49 of 49 at 4.8px); two lints in `test_ui_recipes.py`.
+- Step 4: axe 0 findings at 1440 and 390 in both themes, before and after. `focusring.js` new: date and time fields drew no focus ring (inner segment focus), now ringed; ringless stops 17 to 15 of 318 (the rest are a composer, a card title and the code editor, each ringed by its surface). Contrast sweep: every surface ok, before and after. `overlap.js` stops counting visually hidden words and undrawn cards: overflow/clip with the corrected sweep 38/0, 9/0, 12/0, 12/1, 9/1 to 12/0, 9/0, 12/0, 12/1, 9/1 at 320, 390, 820, 1024, 1440 (light; dark the same).
+- Step 5 (pickers): `enhanceDateField` (sheets-selects.js) and the lazy `date-field.js`; `POST /reminders/when`; `datefield.js` passes at 1440, 390 and dark.
+- Step 6: note cards' category pill to dot and word (5 of 5 filled to 0); the active line was already built by Brief 42.
+- Boot CSS 183,286 to 183,245 gzipped (paid by blank lines); boot JS 581,801 to 582,445.
 
 ## Moved from the plans, 2026-10-10 (CHAT_PLAN Phase 6)
 

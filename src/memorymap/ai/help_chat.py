@@ -193,6 +193,8 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The Reminders tab groups items into Overdue / Today / Upcoming / "
             "Done. Set a priority, snooze, edit inline, or make one recurring. "
+            "The date and time fields open a month and the day's times, and "
+            "read a typed day such as \"next friday\". "
             "You can also just say \"call mum tomorrow evening\" in a note and "
             "let the AI schedule it. In the chat, \"remind me two hours before "
             "midnight\" works too: Atlas passes your words and the app works "

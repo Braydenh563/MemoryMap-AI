@@ -10000,11 +10000,16 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #entry-list:not(.is-rows) > li:not(.list-window-sentinel) > :not(.entry-meta, .entry-title) {
   margin-bottom: 0;
 }
+/* Phase 12 decision 7: chips only for state, so the category is its dot and
+   its word, as the Timeline's rows already draw it; the pointer inks it. */
 #entry-list .entry-meta.note-meta > .chip.category {
+  padding-inline-start: 0;
+  background: none;
   color: var(--muted);
   font-weight: 400;
 }
-#entry-list .entry-meta.note-meta > .chip-interactive.category:hover {
+#entry-list .entry-meta.note-meta > .chip-interactive.category:is(:hover, :focus-visible) {
+  background: none;
   color: var(--ink);
 }
 #entry-list .chip.link {

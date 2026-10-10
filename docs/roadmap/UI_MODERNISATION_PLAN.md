@@ -1094,6 +1094,12 @@ and some are rounded squares."
 6. Metadata rows (7); the editor's active line (8).
 7. DESIGN.md, help, CHANGELOG; the Built block to HISTORY.
 
+Steps 1 to 4 and 6, and step 5's pickers, built 2026-10-10 (Brief 41): moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION Phase 12)"). Open:
+- 5b, the calendar mode (decision 6): TIMELINE_PLAN section 9, Brief 55.
+- 8, indent guides in the code editor: Brief 42 (DOCUMENTS 25 row 3); the active line is built.
+- 7 on chat bubbles and library cards; 1's panel padding 12 and sidebar gutter 8, not yet measured.
+- One focus ring at 1:1 (Chat, an `.active` button whose ring takes the ground's colour; `focusring.js`).
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

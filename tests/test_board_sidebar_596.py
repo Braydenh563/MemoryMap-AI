@@ -92,7 +92,7 @@ def test_the_side_column_is_one_width_and_one_grid_and_a_phone_has_no_side():
     assert "display: grid" in grid and "repeat(4, 2.25rem)" in grid and "width: 100%" in grid
     assert "grid-column: 1 / -1" in col[: col.index("}", col.index("> .select-shell"))]
     phone = (FRONTEND / "css" / "10-responsive.css").read_text(encoding="utf-8")
-    band = phone[phone.index("@media (max-width: 599.98px) {\n\n  #wb-tools-panel > #wb-tool-group") :]
+    band = phone[phone.index("@media (max-width: 599.98px) {\n  #wb-tools-panel > #wb-tool-group") :]
     band = band[: band.index("#wb-tools-opener {")]
     assert '.whiteboard-floating-panel.bottom-center[data-dock="side"] {\n    inset: auto 0 0;' in band
     assert "#wb-dock-toggle {\n    display: none;" in band

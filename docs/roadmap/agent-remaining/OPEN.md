@@ -1256,3 +1256,11 @@ The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](
 - "Grounded in" says 4 notes while the support chip says "3 of 3 from your notes" on "tell me about golf" (seen in a sweep screenshot, not investigated). [f3-1010]
 - The decision 54 sum rule: "12 * 7 is 84." is read as its own "Read as" because it restates the question's sum; every other utility answer has a "Read as" line. [f3-1010]
 - Not verified: real-model answers through the validators (fake transport and the route test only); dark mode. [f3-1010]
+
+## Left by the search agent (Brief 47, WORLD_CLASS 25a, merged 2026-10-10)
+
+- A chat is one search row (the whole thread), so a hit opens the chat, not the turn that matched (`index._conversation_row`). [search-1010]
+- `tag:` with words still filters after the keyword pass's 200 candidates (`engine.search`, the `wanted_tags` block), so a common word plus a rare tag can miss notes. [search-1010]
+- `GET /resurface/near/{id}` 500s ("shapes (384,) and (4,) not aligned") when the notebook holds vectors of another dimension (the scale_test fixture's 4-d vectors after a 384-d save); a model switch with stale vectors would do the same (`api/routes_resurface*`). Bug. [search-1010]
+- Brief 47's "the sidebar's search field routes here": the Notes sidebar has no search field; the no-match Search everything button and the saved-search rows are the routes built. [search-1010]
+- Not verified: hybrid ranking cost at 5,000 notes with a real embedding model (keyword plus the fake backend only); the saved-search ⋯ menu opened in a browser; the phone's saved-search rows at 390 beyond the DOM count. [search-1010]

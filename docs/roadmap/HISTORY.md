@@ -338,6 +338,60 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 25a, Brief 47)
+
+**Built** by Brief 47 (search everywhere, decision 46), merged 2026-10-10.
+"Find anything" (`spaces-find.js`) moved whole into lazy
+`frontend/js/search.js` and `search-lazy.css` (`LAZY_MODULES.search`,
+stand-in `openFinder`, preloaded at 3 s): a `chat` kind (saved chats slot 9,
+Ask turns slot 10; `index.reconcile_sources` fills a late source once at
+boot), a kind chip on every row, Show more results (`GET /search` takes
+`page` 1 to 20 beside `limit` and answers `page`, `limit`, `more`),
+`openFinder(q, { kind })`, every operator and the keys behind the box's '?'
+help, Guide topics `search` and `find-anything`, saved searches in
+preferences `saved_finds` (the star in the box's head; rows under Saved
+searches in the Notes sidebar with Rename and Forget), the Notes filter's
+no-match Search everything. `tag:` alone filters in the SQL
+(`engine._filter_only`; over the newest 200 rows it found 5 of about 110
+notes). `tests/test_search_box.py`; sweep `scratchpad/ui-sweeps/search.js`
+with `search-seed.py`; bench `scratchpad/search-bench-1010.py`. Measured:
+kinds indexed 7 to 8, 8 of 8 found by query at 390 and 1440, light and dark;
+route at 5,000 notes p50 18.3 ms, p90 39.4 ms (keyword search, fake
+backend, load 6.5), box render 1.4 to 2.5 ms; boot JS gzip 581,725 to
+578,046; top-level lets 703 to 699; axe on the open box 2 contrast failures
+to 0; the card ran 11 px past 1440x900 and 111 px past 390x844, both fit.
+Left: per-turn chat hits, the phone's saved-search rows at 390, `tag:` with
+words after the 200-candidate pass, `/resurface/near` on mixed vector
+dimensions (OPEN.md).
+
+## Moved from the plans, 2026-10-10 (CHAT_PLAN Briefs 65 and 66)
+
+**Built** by Brief 65 (F1: the recogniser and the reading, decisions 46 to
+49 and 56) and Brief 66 (F2: quick add and the palette, decision 50),
+merged 2026-10-10.
+
+- **F1.** `ai/recognise.py` is the one reader (17 kinds, a 158-unit table,
+  ranked second readings, tense from the verbs); `when`, `reminder_parser`,
+  `notebook_stats`, `routes_vision`, `insights`, `factgraph`, `utilities`
+  and `search/query`'s date windows delegate with their signatures kept;
+  `ai/reading.py` holds `Reading`, the bands and scores and `repair` (the
+  ladder); `GET /read` (also `/api/v1/read`) with `now`. Fixtures
+  `recognise_1010.json` 212 of 212 and `reading_1010.json` 42 of 42 in band;
+  `recognise` 0.093 ms a phrase (budget 5 ms); `tests/test_one_reader.py`
+  ratchets reader files 9 to 1 (`composer.py`'s `_DATE_CUE`, Brief 68).
+  The probe's reminder table 5 of 11 wrong to 0; "in ..." 4 of 9 None to 1.
+- **F2.** One lazy `frontend/js/quickadd.js` shows reading chips (due,
+  repeat, title, window) under the Reminders box, Quick note, New
+  meeting's title, the Timeline search and the palette's reminder row;
+  magic add left boot; a day with no time asks once; a repeat's hour is
+  its time; the reader's reminder and note paths warmed after boot.
+  `tests/test_quickadd.py`, the 60-phrase set
+  `tests/fixtures/composer/quickadd_1010.json` at 60 of 60 with F1's
+  fixes (56 before), saved value equals the chips 60 of 60, chip latency
+  median 61 ms, p90 74, max 94 (305 cold before the warm-up), boot 140
+  bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
+  touch.js 0. Left rows in OPEN.md.
+
 ## Moved from the plans, 2026-10-10 (CHAT_PLAN Brief 67)
 
 **Built** by Brief 67 (F3: the realiser, the validators and the acts),

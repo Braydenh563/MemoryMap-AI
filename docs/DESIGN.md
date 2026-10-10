@@ -1108,6 +1108,26 @@ scale has ten steps because an interface needs ten *sizes*, not ten *levels*.
 
 ---
 
+## Decided 2026-10-10, lints pending (UI_MODERNISATION_PLAN Phase 13)
+
+New UI follows these now; the ratchets land with Briefs 57 and 58.
+
+- Colour literals only in `00-tokens-shell.css` and `05-sidebars-themes.css`.
+- Font sizes only from the ramp; `0.75rem`, `0.8rem`, `0.85rem` and `0.92rem`
+  are `--text-xs`, `--text-sm`, `--text-sm` and `--text-md`.
+- Layers are tokens: `--layer-raised` 2, `--layer-sticky` 10, `--layer-dock`
+  20, `--layer-popover` 40, `--layer-sheet` 50, `--layer-modal` 60,
+  `--layer-toast` 70, `--layer-lock` 80. No literal z-index above 2.
+- Shadows are the three elevation tokens and the focus ring; motion is the
+  three motion tokens, with `--motion-base` the default.
+- A `:hover` rule on an interactive selector is declared with its
+  `:focus-visible` twin, same visible change.
+- No new `!important`; no new rule in `08-consistency.css` or
+  `10-responsive.css` (a rule lives with its component).
+- Circles are avatars, the companion and colour swatches only.
+- One primary action per surface. Three notification channels: toast, the
+  undo bar, the panel.
+
 ## Adding a feature
 
 1. **Reach for a token first.** If you are typing a rem value into a `margin`,

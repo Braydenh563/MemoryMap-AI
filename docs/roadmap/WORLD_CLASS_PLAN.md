@@ -3821,3 +3821,156 @@ whether `routes_search` already indexes documents and boards (the engine's
 `_retrieve` may; the box does not show it); whether `versioning.py` keeps
 per-note history or only edit stamps; whether the bundle export is a
 complete notebook.
+
+## 26. The backend against world class, 2026-10-10 (Fable)
+
+The owner, 2026-10-10: "after your design review, do the same for the
+backend." Sections 4 (B1 to B7), 12 (security), 16 (structure and silent
+failure), 19 (architecture) and 22 (the professional baseline) each read a
+part. This section reads the whole, with today's numbers, and places the
+gaps.
+
+**Measured from the code** (not run): 470 routes over 58 router files
+(entries 55, files 43, settings 40, documents 32, whiteboard 25); 54 routes
+with no test naming their path (census 24.5: documents 12, entries 10,
+board library 6, conversations 6); 223 Python files, 131,372 lines, 3,674
+functions, 128 over 80 lines; 306 `except Exception` of which 21 end in
+`pass`, `continue` or `return None` with no log line; 6 bare `except:`;
+461 log calls; 36 `print(` outside the CLI; 32 thread or executor sites;
+21 tables; 44 indexes; WAL, foreign keys on, `busy_timeout` 5000,
+`synchronous NORMAL`, `temp_store MEMORY`; one worker enforced
+(`refuse_multiple_workers`); the error envelope (`detail`, `code`, `hint`,
+`ref`); cursors, ETags and `/api/v1` (B7); the event log (B1), durable jobs
+(B2) and the retrieval engine (B3) built; the kernel (B4) and harness (B5)
+part built; sync (B6) designed only.
+
+### 26.1 Judgement, by layer
+
+| Layer | The bar | Today | Judgement |
+| --- | --- | --- | --- |
+| Routes | thin: parse, call a service, shape the answer | `routes_whiteboard.py` 5,428 lines (128 functions, `_board_preview` 198 lines renders a preview inside a route file); `routes_entries.py` 3,835; `routes_files.py` 3,931 (`analyse_attachment` 181 lines); `routes_chat.py` `_stream_lines` 289 lines, cx 86 | business logic lives in the route files; only `entry/manager.py` is a service in the proper sense. Services per domain (board, document, file, chat) are the structural fix, and the route tests already prove behaviour unchanged |
+| Services and domain | one module per domain, tested directly | `entry/manager.py` 3,519 lines, 138 functions, `_hard_delete` 179 lines | the one service is itself a monolith; split along entries, filing, links, deletion |
+| The AI package | small modules, data out of code | 60 flat modules; `question_noise.py` 5,242 lines and `composer_tables.py` 2,034 lines are tables written as Python; `tools/__init__.py` 4,878 lines holds 67 tools and their execution; `agent.py` `run_agent` 416 lines, cx 78; `skill_runner.py` `_run_one_step` 425 lines | data as code costs import time (triage measured `composer` 0.75 s cold, 0.08 s after lighter imports) and makes a table edit a code review; one file per tool family; `run_agent` and `_run_one_step` are the two functions most in need of a state machine |
+| Errors | every failure names its way out (section 21); nothing swallowed silently | the envelope is built; 21 silent swallows; 36 prints | a lint ratchets swallows to zero (each becomes a narrower exception or a log line with the reason); prints to the logger |
+| Data | SQLite tuned; every FK indexed; migrations for every schema change; versions derivable | pragmas right; 44 indexes on 21 tables; the alembic baseline; the event log holds every write | per-note versions from the event log (25e) rather than a new table; an index audit (every FK and every column in a `WHERE` of a hot query) is Brief 60's |
+| Background work | every thread is a job: durable, visible, stoppable | B2 covers the pool's kinds; 32 thread sites remain ad hoc (embedding, warm-ups, watchers, the tray) | a registry: a thread not started through `jobruns` or a named `core/background.py` entry fails a lint; every entry has a stop |
+| Concurrency | one writer, SQLite's rules respected | one worker enforced; `busy_timeout` 5 s; `edit_conflicts.py` and ETags | sound; the risk is a long write inside a request (imports, bulk moves): those go through jobs |
+| API | one contract, versioned, documented | B7 built; OpenAPI behind the unlock | the page should read `/capabilities` once (B7's left row); the 54 untested routes get a test each or are removed |
+| Security | section 12 | unlock middleware, Host and Origin checks, CSP, the space guard, the media router's own dependency | rate limit on `/auth`, session expiry, a written threat model for LAN mode (Brief 40) |
+| Performance | idle under 1 percent CPU, resident under 300 MB without the embedding model | 776 MB resident idle measured 2026-09-20 (19.1), mostly the embedding model; idle compute fixed (19.4) | Brief 46 re-measures with and without the embedder; the model loads lazily on first use |
+| Tests | every route named by a test; the specs strict-xfail | about 9,000 tests; 54 routes untested; e2e 11 specs; five spec files | the 54; a property test for the composer's realiser (Phase 6) and for `when.py` |
+
+### 26.2 Decisions, 2026-10-10 (do not re-decide)
+
+55. **Routes are thin.** A route parses, calls one service function, shapes
+    the answer. Services live in `src/memorymap/<domain>/service.py`
+    (board, document, file, chat, settings), each tested directly; the
+    route tests stay as they are and prove no behaviour changed. Extraction
+    order: whiteboard, files, entries, chat.
+56. **Data is data.** Tables (`question_noise`, `composer_tables`, the help
+    topics, the taxonomy) are JSON under `src/memorymap/data/`, loaded
+    lazily and cached; `tests/test_import_time.py` caps `import
+    memorymap.ai.composer` at 0.2 s cold and the app's import at 1.5 s.
+57. **No silent swallow.** `except Exception` ends in a log line with the
+    reason and the way out, or becomes a named exception;
+    `tests/test_no_silent_except.py` ratchets 21 to 0. `print` outside the
+    CLI fails ruff (`T201`).
+58. **Every background thread is a job or registered.** `core/background.py`
+    holds the registry (name, started, stop); `jobruns` for anything with
+    progress; a lint fails a `threading.Thread(` outside the two.
+59. **Every route has a test naming its path**, or it goes.
+    `tests/test_routes_named.py` is the ratchet, seeded with the 54.
+60. **Versions come from the event log,** not a versions table (25e).
+61. **The two long runners become state machines:** `run_agent` and
+    `_run_one_step` each as a `Step` enum with one function per state, so a
+    stage can be tested alone; Phase E (AGENT_SKILLS) builds on it.
+62. **The embedder loads on first use** and unloads after an idle hour
+    (a setting, default on); the resident number is measured before and
+    after.
+
+### 26.3 Phases with gates
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| 26.0 Measure | import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60 (Sonnet, medium) |
+| 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60 (Sonnet, medium) |
+| 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
+| 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |
+| 26d Runners | decision 61; the embedder's lazy load (62) | the agent and skill tests unchanged; the resident number recorded | 63 (Opus, high) |
+
+## 27. Every feature, its utility and its popups, 2026-10-10 (Fable)
+
+The owner, 2026-10-10: "then a pass for the features, implementation,
+utility, and everything to do with each main feature and popup and stuff in
+the app." Section 25 placed each surface against its bar; this section
+reads what each feature offers and where its utility is thin, and takes
+the popups one by one.
+
+**Measured from the markup and the code:** 15 `<dialog>`s; kebab menus from
+one recipe at 38 call sites (library 12, documents 4, chat 4); the note's
+overflow menu carries about 30 items; 49 slash commands in the editor; 67
+tools in the registry (56 shown to MCP); up to 30 skills; four import
+sources; three export shapes per document and one per note.
+
+### 27.1 Feature by feature: what it offers, what a professional expects, the gap
+
+| Feature | Offers today | Expected and missing | Place |
+| --- | --- | --- | --- |
+| Notes | capture, filing, tags, categories, spaces, properties, relations, wiki links, backlinks, history, duplicate, translate, remind, attach, move, download `.md`, explain, improve, expand into a document, add to a board | find and replace in a note; bulk edit (tags, category, properties) from a selection; pin and archive as first-class states; a note's versions visible (25e); templates with variables | 25a (bulk), 25e, Brief 42 |
+| The note menu | about 30 items in one list | a menu under nine items or grouped (1.3); the AI items as one "Atlas" group, the structure items as one, the destructive at the end | Brief 59 |
+| Filing | taxonomy votes to existing categories, model filing, the no-model keyword map, explanations in section 23 | confidence shown and a one-press correction that teaches (23); suggested merges of near-duplicate categories; a "why here" on every card | Brief 39b |
+| Search | hybrid retrieval, graph expansion, learned order | one box, operators, kinds, saved searches (25a) | Brief 47 |
+| Ask | grounded answer, citations as `[**Title**]` with peek, sources, evidence, figures, trail, as-of | the engine (Phase 6): acts, insights, a dialogue that holds; one foot (13.3 decision 22) | Brief 39 |
+| Chat and agent | modes, attachments, tools, skills, plans, the rail, drafts with undo, compress | a run you can read and resume as a page (AGENT_SKILLS C); reliability per skill (E); the model-off state that says what still works | Briefs 37, 54 |
+| Documents | blocks, tables, embeds, properties, columns, slash menus, live view, code mode, writing checks, history, AI history, dictionary, word goal, templates, storage, export md, zip, docx | DOCUMENTS 17, 20, 21; comments and suggestions as a review mode; outline navigation; find and replace with regex | Brief 42 |
+| Code editor | CodeMirror 6, Emmet, scan | multi-cursor, folding, bracket pairs, diagnostics, a command palette inside the editor, format on save (DOCUMENTS 21) | Brief 42 |
+| Whiteboard | the programme's 288 rows | the programme | Briefs 36, 44 |
+| Mind map | MINDMAP 13 and 14 | MINDMAP 13 and 14 | Brief 36 |
+| Graph | filters, display folds, local map, typed links, tensions | KG rows; a "what changed about X" | Brief 38 |
+| Timeline | feed, table, scrubber, day notes, kinds | the calendar (Phase 5) | Brief 55 |
+| Reminders and tasks | parse, due, snooze?, the tray, notifications | recurring, snooze with choices, natural dates in every date field, delivery when the window is closed, the calendar | Brief 55 |
+| Library | gallery, OCR, vision, filters, activity | split (45); bulk tag and move; a file's places (which notes, boards) | Briefs 45, 43 |
+| Dashboard | nine blocks | "continue and today" (decision 51) | Brief 59 |
+| Settings | 179 keys, panes, help on 105 | search, reset, modified, export (decision 52) | Brief 52 |
+| Import | Notion, Obsidian, Evernote, Apple Notes, web clip, media | the report page, progress, a markdown folder in, the round trip (25b) | Brief 48 |
+| Export | per note `.md`, per document md, zip, docx, the bundle | the whole notebook as a folder (25b); boards and maps as SVG and PNG with the notes they link; a document as PDF | Brief 48 |
+| Backups | create, list, restore, bundle | the tested restore, the boot check, a schedule shown with the last success (25e) | Brief 51 |
+| Help | Guide chat, popovers, manual parity | the manual page with search; "what changed" (25c) | Brief 49 |
+| Skills and tools | 67 tools, 30 skills, MCP | Phase E; one file per tool family (26) | Briefs 54, 63 |
+| Spaces | create, edit, delete dialogs, the space guard | a space's own dashboard line and its export; moving a note between spaces with its links kept | Brief 59 row |
+| Meetings | notes, summary | the redesign (INBOX 643, 644; ROADMAP "Next PR" item 1) | Brief 59 row |
+
+### 27.2 The popups, one by one
+
+| Popup | Kind today | Right kind | Note |
+| --- | --- | --- | --- |
+| `recovery-key-dialog` | dialog | dialog | irreversible; keep |
+| `space-create-dialog`, `space-edit-dialog` | dialog | sheet | a form of two fields is a sheet, not a modal |
+| `space-delete-dialog` | dialog | dialog | destructive; keep, with the undo bar after |
+| `doc-storage-dialog`, `doc-template-dialog`, `note-template-dialog`, `wb-template-dialog` | dialog | sheet | pickers are sheets |
+| `wb-import-dialog` | dialog | sheet with progress | an import is a job (26) |
+| `quick-note` | dialog | sheet | capture from anywhere is a sheet at the bottom on the phone, a centred sheet on desktop |
+| `doc-history-dialog`, `doc-ai-history-dialog` | dialog | panel | a history is read beside the document, not over it |
+| `doc-word-goal-dialog`, `doc-dictionary-dialog`, `dash-widgets-dialog` | dialog | sheet | settings of one surface |
+| the note overflow menu | kebab, about 30 items | kebab, grouped, under nine visible | decision 1.3 |
+| the toast, the undo bar, the server-down banner, the AI-offline notice, the notifications panel | five channels | three (13.3 decision 21) | Brief 59 |
+| the help popovers (98) | `data-help-for` | keep | one shape (Phase 12 decision 3) |
+| the command palette | one recipe | keep; every action listed (13.1 row 7) | Brief 41 |
+
+Brief 56 classifies the fifteen by the sweep; Brief 59 moves the ones
+above. A dialog that stays is one that must interrupt (irreversible,
+a key, a password).
+
+### 27.3 Decisions, 2026-10-10 (do not re-decide)
+
+63. **A popup is a dialog only when it must interrupt;** a form, a picker
+    or a setting is a sheet; a history is a panel. The table above is the
+    ruling for the fifteen.
+64. **A menu over nine items is grouped,** and the note menu's groups are
+    Atlas, structure, share, destructive, in that order.
+65. **Bulk edit is a feature of selection,** not of each surface: the
+    selection bar recipe gains tag, category, property, move and delete
+    with the undo bar, and every list surface uses it.
+66. **Exports are complete:** a board or map exports as SVG and PNG with
+    the notes it links as a folder; a document as PDF (through the
+    browser's print to PDF with a print stylesheet, no new dependency).

@@ -1370,3 +1370,118 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
   Recommendation: one install panel with per-package progress and a link from any locked feature to it. Also carried by Brief 37 (packages progress).
 - "There needs to be more utility on all features app wide and more ui/ux cleansing"
   Recommendation: this is the Brief 41 refinement pass plus the Brief 38 topic and note-property work applied on every surface. Also carried by Brief 41 and Brief 38.
+
+## Phase 13: the design review, every surface against the principles (Fable, 2026-10-10)
+
+The owner, 2026-10-10: "do the same thing for the apps design, learnability,
+structure, accessibility, usability, hierarchy, how tools and elements are
+arranged, styled, bundled, positioned, spaced, colour ... what is poorly
+designed ... for all surfaces." Phase 12 took the owner's observations
+(density, hover, pickers, metadata, circles). This phase takes the
+principles, measures the stylesheet and the markup against each, and names
+what is poorly designed with its number.
+
+**Method and limit.** The stylesheet was measured (16 files, 73,672 lines,
+2,603 selectors, 412 custom properties) and `index.html` parsed (1,015
+buttons, 15 dialogs, 110 selects, 278 inputs, 22 textareas, 347 dock
+classes, 98 help popovers, 7 tabs). Rendering was not observed; Brief 56
+runs the sweeps (`contrast.js`, `wcag22.js`, `docks.js`, a new
+`hierarchy.js`) and replaces each reading below with its number.
+
+### 13.1 The principles, each as a rule with a measurement
+
+DESIGN.md already carries contrast, alignment, repetition and proximity
+(its "principles" section) and the recipe index. These are the rest, in
+the order a person meets them, with what the code says today.
+
+| # | Principle | The rule here | Today, measured | Judgement |
+| --- | --- | --- | --- | --- |
+| 1 | Hierarchy | one primary action per surface; three levels of emphasis (primary, quiet, ghost); the eye lands on the content, then the one action | 1,015 buttons over 7 tabs and 15 dialogs (145 a tab in the markup; how many are visible at rest is Brief 56's first number) | too many doors per surface; the count, not the look, is the problem |
+| 2 | Grouping (proximity, common region) | related controls share a container; a dock folds past seven items; unrelated groups are two spacing steps apart | 347 dock classes; `test_dock_grammar` holds the grammar; folding exists on the phone (`foldDockActions`) but not by count at desktop | docks overflow at 1024 before they fold (INBOX reports); fold by count, not by width |
+| 3 | Alignment and rhythm | everything on the 4 px grid; one left edge per column | spacing literals off the scale: 7.2, 6.4, 4.5, 3.6 and 26.4 px (rem arithmetic leaking into px); the scale lint allows them because they are not in the spacing properties it reads | close the escape |
+| 4 | Consistency (one recipe per need) | one value per role | 46 distinct font sizes (`0.8rem` 48 uses, `0.85rem` 34, `0.75rem` 27, `0.92rem` 24, all off the token ramp); 35 radius expressions; 59 `50%` circles (decision 3 allows avatars and the companion only); 75 distinct shadows against 3 elevation tokens; 96 distinct transitions; two z-index systems (1 to 60, and 1010 to 1040) | the ramp exists and is bypassed; each bypass is one decision below |
+| 5 | Feedback and state | every control declares rest, hover, focus-visible, active and disabled together | 418 selectors with a hover rule, 282 of them with no focus rule (`.icon-btn`, `.graph-zoom-btn`, `.doc-dock-menu-btn`, `.wb-library-item` among them) | a keyboard user sees two thirds of the app without its hover feedback |
+| 6 | Signifiers | an icon-only button has a label; one tooltip shape; a tool names its cursor | 13 icon-only buttons with no `aria-label` or `title` in the markup (the ones built in JS are Brief 56's); tooltip shapes mixed (the owner); cursors linted | fix the 13 in Brief 56; the shape is decision 3 |
+| 7 | Recognition over recall (learnability) | every action is in its surface's dock or menu, in the command palette with its shortcut, and in the Guide; no gesture without a visible alternative | 36 rebindable shortcuts in the table; 549 key checks outside it; the palette lists what the table knows | the shortcuts a person can learn are the table's; the rest are undiscoverable |
+| 8 | Error prevention and recovery | undo over confirm (WORLD_CLASS 1.8); confirm only the irreversible; validation inline, at the field | six undo implementations; dialogs 15 | one undo contract (rule 1.8); Brief 56 counts the confirms |
+| 9 | Progressive disclosure | the first view shows what most people need; the rest behind details, Customise or a menu | 278 inputs and 110 selects in the markup; `details` used widely in Settings and the graph | measure per page what is visible at rest (Brief 56); Settings is the test case (decision 52) |
+| 10 | Fitts and Hick | targets at least `--target-min`; the primary action at the pointer's resting place; menus under nine items or grouped | `--target-min` 86 uses, `44px` 5 literals; `test_a_long_kebab_menu_is_grouped` holds | the literals fold into the token |
+| 11 | Colour as meaning | accent for the primary action and state; semantic colours for semantics only; chrome has no decorative colour | 265 hex and 323 rgb literals: 190 and 198 in the themes file (its job), 74 and 110 in tokens (its job), 52 and 26 in `08-consistency.css`, 28 and 65 in `02-chat-graph.css`, 26 and 7 in `06-timeline-dialogs.css` (not their job) | colour that is not a token cannot follow a theme or a palette; 200 literals outside the two files that own colour |
+| 12 | Type | one ramp of seven tokens; body at 14 to 15 px; line height 1.45 to 1.5; nothing under `--text-xs` | the ramp is used 681 times; the four off-ramp rems 133 times | map the four to tokens and close the rem escape in `test_style_scale` |
+| 13 | Motion | three tokens; motion explains a change of place or state and nothing else; reduced motion answered | `--motion-slow` 65, `--motion-base` 41, `--motion-fast` 28; literals `0s` 11, `80ms`, `250ms`; 35 reduced-motion blocks (linted) | slow is the commonest duration, which is backwards for an app that should feel fast |
+| 14 | Specificity and the stylesheet's own structure | a rule lives with its component; no `!important` | 171 `!important` (45 in `02-chat-graph.css`, 40 in `08-consistency.css`, 40 in `07-whiteboard-misc.css`); `08-consistency.css` is 11,631 lines of corrections appended after the component files; `10-responsive.css` is 3,002 lines with 109 phone blocks away from their components; 236 selectors matched by no markup (census 24) | the consistency layer is where inconsistency is patched, not where it is prevented |
+| 15 | Density | Phase 12 | Phase 12 | Brief 41 |
+| 16 | Accessibility | WCAG 2.2 AA | Phase 12 decision 4 | Brief 41; principle 5 is the largest a11y gap this review found |
+
+### 13.2 Surface by surface
+
+| Surface | Hierarchy | Grouping and arrangement | Consistency | Learnability | The gap in one line |
+| --- | --- | --- | --- | --- | --- |
+| Shell: topbar, tabs, status | the brand, seven tabs, search, the model pill and the status compete at one weight | the status bar carries nine items (`renderStatusBar`) | the topbar is 44 px measured against a 28 to 32 px grammar | tabs are learnable; the status pill's meanings are not | one weight for everything; the status bar needs three states, not nine items |
+| Sidebar (categories, spaces) | categories, spaces, tags and the rail at equal weight | the rail duplicates the sidebar's job on the phone | the floating sidebar's gutter is 8 px by decision 1 | drag targets with no visible alternative on desktop | a hierarchy of two (spaces over categories) and one rail recipe |
+| Notes list and note card | title, facts line, body, chips at one weight; the facts line is a lint now | `entryItem` 915 lines builds a card with up to nine affordances | metadata rule (Phase 12 decision 7) | the inline query grammar is invisible | one muted metadata line; the query help in the box |
+| Note editor and capture | the editor's bar, the selection bar, the inline AI and the slash menu are four surfaces for one task | the capture form's adders (documents, tags, templates) sit above the text | selection bar linted (`one sticky recipe`) | slash is discoverable (the hint), the selection bar is not | fold the four into two (bar and slash); the capture box shows the text first |
+| Ask answer | the answer, its citations, sources, evidence, figures and the trail are six blocks | `renderAnswerSupport`, `renderEvidenceView`, `renderAskAnswerFoot`: three feet | citations `[**Title**]` since triage | a reader cannot tell which block to read first | answer first, sources as one foot, the rest behind one toggle |
+| Chat | bubbles, meta lines, tool chips, the rail, attachments, the mode segment | `sendChatMessage` 1,079 lines renders and sends | metadata rule | the modes (Ask, Chat, Agent) are a segment with no explanation at rest | one bubble recipe with the meta line, one explanation line per mode |
+| Documents and code | DOCUMENTS 17 and 21 | the live view bar and the block bar | `docCmTheme` 871 lines of theme | the slash menus are one system (DOCUMENTS 18) | Brief 42 |
+| Whiteboard and mind map | the radial, the tool palette, the format panel, the properties sheet, the dock: five | `initWhiteboard` 3,730 lines | draw.io programme | the radial is a toolbar not a menu (linted) | the format panel as draw.io's one panel (programme phase 2) |
+| Graph | the options folds (three) | GRAPH decisions | `renderGraphSvg` 1,254 lines | folds are learnable | Brief 38 |
+| Timeline | feed, table, scrubber | one row model | row tokens | keys documented in the plan, not the UI | Phase 5 adds the calendar; the keys go in the help popover |
+| Library | gallery, activity, filters | `filterLibraryImagesGallery` 1,546 lines | chips as `.library-chip` | the filter well recipe | split along the seams (Brief 45) |
+| Dashboard | greeting, clock, art, timer, streak, digest, widgets, quick links, features | nine blocks with no primary | widgets sized by `sizeDashWidgets` | the catalogue is a second navigation | "continue and today" (WORLD_CLASS decision 51) |
+| Settings | 179 keys over panes | sections as cards | help on 105 rows | no search | WORLD_CLASS decision 52 |
+| Dialogs and sheets | 15 dialogs, the sheet recipe linted | a sheet versus a dialog is decided per case | one recipe (the lint) | consistent dismissal | the 15 dialogs audited for which are sheets (Brief 56) |
+| Menus | kebab menus linted and grouped | hand-built menus ratcheted | one recipe | consistent | hold |
+| Toasts and notifications | toast, undo bar, server-down banner, AI-offline notice, notifications panel: five channels | `status.js` 81 functions | one toast host | a person cannot predict which channel speaks | three channels: toast (transient), the undo bar (actionable), the panel (history) |
+| Phone | the bottom tab bar, the FAB, the more sheet, folded docks | `phone-shell.js` 46 functions; `10-responsive.css` 109 blocks | the shell bands | the folded docks hide actions behind a kebab | phone rules live with their component (decision 19) |
+
+### 13.3 Decisions, 2026-10-10 (do not re-decide; numbered after Phase 12's 8)
+
+9. **A token budget.** 412 custom properties to under 200 by 0.8; a new
+   token needs a recipe that uses it twice; `test_style_scale` ratchets the
+   count downwards.
+10. **Colour literals live in two files** (`00-tokens-shell.css` and
+    `05-sidebars-themes.css`); every other hex or rgb is a token
+    reference. The 200 outside them move to tokens; the lint fails on a new
+    one.
+11. **The four off-ramp sizes map to the ramp** (`0.75rem` to `--text-xs`,
+    `0.8rem` and `0.85rem` to `--text-sm`, `0.92rem` to `--text-md`); the
+    lint closes the rem escape.
+12. **One layer scale as tokens:** `--layer-raised` 2, `--layer-sticky` 10,
+    `--layer-dock` 20, `--layer-popover` 40, `--layer-sheet` 50,
+    `--layer-modal` 60, `--layer-toast` 70, `--layer-lock` 80. The 1010 to
+    1040 set folds in; a literal z-index above 2 fails the lint.
+13. **Shadows are the three elevation tokens plus the focus ring;** 75 to 4.
+14. **Motion is the tokens;** `--motion-base` is the default, `--motion-slow`
+    only for a surface entering or leaving; a literal duration fails the
+    lint.
+15. **Hover and focus-visible are declared together.** A `:hover` rule on an
+    interactive selector has a `:focus-visible` twin with the same visible
+    change; `tests/test_hover_focus_pairs.py` ratchets the 282 down.
+16. **`!important` budget 171 to 0 by 0.8,** by specificity, with a ratchet.
+17. **Circles are avatars, the companion and the colour swatches;** 59 to
+    that count, the rest `--radius-pill` or the button radius.
+18. **`08-consistency.css` dissolves into the component files** by 0.8: each
+    rule moves beside the component it corrects, or becomes the recipe; a
+    ratchet caps its line count downwards and no new rule may be added to it.
+19. **Phone rules live with their component;** `10-responsive.css` keeps
+    only the shell bands; the same ratchet.
+20. **One primary action per surface, counted.** Brief 56 measures visible
+    `.primary` buttons per page at rest; the number must be one.
+21. **Three notification channels:** toast (transient, six seconds), the
+    undo bar (actionable, rule 1.8), the panel (history); the server-down
+    banner and the AI-offline notice are toasts with the keep action.
+22. **The Ask answer is answer, then one foot** (sources), everything else
+    behind one "Evidence" toggle.
+
+### 13.4 Phases with gates
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| 13.0 Measure | visible controls and primaries per page at rest at 1440 and 390, the dialogs classified, the 13 unlabelled buttons plus the JS-built ones, `wcag22.js` and `contrast.js` per surface, the confirms counted, `hierarchy.js` written | 13.1 and 13.2 re-written with numbers; a list of every offence per decision | 56 (Sonnet, medium) |
+| 13a The stylesheet's grammar | decisions 9 to 17: tokens, colour literals, the type ramp, the layer scale, shadows, motion, hover and focus pairs, `!important`, circles; each with its ratchet in `test_style_scale.py` or a new lint | every ratchet green; `contrast.js` and `errors.js` unchanged; no visual change except the hover and focus twins (measured by `getComputedStyle` on ten controls) | 57 (Opus, high) |
+| 13b The stylesheet's structure | decisions 18 and 19: dissolve the consistency and responsive files into the components; remove the 236 unused selectors | the two ratchets; the sweeps unchanged; file count and line count recorded before and after | 58 (Opus, high) |
+| 13c The surfaces | the 13.2 rows not owned elsewhere: the shell's weights and the status bar's three states, the sidebar's hierarchy and rail, the capture form's order, the Ask answer's foot (decision 22), the chat bubble recipe, the notification channels (decision 21), the dialogs that become sheets | each row's before and after numbers from Brief 56's sweep; `docks.js`, `contrast.js`, `touch.js`, `wcag22.js` green on every surface | 59 (Opus, high) |
+
+Phase 12 (Brief 41) runs first; 13a and 13b are mechanical enough to run
+beside it; 13c follows 13a.

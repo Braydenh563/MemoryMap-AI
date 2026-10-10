@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Plans: the design review (UI_MODERNISATION_PLAN Phase 13: sixteen principles measured against the stylesheet and the markup, every surface, decisions 9 to 22, Briefs 56 to 59), the backend review (WORLD_CLASS_PLAN 26, decisions 55 to 62, Briefs 60 to 63) and the features and popups pass (WORLD_CLASS_PLAN 27, decisions 63 to 66).
 - Plans: every surface of the app read against world class in one table (WORLD_CLASS_PLAN 25), with decisions 46 to 54, phases 25a to 25g, the calendar view (TIMELINE_PLAN Phase 5), skill reliability (AGENT_SKILLS_REFORM Phase E) and Briefs 46 to 55; the undo contract is rule 1.8.
 - Setup on Linux and macOS can share the packages already installed on the computer (MEMORYMAP_SYSTEM_SITE_PACKAGES=1), and refuses with a reason when the installed torch is outside the supported range.
 - MCP: another app that uses MemoryMap's tools no longer sees chat-only tools, label icon names, or a wrong protocol version, can auto-approve read tools, and Settings, Tools it can use shows the config snippet to paste with a Copy button.

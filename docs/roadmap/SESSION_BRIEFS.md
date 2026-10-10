@@ -1959,3 +1959,54 @@ Gate: 25.4.
 ### Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5)
 `timeline.js`, `routes_timeline.py`, `routes_reminders.py`, the view
 segment; `scratchpad/ui-sweeps/calendar.js` (new). Gate: the plan's table.
+
+## Briefs 56 to 59 (2026-10-10, Fable): the design review
+
+From UI_MODERNISATION_PLAN Phase 13 (the principles table, the surface
+table, decisions 9 to 22, the phases). Brief 56 first and alone.
+
+### Brief 56 (Sonnet, medium): measure the design review
+Phase 13.0: `scratchpad/ui-sweeps/hierarchy.js` (new): per page at 1440 and
+390, visible buttons, visible `.primary`, visible inputs and selects, docks
+and their item counts; the 15 dialogs classified (dialog or sheet); every
+icon-only button without a label, markup and JS-built; `wcag22.js` and
+`contrast.js` per surface; confirms counted. Writes numbers into 13.1 and
+13.2; no fixes except the unlabelled buttons.
+
+### Brief 57 (Opus, high): the stylesheet's grammar (13a)
+`frontend/css/*.css`, `tests/test_style_scale.py`, a new
+`tests/test_hover_focus_pairs.py`; decisions 9 to 17 with a ratchet each.
+
+### Brief 58 (Opus, high): the stylesheet's structure (13b)
+`08-consistency.css` and `10-responsive.css` dissolved into the component
+files; the 236 unused selectors removed; decisions 18 and 19 with ratchets.
+
+### Brief 59 (Opus, high): the surfaces (13c)
+`index.html`, `status.js`, `capture-ask.js`, `notes-list.js`, `chat.js`,
+`phone-shell.js`, the CSS they own; decisions 20 to 22; help moves with the
+UI in the same commits.
+
+## Briefs 60 to 63 (2026-10-10, Fable): the backend review
+
+From WORLD_CLASS_PLAN 26 (the layer table, decisions 55 to 62, the phases)
+and 27 (features and popups; its rows name Briefs 42, 47 to 55 and 59).
+
+### Brief 60 (Sonnet, medium): measure and the three ratchets (26.0, 26a)
+Import times, resident memory with and without the embedder, the index
+audit, the 54 untested routes, the 21 swallows, the 32 thread sites; then
+`tests/test_no_silent_except.py`, `tests/test_routes_named.py`, the
+background registry lint and ruff `T201`, each seeded with today's list.
+
+### Brief 61 (Opus, high): services for whiteboard and files (26b)
+`api/routes_whiteboard.py` to `whiteboard/service.py`, `api/routes_files.py`
+to `files/service.py`; no behaviour change; route tests prove it.
+
+### Brief 62 (Opus, high): data out of code (26c)
+`ai/question_noise.py`, `ai/composer_tables.py`, the help topics and the
+taxonomy as JSON under `src/memorymap/data/`, lazy and cached;
+`tests/test_import_time.py`; the composer eval unchanged.
+
+### Brief 63 (Opus, high): the runners and the embedder (26d)
+`ai/agent.py` `run_agent` and `ai/skill_runner.py` `_run_one_step` as state
+machines; `ai/embeddings.py` lazy load and idle unload with its setting;
+`ai/tools/` one file per family.

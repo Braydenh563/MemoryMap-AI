@@ -328,7 +328,10 @@ for everything after is ROADMAP "Direction, 2026-10-10", with CHAT_PLAN Phase
 6 (the deterministic engine), WORLD_CLASS_PLAN 23 (filing and the taxonomy
 pack), UI_MODERNISATION Phase 12 (density, WCAG 2.2) and SESSION_BRIEFS 35 to
 42. The whole app against world class is WORLD_CLASS_PLAN 25 (every
-surface, its bar, its gap, its owner; Briefs 46 to 55). Next, as agents
+surface, its bar, its gap, its owner; Briefs 46 to 55), the design review
+UI_MODERNISATION Phase 13 (Briefs 56 to 59), the backend review
+WORLD_CLASS 26 (Briefs 60 to 63) and the features pass WORLD_CLASS 27.
+Brief 35 (triage) merged dfda1b7: boot clean, grounded 1.0. Next, as agents
 finish: 39 and 39b once 35 has merged, 42, then 46 (measure, alone), then
 41, 47, 51, 34 and the rest of 46 to 55 in ROADMAP's milestone order. The PR for this branch merges
 when the gate, the sweeps and one full suite run are green.

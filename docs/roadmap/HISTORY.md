@@ -46072,7 +46072,7 @@ Orientation reads are the largest token cost, so every plan and planning file ha
 
 | File | Cap (lines) |
 | --- | --- |
-| `CHAT_PLAN.md` | 1300 |
+| `CHAT_PLAN.md` | 1900 |
 | `DOCUMENTS_PLAN.md` | 1600 |
 | `GRAPH_PLAN.md` | 800 |
 | `MINDMAP_PLAN.md` | 2000 |

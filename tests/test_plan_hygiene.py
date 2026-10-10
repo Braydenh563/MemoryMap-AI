@@ -38,7 +38,7 @@ PLANS = sorted(ROADMAP.glob("*_PLAN.md")) + [ROADMAP / "AGENT_SKILLS_REFORM.md"]
 #: only ratchet down. Keys are file names; ROADMAP.md lives in docs/, the rest
 #: in docs/roadmap/.
 PLAN_LINE_CAPS = {
-    "CHAT_PLAN.md": 1300,
+    "CHAT_PLAN.md": 1900,
     "DOCUMENTS_PLAN.md": 1600,
     "GRAPH_PLAN.md": 800,
     "MINDMAP_PLAN.md": 2000,

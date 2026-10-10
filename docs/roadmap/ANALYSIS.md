@@ -3788,3 +3788,434 @@ owner keeps finding are partly this file's shape, patches on patches.
 defended: the no-build frontend, SQLite as the one store, the prompt budget
 discipline, the lint suite that turns every past mistake into a failing test,
 and the rule that a number shown to the user is measured.
+
+## Parity matrix, 2026-10-10
+
+ROADMAP "Direction, 2026-10-10", parity programme item 1. One table per
+surface: the fork's README and feature list (fetched from the public
+`storytold/*` repositories and `jgraph/drawio` on 2026-10-10) against the
+running app's code. "Checked where" names the file or element id that was
+grepped; nothing here was driven in a browser, so a "yes" means the control
+and its handler exist, not that it renders well (CLAUDE.md section 1:
+"already exists" is the start of triage). Cost: S under half a session, M
+about one, L several. Keep or drop is judged by Direction policy 2: the forks
+are a source of feature lists and formats, not code. Where a row says
+"drop", the reason is stated.
+
+### Whiteboard, against draw.io and designcraft
+
+draw.io facts used: Apache-2.0 JavaScript editor, shape and stencil
+libraries, pages, layers, format panel, orthogonal routing with connection
+points, Mermaid and CSV import, re-editable SVG. designcraft facts used:
+frames and threaded stories, parent pages, swatches, paragraph and character
+styles, text wrap, a Properties panel.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Format panel (stroke, fill, alpha, shadow, route, caps, jumps, label) | yes (`wb-format`, `wb-fmt-*` in index.html, `whiteboard-format.js`) | none | none | done |
+| Numeric X, Y, W, H, angle, flip | yes (`wb-fmt-x/y/w/h/angle/flip-h/flip-v`) | no resize from centre | S | keep, small |
+| Snap to grid and a grid style | yes (`wb-snap-toggle`, `wb-grid-select`: none, lines, dots, iso) | grid size is not user-set | S | keep |
+| Smart guides (edge, centre, spacing) | yes (`wb-guide-color-*`, `whiteboard-map.js`) | none | none | done |
+| Align, distribute, same size | yes (`whiteboard-commands.js` align-*, distribute-*, same-width/height) | none | none | done |
+| Group, ungroup, lock, z-order | yes (commands `group`, `lock`, `order-*`) | none | none | done |
+| Layers panel | yes (`wb-side-tab-layers`, `wb-layers-tree`) | layers are an object list, not named draw.io layers with visibility | M | keep, name and hide layers |
+| Pages | partly (`wb-side-tab-pages`: frames are the pages, WHITEBOARD_PLAN decision 22) | no separate pages per board by design | none | done by decision |
+| Connectors: straight, curved, elbow, labels, caps, dash, line jumps | yes (`line-elbow`, `wb-fmt-jumps`, `wb-fmt-label-t`) | none | none | done |
+| Connection points on a shape (fixed anchors, ports) | no (grep for anchor and port in `whiteboard.js` finds only menu placement) | a connector joins the nearest edge, not a chosen point | M | keep; the orthogonal router is where draw.io is best |
+| Waypoint editing on a connector | yes (`waypoint` in `whiteboard-map.js`, `whiteboard.js`) | none | none | done |
+| Shape library at scale (hundreds of stencils, search) | no (four shapes in `WB_SHAPE_NAMES`: rect, ellipse, triangle, diamond; user-saved shapes in `whiteboard-library.js`) | no starter set beyond four primitives | M | keep; convert draw.io stencil XML offline to our shape JSON (BACKLOG 29e) |
+| Shape library import (draw.io `mxlibrary`) | no (`stencil` appears only in `ai/help_chat.py`) | no reader | M | keep, one converter script |
+| Containers and swimlanes | partly (frames hold items; no lane header, no resize-with-children rule) | swimlane and pool shapes | M | keep, as frame presets |
+| Tables on a board | no (`wbTable` has no match in the whiteboard files) | draw.io has a table shape | M | drop for now; a note card with a Markdown table covers it |
+| Mermaid in and out, outline export, re-editable SVG | yes (`whiteboard-interchange.js`) | Mermaid subset: flowchart only, no sequence or class | M | keep, subset is enough |
+| draw.io file import (`.drawio`, `mxfile`) | no (`mxfile` appears nowhere in `frontend/`; `ai/tools/__init__.py` mentions the format) | boards from draw.io cannot be opened | M | keep, an offline reader is a pure parse of `mxGraphModel` |
+| Import and export: PNG, SVG, PDF, JSON | yes (`wb-export`, `export-frame`) | no `.drawio` export | S | keep with the importer |
+| Data and tooltips on a shape (custom properties) | no (`tooltip` hits are UI hints) | no key-value data on an object | M | drop; a linked note holds data |
+| Links on an object, not only a card | yes (`whiteboard.js` object links; WHITEBOARD_PLAN decision) | not verified live | none | done |
+| Layout algorithms (tree, radial, org chart) | partly (`wb-mindmap-tree`, `wb-mindmap-radial`, `wb-map-layout`) | free boards have no auto-layout | M | keep, reuse the map layout |
+| Swatches and saved palettes | yes (`save-palette`, library "palette" kind) | none | none | done |
+| Hand-drawn style | no | draw.io sketch mode | S | drop; not what a notebook needs |
+| Rulers, guides the user places | no (no `ruler` in whiteboard files) | none | S | drop |
+| Version history | yes (`wb-history-bar`, `whiteboard-history.js`) | none | none | done |
+| Present, step through frames | yes (`wb-present-bar`) | no per-slide notes, no timer | S | keep |
+| Templates | yes (`whiteboard-templates.js`) | one built-in template only ("Blank") plus the library | S | keep, add five |
+| Comments on objects | yes (command `comment`) | none | none | done |
+| Find on board | yes (`wb-search-bar`) | none | none | done |
+| Text wrap around objects, threaded text (designcraft) | no | page layout, not a whiteboard need | L | drop |
+| Parent pages and spreads (designcraft) | no | print layout | L | drop |
+
+Next brief builds first: (1) the draw.io reader and shape-library converter
+(`mxfile` import, stencil XML to our JSON, a starter set of 60 shapes),
+(2) connection points with a fixed-anchor connector, (3) named layers with
+visibility, plus five more templates.
+
+### Mind map, against designcraft's canvas and MINDMAP_PLAN's references
+
+The map is a board of kind map (MINDMAP_PLAN section 2). References: Obsidian
+Canvas Mindmap, XMind, Coggle, MindMeister, Kumu (MINDMAP_PLAN section 3).
+designcraft contributes only canvas habits (frames, swatches, a properties
+panel); it has no map concept.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Keyboard-first: child, sibling, delete, collapse | yes (`wb-radial-child/sibling/collapse/delete`, clone-right, clone-down) | none | none | done |
+| Tree and radial layout, tidy | yes (`wb-mindmap-tree`, `wb-mindmap-radial`, `wb-map-tidy`, `wb-map-layout`) | variable-size nodes (d3-flextree) not checked | S | keep, measure |
+| Fold to level 1, 2, 3 | yes (`fold-level-1..3`) | none | none | done |
+| Topic styling: colour, size, bold, italic, align, shape | yes (`wb-map-strip`, `wb-map-text-menu`, `wb-map-shape-menu`) | none | none | done |
+| Edge styling: width, shape, dashed, arrow | yes (`wb-map-line-menu`, `wb-map-edge-*`) | none | none | done |
+| Icons and markers on a topic | yes (131 `icon` and 42 `marker` hits in `whiteboard-map.js`) | none | none | done |
+| Boundaries, summaries, floating topics | yes (`boundary` 16 hits, `wb-mapmulti-summary`, floating topic 4 hits) | relationship lines with labels exist as links; not verified | S | keep |
+| Pictures on a topic | yes (`wb-map-picture-input`) | none | none | done |
+| Tasks on topics | yes (`wb-mapmulti-task`) | no due dates in the map | S | keep |
+| Numbered outline | yes (`wb-map-numbered`) | none | none | done |
+| Import: OPML, FreeMind, XMind, Markdown | yes (`wb-import-map-file` accepts .opml .xml .mm .xmind .md; `routes_whiteboard.py`) | export to the same formats not checked | S | keep, verify round trip |
+| Export: image, document, outline | yes (`wb-map-to-doc`, `wb-export`, outline export) | no OPML or `.mm` export | S | keep |
+| Perspectives (colour by meaning), legend, focus, filter | yes (`wb-map-perspective`, `wb-map-legend`, `wb-map-focus`, `wb-map-filter`) | Kumu metrics (centrality) not on the map | M | keep, reuse the graph's metrics |
+| Notes linked to topics, graph shows map links | yes (`wb-add-note`, `wb-extract-notes`) | none | none | done |
+| AI: summarise a branch, suggest branches | yes (`summarise-branch`, `suggest-branches`) | none | none | done |
+| Study mode (show, knew, missed) | yes (`wb-map-study`, `wb-study-*`) | none | none | done |
+| Templates for maps | yes (`wb-map-templates`) | count not checked | S | keep |
+| Presenting a map as slides | partly (`wb-present-bar` steps frames, not branches) | no branch-by-branch reveal | M | keep, see presentations |
+| Cross links between branches with labels | yes (`wb-link-label`, `wb-map-link-radial`) | none | none | done |
+| Collaboration, real-time | no | Coggle's main feature | L | drop (single-user by design) |
+| Frames and swatches from designcraft | partly (frames and palettes on free boards) | not on maps | S | drop |
+
+Next brief builds first: (1) OPML and FreeMind export so a round trip is
+closed, (2) a branch-by-branch presentation, (3) Kumu-style metrics
+(centrality, communities) as a perspective, computed by the graph's own code.
+
+### Documents (prose), against wordcraft
+
+wordcraft facts used: 389 commands, styles, tables with formulas, TOC,
+footnotes, citations, comments, track changes, compare, accessibility
+checker, mail merge, docx round trip, a spelling dictionary from the Moby
+Hyphenator list. A document here is Markdown in CodeMirror.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Find and replace, regex | yes (`doc-find-bar`, `doc-replace-one/all`) | regex toggle not checked | S | keep, verify |
+| Spelling with a personal dictionary | yes (`doc-dictionary-*`, `doc-spelling-variant`, Harper) | none | none | done |
+| Grammar | yes (`docGrammarAsk`, `doc-grammar-check`, Harper WASM) | none | none | done |
+| Track changes and accept or reject | yes (`doc-suggest-*`, `docSuggestResolve`) | none | none | done |
+| Margin comments | yes (`doc-comments`, `doc-margin`) | links and bookmarks in comments: Brief 42 | M | in Brief 42 |
+| Thesaurus | no (no thesaurus handler in `documents*.js`) | none | S | keep, trimmed table (policy 2) |
+| Word count and goal | yes (`doc-word-goal`, `doc-counts`) | none | none | done |
+| Outline and navigation pane | yes (`doc-outline`, `doc-sidebar-outline`) | none | none | done |
+| Table of contents | yes (`docFillToc`) | none | none | done |
+| Tables (insert, Tab between cells, alignment) | yes (`docFillTable`, markdown.js alignment) | no merge, no sort, no formulas | M | keep sort and formulas, see tables |
+| Footnotes, citations, bibliography | no (grep: no citation handler) | APA or MLA output | M | keep footnotes only; drop styles |
+| Styles gallery, themes, page layout | no | Markdown has no styles; width menu and serif toggle exist | L | drop (wrong model) |
+| Headers, footers, page numbers, columns | no | page layout is not a notebook need | L | drop |
+| Docx export | yes (`doc-export-docx`) | none | none | done |
+| Docx and odt and rtf import | partly (`docview.docx_to_markdown`, markitdown for others) | odt and rtf depend on the extra | S | keep |
+| PDF export | yes (`doc-export-pdf`) | none | none | done |
+| HTML, Markdown, zip export | yes (`doc-export-html/md/zip`) | none | none | done |
+| Focus mode, typewriter, dim others | yes (`doc-focus-*`, `doc-typewriter`, `doc-dim-others`) | none | none | done |
+| Read aloud | yes (`docReadAloudStart`) | none | none | done |
+| Autocorrect, smart punctuation, list autoformat | yes (`doc-autocorrect`, `doc-smart-punctuation`, `docListEnter`) | none | none | done |
+| Slash fills (date, table, TOC, emoji, signature) | yes (`docFillToken` and friends) | none | none | done |
+| Version history | yes (`doc-history-dialog`) | none | none | done |
+| AI actions with a diff | yes (`doc-ai-panel`, `doc-ai-diff`) | none | none | done |
+| Compare two documents | partly (history diff only) | arbitrary two-document compare | S | keep |
+| Accessibility checker | yes (`docAccessFindings`) | none | none | done |
+| Mail merge, envelopes | no | none | L | drop |
+| Macros | no | the skills system covers repeated work | L | drop |
+| Highlights on pages (key passages) | no | the owner's ask, Brief 42 | M | in Brief 42 |
+| Word-style shortcuts (F7 spell, F4 repeat) | partly | not checked as a set | S | keep, one shortcut audit |
+
+Next brief builds first: (1) highlights and annotations with persisted ranges
+(Brief 42), (2) a thesaurus from the trimmed table with a right-click action,
+(3) footnotes with a Markdown extension that exports to docx footnotes.
+
+### Documents (code), against VS Code's editor features
+
+VS Code's editor features list (basic editing, multi-cursor, IntelliSense,
+code navigation, refactoring, debugging, integrated terminal, tasks, source
+control); the extension ecosystem is out of scope. CodeMirror 6 is vendored
+(`frontend/vendor/codemirror/entry.js` exports state, view, commands, search,
+language, autocomplete, lint and the language packs).
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Syntax highlighting, 25+ languages | yes (entry.js: JS, Python, CSS, HTML, JSON, YAML, shell, SQL, TOML, Go, Rust, C family, Ruby, XML, Swift, R, Dockerfile, properties) | no TypeScript or PHP pack | S | keep |
+| Diagnostics and lint gutter | yes (`CM.lint`, `lintGutter` in `documents-code.js`, `core/syntaxcheck.py`) | JS and Python depth: Brief 42 | M | in Brief 42 |
+| Completion | yes (`autocompletion`, snippets, Emmet) | Brief 42 item 735 | M | in Brief 42 |
+| Hover docs | yes (`hoverTooltip`) | none | none | done |
+| Go to definition, references, find in documents | yes (`documents-code.js` header) | single file only | M | keep, cross-document later |
+| Rename symbol | no | none | M | keep, per file |
+| Code folding | yes (`foldGutter` in `documents.js`) | none | none | done |
+| Multiple cursors, rectangular selection | yes (`allowMultipleSelections`, `rectangularSelection` in `documents.js`) | not verified in a browser | none | done |
+| Bracket matching, auto-close, bracket colours | yes (`closeBrackets`, bracket colours) | none | none | done |
+| Indent guides, sticky scroll, colour swatches | yes (`documents-code.js` header) | none | none | done |
+| Go to line, command palette | partly (go to line yes; `openPalette` only the app palette) | editor commands are not in the palette | S | keep |
+| Minimap | partly (2 hits in `documents.js`; not verified) | confirm it renders | S | keep, verify |
+| Format document | yes (`doc-code-format`) | formatter per language not checked | S | keep |
+| Run code | yes (`doc-code-run`, JS sandbox, Python via the Pyodide extra) | output panel height and Stop: Brief 42 | M | in Brief 42 |
+| Whitespace render, word wrap | yes (`doc-whitespace`, `doc-code-wrap`) | none | none | done |
+| Diff view | partly (history diff) | side-by-side editing diff | M | keep, low |
+| Breadcrumbs / symbol outline | yes (`doc-crumbs`, code symbols in the outline) | none | none | done |
+| Quick fixes | yes (header of `documents-code.js`: "quick fixes") | none | none | done |
+| Split editor, tabs for several files | no | one document at a time | M | keep, split first |
+| Debugger | no | none | L | drop |
+| Integrated terminal, tasks, source control | no | not a notebook need | L | drop |
+| Vim or Emacs keymaps | no | none | S | drop |
+| Settings sync, workspaces | n/a | the notebook is the workspace | none | drop |
+| Problems panel | yes (`problems` 28 hits) | none | none | done |
+| p5 sketch kind | no (INBOX 735) | Brief 42 | M | in Brief 42 |
+
+Next brief builds first: (1) the completion switch and the p5 kind (Brief 42),
+(2) editor commands in the command palette and a split view, (3) rename
+symbol within a file.
+
+### Tables in notes and documents, against gridcraft
+
+gridcraft facts used: 500+ functions, dynamic arrays, a dependency-graph
+engine, sort and autofilter, conditional formats, validation, pivot tables,
+17 chart types, xlsx round trip, CSV and TSV. A table here is a Markdown
+table; the app has no sheet object.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Insert a table, Tab between cells | yes (`docFillTable`, toolbar `table` in `note-edit-panels.js`) | none | none | done |
+| Column alignment | yes (`markdown.js` separator row) | none | none | done |
+| Copy as TSV or CSV, save as CSV | yes (`markdown.js` lines 855 to 869, "Save as CSV") | none | none | done |
+| Paste CSV or TSV into a table | no (no paste converter found in `documents.js`) | pasted spreadsheet cells stay plain text | S | keep |
+| Sort a column | no (no `sort` in `markdown.js`) | none | S | keep |
+| Formulas (SUM, AVERAGE, a cell reference) | no for the user (`simpleeval` is used only by the composer's calculator) | none | M | keep: a `=SUM(B2:B9)` in a cell, evaluated at render, 12 functions |
+| Number formats | no | currency and percent | S | keep, three formats |
+| Filter rows | no | none | S | keep |
+| Totals row | no | follows formulas | S | keep with formulas |
+| Conditional formatting, data bars | no | none | M | drop |
+| Pivot tables | no | none | L | drop; a chart question answers most of it |
+| Charts from a table | partly (`ask-chart.js` charts from questions, not from a selected table) | chart this table | M | keep |
+| xlsx and csv open | partly (`docview.py` reads .xlsx and .csv to Markdown through markitdown) | read only, one sheet view | S | keep |
+| xlsx write | no | none | M | drop; CSV export suffices |
+| Sheet as a document kind | no | a real grid with a cell editor | L | drop for now; revisit after formulas land |
+| Data validation, freeze panes, named ranges | no | none | M | drop |
+| Query a table in Ask | partly (composer tables, `ai/composer_tables.py`) | tables in notes are read as text | M | keep |
+
+Next brief builds first: (1) paste-to-table and column sort, (2) cell formulas
+with a small function set evaluated through the existing safe evaluator,
+(3) a chart-this-table action.
+
+### PDF viewer and OCR workspace, against pdfcraft
+
+pdfcraft facts used: render, search, bookmarks panel, page grid, merge,
+extract, split, forms, comments, redaction, passwords, accessibility checker,
+corpus-tested repair. MemoryMap reads PDFs for text and renders pages as
+images (`core/pdfpages.py`, pypdfium2 under an optional extra), and the OCR
+workspace sits on those images.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| View pages with zoom and fit | yes (`ocr-zoom-*`, `ocr-view` modes) | none | none | done |
+| Page rail and pager | yes (`ocr-rail`, `ocr-pager`) | none | none | done |
+| Text extraction | yes (`docview.extract`, markitdown, vision fallback) | none | none | done |
+| Search inside the file | yes (`ocr-find`, `ocr-find-count`) | none | none | done |
+| Region read and describe | yes (`ocr-region-read`, `ocr-region-describe`) | none | none | done |
+| Choice of readers and engines | yes (`ocr-reader-menu`, `ocr-engine`, RapidOCR install) | none | none | done |
+| Edit and save a reading | yes (`ocr-edit-*`) | none | none | done |
+| Send to note or chat | yes (`ocr-to-note`, `ocr-to-chat`) | none | none | done |
+| Bookmarks and outline of the PDF | partly (`library.js` and `routes_files.py` reference outline; not verified) | confirm the panel | S | keep, verify |
+| Highlights and comments on a PDF | no (grep for pdf annotate finds nothing) | the main reading tool | M | keep, stored apart from the file |
+| Page labels, thumbnails | partly (rail shows page images) | page labels | S | keep |
+| Merge, split, extract pages | no (`pdfpages.py` only renders) | page operations | M | drop; use a PDF tool, and pure-Python writers need a library |
+| Rotate, delete pages | no | none | M | drop |
+| Fill forms | no | none | M | drop |
+| Redaction | no | privacy use | M | drop |
+| Passwords | no (no decrypt path found) | encrypted PDFs are skipped | S | keep, ask for the password |
+| Table of contents from headings | partly | none | S | keep |
+| Accessibility check | no | none | M | drop |
+| Command palette | partly (the app palette lists the workspace) | none | none | done |
+
+Next brief builds first: (1) highlights and comments on PDF pages stored in
+the notebook, (2) the encrypted-PDF prompt, (3) verify the outline panel.
+
+### Image notes and the Library, against photocraft and lightcraft
+
+photocraft is layers and filters (Photoshop). lightcraft is a RAW developer
+plus a library (ratings, flags, collections, smart albums, compare and survey
+views, XMP). Only lightcraft's library half and a few photocraft basics fit a
+notebook.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Library grid with filters and a selection bar | yes (`library.js`: `renderLibraryView`, `createLibrarySelectbar`) | none | none | done |
+| Lightbox with next and previous | yes (`lightbox.js`, `lightbox-view.js`) | none | none | done |
+| Captions and descriptions by a vision model | yes (`ai/captioning.py`, `ocr-describe`) | none | none | done |
+| Search by caption | yes (captions are indexed text) | none | none | done |
+| Sketch and annotate | yes (`media.js` sketch tools, `attachment-actions.js`) | arrows and shapes on a photo | S | keep |
+| EXIF read | partly (`core/imagesize.py`; EXIF fields not shown in the UI) | date taken, camera, place | S | keep |
+| Date taken on the timeline | no | photos by capture date | M | keep |
+| Ratings, flags, colour labels | no | culling | S | keep: a 0 to 5 rating and a flag |
+| Albums and smart albums | partly (categories and tags apply; no album object) | collections of images | M | keep through tags and saved filters |
+| Compare and survey view | no | none | M | drop |
+| Crop, rotate, flip | no (`icon-picker.js` crop is the avatar picker) | basic fix before filing | M | keep, canvas-based |
+| Brightness, contrast | no | none | S | drop |
+| Layers, masks, adjustment layers, filters | no | Photoshop scope | L | drop |
+| RAW decode | no | none | L | drop |
+| Duplicate detection | no | none | M | keep, perceptual hash in pure Python |
+| Face and people | no | none | L | drop (no models without torch) |
+| GPS to a map | no | none | M | keep after EXIF |
+| Colour palette from an image | no | none | S | keep for the palette picker |
+| Export with a size and format | no | none | S | drop |
+| Bulk delete and select | yes (`bulkDeleteLibraryMedia`) | none | none | done |
+
+Next brief builds first: (1) EXIF shown and used (date taken to the timeline,
+GPS), (2) rating and flag, (3) crop and rotate with a canvas editor.
+
+### Audio notes and meetings, against soundcraft
+
+soundcraft is a DAW (tracks, mixing, plugins, MIDI). What carries over to a
+notebook: waveform and time display, markers, loudness, record with punch and
+pre-roll, autosave, audio file formats. Meetings sit on `meetings.js` and
+`routes_meetings.py`.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Record with a level meter and timer | yes (`meeting-record`, `meeting-wave`, `meeting-timer`, `startMicLevelMeter`) | none | none | done |
+| Pause and resume | yes (`meeting-pause`, `toggleMeetingPause`) | none | none | done |
+| Transcribe | yes (`meeting-transcript`, `meetings.js`) | no speaker labels | M | keep, WORLD_CLASS_PLAN audio |
+| Summary and action items with reminders | yes (`meetingSummarise`, `meetingRemind`) | none | none | done |
+| Save as note or document | yes (`meeting-save`, `meeting-save-doc`) | none | none | done |
+| Dictation into a field | yes (`toggleDictation`) | none | none | done |
+| Read aloud | yes (`speakText`, `docReadAloud`) | none | none | done |
+| Waveform of a saved recording | partly (live wave only; playback waveform not found) | none | M | keep |
+| Click a transcript line to seek | no (no seek handler found) | none | M | keep, needs timestamps |
+| Playback speed | no | the long-recording need | S | keep |
+| Markers and bookmarks while recording | no | none | S | keep |
+| Live captions | no | in WORLD_CLASS_PLAN | M | keep |
+| Export SRT or VTT | no | none | S | keep, from timestamps |
+| Silence trim, strip silence | no | none | M | drop |
+| Loudness (LUFS) | no | none | M | drop |
+| Fades, crossfades, edits, mixing, plugins | no | DAW scope | L | drop |
+| MIDI, notation, surround | no | none | L | drop |
+| Speaker diarization | no | needs a model | L | keep, behind the model gate |
+| Audio file formats (wav, mp3, flac, m4a) | partly (browser decoders; uploads accepted) | none | S | keep |
+| Autosave and crash recovery of a recording | not verified | long meetings | S | keep, verify |
+
+Next brief builds first: (1) timestamped transcript with click-to-seek and
+SRT or VTT export, (2) playback speed and a saved-recording waveform, (3)
+markers while recording.
+
+### Presentations from boards and maps, against deckcraft
+
+deckcraft facts used: masters and layouts, 150+ shapes, transitions and
+animations, presenter view, rehearse timings, pen, notes pages, pptx open and
+save, PDF and PNG export.
+
+| Feature | MemoryMap has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Step through frames as slides | yes (`wb-present-bar`, `wb-present-prev/next/count/end`) | none | none | done |
+| Reorder slides | yes (Pages tab, decision 22) | none | none | done |
+| Full screen | yes (`wb-fullscreen`) | none | none | done |
+| Export a frame as an image | yes (`export-frame`) | none | none | done |
+| Export all frames as a PDF | partly (`wb-export` PDF; per-frame pages not checked) | one page per frame | S | keep, verify |
+| Speaker notes per frame | no | none | S | keep |
+| Presenter view (notes, next slide, timer) | no | none | M | keep |
+| Pen and laser while presenting | partly (board tools stay active; no laser) | none | S | keep |
+| Transitions between frames | partly (pan and zoom to the frame; no fade or morph choice) | none | S | keep, two options |
+| Build steps within a frame (reveal one item at a time) | no | maps: branch by branch | M | keep |
+| pptx export | no | opening in PowerPoint | L | drop; PDF is the exchange format |
+| pptx import | partly (`docview.py` reads .pptx text through markitdown) | read only | none | done |
+| Master slides, layouts, themes | no | none | L | drop; frames and templates cover it |
+| Rehearse timings | no | none | S | drop |
+| Outline to slides | partly (outline export exists; slides from an outline not) | none | M | keep |
+| Slides from a document | no | none | M | keep, headings become frames |
+
+Next brief builds first: (1) speaker notes per frame with a presenter view,
+(2) a per-frame PDF export checked on a real board, (3) branch-by-branch
+reveal for maps.
+
+## Repositories and libraries read, 2026-10-10
+
+Brief 40 part (b). Facts come from the repositories' public pages fetched on
+2026-10-10, PyPI's and npm's registry records, and jsDelivr headers for file
+sizes (measured, not remembered). The pages do not state a repository's disk
+size, and the GitHub API is not reachable from the sandbox without the
+repository attached, so "size" below is stars, commits and the size of what a
+build would ship, not a clone size. The yardstick is ROADMAP Direction policy
+1: pure Python or plain JS/WASM, offline, small, no compiled extensions,
+nothing added for what the stdlib or the app already does.
+
+### The forks and draw.io
+
+All nine ArtCraft repositories share one licence line: MIT or Apache-2.0 at
+the user's option, copyright ArtCraft Team and the repository's contributors,
+with the ArtCraft name, wordmark and logos excluded (forks must remove them).
+Bundled fonts and icons keep their own licences. Every one is a pure-Rust
+Cargo workspace with an egui front end, a `wgpu` or `vello_cpu` renderer, a
+WebAssembly build, a CLI, a JSON control channel and an MCP server over a
+command registry. None can be vendored into a no-build vanilla JS app
+(multi-megabyte WASM, canvas without a DOM), which is policy 2.
+
+| Repository | Licence | Stack | Scale (page figures) | Three things worth taking |
+| --- | --- | --- | --- | --- |
+| wordcraft | MIT or Apache-2.0; Moby hyphenation list is public domain | Rust, 389 commands, ~250 tests, krilla PDF | 46 commits, 2.2k stars | 1. The command catalogue as a checklist for the documents toolbar (styles, TOC, footnotes, track changes). 2. Its docx read and write behaviour as the reference for `docx_to_markdown`. 3. Agent tools (`inspect_document`, `batch`, `render_page`) as the shape for a document MCP surface. |
+| designcraft | MIT or Apache-2.0; fonts SIL OFL | Rust, Knuth-Plass composer, IDML, PDF/X-4, EPUB | 458 commits, 2.3k stars | 1. Frames, threaded stories and parent pages as a vocabulary for board frames and presentation layouts. 2. Named swatches (CMYK-aware) and character and paragraph styles for the board format panel. 3. EPUB and IDML as export targets worth knowing about; not for this app. |
+| deckcraft | MIT or Apache-2.0 | Rust, pptx open and save, 200+ commands | 43 commits, 1.1k stars | 1. Presenter view, rehearse timings, notes pages and handouts as the feature list for board presenting. 2. 150+ preset shapes with adjust handles as a catalogue to generate our shape JSON from. 3. Glued connectors and merge operations (union, subtract, intersect) as names for what shapes need. |
+| gridcraft | MIT or Apache-2.0 | Rust, 500+ functions, xlsx round trip, dependency-graph calc | 26 commits, 1.4k stars | 1. The function list ranked by use (SUM, AVERAGE, IF, VLOOKUP, XLOOKUP, COUNTIF) for a 12-function table formula set. 2. Dependency-graph recalculation as the model if formulas ever span tables. 3. Number format language (accounting, percent, date) for three formats. |
+| photocraft | MIT or Apache-2.0 | Rust, wgpu, 24 crates, PSD from Adobe's public spec | 1,123 commits, 37.4k stars | 1. The tile-based copy-on-write undo idea (cheap snapshots). 2. Its filter list ordered by use (crop, rotate, levels, sharpen) for a canvas editor. 3. Export As (format, quality, scale, size estimate) as the dialog shape. |
+| lightcraft | MIT or Apache-2.0; Inter font OFL | Rust, own RAW decoders, wgpu compute, XMP sidecars | 1,498 commits, 8.1k stars | 1. The library model: ratings 0 to 5, flags, colour labels, smart albums, field search (rating, ISO, camera, date, keyword). 2. XMP sidecar fields for what a photo carries (read `crs:`, keywords). 3. Compare and survey culling views as the pattern for choosing between near duplicates. |
+| pdfcraft | MIT or Apache-2.0 | Rust, `hayro` renderer, own PDF repair, 11 crates | 549 commits, 6.8k stars | 1. Its corpus method: open every file of the pdf.js test corpus and count (963 of 983). 2. Search as you type with step-through, a bookmarks panel with nested search, page labels. 3. Incremental saves and password handling (RC4 to AES-256) as the checklist for encrypted PDFs. |
+| soundcraft | MIT or Apache-2.0 | Rust, CLAP and VST3 hosting, audio-io for WAV, FLAC, MP3 | 145 commits, 1.1k stars | 1. Time display formats and markers (the notebook needs min:sec and timecode). 2. Loudness (LUFS) reporting on bounce, a measured number to show beside a recording. 3. Session audio health report (media missing, rate mismatch) as the model for a recording check. |
+| filmcraft | MIT or Apache-2.0; ffmpeg test oracle only | Rust, in-house codecs, OTIO and FCPXML interchange | 842 commits, 7.5k stars | 1. Caption tracks and SRT, WebVTT, SCC import and export (what meetings need). 2. Interchange formats (OpenTimelineIO, EDL) as proof that a timeline can be plain JSON. 3. The keyboard shortcut editor with Premiere, Final Cut and Avid presets as a pattern for a rebinding screen. |
+| jgraph/drawio | Apache-2.0 for code; icon sets, stencils and templates have separate terms including an Atlassian-product restriction | JavaScript, client side, distributed as war, Docker image, desktop | 126 commits on the page, 8.7k stars | 1. Stencil XML and the `mxfile` format: an offline converter to our shape JSON (BACKLOG 29e). 2. Connection points and the orthogonal router. 3. The format panel's grouping (Style, Text, Arrange), which `wb-format` already follows. Trap: the stencil terms differ from the code licence; read them before converting a library into the notebook. |
+
+### haifengl/smile: algorithms worth re-implementing small
+
+smile is Java under GPL-3.0 (as the sidebar lists it; commercial terms are
+also offered), so nothing is copied: only algorithm names are read for ideas,
+and any port is written from the published method. Its families include
+classification (Naive Bayes, SVM, trees), clustering (BIRCH, DBSCAN,
+K-Means, hierarchical, spectral), manifold (PCA, t-SNE, UMAP), NLP (bigram
+test, keyword extraction, stemmer), FP-growth association rules, nearest
+neighbour search (BK-tree, SimHash, LSH) and HMM and CRF.
+
+| Algorithm | What it would do here | Size of a small version | Verdict |
+| --- | --- | --- | --- |
+| Bigram collocation test (log-likelihood ratio) | Finds two-word terms in a notebook ("machine learning") for taxonomy suggestions and better keywords than RAKE alone | about 40 lines of Python | build, with a measured gain on the filing eval |
+| FP-growth, or plain pair counting | Tags and categories that co-occur ("notes tagged X are usually also Y"): the filing suggestions' second signal | pair counting 25 lines; FP-growth 80 | pair counting first |
+| Multinomial Naive Bayes | A second classifier for filing beside TF-IDF votes, trained on the person's own filed notes | about 50 lines with numpy | build if the eval beats TF-IDF alone |
+| K-means and DBSCAN over embeddings or TF-IDF | Merge suggestions for near-duplicate categories and topic discovery | K-means 40 lines, DBSCAN 35 | build when the embedder is on; TF-IDF otherwise |
+| SimHash | Near-duplicate notes and images (perceptual hash for photos) | about 30 lines | build |
+| BK-tree | A typo lookup alternative to SymSpell, needs no precomputed delete index | about 35 lines | skip; the trigram repair exists |
+| PCA through numpy SVD | A cheap 2-D projection for a "map of my notes" view | 6 lines | build with the graph track |
+| t-SNE, UMAP, spectral, BIRCH | Layout and streaming clusters | hundreds of lines each | drop |
+| HMM, CRF, SVM, boosting | Tagging and classification | large | drop; no measured need |
+
+### Candidate libraries
+
+Sizes are measured (jsDelivr content-length or the PyPI wheel) unless marked.
+
+| Candidate | Licence | Size | Pure Python or plain JS, offline | Replaces here | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| symspell (algorithm only; symspellpy 6.10.0 is MIT) | MIT | wheel 2.6 MB (frequency dictionaries) | pure Python | spell repair for Ask typos (`question_noise.py` uses thefuzz; the app has trigram repair) | drop the package; the algorithm (precomputed deletes) is 60 lines but the trigram repair already runs; add it only if the eval shows misses |
+| parsedatetime 2.6 | Apache-2.0 | wheel 40 KB | pure Python | `ai/when.py` (378 lines) and `reminder_parser.py` (207) | drop; keep `when.py`, use parsedatetime's test phrases as extra cases (a read, not a dependency) |
+| KaTeX 0.16 | MIT | 275 KB script, 23 KB css, plus fonts | plain JS | the math renderer | drop; documents.js already renders a TeX subset as MathML and records why (about line 6650) |
+| mermaid 11 | MIT | 2.57 MB minified script | plain JS | the diagram fences in documents | drop; the app has its own Mermaid subset parser and renderer (`docRenderMermaidIn`, `whiteboard-interchange.js`) |
+| Pyodide 0.27 (v314 on npm now) | MPL-2.0 | stdlib zip 2.36 MB, WASM runtime about 10 MB, packages extra | WASM, offline once fetched | running Python documents | keep as the existing opt-in download (Settings, Packages); never vendor |
+| ruff-wasm (`@astral-sh/ruff-wasm-web`) | MIT | 8.7 MB wasm | WASM | Python lint and format in the browser | drop; the server side checks (`core/syntaxcheck.py`) and CodeMirror's parser are enough; revisit as a download |
+| eslint-linter-browserify | MIT | 1.29 MB minified | plain JS | JavaScript diagnostics beyond syntax | keep as an optional download if Brief 42 measures a gap; not vendored |
+| sql.js 1.11 | MIT | 653 KB wasm plus 49 KB js | WASM | running SQL in a SQL document | keep as an optional download; small and genuinely new |
+| transformers.js 3 and 4 | Apache-2.0 | about 10 MB library, models extra | WASM and WebGPU | in-browser embeddings without torch | drop for now; the embedder and Ollama paths cover it, and CPU WASM inference is slow on the old hardware this app targets |
+| vaderSentiment 3.3.2 | MIT | wheel 130 KB, lexicon 420 KB (vendored) | pure Python | composer sentiment | keep only where a test shows the gain (policy 1); the vendored copy already exists |
+| RAKE | MIT | 10 KB | pure Python (needs a stoplist; the NLTK dependency is avoided by the vendored copy) | keyword extraction | keep, vendored |
+| FlashText 2.7 | MIT | 10 KB | pure Python | taxonomy keyword candidates | keep (kept by policy 1) |
+| Whoosh 2.7.4 | BSD-2 | 1.9 MB vendored, wheel 470 KB | pure Python, unmaintained | search | drop; search is SQLite FTS5 plus bm25 (`search/engine.py`, `search/index.py`) |
+| networkx 3.x | BSD-3 | 8.1 MB vendored | pure Python | `notebook_stats.py` graph metrics | drop; write the metrics (degree, components, shortest path) in about 60 lines; the graph's layout is d3 in `graph-worker.js` |
+| NLTK 3.10 with WordNet | Apache-2.0 (WordNet has its own permissive licence) | wheel 1.8 MB; WordNet data tens of MB unpacked (not measured here) | pure Python plus data | synonyms, lemmas | drop; a trimmed synonym table from the Perplexity pack and the app's groups, measured on the eval (policy 2) |
+| textblob 0.20 | MIT | wheel 620 KB, requires NLTK | pure Python | sentiment, noun phrases | drop |
+| snips-nlu 0.20 | Apache-2.0 | wheel 140 KB; requires numpy under 2 and scikit-learn | needs compiled dependencies | intent parsing | drop; archived and blocked by numpy 2 |
+| adapt-parser 1.0 | Apache-2.0 | wheel 30 KB | pure Python | intent from keywords and entities | drop; `ai/intent.py` does this; its entity-and-require design is worth a read |
+| hunspell | MPL, GPL, LGPL by dictionary | C library plus dictionaries | compiled | spelling | drop; Harper WASM and the wordlist cover it |
+| Harper | Apache-2.0 | 16 MB in `frontend/vendor/harper` | WASM | grammar | keep (vendored); the 16 MB must stay lazy and off the boot gzip budget |
+| pyspellchecker 0.9 | MIT | wheel 7.2 MB | pure Python | already imported in `composer.py` line 403 | drop (policy 1 names it); trigram repair replaces it |
+| thefuzz and rapidfuzz | MIT | rapidfuzz is compiled, 1.2 to 2 MB wheels | compiled | `question_noise.py` line 4982 | drop; `difflib` (policy 1) |
+
+Found along the way (not Brief 40's to fix, recorded here): `requirements.txt`
+lists `sentence-transformers` (which requires torch) and the venv at
+`/home/user/MemoryMap-AI/.venv` is 1.5 GB because torch alone is 769 MB, which
+contradicts CLAUDE.md section 7's "do not install torch"; and `pint`,
+`langdetect`, `dateutil` and `networkx` are vendored (about 12 MB together).
+Both belong to Brief 35's triage.

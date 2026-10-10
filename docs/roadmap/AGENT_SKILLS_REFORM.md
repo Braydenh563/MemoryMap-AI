@@ -340,3 +340,54 @@ retry were not looked at in a browser (no UI changed: they are answer text).
 
 - A skill run's own Undo: built; HISTORY.md, "Moved from the plans,
   2026-10-05 (AGENT_SKILLS_REFORM: a skill run's own Undo)".
+
+
+## Placed from Brief 40, 2026-10-10 (does the MCP server work)
+
+**Measured.** `python -m memorymap.mcp_server` under the project venv with a
+scratch `MEMORYMAP_DATA_DIR` answered `initialize`, `tools/list` and two
+`tools/call`s (`list_categories`, `search_notes`) correctly in 1.6 s with the
+embedder cached. It lists **56** tools of the registry's 67: the 9 destructive
+ones are withheld by design and two more are turned off by the
+Settings default (not identified here). The list: find_contradictions, audit_link_reasons,
+save_user_preference, ask_user, search_notes, related_notes, path_between,
+notebook_structure, get_note, list_notes, count_notes, list_tags,
+notebook_overview, list_documents, search_files, read_file, create_document,
+get_document, read_whiteboard, search_whiteboard, add_whiteboard_card,
+add_whiteboard_link, generate_diagram, read_mindmap, create_mindmap,
+add_map_node, link_map_nodes, restore_board_item, add_board_shape,
+list_library, place_library_item, search_chat_history, list_skills,
+run_skill, make_plan, compress_chat, save_skill, search_help,
+get_app_navigation, get_current_time, summarize_notes, list_categories,
+create_note, edit_note, tag_note, pin_note, link_notes, find_similar_notes,
+unlink_notes, restore_note, set_reminder, list_reminders, complete_reminder,
+rename_tag, create_category, rename_category.
+
+**What is broken or not integrated** (recommendation: one small brief, in
+this order):
+1. Tools that mean something only inside the chat UI are offered anyway:
+   `ask_user`, `make_plan`, `compress_chat`, `search_chat_history`,
+   `get_app_navigation`, `save_user_preference`. An external client cannot
+   answer a card. Offer a per-tool `mcp` flag and hide these (not run here:
+   what `ask_user` returns to a bare client is unverified).
+2. Results carry the app's own `label` with an icon name in front
+   (`"ph:folders Listed your categories"`); an external client reads
+   "ph:folders" as text. Strip the icon token in `_call_tool`.
+3. No tool annotations (`readOnlyHint`, `destructiveHint`), so a client cannot
+   auto-approve the read tools; the registry already knows which are which.
+4. `protocolVersion` is a constant, `2024-11-05`, with no negotiation of the
+   client's version; no `resources` (notes as resources would suit a notebook)
+   and no `prompts` (skills could be prompts).
+5. Startup loads the embedder (stderr shows "Loading weights"), 1.6 s warm and
+   longer cold; a client that times out at 5 s on first call would fail.
+6. Only stdio, so only a process on this computer with a Python that can
+   import the app. The packaged app has no Python (`/capabilities` already
+   says so, CHANGELOG 718), so a Windows installer user has no MCP at all.
+   Recommendation: `MemoryMap.exe --mcp` in the bundle, and an HTTP transport
+   at `/mcp` on the running app, behind the lock, so a client uses the app's
+   password and the app's own event bus (a write from a separate process does
+   not reach the open window's live updates; unverified).
+7. Settings has no panel for it: nothing shows the client config snippet
+   (`{"command": ".../python", "args": ["-m", "memorymap.mcp_server"], "env":
+   {"MEMORYMAP_DATA_DIR": "..."}}`). The only mention is INSTALL.md's flags
+   table. Add a Settings, Tools row with the snippet and a copy button.

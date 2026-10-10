@@ -4158,3 +4158,99 @@ Entries are the owner's words, then the recommendation. Nothing here has a brief
   Recommendation: context for the scope of the insights and research work, not a request in its own right. Read it with Brief 40 and the insights item in CHAT_PLAN.
 - "Is it possible to create custom libraries like the ones vendored that are really good and extensive in their purpose, which can be open sourced and used across projects?? Maybe?? Maybe too much idk."
   Recommendation: a later idea: a small, separately licensed library package built from the vendored engines, after the engine lands under Brief 39. Not scheduled.
+
+
+## Placed from Brief 40, 2026-10-10 (research and placement)
+
+Each row is a recommendation taken (standing order 3); the evidence is in
+[ANALYSIS.md](ANALYSIS.md) "Parity matrix, 2026-10-10" and "Repositories and
+libraries read, 2026-10-10".
+
+- **A Docker image.** Recommendation: build it, in two flavours from one
+  Dockerfile. Draft at `scratchpad/docker/Dockerfile` and `compose.yaml`
+  (not built: the sandbox has no Docker daemon). Measured from a venv of the
+  core requirements without `sentence-transformers`: 213 MB of site-packages
+  (numpy 70 with its libs, sqlalchemy 28, cryptography 16, uvloop 16), plus
+  the app's `src` 28 MB and `frontend` 35 MB (Harper's WASM is 16 of them),
+  plus the slim Python base (about 125 MB): about 400 MB on disk, roughly 150
+  MB pulled. With `sentence-transformers` and CPU torch (769 MB for torch
+  alone in this repository's own venv, 1.5 GB for the whole venv): about 1.6
+  GB. Volume layout: `/data` (`MEMORYMAP_DATA_DIR`: database, files, the LAN
+  certificate, backups) and `/models` (`HF_HOME` and
+  `SENTENCE_TRANSFORMERS_HOME`: the embedder, Whisper, RapidOCR, the Pyodide
+  and needle downloads), so a notebook reset never re-downloads a model.
+  Ollama stays on the host (`OLLAMA_URL=http://host.docker.internal:11434`).
+  **Blocker found, three small changes first** (a brief, not a session):
+  `__main__.py:32` binds `127.0.0.1` as a constant, and `netbind.bind_host`
+  widens it only when the LAN preference is on and a password exists; a
+  browser reaching the container through Docker's bridge is "the network",
+  and an app with no password answers every network request 403 (SEC-01).
+  So the image needs `MEMORYMAP_BIND` (default unchanged), a first-password
+  environment variable or `--set-password` (today only `--reset-password`
+  exists), and a decision on TLS (a reverse proxy in front, with plain http
+  inside the compose network). **What the Windows launcher does that a
+  container cannot:** the desktop window (pywebview) and tray, the Start menu
+  and the Repair shortcut, native file dialogs (`core/desktop_dialog.py`),
+  watching a folder on the host, the capture hotkey (`--capture`), OS
+  reminders and notifications, the firewall prompt and port search, and
+  launching Ollama and detecting a GPU. Everything else (the venv, the
+  update check, the health check) a container replaces. Keep for the owner's
+  NAS and server users; drop as a desktop install path.
+- **Reuse the system Python's packages.** Recommendation: offer it, never
+  default it. `start.sh` line 1070 and `start.bat` line 602 run
+  `python -m venv .venv`; the choice is `--system-site-packages` on that
+  line, chosen only when the installer can import `torch` and
+  `sentence_transformers` from the system Python (a saved 770 MB and a
+  working CUDA torch if the person has one) and the `--doctor` import check
+  passes afterwards; otherwise a clean venv, as now. Risks, in the order they
+  bite: (1) a system torch built against numpy 1.x imports the venv's numpy
+  2.4 and crashes at import; (2) a broken or half-removed global
+  site-packages (a bad `.pth`, a stale `dist-info`) poisons every launch with
+  an error that points nowhere near the cause; (3) `pip install -r
+  requirements.txt` sees a system package that satisfies the range and
+  silently does not install its own, so the app drifts when the system
+  package is upgraded; (4) the venv is no longer relocatable when the system
+  Python is replaced. Mitigation: record the choice in `.venv/pyvenv.cfg`
+  (it is already there as `include-system-site-packages`), print it in
+  `--doctor`, and fall back to a clean venv on the first import failure.
+- **Does a first install need the internet? Yes, once, and the app says so
+  in one place only.** `README.md` (line about "The first launch downloads
+  the search model"), `docs/INSTALL.md` (line 130) and
+  `docs/TROUBLESHOOTING.md` (line 64) say it about the search model;
+  `start.sh` line 1118 prints "Installing, this can take a few minutes" and
+  `start.bat` has no equivalent, with no word that it needs a connection;
+  the app's onboarding says nothing (no "internet" in `onboarding.js`).
+  Measured: the core packages are 213 MB installed, the search model adds
+  several hundred MB (more on Windows, where it brings torch). A person on a
+  train with a fresh clone gets pip errors that `is_network_error` turns into
+  a retry, which is right but late. Recommendation, three edits, one brief:
+  (1) the launchers print, before any download, "First start only: this
+  installs about 210 MB of packages and needs the internet once. After that
+  MemoryMap runs offline."; (2) the same sentence as the first line of
+  README "Install" and INSTALL.md "Before you start"; (3) onboarding's model
+  step says "Search by meaning needs a one-time download of a few hundred MB.
+  Skip it and keyword search still works." with a Skip. The packaged app
+  already has the Windows installer page line (`installer.iss` line 218).
+- **Parity programme, the next brief per surface** (full tables in
+  ANALYSIS.md). Whiteboard: the draw.io reader and shape-library converter,
+  connection points, named layers, five templates. Mind map: OPML and
+  FreeMind export, branch-by-branch presenting, centrality as a perspective.
+  Documents (prose): highlights (Brief 42), a thesaurus from the trimmed
+  table, footnotes. Documents (code): completion and the p5 kind (Brief 42),
+  editor commands in the palette and a split view, rename within a file.
+  Tables: paste-to-table and sort, cell formulas through the safe evaluator,
+  chart this table. PDF and OCR: highlights and comments stored in the
+  notebook, the encrypted-PDF prompt. Images and Library: EXIF used (date
+  taken on the timeline, GPS), rating and flag, crop and rotate. Audio and
+  meetings: timestamped transcript with click to seek and SRT or VTT export,
+  playback speed, markers. Presentations: speaker notes and a presenter view,
+  a per-frame PDF export checked on a real board.
+- **Library verdicts to carry into Brief 35's stripping**: drop networkx
+  (write the 60 lines `notebook_stats.py` uses), whoosh, pint, langdetect,
+  dateutil, pyspellchecker, thefuzz and rapidfuzz (difflib and the trigram
+  repair); keep flashtext, rake and the porter stemmer; vaderSentiment only
+  where a test shows the gain. Optional downloads, never vendored: Pyodide
+  (already), sql.js (new, 700 KB), eslint-linter-browserify (only if Brief 42
+  measures a gap). Re-implement small, each with an eval first: bigram
+  collocation, tag co-occurrence counting, multinomial Naive Bayes for filing,
+  K-means and DBSCAN for merge suggestions, SimHash for near duplicates.

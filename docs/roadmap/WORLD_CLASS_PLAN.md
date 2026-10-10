@@ -3170,3 +3170,83 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
   Recommendation: answer in ANALYSIS.md: which libraries are vendored, which are pip dependencies, and which are dropped under policy 1. Also carried by Brief 40 and ROADMAP Direction policy 1.
 - "doesnt harper use a binary though?? are there any other repos or libraries that we can vendor??"
   Recommendation: Harper is a WebAssembly build in the frontend; the Brief 40 table records any other WASM or pure Python candidate. Also carried by Brief 40.
+
+
+## Placed from Brief 40, 2026-10-10 (the phone over HTTPS)
+
+The owner: "https://192.168.0.107:8443 ... safari said the page was
+unsecure, I clicked continue, and it said safari can't open the page because
+the connection was lost", the same in Brave on the phone, AdGuard DNS active.
+
+**What was measured on this computer** (`scratchpad` probe, a
+`uvicorn` server with the app's own `core/lancert.py` certificate, driven with
+`openssl s_client` and `curl`; no phone was available):
+- TLS 1.2 and 1.3 both negotiate (`TLS_AES_256_GCM_SHA384`, a 256-bit key); no
+  ALPN, so HTTP/1.1 only. Neither is a plausible cause.
+- The certificate names the LAN address as an IP SAN and a request to a name
+  it does not carry fails (`curl: no alternative certificate subject name
+  matches target host name '192.168.0.231'`). **`lancert.ensure()` never
+  compares the names with the machine's current addresses** (it checks only
+  the expiry), so after a router hands the computer a new address the
+  certificate on disk keeps the old one for up to 825 days and the phone is
+  told "wrong name". Measured: a second `ensure()` with a new address list
+  returned the original names and the same fingerprint.
+- The leaf is self-issued, 825 days, with SAN, basicConstraints and EKU
+  serverAuth but no keyUsage. Apple limits certificates that chain to a
+  trusted root to 398 days; the exemption is for roots the user installed,
+  and a clicked-through self-signed leaf is not one.
+- The front end uses NDJSON over `fetch`, not WebSocket or EventSource
+  (`capture-ask.js` line 2544, `settings.js` line 1018), so a WebSocket over
+  an untrusted certificate is not the cause. The session token travels in a
+  header; only the media cookie is `Secure` and `SameSite=Strict`
+  (`routes_auth.py` lines 156 to 272), and what Safari does with a `Secure`
+  cookie on a clicked-through page is not verified.
+- `HostCheckMiddleware` lets any numeric Host through, so the rebinding
+  guard is not refusing the phone.
+
+**Likely causes, ranked** (none reproduced; "connection was lost" is
+`NSURLErrorNetworkConnectionLost`, the server or something between closing a
+connection that had opened):
+1. The phone's per-connection trust: Safari opens several parallel
+   connections and a clicked-through exception on a self-signed leaf is
+   per-session, so the page's later connections can fail the handshake and be
+   dropped. A certificate the phone trusts properly removes this.
+2. A stale name (above), after a DHCP change, shown the same way as a plain
+   untrusted warning.
+3. AdGuard on the phone: a DNS profile does not touch an IP address, but the
+   AdGuard app's local VPN mode and iOS 14's Local Network permission for
+   Safari and Brave can drop traffic to a private address; Brave on iOS is
+   WebKit too, which is why both browsers fail alike.
+4. The Windows firewall profile (Public blocks, Private allows) answering the
+   first request and not the next; the launchers add no rule.
+
+**Fix shape, in order** (one brief, Opus):
+1. **A local CA, mkcert style, made with `cryptography` (already a
+   dependency)**: an EC P-256 CA kept in `lan-tls/` (0600), a leaf signed by
+   it for 397 days with keyUsage and the SAN, remade by `ensure()` whenever
+   the current addresses are not all in the SAN (the stale-name fix) and 30
+   days before expiry. The phone installs the CA once; every later address
+   change is invisible to it.
+2. **Settings, Other devices, "Trust this notebook on your phone"**: a QR
+   code to `http://<ip>:8000/lan/trust` (a plain-http route that serves only
+   the public CA certificate and the guide, nothing else, and is on only
+   while the panel is open), the CA's SHA-256 fingerprint beside it to compare
+   after installing, and a one-page guide per phone: iPhone and iPad
+   (download the profile, Settings, Profile Downloaded, Install, then
+   General, About, Certificate Trust Settings, switch on full trust), Android
+   (Settings, Security, Install a certificate, CA certificate), and a note
+   that Brave on iOS uses the system trust.
+3. **A plain-http option for the home network**, off by default, with the
+   password warning in one sentence ("anyone on this Wi-Fi can read it") and
+   the existing refusal without a password. It is also the bisect: if
+   `http://<ip>:8000` works on the phone and https does not, it is trust; if
+   neither, it is the network, the firewall or AdGuard's local VPN.
+4. **A diagnostics line in Settings, Network**: the addresses now, the names
+   the certificate carries (green when every address is covered, amber with
+   "Regenerate" when not), days left, the CA fingerprint, and a count of
+   failed TLS handshakes since start (from uvicorn's log), so "connection
+   lost" has a number beside it.
+5. Add a Windows Defender Firewall rule at the opt-in (private profile only),
+   or print the one-line `netsh` command when turning the switch on.
+Help moves with it (standing order 13): `ai/help_topics_more.py` "lock"
+topic, the `data-help-for` on the switch, `tests/test_manual_parity.py`.

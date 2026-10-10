@@ -48,6 +48,9 @@ ALLOWED = {
     # carrying the token themselves.
     "capture.js": 1,
     "clip.js": 1,
+    # A Web Worker (the offline translator, Brief 83) has no app.js and so no
+    # `api()`: its engine (.wasm) and model files, from an open route.
+    "translate-worker.js": 2,
 }
 
 #: `fetch(` as a call: not `.fetch(` (a method), not a word ending in fetch.

@@ -84,6 +84,10 @@ OPEN = {
     # 404 until it is installed (tests/test_run_sandbox.py).
     "/documents/run-sandbox/python",
     "/documents/pyodide/{name}",
+    #: The offline translator's engine and model (routes_translate.files_router):
+    #: a Worker's fetch carries no token, and the files are public, nothing of
+    #: the notebook's (Brief 83).
+    "/translate/files/{name}",
 }
 
 #: Prefixes, for the same reason, where the path carries a file name.

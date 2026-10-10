@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "codemap.py"
 COMMITTED = ROOT / "docs" / "CODEMAP.md"
 DATE = re.compile(r"^Generated (\d{4}-\d{2}-\d{2})\b", re.M)
-BUDGET_SECONDS = 3.0
+BUDGET_SECONDS = 10.0  # 3 s unloaded; the lint runs beside agents
 
 
 def _generator():

@@ -1768,3 +1768,44 @@ view"). Numbers: mood changes per session before and after; layouts and
 paints per second at rest (companionperf.js); the arm's angle range over a
 walk cycle.
 
+
+### Brief 43 (Opus, high; Sonnet medium for the fixes it names): the expert audit
+The owner, 2026-10-10: "I have only given you everything I have noticed but I
+am not an expert ... fix, improve and extend and add everything I have missed
+or havent thought of." The things a notebook of this kind must get right that
+no report has asked for, each a measured probe with its command, fixed when
+small, else a BACKLOG row with the number:
+1. **Data safety**: a backup made, the data dir deleted, the backup restored,
+   every note, board, map, document, reminder, tag and setting compared
+   (`backupbundle.js`; a Python round-trip test over a 500-note fixture);
+   every export (markdown, HTML, docx, PDF, JSON) re-imported and diffed;
+   the alembic chain from 0.3.0's schema to head on a copied database.
+2. **Old hardware**: boot to interactive under 2.5 s with the CPU throttled
+   4x in Chromium, idle CPU under 1 percent (`idlecpu.js`), memory under 300
+   MB with 5,000 notes seeded (`seed-timeline-bulk.py`), every list paged,
+   the graph worker's frame under 16 ms at 2,000 nodes, no layout thrash on
+   typing (`autogrowfast.js`), the service worker's cache honouring the
+   version stamps.
+3. **Offline and privacy**: a run with the network blocked (Playwright
+   `route` abort) makes zero requests to anything but localhost and shows no
+   broken surface; every outbound call (model pulls, web search, updates)
+   behind an explicit setting with its own line in Settings, Network.
+4. **Keyboard and screen reader**: every surface completed by keyboard alone
+   (`keyboard.js`, `dockeyboard.js`, `keyreach`), axe clean (`axe.js`), names
+   on every control (`a11yname.js`), focus never lost after a dialog closes.
+5. **Error and empty states**: every API error path renders a designed
+   notice with a way out (WORLD_CLASS_PLAN 21): kill the server mid-session
+   and count the surfaces that fail silently; the empty state of every tab
+   and widget measured against the recipe.
+6. **Search quality**: a 60-query relevance set over the showcase notebook
+   (lexical, semantic, hybrid) with precision at 5 recorded; typos and
+   synonyms from the noisy set included.
+7. **Security**: CodeQL clean, the CSP without unsafe-inline, auth on every
+   write route (a test that walks the router), rate limits on the lock
+   screen, the LAN mode's cert (Brief 40's findings), uploads type-checked.
+8. **Upgrade path**: the app updated from the previous tag with data in
+   place; the release notes rendered; the launcher's rollback.
+9. **Tests**: the suite's slowest 20 tests and any flaky one (three runs of
+   the frontend lints), the xfail markers still honest.
+Report the numbers per item; fixes under one hour land in the brief; the
+rest become BACKLOG rows "Expert audit, 2026-10-10" ranked by user impact.

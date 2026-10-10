@@ -46410,6 +46410,14 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      dependency; an optional package only if Windows toasts need actions.
      Taken 2026-10-10 as written in TIMELINE_PLAN section 11 row 3.
 
+770. **Ruling asked by the filing agent (Brief 39b), 2026-10-10.** WORLD_CLASS
+     23 decision 6 ("sensitive topics are suggested, never auto-filed") was
+     built for filing without a chat model only; the model and the embedder
+     paths still file a health note into Health. Recommendation: the rule
+     holds on every path, since it is about the person's consent, not the
+     method. Taken 2026-10-10: decision 6 amended in place; the model and
+     embedder paths are a row in the plan's step 6.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.
@@ -46946,3 +46954,57 @@ the Brief 72b blocks (standing order 10).
    of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
    asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
    at 390 after all of it.
+## Moved from the plans, 2026-10-10 (filing-1010)
+
+WORLD_CLASS_PLAN 23 (filing and the taxonomy), steps 1 to 4, built by the
+filing agent (Brief 39b):
+
+1. `tests/fixtures/filing/notes.json` grew from 40 to 120 hand-labelled notes
+   (twelve categories; line, pasted, joke, caption, list; nine sensitive),
+   written before any filing change; the "Study" bug reproduced as strict
+   xfails (`tests/test_tag_grounding.py`).
+2. The taxonomy pack 5.0.0 as JSON under `src/memorymap/ai/data/taxonomy/`,
+   read on first use; `ai/taxonomy.py` has the pack's API on the vendored
+   FlashText, its 64 tests in `tests/test_taxonomy_pack.py`; packaged
+   (pyproject package-data, both PyInstaller specs); credited in
+   `docs/THIRD_PARTY.md`.
+3. `lexical_filing.decide`: the person's categories first (neighbours, a
+   TF-IDF centroid, pack topics from notes and names, the name), a new
+   category only as a proposal (composite within 10%), every filing with its
+   why (capture line, choice tooltips, Tidy rows, `GET /entries/{id}/filing`),
+   sensitive topics held unless Settings, Background tasks allows them, the
+   Study bug fixed on both paths (`lexical_filing.tag_grounds`).
+4. Tidy's Categories that overlap and Category names reviews (confirm, one
+   Undo); the personal lexicon from refiles and merges (`alias` corrections).
+
+### Measured (decision 8)
+Top-1 on `tests/fixtures/filing/notes.json` (120 notes, twelve categories),
+leave one out through `janitor.categorise` with no chat model; the embedder is
+bge-small run in numpy (`scratchpad/filing-tools/measure.py`), checked equal to
+sentence-transformers' own vectors (cosine 1.0 on two notes).
+
+| step | no model | with the embedder |
+| --- | --- | --- |
+| baseline (step 1) | 0.175 (8 wrong, 91 abstained) | 0.817 (18 wrong, 4 abstained) |
+| step 2, the pack as data | 0.192 (8 wrong, 89 abstained) | 0.817 |
+| step 3, the decision and its why | 0.417 (15 wrong, 55 abstained, 14 of them sensitive and held); 0.533 with sensitive filing on; first choice (filed or first one-tap) 0.617 | 0.808 (20 wrong) |
+
+Below the 0.8 bar with no model (the strict xfail stays). Forced to choose,
+the same evidence is right 0.61 of the time: the gap is vocabulary. 39 of
+120 notes name no pack phrase at all ("dal", "boiler", "episode", "MOT",
+"nursery"), and the notebook's own words reach only notes that share them.
+The precision of what it files is 0.77 (0.81 with sensitive filing on).
+
+Step 4 (merge and rename rows in Tidy, the personal lexicon) leaves the
+leave-one-out numbers as they were (0.417 and 0.808: the fixture has no
+corrections). Measured as a person meets it (`filing-tools/online.py`: notes
+arrive one at a time from two hand-filed per category; a wrong filing is
+moved by hand): 0.521 top-1 without the lexicon, 0.510 with it, wrong 29
+both; "Work, not Software" decided by one correction
+(`tests/test_tidy_categories.py`).
+
+The "Study" bug reproduced (`tests/test_tag_grounding.py`, strict xfail): with
+no model, the nearest notes voted for every tag they carry, so a note sharing
+one ordinary word ("Friday", "books") with lecture notes got "study" and
+"university"; with a model, the prompt's "prefer one of those" over a list
+most used first.

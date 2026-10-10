@@ -1517,6 +1517,11 @@ function renderNoteText(element, text, terms) {
       box.type = "checkbox";
       box.disabled = true;
       box.checked = task[1].toLowerCase() === "x";
+      //: axe `label` (critical, 20 boxes): the box sat beside its words with
+      //: no name of its own. The state comes first so a screen reader says it
+      //: before the sentence, and the words are the task with its markdown
+      //: marks taken off, as the card draws them.
+      box.setAttribute("aria-label", `${box.checked ? "Done" : "To do"}: ${task[2].replace(/[*_`~]|\[\[|\]\]/g, "").trim()}`);
       item.appendChild(box);
       renderNoteInline(item, task[2], terms);
       element.appendChild(item);

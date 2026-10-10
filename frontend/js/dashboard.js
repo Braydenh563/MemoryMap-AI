@@ -3512,6 +3512,10 @@ async function renderHeatmapWidget(body) {
   //: as one, and the tab stop Chromium gives it still scrolls with arrows.
   grid.setAttribute("role", "img");
   grid.setAttribute("aria-label", `Activity over the last year, ${data.total} notes`);
+  //: axe `scrollable-region-focusable` (serious): the grid scrolls sideways
+  //: and nothing in it takes focus. An explicit stop, with a ring below
+  //: (`.heatmap:focus-visible`), so the arrow keys reach the older weeks.
+  grid.tabIndex = 0;
   body.appendChild(grid);
 
   //: **Full size, full year, scrolled rather than shrunk.** The first

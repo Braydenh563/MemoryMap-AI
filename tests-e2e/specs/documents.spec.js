@@ -20,9 +20,10 @@ test("Library, Create, New document makes a new document, not the last one opene
   await page.locator(".rich-picker-row", { hasText: "New document" }).click();
   await expect(page.locator("#tab-documents")).toBeVisible();
   const title = `Packing plan ${Date.now() % 100000}`;
-  // The title box is focused and selected for a new document.
+  // The title box is focused and selected for a new document, which names
+  // itself "Untitled document N" (INBOX 739).
   await expect(page.locator("#doc-title")).toBeFocused();
-  await expect(page.locator("#doc-title")).toHaveValue("Untitled");
+  await expect(page.locator("#doc-title")).toHaveValue(/^Untitled document \d+$/);
   await page.keyboard.insertText(title);
   await page.locator('#tab-documents .cm-content[aria-label="Document text"]').click();
   await page.keyboard.insertText("Passports, chargers, the rail pass.");
@@ -56,7 +57,10 @@ test("a link to an older document opens that document, not the newest", async ({
 
 test("a document downloads as Markdown with its text", async ({ page }) => {
   await openApp(page);
-  const doc = (await documentList(page))[0];
+  // The newest document with a line worth checking (an empty one left by an
+  // earlier test has none).
+  const docs = await documentList(page);
+  const doc = docs.find((d) => (d.content || "").split("\n").some((l) => l.trim().length > 20)) || docs[0];
   await openApp(page, `/#/docs/${doc.id}`);
   await expect(page.locator("#doc-title")).toHaveValue(doc.title);
   await page.click("#doc-dock-menu > summary");

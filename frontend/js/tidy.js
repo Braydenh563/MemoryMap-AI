@@ -21,7 +21,7 @@ const TIDY_HELP = [
   "Tidy finds clean-up jobs by rule, with no AI.",
   "Open a review, tick rows, press its button.",
   "One Undo reverses a whole batch.",
-  "Apply automatically never merges or bins.",
+  "Merges, renames and bins never run alone.",
 ];
 
 //: The open sheet's state, and the count's last fetch and its pending
@@ -75,6 +75,8 @@ const TIDY_ICONS = {
   "lookalike-tags": "arrows-merge",
   uncategorised: "folder-dashed",
   duplicates: "copy",
+  "similar-categories": "folders",
+  "category-names": "textbox",
   "short-notes": "note-blank",
   "stale-reminders": "clock-countdown",
 };
@@ -469,6 +471,8 @@ const TIDY_APPLY = {
   "lookalike-tags": ["Merge tags", "Merge {n} set of tags", "Merge {n} sets of tags"],
   uncategorised: ["Move notes", "Move {n} note", "Move {n} notes"],
   duplicates: ["Merge notes", "Merge {n} set of notes", "Merge {n} sets of notes"],
+  "similar-categories": ["Merge categories", "Merge {n} group", "Merge {n} groups"],
+  "category-names": ["Rename", "Rename {n} category", "Rename {n} categories"],
   "short-notes": ["Move to bin", "Move {n} note to bin", "Move {n} notes to bin"],
   "stale-reminders": ["Mark done", "Mark {n} done", "Mark {n} done"],
 };
@@ -479,11 +483,19 @@ function tidyApplyWords(key, n) {
   return n ? words[n === 1 ? 1 : 2].replace("{n}", String(n)) : words[0];
 }
 
+//: The reviews that change categories ask first (WORLD_CLASS 23, decision
+//: 4: "applying asks"); Undo is still one press after.
+const TIDY_ASKS = {
+  "similar-categories": "Merge these categories?\n\nTheir notes move into the largest one; Undo puts them back.",
+  "category-names": "Rename these categories?\n\nUndo puts the old names back.",
+};
+
 async function tidyApply(button) {
   const state = TIDY.state;
   const key = state.key;
   const ids = [...state.ticked];
   const level = state.level;
+  if (TIDY_ASKS[key] && !(await confirmDialog(TIDY_ASKS[key], { confirmLabel: tidyApplyWords(key, ids.length), danger: false }))) return;
   setBusy(button, true, "Working…");
   const result = await apiJson(`/tidy/${encodeURIComponent(key)}/apply`, { method: "POST", body: JSON.stringify({ ids, level }) }).catch((e) => {
     toast(e.message, true);

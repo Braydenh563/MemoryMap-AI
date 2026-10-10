@@ -167,6 +167,9 @@ a = Analysis(
         # reads it from the bundle root when frozen). Without it the panel
         # was empty on every packaged build.
         (str(CHANGELOG), "."),
+        # The taxonomy pack filing reads (ai/taxonomy.py `DATA_DIR`): JSON
+        # beside the module, so it goes where the module's package is.
+        (str(REPO_ROOT / "src" / "memorymap" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
         *TZDATA_FILES,
     ],
     hiddenimports=[

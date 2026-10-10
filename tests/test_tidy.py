@@ -90,6 +90,8 @@ def test_the_summary_names_every_review_with_a_count(client):
         "lookalike-tags",
         "uncategorised",
         "duplicates",
+        "similar-categories",
+        "category-names",
         "short-notes",
         "stale-reminders",
     ]
@@ -426,3 +428,21 @@ def test_the_duplicates_count_is_kept_until_the_notebook_changes(client, session
     client.put(f"/entries/{first['id']}", json={"content": "Something else entirely about gardening tools"})
     assert client.get("/tidy").json()["reviews"][6]["count"] == 0
     assert len(calls) == 2, "an edit is a different notebook"
+
+
+def test_a_sensitive_note_is_listed_unticked_and_never_moved_by_itself(session, app_state):
+    """WORLD_CLASS 23, decision 6: a note that reads as health is suggested
+    in Tidy with its why, unticked, and the automatic run leaves it alone."""
+    from memorymap.core import deps
+
+    for text in ("Dentist check-up booked for the 21st", "GP says blood pressure is fine", "Physio for the shoulder"):
+        manager.create_entry(session, text, category_name="Health")
+    held = manager.create_entry(session, "Dentist appointment moved to Friday", category_name=manager.UNCATEGORISED)
+    session.commit()
+    row = next(r for r in tidy.rows(session, "uncategorised") if r["id"] == f"note:{held.id}")
+    assert row["change"] == "Move to Health" and row["selectable"] and not row["ticked"]
+    assert row["detail"].startswith("Waits for you: it reads as") and "dentist" in row["detail"]
+    tidy.set_auto(deps.get_config(), "uncategorised", True)
+    tidy.run_automatic(session, force=True)
+    session.refresh(held)
+    assert manager.category_name_for(session, held) == manager.UNCATEGORISED

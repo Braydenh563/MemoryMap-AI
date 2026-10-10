@@ -1518,23 +1518,6 @@ function setBusy(button, busy, label = null) {
   button.disabled = was.disabled;
 }
 
-// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
-// keyboard support and never got it retrofitted, mouse-only, same gap
-// chip() already closed once this session for the "Go to note" chip.
-// Dispatches a real click rather than duplicating each call site's own
-// handler, so this stays a one-line addition wherever a `.unlink` span
-// already has its click listener attached.
-function makeUnlinkAccessible(span) {
-  span.setAttribute("role", "button");
-  span.setAttribute("tabindex", "0");
-  span.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      span.click();
-    }
-  });
-}
-
 // --- asking before something irreversible (§35F) ----------------------------------
 //
 // `window.confirm` is not dependable in pywebview: a backend without it

@@ -244,6 +244,9 @@ class EntryOut(BaseModel):
     ai_confidence: int
     #: Offered at filing, not yet taken or discarded (INBOX 440).
     suggested_tags: list[str] = []
+    #: Each offered tag's why, the words in the note that back it
+    #: (WORLD_CLASS 23, decision 5).
+    suggested_tag_reasons: dict[str, str] = {}
     access_count: int = 0
     last_opened_at: datetime | None = None
     #: When a person last changed the text, title, tags or category; null if

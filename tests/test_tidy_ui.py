@@ -119,7 +119,8 @@ def test_every_review_button_says_what_it_changes_in_plain_words():
 
 
 def test_the_review_picker_is_an_overview_of_all_nine_not_a_dropdown():
-    """INBOX 718: "is it possible to see all issues identified??". Nine rows
+    """INBOX 718: "is it possible to see all issues identified??". A row per
+    review (eleven since WORLD_CLASS 23 added the two category reviews)
     (icon, name, count, one line on what it finds), the empty ones last, a
     row opens its review and a back button returns."""
     from memorymap.entry import tidy as rules
@@ -129,7 +130,7 @@ def test_the_review_picker_is_an_overview_of_all_nine_not_a_dropdown():
     block = tidy[tidy.index("const TIDY_ICONS") : tidy.index("async function openTidySheet")]
     icons = re.findall(r'^\s*"?([\w-]+)"?: "([\w-]+)",$', block, re.M)
     assert {k for k, _ in icons} == set(rules.REVIEWS), "every review has its glyph"
-    assert len({v for _, v in icons}) == 9, "and no two share one"
+    assert len({v for _, v in icons}) == len(rules.REVIEWS), "and no two share one"
     font = (ROOT / "frontend" / "vendor" / "phosphor" / "style.css").read_text(encoding="utf-8")
     for _, glyph in icons:
         assert f".ph-{glyph}:" in font, glyph

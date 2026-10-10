@@ -525,6 +525,11 @@ $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)
 );
 
+//: WORLD_CLASS 23, decision 6: sensitive notes file by their words only when on.
+$("pref-auto-file-sensitive").addEventListener("change", (e) =>
+  setPreference("auto_file_sensitive", e.target.checked)
+);
+
 $("pref-auto-caption-images").addEventListener("change", (e) =>
   setPreference("auto_caption_images", e.target.checked)
 );

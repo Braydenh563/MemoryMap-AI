@@ -1,0 +1,277 @@
+{
+  "version": "1.0.0",
+  "about": "MemoryMap's own filing data beside the pack (WORLD_CLASS_PLAN 23): which pack topics are sensitive (decision 6: suggested, never auto-filed unless Settings allows), and everyday category names the pack's phrases do not cover, each to the topics it names (decision 2: 'Gym' is Fitness). Every topic named here is a pack topic (tests/test_filing_decision.py).",
+  "sensitive_topics": [
+    "Adoption & Foster Care",
+    "Aged Care",
+    "Banking & Payments",
+    "Bereavement & Grief",
+    "Cancer & Oncology",
+    "Cardiovascular Health",
+    "Child Safety & Safeguarding",
+    "Chronic Conditions",
+    "Co-parenting & Separation",
+    "Cultural & Religious Practices",
+    "Debt & Financial Hardship",
+    "Dental & Oral Health",
+    "Digestive & Gut Health",
+    "Disability Support",
+    "Documents & Identity Renewals",
+    "Eating & Food Support",
+    "Emergency & Urgent Care",
+    "End-of-Life Planning",
+    "Estate & Legal Planning",
+    "Fertility & Family Planning",
+    "Finance",
+    "Health",
+    "Healthcare Navigation",
+    "Household Budgeting",
+    "Immigration & Citizenship",
+    "Investing",
+    "Law",
+    "Legal Aid & Advice Services",
+    "Medical Devices & Monitoring",
+    "Medication Management",
+    "Mental Health",
+    "National Identity & Civil Registration",
+    "Neurological Conditions",
+    "Pain & Symptom Tracking",
+    "Pensions & Retirement Income",
+    "Personal Values & Identity",
+    "Pregnancy & Birth",
+    "Preventive Health & Screening",
+    "Rehabilitation & Recovery",
+    "Relationships",
+    "Religion & Mythology",
+    "Reproductive & Sexual Health",
+    "Respiratory Health",
+    "Safety & Crisis Support",
+    "Skin & Dermatology",
+    "Substance Use & Recovery",
+    "Tax & Administration",
+    "Unpaid Caring",
+    "Vision & Hearing"
+  ],
+  "name_aliases": {
+    "apartment": [
+      "Home"
+    ],
+    "baking": [
+      "Cooking",
+      "Home Baking & Desserts"
+    ],
+    "bills": [
+      "Household Budgeting",
+      "Finance"
+    ],
+    "books": [
+      "Literature"
+    ],
+    "budget": [
+      "Household Budgeting",
+      "Finance"
+    ],
+    "car": [
+      "Vehicle Maintenance",
+      "Transport"
+    ],
+    "cars": [
+      "Vehicle Maintenance",
+      "Transport"
+    ],
+    "cat": [
+      "Pets"
+    ],
+    "children": [
+      "Parenting",
+      "Relationships"
+    ],
+    "chores": [
+      "Home",
+      "Errands"
+    ],
+    "cinema": [
+      "Entertainment"
+    ],
+    "class": [
+      "Education"
+    ],
+    "classes": [
+      "Education"
+    ],
+    "clients": [
+      "Business"
+    ],
+    "college": [
+      "Education"
+    ],
+    "course": [
+      "Education",
+      "Learning"
+    ],
+    "courses": [
+      "Education",
+      "Learning"
+    ],
+    "diy": [
+      "Home",
+      "DIY & Home Repair"
+    ],
+    "doctor": [
+      "Health"
+    ],
+    "dog": [
+      "Pets"
+    ],
+    "exercise": [
+      "Fitness"
+    ],
+    "expenses": [
+      "Household Budgeting",
+      "Finance"
+    ],
+    "family": [
+      "Relationships",
+      "Parenting"
+    ],
+    "film": [
+      "Entertainment"
+    ],
+    "films": [
+      "Entertainment"
+    ],
+    "finances": [
+      "Finance",
+      "Household Budgeting"
+    ],
+    "flat": [
+      "Home"
+    ],
+    "food": [
+      "Cooking",
+      "Nutrition"
+    ],
+    "games": [
+      "Gaming"
+    ],
+    "garden": [
+      "Gardening"
+    ],
+    "holiday": [
+      "Travel"
+    ],
+    "holidays": [
+      "Travel"
+    ],
+    "house": [
+      "Home"
+    ],
+    "job": [
+      "Career",
+      "Business",
+      "Workplace Meetings & Collaboration"
+    ],
+    "kids": [
+      "Parenting",
+      "Relationships"
+    ],
+    "kitchen": [
+      "Cooking"
+    ],
+    "meals": [
+      "Cooking"
+    ],
+    "medical": [
+      "Health"
+    ],
+    "money": [
+      "Finance",
+      "Household Budgeting"
+    ],
+    "motoring": [
+      "Vehicle Maintenance",
+      "Transport"
+    ],
+    "movie": [
+      "Entertainment"
+    ],
+    "movies": [
+      "Entertainment"
+    ],
+    "music": [
+      "Music"
+    ],
+    "novels": [
+      "Literature"
+    ],
+    "office": [
+      "Workplace Meetings & Collaboration",
+      "Business"
+    ],
+    "parents": [
+      "Relationships"
+    ],
+    "pets": [
+      "Pets"
+    ],
+    "reading": [
+      "Literature"
+    ],
+    "recipes": [
+      "Cooking"
+    ],
+    "running": [
+      "Fitness",
+      "Sports"
+    ],
+    "school": [
+      "Education"
+    ],
+    "shows": [
+      "Entertainment"
+    ],
+    "spending": [
+      "Household Budgeting",
+      "Finance"
+    ],
+    "studies": [
+      "Education",
+      "Learning"
+    ],
+    "study": [
+      "Education",
+      "Learning"
+    ],
+    "training": [
+      "Fitness"
+    ],
+    "trips": [
+      "Travel"
+    ],
+    "tv": [
+      "Entertainment"
+    ],
+    "uni": [
+      "Education"
+    ],
+    "university": [
+      "Education"
+    ],
+    "vehicle": [
+      "Vehicle Maintenance",
+      "Transport"
+    ],
+    "wellbeing": [
+      "Health",
+      "Mental Health"
+    ],
+    "work": [
+      "Career",
+      "Business",
+      "Workplace Meetings & Collaboration"
+    ],
+    "workouts": [
+      "Fitness"
+    ]
+  }
+}

@@ -119,7 +119,9 @@ def test_tag_suggestions_follow_an_edit_without_a_rebuild(no_model_client):
     no_model_client.post("/entries", json={"content": "sourdough loaf crumb and starter", "tags": ["baking"]})
     no_model_client.put(f"/entries/{first['id']}", json={"tags": ["bread"]})
     with deps.get_db().session() as session:
-        suggested = lexical_filing.suggest_tags(session, "starter for the sourdough", have=[])
+        #: The note says both tags' words: a tag it has no word for is never
+        #: offered (WORLD_CLASS 23, decision 5).
+        suggested = lexical_filing.suggest_tags(session, "starter for the sourdough bread, a baking day", have=[])
     assert "bread" in suggested and "baking" in suggested
 
 
@@ -158,6 +160,6 @@ def test_the_lexical_pass_never_reads_a_private_note(app_state):
             Entry(content="squats secretword", category_id=category.id, tags='["secrettag"]', is_private=True)
         )
         session.commit()
-        suggested = lexical_filing.suggest_tags(session, "squats and secretword", have=[])
+        suggested = lexical_filing.suggest_tags(session, "squats, lifting and secretword", have=[])
     assert "secrettag" not in suggested
     assert "lifting" in suggested

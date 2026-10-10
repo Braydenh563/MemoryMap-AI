@@ -132,7 +132,8 @@ def _to_out(
         ai_confidence=filing_certainty.shown(
             entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
         ),
-        suggested_tags=_open_suggestions(entry),
+        suggested_tags=(offered := _open_suggestions(entry)),
+        suggested_tag_reasons=_tag_reasons(content, offered),
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
         edited_at=getattr(entry, "edited_at", None),
@@ -215,6 +216,16 @@ def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
     ]
 
 
+def _tag_reasons(content: str, tags: list[str]) -> dict[str, str]:
+    """Each offered tag's one line for its chip (decision 5: each explained)."""
+    if not tags or not content:
+        return {}
+    from memorymap.ai import lexical_filing, taxonomy
+
+    hits = taxonomy.topic_hits(content)
+    return {tag: why for tag in tags if (why := lexical_filing.tag_reason(tag, content, hits))}
+
+
 def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  # noqa: ANN001
     """Make the note's tag suggestions at filing and keep them on it (INBOX
     440). The model's when it is the one that filed (it is up and answering);
@@ -240,13 +251,16 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
             )
         except Exception:
             logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
-    if not suggested:
-        from memorymap.ai import lexical_filing
+    from memorymap.ai import lexical_filing
 
-        suggested = lexical_filing.suggest_tags(
-            session, manager.readable_content(entry), have=have, exclude_entry_id=entry.id
-        )
-    keep = [tag for tag in suggested if tag.casefold() not in discarded][:5]
+    content = manager.readable_content(entry)
+    #: A model's tags keep only those the note has a word for (WORLD_CLASS
+    #: 23, decision 5): its reply to "prefer one of those" over a list most
+    #: used first was the first two, whatever the note said (the Study bug).
+    suggested = lexical_filing.grounded_tags(content, suggested)
+    if not suggested:
+        suggested = lexical_filing.suggest_tags(session, content, have=have, exclude_entry_id=entry.id)
+    keep = [tag for tag in suggested if tag.casefold() not in discarded][: lexical_filing.TAG_LIMIT]
     entry.suggested_tags = json.dumps(keep)
 
 
@@ -1128,6 +1142,12 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
     #: Nothing was sure enough to file it: up to three categories to offer as
     #: one-tap choices (INBOX 434), the ones its words lean to first.
     suggestions: list[str] = []
+    #: Each choice's one line, the filed category's, and a new category the
+    #: pack proposes (WORLD_CLASS 23, decisions 2, 3 and 6).
+    reasons: dict[str, str] = {}
+    why = ""
+    proposal = None
+    held = None
     shown = filing_certainty.shown(
         entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
     )
@@ -1138,16 +1158,33 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
         from memorymap.ai import lexical_filing
 
         try:
-            suggestions = [
-                name
-                for name in lexical_filing.suggest_categories(
-                    session, manager.readable_content(entry) or "", exclude_entry_id=entry.id,
-                    limit=4,
+            content = manager.readable_content(entry) or ""
+            explained = [
+                (name, reason)
+                for name, reason in lexical_filing.suggest_categories_explained(
+                    session, content, exclude_entry_id=entry.id, limit=4,
                 )
                 if name != category
             ][:3]
+            suggestions = [name for name, _ in explained]
+            reasons = {name: reason for name, reason in explained if reason}
+            decision = lexical_filing.decide(session, content, exclude_entry_id=entry.id)
+            if decision.proposal is not None:
+                proposal = {"name": decision.proposal.name, "why": decision.proposal.why}
+            if decision.held and decision.ranked:
+                held = {"category": decision.ranked[0].name, "topic": decision.sensitive}
         except Exception:  # noqa: BLE001 - a hint never fails the status
             logger.debug("no category suggestions for entry %s", entry.id, exc_info=True)
+    elif filed_by == "words" and category != manager.UNCATEGORISED:
+        from memorymap.ai import lexical_filing
+
+        try:
+            decision = lexical_filing.decide(
+                session, manager.readable_content(entry) or "", exclude_entry_id=entry.id
+            )
+            why = next((c.why for c in decision.ranked if c.name == category), "")
+        except Exception:  # noqa: BLE001 - a hint never fails the status
+            logger.debug("no filing reason for entry %s", entry.id, exc_info=True)
     return {
         "id": entry.id,
         "filing_state": state,
@@ -1156,6 +1193,10 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
         "similar": similar,
         "filed_by": filed_by,
         "suggestions": suggestions,
+        "suggestion_reasons": reasons,
+        "why": why,
+        "proposal": proposal,
+        "held_sensitive": held,
     }
 
 
@@ -1226,7 +1267,9 @@ def suggest_tags_for_draft(
     except Exception:
         logger.warning("tag suggestions failed", exc_info=True)
         suggested = []
-    return {"suggested_tags": suggested}
+    from memorymap.ai import lexical_filing
+
+    return {"suggested_tags": lexical_filing.grounded_tags(content, suggested)}
 
 
 class SuggestedTagsBody(BaseModel):
@@ -1413,6 +1456,9 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             deps.get_ollama(),
             vocabulary=_tag_vocabulary(session),
         )
+        from memorymap.ai import lexical_filing
+
+        suggested_tags = lexical_filing.grounded_tags(entry.content or "", suggested_tags)
     except Exception:
         logger.warning("re-evaluation's tag step failed", exc_info=True)
         suggested_tags = []

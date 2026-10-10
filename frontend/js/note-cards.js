@@ -1331,6 +1331,8 @@ function fitNoteMetas(metas) {
     for (const el of icons) {
       el.classList.add("is-icon");
       el.title ||= el.textContent;
+      //: Its words are hidden now, so the title alone named it.
+      if (el.getAttribute("role") === "button") el.setAttribute("aria-label", el.title);
     }
     more.hidden = !fold.length;
     more.firstChild.textContent = `+${fold.length}`;
@@ -1771,7 +1773,10 @@ function entryItem(entry, options = {}) {
     const take = document.createElement("span");
     take.className = "suggested-tag-take";
     setLabel(take, `ph:plus ${tag}`);
-    take.title = `Suggested: add #${tag}`;
+    //: Each suggestion says what in the note backs it (WORLD_CLASS 23,
+    //: decision 5): "It mentions “exam”."
+    const reason = entry.suggested_tag_reasons?.[tag];
+    take.title = reason ? `Suggested: add #${tag}. ${reason}` : `Suggested: add #${tag}`;
     take.addEventListener("click", (event) => {
       event.stopPropagation();
       answerSuggestedTags(entry, { take: [tag] });
@@ -2397,4 +2402,23 @@ function entryListSetStop(items, stop) {
     li.tabIndex = li === stop ? 0 : -1;
     entryCardControls(li, li === stop);
   }
+}
+
+// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
+// keyboard support and never got it retrofitted, mouse-only, same gap
+// chip() already closed once this session for the "Go to note" chip.
+// Dispatches a real click rather than duplicating each call site's own
+// handler, so this stays a one-line addition wherever a `.unlink` span
+// already has its click listener attached.
+function makeUnlinkAccessible(span) {
+  span.setAttribute("role", "button");
+  //: A title alone never shows on touch; callers set it first.
+  if (span.title) span.setAttribute("aria-label", span.title);
+  span.setAttribute("tabindex", "0");
+  span.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      span.click();
+    }
+  });
 }

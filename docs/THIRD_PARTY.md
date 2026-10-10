@@ -10,7 +10,7 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 
 | Library | Files | Version | Licence | Source | Used by |
 | --- | --- | --- | --- | --- | --- |
-| FlashText | `flashtext.py` | 2.7 | MIT (`flashtext.LICENSE.txt`) | https://github.com/vi3k6i5/flashtext | `ai/taxonomy.py`, the keyword map behind filing's category votes |
+| FlashText | `flashtext.py` | 2.7 | MIT (`flashtext.LICENSE.txt`) | https://github.com/vi3k6i5/flashtext | `ai/taxonomy.py`, matching the taxonomy pack's phrases in a note |
 
 ## Browser (`frontend/vendor/`)
 
@@ -26,6 +26,13 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 
 ## Data
 
+- `ai/data/taxonomy/` is the MemoryMap taxonomy pack, 5.0.0-consolidated
+  (527 categories, 6,478 phrase assignments, 1,109 roles, 44 institutions,
+  facets and 30 context rules), commissioned by the project's owner and
+  generated with Perplexity from the owner's own uploaded taxonomy; it ships
+  under the project's licence. Its original vocabulary is kept in
+  `tests/fixtures/taxonomy/original_taxonomy.json`, and its tests in
+  `tests/test_taxonomy_pack.py` (WORLD_CLASS_PLAN 23, decision 1).
 - `ai/question_noise.py`'s misspelling table (the block added 2026-10-10)
   appears to be drawn from Wikipedia's "Lists of common misspellings", which
   is CC BY-SA 4.0. Its origin is not recorded in the commit that added it;

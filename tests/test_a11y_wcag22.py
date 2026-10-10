@@ -233,3 +233,44 @@ def test_buttons_js_builds_hidden_are_named_when_they_show():
     ai = _read("ai-tools.js")
     assert "badge.hidden = !name;" in ai and "badge.textContent = missing" in ai
     assert "renderCopyLogsLabel" in js
+def test_a_task_checkbox_in_a_note_card_is_named_by_its_task():
+    """axe `label` (critical, 20 boxes, 2026-10-10): the disabled checkbox a
+    "- [ ] task" line draws had no name. Done or To do, then the words."""
+    cards = _read("notes-list.js")
+    start = cards.index('box.type = "checkbox";')
+    block = cards[start: start + 900]
+    assert 'box.setAttribute("aria-label", `${box.checked ? "Done" : "To do"}: ' in block
+
+
+def test_the_heatmap_scroller_is_a_tab_stop_with_a_ring():
+    """axe `scrollable-region-focusable` (serious, 2026-10-10): `.heatmap`
+    scrolls sideways and held nothing focusable."""
+    dash = _function(_read("dashboard.js"), "renderHeatmapWidget")
+    assert "grid.tabIndex = 0;" in dash
+    assert 'grid.setAttribute("aria-label"' in dash
+    # The ring is the base `:focus-visible` rule's, not a heatmap rule: a tab
+    # stop gets it for free and the boot CSS has no bytes to spare.
+    base = (CSS / "02-chat-graph.css").read_text(encoding="utf-8")
+    assert re.search(r"^:focus-visible \{\s*outline: ", base, re.M)
+
+
+def test_the_folded_tags_chip_keeps_a_24px_target():
+    """axe `target-size` (serious, 2026-10-10): the "+N" chip was 23.6 by 24
+    px at 390. WCAG 2.5.8 wants 24 on both sides."""
+    css = (CSS / "08-consistency.css").read_text(encoding="utf-8")
+    rule = re.search(r"\.note-meta > \.note-meta-more \{([^}]*)\}", css)
+    assert rule, ".note-meta-more rule missing"
+    assert "min-width: 24px;" in rule.group(1)  # the height is the chip's own 24
+    assert 'chip("+0", "note-meta-more"' in _read("note-cards.js")
+
+
+def test_an_icon_only_control_is_named_by_aria_label_not_title_alone():
+    """a11yname.js (2026-10-10): 93 icon-only controls in the Notes list at
+    1440 had a `title` and no `aria-label`; a title never shows on touch. The
+    x buttons (`.unlink`) share one helper (note-cards.js: app.js is at its
+    size ratchet), and a chip folded to its icon
+    keeps its words as the name."""
+    helper = _function(_read("note-cards.js"), "makeUnlinkAccessible")
+    assert 'span.setAttribute("aria-label", span.title)' in helper
+    cards = _read("note-cards.js")
+    assert 'el.setAttribute("aria-label", el.title)' in cards[cards.index('el.classList.add("is-icon")'):][:400]

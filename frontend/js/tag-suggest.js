@@ -74,11 +74,17 @@ function fillTagSuggest() {
   //: Starts-with first, then contains, each most used first (the route's
   //: own order).
   names.sort((a, b) => Number(!a.toLowerCase().startsWith(wanted)) - Number(!b.toLowerCase().startsWith(wanted)));
+  //: **Nothing typed: the tags the note says first** (WORLD_CLASS 23, the
+  //: "Study" bug). An empty field listed the most used tags first, so
+  //: "study" and "university" headed the list on every note whatever it was
+  //: about; a tag whose words are in the note's text now leads, and says so.
+  const said = wanted ? new Set() : tagSuggestSaid(input, names);
+  if (said.size) names.sort((a, b) => Number(!said.has(a)) - Number(!said.has(b)));
   const rows = names.slice(0, 40).map((tag, i) => {
     const row = richPickerRow({
       icon: "ph:hash",
       label: tag,
-      about: `${counts[tag]} note${counts[tag] === 1 ? "" : "s"}`,
+      about: `${counts[tag]} note${counts[tag] === 1 ? "" : "s"}${said.has(tag) ? ", in this note" : ""}`,
       query: wanted,
       id: `tag-suggest-${i}`,
     });
@@ -108,6 +114,19 @@ function fillTagSuggest() {
   tagSuggest.box.classList.toggle("hidden", !rows.length);
   input.setAttribute("aria-expanded", String(rows.length > 0));
   if (rows.length) placeTagSuggest();
+}
+
+//: The tags among `names` whose every word is in the note this field
+//: belongs to: Capture's box, or the edit form's.
+function tagSuggestSaid(input, names) {
+  const box = input.id === "entry-tags" ? document.getElementById("entry-content") : input.closest("form, .card, li")?.querySelector("textarea");
+  const words = new Set((box?.value || "").toLowerCase().match(/[a-z0-9]+/g) || []);
+  if (!words.size) return new Set();
+  const has = (word) => words.has(word) || words.has(`${word}s`) || (word.endsWith("s") && words.has(word.slice(0, -1)));
+  return new Set(names.filter((tag) => {
+    const parts = tag.toLowerCase().match(/[a-z0-9]+/g) || [];
+    return parts.length > 0 && parts.every(has);
+  }));
 }
 
 function takeTagSuggest(tag) {

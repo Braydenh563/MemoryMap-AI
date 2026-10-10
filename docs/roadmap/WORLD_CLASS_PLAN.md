@@ -1535,7 +1535,9 @@ FlashText; superseded by the pack below).
    university" bug: find the vote that did it, with a test).
 6. **Sensitive topics** (health, relationships, finance, legal, identity: the
    pack's flag) are suggested, never auto-filed, unless the person turned
-   auto-filing on for them in Settings.
+   auto-filing on for them in Settings. Amended 2026-10-10 (INBOX 770): on
+   every path, the chat model's and the embedder's included; the no-model
+   path was built first (Brief 39b), the other two are step 6's first row.
 7. **A personal lexicon** from the pack's reviewed-vocabulary utilities: the
    person's corrections ("Work, not Software") become aliases stored per
    notebook and weighed first; nothing is learned from automatic predictions.
@@ -1550,12 +1552,10 @@ FlashText; superseded by the pack below).
    to 8 hold.
 
 ### Steps
-1. The fixture and the baseline numbers (decision 8); the "Study" bug.
-2. The pack as data, FlashText candidates, Gemini's taxonomy.py replaced.
-3. The decision (2) and the explanation line (3), with Settings for sensitive
-   topics (6).
-4. Merge and rename rows in Tidy (4); the personal lexicon (7).
-5. CHANGELOG, Guide topics, help popovers; the Built block to HISTORY.
+1 to 4 built 2026-10-10 (filing-1010): HISTORY.md, "Moved from the plans,
+2026-10-10 (filing-1010)", with the numbers. Open: decision 8's 0.8 top-1 with
+no model (0.417 measured; the gap is vocabulary, the strict xfail in
+`tests/test_filing_accuracy.py` stays); step 5's Built block.
 
 ## Placed from INBOX, 2026-09-09
 

@@ -650,7 +650,6 @@ button.ghost.danger {
   gap: var(--space-1);
 }
 
-
 /* Not on a destructive one: Stop's square was accent blue beside red text
    (release). A danger button's icon takes its own colour. */
 button.ghost.danger > .ph-lead {
@@ -1315,8 +1314,6 @@ progress {
   word-break: normal;
 }
 
-
-
 .md-table thead th {
   background: var(--chip-bg);
   font-weight: 700;
@@ -1900,7 +1897,6 @@ progress {
   font-weight: 400;
 }
 
-
 .chip.review {
   background: var(--warn-soft);
   color: var(--warn);
@@ -2214,7 +2210,6 @@ button:not(.ghost) > .spinner {
   margin: 0;
   padding-inline: calc(var(--control-h) + var(--space-2));
 }
-
 
 .lock-password-wrap input::-ms-reveal {
   display: none;
@@ -3635,8 +3630,6 @@ mark.global-find-hit.global-find-current {
   /* a flex item defaults to min-height:auto, it must shrink */
 }
 
-
-
 .modal-nav {
   display: flex;
   flex-direction: column;
@@ -4206,7 +4199,6 @@ html.modal-open body {
 .dash-widget {
   margin-bottom: 0;
 }
-
 
 .dash-widget.dash-hidden {
   opacity: 0.45;
@@ -4879,7 +4871,6 @@ html.modal-open body {
   font-size: var(--text-sm);
 }
 
-
 /* Advanced response settings (Settings → Models). One row per sampling knob:
    a label with a badge saying where the value came from, the plain-language
    help, then the slider, its readout and a per-row reset. */
@@ -4939,7 +4930,6 @@ html.modal-open body {
   font-size: var(--text-base);
 }
 
-
 /* The bookmark row's in-place edit form (library.js). Replaces a chain of
    two modal prompts - see that handler's comment for why sequencing the
    fields was the problem rather than the code behind them. Laid out as a
@@ -4975,7 +4965,6 @@ html.modal-open body {
   gap: var(--space-2);
 }
 
-
 /* The Links "+ Add" button sat shorter than the three inputs beside it -
    reported directly. `.small` trims a button's padding, which is right in a
    toolbar but wrong in a form row, where the control height is set by the
@@ -4990,7 +4979,6 @@ html.modal-open body {
   padding-block: 0;
   white-space: nowrap;
 }
-
 
 /* The dashboard-greeting persona picker and its Regenerate button share a
    row and wrap rather than overflow. `align-items: center` keeps the select,
@@ -5010,7 +4998,6 @@ html.modal-open body {
   flex: 1;
   min-width: 0;
 }
-
 
 /* A suggested link: one chip holding the note and, at its end, the + that
    says pressing it links (INBOX 709: "these plus buttons feel too separate
@@ -5036,7 +5023,6 @@ html.modal-open body {
   cursor: progress;
 }
 
-
 /* How a thing points at this note ("on it", "links to it", "mentions it"),
    beside the thing rather than inside its name: three different strengths of
    claim, and only the middle one is something somebody chose. Small, because
@@ -5046,7 +5032,6 @@ html.modal-open body {
   font-size: 0.75rem;
   margin-left: var(--space-1);
 }
-
 
 /* A pressed state for the toolbar's Preview toggle, so it reads as a mode
    you are in rather than a button you pressed once. */
@@ -5186,7 +5171,6 @@ html.modal-open body {
   }
 }
 
-
 /* The "Rebuild search index" row (built by `ensureReindexControl`, app.js).
    The explanation takes the space; the button keeps its own size rather than
    being squeezed by it, measured at 105px wide with its two-word label
@@ -5307,7 +5291,6 @@ html.modal-open body {
 select {
   font-size: var(--text-md);
 }
-
 
 /* The "worth rebuilding now" line in Settings → Search index. An accent
    ground rather than a warning colour: nothing is broken, there is simply
@@ -5437,7 +5420,6 @@ select {
     animation: typing-word-pulse 2.4s ease-in-out infinite;
   }
 }
-
 
 /* The exact-value box beside each sampling slider. Narrow, because every knob
    here is a short decimal or a small integer, and `width: 100%` (the base
@@ -6463,7 +6445,6 @@ select {
     flex: 0 0 100%;
   }
 }
-
 
 /* --- model cards: the Models screen's suggested downloads (INBOX 444) -------
    Measured before (scratchpad/ui-sweeps/settingsia.js): 31 one-line rows, 29

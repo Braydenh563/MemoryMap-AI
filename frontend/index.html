@@ -11526,6 +11526,14 @@ Link to another note with [[its first few words]]."></textarea>
                   background, tagging untagged notes, finding duplicates, and
                   linking related items.
                 </p>
+                <p>
+                  With no model running, a note is filed by your other notes
+                  and a built-in list of topics, and says why ("It mentions
+                  squat (Fitness), like the 9 notes in Gym"). A note about
+                  health, money, family, the law or identity is offered as a
+                  choice instead, unless "File health, money and family notes
+                  by their words too" is on.
+                </p>
               </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-autonomous-tasks">
@@ -11578,6 +11586,13 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="check-row">
                 <input type="checkbox" id="pref-ai-first-filing">
                 <span>Ask Atlas where each note belongs (more accurate, slower to save)</span>
+              </label>
+              <!-- WORLD_CLASS_PLAN 23, decision 6: off by default, so a note
+                   about health, money, family, the law or identity is offered
+                   as a one-tap choice rather than filed by its words. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-auto-file-sensitive">
+                <span>File health, money and family notes by their words too (off: they wait for you to choose)</span>
               </label>
               <!-- On by default. With this off, Save blocks until the model
                    has decided a category, which is what the setting above

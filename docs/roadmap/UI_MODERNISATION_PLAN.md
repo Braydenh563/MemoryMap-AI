@@ -1053,7 +1053,7 @@ and some are rounded squares."
    button radius for buttons (circles only for the companion and avatars),
    the panel radius for panels and menus. Tooltips and help triggers are the
    same shape everywhere (the owner's "circles and rounded squares").
-4. **WCAG 2.2 AA as a sweep** (`scratchpad/ui-sweeps/wcag22.js`, from axe.js):
+4. **WCAG 2.2 AA as a sweep** (`scratchpad/ui-sweeps/axe.js`, tag wcag22aa):
    target size at least 24 by 24 CSS px (2.5.8); focus visible with a 2px ring
    at 3:1 against its background (2.4.11, 2.4.13); text contrast 4.5:1 and UI
    contrast 3:1; every drag action has a non-drag alternative (2.5.7: boards
@@ -1082,7 +1082,7 @@ and some are rounded squares."
    records the ten rules it takes (with the number each sets) in DESIGN.md
    before changing CSS. "Reasoned UI is not observed UI": every change is
    measured in Chromium at 1440, 1024 and 390, light and dark, and the sweeps
-   (errors, docks, contrast, touch, wcag22) pass on the head.
+   (errors, docks, contrast, touch, axe) pass on the head.
 
 ### Steps
 1. The census: today's control heights, gaps, radii, hover boxes, topbar height,
@@ -1307,7 +1307,7 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
 - "idk if it is just me but the ui still needs a more modern and professional polish. I think an issue might be that some of the ui elements, controls and dropdowns are too large and bulky and have too large spacing and margins around them and gaps around panels?? like the vs code ui is a lot more cleaner and refined and the sidebar is still floating but its more subtle, the controls are smaller and"
   Recommendation: the density census (control heights, gaps, radii, topbar height) before and after, against the VS Code reference. Also carried by Brief 41 (UI density).
 - "also I think the topbar is a little large but idk maybe not. maybe research design principles or standards?? ensure wcag 2.2 accessibility is followed and complied with"
-  Recommendation: measure the topbar height against the density target and run the wcag22 sweep per surface. Also carried by Brief 41 (WCAG 2.2).
+  Recommendation: measure the topbar height against the density target and run the axe sweep per surface. Also carried by Brief 41 (WCAG 2.2).
 - "Ive been screenhotting parts of the perplexity interface and others but there are soo many more modern examples and ways to structure stuff. I think that all the controls and docks on each page and dropdown menus and popup menus and stuff just need a major polish and refinement and they all need to be consistent across the app. think maximum learnability, minimalist and instinctive to use. refined"
   Recommendation: one control recipe for every dock, dropdown and popup (kebabMenu, .dock, the tokens in DESIGN.md), checked by the ratchets in test_ui_recipes.py. Also carried by Brief 41 (UI density and refinement).
 - "feel like there should be a subtle like meatball icon in the top right on the same line as the quick access title on aligned to the right above the quick access menu to allow for easier and more intuitive access to these buttons?? maybe not idk"
@@ -1357,7 +1357,7 @@ classes, 98 help popovers, 7 tabs). Brief 56 then observed the rendering
 (2026-10-10; Chromium at 1440x900 and 390x844 touch; a notebook of 38 notes,
 5 documents, a board and a map): `scratchpad/ui-sweeps/hierarchy.js` for the
 counts, `contrast.js` (46 surfaces, both widths, both themes), `axe.js` (axe-core
-with the wcag22aa tag; there is no `wcag22.js`, this is the sweep the plan
+with the wcag22aa tag; there is no `axe.js`, this is the sweep the plan
 meant) and `a11yname.js`. "Visible" is `checkVisibility()` with a box of at
 least 4 px; "in view" is also inside the first viewport. Each "Today" below is
 an observed number unless it says "markup".
@@ -1453,11 +1453,11 @@ the order a person meets them, with what the code says today.
 
 | Phase | Builds | Gate | Brief |
 | --- | --- | --- | --- |
-| 13.0 Measure | visible controls and primaries per page at rest at 1440 and 390, the dialogs classified, the 13 unlabelled buttons plus the JS-built ones, `wcag22.js` and `contrast.js` per surface, the confirms counted, `hierarchy.js` written | 13.1 and 13.2 re-written with numbers; a list of every offence per decision | 56 (Sonnet, medium); measured 2026-10-10, numbers in 13.1 and 13.2, sweep `hierarchy.js` |
+| 13.0 Measure | visible controls and primaries per page at rest at 1440 and 390, the dialogs classified, the 13 unlabelled buttons plus the JS-built ones, `axe.js` and `contrast.js` per surface, the confirms counted, `hierarchy.js` written | 13.1 and 13.2 re-written with numbers; a list of every offence per decision | 56 (Sonnet, medium); measured 2026-10-10, numbers in 13.1 and 13.2, sweep `hierarchy.js` |
 | 13a The stylesheet's grammar | decisions 9 to 17: tokens, colour literals, the type ramp, the layer scale, shadows, motion, hover and focus pairs, `!important`, circles; each with its ratchet in `test_style_scale.py` or a new lint | every ratchet green; `contrast.js` and `errors.js` unchanged; no visual change except the hover and focus twins (measured by `getComputedStyle` on ten controls) | 57 (Opus, high) |
 | 13b The stylesheet's structure | decisions 18 and 19: dissolve the consistency and responsive files into the components; remove the 236 unused selectors | the two ratchets; the sweeps unchanged; file count and line count recorded before and after | 58 (Opus, high) |
 | 13.R The references | decision 23: six references read, the pattern and the number each sets, written into ANALYSIS.md and cited from 13.2 | every 13.2 row names its reference; no target without a number | 57 (Opus, high), first step |
-| 13c The surfaces | the 13.2 rows not owned elsewhere: the shell's weights and the status bar's three states, the sidebar's hierarchy and rail, the capture form's order, the Ask answer's foot (decision 22), the chat bubble recipe, the notification channels (decision 21), the dialogs that become sheets | each row's before and after numbers from Brief 56's sweep; `docks.js`, `contrast.js`, `touch.js`, `wcag22.js` green on every surface | 59 (Opus, high) |
+| 13c The surfaces | the 13.2 rows not owned elsewhere: the shell's weights and the status bar's three states, the sidebar's hierarchy and rail, the capture form's order, the Ask answer's foot (decision 22), the chat bubble recipe, the notification channels (decision 21), the dialogs that become sheets | each row's before and after numbers from Brief 56's sweep; `docks.js`, `contrast.js`, `touch.js`, `axe.js` green on every surface | 59 (Opus, high) |
 
 Phase 12 (Brief 41) runs first; 13a and 13b are mechanical enough to run
 beside it; 13c follows 13a.

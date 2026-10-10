@@ -149,8 +149,11 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
     //: **One tap to file it** (INBOX 434): the categories its words lean
     //: to, then the ones used last, beside Choose category. A guess shown
     //: as a choice costs a glance; a guess filed is a note lost.
-    for (const name of (status.suggestions || []).slice(0, 3)) {
-      const pick = smallButton(`ph:folder ${name}`, `File it under ${name}`, async () => {
+    //: Each choice carries its why in its tooltip (WORLD_CLASS 23,
+    //: decision 3), and a new category the topic list proposes comes last,
+    //: made only when pressed (decision 2).
+    const offer = (label, name, title) => {
+      const pick = smallButton(label, title, async () => {
         const moved = await moveNotesToCategory([status.id], name);
         if (!moved) return;
         for (const other of line.querySelectorAll(".capture-suggest")) other.remove();
@@ -159,6 +162,13 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
       });
       pick.classList.add("capture-suggest");
       line.appendChild(pick);
+    };
+    for (const name of (status.suggestions || []).slice(0, 3)) {
+      const why = status.suggestion_reasons?.[name];
+      offer(`ph:folder ${name}`, name, why ? `File it under ${name}. ${why}` : `File it under ${name}`);
+    }
+    if (status.proposal?.name) {
+      offer(`ph:folder-plus New: ${status.proposal.name}`, status.proposal.name, `Make the category ${status.proposal.name} and file it there. ${status.proposal.why}`);
     }
   }
   return line.offsetParent !== null;
@@ -175,6 +185,11 @@ function filingOutcomeText(status) {
   if (status.filing_state === "standin") {
     return `Filed under “${status.category}” for now: ${aiNameNow()} is still reading it.`;
   }
+  //: Health, money, family, the law and identity wait for the person
+  //: (WORLD_CLASS 23, decision 6; Settings can let them file).
+  if (status.filed_by === "none" && status.held_sensitive?.category) {
+    return `Saved in “${status.category}”: it reads as ${status.held_sensitive.topic}, so it waits for you to choose.`;
+  }
   if (status.filed_by === "none") {
     return aiIsOff()
       ? `Saved in “${status.category}”: no AI model is running to file it.`
@@ -183,7 +198,11 @@ function filingOutcomeText(status) {
   if (status.filed_by === "user") return `Filed by you under “${status.category}”.`;
   //: Filed with no model, from the notes already filed (INBOX 434): said as
   //: what it is, so it is never mistaken for the AI's judgement.
-  if (status.filed_by === "words") return `Filed under “${status.category}”: it reads like your other notes there.`;
+  //: With its why (WORLD_CLASS 23, decision 3): the words shared, the notes
+  //: it joins.
+  if (status.filed_by === "words") {
+    return status.why ? `Filed under “${status.category}”. ${status.why}` : `Filed under “${status.category}”: it reads like your other notes there.`;
+  }
   //: **A low number is said as doubt, not as a verdict.** The number is the
   //: app's calibrated estimate (a small model's own figure is never shown as
   //: it said it), so under the review line the line asks for a look and the

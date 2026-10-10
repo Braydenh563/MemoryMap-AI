@@ -734,6 +734,9 @@ MORE_TOPICS.extend(
                 "stuck on filing", "still filing", "file by meaning", "file it myself",
                 "wrong category", "uncategorised", "uncategorized", "choose category",
                 "filing style", "review queue", "is:review", "accept the filing",
+                "what is filing", "how does filing work", "how filing works",
+                "why was it filed", "why this category", "new category", "sensitive notes",
+                "file health notes", "health notes", "money notes",
             ),
             "body": (
                 "Each new note is filed into a category in the background. Its "
@@ -747,10 +750,13 @@ MORE_TOPICS.extend(
                 "check this, and the line under the note box offers the other "
                 "categories as one-tap buttons; a note you filed yourself shows "
                 "Filed by you and no percentage. With no AI model running, a "
-                "note is filed from your notebook's own words (the notes already "
-                "in each category, their tags and the moves you made by hand) and "
-                "stays in Uncategorised when that is not sure, with its likely "
-                "categories as one-tap buttons beside Choose category. While a "
+                "note is filed by your other notes and a built-in topic list, "
+                "only into a category you have, and says why (It mentions squat "
+                "(Fitness), like the 9 notes in Gym). Unsure, it stays in "
+                "Uncategorised with one-tap choices, and New: Fitness when none "
+                "fits. Health, money and family notes wait for you unless File "
+                "health, money and family notes by their words too is on in "
+                "Settings, Background tasks. While a "
                 "note shows Filing, its chip offers File by meaning now, Leave it "
                 "where it is and File it myself, and Stop in Settings, Background "
                 "tasks files every waiting note by meaning. A note you file "
@@ -769,12 +775,15 @@ MORE_TOPICS.extend(
             "keywords": (
                 "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
                 "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
+                "why is this tag suggested", "why this tag",
             ),
             "body": (
                 "The tags Atlas suggested when it filed a note stay on the note's "
                 "card as \"+ tag\": one press adds the tag, and its x stops "
                 "suggesting it. With no AI running they come from your own tags "
-                "on the notes most like this one. An untagged note's Tag with "
+                "on the notes most like this one. Either way a tag is offered "
+                "only when the note has a word for it, at most three, and "
+                "pointing at one says which word. An untagged note's Tag with "
                 "Atlas asks again."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
@@ -815,11 +824,12 @@ MORE_TOPICS.extend(
                 "find duplicates", "uncategorised", "short notes", "empty notes",
                 "old reminders", "stale reminders", "without the ai", "without ai",
                 "bulk", "housekeeping", "apply automatically",
+                "categories that overlap", "category names", "similar categories",
             ),
             "body": (
                 "Tidy is the broom in the Notes dock, beside the search help; the "
                 "number on it is how many things its reviews found. It opens on an "
-                "overview of all nine reviews, each a rule that needs no AI, with "
+                "overview of all eleven reviews, each a rule that needs no AI, with "
                 "its count and one line on what it finds, the ones with nothing to "
                 "tidy last; press a row to open that review and its back button to "
                 "return to the overview. The reviews: Links to explain (Add reasons "
@@ -829,14 +839,15 @@ MORE_TOPICS.extend(
                 "pass, never changed by you, that fit their note poorly; Remove "
                 "tags), Tags used once (Remove tags), Tags that look alike (Merge "
                 "tags), Notes without a category (Move notes, to the category their "
-                "words point to), Near-duplicate notes (Merge notes), Empty or very "
+                "words point to), Near-duplicate notes (Merge notes), Categories "
+                "that overlap (Merge categories), Category names (Rename), Empty or very "
                 "short notes (Move to bin) and Reminders long past (Mark done). "
                 "Each review's description says what its button will change. Tick "
                 "the rows (each says why it is listed and what the button will do), "
                 "then press the button; one Undo puts the batch back, from the "
                 "toast, Ctrl+Z or Recent runs. Apply automatically runs a review "
-                "after each note is filed; merging notes, binning and removing tags "
-                "used once never run on their own. Links to explain also has Add "
+                "after each note is filed; merging, renaming, binning and removing "
+                "tags used once never run on their own. Links to explain also has Add "
                 "reasons to all in the background, a job you can stop in Settings, "
                 "Background tasks. The command palette and Tools and features open "
                 "Tidy too, and new links already say what their notes share when "

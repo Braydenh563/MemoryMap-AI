@@ -103,6 +103,10 @@ KINDS = frozenset(
         # or marked answered by hand. No boost family; recorded so "what has
         # the app been getting wrong" includes the answers it found.
         "drop_question",
+        # The person's own name for a topic (WORLD_CLASS 23, decision 7):
+        # written when they merge one category into another in Tidy, read
+        # by `lexical_filing.personal_lexicon` with their refiles.
+        "alias",
         "reopen_question",
         "answer_question",
     }

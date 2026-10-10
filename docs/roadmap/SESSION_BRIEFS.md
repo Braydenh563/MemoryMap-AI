@@ -1344,7 +1344,7 @@ ui-ux-pro-max skill for the research step and record the ten rules taken in
 DESIGN.md first. Files: `00-tokens-shell.css`, `08-consistency.css`,
 `01-forms-settings.css`, `sheets-selects.js`, `timeline.js`,
 `notecardmeta`-related CSS, DESIGN.md. Numbers: the census before and after
-(control heights, gaps, radii, hover boxes, topbar height), the wcag22 sweep
+(control heights, gaps, radii, hover boxes, topbar height), the axe sweep
 counts per surface, contrast minima. Traps: a token change that flattens a
 card (`NaN` once did); glass-off list; help moves with every control.
 
@@ -1581,7 +1581,7 @@ table, decisions 9 to 22, the phases). Brief 56 first and alone.
 Phase 13.0: `scratchpad/ui-sweeps/hierarchy.js` (new): per page at 1440 and
 390, visible buttons, visible `.primary`, visible inputs and selects, docks
 and their item counts; the 15 dialogs classified (dialog or sheet); every
-icon-only button without a label, markup and JS-built; `wcag22.js` and
+icon-only button without a label, markup and JS-built; `axe.js` and
 `contrast.js` per surface; confirms counted. Writes numbers into 13.1 and
 13.2; no fixes except the unlabelled buttons.
 

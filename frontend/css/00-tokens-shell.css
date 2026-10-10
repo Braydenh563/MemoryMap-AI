@@ -3326,7 +3326,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-style: italic;
 }
 
-
 /* The description's More/Less toggle is a real tonal button now, not
    `.entry-more`'s accent-coloured link (INBOX 56: three accent links stacked
    down a card read as its three actions). It sits at the paragraph's own
@@ -3390,16 +3389,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
 }
 
-
-
 .library-image-vision-ocr.library-image-vision-ocr-clamped {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-
 
 .library-image-ocr-input {
   width: 100%;
@@ -3431,7 +3426,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-vision-ocr.hidden {
   display: none;
 }
-
 
 @media (max-width: 599.98px) {
 
@@ -4018,8 +4012,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: 0 0 var(--space-6);
 }
 
-
-
 .layout {
   display: grid;
   flex: 1 0 auto;
@@ -4312,7 +4304,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      alpha (0.42 light, 0.10 dark), so both modes read the same rule. */
   background-image: var(--glass-catch);
 }
-
 
 /* Center icon-only buttons by squaring their padding.
    `summary` alongside `button`: the Documents dock's "⋯" menu and the Image

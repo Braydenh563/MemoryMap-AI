@@ -192,7 +192,6 @@ with its owner named in the entry.
      (a class on the card, removed on the next step), and a sweep checks every
      tour step's target is visible and non-empty.
      Owner: (a) the carddate agent (note-cards.js and the entry CSS); (b) and (c) CHAT_PLAN fact layer (lines 554 and 649, the question kind) and Brief 39; (d) Brief 37 (tour handoff, the blank card, the hover-only step; the hover row added 2026-10-10).
-
 ## Placed (last 20, newest first)
 
 - 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.

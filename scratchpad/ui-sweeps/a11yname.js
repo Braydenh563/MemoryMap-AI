@@ -33,7 +33,10 @@ function unnamed(scope) {
   const out = [];
   for (const e of root.querySelectorAll('button, a[href], summary, input:not([type="hidden"]), textarea, select, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"]')) {
     if (!vis(e) || e.closest('[aria-hidden="true"]')) continue;
-    const text = (e.innerText || e.value || '').trim();
+    //: textContent as the fallback: innerText is empty for a button inside a
+    //: `content-visibility: auto` note card that is off screen, which made
+    //: "Show more" (`button.entry-more`) report as unnamed when it has words.
+    const text = (e.innerText || e.textContent || e.value || '').trim();
     const al = (e.getAttribute('aria-label') || '').trim();
     const lb = (e.getAttribute('aria-labelledby') || '').split(/\s+/).map((id) => id && document.getElementById(id)?.textContent.trim()).filter(Boolean).join(' ');
     const lab = e.labels && e.labels.length ? [...e.labels].map((l) => l.textContent.trim()).join(' ') : '';

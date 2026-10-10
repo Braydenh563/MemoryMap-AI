@@ -8,6 +8,11 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 - Documents: a new document names itself "Untitled document N" (the next free number), as boards and maps do, so Create never needs a name and the list can tell new pages apart (INBOX 739).
+- Filing with no model: a note files only into a category you have, by your other notes' words and a built-in list of 512 topics ("squats" finds Gym before any Gym note said it), and says why ("It mentions squat and deadlift (Fitness), like the 10 notes in Gym."); unsure, it offers one-tap choices that say why and, when none of yours fits, "New: Art", made only if pressed. On the 120-note fixture, top-1 0.175 to 0.417 (WORLD_CLASS_PLAN 23).
+- Filing: notes about health, money, family, the law or identity wait for you to choose unless Settings, Background tasks, "File health, money and family notes by their words too" is on; Tidy lists them unticked and never moves them by itself.
+- Fixed: "Study" and "university" no longer suggested on notes that say nothing about either (the owner, 2026-10-10): a suggested tag needs a word in the note, at most three, and its tooltip says which word.
+- Tidy: two new reviews, Categories that overlap ("Merge Misc and Fitness into Gym?") and Category names ("Rename Misc to Fitness?"); both ask first and undo in one press, and a merge or a move you make teaches where those topics go next time.
+- The taxonomy pack 5.0.0 (527 categories, 6,478 phrases, roles, institutions) ships as data under `ai/data/taxonomy/`, replacing the 18-category keyword map; its 64 tests came with it.
 - Scratchpad: 25 one-off sweep scripts and stencil PNG outputs whose findings are in this changelog deleted (the owner, 2026-10-10), 781 tracked files to 756 against the 766 cap (`tests/test_scratchpad_size.py`).
 - Whiteboard: a key press the desktop webview reports with no key name no longer throws in the browser log (whiteboard.js's two document-level keydown handlers return first; INBOX 763, `tests/test_keydown_without_key.py`).
 - Fixed: mind maps and boards no longer appear as notes in Ask, chat answers, the AI's note tools or the notebook statistics (INBOX 761); a map is still found as a map by Find anything and the palette.
@@ -44,6 +49,11 @@ below). Versioning is `0.x` while the app stabilises.
 - Graph and Library: pinning a dragged group of notes and renaming a topic now say so when the save fails, instead of failing silently.
 - Ask: the match reason ("70% similar") now folds to its icon last on a crowded details line, after the tags and the other word facts, so every matching record shows its number or none does (INBOX 728).
 - Notes: a card's time now sits at the card's foot, the same 7px above its edge on every card (INBOX 760); a note with links showed it 48 to 113px up (80 to 146px at 390 against 7px with none), and "ago · edited" has its space back.
+- Accessibility sweep: `a11yname.js` no longer reports "Show more" as unnamed (it read `innerText`, empty under `content-visibility: auto`); 2 false findings to 0. The plan and briefs name `axe.js`, the sweep that exists, where they named a `wcag22.js` that does not.
+- Accessibility: the x buttons on suggested tags and inline images, and a note's tag chips folded to icons, carry an aria-label as well as a title (54 in the Notes list at 1440 and 21 at 390 were named by title alone).
+- Accessibility: the "+N" chip that folds a note's extra tags keeps a 24 px target on phones (it measured 23.6 by 24).
+- Accessibility: the dashboard activity heatmap, which scrolls sideways, is a keyboard stop with a focus ring, so the arrow keys reach older weeks.
+- Accessibility: the task checkboxes in note cards are named by their task ("Done: ..." or "To do: ..."), where axe found 20 with no label.
 - Graph: switching to Radial, Tree or Arc while the force layout was still settling left the camera on the old view, the new layout off in a corner; a layout switch now ends on the new layout's fitted view, and the radial is centred.
 - Graph: the map no longer opens zoomed in and then pulls back (INBOX 738); its first visible frame is at the fitted zoom.
 - Graph: a fitted view has even margins: the fit is measured on what was drawn (dots, names and topic names) and centred, on the first open, after a layout switch and from the Fit button.

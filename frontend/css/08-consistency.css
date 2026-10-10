@@ -947,7 +947,6 @@ details[open] > .about-whats-new::before,
   background: var(--row-hover-bg);
 }
 
-
 /* One stack, one line between its rows. The negative margin that used to
    collapse the gap between consecutive rows goes with it: it existed to make
    separate-looking rows read as a set, which is now the hairline's job.
@@ -3273,6 +3272,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 .entry-meta.note-meta > .note-meta-more {
   font-variant-numeric: tabular-nums;
+  min-width: 24px;
 }
 
 /* The note's links and files, the row under the facts: the same quiet
@@ -8695,7 +8695,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-crest: 3deg;
   --atl-brow-y: -0.6px; --atl-knit: -8deg; --atl-lid: 0.2; --atl-px: -1.8px; --atl-py: 1.5px;
   --atl-m-smile: 0; --atl-m-cat: 1; --atl-cheek: 1;
-  --atl-tilt: 10deg; --atl-sx: 0.97; --atl-sy: 1.01; 
+  --atl-tilt: 10deg; --atl-sx: 0.97; --atl-sy: 1.01;
 }
 .nm-atlas[data-atlas-mood="determined"] {
   --atl-tail: -6deg; --atl-star: 1.25;

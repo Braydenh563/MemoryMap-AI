@@ -94,9 +94,9 @@ _NOTE_WORDS = re.compile(
 
 #: Four or more keys in a row of the keyboard, the whole message one word
 #: ("asdfgh", "qwerty", "jkl;"): no real word holds a run of four neighbours.
-_MASH = re.compile(
-    r"\w*(?:asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|wert|erty|rtyu|tyui|yuio|uiop|zxcv|xcvb|cvbn|vbnm|fdsa|lkjh|poiu|rewq)\w*"
-)
+#: Two linear tests, not one `\w*(...)\w*` (quadratic on "000...", CodeQL).
+_ONE_WORD = re.compile(r"\w+")
+_MASH = re.compile(r"asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|wert|erty|rtyu|tyui|yuio|uiop|zxcv|xcvb|cvbn|vbnm|fdsa|lkjh|poiu|rewq")
 
 
 def _normalise(text: str) -> str:
@@ -143,7 +143,7 @@ def classify(message: str) -> str:
         return ACT
 
     #: A key-mash ("asdfgh"): asked what was meant, never searched for.
-    if _MASH.fullmatch(text):
+    if _ONE_WORD.fullmatch(text) and _MASH.search(text):
         return SMALLTALK
 
     # "hey, what did I write about pasta" is a question wearing a greeting.

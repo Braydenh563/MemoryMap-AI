@@ -34,7 +34,9 @@ _BINARY = {
 
 #: What a question may hold around the sum: "what is", "calculate", a "?".
 #: "x" and "×" are read as times, "÷" as divided by, "^" as a power.
-_ASK = re.compile(r"^\s*(?:what(?:'?s| is)|calculate|compute|work out)\s+(?P<expr>.+?)\s*[?=.]*\s*$", re.I)
+#: The trailing "?", "=" and "." come off in `sum_in`: a lazy `.+?` before
+#: `\s*[?=.]*\s*$` was quadratic on a run of whitespace (CodeQL).
+_ASK = re.compile(r"^\s*(?:what(?:'?s| is)|calculate|compute|work out)\s+(?P<expr>\S.*)$", re.I)
 _ALLOWED = re.compile(r"^[\d\s.+\-*/%()^x×÷]+$")
 
 
@@ -85,7 +87,7 @@ def sum_in(question: str) -> str | None:
     match = _ASK.match(question or "")
     if not match:
         return None
-    expr = match.group("expr")
+    expr = match.group("expr").rstrip(" \t?=.")
     try:
         evaluate(expr)
     except NotArithmetic:

@@ -2309,24 +2309,27 @@ _SWAP = re.compile(
 #: "why?", "and when?", "how come?": the asking word alone, about the turn
 #: before's subject.
 #: The "Did you mean “how”?" chip, pressed.
-_MEANT = re.compile(r"^\s*did you mean\s+[“\"']?(.+?)[”\"']?\s*\?*\s*$", re.I)
-_BARE = re.compile(r"^\s*(?:(?:and|but|so|ok|okay)[, ]+)?(why|when|where|who|how come|how many|how much|how|since when)\s*[?.!]*\s*$", re.I)
+#: Closing quote and "?" come off in code: `(.+?)...\s*\?*\s*$` was quadratic
+#: on a run of whitespace (CodeQL); so for `_CORRECTION`, `_LENGTH`,
+#: `_WINDOW_ONLY` and `_BARE` below.
+_MEANT = re.compile(r"^\s*did you mean\s+[“\"']?(\S.*)$", re.I)
+_BARE = re.compile(r"^\s*(?:(?:and|but|so|ok|okay)[, ]+)?(why|when|where|who|how come|how many|how much|how|since when)[\s?.!]*$", re.I)
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 #: "no, the gym one", "not that one, the running note", "I meant the dentist
 #: note": the turn before answered from the wrong note (decision 35).
 _CORRECTION = re.compile(
-    r"^\s*(?:no|nope|not that(?: one)?|wrong one|not quite)[,.!]?\s+(?:i meant\s+|i mean\s+|the one about\s+)?(?P<x>.+?)\s*[.?!]*$"
-    r"|^\s*i meant\s+(?P<x2>.+?)\s*[.?!]*$",
+    r"^\s*(?:no|nope|not that(?: one)?|wrong one|not quite)[,.!]?\s+(?:i meant\s+|i mean\s+|the one about\s+)?(?P<x>\S.*)$"
+    r"|^\s*i meant\s+(?P<x2>\S.*)$",
     re.I,
 )
 #: "shorter", "in more detail": the turn before again, at another length.
 _LENGTH = re.compile(
     r"^\s*(?:shorter|briefer|less|in short|tl;?dr|summari[sz]e that|longer|more detail|in (?:more )?detail|"
-    r"(?:make it|say it|be|can you be) (?:shorter|briefer|longer|more detailed))\s*(?:please)?\s*[.?!]*$",
+    r"(?:make it|say it|be|can you be) (?:shorter|briefer|longer|more detailed))(?:\s+please)?[\s.?!]*$",
     re.I,
 )
 #: "and last week?", "what about yesterday?": the turn before over another time.
-_WINDOW_ONLY = re.compile(r"^\s*(?:(?:and|but|so|ok)[, ]+)?(?:(?:what|how) about\s+)?(?P<w>.+?)\s*[?.!]*$", re.I)
+_WINDOW_ONLY = re.compile(r"^\s*(?:(?:and|but|so|ok)[, ]+)?(?:(?:what|how) about\s+)?(?P<w>\S.*)$", re.I)
 
 
 def _without_length(question: str) -> str:
@@ -2428,7 +2431,9 @@ def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
         return None
     correction = _CORRECTION.match(text)
     if correction:
-        prefer = re.sub(r"^(?:the|my|that|this)\s+", "", correction.group("x").strip(), flags=re.I)
+        #: The second alternative ("I meant the dentist note") fills x2, not x.
+        said = (correction.group("x") or correction.group("x2") or "").rstrip(" \t.?!")
+        prefer = re.sub(r"^(?:the|my|that|this)\s+", "", said.strip(), flags=re.I)
         prefer = re.sub(r"\s+(?:one|note|entry)$", "", prefer, flags=re.I).strip()
         if prefer:
             return FollowOn(previous, previous, "", "correction", prefer)
@@ -2438,10 +2443,11 @@ def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
         base = _without_length(previous)
         return FollowOn(f"briefly, {base}" if shorter else f"{base.rstrip('?.!')} in detail?", previous, "", "length")
     window = _WINDOW_ONLY.match(text)
-    found_time = when_words.find(window.group("w")) if window else []
+    window_text = window.group("w").rstrip(" \t?.!") if window else ""
+    found_time = when_words.find(window_text) if window else []
     #: Only a turn that is nothing but a time ("and last week?"): "what did
     #: I write yesterday" is a question of its own.
-    if found_time and not window.group("w").replace(found_time[0][2], "").strip(" ,"):
+    if found_time and not window_text.replace(found_time[0][2], "").strip(" ,"):
         phrase = found_time[0][2]
         base = previous
         for _s, _e, old_phrase in when_words.find(previous):
@@ -2450,7 +2456,7 @@ def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
         return FollowOn(f"{base} {phrase}?", previous, "", "window")
     meant = _MEANT.match(text)
     if meant:
-        word = meant.group(1).strip()
+        word = meant.group(1).rstrip(" \t?").rstrip("”\"'").strip(" \t?")
         tokens = re.findall(r"[\w']+", previous)
         candidates = [t for t in tokens if t.lower() != word.lower() and len(t) >= 2]
         if not candidates:

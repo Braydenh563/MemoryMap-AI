@@ -527,18 +527,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
 
 # --- paragraph chunks (WORLD_CLASS_PLAN §14 item 3, row 6): `ai/chunks.py` ---
 
-from memorymap.ai.chunks import (  # noqa: E402,F401  # re-exported: one split for vectors and citations
-    _CHUNK_WORD,
-    _PARAGRAPH_BREAK,
-    _SENTENCE_END,
-    CHUNK_MAX_PER_NOTE,
-    CHUNK_MAX_WORDS,
-    CHUNK_MIN_WORDS,
-    _blocks_with_offsets,
-    _split_long,
-    _word_count,
-    paragraph_chunks,
-)
+from memorymap.ai.chunks import paragraph_chunks  # noqa: E402  # one split for vectors and citations
 
 
 def chunk_text(content: str, start: int, end: int) -> str:

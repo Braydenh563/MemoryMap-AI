@@ -12,6 +12,7 @@ from tests import _composer_eval
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 SHEET = (FRONTEND / "css" / "ask-compose-lazy.css").read_text(encoding="utf-8")
 ASK_COMPOSE = (FRONTEND / "js" / "ask-compose.js").read_text(encoding="utf-8")
+APP_JS = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
 CAPTURE_ASK = (FRONTEND / "js" / "capture-ask.js").read_text(encoding="utf-8")
 
 
@@ -31,7 +32,8 @@ def test_the_quote_style_is_tokens_only():
 
 def test_the_page_marks_the_rows_the_composer_marks():
     assert "function markSaidSentences(targets, sentences)" in ASK_COMPOSE
-    assert 'lazyScript("/css/ask-compose-lazy.css")' in ASK_COMPOSE
+    #: The sheet rides the lazy bundle (app.js LAZY_MODULES), not a lazyScript call.
+    assert 'askCompose: ["/css/ask-compose-lazy.css"' in APP_JS
     assert "markSaidSentences(targets, sentences)" in CAPTURE_ASK
 
 

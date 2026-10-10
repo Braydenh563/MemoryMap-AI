@@ -1248,6 +1248,9 @@ class SuggestTagsBody(BaseModel):
     content: str
     tags: list[str] = Field(default_factory=list)
 
+#: Said once per process, not once per keystroke pause.
+_NO_MODEL_TAGS_SAID = False
+
 
 @router.post("/suggest-tags")
 def suggest_tags_for_draft(
@@ -1286,14 +1289,8 @@ def suggest_tags_for_draft(
             _NO_MODEL_TAGS_SAID = True
             logger.info("no model running: tag suggestions come from the notebook's own tags")
     if not suggested:
-        from memorymap.ai import lexical_filing
-
         suggested = lexical_filing.suggest_tags(session, content, have=body.tags)
     return {"suggested_tags": lexical_filing.grounded_tags(content, suggested)}
-
-
-#: Said once per process, not once per keystroke pause.
-_NO_MODEL_TAGS_SAID = False
 
 
 class SuggestedTagsBody(BaseModel):

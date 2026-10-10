@@ -152,18 +152,21 @@ _TODAY = re.compile(
     re.I,
 )
 _YEAR = re.compile(r"^what (?:year|month) is it(?: now)?$", re.I)
-_UNTIL = re.compile(r"^how (?:many|long) (days|weeks|months)?\s*(?:is it )?(?:until|till|til|to|before)\s+(.+)$", re.I)
-_SINCE = re.compile(r"^how (?:many|long) (days|weeks|months)?\s*(?:has it been |is it |ago was |)?(?:since)\s+(.+)$", re.I)
+#: The text is `_clean`ed first (one space between words), so these read
+#: single spaces and a non-space start for the phrase: `\s+(.+)$` on a run
+#: of whitespace was quadratic (CodeQL).
+_UNTIL = re.compile(r"^how (?:many|long) (days|weeks|months)? ?(?:is it )?(?:until|till|til|to|before) (\S.*)$", re.I)
+_SINCE = re.compile(r"^how (?:many|long) (days|weeks|months)? ?(?:has it been |is it |ago was |)?(?:since) (\S.*)$", re.I)
 _FROM_NOW = re.compile(
     r"^what (?:day|date)(?: of the week)? (?:is|will it be|was)\s+(?:it\s+)?(?:in\s+)?(\d{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|months?|years?)(?:\s+(from now|from today|ago))?$",
     re.I,
 )
-_WEEKDAY_OF = re.compile(r"^what day(?: of the week)? (?:is|was|will be|falls on)\s+(.+)$", re.I)
+_WEEKDAY_OF = re.compile(r"^what day(?: of the week)? (?:is|was|will be|falls on) (\S.*)$", re.I)
 _DIE = re.compile(r"^(?:roll|throw)\s+(?:a\s+|one\s+|the\s+)?(?:die|dice|d6)$|^roll\s+(\d{1,2})?d(\d{1,3})$", re.I)
 _COIN = re.compile(r"^(?:flip|toss)\s+a\s+coin$|^heads or tails$", re.I)
 _PICK = re.compile(r"^(?:pick|choose|give me)\s+a\s+(?:random\s+)?number\s+(?:between|from)\s+(-?\d{1,6})\s+(?:and|to)\s+(-?\d{1,6})$", re.I)
 _WEATHER = re.compile(r"\b(?:weather|forecast|temperature outside|going to rain|will it rain)\b", re.I)
-_TRANSLATE = re.compile(r"^(?:translate|say)\s+.+\s+(?:in|into|to)\s+(?:french|spanish|german|italian|portuguese|dutch|japanese|chinese|korean|arabic|russian|hindi|greek|swedish|polish|turkish)$", re.I)
+_TRANSLATE = re.compile(r"^(?:translate|say) \S.* (?:in|into|to) (?:french|spanish|german|italian|portuguese|dutch|japanese|chinese|korean|arabic|russian|hindi|greek|swedish|polish|turkish)$", re.I)
 
 _WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 _MONTH_NAMES = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
@@ -173,7 +176,7 @@ def _clean(question: str) -> str:
     text = " ".join(str(question or "").replace("?", " ").split()).strip(" .!")
     text = re.sub(r"^(?:hey|hi|ok|okay|so|please|can you|could you|tell me|do you know)[, ]+", "", text, flags=re.I)
     text = re.sub(r"^(?:can you |could you |please )?(?:tell me |work out |calculate )", "", text, flags=re.I)
-    return re.sub(r"[, ]+(?:please|thanks)$", "", text, flags=re.I).strip()
+    return re.sub(r"(?:,| |, )(?:please|thanks)$", "", text, flags=re.I).strip()
 
 
 def _number(raw: str) -> float:

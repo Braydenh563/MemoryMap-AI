@@ -42,7 +42,6 @@ TIME_OF_DAY_MIN = 3
 
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
 _AFTER_WORK = re.compile(r"\b(?:after work|in the evening|this evening|tonight|after dinner)\b", re.I)
-_BEFORE_WORK = re.compile(r"\b(?:before work|in the morning|this morning|early morning|at dawn)\b", re.I)
 #: Words that say a subject is something done for its own sake: a session, a
 #: round, practice, a game. With one of them, a recurring subject "may be a
 #: hobby forming"; without, it "keeps coming up".

@@ -258,7 +258,7 @@ def _quoted_spans(sentence: str) -> list[tuple[int, int, str]]:
     if said and not spans:
         rest = sentence[said.end():].rstrip()
         if len(rest.split()) >= 2:
-            spans.append((said.end(), len(rest) + said.end() - (len(sentence[said.end():]) - len(sentence[said.end():].lstrip())) if False else len(sentence.rstrip()), said.group(1)))
+            spans.append((said.end(), len(sentence.rstrip()), said.group(1)))
     return spans
 
 

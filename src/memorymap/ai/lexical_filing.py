@@ -558,11 +558,11 @@ def holds_sensitive(content: str, category: str | None = None) -> str | None:
     sensitive_set = taxonomy.sensitive_topics()
     hits = taxonomy.topic_hits(content)
     topic = next((t for t in taxonomy.strong_topics(content, hits) if t in sensitive_set), None)
-    if topic is None and category:
-        if category in sensitive_set:
-            topic = category
-        else:
-            topic = next((t for t in taxonomy.topic_hits(category) if t in sensitive_set), None)
+    #: The category counts only when it is the sensitive topic itself
+    #: ("Health", "Money"): a word of its name is not enough, or "Dad Jokes"
+    #: would be held as Relationships (CI on e2f37a1eb, 11 tests).
+    if topic is None and category in sensitive_set:
+        topic = category
     return topic
 
 

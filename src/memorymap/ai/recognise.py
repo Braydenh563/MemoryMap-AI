@@ -344,7 +344,6 @@ def resolve(phrase: str, now: datetime, *, locale: str | None = None) -> datetim
 # words cut are the spans `recognise` reads as a time, so what is stripped is
 # exactly what was read, by the same reader.
 
-_MERIDIEM = r"(?:am|pm|a\.m\.|p\.m\.)"
 # "Call mum tomorrow evening, high priority": the placeholder's own example.
 _PRIORITY = re.compile(r"\b(high|low)\s+priority\b", re.IGNORECASE)
 _TIME_KINDS = frozenset({"date", "datetime", "time", "range", "recurrence"})

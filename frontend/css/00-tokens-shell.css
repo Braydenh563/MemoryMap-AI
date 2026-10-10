@@ -1972,6 +1972,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  /* A chip strip in a column (the timeline's recall row, Brief 85) keeps its
+     height rather than shrinking to nothing under the list. */
+  flex-shrink: 0;
 }
 .library-chip {
   display: inline-flex;

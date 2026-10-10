@@ -87,7 +87,7 @@
  "src/memorymap/ai/recognise.py::_recurrence_cands": 25,
  "src/memorymap/ai/recognise.py::_time_cands": 26,
  "src/memorymap/ai/recognise.py::days_since": 19,
- "src/memorymap/ai/recognise.py::parse_reminder_text": 35,
+ "src/memorymap/ai/recognise.py::parse_reminder_text": 33,
  "src/memorymap/ai/recognise.py::recognise": 18,
  "src/memorymap/ai/recognise.py::resolve": 49,
  "src/memorymap/ai/recognise.py::span": 66,

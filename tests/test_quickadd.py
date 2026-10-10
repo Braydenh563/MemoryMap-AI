@@ -184,10 +184,13 @@ def test_a_repeats_hour_is_its_time(slots):
     assert (hour["title"], hour["date"], hour["time"], hour["recurring"]) == ("Water the plants", "2026-10-15", "08:00", "daily")
 
 
-def test_a_repeat_a_reminder_cannot_keep_is_left_as_words(slots):
+def test_a_repeat_beyond_the_three_words_is_kept_as_its_rule(slots):
+    """TIMELINE_PLAN 11 row 8 (Brief 85): every 2 weeks was left as words
+    because the store took only daily, weekly and monthly; it keeps the rule
+    now, and the words leave the title like any other repeat."""
     fortnight = slots["fortnight"]
-    assert fortnight["recurring"] is None
-    assert fortnight["title"] == "standup every 2 weeks"
+    assert fortnight["recurring"] == "FREQ=WEEKLY;INTERVAL=2"
+    assert fortnight["title"] == "standup"
 
 
 def test_a_notes_day_is_an_offer_unless_the_words_are_a_reminder(slots):

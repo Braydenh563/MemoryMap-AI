@@ -278,17 +278,17 @@ never collide).
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | The dock at 390 and 320: the view segment, search and month controls wrap into one row or move into the dock's menu | 6 past the edge and 3 overlaps to 0 at 320 and 390 (`overlap.js`) | 7, 8 |
+| 1 | fix | The dock at 390 and 320: the view segment, search and month controls wrap into one row or move into the dock's menu | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 2 | fix | The day head's button beside its date, not over it; the five small targets at 24 px, 44 px on a coarse pointer | overlap 1 to 0 at 1440; small targets 5 to 0 | 7, 9, 11 |
-| 3 | fix | `undo.js` drives the selection bar from the timeline (move, tag, favourite, archive, delete) | the timeline row of `undo.js` at 100% | 1 |
+| 3 | fix | `undo.js` drives the selection bar from the timeline (move, tag, favourite, archive, delete) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 4 | expansion | The calendar as the third view (section 9) | section 9's gates | 2, 6 |
 | 5 | expansion | Typed entries land on the day they name ("yesterday lunch with Sam") through the one quick-add grammar (CHAT_PLAN decision 50) | the parsed day equals the row's day on a 20-phrase set | 12, 10 |
 | 6 | redesign | Scrubber and month ticks from D3's time scale (VC2 above) | no label overlap at 390; the hand-rolled tick lines deleted | 7, 11 |
-| 7 | expansion | "On this day" and a year strip on the timeline, not only the dashboard | a note dated a year ago shows in both | 6 |
-| 8 | optimisation | Click to rows 479 to 767 ms with 96 notes: under 300 ms, and under 800 ms on the 5,000-note scale fixture (`scale_test.py`) | the sweep's `clickToRowsMs` | 25g budget |
+| 7 | expansion | "On this day" and a year strip on the timeline, not only the dashboard | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
+| 8 | optimisation | Click to rows 479 to 767 ms with 96 notes: under 300 ms, and under 800 ms on the 5,000-note scale fixture (`scale_test.py`) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 
-**Briefs.** 41 (row 2), 55 (row 4), 66 (row 5), 75 (row 6), 85 (rows 1, 3,
-7, 8).
+**Briefs.** 41 (row 2), 55 (row 4), 66 (row 5), 75 (row 6); 85's rows 1, 3,
+7 and 8 are built.
 
 ## 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71)
 
@@ -318,18 +318,18 @@ other Tuesday", "last Friday of the month").
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | Undo for create, complete and edit through `pushUndo` (create's inverse is the bin) | `undo.js` reminders 3/6 to 6/6 | 1, 3 |
-| 2 | fix | The closed presets menu does not lay out (`hidden` until opened) | overlaps 7 to 0 at 1440, 5 to 0 at 390 | 7, 11 |
+| 1 | fix | Undo for create, complete and edit through `pushUndo` (create's inverse is the bin) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
+| 2 | fix | The closed presets menu does not lay out (`hidden` until opened) | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 3 | expansion | Decision 69, desktop: the launcher posts the OS notification for a due reminder with the window closed to the tray (Windows toast through PowerShell, `osascript` on macOS, `notify-send` on Linux; no new dependency), Snooze and Done as its actions where the OS allows, a click opens the reminder | a reminder due in 60 s fires once with the window hidden, on each OS the CI can run (Linux in CI; Windows and macOS by hand, said so) | 3, 5, 6 |
 | 4 | expansion | Decision 69, browser and PWA: the service worker shows the notification (`registration.showNotification`) so a background tab and the installed PWA fire while the browser runs; Done and Snooze 10 minutes as notification actions | a hidden tab fires; Done from the notification marks it done | 3, 8 |
-| 5 | fix | Fire on time: a timer set to the next due time, the 60 s poll kept as the backstop | due to fire under 5 s (today up to 60 s) | 3 |
-| 6 | fix | A blocked permission says so once, in the reminders head and in Settings, with how to allow it per browser; the chime and the bell stay | permission `denied` shows the line; 0 silent failures | 4, 6 |
+| 5 | fix | Fire on time: a timer set to the next due time, the 60 s poll kept as the backstop | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
+| 6 | fix | A blocked permission says so once, in the reminders head and in Settings, with how to allow it per browser; the chime and the bell stay | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 7 | expansion | Live chips in the quick-add row (CHAT_PLAN decision 50) and the same row at 390 | chips within 150 ms; the saved value equals the chips; the row present at 390 | 12, 8 |
-| 8 | expansion | Recurrence beyond four (every weekday, every 2 weeks, last Friday) and early alerts ("1 day before") | 20 recurrence phrases at 1.0 | 12 |
+| 8 | expansion | Recurrence beyond four (every weekday, every 2 weeks, last Friday) and early alerts ("1 day before") | Built 2026-10-10 (Brief 85): HISTORY.md, "Moved from the plans, 2026-10-10 (TIMELINE Brief 85)" | |
 | 9 | expansion | ICS import (section 9 decision 17) | section 9 step 4's gate | 3 |
 
-**Briefs.** 55 (row 9), 66 (row 7), 85 (rows 1, 2, 5, 6, 8), 86 (rows 3,
-4).
+**Briefs.** 55 (row 9), 66 (row 7), 86 (rows 3, 4); 85's rows 1, 2, 5, 6
+and 8 are built.
 
 ## 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71)
 

@@ -876,6 +876,8 @@ async function loadReminders() {
   if (!loadReminders.loaded) showSkeletons($("reminder-groups"), 3);
   const all = await apiPagedList("/reminders", 200).catch(() => null);
   if (all) loadReminders.loaded = true;
+  //: A reminder just made or moved is the soonest one: the due timer follows.
+  if (all) armReminderTimer(all);
   clearSkeletons($("reminder-groups"));
   if (!all) {
     surfaceFailed($("reminders-empty"), "reminders", loadReminders);
@@ -1184,25 +1186,24 @@ function reminderItem(reminder, label) {
   checkbox.setAttribute("aria-label", `${reminder.done ? "Reopen" : "Mark done"}: ${reminder.text || "this reminder"}`);
   checkbox.style.width = "auto";
   checkbox.addEventListener("change", async () => {
-    // Completing a recurring reminder rolls it forward to the next interval
-    // instead of closing it permanently.
+    const before = { due_at: reminder.due_at, done: reminder.done };
+    //: Completing a repeating reminder rolls it on to its next time, read
+    //: by the server from the rule (every weekday, the last Friday of the
+    //: month) in this person's own days; its undo puts the due time back.
     if (checkbox.checked && reminder.recurring && reminder.recurring !== "none") {
-      const next = nextRecurringDate(reminder.due_at, reminder.recurring);
-      await apiJson(`/reminders/${reminder.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ due_at: next.toISOString(), done: false }),
-      });
-      toast(`Rescheduled to ${next.toLocaleString()}.`);
+      const rolled = await apiJson(`/reminders/${reminder.id}/complete?tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { method: "POST" });
+      const put = (body) => async () => {
+        await apiJson(`/reminders/${reminder.id}`, { method: "PUT", body: JSON.stringify({ ...body, restore: true }) });
+        loadReminders();
+      };
+      pushUndo("Rescheduled a reminder", put(before), put({ due_at: rolled.due_at, done: false }));
       loadReminders();
+      toast(`Rescheduled to ${new Date(rolled.due_at).toLocaleString()}.`);
       return;
     }
-    await apiJson(`/reminders/${reminder.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ done: checkbox.checked }),
-    });
+    await reminderPutUndoably(reminder.id, checkbox.checked ? "Completed a reminder" : "Reopened a reminder", before, { done: checkbox.checked });
     //: A reminder ticked off: Atlas looks proud (INBOX 742).
     if (checkbox.checked) atlasOn("done");
-    loadReminders();
   });
   row.appendChild(checkbox);
 
@@ -1212,10 +1213,21 @@ function reminderItem(reminder, label) {
   if (reminder.done) text.style.textDecoration = "line-through";
   row.appendChild(text);
 
+  //: The repeat and the early alert ride on a line of their own under the
+  //: row (the target's `.entry-links` line): beside the text they squeezed
+  //: it to nothing at 320 ("every last Friday of the month" is 118px).
+  const when = document.createElement("div");
+  when.className = "entry-links";
   if (reminder.recurring && reminder.recurring !== "none") {
-    const repeat = chip(`ph:repeat ${reminder.recurring}`, "tag");
-    repeat.title = `Repeats ${reminder.recurring}`;
-    row.appendChild(repeat);
+    const words = reminder.repeat_words || reminder.recurring;
+    const repeat = chip(`ph:repeat ${words}`, "tag");
+    repeat.title = `Repeats ${words}`;
+    when.appendChild(repeat);
+  }
+  if (reminder.alert_words) {
+    const early = chip(`ph:bell-ringing ${reminder.alert_words}`, "tag");
+    early.title = `An alert ${reminder.alert_words} it is due`;
+    when.appendChild(early);
   }
 
   const due = document.createElement("span");
@@ -1303,6 +1315,7 @@ function reminderItem(reminder, label) {
   actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`, { vertical: true }));
   row.appendChild(actions);
   li.appendChild(row);
+  if (when.childElementCount) li.appendChild(when);
 
   if (target && (reminder.target_title || reminder.entry_preview)) {
     const linkRow = document.createElement("div");
@@ -1368,27 +1381,6 @@ function toLocalInputValue(iso) {
   const d = new Date(iso);
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// The next occurrence of a recurring reminder. Steps forward from the due
-// time until it lands in the future, so completing a long-overdue daily
-// reminder doesn't just move it one day into the past.
-function nextRecurringDate(fromIso, recurring) {
-  const next = new Date(fromIso);
-  const step = () => {
-    if (recurring === "daily") next.setDate(next.getDate() + 1);
-    else if (recurring === "weekly") next.setDate(next.getDate() + 7);
-    else if (recurring === "monthly") next.setMonth(next.getMonth() + 1);
-    else next.setDate(next.getDate() + 1); // safety fallback
-  };
-  step();
-  const now = Date.now();
-  let guard = 0;
-  while (next.getTime() <= now && guard < 600) {
-    step();
-    guard += 1;
-  }
-  return next;
 }
 
 // A named quick-due preset -> a concrete Date.
@@ -1581,6 +1573,9 @@ function reminderEditForm(reminder) {
       ["daily", "Daily"],
       ["weekly", "Weekly"],
       ["monthly", "Monthly"],
+      //: A rule the menu has no word for (every weekday) is kept, not
+      //: dropped to Once by a Save that only changed the text.
+      ...(["none", "daily", "weekly", "monthly"].includes(reminder.recurring || "none") ? [] : [[reminder.recurring, reminder.repeat_words || reminder.recurring]]),
     ],
     reminder.recurring || "none"
   );
@@ -1594,17 +1589,14 @@ function reminderEditForm(reminder) {
         toast("A reminder needs text and a time.", "info");
         return;
       }
-      await apiJson(`/reminders/${reminder.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          text,
-          due_at: new Date(dueInput.value).toISOString(),
-          priority: prioritySelect.value,
-          recurring: recurringSelect.value,
-        }),
-      });
       editingReminderId = null;
-      loadReminders();
+      const before = { text: reminder.text, due_at: reminder.due_at, priority: reminder.priority || "normal", recurring: reminder.recurring || "none" };
+      await reminderPutUndoably(reminder.id, "Edited a reminder", before, {
+        text,
+        due_at: new Date(dueInput.value).toISOString(),
+        priority: prioritySelect.value,
+        recurring: recurringSelect.value,
+      });
     }, false)
   );
   row.appendChild(
@@ -1631,12 +1623,36 @@ function reminderEditForm(reminder) {
   return wrap;
 }
 
+//: **Every reminder act undoes** (TIMELINE_PLAN 11 row 1): create, complete
+//: and edit join delete, snooze and clear on the app's one stack. A PUT's
+//: inverse is the PUT of the fields it changed, as they were.
+async function reminderPutUndoably(id, label, before, after) {
+  const put = (body) => async () => {
+    await apiJson(`/reminders/${id}`, { method: "PUT", body: JSON.stringify(body) });
+    loadReminders();
+  };
+  await put(after)();
+  //: `restore`: the time it goes back to may be past (an overdue one edited).
+  pushUndo(label, put({ ...before, restore: true }), put({ ...after, restore: true }));
+}
+
+//: Create's inverse is the bin, and its redo the bin's restore, so the
+//: reminder that comes back is the same one, its id and target kept.
+function reminderMadeUndo(reminder) {
+  if (!reminder?.id) return;
+  const call = (path, method) => async () => {
+    await apiJson(path, { method });
+    loadReminders();
+  };
+  pushUndo("Added a reminder", call(`/reminders/${reminder.id}`, "DELETE"), call(`/reminders/${reminder.id}/restore`, "POST"));
+}
+
 async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
     toast("A reminder needs text and a due time.");
     return false;
   }
-  await apiJson("/reminders", {
+  const made = await apiJson("/reminders", {
     method: "POST",
     body: JSON.stringify({
       text,
@@ -1651,6 +1667,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   // permission prompt with no context is refused by default, and a refusal is
   // close to permanent (§36C).
   askNotificationPermission();
+  reminderMadeUndo(made);
   toast("Reminder set.");
   //: The card's reminder chip (INBOX 309) reads a cached count, and this is
   //: the moment that count became wrong. Dropped rather than adjusted: the

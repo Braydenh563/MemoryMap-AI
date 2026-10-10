@@ -5063,13 +5063,15 @@ function renderOnThisDayWidget(body) {
   const shown = [];
   for (const entry of entries) {
     const at = new Date(entry.created_at);
-    const years = thisYear - at.getFullYear();
-    const key = years > 0 ? `${years}y` : `${month - at.getMonth()}m`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    shown.push({ entry, when: years > 0
-      ? `${years} year${years === 1 ? "" : "s"} ago`
-      : `${month - at.getMonth()} month${month - at.getMonth() === 1 ? "" : "s"} ago` });
+    //: Counted in months: 10 November last year, seen on 10 October, is
+    //: eleven months ago, not "1 year ago", and it used to take the year's
+    //: one place from the note written on this very date (Brief 85).
+    const months = (thisYear - at.getFullYear()) * 12 + month - at.getMonth();
+    const years = months / 12;
+    const when = Number.isInteger(years) ? `${years} year${years === 1 ? "" : "s"} ago` : `${months} month${months === 1 ? "" : "s"} ago`;
+    if (seen.has(when)) continue;
+    seen.add(when);
+    shown.push({ entry, when });
     if (shown.length >= 4) break;
   }
   const list = document.createElement("ul");

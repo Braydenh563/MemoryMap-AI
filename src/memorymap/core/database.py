@@ -1162,7 +1162,13 @@ class Reminder(Base, WorkspaceMixin):
     done: Mapped[bool] = mapped_column(Boolean, default=False)
     # Scalar defaults so the additive auto-migrator backfills existing rows.
     priority: Mapped[str] = mapped_column(String(10), default="normal")  # low|normal|high
-    recurring: Mapped[str] = mapped_column(String(10), default="none")  # none|daily|weekly|monthly
+    #: none|daily|weekly|monthly, or a rule `recognise.stored_repeat` keeps as
+    #: itself ("FREQ=MONTHLY;BYDAY=-1FR", TIMELINE_PLAN 11 row 8). SQLite
+    #: does not hold a VARCHAR to its length; the 80 is for the record.
+    recurring: Mapped[str] = mapped_column(String(80), default="none")
+    #: An early alert, minutes before `due_at` ("1 day before"); None for none.
+    #: Additive: `_add_missing_columns` puts it on an existing database.
+    alert_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
     #: Hidden from every read by `_hide_binned`.

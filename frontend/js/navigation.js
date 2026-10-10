@@ -1445,6 +1445,13 @@ document.addEventListener(
     const list = menu._dockMenuList || menu.querySelector(".dock-menu-list, .doc-dock-menu-list");
     if (!list) return;
     menu._dockMenuList = list;
+    //: A closed menu's list is `hidden`, not only unpainted: a closed
+    //: `<details>` still lays its content out, so its rows sat over the
+    //: controls below it for every probe (TIMELINE_PLAN 10 row 1, 11 row 2:
+    //: the timeline's folded view segment past the edge at 390, the reminder
+    //: presets over the Open, All and Done chips). Shown before anything here
+    //: measures it.
+    list.hidden = !menu.open;
     if (!menu.open) {
       // Closed: put an escaped list back where it lives in the DOM (a no-op
       // if it was never escaped) and drop this open's inline cap, so the
@@ -1467,6 +1474,11 @@ document.addEventListener(
   },
   true
 );
+for (const list of document.querySelectorAll(
+  "details.dock-menu:not([open]) > .dock-menu-list, details.doc-dock-menu:not(.doc-toolbar-menu):not([open]) > .doc-dock-menu-list"
+)) {
+  list.hidden = true;
+}
 //: Escape closes an open dock menu and puts focus back on its button, 
 //: `<details>` does not do this on its own, whatever a comment elsewhere in
 //: this codebase once claimed; measured with a keyboard-only probe. Capture

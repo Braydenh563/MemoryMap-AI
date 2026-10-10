@@ -633,9 +633,16 @@ function closeNotifications() {
 // Asked when a reminder is SET, not on first load. A permission prompt with no
 // context is refused by default, and a refusal is close to permanent, the
 // browser will not ask again, and most people never find the site settings.
+//: A refused permission says so once, in the reminders list and in Settings,
+//: rather than every due reminder quietly falling back to a toast.
+function syncNotifBlocked() {
+  const blocked = "Notification" in window && Notification.permission === "denied";
+  for (const line of document.querySelectorAll(".notif-blocked")) line.classList.toggle("hidden", !blocked);
+}
+
 function askNotificationPermission() {
   if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().then(syncNotifBlocked, syncNotifBlocked);
   }
 }
 
@@ -755,11 +762,36 @@ function setTitleView(view) {
   paintTitle();
 }
 
+//: **On time, not up to a minute late** (TIMELINE_PLAN 11 row 5): one
+//: timeout set to the soonest open reminder's due time, re-set by every
+//: check and every list load, so a reminder fires within a second of its
+//: minute. The minute poll stays as the backstop: a hidden tab's timeout is
+//: throttled, and a reminder made on another device is not in this list.
+//: A one-shot timeout, not a second interval: it wakes the page once per
+//: due reminder and never at rest.
+const reminderDueTimer = { id: 0 };
+function armReminderTimer(list) {
+  clearTimeout(reminderDueTimer.id);
+  const now = Date.now();
+  //: An early alert is a time of its own ("1 day before").
+  const times = (list || []).filter((r) => !r.done).flatMap((r) => {
+    const due = new Date(r.due_at).getTime();
+    return r.alert_minutes ? [due, due - r.alert_minutes * 60000] : [due];
+  });
+  const next = Math.min(...times.filter((t) => t > now));
+  if (!Number.isFinite(next)) return;
+  //: Past the browser's 24.8-day ceiling a timeout fires at once; the poll
+  //: re-arms long before such a reminder comes due.
+  if (next - now > 2 ** 31 - 1) return;
+  reminderDueTimer.id = setTimeout(checkDueReminders, next - now + 250);
+}
+
 async function checkDueReminders() {
   // Before the unlock there is no token, and asking anyway is a guaranteed 401
   // on every load: visible in the browser's network log, and in the server's
   // own log, where it looks like an auth failure worth investigating.
   if (!authToken()) return;
+  syncNotifBlocked();
   //: Open ones only. The route orders by `due_at` ascending with ticked-off
   //: rows included by default, so this poll's one page was the *oldest*
   //: reminders, done or not: a notebook whose oldest two hundred were done
@@ -770,11 +802,20 @@ async function checkDueReminders() {
   if (!all) return; // server asleep or locked, say nothing rather than guess
   const now = Date.now();
   const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
+  armReminderTimer(all);
   updateReminderBadge(all);
   setTitleCount(due.length);
 
   const already = announcedReminders();
-  const fresh = due.filter((r) => !already.has(r.id));
+  //: An early alert (TIMELINE_PLAN 11 row 8) is announced once, under its
+  //: own key, with how long is left; the due time is announced as before.
+  const early = all
+    .filter((r) => {
+      const at = new Date(r.due_at).getTime();
+      return !r.done && r.alert_minutes && at > now && at - r.alert_minutes * 60000 <= now && !already.has(`e${r.id}`);
+    })
+    .map((r) => ({ ...r, id: `e${r.id}`, early: true, text: `${r.text}, ${relativeWhen(r.due_at)}` }));
+  const fresh = [...due.filter((r) => !already.has(r.id)), ...early];
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
   playReminderChime();
@@ -788,7 +829,7 @@ async function checkDueReminders() {
     recordNotification({
       kind: "reminder",
       title: reminder.text,
-      detail: "Came due",
+      detail: reminder.early ? "Coming up" : "Came due",
       key: `reminder:${reminder.id}`,
       action: { tab: "reminders" },
     });

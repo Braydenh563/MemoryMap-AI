@@ -346,20 +346,94 @@ def resolve(phrase: str, now: datetime, *, locale: str | None = None) -> datetim
 
 # "Call mum tomorrow evening, high priority": the placeholder's own example.
 _PRIORITY = re.compile(r"\b(high|low)\s+priority\b", re.IGNORECASE)
-_TIME_KINDS = frozenset({"date", "datetime", "time", "range", "recurrence"})
+_TIME_KINDS = frozenset({"date", "datetime", "time", "range", "recurrence", "alert"})
 #: The reminder repeats the app can store (`routes_reminders.Recurring`).
 _STORED_REPEATS = {"FREQ=DAILY": "daily", "FREQ=WEEKLY": "weekly", "FREQ=MONTHLY": "monthly"}
+#: A rule the store keeps as itself (TIMELINE_PLAN 11 row 8): every other
+#: week, weekdays, the last Friday of the month. The hour is the due time's.
+STORED_RULE = re.compile(
+    r"FREQ=(?:DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=\d{1,2})?"
+    r"(?:;BYDAY=(?:-1|[1-4])?(?:MO|TU|WE|TH|FR|SA|SU)(?:,(?:MO|TU|WE|TH|FR|SA|SU)){0,6})?(?:;BYMONTHDAY=\d{1,2})?"
+)
 
 
 def stored_repeat(rule: str) -> str | None:
-    """The reminder's `recurring` value for an RRULE, or None when the store
-    cannot say it (every other week, weekdays only, yearly): the reading keeps
-    the rule; nothing is saved as a repeat it is not."""
+    """The reminder's `recurring` value for an RRULE: one of the three words
+    when the rule is one of them (the due day carries the weekday or the
+    day of the month), else the rule itself, or None when the store cannot
+    say it: nothing is saved as a repeat it is not."""
     head = rule.split(";BYHOUR=")[0]
     if head in _STORED_REPEATS:
         return _STORED_REPEATS[head]
     found = re.fullmatch(r"FREQ=(WEEKLY|MONTHLY);BY(?:DAY=[A-Z]{2}|MONTHDAY=\d{1,2})", head)
-    return _STORED_REPEATS["FREQ=" + found.group(1)] if found else None
+    if found:
+        return _STORED_REPEATS["FREQ=" + found.group(1)]
+    return head if STORED_RULE.fullmatch(head) else None
+
+
+def _rule_parts(rule: str) -> dict:
+    """An RRULE as its parts; the three stored words as the rules they are."""
+    word = {v: k for k, v in _STORED_REPEATS.items()}.get(rule)
+    return dict(item.split("=", 1) for item in (word or rule).split(";") if "=" in item)
+
+
+def _nth_of_month(year: int, month: int, code: str) -> date | None:
+    """The day a BYDAY like "-1FR" (last Friday) or "2MO" names in a month."""
+    found = re.fullmatch(r"(-1|[1-4])([A-Z]{2})", code)
+    if not found:
+        return None
+    weekday = _WEEKDAY_CODES.index(found.group(2))
+    days = [d for d in range(1, 32) if _valid_day(year, month, d) and date(year, month, d).weekday() == weekday]
+    n = int(found.group(1))
+    return date(year, month, days[n if n < 0 else n - 1])
+
+
+def _valid_day(year: int, month: int, day: int) -> bool:
+    try:
+        date(year, month, day)
+    except ValueError:
+        return False
+    return True
+
+
+def _day_fits(day: date, parts: dict) -> bool:
+    """Whether a day is one a rule's BYDAY and BYMONTHDAY allow."""
+    codes = parts.get("BYDAY", "").split(",") if parts.get("BYDAY") else []
+    if any(re.match(r"-?\d", c) for c in codes):
+        return any(_nth_of_month(day.year, day.month, c) == day for c in codes)
+    if codes and _WEEKDAY_CODES[day.weekday()] not in codes:
+        return False
+    return "BYMONTHDAY" not in parts or day.day == int(parts["BYMONTHDAY"])
+
+
+def _add_months(at: datetime, months: int, parts: dict) -> datetime:
+    """`at` moved on whole months, landing on the rule's day in that month."""
+    month0 = at.month - 1 + months
+    year, month = at.year + month0 // 12, month0 % 12 + 1
+    code = parts.get("BYDAY", "")
+    if re.match(r"-?\d", code):
+        day = _nth_of_month(year, month, code)
+    else:
+        want = int(parts.get("BYMONTHDAY", at.day))
+        day = date(year, month, max(d for d in range(1, want + 1) if _valid_day(year, month, d)))
+    return datetime.combine(day, at.timetz())
+
+
+def next_occurrence(rule: str, after: datetime) -> datetime:
+    """The next time a stored repeat ("weekly", or a rule `stored_repeat`
+    keeps) falls after `after`, at `after`'s time of day: what completing a
+    repeating reminder rolls it on to (`routes_reminders`)."""
+    parts = _rule_parts(rule)
+    interval = int(parts.get("INTERVAL", 1))
+    freq = parts.get("FREQ", "DAILY")
+    if freq == "MONTHLY":
+        return _add_months(after, interval, parts)
+    if freq == "YEARLY":
+        return _add_months(after, 12 * interval, parts)
+    if freq == "WEEKLY" and "," in parts.get("BYDAY", ""):
+        day = next(after.date() + timedelta(days=n) for n in range(1, 8) if _day_fits(after.date() + timedelta(days=n), parts))
+        return datetime.combine(day, after.timetz())
+    return after + timedelta(days=interval * (7 if freq == "WEEKLY" else 1))
 
 
 def first_of(rule: str, now: datetime) -> datetime | None:
@@ -368,10 +442,7 @@ def first_of(rule: str, now: datetime) -> datetime | None:
     hour, minute = int(parts.get("BYHOUR", 9)), int(parts.get("BYMINUTE", 0))
     for ahead in range(0, 370):
         day = now.date() + timedelta(days=ahead)
-        days = parts.get("BYDAY")
-        if days and _WEEKDAY_CODES[day.weekday()] not in days.split(","):
-            continue
-        if "BYMONTHDAY" in parts and day.day != int(parts["BYMONTHDAY"]):
+        if not _day_fits(day, parts):
             continue
         at = datetime.combine(day, time(hour, minute), now.tzinfo)
         if at > now:
@@ -432,9 +503,17 @@ def parse_reminder_text(
         "priority": priority,
         "source": "rule",
     }
+    _repeat_and_alert(parsed, repeat, spans)
+    return parsed
+
+
+def _repeat_and_alert(parsed: dict, repeat: Span | None, spans: list) -> None:
+    """A reminder's stored repeat and its early alert, when the words say them."""
     if repeat is not None and stored_repeat(repeat.value):
         parsed["recurring"] = stored_repeat(repeat.value)
-    return parsed
+    alert = next((s for s in spans if s.kind == "alert"), None)
+    if alert is not None:
+        parsed["alert_minutes"] = alert.value
 
 
 # --- a window in the past (AGENT_SKILLS_REFORM, the audit of computed arguments) ---
@@ -1320,7 +1399,7 @@ def tense_of(low: str) -> str | None:
 
 
 # Each collector yields candidates (start, end, kind, value, read_as, rank).
-_PRIORITY_OF = {"email": 0, "url": 0, "phone": 0, "recurrence": 1, "range": 2, "datetime": 3, "date": 4, "time": 5,
+_PRIORITY_OF = {"email": 0, "url": 0, "phone": 0, "recurrence": 1, "alert": 1, "range": 2, "datetime": 3, "date": 4, "time": 5,
                 "money": 6, "temperature": 7, "quantity": 8, "duration": 9, "tag": 10, "person": 10, "place": 10,
                 "ordinal": 11, "number": 12}
 
@@ -1360,6 +1439,18 @@ _SOURCES: dict[str, object] = {
         r"(?:\s+on\s+the\s+(\d{1,2})(?:st|nd|rd|th))?"
     ),
     "adverb": r"\b(daily|weekly|monthly|yearly|annually|fortnightly|nightly)\b",
+    #: "the last friday of the month", "every first monday": a weekday's
+    #: place in its month (TIMELINE_PLAN 11 row 8).
+    "nth_weekday": lambda: (
+        r"\b(?:(every|each)\s+)?(?:the\s+)?(first|second|third|fourth|last|1st|2nd|3rd|4th)\s+("
+        + "|".join(n for n in _WEEKDAYS if len(n) > 3) + r")(\s+(?:of|in)\s+(?:the|every|each)\s+month)?\b"
+    ),
+    #: An early alert: "1 day before", "an hour before", "the day before".
+    "alert": (
+        r"\b(?:(?:with\s+an?\s+)?(?:alert|warn|notify|ping|remind)(?:\s+me)?\s+)?"
+        r"(\d{1,3}|an?|one|two|three|four|five|six|ten|fifteen|twenty|thirty|forty-five|the)\s+"
+        r"(min(?:ute)?s?|hours?|hrs?|days?|weeks?)\s+(?:before(?:hand)?|ahead|early)\b"
+    ),
     "plural_day": lambda: r"\b(" + "|".join(n + "s" for n in _WEEKDAYS if len(n) > 3) + r"|weekdays|weekends)\b",
     "clock_after": r"^,?\s?(?:(at|@|by|around)\s?)?" + _CLOCK_SRC + r"(?![\w:])",
     "part_after": r"^\s(morning|afternoon|evening|night)\b",
@@ -1643,7 +1734,46 @@ def _recurrence_cands(low: str) -> list[tuple]:
         else:
             rule = ["FREQ=WEEKLY", f"BYDAY={_WEEKDAY_CODES[_WEEKDAYS[name[:-1]]]}"]
         add(found.start(), found.end(), rule, "every " + name[:-1])
+    _nth_weekday_cands(low, add)
     return out
+
+
+_ORDINAL_N = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4, "last": -1}
+
+
+def _nth_weekday_cands(low: str, add) -> None:  # noqa: ANN001
+    """"The last friday of the month" as a monthly rule. "Last friday" alone
+    is a day gone (a date's reading), so the month or an "every" must be said."""
+    for found in _rx("nth_weekday").finditer(low):
+        every, nth, name, month = found.groups()
+        if not (every or month):
+            continue
+        weekday = _WEEKDAYS[name]
+        n = _ORDINAL_N[nth]
+        words = f"every {nth} {_WEEKDAY_NAMES[weekday]} of the month"
+        add(found.start(), found.end(), ["FREQ=MONTHLY", f"BYDAY={n}{_WEEKDAY_CODES[weekday]}"], words)
+
+
+def _alert_cands(low: str) -> list[tuple]:
+    """An early alert, in minutes before the due time."""
+    out = []
+    for found in _rx("alert").finditer(low):
+        count, unit = found.groups()
+        n = 1 if count == "the" else int(count) if count.isdigit() else _WORD_COUNTS.get(count, 1)
+        key = unit if unit in _UNIT_SECONDS else {"hrs": "hours", "hr": "hour"}.get(unit, unit)
+        minutes = n * _UNIT_SECONDS[key] // 60
+        if 0 < minutes <= 43200:
+            out.append((found.start(), found.end(), "alert", minutes, "", 0))
+    return out
+
+
+def alert_words(minutes: int) -> str:
+    """"1 day before", "30 minutes before": an early alert, said back."""
+    for size, name in ((10080, "week"), (1440, "day"), (60, "hour"), (1, "minute")):
+        if minutes % size == 0:
+            n = minutes // size
+            return f"{n} {name}{'' if n == 1 else 's'} before"
+    return f"{minutes} minutes before"
 
 
 def _duration_cands(low: str) -> list[tuple]:
@@ -1817,6 +1947,8 @@ def _read_as(kind: str, value: object, note: str) -> str:
     elif kind == "recurrence":
         words = note or value
         note = ""
+    elif kind == "alert":
+        words = "alert " + alert_words(value)
     elif kind == "money":
         words = f"{_num_words(value[0])} {value[1]}"
     elif kind in ("quantity", "temperature"):
@@ -1860,7 +1992,7 @@ def recognise(
     cands = _date_cands(raw, low, now, locale, tense, bare_hours)
     cands += _time_cands(low)
     cands += _anchored_cands(low, now, cands) + _date_range_cands(low, cands)
-    cands += _relative_cands(low, now, tense) + _recurrence_cands(low)
+    cands += _relative_cands(low, now, tense) + _recurrence_cands(low) + _alert_cands(low)
     cands += _duration_cands(low) + _measure_cands(raw, low, locale)
     cands += _contact_cands(raw, low) + _number_cands(low)
     for phrase, day in (known or {}).items():

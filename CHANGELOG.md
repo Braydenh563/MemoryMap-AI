@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Reminders: every weekday, every 2 weeks, every other Monday and the last Friday of the month repeat as said, and "1 day before" or "an hour before" adds an early alert; quick add shows both as chips, and ticking a repeating reminder moves it to its next time (Brief 85).
+- Reminders fire on the minute they are due (they could be up to a minute late), and an early alert fires once, ahead of its reminder.
+- Reminders: adding, completing and editing one undo with Ctrl+Z, like deleting and snoozing already did.
+- Reminders and Settings say once when the browser blocks notifications, with how to allow them in Chrome, Edge, Firefox, Safari and the desktop app.
+- Timeline: a row under the day strip offers On this day (what you wrote on today's date in earlier years) and a chip per year that narrows the list to it.
+- Timeline: the selection bar adds favourite and archive, and every act on it (move, tags, favourite, archive, delete) undoes; undoing a move no longer marks the notes as filed by hand.
+- Dashboard: On this day counts in months, so last November's note is "11 months ago", not "1 year ago" in place of the one written on this date.
+- Timeline and reminders: a closed dock menu no longer lays out under the page (the timeline's folded view switch at 390, the reminder presets over the Open, All and Done chips).
 - Documents (code): the panel under the editor has tabs, Output, Problems, Tests and Console, each keeping its own height; Ctrl+J shows or hides it, Ctrl+Shift+M opens Problems and Ctrl+Shift+Y the Console, as in VS Code (Brief 71). Every code file has the panel, not only the kinds that run.
 - Documents (code): two consoles. A line of JavaScript evaluates in what the last run left (its `let` and `const` included), a line of Python in the run's namespace; Up and Down recall earlier lines, Ctrl+L clears.
 - Documents (code): Problems lists every underline the checks make, each a link to its line, the count in its tab; HTML has a check of its own now (a stray closing tag, an element left open).

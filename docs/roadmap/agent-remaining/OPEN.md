@@ -333,6 +333,19 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the time85 agent (Brief 85, merged 2026-10-10)
+
+- Timeline row 8's bar, click to rows under 300 ms at 96 notes: 329 at load 6 to 8 (app side 73 to 164); a 57 to 70 ms task right after the rows paint; `content-visibility` on the day sections would cut it but the scrubber reads real heights (timeline.js `drawTimelineWindow`). The boot CSS budget is at its cap (183,300 gzipped, 0 bytes left after this merge: the recall row's rule moved into `.library-filters`): the next timeline or reminders CSS goes in a lazy file, or the timeline's stylesheet becomes one.
+- Reminders at 390: the floating New (`#reminders-new`) can lie over the row under it (2 overlaps in one run, 0 in the final; 10-responsive.css:1762).
+- Timeline at 390: the On this day row moves the list down 44 px; a phone may want it folded (`#timeline-recall`).
+- deepen72b.js's timeline row at 390 waits for `.timeline-rows` but the phone keeps the table view, so it times out (deepen72b.js:61).
+- The reminder edit form cannot change an alert (shell-reminders.js `reminderEditForm`); an alert is set by words only.
+- A monthly repeat from the 31st lands on the 28th in February and stays there (recognise.py `_add_months`).
+- A `timeline-days` preference arriving after the click renders the timeline twice (once in nine runs at 5,000 notes).
+- timelinepaging.js: the strip-click check fails on the base too; its 100 ms frame check passed once and failed twice under load.
+- A load-more in flight when the range changes leaves the new range at 100 rows until a scroll (timeline.js `timelineLoadMore`).
+- Not verified: Firefox and Safari permission help, the webview's denied state, firing in a hidden tab (falls to the minute poll), a real non-UTC browser for the completion day maths, Move to an existing category, space or Publish drafts from the timeline bar.
+
 ## Left by the palette90 agent (Brief 90, merged 2026-10-10)
 
 - Not verified: the dictionary spelling offer in a live empty result; the server's own correction answered every typo tried, so `finderSpellingOffer` was driven directly (search.js).

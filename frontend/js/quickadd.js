@@ -20,6 +20,7 @@ const QA_ICONS = {
   datetime: "ph:calendar-blank",
   duration: "ph:timer",
   recurrence: "ph:repeat",
+  alert: "ph:bell-ringing",
   range: "ph:calendar-dots",
   place: "ph:map-pin",
   person: "ph:user",
@@ -28,15 +29,15 @@ const QA_ICONS = {
 //: The kinds each surface saves: a chip is drawn only for what its save uses,
 //: so no chip ever says something that is then dropped.
 const QA_SURFACES = {
-  reminder: ["date", "time", "datetime", "duration", "recurrence"],
+  reminder: ["date", "time", "datetime", "duration", "recurrence", "alert"],
   note: ["date", "time", "datetime", "duration", "recurrence", "tag"],
   meeting: ["date", "time", "datetime", "person"],
   timeline: ["date", "range"],
-  palette: ["date", "time", "datetime", "duration", "recurrence", "tag", "person", "place"],
+  palette: ["date", "time", "datetime", "duration", "recurrence", "alert", "tag", "person", "place"],
 };
 //: Kinds whose words leave the title when their chip is on ("dentist friday
 //: 9am" is saved as "dentist"); a person or a place stays in the words.
-const QA_STRIPPED = new Set(["date", "time", "datetime", "duration", "recurrence", "range"]);
+const QA_STRIPPED = new Set(["date", "time", "datetime", "duration", "recurrence", "alert", "range"]);
 const QA_JOINT_BEFORE = /\s*\b(?:on the|on|at|by|in|for|from|every|the)\s*$/i;
 const QA_WHEN = new Set(["date", "time", "datetime", "duration"]);
 //: Short enough that the chips land inside the 150 ms the plan sets after the
@@ -118,25 +119,22 @@ function qaSeconds(value) {
   return (Number(m[1] || 0) * 24 * 60 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) * 60 + Number(m[4] || 0) || null;
 }
 
-//: A reminder repeats daily, weekly or monthly; anything else (every two
-//: weeks, weekdays) is `null`, and its chip says it cannot be kept.
+//: What a reminder keeps for a repeat: daily, weekly or monthly, or the rule
+//: itself (every 2 weeks, weekdays, the last Friday of the month,
+//: TIMELINE_PLAN 11 row 8) without its hour, which is the due time's.
+//: `null` for a shape the store does not take; its chip says so.
+const QA_RULE = /^FREQ=(?:DAILY|WEEKLY|MONTHLY|YEARLY)(?:;INTERVAL=\d{1,2})?(?:;BYDAY=(?:-1|[1-4])?[A-Z]{2}(?:,[A-Z]{2}){0,6})?(?:;BYMONTHDAY=\d{1,2})?$/;
 function qaRecurring(value) {
-  let freq = "";
-  let interval = 1;
-  let days = 1;
+  if (["daily", "weekly", "monthly"].includes(value)) return value;
   if (value && typeof value === "object") {
-    freq = String(value.freq || value.frequency || "");
-    interval = Number(value.interval || 1);
-    days = Array.isArray(value.byday) ? value.byday.length : 1;
-  } else {
-    const s = String(value ?? "");
-    freq = /FREQ=(\w+)/i.exec(s)?.[1] || s;
-    interval = Number(/INTERVAL=(\d+)/i.exec(s)?.[1] || 1);
-    days = (/BYDAY=([\w,]+)/i.exec(s)?.[1] || "x").split(",").length;
+    const interval = Number(value.interval || 1);
+    const byday = Array.isArray(value.byday) ? value.byday.join(",") : "";
+    value = `FREQ=${String(value.freq || value.frequency || "").toUpperCase()}${interval > 1 ? `;INTERVAL=${interval}` : ""}${byday ? `;BYDAY=${byday}` : ""}`;
   }
-  freq = freq.toLowerCase();
-  if (interval !== 1 || days !== 1) return null;
-  return ["daily", "weekly", "monthly"].includes(freq) ? freq : null;
+  const rule = String(value ?? "").replace(/;BYHOUR=\d+|;BYMINUTE=\d+/g, "");
+  const word = { "FREQ=DAILY": "daily", "FREQ=WEEKLY": "weekly", "FREQ=MONTHLY": "monthly" }[rule.replace(/;BY(?:DAY=[A-Z]{2}|MONTHDAY=\d{1,2})$/, "")];
+  if (word && !/INTERVAL/.test(rule)) return word;
+  return QA_RULE.test(rule) ? rule : null;
 }
 
 function qaRange(value) {
@@ -292,7 +290,7 @@ function qaDraw(state) {
     el.classList.toggle("is-off", !on);
     if (!cannot) el.setAttribute("aria-pressed", String(on));
     el.title = cannot
-      ? "Reminders repeat daily, weekly or monthly: this one is saved once"
+      ? "Reminders cannot keep this repeat: this one is saved once"
       : `Read “${span.text}” as this. ${on ? "Press to leave it as words." : "Press to use it."}`;
     row.insertBefore(el, ask);
   }
@@ -313,7 +311,7 @@ function qaSetAsk(state, words) {
 //: (the caller then does what it did before quick add existed).
 function qaSlotsOf(state) {
   if (!state.reading) return null;
-  const slots = { title: "", date: null, time: null, seconds: null, recurring: null, range: null, tags: [], people: [], places: [], reading: state.reading };
+  const slots = { title: "", date: null, time: null, seconds: null, recurring: null, alert: null, range: null, tags: [], people: [], places: [], reading: state.reading };
   const cut = [];
   for (const span of qaSpans(state)) {
     if (!qaIsOn(state, span)) continue;
@@ -329,6 +327,7 @@ function qaSlotsOf(state) {
       const hour = /BYHOUR=(\d+)/i.exec(String(span.value ?? ""));
       if (hour && !slots.time) slots.time = `${qaPad(hour[1])}:${qaPad(/BYMINUTE=(\d+)/i.exec(String(span.value))?.[1] || 0)}`;
     }
+    else if (span.kind === "alert") slots.alert = Number(span.value) || null;
     else if (span.kind === "range") slots.range = qaRange(span.value);
     else if (span.kind === "tag") slots.tags.push(qaChipValue(span));
     else if (span.kind === "person") slots.people.push(qaChipValue(span));
@@ -345,7 +344,7 @@ function qaSlotsOf(state) {
     slots.time = dt.time;
     slots.seconds = null;
   }
-  if (allOn && typeof own.recurring === "string" && ["daily", "weekly", "monthly"].includes(own.recurring)) slots.recurring = own.recurring;
+  if (allOn && typeof own.recurring === "string" && qaRecurring(own.recurring)) slots.recurring = qaRecurring(own.recurring);
   if (slots.date && !slots.range && state.surface === "timeline") slots.range = { start: slots.date, end: slots.date };
   //: The words with the read spans taken out, end first so the offsets
   //: stay true; the reading's own title when it gives one.
@@ -451,7 +450,7 @@ async function magicAddReminder() {
     const reminder = slots
       ? await apiJson("/reminders", {
           method: "POST",
-          body: JSON.stringify({ text: slots.title || text, due_at: slots.due.toISOString(), priority: "normal", recurring: slots.recurring || "none" }),
+          body: JSON.stringify({ text: slots.title || text, due_at: slots.due.toISOString(), priority: "normal", recurring: slots.recurring || "none", alert_minutes: slots.alert }),
         })
       : await apiJson("/reminders/parse", {
           method: "POST",
@@ -460,6 +459,7 @@ async function magicAddReminder() {
         });
     input.value = "";
     quickAddClear(input);
+    reminderMadeUndo(reminder);
     status.textContent = `Added “${reminder.text}”: ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
     askNotificationPermission();
     loadReminders();
@@ -527,10 +527,11 @@ async function qaPaletteRemind(text, slots) {
   try {
     const reminder = await apiJson("/reminders", {
       method: "POST",
-      body: JSON.stringify({ text: slots.title || text, due_at: slots.due.toISOString(), priority: "normal", recurring: slots.recurring || "none" }),
+      body: JSON.stringify({ text: slots.title || text, due_at: slots.due.toISOString(), priority: "normal", recurring: slots.recurring || "none", alert_minutes: slots.alert }),
     });
     askNotificationPermission();
     loadReminders();
+    reminderMadeUndo(reminder);
     toastAction(`Reminder set: ${relativeWhen(reminder.due_at)}.`, "Go to it", () => flashReminder(reminder.id), { go: { open: "reminder", id: reminder.id } });
   } catch (error) {
     toast(error.message || "Couldn't set the reminder.", true);

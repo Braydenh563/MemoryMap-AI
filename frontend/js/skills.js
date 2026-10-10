@@ -1262,6 +1262,7 @@ function enterSelectMode() {
   fillBatchCategories();
   fillBatchMore();
   fillBatchCategories("timeline-batch-category-host");
+  fillBatchMore("timeline-batch-more-host");
   updateBatchCount();
   show("batch-bar");
   $("select-btn").classList.add("active");

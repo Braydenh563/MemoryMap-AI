@@ -87,7 +87,7 @@
  "suggestions-inbox.js::raf": 1,
  "tag-manager.js::raf": 1,
  "tidy.js::mutation-observer": 1,
- "timeline.js::raf": 2,
+ "timeline.js::raf": 3,
  "tour.js::raf": 4,
  "utility-tools.js::interval": 1,
  "whiteboard-format.js::raf": 1,

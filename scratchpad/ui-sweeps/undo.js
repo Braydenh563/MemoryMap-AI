@@ -171,6 +171,7 @@ async function press(page, ctl, rootSel) {
       return done;
     }
     await closeMenus(page);
+    if (CURRENT && CURRENT.again) await CURRENT.again(page);
   }
   return false;
 }
@@ -179,15 +180,18 @@ async function press(page, ctl, rootSel) {
 // person who meant the action would.
 async function answerDialogs(page) {
   let answered = 0;
+  // A prompt is opened by an awaited handler, and a sheet's file is loaded
+  // first: asked at once, both were "no dialog" and the act "no change".
+  await page.waitForTimeout(400);
   for (let i = 0; i < 3; i++) {
     const found = await page.evaluate(() => {
       const vis = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
-      const dlg = [...document.querySelectorAll('.confirm-overlay, .prompt-overlay, .dialog-overlay, [role="alertdialog"], dialog[open]')]
+      const dlg = [...document.querySelectorAll('.confirm-overlay, .prompt-overlay, .dialog-overlay, .sheet-overlay, [role="alertdialog"], dialog[open]')]
         .filter((d) => vis(d) && !d.classList.contains('hidden') && !d.matches('#settings-modal, #palette-overlay, #onboarding-overlay, #lock-overlay'))[0];
       if (!dlg) return false;
       const input = dlg.querySelector('input[type="text"], input:not([type]), textarea');
       if (input && !input.value) { input.value = 'Probe name'; input.dispatchEvent(new Event('input', { bubbles: true })); }
-      const aff = /^(delete|remove|move to bin|bin|clear|yes|confirm|ok|merge|rename|save|create|add|apply|done|continue|discard|replace|restore|accept|go|start|set|reset|archive)/i;
+      const aff = /^(delete|remove|move|bin|clear|yes|confirm|ok|merge|rename|save|create|add|apply|done|continue|discard|replace|restore|accept|go|start|set|reset|archive)/i;
       const btns = [...dlg.querySelectorAll('button')].filter(vis);
       const pick = btns.find((b) => b.matches('.danger, .primary, [data-confirm]')) || btns.find((b) => aff.test(b.textContent.trim()));
       if (!pick) return 'none';
@@ -204,11 +208,42 @@ async function answerDialogs(page) {
   return answered;
 }
 
+// Surfaces that are a mode of another one. The timeline's selection bar
+// (TIMELINE_PLAN 10 row 3): the table view, Select on, the first two rows
+// ticked, so every act the bar offers (move, tag, favourite, archive, delete)
+// is pressed for real. The bar runs the Notes list's own batch acts.
+const EXTRA = [
+  // Every row of the bar is an act; a Move to row is named by its category.
+  { name: 'timeline selection', root: '#timeline-batch-bar', mut: /./, open: async (p) => {
+    await p.evaluate(() => switchTab('timeline'));
+    await p.waitForTimeout(900);
+    await p.evaluate(() => {
+      if (timelineViewMode() !== 'table') document.querySelector('[data-timeline-view="table"]').click();
+      if (!selectMode) enterSelectMode();
+    });
+    await p.waitForTimeout(500);
+    await tickTwo(p);
+  },
+  // The Escape that closes one menu before the next is tried also ends the
+  // selection (navigation.js's Escape stack): put it back.
+  again: tickTwo },
+];
+async function tickTwo(p) {
+  await p.evaluate(() => {
+    if (!selectMode) enterSelectMode();
+    if (selectedIds.size) return;
+    for (const tr of [...document.querySelectorAll('#timeline-table-body tr[data-kind="note"]')].slice(0, 2)) tr.click();
+  });
+  await p.waitForTimeout(250);
+}
+let CURRENT = null;
+
 let needSeed = true;
 async function probe(page, surface, ctl, storage) {
   if (needSeed) { await L.ensureSeed(page); needSeed = false; }
   await L.closeOverlays(page);
   await surface.open(page);
+  CURRENT = surface;
   await clearStacks(page);
   const s0 = await snapshot(page, storage);
   const saved = await L.saveLocal(page);
@@ -227,6 +262,7 @@ async function probe(page, surface, ctl, storage) {
   const s2 = await snapshot(page, storage);
   needSeed = true;
   const row = { label: ctl.label, via: ctl.via, dlg, ...st, undone: String(s2) === String(s0), redone: null, moved: [...new Set(moved(s0, s1))].join(',') };
+  if (!row.undone) row.left = [...new Set(moved(s0, s2))].join(',');
   if (row.undone) {
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(WAIT);
@@ -272,7 +308,7 @@ async function touchSetting(page, key) {
   await L.ensureSeed(page);
   const total = { actions: 0, undoable: 0, redoable: 0, exposed: 0 };
   const rows = [];
-  for (const surface of L.SURFACES) {
+  for (const surface of [...L.SURFACES, ...EXTRA]) {
     if (ONLY.length && !ONLY.includes(surface.name)) continue;
     await L.closeOverlays(page);
     await surface.open(page);
@@ -294,7 +330,7 @@ async function touchSetting(page, key) {
       const inv = await inventory(page, surface.root);
       // A control is probed when its label names a change and nothing in the
       // skip list; the rest are exposed but not pressed.
-      ctls = inv.filter((c) => MUT.test(c.label) && !SKIP.test(c.label));
+      ctls = inv.filter((c) => (MUT.test(c.label) || (surface.mut && surface.mut.test(c.label))) && !SKIP.test(c.label));
       skipped = inv.length - ctls.length;
       total.exposed += inv.length;
     }

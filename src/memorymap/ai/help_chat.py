@@ -194,17 +194,21 @@ HELP_TOPICS: list[dict] = [
         #: "recurring" is spelt out rather than left to the inflection rule:
         #: doubling the final consonant is exactly the kind of irregularity
         #: that rule deliberately does not guess at.
-        "keywords": ("reminder", "due date", "snooze", "recur", "recurring"),
+        "keywords": ("reminder", "due date", "snooze", "recur", "recurring", "early alert"),
         "body": (
             "The Reminders tab groups items into Overdue / Today / Upcoming / "
-            "Done. Set a priority, snooze, edit inline, or make one recurring. "
+            "Done. Set a priority, snooze, edit inline, or make one recurring: "
+            "\"every weekday\", \"every 2 weeks\", \"the last Friday of the month\", "
+            "with an early alert such as \"1 day before\". "
             "The date and time fields open a month and the day's times, and "
             "read a typed day such as \"next friday\". "
             "You can also just say \"call mum tomorrow evening\" in a note and "
             "let the AI schedule it. In the chat, \"remind me two hours before "
             "midnight\" works too: Atlas passes your words and the app works "
             "out the time on your own clock. Notifications fire while the app "
-            "is open. Remind me is on a note's, a document's and a board's ⋯ "
+            "is open, on the minute; if the browser blocks them, the list and "
+            "Settings, Notifications say so, and their ? says how to allow them. "
+            "Remind me is on a note's, a document's and a board's ⋯ "
             "menu too, and the reminder's row opens what it is about."
         ),
         "badge": {"label": "Reminders", "tab": "reminders"},
@@ -314,7 +318,8 @@ HELP_TOPICS: list[dict] = [
             "or thread) and Show group, and the Time range, where On this day "
             "shows today's date in earlier months and years. In the feed, Ctrl and "
             "the mouse wheel, or a pinch, makes the date groups finer or coarser, "
-            "as do + and - on a row. The strip under the bar walks your daily pages. A note that names a "
+            "as do + and - on a row. The strip under the bar walks your daily pages, and the "
+            "chips under it offer On this day and a chip per year with its count. A note that names a "
             "day (\"on Friday\") sits on that day and says All day; one that "
             "names a time too (\"on Friday at 3pm\") shows that time."
         ),

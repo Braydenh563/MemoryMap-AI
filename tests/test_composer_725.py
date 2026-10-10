@@ -305,7 +305,8 @@ def test_with_no_model_chat_stays_open_and_agent_mode_says_what_it_needs(client)
     markup = Path("frontend/index.html").read_text(encoding="utf-8")
     assert '<textarea id="chat-input" rows="1"' in markup and '<button id="chat-send">' in markup
     status_js = Path("frontend/js/status.js").read_text(encoding="utf-8")
-    assert "const gated = aiIsOff() && !engine;" in status_js
+    #: The gate is one helper since the 2026-10-10 chat list: no model and no Needle.
+    assert "return !(aiIsOff() && !modelStatus?.tools_engine);" in status_js and "const gated = !agentModeAvailable();" in status_js
     assert "Chat answers from your notes" in status_js and "Chat cannot answer yet" not in status_js
     status = client.get("/models/status").json()
     assert status["ollama_running"] is False and "tools_engine" in status

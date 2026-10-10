@@ -2033,14 +2033,15 @@ def repair(text: str, report: list | None = None) -> str:
     i = 0
     while i < len(tokens):
         token = tokens[i]
-        core = re.match(r"^(.*?)([?!.,:;]*)$", token)
-        word, tail = core.group(1), core.group(2)
+        #: str.rstrip, not `(.*?)([?!.,:;]*)$`: that was quadratic on "!!!!" (CodeQL).
+        word = token.rstrip("?!.,:;")
+        tail = token[len(word):]
         low = word.lower()
         nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
         #: Two pieces of one asking word ("wh en", "ho w"): joined.
-        joined = (low + re.sub(r"[?!.,:;]+$", "", nxt).lower()) if nxt else ""
+        joined = (low + nxt.rstrip("?!.,:;").lower()) if nxt else ""
         if joined in ASKING and low not in VOCABULARY and len(low) <= 3:
-            out.append(joined + re.match(r"^.*?([?!.,:;]*)$", nxt).group(1))
+            out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
             i += 2
             continue
         if low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
@@ -2048,7 +2049,9 @@ def repair(text: str, report: list | None = None) -> str:
         elif _split(low):
             out.append(_split(low) + tail)
         else:
-            after = re.sub(r"\W+$", "", nxt)
+            after = nxt
+            while after and not (after[-1].isalnum() or after[-1] == "_"):
+                after = after[:-1]
             fixed = nearest(low, ASKING, after) if _at_asking_place(out) else None
             #: Past the opening words only the long words that name a kind
             #: of question are repaired ("diffrence", "lastest"): a subject

@@ -20,7 +20,7 @@ def test_no_model_suggests_the_notebooks_own_tags_without_a_traceback(client, ca
 
     for text in ("Netting the beans in the garden", "Garden beds need compost", "Garden tomatoes staked"):
         client.post("/entries", json={"content": text, "tags": ["garden"]})
-    routes_entries._NO_MODEL_TAGS_SAID = False
+    routes_entries._SAID_ONCE.discard("no-model-tags")
     caplog.set_level(logging.INFO, logger="memorymap")
     first = client.post("/entries/suggest-tags", json={"content": "beans in the garden need netting"})
     again = client.post("/entries/suggest-tags", json={"content": "the garden beans again"})

@@ -413,7 +413,7 @@ _WRAPPERS = (
     *(re.compile(pattern, re.I) for pattern in composer_tables.EXTRA_WRAPPERS),
 )
 #: "dentist when?", "spare key where": the question word typed last.
-_LAST_WORD = re.compile(r"^(?P<rest>[^?]+?)[,\s]+(?P<q>when|where|who|why|how many|how much|how long|how often)\s*(?P<p>\?*)$", re.I)
+_LAST_WORD = re.compile(r"^(?P<rest>[^?]*?\S)[,\s]+(?P<q>when|where|who|why|how many|how much|how long|how often)(?P<p>\s*\?*)$", re.I)
 _ASKS_FIRST = re.compile(r"^(?:what|when|where|who|whom|whose|why|how|which|is|are|do|does|did|can|could|should|will|would|was|were|has|have|had|am|if|whether|compare|list|name|tell|explain)\b", re.I)
 _TRAILERS = re.compile(
     r"(?:[,\s]+(?:please|thanks|thank you|again|for me|real quick|quickly|by any chance|"
@@ -2293,7 +2293,7 @@ def _next_questions(question: str, shape: str, terms: list[str], views: list[Not
 
 _MORE = re.compile(
     r"^\s*(?:tell me more|more|go on|continue|keep going|say more|what else|anything else|and|more please|"
-    r"more about (?:that|it|this|those))\s*[?.]*\s*$",
+    r"more about (?:that|it|this|those))[\s?.]*$",
     re.I,
 )
 _ORDINALS = {"first": 0, "1st": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2, "fourth": 3, "4th": 3, "fifth": 4, "5th": 4, "last": -1}
@@ -2302,8 +2302,8 @@ _PRONOUN = re.compile(r"\b(it|that|this|them|those|they)\b", re.I)
 #: "what about the boiler?", "and the boiler?", "how about Porto": the turn
 #: before asked again of something else (INBOX 741, turn-aware follow-ons).
 _SWAP = re.compile(
-    r"^\s*(?:(?:and|but|ok|okay|so)[, ]+)?(?:what|how) about\s+(?P<x>.+?)\s*[?.!]*$"
-    r"|^\s*(?:and|but)\s+(?P<y>(?!(?:what|when|who|where|why|how|which|is|are|do|does|did)\b)\S.*?)\s*\?+\s*$",
+    r"^\s*(?:(?:and|but|ok|okay|so)[, ]+)?(?:what|how) about\s+(?P<x>[^\s,].*)$"
+    r"|^\s*(?:and|but)\s+(?P<y>(?!(?:what|when|who|where|why|how|which|is|are|do|does|did)\b)[^\s?].*)$",
     re.I,
 )
 #: "why?", "and when?", "how come?": the asking word alone, about the turn
@@ -2329,7 +2329,7 @@ _LENGTH = re.compile(
     re.I,
 )
 #: "and last week?", "what about yesterday?": the turn before over another time.
-_WINDOW_ONLY = re.compile(r"^\s*(?:(?:and|but|so|ok)[, ]+)?(?:(?:what|how) about\s+)?(?P<w>\S.*)$", re.I)
+_WINDOW_ONLY = re.compile(r"^\s*(?:(?:and|but|so|ok)[, ]+)?(?:(?:what|how) about\s+)?(?P<w>[^\s,].*)$", re.I)
 
 
 def _without_length(question: str) -> str:
@@ -2434,12 +2434,12 @@ def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
         #: The second alternative ("I meant the dentist note") fills x2, not x.
         said = (correction.group("x") or correction.group("x2") or "").rstrip(" \t.?!")
         prefer = re.sub(r"^(?:the|my|that|this)\s+", "", said.strip(), flags=re.I)
-        prefer = re.sub(r"\s+(?:one|note|entry)$", "", prefer, flags=re.I).strip()
+        prefer = re.sub(r"\s(?:one|note|entry)$", "", prefer, flags=re.I).strip()
         if prefer:
             return FollowOn(previous, previous, "", "correction", prefer)
     length = _LENGTH.match(text)
     if length:
-        shorter = bool(re.match(r"\s*(?:shorter|briefer|in short|tl;?dr|summari[sz]e that|less)", text, re.I))
+        shorter = text.lstrip().lower().startswith(("shorter", "briefer", "in short", "tl;dr", "tldr", "summarise that", "summarize that", "less"))
         base = _without_length(previous)
         return FollowOn(f"briefly, {base}" if shorter else f"{base.rstrip('?.!')} in detail?", previous, "", "length")
     window = _WINDOW_ONLY.match(text)
@@ -2480,8 +2480,10 @@ def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
             return FollowOn(resolved, previous, "", word)
         return None
     swap = _SWAP.match(text) or _SWAP.match(rephrase(text))
+    if swap and swap.group("y") is not None and not text.rstrip().endswith("?"):
+        swap = None
     if swap:
-        other = (swap.group("x") or swap.group("y") or "").strip()
+        other = (swap.group("x") or swap.group("y") or "").rstrip(" \t?.!").strip()
         terms = subject_terms(previous)
         subject = _asked_span(previous, terms)
         #: Only a question with a shape of its own is asked again of the
@@ -2592,9 +2594,11 @@ def _WORDED_PHRASES() -> list[str]:  # noqa: N802  # a cached table, read like o
 #: Where one question ends and the next begins inside one message: a question
 #: mark with more after it, or "and" before a question word ("when is the
 #: dentist and what should I pack"). At most `MAX_PARTS` are answered.
-_PART_BREAK = re.compile(r"(?<=\?)\s+(?=\S)")
+#: `split_parts` collapses whitespace first, so one space is the break;
+#: `\s+` here was quadratic on a run of whitespace (CodeQL).
+_PART_BREAK = re.compile(r"(?<=\?) ")
 _PART_AND = re.compile(
-    r",?\s+(?:and|also|plus)\s+(?=(?:what|when|who|where|why|how|which|is|are|do|does|did|can|should|will)\b)",
+    r",? (?:and|also|plus) (?=(?:what|when|who|where|why|how|which|is|are|do|does|did|can|should|will)\b)",
     re.I,
 )
 MAX_PARTS = 3

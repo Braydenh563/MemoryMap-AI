@@ -1249,7 +1249,7 @@ class SuggestTagsBody(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 #: Said once per process, not once per keystroke pause.
-_NO_MODEL_TAGS_SAID = False
+_SAID_ONCE: set[str] = set()
 
 
 @router.post("/suggest-tags")
@@ -1284,9 +1284,8 @@ def suggest_tags_for_draft(
         except Exception:
             logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
     else:
-        global _NO_MODEL_TAGS_SAID
-        if not _NO_MODEL_TAGS_SAID:
-            _NO_MODEL_TAGS_SAID = True
+        if "no-model-tags" not in _SAID_ONCE:
+            _SAID_ONCE.add("no-model-tags")
             logger.info("no model running: tag suggestions come from the notebook's own tags")
     if not suggested:
         suggested = lexical_filing.suggest_tags(session, content, have=body.tags)

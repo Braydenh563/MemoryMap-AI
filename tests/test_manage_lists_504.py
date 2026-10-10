@@ -61,7 +61,9 @@ def test_bulk_delete_asks_once_and_bulk_colour_has_one_undo() -> None:
     delete = _body(CATS, "async function deleteCategoriesFromPanel(metas)")
     assert delete.count("chooseCategorySheet(") == 1 and "offerCategoryUndo(" in delete
     colour = _body(CATS, "function colourCategoriesFromPanel(metas)")
-    assert "pushUndo(" in colour and "before.get(name)" in colour
+    #: Brief 51 folded the bulk colour into `offerUndo` (status.js), which is
+    #: `pushUndo` plus the toast's Undo.
+    assert "offerUndo(" in colour and "before.get(name)" in colour
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")

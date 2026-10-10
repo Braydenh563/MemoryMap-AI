@@ -1572,3 +1572,7 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 ## Placed from Brief 60, 2026-10-10 (the measured census)
 
 - `documents.js` holds 14 `requestAnimationFrame` sites, 7 scroll listeners, 3 `ResizeObserver` and 4 `MutationObserver` (WORLD_CLASS 26.5, `scripts/handlers.py --list`): the second-largest wake-source count after `whiteboard.js`. No frame measurement of the editor yet; `frames.js` has no documents surface.
+
+## Placed from INBOX, 2026-10-10 (code as documents)
+
+- INBOX 788, the owner: "can you add code templates as document templates as well??", "maybe even add a code modules library like with the whiteboard and mindmap??" and "a way to better interact with the ai as a coding asistant like in vs code??" Owner: an Opus brief after the running ones: code templates in New document, a code snippets library on the whiteboard and mind map library pattern, and an assistant panel beside the code editor (explain, fix, write tests, apply as a diff with undo; Needle or the deterministic tools with no model).

@@ -1350,8 +1350,8 @@ row does today.
 | Phase | Brief | Deliverable | Measured by |
 | --- | --- | --- | --- |
 | I1 run, preview, test | 69 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"); what is left is in `agent-remaining/ide1-1010.md` | `scratchpad/ui-sweeps/code-run.js`, 46/46 at 1440 and 47/47 at 390 |
-| I2 the debugger | 70 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 70, I2"); what is left is in `agent-remaining/debug70-1010.md` | `scratchpad/ui-sweeps/code-debug.js`, 32/32 at 1440 and 31/31 at 390 (js, ts, py: breakpoint, three steps, a watch, the exception stop) |
-| I3 the IDE shell | 71 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 71, I3"); what is left is in `agent-remaining/shell71-1010.md` | `code-keys.js` 34/34 keys exercised, palette 61 commands (40/40 and 67 with Brief 70's debugger rows); `ide-shell.js` 19/19 (four heights kept across a reload); `ide-split.js` 10/10 |
+| I2 the debugger | 70 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 70, I2"); what is left is in `archive/agent-remaining/debug70-1010.md` | `scratchpad/ui-sweeps/code-debug.js`, 32/32 at 1440 and 31/31 at 390 (js, ts, py: breakpoint, three steps, a watch, the exception stop) |
+| I3 the IDE shell | 71 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 71, I3"); what is left is in `archive/agent-remaining/shell71-1010.md` | `code-keys.js` 34/34 keys exercised, palette 61 commands (40/40 and 67 with Brief 70's debugger rows); `ide-shell.js` 19/19 (four heights kept across a reload); `ide-split.js` 10/10 |
 
 Help moves with each phase (standing order 13): the `data-help-for`
 popovers on Run, Debug and the panels, the Guide topic `code-run`, and

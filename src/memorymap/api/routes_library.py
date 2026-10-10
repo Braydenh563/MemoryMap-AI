@@ -38,7 +38,7 @@ from memorymap.core.database import (
     LIKE_ESCAPE,
     like_escape,
 )
-from memorymap.core import events
+from memorymap.core import events, reading_bin
 from memorymap.core.deps import get_session
 from memorymap.entry import highlights as note_highlights
 from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
@@ -446,6 +446,27 @@ def _archive(session: Session) -> list[dict]:
                 "updated_at": reminder.deleted_at.isoformat(),
                 "detail": "a reminder, in the bin",
                 "size": len(reminder.text or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
+            }
+        )
+    #: A deleted OCR reading too (WORLD_CLASS_PLAN 28.4 row 2), restored to
+    #: the page or the file it was read from.
+    for reading in reading_bin.binned(session)[:PER_KIND_LIMIT]:
+        where = f"page {reading.page + 1} of " if reading.field == "page" else ""
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "reading",
+                "id": reading.id,
+                "title": f"Reading of {where}{reading.label or 'a file'}",
+                "preview": _clip(reading.text or ""),
+                "updated_at": reading.deleted_at.isoformat(),
+                "detail": "a reading, in the bin",
+                "size": len(reading.text or ""),
                 "entry_id": None,
                 "mime": None,
                 "pinned": False,

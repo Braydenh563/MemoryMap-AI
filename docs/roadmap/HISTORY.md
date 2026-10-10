@@ -381,6 +381,16 @@ dispatches inside the editor's update; `code-keys.js` 44/44 with the six
 debugger keys (40 keys, 70 commands, palette 67). Before the merge:
 `code-keys.js` 38/38, `ide-shell.js` 19/19, `ide-split.js` 10/10,
 `code-run.js` 47/47 and 48/48. Tests: `tests/test_ide_shell_b71.py`.
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 28.4, Brief 79)
+
+The ocr79 agent's Built block (standing order 10); WORLD_CLASS_PLAN 28.4 rows 2 to 5, 7 and 9 carry the pointer. Measured with `scratchpad/ui-sweeps/ocr79.js` (fresh data dir, no model, no OCR engine, the 900 by 400 three-line PNG; port 8829, a machine loaded by other agents). Row 1 was found built (`tests/test_chatui_1010.py`); row 6 is Brief 73's.
+
+- Row 2 (rules 1, 3): `ocrOfferTextUndo`, `ocrOfferBinUndo`, `ocrCleanLoops` (library.js) put save an edit, delete a reading, clean loops, a region read (its answer card) and a fresh read on `offerUndo`/`pushUndo`; the delete confirm is gone. A deleted page reading or whole-file reading is copied into `BinnedReading` (core/reading_bin.py, a new table, no migration), listed in the Library's Bin (`subtype: "reading"`), restored by `POST /reading-bin/{id}/restore`, purged by `DELETE /reading-bin/{id}/purge`, emptied with the bin. New: `DELETE /{media,files}/{id}/readings/{source}`; the page-read DELETE answers `binned_id`. `tests/test_ocr_reading_bin.py`. `ocr79.js` undo: 0/5 to 5/5 at 1440 and 390 (the region read and the fresh read answered by the sweep).
+- Row 3 (rules 8, 11): `ocrZoomAbout`, `ocrShownZoom`; Ctrl+wheel is continuous (a notch about x1.22) and keeps the point under the pointer (drift 0); two touches set the level from their spread about their midpoint. Before: Ctrl+wheel stepped about the centre, a touch pinch did nothing (Fit stayed Fit at 390 and 320). After at 390: Fit to 176% and back to 63%, the page's own scale 1.
+- Row 4 (rules 7, 8): under 600 the reader popover is `position: fixed` between the gutters (library-lazy.css); a sixth dock step `is-terse` drops Read's icon. Controls past the edge 0/3/4 to 0/0/0 at 1440/390/320.
+- Row 5 (rules 12, 4, 13): with no engine and no model the engine line offers Install RapidOCR (60 MB, nothing else to install) then Install Tesseract (10 MB plus a system program), sizes from `core/extras.py` through `engine_status` (`rapidocr_size`, `tesseract_size`); `ocrEngineStartInstall(extra)` installs either. `ocrSyncCanRead` makes Read, the region's Read and Describe `aria-disabled` with the reason in their title; a press toasts it and opens the reader menu. AI controls disabled with a reason 0 of 1 to 1 of 1.
+- Row 7 (rules 6, 12): `extract_regions` keeps each word's box (`words`, Tesseract's own; RapidOCR's lines cut by characters, `_line_words`); `ocrPaintLiveText` lays them over the picture as transparent type sized in `cqh` and stretched once to its box; a copy whose selection starts there gives the words in reading order (`ocrLiveTextSelection`). `ocr79.js` live: a drag from the first word to the last copies the three lines exactly, at 1440 and 390 (the regions answer stubbed: no engine here).
+- Row 9 (rule 13): traced at 390, the open's first frame was 367 ms, two `ocrFitDock` runs of 287 and 194 ms, each step a 30 to 90 ms style recalculation. Now the fit is a halving search remembered per width, words and shown controls (`ocrDockApply`, `ocrScheduleFitDock`, one per frame): first frame 110 ms. Open at 390, three runs: 398, 246, 683 ms to 353, 127, 387 ms; 1440 354, 237, 78 to 204, 114, 100.
 
 ## Moved from the plans, 2026-10-10 (WHITEBOARD Brief 77, rows 1 to 4)
 
@@ -425,7 +435,7 @@ the page at 1440 and 50 to 203 at 390 on a warm runtime; code-run.js
 48/48 at 1440 and 49/49 at 390; touch.js's new Debug tab row 19 controls,
 0 findings (the watch field 39.2 px to 44); tests/test_run_debugger.py,
 test_run_debug_js.py (the real pass and worker in node),
-test_debug_panel.py. Left rows in `agent-remaining/debug70-1010.md`.
+test_debug_panel.py. Left rows in `archive/agent-remaining/debug70-1010.md` and OPEN.md.
 
 ## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 69, I1)
 

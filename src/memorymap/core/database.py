@@ -1593,6 +1593,39 @@ class PageRead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class BinnedReading(Base):
+    """A deleted OCR reading, kept in the bin (WORLD_CLASS_PLAN 28.4 row 2).
+
+    Deleting a reading used to take it away for good: a page's `PageRead` row
+    was dropped and an image's `ocr_text` cleared, so "You can read it again
+    any time" was the only way back, and that needs a working reader. Now the
+    text goes here first, the Library's Bin lists it beside notes, documents
+    and reminders, and restoring it writes it back where it came from.
+
+    `field` says where: "page" (a `PageRead` row, `page` set), or "ocr_text" /
+    "vision_ocr_text" (the whole-file reading of a MediaUpload or Attachment).
+    A new table, so `create_all` builds it: no migration, as `jobs`.
+    """
+
+    __tablename__ = "binned_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: "attachment" or "upload", `PageRead.kind`'s two id spaces.
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    source_id: Mapped[int] = mapped_column(Integer, index=True)
+    field: Mapped[str] = mapped_column(String(24), default="page")
+    page: Mapped[int] = mapped_column(Integer, default=0)
+    reader: Mapped[str] = mapped_column(String(16), default="")
+    model: Mapped[str] = mapped_column(String(200), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    caption: Mapped[str] = mapped_column(Text, default="")
+    caption_model: Mapped[str] = mapped_column(String(200), default="")
+    #: The file's name when it was binned, so the Bin can say what it was a
+    #: reading of without a join to a row that may itself be gone.
+    label: Mapped[str] = mapped_column(String(300), default="")
+    deleted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
 class DocumentRevision(Base):
     """A document's text as it was before an edit, the history behind "can the
     document have edit history like git logs??", asked for by name.

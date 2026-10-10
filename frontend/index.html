@@ -8267,9 +8267,9 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <div class="help-body hidden" id="ocr-help" role="dialog" aria-label="How the OCR workspace works">
           <p>Press Read to turn the page into text; its menu reads every page or a range.</p>
-          <p>Drag on the page to read or describe just one part of it.</p>
+          <p>Drag on the page to read or describe one part, or across its words to copy them.</p>
           <p>The reader button picks the engine and its language; its dot says whether it can read.</p>
-          <p>Keys: Left and Right turn pages, + and - zoom, 0 fits the page, Ctrl+F finds.</p>
+          <p>Keys: Left and Right turn pages, + and - zoom (or pinch), 0 fits, Ctrl+F finds, Ctrl+Z undoes.</p>
         </div>
         <!-- **One row, grouped by task, on the dock grammar** (INBOX 717):
              View (regions, zoom, page layout), then Read (the reader and its
@@ -8424,6 +8424,9 @@ Link to another note with [[its first few words]]."></textarea>
                  box still selects that box. -->
             <div id="ocr-select" class="ocr-select"></div>
             <div id="ocr-boxes" class="ocr-boxes"></div>
+            <!-- Live Text (WORLD_CLASS_PLAN 28.4 row 7): the words over the
+                 picture, selectable in place (`ocrPaintLiveText`). -->
+            <div id="ocr-live-text" class="ocr-live-text hidden" aria-label="Text on this page"></div>
           </div>
           <!-- The offer, once a rectangle exists. The app's floating-panel
                shell (see the `.action-menu, .doc-dock-menu-list, …` rule at
@@ -11273,7 +11276,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Bin</h3>
               <div class="row">
-                <label for="pref-bin-days" class="muted">Auto-clear binned notes, documents and reminders after</label>
+                <label for="pref-bin-days" class="muted">Auto-clear binned notes, documents, reminders and OCR readings after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
               </div>

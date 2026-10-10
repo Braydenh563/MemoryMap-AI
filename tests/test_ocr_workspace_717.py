@@ -95,9 +95,11 @@ def test_the_row_folds_rather_than_scrolling_or_wrapping():
     assert "--control-h" in joined
     # The fold is measured, not a breakpoint: the row is watched and the
     # folded controls are offered in the dock's own menu.
+    # The fit searches the steps and `ocrDockApply` sets them (28.4 row 9).
     fit = _body(LIBRARY, "ocrFitDock")
     assert "ResizeObserver" in LIBRARY[LIBRARY.index("function ocrWatchDock") :][:1500]
-    assert "is-folded" in fit
+    assert "ocrDockApply(dock, count)" in fit and "ocrDockFits(dock)" in fit
+    assert "is-folded" in _body(LIBRARY, "ocrDockApply")
     menu = _body(LIBRARY, "ocrSyncToolsMenu")
     assert "kebabMenu(" in menu and "is-folded" in menu
 

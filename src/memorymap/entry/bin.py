@@ -36,7 +36,7 @@ from memorymap.core.database import (
     Reminder,
     utcnow,
 )
-from memorymap.core import events
+from memorymap.core import events, reading_bin
 
 
 @contextmanager
@@ -102,10 +102,10 @@ def _purge(session: Session, documents: list[Document], reminders: list[Reminder
 
 
 def empty(session: Session) -> int:
-    """Empty the bin's documents and reminders. Commits."""
+    """Empty the bin's documents, reminders and OCR readings. Commits."""
     documents, reminders = binned(session)
     with including_binned(session):
-        count = _purge(session, documents, reminders)
+        count = _purge(session, documents, reminders) + reading_bin.empty(session)
         if count:
             events.record(session, "purged", "recycle_bin", None, f"{count} documents and reminders")
         session.commit()
@@ -120,7 +120,7 @@ def purge_expired(session: Session, days: int) -> int:
     documents = [d for d in documents if d.deleted_at < cutoff]
     reminders = [r for r in reminders if r.deleted_at < cutoff]
     with including_binned(session):
-        count = _purge(session, documents, reminders)
+        count = _purge(session, documents, reminders) + reading_bin.purge_expired(session, days)
         if count:
             events.record(
                 session, "purged", "recycle_bin", None, f"{count} expired documents and reminders"

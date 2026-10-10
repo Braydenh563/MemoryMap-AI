@@ -4121,15 +4121,15 @@ Acrobat for highlights and comments on a PDF page.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | Quick access, Find anything and a palette row named "Read text from an image or PDF" (no "AI") | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
-| 2 | fix | Undo for the five reading acts; a deleted reading goes to the bin | 0/5 to 5/5 in `undo.js` | 1, 3 |
-| 3 | fix | Pinch zoom: Ctrl+wheel from a trackpad and two-finger touch on the page | a synthetic Ctrl+wheel changes `#ocr-zoom-level`; a two-touch pinch at 390 | 8, 11 |
-| 4 | fix | At 390 the reader picker and the installs wrap into the row or a sheet | 2 to 3 past the edge to 0 at 320 and 390 | 7, 8 |
-| 5 | fix | No engine and no model: one line offering RapidOCR first (pip, no system binary) with its size, then Tesseract; the AI controls say why | 0 dead controls with no model | 12, 4, 13 |
+| 1 | fix | **Found built 2026-10-10 (Brief 79 checked; `tests/test_chatui_1010.py`)**: quick access, Find anything and the palette row "OCR workspace: read a document or image" | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
+| 2 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: undo for the five reading acts; a deleted reading goes to the bin (`BinnedReading`) | `ocr79.js` 0/5 to 5/5 at 1440 and 390 | 1, 3 |
+| 3 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: pinch zoom about the pointer, Ctrl+wheel and two fingers | `ocr79.js`: Ctrl+wheel Fit to 150%, drift 0; touch at 390 Fit to 176% (nothing before) | 8, 11 |
+| 4 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: the reader menu spans the window under 600; Read sheds its icon last | past the edge 3 to 0 at 390, 4 to 0 at 320 | 7, 8 |
+| 5 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: RapidOCR first with its size, then Tesseract; Read, region Read and Describe `aria-disabled` with the reason | AI controls disabled with a reason 0/1 to 1/1, 0 dead | 12, 4, 13 |
 | 6 | fix | Reading and installs are jobs in the Activity panel with progress per page and Stop (decision 70) | a 20-page PDF lists and stops | 5 |
-| 7 | redesign | Live Text in place: a text layer over `extract_regions`' boxes, drag to select and copy on the image | a drag-select copies the words in order | 6, 12 |
+| 7 | redesign | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: Live Text, each word of `extract_regions` over the picture | a drag-select copies 3 lines in order (regions answer stubbed) | 6, 12 |
 | 8 | expansion | Highlights and comments on a PDF page stored in the notebook; the encrypted-PDF prompt; the outline panel verified (ANALYSIS, pdfcraft) | a highlight survives a reload; a locked PDF asks once | 3, 4 |
-| 9 | optimisation | Open at 390 under 500 ms (1,335 ms under load) | the sweep's open time | 13 |
+| 9 | optimisation | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: the dock fitted by halving, once per size | 390 open 398/246/683 to 353/127/387 ms | 13 |
 
 Briefs: 37 (row 1), 42 (row 8's highlights), 73 (row 6), 79 (rows 2 to 5,
 7, 9).

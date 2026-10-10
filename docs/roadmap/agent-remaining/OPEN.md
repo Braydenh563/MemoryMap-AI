@@ -333,6 +333,40 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the debug70, shell71 and ocr79 agents (Briefs 70, 71 and 79, merged 2026-10-10)
+
+The three remaining files are in `archive/agent-remaining/`; the rows below are what they left, one line each.
+
+### debug70 (Brief 70, the debugger)
+
+- D1's folder again: the brief says `frontend/js/run/debug-*.js`; the pass is `frontend/js/run-debug.js` for ide1's reason (65 lints glob `frontend/js/*.js`). Recommendation (take it): keep the prefix.
+- Variables show one level (a repr, 200 characters): no expanding a list or an object into its children (VS Code's tree). `_mm_names` in `PY_RUNNER`, `show` in `_JS_DEBUG_WORKER` (api/run_sandbox.py:186).
+- Watches and conditions in JavaScript are evaluated natively over the frame's values (`evaluate`, api/run_sandbox.py:250), not stepped: a watch that calls a function of the script runs a native copy of its value, not the interpreter's function; a watch never changes the script's state.
+- JavaScript constructs not lowered for the stepper (classes, destructuring, spread and rest, for...of, default parameters, async and generators, `??`, `?.`, `**`): named with their line and refused (`RUN_DEBUG_REFUSED`, run-debug.js:18). A class lowering is the next most useful one.
+- A file of tests (describe/it, unittest) debugs as a plain script, without the harness: the tests do not run under Debug.
+- Python breakpoints persist per document for the tab's life (`DOC_DEBUG.breaks`), not across a reload; VS Code keeps them in the workspace.
+- Python's runtime still reloads per document opened (ide1's Left row; the frame lives in the panel); the first Debug on a cold runtime waits for it (about 5 s at 1440).
+- F11 is shared: Step into while a session is on, Focus mode otherwise (documents.js); the palette row says "F11 while debugging". Brief 71's keybindings sheet should show the context.
+- The breakpoint lane is 0.875rem wide (1.5rem under a coarse pointer); touch.js does not measure gutters, so a tap's size on it is not checked.
+
+### shell71 (Brief 71, the IDE shell)
+
+- Debug (Brief 70) is a row of `DOC_PANEL_TABS` since the merge, its pane `docDebugView()`; Ctrl+Shift+D (the registry's newDocument, settings-wiring.js:919) is answered by the editor and stopped there, and has no row in `DOC_COMMANDS`, so the sheet does not list it.
+- "the problems panel fed by every linter": harper is a prose linter and prose documents have no panel (the panel is mounted for code files, `docCompletionExtras`); its findings stay in the editor's underlines and F8, not in a Problems tab.
+- "the JS parse errors sucrase reports": Problems shows the editor's own JS and TS parse errors (the Lezer tree check, the same lines); sucrase's own message appears only in Output when a run is prepared, not in Problems before a run.
+- The console on an .html, .css, .svg or .sql file is JavaScript in a fresh worker, not the page's global: the page runs in a frame whose window the sandbox does not expose (run_sandbox.py `runHtml`).
+- A console line that never ends (`while (true)`) is stopped after 10 s (60 s for Python's first line) by terminating the worker, which loses the run's namespace: the next line starts fresh.
+- The split's second half carries the language, theme, gutter and wrap of the first, not its completions, lint, snippets or the run panel (documents-ide.js `docIdeToggleSplit`).
+- Ctrl+K Ctrl+S opens the palette for a moment before the sheet (the app's Ctrl+K is kept in code files); VS Code waits for the second chord instead.
+
+### ocr79 (Brief 79, OCR)
+
+- Live Text on the continuous (scroll) layout of a PDF: only the single-page stage carries the layer. library.js `ocrBuildScrollPages`.
+- A regions cache stored before 2026-10-10 has no `words`; Live Text appears after the page is read again. routes_files.py `PageRead.regions`.
+- An image's whole reading deleted from the lightbox or the gallery's row menu still clears without the bin (only the workspace's deletes were moved). library.js callers of `analyseMediaRow(..., { text: "" })` outside the workspace.
+- Undoing a fresh read writes the old text back through the text route, so it keeps the new read's model name ("Read by X") rather than the old one's. library.js `ocrTextWriter`.
+- `undo.js` (the trust sweep) does not walk the OCR workspace; `ocr79.js` measures it instead.
+
 ## Left by the atlas84 and companion2 agents (Briefs 84 and 34, merged 2026-10-10)
 
 Atlas everywhere (Brief 84, CHAT_PLAN F5, the four steps built):

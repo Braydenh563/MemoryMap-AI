@@ -297,3 +297,28 @@ def test_a_media_upload_lists_its_readings_too(client, monkeypatch):
     body = client.get(f"/media/{upload['id']}/ocr-regions?page=0&auto=0").json()
     assert [(r["source"], r["in_regions"]) for r in body["readings"]] == [("vision", True)]
     assert body["regions"]
+
+
+def test_each_word_keeps_its_own_box_for_live_text(monkeypatch):
+    """Live Text (WORLD_CLASS_PLAN 28.4 row 7): a region carries its words,
+    each where it sits on the page, in reading order, so the workspace can lay
+    selectable text over the picture."""
+    _install_fake(
+        monkeypatch,
+        _rows([
+            ("Hello", 96, 1, 1, 1, 10, 10, 40, 12),
+            ("world", 95, 1, 1, 1, 55, 10, 40, 12),
+        ]),
+    )
+    region = ocr.extract_regions(Path("x.png"))["regions"][0]
+    assert [w["text"] for w in region["words"]] == ["Hello", "world"]
+    first, second = region["words"]
+    assert first["x"] < second["x"]
+    assert 0 < first["w"] < 1 and 0 < first["h"] < 1
+
+
+def test_rapidocr_lines_are_cut_into_words_in_order():
+    words = ocr._line_words("Read chapter 7", 0, 0, 140, 10, 200, 100)
+    assert [w["text"] for w in words] == ["Read", "chapter", "7"]
+    assert words[0]["x"] < words[1]["x"] < words[2]["x"]
+    assert abs(words[-1]["x"] + words[-1]["w"] - 0.7) < 0.01

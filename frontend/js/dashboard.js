@@ -1542,7 +1542,7 @@ function featureCatalog() {
       { name: "Find duplicates", desc: "Notes that say much the same thing, merged into one with nothing lost.", reveal: "tidy-duplicates" },
       { name: "Manage tags", desc: "Rename, merge or remove tags across every note.", reveal: "tag-manager" },
       { name: "Filings to check", desc: "Notes Atlas filed with little certainty, each with Accept, Refile and Split.", reveal: "notes-review" },
-      { name: "Bin", desc: "Deleted notes, documents and reminders are recoverable until the bin is cleared.", reveal: "recycle-bin" },
+      { name: "Bin", desc: "Deleted notes, documents, reminders and OCR readings are recoverable until the bin is cleared.", reveal: "recycle-bin" },
     ]},
     { group: "Ask & chat", items: [
       { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", reveal: "notes-ask" },

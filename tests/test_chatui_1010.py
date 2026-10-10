@@ -291,7 +291,10 @@ def test_the_ocr_workspace_is_found_by_its_name_and_pinches():
     assert 'label: "ph:scan OCR workspace: read a document or image",' in panes
     lib = frontend_text("library.js")
     assert '$("ocr-page-pane")?.addEventListener("wheel", (event) => {' in lib
-    assert "ocrStepZoom(ocrPinch < 0 ? 1 : -1);" in lib
+    # Continuous about the pointer, and two fingers on a touch screen too
+    # (WORLD_CLASS_PLAN 28.4 row 3, scratchpad/ui-sweeps/ocr79.js).
+    assert "ocrZoomAbout(ocrShownZoom() * Math.exp(-delta / 500), event.clientX, event.clientY);" in lib
+    assert '$("ocr-page-pane")?.addEventListener("touchmove", (event) => {' in lib
 
 
 def test_quick_access_has_its_own_menu_on_its_title_line():

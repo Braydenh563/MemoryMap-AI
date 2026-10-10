@@ -41,6 +41,7 @@ from memorymap.core import (
     media_process,
     ocr,
     pdfpages,
+    reading_bin,
 )
 from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
@@ -2042,6 +2043,14 @@ class OcrRegionBox(BaseModel):
     h: float
 
 
+class OcrWordOut(BaseModel):
+    text: str
+    x: float
+    y: float
+    w: float
+    h: float
+
+
 class OcrRegionOut(BaseModel):
     index: int
     #: From Tesseract: "text" or "heading" only: it reports boxes and
@@ -2059,6 +2068,10 @@ class OcrRegionOut(BaseModel):
     #: render a list without a rectangle, but it cannot un-draw a lie about
     #: where the text was.
     box: OcrRegionBox | None = None
+    #: Each word and where it sits, from an optical reader only (Live Text,
+    #: WORLD_CLASS_PLAN 28.4 row 7). Empty for a reading, which has no pixels,
+    #: and for a cache stored before words were kept.
+    words: list[OcrWordOut] = []
 
 
 class OcrStoredReadingOut(BaseModel):
@@ -3259,6 +3272,9 @@ class OcrRangeReadOut(BaseModel):
     read: int = 0
     page_count: int = 0
     message: str = ""
+    #: Set by a page reading's delete: the bin row that holds it now, which
+    #: Undo restores (`POST /reading-bin/{id}/restore`).
+    binned_id: int | None = None
 
 
 #: How many pages one range request may read. A vision pass is seconds per
@@ -3683,7 +3699,7 @@ def media_page_reads(
     return _stored_range(_page_read_key(None, upload_id))
 
 
-def _forget_page_read(key: tuple[str, int] | None, page: int) -> None:
+def _forget_page_read(key: tuple[str, int] | None, page: int) -> int | None:
     """Remove one page's stored reading, if there is one.
 
     **The half of "delete or redo" that redo already had.** Reported directly:
@@ -3701,21 +3717,17 @@ def _forget_page_read(key: tuple[str, int] | None, page: int) -> None:
     caller wanted.
     """
     if not key:
-        return
+        return None
     kind, source_id = key
     with deps.get_db().session() as session:
-        row = (
-            session.query(PageRead)
-            .filter(
-                PageRead.kind == kind,
-                PageRead.source_id == source_id,
-                PageRead.page == int(page),
-            )
-            .one_or_none()
-        )
-        if row is not None:
-            session.delete(row)
+        #: To the bin, not away (WORLD_CLASS_PLAN 28.4 row 2): the row is
+        #: copied into `BinnedReading` first, so Undo, and the Library's Bin
+        #: after the toast has gone, can put it back.
+        binned_id = reading_bin.bin_page(session, kind, source_id, page)
+        if binned_id is not None:
+            _reindex_file(session, kind, source_id)
             session.commit()
+        return binned_id
 
 
 @router.delete("/files/{attachment_id}/page-reads/{page}", response_model=OcrRangeReadOut)
@@ -3728,8 +3740,8 @@ def delete_attachment_page_read(
     `GET .../page-reads` uses, so the workspace can repaint from the response
     rather than issuing a second request."""
     _existing_attachment(session, attachment_id)
-    _forget_page_read(_page_read_key(attachment_id, None), page)
-    return _stored_range(_page_read_key(attachment_id, None))
+    binned_id = _forget_page_read(_page_read_key(attachment_id, None), page)
+    return _stored_range(_page_read_key(attachment_id, None)).model_copy(update={"binned_id": binned_id})
 
 
 @router.delete("/media/{upload_id}/page-reads/{page}", response_model=OcrRangeReadOut)
@@ -3740,8 +3752,84 @@ def delete_media_page_read(
 ) -> OcrRangeReadOut:
     """Forget one page's reading."""
     deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
-    _forget_page_read(_page_read_key(None, upload_id), page)
-    return _stored_range(_page_read_key(None, upload_id))
+    binned_id = _forget_page_read(_page_read_key(None, upload_id), page)
+    return _stored_range(_page_read_key(None, upload_id)).model_copy(update={"binned_id": binned_id})
+
+
+class ReadingBinnedOut(BaseModel):
+    """A whole-file reading moved to the bin: its row there, for Undo."""
+
+    binned_id: int | None = None
+
+
+_READING_FIELDS = {"tesseract": "ocr_text", "vision": "vision_ocr_text"}
+
+
+def _bin_file_reading(session: Session, kind: str, source_id: int, source: str) -> ReadingBinnedOut:
+    field = _READING_FIELDS.get(source)
+    if field is None:
+        raise HTTPException(status_code=422, detail="A reading is either tesseract or vision.")
+    binned_id = reading_bin.bin_field(session, kind, source_id, field)
+    session.commit()
+    key = (kind, int(source_id))
+    _forget_regions(key)
+    with deps.get_db().session() as fresh:
+        _reindex_file(fresh, kind, source_id)
+        fresh.commit()
+    return ReadingBinnedOut(binned_id=binned_id)
+
+
+@router.delete("/media/{upload_id}/readings/{source}", response_model=ReadingBinnedOut)
+def delete_media_reading(
+    upload_id: int, source: str, session: Session = Depends(get_session)
+) -> ReadingBinnedOut:
+    """Delete an image's whole reading (Tesseract's or the vision model's)
+    into the bin (WORLD_CLASS_PLAN 28.4 row 2)."""
+    deps.get_or_404(session, MediaUpload, upload_id, "That upload could not be found.")
+    return _bin_file_reading(session, "upload", upload_id, source)
+
+
+@router.delete("/files/{attachment_id}/readings/{source}", response_model=ReadingBinnedOut)
+def delete_attachment_reading(
+    attachment_id: int, source: str, session: Session = Depends(get_session)
+) -> ReadingBinnedOut:
+    """`delete_media_reading`'s sibling for a note's own file."""
+    _existing_attachment(session, attachment_id)
+    return _bin_file_reading(session, "attachment", attachment_id, source)
+
+
+class ReadingRestoredOut(BaseModel):
+    kind: str
+    source_id: int
+    field: str
+    page: int = 0
+
+
+@router.post("/reading-bin/{bin_id}/restore", response_model=ReadingRestoredOut)
+def restore_binned_reading(bin_id: int, session: Session = Depends(get_session)) -> ReadingRestoredOut:
+    """Put a deleted reading back where it came from (Undo, or the Bin)."""
+    restored = reading_bin.restore(session, bin_id)
+    if restored is None:
+        raise HTTPException(status_code=404, detail="That reading is no longer in the bin.")
+    out = ReadingRestoredOut(
+        kind=restored.kind, source_id=restored.source_id, field=restored.field, page=restored.page
+    )
+    session.commit()
+    if out.field != "page":
+        _forget_regions((out.kind, out.source_id))
+    with deps.get_db().session() as fresh:
+        _reindex_file(fresh, out.kind, out.source_id)
+        fresh.commit()
+    return out
+
+
+@router.delete("/reading-bin/{bin_id}/purge")
+def purge_binned_reading(bin_id: int, session: Session = Depends(get_session)) -> dict:
+    """Delete a binned reading for good, from the Bin's own menu."""
+    if not reading_bin.purge(session, bin_id):
+        raise HTTPException(status_code=404, detail="That reading is no longer in the bin.")
+    session.commit()
+    return {"purged": True}
 
 
 def _clean_reading_fields(*fields: tuple[str, str | None]) -> dict[str, str | None]:

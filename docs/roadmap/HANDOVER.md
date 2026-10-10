@@ -332,7 +332,7 @@ state now. The line-by-line ledger of what is left is
 
 ### State of the branch (`claude/notes-flow-rebuild`, PR #162)
 
-**Now (2026-10-10, branch gemini/composer-improvements, Fable orchestrating):** the owner's order (INBOX 765): the deterministic chatbot (CHAT_PLAN Phase 6 and the foundation, Briefs 64 to 68, then 84), then trust and polish (WORLD_CLASS 28, Briefs 72 to 74 and the design rows), then the code editor as an IDE (DOCUMENTS 23, Briefs 69 to 71), then the companion (Brief 34); release work (installers, GitHub release, landing page) runs beside them because the audience is "Public release now".
+**Now (2026-10-10, branch gemini/composer-improvements, Fable orchestrating):** the owner's order (INBOX 765): the deterministic chatbot (CHAT_PLAN Phase 6 and the foundation, Briefs 64 to 68, then 84), then trust and polish (WORLD_CLASS 28, Briefs 72 to 74 and the design rows), then the code editor as an IDE (DOCUMENTS 23, Briefs 69 to 71), then the companion (Brief 34); release work (installers, GitHub release, landing page) runs beside them because the audience is "Public release now". Merged by 19:30Z: 84 (Atlas everywhere), 34 second round (the faces and the tail), 70 (the debugger), the CI batch (21 tests at cause, guards 281 to 277), 71 (the IDE shell, Debug as its fifth tab) and 79 (OCR: five undos, pinch, Live Text); running: 78, 85, 89, 90; next 76, 87, 88 (briefs written), then 80 to 83.
 the Gemini session's 12 commits are under triage (Brief 35: boot broken by a
 `thefuzz` import, 15 MB of unused vendoring, grounded 1.0 to 0.25); four Opus
 agents run (triage, boardmap, chatui, graph: Briefs 35 to 38) on the owner's

@@ -2774,6 +2774,11 @@ button.ghost.doc-template-choice.wb-template-choice {
 
 /* Tighter, before anything folds: Regions keeps its icon, its word goes (the
    `.toolbar-word` recipe: hidden from the eye, kept for a screen reader). */
+/* The last step: Read keeps its words and loses its icon. */
+.ocr-dock.is-terse #ocr-read-page .ph-lead {
+  display: none;
+}
+
 .ocr-dock.is-tight .ocr-regions-toggle .toolbar-word,
 .ocr-dock.is-tightest .ocr-reader-name {
   position: absolute;
@@ -2912,6 +2917,20 @@ button.ghost.doc-template-choice.wb-template-choice {
   right: 0;
   width: min(22rem, 86vw);
   min-width: 0;
+}
+/* Under 600 the reader button sits near the dialog's left edge, so hanging
+   left from it put the picker and both installs past the screen's edge (2 to
+   3 controls at 390, 4 at 320; WORLD_CLASS_PLAN 28.4 row 4). There the
+   popover spans the window between the gutters, still under its button. */
+@media (max-width: 599.98px) {
+  .ocr-reader-menu > .dock-menu-list {
+    position: fixed;
+    left: var(--space-6);
+    right: var(--space-6);
+    width: auto;
+    max-height: 70dvh;
+    overflow-y: auto;
+  }
 }
 
 .ocr-reader-list .dock-menu-section > select,
@@ -3551,4 +3570,38 @@ button.ghost.doc-template-choice.wb-template-choice {
   justify-content: center;
   min-width: var(--target-min);
   min-height: var(--target-min);
+}
+
+/* **Live Text in place** (WORLD_CLASS_PLAN 28.4 row 7): the words an optical
+   reader boxed, laid over the picture as transparent type, so a drag selects
+   them where they are printed. The layer takes no press; each word does, so a
+   drag that starts between words still outlines a region underneath. The
+   type is a share of the layer's height (`cqh`) and stretched to its box
+   (`--word-sx`, measured once), so a zoom moves nothing. */
+.ocr-live-text {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+  pointer-events: none;
+}
+.ocr-live-word {
+  /* Set per word from script (its box's height, its stretch); these are the
+     values before that lands. */
+  --word-h: 0.02;
+  --word-sx: 1;
+  position: absolute;
+  pointer-events: auto;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+  color: transparent;
+  white-space: pre;
+  line-height: 1;
+  font-size: calc(var(--word-h) * 100cqh * 0.9);
+  transform-origin: left top;
+  transform: scaleX(var(--word-sx));
+}
+.ocr-live-word::selection {
+  color: transparent;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }

@@ -504,8 +504,8 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note, a board, a document or a reminder goes to the "
-            "bin, not gone for good: restore it from the Library (Filter, "
+            "Deleting a note, a board, a document, a reminder or an OCR reading "
+            "goes to the bin, not gone for good: restore it from the Library (Filter, "
             "Include the bin, or Open the bin from Ctrl+K), or use the Undo "
             "toast that appears right after deleting, which also has a Go to bin "
             "button for a note. Ctrl/Cmd+Z undoes and "
@@ -515,7 +515,8 @@ HELP_TOPICS: list[dict] = [
             "document has its own, and both are kept while you switch away "
             "and back during the session; everywhere else it is the app's "
             "(notes, tags, categories, links, reminders, deleted chats, note "
-            "types, kinds of link and a note's references). A deleted space "
+            "types, kinds of link, a note's references and the OCR workspace's "
+            "readings). A deleted space "
             "comes back with Undo when it was empty or its contents were "
             "moved; deleting everything in it is final. Inside a text box "
             "Ctrl+Z undoes your typing."
@@ -680,8 +681,12 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "OCR workspace: open any image or PDF from the Library or a note and "
             "choose \"Read text\", or open it from Commands, Find anything or "
-            "Quick access (search ocr). A pinch or Ctrl and the wheel zooms the "
-            "page. The reader button in the tool row (its dot is "
+            "Quick access (search ocr). A pinch, two fingers on a touch screen "
+            "or Ctrl and the wheel zooms the page about the pointer. Where "
+            "Tesseract or RapidOCR read it, drag across the words on the page "
+            "to select them; Ctrl+C copies them in reading order. Saving an "
+            "edit, deleting, cleaning up and reading again all undo with Ctrl+Z, "
+            "and a deleted reading goes to the bin. The reader button in the tool row (its dot is "
             "green when it can read) picks the AI document "
             "reader (a model built to transcribe a page), the general vision "
             "model where you have a different one installed, Tesseract, or "

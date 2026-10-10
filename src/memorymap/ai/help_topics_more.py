@@ -218,7 +218,7 @@ MORE_TOPICS: list[dict] = [
             "general settings",
         ),
         "body": (
-            "Settings, General. Bin: auto-clear binned notes, documents and reminders after a "
+            "Settings, General. Bin: auto-clear binned notes, documents, reminders and OCR readings after a "
             "number of days. Chat history: delete saved chats after a number "
             "of days (0 keeps every chat; pinned chats are never deleted). "
             "Notifications: mute everything except reminders. Writing: smart "
@@ -1272,7 +1272,10 @@ MORE_TOPICS.extend(
                 "reads even when Tesseract is ready; with nothing chosen it reads "
                 "when Tesseract isn't ready. Its models read English and Chinese, "
                 "so the language does not apply. Not installed, the menu says so "
-                "and its Install opens that Packages row. The workspace remembers "
+                "and its Install opens that Packages row. With no engine and no "
+                "model the menu offers RapidOCR first (about 60 MB, nothing else "
+                "to install), then Tesseract, each with its own Install, and Read "
+                "says why it cannot read yet. The workspace remembers "
                 "the reader you chose."
             ),
             "badge": {"label": "Packages", "section": "extras"},

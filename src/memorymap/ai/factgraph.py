@@ -26,8 +26,9 @@ import hashlib
 import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, time
 
+from memorymap.ai import recognise
 from memorymap.ai import when as when_words
 
 KINDS = (
@@ -152,21 +153,12 @@ _TIME_UNITS = {
     "hour": 3600, "hours": 3600, "hrs": 3600, "hr": 3600, "day": 86400, "days": 86400, "week": 604800,
     "weeks": 604800, "month": 2629800, "months": 2629800, "year": 31557600, "years": 31557600,
 }
-_DURATION = re.compile(r"\b(?:" + _NUMBER + r"|an?|half an)\s+(" + "|".join(sorted(_TIME_UNITS, key=len, reverse=True)) + r")\b", re.I)
 _UNITS = frozenset(
     """km kms kilometres kilometers kilometre kilometer m metres meters mile miles mi kg kgs kilos g grams lb lbs pounds
     oz cm mm l litres liters ml percent % sets reps laps times steps pages words people notes loaves cups tbsp tsp
     degrees grit bpm kcal calories items tickets users testers""".split()
 )
 _QUANTITY = re.compile(r"\b" + _NUMBER + r"\s*(%|[a-z]+)\b(?:\s+of\s+([a-z]+(?:\s[a-z]+)?))?", re.I)
-_MONEY = re.compile(
-    r"(?:(?P<sign>[$£€¥])\s?(?P<a>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?P<k>k\b)?"
-    r"|\b(?P<code>USD|GBP|EUR|AUD|CAD|NZD|JPY)\s?(?P<b>\d[\d,]*(?:\.\d+)?)"
-    r"|\b(?P<c>\d[\d,]*(?:\.\d+)?)\s?(?P<word>dollars|bucks|pounds sterling|quid|euros|yen|USD|GBP|EUR|AUD|CAD|NZD)\b)",
-    re.I,
-)
-_CURRENCY = {"$": "USD", "£": "GBP", "€": "EUR", "¥": "JPY", "dollars": "USD", "bucks": "USD", "pounds sterling": "GBP",
-             "quid": "GBP", "euros": "EUR", "yen": "JPY"}
 _DECISION = re.compile(r"\b(decided|going with|chose|settled on|opted for)\b\s*(?:to\s+go\s+with\s+|to\s+|on\s+)?", re.I)
 _PREFERENCE = re.compile(
     r"\b(?:(?:i|we)\s+(?:really\s+|also\s+)?(?P<neg>don't |do not |didn't |never )?(?P<verb>like|love|prefer|hate|dislike|enjoy|adore|can't stand|cannot stand)"
@@ -313,7 +305,7 @@ def _date_value(phrase: str, anchor: date | None, tense: str | None) -> tuple | 
 
 def _sentence_tense(sentence: str) -> str | None:
     _tables()
-    if _AUX_FUTURE.search(sentence) or _PROGRESSIVE_FUTURE.search(sentence) or re.search(r"\b(?:plan|want|need)s? to\b|\bnext (?:week|month|year)\b|\btomorrow\b", sentence, re.I):
+    if _AUX_FUTURE.search(sentence) or _PROGRESSIVE_FUTURE.search(sentence) or re.search(r"\b(?:plan|want|need)s? to\b", sentence, re.I) or recognise.says_ahead(sentence):
         return "future"
     if re.search(r"\bfor\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)\b", sentence, re.I):
         return "future"
@@ -364,30 +356,25 @@ def _note_facts(note: dict) -> list[Fact]:
             taken.append((s, e))
             if resolved:
                 dated.append(resolved)
-        for match in _MONEY.finditer(sentence):
-            raw = match.group("a") or match.group("b") or match.group("c")
-            value = float(raw.replace(",", ""))
-            if match.group("k"):
-                value *= 1000
-            sign = match.group("sign") or match.group("code") or match.group("word") or ""
-            currency = _CURRENCY.get(sign.lower(), _CURRENCY.get(sign, sign.upper()))
-            add("money", match.start(), match.end(), {"value": int(value) if value == int(value) else value, "currency": currency}, confidence=0.95)
-            taken.append(match.span())
-        for match in _DURATION.finditer(sentence):
-            if any(s <= match.start() < e for s, e in taken):
+        #: Money is read by `ai/recognise.py` (CHAT_PLAN decision 46). A sum
+        #: that also reads as a weight ("lost 5 pounds") is left to the
+        #: quantities below, as it always was here.
+        spans = recognise.recognise(sentence, now=datetime.combine(written or date.today(), time(12)))
+        for found in spans:
+            if found.kind != "money" or found.rank or any(o.rank and (o.start, o.end) == (found.start, found.end) for o in spans):
+                continue
+            value, currency = found.value
+            add("money", found.start, found.end, {"value": int(value) if value == int(value) else value, "currency": currency}, confidence=0.95)
+            taken.append((found.start, found.end))
+        for found in spans:
+            if found.kind != "duration" or found.rank or any(st <= found.start < en for st, en in taken):
                 continue
             #: "three times a week" is how often, not how long.
-            if re.search(r"\b(?:times|once|twice|per|every)\s+$", sentence[: match.start()], re.I):
+            if re.search(r"\b(?:times|once|twice|per|every)\s+$", sentence[: found.start], re.I):
                 continue
-            amount = match.group(1)
-            word = match.group(0).lower()
-            if amount is None:
-                value = 0.5 if word.startswith("half") else 1
-            else:
-                value = _NUMBER_WORDS.get(amount.lower()) or float(amount.replace(",", ""))
-            unit = match.group(2).lower()
-            add("duration", match.start(), match.end(), {"seconds": int(value * _TIME_UNITS[unit]), "unit": unit}, confidence=0.9)
-            taken.append(match.span())
+            unit = found.text.lower().split()[-1] if " " in found.text else found.text.lower().lstrip("0123456789.,")
+            add("duration", found.start, found.end, {"seconds": int(found.value.total_seconds()), "unit": unit}, confidence=0.9)
+            taken.append((found.start, found.end))
         for match in _QUANTITY.finditer(sentence):
             if any(s <= match.start() < e or s < match.end() <= e for s, e in taken):
                 continue

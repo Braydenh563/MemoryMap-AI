@@ -25,76 +25,15 @@ import hashlib
 import re
 from datetime import date, datetime
 
-from memorymap.ai import arithmetic
+from memorymap.ai import arithmetic, recognise
 from memorymap.ai import when as when_words
 
 # --- units -----------------------------------------------------------------------
 
-#: name -> (dimension, size in the dimension's base unit, the name said).
-#: Base units: metre, kilogram, litre, second, square metre, metre per second,
-#: byte, joule. Temperature is converted by formula, not by size.
-_UNITS: dict[str, tuple[str, float, str]] = {}
-
-
-def _unit(dimension: str, size: float, said: str, *names: str) -> None:
-    for name in (said, *names):
-        _UNITS[name] = (dimension, size, said)
-
-
-for _args in (
-    ("length", 0.001, "millimetres", "mm", "millimetre", "millimeter", "millimeters"),
-    ("length", 0.01, "centimetres", "cm", "centimetre", "centimeter", "centimeters"),
-    ("length", 1.0, "metres", "m", "metre", "meter", "meters"),
-    ("length", 1000.0, "kilometres", "km", "kms", "kilometre", "kilometer", "kilometers", "k"),
-    ("length", 0.0254, "inches", "in", "inch", '"'),
-    ("length", 0.3048, "feet", "ft", "foot"),
-    ("length", 0.9144, "yards", "yd", "yds", "yard"),
-    ("length", 1609.344, "miles", "mi", "mile"),
-    ("length", 1852.0, "nautical miles", "nmi", "nautical mile"),
-    ("mass", 0.000001, "milligrams", "mg", "milligram"),
-    ("mass", 0.001, "grams", "g", "gram", "gr"),
-    ("mass", 1.0, "kilograms", "kg", "kgs", "kilogram", "kilo", "kilos"),
-    ("mass", 1000.0, "tonnes", "t", "tonne", "metric ton", "metric tons"),
-    ("mass", 0.028349523125, "ounces", "oz", "ounce"),
-    ("mass", 0.45359237, "pounds", "lb", "lbs", "pound"),
-    ("mass", 6.35029318, "stone", "st", "stones"),
-    ("volume", 0.001, "millilitres", "ml", "millilitre", "milliliter", "milliliters"),
-    ("volume", 1.0, "litres", "l", "litre", "liter", "liters", "ltr"),
-    ("volume", 0.00492892159375, "teaspoons", "tsp", "teaspoon"),
-    ("volume", 0.01478676478125, "tablespoons", "tbsp", "tablespoon"),
-    ("volume", 0.2365882365, "cups", "cup"),
-    ("volume", 0.0295735295625, "fluid ounces", "fl oz", "floz", "fluid ounce"),
-    ("volume", 0.473176473, "US pints", "pint", "pints", "us pint", "us pints"),
-    ("volume", 0.56826125, "UK pints", "uk pint", "uk pints", "imperial pint", "imperial pints"),
-    ("volume", 3.785411784, "US gallons", "gallon", "gallons", "gal", "us gallon", "us gallons"),
-    ("volume", 4.54609, "UK gallons", "uk gallon", "uk gallons", "imperial gallon", "imperial gallons"),
-    ("time", 1.0, "seconds", "s", "sec", "secs", "second"),
-    ("time", 60.0, "minutes", "min", "mins", "minute"),
-    ("time", 3600.0, "hours", "h", "hr", "hrs", "hour"),
-    ("time", 86400.0, "days", "day"),
-    ("time", 604800.0, "weeks", "week", "wk", "wks"),
-    ("time", 31557600.0, "years", "year", "yr", "yrs"),
-    ("area", 1.0, "square metres", "m2", "sq m", "square metre", "square meters", "square meter"),
-    ("area", 1000000.0, "square kilometres", "km2", "sq km", "square kilometre"),
-    ("area", 0.09290304, "square feet", "ft2", "sq ft", "square foot"),
-    ("area", 10000.0, "hectares", "ha", "hectare"),
-    ("area", 4046.8564224, "acres", "acre", "ac"),
-    ("speed", 1 / 3.6, "kilometres an hour", "km/h", "kph", "kmh", "kilometres per hour", "kilometers per hour"),
-    ("speed", 0.44704, "miles an hour", "mph", "miles per hour"),
-    ("speed", 1.0, "metres a second", "m/s", "metres per second", "meters per second"),
-    ("speed", 0.514444, "knots", "kn", "knot", "kt"),
-    ("data", 1.0, "bytes", "b", "byte"),
-    ("data", 1e3, "kilobytes", "kb", "kilobyte"),
-    ("data", 1e6, "megabytes", "mb", "megabyte"),
-    ("data", 1e9, "gigabytes", "gb", "gigabyte"),
-    ("data", 1e12, "terabytes", "tb", "terabyte"),
-    ("energy", 4184.0, "kilocalories", "kcal", "calories", "calorie", "cal", "kilocalorie"),
-    ("energy", 1000.0, "kilojoules", "kj", "kilojoule"),
-    ("temperature", 1.0, "°C", "c", "celsius", "°c", "degrees c", "degrees celsius", "centigrade"),
-    ("temperature", 1.0, "°F", "f", "fahrenheit", "°f", "degrees f", "degrees fahrenheit"),
-    ("temperature", 1.0, "K", "kelvin"),
-):
-    _unit(*_args)
+#: name -> (dimension, size in the dimension's base unit, the name said): the
+#: recogniser's table (CHAT_PLAN decision 46), so a unit the chips read is a
+#: unit this converts.
+_UNITS = recognise.UNITS
 
 _UNIT_NAMES = "|".join(sorted((re.escape(n) for n in _UNITS), key=len, reverse=True))
 _NUM = r"(-?\d+(?:[.,]\d+)?)"
@@ -116,16 +55,7 @@ RATES: dict[str, float] = {
     "CNY": 7.19, "INR": 85.5, "SEK": 9.6, "NOK": 10.1, "DKK": 6.56, "SGD": 1.29, "HKD": 7.85, "MXN": 19.2,
     "BRL": 5.6, "ZAR": 17.9, "KRW": 1370.0, "PLN": 3.75,
 }
-_CURRENCY_NAMES = {
-    "usd": "USD", "dollar": "USD", "dollars": "USD", "us dollars": "USD", "bucks": "USD", "$": "USD",
-    "eur": "EUR", "euro": "EUR", "euros": "EUR", "€": "EUR",
-    "gbp": "GBP", "pound": "GBP", "pounds": "GBP", "pounds sterling": "GBP", "quid": "GBP", "£": "GBP",
-    "jpy": "JPY", "yen": "JPY", "¥": "JPY", "aud": "AUD", "australian dollars": "AUD", "cad": "CAD", "canadian dollars": "CAD",
-    "nzd": "NZD", "new zealand dollars": "NZD", "chf": "CHF", "swiss francs": "CHF", "francs": "CHF", "cny": "CNY", "yuan": "CNY",
-    "rmb": "CNY", "inr": "INR", "rupees": "INR", "sek": "SEK", "kronor": "SEK", "nok": "NOK", "dkk": "DKK", "sgd": "SGD",
-    "hkd": "HKD", "mxn": "MXN", "pesos": "MXN", "brl": "BRL", "reais": "BRL", "zar": "ZAR", "rand": "ZAR", "krw": "KRW",
-    "won": "KRW", "pln": "PLN", "zloty": "PLN",
-}
+_CURRENCY_NAMES = recognise.CURRENCY_NAMES
 _MONEY_NAMES = "|".join(sorted((re.escape(n) for n in _CURRENCY_NAMES), key=len, reverse=True))
 def _compile_money() -> tuple:
     return (
@@ -152,15 +82,6 @@ _TODAY = re.compile(
     re.I,
 )
 _YEAR = re.compile(r"^what (?:year|month) is it(?: now)?$", re.I)
-#: The text is `_clean`ed first (one space between words), so these read
-#: single spaces and a non-space start for the phrase: `\s+(.+)$` on a run
-#: of whitespace was quadratic (CodeQL).
-_UNTIL = re.compile(r"^how (?:many|long) (days|weeks|months)? ?(?:is it )?(?:until|till|til|to|before) (\S.*)$", re.I)
-_SINCE = re.compile(r"^how (?:many|long) (days|weeks|months)? ?(?:has it been |is it |ago was |)?(?:since) (\S.*)$", re.I)
-_FROM_NOW = re.compile(
-    r"^what (?:day|date)(?: of the week)? (?:is|will it be|was)\s+(?:it\s+)?(?:in\s+)?(\d{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(days?|weeks?|months?|years?)(?:\s+(from now|from today|ago))?$",
-    re.I,
-)
 _WEEKDAY_OF = re.compile(r"^what day(?: of the week)? (?:is|was|will be|falls on) (\S.*)$", re.I)
 _DIE = re.compile(r"^(?:roll|throw)\s+(?:a\s+|one\s+|the\s+)?(?:die|dice|d6)$|^roll\s+(\d{1,2})?d(\d{1,3})$", re.I)
 _COIN = re.compile(r"^(?:flip|toss)\s+a\s+coin$|^heads or tails$", re.I)
@@ -272,29 +193,28 @@ def _salted(salt: str, text: str, low: int, high: int) -> int:
 
 def _dates(text: str, now: datetime) -> list[tuple] | None:
     today = now.date()
-    match = _UNTIL.match(text)
-    if match:
-        found = when_words.span(match.group(2), today, "future")
+    asked = recognise.days_question(text)
+    if asked and asked[0] == "future":
+        found = when_words.span(asked[1], today, "future")
         if found is None:
             return None
         days = (found[0] - today).days
         if days < 0:
-            return [("computed", f"{_day_words(found[0])} was {_plural(-days, 'day')} ago."), ("computed", f"\nRead as the days from today to {match.group(2)}.")]
+            return [("computed", f"{_day_words(found[0])} was {_plural(-days, 'day')} ago."), ("computed", f"\nRead as the days from today to {asked[1]}.")]
         return [
             ("computed", f"{_day_words(found[0])} is {_plural(days, 'day')} away." if days else "That is today."),
-            ("computed", f"\nRead as the days from today to {match.group(2)}."),
+            ("computed", f"\nRead as the days from today to {asked[1]}."),
         ]
-    match = _SINCE.match(text)
-    if match:
-        found = when_words.span(match.group(2), today, "past")
+    if asked:
+        found = when_words.span(asked[1], today, "past")
         if found is None:
             return None
         days = (today - found[0]).days
-        return [("computed", f"{_day_words(found[0])} was {_plural(days, 'day')} ago."), ("computed", f"\nRead as the days from {match.group(2)} to today.")]
-    match = _FROM_NOW.match(text)
-    if match:
-        amount, unit = match.group(1), match.group(2)
-        phrase = f"in {amount} {unit}" if (match.group(3) or "from").startswith("from") else f"{amount} {unit} ago"
+        return [("computed", f"{_day_words(found[0])} was {_plural(days, 'day')} ago."), ("computed", f"\nRead as the days from {asked[1]} to today.")]
+    offset = recognise.offset_question(text)
+    if offset:
+        amount, unit, ago = offset
+        phrase = f"{amount} {unit} ago" if ago else f"in {amount} {unit}"
         found = when_words.span(phrase, today, None)
         if found is None:
             return None
@@ -317,10 +237,9 @@ def until_subject(question: str) -> tuple[str, str] | None:
     """("future" or "past", the subject) of "how many days until the
     dentist", whose date only a note can give, or None."""
     text = _clean(question)
-    for pattern, tense in ((_UNTIL, "future"), (_SINCE, "past")):
-        match = pattern.match(text)
-        if match:
-            return tense, re.sub(r"^(?:the|my|our)\s+", "", match.group(2).strip(), flags=re.I)
+    asked = recognise.days_question(text)
+    if asked:
+        return asked[0], re.sub(r"^(?:the|my|our)\s+", "", asked[1].strip(), flags=re.I)
     return None
 
 
@@ -338,13 +257,12 @@ def kind_of(question: str) -> str | None:
         return "units"
     if any(p.match(text) for p in _patterns("money")):
         return "currency"
-    for pattern, tense in ((_UNTIL, "future"), (_SINCE, "past")):
-        match = pattern.match(text)
-        if match:
-            #: "how many days until the dentist": the date is in a note, which
-            #: the composer reads (`composer._until_note`).
-            return "dates" if when_words.span(match.group(2), now_day(), tense) else "until_note"
-    if _FROM_NOW.match(text) or (_WEEKDAY_OF.match(text) and when_words.span(_WEEKDAY_OF.match(text).group(1), now_day(), "future")):
+    asked = recognise.days_question(text)
+    if asked:
+        #: "how many days until the dentist": the date is in a note, which
+        #: the composer reads (`composer._until_note`).
+        return "dates" if when_words.span(asked[1], now_day(), asked[0]) else "until_note"
+    if recognise.offset_question(text) or (_WEEKDAY_OF.match(text) and when_words.span(_WEEKDAY_OF.match(text).group(1), now_day(), "future")):
         return "dates"
     if _DIE.match(text) or _COIN.match(text) or _PICK.match(text):
         return "chance"

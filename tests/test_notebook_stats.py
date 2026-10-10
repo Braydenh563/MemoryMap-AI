@@ -314,3 +314,21 @@ def test_a_summary_of_the_notes_is_not_a_stats_question(client):
     """"Summary" asks for the notes' content, which the composer answers."""
     with _session() as session:
         assert notebook_stats.answer("give me a summary of the trip", session) is None
+
+
+def test_a_count_over_a_window_counts_the_window(client):
+    """"How many notes did I write this week" was answered with the notebook's
+    total (the plain count ran first); the window is now read by
+    `ai/recognise.py` and counted (CHAT_PLAN F1)."""
+    from datetime import timedelta
+
+    from memorymap.core.database import utcnow
+
+    with _session() as session:
+        _note(session, "new one")
+        old = _note(session, "old one")
+        old.created_at = utcnow() - timedelta(days=400)
+        session.commit()
+        result = notebook_stats.answer("how many notes did I write today", session)
+        assert result.kind == "recent-count" and result.text == "You have written 1 note today."
+        assert notebook_stats.answer("how many notes do I have", session).text.startswith("You have 2 notes")

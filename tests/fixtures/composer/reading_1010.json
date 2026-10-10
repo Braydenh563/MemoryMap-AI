@@ -1,0 +1,283 @@
+{
+ "now": "2026-10-06T14:30",
+ "rows": [
+  {
+   "text": "remind me to call mum tomorrow at 5pm",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "remind me every 2 weeks to pay the cleaner",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "tag the knife note with kitchen",
+   "intent": "tag",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "delete the boiler note",
+   "intent": "delete",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "move the sourdough note to Cooking",
+   "intent": "move",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "open settings",
+   "intent": "navigate",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "summarise my gym notes",
+   "intent": "summarise",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "what is 12 * 7",
+   "intent": "utility",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "convert 5 miles to km",
+   "intent": "utility",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "what time is it",
+   "intent": "utility",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "how many days until christmas",
+   "intent": "utility",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "hello",
+   "intent": "smalltalk",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "thanks a lot",
+   "intent": "smalltalk",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "how do I change the theme",
+   "intent": "about_app",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "what can you do",
+   "intent": "about_app",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "what did I write about porto",
+   "intent": "question",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "harbor launch plan",
+   "intent": "question",
+   "band": "sure",
+   "context": {}
+  },
+  {
+   "text": "water the plants every tuesday",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "dentist 21st 9am",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "every morning at 7 stretch",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "pay rent on the 1st at 9am",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "call Sam on my birthday at 10",
+   "intent": "reminder",
+   "band": "sure",
+   "context": {
+    "surface": "reminder",
+    "birthday": "1990-11-20"
+   }
+  },
+  {
+   "text": "what did I write last week",
+   "intent": "question",
+   "band": "likely",
+   "context": {}
+  },
+  {
+   "text": "notes from march",
+   "intent": "question",
+   "band": "likely",
+   "context": {}
+  },
+  {
+   "text": "what did I save yesterday about the boiler",
+   "intent": "question",
+   "band": "likely",
+   "context": {}
+  },
+  {
+   "text": "remind me on 3/11 to call the bank",
+   "intent": "reminder",
+   "band": "likely",
+   "context": {
+    "locale": "en-GB"
+   }
+  },
+  {
+   "text": "doctor 2/11 at 10am",
+   "intent": "reminder",
+   "band": "likely",
+   "context": {
+    "surface": "reminder",
+    "locale": "en-US"
+   }
+  },
+  {
+   "text": "remind me on 3/11 to call the bank",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {}
+  },
+  {
+   "text": "doctor 2/11 at 10am",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "remind me to call the bank",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {}
+  },
+  {
+   "text": "buy milk",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "review budget friday",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "call Sam on my birthday",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {
+    "surface": "reminder"
+   }
+  },
+  {
+   "text": "set a reminder to water the plants",
+   "intent": "reminder",
+   "band": "unsure",
+   "context": {}
+  },
+  {
+   "text": "asdfgh",
+   "intent": "unknown",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "qwerty",
+   "intent": "unknown",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "",
+   "intent": "empty",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "the",
+   "intent": "question",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "and then",
+   "intent": "question",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "   ",
+   "intent": "empty",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "of the a",
+   "intent": "question",
+   "band": "none",
+   "context": {}
+  },
+  {
+   "text": "on 3 october",
+   "intent": "timeline",
+   "band": "sure",
+   "context": {
+    "surface": "timeline"
+   }
+  }
+ ]
+}

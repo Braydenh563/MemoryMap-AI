@@ -1745,15 +1745,15 @@ HELP_TOPICS.extend(
         },
         {
             "id": "reminders-controls",
-            "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "calendar", "ics", "outlook", "google calendar"),
+            "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend", "every", "calendar", "ics", "outlook", "google calendar"),
             "body": (
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
                 "tomorrow evening, high priority\"), then Enter or the sparkle button "
                 "(Add from this sentence) works out the time and the "
                 "priority. Times like \"tomorrow at 5pm\", \"next Friday\", "
-                "\"tonight\" or \"in 20 minutes\" are read with no AI and shown as chips "
+                "\"tonight\", \"in 20 minutes\" or \"every Tuesday\" (saved as a weekly repeat) are read with no AI and shown as chips "
                 "under the box before Enter (press one to leave it as words); with no "
-                "day or time it asks for one rather than guessing. Or type the reminder, pick a priority (normal, low or "
+                "day or time it asks for one rather than guessing, and the AI is asked only for a phrasing those rules miss. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "

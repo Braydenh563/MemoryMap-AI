@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from statistics import median
 
-from memorymap.ai import composer_tables
+from memorymap.ai import composer_tables, recognise
 
 #: The thresholds each rule fires on (decision 32): below them, silence.
 MIN_NOTES = 3
@@ -41,7 +41,6 @@ LOAD_MIN = 4
 TIME_OF_DAY_MIN = 3
 
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-_AFTER_WORK = re.compile(r"\b(?:after work|in the evening|this evening|tonight|after dinner)\b", re.I)
 #: Words that say a subject is something done for its own sake: a session, a
 #: round, practice, a game. With one of them, a recurring subject "may be a
 #: hobby forming"; without, it "keeps coming up".
@@ -99,7 +98,7 @@ def recurrence(subject: str, notes: list[dict], today: date) -> Insight | None:
     dated = sorted(((d, n) for n in notes if _holds(n, subject) and (d := _written(n))), key=lambda pair: pair[0])
     if len(dated) < MIN_NOTES or len({_week(d) for d, _ in dated}) < MIN_WEEKS:
         return None
-    after = sum(1 for _d, n in dated if _AFTER_WORK.search(str(n.get("content") or "")))
+    after = sum(1 for _d, n in dated if recognise.part_of_day(str(n.get("content") or "")) == "evening")
     leisure = any(_LEISURE.search(str(n.get("content") or "")) for _d, n in dated)
     slots = {
         "subject": subject,

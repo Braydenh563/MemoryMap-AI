@@ -161,6 +161,11 @@ def classify(message: str) -> str:
     return NOTES
 
 
+def is_mash(message: str) -> bool:
+    """A key-mash ("asdfgh"): small talk to `classify`, nothing at all to a reading."""
+    return bool(_MASH.fullmatch(_normalise(message)))
+
+
 def needs_retrieval(intent: str) -> bool:
     """Only note questions are worth searching the notebook for."""
     return intent == NOTES

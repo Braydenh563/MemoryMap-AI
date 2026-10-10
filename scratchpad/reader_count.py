@@ -36,11 +36,15 @@ VERDICT = {
     "src/memorymap/ai/when.py": "reader: words to a date or window (resolve, parse_reminder_text, _AGO)",
     "src/memorymap/ai/reminder_parser.py": "reader: parse_relative, 'in 30 mins' to a datetime",
     "src/memorymap/search/query.py": "reader: today, yesterday, this/last week|month|year, 'N units back' to a date range",
-    "src/memorymap/ai/notebook_stats.py": "reader: 'this week', 'past month' to a seven or thirty day window",
+    "src/memorymap/ai/notebook_stats.py": "not a reader since Brief 65: weekday names for the busiest-day answer (windows read by recognise)",
     "src/memorymap/api/routes_vision.py": "reader (keyword): _period, 'this week' in text to a date range",
     "src/memorymap/ai/composer.py": "cue: _DATE_CUE scores a sentence as dated (no value), beside the calls to when.resolve",
     "src/memorymap/ai/question_noise.py": "not a reader: hr, hrs, mins in the slang map",
     "src/memorymap/ai/source_check.py": "not a reader: weekday and month names in a stop list of non-names",
+    # Brief 65 (F1), 2026-10-10: the readers above delegate to ai/recognise.py.
+    "src/memorymap/ai/realise.py": "not a reader: weekday names for writing a date",
+    "src/memorymap/ai/utilities.py": "not a reader: weekday names for writing a date (units and date questions read by recognise)",
+    "src/memorymap/ai/factgraph.py": "not a reader: time-unit names a count is not (dates, money, durations read by recognise)",
 }
 
 WEEKDAYS = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"

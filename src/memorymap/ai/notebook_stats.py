@@ -37,7 +37,7 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -238,6 +238,13 @@ def answer(message: str, session: Session) -> StatAnswer | None:
     #: retrieval finds and the composer counts ("At least four of your notes
     #: mention Harbor"); answering it "You have 77 notes" dropped the subject
     #: (engine probe P5).
+    #: A count over a window ("how many notes did I write this week") is the
+    #: window's count, never the notebook's total: the window is read by
+    #: `ai/recognise.py` (CHAT_PLAN decision 46), so "in March" and "since
+    #: Friday" count too.
+    window = _window(text) if re.search(_COUNT, text) else None
+    if window is not None and not _SUBJECT_AFTER.search(text):
+        return _recent_count(session, window)
     if _asks(text, _COUNT, r"\bnotes?\b") and not _SUBJECT_AFTER.search(text):
         return _note_count(session)
     if _asks(text, _COUNT, r"\bdocuments?\b"):
@@ -248,8 +255,6 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _orphans(session)
     if _asks(text, r"when do i|busiest|most active|what time|which day"):
         return _busiest(session)
-    if _asks(text, _COUNT, r"this week|past week|last week|this month|past month"):
-        return _recent_count(session, text)
     #: --- added with the spelling pass, because "improve" was the other half
     #: of the same request. Each one is a question people ask about a notebook
     #: that retrieval answers badly for the same reason the rest do: it is a
@@ -459,18 +464,41 @@ def _busiest(session: Session) -> StatAnswer:
     )
 
 
-def _recent_count(session: Session, text: str) -> StatAnswer:
-    days = 7 if re.search(r"week", text) else 30
-    since = utcnow() - timedelta(days=days)
+def _window(text: str) -> tuple[datetime, datetime, str] | None:
+    """(start, end, words) of the first day or span of days the question
+    names, on the UTC calendar the notes are stamped with; None for none."""
+    from memorymap.ai import recognise
+
+    now = utcnow()
+    for found in recognise.recognise(text, now=now, tense="past"):
+        if found.rank or found.kind not in ("date", "range"):
+            continue
+        first, last, grain = found.value if found.kind == "range" else (found.value, found.value, "day")
+        if not isinstance(first, date):
+            continue
+        words = found.text.strip()
+        if grain == "month" and words.lower().startswith(("in ", "during ")):
+            words = first.strftime("in %B %Y")
+        elif not words.lower().startswith(("in ", "since ", "on ", "this ", "last ", "today", "yesterday")):
+            words = ("in the " if words.lower().startswith(("past ", "previous ")) else "on ") + words
+        start = datetime.combine(first, time(0), now.tzinfo)
+        end = min(datetime.combine(last, time(23, 59, 59), now.tzinfo), now)
+        return (start, end, words) if start < end else None
+    return None
+
+
+def _recent_count(session: Session, window: tuple[datetime, datetime, str]) -> StatAnswer:
+    start, end, words = window
     total = (
-        session.scalar(_visible(select(func.count(Entry.id)).where(Entry.created_at >= since)))
+        session.scalar(
+            _visible(select(func.count(Entry.id)).where(Entry.created_at >= start, Entry.created_at <= end))
+        )
         or 0
     )
-    window = "the past week" if days == 7 else "the past month"
     return StatAnswer(
         "recent-count",
-        f"You have written {_plural(total, 'note')} in {window}.",
-        [{"label": window, "count": total}],
+        f"You have written {_plural(total, 'note')} {words}.",
+        [{"label": words, "count": total}],
     )
 
 

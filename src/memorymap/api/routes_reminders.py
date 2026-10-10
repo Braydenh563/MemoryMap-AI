@@ -448,7 +448,12 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
         due_at = due_at.replace(tzinfo=user_zone)
     due_at = due_at.astimezone(timezone.utc)
     reminder = Reminder(
-        text=parsed["text"], due_at=due_at, priority=parsed["priority"]
+        text=parsed["text"],
+        due_at=due_at,
+        priority=parsed["priority"],
+        # "water the plants every tuesday" repeats (engine probe: it was saved
+        # once, as "Water the plants every").
+        recurring=parsed.get("recurring", "none"),
     )
     session.add(reminder)
     session.flush()

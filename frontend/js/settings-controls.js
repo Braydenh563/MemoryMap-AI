@@ -1937,3 +1937,79 @@ function renderStatusBarSettings() {
     };
   }
 }
+
+//: The MCP client snippet (Brief 40), lazy because only the Tools pane draws it (reached
+//: through the settingsControls stub in app.js): the capabilities route knows this
+//: interpreter and this notebook's folder, so the snippet is correct to paste.
+async function renderMcpSnippet() {
+  const pre = $("mcp-config-snippet");
+  if (!pre) return;
+  const caps = await apiJson("/capabilities").catch(() => null);
+  const mcp = caps?.features?.mcp;
+  const note = $("mcp-config-note");
+  const copy = $("mcp-config-copy");
+  if (!mcp?.installed || !mcp.config) {
+    pre.classList.add("hidden");
+    copy.classList.add("hidden");
+    note.textContent = mcp?.reason || "This install cannot start the tool server.";
+    note.classList.remove("hidden");
+    return;
+  }
+  pre.classList.remove("hidden");
+  copy.classList.remove("hidden");
+  note.classList.add("hidden");
+  const text = JSON.stringify({ mcpServers: { memorymap: mcp.config } }, null, 2);
+  pre.textContent = text;
+  copy.onclick = () => copyToClipboard(text, copy);
+}
+
+//: The network pane's state line and certificate facts, lazy with the listeners that
+//: also call them (settings-panes.js reaches them through the settingsControls stubs).
+function renderLanState(state) {
+  const box = $("account-allow-lan");
+  const line = $("account-lan-state");
+  if (!box || !line) return;
+  box.checked = !!state.allow_lan;
+  const addresses = (state.addresses || []).filter(Boolean);
+  let icon = "ph:info";
+  let words = "";
+  if (state.restart_required) {
+    icon = "ph:arrow-clockwise";
+    words = state.allow_lan
+      ? "Restart the app to let other devices in."
+      : "Restart the app to close it to other devices.";
+    if (state.allow_lan && addresses.length) {
+      words += ` Then open ${addresses.join(" or ")} on the other device.`;
+    }
+  } else if (state.other_devices) {
+    icon = "ph:wifi-high";
+    words = addresses.length
+      ? `Open ${addresses.join(" or ")} on the other device.`
+      : "Other devices can open the app at this computer's network address.";
+  }
+  line.classList.toggle("hidden", !words);
+  if (words) setLabel(line, `${icon} ${words}`);
+  //: The certificate the network is served with (core/lancert.py), shown
+  //: while the switch is on so a phone's one-time warning can be checked.
+  const cert = $("account-lan-cert");
+  if (cert) {
+    const shown = Boolean(state.allow_lan && state.certificate);
+    cert.classList.toggle("hidden", !shown);
+    $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
+    //: The names it vouches for and when it ends: "wrong name" on a phone
+    //: is read off these against the address in the phone's bar.
+    $("account-lan-cert-names").textContent = shown
+      ? `Names on it: ${(state.certificate.names || []).join(", ")}`
+      : "";
+    $("account-lan-cert-expiry").textContent = shown ? `Expires ${state.certificate.expires}` : "";
+  }
+}
+
+async function renderLanAccess() {
+  if (!$("account-allow-lan")) return;
+  try {
+    renderLanState(await apiJson("/auth/lan-access", { silent: true }));
+  } catch {
+    $("account-lan-state").classList.add("hidden");
+  }
+}

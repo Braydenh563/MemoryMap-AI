@@ -542,55 +542,6 @@ async function renderAccount() {
 // answer. On asks for the password, like turning sign-in off, and for the
 // same reason: an unlocked screen is not proof of knowing it.
 
-function renderLanState(state) {
-  const box = $("account-allow-lan");
-  const line = $("account-lan-state");
-  if (!box || !line) return;
-  box.checked = !!state.allow_lan;
-  const addresses = (state.addresses || []).filter(Boolean);
-  let icon = "ph:info";
-  let words = "";
-  if (state.restart_required) {
-    icon = "ph:arrow-clockwise";
-    words = state.allow_lan
-      ? "Restart the app to let other devices in."
-      : "Restart the app to close it to other devices.";
-    if (state.allow_lan && addresses.length) {
-      words += ` Then open ${addresses.join(" or ")} on the other device.`;
-    }
-  } else if (state.other_devices) {
-    icon = "ph:wifi-high";
-    words = addresses.length
-      ? `Open ${addresses.join(" or ")} on the other device.`
-      : "Other devices can open the app at this computer's network address.";
-  }
-  line.classList.toggle("hidden", !words);
-  if (words) setLabel(line, `${icon} ${words}`);
-  //: The certificate the network is served with (core/lancert.py), shown
-  //: while the switch is on so a phone's one-time warning can be checked.
-  const cert = $("account-lan-cert");
-  if (cert) {
-    const shown = Boolean(state.allow_lan && state.certificate);
-    cert.classList.toggle("hidden", !shown);
-    $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
-    //: The names it vouches for and when it ends: "wrong name" on a phone
-    //: is read off these against the address in the phone's bar.
-    $("account-lan-cert-names").textContent = shown
-      ? `Names on it: ${(state.certificate.names || []).join(", ")}`
-      : "";
-    $("account-lan-cert-expiry").textContent = shown ? `Expires ${state.certificate.expires}` : "";
-  }
-}
-
-async function renderLanAccess() {
-  if (!$("account-allow-lan")) return;
-  try {
-    renderLanState(await apiJson("/auth/lan-access", { silent: true }));
-  } catch {
-    $("account-lan-state").classList.add("hidden");
-  }
-}
-
 // --- Privacy: where your data went (GET /privacy/receipt) ---------------------
 //
 // WORLD_CLASS_PLAN section 2, standout 5: "a page that proves, from the app's

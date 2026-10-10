@@ -709,44 +709,43 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `webPanelMaxWidth` | frontend/js/sheets-selects.js:494 |
 | `wireInPlaceSheetDismissal` | frontend/js/sheets-selects.js:244 |
 
-### frontend/js/skills.js (61)
+### frontend/js/skills.js (60)
 
 | Name | File:line |
 |---|---|
 | `allSkills` | frontend/js/skills.js:28 |
-| `appendToolRow` | frontend/js/skills.js:972 |
-| `applyToolFilter` | frontend/js/skills.js:1036 |
+| `appendToolRow` | frontend/js/skills.js:948 |
+| `applyToolFilter` | frontend/js/skills.js:1012 |
 | `askSkillInputs` | frontend/js/skills.js:240 |
-| `batchArchive` | frontend/js/skills.js:1365 |
-| `batchDelete` | frontend/js/skills.js:1408 |
-| `batchEach` | frontend/js/skills.js:1332 |
-| `batchExport` | frontend/js/skills.js:1402 |
-| `batchFavourite` | frontend/js/skills.js:1359 |
-| `batchMove` | frontend/js/skills.js:1310 |
-| `batchNoun` | frontend/js/skills.js:1355 |
-| `batchPublish` | frontend/js/skills.js:1376 |
-| `batchPut` | frontend/js/skills.js:1351 |
-| `batchSelection` | frontend/js/skills.js:1304 |
-| `batchTag` | frontend/js/skills.js:1324 |
-| `blobToBase64` | frontend/js/skills.js:1102 |
+| `batchArchive` | frontend/js/skills.js:1341 |
+| `batchDelete` | frontend/js/skills.js:1384 |
+| `batchEach` | frontend/js/skills.js:1308 |
+| `batchExport` | frontend/js/skills.js:1378 |
+| `batchFavourite` | frontend/js/skills.js:1335 |
+| `batchMove` | frontend/js/skills.js:1286 |
+| `batchNoun` | frontend/js/skills.js:1331 |
+| `batchPublish` | frontend/js/skills.js:1352 |
+| `batchPut` | frontend/js/skills.js:1327 |
+| `batchSelection` | frontend/js/skills.js:1280 |
+| `batchTag` | frontend/js/skills.js:1300 |
+| `blobToBase64` | frontend/js/skills.js:1078 |
 | `buildSkillsPanel` | frontend/js/skills.js:438 |
 | `customSkills` | frontend/js/skills.js:35 |
-| `desktopShell` | frontend/js/skills.js:1094 |
-| `downloadBlob` | frontend/js/skills.js:1134 |
-| `downloadFromApi` | frontend/js/skills.js:1118 |
-| `downloadJson` | frontend/js/skills.js:1072 |
-| `enterSelectMode` | frontend/js/skills.js:1277 |
-| `exitSelectMode` | frontend/js/skills.js:1294 |
-| `fillBatchCategories` | frontend/js/skills.js:1250 |
-| `fillBatchMore` | frontend/js/skills.js:1382 |
+| `desktopShell` | frontend/js/skills.js:1070 |
+| `downloadBlob` | frontend/js/skills.js:1110 |
+| `downloadFromApi` | frontend/js/skills.js:1094 |
+| `downloadJson` | frontend/js/skills.js:1048 |
+| `enterSelectMode` | frontend/js/skills.js:1253 |
+| `exitSelectMode` | frontend/js/skills.js:1270 |
+| `fillBatchCategories` | frontend/js/skills.js:1226 |
+| `fillBatchMore` | frontend/js/skills.js:1358 |
 | `fillSkillSelect` | frontend/js/skills.js:393 |
 | `inputsToText` | frontend/js/skills.js:56 |
 | `loadChatSkills` | frontend/js/skills.js:322 |
 | `loadSkills` | frontend/js/skills.js:19 |
 | `looksLikeAnAgentRequest` | frontend/js/skills.js:614 |
-| `pickJsonFile` | frontend/js/skills.js:1206 |
+| `pickJsonFile` | frontend/js/skills.js:1182 |
 | `renderChatNudge` | frontend/js/skills.js:657 |
-| `renderMcpSnippet` | frontend/js/skills.js:907 |
 | `renderRunBudget` | frontend/js/skills.js:876 |
 | `renderSkillFolderLine` | frontend/js/skills.js:818 |
 | `renderSkillSettings` | frontend/js/skills.js:801 |
@@ -754,10 +753,10 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderSkillVerifyPicker` | frontend/js/skills.js:130 |
 | `renderSmallModelMode` | frontend/js/skills.js:865 |
 | `renderToolFocus` | frontend/js/skills.js:839 |
-| `renderToolSettings` | frontend/js/skills.js:929 |
+| `renderToolSettings` | frontend/js/skills.js:905 |
 | `resetChatNudge` | frontend/js/skills.js:722 |
 | `runSkill` | frontend/js/skills.js:173 |
-| `saveFile` | frontend/js/skills.js:1150 |
+| `saveFile` | frontend/js/skills.js:1126 |
 | `saveSkillList` | frontend/js/skills.js:740 |
 | `saveToolSwitch` | frontend/js/skills.js:887 |
 | `setSkillVerify` | frontend/js/skills.js:150 |
@@ -773,7 +772,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `syncSkillVerifyRow` | frontend/js/skills.js:165 |
 | `textToInputs` | frontend/js/skills.js:62 |
 | `textToSteps` | frontend/js/skills.js:49 |
-| `updateBatchCount` | frontend/js/skills.js:1226 |
+| `updateBatchCount` | frontend/js/skills.js:1202 |
 
 ### frontend/js/shell-reminders.js (52)
 
@@ -946,7 +945,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `routerRestore` | frontend/js/router.js:234 |
 | `routerSettle` | frontend/js/router.js:244 |
 
-### frontend/js/settings-panes.js (40)
+### frontend/js/settings-panes.js (38)
 
 | Name | File:line |
 |---|---|
@@ -955,41 +954,39 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `autoGrowLimit` | frontend/js/settings-panes.js:32 |
 | `autoGrowStillFits` | frontend/js/settings-panes.js:170 |
 | `autoGrowVisible` | frontend/js/settings-panes.js:201 |
-| `catalogueRun` | frontend/js/settings-panes.js:1248 |
-| `changePassword` | frontend/js/settings-panes.js:613 |
+| `catalogueRun` | frontend/js/settings-panes.js:1199 |
+| `changePassword` | frontend/js/settings-panes.js:564 |
 | `chatDockReleaseRing` | frontend/js/settings-panes.js:348 |
 | `chatDockSuppressRing` | frontend/js/settings-panes.js:329 |
-| `checkForSourceUpdateNotice` | frontend/js/settings-panes.js:856 |
-| `currentZoom` | frontend/js/settings-panes.js:1099 |
-| `downloadExport` | frontend/js/settings-panes.js:1072 |
+| `checkForSourceUpdateNotice` | frontend/js/settings-panes.js:807 |
+| `currentZoom` | frontend/js/settings-panes.js:1050 |
+| `downloadExport` | frontend/js/settings-panes.js:1023 |
 | `fitChatEmpty` | frontend/js/settings-panes.js:290 |
 | `fitComposerToDock` | frontend/js/settings-panes.js:244 |
-| `flashRevealed` | frontend/js/settings-panes.js:1205 |
-| `hud` | frontend/js/settings-panes.js:1144 |
+| `flashRevealed` | frontend/js/settings-panes.js:1156 |
+| `hud` | frontend/js/settings-panes.js:1095 |
 | `initAutoGrow` | frontend/js/settings-panes.js:441 |
 | `initComposerResize` | frontend/js/settings-panes.js:363 |
-| `loadPreferences` | frontend/js/settings-panes.js:693 |
-| `markPrefsDirty` | frontend/js/settings-panes.js:1001 |
-| `markPrefsSaved` | frontend/js/settings-panes.js:1017 |
-| `nudgeZoom` | frontend/js/settings-panes.js:1165 |
-| `paletteAbouts` | frontend/js/settings-panes.js:1506 |
-| `paletteCommands` | frontend/js/settings-panes.js:1257 |
-| `paletteKeys` | frontend/js/settings-panes.js:1492 |
-| `paletteRowParts` | frontend/js/settings-panes.js:1517 |
+| `loadPreferences` | frontend/js/settings-panes.js:644 |
+| `markPrefsDirty` | frontend/js/settings-panes.js:952 |
+| `markPrefsSaved` | frontend/js/settings-panes.js:968 |
+| `nudgeZoom` | frontend/js/settings-panes.js:1116 |
+| `paletteAbouts` | frontend/js/settings-panes.js:1457 |
+| `paletteCommands` | frontend/js/settings-panes.js:1208 |
+| `paletteKeys` | frontend/js/settings-panes.js:1443 |
+| `paletteRowParts` | frontend/js/settings-panes.js:1468 |
 | `refitComposer` | frontend/js/settings-panes.js:269 |
 | `renderAccount` | frontend/js/settings-panes.js:488 |
-| `renderAutonomousSettings` | frontend/js/settings-panes.js:774 |
-| `renderLanAccess` | frontend/js/settings-panes.js:585 |
-| `renderLanState` | frontend/js/settings-panes.js:545 |
-| `renderPrefs` | frontend/js/settings-panes.js:711 |
-| `renderWebSearch` | frontend/js/settings-panes.js:795 |
-| `savePrefs` | frontend/js/settings-panes.js:897 |
-| `saveSearchProvider` | frontend/js/settings-panes.js:834 |
-| `setPreference` | frontend/js/settings-panes.js:879 |
-| `setZoom` | frontend/js/settings-panes.js:1103 |
-| `updateProfileCount` | frontend/js/settings-panes.js:1060 |
+| `renderAutonomousSettings` | frontend/js/settings-panes.js:725 |
+| `renderPrefs` | frontend/js/settings-panes.js:662 |
+| `renderWebSearch` | frontend/js/settings-panes.js:746 |
+| `savePrefs` | frontend/js/settings-panes.js:848 |
+| `saveSearchProvider` | frontend/js/settings-panes.js:785 |
+| `setPreference` | frontend/js/settings-panes.js:830 |
+| `setZoom` | frontend/js/settings-panes.js:1054 |
+| `updateProfileCount` | frontend/js/settings-panes.js:1011 |
 | `watchOverlays` | frontend/js/settings-panes.js:453 |
-| `wirePrefsDirtyMarks` | frontend/js/settings-panes.js:1036 |
+| `wirePrefsDirtyMarks` | frontend/js/settings-panes.js:987 |
 
 ### frontend/js/media.js (20)
 
@@ -4033,7 +4030,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `semanticOnboardingOffer` | frontend/js/semantic-notice.js:109 |
 | `semanticSetAutoInstall` | frontend/js/semantic-notice.js:29 |
 
-### frontend/js/settings-controls.js (27)
+### frontend/js/settings-controls.js (30)
 
 | Name | File:line |
 |---|---|
@@ -4055,6 +4052,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `mergeNamedPrompts` | frontend/js/settings-controls.js:1741 |
 | `refreshSearxngHost` | frontend/js/settings-controls.js:989 |
 | `renderDuplicateGroups` | frontend/js/settings-controls.js:1560 |
+| `renderLanAccess` | frontend/js/settings-controls.js:2008 |
+| `renderLanState` | frontend/js/settings-controls.js:1968 |
+| `renderMcpSnippet` | frontend/js/settings-controls.js:1944 |
 | `renderStatusBarSettings` | frontend/js/settings-controls.js:1888 |
 | `resetAllFeatureModels` | frontend/js/settings-controls.js:1272 |
 | `restartMemoryMap` | frontend/js/settings-controls.js:1473 |

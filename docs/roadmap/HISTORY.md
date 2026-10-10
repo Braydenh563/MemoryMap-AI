@@ -46192,6 +46192,16 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      panel, model stop and error contract are Brief 73; the three new sweeps
      are Brief 74; the iPhone is rule 8 and a release blocker (decision 67).
 
+751. **The owner, 2026-10-10, verbatim**: "make sure all the vendored repositories
+     are made full use of. I want maximum utility." Triage: Brief 75 (Sonnet,
+     high), a utilisation audit of every entry in `docs/THIRD_PARTY.md`
+     (CodeMirror 6 and its packages, Emmet, Harper, Phosphor, the wordlist, d3,
+     p5, flashtext, the draw.io stencils): exports available against exports
+     called, the highest-utility unused capabilities per library with the
+     surface each would serve, placed as rows in the surface's plan; the
+     ratchet `tests/test_vendor_utilisation.py` keeps the called count from
+     falling.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

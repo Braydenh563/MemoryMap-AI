@@ -46156,6 +46156,42 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      2.2 and density, Phase 13 the design review); learnability had no row, so
      it is now Phase 12's "12z Learnability" with its measures.
 
+750. **The owner, 2026-10-10, verbatim**: "I need you to majorly analyse plan and
+     expand the planned and detailed improvements, optimisations, fixes,
+     redesigns, expansions and more for all the main features like the
+     documentd editor, code editor, whiteboard, mindmap, ocr workspace, meeting
+     notes, a transcription audio, live captions and more. translator,
+     timeline, reminders (maybe find a way to connect to pc and browser
+     notifications??) calendar, the agent and its harness, all deterministic
+     features, user and usage and notebook statistics, more utilities, easy
+     access to infomration and stuff via chat, the guide, the command palate,
+     find anything and more. overall better user experienced. maximised modern
+     and professional redesign where needed. its all the small things that
+     make an app feel polished. if things dont work or appear where and how
+     they should or if they are buggy or dont work, if I cant undo or redo any
+     of my changes anywhere, if I cant easily find anythind and easily
+     navigate anywhere within like 3 clicks, if I los data or my work or do
+     something anc cant easily fix it. if there are features that I dont know
+     about, if I encounter errors and it doesn automatically fix them or give
+     me alternatives and clearly tell me what is wrong, if anything is running
+     in the background and i cant see what it is and have a way to stop it
+     without shutting down the app of the ai like ollama to stop it from
+     running., ui and text clash and overflow, poor responsive desig, poor
+     accessibility, poor information architecture and inconsistent design,
+     elements dont match ui styles, height, misalignments, poor spacing, and
+     more... all of this makes me lose trust in the app and then I dont want
+     to invest my time and actual study notes or life notes into it becuas ei
+     cant trust it wont be a waste of time or Ill lose it all or I wont be
+     able to use it. I couldnt even access it on my iphone :(. I need all my
+     non techy friends to be able to use it, have the best experience of
+     their lives and be able to fully use it ahnd have it the best application
+     of its type in existence even without an ai model available and then
+     even better with it available." Triage: the trust conditions are
+     WORLD_CLASS_PLAN 28 ("The trust contract", fourteen rules, each with its
+     measure); the per-feature deepening is Briefs 72a and 72b; the Activity
+     panel, model stop and error contract are Brief 73; the three new sweeps
+     are Brief 74; the iPhone is rule 8 and a release blocker (decision 67).
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

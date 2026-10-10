@@ -4051,3 +4051,62 @@ a key, a password).
 66. **Exports are complete:** a board or map exports as SVG and PNG with
     the notes it links as a folder; a document as PDF (through the
     browser's print to PDF with a print stylesheet, no new dependency).
+
+## 28. The trust contract, 2026-10-10 (INBOX 750)
+
+The owner, 2026-10-10: "all of this makes me lose trust in the app and then
+I dont want to invest my time and actual study notes or life notes into it".
+Sections 25 to 27 say what each surface should be. This section says what
+every surface must never do, as fourteen rules with a measure each. A brief
+is done only when the rules below hold for the surfaces it touched (decision
+68), so the rules are the acceptance bar, not another list.
+
+### 28.1 The rules, each with its measure
+
+| # | Rule | Measure (the sweep or lint, and its bar) |
+| --- | --- | --- |
+| 1 | **Undo and redo everywhere.** Every change on every surface is one undo step; Ctrl+Z and Ctrl+Shift+Z act on the surface that has focus; a destructive act shows the undo bar. | `scratchpad/ui-sweeps/undo.js`: the mutating actions per surface (from the act registry, CHAT_PLAN decision 51) against those that undo; bar 100%. `measure-undo.py` counts `pushUndo` today. |
+| 2 | **Three clicks to anything.** Every surface, setting and object is three clicks from the dashboard and one from the palette or Find anything. | `reach.js`: the click graph from the nav, menus and palette registry; bar: no node deeper than 3, none missing from the palette. |
+| 3 | **Nothing is lost.** A change is saved within a second; a draft survives a crash and a reload; a deletion goes to the bin for 30 days; a backup runs daily by default and restores (section 25e, Brief 51). | `test_never_lose.py` and the backup round trip; bar: every path in the table of 25e green. |
+| 4 | **An error explains and offers.** Every error-level toast says what happened, why, and one action (retry, an alternative, open the setting); network-level failures retry themselves first. | `test_error_toasts.py` extended: an error toast without an action fails; the retry count in `api()` measured. |
+| 5 | **Background work is visible and stoppable.** One Activity panel lists every running job (indexing, embedding, model load, generation, imports, OCR, transcription, backups, the agent) with Stop; stopping the model unloads it (`keep_alive: 0` for Ollama, the managed runner killed). | `/activity` lists every registered job; a lint fails a long-running task that does not register; a sweep stops a generation and sees the model unload. |
+| 6 | **Every feature can be found.** Each has a Guide topic, a palette command and a help popover; the dashboard offers one unused feature a week. | `test_manual_parity.py`; palette registry against the feature list; bar: none missing. |
+| 7 | **Nothing clashes or overflows.** At 320, 390, 820, 1024, 1440: no clipped text, no sibling rects overlapping in a bar, no `scrollWidth` past `clientWidth` where nothing scrolls. | `overlap.js` added to `chrome.js` and `docks.js`; bar 0 per width. |
+| 8 | **The phone works, the iPhone first.** The app opens on an iPhone over the LAN (the certificate flow in Settings, Phone), installs as a PWA, and every surface is usable with a thumb. | A WebKit run of the sweeps at 390 by 844; the LAN certificate test; a release is blocked while the iPhone cannot open it (decision 67). |
+| 9 | **WCAG 2.2 AA.** | `axe.js`, `srtree.js`, `zoom.js`; bar 0 findings per theme (Phase 12). |
+| 10 | **One information architecture.** One vocabulary (DESIGN.md's terms table), the same act in the same menu position on every surface, settings grouped by task. | `test_ui_signatures.py` and a terms lint over `index.html`, the Guide and Settings; bar: every term from the table, none of its banned synonyms. |
+| 11 | **One design.** Heights, alignment and spacing from tokens; a computed-style snapshot at every CSS phase gate. | `test_style_scale.py`; `snapshot.js` (ANALYSIS "Odysseus, fourth read" take 7); bar: no untokened length in the controls' computed styles. |
+| 12 | **Excellent without a model.** Every feature keeps its surface and its deterministic path with no model configured; the AI adds, never gates. | the sweeps run once with no model; bar: no surface shows a dead control. |
+| 13 | **A friend can start.** Install to first saved note in under five minutes with no terminal; the first run is one queue (Phase 12, Brief 37). | `learn.js` (UI_MODERNISATION 12z); a scripted first run on a clean profile. |
+| 14 | **The notebook says how it is.** A Health page: the last backup, the last error, what is running, the data dir's size, an integrity check in one click. | `/health` fields and a sweep that reads the page; bar: every field present and dated. |
+
+### 28.2 Decisions, 2026-10-10 (do not re-decide)
+
+67. **The iPhone is a release blocker.** No release while rule 8 fails.
+68. **The rules are the acceptance bar.** A brief's report lists rules 1, 2,
+    4, 7 and 11 for the surfaces it touched with their numbers; a report
+    without them is not done.
+69. **Reminders reach the desktop and the browser without a push server.**
+    The desktop launcher posts the operating system's notification for a
+    due reminder (Windows toast, macOS and Linux notify); a browser tab or
+    the installed PWA uses the Notification API while it is open; nothing
+    goes through a third party (the offline rule). TIMELINE_PLAN carries the
+    rows (Brief 72b).
+70. **One Activity panel, one recipe.** Every long-running job registers
+    with the same `jobs` service (start, progress, stop) and shows in the
+    same `.dock` panel; the agent's run list (`agent-activity.js`) becomes a
+    tab of it.
+71. **The deepening is per feature, measured.** For each feature the owner
+    named, its plan gains a "Deepened 2026-10-10" block: what renders today
+    (measured), the professional bar, the detailed rows (fix, redesign,
+    expansion, optimisation), each with its measure and the trust rules it
+    answers. Written by Briefs 72a and 72b, built by the briefs they name.
+
+### 28.3 Phases
+
+| Phase | Brief | Deliverable |
+| --- | --- | --- |
+| T0 measure | 74 (Sonnet) | `undo.js`, `reach.js`, `overlap.js` written and run; the numbers into 28.1's rows |
+| T1 deepen | 72a, 72b (Opus) | every named feature's plan deepened per decision 71 |
+| T2 build | 73 (Opus) | the Activity panel and model stop (rule 5), the error contract (rule 4), the Health page (rule 14) |
+| T3 hold | every later brief | decision 68 in every report |

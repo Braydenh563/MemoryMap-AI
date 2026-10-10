@@ -2078,3 +2078,6 @@ D8 and the shell rows of DOCUMENTS 23. Files: `documents-code.js`,
 Numbers: palette command count; every keybinding on the sheet exercised by
 `scratchpad/ui-sweeps/code-keys.js`; the four panels' heights remembered
 across a reload.
+
+## Briefs 72 to 74 (WORLD_CLASS_PLAN 28: the trust contract)
+Brief 72a (Opus, high): deepen, per decision 71, the documents editor, code editor, whiteboard, mind map, OCR workspace and the audio set (meeting notes, transcription, live captions, translator). Brief 72b (Opus, high): the timeline, reminders and notifications (decision 69), calendar, the agent and its harness, the deterministic features, the statistics, utilities, chat access, the Guide, the palette and Find anything. Each writes measured "Deepened 2026-10-10" blocks into the plans, no code. Brief 73 (Opus, high): rules 4, 5 and 14 built (the Activity panel, model stop, error contract, Health page). Brief 74 (Sonnet, high): the three sweeps of T0 and the numbers into 28.1.

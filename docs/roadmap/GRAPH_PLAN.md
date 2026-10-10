@@ -591,3 +591,9 @@ Every entry is built (the graph agent, 2026-10-10): the owner's words, the
 recommendations and what was built moved to HISTORY.md, "Moved from the
 plans, 2026-10-10 (graph-1010)". The categories-versus-topics answer is the
 decision above; turning a topic into a category is Brief 39b's.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC11, D3 hierarchy layouts as a category overview** (M, rank 11). D3's hierarchy module is 15 exports with 2 called; `treemap`, `pack` and `partition` would show the notebook's categories by size. Measure: a treemap of the categories at 1,000 notes renders in under 100 ms and every rectangle's area is within 1% of its note count; reachable from the graph's view switch with a `data-help-for` popover.

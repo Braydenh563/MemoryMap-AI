@@ -1497,3 +1497,10 @@ JS-drawn shape classes, the shape picker, and the shortcut gaps in section 11.
    corrections at the top of this section replace the matrix's wrong rows
    (connection points, templates, find, hover arrows, same size) until the
    next matrix pass.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC10, the converted draw.io sets in the library picker** (M, rank 10). Five sets, 196 shapes (`drawio-arrows` 34, `-basic` 30, `-bpmn` 39, `-flowchart` 36, `-networks` 57) sit in `frontend/board-library/drawio/` and the library lists 7 of 12 sets; this is Phase 2 of "The draw.io programme" above, recorded here so the utilisation ratchet has its row. Measure: `scratchpad/vendor_use.py` reads "stencils called 12 of 12" and each shape drops onto the board with its ports.
+- **VC16, a p5 generative element as parameters, not code** (L, rank 16). p5 is loaded for one surface (the dashboard art) and 21 of its 299 functions are called; the bundle is 1 MB raw. A board element that runs the person's sketch source is refused by the CSP (no `eval`, no `new Function`), so the kind would be presets with a seed and a few sliders. Measure: the same seed gives the same pixels twice (`pngpixel.py`), p5 loads only when a sketch element is on the board, and the cost against the 239 KB gzipped fetch is stated before it is built.

@@ -242,3 +242,9 @@ disagree.
 Not verified until built: the dot density at 5,000 notes in one month
 (the fixture has 48 over six months; a 1,000-note month is the stress
 case), and the week grid's hour rows against the feed's buckets.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC2, D3's time scale and axis for the timeline and the calendar** (M, rank 2). `timeline.js` builds its date ticks by hand (51 lines with `Date(` in 2,441); D3's time module is 75 exports with 0 called (`scaleTime`, `timeMonth`, `timeWeek`, `timeDay`, `axisBottom`, `timeFormat`). Measure: tick labels at year, month, week and day zoom match `d3.timeFormat` output for 12 fixed dates (a node test); the hand-rolled tick lines deleted; no label overlap at 390 px (`scratchpad/ui-sweeps` measure).

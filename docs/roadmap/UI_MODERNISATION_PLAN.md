@@ -1509,3 +1509,11 @@ the order a person meets them, with what the code says today.
 
 Phase 12 (Brief 41) runs first; 13a and 13b are mechanical enough to run
 beside it; 13c follows 13a.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC3, D3 scales, axes and number formats for the Ask and statistics charts** (M, rank 3). `ask-chart.js` `askChartTicks` returns at most five integer ticks and the charts are hand-built SVG; D3 ships scale 32, shape 63, axis 4 and format 24 exports with 1, 0, 0 and 0 called. Measure: a chart with a 0 to 1,240 range gets round ticks (`scaleLinear().nice().ticks(5)`) and thousands separators; `contrast.js` and `docks.js` stay green; the chart's PNG export (`askChartPng`) still renders.
+- **VC9, one icon picker** (S, rank 9). `pickIconOrEmoji` (all 1,530 Phosphor glyphs and the emoji groups) has 3 call sites (`editor.js`, `whiteboard-library.js`, `whiteboard-map.js`); Spaces choose their icon through their own `spaceIconPicker` (`spaces-find.js` lines 424 and 434). Measure: Spaces create and edit open the shared picker, `spaceIconPicker` is deleted, and the Space icon still validates server-side (`_validate_icon`).
+- **VC14, Phosphor's fill weight for active states** (S, rank 14). One of six weights ships (`Phosphor.woff2` 147,380 bytes, regular only); an active or selected nav item is the usual home of the fill weight. Measure: the extra font bytes for the fill build, and the active-state contrast (`contrast.js`) with the fill glyph; drop the row if the bytes are not worth one state.

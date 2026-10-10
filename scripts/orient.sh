@@ -13,5 +13,5 @@ echo "== Counts =="
 echo "open INBOX items: $(grep -c '^[0-9][0-9]*\. \*\*' docs/roadmap/INBOX.md)"
 echo "uncommitted paths: $(git status --short 2>/dev/null | wc -l)"
 echo "== Remaining files (*-1010.md) =="
-ls docs/roadmap/agent-remaining/ 2>/dev/null | grep -e '-1010\.md$' | head -12
+ls docs/roadmap/agent-remaining/ 2>/dev/null | grep -e '-1010\.md$' | head -8
 exit 0

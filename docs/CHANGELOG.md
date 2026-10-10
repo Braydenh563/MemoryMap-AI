@@ -41,6 +41,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Graph and Library: pinning a dragged group of notes and renaming a topic now say so when the save fails, instead of failing silently.
 - Ask: the match reason ("70% similar") now folds to its icon last on a crowded details line, after the tags and the other word facts, so every matching record shows its number or none does (INBOX 728).
 - Notes: a card's time now sits at the card's foot, the same 7px above its edge on every card (INBOX 760); a note with links showed it 48 to 113px up (80 to 146px at 390 against 7px with none), and "ago · edited" has its space back.
 - Graph: switching to Radial, Tree or Arc while the force layout was still settling left the camera on the old view, the new layout off in a corner; a layout switch now ends on the new layout's fitted view, and the radial is centred.

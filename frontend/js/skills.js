@@ -682,7 +682,7 @@ function renderChatNudge() {
   //: A skill runs on a model with tools, so the offer waits for both (the
   //: owner: "The ai model isnt running, skills are disabled, and it still
   //: suggests skills").
-  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && typeof aiIsOff === "function" && !aiIsOff()) {
+  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && !aiIsOff()) {
     const skill = skillMatchingDraft(text);
     if (skill) {
       offers.push({

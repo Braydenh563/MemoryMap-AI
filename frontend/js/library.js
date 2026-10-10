@@ -11407,7 +11407,8 @@ function contentsRenameTopic(heading, topic) {
       heading.focus();
       return;
     }
-    const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) }).catch(() => null);
+    const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) })
+      .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}. Try again.`, true); return null; });
     if (!row) return;
     if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
     renderContents();

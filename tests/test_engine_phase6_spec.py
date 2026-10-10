@@ -65,12 +65,10 @@ def test_the_time_question_answers_a_computed_sentence():
 
 
 @pytest.mark.parametrize("question", ["what do I need to buy", "how to cook rice"])
-@_spec("First tests: composer.py matches any 'to <word>' as translate")
 def test_to_word_is_not_translate(question):
     assert composer.classify(question) != "translate"
 
 
-@_spec("First tests: 'summarise my gym notes' raises UnboundLocalError today")
 def test_summarise_returns_a_brief_without_raising():
     result = _ask("summarise my gym notes", _notes(1, 2))
     assert "Nothing in the notes" not in _text(result)

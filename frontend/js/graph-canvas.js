@@ -3167,7 +3167,7 @@ function gcWireInteraction(s = gcTab) {
     }
     //: One write for the carried notes (`PUT /graph/pins`): a topic of forty
     //: was forty requests.
-    if (pins.length) apiJson("/graph/pins", { method: "PUT", body: JSON.stringify({ pins }) }).catch(() => {});
+    if (pins.length) apiJson("/graph/pins", { method: "PUT", body: JSON.stringify({ pins }) }).catch(() => toast("The moved notes were not pinned where you left them. Drag again to retry.", true));
     s.dragGroup = [];
     const wasTopic = s.dragTopic;
     s.dragTopic = null;

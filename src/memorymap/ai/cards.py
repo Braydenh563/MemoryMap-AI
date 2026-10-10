@@ -340,6 +340,8 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "save_skill": (),
     "delete_skill": (),
     "get_current_time": (),
+    # Guide prose: its `guide_text` is the reply itself, not a card.
+    "search_help": (),
     "save_user_preference": (),  # carries its own accept/decline card
     "web_search": (),  # the Sources panel draws these, see `_tool_sources`
     "read_url": (),  # ditto

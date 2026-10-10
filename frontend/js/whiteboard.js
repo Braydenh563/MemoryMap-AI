@@ -13666,12 +13666,7 @@ async function initWhiteboard() {
     //: A box being placed is drawn at the size it will be made, minimum and
     //: all, so what the ghost shows is what the release creates.
     const box = wbMarqueeStart.place ? wbPlaceBox(wbMarqueeStart, wbMarqueeAt[0], wbMarqueeAt[1]) : null;
-    if (box && wbMarqueeEl.classList.contains("wb-place-ghost")) {
-      wbMarqueeEl.style.transform = `translate(${box.x}px, ${box.y}px)`;
-      wbMarqueeEl.style.width = `${box.w}px`;
-      wbMarqueeEl.style.height = `${box.h}px`;
-      return;
-    }
+    if (box && wbMarqueeEl.classList.contains("wb-place-ghost")) return wbMoveSizeGhost(box);
     const x0 = t.applyX(box ? box.x : wbMarqueeStart.x), y0 = t.applyY(box ? box.y : wbMarqueeStart.y);
     const x1 = t.applyX(box ? box.x + box.w : wbMarqueeAt[0]), y1 = t.applyY(box ? box.y + box.h : wbMarqueeAt[1]);
     const l = Math.round(Math.min(x0, x1)), top = Math.round(Math.min(y0, y1));
@@ -13683,13 +13678,7 @@ async function initWhiteboard() {
     //: grew during the drag (a panel closing, the window maximised, a rail
     //: still animating when the press landed) left the rest of the rectangle
     //: past the canvas's edge, undrawn. Two reads and a compare per frame.
-    const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
-    if (wbMarqueeEl.width !== Math.max(1, Math.round(cw * ratio)) || wbMarqueeEl.height !== Math.max(1, Math.round(ch * ratio))) {
-      wbMarqueeEl.width = Math.max(1, Math.round(cw * ratio));
-      wbMarqueeEl.height = Math.max(1, Math.round(ch * ratio));
-      wbMarqueeEl.style.width = `${cw}px`;
-      wbMarqueeEl.style.height = `${ch}px`;
-    }
+    wbFitMarqueeCanvas(ratio);
     const g = wbMarqueeEl.getContext("2d");
     g.setTransform(ratio, 0, 0, ratio, 0, 0);
     g.clearRect(0, 0, wbMarqueeEl.width, wbMarqueeEl.height);
@@ -13724,6 +13713,26 @@ async function initWhiteboard() {
   //: board did and stays under the pointer. A rotation is excluded (an
   //: angle does not need room), and so are the pen tools and the hand.
   const wbEdgePan = { x: 0, y: 0, buttons: 0, frame: 0, turn: false, band: 56, max: 22 };
+  //: The placing ghost is a box in board space, not the marquee canvas: it
+  //: moves by transform (its layer, `will-change`) and takes the size the
+  //: release will create, so the only per-move layout is its own.
+  function wbMoveSizeGhost(box) {
+    wbMarqueeEl.style.transform = `translate(${box.x}px, ${box.y}px)`;
+    wbMarqueeEl.style.width = `${box.w}px`;
+    wbMarqueeEl.style.height = `${box.h}px`;
+  }
+  //: The canvas's bitmap and box follow the container's size, compared
+  //: before written: a style write on every move would re-layerize the
+  //: page (tests/test_marquee_cost.py), so this is a resize, not a draw.
+  function wbFitMarqueeCanvas(ratio) {
+    const cw = containerEl.clientWidth, ch = containerEl.clientHeight;
+    const bw = Math.max(1, Math.round(cw * ratio)), bh = Math.max(1, Math.round(ch * ratio));
+    if (wbMarqueeEl.width === bw && wbMarqueeEl.height === bh) return;
+    wbMarqueeEl.width = bw;
+    wbMarqueeEl.height = bh;
+    wbMarqueeEl.style.width = `${cw}px`;
+    wbMarqueeEl.style.height = `${ch}px`;
+  }
   window.addEventListener("pointerdown", (e) => {
     wbEdgePan.turn = Boolean(e.target?.closest?.(".wb-rotate-handle, .wb-sketch-rotate-handle"));
   }, true);
@@ -15030,7 +15039,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
   if (!answer) return;
   const kind = answer.choice === "map" ? "map" : "board";
   const name = (answer.text || "").trim()
-    || (typeof wbUntitledNames === "function" ? (await wbUntitledNames())[kind] : kind === "map" ? "Untitled map 1" : "Untitled board 1");
+    || (await wbUntitledNames())[kind];
   await showCanvas();
   //: Remembered on the way out, not on the click: a dialog someone dismissed
   //: said nothing about what they want next time.

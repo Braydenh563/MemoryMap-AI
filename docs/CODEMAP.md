@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4713, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3562, test files 896, tests 8450, plan headings 838.
+Counts: frontend functions 4713, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3562, test files 897, tests 8479, plan headings 838.
 
 ## Frontend functions (4713)
 
@@ -13162,7 +13162,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (8450)
+## Tests (8479)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -13422,6 +13422,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_emblem_boot.py | 1 |
 | tests/test_emblem_slots.py | 1 |
 | tests/test_emblem_turns.py | 3 |
+| tests/test_engine_phase6_spec.py | 29 |
 | tests/test_entities.py | 7 |
 | tests/test_entities_kg5.py | 6 |
 | tests/test_entity_merge_undo.py | 3 |

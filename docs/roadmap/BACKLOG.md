@@ -4145,3 +4145,16 @@ twenty); open, by impact with the rest of this file.
     it is still elsewhere (with a `Tour:` log line when it is). Headless
     walks of all 15 steps at 1.25x scale, with and without real scrollbars,
     were correct before and after, so the owner's run is the test.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Nothing here has a brief yet.
+
+### Ideas
+
+- "Read all my requests and chat messages sent during and since october 7, analyse them and log them for a new session as I want to start a new one. I also have A LOT of issues and bugs and things Ive written down and ive also tried to get gemini to improve the composer so Ill need oyu in the next session to analyse that open branch as well as the other open branches and fix znd improve everything but I wont send my lists in this session and instead at the start of the next one"
+  Recommendation: a process item, not a feature. The next session's first step is to read the owner's chat messages since 2026-10-07 and the owner's lists from that session, log them in the plans, then take the open Gemini branch under Brief 35. Not a brief; the orchestrator owns it.
+- "Like this is somewhat a hobby but it is also about ai, local llms and other things."
+  Recommendation: context for the scope of the insights and research work, not a request in its own right. Read it with Brief 40 and the insights item in CHAT_PLAN.
+- "Is it possible to create custom libraries like the ones vendored that are really good and extensive in their purpose, which can be open sourced and used across projects?? Maybe?? Maybe too much idk."
+  Recommendation: a later idea: a small, separately licensed library package built from the vendored engines, after the engine lands under Brief 39. Not scheduled.

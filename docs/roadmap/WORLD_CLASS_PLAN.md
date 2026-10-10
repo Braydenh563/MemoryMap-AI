@@ -3113,3 +3113,60 @@ Briefs 485, 496, 493, 484, 486 and 490 are all built (each carries its "Built:" 
      (6.8 s measured: torch import), because filing by meaning embeds the
      note before it settles; changing that changes what gets filed, so it is
      the owner's call: made a switch (509).
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first, then design requests, then ideas.
+
+### Bugs
+
+- "I pressed a restart button and it failed: {"[1007/230819.346:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1411"}"
+  Recommendation: the desktop restart path (`src/memorymap/__main__.py`, the webview start) treats this unregister error as non-fatal and relaunches; reproduce it on Windows, which this sandbox cannot run. No brief carries it; Brief 17 (launchers) is the nearest.
+- "this didnt work "https://192.168.0.107:8443", on my phone it said the page was unsecure, and then I clicked continue, and it said "safari can't open the page because the connection was lost.". I do have a vpn/custom dns sever through adguard active but that shouldnt be a hindrance. also the security needs to be improved if possible for this to work on phone."
+  Recommendation: phone access over HTTPS, with the "connection was lost" cause found on iOS Safari, a one-page trust guide with a QR code, and a local CA option. Also carried by Brief 40 (the phone over HTTPS) and Brief 15 (network hardening).
+- "it says the connection isnt secure and the page cant be reached" / "on brave browser on my phone"
+  Recommendation: the same trust flow as the entry above, checked in Brave on a phone. Also carried by Brief 40 (the phone over HTTPS).
+- "Also I still cant access the application on my phone, the connection just doesn’t go through and there are security issues with a not trustworthy connection and more."
+  Recommendation: the phone path is a gate in Brief 40's research and Brief 15's hardening; the result is a measured reachability check from a second device. Also carried by Brief 40 and Brief 15.
+- "Still lots of issues with filing without the ai model running but it should still work right because the embedding model is running??" / "I filed a note with no ai model running, did it use the embedding model??"
+  Recommendation: with the model off and the embedder on, the filing path names the signal that filed the note; measure top-1 accuracy with the embedder on and off on the 120-note fixture. Also carried by Brief 39b (lexical filing and the embedder).
+- "Also can things still work with all the similarity stuff for the composer and filing and other stuff if sentence-transformers isnt installed??"
+  Recommendation: the similarity path runs with no sentence-transformers installed, and a test covers that case. Also carried by Brief 39b and Brief 35 (no new dependencies).
+- "Study and university tags are suggested on the top note if it has no tags no matter what the note is about"
+  Recommendation: reproduce the "Study" tag suggestion on the fixture, fix it, and keep the fixture as a test. Also carried by Brief 39b (the "Study" bug reproduced then gone).
+
+### Design requests
+
+- "is it possible to customise the domain name on the network accessible url??"
+  Recommendation: an optional local host name for the LAN address (a mDNS or hosts-file name) shown with the trust guide. Also carried by Brief 40 (the phone over HTTPS).
+- "Should we integrate it as a docker build and image and make it available as a docker app as well??"
+  Recommendation: a Dockerfile and compose file with offline model volumes, and the measured image size in the report. Also carried by Brief 40 (a Docker image).
+- "Is it possible to make use of python libraries that the user already may have installed globally on their computer so the user doesn’t have to install the same dependancies twice?? Like sentence transformers, or torch, or triton etc?? Idk"
+  Recommendation: a setup choice to use system site packages, with its risks written down. Also carried by Brief 40 (reusing the system Python packages).
+- "Does the mcp server work or need to be improved?? I don’t think it has been properly integrated as a feature yet."
+  Recommendation: run the MCP server, list its tools, and report what is broken before any integration work. Also carried by Brief 40 (whether the MCP server works).
+- "Does the user have to be connected to the interned for the initial install for installing all the dependencies?? Should the user be informed of that if that is the case??"
+  Recommendation: state the answer and show it on the install screen if the answer is yes. Also carried by Brief 40 (whether a first install needs the internet).
+- "what is this app file installer?? can this app use it and is it free??"
+  Recommendation: answer it in the Brief 40 research with the licence and whether the app can call it. Also carried by Brief 40 and Brief 17 (the installer).
+- "Also I feel like we should reference all the vendored repos and libraries somewhere to give them credit."
+  Recommendation: a credits list in Help, generated from `docs/THIRD_PARTY.md`, with each licence file. Also carried by Brief 35 (the credits file).
+- "I also want to integrate and use the new vendored repositories and libraries better and also see if there are more complimentary libraries and repos we can vendor…"
+  Recommendation: each vendored library gets one named use in the engine, with a test, and a keep or drop row in ANALYSIS.md. Also carried by Brief 40 (candidate vendorable libraries) and ROADMAP Direction policy 1.
+- "Filing and suggested tags and categories and stuff need a lot of improving. Should we include a library of common possible categories and even ways to join words to make custom categories and then there can be a similaity search for new or existing category filing and concatenation for new categorie"
+  Recommendation: a seed category library (the taxonomy pack) with joins for custom categories, and a similarity search over new and existing categories. Also carried by Brief 39b (candidates, decision and merge suggestions) and ROADMAP Direction policy 3.
+- "just continue and research categories and tags etc. make it extensive and also dynamic. some categories for example might not just be "gym" or 'Fitness" but "gym & fitness" yk??"
+  Recommendation: category names are phrases ("gym & fitness"), matched by the taxonomy's keyword candidates. Also carried by Brief 39b (the taxonomy).
+- "I think meeting notes should be different or at least partially separate from dictation and audio transcribing. Can there be an auto captioning and transcribing tool live as well?? Maybe a way to record store and edit mp3 audio notes like with Apple voice memos?? What about ai free translations?"
+  Recommendation: meeting notes, dictation, voice memos and live captions as separate entries in the audio section; translation is an offline engine question. Also carried by ROADMAP Direction track 11 (audio in the notebook).
+
+### Ideas
+
+- "I want to deep analyse this repo and see if we can cake a use/replicate/take a lot from it https://github.com/haifengl/smile.git"
+  Recommendation: the smile read goes into ANALYSIS.md with the algorithms worth a small Python port (clustering, keyword extraction). Also carried by Brief 40 (haifengl/smile).
+- "are there any other libraries that could be used that I and u havent found or mentioned??"
+  Recommendation: the candidate-library table in Brief 40 answers this, with keep or drop for each. Also carried by Brief 40.
+- "did you vendor the other libraries and binaries?? do we need to?? what else is there to do??"
+  Recommendation: answer in ANALYSIS.md: which libraries are vendored, which are pip dependencies, and which are dropped under policy 1. Also carried by Brief 40 and ROADMAP Direction policy 1.
+- "doesnt harper use a binary though?? are there any other repos or libraries that we can vendor??"
+  Recommendation: Harper is a WebAssembly build in the frontend; the Brief 40 table records any other WASM or pure Python candidate. Also carried by Brief 40.

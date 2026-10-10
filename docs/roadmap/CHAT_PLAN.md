@@ -916,3 +916,113 @@ quality held or better.
 29. **The blind test is both**: a fixed sample notebook on every build, and
     the owner and a few friends rating on their own notebooks now and then.
 
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first, then design requests, then ideas.
+
+### Bugs
+
+- "on the guide the thinking shows below the thinking indicator and stuff" / "with no gap either"
+  Recommendation: measure the gap between the thinking indicator and the thinking text in the guide, then give the text the spacing token. No brief carries it; Brief 37 (chat bugs) is the nearest.
+- "should that no chats text be at the top not the bottom??"
+  Recommendation: place the empty-chat text at the top of the list and measure its position in the empty state. No brief carries it; Brief 37 is the nearest.
+- "the "start searxng" button doesnt appear for a while"
+  Recommendation: show the SearXNG start control as soon as the web engine is found down, not after the status poll. No brief carries it; Brief 37 (web sources and retry) is the nearest.
+- "the notification said it takes a while to pull the first image for searxng but ive already used multiple times"
+  Recommendation: show the first-pull note only when the image is absent, checked before the message is written. Also carried by Brief 37 (web sources and retry).
+- "I pressed the "ask about this" button and it put it in the chat but I was on "ask" mode, shouldnt it have been auto put on "agent"??"
+  Recommendation: the ask-about-this action switches to agent when the model and tools allow it, and says why when they do not. Also carried by Brief 37 (model gating, CHAT_PLAN decision 22).
+- "why is the token window limit for this model soooo low :("
+  Recommendation: show the model's real context limit and the reason for it in the token pill. Also carried by Brief 37 (token pill popover).
+- "I tried to ask for more info from the retrieved website in the previous prompt and it just straight up ignored me and started talking about my notes"
+  Recommendation: a follow-up about the last retrieved page reuses that page as its source. Also carried by Brief 37 (web sources) and Brief 39 (dialogue state).
+- "also I just asked another question, didnt like the response so I deleted it, and now somehow the token usage I was at for that chat has lowered??"
+  Recommendation: count tokens from the turns that still exist and show the change when a turn is deleted, then measure the figure before and after. Also carried by Brief 37 (token pill popover).
+- "not every chat response needs to be related to notes if it is othe rthings about the application."
+  Recommendation: questions about the app are answered from the engine's app facts (Help and settings), not from the notes. Also carried by Brief 39 (acts and explanations).
+- "no way to clear the destination history or delete individual records??"
+  Recommendation: add clear-all and per-record delete to the destination history. Also carried by Brief 37 (histories cleared).
+- "a whitebaord showed as a note in the notes ask subtab matching records column"
+  Recommendation: each match carries its kind (board, map, note, document) and the Ask subtab labels it. Also carried by Brief 37 (source kinds).
+- "it got jokes from another note but not the separate one from the top of the matching records"
+  Recommendation: an answer names the note each claim came from, so the joke's source is visible and checked. Also carried by Brief 39 (grounding per source).
+- "I can still activate skills and the suggested skill popup still appears when I have no model running." / "The ai model isnt running, skills are disabled, and it still suggests skills"
+  Recommendation: no skill suggestion or activation while the model is off or the tools toggle is off, with a test for each state. Also carried by Brief 37 (model gating, CHAT_PLAN decision 22).
+- "Its still allowing me on agent mode even when the ai model isnt connected"
+  Recommendation: agent mode is disabled with its reason when no model is connected. Also carried by Brief 37 (model gating).
+- "I pressed show them, but it just navigated me to the Ask subtab on the notes tab as that was what I was just on in the notes tab and not to the "you notes" tab"
+  Recommendation: "show them" opens the Your notes subtab, whatever subtab was last open. No brief carries it; Brief 37 is the nearest.
+- "Hovering over an intext reference opens up the sources dropdown."
+  Recommendation: hover shows a short preview of the source and a click opens the sources. No brief carries it; Brief 12 (per-claim citations) is the nearest.
+- "Note captions arent counted as note content??"
+  Recommendation: captions join the retrieval text and the fact layer, with a fixture that a caption-only fact is found. Also carried by Brief 39 (fact layer).
+- "Issues with these sentences: The picture in Girl with bell shows The image shows a snowy scene with a girl holding a bell, and there is a signature at the bottom left that reads "24-12-2018"" (and the Leafeon sentence that follows it in the list)
+  Recommendation: the composer states what a picture shows only from its stored caption, and labels it as one. Keep both pasted outputs as the fixture for the check. Also carried by Brief 39 (realiser, grounded 1.0).
+- "These notes do not mention “summarise”."
+  Recommendation: a claim with no source note is dropped before the answer is written, with the summarise case in the grounding fixture. Also carried by Brief 39 (grounded 1.0 on every set).
+- "I think a lot of composer responses start with "ah,"??"
+  Recommendation: the opener set loses the repeated "ah," and is checked by openers_distinct over a 20-turn session. Also carried by Brief 39 (openers_distinct, lead_in_repeats).
+- "The composer is shit and I don’t like it, it needs soooo much improvement" / "Still ass composer"
+  Recommendation: this is the composer quality bar; measure it on the eval sets rather than on impressions. Also carried by Brief 39.
+- "I tried to press "a note" on the slash menu in the chat tab and the panel flickered then nothing happened" / "Same with the other options like "a document""
+  Recommendation: each slash-menu item in the chat tab opens its composer target or says why it cannot. No brief carries it; Brief 37 (chat bugs) is the nearest.
+- "There's no way to clear your ask history"
+  Recommendation: add clear-all to the Ask history, with the same control as the destination history. Also carried by Brief 37 (histories cleared).
+- "Do plan and web search work with the composer?? if not we should disable the plan button and if the user asks the composer to search the web, it can like pull the contents into a like rendered panel inside the chat bubble like a rendered pdf file for the user to access, or a scrollable list of websi"
+  Recommendation: Plan is disabled with its reason when web tools are off, and a web request opens the fetched pages in a rendered panel in the bubble. Also carried by Brief 37 (web sources) and Brief 39.
+
+### Design requests
+
+- "Composer chat messages in the chat and other interfaces should say if the composer or a specific ai model generated it"
+  Recommendation: every composer bubble carries a label naming the engine that wrote it. Also carried by Brief 39 (the bubble label) and Brief 37 (composed bubble label).
+- "Composer responses just appear, I think there should be an animation or smooth transition."
+  Recommendation: a short fade-in with a reduced-motion check, measured on the bubble's opacity over time. Also carried by Brief 37 (composed bubble fade).
+- "Ask subtab responses need to have better hierarchy with their sentence connectors."
+  Recommendation: headings, paragraph breaks and connectors are styled as one scale, measured on a sample answer. Also carried by Brief 39 (the realiser's structure).
+- "It just uses arrows to go between key sentences and doesn’t join or smoothly write it out at all"
+  Recommendation: the realiser joins key sentences into prose with connectors instead of arrows. Also carried by Brief 39 (realiser).
+- "Also the composer should probably use better md rendering and structuring, quotation marks, as well as alter personal words used in notes like "my" or "I" to "you" or "your"/"you're" etc"
+  Recommendation: the realiser turns the note's first person into second person and renders the answer's Markdown and quotation marks properly. Also carried by Brief 39 (the quotation style and the realiser).
+- "Also the composer should note timewords so it can be like, last Friday you did this… etc"
+  Recommendation: time words in the question and the notes ("last Friday") resolve through when.py into a dated sentence. Also carried by Brief 39 (when.py).
+- "I want the composer to be more like a chatbot and not just somenthing that reads out my notes,as I can clearly see them in the right column"
+  Recommendation: the composer answers in its own voice and does not repeat what the right column already shows. Also carried by Brief 39.
+- "also when I use the composer and press "ask this question again" to get a new ai response, the composer doesnt change it up. I want the composer to basically be a mastermind basically an ai model, but not an ai model?? or maybe a neural network that doesnt rely on an external ai software it is basically an ai alternative without being an ai model?? idk just throwing ideas out there."
+  Recommendation: "ask this question again" yields a different deterministic phrasing and different evidence order, measured by repeat distance over three regenerations. Also carried by Brief 39 (response variation).
+- "the composer should have more insights, some social and conversational aspects, more response variation. more stuff than just lkisting my notes back to me in a list"
+  Recommendation: add the social and conversational acts to the engine's act list, each with a test. Also carried by Brief 39 (acts).
+- "t needs more social and world and word understanding, needs to understand mroe typos, needs better and mroe verything"
+  Recommendation: extend the typo, synonym and social tables under the eval, with the grounded and first-line numbers reported. Also carried by Brief 39 (typo and world tables).
+- "this is confusing?? I want a better chatbot. is there any more magic we can do?"
+  Recommendation: the bubble explains which engine answered and what it did; the chatbot feel comes from Brief 39, not from a model. Also carried by ROADMAP Direction (the thesis: two engines, one answer).
+- "Composer doesn’t know it is atlas?? Should the composer be distinct from atlas??"
+  Recommendation: one voice, named Atlas, with the composer as its deterministic engine (Direction policy 4). Also carried by ROADMAP Direction policy 4 and Brief 39.
+- "sounds good! but only if the suer has web search and the tools enabled." (the owner's feedback in the Gemini thread, on the web-aware composer)
+  Recommendation: the composer searches the web only when web search and the tools are both on, and says so otherwise. Also carried by Brief 37 (model gating) and Brief 39.
+- "I just want it to do its job, and I dont want to change the ai, just improve and fix the deterministic composer." (the owner's feedback in the Gemini thread)
+  Recommendation: keep the composer deterministic and do not put a model into its writing; Brief 39 improves it under the eval. Also carried by ROADMAP Direction policy 4.
+- "I don’t like the genz version, remove It and expand the composer more. It needs a lot of fixing, expanding, and refining."
+  Recommendation: remove the Gen Z voice and its settings in the Gemini branch triage, then expand the composer under Brief 39. Also carried by Brief 35 (Gemini branch triage) and Brief 39.
+- "Also if I click the "not about [this tag], don’t show this again", is there a way to undo it or see the list of things not to show again for specific things or stuff??"
+  Recommendation: an undo toast and a list of suppressed suggestions in settings. Also carried by Brief 37 (suppressed suggestions list) and Brief 39b.
+
+- "there should be a retry button for failed web searches and/or a button to auto retry when searxng or another engine is available."
+  Recommendation: a retry control on each failed web result, and an opt-in auto retry when the engine answers its health check. Also carried by Brief 37 (web sources and retry).
+- "also should accessed web links in the sources dropdown be lised at the top of the sources??"
+  Recommendation: sort accessed web links to the top of the sources dropdown, and check the order in the sweep. Also carried by Brief 37 (source kinds).
+- "when I click the token window button pill, i expect to see a dropdown to see my token distribution stats, not it to be a button to compact the conversation. both functions need to show some better way"
+  Recommendation: the pill opens a token distribution dropdown, and compacting moves to a button inside it. Also carried by Brief 37 (token pill popover).
+- "Intext reference should be square brackets or styled differently."
+  Recommendation: in-text references use square brackets or a styled marker, measured in the answer sweep. No brief carries it; Brief 12 (per-claim citations) is the nearest.
+
+### Ideas
+
+- "I want the composer to be more integrated, have more abilities, utilities, functions, and more."
+  Recommendation: the composer's tool list is the engine's act list (CHAT_PLAN Phase 6); each new ability needs a test and an eval row. Also carried by Brief 39.
+- "could it have insights?? like with my note about hitting some golf balls after work could imply I may enjoy playing golf or have it as a hobby?? stuff like that. it needs a very robust and full scale intelligence engine."
+  Recommendation: insights are a fact-layer rule (a note implies a hobby) that the answer may state with its source. Also carried by Brief 39 (insights, ROADMAP Direction track 5).
+- "can you improve on and expand it further?? cover any flaws, optimise, enhance. impress me."
+  Recommendation: this is the composer's brief at large; it is Brief 39's scope, measured against the eval. Also carried by Brief 39.
+- "should we store recently retrieved website content for easy reretieval??"
+  Recommendation: keep fetched page text with its fetch time and a re-fetch control, and show it in the sources list. No brief carries it; Brief 37 (web sources) is the nearest.

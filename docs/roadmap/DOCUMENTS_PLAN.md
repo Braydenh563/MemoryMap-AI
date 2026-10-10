@@ -1342,3 +1342,34 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
   language (documents-code.js), its language shown and changeable on the
   block, Escape or the arrow keys out of it back into the prose. Stored as the
   same fenced Markdown, so Source, export and print are unchanged.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first.
+
+### Bugs
+
+- "I cant two finger trackpad zoom in or out on documents or images on the ocr workspace?"
+  Recommendation: pinch zoom (ctrl+wheel from a trackpad) on the PDF and OCR viewer and on images; test with a synthetic wheel event at the viewer. No brief carries it; Brief 42 is the nearest document brief.
+- "The note capture subtab formatting toolbar wont open :("
+  Recommendation: reproduce from the Notes Capture subtab, then fix the toolbar's open state and measure it. No brief carries it; Brief 42 is the nearest.
+- "Gemini might have removed the spell checker??" (the owner's words in the Gemini thread: "you removed spellchecker.py")
+  Recommendation: keep src/memorymap/vendor spellchecker.py and make Brief 35 (unused vendoring gone) leave it in, with a test that it loads; writing checks are Brief 42 (DOCUMENTS_PLAN section 21).
+- "I saved a website as a bookmark but the icon didnt change"
+  Recommendation: a saved bookmark takes the site's icon at save time and refreshes it on the next fetch; the link card in Brief 42 shows it. No brief carries the bug itself; Brief 42 (link cards) is the nearest.
+
+### Design requests
+
+- "on vs code selected lines have their line number bolded, the line subtly bordered and there are also indentation lines on vs code as well"
+  Recommendation: match VS Code's selected-line gutter, line border and indent guides in the code editor, measured against the VS Code screenshot set. Also carried by Brief 42 (the code editor to VS Code standard).
+- "also I want a better and more cardlike rendering of links or special liks like bookmarks and maybe even the ability to choose special icons or colours for bookmarked websites."
+  Recommendation: build link cards for bookmarks and embedded links with an icon and colour choice, and a viewer for them. Also carried by Brief 42 (embedded link cards with a viewer).
+- "The document editor and whiteboard and mindmap still have many design issues, functionality bugs, poor usability, lack features, and need improvement."
+  Recommendation: audit the document editor against VS Code and wordcraft in DOCUMENTS_PLAN section 21, and take the whiteboard and map rows from Briefs 36. Also carried by Brief 42.
+- "And we should massively improve, expand, refine and better integrate long form note taking."
+  Recommendation: the long-form path (document editor) gets the same comments, link cards, highlights and slash menu as the rest of the app; the first-run style choice is Brief 42. Also carried by Brief 42 (the long-form preference at first run).
+
+### Ideas
+
+- "Idea: on long form notes and documents, you can define topics, or use special characters, commands etc to label and link sections of documents on the ui, highlight or smth. You can visually connect ideas across the current document and link them, with reasons, you can have a local graph of linked ideas available for the current document and can even embed and render the graph in the document which"
+  Recommendation: a Phase row in DOCUMENTS_PLAN for labelled and linked sections with reasons and an embedded local graph, built only after highlights (Brief 42) and the graph's local pane (GRAPH_PLAN Phase 4). Also carried by Brief 42 (the labelled and linked sections idea).

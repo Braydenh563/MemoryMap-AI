@@ -902,3 +902,19 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
   420 to 2200px at the app's own 95% `--zoom`; a different engine could shift
   an exact wrap breakpoint by a few pixels, and none of the fixes depends on
   one holding. [wrap-sweep.md]
+
+## Atlas, placed from the owner's list 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first, then design requests. Brief 34 carries the whole group.
+
+### Bugs
+
+- "I cant right click to view the menu to change the companion in the expanded popup view"
+  Recommendation: the enlarged view gets the same context menu as the small companion, with the change-companion item in it. Also carried by Brief 34 (the enlarged view).
+
+### Design requests
+
+- "I barely get to see atlas change expression. atlas and the companion movement and behaviour need to be more and more lifelike, natural, smooth, varied, and more."
+  Recommendation: mood changes are visible within a short session, measured as mood changes per session before and after. Also carried by Brief 34 (moods that change, lifelike motion).
+- "The companion and atlas needs a lot more improvement, and lifelike behaviour, more cool and diverse ways to move around, enter the screen, change between behaviours and more."
+  Recommendation: add entrance and behaviour-change animations to the companion and Atlas, and count the distinct movements per session. Also carried by Brief 34 (gestures, entries and the walk cycle).

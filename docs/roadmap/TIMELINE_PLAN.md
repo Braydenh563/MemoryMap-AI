@@ -194,3 +194,12 @@ Written from working knowledge of the products, not a live teardown.
 - **Day One** (the journaling app closest to "what was I doing then"):
   a feed with a calendar and a "On this day" surface. Implication: an
   "On this day" chip in the dock is a cheap Phase 4 addition.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation.
+
+### Bugs
+
+- "The circle on the vertical line on the left isnt in line with the text line"
+  Recommendation: align the rail circle to the first line's centre in timeline.js and the timeline CSS, measured with getBoundingClientRect against the line box. Earlier notes on this fix were not verified; measure it again. Also carried by Brief 41 (timeline.js in its file list).

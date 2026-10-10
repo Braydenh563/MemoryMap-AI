@@ -1314,3 +1314,59 @@ inside a 4,000px section.
 ## Placed from INBOX, 2026-10-05 (header bars, Settings navigation)
 
 621 and 622 are built. Moved whole to [`HISTORY.md`](HISTORY.md) ("Moved from the plans, 2026-10-05 (INBOX 621 and 622: the header bars and the Settings navigation)"), with what they measured before and after.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first, then design requests.
+
+### Bugs
+
+- "popup panels appearing at the start on a new install are messy and clash/overlap a lot"
+  Recommendation: one first-run queue with no overlapping panels, measured with getBoundingClientRect on a fresh profile. Also carried by Brief 37 (the first-run queue).
+- "I pressed done and it just didnt give me the tour at all??"
+  Recommendation: Done starts the tour or closes it cleanly, with the handoff in Brief 37 (INBOX 745 (d)). Also carried by Brief 37 (tour handoff).
+- "says done but the bar is still there??"
+  Recommendation: the bar goes when Done is pressed, and the first-run state is checked on reload. Also carried by Brief 37 (first-run queue).
+- "that's the box in the corner I was telling you temporarily appeared"
+  Recommendation: reproduce on a fresh profile and name the box in the owner's terms before fixing it; the first-run queue in Brief 37 is the likely owner. Also carried by Brief 37.
+- "I pressed install on the documents package and the progress bars appeared for the vision package and the documents package didn’t progress at all"
+  Recommendation: each package's progress is bound to its own install job; test two installs at once. Also carried by Brief 37 (packages progress).
+- "Also it failed to let me view the pdf doc I had as the package wasn’t installex, it should have given me a link to nav to where I can install it or just an install button directly"
+  Recommendation: the PDF viewer shows an install button for its package in place of the document. No brief carries it; Brief 37 (packages progress) is the nearest.
+- "There's overlap on these settings tabs in the sidebar"
+  Recommendation: measure the overlap of the settings tabs at the sidebar width, then fix the layout. Also carried by Brief 41 (Settings two-pane).
+- "These elements in the lightbox aren’t the same height"
+  Recommendation: give lightbox controls one height token and measure their heights in the sweep. No brief carries it; Brief 41 (density) is the nearest.
+
+### Design requests
+
+- "very messy"
+  Recommendation: the owner has not named the surface; ask for the screen when the next session starts, and meanwhile run the Brief 41 density census to find the worst surface. No brief carries it by name.
+- "this panel looks like a demo and not professional"
+  Recommendation: name the panel, then give it the designed empty, error and first-run states that ROADMAP Direction (reliability gate) asks for. Also carried by Brief 41.
+- "is it possible to add and customise the metadata a little more??"
+  Recommendation: custom note properties, shown in the metadata rows with one control recipe. Also carried by Brief 38 (custom note properties) and Brief 37 (metadata rows).
+- "Note metadata and chat bubble metadata still feels incredibly messy, not modern, and unrefined. The whole app needs another ui/ux modernisation, professionalisation, and ui/ux enhancement improvement in many places."
+  Recommendation: one metadata row recipe for notes and bubbles, measured for height and gap. Also carried by Brief 41 (density) and Brief 37 (metadata rows).
+- "Some tooltip buttons are circles and some are rounded squares. Should they have backgrounds or borders that are visible??"
+  Recommendation: one radius per control class and one visible border rule for tooltip buttons, from DESIGN.md tokens. Also carried by Brief 41 (one radius per control class).
+- "No vertical gap"
+  Recommendation: the owner has not named the surface; find the gap by the density census and fix it under the spacing tokens. Also carried by Brief 41 (gaps).
+- "idk if it is just me but the ui still needs a more modern and professional polish. I think an issue might be that some of the ui elements, controls and dropdowns are too large and bulky and have too large spacing and margins around them and gaps around panels?? like the vs code ui is a lot more cleaner and refined and the sidebar is still floating but its more subtle, the controls are smaller and"
+  Recommendation: the density census (control heights, gaps, radii, topbar height) before and after, against the VS Code reference. Also carried by Brief 41 (UI density).
+- "also I think the topbar is a little large but idk maybe not. maybe research design principles or standards?? ensure wcag 2.2 accessibility is followed and complied with"
+  Recommendation: measure the topbar height against the density target and run the wcag22 sweep per surface. Also carried by Brief 41 (WCAG 2.2).
+- "Ive been screenhotting parts of the perplexity interface and others but there are soo many more modern examples and ways to structure stuff. I think that all the controls and docks on each page and dropdown menus and popup menus and stuff just need a major polish and refinement and they all need to be consistent across the app. think maximum learnability, minimalist and instinctive to use. refined"
+  Recommendation: one control recipe for every dock, dropdown and popup (kebabMenu, .dock, the tokens in DESIGN.md), checked by the ratchets in test_ui_recipes.py. Also carried by Brief 41 (UI density and refinement).
+- "feel like there should be a subtle like meatball icon in the top right on the same line as the quick access title on aligned to the right above the quick access menu to allow for easier and more intuitive access to these buttons?? maybe not idk"
+  Recommendation: build it only if the density census shows the quick access buttons are hard to find; use the kebabMenu recipe. No brief carries it; Brief 41 is the nearest.
+- "do way to view logs of bg processes"
+  Recommendation: a background tasks log in settings, read from the job runtime. Also carried by Brief 37 (logs of background tasks).
+- "there's no option to have the ocr workspace in the quick access section in the dashboard, it also isnt accessible in the cmd palatte or find anything search"
+  Recommendation: add the OCR workspace to quick access and to the command palette and search. Also carried by Brief 37 (OCR in quick access and palette).
+- "The whole begin the app for the first time workflow is a mess, popups and notifications  clash with each other, the tour gets cancelled, to much goes on, and on the tour it is hard to see the other features  around the things highlighted."
+  Recommendation: one first-run flow with a single queue, a tour that can be finished, and spotlight steps that leave the neighbouring features visible; measured on a fresh profile. Also carried by Brief 37 (first-run queue and tour handoff).
+- "The packages install progress bars and stuff are very messy and need refinement and better information architecture and ux needs to be done for when features aren’t accessible because of an uninstalled package"
+  Recommendation: one install panel with per-package progress and a link from any locked feature to it. Also carried by Brief 37 (packages progress).
+- "There needs to be more utility on all features app wide and more ui/ux cleansing"
+  Recommendation: this is the Brief 41 refinement pass plus the Brief 38 topic and note-property work applied on every surface. Also carried by Brief 41 and Brief 38.

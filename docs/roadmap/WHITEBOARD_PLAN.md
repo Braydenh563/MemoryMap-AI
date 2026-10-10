@@ -897,3 +897,37 @@ Held by the boardmap-1005 agent; the built halves are in HISTORY.md
   midpoint of each edge of its current box, rotated with it, updated live
   during drag, resize and rotate; bound connectors follow the same way (746).
   Measure with getBoundingClientRect after each of the three.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first.
+
+### Bugs
+
+- "there's no way to vertically centre text"
+  Recommendation: add top, middle and bottom vertical alignment to text on boxes and stickies, then measure the offset with getBoundingClientRect after a resize. Also carried by Brief 36 (vertical text).
+- "the edge arrows are still not moving and you cant even see the top one"
+  Recommendation: both arrowheads must render and follow their connector during drag, resize and rotate; extend wbrotatelinks.js to check the top end. Also carried by Brief 36 (edge arrows).
+- "text gets cut off on the note sidebar in the whiteboard"
+  Recommendation: measure scrollHeight against clientHeight in the note sidebar at the default width, then fix the overflow. Also carried by Brief 36 (note sidebar clipping).
+- "also si there meant to be a default board??"
+  Recommendation: decide the first-run board state (a starter board or an explained empty state) and record the decision in this plan. Also carried by Brief 36 (empty Boards state and auto-naming).
+- "I used those little side triangle arrows on the edge of a sticky note to make another connected sticky note but when I move the new sonnected sticky note, the point at which the link line connects to it changes vertically depending on where I drag it."
+  Recommendation: pin each port anchor to its side of the sticky so the attach point moves only along that edge; check with wbports.js after a drag. Also carried by Brief 36 (port anchors).
+- "I tried dragging to create a frame and it randomly visually cut off half way on the screen??"
+  Recommendation: reproduce the frame drag at a fixed viewport and compare the frame's bounds with the canvas viewport; fix the clipping. Also carried by Brief 36 (clipped frame).
+- "there's no way to edit a comment"
+  Recommendation: add edit and delete to board comments, with the link support in Brief 36 (comments edited and with links). Use the same comment component for documents (Brief 42).
+- "/ command menus don’t appear in text boxes in the whiteboard"
+  Recommendation: attach the slash menu handler that notes use to whiteboard text boxes, and cover it with a sweep. Also carried by Brief 36 (slash menus in boxes and nodes).
+
+### Design requests
+
+- "there's no real way to visually distinguish between a text box and a note. and note appearances arent changable"
+  Recommendation: give stickies and text boxes distinct default looks, and let a note's appearance be changed from its properties panel. Also carried by Brief 36 (sticky versus text box, appearance options).
+- "Also dragging to create any object should ghost preview that object, not be the drag selection."
+  Recommendation: show a ghost of the object being created during the drag, not a selection rectangle. Also carried by Brief 36 (ghost preview).
+- "Comments in boards, maps, and other places need a lot of improvement and enhancement and fixing as well."
+  Recommendation: bring board and map comments to the shared comment recipe (edit, delete, links, bookmarks) and measure it on both surfaces. Also carried by Brief 36 (comments edited and with links) and Brief 42 (comments on documents).
+- "Also I thought you added draggable emojis and an emoji and icon library?? Idk where it is or how to use it."
+  Recommendation: put the icon and emoji library behind one visible entry point on boards and maps, and say where it is in Help. Also carried by Brief 36 (icon library findable).

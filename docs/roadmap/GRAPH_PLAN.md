@@ -561,3 +561,27 @@ entity-to-entity triples at notebook scale (slow and unreliable on a small
 local model; typing happens on accept, one pair at a time); Leiden as a
 dependency (label propagation in Python suffices at 10k); formulas and
 rollups beyond count, sum, min, max, earliest and latest.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first.
+
+### Bugs
+
+- "I went onto the radial view and it put me on a random corner" / "same with the tree"
+  Recommendation: every view switch ends fitted to the visible nodes, for radial and tree as well as force; check with the view-switch sweep. Also carried by Brief 38 (view switches end fitted).
+- "the graph shape options shouldnt be enabled when on a view other than force"
+  Recommendation: gate the shape control to the force view and show why it is off elsewhere. Also carried by Brief 38 (Shape gated to Force).
+- "I collapsed and opened the local map and the stuff disappeared??"
+  Recommendation: the local map redraws its nodes after collapse and reopen; reproduce the collapse, then count nodes before and after. Also carried by Brief 38 (the local map redraw).
+- "I cant rename a topic??"
+  Recommendation: add rename to topics on the graph and in every list that shows them. Also carried by Brief 38 (topics renamed).
+- "this is my graph's fitted view and it is a bit off" / "thats more fitted"
+  Recommendation: use even fit margins on every side and fit on the first paint, then compare the bounding box with the canvas. Also carried by Brief 38 (first paint fitted, even fit margins).
+
+### Design requests
+
+- "I still cant edit topics in the graph or anywhere else, and I want to be able to drag whole topics around on the graph."
+  Recommendation: topics become editable objects with their members, and dragging one moves its members as a group. Also carried by Brief 38 (topics dragged as a group and shown on the note).
+- "Should topics from the graph be more integrated app wide?? How are they different from categories?"
+  Recommendation: answer in GRAPH_PLAN decisions (topics are the person's named clusters, categories are filing targets) and make the same object appear in both places; Brief 38 builds the integration and Brief 39b the taxonomy. Also carried by Brief 38 and Brief 39b.

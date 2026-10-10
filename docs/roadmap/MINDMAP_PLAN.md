@@ -1769,3 +1769,23 @@ Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
 - The document editor's `:shortcode:` completion keeps its own 248-entry table
   (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
   can wait on the picker's script.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first.
+
+### Bugs
+
+- "the rounded rectangle shape doesnt work on the mindmap"
+  Recommendation: make the rounded rectangle a real node shape on the map (its radius token, its hit area and its export), then measure it in the sweep. Also carried by Brief 36 (rounded rectangles on the map).
+- "Pressing enter when typing on a mindmap node makes a new node instead of a new line. Also the / command menu and [[ adding notes etc doesn’t work on mind map nodes."
+  Recommendation: Enter inserts a line break inside a node (Shift+Enter or a key rule creates a sibling), and the / and [[ handlers run inside node text. Also carried by Brief 36 (Enter as newline, slash menus in nodes).
+- "New mind map nodes don’t take into account direction of flow for that branch"
+  Recommendation: a new node takes its side and direction from its parent branch, not from a default. Also carried by Brief 36 (branch colour and spacing on insert).
+- "when I added a mindmap node in between, it changed the colour of the other nodes in the branch and the spacing is really close to the other things and bunched up"
+  Recommendation: inserting a node keeps the other nodes' colours and reflows the branch spacing to the map's spacing token; measure the gaps before and after. Also carried by Brief 36 (branch colour and spacing on insert).
+
+### Design requests
+
+- "I want more mindmap appearance options. Other mind mapping software is still soo much better and the current one still isnt clean, doest have much and needs a lot of improvement"
+  Recommendation: add node and branch appearance options (shape, fill, border, line style, spacing) as recipe controls, benchmarked against the MINDMAP_PLAN research. Also carried by Brief 36 (appearance options) and MINDMAP_PLAN section 14.

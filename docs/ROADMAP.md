@@ -149,6 +149,41 @@ Taken as a programme, in this shape:
    whiteboard, mind map, documents, then the Library, audio and
    presentations.
 
+### The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta")
+
+What "publishable" means here, as gates a build either passes or does not.
+Each milestone is a release; nothing below it ships with a visible
+half-feature (an unfinished feature sits behind a flag, off by default,
+not on a menu).
+
+| Release | Theme | Exit criteria, every one measured |
+| --- | --- | --- |
+| 0.5 Reliable | the app never loses, lies or stalls | Brief 43's nine probes green: backup and restore round-trip equal on 500 notes; every export re-imports; migrations from 0.3.0; zero silent failures when the server dies; zero console errors on any surface; keyboard-only completion of every surface; axe clean; boot under 2.5 s at 4x throttle; idle CPU under 1 percent; offline run makes no outbound request; auth on every write route; CI green with no xfail newly added |
+| 0.6 Engine | the deterministic engine is the product | CHAT_PLAN Phase 6 steps 1 to 10 built; grounded 1.0 on every eval set; measured sentences 1.0; a 20-turn session with no repeated template; acts for the twelve verbs with confirm and undo; filing top-1 at or above 0.8 without a model on the 120-note fixture, every filing explained; the Guide and Chat one engine; a blind panel rating at or above the 1 to 3B model's on the owner's notebook |
+| 0.7 Surfaces | boards, maps, documents, graph at parity on what matters | the "build first" rows of every parity table in ANALYSIS.md built; one object model (properties, comments, links, slash menu, export, search) across note, board, map, document, reminder and clip, with a test that walks all six; the whiteboard regression suite and map sweeps green; documents' code editor at DOCUMENTS 21's bar |
+| 0.8 Design | one system, dense, accessible | UI Phase 12 complete: the density tokens with no literal heights outside them, the hover grammar lint, one radius per class, the wcag22 sweep clean on every surface at 1440, 1024 and 390 in both themes, custom pickers, the calendar mode, metadata rows unified; the README screenshots recaptured last |
+| 0.9 Public beta | strangers can install it and come back | Windows, macOS and Linux launchers and the Docker image each installed on a clean machine by someone who is not the owner, timed, with the first-run queue measured (no overlaps, the tour on request); the phone over HTTPS trusted by the QR and guide flow on iOS and Android; the update path from 0.8 with data in place; a crash and feedback channel that is local and opt-in (a bundle the person sends by hand); ten testers for two weeks, their reports placed and the bugs closed |
+| 1.0 | publishable | 0.9's testers report no data loss and no blocker for a month; the full suite, the sweeps and the scripted session green on the tag; THIRD_PARTY.md complete; the manual (Guide topics) covers every control (test_manual_parity); AGPL notices in place; the release notes written for a reader who has never seen the app |
+
+Rules that hold from here to 1.0:
+
+1. **A feature lands everywhere or nowhere.** Built on one surface only, it
+   stays behind a flag until the shared recipe carries it to the rest.
+2. **Nothing visible is unfinished.** An empty state, an error state and a
+   first-run state are part of the feature, not follow-ups.
+3. **Every claim has a number.** A plan row without a measurement is not
+   done; a report without numbers is not merged.
+4. **The model is optional on every path.** Any path that fails without a
+   model is a bug, not a limitation.
+5. **Weight is a budget.** Boot gzip, import time, idle CPU, memory at 5,000
+   notes and the vendor directory each have a measured cap and a lint.
+6. **One recipe per need.** A second way to do the same thing (a menu, a
+   bar, a picker, a card) is removed in the same PR that notices it.
+
+Order: 0.5 and 0.6 run together now (Briefs 35 to 39b and 43); 0.7 follows
+the parity tables; 0.8 is Brief 41 plus the surface briefs' design rows;
+0.9 needs the owner's testers.
+
 The owner's 2026-10-10 list is placed by Brief 40 under "Placed from the
 owner's list, 2026-10-10" in each plan; INBOX stays under its cap.
 

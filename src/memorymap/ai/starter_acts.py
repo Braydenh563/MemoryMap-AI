@@ -22,14 +22,15 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import commands, day_digest, lexical_filing, realise, utilities
+from memorymap.ai import commands, day_digest, lexical_filing, realise, recognise, utilities
 from memorymap.core.database import Entry, EntryLink, Reminder
 
 #: Each starter's reading, first match wins. The text is folded to lower case
 #: with the closing punctuation off before it is matched.
 _READS = (
     ("append_today", re.compile(r"^(?:add|append) to (?:today'?s|the daily|my daily) (?:note|journal)[:,]?\s+(?P<words>.+)$")),
-    ("changed", re.compile(r"^what (?:has )?changed(?: in (?:my|the) notebook)?(?: today| since yesterday)?$")),
+    #: The time words are the recogniser's (`_since_a_day`), never a list here.
+    ("changed", re.compile(r"^what (?:has )?changed(?: in (?:my|the) notebook)?(?: (?P<when>.+))?$")),
     ("loose_ends", re.compile(r"\bloose ends?\b|^what should i (?:pick up|do) next$")),
     ("due", re.compile(r"^what(?:'s| is) (?:due|overdue)(?: today| soon| next)?$")),
     ("conversation", re.compile(r"^(?:summari[sz]e|sum up) (?:this|the|our) (?:conversation|chat)$")),
@@ -55,10 +56,22 @@ def read(text: str) -> tuple[str, dict] | None:
         found = pattern.search(low)
         if found:
             slots = found.groupdict()
+            if kind == "changed" and not _since_a_day(slots.pop("when")):
+                continue
             if "words" in slots:
                 slots["words"] = _original_tail(str(text).strip().rstrip("."), len(slots["words"]))
             return kind, slots
     return None
+
+
+#: A fixed Wednesday the 5th, so "this week" or "this month" never reads as
+#: a day on a Monday or the 2nd: the answer covers the last day, nothing more.
+_A_WEDNESDAY = datetime(2000, 1, 5, 12)
+
+
+def _since_a_day(when: str | None) -> bool:
+    """No time words, or ones meaning today or since yesterday."""
+    return when is None or recognise.days_since(when, _A_WEDNESDAY) in (0, 1)
 
 
 def _original_tail(text: str, length: int) -> str:

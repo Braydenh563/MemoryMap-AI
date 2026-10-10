@@ -168,6 +168,11 @@ with its owner named in the entry.
      haiku when they can do just as good a job as well". Taken: orchestrator
      on Opus; at most three Opus agents; Sonnet and Haiku for every brief
      they can do to the same standard. Placed in HANDOVER's owner notes.
+775. **Bug, the owner 2026-10-10 21:52Z, two screenshots (desktop, 34 notes).**
+     "I went onto the graph and this is what it looked like?? it didnt zoom
+     in or fit to my screen?? I pressed the fit button and it didnt do much".
+     First open: the cluster fills about a fifth of the canvas; after Fit,
+     about half, and the bubbles overlap one another heavily.
 
 ## Placed (last 20, newest first)
 

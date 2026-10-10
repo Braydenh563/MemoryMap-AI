@@ -28,7 +28,7 @@ CHUNK = 250 * captions.BYTES_PER_MS  # what the page sends
 def _clean(monkeypatch):
     monkeypatch.delenv("MEMORYMAP_CAPTIONS_URL", raising=False)
     monkeypatch.delenv("MEMORYMAP_CAPTIONS_MODEL", raising=False)
-    captions._probe = (0.0, "", False)
+    captions._probe.update(at=0.0, url="", ok=False)
     captions._sessions.clear()
     activity.clear()
     yield

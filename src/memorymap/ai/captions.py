@@ -73,7 +73,7 @@ NO_HELPER_HINT = (
 )
 NOT_LOCAL_HINT = "Live captions only run on this computer, so the helper's address has to be local."
 
-_probe: tuple[float, str, bool] = (0.0, "", False)
+_probe: dict = {"at": 0.0, "url": "", "ok": False}
 
 
 class CaptionsError(RuntimeError):
@@ -108,19 +108,18 @@ def _http() -> requests.Session:
 def status() -> dict:
     """`voice.status`'s `captions` object. The probe is cached ten seconds so
     the dashboard polling it does not hammer the helper."""
-    global _probe
     url = helper_url()
     if not url:
         return {"available": False, "model": model_label(), "hint": NO_HELPER_HINT}
     if not _is_local(url):
         return {"available": False, "model": model_label(), "hint": NOT_LOCAL_HINT}
-    stamp, probed, ok = _probe
-    if probed != url or time.monotonic() - stamp > 10:
+    ok = _probe["ok"]
+    if _probe["url"] != url or time.monotonic() - _probe["at"] > 10:
         try:
             ok = _http().get(url + "/", timeout=1).status_code < 500
         except requests.RequestException:
             ok = False
-        _probe = (time.monotonic(), url, ok)
+        _probe.update(at=time.monotonic(), url=url, ok=ok)
     hint = None if ok else "The captions helper isn't answering. Start it, then try again."
     return {"available": ok, "model": model_label(), "hint": hint}
 

@@ -338,6 +338,15 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-10 (WHITEBOARD Brief 77, rows 1 to 4)
+
+The wb77 agent's Built block (standing order 10); WHITEBOARD_PLAN "Deepened 2026-10-10" rows 1 to 4 carry the pointer.
+
+- Row 1 (rules 8, 2): `wbInitMoreMenu` (whiteboard-commands.js), a `kebabMenu` at the top bar's end below 820 listing each `WB_COMMANDS` row the bar, its menus and the tools sheet do not carry (`wbPhoneCarries`), grouped as the table is. `scratchpad/ui-sweeps/wbphonecmds.js`: commands with a phone path at 390, 40 of 81 to 81 of 81 (the plan's "11 of 40" counted controls, not commands); 320 and 700, 81 of 81; top-bar targets under 44 px 0; the 320 bar ran 34 px past itself with the kebab, now 0 controls past its edge (gaps and dividers give below 360).
+- Row 2 (rules 2, 13): `wbNewUntitledBoard` and an in-place `renameCurrentBoard` (whiteboard.js); New, From a template (`wb-boards-new-template`) keeps the gallery. `wbnewboard77.js`: clicks from the dashboard 4 and a typed name to 3 (counted as deepen72a.js counts; the New menu's summary is one more press either way); New to a drawable canvas 690 to 873 ms (1440 and 390, a pen stroke lands); Escape keeps "Untitled board N", Enter saves a typed name.
+- Row 3 (rule 1): `wbTakeChangeFromElsewhere` (whiteboard-history.js), fed by capture-ask.js's board tools (`mm:board-changed`) and a BroadcastChannel for other tabs. `boardundo.js` 43/43 to 45/45 (an agent row, an another-tab row).
+- Row 4 (rules 1, 3): `/whiteboard/history/snapshots` (GET, POST, DELETE; routes_board_history.py, in the board's `board_settings`), `wbOpenSnapshots` (a sheet: Save a snapshot, each row the Library card's `mapPreview`, Restore as one recorded gesture, Delete). `tests/test_board_history.py` +3; `wbsnap77.js`: restore then Ctrl+Z object-equal, PASS.
+
 ## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 69, I1)
 
 **Built** by the ide1 agent (DOCUMENTS_PLAN 23 phase I1 and section 25 rows

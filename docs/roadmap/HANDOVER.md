@@ -357,10 +357,12 @@ paging, operator help and saved searches; WORLD_CLASS 25a built), and 42's
 remainder (python-docx retired, Word round trip with pictures and tracked
 changes, four file types, js-beautify, every code command keyed, the grip at
 24 px), and 41 (density: the top bar 64 to 44, docks at 28, icon hover on
-the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z). 68 merged 17:20Z. Running: 69 (run, preview and test,
-ide1), 34 continues (Atlas's faces and tail, companion2, dispatched 17:10Z)
-and 77 (the whiteboard trust pass, wb77); 60, 50 and 34's first round merged by
-17:05Z. Next: 70, 71 after 69, 84 after 68, then 76, 78 to 83, 85 to 90. The PR merges when the gate,
+the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z); 60, 50 and 34's first round by
+17:05Z; 68, 77 (rows 1 to 4) and 69 by 17:30Z, pushed as 07048214e with the CI
+fixes for c9e9a4ccc's ten red tests. Running: 84 (Atlas everywhere, atlas84),
+70 (the debugger, debug70), 71 (the IDE shell, shell71) and 34 continues
+(Atlas's faces and tail, companion2). Next: 76, 78 to 83, 85 to 90; Sonnet 75
+and 53 when load allows. The PR merges when the gate,
 the sweeps and one full suite run are green.
 
 **A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the

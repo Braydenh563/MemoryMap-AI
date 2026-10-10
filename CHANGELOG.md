@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Whiteboard: a key press the desktop webview reports with no key name no longer throws in the browser log (whiteboard.js's two document-level keydown handlers return first; INBOX 763, `tests/test_keydown_without_key.py`).
 - Plans: eleven built briefs (1, 7, 11, 12, 15, 19 to 24) moved from SESSION_BRIEFS.md to HISTORY.md, 2,088 lines down to 1,695.
 - Plans: the companion's behaviour model (SESSION_BRIEFS Brief 34 second part, INBOX 752).
 - Vendored libraries counted against use: `scratchpad/vendor_use.py` prints "available N, called M, unused" per library (CodeMirror 102 of 375, Harper 17 of 67, D3 19 of 578, p5 21 of 329, Phosphor 260 of 1,536, FlashText 2 of 19, the word list 2 of 9, the draw.io sets 7 of 12); `tests/test_vendor_utilisation.py` ratchets the called counts; 17 ranked capabilities placed in the surface plans (Brief 75).

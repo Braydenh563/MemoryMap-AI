@@ -46285,6 +46285,14 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      a test that opening, listing, indexing and searching a board leave its
      modified time alone.
 
+763. **The owner, 2026-10-10, verbatim**, from the app log: "9:04:02 pm ERROR:
+     browser: Uncaught TypeError: Cannot read properties of undefined (reading
+     'startsWith') (http://127.0.0.1:8000/js/whiteboard.js?v=0.4.1-aa97299097:7312:13)".
+     The ring's document keydown handler read `e.key.startsWith` on a keydown
+     with no key (the desktop webview sends one). Fixed: both document-level
+     whiteboard keydown handlers return first when `e.key` is not a string;
+     `tests/test_keydown_without_key.py` pins it.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

@@ -7293,6 +7293,10 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest("#wb-map-link-radial")) wbCloseMapLinkRadial();
 });
 document.addEventListener("keydown", (e) => {
+  //: A keydown with no `key` (the owner's log, 2026-10-10: "Cannot read
+  //: properties of undefined (reading 'startsWith')" here, from the desktop
+  //: webview) is nobody's shortcut; every reader below wants a string.
+  if (typeof e.key !== "string") return;
   if (e.key === "Escape") {
     wbCloseContextMenu();
     wbCloseMapRadial();
@@ -12863,6 +12867,7 @@ async function initWhiteboard() {
   });
 
   document.addEventListener("keydown", (e) => {
+    if (typeof e.key !== "string") return; // a keydown with no key (see the ring's handler above)
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
     //: **Escape takes back a gesture in flight** before it does anything

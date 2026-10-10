@@ -72,6 +72,8 @@ CSS_FILES = [
     CSS_DIR / "captions-lazy.css",
     #: The Notes tab's Questions view (questions-view.js loads it).
     CSS_DIR / "questions-lazy.css",
+    #: The voice-note recorder and Library, Recordings (meetings.js, Brief 80).
+    CSS_DIR / "meetings-lazy.css",
 ]
 
 

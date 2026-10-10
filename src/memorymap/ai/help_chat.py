@@ -531,14 +531,19 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "voice",
-        "keywords": ("dictate", "dictation", "voice", "microphone", "meeting", "transcribe", "recording", "read aloud"),
+        "keywords": (
+            "dictate", "dictation", "voice", "voice note", "microphone", "meeting",
+            "transcribe", "recording", "recordings", "trim", "marker", "read aloud",
+        ),
         "body": (
             "The microphone icon on the note composer dictates a note using "
             "local Whisper: nothing sent anywhere. \"Record a meeting or "
             "lecture\" (the command palette, Ctrl+Shift+R, or a meeting's Record "
-            "into it) transcribes a longer recording and saves it as a meeting "
-            "note, the transcript under Notes. Read-aloud plays a note or "
-            "answer back to you."
+            "into it) and \"Voice note\" keep the audio as a recording, saved "
+            "every 10 seconds, even with no add-on; with the Voice notes add-on "
+            "the transcript is offered to save. Library, Recordings plays them "
+            "at 0.5 to 2x, with markers (M while recording) and Trim. "
+            "Read-aloud plays a note or answer back to you."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },

@@ -279,6 +279,8 @@ const REVEAL_TARGETS = {
   },
   sketch: { open: () => openSketch(), el: "sketch-card", flash: false },
   meeting: { open: () => openMeetingRecorder(), el: "meeting-card", flash: false },
+  "voice-note": { open: () => ensureModule("meetings").then(() => openVoiceNote()), el: "meeting-card", flash: false },
+  recordings: { tab: "library", open: () => ensureModule("meetings").then(() => openRecordings()), el: "library-view-recordings", flash: false },
   //: Ctrl+D's own door (`openTodaysPage`, timeline.js): today's page where it
   //: lives, or the composer with the day's title. The composer's box is the
   //: element that is always there to land on.

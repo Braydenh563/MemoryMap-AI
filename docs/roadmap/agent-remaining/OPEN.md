@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the bootdiet agent (merged 2026-10-10)
+
+Detail: [bootdiet-1010.md](../archive/agent-remaining/bootdiet-1010.md).
+
+- `TOTAL_CAP` (all app scripts) has 32 bytes of headroom; the next lever is the meeting overlay's listeners in settings-wiring.js.
+- A slow or failed fetch of app-features.js and a late Quick access first paint were not exercised.
+
 ## Left by the pickers agent (INBOX 784, 785, merged 2026-10-10)
 
 Detail: [pickers-1010.md](../archive/agent-remaining/pickers-1010.md).
@@ -347,6 +354,15 @@ Detail: [agentgate-1010.md](../archive/agent-remaining/agentgate-1010.md).
 - Needle with the server up but no model leaves Agent greyed: `tools_engine` is reported only when the server is down (routes_chat.py ~2534).
 - A failed or slow status poll nulls `modelStatus`, so Agent greys until the next good poll and may flicker.
 - Other AI controls still gate on `aiIsOff()`; `model_ready` is the field to move them to.
+## Left by the audio80 agent (Brief 80, merged 2026-10-10)
+
+Detail: [audio80-1010.md](../archive/agent-remaining/audio80-1010.md).
+
+- Notes cannot link to or embed a recording yet (only `entry_id`); search does not find recordings.
+- Trim decodes the whole file in the page (about 700 MB of samples for an hour).
+- Live captions is a palette act, so it cannot be a Quick access tile.
+- Brief 81: the stop path is now `meetingRecordingStopped`; transcription goes through `POST /recordings/{id}/transcribe`.
+- Not verified: real Whisper on a kept recording; a real microphone, Safari (mp4) and Firefox (ogg).
 
 ## Left by the translate83 agent (Brief 83, merged 2026-10-10)
 

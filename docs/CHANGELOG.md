@@ -12,8 +12,14 @@ below). Versioning is `0.x` while the app stabilises.
 - Notes, Questions: each note's questions sit under its title as a link-styled heading with the note's icon (hover underline, kept under the sub-tab strip while its questions scroll) instead of a bordered button, and a question an older rule had cut at a quote mark (`" or "What's the most ...`) leaves the list the moment it opens rather than at the next night pass.
 - The "[[" picker names a note by its opening line only and previews it with its first picture and a short excerpt that does not repeat the title (a sketch note read as its title four times and showed no drawing).
 - The "/" menu's Table and Code block previews draw their bar on one line, with Copy and the ⋯ as two small icon buttons side by side instead of a grey blob over a wrapped caption.
+- Faster start: the Tools and features list (about 195 rows of text) loads when the dashboard, the palette or that list first needs it, not with the first screen; boot scripts shrank by 5,879 bytes gzipped.
 - Translate this, in the command palette: a selected passage of a note, a document or a reading turned from English into Spanish on this computer with no model, then copied or put in place of the selection (Ctrl+Z undoes it). It needs "Translate offline", a 27 MB download in Settings, Packages (new bundle Languages); until it is installed the row says so and opens that page.
 
+- Recording never refuses: with no Voice notes add-on a meeting or a voice note is still kept, as a recording with its length; the add-on transcribes it when installed.
+- Recordings are saved every 10 seconds, so a closed or crashed tab keeps all but the last few seconds, and the next start says "Recording recovered".
+- An Audio group in Tools and features, and palette rows for Voice note, Dictate a note and Recordings, each also a Quick access tile.
+- Undo for starting a meeting, a reminder made from an action item, and saving a transcript into a meeting, as a meeting or as a document.
+- Library, Recordings: play at 0.5 to 2x over the saved waveform, markers pressed while recording (M or Marker), Trim into a new recording that keeps the original, Rename, and Delete into the bin.
 - Reminders: every weekday, every 2 weeks, every other Monday and the last Friday of the month repeat as said, and "1 day before" or "an hour before" adds an early alert; quick add shows both as chips, and ticking a repeating reminder moves it to its next time (Brief 85).
 - Reminders fire on the minute they are due (they could be up to a minute late), and an early alert fires once, ahead of its reminder.
 - Reminders: adding, completing and editing one undo with Ctrl+Z, like deleting and snoozing already did.

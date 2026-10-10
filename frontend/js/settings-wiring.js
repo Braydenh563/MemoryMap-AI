@@ -1834,13 +1834,8 @@ $("meeting-close").addEventListener("click", closeMeetingRecorder);
 wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
 $("meeting-record").addEventListener("click", toggleMeetingRecording);
 $("meeting-save").addEventListener("click", saveMeetingNote);
-$("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
-$("meeting-pause")?.addEventListener("click", toggleMeetingPause);
-$("meeting-copy")?.addEventListener("click", (event) =>
-  copyToClipboard($("meeting-transcript").value, event.currentTarget)
-);
 $("meeting-discard").addEventListener("click", resetMeetingUI);
-$("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
+//: Copy and the transcript box grow with the sheet (and Pause and Save as document: meetings.js wires them: the overlay opens only once it is in).
 
 // PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
 // libraries and icons, and shows offline.html when the server is not

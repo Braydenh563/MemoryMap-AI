@@ -69,8 +69,9 @@ MAX_FILE_BYTES = 50 * 1024 * 1024  # a personal notebook, not a fileserver
 #: default Content-Disposition: attachment, not rendered inline the way
 #: /media/{name} is), so the stored-XSS concern that shaped that allowlist
 #: doesn't apply here in the same way, but video and audio are still out
-#: (no player exists for either yet; audio specifically is tracked as a
-#: real feature to add, not a permanent refusal) and so are the obvious
+#: (no player exists for video; a recording is an object of its own,
+#: `routes_recordings.py`, never an attachment: WORLD_CLASS_PLAN "Audio in
+#: the notebook", decision 2) and so are the obvious
 #: executable/script shapes, since nothing in this app ever needs to run
 #: an attachment.
 ATTACHMENT_SUFFIXES = frozenset(

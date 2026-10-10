@@ -1330,6 +1330,9 @@ function paletteCommands() {
       reveal: "meeting",
       chord: "recordMeeting",
     },
+    { label: "ph:microphone-stage Voice note", reveal: "voice-note" },
+    { label: "ph:microphone Dictate a note", reveal: "notes-dictation" },
+    { label: "ph:waveform Recordings", reveal: "recordings" },
     {
       // The same ask about the page reader, in the same words: "I want an
       // easier and more accessible way to access the ocr workspace as a proper

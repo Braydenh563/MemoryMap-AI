@@ -1021,8 +1021,8 @@ function libraryActions(item) {
   return [];
 }
 
-//: **The bin holds four kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
-//: boards and maps), documents, reminders and OCR readings, told apart by `subtype`
+//: **The bin holds five kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
+//: boards and maps), documents, reminders, OCR readings and recordings, told apart by `subtype`
 //: (`routes_library._archive`). Each has its own restore and purge route.
 function binRoutes(item) {
   if (item.subtype === "document") {
@@ -1033,6 +1033,10 @@ function binRoutes(item) {
   }
   //: A deleted OCR reading (WORLD_CLASS_PLAN 28.4 row 2) goes back to the
   //: page or the file it was read from.
+  //: A deleted recording (WORLD_CLASS_PLAN 28.5 row 6), its audio kept.
+  if (item.subtype === "recording") {
+    return { noun: "recording", restore: `/recordings/${item.id}/restore`, purge: `/recordings/${item.id}/purge`, reload: () => {} };
+  }
   if (item.subtype === "reading") {
     return { noun: "reading", restore: `/reading-bin/${item.id}/restore`, purge: `/reading-bin/${item.id}/purge`, reload: () => renderLibraryImagesGallery() };
   }
@@ -9834,7 +9838,7 @@ onDomReady(() => {
     const sections = [
       "library-view-documents", "library-view-docs", "library-view-skills",
       "library-view-whiteboard", "library-view-media", "library-view-links",
-      "library-view-contents",
+      "library-view-contents", "library-view-recordings",
     ];
 
     buttons.forEach(btn => {
@@ -9908,6 +9912,8 @@ onDomReady(() => {
             renderBookmarks();
           } else if (targetId === "library-view-contents") {
             renderContents();
+          } else if (targetId === "library-view-recordings") {
+            ensureModule("meetings").then(() => renderRecordings());
           }
         }
       });

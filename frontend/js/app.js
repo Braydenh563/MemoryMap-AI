@@ -1840,7 +1840,9 @@ const LAZY_MODULES = {
   onboarding: ["/js/onboarding.js"],
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
-  appPalette: ["/js/app-palette.js"],
+  //: Also the feature rows it lists on the first open (app-features.js, loaded
+  //: elsewhere by `lazyScript`: a second name here would grow app.js past its cap).
+  appPalette: ["/js/app-features.js", "/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
@@ -1861,7 +1863,7 @@ const LAZY_MODULES = {
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
-  meetings: ["/js/meetings.js"],
+  meetings: ["/css/meetings-lazy.css", "/js/meetings.js"],
   quickAdd: ["/css/quickadd-lazy.css", "/js/quickadd.js"],
   //: The Statistics page and This week (statistics.js's header).
   statistics: ["/css/utilities-lazy.css", "/js/ask-chart.js", "/js/statistics.js"],
@@ -2197,7 +2199,7 @@ const LAZY_ENTRY_POINTS = {
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
   translate: ["translateCaught"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

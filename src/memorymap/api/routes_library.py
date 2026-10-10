@@ -38,7 +38,7 @@ from memorymap.core.database import (
     LIKE_ESCAPE,
     like_escape,
 )
-from memorymap.core import events, reading_bin
+from memorymap.core import events, reading_bin, recordings
 from memorymap.core.deps import get_session
 from memorymap.entry import highlights as note_highlights
 from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
@@ -479,6 +479,26 @@ def _other_binned(session: Session) -> list[dict]:
                 "thumb_url": None,
             }
         )
+    #: A deleted recording (WORLD_CLASS_PLAN 28.5 row 6), its audio kept
+    #: until the bin is emptied.
+    for recording in recordings.binned(session)[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "recording",
+                "id": recording.id,
+                "title": recording.title or "Recording",
+                "preview": "",
+                "updated_at": recording.deleted_at.isoformat(),
+                "detail": "a recording, in the bin",
+                "size": recording.size_bytes,
+                "entry_id": None,
+                "mime": recording.mime,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
+            }
+        )
     return items
 
 
@@ -836,6 +856,8 @@ _ENTITY_WORDS = {
     "whiteboard_node": "a board item",
     "whiteboard_sketch": "a drawing on a board",
     "bookmark": "a bookmark",
+    #: routes_recordings.py (Brief 80) logs created, binned, restored and transcribed.
+    "recording": "a recording",
     "model": "a model",
     "data": "your notebook's data",
     "vault": "your private notes",

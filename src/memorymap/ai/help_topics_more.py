@@ -1716,7 +1716,7 @@ TOPIC_META: dict[str, dict] = {
     #: every entry by its title, and an id read aloud ("Files images") is not one.
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
-    "voice": {"title": "Dictation, recording and read aloud", "path": "Notes tab, the microphone"},
+    "voice": {"title": "Dictation, recordings and read aloud", "path": "Notes tab, the microphone; Library, Recordings"},
     "meetings": {"title": "Meeting notes", "path": "Dashboard, New meeting; a meeting's meeting chip"},
     "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Writing room, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},

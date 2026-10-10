@@ -53,6 +53,8 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: quick-note.js) and the note edit form's formatting strip
 #: (`noteEditToolbar`, only `renderEditForm` calls it) into
 #: note-edit-panels.js: 588,354, so the cap is back below 589,100.
+#: 2026-10-10, bootdiet: `featureCatalog` moved to app-features.js (lazy, with the
+#: palette bundle), after Brief 80 took the boot to 588,728; measured 582,849.
 BOOT_JS_CAP = 588_400
 #: 2026-10-10 INBOX 767: the no-model notice's row and phone grid cost 58
 #: gzipped bytes, paid for by the blank lines of 08-consistency.css (61), so

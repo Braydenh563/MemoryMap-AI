@@ -1095,6 +1095,8 @@ LIST_ROWS = {
     ".wb-layer-row": ".wb-layers-tree",
     #: A meeting's action items, in its sheet (INBOX 644).
     ".meeting-action": ".meeting-actions-list",
+    #: Library, Recordings (WORLD_CLASS_PLAN 28.5 row 6).
+    ".recording-row": ".recordings-list",
 }
 
 

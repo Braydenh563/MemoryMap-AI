@@ -37,6 +37,9 @@ def status() -> dict:
         #: Live captions are a separate optional helper (decision 5), so they
         #: have their own availability, model and hint.
         "captions": captions.status(),
+        #: The translator's row waits for this (WORLD_CLASS_PLAN 28.5 row 10,
+        #: Brief 83): shown only once true, so no control does nothing.
+        "translate": False,
     }
 
 

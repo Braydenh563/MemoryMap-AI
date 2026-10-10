@@ -401,7 +401,8 @@ EXTRAS: tuple[Extra, ...] = (
         id="voice",
         label="Voice notes (faster-whisper)",
         enables="The dictation buttons: speak a note or a question and have it typed "
-        "out, transcribed on this machine.",
+        "out, transcribed on this machine. Recordings are kept without it, "
+        "and it transcribes them too.",
         packages=("faster-whisper",),
         module="faster_whisper",
         size="~50 MB, plus a model on first use",

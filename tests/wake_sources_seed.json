@@ -49,7 +49,7 @@
  "markdown.js::raf": 1,
  "media.js::raf": 2,
  "meetings.js::interval": 2,
- "meetings.js::raf": 2,
+ "meetings.js::raf": 3,
  "menus.js::mutation-observer": 1,
  "menus.js::raf": 2,
  "navigation.js::mutation-observer": 3,

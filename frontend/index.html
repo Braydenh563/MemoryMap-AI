@@ -5585,6 +5585,9 @@ Link to another note with [[its first few words]]."></textarea>
            identical whichever kind it is. -->
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="images">Images</button>
       <button role="tab" aria-selected="false" data-target="library-view-media" data-media-kind="files">Files</button>
+      <!-- Recordings (WORLD_CLASS_PLAN 28.5 row 6): a recording is an object,
+           not an attachment (decision 2), so it has a shelf of its own. -->
+      <button role="tab" aria-selected="false" data-target="library-view-recordings">Recordings</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-links">Bookmarks</button>
       <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
@@ -7976,6 +7979,42 @@ Link to another note with [[its first few words]]."></textarea>
        filed under it, click to jump. The *visual*, spatial half of "links
        between sections and tags" is the Graph tab's job (it already colours
        and filters by category); this is the fast, scannable list half. -->
+  <!-- **Recordings** (WORLD_CLASS_PLAN 28.5 row 6, after Apple Voice Memos):
+       every kept recording, newest first, each a row that plays at 0.5 to 2x
+       over the waveform the recorder drew, with the markers pressed while
+       recording, a trim that writes a new recording and keeps the original
+       until the bin, and Delete into the bin. Drawn by meetings.js
+       (`renderRecordings`); the dock is the Library's four zones. -->
+  <div id="library-view-recordings" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="dock" data-dock-name="library-recordings" role="toolbar" aria-label="Recording controls">
+        <div class="dock-identity">
+          <h2>Recordings</h2>
+        </div>
+        <div class="dock-group dock-find">
+          <div class="search-field dock-search">
+            <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+            <input id="recordings-search" type="search" class="library-search search-field-input"
+              placeholder="Search recordings…" aria-label="Search recordings">
+          </div>
+        </div>
+        <div class="dock-actions">
+          <button type="button" class="icon-only ghost small graph-help-toggle"
+            data-help-for="recordings-help" aria-controls="recordings-help" aria-expanded="false"
+            title="About recordings" aria-label="About recordings"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <div class="help-body hidden" id="recordings-help" role="dialog" aria-label="About recordings">
+            <p>Everything recorded in the app: meetings, lectures and voice notes. The audio is saved every 10 seconds while it records, so closing the tab keeps all but the last few seconds, and the next start says "Recording recovered".</p>
+            <p>Play at 0.5 to 2x, press the waveform to jump, and press M or Marker while recording to mark a moment. Trim keeps a part as a new recording; the original stays until you empty the bin. Delete puts a recording in the bin. Kept as the browser recorded it (webm or ogg), or wav after a trim.</p>
+          </div>
+          <button id="recordings-record" class="small" type="button" title="Record a voice note">
+            <i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Record</button>
+        </div>
+      </div>
+      <p class="muted library-lede">Meetings, lectures and voice notes, kept as audio.</p>
+      <ul id="recordings-list" class="recordings-list" aria-label="Recordings"></ul>
+    </section>
+  </div>
+
   <div id="library-view-contents" class="library-view-section hidden">
     <section class="card glass">
       <!-- **One tool row** (INBOX 496, the owner: "the contents library
@@ -13724,7 +13763,9 @@ Link to another note with [[its first few words]]."></textarea>
            `data-help-for` pair, markup only: `initHelpToggles` wires every one
            of them at load. -->
       <div class="dialog-head">
-        <h2 class="dialog-head-title"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Meeting notes</h2>
+        <!-- Two heads, one shown: `.voice-note` (Voice note, `openVoiceNote`;
+             WORLD_CLASS_PLAN 28.5 row 3) shows the second. -->
+        <h2 class="dialog-head-title"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> <span class="meeting-kind-meeting">Meeting notes</span><span class="meeting-kind-voice">Voice note</span></h2>
         <button type="button" class="icon-only ghost small dialog-head-btn"
           data-help-for="meeting-help" aria-controls="meeting-help" aria-expanded="false"
           title="About meeting notes" aria-label="About meeting notes">
@@ -13735,12 +13776,14 @@ Link to another note with [[its first few words]]."></textarea>
             title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </span>
       </div>
-      <p class="muted">Record anything longer than a quick note, transcribed on this machine.</p>
+      <p class="muted"><span class="meeting-kind-meeting">Record a meeting or a lecture, saved as you go.</span><span class="meeting-kind-voice">A voice memo, kept in Library, Recordings.</span></p>
       <div class="help-body hidden" id="meeting-help" role="dialog" aria-label="About meeting notes">
         <p>
           A meeting, a lecture, or anything the mic button in the composer is
-          too short for. Whisper does the transcription, the same engine behind
-          that button, and your audio never leaves this machine.
+          too short for. The audio is saved as you record, every 10 seconds,
+          and kept in Library, Recordings whatever happens next. With the
+          Voice notes add-on Whisper transcribes it on this machine; without
+          it the recording is kept and the sheet says how long it is.
         </p>
         <p>
           The transcript comes back for you to read and trim before anything is
@@ -13764,6 +13807,8 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="row" id="meeting-controls">
           <button id="meeting-record" type="button"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record</button>
           <button id="meeting-pause" type="button" class="ghost hidden"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
+          <!-- A moment marked while recording (28.5 row 6): the button, or M. -->
+          <button id="meeting-marker" type="button" class="ghost hidden" title="Mark this moment (M)"><i class="ph ph-push-pin ph-lead" aria-hidden="true"></i> Marker</button>
           <span id="meeting-timer" class="meeting-timer hidden" role="timer">0:00</span>
         </div>
         <!-- The line that moves while you talk. Reported twice: "there is still
@@ -13807,7 +13852,7 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- Two wordings, one shown: `.meeting-into` (a recording opened from a
              meeting's Record into it, meetings.js) shows the second. -->
         <div class="meeting-actions-main">
-        <button id="meeting-save" class="ghost"><span class="meeting-save-new">Save as a meeting</span><span class="meeting-save-into">Add to the meeting</span></button>
+        <button id="meeting-save" class="ghost"><span class="meeting-save-new">Save as a meeting</span><span class="meeting-save-into">Add to the meeting</span><span class="meeting-save-voice">Save as a note</span></button>
         <!-- A lecture or a long meeting is not a note. Asked for as part of
              "expanded as a proper feature with more capabilities": an hour of
              transcript in the Notes list is one enormous card nobody can

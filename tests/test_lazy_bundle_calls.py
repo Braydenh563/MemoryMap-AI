@@ -99,6 +99,11 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Brief bootdiet: the catalogue is in the palette's bundle, and every other
+    #: reader (Tools and features, Quick access, startApp's recovered recordings)
+    #: awaits `lazyScript` / `ensureModule` before it reads or calls.
+    "featureCatalog": "appPalette, the palette's bundle names it; openFeatures and renderQuickLinks await lazyScript('/js/app-features.js') first",
+    "noteRecoveredRecordings": "meetings, called in the .then of ensureModule('meetings') in dashboard.js's startApp hook",
     #: Brief 89: the palette's small tools, each called in the .then of
     #: ensureModule('utilities') on its own palette row (settings-panes.js).
     "startUtilityTimer": "utilities, called in the .then of ensureModule('utilities') on the palette's timer rows",

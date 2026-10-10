@@ -78,6 +78,7 @@ from memorymap.api import (
     routes_insights,
     routes_library,
     routes_models,
+    routes_recordings,
     routes_reminders,
     routes_settings,
     routes_spaces,
@@ -1301,6 +1302,11 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_reminders.router, dependencies=locked)
     app.include_router(routes_bookmarks.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)
+    app.include_router(routes_recordings.router, dependencies=locked)
+    app.include_router(
+        routes_recordings.media_router,
+        dependencies=[Depends(routes_auth.require_unlock_media)],
+    )
     app.include_router(routes_captions.router, dependencies=locked)
     app.include_router(routes_tasks.router, dependencies=locked)
     app.include_router(routes_timeline.router, dependencies=locked)

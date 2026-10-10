@@ -4156,12 +4156,12 @@ Translate (offline language packs).
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | Record never refuses: the audio is kept as a recording object (decision 2) and transcription is offered when the add-on is there | no add-on: Record gives a saved recording with its length | 12, 3 |
+| 1 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: a recording is an object (`recordings`, decision 2); transcription only with the add-on | no add-on: a 5 s take kept, "Saved a 0:05 recording (webm)" | 12, 3 |
 | 2 | fix | The meeting's decisions and actions found with no model (lines saying decided, agreed, action, TODO, a name and a date); the model writes prose on top | 0 dead controls; a sample meeting's 3 actions found | 12, 4 |
-| 3 | redesign | One Audio section: New meeting, Voice note, Dictate, Live captions, Translate as separate entries (the owner: "meeting notes should be different ... from dictation"), each in quick access and the palette | each 1 click from the dashboard or palette | 2, 6, 10 |
-| 4 | fix | Undo for the five meeting acts with none | 1/6 to 6/6 | 1 |
-| 5 | fix | A recording's chunks saved every 10 s, so a crash keeps the meeting | kill the tab at 2 min, recover at least 1:50 | 3 |
-| 6 | expansion | The recordings library: play, speed 0.5 to 2x, the saved waveform, trim, markers while recording (ANALYSIS, soundcraft) | one sweep per act | 6 |
+| 3 | redesign | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: the Audio group: New meeting, Record, Voice note, Dictate, Recordings, Live captions (Brief 82); Translate waits for `/voice/status` `translate` (Brief 83) | 5/5 one press from the palette and one click as a tile, 1440 and 390 | 2, 6, 10 |
+| 4 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: create, remind, save into, save as a meeting, save as a document on `pushUndo` | 1/6 to 6/6 | 1 |
+| 5 | fix | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: a 10 s slice appended per chunk; `POST /recordings/recover` at start | tab killed at 2:00: "Recording recovered", 1:50 (110,306 ms) kept | 3 |
+| 6 | expansion | **Built 2026-10-10 (Brief 80; HISTORY "WORLD_CLASS 28.5, Brief 80")**: Library, Recordings: play, 0.5 to 2x, the saved waveform (seek), markers (M and a button), trim to a new wav, delete to the bin | `audio80.js` ACT=library at 1440 and 390: each act passes, seek 2.25 of 2.25 s, overflow 0 | 6 |
 | 7 | expansion | A timestamped transcript: a line seeks the audio, SRT and VTT out | a click seeks within 0.5 s | 6 |
 | 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
 | 9 | expansion | Live captions: built against a fake helper; open: the packaged helper download and a run on the reference laptop | Built by Brief 82; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)"); the open rows are in archive/agent-remaining/caption82-1010.md | |

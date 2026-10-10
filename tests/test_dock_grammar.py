@@ -73,6 +73,8 @@ ON_THE_GRAMMAR = {
     "library-docs",
     "library-links",
     "library-media",
+    #: Library, Recordings (WORLD_CLASS_PLAN 28.5 row 6, Brief 80).
+    "library-recordings",
     "library-skills",
     "notes",
     "timeline",

@@ -213,7 +213,7 @@ INCLUDE_BINNED = "include_binned"
 
 @event.listens_for(Session, "do_orm_execute")
 def _hide_binned(execute_state):
-    """A binned document or reminder is out of every read (WORLD_CLASS_PLAN
+    """A binned document, reminder or recording is out of every read (WORLD_CLASS_PLAN
     5 item 10): the bin's own routes ask for them with `including_binned`.
     Selects only: a bulk UPDATE or DELETE that names them by id still reaches
     them, which is what a purge's clean-up needs."""
@@ -222,6 +222,7 @@ def _hide_binned(execute_state):
     execute_state.statement = execute_state.statement.options(
         with_loader_criteria(Document, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
         with_loader_criteria(Reminder, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
+        with_loader_criteria(Recording, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
     )
 
 
@@ -1643,6 +1644,48 @@ class BinnedReading(Base):
     #: reading of without a join to a row that may itself be gone.
     label: Mapped[str] = mapped_column(String(300), default="")
     deleted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class Recording(Base, WorkspaceMixin):
+    """A recording is an object, not an attachment (WORLD_CLASS_PLAN "Audio
+    in the notebook", decision 2): its own identity, opened on its own, and
+    pointed at from any number of notes, like a board or a map.
+
+    `mime` is the container the browser's MediaRecorder actually produced
+    (webm or ogg carrying opus, mp4 on Safari, wav from a trim), checked
+    against the file's first bytes (decision 3: never called mp3). Saved in
+    10-second chunks while it records (`state` "recording"), so a tab that
+    dies keeps all but the last few seconds; a stale "recording" row is
+    finished by `core/recordings.recover_stale` on the next open. A trim
+    writes a new row (`source_id` the original), and the original stays
+    until the bin is emptied. A new table, so `create_all` builds it.
+    """
+
+    __tablename__ = "recordings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    mime: Mapped[str] = mapped_column(String(80), default="audio/webm")
+    #: The stored, random name under `data_dir/recordings`; never a path the
+    #: client chose.
+    filename: Mapped[str] = mapped_column(String(140), default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    #: The waveform the recorder drew, as a JSON list of 0 to 100 levels.
+    peaks: Mapped[str] = mapped_column(Text, default="[]")
+    #: Markers pressed while recording, a JSON list of milliseconds.
+    markers: Mapped[str] = mapped_column(Text, default="[]")
+    #: The meeting note it was recorded into, if any (no foreign key: the
+    #: note may be binned and purged while the recording is kept).
+    entry_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
+    source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    state: Mapped[str] = mapped_column(String(16), default="recording")
+    #: Set when a stale recording was finished by recovery, so the app can
+    #: say "Recording recovered" once.
+    recovered: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None, index=True)
 
 
 class DocumentRevision(Base):

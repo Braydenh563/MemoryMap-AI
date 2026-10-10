@@ -148,6 +148,9 @@ class ViewedFile:
     source: str  # "file" | "converted" | "vision-ocr"
     truncated: bool = False
     message: str = ""  # why there is no text, when there is none
+    #: The optional package (`core/extras.py` id) that would read it, when its
+    #: absence is the reason: the viewer offers Install beside the message.
+    extra: str = ""
 
 
 #: --- two readers that need nothing installed -------------------------------
@@ -780,7 +783,7 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
 
     if not importer.markitdown_available():
         return ViewedFile(
-            text="", kind="plain", source="converted", message=importer.INSTALL_HINT
+            text="", kind="plain", source="converted", message=importer.INSTALL_HINT, extra="documents"
         )
     # Two different "can't read this", and they need two different next
     # steps. Telling someone to install a rasteriser they already have is as
@@ -797,6 +800,7 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
                 "Packages, and pick a vision or text-reading model in "
                 "Settings, Models."
             ),
+            extra="pdfpages",
         )
     return ViewedFile(
         text="",

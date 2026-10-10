@@ -191,11 +191,6 @@ def _human_size(size: int) -> str:
     return f"{size / (1024 * 1024):.1f} MB"
 
 
-#: The two board types, mirrored from `routes_whiteboard.BOARD_TYPES` rather
-#: than imported, because importing that module here would pull the whole
-#: whiteboard router into the Library's import graph for the sake of one set
-#: of two strings. `tests/test_library_boards.py` fails if they drift.
-_BOARD_TYPES = {"board", "map"}
 
 
 def _entry_kind(entry: Entry) -> str:
@@ -215,14 +210,9 @@ def _entry_kind(entry: Entry) -> str:
     `routes_whiteboard._board_settings` takes for the same reason: a board
     whose settings JSON has been corrupted is still a board.
     """
-    if not getattr(entry, "is_board", False):
-        return "note"
-    try:
-        parsed = json.loads(entry.board_settings or "{}")
-    except (TypeError, ValueError):
-        parsed = {}
-    board_type = parsed.get("type") if isinstance(parsed, dict) else None
-    return board_type if board_type in _BOARD_TYPES else "board"
+    #: One rule, on the model (`Entry.board_kind`), so the entries every
+    #: other list receives say the same.
+    return entry.board_kind or "note"
 
 
 def _documents(session: Session, q: str = "") -> list[dict]:
@@ -777,6 +767,9 @@ _ACTION_WORDS = {
     "renamed": "Renamed",
     "merged": "Merged",
     "decrypted": "Viewed (decrypted)",
+    #: The Ask again row's own marks (routes_chat `_recent_questions`).
+    "forgot": "Forgot a question asked in",
+    "cleared": "Cleared the questions asked in",
 }
 
 #: What the log's *nouns* are called, article included.

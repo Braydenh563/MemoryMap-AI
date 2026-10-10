@@ -6891,7 +6891,8 @@ onDomReady(() => {
     const pdf = ocrIsPdf(ocrWorkspaceCurrent);
     const where = pdf ? `${name}, page ${ocrWorkspacePage + 1}` : name;
     closeOcrWorkspace();
-    attachSelectionContext({
+    const agentOn = attachSelectionContext({
+      quiet: true,
       kind: "reading",
       title: where,
       text: text.length > 8000 ? `${text.slice(0, 8000)}…` : text,
@@ -6903,7 +6904,7 @@ onDomReady(() => {
       after: "",
       surfaceId: "",
     });
-    toast(`The text of ${where} is attached to your next chat message. Type your question.`);
+    toast(`The text of ${where} is attached to your next chat message${agentOn ? ", and Agent mode is on" : ""}. Type your question.`);
   });
   //: Arrow keys and Page Up/Down move between pages, which is what every
   //: document reader on the machine already does, a page rail you can only
@@ -7051,6 +7052,21 @@ onDomReady(() => {
   $("ocr-region-cancel")?.addEventListener("click", () => ocrClearRegionSelection());
   $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
   $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
+  //: **A pinch zooms the page** (the owner, 2026-10-10: "I cant two finger
+  //: trackpad zoom in or out on documents or images on the ocr workspace?").
+  //: A trackpad pinch reaches the page as `wheel` events with `ctrlKey` and a
+  //: few pixels each; a Ctrl+mouse notch is about 100. One step per 50 px of
+  //: travel: a notch is a step, a pinch a step or two, and the window's own
+  //: zoom never sees it.
+  let ocrPinch = 0;
+  $("ocr-page-pane")?.addEventListener("wheel", (event) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    ocrPinch += event.deltaY;
+    if (Math.abs(ocrPinch) < 50) return;
+    ocrStepZoom(ocrPinch < 0 ? 1 : -1);
+    ocrPinch = 0;
+  }, { passive: false });
   $("ocr-image")?.addEventListener("load", () => {
     ocrApplyZoom();
     ocrSyncZoomButtons();

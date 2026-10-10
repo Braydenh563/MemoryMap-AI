@@ -726,6 +726,8 @@ function tourUsable(el) {
 //: anyway: it costs one extra `getBoundingClientRect` per step and it is the
 //: difference between a card beside a button and a card in another postcode.
 function tourPlaceFixed(el, left, top) {
+  //: Placed, so it may be seen (hidden in `openTour` until now).
+  if (el.id === "tour-card") el.style.visibility = "";
   //: **Measured against a probe that never moves, then checked a frame
   //: later** (INBOX 397, the owner's desktop window, three reports). The
   //: old pass wrote a position, read the element straight back and added
@@ -1613,6 +1615,31 @@ function tourVerifyCard(tries = 0) {
   );
 }
 
+//: **A control that only shows on hover is shown while its step is up**
+//: (INBOX 745 (d), the owner of the Library's "A card's menu" step: "the
+//: hover menu button doesn show on the tour"). The card's ⋯ sits in a wrapper
+//: faded to opacity 0 until the card is hovered; `opacity` is not inherited,
+//: so the button itself reads 1, passed `tourVisible`, and the ring framed an
+//: empty square. The faded ancestors (up to the card, a few levels) are made
+//: opaque inline for the step and put back on the next step or at the end.
+const tourRevealed = [];
+
+function tourRevealHoverOnly(el) {
+  tourUnreveal();
+  let node = el;
+  for (let depth = 0; node && node !== document.body && depth < 6; depth += 1) {
+    if (Number(getComputedStyle(node).opacity || "1") < 0.05) {
+      tourRevealed.push([node, node.style.opacity]);
+      node.style.opacity = "1";
+    }
+    node = node.parentElement;
+  }
+}
+
+function tourUnreveal() {
+  for (const [node, was] of tourRevealed.splice(0)) node.style.opacity = was;
+}
+
 async function tourShow() {
   const run = tourRun;
   //: **One walk at a time.** Next pressed twice while a tab is loading used to
@@ -1639,6 +1666,7 @@ async function tourShow() {
     if (stale()) return;
     const { el, alt } = await tourWaitForTarget(step);
     if (stale()) return;
+    tourRevealHoverOnly(el);
     //: Brought into view first, then judged: a control below the fold of a
     //: scrolling panel is a step worth showing once the panel has been
     //: scrolled to it, and only a control that is still not in the window
@@ -1752,6 +1780,7 @@ function openTour(sectionId) {
     if (typeof toast === "function") {
       toast("There is nothing to show in that part of the tour.");
     }
+    document.dispatchEvent(new Event("tour-closed"));
     return;
   }
   tourRun = {
@@ -1768,6 +1797,14 @@ function openTour(sectionId) {
     // the tour ends, whether it ends at the last card, at Skip or at Escape.
     returnFocus: document.activeElement,
   };
+  //: **Hidden until it has a place** (INBOX 745 (d): "a wierd blank tour
+  //: panel showed in the top left corner for a couple seconds then it righted
+  //: itself"). The card was shown with the layers, empty and at its last
+  //: position, while the first step's tab and lazy code loaded. It keeps its
+  //: box (visibility, not display, so it can be measured) and is shown by
+  //: `tourPlaceFixed` once the step's text is in it and it has been placed.
+  //: Inline rather than a class: the boot CSS budget (test_boot_budget.py).
+  document.getElementById("tour-card").style.visibility = "hidden";
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.remove("hidden");
   tourStep();
 }
@@ -1777,6 +1814,9 @@ function tourClose(finished) {
   const run = tourRun;
   tourRun = null;
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.add("hidden");
+  tourUnreveal();
+  //: The first-run queue's cue that the screen is the next surface's.
+  document.dispatchEvent(new Event("tour-closed"));
   // Finished or skipped, the answer is the same: this person has been offered
   // the tour and nothing may offer it to them again by itself. Kept beside
   // `onboardingDone`, and mirrored to the notebook's own preferences by

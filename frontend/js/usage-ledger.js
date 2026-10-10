@@ -93,3 +93,37 @@ $("usage-clear")?.addEventListener("click", async () => {
   }
   renderUsage();
 });
+
+//: **What fills the window, by part** (the owner, 2026-10-10: "i expect to see
+//: a dropdown to see my token distribution stats"). From the turn's own
+//: `stats.composition` (agent.py and routes_chat.py estimate it at four
+//: characters a token, the budgeter's own rate), so the parts say "about";
+//: the total is the model's count when it reported one. Here, not in
+//: chat.js, for the boot scripts' gzip ratchet (test_static_compression.py).
+function renderChatContextPop(stats, used, window, pct) {
+  const parts = stats.composition || {};
+  $("chat-context-pop-total").textContent = `${compactTokens(used)} of ${compactTokens(window)} tokens (${pct}%)`;
+  $("chat-context-pop-fill").style.width = `${pct}%`;
+  $("chat-context-pop-rows").textContent = [["notes", "Your notes and the question"], ["history", "Earlier turns"], ["tool_schemas", "Tools"], ["system", "Instructions"]]
+    .filter(([key]) => parts[key])
+    .map(([key, label]) => `${label}: about ${compactTokens(parts[key])}`)
+    .join("\n");
+}
+
+//: The pill opens what fills the window, and the thing that fixes it is the
+//: popover's one action: a number with no move attached is a number people
+//: learn to ignore, and a number that silently compacted the chat when
+//: pressed was the other mistake (the owner, 2026-10-10). chat.js loads this
+//: file when the pill first shows, so the popover is wired before it can be
+//: pressed. Its stylesheet is fetched from here rather than listed in
+//: `LAZY_MODULES`: app.js is at its own gzip cap (APP_JS_CAP).
+lazyScript("/css/usage-lazy.css");
+wireHelpPopover($("chat-context"), $("chat-context-pop"));
+$("chat-context-compact").addEventListener("click", () => {
+  closeHelpPopovers();
+  $("chat-compress").click();
+});
+$("chat-context-window").addEventListener("click", () => {
+  closeHelpPopovers();
+  openSettingsModal("models", "model-context-window");
+});

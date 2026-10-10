@@ -3894,14 +3894,18 @@ button.answer-figure-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  /* The icon button's own corner, not a circle (the owner, 2026-10-10: "Some
+     tooltip buttons are circles and some are rounded squares"): measured at
+     1440, the '?' in a dock took `--radius-md` from the dock's rule and the
+     rest kept 50%, five circles beside thirty-five rounded squares. */
+  border-radius: var(--radius-md);
 }
 
 /* **Every "?" in the app is this button.** Direct instruction: "make sure
    all the tooltip question mark buttons across the application are
    consistent." They were not, and it was measurable rather than a matter of
    taste: of the twelve in the DOM, nine carried `.graph-help-toggle` and
-   rendered as 32px circles, while the Settings hint toggle rendered 43x28
+   rendered as 32px circles (rounded squares since 2026-10-10, above), while the Settings hint toggle rendered 43x28
    with a 9.8px radius (a wide rounded rect, photographed in the report) and
    the whiteboard's help button was a third shape again. The size/shape half
    of the recipe is shared here; `margin-left: auto` deliberately stays
@@ -3917,7 +3921,7 @@ button.answer-figure-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   flex: 0 0 auto;
 }
 

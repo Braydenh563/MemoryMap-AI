@@ -88,7 +88,15 @@ async function askUpdateChoiceOnce() {
   } catch {
     welcoming = false;
   }
-  if (welcoming) await new Promise((resolve) => document.addEventListener("onboarding-closed", resolve, { once: true }));
+  //: And never over the tour the welcome hands on to, nor the recovery-key
+  //: offer: the first-run queue gives it its turn after those
+  //: (`firstRunTurn`, onboarding.js). Measured before: the question and
+  //: the tour's first card opened in the same 0.4 s.
+  if (welcoming) {
+    await new Promise((resolve) => document.addEventListener("onboarding-closed", resolve, { once: true }));
+    await ensureModule("onboarding");
+    await new Promise((resolve) => firstRunTurn(() => resolve()));
+  }
   const yes = await confirmDialog(
     "Check for updates automatically?\n\nMemoryMap AI can look for a newer version each time it starts. " +
       "Nothing about your notes is sent. You can change this in Settings, About.",

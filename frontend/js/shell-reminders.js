@@ -338,9 +338,15 @@ function glideStrip(strip) {
     );
   };
   strip.glide = place;
+  //: `childList` too (the owner, 2026-10-10: "There's overlap on these
+  //: settings tabs in the sidebar"): a page's "On this page" list opening or
+  //: closing above the chosen row moves the row and not its size, so neither
+  //: observer saw it and the fill stayed where the row had been (measured: 20
+  //: px under it after an 18 px insert).
   new MutationObserver(() => place(true)).observe(strip, {
     attributes: true,
     attributeFilter: ["class", "aria-selected", "aria-current"],
+    childList: true,
     subtree: true,
   });
   if (window.ResizeObserver) {

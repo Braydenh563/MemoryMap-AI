@@ -135,17 +135,10 @@ function mapPreviewMeasurer() {
   }
   return mapPreviewMeasureCtx;
 }
-//: Take or discard the tags filing suggested (INBOX 440); the list redraws
-//: from the server's answer, so the card and every other view agree.
-async function answerSuggestedTags(entry, body) {
-  try {
-    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
-    await refreshEntries([entry.id]);
-    const tag = (body.take || body.discard || [])[0];
-    toast(body.take ? `Tagged #${tag}.` : `Won't suggest #${tag} for this note again.`);
-  } catch (error) {
-    toast(error.message || "Couldn't change the tags.", true);
-  }
+//: Take, discard or restore a suggested tag: tag-suggest.js's
+//: `answerSuggestedTags` (lazy: the boot gzip ratchet), fetched on the press.
+function answerTags(entry, body) {
+  ensureModule("tagSuggest").then(() => answerSuggestedTags(entry, body));
 }
 
 function mapPreviewTextWidth(text, fontSize) {
@@ -1362,7 +1355,7 @@ function noteMetaMore(entry) {
     const items = [...more.parentElement.querySelectorAll(":scope > [data-tag][hidden]")].map((el) => {
       const tag = el.dataset.tag;
       return el.classList.contains("suggested-tag")
-        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerSuggestedTags(entry, { take: [tag] }) }
+        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerTags(entry, { take: [tag] }) }
         : { label: `ph:hash ${tag}`, title: `Show every note tagged #${tag}`, group: "Tags", run: () => filterNotesByTag(tag) };
     });
     openMenuAtPoint(items, "More tags", at.left, at.bottom);
@@ -1678,6 +1671,10 @@ function entryItem(entry, options = {}) {
         )
       );
     }
+  } else if (entry.board_kind) {
+    //: A board or a mind map says so where a note says its category (the
+    //: owner: "a whitebaord showed as a note"); it has none of its own.
+    meta.appendChild(chip(entry.board_kind === "map" ? "ph:tree-structure Mind map" : "ph:pencil-circle Board", "category"));
   } else {
     //: `category` names the chip for the meta line's own styles (08-
     //: consistency.css, "one line of facts"): before it had a class, the
@@ -1779,7 +1776,7 @@ function entryItem(entry, options = {}) {
     take.title = reason ? `Suggested: add #${tag}. ${reason}` : `Suggested: add #${tag}`;
     take.addEventListener("click", (event) => {
       event.stopPropagation();
-      answerSuggestedTags(entry, { take: [tag] });
+      answerTags(entry, { take: [tag] });
     });
     makeUnlinkAccessible(take);
     group.appendChild(take);
@@ -1789,7 +1786,7 @@ function entryItem(entry, options = {}) {
     discard.title = `Not #${tag}: stop suggesting it for this note`;
     discard.addEventListener("click", (event) => {
       event.stopPropagation();
-      answerSuggestedTags(entry, { discard: [tag] });
+      answerTags(entry, { discard: [tag] });
     });
     makeUnlinkAccessible(discard);
     group.appendChild(discard);

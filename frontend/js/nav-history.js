@@ -170,8 +170,62 @@ function navHistoryItem(group, current) {
       closeNavHistoryMenu();
       goToTabHistory(group.index);
     });
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Delete" || event.key === "Backspace") navHistoryForget(group, event);
+    });
   }
-  return item;
+  if (current) return item;
+  //: **A row can be taken off** (the owner, 2026-10-10: "no way to clear the
+  //: destination history or delete individual records??"): an X beside it,
+  //: shown while the row is pointed at or focused (the notification row's
+  //: remove cross), or Delete on the focused row. Beside the row, not in it:
+  //: a button inside a button is not a button.
+  const wrap = document.createElement("div");
+  wrap.className = "nav-history-row";
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "ghost small icon-only nav-history-remove";
+  remove.tabIndex = -1;
+  remove.title = "Remove from this list";
+  remove.setAttribute("aria-label", `Remove ${row.title} from this list`);
+  setLabel(remove, "ph:x");
+  remove.addEventListener("click", (event) => navHistoryForget(group, event));
+  wrap.append(item, remove);
+  return wrap;
+}
+
+//: Out of the list and out of Back and Forward: the run the row folds goes
+//: from the stack, and the place you are stays. The browser's own history
+//: cannot be edited, so after this the in-app Back and Forward walk the
+//: stack themselves rather than through `history.go` (`tabHistory.edited`,
+//: router.js `routerGo`), whose steps would no longer line up.
+function navHistoryForget(group, event) {
+  event?.preventDefault();
+  //: The row is about to be redrawn, so this press must not reach the
+  //: document's click-away (settings-wiring.js), which would read a detached
+  //: target as a press outside the list.
+  event?.stopPropagation();
+  const count = group.index - group.lowest + 1;
+  tabHistory.stack.splice(group.lowest, count);
+  if (tabHistory.index > group.index) tabHistory.index -= count;
+  navHistoryEdited();
+  announce("Removed from the list.");
+}
+
+function navHistoryClear(event) {
+  event?.stopPropagation();
+  const here = tabHistory.stack[tabHistory.index];
+  tabHistory.stack = here ? [here] : [];
+  tabHistory.index = here ? 0 : -1;
+  navHistoryEdited();
+  announce("History cleared.");
+}
+
+function navHistoryEdited() {
+  tabHistory.edited = true;
+  renderNavHistoryMenu();
+  paintTabHistory();
+  $("status-nav-history-menu").querySelector("button")?.focus({ preventScroll: true });
 }
 
 function renderNavHistoryMenu() {
@@ -203,5 +257,15 @@ function renderNavHistoryMenu() {
     more.className = "muted text-xs nav-history-more";
     more.textContent = `${older} older ${older === 1 ? "step" : "steps"} not shown`;
     menu.appendChild(more);
+  }
+  if (tabHistory.stack.length > 1) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "ghost small nav-history-clear";
+    clear.setAttribute("role", "menuitem");
+    setLabel(clear, "ph:trash Clear this list");
+    clear.title = "Forget every place but this one";
+    clear.addEventListener("click", navHistoryClear);
+    menu.appendChild(clear);
   }
 }

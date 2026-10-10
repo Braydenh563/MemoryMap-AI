@@ -451,7 +451,7 @@ function addBubble(role, text, attachments = null) {
     bubble.appendChild(
       chatMessageActions([
         { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
-        { label: "ph:pencil-simple", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
+        { label: "ph:pencil-simple", title: "Edit this question", onClick: () => lazyScript("/js/chat-edit.js").then(() => editAndResend(bubble, text)) },
         { label: "ph:trash", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );
@@ -1937,6 +1937,7 @@ function refreshAfterToolChanges() {
 //: It is built from what already arrived, nothing here re-fetches, and
 //: nothing is invented: a source appears because an event named it.
 const CHAT_SOURCE_GROUPS = [
+  { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
   { key: "note", icon: "ph:note", one: "note", many: "notes" },
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
@@ -1946,7 +1947,7 @@ const CHAT_SOURCE_GROUPS = [
   //: missing from it falls back to `ph:note`, which is how a new kind ends up
   //: looking like it works while calling itself a note.
   { key: "map", icon: "ph:tree-structure", one: "mind map", many: "mind maps" },
-  { key: "web", icon: "ph:globe", one: "web page", many: "web pages" },
+  { key: "board", icon: "ph:pencil-circle", one: "board", many: "boards" },
 ];
 
 //: Which tools produce a *source* rather than a change, and what kind each
@@ -2008,16 +2009,19 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
     const rest = flat.startsWith(head)
       ? flat.slice(head.length).replace(/^\S*\s+/, "")
       : flat;
+    //: A board or a mind map is a row of `raw_results` too (INBOX 744: "whiteboard
+    //: shows as a note and clicking it takes me to the notes page").
+    const board = entry.board_kind;
     add({
-      kind: "note",
+      kind: board === "map" ? "map" : board ? "board" : "note",
       id: entry.id,
       label,
-      snippet: preview(rest),
+      snippet: board ? "" : preview(rest),
       //: The note itself rides along, so the card can show its picture and its
       //: attached files rather than only a line of its text. Reported: "the
       //: sources in the chat responses dont render inline md, images or files."
       entry,
-      open: () => flashEntry(entry.id),
+      open: board ? () => openWhiteboardBoard(entry.id) : () => flashEntry(entry.id),
     });
   }
   for (const item of touched || []) {
@@ -2073,7 +2077,10 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
     const label = String(event.label || "").replace(/^ph:[\w-]+\s*/, "");
     add({ kind, id: `${event.tool || event.name}-${sources.length}`, label, snippet: "" });
   }
-  return sources;
+  //: Web pages first (the owner, 2026-10-10): a page the turn went out to
+  //: read is the newest thing in it. One order, so the numbers in the answer
+  //: and on the cards stay the same.
+  return [...sources.filter((s) => s.kind === "web"), ...sources.filter((s) => s.kind !== "web")];
 }
 
 //: The address a card shows under its title, the host, not the whole URL.
@@ -2306,13 +2313,14 @@ function renderRecordsDetails(holder, meta) {
   // all while the identical Ask result did.
   const connected = new Set(meta.connected_ids || []);
   const matchInfo = meta.match_info || {};
+  const scored = everyRowScored(meta.raw_results, matchInfo, connected);
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
+      placeResultBadge(row, badge);
     }
     list.appendChild(row);
   }

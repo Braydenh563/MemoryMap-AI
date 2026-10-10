@@ -3238,6 +3238,22 @@ document.addEventListener("click", (event) => {
 $("log-source").addEventListener("change", renderActiveLogView);
 $("log-level").addEventListener("change", renderActiveLogView);
 $("log-requests").addEventListener("change", renderActiveLogView);
+//: **A finished task's log** (Background tasks' history, its Logs button):
+//: Logs, with the filter set to the most particular words the row has, the
+//: package or model in its brackets ("sentence-transformers"), else the
+//: model it names, else its label. A log line names what it worked on, not
+//: the sentence the row says, so the brackets are tried first.
+function taskLogButton(item) {
+  return smallButton("ph:scroll Logs", "Open the log, filtered to this task", () => openTaskLog(item));
+}
+
+async function openTaskLog(item) {
+  await openSettingsModal("logs");
+  const filter = $("log-filter");
+  filter.value = /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
+  filter.dispatchEvent(new Event("input"));
+}
+
 let logFilterDebounceTimeout;
 $("log-filter").addEventListener("input", () => {
   clearTimeout(logFilterDebounceTimeout);

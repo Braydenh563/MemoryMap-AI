@@ -134,6 +134,9 @@ def _to_out(
         ),
         suggested_tags=(offered := _open_suggestions(entry)),
         suggested_tag_reasons=_tag_reasons(content, offered),
+        #: Never a private note's: derived from its text, as its suggestions
+        #: are (tests/test_private_suggested_tags.py).
+        discarded_tags=[] if getattr(entry, "is_private", False) else _json_tags(getattr(entry, "discarded_tags", "[]")),
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
         edited_at=getattr(entry, "edited_at", None),
@@ -146,6 +149,7 @@ def _to_out(
         source_title=getattr(entry, "source_title", None),
         source_path=getattr(entry, "source_path", "") or "",
         is_board=bool(getattr(entry, "is_board", False)),
+        board_kind=getattr(entry, "board_kind", None),
         map_topic=bool(getattr(entry, "map_topic", False)),
         workspace_id=getattr(entry, "workspace_id", "default") or "default",
         created_at=entry.created_at,
@@ -1262,25 +1266,43 @@ def suggest_tags_for_draft(
     content = body.content.strip()
     if not content:
         return {"suggested_tags": []}
-    try:
-        suggested = librarian.suggest_tags(
-            content,
-            body.tags,
-            deps.get_model_manager(),
-            deps.get_ollama(),
-            vocabulary=_tag_vocabulary(session),
-        )
-    except Exception:
-        logger.warning("tag suggestions failed", exc_info=True)
-        suggested = []
-    from memorymap.ai import lexical_filing
+    #: **No model, no model call** (measured on the running app: with none
+    #: running, every pause in Capture asked the client for a completion from
+    #: model "" and logged a WARNING with its traceback, three per note typed,
+    #: and offered nothing). Then, and when the model fails, the notebook's own
+    #: tags answer, the fallback filing already uses (`_suggest_after_filing`).
+    model_manager, ollama = deps.get_model_manager(), deps.get_ollama()
+    suggested: list[str] = []
+    if model_manager.utility_model() and ollama.is_running():
+        try:
+            suggested = librarian.suggest_tags(
+                content, body.tags, model_manager, ollama, vocabulary=_tag_vocabulary(session)
+            )
+        except Exception:
+            logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
+    else:
+        global _NO_MODEL_TAGS_SAID
+        if not _NO_MODEL_TAGS_SAID:
+            _NO_MODEL_TAGS_SAID = True
+            logger.info("no model running: tag suggestions come from the notebook's own tags")
+    if not suggested:
+        from memorymap.ai import lexical_filing
 
+        suggested = lexical_filing.suggest_tags(session, content, have=body.tags)
     return {"suggested_tags": lexical_filing.grounded_tags(content, suggested)}
+
+
+#: Said once per process, not once per keystroke pause.
+_NO_MODEL_TAGS_SAID = False
 
 
 class SuggestedTagsBody(BaseModel):
     take: list[str] = Field(default_factory=list, max_length=20)
     discard: list[str] = Field(default_factory=list, max_length=20)
+    #: Turned down before, offered again (the owner, 2026-10-10: "is there a
+    #: way to undo it or see the list"): off `discarded_tags`, back into the
+    #: suggestions.
+    restore: list[str] = Field(default_factory=list, max_length=20)
 
 
 @router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
@@ -1300,11 +1322,13 @@ def answer_suggested_tags(
     gone = _json_tags(entry.discarded_tags)
     gone_folded = {tag.casefold() for tag in gone}
     gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
+    gone = [tag for tag in gone if tag.casefold() not in restored]
     entry.discarded_tags = json.dumps(gone[-200:])
     answered = {tag.casefold() for tag in [*take, *body.discard]}
-    entry.suggested_tags = json.dumps(
-        [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
-    )
+    kept = [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
+    kept_folded = {tag.casefold() for tag in kept}
+    entry.suggested_tags = json.dumps(kept + [tag for key, tag in restored.items() if key not in kept_folded])
     session.commit()
     return _to_out(session, entry)
 

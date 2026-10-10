@@ -4139,7 +4139,10 @@ html {
      number of buttons. Measured on a 387px row, where it does exactly that. */
   flex: 0 1 14rem;
   min-width: 6rem;
-  min-height: var(--target-min);
+  /* The buttons' 2rem as well as the touch floor (the owner, 2026-10-10:
+     "These elements in the lightbox aren't the same height"; measured at
+     1440: Save 32px, this 28px). */
+  min-height: max(2rem, var(--target-min));
   margin-bottom: 0;
   padding: 0 var(--space-3);
   /* The last thing separating this from its neighbours once the box matched:

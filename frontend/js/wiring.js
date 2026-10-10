@@ -803,9 +803,7 @@ function applyPendingChatTitle(conversationId, viewing) {
 //: unlike a note card's, which is rebuilt per row.
 mountChatActionsMenu();
 
-//: The meter opens the thing that fixes what it is reporting. A number with no
-//: move attached is a number people learn to ignore.
-$("chat-context")?.addEventListener("click", () => $("chat-compress")?.click());
+//: The context pill's popover is wired in usage-ledger.js, with its rows.
 
 $("chat-title").addEventListener("click", renameCurrentConversation);
 $("chat-title").addEventListener("keydown", (event) => {
@@ -1442,6 +1440,14 @@ function renderWebSearchToggle() {
   const button = $("web-search-toggle");
   button.classList.toggle("active", on);
   button.setAttribute("aria-pressed", on ? "true" : "false");
+  //: **Web stays pressable with no model, and says what it does then** (the
+  //: owner, 2026-10-10: "Do plan and web search work with the composer??").
+  //: The answer from your notes never searches the web: a search is a tool
+  //: call, and tools need Agent mode. The button also opens the search panel,
+  //: which works with no model at all, so greying it would take browsing away
+  //: to say something a title can say.
+  button.dataset.enabledTitle ??= button.title;
+  button.title = agentModeAvailable() ? button.dataset.enabledTitle : "Browse the web here. With no model, answers come from your notes only.";
 }
 // Plan Plan: send what is in the box as a request that must be planned first.
 //
@@ -1582,17 +1588,16 @@ $("web-reader").addEventListener("keydown", (e) => {
   e.stopPropagation();
   closeWebReader();
 });
-$("web-reader-save").addEventListener("click", saveWebPageAsNote);
+$("web-reader-save").addEventListener("click", async () => {
+  await ensureModule("webClip");
+  saveWebPageAsNote();
+});
 //: Same act as the result row's own "Save as bookmark", from the other side
 //: of the panel: you often only decide a page is worth keeping after reading
 //: it, and until now that decision had nowhere to go from here.
-$("web-reader-bookmark").addEventListener("click", () => {
-  if (!webReaderPage) return;
-  bookmarkWebResult({
-    url: webReaderPage.url,
-    title: webReaderPage.title || webReaderPage.domain || "",
-    snippet: (webReaderPage.text || "").slice(0, 200),
-  });
+$("web-reader-bookmark").addEventListener("click", async () => {
+  await ensureModule("webClip");
+  readerBookmark();
 });
 $("web-reader-ask").addEventListener("click", () => {
   if (webReaderPage) askAboutPage(webReaderPage.url, webReaderPage.title);

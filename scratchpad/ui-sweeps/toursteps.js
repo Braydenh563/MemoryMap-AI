@@ -24,6 +24,8 @@ function ok(label, pass, detail) {
   const faults = [];
   for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     const { page, browser } = await boot({ viewport: vp, isMobile: vp.width < 500 });
+    // tour.js is a lazy bundle now; load it before reading its table.
+    await page.evaluate(() => (typeof ensureModule === "function" ? ensureModule("tour") : null));
     const sections = await page.evaluate(() => TOUR_SECTIONS.map((s) => s.id));
     for (const sec of sections) {
       const res = await page.evaluate(async (sec) => {
@@ -66,6 +68,21 @@ function ok(label, pass, detail) {
             // A scrolling step card means the text was written for a width
             // this is not: nobody scrolls a tooltip, they press Next.
             scrolls: card.scrollHeight > card.clientHeight + 1,
+            // INBOX 745 (d): the lit control must be painted, not just laid
+            // out. Opacity multiplies down the tree and is not inherited, so a
+            // button in a wrapper faded to 0 until hover reads 1 on itself;
+            // the product of its ancestors' is what the eye gets. And the
+            // control has to be the thing at its own centre (nothing drawn
+            // over it), or the ring frames an empty square.
+            target: (() => {
+              const el = typeof tourRun !== "undefined" && tourRun && tourRun.el;
+              if (!el) return null;
+              let o = 1;
+              for (let n = el; n && n !== document.documentElement; n = n.parentElement) o *= Number(getComputedStyle(n).opacity || "1");
+              const r = el.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return { o: Math.round(o * 100) / 100, hit: Boolean(hit && (el.contains(hit) || hit.contains(el))), w: Math.round(r.width), h: Math.round(r.height) };
+            })(),
           });
           const next = document.getElementById("tour-next");
           if (!next) break;
@@ -83,6 +100,9 @@ function ok(label, pass, detail) {
         if (r.bare) faults.push(`${tag}: ${r.bare} undimmed points`);
         if (!r.lit) faults.push(`${tag}: nothing lit`);
         if (r.scrolls) faults.push(`${tag}: card scrolls, the text does not fit`);
+        if (r.target && r.target.o < 0.5) faults.push(`${tag}: target faded (opacity ${r.target.o})`);
+        if (r.target && !r.target.hit) faults.push(`${tag}: target is not what is drawn at its centre`);
+        if (r.target && (r.target.w < 4 || r.target.h < 4)) faults.push(`${tag}: target is empty (${r.target.w}x${r.target.h})`);
       }
     }
     await browser.close();

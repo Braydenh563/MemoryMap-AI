@@ -213,3 +213,23 @@ async function openTagSuggest(input) {
   tagSuggest = { input, box, list, counts, rows: [], active: -1, moved: false, onInput, onKey, onBlur, onWindow };
   fillTagSuggest();
 }
+
+//: **Take, discard or restore a suggested tag** (INBOX 440), moved here from
+//: note-cards.js for the boot gzip ratchet (`answerTags` fetches this file).
+//: The list redraws from the server's answer, so the card and every other
+//: view agree. A tag turned down says so with an Undo (the owner, 2026-10-10:
+//: "if I click the not about [this tag], don't show this again, is there a
+//: way to undo it or see the list"); the list is the note's edit form's
+//: "Not suggested" line (note-edit-panels.js).
+async function answerSuggestedTags(entry, body) {
+  try {
+    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
+    await refreshEntries([entry.id]);
+    const tag = (body.take || body.discard || body.restore || [])[0];
+    if (body.take) toast(`Tagged #${tag}.`);
+    else if (body.restore) toast(`#${tag} can be suggested for this note again.`);
+    else toastAction(`Won't suggest #${tag} for this note again.`, "Undo", () => answerSuggestedTags(entry, { restore: [tag] }), { record: false });
+  } catch (error) {
+    toast(error.message || "Couldn't change the tags.", true);
+  }
+}

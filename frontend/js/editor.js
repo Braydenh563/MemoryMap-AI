@@ -575,7 +575,12 @@ async function editorInsertBoardObject(textarea) {
 //: never drift from what the buttons do. The slash token is removed by
 //: `editorRunItem` before `run` is called, so the question is left clean.
 function chatCommands() {
-  const press = (id) => () => document.getElementById(id)?.click();
+  //: Run `fn` once the press that chose the row is over (see `pick`).
+  const afterPress = (fn) => () => {
+    if (!editorMenuState.pressing) return fn();
+    document.addEventListener("mouseup", () => setTimeout(fn), { once: true, capture: true });
+  };
+  const press = (id) => afterPress(() => document.getElementById(id)?.click());
   //: **On the next frame, not in this one** (the owner, 2026-09-21: pressing
   //: "A document" in the slash menu showed the picker "for a split second but
   //: then disappears"). Both halves run inside the handler for the click that
@@ -583,7 +588,17 @@ function chatCommands() {
   //: close-on-click-outside listener, and then that very click carried on
   //: bubbling to the document and closed it again. Anything that opens a
   //: surface from inside a click has to let the click finish first.
-  const pick = (source) => () => {
+  //:
+  //: **And after the button comes up, when a pointer chose it** (the owner,
+  //: 2026-10-10: "I tried to press a note on the slash menu in the chat tab
+  //: and the panel flickered then nothing happened"). The row runs on
+  //: `mousedown`; a press held longer than a frame (measured: 250 ms) let the
+  //: picker open before the `mouseup`, and that press's own `click`, on the
+  //: page once the menu had gone, was the picker's click-away. A fast click
+  //: passed, which is why the frame alone looked like the fix. The Skills
+  //: and Web rows open popovers with the same click-away, so `press` waits
+  //: too.
+  const pick = (source) => afterPress(() => {
     if (typeof openNotePicker !== "function") return;
     requestAnimationFrame(() => {
       openNotePicker();
@@ -595,7 +610,7 @@ function chatCommands() {
           ?.click();
       });
     });
-  };
+  });
   const mode = (name) => () =>
     document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
   return [
@@ -1308,7 +1323,14 @@ function editorRenderMenu() {
     // caret position the insertion depends on is already gone.
     row.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      editorRunItem(position);
+      //: Said to `run` for the press's length: a row that opens a surface
+      //: waits for the button to come up (`chatCommands`'s `pick`).
+      editorMenuState.pressing = true;
+      try {
+        editorRunItem(position);
+      } finally {
+        editorMenuState.pressing = false;
+      }
     });
     //: The pointer chooses what the preview shows, without redrawing the
     //: list under it. `mousemove`, not `mouseenter`: a menu that opens under

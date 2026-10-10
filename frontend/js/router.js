@@ -197,7 +197,9 @@ function routerOnVisit(entry, pushed) {
 //: on its own, the way it did before there was a router.
 function routerGo(delta) {
   const here = tabHistory.stack[tabHistory.index];
-  if (!delta || !here || !history.state || history.state.navId !== here.navId) return false;
+  //: `edited`: rows taken off the list (nav-history.js) put the stack and the
+  //: browser's history out of step, so the stack walks on its own from then.
+  if (!delta || tabHistory.edited || !here || !history.state || history.state.navId !== here.navId) return false;
   history.go(delta);
   return true;
 }

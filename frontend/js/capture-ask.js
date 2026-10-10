@@ -967,18 +967,33 @@ function flashCategory(name) {
 //: happened to be behind the same flag. So a second option, meaning "this
 //: row is read-only, draw the facts anyway", rather than turning the actions
 //: on and getting an edit button in a search result.
+//: In the facts line, before the date (INBOX 510; the date ends the line).
+function placeResultBadge(row, badge) {
+  const meta = row.querySelector(":scope > .entry-meta") || row;
+  meta.insertBefore(badge, meta.querySelector(":scope > .entry-date"));
+}
+
 function clickableResult(entry) {
   const li = entryItem(entry, { facts: true });
   li.classList.add("clickable-result");
-  li.title = "Open this note in the Notes tab";
-  li.addEventListener("click", () => flashEntry(entry.id));
+  //: **The date in the card's corner** (INBOX 745 (a), the owner: "note dates
+  //: arent in the corner like i asked"): measured in Ask's records, 107 px
+  //: from the right, after the reason chip. It ends the facts line at the
+  //: right edge, as in the Notes list; inline, as boot CSS is at its cap.
+  const date = li.querySelector(":scope > .entry-meta > .entry-date");
+  if (date) date.style.marginInlineStart = "auto";
+  //: A board or a mind map opens as itself (INBOX 744: "clicking it takes me
+  //: to the notes page"), through the Library's own opener.
+  const open = entry.board_kind ? () => openWhiteboardBoard(entry.id) : () => flashEntry(entry.id);
+  li.title = entry.board_kind ? "Open it" : "Open this note in the Notes tab";
+  li.addEventListener("click", open);
   //: Reachable and openable from the keyboard too (found by the density
   //: pass: a result opened on a click only, like the dashboard rows did).
   li.tabIndex = 0;
   li.addEventListener("keydown", (event) => {
     if (event.target !== li || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
-    flashEntry(entry.id);
+    open();
   });
   return li;
 }
@@ -2318,15 +2333,22 @@ function renderChatMeta(meta) {
   // point of pulling them in is that the person can see the connection.
   const connected = new Set(meta.connected_ids || []);
   const matchInfo = meta.match_info || {};
+  //: **A percentage on every card or on none** (INBOX 728, the owner: "how
+  //: come only some of the ask tab matching records notes green arrows have %
+  //: number similarity and others dont show a number??"). A row that came by
+  //: recency or a date has no score; beside it a number on its neighbours
+  //: read as a missing one. Then the chips keep their words and the number
+  //: moves to the title.
+  const scored = everyRowScored(meta.raw_results, matchInfo, connected);
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
       //: In the facts line, after the date, as one more quiet fact (INBOX
       //: 510): on a row of its own it was a filled pill louder than the note.
-      (row.querySelector(":scope > .entry-meta") || row).appendChild(badge);
+      placeResultBadge(row, badge);
     }
     rawList.appendChild(row);
   }
@@ -2383,12 +2405,17 @@ const MATCH_REASON_LABEL = {
   }),
 };
 
-function matchReasonBadge(info) {
+//: Whether every row has its number (or is a linked row, which says Linked).
+function everyRowScored(rows, info, connected) {
+  return rows.every((e) => connected.has(e.id) || typeof info[e.id]?.score === "number");
+}
+
+function matchReasonBadge(info, scored = true) {
   if (!info || !MATCH_REASON_LABEL[info.type]) return null;
   const { text, title } = MATCH_REASON_LABEL[info.type](info);
   const badge = document.createElement("span");
   badge.className = `chip result-reason-chip result-reason-${info.type}`;
-  setLabel(badge, text);
+  setLabel(badge, scored ? text : text.replace(/\d+% similar/, "Similar"));
   badge.title = title;
   return badge;
 }
@@ -2930,6 +2957,19 @@ async function askQuestion(preset) {
   //: No words of its own: `streamChat` drives the phase line from the events
   //: (INBOX 649), "Reaching Atlas…" until the server says it is searching.
   const progress = askStatusBusy(null);
+  //: **The wait is on screen** (INBOX 727, the owner: "there's no searching
+  //: animation or indicator for when I enter a search in the ask tab and
+  //: nothing has shown yet"). The phase line was drawn inside a results grid
+  //: still hidden until the first event (measured: 0x0 for the whole wait),
+  //: so the grid opens now, the records column saying it is searching until
+  //: `onMeta` replaces the row.
+  const searching = document.createElement("li");
+  searching.className = "muted";
+  setLabel(searching, "ph:spin Searching your notes…");
+  $("raw-results").replaceChildren(searching);
+  document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
+  $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
   //: The whole foot goes with it, not only the grounding chips: a sources

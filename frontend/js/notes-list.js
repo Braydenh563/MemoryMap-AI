@@ -24,6 +24,14 @@ function foldNoteToolbarForFirstPaint() {
     collapsed = false; // private mode: the expanded shape is the safe default, as the bundle's
   }
   bar.classList.toggle("is-collapsed", collapsed);
+  //: **The folded strip opens when pressed** (the owner, 2026-10-10: "The
+  //: note capture subtab formatting toolbar wont open"). Until the note box
+  //: is first focused its tools are not mounted, and "Formatting" is a
+  //: label with nothing behind it; a press focuses the box, which mounts
+  //: the editor and the tools with it.
+  bar.addEventListener("click", (event) => {
+    if (!bar.querySelector(".doc-toolbar-tools") && !event.target.closest("button")) $("entry-content").focus();
+  });
 }
 foldNoteToolbarForFirstPaint();
 
@@ -228,6 +236,9 @@ function entryNeedsReview(entry) {
 //: of the same four lines.
 function showNotesFilter(query) {
   switchTab("notes");
+  //: Your notes, whichever sub-tab was last open (the owner, 2026-10-10: "I
+  //: pressed show them, but it just navigated me to the Ask subtab").
+  showNotesSection("browse");
   const search = $("note-search");
   search.value = query;
   search.dispatchEvent(new Event("input"));
@@ -3162,6 +3173,24 @@ const CARD_COUNT_SOURCES = [
     marker: ".chip.topic",
     empty: null,
     chip: noteTopicChip,
+  },
+  //: **A note's own open questions** (INBOX 745 (c): "there is no way to view
+  //: the questions asked by notes ... from the notes themselves"): a count
+  //: that opens Notes, Questions kept to this note.
+  {
+    cache: new Map(),
+    inFlight: new Set(),
+    path: (ids) => `/questions/counts?ids=${ids}`,
+    marker: ".chip.questions",
+    empty: 0,
+    chip(entry) {
+      const count = this.cache.get(entry.id);
+      return count ? chip(`ph:question ${count} open question${count === 1 ? "" : "s"}`, "questions", (event) => {
+        event.stopPropagation();
+        showNotesSection("questions");
+        ensureModule("questionsView").then(() => questionsForNote(entry.id));
+      }) : null;
+    },
   },
 ];
 

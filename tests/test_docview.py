@@ -115,6 +115,23 @@ def test_a_converted_document_reports_the_install_hint_when_markitdown_is_absent
     viewed = docview.extract(path)
     assert viewed.text == ""
     assert "Import documents" in viewed.message and "Settings, Packages" in viewed.message
+    #: The package that would read it, so the viewer can offer Install
+    #: itself (the owner, 2026-10-10: "it should have given me a link to nav
+    #: to install or an install button directly").
+    assert viewed.extra == "documents"
+
+
+def test_a_pdf_with_no_text_and_no_page_reader_names_its_package(tmp_path, monkeypatch):
+    from memorymap.core import pdfpages
+    from memorymap.entry import importer
+
+    monkeypatch.setattr(importer, "markitdown_available", lambda: True)
+    monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "")
+    monkeypatch.setattr(pdfpages, "available", lambda: False)
+    path = tmp_path / "scan.pdf"
+    path.write_bytes(b"%PDF-1.4 nothing readable")
+    viewed = docview.extract(path)
+    assert viewed.text == "" and viewed.extra == "pdfpages"
 
 
 def test_a_converted_document_comes_back_as_markdown(tmp_path, monkeypatch):

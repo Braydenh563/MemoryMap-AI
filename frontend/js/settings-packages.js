@@ -145,7 +145,7 @@ function packagesRenderBundles(body) {
         const install = smallButton(
           "ph:download-simple Install",
           `Install the ${missing.length === 1 ? "missing package" : `${missing.length} missing packages`} of ${bundle.label}`,
-          () => packagesBulk("install", missing)
+          () => packagesBulk("install", missing, bundle.id)
         );
         install.dataset.packagesFocus = `bundle-install-${bundle.id}`;
         actions.appendChild(install);
@@ -178,7 +178,7 @@ function packagesRenderBundles(body) {
               run: () =>
                 body.running || !reinstallable.length
                   ? toast(body.running ? busy : "Nothing here is installed yet.", "info")
-                  : packagesBulk("reinstall", reinstallable),
+                  : packagesBulk("reinstall", reinstallable, bundle.id),
             },
             {
               label: "ph:trash Remove all",
@@ -188,7 +188,7 @@ function packagesRenderBundles(body) {
               run: () =>
                 body.running || !removable.length
                   ? toast(body.running ? busy : "Nothing here is installed yet.", "info")
-                  : packagesBulk("uninstall", removable),
+                  : packagesBulk("uninstall", removable, bundle.id),
             },
           ],
           `More for the ${bundle.label} bundle`, { vertical: true })
@@ -208,8 +208,16 @@ function packagesRenderBundles(body) {
       //: the owner: "it just stayed as the 2/3 packages I had installed until
       //: it just suddenly updated, there was no progress indicator"): a bar
       //: over the packages, then one line each, waiting, installing, done.
+      //: **Under the bundle pressed, and nowhere else** (the owner, 2026-10-10:
+      //: "I pressed install on the documents package and the progress bars
+      //: appeared for the vision package"). Read scanned PDFs is in both
+      //: bundles, so Vision drew a bar and a "waiting" row for Documents'
+      //: install. A bundle's own Install, Reinstall or Remove all owns the
+      //: whole action; one started from the selection bar shows each
+      //: package under the first bundle that holds it.
       const bulk = body.bulk || {};
-      const mine = (bulk.items || []).filter((item) => bundle.extras.includes(item.id));
+      const shownIn = (id) => packagesUi.bulkBundle || (body.bundles || []).find((each) => each.extras.includes(id))?.id;
+      const mine = (bulk.items || []).filter((item) => bundle.extras.includes(item.id) && shownIn(item.id) === bundle.id);
       if (mine.length && (bulk.running || packagesUi.bulkSeen)) {
         if (bulk.running) {
           const bar = document.createElement("progress");
@@ -428,7 +436,7 @@ async function packagesPost(path, body) {
 //: One confirm for the lot, naming each package and what it costs, then one
 //: request: the server walks them in this order as one background job, each
 //: with its own outcome, and one failing never stops the rest.
-async function packagesBulk(action, extras) {
+async function packagesBulk(action, extras, bundleId = null) {
   if (!extras.length) return;
   const count = extras.length === 1 ? "1 package" : `${extras.length} packages`;
   const names = extras.map((extra) => (action === "install" ? `${extra.label}, ${extra.size}` : extra.label)).join("\n");
@@ -443,6 +451,8 @@ async function packagesBulk(action, extras) {
   const ok = await confirmDialog(message, { confirmLabel: { install: "Install", reinstall: "Reinstall", uninstall: "Remove" }[action] });
   if (!ok) return;
   packagesUi.bulkSeen = true;
+  //: Whose bar it is: the bundle pressed, or none for the selection bar's.
+  packagesUi.bulkBundle = bundleId;
   const result = await packagesPost("/extras/bulk", { action, ids: extras.map((extra) => extra.id) });
   if (result.started) {
     packagesUi.selected.clear();

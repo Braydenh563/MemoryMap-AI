@@ -147,51 +147,6 @@ with its owner named in the entry.
      the toast-with-action recipe in DESIGN.md, and fix what is off.
      Owner: Brief 34 (companion), second part, and OPEN.md Atlas rows (INBOX 752): gestures, the enlarged view mirroring the corner, the framed Atlas clipped to its oval, the Show companion notice measured against the toast recipe.
 
-745. **The owner, 2026-10-07, verbatim**: "note dates arent in the corner like i
-     asked, i thought that was fixed. also notes ask questions but there is no way
-     to view the questions asked by notes if they have any from the notes
-     themselves"; then, of the Questions list (11 open: "What daring deed hath
-     led thee to this street?", "- \"If you were a spice, which one would you be
-     and why?", "\" or \"What's the most adventurous thing...", "What's an
-     astronaut's favorite drink?", "Why did the student eat his homework?"):
-     "these are just random questions form my notes?? I didnt actually have any
-     questions for myself, they are unrelated and mostly from test notes".
-     Next PR:
-     (a) Card dates: INBOX 719 put the time at the bottom right of the card's
-     content; a card stretched taller than its content (grid rows) shows it
-     mid-card. Pin it to the card's own bottom edge, measured on cards of
-     unequal height in one row.
-     (b) Open questions (`ai/facts.py` candidates, kind "question"): only the
-     person's own open questions. Skip a question inside quotation marks, a
-     list item or example ("Examples:", "like \"..."), a line starting with a
-     quote fragment, a joke setup (answered on the next line), dialogue or
-     script (Act, Scene), and pasted or AI-written guide text; strip markdown
-     (`**`, `- `, `* `) from the question and from the note title shown. Re-run
-     on the owner's 11: none of them should remain. Tombstone what is dropped,
-     so a re-read does not bring them back.
-     (c) A note's own questions on the note (a line under it, "2 open
-     questions", opening them), and the Questions list grouped by note.
-     (d) First run, verbatim: "should it have gone straight to the graph
-     tour?? i clicked add some example notes". Add some example notes opened
-     the Graph with its tour running ("Moving around, 1 of 3"). It should add
-     the notes, stay put (or show them in Notes) and say so in a toast with
-     "See them on the graph" and "Take the tour"; a tour starts only when
-     asked for. Grep the example-notes action in onboarding.js and tour.js.
-     Then, verbatim: "well it added them then I pressed the continue or
-     whatever button and a wierd blank tour panel showed in the top left corner
-     for a couple seconds then it righted itself and went to the graph tour".
-     So the tour came from onboarding's continue, and its card drew empty at
-     the top left (no target yet: the Graph tab and its lazy code still
-     loading) before placing itself. The card must stay hidden until its
-     target exists and is measured, then appear in place; and the continue
-     should say where it goes.
-     Then, verbatim, with the Library tour at "A card's menu, 3 of 5": "the
-     hover menu button doesn show on the tour". The step highlights the card's
-     ⋯, which only shows on hover, so the ring frames an empty square. A tour
-     step that points at a hover-only control reveals it while the step is up
-     (a class on the card, removed on the next step), and a sweep checks every
-     tour step's target is visible and non-empty.
-     Owner: (a) the carddate agent (note-cards.js and the entry CSS); (b) and (c) CHAT_PLAN fact layer (lines 554 and 649, the question kind) and Brief 39; (d) Brief 37 (tour handoff, the blank card, the hover-only step; the hover row added 2026-10-10).
 ## Placed (last 20, newest first)
 
 - 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.

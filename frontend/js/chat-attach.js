@@ -686,12 +686,24 @@ function attachSelectionContext(context) {
   attachedSelection = context;
   renderSelectionAttachment();
   switchTab("chat");
+  //: **Asking about a passage turns Agent on when it can run** (the owner,
+  //: 2026-10-10: "it put it in the chat but I was on "ask" mode, shouldnt it
+  //: have been auto put on "agent"??"). A passage is usually something to act
+  //: on (rewrite it, file it, link it), which only Agent can do. With no model
+  //: and no Needle, Ask answers about the attached passage from the notes, so
+  //: the mode is left alone rather than set to one that cannot run.
+  const switched = agentModeAvailable() && !$("tools-toggle").checked;
+  if (switched) setChatMode("agent");
   const input = $("chat-input");
   if (input) {
     input.focus();
     autoGrow(input);
   }
   announce(`${context.kind === "reading" ? "Text read from" : "Selection from"} ${context.title} attached to your next message.`);
+  //: One toast, not two: a caller that says its own sentence (the OCR
+  //: workspace) gets `switched` back and adds the mode to it.
+  if (switched && !context.quiet) toast("Agent mode is on, so Atlas can act on what you attached.");
+  return switched;
 }
 
 function clearSelectionAttachment() {
@@ -1512,6 +1524,12 @@ async function sendChatMessage(preset, opts = {}) {
   if (attachedWebPage) {
     if (!opts.displayText) opts = { ...opts, displayText: typed };
     question = `${question}\n\n${webPageContextBlock(attachedWebPage)}`;
+  } else if (chatLastWebUrl && (await ensureModule("webClip"))) {
+    const page = await webFollowUp(typed, chatLastWebUrl);
+    if (page) {
+      if (!opts.displayText) opts = { ...opts, displayText: typed };
+      question = `${question}\n\n${webPageContextBlock(page)}`;
+    }
   }
   lastChatQuestion = question;
   if (!opts.replaceLast) regenerateLastAnswer.retries = 0; // a new question is a first ask
@@ -2270,6 +2288,9 @@ async function sendChatMessage(preset, opts = {}) {
     toolEvents,
     touched: [...touchedItems.values()],
   });
+  //: The page this turn went out to read, for a follow-up about it
+  //: (`webFollowUp`, web-clip.js).
+  chatLastWebUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;
   if (groundingSentences?.length) {
     addInlineCitations(
       bubble.querySelectorAll(".bubble-answer"),
@@ -2308,7 +2329,20 @@ async function sendChatMessage(preset, opts = {}) {
   }
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
-  if (meta?.composed && answerRaw) bubble.appendChild(chip("ph:notebook From your notes", "item-label"));
+  //: **Who wrote it, in the head** (the owner, 2026-10-10: "should say if the
+  //: composer or a specific ai model generated it"): "Atlas, from your notes"
+  //: or "Atlas, <model>", where a chip under the answer used to say only the
+  //: first. **And a composed answer arrives** ("Composer responses just
+  //: appear, I think there should be an animation"): it lands in one piece,
+  //: so its blocks rise in turn, `--motion-step` apart, as a streamed one
+  //: grows; under reduced motion it simply appears.
+  const by = meta?.composed ? "from your notes" : stats?.model || meta?.answered_by;
+  const who = bubble.querySelector(".msg-role > span:last-child");
+  if (answerRaw && by && who) who.textContent = `${bubble.dataset.persona}, ${by}`;
+  if (meta?.composed && !reducedMotionWanted()) {
+    bubble.querySelectorAll(".bubble-answer > *").forEach((el, i) =>
+      el.animate([{ opacity: 0, translate: "0 4px" }, {}], { duration: 200, delay: i * 60, easing: "ease-out", fill: "backwards" }));
+  }
   if (answerRaw || toolEvents.length) {
     bubble.appendChild(
       messageMetaLine({
@@ -2850,6 +2884,8 @@ function stopChatTimer() {
 }
 
 function releaseChatComposer({ announce = true } = {}) {
+  //: Called by every way out of a chat: the page it read is that chat's.
+  chatLastWebUrl = null;
   if (!chatController || !chatStreaming) return;
   const input = $("chat-input");
   input.disabled = false;

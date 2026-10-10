@@ -157,13 +157,14 @@ async function viewAskHistoryTurn(id) {
   // this reason: browsing back shouldn't lose the "why" a result showed up.
   const connected = new Set(turn.connected_ids || []);
   const matchInfo = turn.match_info || {};
+  const scored = everyRowScored(turn.raw_results, matchInfo, connected);
   for (const entry of turn.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
+      placeResultBadge(row, badge);
     }
     rawList.appendChild(row);
   }
@@ -232,6 +233,35 @@ async function deleteAskHistoryTurn(id) {
   );
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
+  loadRecentQuestions();
+}
+
+//: **The Ask again row's ⋯** (the owner, 2026-10-10: "There's no way to clear
+//: your ask history"; "no way to ... delete individual records??"). One
+//: `kebabMenu` at the row's end: forget one question, or clear them all
+//: (the history's own Clear, which also ends the row: routes_chat
+//: `_recent_questions` reads the audit log, and nothing is deleted from it).
+function askAgainMenu(box, questions) {
+  if (!box.isConnected || !questions.length) return;
+  box.querySelector(":scope > .menu-wrap")?.remove();
+  const items = questions.map((question) => ({
+    label: `ph:x Forget "${question.length > 32 ? `${question.slice(0, 31)}…` : question}"`,
+    title: "Take this question off Ask again",
+    run: () => forgetRecentQuestion(question),
+  }));
+  items.push({ label: "ph:trash Clear question history", title: "Clear every question you asked here (pinned ones are kept)", run: clearAskHistory });
+  box.appendChild(kebabMenu(items, "Ask again options"));
+}
+
+async function forgetRecentQuestion(question) {
+  try {
+    await apiJson(`/chat/recent?question=${encodeURIComponent(question)}`, { method: "DELETE" });
+  } catch (error) {
+    toast(error.message || "Couldn't forget that question.", true);
+    return;
+  }
+  loadRecentQuestions();
+  announce("Question forgotten.");
 }
 
 async function clearAskHistory() {
@@ -245,4 +275,5 @@ async function clearAskHistory() {
   );
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
+  loadRecentQuestions();
 }

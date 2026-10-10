@@ -33,6 +33,7 @@ below). Versioning is `0.x` while the app stabilises.
 - UI review, measured: `scratchpad/ui-sweeps/hierarchy.js` counts what each surface shows at rest at 1440 and 390 (visible buttons, filled buttons, fields, docks, dialogs, confirms), the numbers replace the readings in UI_MODERNISATION_PLAN 13.1 and 13.2, and a test pins the 13 empty markup buttons as ones JS paints (none was unlabelled in the running app).
 - Plans: the design review (UI_MODERNISATION_PLAN Phase 13: sixteen principles measured against the stylesheet and the markup, every surface, decisions 9 to 22, Briefs 56 to 59), the backend review (WORLD_CLASS_PLAN 26, decisions 55 to 62, Briefs 60 to 63) and the features and popups pass (WORLD_CLASS_PLAN 27, decisions 63 to 66).
 - Plans: every surface of the app read against world class in one table (WORLD_CLASS_PLAN 25), with decisions 46 to 54, phases 25a to 25g, the calendar view (TIMELINE_PLAN Phase 5), skill reliability (AGENT_SKILLS_REFORM Phase E) and Briefs 46 to 55; the undo contract is rule 1.8.
+- On a phone, Chat's Ask and Agent buttons are the full 44px touch height, as every other control in the strip.
 - Setup on Linux and macOS can share the packages already installed on the computer (MEMORYMAP_SYSTEM_SITE_PACKAGES=1), and refuses with a reason when the installed torch is outside the supported range.
 - MCP: another app that uses MemoryMap's tools no longer sees chat-only tools, label icon names, or a wrong protocol version, can auto-approve read tools, and Settings, Tools it can use shows the config snippet to paste with a Copy button.
 - Docker: the image lives in docker/ and works: MEMORYMAP_BIND, MEMORYMAP_PORT and MEMORYMAP_FIRST_PASSWORD (used only while no password is set, never logged), and a container no longer answers its first visitor 403.
@@ -98,6 +99,42 @@ below). Versioning is `0.x` while the app stabilises.
 - Mind maps: Rounded draws a rounded rectangle on every topic, a core one and the centre included (a core topic drew an ellipse whichever Rounded was chosen), never square under a sharp look; the picture and SVG export draw each topic's own shape.
 - Mind maps: a topic put between two others keeps every branch its colour and takes its child's side and place among the branches; on a both-sides map a branch stays on its side when one grows (one added topic used to send two branches across the trunk).
 - Whiteboard: the selection rectangle is no longer cut off part way across when the board grows during the drag; clone-and-connect joins fixed ports so the far end stays put.
+
+### Fixed
+
+- First run: the welcome, the tour, the recovery-key offer and the update question take turns, so none opens over another and the tour is no longer cut to one card; the tour card stays hidden until it is placed, a control that only shows on hover is shown for its step, and the tour's dim is lighter so the neighbours stay readable.
+- With no model, a Skills or Plan button built after the last status check is greyed at once; Ask about this turns Agent on when Agent can run.
+- The Guide shows the Thinking fold above its phase line, with a gap on both sides.
+- No saved chats sits under the Chats heading, not at the foot of the sidebar.
+- In the chat's / menu, A note, A document and the other rows that open a panel open it even when the press is held; the press no longer closes what it opened.
+- A board or a mind map found by Ask or Chat is labelled Board or Mind map and opens as itself, not as a note; Sources count it as a board.
+- Ask shows its searching line and "Searching your notes…" as soon as you ask, not only once the first result arrives.
+- Ask's matching records show a similarity percentage on every card or on none; the reason chip keeps its words when a card is narrow, and the date ends each card's facts line at the right.
+- A chat reply's head says who wrote it: Atlas, from your notes, or Atlas and the model's name; a composed answer's paragraphs rise in turn instead of appearing at once.
+- Web: web pages lead the Sources list; a failed web search offers Try again; the reader's bookmark button shows when the page is kept; "give it a minute" is said only before SearXNG's first run.
+- A chat question that points back at the page the last answer read (this page, more details, what else) carries that page's text, so the follow-up is answered from it.
+- With no model running, Capture's tag suggestions come from your notebook's own tags instead of nothing, and the server log no longer fills with a traceback per pause.
+- Open questions are your own: a quote, a prompt list, a script's line, a joke answered on the next line or a pasted guide's question is no longer collected, and the ones collected before are retired at the next read. The list is grouped by note and shows the questions without markdown, and a note that asks any says so on its card ("2 open questions"), opening only its questions.
+- A notification's Show them opens Your notes with the filter, whichever Notes sub-tab was open last.
+- Pressing the folded Formatting strip in Capture opens it, before the note box has been used.
+- The chosen row's fill in Settings' sidebar (and every sliding strip) follows its row when a list above it opens or closes, instead of staying where the row was.
+- Every '?' help button is the same rounded square as the other icon buttons, not a circle in some places.
+- The lightbox's buttons, its Find in document field and its ⋯ are one height.
+- Packages: a bundle's install progress shows under that bundle only, not under another bundle sharing a package; a file the viewer cannot read for want of a package offers Install beside the reason.
+- The OCR workspace is named so in Commands, Find anything and Quick access, so searching "ocr" finds it; a trackpad pinch or Ctrl and the wheel zooms its page.
+- Quick access has a ⋯ on its title's line with Edit quick access and the resets.
+- Each finished background task in Settings has Logs, which opens the log filtered to it.
+- Turning down a suggested tag offers Undo, and a note's Edit form lists the tags turned down under Not suggested, each one press from coming back.
+- A finished row in Agent activity drops its progress bar, so Done no longer sits beside a full bar.
+
+### Changed
+
+- Adding the example notes keeps the welcome open and offers See them on the graph or Take the tour.
+- Hiding the companion shows a Show it button in its toast.
+- Ask again has a ... menu: forget one question, or clear your question history (which now empties the row too); deleting a question from the history takes it off the row.
+- The back and forward list can lose a row (its X, or Delete) or be cleared down to where you are.
+- Right-clicking the companion in its enlarged view opens its menu there, with who it is, its look and its size.
+- The chat's context pill opens what fills the window (your notes, earlier turns, tools, instructions) with Compact earlier messages inside, rather than compacting when pressed, says how the window's size is set and opens that setting (Change the window); the token count says it is what the chat's turns hold now.
 
 ## [0.4.1] - 2026-10-06
 

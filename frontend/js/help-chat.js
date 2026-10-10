@@ -14,6 +14,10 @@
 // spec asked for no database row at all, so the running transcript lives
 // only in this module-level array, it survives a tab switch (this module
 // never reloads) but not a page reload, exactly as specified.
+//: The streamed bubble's own rules (help-chat-lazy.css), fetched from here
+//: rather than listed in `LAZY_MODULES`: app.js is at its gzip cap.
+lazyScript("/css/help-chat-lazy.css");
+
 let helpChatHistory = [];
 let helpChatBusy = false;
 
@@ -401,10 +405,15 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
   //: below not after the text being streamed"). The rule in
   //: 01-forms-settings.css walks one level further for this class.
   prose.className = "help-chat-prose";
-  //: The phase line stays under the head row for the whole turn, and goes
-  //: when the answer is complete (below).
+  //: The thinking first, then the phase line, then the answer (the owner,
+  //: 2026-10-10: "on the guide the thinking shows below the thinking
+  //: indicator and stuff with no gap either"; measured 1px between the line's
+  //: foot and the fold). The line says what is happening now, so it sits
+  //: next to where the answer will appear, and goes when the answer is
+  //: complete (below). The fold's gap is `--space-2` (help-chat-lazy.css).
+  pending.append(think);
   if (line) pending.append(line);
-  pending.append(think, prose);
+  pending.append(prose);
   const list = $("help-chat-messages");
   const toBottom = () => keepAtBottom(list);
 

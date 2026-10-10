@@ -126,16 +126,31 @@ def _recent_questions(session: Session, limit: int = 5) -> list[str]:
     Read straight from the audit log, no extra bookkeeping.
 
     Scoped to `ASK_SURFACE`, so an instruction given to the agent is never
-    offered back as something to ask again."""
+    offered back as something to ask again.
+
+    **Clearable, without editing the log** (the owner, 2026-10-10: "There's
+    no way to clear your ask history"; "no way to ... delete individual
+    records??"). The log is a history, so nothing is deleted from it: Clear
+    history writes a `cleared` row, and walking back stops there; forgetting
+    one chip writes a `forgot` row naming it, which hides the earlier askings
+    of that question and not a later one."""
     rows = session.scalars(
         select(AuditLog)
-        .where(AuditLog.action == "queried", AuditLog.entity_type == ASK_SURFACE)
+        .where(
+            AuditLog.action.in_(("queried", "forgot", "cleared")),
+            AuditLog.entity_type == ASK_SURFACE,
+        )
         .order_by(AuditLog.id.desc())
-        .limit(50)
+        .limit(100)
     )
     questions: list[str] = []
+    forgotten: set[str] = set()
     for row in rows:
-        if row.detail and row.detail not in questions:
+        if row.action == "cleared":
+            break
+        if row.action == "forgot":
+            forgotten.add(row.detail or "")
+        elif row.detail and row.detail not in questions and row.detail not in forgotten:
             questions.append(row.detail)
         if len(questions) == limit:
             break
@@ -146,6 +161,14 @@ def _recent_questions(session: Session, limit: int = 5) -> list[str]:
 def recent_questions(session: Session = Depends(get_session)) -> list[str]:
     """The last 5 distinct questions, newest first (quick access)."""
     return _recent_questions(session)
+
+
+@router.delete("/recent")
+def forget_recent_question(question: str, session: Session = Depends(get_session)) -> dict:
+    """Take one question off the Ask again row (see `_recent_questions`)."""
+    manager.log_action(session, "forgot", ASK_SURFACE, detail=question)
+    session.commit()
+    return {"forgotten": question}
 
 
 def _asked_key(question: str) -> str:

@@ -99,6 +99,16 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: chat.js moved these out for the boot gzip ratchet (2026-10-10); each
+    #: is called in the `.then` of its own `ensureModule` on the same line.
+    "renderChatContextPop": "usageLedger, called in the .then of ensureModule('usageLedger') in renderChatContextMeter",
+    "showWebReader": "webClip, called in the .then of ensureModule('webClip') in openWebReader",
+    "askAgainMenu": "askHistory, called in the .then of ensureModule('askHistory') in loadRecentQuestions",
+    "answerSuggestedTags": "tagSuggest, called in the .then of ensureModule('tagSuggest') by answerTags",
+    "questionsForNote": "questionsView, called in the .then of ensureModule('questionsView') by a card's question count",
+    "webFollowUp": "webClip, called in sendChatMessage after `await ensureModule('webClip')` in the same condition",
+    "readerBookmark": "webClip, the reader's bookmark button, whose listener awaits ensureModule('webClip') first",
+    "saveWebPageAsNote": "webClip, the reader's Save button, on screen only after showWebReader (same bundle) drew a page",
     #: WORLD_CLASS_PLAN section 17 row 4: called inside
     #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
     #: has loaded by the time the call runs.

@@ -30,14 +30,24 @@ def list_questions(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     cursor: str | None = paging.cursor_param(),
+    entry_id: int | None = None,
     session: Session = Depends(get_session),
 ) -> dict:
     """`{items, total, counts}`: one page in `state` (every state when
-    absent), newest note first, and how many are in each state."""
+    absent), newest note first, and how many are in each state; `entry_id`
+    keeps one note's (a card's "2 open questions", INBOX 745 (c))."""
     offset = paging.start(cursor, offset)
-    listed = questions.listing(session, state=state, limit=limit, offset=offset)
+    listed = questions.listing(session, state=state, limit=limit, offset=offset, entry_id=entry_id)
     paging.finish(response, offset, limit, int(listed.get("total") or 0))
     return listed
+
+
+@router.get("/counts")
+def counts(ids: str = Query(default="", max_length=4000), session: Session = Depends(get_session)) -> dict:
+    """`{counts: {entry_id: open}}` for the notes in `ids` that ask any, the
+    shape of `/reminders/counts` (the Notes list's card counts)."""
+    wanted = [int(part) for part in ids.split(",") if part.strip().isdigit()][:200]
+    return {"counts": questions.open_counts(session, wanted)}
 
 
 @router.get("/summary")

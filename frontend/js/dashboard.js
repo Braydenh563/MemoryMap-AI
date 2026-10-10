@@ -1334,7 +1334,13 @@ function renderQuickLinks() {
   heading.textContent = "Quick access";
   const head = document.createElement("div");
   head.className = "launch-head";
-  head.append(heading);
+  //: **Its own ⋯ on the title's line, at the right** (the owner, 2026-10-10:
+  //: "a subtle like meatball icon in the top right on the same line as the
+  //: quick access title ... for easier and more intuitive access to these
+  //: buttons"): the Quick access half of Customise (Edit, Reset highlights,
+  //: Reset), the same items, so the two cannot disagree. On the heading's
+  //: line it covers nothing, which was the fault of the ⋯ this row had once.
+  head.append(heading, kebabMenu(dashCustomiseItems().filter((item) => item.group === "quick"), "Quick access options"));
   const row = document.createElement("div");
   row.className = "launch-row launch-row-start";
   const tints = quickTints();
@@ -1503,7 +1509,7 @@ function featureCatalog() {
       // more accessible way to access the ocr workspace as a proper and more
       // central feature." This browser and the command palette are the app's
       // two answers to that, and the reader had been in neither.
-      { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
+      { name: "OCR workspace", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
       //: The reader's own row in Settings, Packages (the target `extra-row`,
       //: which the OCR workspace's Manage and Install also go to).
       { name: "Reading engines", desc: "Tesseract and RapidOCR, which read the text in pictures, and whether each is installed.", reveal: "extra-row", arg: "ocr" },

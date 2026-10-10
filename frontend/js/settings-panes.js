@@ -1307,7 +1307,9 @@ function paletteCommands() {
       // you were last reading, else your newest readable file; the decision and
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
-      label: "ph:sparkle Read a document or image with AI",
+      //: "OCR" in the words (the owner, 2026-10-10: searching "ocr" in the
+      //: palette, Find anything and Quick access's list found nothing).
+      label: "ph:scan OCR workspace: read a document or image",
       reveal: "page-reader",
     },
     {

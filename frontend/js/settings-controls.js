@@ -772,7 +772,12 @@ $("searxng-reinstall").addEventListener("click", async () => {
 $("searxng-start").addEventListener("click", async () => {
   const status = $("searxng-host-status");
   status.classList.remove("error");
-  status.textContent = "Starting SearXNG… the first run pulls the image, so give it a minute.";
+  //: "Give it a minute" only before the first run (the owner, 2026-10-10:
+  //: "the notification said it takes a while to pull the first image for
+  //: searxng but ive already used multiple times").
+  status.textContent = $("searxng-host-state").textContent === "Not installed"
+    ? "Setting SearXNG up… the first run downloads it, so give it a minute."
+    : "Starting SearXNG…";
   $("searxng-start").disabled = true;
   try {
     const body = await apiJson("/websearch/searxng/start", { method: "POST" });

@@ -143,11 +143,15 @@ function renderAgentRunSummary(run) {
       : run.stepCount
         ? done / run.stepCount
         : null;
-  run.bar.classList.toggle("hidden", fraction === null);
-  if (fraction !== null) run.bar.value = Math.max(0, Math.min(1, fraction));
+  //: Only while it runs (the owner, 2026-10-10: "says done but the bar is
+  //: still there??"): a finished row's state chip is its answer, and a bar
+  //: left beside "Done" reads as still going.
+  const bar = run.state === "running" && fraction !== null;
+  run.bar.classList.toggle("hidden", !bar);
+  if (bar) run.bar.value = Math.max(0, Math.min(1, fraction));
   // An agent turn has neither a step count nor a fraction, and an empty second
   // line under its name is a gap that looks like something failed to load.
-  run.progressWrap.classList.toggle("hidden", fraction === null && !run.metaEl.textContent);
+  run.progressWrap.classList.toggle("hidden", !bar && !run.metaEl.textContent);
   run.el.classList.toggle("is-running", run.state === "running");
 }
 

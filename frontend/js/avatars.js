@@ -8463,9 +8463,10 @@ function nameMarkBuddyGone() {
 }
 
 function nameMarkBuddyHide(buddy) {
+  let was = null;
   try {
     //: Which companion it was, so the hotkey brings the same one back.
-    const was = prefs.get("avatar-buddy", null);
+    was = prefs.get("avatar-buddy", null);
     if (was && was !== "off") localStorage.setItem("nm-buddy-last", was);
     localStorage.setItem("avatar-buddy", "off");
   } catch (e) {
@@ -8481,7 +8482,26 @@ function nameMarkBuddyHide(buddy) {
   });
   //: The chord as it is bound now (it is rebindable), not as it shipped.
   const keys = typeof shortcuts === "object" ? shortcuts?.toggleCompanion?.keys : "";
-  toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
+  //: **The way back is a button, not a sentence** (INBOX 743, the owner:
+  //: "the show companion notification button was poorly shown"). The toast
+  //: named a chord and a Settings path in prose, with nothing to press; the
+  //: toast-with-action recipe puts the one press beside its first line.
+  const back = was && was !== "off" ? was : "me";
+  toastAction(
+    keys ? `Companion hidden. ${keys} brings it back too.` : "Companion hidden.",
+    "Show it",
+    () => {
+      try {
+        localStorage.setItem("avatar-buddy", back);
+      } catch (e) {
+        // Back for this visit.
+      }
+      const choice = document.getElementById("avatar-buddy");
+      if (choice) choice.value = back;
+      syncNameMarkBuddy();
+    },
+    { record: false }
+  );
 }
 
 //: Whether it is out: chosen in Appearance, or still on the page.
@@ -8930,7 +8950,9 @@ function nameMarkBuddyBuild() {
   });
   face.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    if (nmb.visit) return;
+    //: In the enlarged view too (the owner, 2026-10-10: "I cant right click
+    //: to view the menu to change the companion in the expanded popup
+    //: view"); there the menu keeps only who it is (`nameMarkBuddyMenu`).
     const fresh = rightDown && performance.now() - rightDown.at < 1500;
     nameMarkBuddyMenu(buddy, fresh ? [event.clientX || rightDown.x, event.clientY || rightDown.y] : null);
     rightDown = null;
@@ -9081,7 +9103,9 @@ function nameMarkBuddyHint(fromAppearance = false) {
   } catch (e) {
     // Shown this once at least.
   }
-  toastAction("Want a companion on screen? It finds a free spot on each page and reacts to what you do.", "Turn on", () => {
+  //: Two lines beside its button, not three (measured 72px of message at
+  //: 384px wide before; INBOX 743 "poorly shown").
+  toastAction("Want a companion on screen? It reacts to what you do.", "Turn on", () => {
     try {
       localStorage.setItem("avatar-buddy", "me");
     } catch (e) {

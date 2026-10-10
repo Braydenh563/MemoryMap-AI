@@ -644,6 +644,9 @@ class AttachedFileTextOut(BaseModel):
     #: file has no viewer yet" and "install markitdown" are both answers, and
     #: a 4xx would make the viewer show a failure for a file that is fine.
     message: str = ""
+    #: The optional package that would read it (`ViewedFile.extra`), so the
+    #: viewer can offer Install beside the message.
+    extra: str = ""
     #: Whether this file may be saved back over (`docview.editability`). True
     #: only where the text *is* the file, .md, .txt, .csv, code, so a .docx
     #: never is, and neither is a file too long to have been shown in full.
@@ -689,6 +692,7 @@ def attached_file_text(
         text=viewed.text,
         truncated=viewed.truncated,
         message=viewed.message,
+        extra=viewed.extra,
         editable=editable,
         edit_message=edit_message,
     )
@@ -1640,6 +1644,7 @@ def media_text(filename: str, session: Session = Depends(get_session)) -> Attach
         text=viewed.text,
         truncated=viewed.truncated,
         message=viewed.message,
+        extra=viewed.extra,
         editable=editable,
         edit_message=edit_message,
     )

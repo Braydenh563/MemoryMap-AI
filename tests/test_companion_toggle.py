@@ -57,6 +57,7 @@ global.window = global;
         + """
 global.document = { getElementById: () => null, querySelectorAll: () => [] };
 global.toast = (m) => said.push(m);
+global.toastAction = (m, label) => said.push(`${m} [${label}]`);
 global.nameMarkBuddyLeave = (b, then) => then();
 global.nameMarkBuddyGone = () => {};
 """
@@ -80,4 +81,6 @@ def test_the_hide_toast_names_the_chord_as_it_is_bound() -> None:
     assert "Alt+Shift+C" in got["said"][0] and "Ctrl+Shift+Y" not in got["said"][0]
     # No registry loaded (a page without settings-wiring.js): no chord named.
     bare = _hide_toast("")
-    assert "Ctrl+" not in bare["said"][0] and "Settings" in bare["said"][0]
+    #: INBOX 743: the way back is the toast's button, not a Settings path in
+    #: prose ("the show companion notification button was poorly shown").
+    assert "Ctrl+" not in bare["said"][0] and bare["said"][0].endswith("[Show it]")

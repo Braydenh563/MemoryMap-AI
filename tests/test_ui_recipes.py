@@ -1754,7 +1754,10 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
     )
     panel = re.search(r"\n\.tour-block-panel \{(.*?)\n\}", css, re.S)
     assert panel, ".tour-block-panel has no rule; where is the tour's dim?"
-    assert "background: var(--scrim)" in panel.group(1), (
+    #: The scrim at 60%: the owner, 2026-10-10, "on the tour it is hard to
+    #: see the other features around the things highlighted". Still the
+    #: scrim, still on the four panels.
+    assert "background: color-mix(in srgb, var(--scrim) 60%, transparent)" in panel.group(1), (
         "the four panels around the hole are the dim, in the app's scrim "
         "colour: they are the rectangles tourdim.js can actually measure"
     )
@@ -4432,7 +4435,11 @@ def test_the_chat_sidebar_head_is_one_quiet_row():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     start = html.index('<aside class="card sidebar-panel" id="chat-sidebar">')
     aside = html[start : html.index("</aside>", start)]
-    head = aside[aside.index('class="row space-between sidebar-head"') : aside.index('<ul id="conversation-list">')]
+    head = re.sub(r"<!--.*?-->", "", aside[aside.index('class="row space-between sidebar-head"') : aside.index('<p id="conv-empty"')], flags=re.S)
+    #: The empty line sits between the head and the list (the owner,
+    #: 2026-10-10: "should that no chats text be at the top not the bottom??").
+    between = aside[aside.index('<p id="conv-empty"') : aside.index('<ul id="conversation-list">')]
+    assert between.rstrip().endswith("</p>") and between.count("<") == 2
     assert 'id="chat-sidebar-sort"' in head and 'data-select-icon="ph-sort-descending"' in head
     new = re.search(r'<button id="chat-new"[^>]*>', head).group(0)
     assert 'class="ghost small icon-only"' in new and 'aria-label="New chat"' in new

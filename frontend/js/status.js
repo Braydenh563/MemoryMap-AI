@@ -1638,6 +1638,7 @@ async function loadRecentQuestions() {
     again.title = question;
     box.appendChild(again);
   }
+  ensureModule("askHistory").then(() => askAgainMenu(box, questions));
 }
 
 async function loadMostUsed() {
@@ -1944,6 +1945,19 @@ function syncModelGatedControls(status = modelStatus) {
   syncAgentPaletteAvailability();
   renderChatModeSeg();
 }
+
+//: **A control built after the last poll is gated when it arrives** (the
+//: owner, 2026-10-10: "I can still activate skills ... when I have no model
+//: running"). The poll applies `data-needs-model` every tick, but idle that is
+//: thirty seconds, and the chat dock's Skills button is built by skills.js when
+//: the dock first draws: it stayed pressable for up to half a minute after
+//: boot (measured: enabled 2.5 s in, with the attribute set). Watching for added
+//: nodes covers every lazily built control, including ones not written yet,
+//: rather than asking each builder to remember a call. The records of one
+//: task arrive together, so one gate pass however many nodes land.
+new MutationObserver((records) => {
+  if (modelStatus && records.some((r) => [...r.addedNodes].some((n) => n.querySelector?.("[data-needs-model]") || n.matches?.("[data-needs-model]")))) syncModelGatedControls();
+}).observe(document.body, { childList: true, subtree: true });
 
 //: **A banner can be closed for the session** (INBOX 732: "a way to
 //: temporarily hide these no ai popups, they can appear again when the user
@@ -2529,6 +2543,13 @@ function renderSearchEngineHealth(status) {
 //, every other reader in the app already consults it, and a second store for
 // the same fact is how two of them end up disagreeing. These buttons just show
 // it and set it.
+//: Whether Agent mode can run right now: a model, or the Needle extra on disk
+//: to call tools without one (decision 22). One reader, so the segment, the
+//: "Ask about this" switch and the Web toggle's title cannot disagree.
+function agentModeAvailable() {
+  return !(aiIsOff() && !modelStatus?.tools_engine);
+}
+
 function renderChatModeSeg() {
   //: **Agent mode needs something that can call tools** (INBOX 725, the
   //: owner: "maybe agent mode should be disabled though unless needle is used
@@ -2537,7 +2558,7 @@ function renderChatModeSeg() {
   //: saved choice, which comes back with the model. With Needle ready it runs
   //: there, and says so.
   const engine = modelStatus?.tools_engine || null;
-  const gated = aiIsOff() && !engine;
+  const gated = !agentModeAvailable();
   const agentButton = document.querySelector('#chat-mode-seg [data-chat-mode="agent"]');
   if (agentButton) {
     if (agentButton.dataset.enabledTitle === undefined) agentButton.dataset.enabledTitle = agentButton.title;
@@ -2548,6 +2569,7 @@ function renderChatModeSeg() {
         ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
         : agentButton.dataset.enabledTitle;
   }
+  renderWebSearchToggle();
   const agent = $("tools-toggle").checked && !gated;
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,

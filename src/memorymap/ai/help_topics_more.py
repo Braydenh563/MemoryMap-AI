@@ -71,7 +71,8 @@ MORE_TOPICS: list[dict] = [
             "Atlas's face follows the app's mood: "
             "thinking while an answer runs, happy when it lands, worried at an "
             "error, sleepy late at night. Enlarge, in the companion's menu or "
-            "on any face, shows the full drawing."
+            "on any face, shows the full drawing; right-click the companion "
+            "there to change who it is, its look or its size."
         ),
         "badge": {"label": "Atlas look", "section": "appearance", "target": "atlas-look-row"},
     },
@@ -183,10 +184,14 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Notes, Questions lists the questions your notes ask in passing, "
+            "your own ones only (not a quote, a prompt list, a script's line or "
+            "a joke answered on the next line), "
             "found when Atlas reads your notes (Read notes now, or on its own "
-            "with background tasks on), newest note first: "
-            "Open, Answered or Dropped, picked in the bar with a count on each. A row says when and "
-            "in which note it was asked; when a later note answers it, the row "
+            "with background tasks on), grouped by note, newest note first: "
+            "Open, Answered or Dropped, picked in the bar with a count on each. A "
+            "note that asks any says so on its card (2 open questions); pressing "
+            "that shows only its questions. A row says when it was asked; when a "
+            "later note answers it, the row "
             "says so with the sentence, and pressing that line opens the note. "
             "Mark answered asks which note answers it and links the two notes; "
             "Drop puts a question aside; Reopen brings either back. Ask about "
@@ -780,7 +785,9 @@ MORE_TOPICS.extend(
             "body": (
                 "The tags Atlas suggested when it filed a note stay on the note's "
                 "card as \"+ tag\": one press adds the tag, and its x stops "
-                "suggesting it. With no AI running they come from your own tags "
+                "suggesting it (Undo in the notice brings it back, and the note's "
+                "Edit form lists the ones turned down under Not suggested, each "
+                "one press from coming back). With no AI running they come from your own tags "
                 "on the notes most like this one. Either way a tag is offered "
                 "only when the note has a word for it, at most three, and "
                 "pointing at one says which word. An untagged note's Tag with "
@@ -1062,7 +1069,9 @@ MORE_TOPICS.extend(
                 "adds only the joining words and the counts and dates it measured, "
                 "names two notes that may disagree, and says which of your words "
                 "none of the notes found mention. It never answers yes or no for "
-                "you. Atlas heads the answer and its chip reads From your notes. The "
+                "you. In Ask the chip over the answer reads Your notes, no AI; in "
+                "Chat the reply's head reads Atlas, from your notes (Atlas and the "
+                "model's name when a model wrote it). The "
                 "choice is kept on this device; with no model running it is the "
                 "answer and Use AI is greyed, with the reason on it, until a model runs. "
                 "The No model connected line above the Chat box and the Ask box "

@@ -2502,18 +2502,6 @@ label.setting-check,
   margin-bottom: 0;
 }
 
-.help-chat-msg.is-pending {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.help-chat-badges,
-.help-chat-open {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
 /* The answer's two views (INBOX 430): Atlas's answer or the app's help,
    above the prose, the width of its two words. */
 .help-chat-views {
@@ -5394,7 +5382,6 @@ span > .chip {
   font-weight: 600;
 }
 
-
 /* **The document's title reads as a title, not as a form field.**
 
    Asked for as part of "a full clean professional redesign" of the editor.
@@ -5695,8 +5682,11 @@ input.doc-title-input::placeholder {
 .tour-block-panel {
   position: fixed;
   /* The dim itself. See the note above: it is here, on four rectangles laid
-     out from the same box as the cut-out, rather than on one giant shadow. */
-  background: var(--scrim);
+     out from the same box as the cut-out, rather than on one giant shadow.
+     60% of the scrim, lighter than a dialog's, so a step's neighbours stay
+     legible (the owner, 2026-10-10: "on the tour it is hard to see the other
+     features around the things highlighted"). */
+  background: color-mix(in srgb, var(--scrim) 60%, transparent);
   pointer-events: auto;
 }
 

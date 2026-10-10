@@ -483,6 +483,23 @@ class Entry(Base, WorkspaceMixin):
     #: every board to build its preview, so the `?type=map` filter reads this
     #: in Python over a list that is tens of rows long, not thousands.
     board_settings: Mapped[str | None] = mapped_column(Text, default=None)
+
+    @property
+    def board_kind(self) -> str | None:
+        """"board" or "map" for a board (a mind map is a board whose settings
+        say `type: "map"`, MINDMAP_PLAN section 4), None for a note. Sent on
+        every entry (`EntryOut.board_kind`), so a list that is handed a board
+        can draw and open it as one (the owner, 2026-10-10: "a whitebaord
+        showed as a note in the notes ask subtab matching records column").
+        Settings that do not parse mean a plain board, as
+        `routes_whiteboard._board_settings` reads them."""
+        if not self.is_board:
+            return None
+        try:
+            parsed = json.loads(self.board_settings or "{}")
+        except (TypeError, ValueError):
+            parsed = {}
+        return "map" if isinstance(parsed, dict) and parsed.get("type") == "map" else "board"
     #: Where this note came from in an imported vault, a **relative** path
     #: like `Projects/Roadmap.md`, empty for everything written in this app.
     #:

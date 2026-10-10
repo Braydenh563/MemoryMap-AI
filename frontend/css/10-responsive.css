@@ -2202,10 +2202,14 @@ header#top-bar[data-scrolled="1"],
   }
 
   /* The mode segment's shell was 30px around 44px buttons; the strip's one
-     height is the touch floor. */
+     height is the touch floor. The strip's transparent 1px border (04, "one
+     family") left the two buttons 42px inside the 44px shell (touch.js at
+     390, 2026-10-10: 65.7x42 and 80x42, the sweep's only control findings);
+     the border draws nothing, so here the cells are the well. */
   .chat-dock-controls .seg {
     min-height: var(--target-min);
     align-items: stretch;
+    border-width: 0;
   }
 
   /* The model picker keeps the touch floor too (measured 30px beside the

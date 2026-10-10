@@ -2177,9 +2177,11 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </div>
           <div class="help-body hidden" id="questions-help-body" role="dialog" aria-label="What is this?">
-            <p>The questions your notes ask in passing, found when Atlas reads
-              your notes: press Read notes now, or let it read on its own with
-              background tasks on (Settings). When a later note
+            <p>The questions your notes ask in passing, your own ones only,
+              grouped by note, found when Atlas reads your notes: press Read
+              notes now, or let it read on its own with background tasks on
+              (Settings). A note that asks any says so on its card, and
+              pressing that shows only its questions. When a later note
               answers one, it moves to Answered with the sentence that answers
               it; open that note from the row.</p>
             <p>Mark answered asks which note answers it and links the two;
@@ -2472,8 +2474,13 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>
           </span>
         </div>
+        <!-- The empty line above the list, not under it (the owner,
+             2026-10-10: "should that no chats text be at the top not the
+             bottom??"). The list takes the sidebar's free height, so a line
+             after it sat at the foot, beside All in Library, a panel's
+             height away from the heading it answers. -->
+        <p id="conv-empty" class="muted empty-line">No saved chats yet. Ask something to start one.</p>
         <ul id="conversation-list"></ul>
-        <p id="conv-empty" class="muted empty-line">No saved chats yet, ask your notebook something.</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
           title="Search and sort everything you have ever asked"><i class="ph ph-books ph-lead" aria-hidden="true"></i> All in Library <i class="ph ph-arrow-right ph-trail" aria-hidden="true"></i></button>
       </aside>
@@ -2571,10 +2578,42 @@ Link to another note with [[its first few words]]."></textarea>
                      time you read it the *next* turn is the one about to drop
                      the top of its own prompt. Clicking it opens Compress,
                      which is the actual remedy. -->
+                <!-- **A popover, not a Compress button** (the owner,
+                     2026-10-10: "when I click the token window button pill, i
+                     expect to see a dropdown to see my token distribution
+                     stats, not it to be a button to compact the
+                     conversation"). The pill opens what fills the window, by
+                     part, with Compact as the popover's one action. The help
+                     popover's shell (`wireHelpPopover`), as the Timeline's
+                     month picker is. -->
                 <button type="button" id="chat-context" class="chat-usage chat-context-pill" hidden
-                  title="How full the model's context window is"></button>
+                  aria-haspopup="dialog" aria-expanded="false" aria-controls="chat-context-pop"
+                  title="How full the model's context window is: open for what fills it"></button>
+                <div id="chat-context-pop" class="chat-context-pop hidden" role="dialog" aria-label="What fills the context window">
+                  <p id="chat-context-pop-total" class="chat-context-pop-total"></p>
+                  <div class="chat-context-pop-bar" aria-hidden="true"><span id="chat-context-pop-fill"></span></div>
+                  <p id="chat-context-pop-rows" class="chat-context-pop-rows"></p>
+                  <p class="muted chat-context-pop-note">Past about 85% the next turn drops the oldest part of its prompt. Compacting summarises the earlier messages, so a long chat keeps their gist.</p>
+                  <!-- "why is the token window limit for this model soooo low :(" (the
+                       owner, 2026-10-10): the size is the model file's, kept to
+                       what this computer can hold, unless set by hand; said here,
+                       with the door to the setting. -->
+                  <p class="muted chat-context-pop-note">The window is the model's own size, kept to what this computer can hold, or the one set for it in Settings, Models.</p>
+                  <div class="row">
+                    <button type="button" id="chat-context-compact" class="ghost small">
+                      <i class="ph ph-arrows-in ph-lead" aria-hidden="true"></i> Compact earlier messages</button>
+                    <button type="button" id="chat-context-window" class="ghost small">
+                      <i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Change the window</button>
+                  </div>
+                </div>
+                <!-- What the turns in this chat hold now: deleting a turn
+                     takes its tokens off (the owner, 2026-10-10: "I deleted
+                     it, and now somehow the token usage I was at for that
+                     chat has lowered??"). Decided: this counts what the chat
+                     carries into its next turn, which is the number that
+                     matters for the window, and it says so. -->
                 <span id="chat-usage" class="chat-usage" hidden
-                  title="Everything this conversation has sent to the model so far"></span>
+                  title="The tokens in this chat's turns now. Deleting a turn takes its tokens off, because the next turn no longer carries them."></span>
                 <!-- Shown only once a summary is in use, because a compression
                      the user cannot see is a conversation quietly answering
                      from something they never read. Carries its own undo. -->
@@ -11470,8 +11509,9 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="task-history-box" class="hidden">
                 <h3>Recently finished</h3>
                 <p class="muted">
-                  What has stopped since the app started, and how it went. Kept in
-                  memory only: it clears itself when you restart.
+                  What has stopped since the app started, and how it went; Logs
+                  opens its log. Kept in memory only: it clears itself when you
+                  restart.
                 </p>
                 <ul id="task-history" class="entry-list"></ul>
                 <button id="task-history-clear" class="ghost small">Clear this list</button>

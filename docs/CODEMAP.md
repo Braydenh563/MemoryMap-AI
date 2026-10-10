@@ -14377,7 +14377,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Acceptance | docs/roadmap/AGENT_SKILLS_REFORM.md:155 |
 | Added after the first night (by direct instruction) | docs/roadmap/FABLE_BRIEF.md:24 |
 | Adopted this session | docs/roadmap/ANALYSIS.md:298 |
-| After the bugs: the parity programme (the owner, 2026-10-10) | docs/ROADMAP.md:113 |
+| After the bugs: the parity programme (the owner, 2026-10-10) | docs/ROADMAP.md:128 |
 | Architecture review, 2026-09-24 (INBOX 400, asked for directly) | docs/roadmap/ANALYSIS.md:3755 |
 | Asked for this session, not yet built | docs/roadmap/BACKLOG.md:310 |
 | Audio in the notebook: the architecture decided 2026-09-21, the build deferred | docs/roadmap/WORLD_CLASS_PLAN.md:2137 |
@@ -14602,9 +14602,9 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Headroom: evaluated, not adopted | docs/roadmap/BACKLOG.md:702 |
 | How far each plan actually is (honest, as of 2026-10-03) | docs/roadmap/HANDOVER.md:300 |
 | How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:428 |
-| How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:273 |
+| How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:288 |
 | How to read the evidence in here | docs/roadmap/MODERNISATION_AUDIT.md:23 |
-| How to work on this repo | docs/ROADMAP.md:342 |
+| How to work on this repo | docs/ROADMAP.md:357 |
 | I. Bug, security and complexity scan (asked for directly) | docs/roadmap/AUDIT.md:131 |
 | I1 The night shift: the notebook that understands itself while you sleep | docs/roadmap/WORLD_CLASS_PLAN.md:1084 |
 | I2 The margin reader: a second reader in the editor, from your own notes | docs/roadmap/WORLD_CLASS_PLAN.md:1159 |
@@ -14628,8 +14628,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Looked at and deliberately not taken | docs/roadmap/ANALYSIS.md:760 |
 | Looked at and not recommended | docs/roadmap/ANALYSIS.md:929 |
 | Mind map, against designcraft's canvas and MINDMAP_PLAN's references | docs/roadmap/ANALYSIS.md:3852 |
-| Next PR, first (the owner, 2026-10-05: "maybe push these to next pr at the top of the roadmap") | docs/ROADMAP.md:190 |
-| Next up, ranked by what it unlocks | docs/ROADMAP.md:322 |
+| Next PR, first (the owner, 2026-10-05: "maybe push these to next pr at the top of the roadmap") | docs/ROADMAP.md:205 |
+| Next up, ranked by what it unlocks | docs/ROADMAP.md:337 |
 | Next: weeks 5–8: "a small model can finish a job, and so can the app" | docs/roadmap/MODERNISATION_AUDIT.md:1049 |
 | Not in this plan | docs/roadmap/UI_MODERNISATION_PLAN.md:585 |
 | Not verified, and to be taken first by whoever opens this | docs/roadmap/MINDMAP_PLAN.md:1428 |
@@ -14834,22 +14834,22 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The one-line answers to the three questions asked | docs/roadmap/ANALYSIS.md:946 |
 | The order, and the rule | docs/roadmap/WORLD_CLASS_PLAN.md:1904 |
 | The peer apps: fourteen triaged, five read properly | docs/roadmap/ANALYSIS.md:3339 |
-| The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:246 |
+| The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:261 |
 | The quarter's briefs (shorter; expand each into the shape above when | docs/roadmap/SESSION_BRIEFS.md:582 |
 | The reform, in phases | docs/roadmap/AGENT_SKILLS_REFORM.md:52 |
-| The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta") | docs/ROADMAP.md:152 |
+| The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta") | docs/ROADMAP.md:167 |
 | The scripts, and what each produced | docs/roadmap/MODERNISATION_AUDIT.md:40 |
 | The specific work waiting for you | docs/roadmap/FABLE_BRIEF.md:134 |
 | The thesis | docs/ROADMAP.md:37 |
 | The thing this app is actually good at, which is not what it says on the tin | docs/roadmap/ANALYSIS.md:547 |
 | The three killer combos | docs/roadmap/MODERNISATION_AUDIT.md:1079 |
-| The tracks, in order (each a brief; the agent model in brackets) | docs/ROADMAP.md:96 |
+| The tracks, in order (each a brief; the agent model in brackets) | docs/ROADMAP.md:111 |
 | The two bars that are not docks (added by direct instruction) | docs/roadmap/UI_MODERNISATION_PLAN.md:522 |
 | The work, surface by surface | docs/roadmap/UI_MODERNISATION_PLAN.md:475 |
 | Three rules that are not negotiable here | docs/roadmap/FABLE_BRIEF.md:51 |
 | Three things I would prioritise, and why | docs/roadmap/ANALYSIS.md:563 |
 | Tools and skills: is odysseus leaner for small models? Measured, and no | docs/roadmap/ANALYSIS.md:352 |
-| Traps that have each cost real time | docs/ROADMAP.md:361 |
+| Traps that have each cost real time | docs/ROADMAP.md:376 |
 | Twenty-four repositories read for MemoryMap, 2026-09-21 | docs/roadmap/ANALYSIS.md:2677 |
 | Undo coverage, audited 2026-10-05 (INBOX 537) | docs/roadmap/WHITEBOARD_PLAN.md:425 |
 | Verification, every phase | docs/roadmap/UI_MODERNISATION_PLAN.md:220 |

@@ -72,6 +72,21 @@ companion) is a surface onto the same notebook and the same engine.
    trimmed synonym table from the Perplexity pack and the app's own groups
    is the substitute, measured on the eval. Brief 40 does the research pass
    once and records it in ANALYSIS.md.
+2b. **Taken, not transplanted** (the owner, 2026-10-10: "anything coming
+   from repos like draw.io not directly the same but truly part of this
+   app and uniquely fitted and redesigned and altered to be part of this
+   app"). What a reference gives is the behaviour and the data (a mechanic's
+   thresholds, a shape library, an algorithm); what MemoryMap gives is the
+   form: DESIGN.md's recipes, tokens and copy, the notebook's object model
+   (a shape can hold a note, a connector can be a link with a reason, a
+   board can be filed and cited), and the keyboard and help conventions of
+   the rest of the app. A ported feature is done when a person who knows
+   draw.io recognises how it behaves and a person who knows MemoryMap
+   recognises how it looks and where it lives. No reference's panel, icon
+   set, menu structure or copy is reproduced; a converted asset (a stencil
+   set) is restyled to the board's tokens (stroke, radius, palette) at
+   load. Each parity row therefore has a "fitted as" column before it is
+   built.
 3. **The taxonomy pack** (Perplexity, "MemoryMap final consolidated
    taxonomy pack", 5.0.0: 527 categories, 6,478 keyword assignments, 1,109
    role concepts, facets, 30 context rules as a spec, 64 passing lexical

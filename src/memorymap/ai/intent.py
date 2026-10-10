@@ -11,6 +11,8 @@ notebook go through retrieval:
 
 - ``smalltalk``, greetings, thanks, goodbyes. Answer as an assistant would.
 - ``about_app``, "what can you do?". Answer from what the app can do.
+- ``utility``, "what is 12 * 7", "what time is it": worked out, not searched.
+- ``act``, "remind me to call Sam on Friday": done, after a card says what.
 - ``notes``, everything else: retrieve, and ground the answer in notes.
 
 The classifier is deliberately a heuristic rather than a model call. It runs on
@@ -27,6 +29,12 @@ import re
 SMALLTALK = "smalltalk"
 ABOUT_APP = "about_app"
 NOTES = "notes"
+#: A sum, a conversion, the time, a count of days, a roll of a die: worked out
+#: by the app (`ai/utilities.py`, CHAT_PLAN decision 41), never searched for.
+UTILITY = "utility"
+#: "delete the boiler note", "remind me to call Sam on Friday", "open
+#: settings": something to do (`ai/commands.py`, CHAT_PLAN decision 38).
+ACT = "act"
 
 # Bare greetings and pleasantries. Matched whole so "hi" routes here but
 # "hidden costs of the new plan" does not.
@@ -35,15 +43,16 @@ _SMALLTALK_PATTERNS = (
     r"yo|sup|howdy|greetings|salutations",
     r"good (?:morning|afternoon|evening|day|night)",
     r"how(?:'?s| is| are)(?: it going| things| you|you| ya| your day)?",
-    r"what'?s up|what'?s new|what'?s good|whats happening",
+    r"what'?s up|what'?s good|whats happening",
     r"thanks?(?: you| a lot| so much| a bunch| a million)?|ta|cheers|nice one|appreciate it|gracias",
     r"(?:ok(?:ay)?|cool|great|awesome|nice|lol|haha|sure|right|yep|yes|no|nope|alright|sweet|dope|amazing|brilliant)",
     r"(?:good ?)?(?:bye|night)|see (?:ya|you)|later|cya|catch ya|peace|farewell",
     r"you'?re welcome|no worries|np|not at all|anytime|my pleasure",
     r"sorry|my bad|apologies|excuse me|whoops",
     r"who are you|what(?:'?s| is) your name|tell me about yourself",
-    r"are you (?:there|awake|ok|okay|alive|real|human|ai|a robot)",
+    r"are you (?:there|awake|ok|okay|alive|real|human|(?:an )?ai|a (?:robot|bot|person|real person))",
     r"nice to meet you|glad to meet you",
+    r"(?:tell|say) (?:me )?(?:a joke|something funny)|make me laugh|know any jokes",
 )
 
 # "What can you do?", questions about the assistant rather than the notebook.
@@ -58,6 +67,17 @@ _ABOUT_APP_PATTERNS = (
     r"(?:help me|how to) get started|how do i (?:start|use this|navigate)",
     r"what are you(?: for)?|why do you exist|what is your purpose",
     r"who made you|who created you",
+    #: The app itself, asked about (engine probe, 2026-10-10): how to change a
+    #: setting, where a control is, what the app is, what changed in it.
+    r"how (?:do|can|would) i (?:change|turn (?:on|off)|switch|enable|disable|set(?: up)?|use|find|open|export|import|back ?up|"
+    r"reset|sync|install|update|lock|unlock|share|print) .{0,40}\b(?:theme|dark mode|light mode|settings?|export|backup|"
+    r"password|shortcuts?|sidebar|font|language|model|the app|memorymap|graph(?: view)?|tabs?|buttons?|account|vault|"
+    r"recovery key|notifications?|phone|another computer|data)\b",
+    r"where (?:is|are|do i find|can i find) (?:the |my )?.{0,40}\b(?:button|setting|settings|menu|tab|panel|option|toggle|switch)\b",
+    r"what(?:'s| is) (?:memorymap|memory map|this app|atlas)",
+    r"(?:can|could) you help(?: me)?",
+    r"help",
+    r"what(?:'s| is) new(?: in (?:the app|memorymap|this version))?",
 )
 
 # Words that mean the message really is about the notebook, even when it is
@@ -69,6 +89,13 @@ _NOTE_WORDS = re.compile(
     r"project|projects|plan|plans|schedule|events|meeting|meetings|draft|drafts|writing|"
     r"document|documents|thoughts|think|thinking|insight|insights)\b",
     re.IGNORECASE,
+)
+
+
+#: Four or more keys in a row of the keyboard, the whole message one word
+#: ("asdfgh", "qwerty", "jkl;"): no real word holds a run of four neighbours.
+_MASH = re.compile(
+    r"\w*(?:asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|wert|erty|rtyu|tyui|yuio|uiop|zxcv|xcvb|cvbn|vbnm|fdsa|lkjh|poiu|rewq)\w*"
 )
 
 
@@ -99,6 +126,24 @@ def classify(message: str) -> str:
     from memorymap.ai import question_noise
 
     if question_noise.social_kind(message):
+        return SMALLTALK
+
+    from memorymap.ai import utilities
+
+    kind = utilities.kind_of(message)
+    if kind and kind != "until_note":
+        return UTILITY
+
+    from datetime import datetime
+
+    from memorymap.ai import commands
+
+    act = commands.read(message, datetime.now())
+    if act and act["intent"] != "summarise":
+        return ACT
+
+    #: A key-mash ("asdfgh"): asked what was meant, never searched for.
+    if _MASH.fullmatch(text):
         return SMALLTALK
 
     # "hey, what did I write about pasta" is a question wearing a greeting.

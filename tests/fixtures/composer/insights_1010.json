@@ -1,0 +1,1300 @@
+{
+ "today": "2026-10-06",
+ "rows": [
+  {
+   "id": "recurrence-01",
+   "rule": "recurrence",
+   "question": "tell me about chess",
+   "subject": "chess",
+   "notes": [
+    {
+     "id": 1,
+     "content": "# Chess 1\n\nChess club after work: 3.",
+     "created_at": "2026-09-20"
+    },
+    {
+     "id": 2,
+     "content": "# Chess 2\n\nChess club after work: 4.",
+     "created_at": "2026-09-27"
+    },
+    {
+     "id": 3,
+     "content": "# Chess 3\n\nChess club after work: 5.",
+     "created_at": "2026-10-04"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 3,
+    "since": "20 September",
+    "after": 3,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-02",
+   "rule": "recurrence",
+   "question": "tell me about pottery",
+   "subject": "pottery",
+   "notes": [
+    {
+     "id": 101,
+     "content": "# Pottery 1\n\nPottery class on the weekend, a 3 bowl.",
+     "created_at": "2026-09-03"
+    },
+    {
+     "id": 102,
+     "content": "# Pottery 2\n\nPottery class on the weekend, a 4 bowl.",
+     "created_at": "2026-09-13"
+    },
+    {
+     "id": 103,
+     "content": "# Pottery 3\n\nPottery class on the weekend, a 5 bowl.",
+     "created_at": "2026-09-23"
+    },
+    {
+     "id": 104,
+     "content": "# Pottery 4\n\nPottery class on the weekend, a 6 bowl.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 4,
+    "since": "3 September",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-03",
+   "rule": "recurrence",
+   "question": "tell me about boiler",
+   "subject": "boiler",
+   "notes": [
+    {
+     "id": 201,
+     "content": "# Boiler 1\n\nThe boiler pressure dropped to 3 again.",
+     "created_at": "2026-08-11"
+    },
+    {
+     "id": 202,
+     "content": "# Boiler 2\n\nThe boiler pressure dropped to 4 again.",
+     "created_at": "2026-08-24"
+    },
+    {
+     "id": 203,
+     "content": "# Boiler 3\n\nThe boiler pressure dropped to 5 again.",
+     "created_at": "2026-09-06"
+    },
+    {
+     "id": 204,
+     "content": "# Boiler 4\n\nThe boiler pressure dropped to 6 again.",
+     "created_at": "2026-09-19"
+    },
+    {
+     "id": 205,
+     "content": "# Boiler 5\n\nThe boiler pressure dropped to 7 again.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 5,
+    "since": "11 August",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-04",
+   "rule": "recurrence",
+   "question": "tell me about piano",
+   "subject": "piano",
+   "notes": [
+    {
+     "id": 301,
+     "content": "# Piano 1\n\nPiano practice on the weekend, scales in 3.",
+     "created_at": "2026-08-27"
+    },
+    {
+     "id": 302,
+     "content": "# Piano 2\n\nPiano practice on the weekend, scales in 4.",
+     "created_at": "2026-09-03"
+    },
+    {
+     "id": 303,
+     "content": "# Piano 3\n\nPiano practice on the weekend, scales in 5.",
+     "created_at": "2026-09-10"
+    },
+    {
+     "id": 304,
+     "content": "# Piano 4\n\nPiano practice on the weekend, scales in 6.",
+     "created_at": "2026-09-17"
+    },
+    {
+     "id": 305,
+     "content": "# Piano 5\n\nPiano practice on the weekend, scales in 7.",
+     "created_at": "2026-09-24"
+    },
+    {
+     "id": 306,
+     "content": "# Piano 6\n\nPiano practice on the weekend, scales in 8.",
+     "created_at": "2026-10-01"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 6,
+    "since": "27 August",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-05",
+   "rule": "recurrence",
+   "question": "tell me about cycling",
+   "subject": "cycling",
+   "notes": [
+    {
+     "id": 401,
+     "content": "# Cycling 1\n\nCycling session after work, 3 km along the canal.",
+     "created_at": "2026-09-10"
+    },
+    {
+     "id": 402,
+     "content": "# Cycling 2\n\nCycling session after work, 4 km along the canal.",
+     "created_at": "2026-09-20"
+    },
+    {
+     "id": 403,
+     "content": "# Cycling 3\n\nCycling session after work, 5 km along the canal.",
+     "created_at": "2026-09-30"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 3,
+    "since": "10 September",
+    "after": 3,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-06",
+   "rule": "recurrence",
+   "question": "tell me about sourdough",
+   "subject": "sourdough",
+   "notes": [
+    {
+     "id": 501,
+     "content": "# Sourdough 1\n\nSourdough loaf 3, a slow rise overnight.",
+     "created_at": "2026-08-26"
+    },
+    {
+     "id": 502,
+     "content": "# Sourdough 2\n\nSourdough loaf 4, a slow rise overnight.",
+     "created_at": "2026-09-08"
+    },
+    {
+     "id": 503,
+     "content": "# Sourdough 3\n\nSourdough loaf 5, a slow rise overnight.",
+     "created_at": "2026-09-21"
+    },
+    {
+     "id": 504,
+     "content": "# Sourdough 4\n\nSourdough loaf 6, a slow rise overnight.",
+     "created_at": "2026-10-04"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 4,
+    "since": "26 August",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-07",
+   "rule": "recurrence",
+   "question": "tell me about climbing",
+   "subject": "climbing",
+   "notes": [
+    {
+     "id": 601,
+     "content": "# Climbing 1\n\nClimbing at the wall after work, a 3 route.",
+     "created_at": "2026-09-05"
+    },
+    {
+     "id": 602,
+     "content": "# Climbing 2\n\nClimbing at the wall after work, a 4 route.",
+     "created_at": "2026-09-12"
+    },
+    {
+     "id": 603,
+     "content": "# Climbing 3\n\nClimbing at the wall after work, a 5 route.",
+     "created_at": "2026-09-19"
+    },
+    {
+     "id": 604,
+     "content": "# Climbing 4\n\nClimbing at the wall after work, a 6 route.",
+     "created_at": "2026-09-26"
+    },
+    {
+     "id": 605,
+     "content": "# Climbing 5\n\nClimbing at the wall after work, a 7 route.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 5,
+    "since": "5 September",
+    "after": 5,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-08",
+   "rule": "recurrence",
+   "question": "tell me about spanish",
+   "subject": "spanish",
+   "notes": [
+    {
+     "id": 701,
+     "content": "# Spanish 1\n\nSpanish lesson on the weekend: 3 new verbs.",
+     "created_at": "2026-08-13"
+    },
+    {
+     "id": 702,
+     "content": "# Spanish 2\n\nSpanish lesson on the weekend: 4 new verbs.",
+     "created_at": "2026-08-23"
+    },
+    {
+     "id": 703,
+     "content": "# Spanish 3\n\nSpanish lesson on the weekend: 5 new verbs.",
+     "created_at": "2026-09-02"
+    },
+    {
+     "id": 704,
+     "content": "# Spanish 4\n\nSpanish lesson on the weekend: 6 new verbs.",
+     "created_at": "2026-09-12"
+    },
+    {
+     "id": 705,
+     "content": "# Spanish 5\n\nSpanish lesson on the weekend: 7 new verbs.",
+     "created_at": "2026-09-22"
+    },
+    {
+     "id": 706,
+     "content": "# Spanish 6\n\nSpanish lesson on the weekend: 8 new verbs.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 6,
+    "since": "13 August",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-09",
+   "rule": "recurrence",
+   "question": "tell me about garden",
+   "subject": "garden",
+   "notes": [
+    {
+     "id": 801,
+     "content": "# Garden 1\n\nThe garden needs 3 more bags of compost.",
+     "created_at": "2026-09-05"
+    },
+    {
+     "id": 802,
+     "content": "# Garden 2\n\nThe garden needs 4 more bags of compost.",
+     "created_at": "2026-09-18"
+    },
+    {
+     "id": 803,
+     "content": "# Garden 3\n\nThe garden needs 5 more bags of compost.",
+     "created_at": "2026-10-01"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 3,
+    "since": "5 September",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-10",
+   "rule": "recurrence",
+   "question": "tell me about budget",
+   "subject": "budget",
+   "notes": [
+    {
+     "id": 901,
+     "content": "# Budget 1\n\nThe budget review found 3 cuts.",
+     "created_at": "2026-09-09"
+    },
+    {
+     "id": 902,
+     "content": "# Budget 2\n\nThe budget review found 4 cuts.",
+     "created_at": "2026-09-16"
+    },
+    {
+     "id": 903,
+     "content": "# Budget 3\n\nThe budget review found 5 cuts.",
+     "created_at": "2026-09-23"
+    },
+    {
+     "id": 904,
+     "content": "# Budget 4\n\nThe budget review found 6 cuts.",
+     "created_at": "2026-09-30"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 4,
+    "since": "9 September",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-11",
+   "rule": "recurrence",
+   "question": "tell me about swimming",
+   "subject": "swimming",
+   "notes": [
+    {
+     "id": 1001,
+     "content": "# Swimming 1\n\nSwimming after work, 3 lengths.",
+     "created_at": "2026-08-25"
+    },
+    {
+     "id": 1002,
+     "content": "# Swimming 2\n\nSwimming after work, 4 lengths.",
+     "created_at": "2026-09-04"
+    },
+    {
+     "id": 1003,
+     "content": "# Swimming 3\n\nSwimming after work, 5 lengths.",
+     "created_at": "2026-09-14"
+    },
+    {
+     "id": 1004,
+     "content": "# Swimming 4\n\nSwimming after work, 6 lengths.",
+     "created_at": "2026-09-24"
+    },
+    {
+     "id": 1005,
+     "content": "# Swimming 5\n\nSwimming after work, 7 lengths.",
+     "created_at": "2026-10-04"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 5,
+    "since": "25 August",
+    "after": 5,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-12",
+   "rule": "recurrence",
+   "question": "tell me about roof",
+   "subject": "roof",
+   "notes": [
+    {
+     "id": 1101,
+     "content": "# Roof 1\n\nThe roof leak came back over the 3 window.",
+     "created_at": "2026-07-30"
+    },
+    {
+     "id": 1102,
+     "content": "# Roof 2\n\nThe roof leak came back over the 4 window.",
+     "created_at": "2026-08-12"
+    },
+    {
+     "id": 1103,
+     "content": "# Roof 3\n\nThe roof leak came back over the 5 window.",
+     "created_at": "2026-08-25"
+    },
+    {
+     "id": 1104,
+     "content": "# Roof 4\n\nThe roof leak came back over the 6 window.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 1105,
+     "content": "# Roof 5\n\nThe roof leak came back over the 7 window.",
+     "created_at": "2026-09-20"
+    },
+    {
+     "id": 1106,
+     "content": "# Roof 6\n\nThe roof leak came back over the 8 window.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 6,
+    "since": "30 July",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-13",
+   "rule": "recurrence",
+   "question": "tell me about sketching",
+   "subject": "sketching",
+   "notes": [
+    {
+     "id": 1201,
+     "content": "# Sketching 1\n\nSketching after work, 3 pages of hands.",
+     "created_at": "2026-09-18"
+    },
+    {
+     "id": 1202,
+     "content": "# Sketching 2\n\nSketching after work, 4 pages of hands.",
+     "created_at": "2026-09-25"
+    },
+    {
+     "id": 1203,
+     "content": "# Sketching 3\n\nSketching after work, 5 pages of hands.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 3,
+    "since": "18 September",
+    "after": 3,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-14",
+   "rule": "recurrence",
+   "question": "tell me about tennis",
+   "subject": "tennis",
+   "notes": [
+    {
+     "id": 1301,
+     "content": "# Tennis 1\n\nTennis on the weekend, lost 3 games.",
+     "created_at": "2026-09-01"
+    },
+    {
+     "id": 1302,
+     "content": "# Tennis 2\n\nTennis on the weekend, lost 4 games.",
+     "created_at": "2026-09-11"
+    },
+    {
+     "id": 1303,
+     "content": "# Tennis 3\n\nTennis on the weekend, lost 5 games.",
+     "created_at": "2026-09-21"
+    },
+    {
+     "id": 1304,
+     "content": "# Tennis 4\n\nTennis on the weekend, lost 6 games.",
+     "created_at": "2026-10-01"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 4,
+    "since": "1 September",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-15",
+   "rule": "recurrence",
+   "question": "tell me about printer",
+   "subject": "printer",
+   "notes": [
+    {
+     "id": 1401,
+     "content": "# Printer 1\n\nThe printer jammed 3 times today.",
+     "created_at": "2026-08-09"
+    },
+    {
+     "id": 1402,
+     "content": "# Printer 2\n\nThe printer jammed 4 times today.",
+     "created_at": "2026-08-22"
+    },
+    {
+     "id": 1403,
+     "content": "# Printer 3\n\nThe printer jammed 5 times today.",
+     "created_at": "2026-09-04"
+    },
+    {
+     "id": 1404,
+     "content": "# Printer 4\n\nThe printer jammed 6 times today.",
+     "created_at": "2026-09-17"
+    },
+    {
+     "id": 1405,
+     "content": "# Printer 5\n\nThe printer jammed 7 times today.",
+     "created_at": "2026-09-30"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 5,
+    "since": "9 August",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-16",
+   "rule": "recurrence",
+   "question": "tell me about guitar",
+   "subject": "guitar",
+   "notes": [
+    {
+     "id": 1501,
+     "content": "# Guitar 1\n\nGuitar practice on the weekend, 3 chords.",
+     "created_at": "2026-08-30"
+    },
+    {
+     "id": 1502,
+     "content": "# Guitar 2\n\nGuitar practice on the weekend, 4 chords.",
+     "created_at": "2026-09-06"
+    },
+    {
+     "id": 1503,
+     "content": "# Guitar 3\n\nGuitar practice on the weekend, 5 chords.",
+     "created_at": "2026-09-13"
+    },
+    {
+     "id": 1504,
+     "content": "# Guitar 4\n\nGuitar practice on the weekend, 6 chords.",
+     "created_at": "2026-09-20"
+    },
+    {
+     "id": 1505,
+     "content": "# Guitar 5\n\nGuitar practice on the weekend, 7 chords.",
+     "created_at": "2026-09-27"
+    },
+    {
+     "id": 1506,
+     "content": "# Guitar 6\n\nGuitar practice on the weekend, 8 chords.",
+     "created_at": "2026-10-04"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 6,
+    "since": "30 August",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-17",
+   "rule": "recurrence",
+   "question": "tell me about yoga",
+   "subject": "yoga",
+   "notes": [
+    {
+     "id": 1601,
+     "content": "# Yoga 1\n\nYoga class after work, 3 minutes of holds.",
+     "created_at": "2026-09-13"
+    },
+    {
+     "id": 1602,
+     "content": "# Yoga 2\n\nYoga class after work, 4 minutes of holds.",
+     "created_at": "2026-09-23"
+    },
+    {
+     "id": 1603,
+     "content": "# Yoga 3\n\nYoga class after work, 5 minutes of holds.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 3,
+    "since": "13 September",
+    "after": 3,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-18",
+   "rule": "recurrence",
+   "question": "tell me about invoice",
+   "subject": "invoice",
+   "notes": [
+    {
+     "id": 1701,
+     "content": "# Invoice 1\n\nThe invoice for 3 is still unpaid.",
+     "created_at": "2026-08-24"
+    },
+    {
+     "id": 1702,
+     "content": "# Invoice 2\n\nThe invoice for 4 is still unpaid.",
+     "created_at": "2026-09-06"
+    },
+    {
+     "id": 1703,
+     "content": "# Invoice 3\n\nThe invoice for 5 is still unpaid.",
+     "created_at": "2026-09-19"
+    },
+    {
+     "id": 1704,
+     "content": "# Invoice 4\n\nThe invoice for 6 is still unpaid.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 4,
+    "since": "24 August",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-19",
+   "rule": "recurrence",
+   "question": "tell me about rowing",
+   "subject": "rowing",
+   "notes": [
+    {
+     "id": 1801,
+     "content": "# Rowing 1\n\nRowing session after work, 3 km.",
+     "created_at": "2026-09-03"
+    },
+    {
+     "id": 1802,
+     "content": "# Rowing 2\n\nRowing session after work, 4 km.",
+     "created_at": "2026-09-10"
+    },
+    {
+     "id": 1803,
+     "content": "# Rowing 3\n\nRowing session after work, 5 km.",
+     "created_at": "2026-09-17"
+    },
+    {
+     "id": 1804,
+     "content": "# Rowing 4\n\nRowing session after work, 6 km.",
+     "created_at": "2026-09-24"
+    },
+    {
+     "id": 1805,
+     "content": "# Rowing 5\n\nRowing session after work, 7 km.",
+     "created_at": "2026-10-01"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 5,
+    "since": "3 September",
+    "after": 5,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-20",
+   "rule": "recurrence",
+   "question": "tell me about car",
+   "subject": "car",
+   "notes": [
+    {
+     "id": 1901,
+     "content": "# Car 1\n\nThe car made the 3 noise again.",
+     "created_at": "2026-08-11"
+    },
+    {
+     "id": 1902,
+     "content": "# Car 2\n\nThe car made the 4 noise again.",
+     "created_at": "2026-08-21"
+    },
+    {
+     "id": 1903,
+     "content": "# Car 3\n\nThe car made the 5 noise again.",
+     "created_at": "2026-08-31"
+    },
+    {
+     "id": 1904,
+     "content": "# Car 4\n\nThe car made the 6 noise again.",
+     "created_at": "2026-09-10"
+    },
+    {
+     "id": 1905,
+     "content": "# Car 5\n\nThe car made the 7 noise again.",
+     "created_at": "2026-09-20"
+    },
+    {
+     "id": 1906,
+     "content": "# Car 6\n\nThe car made the 8 noise again.",
+     "created_at": "2026-09-30"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 6,
+    "since": "11 August",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-21",
+   "rule": "recurrence",
+   "question": "tell me about knitting",
+   "subject": "knitting",
+   "notes": [
+    {
+     "id": 2001,
+     "content": "# Knitting 1\n\nKnitting after work, 3 rows of the scarf.",
+     "created_at": "2026-09-08"
+    },
+    {
+     "id": 2002,
+     "content": "# Knitting 2\n\nKnitting after work, 4 rows of the scarf.",
+     "created_at": "2026-09-21"
+    },
+    {
+     "id": 2003,
+     "content": "# Knitting 3\n\nKnitting after work, 5 rows of the scarf.",
+     "created_at": "2026-10-04"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 3,
+    "since": "8 September",
+    "after": 3,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-22",
+   "rule": "recurrence",
+   "question": "tell me about hiking",
+   "subject": "hiking",
+   "notes": [
+    {
+     "id": 2101,
+     "content": "# Hiking 1\n\nHiking on the weekend, 3 km of ridge.",
+     "created_at": "2026-09-12"
+    },
+    {
+     "id": 2102,
+     "content": "# Hiking 2\n\nHiking on the weekend, 4 km of ridge.",
+     "created_at": "2026-09-19"
+    },
+    {
+     "id": 2103,
+     "content": "# Hiking 3\n\nHiking on the weekend, 5 km of ridge.",
+     "created_at": "2026-09-26"
+    },
+    {
+     "id": 2104,
+     "content": "# Hiking 4\n\nHiking on the weekend, 6 km of ridge.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 4,
+    "since": "12 September",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "recurrence-23",
+   "rule": "recurrence",
+   "question": "tell me about insurance",
+   "subject": "insurance",
+   "notes": [
+    {
+     "id": 2201,
+     "content": "# Insurance 1\n\nThe insurance quote was 3 pounds.",
+     "created_at": "2026-08-23"
+    },
+    {
+     "id": 2202,
+     "content": "# Insurance 2\n\nThe insurance quote was 4 pounds.",
+     "created_at": "2026-09-02"
+    },
+    {
+     "id": 2203,
+     "content": "# Insurance 3\n\nThe insurance quote was 5 pounds.",
+     "created_at": "2026-09-12"
+    },
+    {
+     "id": 2204,
+     "content": "# Insurance 4\n\nThe insurance quote was 6 pounds.",
+     "created_at": "2026-09-22"
+    },
+    {
+     "id": 2205,
+     "content": "# Insurance 5\n\nThe insurance quote was 7 pounds.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 5,
+    "since": "23 August",
+    "after": 0,
+    "hedge": "that keeps coming up"
+   }
+  },
+  {
+   "id": "recurrence-24",
+   "rule": "recurrence",
+   "question": "tell me about baking",
+   "subject": "baking",
+   "notes": [
+    {
+     "id": 2301,
+     "content": "# Baking 1\n\nBaking on the weekend, 3 scones.",
+     "created_at": "2026-07-28"
+    },
+    {
+     "id": 2302,
+     "content": "# Baking 2\n\nBaking on the weekend, 4 scones.",
+     "created_at": "2026-08-10"
+    },
+    {
+     "id": 2303,
+     "content": "# Baking 3\n\nBaking on the weekend, 5 scones.",
+     "created_at": "2026-08-23"
+    },
+    {
+     "id": 2304,
+     "content": "# Baking 4\n\nBaking on the weekend, 6 scones.",
+     "created_at": "2026-09-05"
+    },
+    {
+     "id": 2305,
+     "content": "# Baking 5\n\nBaking on the weekend, 7 scones.",
+     "created_at": "2026-09-18"
+    },
+    {
+     "id": 2306,
+     "content": "# Baking 6\n\nBaking on the weekend, 8 scones.",
+     "created_at": "2026-10-01"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "count": 6,
+    "since": "28 July",
+    "after": 0,
+    "hedge": "that may be a hobby forming"
+   }
+  },
+  {
+   "id": "streak-1",
+   "rule": "streak",
+   "question": "any patterns in my running notes",
+   "subject": "running",
+   "notes": [
+    {
+     "id": 5000,
+     "content": "# Running week 1\n\nA steady week of running.",
+     "created_at": "2026-09-21"
+    },
+    {
+     "id": 5001,
+     "content": "# Running week 2\n\nA steady week of running.",
+     "created_at": "2026-09-28"
+    },
+    {
+     "id": 5002,
+     "content": "# Running week 3\n\nA steady week of running.",
+     "created_at": "2026-10-05"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "weeks": 3
+   }
+  },
+  {
+   "id": "streak-2",
+   "rule": "streak",
+   "question": "any patterns in my reading notes",
+   "subject": "reading",
+   "notes": [
+    {
+     "id": 5010,
+     "content": "# Reading week 1\n\nA steady week of reading.",
+     "created_at": "2026-09-21"
+    },
+    {
+     "id": 5011,
+     "content": "# Reading week 2\n\nA steady week of reading.",
+     "created_at": "2026-09-28"
+    },
+    {
+     "id": 5012,
+     "content": "# Reading week 3\n\nA steady week of reading.",
+     "created_at": "2026-10-05"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "weeks": 3
+   }
+  },
+  {
+   "id": "streak-3",
+   "rule": "streak",
+   "question": "any patterns in my journaling notes",
+   "subject": "journaling",
+   "notes": [
+    {
+     "id": 5020,
+     "content": "# Journaling week 1\n\nA steady week of journaling.",
+     "created_at": "2026-09-21"
+    },
+    {
+     "id": 5021,
+     "content": "# Journaling week 2\n\nA steady week of journaling.",
+     "created_at": "2026-09-28"
+    },
+    {
+     "id": 5022,
+     "content": "# Journaling week 3\n\nA steady week of journaling.",
+     "created_at": "2026-10-05"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "weeks": 3
+   }
+  },
+  {
+   "id": "drift-1",
+   "rule": "drift",
+   "question": "what patterns do you see",
+   "subject": "fence",
+   "notes": [
+    {
+     "id": 6000,
+     "content": "# Plans\n\nI plan to repaint the shed fence.",
+     "created_at": "2026-08-27"
+    },
+    {
+     "id": 6100,
+     "content": "# Groceries\n\nMilk, eggs and rice.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "plan": "plan to repaint the shed fence",
+    "since": "27 August"
+   }
+  },
+  {
+   "id": "drift-2",
+   "rule": "drift",
+   "question": "what patterns do you see",
+   "subject": "dentist",
+   "notes": [
+    {
+     "id": 6001,
+     "content": "# Plans\n\nI plan to book a dentist check.",
+     "created_at": "2026-08-22"
+    },
+    {
+     "id": 6101,
+     "content": "# Groceries\n\nMilk, eggs and rice.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "plan": "plan to book a dentist check",
+    "since": "22 August"
+   }
+  },
+  {
+   "id": "drift-3",
+   "rule": "drift",
+   "question": "what patterns do you see",
+   "subject": "bike",
+   "notes": [
+    {
+     "id": 6002,
+     "content": "# Plans\n\nI plan to sell the old bike.",
+     "created_at": "2026-08-17"
+    },
+    {
+     "id": 6102,
+     "content": "# Groceries\n\nMilk, eggs and rice.",
+     "created_at": "2026-10-03"
+    }
+   ],
+   "positive": true,
+   "expect": {
+    "plan": "plan to sell the old bike",
+    "since": "17 August"
+   }
+  },
+  {
+   "id": "negative-01",
+   "rule": "none",
+   "why": "two notes",
+   "question": "tell me about kayak",
+   "subject": "kayak",
+   "notes": [
+    {
+     "id": 7000,
+     "content": "# Kayak 1\n\nKayak after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7001,
+     "content": "# Kayak 2\n\nKayak after work, a good session.",
+     "created_at": "2026-09-16"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-02",
+   "rule": "none",
+   "why": "two notes",
+   "question": "tell me about violin",
+   "subject": "violin",
+   "notes": [
+    {
+     "id": 7010,
+     "content": "# Violin 1\n\nViolin after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7011,
+     "content": "# Violin 2\n\nViolin after work, a good session.",
+     "created_at": "2026-09-27"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-03",
+   "rule": "none",
+   "why": "two notes",
+   "question": "tell me about drone",
+   "subject": "drone",
+   "notes": [
+    {
+     "id": 7020,
+     "content": "# Drone 1\n\nDrone after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7021,
+     "content": "# Drone 2\n\nDrone after work, a good session.",
+     "created_at": "2026-10-07"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-04",
+   "rule": "none",
+   "why": "two notes",
+   "question": "tell me about orchid",
+   "subject": "orchid",
+   "notes": [
+    {
+     "id": 7030,
+     "content": "# Orchid 1\n\nOrchid after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7031,
+     "content": "# Orchid 2\n\nOrchid after work, a good session.",
+     "created_at": "2026-09-12"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-05",
+   "rule": "none",
+   "why": "one week",
+   "question": "tell me about darts",
+   "subject": "darts",
+   "notes": [
+    {
+     "id": 7040,
+     "content": "# Darts 1\n\nDarts after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7041,
+     "content": "# Darts 2\n\nDarts after work, a good session.",
+     "created_at": "2026-09-08"
+    },
+    {
+     "id": 7042,
+     "content": "# Darts 3\n\nDarts after work, a good session.",
+     "created_at": "2026-09-09"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-06",
+   "rule": "none",
+   "why": "one week",
+   "question": "tell me about fencing",
+   "subject": "fencing",
+   "notes": [
+    {
+     "id": 7050,
+     "content": "# Fencing 1\n\nFencing after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7051,
+     "content": "# Fencing 2\n\nFencing after work, a good session.",
+     "created_at": "2026-09-09"
+    },
+    {
+     "id": 7052,
+     "content": "# Fencing 3\n\nFencing after work, a good session.",
+     "created_at": "2026-09-11"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-07",
+   "rule": "none",
+   "why": "one week",
+   "question": "tell me about origami",
+   "subject": "origami",
+   "notes": [
+    {
+     "id": 7060,
+     "content": "# Origami 1\n\nOrigami after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7061,
+     "content": "# Origami 2\n\nOrigami after work, a good session.",
+     "created_at": "2026-09-08"
+    },
+    {
+     "id": 7062,
+     "content": "# Origami 3\n\nOrigami after work, a good session.",
+     "created_at": "2026-09-09"
+    },
+    {
+     "id": 7063,
+     "content": "# Origami 4\n\nOrigami after work, a good session.",
+     "created_at": "2026-09-10"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-08",
+   "rule": "none",
+   "why": "two weeks",
+   "question": "tell me about bonsai",
+   "subject": "bonsai",
+   "notes": [
+    {
+     "id": 7070,
+     "content": "# Bonsai 1\n\nBonsai after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7071,
+     "content": "# Bonsai 2\n\nBonsai after work, a good session.",
+     "created_at": "2026-09-11"
+    },
+    {
+     "id": 7072,
+     "content": "# Bonsai 3\n\nBonsai after work, a good session.",
+     "created_at": "2026-09-15"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-09",
+   "rule": "none",
+   "why": "two weeks",
+   "question": "tell me about archery",
+   "subject": "archery",
+   "notes": [
+    {
+     "id": 7080,
+     "content": "# Archery 1\n\nArchery after work, a good session.",
+     "created_at": "2026-09-07"
+    },
+    {
+     "id": 7081,
+     "content": "# Archery 2\n\nArchery after work, a good session.",
+     "created_at": "2026-09-12"
+    },
+    {
+     "id": 7082,
+     "content": "# Archery 3\n\nArchery after work, a good session.",
+     "created_at": "2026-09-17"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  },
+  {
+   "id": "negative-10",
+   "rule": "none",
+   "why": "subject absent",
+   "question": "tell me about falconry",
+   "subject": "falconry",
+   "notes": [
+    {
+     "id": 1,
+     "content": "# Chess 1\n\nChess club after work: 3.",
+     "created_at": "2026-09-20"
+    },
+    {
+     "id": 2,
+     "content": "# Chess 2\n\nChess club after work: 4.",
+     "created_at": "2026-09-27"
+    },
+    {
+     "id": 3,
+     "content": "# Chess 3\n\nChess club after work: 5.",
+     "created_at": "2026-10-04"
+    }
+   ],
+   "positive": false,
+   "expect": null
+  }
+ ]
+}

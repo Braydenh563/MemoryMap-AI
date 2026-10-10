@@ -964,14 +964,6 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "Understood. What next?",
         "Right. Anything else to look up?",
     ),
-    "who": (
-        "I am your notebook's assistant. I find things in your notes and say what they say.",
-        "I answer questions from your notes. Ask me when something is, or what you decided.",
-    ),
-    "about_app": (
-        ("Ask me when something is, who said what, how a project stands or what the latest is, and I will answer "
-        "from your notes in their own words. Connecting a model adds writing and tools."),
-    ),
 }
 
 #: The professional voice's lines, one tuple per kind. Same kinds as `SOCIAL`.
@@ -1028,15 +1020,24 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "Noted. Please ask whenever you are ready.",
         "Very good. What would you like to review next?",
     ),
+    #: The engine is Atlas (CHAT_PLAN decision 36), in both voices.
     "who": (
-        "I am the notebook's assistant. Without a model running, I answer from your notes in their own words.",
-        "I locate entries in your notes and report what they say.",
+        "I am Atlas, the notebook's assistant. Without a model running, I answer from your notes in their own words.",
+        "This is Atlas. I locate entries in your notes and report what they say.",
+    ),
+    "joke": (
+        "I do not compose jokes; I report what your notes contain. If you recorded one, ask for it.",
+        "Humour is outside what I do. A joke saved in your notes can be found on request.",
+    ),
+    "unclear": (
+        "That message could not be read. Please ask about a note, a date or a list, or state the action needed.",
+        "The message was not recognised as words. What should be located?",
     ),
     "about_app": (
-        ("I answer from your notes: when something is, who said what, what the latest is on a project, or what "
-        "you have recorded on a subject. Connecting a model adds writing, summaries and tools."),
-        ("Ask about anything you have recorded: a date, a decision, a list or the status of a project. Several "
-        "questions in one message are also answered. Connecting a model adds writing and tools."),
+        "I am Atlas. I answer from your notes: dates, decisions and the status of a project. I also set reminders and "
+        "tag, move or pin notes on request. Connecting a model adds writing and summaries.",
+        "Atlas answers from what you have recorded: a date, a decision, a list or the status of a project, and acts on "
+        "request (reminders, tags, pins). Connecting a model adds writing and tools.",
     ),
 }
 
@@ -1450,3 +1451,37 @@ for _kind, _lines in {'greeting': ['Hey. What can I find for you?',
  'emotion': ['Understood. How may I assist you with your notes?',
              'Noted. What would you like to review today?']}.items():
     SOCIAL_PROFESSIONAL[_kind] = tuple(SOCIAL_PROFESSIONAL.get(_kind, ())) + tuple(_lines)
+
+
+# --- insights (CHAT_PLAN Phase 6, decision 32) -------------------------------------
+#
+# Each line a measurement with one fixed hedge, never a claim. Every slot is
+# typed (`INSIGHT_SLOTS`): a count, a date, the subject asked about or tagged,
+# or the person's own words; `tests/test_insights.py` holds the slots to it.
+
+INSIGHT_TEMPLATES: dict[str, str] = {
+    "recurrence": "You have written about {subject} {count} times since {since}{after}; {hedge}.",
+    "streak": "You have written about {subject} {weeks} weeks running.",
+    "drift": "Since {since}, no later note picks up this plan: {plan}. It may be still open.",
+    "contrast": "On {first} you wrote {before}; on {last}, {after_said}. You may have changed your mind.",
+    "load": "The week of {week} had {count} notes against a usual {usual}; a busy week.",
+}
+INSIGHT_HEDGES: dict[str, str] = {
+    "hobby": "that may be a hobby forming",
+    "recurs": "that keeps coming up",
+}
+#: What each slot may hold: "count" (a whole number the rule counted),
+#: "date" (a day the notes were written), "subject" (the asked word or a tag),
+#: "span" (a note's own words, a fact's text), "clause" (a fixed clause with a
+#: count in it), "hedge" (one of `INSIGHT_HEDGES`).
+INSIGHT_SLOTS: dict[str, str] = {
+    "count": "count", "weeks": "count", "usual": "count",
+    "since": "date", "first": "date", "last": "date", "week": "date",
+    "subject": "subject", "plan": "span", "before": "span", "after_said": "span",
+    "after": "clause", "hedge": "hedge",
+}
+
+#: Who it is and what it does are said as Atlas (CHAT_PLAN decision 36,
+#: `composer.SOCIAL`): the unnamed lines added for these two kinds are retired.
+for _retired in ("who", "about_app"):
+    SOCIAL_NATURAL_EXTRA.pop(_retired, None)

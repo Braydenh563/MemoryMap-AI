@@ -210,7 +210,7 @@ def looks_like_a_question_about_the_notebook(message: str) -> bool:
         #: by the gate in front of it. That is this repo's "a policy silently
         #: refusing the work" shape, and it was caught by the test for the new
         #: matcher rather than by reading the code.
-        or re.search(r"\bwords?\b|word ?count|writ(?:ten|ing)", text)
+        or re.search(r"\bwords?\b|word ?count|writ(?:ten|ing)|\bwr(?:ite|ote)\b", text)
         or re.search(r"stale|forgotten|untouched|abandoned", text)
         or re.search(r"\bstat(?:istic)?s\b", text)
     )
@@ -234,7 +234,11 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _tag_count(session)
     if _asks(text, _COUNT, _CATEGORY_WORDS):
         return _category_count(session)
-    if _asks(text, _COUNT, r"\bnotes?\b"):
+    #: "How many notes are about Harbor" counts the notes on a subject, which
+    #: retrieval finds and the composer counts ("At least four of your notes
+    #: mention Harbor"); answering it "You have 77 notes" dropped the subject
+    #: (engine probe P5).
+    if _asks(text, _COUNT, r"\bnotes?\b") and not _SUBJECT_AFTER.search(text):
         return _note_count(session)
     if _asks(text, _COUNT, r"\bdocuments?\b"):
         return _document_count(session)
@@ -250,6 +254,8 @@ def answer(message: str, session: Session) -> StatAnswer | None:
     #: of the same request. Each one is a question people ask about a notebook
     #: that retrieval answers badly for the same reason the rest do: it is a
     #: question about the collection, not about any note in it.
+    if _asks(text, r"\b(?:write|wrote|written|writing)\b", r"\bmost\b", r"\babout\b"):
+        return _top_subjects(session)
     if _asks(text, r"\bwords?\b|word count|wordcount", r"\bhow many|\btotal|\bwritten|\bcount"):
         return _word_count(session)
     if _asks(text, r"longest|biggest|largest", r"\bnotes?\b"):
@@ -263,6 +269,44 @@ def answer(message: str, session: Session) -> StatAnswer | None:
     if _asks(text, r"\bstat(?:istic)?s\b"):
         return _general_stats(session)
     return None
+
+
+#: A count of notes narrowed to a subject: "notes about X", "notes that
+#: mention X", "notes tagged X", "notes on X".
+_SUBJECT_AFTER = re.compile(r"\bnotes?\b.*\b(?:about|mention(?:s|ing)?|tagged|on)\s+\S")
+
+#: Words that say nothing about what a note is about, left out of the most
+#: written-about words: function words and the ones every note shares.
+_PLAIN = frozenset(
+    """the a an and or but of to in on at for with from by is are was were be been it its
+    this that these those i me my we our you your he she they them his her their not no
+    do did does done have has had will would can could should so if then than as up out
+    just also very more most some any all one two three get got go went make made need
+    about into over after before when what which who how there here note notes today""".split()
+)
+
+
+def _top_subjects(session: Session) -> StatAnswer:
+    """What the notebook is most about, by what it is filed under first (its
+    tags, then its categories) and, with neither, by the words the most notes
+    use (engine probe P7: "what did I write most about" listed the newest
+    notes). Every figure is a count of notes."""
+    rows = session.execute(_visible(select(Entry.tags, Entry.content))).all()
+    if not rows:
+        return StatAnswer("subjects", "There are no notes to read yet.")
+    tags = Counter(tag for raw, _content in rows for tag in set(_tags_of(raw)))
+    if len(tags) >= 2:
+        top = tags.most_common(5)
+        listed = ", ".join(f"{tag} ({_plural(n, 'note')})" for tag, n in top)
+        return StatAnswer("subjects", f"By your tags, you write most about {listed}.", [{"label": t, "count": n} for t, n in top])
+    words: Counter[str] = Counter()
+    for _raw, content in rows:
+        words.update({w for w in re.findall(r"[a-z][a-z'-]{2,}", str(content or "").lower()) if w not in _PLAIN})
+    top = [(w, n) for w, n in words.most_common(5) if n >= 2]
+    if not top:
+        return StatAnswer("subjects", f"No word comes up in more than one of your {_plural(len(rows), 'note')} yet.")
+    listed = ", ".join(f"“{w}” ({_plural(n, 'note')})" for w, n in top)
+    return StatAnswer("subjects", f"The words the most notes use are {listed}.", [{"label": w, "count": n} for w, n in top])
 
 
 def _top_tags(session: Session) -> StatAnswer:

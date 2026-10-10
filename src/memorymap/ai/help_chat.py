@@ -122,7 +122,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "ask-chat",
-        "keywords": ("ask", "chat", "agent", "conversation", "tool", "question", "popup agent", "everywhere"),
+        "keywords": ("ask", "chat", "agent", "conversation", "tool", "question", "popup agent", "everywhere", "calculate", "convert", "conversion", "units", "currency"),
         "body": (
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
             "saved notes, with the raw notes shown beside the answer; in Ask, "
@@ -131,6 +131,12 @@ HELP_TOPICS: list[dict] = [
             "picks who answers: off, the answer is From your notes, quoted from your "
             "notes' own sentences with no AI, and it is the answer when no model runs, "
             "in Ask and in Chat. "
+            "Sums, conversions (at the dated rates named), the time and days "
+            "until a date are worked out, model or not; \"what did I do last "
+            "week\" lists that week's notes; short follow-ups (and last week?, "
+            "why?, shorter, no, the gym one) read against the question before; "
+            "a cited board, map or document opens in its own place. With no "
+            "model, Chat also acts (remind me to..., pin or delete the X note), with Undo. "
             "A counting "
             "question in Ask (how many notes per category this month) also gets "
             "a chart from your notes, with its numbers and Save as PNG. A note's "
@@ -203,7 +209,8 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("dashboard", "widget", "streak", "digest"),
         "body": (
             "The Dashboard is the at-a-glance home: a greeting with your note "
-            "count and what is due, a search box, the Quick access tiles, "
+            "count, what is due and a pattern your notes show (a subject you "
+            "keep writing about, a busy week; Tidy lists them), a search box, the Quick access tiles, "
             "and widgets such as reminders, recent notes, the weekly AI digest, "
             "stats, your streak, Most opened this month and Filings to check. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
@@ -438,7 +445,9 @@ HELP_TOPICS: list[dict] = [
             "Web search is opt-in and off by default. Turn it on in Settings, Web "
             "search: only your search words are sent out, "
             "never your notes, so the assistant can look something up online "
-            "when asked."
+            "when asked. With it on and no model running, a Chat question your "
+            "notes do not answer is answered from the pages found, each "
+            "sentence cited by its page, the pages listed under the answer."
         ),
         "badge": {"label": "Web search", "section": "websearch"},
     },

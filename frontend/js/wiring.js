@@ -294,7 +294,7 @@ $("graph-concept-maps")?.addEventListener("click", async () => {
   document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
   // The sub-tab click can leave the last board open on the canvas; a button
   // called "Concept maps" has to arrive at the list of them.
-  if (typeof wbShowBoardsLanding === "function") wbShowBoardsLanding();
+  wbShowBoardsLanding();
 });
 restoreDraftLocally();
 
@@ -994,7 +994,7 @@ $("status-agent")?.addEventListener("click", () => toggleAgentPalette());
 //: is deferred to the click rather than taken now. The same shape the phone's
 //: More sheet already uses for the same function.
 $("status-guide")?.addEventListener("click", () => {
-  if (typeof openHelpChat === "function") openHelpChat();
+  openHelpChat();
 });
 
 $("status-find")?.addEventListener("click", () => openFinder());

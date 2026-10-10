@@ -458,13 +458,16 @@ async function dashEntries() {
 async function renderDashSubmessage() {
   const el = $("dash-submessage");
   if (!el) return;
-  const [stats, reminders] = await Promise.all([
+  const [stats, reminders, patterns] = await Promise.all([
     fetchDashStats().catch(() => null),
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
     // (`archive/agent-remaining/list-paging.md`); `dashReminders` shares
     // the one fetch across the widgets that need it.
     dashReminders().catch(() => []),
+    //: The Patterns line (CHAT_PLAN decision 32), its short form here and
+    //: the measured sentence on hover; Tidy shows it whole.
+    apiJson("/insights/patterns", { silent: true }).catch(() => null),
   ]);
   const bits = [];
   if (stats) {
@@ -489,15 +492,18 @@ async function renderDashSubmessage() {
     atlasStreak(streak);
     nameMarkBuddyStreak(streak);
   }
+  const pattern = patterns?.patterns?.[0];
+  if (pattern) bits.push(["patterns", `Patterns: ${pattern.short}`, pattern.text]);
   //: One span per fact, its separator inside it, so a view can fold one fact
   //: away whole: the Focused hero's glance says what is due (INBOX 675), and
   //: hides the reminders fact here rather than saying it twice.
   el.replaceChildren(
-    ...bits.map(([kind, text], i) => {
+    ...bits.map(([kind, text, whole], i) => {
       const bit = document.createElement("span");
       bit.className = "dash-sub-bit";
       bit.dataset.bit = kind;
       bit.textContent = i ? ` · ${text}` : text;
+      if (whole) bit.title = whole;
       return bit;
     })
   );

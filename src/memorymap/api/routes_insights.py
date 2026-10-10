@@ -372,6 +372,21 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
     }
 
 
+@router.get("/patterns")
+def patterns(session: Session = Depends(get_session)) -> dict:
+    """The Patterns line (CHAT_PLAN decision 32): what the notes measure,
+    each a count or a date with one fixed hedge, never a claim; Tidy and the
+    dashboard show it. No model, nothing filed as a fact."""
+    from memorymap.ai import insights
+
+    found = insights.from_session(session, user_now(deps.get_config()).date())
+    return {
+        "patterns": [
+            {"rule": i.rule, "text": i.text, "short": insights.short(i), "note_ids": i.note_ids} for i in found
+        ]
+    }
+
+
 @router.get("/tag-cloud")
 def tag_cloud(session: Session = Depends(get_session)) -> list[dict]:
     """Every tag with its frequency, most-used first, for a weighted cloud.

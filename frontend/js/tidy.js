@@ -132,8 +132,13 @@ async function openTidySheet(review = "") {
       const history = document.createElement("details");
       history.className = "tidy-history";
       history.id = "tidy-history";
-      Object.assign(state, { overview, pane, title, about, tools, list, foot, history });
-      card.append(overview, pane, history);
+      //: The Patterns line (CHAT_PLAN decision 32): what the notes measure,
+      //: each a count or a date with one fixed hedge; shown with the overview.
+      const patterns = document.createElement("p");
+      patterns.className = "muted inbox-desc tidy-patterns";
+      patterns.hidden = true;
+      Object.assign(state, { overview, patterns, pane, title, about, tools, list, foot, history });
+      card.append(overview, patterns, pane, history);
     },
   });
   const body = await apiJson("/tidy", { silent: true }).catch(() => null);
@@ -148,6 +153,17 @@ async function openTidySheet(review = "") {
   tidyCounts(body);
   if (review && state.reviews[review]) await tidyShow(review);
   tidyHistory();
+  tidyPatterns(state);
+}
+
+//: "Patterns: You have written about golf 4 times since 5 September; that
+//: keeps coming up." From `/insights/patterns`, no model; nothing when no
+//: rule fires, which is most notebooks most days.
+async function tidyPatterns(state) {
+  const body = await apiJson("/insights/patterns", { silent: true }).catch(() => null);
+  if (TIDY.state !== state || !body?.patterns.length) return;
+  state.patterns.textContent = `Patterns: ${body.patterns.map((p) => p.text).join(" ")}`;
+  state.patterns.hidden = state.view !== "overview";
 }
 
 //: The head: the title, its '?', then the close (the inbox's head).
@@ -264,6 +280,7 @@ function tidyOverview(focusKey = "") {
   state.view = "overview";
   state.key = "";
   state.overview.hidden = false;
+  if (state.patterns.textContent) state.patterns.hidden = false;
   state.pane.hidden = true;
   tidyOverviewDraw();
   state.overview.querySelector(`[data-review="${focusKey}"]`)?.focus();
@@ -276,6 +293,7 @@ async function tidyShow(key, level = "") {
   state.view = "review";
   state.key = key;
   state.overview.hidden = true;
+  state.patterns.hidden = true;
   state.pane.hidden = false;
   const review = state.reviews[key];
   state.level = level || review.level || "";

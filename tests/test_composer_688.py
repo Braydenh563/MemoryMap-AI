@@ -306,7 +306,8 @@ def test_words_no_note_found_holds_are_named_in_the_closing_line():
 
 def test_the_closing_line_is_left_out_when_nothing_matched_at_all():
     result = ask("What is the capital of Peru?")
-    assert result["text"] == composer.PHRASES["nothing"]
+    #: Engine probe P1: the no-answer names the words no note found holds.
+    assert result["text"] == composer.PHRASES["none_found"] + "“capital” or “Peru”. " + composer.PHRASES["nothing_ask"]
     assert result["grounding"] == [] and result["next"] == []
 
 
@@ -387,7 +388,9 @@ def test_every_phrase_follows_the_copy_rules(phrase):
     if letters and letters[0].isalpha() and phrase[0].isalpha():
         #: The phrases that only ever follow other words: "or", "one of
         #: your notes" and "your note" inside a citation's brackets.
-        assert letters[0].isupper() or phrase.startswith(("a ", "one", "or", "your note")), phrase
+        #: And a source's kind, said inside a citation's bracket before its
+        #: name ("[board **Harbor board**]", CHAT_PLAN decision 37).
+        assert letters[0].isupper() or phrase.startswith(("a ", "one", "or", "your note", "board ", "map ", "document ", "file ", "page ")), phrase
 
 
 def test_the_rule_holds_over_a_sweep_of_questions():
@@ -473,4 +476,5 @@ def test_a_cited_name_opens_its_note_and_never_the_sources_panel() -> None:
     assert "flashEntry(g.note_id)" in body and "scheduleCitationPeek(" in body
     assert "source" not in body.lower().replace("citationsource", "")
     caller = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
-    assert 'ensureModule("askCompose").then(() => linkCitedTitles(targets, sentences, byId, numberFor))' in caller
+    assert "linkCitedTitles(targets, sentences, byId, numberFor);" in caller
+    assert caller.index('ensureModule("askCompose").then(() => {') < caller.index("linkCitedTitles(targets, sentences, byId, numberFor);")

@@ -111,6 +111,10 @@ def trace(remark: dict, notes: list[dict], on: date, *, answer_phrases: bool = F
                 failures.append(f"not a measured value: {text!r}")
         elif kind == "asked":
             pass  # the question's own words; held by the find eval's caller
+        elif kind == "shifted":
+            problem = _composer_eval.shifted_failure(part, by_id[part[2]]["content"], date.today())
+            if problem:
+                failures.append(problem)
         else:
             failures.append(f"unknown part kind {kind!r}")
     if EM_DASH in remark["text"] or "!" in remark["text"]:

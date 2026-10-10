@@ -1681,6 +1681,8 @@ function toolChip(label, ok = true, event = null) {
 // A destructive tool call parked for approval (Wave G). Nothing has
 // happened yet: Confirm actually runs it via /chat/tools/execute.
 function renderToolConfirm(holder, event) {
+  //: An act's card lives with the composer's page code (ask-compose.js).
+  if (event.type === "act") return ensureModule("askCompose").then(() => renderActCard(holder, event));
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
@@ -1740,6 +1742,12 @@ function renderToolConfirm(holder, event) {
   card.append(text, contentArea, row);
   holder.appendChild(card);
   chatScrollToEnd();
+}
+
+//: "open settings", "go to the graph" (decision 38): the place, opened.
+function actNavigate(surface) {
+  if (surface === "settings") openSettingsModal();
+  else switchTab(surface);
 }
 
 // The model would like to remember something about you (§39B).

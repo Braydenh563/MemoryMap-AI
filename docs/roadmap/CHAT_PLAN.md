@@ -478,22 +478,6 @@ What follows is the architecture that gets there; each decision is a step.
     answer-kind accuracy, person-shift correctness. Grounded stays 1.0 on every
     set on every build; a blind panel (the owner, decision 29) at the end.
 
-#### Steps (one commit each; the numbers in the message)
-
-1. Fact layer on the showcase fixture, with its tests (decision 30).
-2. The query plan and time windows (31); the two misclassified showcase
-   questions are its first tests.
-3. The realiser: person shift first (the owner's ask), then tense and relative
-   time (33); the renderer styles quotations.
-4. Session salt and the dialogue state (34, 35); the 20-turn eval.
-5. Sources of every kind and captions as content (37).
-6. Insights (32) with the Tidy and dashboard line.
-7. Acts (38), from the wip branch's commands.py.
-8. Identity and the help register (36).
-9. Web sources inside the bubble (37, second half).
-10. The eval sets and the blind panel (40); CHANGELOG; the plan's Built block
-    moved to HISTORY.
-
 #### Decisions 41 to 45 (Fable, 2026-10-10, from the assistant catalogue's five open questions)
 
 41. **A computed sentence kind.** Utilities (arithmetic, unit and currency
@@ -514,140 +498,27 @@ What follows is the architecture that gets there; each decision is a step.
     is asked. The model reorders and selects; it does not add sentences
     (decision 17's handoff).
 
-#### First tests for Brief 39 (measured on the branch, 2026-10-10)
+#### Built 2026-10-10 (Brief 39): see HISTORY.md "Moved from the plans, 2026-10-10 (CHAT_PLAN Phase 6)"
 
-Each is a failing test before any engine step: "what is 12 * 7" and "what
-time is it" answered "Nothing in the notes" (utilities discarded); "what do I
-need to buy" and "how to cook rice" classified translate (composer.py near
-292 matches any "to <word>"); "summarise my gym notes" raises
-UnboundLocalError; a model dying mid-answer yields only the error, never the
-composed answer (routes_chat.py near 1963); `when.resolve("last friday")`
-returns the next Friday; "since March" and "the week before last" unread;
-questions carry no time window; `follow_on` returns None for "and last
-week?", "what about running?", "and Sam?", "why?", "shorter" and "no, the
-gym one"; `entity:` queries find nothing without a model.
+Steps 0 to 10, the first tests and the specification moved there whole, with
+the numbers. Decisions 30 to 45 stay above: later briefs build on them.
 
-#### The specification (Fable, 2026-10-10): what each step builds, concretely
+#### Open from Phase 6 (one line each; the agent's ledger is `agent-remaining/engine-1010.md`)
 
-**Fact schema** (`ai/factgraph.py`). `Fact(kind, source_id, start, end, text,
-attrs, mode, when, confidence)`. `mode` is the pack's assertion mode: asserted,
-negated, hypothetical ("if", "maybe", "might"), conditional, question, quoted
-(inside quotation marks or after "said", "wrote", "according to"); a shifted
-pronoun rule never runs inside a quoted fact. `when` is a `(start_date,
-end_date, grain)` resolved from the sentence's time words by `when.py` against
-the note's own date (grain: day, week, month, year, unknown); a sentence with
-no time word inherits the note's date at day grain, flagged `inherited`. Kinds
-and the rule that makes each:
-
-| kind | rule (regex or table) | attrs |
-| --- | --- | --- |
-| event | a past or future verb from a 400-verb table (went, met, booked, finished, started, will, going to) with its object span | verb, lemma, object, tense |
-| quantity | a number (digits or words to twenty) followed by a unit or a noun | value, unit, of |
-| money | a currency sign or code with a number | value, currency |
-| date | an absolute or relative date phrase (when.py) | resolved |
-| duration | a number plus a time unit (minutes, hours, days, weeks) | seconds |
-| entity | a capitalised span not at a sentence start, or in the pack's entity and role seeds, or a known tag or category name | type (person, place, org, role, product, unknown) |
-| list_item, check_item | a markdown list or checkbox line | done, index |
-| decision | "decided", "going with", "chose", "settled on" | choice |
-| preference | "I like", "love", "prefer", "hate", "can't stand", "favourite" | polarity, object |
-| plan | "plan to", "want to", "going to", "need to", "should" | object |
-| question | ends with ? and is not quoted, not a list item, not a joke setup (INBOX 745 (b)) | |
-| link | a URL or [[wiki link]] | target |
-| polarity | 300-word lexicon, negation flips within three tokens | score (-1 to 1) |
-| topic | the taxonomy pack's candidates | labels |
-
-Facts are built lazily per `SourceView` and cached per note revision
-(`entry_edited_at`); the fixture tests assert the exact fact list for ten
-showcase notes.
-
-**Discourse schemas** (`plan()` returns a kind; `_body()` follows the schema):
-
-| kind | lead | then | contrast | gap | measured line | next |
-| --- | --- | --- | --- | --- | --- | --- |
-| fact (what, who, where) | the best sentence, named | one supporting sentence from another note | a newer note that differs | "nothing says X" when a term is missing | none | two follow-ups |
-| when | the dated sentence, the date said in words relative to today | the other dated notes in time order | | | "first written N days ago" | |
-| count | the number from the note or the count of items | the items if under six | | | the count, re-derived | |
-| yes or no | "your notes say" plus the sentence, never yes or no | the contrary sentence if any | always checked | | | |
-| list | the list said as one sentence under six, else the items | | | | "N items, M done" | |
-| timeline, status | newest first, then "before that" | | the disagreement | | the span of dates | |
-| compare | both sides, each measured | the shared point | | the side with nothing | counts per side | |
-| why, how | the note's own because or steps, in their order | | | | | |
-| recall by time ("what did I do last week") | the notes in the window, newest first, grouped by day | | | "nothing from that week" | the count in the window | |
-| insight | the measured line (decision 32) | the three sentences it rests on | | | always | |
-| social, about app, identity | the social line or the help sentence | | | | | one next step |
-
-**Realiser rule tables** (`ai/realise.py`; each table is its own test): person
-shift extends `_rewrite_quote` with verb agreement after the shift ("I am" to
-"you are", "I was" to "you were", "am I" to "are you", "I have" stays "you
-have", "I has" never), the "we" group kept when a second person is named in
-the sentence ("Sam and I" to "you and Sam"), never inside a quoted fact;
-tense: a future-tense fact whose date is now past is said in the past
-("you planned to", "you were going to") with the original kept one tap away;
-relative time from the note date against today: today, yesterday, on
-Tuesday (within six days), last week, two weeks ago, on 3 March (same year),
-on 3 March 2025 (other year), with the exact date in the citation's title;
-number agreement for the measured lines (one note, two notes; a day, three
-days); capitalisation after a comma lowered unless a proper noun or "I";
-titles cut only at a word boundary with an ellipsis; a list said as one
-sentence takes "and" before the last item and the Oxford comma only when an
-item contains "and". Quotation style: the renderer draws a quoted sentence in
-the quote style (left rule, muted) when the answer marks it `quoted`, never
-quote characters in the text.
-
-**Insight rules** (decision 32), each a function over facts with a fixed hedge:
-recurrence (a topic or entity in at least 3 notes across at least 3 weeks:
-"that may be a hobby forming" or "that keeps coming up"); streak (an event on
-consecutive days or weeks: "N weeks running"); drift (a plan fact older than 30
-days with no later event or done item on it: "still open"); contrast (a
-preference and a later negated one: "you changed your mind about X"); load (a
-week with twice the median count of notes or reminders: "a busy week"); time of
-day (three or more events after 17:00 or before 08:00 on a topic: "mostly after
-work"). The hedge phrases live in composer_tables with voice variants; the lint
-checks every slot is a count, a date or a quoted span.
-
-**Utilities without a model** (the owner: "more abilities, utilities,
-functions"), each routed by `plan()` and answered by an existing module or a
-small new one:
-
-| utility | today | gap |
-| --- | --- | --- |
-| notebook statistics (counts, top tags, busiest week, orphans, stale) | `notebook_stats.py` | the measured line format and a chip to the view |
-| what a note said before (time travel) | `timetravel.py` | a "then and now" line in the answer |
-| reminders from a sentence | `when.py`, `reminder_parser.py` | the act's confirm card (decision 38) |
-| calculator and unit conversion | Gemini's pint and simpleeval paths (Brief 35 decides) | the table of units of our own; the measured mark |
-| word and reading-time count of a note | none | "about 420 words, two minutes" |
-| summarise a note or a set | `brief()` | one entry point from Chat ("sum up my gym notes") |
-| find similar notes, explain a link | `janitor`, Tidy reasons | the explanation line (decision 39) |
-| what is due, what did I do last week | reminders, the recall-by-time schema | |
-| define a word from my notes | the fact layer (a "X is" sentence) | |
-| draft a note from the conversation | the acts | |
-| web lookup when enabled | `web_search` tool | sources inside the bubble |
-
-**Acts grammar** (decision 38; `ai/commands.py` from the wip branch is the
-start): `verb object [qualifier] [when]`, verbs: remind, tag, untag, link,
-unlink, file (into a category), rename, pin, archive, delete (always
-confirmed), create (a note, a reminder, a board, a map, a document), add (to a
-note), summarise, find. Objects resolve against the dialogue state ("this",
-"that note", "the second one") then against titles by the composer's own
-scoring; an unresolved object asks one clarifying question (decision 24's
-shape). The card shows the exact change and its undo; the tool functions are
-the agent's own (`ai/tools`), so permissions and the event log are shared.
-
-**Dialogue state** (decision 35): `Dialogue(turns, quoted_ids, topic_stack,
-entities, last_measures, corrections, salt)` serialised in the request's
-history; `follow_on()` reads it; a correction ("no, the gym one") re-ranks by
-boosting the named note and demoting the quoted ones.
-
-**Performance budget**: `import memorymap.ai.composer` under 0.5 s (the fact
-tables load on first use); `compose()` under 150 ms for 20 notes on the
-sandbox CPU; the fact cache invalidated by `entry_edited_at`; no network,
-no model.
+- The blind panel (decision 40): the owner's rating against the 1 to 3B model on the owner's notebook.
+- Probe P10, P11, P13, P15, P16 (`agent-remaining/engine-probe-1010.md`): days until a note's date, mention counts, every date and what is due, lead-ins chosen after the parts, a note's open checklist items.
+- Probe P12: a list filtered by category or tag ("list my work notes").
+- Captions in keyword search: the composer reads them, the FTS index does not.
+- The currency table's Settings editor (decision 43); the rates are dated and fixed.
+- The model choosing among the engine's numbered readings (decision 45): the readings are listed; with a model running it does not yet pick.
+- Day and month order by locale in `when.py` (the 3/4 reading is day first).
 
 #### Not verified until built
-Whether rule polarity earns its place (drop it if no feature the owner asked
-for uses it); how real notebooks' pasted text, jokes and quotes behave in the
-fact layer (the question-list bug, INBOX 745 (b), is the same problem);
-import time under 0.5 s with the fact layer loaded lazily.
+Polarity in the fact layer was dropped (decision 30's condition: no feature
+asked for it). Not seen: the web sources list in a browser with a real search
+engine, real models on the acts and the help register, contrast sweeps over
+the new quote style and the act card. Real notebooks' pasted text, jokes and
+quotes in the fact layer (INBOX 745 (b)) remain unmeasured.
 
 ## 6. Consistency rules
 

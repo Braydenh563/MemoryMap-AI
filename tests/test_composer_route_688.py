@@ -127,9 +127,12 @@ def test_tell_me_more_is_read_against_the_turn_before(client, session):
     assert not said & told
 
 
-def test_a_greeting_still_hints_rather_than_composing(ai_client, session):
+def test_a_greeting_is_answered_by_the_app_when_answering_from_notes(ai_client, session):
+    """Engine probe P2 (2026-10-10): with From your notes chosen, "hey" got no
+    answer at all; it gets the app's own reply, as Chat with no model does.
+    With the model answering, the Ask box still hints (test_ask_focus)."""
     out = _ask(ai_client, "hey", notes_only=True, use_tools=False, answer_from="notes")
-    assert "hint" in out and not out.get("answer")
+    assert "hint" not in out and out["text"] in composer.SOCIAL["greeting"]
 
 
 class _NeedleStandIn:

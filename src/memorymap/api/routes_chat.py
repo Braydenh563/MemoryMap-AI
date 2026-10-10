@@ -441,6 +441,10 @@ class ChatRequest(BaseModel):
     #: Literal, because the switch's stored value reaches here as read off the
     #: device and an unknown word must mean the default, not a 422.
     answer_from: str | None = Field(default=None, max_length=16)
+    #: "Try again" on the same question (CHAT_PLAN decision 34): the how-many-
+    #: th retry, so an answer composed from the notes is worded anew rather
+    #: than repeated word for word. 0 for a first ask.
+    attempt: int = Field(default=0, ge=0, le=10_000)
 
 
 def _apply_scope(session: Session, body: ChatRequest) -> None:
@@ -818,6 +822,7 @@ def _attached_files(session: Session, file_ids: list[int]) -> list[dict]:
                 "id": attachment.id,
                 "content": f"{header}\n\n{body}" if body else f"{header}\n\n(no readable text)",
                 "category": "File",
+                "kind": "file",
                 "attached": True,
                 "connected": False,
                 "match_info": None,
@@ -878,6 +883,7 @@ def _attached_boards(session: Session, board_ids: list[int]) -> list[dict]:
                     f"laid out as a {board_type})\n\n{outline}"
                 ),
                 "category": "Mind map",
+                "kind": "map",
                 "attached": True,
                 "connected": False,
                 "match_info": None,
@@ -1017,7 +1023,7 @@ def _time_words(dates, today) -> list[str]:  # noqa: ANN001
     return out
 
 
-def _media_readings(session: Session, content: str) -> str:
+def _media_readings(session: Session, content: str, captions_only: bool = False) -> str:
     """What the app already knows about the pictures inside a note.
 
     Asked directly: *"if there is an image/sketch/file in that note, can the ai
@@ -1053,7 +1059,7 @@ def _media_readings(session: Session, content: str) -> str:
         if upload is None:
             continue
         caption = (upload.caption or "").strip()
-        text = (upload.vision_ocr_text or upload.ocr_text or "").strip()
+        text = "" if captions_only else (upload.vision_ocr_text or upload.ocr_text or "").strip()
         if not caption and not text:
             continue
         parts = []
@@ -1198,6 +1204,20 @@ def _prepare(
     #: be invented: and with the model stopped the computed sentence is
     #: already a complete answer on its own.
     stats = notebook_stats.answer(question, session) if detected == intent.NOTES and as_of is None else None
+    if detected == intent.UTILITY:
+        #: **Worked out, like a count** (CHAT_PLAN decision 41): a sum, a
+        #: conversion, the time. Its sentence is exact and needs no model, so
+        #: it travels the counted answer's road: no retrieval, said as it is.
+        #: Translating is a model's job when one runs: that one is chat.
+        from memorymap.ai import utilities
+
+        worked = None
+        if utilities.kind_of(question) != "translate" or not deps.get_ollama().is_running():
+            worked = composer.compose(question, [], today=user_now(deps.get_config()).date(), now=user_now(deps.get_config()).replace(tzinfo=None))
+        if worked and worked["shape"] == "utility":
+            stats = notebook_stats.StatAnswer(kind="utility", text=worked["text"], facts=[])
+        else:
+            detected = intent.SMALLTALK
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
@@ -1225,6 +1245,14 @@ def _prepare(
         connected_ids = found.connected_ids
         match_info = found.match_info
         when_phrase = found.when_phrase
+        #: **A recall by time reads the window, not a ranking** (CHAT_PLAN
+        #: decision 31): "what did I do last week" is every note of that week,
+        #: newest first, which five notes ranked by likeness never were.
+        if not attached and as_of is None:
+            asked = composer.plan(question, user_now(deps.get_config()).date())
+            if asked.kind == "recall" and asked.window:
+                entries = search_manager.entries_between(session, asked.window[0], asked.window[1])
+                mode, connected_ids, match_info, when_phrase = "window", set(), {}, asked.window_phrase
     else:
         entries, mode = [], "none"
 
@@ -1272,6 +1300,14 @@ def _prepare(
             content = f"{content}{_media_readings(session, content)}{_attachment_readings(session, entry.id)}"
         elif _mostly_pictures(content):
             content = f"{content}{_media_readings(session, content)}"
+        elif _MEDIA_REF.search(content or ""):
+            #: **A picture's caption is the note's content** (CHAT_PLAN
+            #: decision 37; the owner: "Note captions arent counted as note
+            #: content"): every retrieved note with a picture brings what its
+            #: pictures show, one line each, so an answer can quote the
+            #: caption. The text read in them stays for a note that is mostly
+            #: pictures or was picked by hand: it can run to pages.
+            content = f"{content}{_media_readings(session, content, captions_only=True)}"
         return {
             # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.
@@ -1333,6 +1369,7 @@ def _prepare(
             "id": document.id,
             "content": f"{document.title}\n\n{document.content}",
             "category": "Document",
+            "kind": "document",
             "attached": True,
             "connected": False,
             "match_info": None,
@@ -1781,6 +1818,78 @@ def _assist(req: _StreamRequest, prepared: dict) -> None:
         }
 
 
+#: How many web pages an answer with no model reads, and how much of each:
+#: enough for a sentence that answers, never a crawl (decision 37).
+WEB_PAGES = 3
+WEB_PAGE_CHARS = 4000
+
+
+def _web_allowed(req: _StreamRequest) -> bool:
+    """Web sources only when the person turned web search on in Settings and
+    the turn may use tools (decision 43: never fetched without the toggle)."""
+    try:
+        return bool(deps.get_config().get_preference("web_search_enabled", False)) and bool(req.use_tools)
+    except Exception:  # noqa: BLE001  # no preference is off
+        return False
+
+
+def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] | None:
+    """An answer composed from web pages (CHAT_PLAN decision 37, the second
+    half): the search the agent's `web_search` uses, the top pages read as
+    text (`fetch_readable_cached`, the reader's own checks), each page a
+    source of kind "web" cited by its address. None when nothing answers."""
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    searxng_url, provider = websearch.settings_from(config)
+    try:
+        results = websearch.search_web(question, limit=5, searxng_url=searxng_url or None, provider=provider)
+    except websearch.WebSearchError:
+        logging.getLogger("memorymap.chat").info("chat: web search failed for a composed answer", exc_info=True)
+        return None
+    pages: list[dict] = []
+    for i, hit in enumerate(results[:WEB_PAGES]):
+        try:
+            page = websearch.fetch_readable_cached(str(hit.get("url") or ""))
+        except websearch.WebSearchError:
+            continue
+        text = str(page.get("text") or "")[:WEB_PAGE_CHARS]
+        title = " ".join(str(page.get("title") or hit.get("title") or page.get("domain") or "A web page").split())
+        if text.strip():
+            pages.append({
+                "id": -(i + 1), "kind": "web", "url": str(page.get("url") or hit.get("url")), "domain": page.get("domain", ""),
+                "content": f"{title}\n\n{text}",
+            })
+    if not pages:
+        return None
+    result = composer.compose(question, pages, today=user_now(deps.get_config()).date(), voice=_composer_voice())
+    if not result["grounding"]:
+        return None
+    sources = [{"title": p["content"].split("\n", 1)[0], "url": p["url"], "domain": p["domain"]} for p in pages]
+    return result, sources
+
+
+def _web_events(result: dict, sources: list[dict]) -> Iterator[dict]:
+    yield {"type": "answer", "delta": result["text"]}
+    yield {
+        "type": "grounding",
+        "sentences": result["grounding"],
+        "next": result["next"],
+        "support": {**result["support"], "by_model": False},
+        "exact": True,
+    }
+    #: The pages read, for the scrollable list inside the bubble.
+    yield {"type": "web_sources", "sources": sources}
+
+
+#: Under an answer composed from the notes because the model stopped mid-turn.
+MODEL_STOPPED_NOTE = "The model stopped before it could answer, so this is Atlas's answer from your notes."
+
+#: A how-to about the app, answered from its Help when no model writes the
+#: answer (CHAT_PLAN decision 36, the help register).
+_HOW_TO = re.compile(r"^\s*(?:how (?:do|can|would|should) i|how to|where (?:is|are|do i find|can i find))\b", re.I)
+
+
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
     """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
     if prepared["stats"] is not None:
@@ -1792,6 +1901,28 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         yield {"type": "answer", "delta": prepared["stats"]["text"]}
         return
     conversational = not intent.needs_retrieval(prepared["intent"])
+    if conversational and prepared["intent"] == intent.ABOUT_APP and _HOW_TO.match(req.question or "") and (
+        _composed(req, ollama_running) or not ollama_running
+    ):
+        helped = composer.compose(req.question, [], voice="help")
+        if helped["shape"] == "help":
+            yield {"type": "answer", "delta": helped["text"]}
+            return
+    if conversational and _composed(req, ollama_running):
+        #: The app answers small talk itself when the answer is composed (the
+        #: Ask box's From your notes, or no model): "what can you do" or
+        #: "hello" there used to get no answer at all (engine probe P2).
+        yield {
+            "type": "answer",
+            "delta": composer.social(
+                req.question,
+                prepared["intent"],
+                str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
+                str((req.history or [{}])[-1].get("question") or "") if req.history else "",
+                voice=_composer_voice(),
+            ),
+        }
+        return
     if conversational and req.body.notes_only:
         # The Notes tab's Ask box has one job (§35A). A greeting is the one
         # input it has nothing to do with, so it says what it is for rather
@@ -1836,6 +1967,13 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             mode=req.mode,
             images=req.images,
         )
+    elif not prepared["notes"] and not req.images_raw and not ollama_running and _web_allowed(req) and (
+        web := _web_answer(req, req.question)
+    ):
+        #: No note answers, no model runs, and web search is on: the web's
+        #: own sentences, cited by address (decision 37).
+        yield from _web_events(*web)
+        return
     elif not prepared["notes"] and not req.images_raw:
         # An attached image and "no matching notes" are unrelated: 
         # retrieval never sees the image, so an empty search result
@@ -1875,6 +2013,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: word passages under an apology: the composer quotes whole sentences
         #: under the same rule. A running model still answers every Chat turn.
         follow = prepared.get("follow_on")
+        #: The conversation the history describes (decisions 34 and 35): its
+        #: turn and salt word this answer, a retry ("Try again") rewords it,
+        #: and the words earlier answers used are not used again.
+        dialogue = composer.Dialogue.from_history(req.history)
         result = composer.compose(
             follow.question if follow else req.question,
             prepared["notes"],
@@ -1885,7 +2027,18 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             voice=_composer_voice(),
             #: The turn before's answer, so this one opens differently (INBOX 741).
             previous=str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
+            now=user_now(deps.get_config()).replace(tzinfo=None),
+            salt=f"{dialogue.salt}:{req.body.attempt}" if req.body.attempt else dialogue.salt,
+            turn=len(req.history or []) + 1 + req.body.attempt,
+            dialogue=dialogue,
+            prefer=follow.prefer if follow else "",
+            resolved=True,
         )
+        if not result["grounding"] and not ollama_running and _web_allowed(req):
+            web = _web_answer(req, follow.question if follow else req.question)
+            if web:
+                yield from _web_events(*web)
+                return
         yield {"type": "answer", "delta": result["text"]}
         if result["grounding"]:
             yield {
@@ -1976,11 +2129,77 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         logging.getLogger("memorymap.chat").warning(
             "chat: model call failed for %r: %s", req.model_manager.chat_model(), exc
         )
+        preview = prepared.get("preview")
+        if preview and preview.get("text") and not streamed_any:
+            #: **The answer composed from the notes survives the model**
+            #: (CHAT_PLAN Phase 6, the first tests: a model dying mid-answer
+            #: used to leave only the error). The composed answer the page
+            #: already drew as a draft is sent as the answer, under one line
+            #: saying the model stopped.
+            yield {"type": "answer", "delta": f"{preview['text']}\n\n{MODEL_STOPPED_NOTE}"}
+            return
         prefix = "\n\n" if streamed_any else ""
         yield {
             "type": "answer",
             "delta": f"{prefix}{librarian.model_error_message(req.model_manager.chat_model(), exc)}",
         }
+
+
+#: An act asked in the Ask box, which looks things up: said where to do it.
+ACT_IN_ASK = "That is something to do rather than to look up: say it in Chat and it is done there, with Undo."
+
+
+def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
+    """An act with no model (CHAT_PLAN decision 38): the line that says what
+    it does, then its card. A reminder, a new note, a pin run at once with
+    Undo; a delete, a rename, a move or a tag wait for Confirm
+    (`POST /chat/command/run`). An object that is not one note is asked
+    about, never guessed."""
+    from memorymap.ai import commands
+
+    if req.body.notes_only:
+        yield {"type": "answer", "delta": ACT_IN_ASK}
+        return
+    parsed = commands.read(req.question, user_now(deps.get_config()))
+    if parsed is None:
+        yield {"type": "answer", "delta": commands.CAPABILITY_LINE}
+        return
+    planned = commands.plan(req.session, parsed, req.body.note_ids)
+    card = planned.get("card")
+    if card and planned.get("run"):
+        done = commands.run(req.session, card["steps"], card.get("skipped"))
+        yield {"type": "answer", "delta": done["summary"]}
+        yield {**card, "done": True, "summary": done["summary"], "undo": done["undo"], "open": done.get("open")}
+        return
+    yield {"type": "answer", "delta": planned["line"]}
+    if card:
+        yield card
+    elif planned.get("tool"):
+        yield planned["tool"]
+    elif planned.get("navigate"):
+        yield {"type": "navigate", "surface": planned["navigate"]}
+
+
+class CommandRunBody(BaseModel):
+    """A confirmed act's steps, or an act's undo steps (decision 38)."""
+
+    steps: list[dict] = Field(default_factory=list, max_length=60)
+    skipped: list[dict] = Field(default_factory=list, max_length=60)
+
+
+@router.post("/command/run")
+def run_command(body: CommandRunBody, session: Session = Depends(get_session)) -> dict:
+    """Run what an act's card showed, after Confirm, or take it back (Undo).
+    Only the steps `commands.RUNNABLE` names run, each through the agent's
+    own tool door, so permissions and the event log are the agent's."""
+    from memorymap.ai import commands
+
+    if not body.steps:
+        raise HTTPException(status_code=400, detail="There is nothing to run.")
+    if any(str(step.get("name") or "") not in commands.RUNNABLE for step in body.steps):
+        raise HTTPException(status_code=404, detail="That names a step this app does not run from Chat.")
+    done = commands.run(session, body.steps, body.skipped)
+    return {"ok": done["ok"], "summary": done["summary"], "undo": done["undo"], "open": done.get("open")}
 
 
 def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterator[dict]:  # noqa: ANN001
@@ -2103,7 +2322,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         follow = composer.follow_on(req.question, req.history)
     prepared = _prepare(
         req.session,
-        follow.question if follow else req.question,
+        #: A correction ("no, the gym one") searches the question it corrects
+        #: with the note it names (decision 35).
+        (f"{follow.question} {follow.prefer}" if follow.prefer else follow.question) if follow else req.question,
         req.body.note_ids,
         force_notes_intent=req.body.answering_agent or follow is not None,
         attached_notes_only=req.body.attached_notes_only,
@@ -2122,6 +2343,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     prepared["follow_on"] = follow
     ollama_running = req.ollama.is_running()
+    if prepared["intent"] == intent.ACT and ollama_running and req.use_tools and not req.body.notes_only:
+        #: With a model in Agent mode, an act is the agent's: its tools are the
+        #: same, and it can ask and plan (decision 38 is for no model).
+        prepared["intent"] = intent.NOTES
     composed = _composed(req, ollama_running)
     #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
     #: backend answering, a turn that may use tools can still run them
@@ -2148,7 +2373,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     conversational = not intent.needs_retrieval(prepared["intent"])
     model_can_answer = ollama_running if conversational else (ollama_running or tools_only)
-    will_answer = not composed and model_can_answer and (
+    will_answer = not composed and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
@@ -2180,7 +2405,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         }
     )
 
-    events: Iterator[dict] = _plain_events(req, prepared, ollama_running)
+    events: Iterator[dict] = (
+        _act_events(req, prepared) if prepared["intent"] == intent.ACT else _plain_events(req, prepared, ollama_running)
+    )
     agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.

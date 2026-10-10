@@ -53,6 +53,9 @@ CSS_FILES = [
     CSS_DIR / "tidy-lazy.css",
     #: The Graph tab's late styles (`LAZY_MODULES.graph`, 2026-10-10).
     CSS_DIR / "graph-lazy.css",
+    #: An answer composed from the notes (loaded by ask-compose.js, CHAT_PLAN
+    #: decision 33): the quote style of a sentence said from a note.
+    CSS_DIR / "ask-compose-lazy.css",
 ]
 
 

@@ -927,7 +927,7 @@ function mapChip(board, { onOpen = null, count = true, interactive = true } = {}
     chip.addEventListener("click", (event) => {
       event.stopPropagation();
       if (onOpen) onOpen(board);
-      else if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board?.id ?? null);
+      else openWhiteboardBoard(board?.id ?? null);
     });
   }
   return chip;

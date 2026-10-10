@@ -49,7 +49,6 @@ def _text(result: dict) -> str:
 # --- First tests for Brief 39 ---------------------------------------------------
 
 
-@_spec("decision 41: a computed sentence; the `if not out.rows` fall-through discards utilities")
 def test_arithmetic_answers_a_computed_sentence():
     result = _ask("what is 12 * 7")
     assert "84" in _text(result)
@@ -57,7 +56,6 @@ def test_arithmetic_answers_a_computed_sentence():
     assert any(p[0] == "computed" for p in result["parts"])
 
 
-@_spec("decision 41: the clock is a computed sentence, not a note miss")
 def test_the_time_question_answers_a_computed_sentence():
     result = _ask("what time is it")
     assert "Nothing in the notes" not in _text(result)
@@ -75,7 +73,6 @@ def test_summarise_returns_a_brief_without_raising():
     assert result["grounding"]
 
 
-@_spec("First tests: when.resolve('last friday') returns the next Friday")
 def test_last_friday_is_in_the_past():
     from memorymap.ai import when
 
@@ -85,7 +82,6 @@ def test_last_friday_is_in_the_past():
 
 
 @pytest.mark.parametrize("phrase", ["since March", "the week before last"])
-@_spec("First tests / decision 31: 'since March' and 'the week before last' resolve to windows")
 def test_unread_time_phrases_resolve_to_windows(phrase):
     from memorymap.ai import when
 
@@ -113,7 +109,6 @@ _HISTORY = [{"question": "What did I do at the gym?", "answer": "You wrote **Gym
         ("no, the gym one", "correction"),
     ],
 )
-@_spec("First tests / decision 35: follow_on returns None for these six today")
 def test_follow_on_resolves_the_terse_turns(question, kind):
     follow = composer.follow_on(question, _HISTORY)
     assert follow is not None
@@ -140,7 +135,6 @@ _FACT_NOTE = {
 }
 
 
-@_spec("decision 30: factgraph.facts yields typed facts with spans and a quoted mode")
 def test_facts_yield_the_listed_kinds_with_spans():
     from memorymap.ai import factgraph
 
@@ -163,20 +157,17 @@ def test_facts_yield_the_listed_kinds_with_spans():
 # --- Decision 31: the query plan ----------------------------------------------------
 
 
-@_spec("decision 31: plan() reads recall by time with a window")
 def test_plan_reads_recall_by_time_and_a_window():
     plan = composer.plan("what did I do last week", today=TODAY)
     assert plan.kind == "recall"
     assert (plan.window[0], plan.window[1]) == (date(2026, 9, 28), date(2026, 10, 4))
 
 
-@_spec("decision 31: plan() carries a tag constraint")
 def test_plan_reads_a_tag_constraint():
     plan = composer.plan("notes tagged gym", today=TODAY)
     assert plan.constraints["tags"] == ["gym"]
 
 
-@_spec("decision 31 / 37: plan() carries a source-kind constraint")
 def test_plan_reads_a_source_kind():
     plan = composer.plan("which boards mention Harbor", today=TODAY)
     assert plan.source_kind == "board"
@@ -190,7 +181,6 @@ def _measures(result: dict) -> list[str]:
     return [p[1] for p in result["parts"] if p[0] == "measure"]
 
 
-@_spec("decision 32: a recurrence insight, measured, with the count and the fixed hedge")
 def test_an_insight_closes_a_broad_answer_over_four_notes_in_five_weeks():
     result = _ask("tell me about golf", _notes(3, 4, 5, 6))
     insight = [m for m in _measures(result) if "4 times" in m]
@@ -199,7 +189,6 @@ def test_an_insight_closes_a_broad_answer_over_four_notes_in_five_weeks():
     assert "4" in insight[0]
 
 
-@_spec("decision 32: no insight under 3 mentions across 3 weeks")
 def test_no_insight_on_two_notes():
     # A negative control first: the rule must fire on four notes, or "no
     # insight on two" would pass vacuously before the rule exists.
@@ -222,14 +211,12 @@ def test_no_insight_on_two_notes():
         ("am I late", "are you late"),
     ],
 )
-@_spec("decision 33: person shift with verb agreement")
 def test_shift_person_pairs(said, shifted):
     from memorymap.ai import realise
 
     assert realise.shift_person(said) == shifted
 
 
-@_spec("decision 33: a quoted fact is never shifted")
 def test_no_shift_inside_a_quoted_fact():
     from memorymap.ai import realise
 
@@ -248,7 +235,6 @@ def test_no_shift_inside_a_quoted_fact():
         (date(2025, 3, 3), "on 3 March 2025"),
     ],
 )
-@_spec("decision 33: relative time from the note date against today")
 def test_relative_day(day, said):
     from memorymap.ai import realise
 
@@ -258,20 +244,21 @@ def test_relative_day(day, said):
 # --- Decision 34: session-salted variation ----------------------------------------------
 
 
-@_spec("decision 34: Ask again (a later turn) rotates opener and join, keeps the lead sentence")
 def test_ask_again_varies_the_wording_but_keeps_the_lead():
     notes = _notes(1, 2, 18)
     first = _ask("what have I done for fitness", notes, turn=1, salt="chat-a")
     again = _ask("what have I done for fitness", notes, turn=2, salt="chat-a")
     assert _text(first) != _text(again)
-    lead = lambda r: next(p for p in r["parts"] if p[0] == "quote")[1]  # noqa: E731
+    #: The lead row, not the first "quote" part: a lead said back to its
+    #: writer ("you went", decision 33) is a "shifted" part, and whether an
+    #: opener promised verbatim words decides which; the sentence is the same.
+    lead = lambda r: (r["grounding"][0]["note_id"], r["grounding"][0]["start"])  # noqa: E731
     assert lead(first) == lead(again)
 
 
 # --- Decision 35: dialogue state --------------------------------------------------------
 
 
-@_spec("decision 35: a Dialogue carried through three turns does not re-quote a note")
 def test_dialogue_does_not_quote_a_note_twice():
     dialogue = composer.Dialogue()
     seen: list[tuple] = []
@@ -283,24 +270,22 @@ def test_dialogue_does_not_quote_a_note_twice():
     assert dialogue.quoted_ids
 
 
-@_spec("decision 35: 'no, the gym one' boosts the named note and demotes the quoted ones")
 def test_a_correction_reranks():
     dialogue = composer.Dialogue()
     _ask("what did I do on Monday", _notes(1, 10, 18), dialogue=dialogue)
     fixed = _ask("no, the gym one", _notes(1, 10, 18), dialogue=dialogue)
-    assert fixed["grounding"][0]["id"] == 1
+    #: Rows name their note as `note_id` (every grounding row in the app does).
+    assert fixed["grounding"][0]["note_id"] == 1
 
 
 # --- Decision 36: identity --------------------------------------------------------------
 
 
-@_spec("decision 36: the engine answers as Atlas")
 def test_who_are_you_answers_as_atlas():
     reply = composer.social("who are you", intent="about_app")
     assert "Atlas" in reply
 
 
-@_spec("decision 36: a how-to with no notes answers from the help topics (voice='help')")
 def test_a_how_to_without_notes_uses_the_help_topics():
     result = _ask("how do I add a reminder to a note", [], voice="help")
     assert "Nothing in the notes" not in _text(result)
@@ -310,24 +295,22 @@ def test_a_how_to_without_notes_uses_the_help_topics():
 # --- Decision 37: sources of every kind ---------------------------------------------------
 
 
-@_spec("decision 37: a board is cited with kind 'board'")
 def test_a_board_source_is_cited_as_a_board():
     result = _ask("which boards mention Harbor", _notes(7, 8))
-    cited = {g["id"]: g for g in result["grounding"]}
+    cited = {g["note_id"]: g for g in result["grounding"]}
     assert cited[8]["kind"] == "board"
 
 
-@_spec("decision 37: a picture caption is content and is quoted")
 def test_a_picture_caption_is_quoted_as_content():
     result = _ask("what does the shed roof look like", _notes(14, 15))
     assert any(p[0] == "picture" and "wet wooden roof" in p[1] for p in result["parts"])
-    assert any(g["id"] == 15 for g in result["grounding"])
+    #: Rows name their source as `note_id` (with `kind`), as every row does.
+    assert any(g["note_id"] == 15 for g in result["grounding"])
 
 
 # --- Decisions 38 and 42: acts -------------------------------------------------------------
 
 
-@_spec("decision 38: commands.parse reads verb, object and when")
 def test_parse_a_reminder_command():
     from memorymap.ai import commands
 
@@ -337,7 +320,6 @@ def test_parse_a_reminder_command():
     assert cmd.confirm is False
 
 
-@_spec("decision 38: delete is always confirm-required")
 def test_delete_requires_confirmation():
     from memorymap.ai import commands
 
@@ -345,7 +327,6 @@ def test_delete_requires_confirmation():
     assert cmd.verb == "delete" and cmd.confirm is True
 
 
-@_spec("decision 42: archive is not an acts verb")
 def test_archive_is_not_a_verb():
     from memorymap.ai import commands
 
@@ -356,14 +337,12 @@ def test_archive_is_not_a_verb():
 # --- Decisions 41 and 43: utilities -----------------------------------------------------------
 
 
-@_spec("decision 41: unit conversion is a computed sentence")
 def test_unit_conversion_is_computed():
     result = _ask("how many km is 5 miles")
     computed = [p[1] for p in result["parts"] if p[0] == "computed"]
     assert computed and "8.0" in computed[0]
 
 
-@_spec("decision 43: a currency answer names the date of its rates")
 def test_currency_answer_names_the_rate_date():
     result = _ask("how much is 100 dollars in euros")
     computed = [p[1] for p in result["parts"] if p[0] == "computed"]
@@ -373,7 +352,6 @@ def test_currency_answer_names_the_rate_date():
 # --- Decision 45: ambiguity ----------------------------------------------------------------------
 
 
-@_spec("decision 45: an ambiguous question returns numbered readings")
 def test_an_ambiguous_question_lists_numbered_readings():
     meetings = [n for n in NOTES if "meeting" in n["content"].lower()]
     assert len(meetings) == 2

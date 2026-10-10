@@ -113,6 +113,9 @@ REACHED_AFTER_LOAD = {
     #: The 2026-10-10 triage: a composed answer's cited names are linked
     #: once ask-compose.js is in (`addInlineCitations`, capture-ask.js).
     "linkCitedTitles": "askCompose, called from ensureModule('askCompose').then in addInlineCitations",
+    "markSaidSentences": "askCompose, called beside linkCitedTitles in the same ensureModule('askCompose').then",
+    "renderActCard": "askCompose, called from ensureModule('askCompose').then in renderToolConfirm (chat-agent.js)",
+    "renderWebSources": "askCompose, called from ensureModule('askCompose').then in chat-attach's onWebSources",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it
     #: is `openOnboarding`, whose stand-in loads the bundle first.

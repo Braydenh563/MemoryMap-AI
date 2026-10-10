@@ -204,7 +204,8 @@ def test_an_unsure_reading_offers_did_you_mean_and_pressing_it_asks_again():
 
 def test_nothing_found_asks_a_short_clarifying_question():
     result = composer.compose("What is the capital of Peru?", [{"id": 1, "content": "# Boiler\n\nDue in March.", "created_at": "2026-09-01"}])
-    assert result["text"].endswith("?") and result["text"] == composer.PHRASES["nothing"]
+    #: Engine probe P1: the words no note found holds are named before the question back.
+    assert result["text"].endswith(composer.PHRASES["nothing_ask"]) and "“Peru”" in result["text"]
 
 
 def test_noise_nobody_tuned_against_changes_the_kind_rarely(noise_rows):

@@ -920,7 +920,7 @@ function reopenAnswerPanel({ panel, answer } = {}) {
     if (cmdPaletteOverlay.classList.contains("hidden")) toggleAgentPalette();
     list = cmdPaletteResults;
   } else if (panel === "guide") {
-    if (typeof openHelpChat === "function") openHelpChat();
+    openHelpChat();
     list = $("help-chat-messages");
   }
   if (!list || !answer) return;

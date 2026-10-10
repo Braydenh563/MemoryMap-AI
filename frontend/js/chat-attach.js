@@ -1514,6 +1514,7 @@ async function sendChatMessage(preset, opts = {}) {
     question = `${question}\n\n${webPageContextBlock(attachedWebPage)}`;
   }
   lastChatQuestion = question;
+  if (!opts.replaceLast) regenerateLastAnswer.retries = 0; // a new question is a first ask
 
   // Consumed once: this send, button click or free-typed reply alike, is
   // the answer to whatever question was pending, and the next one after it
@@ -1894,6 +1895,7 @@ async function sendChatMessage(preset, opts = {}) {
       progress: pendingLine,
       question,
       history: chatHistoryToSend(),
+      attempt: opts.attempt,
       persona: sentPersona,
       mode: $("response-mode-select").value || null,
       useTools: effectiveUseTools,
@@ -2054,11 +2056,16 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
       },
+      //: The web pages an answer from no model read (CHAT_PLAN decision 37).
+      onWebSources: (event) => ensureModule("askCompose").then(() => renderWebSources(timeline.holder, event.sources)),
       onConfirm: (event) => {
         clearPending();
         const card = document.createElement("div");
         renderToolConfirm(card, event);
-        timeline.tool(card.firstElementChild || card);
+        //: An act's card is the answer's own (CHAT_PLAN decision 38), under
+        //: its line, never folded away in a step group with its Confirm.
+        if (event.type === "act") timeline.holder.appendChild(card);
+        else timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your confirmation…";
       },
       onAsk: (event) => {
@@ -2301,7 +2308,7 @@ async function sendChatMessage(preset, opts = {}) {
   }
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
-  if (meta?.composed && answerRaw) bubble.appendChild(chip("ph:notebook Your notes, no AI", "item-label"));
+  if (meta?.composed && answerRaw) bubble.appendChild(chip("ph:notebook From your notes", "item-label"));
   if (answerRaw || toolEvents.length) {
     bubble.appendChild(
       messageMetaLine({

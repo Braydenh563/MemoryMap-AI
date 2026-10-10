@@ -85,7 +85,7 @@ async function renderAttachToBoard(entry, wrap) {
           inlineAction = null;
           await refreshEntries([entry.id]);
           toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {
-            if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(id);
+            openWhiteboardBoard(id);
           }, { go: { open: "board", id } });
         } catch (error) {
           toast(error.message, true);

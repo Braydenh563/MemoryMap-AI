@@ -1157,8 +1157,12 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
   collapseCitationRuns(targets);
   //: A composed answer's "[**Dentist**]" opens its note (ask-compose.js,
   //: lazy: the boot scripts are at their gzip cap).
-  if (sentences.some((g) => g.title)) {
-    ensureModule("askCompose").then(() => linkCitedTitles(targets, sentences, byId, numberFor));
+  //: …and its quoted sentences take the quote style (`markSaidSentences`).
+  if (sentences.some((g) => g.title || g.said)) {
+    ensureModule("askCompose").then(() => {
+      linkCitedTitles(targets, sentences, byId, numberFor);
+      markSaidSentences(targets, sentences);
+    });
   }
 }
 
@@ -2262,7 +2266,9 @@ function renderChatMeta(meta) {
   //: A composed answer (INBOX 688) says so on the chip, and its card takes
   //: the quote style the composer's lead is drawn in (`.answer-composed`).
   $("ai-answer").classList.toggle("answer-composed", !!meta.composed);
-  if (meta.composed) setAnsweredBy("Your notes, no AI", "Composed from your notes, no AI: every sentence is quoted from a note");
+  //: "Atlas" heads the answer; the chip says where it came from (CHAT_PLAN
+  //: decision 36): "From your notes" with no model, the model's name with one.
+  if (meta.composed) setAnsweredBy("From your notes", "Atlas answered from your notes, with no model: every sentence comes from a note");
   else if (meta.answered_by) setAnsweredBy(meta.answered_by, `Answered by ${meta.answered_by}`);
   else if (meta.ollama_running === false) {
     setAnsweredBy("chat model offline", "The chat model is not running, so nothing answered this");
@@ -2491,8 +2497,12 @@ async function streamChatEvents({
   onAnswerFinal,
   onRelated,
   onUnsupported,
+  onWebSources,
+  attempt,
 }) {
   const body = { question, history: history || [] };
+  //: "Try again" (CHAT_PLAN decision 34): an answer from the notes reworded.
+  if (attempt) body.attempt = attempt;
   if (persona) body.persona = persona;
   // Per-turn, not a setting: one quick answer shouldn't change the default
   // for every answer after it.
@@ -2645,7 +2655,11 @@ async function streamChatEvents({
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
-      else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      //: An act with no model (CHAT_PLAN decision 38) is drawn by the same
+      //: confirm hook (`renderToolConfirm` hands it to `renderActCard`).
+      else if ((event.type === "confirm" || event.type === "act") && onConfirm) onConfirm(event);
+      else if (event.type === "navigate") actNavigate(event.surface);
+      else if (event.type === "web_sources" && onWebSources) onWebSources(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);

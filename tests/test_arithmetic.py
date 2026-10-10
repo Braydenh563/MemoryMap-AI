@@ -24,7 +24,9 @@ from memorymap.ai import arithmetic, composer
 def test_a_sum_is_worked_out_and_said_with_its_question(question, answer):
     result = composer.compose(question, [])
     assert result["text"] == answer
-    assert result["shape"] == "sum"
+    #: A utility's computed sentence (CHAT_PLAN decision 41).
+    assert result["shape"] == "utility"
+    assert [p[0] for p in result["parts"]] == ["computed"]
     assert "".join(part[1] for part in result["parts"]) == result["text"]
 
 

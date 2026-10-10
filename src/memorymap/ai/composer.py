@@ -68,14 +68,16 @@ questions in a row do not open with the same words.
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 
-from memorymap.ai import arithmetic, composer_tables, grounding, question_noise
+from memorymap.ai import composer_tables, grounding, question_noise, realise, utilities
+from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
 #: At most this many quoted points in one answer. Six is about what reads as an
@@ -250,6 +252,35 @@ PHRASES: dict[str, str] = {
         "Nothing in the notes found answers that. Which note would it be in, "
         "or how else might you have put it?"
     ),
+    # Recall by time (decision 31): "You wrote three notes last week, newest first:".
+    "recall_a": "You wrote ",
+    "recall_note": " note ",
+    "recall_notes": " notes ",
+    "recall_b": ", newest first:",
+    "recall_none": "Nothing I found was written ",
+    "none_tagged": "No note found is tagged ",
+    # A source that is not a note says its kind in its citation (decision 37):
+    # "[board **Harbor board**]".
+    "kind_board": "board ",
+    "kind_map": "map ",
+    "kind_document": "document ",
+    "kind_file": "file ",
+    "kind_web": "page ",
+    # The help register (decision 36): after the Help topic's own sentence.
+    "help_more": " The Guide, on the status bar, has the rest.",
+    # Numbered readings of a question that only names something (decision 45).
+    "readings_a": "Which do you mean: ",
+    "reading_dot": ". ",
+    "semicolon": "; ",
+    # A utility the app cannot do (decision 41): said, never guessed.
+    "utility_weather": "The weather is not something this app knows, and nothing leaves this computer to look it up.",
+    "utility_translate": "Translating needs a model: connect one in Settings and the Writing room translates.",
+    #: The no-answer that names what no note found holds, then asks back:
+    #: one pair per voice (`_nothing`).
+    "none_found": "Nothing I found mentions ",
+    "nothing_ask": "Which note would it be in, or how else might you have put it?",
+    "none_found_p": "No note found mentions ",
+    "nothing_ask_p": "Which note might hold it, or how else might it be phrased?",
     # An unsure reading of a misspelt word, offered the other way.
     "did_you_mean_a": "Did you mean “",
     "did_you_mean_b": "”?",
@@ -335,7 +366,23 @@ _ASKING_WORDS = frozenset(
     find look show help kind sort bit quick quickly briefly short detail
     detailed full whole remind possible maybe okay ok hey hi
     whereabouts address place put decide decided conclude concluded""".split()
-) | composer_tables.EXTRA_ASKING_WORDS
+) | composer_tables.EXTRA_ASKING_WORDS | frozenset(
+    #: Time words say when, never what (engine probe P6: "what did I write
+    #: last week" was told "No note found brings up last"). The window they
+    #: name is read by `when.window`; the subject is what is left.
+    """last ago today yesterday tonight lately earlier summarise summarize
+    summary done pattern patterns habit habits trend trends""".split()
+)
+#: A time phrase names a window, not a subject: "last week", "3 days ago",
+#: "this month" come off whole before the subject is read, so "week 4"
+#: stays a subject and "last week" is not one.
+_TIME_PHRASE = re.compile(
+    r"\b(?:(?:the\s+)?(?:last|this|next|past|previous|coming)\s+(?:few\s+|couple\s+of\s+|\d{1,3}\s+|two\s+|three\s+)?"
+    r"(?:days?|weeks?|weekend|months?|years?|night|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+    r"|(?:the\s+)?week\s+before\s+last|(?:\d{1,3}|a|an|one|two|three|four|five|six)\s+(?:days?|weeks?|months?|years?)\s+ago"
+    r"|(?:since|in|during)\s+(?:january|february|march|april|may|june|july|august|september|october|november|december))\b",
+    re.I,
+)
 
 #: The wrappers a casual or indirect question comes in, taken off before its
 #: shape and its subject are read (INBOX 741, the owner: "better to
@@ -450,17 +497,40 @@ def classify(question: str, embed=None) -> str:  # noqa: ANN001
     return "what"
 
 
+#: Words whose final "s" is not a plural: "news" is not "new", "lens" not
+#: "len" (the stemmer's own rule, below; found by the 2026-10-10 triage).
+_NOT_PLURAL = frozenset("news lens gas yes always perhaps series species means mathematics physics".split())
+_VOWELS = "aeiou"
+
+
+def _one_syllable_cvc(w: str) -> bool:
+    """A stem of one vowel group ending consonant, vowel, consonant ("hir",
+    "mak", "writ"): the shape that lost a silent "e" to its suffix (Porter's
+    *o rule, held to one syllable so "open" never becomes "opene")."""
+    if len(w) < 3 or w[-1] in _VOWELS + "wxy" or w[-2] not in _VOWELS or w[-3] in _VOWELS:
+        return False
+    groups = re.findall(r"[aeiou]+", w)
+    return len(groups) == 1
+
+
 def _stem(word: str) -> str:
     """A light stem, so "testers" meets "tester" and "booked" meets "book".
 
     Suffixes only, and only on words long enough that taking one off leaves a
     word: a stemmer that turned "news" into "new" would match the wrong notes.
+    A word without a suffix is left whole, so "same" is never "sam" (engine
+    probe P1: "who is Sam" quoted "Same breakfast as the long runs"); the
+    silent "e" a suffix took ("hiring", "making") is put back instead.
     """
     w = word.lower()
-    for suffix, keep, least in (("ies", "y", 4), ("ing", "", 3), ("ed", "", 4), ("es", "", 4), ("s", "", 3)):
+    if w in _NOT_PLURAL:
+        return w
+    for suffix, keep, least in (("ies", "y", 4), ("ing", "", 3), ("ed", "", 4), ("es", "", 3), ("s", "", 3)):
         if w.endswith(suffix) and len(w) - len(suffix) >= least:
             if suffix == "s" and w.endswith(("ss", "us", "is")):
                 break
+            if suffix == "es" and not w.endswith(("ches", "shes", "sses", "xes", "zes")):
+                continue
             w = w[: len(w) - len(suffix)] + keep
             #: "running" is "run" and "stopped" is "stop": the doubled last
             #: consonant a suffix brought is taken off with it (INBOX 725,
@@ -468,11 +538,9 @@ def _stem(word: str) -> str:
             #: note that says "run" or is tagged it).
             if suffix in ("ing", "ed") and len(w) >= 3 and w[-1] == w[-2] and w[-1] not in "aeioulsz":
                 w = w[:-1]
+            elif suffix in ("ing", "ed") and _one_syllable_cvc(w):
+                w += "e"
             break
-    #: A silent final "e" goes too, so "hire" meets "hiring" and "make" meets
-    #: "making". Never to leave "not": "note" must not match a negation.
-    if w.endswith("e") and len(w) >= 4 and w[:-1] != "not":
-        w = w[:-1]
     return w
 
 
@@ -544,6 +612,7 @@ def subject_terms(question: str) -> list[str]:
     #: bare "the list is slow" reads to the parser as a list command.
     question = re.sub(r"^how come\b", "why", question, flags=re.I)
     question = re.sub(r"^(?:what time|how many (?:of my )?notes (?:mention|are about|about|on))\b", "", question, flags=re.I)
+    question = _TIME_PHRASE.sub(" ", question)
     understood = query_understanding.understand(question)
     source = understood.subject or question
     #: "List my ..." and "Name the ..." ask; "the reading list" names. Only the
@@ -630,6 +699,10 @@ class NoteView:
     #: words (INBOX 741): the quote already says them, and "your note starting
     #: with ... says" was the whole complaint. It is cited by its day instead.
     titled: bool = False
+    #: What kind of source it is (decision 37): "note", "board", "map",
+    #: "document", "file" or "web". Said in its citation and on its row, so
+    #: the page opens it in its own place.
+    kind: str = "note"
 
     @property
     def id(self) -> int:
@@ -757,13 +830,46 @@ def _picture_units(view: NoteView, content: str, line_start: int, line: str) -> 
             view.sentences.append(Sentence(view.id, view.rank, start, start + len(text), text, words, kind))
 
 
+#: A list line naming a picture file and what it shows.
+_PICTURE_ITEM = re.compile(r"^\s*[-*+]\s+[^:\n]{1,120}\.(?:png|jpe?g|gif|webp|heic|avif|bmp|svg)\s*:\s+\S", re.I)
+#: The kind a route's row is, from its own `kind` or the category the route
+#: gives a source that is not a note.
+_SOURCE_CATEGORIES = {"document": "document", "file": "file", "mind map": "map", "board": "board", "web page": "web"}
+
+
+def _distinct_ids(notes: list[dict]) -> list[dict]:
+    """The sources with an id each answer can key them by: a document or a
+    map whose id is also a note's (they live in other tables) is keyed apart,
+    its own id kept as `source_id` for its row."""
+    taken = {n.get("id") for n in notes if source_kind(n) == "note"}
+    out = []
+    for i, note in enumerate(notes):
+        if source_kind(note) != "note" and note.get("id") in taken:
+            note = {**note, "source_id": note.get("id"), "id": -(i + 1) * 1_000_003}
+        out.append(note)
+    return out
+
+
+def source_kind(note: dict) -> str:
+    """"note", "board", "map", "document", "file" or "web" (decision 37)."""
+    kind = str(note.get("kind") or "").strip().lower()
+    if kind in ("note", "board", "map", "document", "file", "web"):
+        return kind
+    return _SOURCE_CATEGORIES.get(str(note.get("category") or "").strip().lower(), "note")
+
+
 def read_note(note: dict, rank: int) -> NoteView | None:
     """A note as its units: prose split into sentences, each list item one."""
     content = str(note.get("content") or "")
     if not content.strip() or note.get("id") is None:
         return None
     title, body_start = _title(content)
-    view = NoteView(note=note, rank=rank, title=title, written=_written(note), titled=bool(title) and body_start > 0)
+    view = NoteView(note=note, rank=rank, title=title, written=_written(note), titled=bool(title) and body_start > 0, kind=source_kind(note))
+    if view.kind != "note" and not view.titled and title:
+        #: A document or a map arrives as its title, a blank line, its text:
+        #: its first line is its name, never a sentence of it.
+        view.titled = True
+        body_start = len(content.split("\n", 1)[0])
     view.title_words = set(_words(title))
     filed = [str(t) for t in (note.get("tags") or [])] + [str(note.get("category") or "")]
     view.filed_words = set(_words(" ".join(filed)))
@@ -789,6 +895,12 @@ def read_note(note: dict, rank: int) -> NoteView | None:
         if in_fence or not stripped or _HEADING.match(line) or stripped.startswith(("![", "|")):
             continue
         line_end = line_start + len(line.rstrip("\r\n"))
+        if _PICTURE_ITEM.match(line):
+            #: "- shed.jpg: shows a wet wooden roof": a picture's caption
+            #: listed in the note is content, read as the picture's
+            #: (decision 37; the owner: "note captions arent counted").
+            _picture_units(view, content, line_start, line)
+            continue
         item = _ITEM.match(line)
         if item:
             box = item.group(2)
@@ -917,6 +1029,15 @@ def _score(shape: str, terms: list[str], views: list[NoteView]) -> list[Sentence
     return [s for s in pool if s.score > 0]
 
 
+def _was_said(s: Sentence, said: str) -> bool:
+    """Whether an earlier answer (`said`) quoted `s`, as written or said back
+    shifted ("you went" for "I went", decision 33)."""
+    if not said:
+        return False
+    flat = " ".join(said.split()).lower()
+    return s.text.rstrip("…").lower() in flat or realise.shift_person(s.text).rstrip("…").lower() in flat
+
+
 def _jaccard(a: list[str], b: list[str]) -> float:
     sa, sb = set(a), set(b)
     return len(sa & sb) / len(sa | sb) if sa and sb else 0.0
@@ -950,8 +1071,7 @@ def select(
         views = covering or views
     scored = sorted(_score(shape, terms, views), key=lambda s: (-s.score, s.rank, s.order))
     if said:
-        flat = " ".join(said.split())
-        scored = [s for s in scored if s.text.rstrip("…") not in flat]
+        scored = [s for s in scored if not _was_said(s, said)]
     if not scored:
         return []
     meaning = meaning or _Meaning(scored[:MEANING_POOL], None)
@@ -987,6 +1107,9 @@ MEANING_POOL = 24
 #: the near-identical: "The launch is on the 14th" and "We launch on the
 #: 14th" are one claim, said twice.
 SAME_COSINE = 0.9
+#: ...and share at least this much of their words (token Jaccard over stems):
+#: "The launch is on the 14th" and "We launch on the 14th" share 0.67.
+SAME_WORDS = 0.34
 
 #: Two sentences this alike are about the same thing, the line between
 #: "also" and "separately" (cosine, then token Jaccard over the words that are
@@ -1028,9 +1151,14 @@ class _Meaning:
         return sum(x * y for x, y in zip(va, vb))
 
     def same(self, a: Sentence, b: Sentence) -> bool:
+        """One claim said twice. A cosine alone is not enough: an embedder
+        that rates two unrelated short lines alike (a degenerate or stand-in
+        one rates everything alike) had "Bib and pins the night before",
+        written in one note, said four times (engine probe P4). Two sentences
+        that say one thing share words too."""
         cosine = self.cosine(a, b)
         if cosine is not None:
-            return cosine >= SAME_COSINE
+            return cosine >= SAME_COSINE and _jaccard(a.words, b.words) >= SAME_WORDS
         return _jaccard(a.words, b.words) >= NEAR_DUPLICATE
 
     def alike(self, a: Sentence, b: Sentence) -> float:
@@ -1139,6 +1267,17 @@ class _Answer:
         self.brief = False
         #: The register the joining phrases and openers are written in.
         self.voice = composer_tables.DEFAULT_VOICE
+        #: What earlier answers quoted ("tell me more"): never quoted again.
+        self.said = ""
+        #: The joining and opening words earlier answers in this conversation
+        #: used (`Dialogue.used`): not used again while a variant is left.
+        self.used: set[str] = set()
+        #: The notes a question could mean, numbered (decision 45).
+        self.readings: list[int] = []
+        #: Say the person's "I" back as "you" (decision 33), except after an
+        #: opener that promised their own words (`t`).
+        self.shift = True
+        self.verbatim = False
 
     def opened_with(self, text: str) -> bool:
         """Whether the answer the turn before gave began with `text`."""
@@ -1156,12 +1295,25 @@ class _Answer:
         if not leads or not mine:
             return name
         usable = [i for i, key in enumerate(leads) if not self.opened_with(PHRASES[key])] or list(range(len(leads)))
-        digest = hashlib.sha1(f"voice:{lead}:{self.question.strip().lower()}".encode()).digest()
+        #: No template twice in a conversation (decision 25): a variant an
+        #: earlier answer used is left while another is unused.
+        fresh = [i for i in usable if PHRASES[mine[i]] not in self.used]
+        usable = fresh or usable
+        session = _SESSION.get()
+        digest = hashlib.sha1(f"voice:{lead}:{self.question.strip().lower()}{':' + session if session else ''}".encode()).digest()
         return mine[usable[digest[0] % len(usable)]]
 
     def t(self, *names: str) -> _Answer:
         for name in names:
-            self.parts.append(("template", PHRASES[self.voiced(name)]))
+            text = PHRASES[self.voiced(name)]
+            self.parts.append(("template", text))
+            #: An opener that promises the person's own words ("You wrote: ",
+            #: "Here is how you put it: ") is kept to: what follows it, to the
+            #: next line, is quoted as written, never shifted.
+            if "\n" in text:
+                self.verbatim = False
+            if _CLAIMS_WORDS.search(text):
+                self.verbatim = True
         return self
 
     def m(self, text: str) -> _Answer:
@@ -1192,6 +1344,8 @@ class _Answer:
             return self
         self.named.add(view.id)
         self.t("cite_open")
+        if view.kind != "note":
+            self.t(f"kind_{view.kind}")
         if view.titled:
             self.t("bold")
             self.parts.append(("title", view.title, view.id))
@@ -1202,13 +1356,35 @@ class _Answer:
             self.t("one_of_your_notes")
         return self.t("cite_close")
 
+    def _shifted(self, s: Sentence, text: str) -> str | None:
+        """The sentence said to the person who wrote it (decision 33): "I
+        went" as "you went", a plan whose day has passed in the past tense.
+        None when nothing changes or the sentence is not the person's prose."""
+        if not self.shift or s.kind not in ("prose", "item", "task") or self.verbatim:
+            return None
+        shifted = realise.shift_person(text)
+        if shifted == text:
+            return None
+        shifted = realise.past_plan(shifted, _due(self.views[s.note_id].note, s), self.today)
+        if text[:1].isupper():
+            shifted = shifted[:1].upper() + shifted[1:]
+        return shifted
+
     def q(self, s: Sentence, terms: list[str], shown: str | None = None) -> _Answer:
         """A quote, and its citation row: once per sentence, at its first use.
         `shown` is the quote as this answer prints it (a list item's first
-        letter lowered inside a sentence); the row cites what is printed."""
+        letter lowered inside a sentence); the row cites what is printed.
+        A sentence in the first person is said in the second ("shifted"),
+        its row keeping the note's own words as `original`."""
         text = s.text if shown is None else shown
         kind = "picture" if s.kind.startswith("picture") else "quote"
-        self.parts.append((kind, text, s.note_id))
+        shifted = None if kind == "picture" else self._shifted(s, text)
+        if shifted:
+            self.parts.append(("shifted", shifted, s.note_id, text))
+            original, text = text, shifted
+        else:
+            self.parts.append((kind, text, s.note_id))
+            original = None
         self.last_note = s.note_id
         if s.key in self.cited:
             return self
@@ -1219,7 +1395,7 @@ class _Answer:
         self.rows.append(
             {
                 "sentence": text,
-                "note_id": s.note_id,
+                "note_id": note.get("source_id", s.note_id),
                 "start": s.start,
                 "end": s.end,
                 "score": round(s.score, 3),
@@ -1234,8 +1410,19 @@ class _Answer:
                 #: page can make that name open the note: matched exactly,
                 #: never guessed from the label's opening words.
                 "title": self.views[s.note_id].title if self.views[s.note_id].titled else "",
+                "kind": self.views[s.note_id].kind,
             }
         )
+        if note.get("url"):
+            #: A web page's sentence is cited by its address (decision 37).
+            self.rows[-1]["url"] = str(note["url"])
+        #: How the page draws it (decision 33): a quoted sentence in the
+        #: quote style, a shifted one with the note's own words on hover.
+        self.rows[-1]["said"] = "picture" if kind == "picture" else "shifted" if original is not None else "quoted"
+        if original is not None:
+            #: Said back in the second person: the note's own words, which
+            #: `start` and `end` point at, kept for the page to show.
+            self.rows[-1]["original"] = original
         return self
 
     def item(self, s: Sentence, terms: list[str]) -> _Answer:
@@ -1269,14 +1456,42 @@ class _Answer:
         return "".join(part[1] for part in self.parts)
 
 
+#: The openers that promise the person's words as written: after one, the
+#: run is quoted, not shifted (`_Answer.t`).
+_CLAIMS_WORDS = re.compile(r"\b(?:wrote|written|put it|own words|phrasing|exactly|noted|jotted|write)\b[^:]*:\s*$", re.I)
+
+
+def _due(note: dict, s: Sentence) -> date | None:
+    """The last day a plan or a future event in sentence `s` names, read by
+    the fact layer against the note's own day; None when the sentence names
+    none (a plan with no day of its own is never moved into the past)."""
+    from memorymap.ai import factgraph
+
+    days = [
+        f.when[1] for f in factgraph.facts(note)
+        if f.kind in ("plan", "event", "date") and s.start <= f.start < s.end and f.when and not f.inherited
+        and (f.kind != "event" or f.attrs.get("tense") == "future")
+    ]
+    return max(days) if days else None
+
+
 def _count_word(n: int) -> str:
     return _NUMBER_WORDS[n] if 0 <= n < len(_NUMBER_WORDS) else str(n)
 
 
+#: The conversation's salt and turn, set by `compose` for the length of one
+#: answer (decision 34): "Ask again" in the same chat is a later turn, so its
+#: openers and joins are chosen again; empty outside a conversation, where the
+#: same question gets the same words every time.
+_SESSION: contextvars.ContextVar[str] = contextvars.ContextVar("composer_session", default="")
+
+
 def _pick(question: str, salt: str, options: list[str]) -> str:
-    """One of `options`: the same one every time for this question, a
-    different one for most different questions."""
-    digest = hashlib.sha1(f"{salt}:{question.strip().lower()}".encode()).digest()
+    """One of `options`: the same one every time for this question (and, in
+    a conversation, this turn), a different one for most different
+    questions."""
+    session = _SESSION.get()
+    digest = hashlib.sha1(f"{salt}:{question.strip().lower()}{':' + session if session else ''}".encode()).digest()
     return options[digest[0] % len(options)]
 
 
@@ -1863,6 +2078,32 @@ def _asked_span(question: str, terms: list[str]) -> str:
     return question[start : end + len(terms[-1])]
 
 
+def _insights_for(question: str, terms: list[str], views: list[NoteView], today: date) -> list:
+    from memorymap.ai import insights
+
+    subject = _asked_span(question, terms)
+    return insights.for_subject(subject, [v.note for v in views], today, question) if subject else []
+
+
+def _insight_close(out: _Answer, question: str, terms: list[str], views: list[NoteView]) -> None:
+    """A broad answer closes with what the notes measure about its subject
+    (decision 32), when a rule fires: one line, marked measured."""
+    found = _insights_for(question, terms, views, out.today)
+    if found:
+        out.t("para").m(found[0].text)
+
+
+def _insight_lead(out: _Answer, question: str, terms: list[str], views: list[NoteView]) -> bool:
+    """"Any patterns in my golf notes": the measured line first, then the
+    sentences it rests on (decision 31's insight schema). False when no rule
+    fires, and the answer is the subject's as usual."""
+    found = _insights_for(question, terms, views, out.today)
+    if not found:
+        return False
+    out.m(found[0].text).t("para")
+    return True
+
+
 def _mentions(out: _Answer, question: str, terms: list[str], views: list[NoteView]) -> bool:
     """"At least four of your notes mention “sourdough”, from 7 September to
     3 October." "At least": the notes found are some of the notebook, and the
@@ -1894,7 +2135,7 @@ def _broad_pool(out: _Answer, chosen: list[Sentence], terms: list[str]) -> list[
             break
         if view.id in have or view.note.get("connected") or not stems or not stems <= (view.words | view.title_words | view.filed_words):
             continue
-        prose = [s for s in view.sentences if s.kind == "prose"]
+        prose = [s for s in view.sentences if s.kind == "prose" and not _was_said(s, out.said)]
         if prose:
             best = max(prose, key=lambda s: (s.score, -s.order))
             pool.append(best)
@@ -2071,6 +2312,28 @@ _SWAP = re.compile(
 _MEANT = re.compile(r"^\s*did you mean\s+[“\"']?(.+?)[”\"']?\s*\?*\s*$", re.I)
 _BARE = re.compile(r"^\s*(?:(?:and|but|so|ok|okay)[, ]+)?(why|when|where|who|how come|how many|how much|how|since when)\s*[?.!]*\s*$", re.I)
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
+#: "no, the gym one", "not that one, the running note", "I meant the dentist
+#: note": the turn before answered from the wrong note (decision 35).
+_CORRECTION = re.compile(
+    r"^\s*(?:no|nope|not that(?: one)?|wrong one|not quite)[,.!]?\s+(?:i meant\s+|i mean\s+|the one about\s+)?(?P<x>.+?)\s*[.?!]*$"
+    r"|^\s*i meant\s+(?P<x2>.+?)\s*[.?!]*$",
+    re.I,
+)
+#: "shorter", "in more detail": the turn before again, at another length.
+_LENGTH = re.compile(
+    r"^\s*(?:shorter|briefer|less|in short|tl;?dr|summari[sz]e that|longer|more detail|in (?:more )?detail|"
+    r"(?:make it|say it|be|can you be) (?:shorter|briefer|longer|more detailed))\s*(?:please)?\s*[.?!]*$",
+    re.I,
+)
+#: "and last week?", "what about yesterday?": the turn before over another time.
+_WINDOW_ONLY = re.compile(r"^\s*(?:(?:and|but|so|ok)[, ]+)?(?:(?:what|how) about\s+)?(?P<w>.+?)\s*[?.!]*$", re.I)
+
+
+def _without_length(question: str) -> str:
+    """The question with a length wish ("briefly", "in detail") taken off."""
+    text = _BRIEF.sub("", question)
+    text = _FULL.sub("", text)
+    return " ".join(text.replace(" ,", ",").split()).strip(" ,")
 
 
 @dataclass
@@ -2083,6 +2346,9 @@ class FollowOn:
     previous: str
     said: str = ""
     kind: str = "more"
+    #: A correction's words ("no, the gym one": "gym"): the notes they name
+    #: are put first, the ones the answer before quoted after (decision 35).
+    prefer: str = ""
 
 
 def _named_notes(answer: str) -> list[str]:
@@ -2115,6 +2381,31 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
     ]
     if not turns:
         return None
+    return _follow_one(question, _standing(turns))
+
+
+#: Follow-on kinds whose reading is a question in its own right ("and last
+#: week?", "what about Lisbon?"). The others ("longer", "why?", "no, the
+#: launch one") lean on the question before, which stays the one the next
+#: terse turn leans on: "why?" after "longer" asks about the subject, not
+#: about "longer".
+_RESTATES = frozenset({"window", "subject", "entity", "pronoun", "did_you_mean", "ordinal"})
+
+
+def _standing(turns: list[dict]) -> list[dict]:
+    """The turns with each terse one replaced by the question it stood for,
+    read forwards, so a follow-on never leans on another follow-on's words."""
+    out: list[dict] = []
+    for turn in turns:
+        text = str(turn.get("question") or "").strip()
+        follow = _follow_one(text, out) if out else None
+        if follow:
+            text = follow.question if follow.kind in _RESTATES else follow.previous
+        out.append({**turn, "question": text})
+    return out
+
+
+def _follow_one(question: str, turns: list[dict]) -> FollowOn | None:
     last = turns[-1]
     previous, said = str(last.get("question") or "").strip(), str(last.get("answer") or "")
     text = (question or "").strip()
@@ -2135,6 +2426,28 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
             resolved = text[: ordinal.start()] + f"“{name}”" + text[ordinal.end():]
             return FollowOn(resolved, previous, "", "ordinal")
         return None
+    correction = _CORRECTION.match(text)
+    if correction:
+        prefer = re.sub(r"^(?:the|my|that|this)\s+", "", correction.group("x").strip(), flags=re.I)
+        prefer = re.sub(r"\s+(?:one|note|entry)$", "", prefer, flags=re.I).strip()
+        if prefer:
+            return FollowOn(previous, previous, "", "correction", prefer)
+    length = _LENGTH.match(text)
+    if length:
+        shorter = bool(re.match(r"\s*(?:shorter|briefer|in short|tl;?dr|summari[sz]e that|less)", text, re.I))
+        base = _without_length(previous)
+        return FollowOn(f"briefly, {base}" if shorter else f"{base.rstrip('?.!')} in detail?", previous, "", "length")
+    window = _WINDOW_ONLY.match(text)
+    found_time = when_words.find(window.group("w")) if window else []
+    #: Only a turn that is nothing but a time ("and last week?"): "what did
+    #: I write yesterday" is a question of its own.
+    if found_time and not window.group("w").replace(found_time[0][2], "").strip(" ,"):
+        phrase = found_time[0][2]
+        base = previous
+        for _s, _e, old_phrase in when_words.find(previous):
+            base = base.replace(old_phrase, "")
+        base = " ".join(base.split()).rstrip(" ?.!")
+        return FollowOn(f"{base} {phrase}?", previous, "", "window")
     meant = _MEANT.match(text)
     if meant:
         word = meant.group(1).strip()
@@ -2158,7 +2471,7 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
             word = "why" if word == "how come" else word
             verb = {"why": "", "how": "do I", "how many": "", "how much": "is", "since when": ""}.get(word, "is")
             resolved = " ".join(w for w in (word.capitalize(), verb, subject) if w) + "?"
-            return FollowOn(resolved, previous, "", "bare")
+            return FollowOn(resolved, previous, "", word)
         return None
     swap = _SWAP.match(text) or _SWAP.match(rephrase(text))
     if swap:
@@ -2168,13 +2481,29 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
         #: Only a question with a shape of its own is asked again of the
         #: new subject; "what about X" after a plain "what" is its own
         #: question, and stands as typed.
+        entity = bool(re.fullmatch(r"(?:[A-Z][\w'-]*)(?: [A-Z][\w'-]*)*", other))
         if other and subject and classify(previous) not in ("what", "recent") and subject_terms(other):
             start = previous.lower().find(subject.lower())
             before = previous[:start]
             if re.search(r"\b(the|my|a|an)\s+$", before, re.I):
                 other = re.sub(r"^(the|my|a|an)\s+", "", other, flags=re.I)
             resolved = before + other + previous[start + len(subject):]
-            return FollowOn(resolved, previous, "", "swap")
+            return FollowOn(resolved, previous, "", "entity" if entity else "subject")
+        if other and subject and subject_terms(other):
+            #: A plain "what" asked again of something else ("what did I do
+            #: at the gym", then "what about running?"): the subject's phrase
+            #: (its preposition and article too) gives way to the new one.
+            start = previous.lower().find(subject.lower())
+            lead_in = re.search(r"(?:\b(?:at|in|on|for|about|with|of|to)\s+)?(?:\b(?:the|my|a|an)\s+)?$", previous[:start], re.I)
+            head = previous[: lead_in.start() if lead_in else start].rstrip()
+            tail = previous[start + len(subject):]
+            if re.search(r"\b(?:is|are|was|were|'s)$", head, re.I):
+                #: "What is the launch plan?" then "what about the boiler?":
+                #: not "what is the boiler", which asks something else.
+                return FollowOn(f"What do my notes say about {other}?", previous, "", "entity" if entity else "subject")
+            bare_other = re.sub(r"^(the|my|a|an)\s+", "", other, flags=re.I)
+            joined = f"with {other}" if entity else f"about {bare_other}"
+            return FollowOn(f"{head} {joined}{tail}", previous, "", "entity" if entity else "subject")
         return None
     if _PRONOUN.search(text) and not [t for t in subject_terms(text) if not _PRONOUN.fullmatch(t)]:
         subject = _asked_span(previous, subject_terms(previous))
@@ -2182,6 +2511,74 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
             resolved = _PRONOUN.sub(lambda _match: subject, text, count=1)
             return FollowOn(resolved, previous, "", "pronoun")
     return None
+
+
+@dataclass
+class Dialogue:
+    """What a conversation has said so far (decision 35), built from the
+    request's history, never kept on the server: the turns, the sentences
+    and notes already quoted, the subjects in order, the names mentioned,
+    the last answer's measured values, the corrections, and the salt that
+    makes "Ask again" in this chat a different wording of the same answer.
+    `compose(dialogue=...)` reads it and adds the turn it answers."""
+
+    history: list[dict] = field(default_factory=list)
+    quoted: list[str] = field(default_factory=list)
+    quoted_ids: set[int] = field(default_factory=set)
+    topic_stack: list[str] = field(default_factory=list)
+    entities: list[str] = field(default_factory=list)
+    last_measures: list[str] = field(default_factory=list)
+    corrections: list[str] = field(default_factory=list)
+    used: set[str] = field(default_factory=set)
+    salt: str = ""
+
+    @property
+    def turns(self) -> int:
+        return len(self.history)
+
+    @classmethod
+    def from_history(cls, history: list[dict] | None, salt: str = "") -> Dialogue:
+        """The dialogue a request's history describes: the chat's salt is
+        its first question's (stable for the chat) unless one is given, and
+        the words earlier answers used are found in their text."""
+        turns = [{"question": str(t.get("question") or ""), "answer": str(t.get("answer") or "")} for t in history or []]
+        dialogue = cls(history=turns, salt=salt or (hashlib.sha1(turns[0]["question"].encode()).hexdigest()[:12] if turns else ""))
+        for turn in turns:
+            dialogue.used |= _templates_in(turn["answer"])
+            dialogue.topic_stack += [t for t in subject_terms(turn["question"]) if t not in dialogue.topic_stack]
+        return dialogue
+
+    def record(self, question: str, result: dict) -> None:
+        """Add the turn `result` answered."""
+        self.history.append({"question": question, "answer": result.get("text", "")})
+        for row in result.get("grounding") or []:
+            self.quoted.append(row["sentence"])
+            self.quoted_ids.add(row["note_id"])
+        self.topic_stack += [t for t in subject_terms(question) if t not in self.topic_stack]
+        self.entities += [p[1] for p in result.get("parts") or [] if p[0] == "title" and p[1] not in self.entities]
+        self.last_measures = [p[1] for p in result.get("parts") or [] if p[0] == "measure"]
+        self.used |= {p[1] for p in result.get("parts") or [] if p[0] == "template" and _TEMPLATE_WORDS.search(p[1])}
+
+
+#: A joining or opening phrase (letters and length), as opposed to a stop or
+#: a space: the words a conversation should not hear twice.
+_TEMPLATE_WORDS = re.compile(r"[A-Za-z]{3}")
+
+
+def _templates_in(answer: str) -> set[str]:
+    """The worded `PHRASES` an earlier answer's text holds."""
+    if not answer:
+        return set()
+    return {v for v in _WORDED_PHRASES() if v in answer}
+
+
+_WORDED: list[str] = []
+
+
+def _WORDED_PHRASES() -> list[str]:  # noqa: N802  # a cached table, read like one
+    if not _WORDED:
+        _WORDED.extend(v for v in set(PHRASES.values()) if len(v.strip()) >= 6 and _TEMPLATE_WORDS.search(v))
+    return _WORDED
 
 
 # --- a question in two parts, and one that could mean two things -------------
@@ -2284,6 +2681,34 @@ def _clarify(out: _Answer, shape: str, terms: list[str], lead: Sentence, meaning
     if len(rivals) != 1 or lead_hits > len(stems & out.views[rivals[0].note_id].title_words):
         return
     out.t("para", "clarify_a").name(out.views[lead.note_id]).t("clarify_or").name(out.views[rivals[0].note_id]).t("qmark")
+    out.readings = [lead.note_id, rivals[0].note_id]
+
+
+#: A question that is only a name ("the meeting", "harbor"), at most this
+#: many words, that two or more notes are called: it could mean any of them.
+READINGS_WORDS = 4
+MAX_READINGS = 4
+
+
+def _readings(out: _Answer, question: str, terms: list[str], views: list[NoteView]) -> None:
+    """The numbered readings of a question that only names something two or
+    more notes are called (decision 45): "Which do you mean: 1. **Meeting
+    with Sam**; 2. **Meeting notes, Thursday**?" With a model running it
+    picks one (or asks); with none, the person does. Never added when
+    `_clarify` already asked."""
+    if out.readings or not terms or len((question or "").split()) > READINGS_WORDS or _ASKS_FIRST.match(rephrase(question)):
+        return
+    stems = {_stem(t) for t in terms}
+    named = [v for v in views if v.titled and not v.note.get("connected") and stems <= {w for t in v.title_words for w in (t, _stem(t))}]
+    if len(named) < 2:
+        return
+    out.readings = [v.id for v in named[:MAX_READINGS]]
+    out.t("para", "readings_a")
+    for i, view in enumerate(named[:MAX_READINGS], 1):
+        if i > 1:
+            out.t("semicolon")
+        out.m(str(i)).t("reading_dot").name(view)
+    out.t("qmark")
 
 
 def _fit_terms(terms: list[str], views: list[NoteView], report: list | None = None) -> list[str]:
@@ -2425,6 +2850,14 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "I'm built to read your notes and report back exactly what you recorded. Try asking about a specific event or task.",
         "I help you comb through your notes without needing to summarize them. Ask me when something happened or who said what.",
     ),
+    "joke": (
+        "I have no jokes of my own: I only say what is in your notes. If you saved one, ask me for it.",
+        "Jokes are not something I make up. If one of your notes has a good one, I can find it.",
+    ),
+    "unclear": (
+        "I could not read that one. Ask about a note, a date or a list, or say what you want to do.",
+        "That did not read as words to me. What would you like to find?",
+    ),
     "compliment": (
         "I am glad to hear that. What can I find for you next?",
         "That's kind of you. What else should we search for?",
@@ -2454,6 +2887,22 @@ SOCIAL: dict[str, tuple[str, ...]] = {
 for _kind, _more in composer_tables.SOCIAL_NATURAL_EXTRA.items():
     SOCIAL[_kind] = SOCIAL[_kind] + _more
 SOCIAL_PROFESSIONAL = composer_tables.SOCIAL_PROFESSIONAL
+#: **The engine is Atlas** (CHAT_PLAN decision 36; the owner: "Composer
+#: doesn't know it is atlas"): who it is and what it does are said in its
+#: name, in both voices, with no model and with one.
+SOCIAL["who"] = (
+    "I am Atlas, this notebook's assistant. With no model running I answer from your notes in their own words.",
+    "I'm Atlas. I find things in your notes and say what they say.",
+    "Atlas, at your service: I answer from your notes, and with a model connected I write and use tools too.",
+    "I am Atlas. Ask me when something is, what you decided or what you did last week.",
+)
+SOCIAL["about_app"] = (
+    "I'm Atlas. I answer from your notes: when something is, who said what, what the latest is on a project. "
+    "I also set reminders, tag, pin and move notes, and work out sums and conversions. Connecting a model adds writing in its own words.",
+    "Atlas here. Ask about anything you wrote down: a date, a decision, a list, how a project is going or what you did "
+    "last week. Say \"remind me to...\" and I set it. Connecting a model adds writing and tools.",
+    "I'm Atlas, and I read your notes for you: ask when something happened or who said what, or tell me to pin, tag or delete a note.",
+)
 
 _SOCIAL_KIND = (
     ("morning", re.compile(r"\bgood (?:morning|afternoon|evening|day)\b|^morning\b", re.I)),
@@ -2461,8 +2910,10 @@ _SOCIAL_KIND = (
     ("how", re.compile(r"\bhow(?:'?s| is| are)(?: it going| things| you|you)\b|\bwhat'?s up\b|\bare you (?:ok|okay|there|awake|alive)\b", re.I)),
     ("bye", re.compile(r"\b(?:bye|goodbye|good night|night|see (?:ya|you)|later|cya)\b", re.I)),
     ("sorry", re.compile(r"\b(?:sorry|my bad)\b", re.I)),
-    ("who", re.compile(r"\bwho are you\b|\byour name\b", re.I)),
+    ("who", re.compile(r"\bwho are you\b|\byour name\b|\bare you (?:an? )?(?:ai|bot|robot|human|real|person|real person)\b", re.I)),
     ("greeting", re.compile(r"^\W*(?:hi|hey|hello|hiya|yo|sup|howdy)\b", re.I)),
+    ("joke", re.compile(r"\b(?:joke|jokes|something funny|make me laugh)\b", re.I)),
+    ("unclear", re.compile(r"^\W*\w*(?:asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|wert|erty|rtyu|tyui|yuio|uiop|zxcv|xcvb|cvbn|vbnm|fdsa|lkjh|poiu|rewq)\w*\W*$", re.I)),
 )
 
 
@@ -2510,6 +2961,214 @@ def social(message: str, intent: str = "smalltalk", previous: str = "", last_que
     return line
 
 
+# --- the query plan (CHAT_PLAN Phase 6, decision 31) ------------------------------
+
+#: The answer kinds a plan names (decision 31's discourse schemas): the shape
+#: a question is read in, plus what only the plan sees (a time window, a
+#: utility, a recall by time, an insight, a recommendation).
+PLAN_KINDS = (
+    "fact", "when", "list", "timeline", "comparison", "count", "yesno", "why", "how", "status",
+    "recommendation", "recall", "insight", "utility",
+)
+_SHAPE_KIND = {
+    "what": "fact", "who": "fact", "where": "fact", "when": "when", "count": "count", "yesno": "yesno",
+    "list": "list", "compare": "comparison", "status": "status", "recent": "recall",
+}
+_WHY = re.compile(r"^\s*(?:why|how come|what (?:made|makes|caused|causes)|explain why)\b", re.I)
+_RECALL = re.compile(
+    r"\bwhat (?:did|have|had) (?:i|we) (?:do|did|done|write|wrote|written|get up to|work on|worked on|note|noted|been up to)\b"
+    r"|\bwhat happened\b|\bwhat was i (?:doing|up to)\b|\bwhat(?:'s| is| was) (?:been )?going on\b|\banything (?:new|happen)\b",
+    re.I,
+)
+_INSIGHT = re.compile(r"\b(?:patterns?|habits?|trends?|keeps? coming up|how often do i|what do i (?:keep|always))\b", re.I)
+_RECOMMEND = re.compile(r"^\s*(?:what|which) should (?:i|we)\b|^\s*should (?:i|we)\b|\brecommend|\bsuggest(?:ion)?s?\b", re.I)
+_TAGGED = re.compile(r"\b(?:tagged(?: with)?|with the tags?|under the tags?)\s+#?([\w-]{1,40})|(?<![\w&])#([A-Za-z][\w-]{0,39})", re.I)
+#: The words that name a kind of source (decision 37), and the kind.
+_SOURCE_WORDS = (
+    ("board", re.compile(r"\b(?:white)?boards?\b", re.I)),
+    ("map", re.compile(r"\bmind ?maps?\b|\bmaps?\b", re.I)),
+    ("document", re.compile(r"\bdocuments?\b|\bdocs\b", re.I)),
+    ("picture", re.compile(r"\b(?:pictures?|photos?|images?|screenshots?)\b", re.I)),
+)
+
+
+@dataclass
+class Plan:
+    """What a question asks for, read before any note is (decision 31):
+    the answer kind, the time window, the constraints, the subject's words
+    and the length wished for. `compose` follows it; the route reads it to
+    fetch the right notes (a recall by time fetches the window's notes)."""
+
+    kind: str
+    shape: str
+    terms: list[str]
+    window: tuple | None = None
+    grain: str | None = None
+    window_phrase: str = ""
+    constraints: dict = field(default_factory=dict)
+    source_kind: str | None = None
+    length: str = ""
+    utility: str | None = None
+
+
+def _time_phrase(question: str) -> str:
+    found = when_words.find(question or "")
+    return found[0][2] if found else ""
+
+
+def plan(question: str, today: date | None = None, *, recent: bool = False, embed=None) -> Plan:  # noqa: ANN001
+    """The query plan for `question` on `today` (the person's own day)."""
+    today = today or date.today()
+    utility = utilities.kind_of(question)
+    shape = "recent" if recent else classify(question, embed)
+    terms = subject_terms(question)
+    constraints: dict = {}
+    tags = [a or b for a, b in _TAGGED.findall(question or "")]
+    if tags:
+        constraints["tags"] = [t.lower() for t in tags]
+        terms = [t for t in terms if t not in ("tagged", "tag", "tags") and t.lower() not in constraints["tags"]]
+    source_kind = None
+    for kind, pattern in _SOURCE_WORDS:
+        if pattern.search(question or ""):
+            source_kind = kind
+            terms = [t for t in terms if not pattern.fullmatch(t)]
+            break
+    if source_kind:
+        constraints["source_kind"] = source_kind
+    phrase = _time_phrase(question)
+    span = when_words.span(phrase, today, "past") if phrase else None
+    if span and span[0] > today:
+        span = None
+    if utility and utility != "until_note":
+        kind = "utility"
+    elif span and not terms and (_RECALL.search(question or "") or shape in ("what", "recent", "list")):
+        kind = "recall"
+    elif _INSIGHT.search(question or ""):
+        kind = "insight"
+    elif _RECOMMEND.search(question or ""):
+        kind = "recommendation"
+    elif shape == "explain":
+        kind = "why" if _WHY.match(rephrase(question)) else "how"
+    else:
+        kind = _SHAPE_KIND.get(shape, "fact")
+    return Plan(
+        kind=kind,
+        shape=shape,
+        terms=terms,
+        window=(span[0], min(span[1], today)) if span else None,
+        grain=span[2] if span else None,
+        window_phrase=phrase if span else "",
+        constraints=constraints,
+        source_kind=source_kind,
+        length=length_wish(question),
+        utility=utility,
+    )
+
+
+def _help_answer(question: str) -> dict | None:
+    """A how-to answered by the step sentence of the Help topic it names
+    (decision 36's help register): the sentence of the best topic that
+    shares the most of the question's words, then where to read the rest.
+    None when no topic matches."""
+    from memorymap.ai import help_chat
+
+    topics = help_chat.topics_for(question or "")
+    if not topics:
+        return None
+    topic = topics[0]
+    body = str(topic.get("body") or "")
+    sentences = [m.group(0).strip() for m in re.finditer(r"[^.!?]+[.!?]", body) if len(m.group(0).split()) >= 4]
+    if not sentences:
+        return None
+    #: Every word of the question counts here, "note" included: the asking
+    #: words that are noise in a notebook ("note") name the control in Help.
+    wanted = set(_words(question))
+
+    def shared(line: str) -> int:
+        #: A word and its longer form ("remind", "reminder") are one word here.
+        have = set(_words(line))
+        return sum(1 for w in wanted if any(h == w or (min(len(h), len(w)) >= 5 and (h.startswith(w) or w.startswith(h))) for h in have))
+
+    best = max(sentences, key=lambda line: (shared(line), -sentences.index(line)))
+    parts = [("help", best, topic.get("id", "")), ("template", PHRASES["help_more"])]
+    return _result(parts, "help")
+
+
+def _result(parts: list[tuple], shape: str, rows: list[dict] | None = None, next_parts: list | None = None) -> dict:
+    """A composed result from its parts: the text is their join."""
+    rows = rows or []
+    quotes = "\n\n".join(row["sentence"] for row in rows)
+    next_parts = next_parts or []
+    return {
+        "text": "".join(part[1] for part in parts),
+        "grounding": rows,
+        "support": grounding.support(quotes, rows),
+        "shape": shape,
+        "parts": parts,
+        "next": ["".join(part[1] for part in chip) for chip in next_parts],
+        "next_parts": next_parts,
+    }
+
+
+def _utility(question: str, now: datetime | None, salt: str) -> dict | None:
+    """A utility's answer (decision 41): computed sentences, or a fixed line
+    for what the app cannot do (the weather, translating with no model)."""
+    found = utilities.answer(question, now, salt)
+    if not found:
+        return None
+    parts = [("template", PHRASES[text]) if kind == "phrase" else (kind, text) for kind, text in found]
+    return _result(parts, "utility")
+
+
+def _in_window(view: NoteView, window: tuple) -> bool:
+    return view.written is not None and window[0] <= view.written <= window[1]
+
+
+#: A recall by time lists at most this many notes; the count says how many.
+RECALL_NOTES = 8
+
+
+def _recall(out: _Answer, p: Plan, views: list[NoteView], question: str) -> None:
+    """Recall by time (decision 31's schema): the notes in the window, newest
+    first, grouped by day, under the count; "nothing from then" when none."""
+    inside = sorted((v for v in views if v.sentences and _in_window(v, p.window)), key=lambda v: (v.written, -v.rank), reverse=True)
+    said = _as_typed(p.window_phrase, question)
+    if not inside:
+        out.t("recall_none").asked(said).t("stop")
+        return
+    out.t("recall_a").m(out.count(len(inside))).t("recall_note" if len(inside) == 1 else "recall_notes").asked(said)
+    out.t("recall_b" if len(inside) > 1 else "end_colon")
+    for view in inside[:RECALL_NOTES]:
+        out.t("line", "bullet")
+        if view.titled:
+            out.name(view).dated(view)
+        else:
+            out.t("list_from").m(out.day(view.written))
+        out.t("colon")
+        first = view.sentences[0]
+        if first.kind == "picture":
+            out.t("picture_in").name(view).t("picture_shows").q(first, [])
+        else:
+            out.q(first, [])
+
+
+def _filtered(views: list[NoteView], p: Plan) -> tuple[list[NoteView], tuple | None]:
+    """The notes the plan's constraints keep, and, when a constraint keeps
+    none, which one (to say so rather than answer from the others)."""
+    tags = p.constraints.get("tags")
+    if tags:
+        kept = [v for v in views if {str(t).lower() for t in v.note.get("tags") or []} & set(tags)]
+        if not kept:
+            return [], ("none_tagged", tags[0])
+        views = kept
+    kind = p.source_kind
+    if kind and kind != "picture":
+        kept = [v for v in views if str(v.note.get("kind") or "note") == kind]
+        if kept:
+            views = kept
+    return views, None
+
+
 def _did_you_mean(unsure: list[dict]) -> list[list[tuple]]:
     """One "Did you mean “how”?" chip for the first unsure reading: pressing
     it asks the question again with that word (`follow_on`)."""
@@ -2518,35 +3177,42 @@ def _did_you_mean(unsure: list[dict]) -> list[list[tuple]]:
     return [[("template", PHRASES["did_you_mean_a"]), ("corrected", unsure[0]["alternative"]), ("template", PHRASES["did_you_mean_b"])]]
 
 
-def _sum(question: str) -> dict | None:
-    """"What is 12 * 4?" worked out (`arithmetic`, our own bounded evaluator),
-    or None for any question that is not only a sum. The notes are not read:
-    a sum's answer is in the question."""
-    expr = arithmetic.sum_in(question)
-    if expr is None:
-        return None
-    value = arithmetic.spoken(arithmetic.evaluate(expr))
-    parts = [("asked", expr.strip()), ("template", PHRASES["sum_is"]), ("measure", value), ("template", PHRASES["stop"])]
+def _absent(terms: list[str], views: list[NoteView]) -> list[str]:
+    """The question's words no note found holds, when that is all of them:
+    what a no-answer can name ("No note found mentions “gym”.")."""
+    found: set[str] = set()
+    for view in views:
+        found |= view.words | view.title_words | view.filed_words
+    absent = [t for t in terms if len(t) >= _MISSING_MIN and not _holds(_stem(t), found)]
+    return absent if terms and len(absent) == len(terms) else []
+
+
+def _as_typed(word: str, question: str) -> str:
+    """`word` as the question spelled it: "Sam", not the lowered "sam"."""
+    found = re.search(rf"\b{re.escape(word)}\b", question or "", re.I)
+    return found.group(0) if found else word
+
+
+def _nothing(shape: str, unsure: list[dict] | None = None, voice: str = composer_tables.DEFAULT_VOICE, absent: list[str] | None = None) -> dict:
+    chips = _did_you_mean(unsure or [])
+    key = composer_tables.VOICE_VARIANTS[composer_tables.voice_of(voice)]["nothing"][0]
+    parts: list[tuple] = [("template", PHRASES[key])]
+    if absent:
+        #: Measured over the notes found: the words asked about that none of
+        #: them holds, said before the question back.
+        tail = "_p" if composer_tables.voice_of(voice) == "professional" else ""
+        parts = [("template", PHRASES["none_found" + tail])]
+        for i, word in enumerate(absent[:3]):
+            if i:
+                parts.append(("template", PHRASES["or"]))
+            parts += [("template", PHRASES["open_quote"]), ("asked", word), ("template", PHRASES["close_quote"])]
+        parts += [("template", PHRASES["stop"]), ("template", PHRASES["space"]), ("template", PHRASES["nothing_ask" + tail])]
     return {
         "text": "".join(part[1] for part in parts),
         "grounding": [],
         "support": grounding.support("", []),
-        "shape": "sum",
-        "parts": parts,
-        "next": [],
-        "next_parts": [],
-    }
-
-
-def _nothing(shape: str, unsure: list[dict] | None = None, voice: str = composer_tables.DEFAULT_VOICE) -> dict:
-    chips = _did_you_mean(unsure or [])
-    key = composer_tables.VOICE_VARIANTS[composer_tables.voice_of(voice)]["nothing"][0]
-    return {
-        "text": PHRASES[key],
-        "grounding": [],
-        "support": grounding.support("", []),
         "shape": shape,
-        "parts": [("template", PHRASES[key])],
+        "parts": parts,
         "next": ["".join(part[1] for part in chip) for chip in chips],
         "next_parts": chips,
     }
@@ -2562,6 +3228,12 @@ def compose(
     said: str = "",
     previous: str = "",
     voice: str = composer_tables.DEFAULT_VOICE,
+    now: datetime | None = None,
+    salt: str = "",
+    turn: int | None = None,
+    dialogue: Dialogue | None = None,
+    prefer: str = "",
+    resolved: bool = False,
 ) -> dict:
     """`{"text", "grounding", "support", "shape", "parts", "next", "next_parts"}`
     for one question.
@@ -2576,26 +3248,114 @@ def compose(
     not open with the same words. `voice` is the register the connecting
     words are written in, "natural" or "professional" (the `composer_voice`
     preference); the notes' own sentences are quoted the same in both.
+
+    In a conversation (CHAT_PLAN decisions 34 and 35): `turn` and `salt` (the
+    chat's) choose the openers and joins, so "Ask again" is worded anew while
+    the lead sentence stays; `dialogue` reads a terse turn against the ones
+    before, keeps "tell me more" from quoting a sentence twice, and records
+    this turn (`resolved`: the caller already read the follow-on); `prefer`
+    is a correction's words ("no, the gym one"), whose notes come first.
     """
+    if voice == "help":
+        #: The help register (decision 36): a how-to answered from the app's
+        #: own Help, the Guide's topics, so the Guide and Chat are one engine.
+        helped = _help_answer(question)
+        if helped:
+            return helped
+        voice = composer_tables.DEFAULT_VOICE
+    #: In a conversation (decision 34, 35): the turn and the chat's salt
+    #: choose the wording, and a terse turn is read against the ones before.
+    asked = question
+    if dialogue is not None:
+        salt = salt or dialogue.salt
+        turn = turn if turn is not None else dialogue.turns + 1
+        follow = follow_on(question, dialogue.history) if dialogue.history and not resolved else None
+        if follow:
+            question = follow.question
+            prefer = prefer or follow.prefer
+            if follow.kind == "more":
+                said = "\n".join([said, *dialogue.quoted]).strip()
+            if follow.kind == "correction":
+                dialogue.corrections.append(follow.prefer)
+        previous = previous or (dialogue.history[-1]["answer"] if dialogue.history else "")
+    token = _SESSION.set(f"{salt}:{turn}" if (salt or turn) else "")
+    try:
+        result = _compose(question, notes, today=today, recent=recent, embed=embed, said=said, previous=previous,
+                          voice=voice, now=now, salt=salt, turn=turn, dialogue=dialogue, prefer=prefer)
+    finally:
+        _SESSION.reset(token)
+    if dialogue is not None:
+        dialogue.record(asked, result)
+    return result
+
+
+def _compose(
+    question: str,
+    notes: list[dict],
+    *,
+    today: date | None,
+    recent: bool,
+    embed,  # noqa: ANN001
+    said: str,
+    previous: str,
+    voice: str,
+    now: datetime | None,
+    salt: str,
+    turn: int | None,
+    dialogue: Dialogue | None,
+    prefer: str,
+) -> dict:
+    """`compose`'s body, inside the conversation's salt."""
     voice = composer_tables.voice_of(voice)
     today = today or date.today()
-    summed = None if recent or said else _sum(question)
-    if summed:
-        return summed
+    #: A sum is answered whatever retrieval did: the route hands "what is
+    #: 12 * 7" the newest notes when nothing matches, and those used to be
+    #: listed instead of the 84 (engine probe P3).
+    if not said:
+        worked = _utility(question, now or datetime.combine(today, datetime.now().time()), salt)
+        if worked:
+            return worked
+    #: The newest notes answer a question with a time and no subject. When
+    #: retrieval fell back to them for a question with a subject ("summarise
+    #: my gym notes" with no gym note), the subject is answered, or said to
+    #: be in no note found (engine probe P7).
+    if recent and subject_terms(question):
+        recent = False
     if not recent and not said:
         parts = split_parts(question)
         if len(parts) > 1:
-            multi = _multi(question, parts, notes, today=today, embed=embed, voice=voice)
+            multi = _multi(question, parts, notes, today=today, embed=embed, voice=voice, salt=salt, turn=turn)
             if multi:
                 return multi
-    views_list = [v for v in (read_note(n, i) for i, n in enumerate(notes or [])) if v]
+    if prefer:
+        #: A correction ("no, the gym one"): the notes it names first, the
+        #: ones the answer before quoted last (decision 35).
+        wanted = {_stem(w) for w in _words(prefer)}
+        quoted = dialogue.quoted_ids if dialogue is not None else set()
+        notes = sorted(
+            notes or [],
+            key=lambda n: (not (wanted & set(_words(str(n.get("content") or "")))), n.get("id") in quoted),
+        )
+    views_list = [v for v in (read_note(n, i) for i, n in enumerate(_distinct_ids(notes or []))) if v]
+    p = plan(question, today, recent=recent, embed=embed)
+    if prefer:
+        p.window, p.kind = None, (p.kind if p.kind != "recall" else "fact")
+        p.terms = list(dict.fromkeys([*p.terms, *_words(prefer)]))
+    views_list, refused = _filtered(views_list, p)
+    if refused:
+        key, word = refused
+        return _result([("template", PHRASES[key]), ("template", PHRASES["open_quote"]), ("asked", _as_typed(word, question)),
+                        ("template", PHRASES["close_quote"]), ("template", PHRASES["stop"])], p.shape)
     out = _Answer({v.id: v for v in views_list}, today)
+    if dialogue is not None:
+        out.used = set(dialogue.used)
+    out.said = said
     out.subject = {_stem(t) for t in subject_terms(question)}
     out.previous = (previous or "").lstrip()
     out.voice = voice
     out.question = question
     shape = "recent" if recent else classify(question, embed)
-    typed = subject_terms(question) if shape != "recent" else []
+    typed = p.terms if shape != "recent" else []
     unsure: list[dict] = []
     question_noise.repair(" ".join((question or "").split()), unsure)
     terms = _fit_terms(typed, views_list, unsure)
@@ -2605,6 +3365,18 @@ def compose(
         pool = sorted(_score(shape, side_terms, views_list), key=lambda s: (-s.score, s.rank, s.order))[:MEANING_POOL]
         return _Meaning(pool, embed, {_stem(t) for t in side_terms})
 
+    if p.kind == "recall" and p.window and not said:
+        shape = "recall"
+        _recall(out, p, views_list, question)
+        return _result(out.parts, shape, out.rows)
+    if p.window and not said and views_list and not any(_in_window(v, p.window) for v in views_list):
+        #: A window no note found falls in: said, never answered from notes
+        #: written at another time.
+        out.t("recall_none").asked(_as_typed(p.window_phrase, question)).t("stop")
+        return _result(out.parts, shape)
+    if p.window and not said:
+        views_list = [v for v in views_list if _in_window(v, p.window)]
+        out.views = {v.id: v for v in views_list}
     if shape == "recent":
         _newest(out, views_list)
     else:
@@ -2622,24 +3394,34 @@ def compose(
                 said=said,
             )
             if not chosen:
-                return _nothing(shape, unsure, voice)
+                return _nothing(shape, unsure, voice, [_as_typed(w, question) for w in _absent(typed, views_list)])
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
                 broad = False
                 out.brief = True
             pair = _disagreement(chosen)
+            if p.kind == "insight" and _insight_lead(out, question, terms, views_list):
+                broad = True
             lead = _body(out, shape, chosen, terms, question, meaning, broad, {s.key for s in pair} if pair else set())
             if pair:
                 _disagreements(out, pair, lead, terms)
             elif not broad:
                 _clarify(out, shape, terms, lead, meaning, views_list)
+            _readings(out, question, terms, views_list)
+            if broad and p.kind != "insight":
+                _insight_close(out, question, terms, views_list)
             _missing(out, terms, views_list)
     if not out.rows:
         return _nothing(shape, unsure, voice)
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
     next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]
+    readings = [
+        {"n": i, "note_id": out.views[v].note.get("source_id", v), "label": out.views[v].title}
+        for i, v in enumerate(out.readings, 1)
+    ]
     return {
+        "readings": readings,
         "text": out.text,
         "grounding": out.rows,
         #: Counted over the quotes, the only claims an answer here makes: the

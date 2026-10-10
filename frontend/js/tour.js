@@ -1419,7 +1419,7 @@ async function tourWhiteboard(face) {
   const id = face === "map" ? context.map : context.board;
   if (face === "map" && id == null) return;
   if (onCanvas && (window.currentBoardId ?? null) === (id ?? null)) return;
-  if (typeof openWhiteboardBoard === "function") await openWhiteboardBoard(id ?? null);
+  await openWhiteboardBoard(id ?? null);
 }
 
 //: **A settings step opens the fold its control is folded into** (INBOX 426

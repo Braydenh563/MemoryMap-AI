@@ -1062,7 +1062,7 @@ MORE_TOPICS.extend(
                 "adds only the joining words and the counts and dates it measured, "
                 "names two notes that may disagree, and says which of your words "
                 "none of the notes found mention. It never answers yes or no for "
-                "you. The chip over the answer reads Your notes, no AI. The "
+                "you. Atlas heads the answer and its chip reads From your notes. The "
                 "choice is kept on this device; with no model running it is the "
                 "answer and Use AI is greyed, with the reason on it, until a model runs. "
                 "The No model connected line above the Chat box and the Ask box "

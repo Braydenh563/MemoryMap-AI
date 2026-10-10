@@ -405,7 +405,7 @@ def _graph_nearness(note: dict) -> float | None:
 
 
 def paragraph_ordinal(content: str, start: int, end: int | None = None) -> int:
-    """Which paragraph of `content` (`embeddings.paragraph_chunks`) a passage
+    """Which paragraph of `content` (`chunks.paragraph_chunks`) a passage
     sits in: the one it overlaps most.
 
     The same split the paragraph vectors were stored with, so an ordinal here
@@ -414,12 +414,7 @@ def paragraph_ordinal(content: str, start: int, end: int | None = None) -> int:
     on a twenty-word stride and often begins at the tail of the paragraph
     before the one it is about.
     """
-    #: Imported here, not at the top: `embeddings` brings the model manager,
-    #: the database models and SQLAlchemy with it (0.44 s of a cold import),
-    #: and the composer, which reaches this module, answers with no model and
-    #: is imported by the eval and the tests on its own (2026-10-10 triage,
-    #: decision 9). In the app it is already loaded and this costs nothing.
-    from memorymap.ai.embeddings import paragraph_chunks
+    from memorymap.ai.chunks import paragraph_chunks
 
     spans = paragraph_chunks(content or "")
     if not spans:

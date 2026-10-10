@@ -81,12 +81,15 @@ function linkCitedTitles(targets, sentences, byId, numberFor) {
   for (const target of targets) {
     for (const name of target.querySelectorAll("strong:not([data-note-id])")) {
       const g = byTitle.get(name.textContent.trim());
-      const bracketed = /\[$/.test(name.previousSibling?.textContent || "") && /^\]/.test(name.nextSibling?.textContent || "");
+      //: "[**Dentist**]", or "[board **Harbor board**]" for a board, a map,
+      //: a document or a file (CHAT_PLAN decision 37: the citation says its kind).
+      const bracketed = /\[(?:board |map |document |file |page )?$/.test(name.previousSibling?.textContent || "") && /^\]/.test(name.nextSibling?.textContent || "");
       if (!g || !bracketed) continue;
       name.dataset.noteId = String(g.note_id);
       name.tabIndex = 0;
       name.setAttribute("role", "link");
-      name.setAttribute("aria-label", `Open the note ${g.title}`);
+      const kind = g.kind && g.kind !== "note" ? g.kind : "note";
+      name.setAttribute("aria-label", `Open the ${kind === "map" ? "mind map" : kind} ${g.title}`);
       name.style.cursor = "pointer";
       const describe = () => ({
         noteId: g.note_id, number: numberFor.get(g.note_id), entry: byId.get(g.note_id), label: g.label,
@@ -100,13 +103,128 @@ function linkCitedTitles(targets, sentences, byId, numberFor) {
       name.addEventListener("blur", (event) => {
         if (!citationPeekState.panel?.contains(event.relatedTarget)) scheduleCitationPeekClose();
       });
+      //: Each kind opens in its own place (INBOX 744): a document in the
+      //: editor, a map or a board on its canvas, a file in the Library.
       const open = (event) => {
         event.stopPropagation();
         closeCitationPeek();
-        flashEntry(g.note_id);
+        if (kind === "document") openDocumentFromNote(g.note_id);
+        else if (kind === "map" || kind === "board") openWhiteboardBoard(g.note_id);
+        else if (kind === "file") focusLibraryFile(g.title, `/files/${g.note_id}`);
+        else if (kind === "web" && /^https?:\/\//.test(g.url || "")) window.open(g.url, "_blank", "noopener");
+        else flashEntry(g.note_id);
       };
       name.addEventListener("click", open);
       name.addEventListener("keydown", (event) => event.key === "Enter" && open(event));
     }
   }
+}
+
+//: **A sentence said from a note is drawn as one** (CHAT_PLAN decision 33):
+//: an answer composed from the notes marks each of its rows `said`, "quoted"
+//: (the note's words as written) or "shifted" (said back to the person who
+//: wrote them, "I went" as "you went", the row keeping the note's own words
+//: as `original`). Each is wrapped in `.said` (ask-compose-lazy.css, a left
+//: rule in the quote style; never quotation marks, which are not the note's
+//: and broke grounding when they were added to the text); a shifted one
+//: carries the note's own words as its hover text, and the citation peek
+//: shows them too. Found by the letters the citations use
+//: (`citationTextIndex`); a sentence that crosses an element edge is left
+//: as it is rather than broken apart. Called after every paint, so a
+//: sentence already wrapped is skipped.
+//: Its sheet comes with this file, through the lazy loader that stamps it
+//: (app.js `lazyScript`); naming it in `LAZY_MODULES` would grow app.js past
+//: its gzip ratchet (`test_static_compression.py`).
+lazyScript("/css/ask-compose-lazy.css");
+
+function markSaidSentences(targets, sentences) {
+  for (const g of sentences || []) {
+    if (g.said !== "quoted" && g.said !== "shifted") continue;
+    const key = citationKey(g.sentence);
+    if (key.length < 12) continue;
+    const index = citationTextIndex(targets);
+    const at = index.text.indexOf(key);
+    if (at === -1) continue;
+    const [first, from] = index.at[at];
+    const [last, to] = index.at[at + key.length - 1];
+    if (first.parentElement?.closest(".said")) continue;
+    const range = document.createRange();
+    range.setStart(first, from);
+    range.setEnd(last, to + 1);
+    const span = document.createElement("span");
+    span.className = g.said === "shifted" ? "said said-shifted" : "said";
+    if (g.said === "shifted" && g.original) span.title = `In your note: ${g.original}`;
+    try {
+      range.surroundContents(span);
+    } catch {
+      // Crosses an element edge (a bold word inside the sentence): left plain.
+    }
+  }
+}
+
+//: **An act's card, with no model** (CHAT_PLAN decision 38): the exact change
+//: in one line, the notes it names, and either Confirm and Cancel (a delete,
+//: a rename, a move or a tag waits for them) or, once it ran (a reminder, a
+//: new note, a pin), what was done and Undo. Confirm and Undo both post the
+//: steps to `/chat/command/run`, which runs only the tools an act may use.
+function renderActCard(holder, event) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm";
+  const run = (steps, then) =>
+    apiJson("/chat/command/run", { method: "POST", body: JSON.stringify({ steps, skipped: event.skipped || [] }) })
+      .then((result) => (refreshAfterToolChanges(), then(result)))
+      .catch((error) => toast(error.message, true));
+  const line = (label, ...more) => {
+    const text = document.createElement("p");
+    setLabel(text, label);
+    card.replaceChildren(text, ...more);
+  };
+  const done = (summary, undo) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    if (undo?.length) {
+      row.appendChild(smallButton("Undo", "Take this back", () => run(undo, () => card.replaceWith(toolChip("ph:arrow-counter-clockwise Undone.")))));
+    }
+    line(`ph:check-circle ${summary}`, row);
+  };
+  if (event.done) done(event.summary || event.label, event.undo);
+  else {
+    const notice = document.createElement("p");
+    notice.className = "muted";
+    notice.textContent = event.notice;
+    const row = document.createElement("div");
+    row.className = "row";
+    row.append(
+      smallButton("Confirm", "Do this", () => run(event.steps, (result) => done(result.summary, result.undo)), false),
+      smallButton("Cancel", "Don't do this", () => card.replaceWith(toolChip("ph:x Cancelled: nothing was changed.")))
+    );
+    line(`ph:warning ${event.label}`, notice, row);
+  }
+  holder.appendChild(card);
+  chatScrollToEnd();
+}
+
+//: **The web pages an answer read** (CHAT_PLAN decision 37): a numbered,
+//: scrollable list under the answer (`.web-sources`, ask-compose-lazy.css),
+//: each page's title opening it in the browser, its domain beside it. Only
+//: http and https addresses are drawn as links.
+function renderWebSources(holder, sources) {
+  const list = document.createElement("ol");
+  list.className = "web-sources";
+  list.setAttribute("aria-label", "Web pages read for this answer");
+  for (const source of sources || []) {
+    if (!/^https?:\/\//.test(source.url || "")) continue;
+    const item = document.createElement("li");
+    const link = document.createElement("a");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = source.title || source.domain;
+    const domain = document.createElement("span");
+    domain.className = "muted";
+    domain.textContent = ` ${source.domain || ""}`;
+    item.append(link, domain);
+    list.appendChild(item);
+  }
+  if (list.childElementCount) holder.appendChild(list);
 }

@@ -1478,7 +1478,7 @@ function openPhoneMoreSheet() {
       list.appendChild(sheetRow("ph ph-question tab-icon", "Guide", () => {
         close();
         //: settings.js owns the Guide sheet and loads beside this file.
-        if (typeof openHelpChat === "function") openHelpChat();
+        openHelpChat();
       }));
       //: The agent's runs, which the status bar holds above 600 and a phone
       //: does not show (INBOX 430): a row with the count, opening the panel.

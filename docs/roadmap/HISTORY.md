@@ -46078,7 +46078,7 @@ Orientation reads are the largest token cost, so every plan and planning file ha
 | `MINDMAP_PLAN.md` | 2000 |
 | `TIMELINE_PLAN.md` | 500 |
 | `UI_MODERNISATION_PLAN.md` | 1600 |
-| `WHITEBOARD_PLAN.md` | 1200 |
+| `WHITEBOARD_PLAN.md` | 1800 |
 | `WORLD_CLASS_PLAN.md` | 3900 |
 | `AGENT_SKILLS_REFORM.md` | 600 |
 | `ROADMAP.md` | 600 |

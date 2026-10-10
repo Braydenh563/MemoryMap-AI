@@ -1,12 +1,18 @@
+"""A fixed map from everyday words to the domain they belong to ("squat" is
+Fitness, "lentils" Cooking), read by `lexical_filing._tally` as one small
+vote for a category the notebook already has by that name.
+
+From the Gemini branch, kept after the 2026-10-10 triage measured it
+(decision 7, `tests/test_filing_accuracy.py`); its tag vote, its composite
+names ("Tech & Finance") and its voting for categories nobody made were
+taken out. Matching is FlashText (`memorymap.vendor.flashtext`, MIT): whole
+words and phrases, case folded, in one pass over the text.
+"""
+
+from __future__ import annotations
+
 from memorymap.vendor.flashtext import KeywordProcessor
 
-# A massive, comprehensive default taxonomy mapping keywords to categories
-# This allows MemoryMap to instantly recognize concepts offline without AI.
-from memorymap.vendor.flashtext import KeywordProcessor
-from collections import Counter
-
-# A massive, comprehensive default taxonomy mapping keywords to domains
-# Researched from modern PKM strategies (PARA, Zettelkasten, Second Brain)
 TAXONOMY_MAP = {
     # 1. Functional / Meta
     "Projects": ["deadline", "milestone", "sprint", "to-do", "todo", "task list", "finish by", "project", "deliverable"],
@@ -32,79 +38,16 @@ TAXONOMY_MAP = {
     "Business": ["business", "company", "startup", "entrepreneur", "marketing", "sales", "revenue", "profit", "loss", "b2b", "b2c", "ceo", "management", "human resources", "hr", "strategy", "pitch deck", "meetings"],
 }
 
-def get_taxonomy_processor() -> KeywordProcessor:
-    processor = KeywordProcessor(case_sensitive=False)
-    for category, keywords in TAXONOMY_MAP.items():
-        for keyword in keywords:
-            # Output the category (domain) for the found keyword
-            processor.add_keyword(keyword, category)
-    return processor
+_processor: KeywordProcessor | None = None
 
-def get_keyword_processor() -> KeywordProcessor:
-    processor = KeywordProcessor(case_sensitive=False)
-    for keywords in TAXONOMY_MAP.values():
-        for keyword in keywords:
-            processor.add_keyword(keyword)
-    return processor
-
-_cat_processor = None
-_kw_processor = None
-
-def extract_dynamic_categories(text: str) -> list[str]:
-    """
-    Intelligently extracts and joins domains.
-    If it finds keywords for "Tech" and "Finance", it dynamically generates "Tech & Finance".
-    If it finds "Projects" and "Software", it generates "Project: Software".
-    """
-    global _cat_processor
-    if _cat_processor is None:
-        _cat_processor = get_taxonomy_processor()
-        
-    domains_found = _cat_processor.extract_keywords(text)
-    if not domains_found:
-        return []
-        
-    # Count frequency of domains
-    domain_counts = Counter(domains_found)
-    
-    # Separate functional tags from topical domains
-    functional = {"Projects", "Journal", "Reference"}
-    found_funcs = [d for d in domain_counts if d in functional]
-    found_topics = [d for d in domain_counts if d not in functional]
-    
-    # Sort topics by frequency (most prominent first)
-    found_topics.sort(key=lambda d: domain_counts[d], reverse=True)
-    
-    results = []
-    
-    # Intelligently join the top 2 topics (e.g. "Software & AI" or "Health & Fitness")
-    if len(found_topics) >= 2:
-        top_two = sorted([found_topics[0], found_topics[1]]) # Sort alphabetically for consistency
-        joined_topic = f"{top_two[0]} & {top_two[1]}"
-        results.append(joined_topic)
-    elif len(found_topics) == 1:
-        results.append(found_topics[0])
-        
-    # Apply functional prefixes if applicable (e.g. "Project: Software & AI")
-    if found_funcs and results:
-        primary_func = found_funcs[0]
-        # Instead of just replacing, we add a highly specific composite category
-        results.append(f"{primary_func}: {results[0]}")
-    elif found_funcs:
-        results.extend(found_funcs)
-        
-    return results
 
 def extract_categories(text: str) -> list[str]:
-    """Legacy wrapper for direct domain extraction."""
-    global _cat_processor
-    if _cat_processor is None:
-        _cat_processor = get_taxonomy_processor()
-    return _cat_processor.extract_keywords(text)
-    
-def extract_keywords(text: str) -> list[str]:
-    """Instantly extracts raw taxonomy keywords from text for tag suggestions."""
-    global _kw_processor
-    if _kw_processor is None:
-        _kw_processor = get_keyword_processor()
-    return _kw_processor.extract_keywords(text)
+    """The map's domain for each keyword found in `text`, once per mention."""
+    global _processor
+    if _processor is None:
+        processor = KeywordProcessor(case_sensitive=False)
+        for category, keywords in TAXONOMY_MAP.items():
+            for keyword in keywords:
+                processor.add_keyword(keyword, category)
+        _processor = processor
+    return _processor.extract_keywords(text or "")

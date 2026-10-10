@@ -1,0 +1,100 @@
+"""Plain arithmetic for the composer: "what is 12 * (3 + 4)?".
+
+Our own, in place of the vendored simpleeval the Gemini branch brought in
+(2026-10-10 triage, decision 1): a question is untrusted text, so the grammar
+is the smallest that answers it. Numbers, + - * / ** %, parentheses and a
+leading minus; anything else (a name, a call, an attribute, a comparison) is
+refused by the parser, never evaluated. Python's `ast` does the parsing, so
+there is no hand-written tokeniser to get wrong; only the node types below
+are walked.
+
+Bounded as well as narrow: `2 ** 99999999` is valid arithmetic and would hold
+the request thread for minutes, so an exponent over `MAX_EXPONENT` or an
+answer over `MAX_MAGNITUDE` is refused rather than computed.
+"""
+
+from __future__ import annotations
+
+import ast
+import operator
+import re
+
+MAX_EXPONENT = 100
+MAX_MAGNITUDE = 1e15
+MAX_CHARS = 80
+
+_BINARY = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+
+#: What a question may hold around the sum: "what is", "calculate", a "?".
+#: "x" and "×" are read as times, "÷" as divided by, "^" as a power.
+_ASK = re.compile(r"^\s*(?:what(?:'?s| is)|calculate|compute|work out)\s+(?P<expr>.+?)\s*[?=.]*\s*$", re.I)
+_ALLOWED = re.compile(r"^[\d\s.+\-*/%()^x×÷]+$")
+
+
+class NotArithmetic(ValueError):
+    """The text is not a sum this module will work out."""
+
+
+def _walk(node: ast.AST) -> float:
+    if isinstance(node, ast.Expression):
+        return _walk(node.body)
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        value = _walk(node.operand)
+        return -value if isinstance(node.op, ast.USub) else value
+    if isinstance(node, ast.BinOp) and type(node.op) in _BINARY:
+        left, right = _walk(node.left), _walk(node.right)
+        if isinstance(node.op, ast.Pow) and abs(right) > MAX_EXPONENT:
+            raise NotArithmetic("exponent too large")
+        try:
+            value = _BINARY[type(node.op)](left, right)
+        except (ZeroDivisionError, OverflowError) as exc:
+            raise NotArithmetic(str(exc)) from exc
+        if isinstance(value, complex) or abs(value) > MAX_MAGNITUDE:
+            raise NotArithmetic("answer out of range")
+        return value
+    raise NotArithmetic(f"{type(node).__name__} is not arithmetic")
+
+
+def evaluate(expression: str) -> float:
+    """The value of `expression`, or `NotArithmetic`."""
+    text = (expression or "").strip()
+    if not text or len(text) > MAX_CHARS or not _ALLOWED.match(text):
+        raise NotArithmetic("not a sum")
+    text = text.replace("×", "*").replace("x", "*").replace("÷", "/").replace("^", "**")
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError as exc:
+        raise NotArithmetic("not a sum") from exc
+    if not any(isinstance(node, ast.BinOp) for node in ast.walk(tree)):
+        raise NotArithmetic("a number on its own is not a sum")
+    return _walk(tree)
+
+
+def sum_in(question: str) -> str | None:
+    """The sum a question asks for ("what is 2 + 2?" gives "2 + 2"), or None
+    when the question is not only a sum."""
+    match = _ASK.match(question or "")
+    if not match:
+        return None
+    expr = match.group("expr")
+    try:
+        evaluate(expr)
+    except NotArithmetic:
+        return None
+    return expr
+
+
+def spoken(value: float) -> str:
+    """12.0 as "12", 0.1 + 0.2 as "0.3", a long fraction to six places."""
+    if float(value).is_integer():
+        return f"{int(value):,}"
+    return f"{round(value, 6):,}".rstrip("0").rstrip(".")

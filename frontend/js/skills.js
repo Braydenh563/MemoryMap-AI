@@ -590,9 +590,12 @@ const AGENT_INTENT_RE = new RegExp(
   "\\b(?:" +
     "delete|remove|archive|rename|merge|de-?duplicate|dedupe|" +
     "tag|untag|re-?tag|link|unlink|organi[sz]e|tidy|clean ?up|sort|categori[sz]e|" +
-    "create|make|add|save|append|update|edit|change|move|modify|adjust|fix|repair|" +
+    "create|make|add|save|append|update|edit|change|move|" +
     "schedule|remind me|set a reminder|" +
-    "draft|outline|generate|plan|build|format|translate|" +
+    //: "Draft", "outline" and "generate" ask for something written; "fix",
+    //: "plan", "format" and "translate" are left out because "how do I
+    //: format a date" is a question, not a request to act.
+    "draft|outline|generate|" +
     "summari[sz]e (?:my|all|the|every)|go through (?:my|all|the)" +
     ")\\b",
   "i"
@@ -676,7 +679,10 @@ function renderChatNudge() {
       run: () => setChatMode("agent"),
     });
   }
-  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && typeof aiIsOff === 'function' && !aiIsOff()) {
+  //: A skill runs on a model with tools, so the offer waits for both (the
+  //: owner: "The ai model isnt running, skills are disabled, and it still
+  //: suggests skills").
+  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && typeof aiIsOff === "function" && !aiIsOff()) {
     const skill = skillMatchingDraft(text);
     if (skill) {
       offers.push({

@@ -95,7 +95,7 @@ Open a section for the detail.
   model, reading your notes, thinking, writing, or the tool in use.
 - Questions collects the questions your notes ask in passing, and marks one
   answered when a later note answers it.
-- In Agent mode the assistant has 65 tools to search, link, organise and act on
+- In Agent mode the assistant has 66 tools to search, link, organise and act on
   your notebook. Anything destructive asks first, as does any change or web
   request after it has read a web page or an imported note. Every step is
   shown.
@@ -410,3 +410,6 @@ You may use, study, modify and share this, and anything built on it must stay
 under the same licence, including a modified copy run as a network service.
 MemoryMap is a local-first app, and the AGPL keeps a closed, hosted version of
 it from being offered back to the people it was written for.
+
+The libraries vendored into the app, with their versions and licences, are
+credited in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).

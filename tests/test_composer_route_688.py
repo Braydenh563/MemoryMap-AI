@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 
+from memorymap.ai import composer
 from memorymap.entry import manager
 
 
@@ -129,3 +130,33 @@ def test_tell_me_more_is_read_against_the_turn_before(client, session):
 def test_a_greeting_still_hints_rather_than_composing(ai_client, session):
     out = _ask(ai_client, "hey", notes_only=True, use_tools=False, answer_from="notes")
     assert "hint" in out and not out.get("answer")
+
+
+class _NeedleStandIn:
+    """What `tool_fallback.for_tools` hands back when the needle extra is
+    installed and no model server runs: something that is not `req.ollama`."""
+
+    def is_running(self) -> bool:
+        return True
+
+
+def test_small_talk_with_only_the_tool_fallback_is_answered_by_the_app(client, session, monkeypatch):
+    """The 2026-10-10 triage, decision 8 (routes_chat `conversational`): the
+    tools-only extra writes no prose, so "thanks" with no model server is
+    answered by `composer.social`, never handed to it, even in Agent mode."""
+    from memorymap.ai import tool_fallback
+
+    monkeypatch.setattr(tool_fallback, "for_tools", lambda _primary: _NeedleStandIn())
+    out = _ask(client, "thanks", use_tools=True)
+    assert out["meta"][0]["answered_by"] is None
+    assert out["text"] in composer.SOCIAL["thanks"]
+
+
+def test_a_notes_question_with_no_model_is_still_composed(client, session, monkeypatch):
+    from memorymap.ai import tool_fallback
+
+    monkeypatch.setattr(tool_fallback, "for_tools", lambda _primary: _NeedleStandIn())
+    _seed(session)
+    out = _ask(client, "When is the dentist check-up?", use_tools=False)
+    assert out["meta"][0]["composed"] is True
+    assert "Check-up booked for the 21st." in out["text"]

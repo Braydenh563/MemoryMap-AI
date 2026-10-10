@@ -2,9 +2,9 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4713, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3562, test files 897, tests 8479, plan headings 838.
+Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3562, test files 901, tests 8504, plan headings 860.
 
-## Frontend functions (4713)
+## Frontend functions (4714)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -328,90 +328,90 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `addInlineCitations` | frontend/js/capture-ask.js:1091 |
 | `announce` | frontend/js/capture-ask.js:783 |
-| `answerFigure` | frontend/js/capture-ask.js:1919 |
-| `answerObject` | frontend/js/capture-ask.js:2012 |
-| `askAsOf` | frontend/js/capture-ask.js:3232 |
-| `askNotesOnTheRight` | frontend/js/capture-ask.js:2134 |
-| `askQuestion` | frontend/js/capture-ask.js:2845 |
-| `askStatusBusy` | frontend/js/capture-ask.js:2815 |
-| `askStatusText` | frontend/js/capture-ask.js:2800 |
+| `answerFigure` | frontend/js/capture-ask.js:1924 |
+| `answerObject` | frontend/js/capture-ask.js:2017 |
+| `askAsOf` | frontend/js/capture-ask.js:3237 |
+| `askNotesOnTheRight` | frontend/js/capture-ask.js:2139 |
+| `askQuestion` | frontend/js/capture-ask.js:2850 |
+| `askStatusBusy` | frontend/js/capture-ask.js:2820 |
+| `askStatusText` | frontend/js/capture-ask.js:2805 |
 | `citationInsertionPoint` | frontend/js/capture-ask.js:1063 |
 | `citationKey` | frontend/js/capture-ask.js:1016 |
-| `citationMarker` | frontend/js/capture-ask.js:1173 |
+| `citationMarker` | frontend/js/capture-ask.js:1178 |
 | `citationNumbers` | frontend/js/capture-ask.js:983 |
-| `citationPeekText` | frontend/js/capture-ask.js:1338 |
+| `citationPeekText` | frontend/js/capture-ask.js:1343 |
 | `citationTextIndex` | frontend/js/capture-ask.js:1030 |
-| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2063 |
+| `clearAskAnswerFoot` | frontend/js/capture-ask.js:2068 |
 | `clearCaptureStatusOnInput` | frontend/js/capture-ask.js:532 |
 | `clearCaptureTagSuggestions` | frontend/js/capture-ask.js:467 |
-| `clearCitedPassage` | frontend/js/capture-ask.js:1544 |
+| `clearCitedPassage` | frontend/js/capture-ask.js:1549 |
 | `clickableResult` | frontend/js/capture-ask.js:951 |
-| `closeCitationPeek` | frontend/js/capture-ask.js:1445 |
-| `collapseCitationRuns` | frontend/js/capture-ask.js:1148 |
-| `copyAnswer` | frontend/js/capture-ask.js:3161 |
+| `closeCitationPeek` | frontend/js/capture-ask.js:1450 |
+| `collapseCitationRuns` | frontend/js/capture-ask.js:1153 |
+| `copyAnswer` | frontend/js/capture-ask.js:3166 |
 | `createDocumentNamed` | frontend/js/capture-ask.js:270 |
-| `evidenceBlock` | frontend/js/capture-ask.js:1306 |
-| `evidenceRows` | frontend/js/capture-ask.js:1843 |
-| `evidenceSignals` | frontend/js/capture-ask.js:1284 |
-| `evidenceSpan` | frontend/js/capture-ask.js:1277 |
-| `evidenceToggle` | frontend/js/capture-ask.js:1810 |
+| `evidenceBlock` | frontend/js/capture-ask.js:1311 |
+| `evidenceRows` | frontend/js/capture-ask.js:1848 |
+| `evidenceSignals` | frontend/js/capture-ask.js:1289 |
+| `evidenceSpan` | frontend/js/capture-ask.js:1282 |
+| `evidenceToggle` | frontend/js/capture-ask.js:1815 |
 | `filedByText` | frontend/js/capture-ask.js:199 |
 | `filingOutcomeText` | frontend/js/capture-ask.js:169 |
 | `flashCategory` | frontend/js/capture-ask.js:927 |
 | `flashEntry` | frontend/js/capture-ask.js:832 |
 | `flashReminder` | frontend/js/capture-ask.js:901 |
 | `focusCaptureBox` | frontend/js/capture-ask.js:428 |
-| `groundingThumbs` | frontend/js/capture-ask.js:1696 |
+| `groundingThumbs` | frontend/js/capture-ask.js:1701 |
 | `heldOffline` | frontend/js/capture-ask.js:546 |
-| `holdPictureTokens` | frontend/js/capture-ask.js:1913 |
-| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2677 |
-| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3196 |
+| `holdPictureTokens` | frontend/js/capture-ask.js:1918 |
+| `liveMarkdownRenderer` | frontend/js/capture-ask.js:2682 |
+| `loadAskHistoryBadge` | frontend/js/capture-ask.js:3201 |
 | `loadCaptureDocuments` | frontend/js/capture-ask.js:255 |
-| `loadSuggestions` | frontend/js/capture-ask.js:3167 |
-| `loadTemplates` | frontend/js/capture-ask.js:3266 |
-| `matchReasonBadge` | frontend/js/capture-ask.js:2356 |
-| `newChat` | frontend/js/capture-ask.js:2758 |
-| `notePictures` | frontend/js/capture-ask.js:1681 |
+| `loadSuggestions` | frontend/js/capture-ask.js:3172 |
+| `loadTemplates` | frontend/js/capture-ask.js:3271 |
+| `matchReasonBadge` | frontend/js/capture-ask.js:2361 |
+| `newChat` | frontend/js/capture-ask.js:2763 |
+| `notePictures` | frontend/js/capture-ask.js:1686 |
 | `noteSurfaceIfAny` | frontend/js/capture-ask.js:393 |
 | `noteTemplateForUse` | frontend/js/capture-ask.js:375 |
 | `noteTemplateText` | frontend/js/capture-ask.js:364 |
-| `numberMatchingRecords` | frontend/js/capture-ask.js:1599 |
+| `numberMatchingRecords` | frontend/js/capture-ask.js:1604 |
 | `offerJumpToNewNote` | frontend/js/capture-ask.js:12 |
-| `openCitationPeek` | frontend/js/capture-ask.js:1361 |
+| `openCitationPeek` | frontend/js/capture-ask.js:1366 |
 | `openDocumentFromNote` | frontend/js/capture-ask.js:397 |
-| `pictureItems` | frontend/js/capture-ask.js:1693 |
-| `placeAnswerFigures` | frontend/js/capture-ask.js:1954 |
-| `renderAnswerGrounding` | frontend/js/capture-ask.js:1731 |
-| `renderAnswerSupport` | frontend/js/capture-ask.js:1628 |
-| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2080 |
-| `renderAskFollowups` | frontend/js/capture-ask.js:2151 |
-| `renderAskHint` | frontend/js/capture-ask.js:2195 |
-| `renderAskTrail` | frontend/js/capture-ask.js:2732 |
-| `renderAskedQuestion` | frontend/js/capture-ask.js:2776 |
+| `pictureItems` | frontend/js/capture-ask.js:1698 |
+| `placeAnswerFigures` | frontend/js/capture-ask.js:1959 |
+| `renderAnswerGrounding` | frontend/js/capture-ask.js:1736 |
+| `renderAnswerSupport` | frontend/js/capture-ask.js:1633 |
+| `renderAskAnswerFoot` | frontend/js/capture-ask.js:2085 |
+| `renderAskFollowups` | frontend/js/capture-ask.js:2156 |
+| `renderAskHint` | frontend/js/capture-ask.js:2200 |
+| `renderAskTrail` | frontend/js/capture-ask.js:2737 |
+| `renderAskedQuestion` | frontend/js/capture-ask.js:2781 |
 | `renderCaptureDocumentAdder` | frontend/js/capture-ask.js:328 |
 | `renderCaptureDocuments` | frontend/js/capture-ask.js:290 |
 | `renderCaptureTagSuggestions` | frontend/js/capture-ask.js:475 |
-| `renderChatMeta` | frontend/js/capture-ask.js:2234 |
-| `renderEvidenceView` | frontend/js/capture-ask.js:1865 |
-| `renderRelatedElsewhere` | frontend/js/capture-ask.js:1556 |
-| `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1661 |
+| `renderChatMeta` | frontend/js/capture-ask.js:2239 |
+| `renderEvidenceView` | frontend/js/capture-ask.js:1870 |
+| `renderRelatedElsewhere` | frontend/js/capture-ask.js:1561 |
+| `renderToolsUnsupportedNotice` | frontend/js/capture-ask.js:1666 |
 | `resetCaptureForm` | frontend/js/capture-ask.js:435 |
-| `retryAnswer` | frontend/js/capture-ask.js:3157 |
+| `retryAnswer` | frontend/js/capture-ask.js:3162 |
 | `saveEntry` | frontend/js/capture-ask.js:560 |
 | `saveEntryAsDraft` | frontend/js/capture-ask.js:685 |
 | `scheduleCaptureTagSuggestions` | frontend/js/capture-ask.js:501 |
-| `scheduleCitationPeek` | frontend/js/capture-ask.js:1319 |
-| `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1330 |
+| `scheduleCitationPeek` | frontend/js/capture-ask.js:1324 |
+| `scheduleCitationPeekClose` | frontend/js/capture-ask.js:1335 |
 | `scrollEditingEntryIntoView` | frontend/js/capture-ask.js:807 |
-| `setAnsweredBy` | frontend/js/capture-ask.js:2225 |
-| `setAskScope` | frontend/js/capture-ask.js:3224 |
-| `setAsking` | frontend/js/capture-ask.js:2718 |
+| `setAnsweredBy` | frontend/js/capture-ask.js:2230 |
+| `setAskScope` | frontend/js/capture-ask.js:3229 |
+| `setAsking` | frontend/js/capture-ask.js:2723 |
 | `settleCaptureStatus` | frontend/js/capture-ask.js:123 |
-| `showAskAsOf` | frontend/js/capture-ask.js:3238 |
-| `showCitedPassage` | frontend/js/capture-ask.js:1513 |
-| `stopAnswer` | frontend/js/capture-ask.js:2724 |
-| `streamChat` | frontend/js/capture-ask.js:2387 |
-| `streamChatEvents` | frontend/js/capture-ask.js:2424 |
+| `showAskAsOf` | frontend/js/capture-ask.js:3243 |
+| `showCitedPassage` | frontend/js/capture-ask.js:1518 |
+| `stopAnswer` | frontend/js/capture-ask.js:2729 |
+| `streamChat` | frontend/js/capture-ask.js:2392 |
+| `streamChatEvents` | frontend/js/capture-ask.js:2429 |
 | `watchFiling` | frontend/js/capture-ask.js:46 |
 | `withTitle` | frontend/js/capture-ask.js:413 |
 
@@ -714,56 +714,56 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `allSkills` | frontend/js/skills.js:28 |
-| `appendToolRow` | frontend/js/skills.js:948 |
-| `applyToolFilter` | frontend/js/skills.js:1012 |
+| `appendToolRow` | frontend/js/skills.js:954 |
+| `applyToolFilter` | frontend/js/skills.js:1018 |
 | `askSkillInputs` | frontend/js/skills.js:240 |
-| `batchArchive` | frontend/js/skills.js:1341 |
-| `batchDelete` | frontend/js/skills.js:1384 |
-| `batchEach` | frontend/js/skills.js:1308 |
-| `batchExport` | frontend/js/skills.js:1378 |
-| `batchFavourite` | frontend/js/skills.js:1335 |
-| `batchMove` | frontend/js/skills.js:1286 |
-| `batchNoun` | frontend/js/skills.js:1331 |
-| `batchPublish` | frontend/js/skills.js:1352 |
-| `batchPut` | frontend/js/skills.js:1327 |
-| `batchSelection` | frontend/js/skills.js:1280 |
-| `batchTag` | frontend/js/skills.js:1300 |
-| `blobToBase64` | frontend/js/skills.js:1078 |
+| `batchArchive` | frontend/js/skills.js:1347 |
+| `batchDelete` | frontend/js/skills.js:1390 |
+| `batchEach` | frontend/js/skills.js:1314 |
+| `batchExport` | frontend/js/skills.js:1384 |
+| `batchFavourite` | frontend/js/skills.js:1341 |
+| `batchMove` | frontend/js/skills.js:1292 |
+| `batchNoun` | frontend/js/skills.js:1337 |
+| `batchPublish` | frontend/js/skills.js:1358 |
+| `batchPut` | frontend/js/skills.js:1333 |
+| `batchSelection` | frontend/js/skills.js:1286 |
+| `batchTag` | frontend/js/skills.js:1306 |
+| `blobToBase64` | frontend/js/skills.js:1084 |
 | `buildSkillsPanel` | frontend/js/skills.js:438 |
 | `customSkills` | frontend/js/skills.js:35 |
-| `desktopShell` | frontend/js/skills.js:1070 |
-| `downloadBlob` | frontend/js/skills.js:1110 |
-| `downloadFromApi` | frontend/js/skills.js:1094 |
-| `downloadJson` | frontend/js/skills.js:1048 |
-| `enterSelectMode` | frontend/js/skills.js:1253 |
-| `exitSelectMode` | frontend/js/skills.js:1270 |
-| `fillBatchCategories` | frontend/js/skills.js:1226 |
-| `fillBatchMore` | frontend/js/skills.js:1358 |
+| `desktopShell` | frontend/js/skills.js:1076 |
+| `downloadBlob` | frontend/js/skills.js:1116 |
+| `downloadFromApi` | frontend/js/skills.js:1100 |
+| `downloadJson` | frontend/js/skills.js:1054 |
+| `enterSelectMode` | frontend/js/skills.js:1259 |
+| `exitSelectMode` | frontend/js/skills.js:1276 |
+| `fillBatchCategories` | frontend/js/skills.js:1232 |
+| `fillBatchMore` | frontend/js/skills.js:1364 |
 | `fillSkillSelect` | frontend/js/skills.js:393 |
 | `inputsToText` | frontend/js/skills.js:56 |
 | `loadChatSkills` | frontend/js/skills.js:322 |
 | `loadSkills` | frontend/js/skills.js:19 |
-| `looksLikeAnAgentRequest` | frontend/js/skills.js:614 |
-| `pickJsonFile` | frontend/js/skills.js:1182 |
-| `renderChatNudge` | frontend/js/skills.js:657 |
-| `renderRunBudget` | frontend/js/skills.js:876 |
-| `renderSkillFolderLine` | frontend/js/skills.js:818 |
-| `renderSkillSettings` | frontend/js/skills.js:801 |
+| `looksLikeAnAgentRequest` | frontend/js/skills.js:617 |
+| `pickJsonFile` | frontend/js/skills.js:1188 |
+| `renderChatNudge` | frontend/js/skills.js:660 |
+| `renderRunBudget` | frontend/js/skills.js:882 |
+| `renderSkillFolderLine` | frontend/js/skills.js:824 |
+| `renderSkillSettings` | frontend/js/skills.js:807 |
 | `renderSkillToolPicker` | frontend/js/skills.js:102 |
 | `renderSkillVerifyPicker` | frontend/js/skills.js:130 |
-| `renderSmallModelMode` | frontend/js/skills.js:865 |
-| `renderToolFocus` | frontend/js/skills.js:839 |
-| `renderToolSettings` | frontend/js/skills.js:905 |
-| `resetChatNudge` | frontend/js/skills.js:722 |
+| `renderSmallModelMode` | frontend/js/skills.js:871 |
+| `renderToolFocus` | frontend/js/skills.js:845 |
+| `renderToolSettings` | frontend/js/skills.js:911 |
+| `resetChatNudge` | frontend/js/skills.js:728 |
 | `runSkill` | frontend/js/skills.js:173 |
-| `saveFile` | frontend/js/skills.js:1126 |
-| `saveSkillList` | frontend/js/skills.js:740 |
-| `saveToolSwitch` | frontend/js/skills.js:887 |
+| `saveFile` | frontend/js/skills.js:1132 |
+| `saveSkillList` | frontend/js/skills.js:746 |
+| `saveToolSwitch` | frontend/js/skills.js:893 |
 | `setSkillVerify` | frontend/js/skills.js:150 |
-| `skillMatchingDraft` | frontend/js/skills.js:624 |
+| `skillMatchingDraft` | frontend/js/skills.js:627 |
 | `skillPacePill` | frontend/js/skills.js:515 |
-| `skillRow` | frontend/js/skills.js:750 |
-| `skillSummary` | frontend/js/skills.js:727 |
+| `skillRow` | frontend/js/skills.js:756 |
+| `skillSummary` | frontend/js/skills.js:733 |
 | `startEditingSkill` | frontend/js/skills.js:69 |
 | `startPlannedRun` | frontend/js/skills.js:185 |
 | `startSkill` | frontend/js/skills.js:190 |
@@ -772,7 +772,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `syncSkillVerifyRow` | frontend/js/skills.js:165 |
 | `textToInputs` | frontend/js/skills.js:62 |
 | `textToSteps` | frontend/js/skills.js:49 |
-| `updateBatchCount` | frontend/js/skills.js:1202 |
+| `updateBatchCount` | frontend/js/skills.js:1208 |
 
 ### frontend/js/shell-reminders.js (52)
 
@@ -2269,11 +2269,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `askChartTicks` | frontend/js/ask-chart.js:30 |
 | `renderAskChart` | frontend/js/ask-chart.js:167 |
 
-### frontend/js/ask-compose.js (3)
+### frontend/js/ask-compose.js (4)
 
 | Name | File:line |
 |---|---|
 | `askAnswerFrom` | frontend/js/ask-compose.js:29 |
+| `linkCitedTitles` | frontend/js/ask-compose.js:78 |
 | `renderAskUseAi` | frontend/js/ask-compose.js:34 |
 | `wireAskUseAi` | frontend/js/ask-compose.js:46 |
 
@@ -8631,6 +8632,16 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `strip_prompt_metadata` | src/memorymap/ai/answer_trim.py:151 |
 | `trim_assistant_padding` | src/memorymap/ai/answer_trim.py:158 |
 
+### src/memorymap/ai/arithmetic.py (5)
+
+| Name | File:line |
+|---|---|
+| `NotArithmetic` | src/memorymap/ai/arithmetic.py:41 |
+| `_walk` | src/memorymap/ai/arithmetic.py:45 |
+| `evaluate` | src/memorymap/ai/arithmetic.py:67 |
+| `spoken` | src/memorymap/ai/arithmetic.py:96 |
+| `sum_in` | src/memorymap/ai/arithmetic.py:82 |
+
 ### src/memorymap/ai/autonomous.py (23)
 
 | Name | File:line |
@@ -8719,88 +8730,90 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_rows` | src/memorymap/ai/cards.py:353 |
 | `result_cards` | src/memorymap/ai/cards.py:360 |
 
-### src/memorymap/ai/composer.py (72)
+### src/memorymap/ai/composer.py (74)
 
 | Name | File:line |
 |---|---|
-| `FollowOn` | src/memorymap/ai/composer.py:2151 |
-| `NoteView` | src/memorymap/ai/composer.py:636 |
-| `Sentence` | src/memorymap/ai/composer.py:610 |
-| `_Answer` | src/memorymap/ai/composer.py:1167 |
-| `_Meaning` | src/memorymap/ai/composer.py:1063 |
-| `_alternatives` | src/memorymap/ai/composer.py:538 |
-| `_asked_span` | src/memorymap/ai/composer.py:1925 |
-| `_body` | src/memorymap/ai/composer.py:1977 |
-| `_brief_text` | src/memorymap/ai/composer.py:2960 |
-| `_broad_pool` | src/memorymap/ai/composer.py:1956 |
-| `_build_synonyms` | src/memorymap/ai/composer.py:529 |
-| `_clarify` | src/memorymap/ai/composer.py:2350 |
-| `_clusters` | src/memorymap/ai/composer.py:1632 |
-| `_compare` | src/memorymap/ai/composer.py:1853 |
-| `_count_word` | src/memorymap/ai/composer.py:1335 |
-| `_cue` | src/memorymap/ai/composer.py:904 |
-| `_did_you_mean` | src/memorymap/ai/composer.py:2633 |
-| `_disagreement` | src/memorymap/ai/composer.py:1785 |
-| `_disagreements` | src/memorymap/ai/composer.py:1793 |
-| `_earlier` | src/memorymap/ai/composer.py:1765 |
-| `_fit_terms` | src/memorymap/ai/composer.py:2382 |
-| `_holds` | src/memorymap/ai/composer.py:543 |
-| `_jaccard` | src/memorymap/ai/composer.py:985 |
-| `_joined` | src/memorymap/ai/composer.py:1438 |
-| `_lead_block` | src/memorymap/ai/composer.py:1581 |
-| `_list_block` | src/memorymap/ai/composer.py:1458 |
-| `_lowered` | src/memorymap/ai/composer.py:1361 |
-| `_mentions` | src/memorymap/ai/composer.py:1938 |
-| `_missing` | src/memorymap/ai/composer.py:1822 |
-| `_multi` | src/memorymap/ai/composer.py:2310 |
-| `_named_notes` | src/memorymap/ai/composer.py:2162 |
-| `_newest` | src/memorymap/ai/composer.py:2049 |
-| `_next_questions` | src/memorymap/ai/composer.py:2079 |
-| `_nothing` | src/memorymap/ai/composer.py:2641 |
-| `_opening` | src/memorymap/ai/composer.py:1516 |
-| `_others` | src/memorymap/ai/composer.py:1656 |
-| `_pick` | src/memorymap/ai/composer.py:1339 |
-| `_picture_units` | src/memorymap/ai/composer.py:810 |
-| `_quotes` | src/memorymap/ai/composer.py:1393 |
-| `_raw` | src/memorymap/ai/composer.py:2860 |
-| `_relation` | src/memorymap/ai/composer.py:1615 |
-| `_respell` | src/memorymap/ai/composer.py:406 |
-| `_rewrite_quote` | src/memorymap/ai/composer.py:732 |
-| `_said_before` | src/memorymap/ai/composer.py:1507 |
-| `_score` | src/memorymap/ai/composer.py:926 |
-| `_sentence_case` | src/memorymap/ai/composer.py:1430 |
-| `_span` | src/memorymap/ai/composer.py:1563 |
-| `_stem` | src/memorymap/ai/composer.py:488 |
-| `_timeline` | src/memorymap/ai/composer.py:1743 |
-| `_title` | src/memorymap/ai/composer.py:714 |
-| `_unit` | src/memorymap/ai/composer.py:770 |
-| `_unlike_before` | src/memorymap/ai/composer.py:1500 |
-| `_with_context` | src/memorymap/ai/composer.py:1377 |
-| `_words` | src/memorymap/ai/composer.py:552 |
-| `_written` | src/memorymap/ai/composer.py:696 |
-| `_yes_no_wrapped` | src/memorymap/ai/composer.py:455 |
-| `brief` | src/memorymap/ai/composer.py:2866 |
-| `centrality` | src/memorymap/ai/composer.py:1115 |
-| `classify` | src/memorymap/ai/composer.py:460 |
-| `compare_sides` | src/memorymap/ai/composer.py:595 |
-| `compose` | src/memorymap/ai/composer.py:2655 |
-| `disagree` | src/memorymap/ai/composer.py:1146 |
-| `follow_on` | src/memorymap/ai/composer.py:2173 |
-| `length_wish` | src/memorymap/ai/composer.py:1911 |
-| `phrase_options` | src/memorymap/ai/composer.py:263 |
-| `read_note` | src/memorymap/ai/composer.py:824 |
-| `rephrase` | src/memorymap/ai/composer.py:433 |
-| `select` | src/memorymap/ai/composer.py:990 |
-| `social` | src/memorymap/ai/composer.py:2610 |
-| `social_kind` | src/memorymap/ai/composer.py:2601 |
-| `split_parts` | src/memorymap/ai/composer.py:2293 |
-| `subject_terms` | src/memorymap/ai/composer.py:559 |
+| `FollowOn` | src/memorymap/ai/composer.py:2077 |
+| `NoteView` | src/memorymap/ai/composer.py:615 |
+| `Sentence` | src/memorymap/ai/composer.py:589 |
+| `_Answer` | src/memorymap/ai/composer.py:1102 |
+| `_Meaning` | src/memorymap/ai/composer.py:998 |
+| `_alternatives` | src/memorymap/ai/composer.py:517 |
+| `_asked_span` | src/memorymap/ai/composer.py:1853 |
+| `_body` | src/memorymap/ai/composer.py:1905 |
+| `_brief_text` | src/memorymap/ai/composer.py:2768 |
+| `_broad_pool` | src/memorymap/ai/composer.py:1884 |
+| `_build_synonyms` | src/memorymap/ai/composer.py:508 |
+| `_clarify` | src/memorymap/ai/composer.py:2257 |
+| `_clusters` | src/memorymap/ai/composer.py:1588 |
+| `_compare` | src/memorymap/ai/composer.py:1781 |
+| `_count_word` | src/memorymap/ai/composer.py:1272 |
+| `_cue` | src/memorymap/ai/composer.py:839 |
+| `_did_you_mean` | src/memorymap/ai/composer.py:2513 |
+| `_disagreement` | src/memorymap/ai/composer.py:1713 |
+| `_disagreements` | src/memorymap/ai/composer.py:1721 |
+| `_earlier` | src/memorymap/ai/composer.py:1693 |
+| `_fit_terms` | src/memorymap/ai/composer.py:2289 |
+| `_fusable` | src/memorymap/ai/composer.py:1364 |
+| `_holds` | src/memorymap/ai/composer.py:522 |
+| `_jaccard` | src/memorymap/ai/composer.py:920 |
+| `_joined` | src/memorymap/ai/composer.py:1382 |
+| `_lead_block` | src/memorymap/ai/composer.py:1537 |
+| `_list_block` | src/memorymap/ai/composer.py:1410 |
+| `_list_sentence` | src/memorymap/ai/composer.py:1399 |
+| `_lowered` | src/memorymap/ai/composer.py:1298 |
+| `_mentions` | src/memorymap/ai/composer.py:1866 |
+| `_missing` | src/memorymap/ai/composer.py:1750 |
+| `_multi` | src/memorymap/ai/composer.py:2217 |
+| `_named_notes` | src/memorymap/ai/composer.py:2088 |
+| `_newest` | src/memorymap/ai/composer.py:1977 |
+| `_next_questions` | src/memorymap/ai/composer.py:2007 |
+| `_nothing` | src/memorymap/ai/composer.py:2541 |
+| `_opening` | src/memorymap/ai/composer.py:1472 |
+| `_others` | src/memorymap/ai/composer.py:1612 |
+| `_pick` | src/memorymap/ai/composer.py:1276 |
+| `_picture_units` | src/memorymap/ai/composer.py:746 |
+| `_quotes` | src/memorymap/ai/composer.py:1330 |
+| `_raw` | src/memorymap/ai/composer.py:2668 |
+| `_relation` | src/memorymap/ai/composer.py:1571 |
+| `_respell` | src/memorymap/ai/composer.py:394 |
+| `_said_before` | src/memorymap/ai/composer.py:1463 |
+| `_score` | src/memorymap/ai/composer.py:861 |
+| `_sentence_case` | src/memorymap/ai/composer.py:1374 |
+| `_span` | src/memorymap/ai/composer.py:1519 |
+| `_stem` | src/memorymap/ai/composer.py:453 |
+| `_sum` | src/memorymap/ai/composer.py:2521 |
+| `_timeline` | src/memorymap/ai/composer.py:1671 |
+| `_title` | src/memorymap/ai/composer.py:691 |
+| `_unit` | src/memorymap/ai/composer.py:709 |
+| `_unlike_before` | src/memorymap/ai/composer.py:1456 |
+| `_with_context` | src/memorymap/ai/composer.py:1314 |
+| `_words` | src/memorymap/ai/composer.py:531 |
+| `_written` | src/memorymap/ai/composer.py:673 |
+| `_yes_no_wrapped` | src/memorymap/ai/composer.py:423 |
+| `brief` | src/memorymap/ai/composer.py:2674 |
+| `centrality` | src/memorymap/ai/composer.py:1050 |
+| `classify` | src/memorymap/ai/composer.py:428 |
+| `compare_sides` | src/memorymap/ai/composer.py:574 |
+| `compose` | src/memorymap/ai/composer.py:2555 |
+| `disagree` | src/memorymap/ai/composer.py:1081 |
+| `follow_on` | src/memorymap/ai/composer.py:2099 |
+| `length_wish` | src/memorymap/ai/composer.py:1839 |
+| `phrase_options` | src/memorymap/ai/composer.py:269 |
+| `read_note` | src/memorymap/ai/composer.py:760 |
+| `rephrase` | src/memorymap/ai/composer.py:401 |
+| `select` | src/memorymap/ai/composer.py:925 |
+| `social` | src/memorymap/ai/composer.py:2490 |
+| `social_kind` | src/memorymap/ai/composer.py:2481 |
+| `split_parts` | src/memorymap/ai/composer.py:2200 |
+| `subject_terms` | src/memorymap/ai/composer.py:538 |
 
 ### src/memorymap/ai/composer_tables.py (2)
 
 | Name | File:line |
 |---|---|
-| `_build` | src/memorymap/ai/composer_tables.py:1125 |
+| `_build` | src/memorymap/ai/composer_tables.py:638 |
 | `voice_of` | src/memorymap/ai/composer_tables.py:33 |
 
 ### src/memorymap/ai/composer_voice.py (22)
@@ -8985,12 +8998,6 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `visible` | src/memorymap/ai/facts.py:1106 |
 | `visible_counts` | src/memorymap/ai/facts.py:984 |
 
-### src/memorymap/ai/fast_matcher.py (1)
-
-| Name | File:line |
-|---|---|
-| `FastMatcher` | src/memorymap/ai/fast_matcher.py:10 |
-
 ### src/memorymap/ai/fence.py (6)
 
 | Name | File:line |
@@ -9022,43 +9029,43 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `SentenceGrounder` | src/memorymap/ai/grounding.py:456 |
-| `_blocks` | src/memorymap/ai/grounding.py:315 |
-| `_bm25` | src/memorymap/ai/grounding.py:199 |
-| `_figures` | src/memorymap/ai/grounding.py:187 |
-| `_graph_nearness` | src/memorymap/ai/grounding.py:392 |
-| `_mark` | src/memorymap/ai/grounding.py:688 |
-| `_note_passage_scores` | src/memorymap/ai/grounding.py:268 |
-| `_passages` | src/memorymap/ai/grounding.py:119 |
-| `_pool_passages` | src/memorymap/ai/grounding.py:233 |
-| `_word_set` | src/memorymap/ai/grounding.py:370 |
-| `_words_with_offsets` | src/memorymap/ai/grounding.py:108 |
-| `best_passage` | src/memorymap/ai/grounding.py:142 |
-| `ground_answer_sentences` | src/memorymap/ai/grounding.py:426 |
-| `note_passage_scores` | src/memorymap/ai/grounding.py:298 |
-| `paragraph_ordinal` | src/memorymap/ai/grounding.py:405 |
-| `split_sentences` | src/memorymap/ai/grounding.py:350 |
-| `support` | src/memorymap/ai/grounding.py:652 |
+| `SentenceGrounder` | src/memorymap/ai/grounding.py:465 |
+| `_blocks` | src/memorymap/ai/grounding.py:317 |
+| `_bm25` | src/memorymap/ai/grounding.py:201 |
+| `_figures` | src/memorymap/ai/grounding.py:189 |
+| `_graph_nearness` | src/memorymap/ai/grounding.py:394 |
+| `_mark` | src/memorymap/ai/grounding.py:697 |
+| `_note_passage_scores` | src/memorymap/ai/grounding.py:270 |
+| `_passages` | src/memorymap/ai/grounding.py:121 |
+| `_pool_passages` | src/memorymap/ai/grounding.py:235 |
+| `_word_set` | src/memorymap/ai/grounding.py:372 |
+| `_words_with_offsets` | src/memorymap/ai/grounding.py:110 |
+| `best_passage` | src/memorymap/ai/grounding.py:144 |
+| `ground_answer_sentences` | src/memorymap/ai/grounding.py:435 |
+| `note_passage_scores` | src/memorymap/ai/grounding.py:300 |
+| `paragraph_ordinal` | src/memorymap/ai/grounding.py:407 |
+| `split_sentences` | src/memorymap/ai/grounding.py:352 |
+| `support` | src/memorymap/ai/grounding.py:661 |
 
 ### src/memorymap/ai/help_chat.py (15)
 
 | Name | File:line |
 |---|---|
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:1969 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:1923 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2026 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:1946 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2215 |
-| `answer` | src/memorymap/ai/help_chat.py:2402 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2340 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2167 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2466 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2138 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2299 |
-| `source_names` | src/memorymap/ai/help_chat.py:2134 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2116 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2102 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2181 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:1970 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:1924 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2027 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:1947 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2216 |
+| `answer` | src/memorymap/ai/help_chat.py:2403 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2341 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2168 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2467 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2139 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2300 |
+| `source_names` | src/memorymap/ai/help_chat.py:2135 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2117 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2103 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2182 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -9132,19 +9139,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | Name | File:line |
 |---|---|
 | `LexicalMatch` | src/memorymap/ai/lexical_filing.py:110 |
-| `_Corpus` | src/memorymap/ai/lexical_filing.py:398 |
-| `_Doc` | src/memorymap/ai/lexical_filing.py:369 |
-| `_corpus_for` | src/memorymap/ai/lexical_filing.py:561 |
-| `_make_doc` | src/memorymap/ai/lexical_filing.py:530 |
-| `_scope` | src/memorymap/ai/lexical_filing.py:627 |
-| `_tag_words` | src/memorymap/ai/lexical_filing.py:526 |
+| `_Corpus` | src/memorymap/ai/lexical_filing.py:394 |
+| `_Doc` | src/memorymap/ai/lexical_filing.py:365 |
+| `_corpus_for` | src/memorymap/ai/lexical_filing.py:557 |
+| `_make_doc` | src/memorymap/ai/lexical_filing.py:526 |
+| `_scope` | src/memorymap/ai/lexical_filing.py:623 |
+| `_tag_words` | src/memorymap/ai/lexical_filing.py:522 |
 | `_tags` | src/memorymap/ai/lexical_filing.py:116 |
-| `_tally` | src/memorymap/ai/lexical_filing.py:281 |
+| `_tally` | src/memorymap/ai/lexical_filing.py:278 |
 | `category_support` | src/memorymap/ai/lexical_filing.py:149 |
-| `forget_corpus` | src/memorymap/ai/lexical_filing.py:639 |
+| `forget_corpus` | src/memorymap/ai/lexical_filing.py:635 |
 | `lexical_category` | src/memorymap/ai/lexical_filing.py:124 |
 | `suggest_categories` | src/memorymap/ai/lexical_filing.py:181 |
-| `suggest_tags` | src/memorymap/ai/lexical_filing.py:216 |
+| `suggest_tags` | src/memorymap/ai/lexical_filing.py:226 |
 | `tokens` | src/memorymap/ai/lexical_filing.py:93 |
 
 ### src/memorymap/ai/librarian.py (33)
@@ -9282,27 +9289,27 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `StatAnswer` | src/memorymap/ai/notebook_stats.py:54 |
 | `_asks` | src/memorymap/ai/notebook_stats.py:192 |
-| `_busiest` | src/memorymap/ai/notebook_stats.py:412 |
-| `_category_count` | src/memorymap/ai/notebook_stats.py:316 |
+| `_busiest` | src/memorymap/ai/notebook_stats.py:398 |
+| `_category_count` | src/memorymap/ai/notebook_stats.py:318 |
 | `_despell` | src/memorymap/ai/notebook_stats.py:163 |
-| `_document_count` | src/memorymap/ai/notebook_stats.py:334 |
-| `_general_stats` | src/memorymap/ai/notebook_stats.py:585 |
-| `_longest_notes` | src/memorymap/ai/notebook_stats.py:476 |
-| `_most_linked` | src/memorymap/ai/notebook_stats.py:343 |
-| `_note_count` | src/memorymap/ai/notebook_stats.py:325 |
-| `_orphans` | src/memorymap/ai/notebook_stats.py:393 |
+| `_document_count` | src/memorymap/ai/notebook_stats.py:336 |
+| `_general_stats` | src/memorymap/ai/notebook_stats.py:571 |
+| `_longest_notes` | src/memorymap/ai/notebook_stats.py:462 |
+| `_most_linked` | src/memorymap/ai/notebook_stats.py:345 |
+| `_note_count` | src/memorymap/ai/notebook_stats.py:327 |
+| `_orphans` | src/memorymap/ai/notebook_stats.py:379 |
 | `_plural` | src/memorymap/ai/notebook_stats.py:86 |
-| `_recent_count` | src/memorymap/ai/notebook_stats.py:428 |
-| `_stale_notes` | src/memorymap/ai/notebook_stats.py:509 |
-| `_tag_count` | src/memorymap/ai/notebook_stats.py:306 |
-| `_tag_pairs` | src/memorymap/ai/notebook_stats.py:549 |
+| `_recent_count` | src/memorymap/ai/notebook_stats.py:414 |
+| `_stale_notes` | src/memorymap/ai/notebook_stats.py:495 |
+| `_tag_count` | src/memorymap/ai/notebook_stats.py:308 |
+| `_tag_pairs` | src/memorymap/ai/notebook_stats.py:535 |
 | `_tags_of` | src/memorymap/ai/notebook_stats.py:78 |
-| `_top_categories` | src/memorymap/ai/notebook_stats.py:277 |
-| `_top_tags` | src/memorymap/ai/notebook_stats.py:262 |
+| `_top_categories` | src/memorymap/ai/notebook_stats.py:279 |
+| `_top_tags` | src/memorymap/ai/notebook_stats.py:264 |
 | `_transposition_of` | src/memorymap/ai/notebook_stats.py:145 |
-| `_untagged` | src/memorymap/ai/notebook_stats.py:295 |
+| `_untagged` | src/memorymap/ai/notebook_stats.py:297 |
 | `_visible` | src/memorymap/ai/notebook_stats.py:68 |
-| `_word_count` | src/memorymap/ai/notebook_stats.py:454 |
+| `_word_count` | src/memorymap/ai/notebook_stats.py:440 |
 | `answer` | src/memorymap/ai/notebook_stats.py:215 |
 | `looks_like_a_question_about_the_notebook` | src/memorymap/ai/notebook_stats.py:196 |
 
@@ -9345,8 +9352,8 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | Name | File:line |
 |---|---|
 | `ResponseMode` | src/memorymap/ai/presets.py:48 |
-| `resolve` | src/memorymap/ai/presets.py:181 |
-| `sampling_options` | src/memorymap/ai/presets.py:197 |
+| `resolve` | src/memorymap/ai/presets.py:180 |
+| `sampling_options` | src/memorymap/ai/presets.py:196 |
 
 ### src/memorymap/ai/provider.py (27)
 
@@ -9396,20 +9403,20 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_at_asking_place` | src/memorymap/ai/question_noise.py:5086 |
-| `_cosine` | src/memorymap/ai/question_noise.py:5195 |
-| `_split` | src/memorymap/ai/question_noise.py:5028 |
-| `_sub_cost` | src/memorymap/ai/question_noise.py:4933 |
-| `_trigrams` | src/memorymap/ai/question_noise.py:5190 |
-| `_vector_cosine` | src/memorymap/ai/question_noise.py:5206 |
-| `allowance` | src/memorymap/ai/question_noise.py:4961 |
-| `alternative` | src/memorymap/ai/question_noise.py:5013 |
-| `distance` | src/memorymap/ai/question_noise.py:4939 |
-| `guess_kind` | src/memorymap/ai/question_noise.py:5213 |
-| `nearest` | src/memorymap/ai/question_noise.py:4984 |
-| `repair` | src/memorymap/ai/question_noise.py:5041 |
-| `social_kind` | src/memorymap/ai/question_noise.py:4833 |
-| `strip_symbols` | src/memorymap/ai/question_noise.py:4628 |
+| `_at_asking_place` | src/memorymap/ai/question_noise.py:2072 |
+| `_cosine` | src/memorymap/ai/question_noise.py:2123 |
+| `_split` | src/memorymap/ai/question_noise.py:2014 |
+| `_sub_cost` | src/memorymap/ai/question_noise.py:1924 |
+| `_trigrams` | src/memorymap/ai/question_noise.py:2118 |
+| `_vector_cosine` | src/memorymap/ai/question_noise.py:2134 |
+| `allowance` | src/memorymap/ai/question_noise.py:1952 |
+| `alternative` | src/memorymap/ai/question_noise.py:1999 |
+| `distance` | src/memorymap/ai/question_noise.py:1930 |
+| `guess_kind` | src/memorymap/ai/question_noise.py:2141 |
+| `nearest` | src/memorymap/ai/question_noise.py:1970 |
+| `repair` | src/memorymap/ai/question_noise.py:2027 |
+| `social_kind` | src/memorymap/ai/question_noise.py:1825 |
+| `strip_symbols` | src/memorymap/ai/question_noise.py:405 |
 
 ### src/memorymap/ai/questions.py (10)
 
@@ -9553,15 +9560,11 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `sources_from_messages` | src/memorymap/ai/source_check.py:97 |
 | `unbacked_claims` | src/memorymap/ai/source_check.py:109 |
 
-### src/memorymap/ai/taxonomy.py (5)
+### src/memorymap/ai/taxonomy.py (1)
 
 | Name | File:line |
 |---|---|
-| `extract_categories` | src/memorymap/ai/taxonomy.py:98 |
-| `extract_dynamic_categories` | src/memorymap/ai/taxonomy.py:53 |
-| `extract_keywords` | src/memorymap/ai/taxonomy.py:105 |
-| `get_keyword_processor` | src/memorymap/ai/taxonomy.py:43 |
-| `get_taxonomy_processor` | src/memorymap/ai/taxonomy.py:35 |
+| `extract_categories` | src/memorymap/ai/taxonomy.py:44 |
 
 ### src/memorymap/ai/tensions.py (16)
 
@@ -9609,96 +9612,95 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `for_tools` | src/memorymap/ai/tool_fallback.py:27 |
 
-### src/memorymap/ai/tools/__init__.py (86)
+### src/memorymap/ai/tools/__init__.py (85)
 
 | Name | File:line |
 |---|---|
-| `_ai_actor` | src/memorymap/ai/tools/__init__.py:4563 |
-| `_ask_user` | src/memorymap/ai/tools/__init__.py:1931 |
-| `_audit_link_reasons` | src/memorymap/ai/tools/__init__.py:2424 |
-| `_coerce` | src/memorymap/ai/tools/__init__.py:4612 |
-| `_coerce_array` | src/memorymap/ai/tools/__init__.py:4586 |
-| `_complete_reminder` | src/memorymap/ai/tools/__init__.py:1726 |
-| `_compress_chat` | src/memorymap/ai/tools/__init__.py:2215 |
+| `_ai_actor` | src/memorymap/ai/tools/__init__.py:4549 |
+| `_ask_user` | src/memorymap/ai/tools/__init__.py:1915 |
+| `_audit_link_reasons` | src/memorymap/ai/tools/__init__.py:2408 |
+| `_coerce` | src/memorymap/ai/tools/__init__.py:4598 |
+| `_coerce_array` | src/memorymap/ai/tools/__init__.py:4572 |
+| `_complete_reminder` | src/memorymap/ai/tools/__init__.py:1710 |
+| `_compress_chat` | src/memorymap/ai/tools/__init__.py:2199 |
 | `_count_notes` | src/memorymap/ai/tools/__init__.py:753 |
-| `_create_note` | src/memorymap/ai/tools/__init__.py:1266 |
-| `_delete_note` | src/memorymap/ai/tools/__init__.py:1594 |
-| `_delete_skill` | src/memorymap/ai/tools/__init__.py:1248 |
-| `_delete_tag` | src/memorymap/ai/tools/__init__.py:1907 |
-| `_describe_param` | src/memorymap/ai/tools/__init__.py:4670 |
-| `_edit_note` | src/memorymap/ai/tools/__init__.py:1305 |
-| `_example_value` | src/memorymap/ai/tools/__init__.py:4249 |
-| `_find_contradictions` | src/memorymap/ai/tools/__init__.py:2443 |
+| `_create_note` | src/memorymap/ai/tools/__init__.py:1250 |
+| `_delete_note` | src/memorymap/ai/tools/__init__.py:1578 |
+| `_delete_skill` | src/memorymap/ai/tools/__init__.py:1232 |
+| `_delete_tag` | src/memorymap/ai/tools/__init__.py:1891 |
+| `_describe_param` | src/memorymap/ai/tools/__init__.py:4656 |
+| `_edit_note` | src/memorymap/ai/tools/__init__.py:1289 |
+| `_example_value` | src/memorymap/ai/tools/__init__.py:4235 |
+| `_find_contradictions` | src/memorymap/ai/tools/__init__.py:2427 |
 | `_find_similar_notes` | src/memorymap/ai/tools/__init__.py:423 |
-| `_first_sentence` | src/memorymap/ai/tools/__init__.py:4377 |
-| `_fold_key` | src/memorymap/ai/tools/__init__.py:4580 |
-| `_get_app_navigation` | src/memorymap/ai/tools/__init__.py:925 |
-| `_get_current_time` | src/memorymap/ai/tools/__init__.py:943 |
+| `_first_sentence` | src/memorymap/ai/tools/__init__.py:4363 |
+| `_fold_key` | src/memorymap/ai/tools/__init__.py:4566 |
+| `_get_current_time` | src/memorymap/ai/tools/__init__.py:927 |
 | `_get_note_tool` | src/memorymap/ai/tools/__init__.py:119 |
 | `_graph_neighbours` | src/memorymap/ai/tools/__init__.py:179 |
 | `_graph_summary` | src/memorymap/ai/tools/__init__.py:146 |
-| `_is_plural_variant` | src/memorymap/ai/tools/__init__.py:4229 |
-| `_link_notes` | src/memorymap/ai/tools/__init__.py:1508 |
+| `_is_plural_variant` | src/memorymap/ai/tools/__init__.py:4215 |
+| `_link_notes` | src/memorymap/ai/tools/__init__.py:1492 |
 | `_list_categories` | src/memorymap/ai/tools/__init__.py:845 |
 | `_list_notes` | src/memorymap/ai/tools/__init__.py:671 |
-| `_list_reminders` | src/memorymap/ai/tools/__init__.py:1684 |
-| `_list_skills` | src/memorymap/ai/tools/__init__.py:1120 |
+| `_list_reminders` | src/memorymap/ai/tools/__init__.py:1668 |
+| `_list_skills` | src/memorymap/ai/tools/__init__.py:1104 |
 | `_list_tags` | src/memorymap/ai/tools/__init__.py:869 |
-| `_make_plan` | src/memorymap/ai/tools/__init__.py:2113 |
-| `_match_skill` | src/memorymap/ai/tools/__init__.py:2015 |
+| `_make_plan` | src/memorymap/ai/tools/__init__.py:2097 |
+| `_match_skill` | src/memorymap/ai/tools/__init__.py:1999 |
 | `_notebook_overview` | src/memorymap/ai/tools/__init__.py:891 |
 | `_notebook_structure` | src/memorymap/ai/tools/__init__.py:544 |
 | `_path_between` | src/memorymap/ai/tools/__init__.py:445 |
-| `_pin_note` | src/memorymap/ai/tools/__init__.py:1438 |
-| `_plan_steps` | src/memorymap/ai/tools/__init__.py:2129 |
-| `_read_url` | src/memorymap/ai/tools/__init__.py:1829 |
+| `_pin_note` | src/memorymap/ai/tools/__init__.py:1422 |
+| `_plan_steps` | src/memorymap/ai/tools/__init__.py:2113 |
+| `_read_url` | src/memorymap/ai/tools/__init__.py:1813 |
 | `_related_notes` | src/memorymap/ai/tools/__init__.py:336 |
-| `_rename_tag` | src/memorymap/ai/tools/__init__.py:1744 |
-| `_requested_ids` | src/memorymap/ai/tools/__init__.py:1351 |
-| `_resolve_link_type` | src/memorymap/ai/tools/__init__.py:1491 |
-| `_restore_note` | src/memorymap/ai/tools/__init__.py:1605 |
-| `_run_skill` | src/memorymap/ai/tools/__init__.py:1989 |
-| `_save_skill` | src/memorymap/ai/tools/__init__.py:1193 |
-| `_save_user_preference` | src/memorymap/ai/tools/__init__.py:2344 |
-| `_schema_key` | src/memorymap/ai/tools/__init__.py:4706 |
+| `_rename_tag` | src/memorymap/ai/tools/__init__.py:1728 |
+| `_requested_ids` | src/memorymap/ai/tools/__init__.py:1335 |
+| `_resolve_link_type` | src/memorymap/ai/tools/__init__.py:1475 |
+| `_restore_note` | src/memorymap/ai/tools/__init__.py:1589 |
+| `_run_skill` | src/memorymap/ai/tools/__init__.py:1973 |
+| `_save_skill` | src/memorymap/ai/tools/__init__.py:1177 |
+| `_save_user_preference` | src/memorymap/ai/tools/__init__.py:2328 |
+| `_schema_key` | src/memorymap/ai/tools/__init__.py:4692 |
 | `_scope_filters` | src/memorymap/ai/tools/__init__.py:622 |
 | `_scope_label` | src/memorymap/ai/tools/__init__.py:659 |
-| `_search_chat_history` | src/memorymap/ai/tools/__init__.py:1043 |
-| `_search_help` | src/memorymap/ai/tools/__init__.py:915 |
+| `_search_chat_history` | src/memorymap/ai/tools/__init__.py:1027 |
+| `_search_help` | src/memorymap/ai/tools/__init__.py:914 |
 | `_search_notes` | src/memorymap/ai/tools/__init__.py:72 |
-| `_set_reminder` | src/memorymap/ai/tools/__init__.py:1629 |
-| `_skill_key` | src/memorymap/ai/tools/__init__.py:2004 |
+| `_set_reminder` | src/memorymap/ai/tools/__init__.py:1613 |
+| `_skill_key` | src/memorymap/ai/tools/__init__.py:1988 |
 | `_suggested_neighbours` | src/memorymap/ai/tools/__init__.py:272 |
-| `_summarize_notes` | src/memorymap/ai/tools/__init__.py:960 |
-| `_tag_note` | src/memorymap/ai/tools/__init__.py:1377 |
-| `_unlink_notes` | src/memorymap/ai/tools/__init__.py:1550 |
-| `_verify_block` | src/memorymap/ai/tools/__init__.py:1166 |
-| `_web_search` | src/memorymap/ai/tools/__init__.py:1761 |
-| `adds_to_a_named_note` | src/memorymap/ai/tools/__init__.py:4078 |
-| `budget_for_window` | src/memorymap/ai/tools/__init__.py:4487 |
-| `call_example` | src/memorymap/ai/tools/__init__.py:4197 |
-| `check_arguments` | src/memorymap/ai/tools/__init__.py:4723 |
-| `compact_schemas` | src/memorymap/ai/tools/__init__.py:4388 |
-| `confirm_label` | src/memorymap/ai/tools/__init__.py:4531 |
-| `example_arguments` | src/memorymap/ai/tools/__init__.py:4680 |
-| `execute_tool` | src/memorymap/ai/tools/__init__.py:4764 |
-| `focus_detail` | src/memorymap/ai/tools/__init__.py:4099 |
-| `focus_for` | src/memorymap/ai/tools/__init__.py:4084 |
-| `handoff_event` | src/memorymap/ai/tools/__init__.py:2321 |
-| `is_follow_through` | src/memorymap/ai/tools/__init__.py:4062 |
-| `link_type_description` | src/memorymap/ai/tools/__init__.py:1469 |
-| `ollama_tools` | src/memorymap/ai/tools/__init__.py:4261 |
-| `prefetch_web` | src/memorymap/ai/tools/__init__.py:1799 |
-| `schema_chars` | src/memorymap/ai/tools/__init__.py:4356 |
-| `summarise_turns` | src/memorymap/ai/tools/__init__.py:2180 |
-| `tool_catalog` | src/memorymap/ai/tools/__init__.py:4504 |
-| `tool_enabled` | src/memorymap/ai/tools/__init__.py:4167 |
-| `validate_ask` | src/memorymap/ai/tools/__init__.py:1947 |
-| `validate_compress_chat` | src/memorymap/ai/tools/__init__.py:2231 |
-| `validate_make_plan` | src/memorymap/ai/tools/__init__.py:2262 |
-| `validate_run_skill` | src/memorymap/ai/tools/__init__.py:2030 |
-| `with_relation_types` | src/memorymap/ai/tools/__init__.py:4288 |
-| `within_budget` | src/memorymap/ai/tools/__init__.py:4442 |
+| `_summarize_notes` | src/memorymap/ai/tools/__init__.py:944 |
+| `_tag_note` | src/memorymap/ai/tools/__init__.py:1361 |
+| `_unlink_notes` | src/memorymap/ai/tools/__init__.py:1534 |
+| `_verify_block` | src/memorymap/ai/tools/__init__.py:1150 |
+| `_web_search` | src/memorymap/ai/tools/__init__.py:1745 |
+| `adds_to_a_named_note` | src/memorymap/ai/tools/__init__.py:4064 |
+| `budget_for_window` | src/memorymap/ai/tools/__init__.py:4473 |
+| `call_example` | src/memorymap/ai/tools/__init__.py:4183 |
+| `check_arguments` | src/memorymap/ai/tools/__init__.py:4709 |
+| `compact_schemas` | src/memorymap/ai/tools/__init__.py:4374 |
+| `confirm_label` | src/memorymap/ai/tools/__init__.py:4517 |
+| `example_arguments` | src/memorymap/ai/tools/__init__.py:4666 |
+| `execute_tool` | src/memorymap/ai/tools/__init__.py:4750 |
+| `focus_detail` | src/memorymap/ai/tools/__init__.py:4085 |
+| `focus_for` | src/memorymap/ai/tools/__init__.py:4070 |
+| `handoff_event` | src/memorymap/ai/tools/__init__.py:2305 |
+| `is_follow_through` | src/memorymap/ai/tools/__init__.py:4048 |
+| `link_type_description` | src/memorymap/ai/tools/__init__.py:1453 |
+| `ollama_tools` | src/memorymap/ai/tools/__init__.py:4247 |
+| `prefetch_web` | src/memorymap/ai/tools/__init__.py:1783 |
+| `schema_chars` | src/memorymap/ai/tools/__init__.py:4342 |
+| `summarise_turns` | src/memorymap/ai/tools/__init__.py:2164 |
+| `tool_catalog` | src/memorymap/ai/tools/__init__.py:4490 |
+| `tool_enabled` | src/memorymap/ai/tools/__init__.py:4153 |
+| `validate_ask` | src/memorymap/ai/tools/__init__.py:1931 |
+| `validate_compress_chat` | src/memorymap/ai/tools/__init__.py:2215 |
+| `validate_make_plan` | src/memorymap/ai/tools/__init__.py:2246 |
+| `validate_run_skill` | src/memorymap/ai/tools/__init__.py:2014 |
+| `with_relation_types` | src/memorymap/ai/tools/__init__.py:4274 |
+| `within_budget` | src/memorymap/ai/tools/__init__.py:4428 |
 
 ### src/memorymap/ai/tools/_common.py (15)
 
@@ -9833,12 +9835,6 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_compile` | src/memorymap/ai/toolwords.py:179 |
 | `looks_like_a_question_about` | src/memorymap/ai/toolwords.py:235 |
 | `score_groups` | src/memorymap/ai/toolwords.py:212 |
-
-### src/memorymap/ai/user_config.py (1)
-
-| Name | File:line |
-|---|---|
-| `apply_user_config` | src/memorymap/ai/user_config.py:6 |
 
 ### src/memorymap/ai/vision_ocr.py (11)
 
@@ -13162,7 +13158,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (8479)
+## Tests (8504)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -13196,6 +13192,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_app_import.py | 10 |
 | tests/test_archive.py | 7 |
 | tests/test_archive_links.py | 1 |
+| tests/test_arithmetic.py | 3 |
 | tests/test_ask_answer_object.py | 22 |
 | tests/test_ask_category_scope.py | 3 |
 | tests/test_ask_focus.py | 12 |
@@ -13295,13 +13292,13 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_companion_motion.py | 96 |
 | tests/test_companion_stacking.py | 4 |
 | tests/test_companion_toggle.py | 3 |
-| tests/test_composer_688.py | 37 |
-| tests/test_composer_725.py | 22 |
+| tests/test_composer_688.py | 40 |
+| tests/test_composer_725.py | 23 |
 | tests/test_composer_741.py | 5 |
 | tests/test_composer_brief.py | 13 |
 | tests/test_composer_eval_725.py | 6 |
 | tests/test_composer_eval_741.py | 6 |
-| tests/test_composer_route_688.py | 9 |
+| tests/test_composer_route_688.py | 11 |
 | tests/test_composer_social.py | 5 |
 | tests/test_composer_tables.py | 32 |
 | tests/test_composer_voice.py | 6 |
@@ -13465,6 +13462,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_files_describe.py | 7 |
 | tests/test_files_row_summary.py | 11 |
 | tests/test_filetypes.py | 10 |
+| tests/test_filing_accuracy.py | 3 |
 | tests/test_filing_certainty.py | 18 |
 | tests/test_filing_evidence_wired.py | 6 |
 | tests/test_filing_standin_watch.py | 1 |
@@ -13560,6 +13558,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_inline_math.py | 3 |
 | tests/test_insights_api.py | 30 |
 | tests/test_instance_lock.py | 27 |
+| tests/test_intent.py | 2 |
 | tests/test_janitor_knn.py | 8 |
 | tests/test_janitor_short.py | 5 |
 | tests/test_job_backpressure.py | 2 |
@@ -13732,8 +13731,8 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_note_surface_readonly.py | 2 |
 | tests/test_note_template_picker.py | 5 |
 | tests/test_note_types_graph_d5.py | 8 |
-| tests/test_notebook_access.py | 20 |
-| tests/test_notebook_stats.py | 20 |
+| tests/test_notebook_access.py | 21 |
+| tests/test_notebook_stats.py | 22 |
 | tests/test_notes_extras_api.py | 26 |
 | tests/test_notes_rail.py | 7 |
 | tests/test_notes_rows_719.py | 8 |
@@ -13823,7 +13822,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_query_plans.py | 2 |
 | tests/test_query_rollups_kg7.py | 4 |
 | tests/test_query_understanding.py | 20 |
-| tests/test_question_noise.py | 24 |
+| tests/test_question_noise.py | 26 |
 | tests/test_questions_spec.py | 9 |
 | tests/test_quick_access.py | 26 |
 | tests/test_raw_fetch_headers.py | 2 |
@@ -13905,7 +13904,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_sketch_media.py | 15 |
 | tests/test_skill_evals.py | 3 |
 | tests/test_skill_run_undo.py | 5 |
-| tests/test_skills.py | 81 |
+| tests/test_skills.py | 83 |
 | tests/test_skills_evals.py | 5 |
 | tests/test_smooth_boot.py | 16 |
 | tests/test_source_check.py | 7 |
@@ -14003,6 +14002,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_vault_import.py | 7 |
 | tests/test_vault_sessions.py | 12 |
 | tests/test_vendor_licences.py | 7 |
+| tests/test_vendor_manifest.py | 4 |
 | tests/test_vision_ocr.py | 26 |
 | tests/test_vision_rows_row11.py | 9 |
 | tests/test_voice_api.py | 14 |
@@ -14066,7 +14066,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (838)
+## Plan headings (860)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -14105,10 +14105,11 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 1.7 Local AI integration, read, not run | docs/roadmap/MODERNISATION_AUDIT.md:197 |
 | 1.7 Responsive (designed, not wrapped) | docs/roadmap/WORLD_CLASS_PLAN.md:194 |
 | 1.8 Deployment targets | docs/roadmap/MODERNISATION_AUDIT.md:231 |
+| 1.8 Undo (one contract; decision 53, 2026-10-10) | docs/roadmap/WORLD_CLASS_PLAN.md:208 |
 | 1.9 The main user journeys | docs/roadmap/MODERNISATION_AUDIT.md:241 |
 | 10. Built: Phase 2 (frontend) | docs/roadmap/MINDMAP_PLAN.md:295 |
 | 10. Chat and the agent surface | docs/roadmap/PLAN.md:198 |
-| 10. Flaws found by static probes (cheap to reproduce, each with its command) | docs/roadmap/WORLD_CLASS_PLAN.md:863 |
+| 10. Flaws found by static probes (cheap to reproduce, each with its command) | docs/roadmap/WORLD_CLASS_PLAN.md:878 |
 | 10. Outline, navigation and view | docs/roadmap/WHITEBOARD_PLAN.md:1227 |
 | 10. The spelling check: decided 2026-09-12 | docs/roadmap/DOCUMENTS_PLAN.md:712 |
 | 10. Timeline tab, and time-aware notes | docs/roadmap/BACKLOG.md:643 |
@@ -14122,7 +14123,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 11. Keyboard shortcuts | docs/roadmap/WHITEBOARD_PLAN.md:1242 |
 | 11. Performance, accuracy and AI efficiency | docs/roadmap/BACKLOG.md:700 |
 | 11. Phase 4 decisions, made 2026-09-12 | docs/roadmap/DOCUMENTS_PLAN.md:789 |
-| 11. The week, session by session (Opus/Sonnet), and the quarter | docs/roadmap/WORLD_CLASS_PLAN.md:910 |
+| 11. The week, session by session (Opus/Sonnet), and the quarter | docs/roadmap/WORLD_CLASS_PLAN.md:925 |
 | 110.1 Built | docs/roadmap/BACKLOG.md:3609 |
 | 110.2 The five bugs, and the measurement that found each | docs/roadmap/BACKLOG.md:3613 |
 | 110.3 Still open | docs/roadmap/BACKLOG.md:3650 |
@@ -14150,7 +14151,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 116.4 Tooling | docs/roadmap/BACKLOG.md:3910 |
 | 12. Does the AI know it is an agent? | docs/roadmap/BACKLOG.md:948 |
 | 12. Library | docs/roadmap/PLAN.md:220 |
-| 12. Security review (read, not penetration-tested; each item names the file) | docs/roadmap/WORLD_CLASS_PLAN.md:919 |
+| 12. Security review (read, not penetration-tested; each item names the file) | docs/roadmap/WORLD_CLASS_PLAN.md:934 |
 | 12. Selection, grouping, containers, swimlanes, tables | docs/roadmap/WHITEBOARD_PLAN.md:1303 |
 | 12. The map as its own tool (INBOX 93, the owner's ask, 2026-09-09) | docs/roadmap/MINDMAP_PLAN.md:303 |
 | 12. The writing intelligence as one feature: decided 2026-09-13 | docs/roadmap/DOCUMENTS_PLAN.md:844 |
@@ -14161,7 +14162,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 12.4 Not built until asked | docs/roadmap/MINDMAP_PLAN.md:531 |
 | 12.5 One place per action (INBOX 200 and 201, the owner, 2026-09-13 night) | docs/roadmap/MINDMAP_PLAN.md:536 |
 | 13. Images, math, links and tooltips | docs/roadmap/WHITEBOARD_PLAN.md:1316 |
-| 13. Open bugs and gaps from the merged agent reports (with owners) | docs/roadmap/WORLD_CLASS_PLAN.md:966 |
+| 13. Open bugs and gaps from the merged agent reports (with owners) | docs/roadmap/WORLD_CLASS_PLAN.md:981 |
 | 13. The map, read against its six complaints: measured 2026-09-21, phases open | docs/roadmap/MINDMAP_PLAN.md:604 |
 | 13. Timeline | docs/roadmap/PLAN.md:234 |
 | 13. Web search effectiveness | docs/roadmap/BACKLOG.md:991 |
@@ -14175,7 +14176,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 14. Export and import formats | docs/roadmap/WHITEBOARD_PLAN.md:1329 |
 | 14. More tools worth adding | docs/roadmap/BACKLOG.md:1074 |
 | 14. Reminders | docs/roadmap/PLAN.md:243 |
-| 14. The core algorithms, read line by line (2026-09-08) | docs/roadmap/WORLD_CLASS_PLAN.md:1003 |
+| 14. The core algorithms, read line by line (2026-09-08) | docs/roadmap/WORLD_CLASS_PLAN.md:1018 |
 | 14. What a document daily note is: decided 2026-09-20 | docs/roadmap/DOCUMENTS_PLAN.md:917 |
 | 14.1 Measured before anything was designed | docs/roadmap/MINDMAP_PLAN.md:1659 |
 | 14.2 What the five apps do, and what is taken | docs/roadmap/MINDMAP_PLAN.md:1663 |
@@ -14183,33 +14184,33 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 14.4 What is open | docs/roadmap/MINDMAP_PLAN.md:1755 |
 | 15. Appearance: more of everything | docs/roadmap/BACKLOG.md:1109 |
 | 15. Insert menu, shape picker and the sidebar search | docs/roadmap/WHITEBOARD_PLAN.md:1346 |
-| 15. Inventions: eight things no notebook does, specified for Opus and Sonnet | docs/roadmap/WORLD_CLASS_PLAN.md:1061 |
+| 15. Inventions: eight things no notebook does, specified for Opus and Sonnet | docs/roadmap/WORLD_CLASS_PLAN.md:1076 |
 | 15. Settings: section by section | docs/roadmap/PLAN.md:252 |
 | 15. The code block's own bar, and where it belongs: measured 2026-09-20 | docs/roadmap/DOCUMENTS_PLAN.md:966 |
 | 16. Layouts | docs/roadmap/WHITEBOARD_PLAN.md:1357 |
 | 16. Sweeping UI quality-of-life | docs/roadmap/BACKLOG.md:1134 |
-| 16. The backend, read for structure, silent failure and lag (2026-09-08) | docs/roadmap/WORLD_CLASS_PLAN.md:1395 |
+| 16. The backend, read for structure, silent failure and lag (2026-09-08) | docs/roadmap/WORLD_CLASS_PLAN.md:1410 |
 | 16. The engine's three omissions, and the table menu: decided 2026-09-20 | docs/roadmap/DOCUMENTS_PLAN.md:1005 |
 | 16. Utilities and overlays | docs/roadmap/PLAN.md:272 |
 | 17. Cross-cutting quality bars (apply to every row above) | docs/roadmap/PLAN.md:287 |
 | 17. The Format panel with nothing selected, and diagram options | docs/roadmap/WHITEBOARD_PLAN.md:1367 |
 | 17. The live view for professional use: measured 2026-09-21, phases open | docs/roadmap/DOCUMENTS_PLAN.md:1083 |
-| 17. The original vision, audited (2026-09-09) | docs/roadmap/WORLD_CLASS_PLAN.md:1631 |
+| 17. The original vision, audited (2026-09-09) | docs/roadmap/WORLD_CLASS_PLAN.md:1646 |
 | 17. Use cases the app can't serve yet | docs/roadmap/BACKLOG.md:1179 |
 | 18. Agent quality | docs/roadmap/BACKLOG.md:1219 |
 | 18. Order for Part II (after Part I sprints 1–3) | docs/roadmap/PLAN.md:295 |
 | 18. Out of scope, with the reason | docs/roadmap/WHITEBOARD_PLAN.md:1377 |
-| 18. The next horizon, written 2026-09-14 at the close of PR 144 | docs/roadmap/WORLD_CLASS_PLAN.md:1727 |
+| 18. The next horizon, written 2026-09-14 at the close of PR 144 | docs/roadmap/WORLD_CLASS_PLAN.md:1742 |
 | 18. The slash menus as one system: built 2026-09-21 | docs/roadmap/DOCUMENTS_PLAN.md:1250 |
 | 19. A board or a map as an object in a note, and a note's reminders: built 2026-09-21 | docs/roadmap/DOCUMENTS_PLAN.md:1285 |
 | 19. Accessibility audit | docs/roadmap/BACKLOG.md:1256 |
-| 19. The architecture and framework review (2026-09-20, INBOX 266) | docs/roadmap/WORLD_CLASS_PLAN.md:1912 |
-| 19.1 The one number that matters: 776 MB resident, idle | docs/roadmap/WORLD_CLASS_PLAN.md:1925 |
-| 19.2 The frontend is 5.9 MB decoded, and that is mostly fine | docs/roadmap/WORLD_CLASS_PLAN.md:1965 |
-| 19.3 SQLite is the right store, and the reasons are not the obvious ones | docs/roadmap/WORLD_CLASS_PLAN.md:2004 |
-| 19.4 Idle compute: the assumption did not hold | docs/roadmap/WORLD_CLASS_PLAN.md:2031 |
-| 19.5 What the review has not covered yet | docs/roadmap/WORLD_CLASS_PLAN.md:2058 |
-| 2. Competitors: what they have that MemoryMap does not (checked, not | docs/roadmap/WORLD_CLASS_PLAN.md:208 |
+| 19. The architecture and framework review (2026-09-20, INBOX 266) | docs/roadmap/WORLD_CLASS_PLAN.md:1927 |
+| 19.1 The one number that matters: 776 MB resident, idle | docs/roadmap/WORLD_CLASS_PLAN.md:1940 |
+| 19.2 The frontend is 5.9 MB decoded, and that is mostly fine | docs/roadmap/WORLD_CLASS_PLAN.md:1980 |
+| 19.3 SQLite is the right store, and the reasons are not the obvious ones | docs/roadmap/WORLD_CLASS_PLAN.md:2019 |
+| 19.4 Idle compute: the assumption did not hold | docs/roadmap/WORLD_CLASS_PLAN.md:2046 |
+| 19.5 What the review has not covered yet | docs/roadmap/WORLD_CLASS_PLAN.md:2073 |
+| 2. Competitors: what they have that MemoryMap does not (checked, not | docs/roadmap/WORLD_CLASS_PLAN.md:223 |
 | 2. Documents: to the level of Obsidian / Typora / iA Writer | docs/roadmap/PLAN.md:61 |
 | 2. Done when | docs/roadmap/SESSION_BRIEFS.md:1398 |
 | 2. Format panel, Text tab, and the Arrange tab | docs/roadmap/WHITEBOARD_PLAN.md:1023 |
@@ -14223,31 +14224,37 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 2. Why it disappoints (measured against the screenshots) | docs/roadmap/CHAT_PLAN.md:28 |
 | 2. Why it disappoints (measured, 48 notes across six months, 1358px) | docs/roadmap/TIMELINE_PLAN.md:24 |
 | 2. Why it disappoints: measured and read | docs/roadmap/GRAPH_PLAN.md:27 |
-| 20. A model per feature (asked for directly, 2026-09-21) | docs/roadmap/WORLD_CLASS_PLAN.md:2222 |
+| 20. A model per feature (asked for directly, 2026-09-21) | docs/roadmap/WORLD_CLASS_PLAN.md:2237 |
 | 20. Backend | docs/roadmap/BACKLOG.md:1284 |
 | 20. The 2026-10-05 feature audit: decisions | docs/roadmap/DOCUMENTS_PLAN.md:1153 |
 | 2026-09-08, the third night: read this block first, whoever you are | docs/roadmap/HANDOVER.md:13 |
-| 21. Every failure names its way out (INBOX 272 part 1, 2026-09-21) | docs/roadmap/WORLD_CLASS_PLAN.md:2292 |
+| 21. Every failure names its way out (INBOX 272 part 1, 2026-09-21) | docs/roadmap/WORLD_CLASS_PLAN.md:2307 |
 | 21. Skills: rebuilt; what is left | docs/roadmap/BACKLOG.md:1419 |
 | 21. The code editor against VS Code, and writing checks everywhere (INBOX 646) | docs/roadmap/DOCUMENTS_PLAN.md:539 |
 | 22. Reported in use, not yet done | docs/roadmap/BACKLOG.md:1494 |
-| 22. The professional baseline and the devibecode programme (2026-09-27) | docs/roadmap/WORLD_CLASS_PLAN.md:2305 |
-| 22.1 Large gaps (what every professional app has) | docs/roadmap/WORLD_CLASS_PLAN.md:2319 |
-| 22.2 Small things people expect (each S, Sonnet unless noted) | docs/roadmap/WORLD_CLASS_PLAN.md:2363 |
-| 22.3 Where the design is below standard (measured or seen, 2026-09-27) | docs/roadmap/WORLD_CLASS_PLAN.md:2383 |
-| 22.4 The devibecode programme: one surface at a time, every skill | docs/roadmap/WORLD_CLASS_PLAN.md:2398 |
-| 22.5 Where the app goes next (release path) | docs/roadmap/WORLD_CLASS_PLAN.md:2427 |
-| 23. Filing and the taxonomy: candidates, a decision, an explanation (2026-10-10; Brief 39b) | docs/roadmap/WORLD_CLASS_PLAN.md:1464 |
+| 22. The professional baseline and the devibecode programme (2026-09-27) | docs/roadmap/WORLD_CLASS_PLAN.md:2320 |
+| 22.1 Large gaps (what every professional app has) | docs/roadmap/WORLD_CLASS_PLAN.md:2334 |
+| 22.2 Small things people expect (each S, Sonnet unless noted) | docs/roadmap/WORLD_CLASS_PLAN.md:2378 |
+| 22.3 Where the design is below standard (measured or seen, 2026-09-27) | docs/roadmap/WORLD_CLASS_PLAN.md:2398 |
+| 22.4 The devibecode programme: one surface at a time, every skill | docs/roadmap/WORLD_CLASS_PLAN.md:2413 |
+| 22.5 Where the app goes next (release path) | docs/roadmap/WORLD_CLASS_PLAN.md:2442 |
+| 23. Filing and the taxonomy: candidates, a decision, an explanation (2026-10-10; Brief 39b) | docs/roadmap/WORLD_CLASS_PLAN.md:1479 |
 | 23. Organisation: manual grouping and multi-category notes | docs/roadmap/BACKLOG.md:1588 |
-| 24. Codebase census, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3254 |
+| 24. Codebase census, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3269 |
 | 24. Dashboard: more widgets, and layout depth | docs/roadmap/BACKLOG.md:1620 |
-| 24.1 Size and complexity | docs/roadmap/WORLD_CLASS_PLAN.md:3258 |
-| 24.2 Duplicated blocks | docs/roadmap/WORLD_CLASS_PLAN.md:3380 |
-| 24.3 Dead-code candidates | docs/roadmap/WORLD_CLASS_PLAN.md:3420 |
-| 24.4 Coupling of the classic scripts | docs/roadmap/WORLD_CLASS_PLAN.md:3473 |
-| 24.5 Counts | docs/roadmap/WORLD_CLASS_PLAN.md:3560 |
-| 24.6 Console errors per surface | docs/roadmap/WORLD_CLASS_PLAN.md:3667 |
+| 24.1 Size and complexity | docs/roadmap/WORLD_CLASS_PLAN.md:3273 |
+| 24.2 Duplicated blocks | docs/roadmap/WORLD_CLASS_PLAN.md:3395 |
+| 24.3 Dead-code candidates | docs/roadmap/WORLD_CLASS_PLAN.md:3435 |
+| 24.4 Coupling of the classic scripts | docs/roadmap/WORLD_CLASS_PLAN.md:3488 |
+| 24.5 Counts | docs/roadmap/WORLD_CLASS_PLAN.md:3575 |
+| 24.6 Console errors per surface | docs/roadmap/WORLD_CLASS_PLAN.md:3682 |
 | 25. App control: tray, health checks, and dependency repair | docs/roadmap/BACKLOG.md:1652 |
+| 25. The whole app against world class, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3695 |
+| 25.1 The bar | docs/roadmap/WORLD_CLASS_PLAN.md:3714 |
+| 25.2 Surface by surface | docs/roadmap/WORLD_CLASS_PLAN.md:3731 |
+| 25.3 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3764 |
+| 25.4 Phases with gates (each a brief; measure first) | docs/roadmap/WORLD_CLASS_PLAN.md:3801 |
+| 25.5 Not verified | docs/roadmap/WORLD_CLASS_PLAN.md:3817 |
 | 26. Data lifecycle: archive, a full wipe, and a real trust page | docs/roadmap/BACKLOG.md:1718 |
 | 27. Onboarding and first-run experience | docs/roadmap/BACKLOG.md:1794 |
 | 28. In-app help: an AI that knows the docs, built | docs/roadmap/BACKLOG.md:1824 |
@@ -14260,7 +14267,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 3. Chat page: Chat / Agent / Browse sub-tabs | docs/roadmap/BACKLOG.md:118 |
 | 3. Edit style, Edit data, placeholders, tooltips | docs/roadmap/WHITEBOARD_PLAN.md:1067 |
 | 3. Files | docs/roadmap/SESSION_BRIEFS.md:1425 |
-| 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:272 |
+| 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:287 |
 | 3. Research: what the field actually offers | docs/roadmap/MINDMAP_PLAN.md:79 |
 | 3. The diagnosis | docs/roadmap/DOCUMENTS_PLAN.md:54 |
 | 3. The strongest things worth taking | docs/roadmap/ANALYSIS.md:2471 |
@@ -14294,13 +14301,13 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 4. Decisions to make first | docs/roadmap/GRAPH_PLAN.md:73 |
 | 4. Library tab: chats, documents, images, archive | docs/roadmap/BACKLOG.md:204 |
 | 4. Scope decision (make this call first) | docs/roadmap/MINDMAP_PLAN.md:119 |
-| 4. The backend, made revolutionary (and still SQLite, still offline) | docs/roadmap/WORLD_CLASS_PLAN.md:455 |
+| 4. The backend, made revolutionary (and still SQLite, still offline) | docs/roadmap/WORLD_CLASS_PLAN.md:470 |
 | 4. The decision to make first: the editing surface | docs/roadmap/DOCUMENTS_PLAN.md:108 |
 | 4. The eval sets this implies for Brief 39 step 10 | docs/roadmap/CHAT_PLAN.md:1587 |
 | 4. What it does worse than us | docs/roadmap/ANALYSIS.md:2551 |
 | 4a. A real whiteboard, not just a bigger sketch | docs/roadmap/BACKLOG.md:271 |
 | 4b. Templates and base layouts (boards, maps, documents) | docs/roadmap/BACKLOG.md:283 |
-| 5. Abilities without AI (the app must be excellent with the model off) | docs/roadmap/WORLD_CLASS_PLAN.md:668 |
+| 5. Abilities without AI (the app must be excellent with the model off) | docs/roadmap/WORLD_CLASS_PLAN.md:683 |
 | 5. Build first: fifteen capabilities by value over cost | docs/roadmap/CHAT_PLAN.md:1628 |
 | 5. Connection points and constraints | docs/roadmap/WHITEBOARD_PLAN.md:1101 |
 | 5. Documents | docs/roadmap/BACKLOG.md:287 |
@@ -14321,7 +14328,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 6. Consistency rules (learnability) | docs/roadmap/GRAPH_PLAN.md:161 |
 | 6. Files this will touch | docs/roadmap/MINDMAP_PLAN.md:240 |
 | 6. Layers and pages | docs/roadmap/WHITEBOARD_PLAN.md:1115 |
-| 6. Measuring "professional" without telemetry | docs/roadmap/WORLD_CLASS_PLAN.md:715 |
+| 6. Measuring "professional" without telemetry | docs/roadmap/WORLD_CLASS_PLAN.md:730 |
 | 6. OpenAI-compatible backends: **done** | docs/roadmap/BACKLOG.md:389 |
 | 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:1455 |
 | 6. Semantic search and the knowledge graph, "the ultimate upgrade" | docs/roadmap/PLAN.md:128 |
@@ -14340,7 +14347,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 7. Not verified until built | docs/roadmap/WHITEBOARD_PLAN.md:512 |
 | 7. Shape libraries and the stencil format | docs/roadmap/WHITEBOARD_PLAN.md:1131 |
 | 7. Startup and thermal behaviour (reported: "fan noticeably speeds up when starting") | docs/roadmap/PLAN.md:147 |
-| 7. The small things (a checklist that sessions keep reopening) | docs/roadmap/WORLD_CLASS_PLAN.md:742 |
+| 7. The small things (a checklist that sessions keep reopening) | docs/roadmap/WORLD_CLASS_PLAN.md:757 |
 | 7.1 The top risks, and how to de-risk each | docs/roadmap/MODERNISATION_AUDIT.md:1429 |
 | 7.2 The moat, in three strategies | docs/roadmap/MODERNISATION_AUDIT.md:1441 |
 | 7.3 Metrics: north star and phase KPIs, with no telemetry | docs/roadmap/MODERNISATION_AUDIT.md:1463 |
@@ -14352,7 +14359,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 79b. New items, raised by the §85/§86 audit, not yet triaged | docs/roadmap/BACKLOG.md:2248 |
 | 8. Acceptance for the whole plan | docs/roadmap/DOCUMENTS_PLAN.md:511 |
 | 8. Dashboard | docs/roadmap/PLAN.md:176 |
-| 8. Execution order for the coming week (Opus/Sonnet sessions) | docs/roadmap/WORLD_CLASS_PLAN.md:793 |
+| 8. Execution order for the coming week (Opus/Sonnet sessions) | docs/roadmap/WORLD_CLASS_PLAN.md:808 |
 | 8. Open bug list | docs/roadmap/BACKLOG.md:483 |
 | 8. Research: tldraw, Excalidraw, Miro, FigJam, and what it changes here | docs/roadmap/WHITEBOARD_PLAN.md:544 |
 | 8. Research: what the reference products actually do, and what it changes here | docs/roadmap/CHAT_PLAN.md:664 |
@@ -14363,7 +14370,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 9. Built: Phase 1 (backend) | docs/roadmap/MINDMAP_PLAN.md:291 |
 | 9. Find and replace | docs/roadmap/WHITEBOARD_PLAN.md:1217 |
 | 9. Notes (capture + list) | docs/roadmap/PLAN.md:186 |
-| 9. On testing with a real model in the sandbox | docs/roadmap/WORLD_CLASS_PLAN.md:849 |
+| 9. On testing with a real model in the sandbox | docs/roadmap/WORLD_CLASS_PLAN.md:864 |
+| 9. Phase 5: the calendar as the third view (Fable, 2026-10-10; WORLD_CLASS_PLAN 25, decision 47; Brief 55) | docs/roadmap/TIMELINE_PLAN.md:207 |
 | 9. Risks | docs/roadmap/DOCUMENTS_PLAN.md:523 |
 | 9. The graph: make it a tool, and give it a look | docs/roadmap/BACKLOG.md:566 |
 | A real, narrow bug this comparison surfaced | docs/roadmap/ANALYSIS.md:891 |
@@ -14381,27 +14389,27 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | After the bugs: the parity programme (the owner, 2026-10-10) | docs/ROADMAP.md:128 |
 | Architecture review, 2026-09-24 (INBOX 400, asked for directly) | docs/roadmap/ANALYSIS.md:3755 |
 | Asked for this session, not yet built | docs/roadmap/BACKLOG.md:310 |
-| Audio in the notebook: the architecture decided 2026-09-21, the build deferred | docs/roadmap/WORLD_CLASS_PLAN.md:2137 |
+| Audio in the notebook: the architecture decided 2026-09-21, the build deferred | docs/roadmap/WORLD_CLASS_PLAN.md:2152 |
 | Audio notes and meetings, against soundcraft | docs/roadmap/ANALYSIS.md:4067 |
-| Audit, 2026-09-13 night (INBOX 209: "poke holes in this application") | docs/roadmap/WORLD_CLASS_PLAN.md:785 |
+| Audit, 2026-09-13 night (INBOX 209: "poke holes in this application") | docs/roadmap/WORLD_CLASS_PLAN.md:800 |
 | B. Documents (DOCUMENTS_PLAN), the owner's first priority | docs/roadmap/SESSION_BRIEFS.md:798 |
 | B. Retrieval and context: where the real quality ceiling is | docs/roadmap/BACKLOG.md:2376 |
 | B. Schema and backend: what a professional backend would change | docs/roadmap/AUDIT.md:41 |
 | B. UX, feedback states and accessibility | docs/roadmap/MODERNISATION_AUDIT.md:364 |
-| B1 The event log: every change is a fact, the tables are views | docs/roadmap/WORLD_CLASS_PLAN.md:461 |
+| B1 The event log: every change is a fact, the tables are views | docs/roadmap/WORLD_CLASS_PLAN.md:476 |
 | B1 · Three quarters of a phone screen is chrome, Critical | docs/roadmap/MODERNISATION_AUDIT.md:366 |
-| B2 The job runtime: durable, resumable, observable | docs/roadmap/WORLD_CLASS_PLAN.md:527 |
+| B2 The job runtime: durable, resumable, observable | docs/roadmap/WORLD_CLASS_PLAN.md:542 |
 | B2 · The note card's actions sit on top of the note's text on touch, High, and new | docs/roadmap/MODERNISATION_AUDIT.md:389 |
-| B3 The retrieval engine: one index, three signals, explained | docs/roadmap/WORLD_CLASS_PLAN.md:533 |
+| B3 The retrieval engine: one index, three signals, explained | docs/roadmap/WORLD_CLASS_PLAN.md:548 |
 | B3 · There is no viewport below 600 px in the entire stylesheet, High | docs/roadmap/MODERNISATION_AUDIT.md:408 |
-| B4 The knowledge kernel: entities, claims, links, tensions | docs/roadmap/WORLD_CLASS_PLAN.md:569 |
+| B4 The knowledge kernel: entities, claims, links, tensions | docs/roadmap/WORLD_CLASS_PLAN.md:584 |
 | B4 · Every counted metric is identical at 1024 and 1440, Medium | docs/roadmap/MODERNISATION_AUDIT.md:419 |
-| B5 The AI harness: plan, act, verify, budget, learn | docs/roadmap/WORLD_CLASS_PLAN.md:601 |
+| B5 The AI harness: plan, act, verify, budget, learn | docs/roadmap/WORLD_CLASS_PLAN.md:616 |
 | B5 · Accessibility, better than the codebase's reputation, with three real gaps, Medium | docs/roadmap/MODERNISATION_AUDIT.md:432 |
-| B6 Local-first sync (L, later; design now) | docs/roadmap/WORLD_CLASS_PLAN.md:633 |
+| B6 Local-first sync (L, later; design now) | docs/roadmap/WORLD_CLASS_PLAN.md:648 |
 | B6 · Designed states: Medium | docs/roadmap/MODERNISATION_AUDIT.md:454 |
-| B7 The API contract | docs/roadmap/WORLD_CLASS_PLAN.md:644 |
-| B8 Extensions | docs/roadmap/WORLD_CLASS_PLAN.md:656 |
+| B7 The API contract | docs/roadmap/WORLD_CLASS_PLAN.md:659 |
+| B8 Extensions | docs/roadmap/WORLD_CLASS_PLAN.md:671 |
 | Brief 1 (Mon, Sonnet): the em-dash sweep and its lint | docs/roadmap/SESSION_BRIEFS.md:70 |
 | Brief 10 (Fri, Sonnet): Library one card recipe, Dashboard widget frame | docs/roadmap/SESSION_BRIEFS.md:447 |
 | Brief 11 (Sat, Opus): the retrieval engine (B3), with explanations | docs/roadmap/SESSION_BRIEFS.md:474 |
@@ -14447,8 +14455,18 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 43 (Opus, high; Sonnet medium for the fixes it names): the expert audit | docs/roadmap/SESSION_BRIEFS.md:1794 |
 | Brief 44 (Sonnet high for the catalogue and converter; Opus high for the editor phases): the draw.io programme | docs/roadmap/SESSION_BRIEFS.md:1835 |
 | Brief 45 (Sonnet medium for the census; Opus high for the review): structure and complexity | docs/roadmap/SESSION_BRIEFS.md:1884 |
+| Brief 46 (Sonnet, medium): measure the table | docs/roadmap/SESSION_BRIEFS.md:1914 |
+| Brief 47 (Opus, high): search everywhere (25a, decision 46) | docs/roadmap/SESSION_BRIEFS.md:1924 |
+| Brief 48 (Opus, high): import and export round trip (25b) | docs/roadmap/SESSION_BRIEFS.md:1929 |
+| Brief 49 (Opus, high): first run and the manual (25c) | docs/roadmap/SESSION_BRIEFS.md:1934 |
 | Brief 4: W1-3: glass as shell furniture, with an O(1) invariant | docs/roadmap/MODERNISATION_AUDIT.md:1243 |
 | Brief 5 (Wed, Opus): the Timeline, Phases 1 and 2 | docs/roadmap/SESSION_BRIEFS.md:254 |
+| Brief 50 (Sonnet, high): the PWA shell (25d, decision 49) | docs/roadmap/SESSION_BRIEFS.md:1938 |
+| Brief 51 (Opus, high): never lose a note (25e, decision 48; rule 1.8) | docs/roadmap/SESSION_BRIEFS.md:1942 |
+| Brief 52 (Opus, high): settings as a product (25f, decision 52) | docs/roadmap/SESSION_BRIEFS.md:1947 |
+| Brief 53 (Sonnet, high): budgets per interaction (25g, decision 54) | docs/roadmap/SESSION_BRIEFS.md:1951 |
+| Brief 54 (Opus, high): skill reliability (AGENT_SKILLS_REFORM Phase E) | docs/roadmap/SESSION_BRIEFS.md:1955 |
+| Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5) | docs/roadmap/SESSION_BRIEFS.md:1959 |
 | Brief 5: W2-3: the note card's actions stop covering its text on touch | docs/roadmap/MODERNISATION_AUDIT.md:1281 |
 | Brief 6 (Wed, Opus): pagination on all 25 lists, and one scheduler | docs/roadmap/SESSION_BRIEFS.md:303 |
 | Brief 6: W8-1: the audit scripts become the e2e suite | docs/roadmap/MODERNISATION_AUDIT.md:1310 |
@@ -14459,6 +14477,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 9 (Fri, Opus): the job runtime (B2) and thread isolation | docs/roadmap/SESSION_BRIEFS.md:406 |
 | Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:1137 |
 | Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1631 |
+| Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1908 |
 | Bugs | docs/roadmap/CHAT_PLAN.md:957 |
 | Bugs | docs/roadmap/DOCUMENTS_PLAN.md:1350 |
 | Bugs | docs/roadmap/GRAPH_PLAN.md:569 |
@@ -14466,7 +14485,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Bugs | docs/roadmap/TIMELINE_PLAN.md:202 |
 | Bugs | docs/roadmap/UI_MODERNISATION_PLAN.md:1322 |
 | Bugs | docs/roadmap/WHITEBOARD_PLAN.md:905 |
-| Bugs | docs/roadmap/WORLD_CLASS_PLAN.md:3121 |
+| Bugs | docs/roadmap/WORLD_CLASS_PLAN.md:3136 |
 | Build first | docs/roadmap/WHITEBOARD_PLAN.md:1389 |
 | Built, 2026-09-09: one surface per panel, and the Arrange section | docs/roadmap/WHITEBOARD_PLAN.md:421 |
 | Built, Phase 1 (the chrome), 2026-09-09 | docs/roadmap/DOCUMENTS_PLAN.md:562 |
@@ -14501,28 +14520,28 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | D. Chat (CHAT_PLAN), folded with the owner's reports | docs/roadmap/SESSION_BRIEFS.md:816 |
 | D. Documents: sub-par against Obsidian / Typora / iA Writer | docs/roadmap/AUDIT.md:78 |
 | D. Trust and safety | docs/roadmap/BACKLOG.md:2420 |
-| D1 Dashboard (M, Sonnet after a Fable/Opus design pass) | docs/roadmap/WORLD_CLASS_PLAN.md:278 |
+| D1 Dashboard (M, Sonnet after a Fable/Opus design pass) | docs/roadmap/WORLD_CLASS_PLAN.md:293 |
 | D1 · Errors are not a contract, and nothing catches what falls through, High | docs/roadmap/MODERNISATION_AUDIT.md:552 |
-| D10 Documents and PDFs (L, see DOCUMENTS_PLAN.md; add PDF annotation as | docs/roadmap/WORLD_CLASS_PLAN.md:395 |
-| D11 Whiteboard and mind maps (M, in progress; then MINDMAP_PLAN Phases | docs/roadmap/WORLD_CLASS_PLAN.md:400 |
-| D12 Graph (L, GRAPH_PLAN.md) | docs/roadmap/WORLD_CLASS_PLAN.md:405 |
-| D13 Settings (M, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:409 |
-| D14 Help, onboarding and the command palette (S, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:421 |
-| D15 The shell: top bar, tab bar, bottom bar, sidebars (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:434 |
-| D16 Write with AI, the writing desk (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:445 |
-| D2 Notes: list, capture, edit (L, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:298 |
+| D10 Documents and PDFs (L, see DOCUMENTS_PLAN.md; add PDF annotation as | docs/roadmap/WORLD_CLASS_PLAN.md:410 |
+| D11 Whiteboard and mind maps (M, in progress; then MINDMAP_PLAN Phases | docs/roadmap/WORLD_CLASS_PLAN.md:415 |
+| D12 Graph (L, GRAPH_PLAN.md) | docs/roadmap/WORLD_CLASS_PLAN.md:420 |
+| D13 Settings (M, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:424 |
+| D14 Help, onboarding and the command palette (S, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:436 |
+| D15 The shell: top bar, tab bar, bottom bar, sidebars (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:449 |
+| D16 Write with AI, the writing desk (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:460 |
+| D2 Notes: list, capture, edit (L, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:313 |
 | D2 · Long work has no queue, no persistence and no resume, High | docs/roadmap/MODERNISATION_AUDIT.md:565 |
-| D3 Chat (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:306 |
+| D3 Chat (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:321 |
 | D3 · FTS5 exists for notes only; everything else is still a scan, Medium | docs/roadmap/MODERNISATION_AUDIT.md:580 |
-| D4 Library (M, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:321 |
+| D4 Library (M, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:336 |
 | D4 · Pagination is one-third done, Medium | docs/roadmap/MODERNISATION_AUDIT.md:596 |
-| D5 Properties and tags (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:335 |
+| D5 Properties and tags (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:350 |
 | D5 · The OpenAPI schema is served to anyone who can reach the port, Medium | docs/roadmap/MODERNISATION_AUDIT.md:609 |
-| D6 Daily notes and the journal (S, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:351 |
+| D6 Daily notes and the journal (S, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:366 |
 | D6 · What is *already right*, so nobody re-does it | docs/roadmap/MODERNISATION_AUDIT.md:624 |
-| D7 Timeline (L, in progress: see TIMELINE_PLAN.md) | docs/roadmap/WORLD_CLASS_PLAN.md:376 |
-| D8 Reminders (S, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:380 |
-| D9 Links and the web clipper (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:391 |
+| D7 Timeline (L, in progress: see TIMELINE_PLAN.md) | docs/roadmap/WORLD_CLASS_PLAN.md:391 |
+| D8 Reminders (S, Sonnet) | docs/roadmap/WORLD_CLASS_PLAN.md:395 |
+| D9 Links and the web clipper (M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:406 |
 | Decided, 2026-09-12: what a Files row is for (do not remake) | docs/roadmap/UI_MODERNISATION_PLAN.md:302 |
 | Decided, 2026-09-12: what the bottom of a picture card is (do not remake) | docs/roadmap/UI_MODERNISATION_PLAN.md:325 |
 | Decided, 2026-09-13: how the page reader is reached (do not remake) | docs/roadmap/UI_MODERNISATION_PLAN.md:266 |
@@ -14542,12 +14561,13 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Decisions made | docs/roadmap/MINDMAP_PLAN.md:911 |
 | Decisions made | docs/roadmap/UI_MODERNISATION_PLAN.md:70 |
 | Decisions made | docs/roadmap/UI_MODERNISATION_PLAN.md:1217 |
-| Decisions made | docs/roadmap/WORLD_CLASS_PLAN.md:2234 |
+| Decisions made | docs/roadmap/WORLD_CLASS_PLAN.md:2249 |
+| Decisions made (do not re-decide) | docs/roadmap/TIMELINE_PLAN.md:214 |
 | Decisions made, 2026-10-05: draw.io phase 2 (wb-phase2) | docs/roadmap/WHITEBOARD_PLAN.md:353 |
 | Decisions made, 2026-10-05: the draw.io pass (INBOX 557, 558) | docs/roadmap/WHITEBOARD_PLAN.md:289 |
 | Decisions, 2026-10-10 | docs/roadmap/WHITEBOARD_PLAN.md:1440 |
 | Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/UI_MODERNISATION_PLAN.md:1093 |
-| Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:1486 |
+| Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:1501 |
 | Deliberately not on this list | docs/roadmap/BACKLOG.md:2476 |
 | Design requests | docs/roadmap/CHAT_PLAN.md:1008 |
 | Design requests | docs/roadmap/DOCUMENTS_PLAN.md:1361 |
@@ -14555,7 +14575,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Design requests | docs/roadmap/MINDMAP_PLAN.md:1788 |
 | Design requests | docs/roadmap/UI_MODERNISATION_PLAN.md:1341 |
 | Design requests | docs/roadmap/WHITEBOARD_PLAN.md:924 |
-| Design requests | docs/roadmap/WORLD_CLASS_PLAN.md:3138 |
+| Design requests | docs/roadmap/WORLD_CLASS_PLAN.md:3153 |
 | Deta Surf (deta) | docs/roadmap/ANALYSIS.md:2038 |
 | Diagrams: mermaid as the interchange format | docs/roadmap/BACKLOG.md:2531 |
 | Direction, 2026-10-10 (Fable orchestrating): the thesis, the policies, the tracks | docs/ROADMAP.md:26 |
@@ -14569,7 +14589,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | E2 · The complexity of the AI path is where the next bug will be, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:653 |
 | E3 · Model calls are scattered across request handlers, background threads and module singletons, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:666 |
 | E4 · The honest positives, so the section is not one-sided (read) | docs/roadmap/MODERNISATION_AUDIT.md:676 |
-| Earlier sessions | docs/roadmap/HANDOVER.md:474 |
+| Earlier sessions | docs/roadmap/HANDOVER.md:476 |
 | F. Agent harness: what "ultimate" needs that is not there | docs/roadmap/AUDIT.md:113 |
 | F. Library, dashboard, settings | docs/roadmap/SESSION_BRIEFS.md:827 |
 | F. Performance and perceived speed | docs/roadmap/MODERNISATION_AUDIT.md:685 |
@@ -14583,43 +14603,44 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | G. The plans' own remainders | docs/roadmap/SESSION_BRIEFS.md:832 |
 | G1 · Primary navigation scrolls off the phone screen, High | docs/roadmap/MODERNISATION_AUDIT.md:748 |
 | G2 · The category sidebar becomes a 182 px banner, Medium | docs/roadmap/MODERNISATION_AUDIT.md:761 |
+| Gates | docs/roadmap/TIMELINE_PLAN.md:233 |
 | Guides: curated instructions the AI writes to | docs/roadmap/BACKLOG.md:2493 |
 | H. Missing table stakes, security and privacy | docs/roadmap/MODERNISATION_AUDIT.md:768 |
 | H. Suggested order (feeds PLAN.md's sprints) | docs/roadmap/AUDIT.md:162 |
-| H1 The night shift, finished (I1 second pass; L, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1751 |
+| H1 The night shift, finished (I1 second pass; L, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1766 |
 | H1 · Security posture is genuinely strong, recorded as a positive | docs/roadmap/MODERNISATION_AUDIT.md:770 |
-| H2 Evidence cards and open questions (I6 then I3; L, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1767 |
+| H2 Evidence cards and open questions (I6 then I3; L, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1782 |
 | H2 · The gaps that are actually missing, High | docs/roadmap/MODERNISATION_AUDIT.md:795 |
-| H3 The model bench (I8; M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1782 |
+| H3 The model bench (I8; M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1797 |
 | H3 · Privacy is a claim without an artefact, Medium | docs/roadmap/MODERNISATION_AUDIT.md:806 |
-| H4 The notebook as a local service for other agents (B7 and B8; M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1786 |
-| H5 Sync without a server (B6; L, design first) | docs/roadmap/WORLD_CLASS_PLAN.md:1800 |
-| H6 Professional use (the PR after 144; M, mixed) | docs/roadmap/WORLD_CLASS_PLAN.md:1812 |
-| H7 The speed budget (A1 continued; S each) | docs/roadmap/WORLD_CLASS_PLAN.md:1857 |
-| H8 Time travel and the margin reader (I5, I2; M each, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1886 |
-| H9 Polish in use (the owner's question, 2026-09-14; S to M each) | docs/roadmap/WORLD_CLASS_PLAN.md:1900 |
+| H4 The notebook as a local service for other agents (B7 and B8; M, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1801 |
+| H5 Sync without a server (B6; L, design first) | docs/roadmap/WORLD_CLASS_PLAN.md:1815 |
+| H6 Professional use (the PR after 144; M, mixed) | docs/roadmap/WORLD_CLASS_PLAN.md:1827 |
+| H7 The speed budget (A1 continued; S each) | docs/roadmap/WORLD_CLASS_PLAN.md:1872 |
+| H8 Time travel and the margin reader (I5, I2; M each, Opus) | docs/roadmap/WORLD_CLASS_PLAN.md:1901 |
+| H9 Polish in use (the owner's question, 2026-09-14; S to M each) | docs/roadmap/WORLD_CLASS_PLAN.md:1915 |
 | Harness robustness, 2026-10-04 (INBOX 527) | docs/roadmap/AGENT_SKILLS_REFORM.md:202 |
 | Harper (Automattic) | docs/roadmap/ANALYSIS.md:1830 |
 | Headroom: evaluated, not adopted | docs/roadmap/BACKLOG.md:702 |
 | How far each plan actually is (honest, as of 2026-10-03) | docs/roadmap/HANDOVER.md:300 |
-| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:428 |
-| How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:288 |
+| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:430 |
+| How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:291 |
 | How to read the evidence in here | docs/roadmap/MODERNISATION_AUDIT.md:23 |
-| How to work on this repo | docs/ROADMAP.md:357 |
+| How to work on this repo | docs/ROADMAP.md:360 |
 | I. Bug, security and complexity scan (asked for directly) | docs/roadmap/AUDIT.md:131 |
-| I1 The night shift: the notebook that understands itself while you sleep | docs/roadmap/WORLD_CLASS_PLAN.md:1084 |
-| I2 The margin reader: a second reader in the editor, from your own notes | docs/roadmap/WORLD_CLASS_PLAN.md:1159 |
-| I3 Open questions: the notebook keeps a list of what you have not answered | docs/roadmap/WORLD_CLASS_PLAN.md:1163 |
-| I4 Resurfacing: the ideas you are about to forget, when they matter | docs/roadmap/WORLD_CLASS_PLAN.md:1167 |
-| I5 Time travel over meaning: what did I think about X in March? | docs/roadmap/WORLD_CLASS_PLAN.md:1173 |
-| I6 Evidence cards: answers you can audit sentence by sentence | docs/roadmap/WORLD_CLASS_PLAN.md:1211 |
-| I7 The corrections loop: every "no" makes the notebook better | docs/roadmap/WORLD_CLASS_PLAN.md:1215 |
-| I8 The model bench: which local model is best on *your* notebook | docs/roadmap/WORLD_CLASS_PLAN.md:1267 |
-| I9 What the notebook learned: one place to see, edit, delete and switch it all off | docs/roadmap/WORLD_CLASS_PLAN.md:1271 |
+| I1 The night shift: the notebook that understands itself while you sleep | docs/roadmap/WORLD_CLASS_PLAN.md:1099 |
+| I2 The margin reader: a second reader in the editor, from your own notes | docs/roadmap/WORLD_CLASS_PLAN.md:1174 |
+| I3 Open questions: the notebook keeps a list of what you have not answered | docs/roadmap/WORLD_CLASS_PLAN.md:1178 |
+| I4 Resurfacing: the ideas you are about to forget, when they matter | docs/roadmap/WORLD_CLASS_PLAN.md:1182 |
+| I5 Time travel over meaning: what did I think about X in March? | docs/roadmap/WORLD_CLASS_PLAN.md:1188 |
+| I6 Evidence cards: answers you can audit sentence by sentence | docs/roadmap/WORLD_CLASS_PLAN.md:1226 |
+| I7 The corrections loop: every "no" makes the notebook better | docs/roadmap/WORLD_CLASS_PLAN.md:1230 |
+| I8 The model bench: which local model is best on *your* notebook | docs/roadmap/WORLD_CLASS_PLAN.md:1282 |
+| I9 What the notebook learned: one place to see, edit, delete and switch it all off | docs/roadmap/WORLD_CLASS_PLAN.md:1286 |
 | Ideas | docs/roadmap/BACKLOG.md:4153 |
 | Ideas | docs/roadmap/CHAT_PLAN.md:1052 |
 | Ideas | docs/roadmap/DOCUMENTS_PLAN.md:1372 |
-| Ideas | docs/roadmap/WORLD_CLASS_PLAN.md:3163 |
+| Ideas | docs/roadmap/WORLD_CLASS_PLAN.md:3178 |
 | If Opus is the orchestrator (no Fable available) | docs/roadmap/HANDOVER.md:23 |
 | Image notes and the Library, against photocraft and lightcraft | docs/roadmap/ANALYSIS.md:4034 |
 | Is its backend better designed? No: and it says so about itself | docs/roadmap/ANALYSIS.md:857 |
@@ -14629,8 +14650,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Looked at and deliberately not taken | docs/roadmap/ANALYSIS.md:760 |
 | Looked at and not recommended | docs/roadmap/ANALYSIS.md:929 |
 | Mind map, against designcraft's canvas and MINDMAP_PLAN's references | docs/roadmap/ANALYSIS.md:3852 |
-| Next PR, first (the owner, 2026-10-05: "maybe push these to next pr at the top of the roadmap") | docs/ROADMAP.md:205 |
-| Next up, ranked by what it unlocks | docs/ROADMAP.md:337 |
+| Next PR, first (the owner, 2026-10-05: "maybe push these to next pr at the top of the roadmap") | docs/ROADMAP.md:208 |
+| Next up, ranked by what it unlocks | docs/ROADMAP.md:340 |
 | Next: weeks 5–8: "a small model can finish a job, and so can the app" | docs/roadmap/MODERNISATION_AUDIT.md:1049 |
 | Not in this plan | docs/roadmap/UI_MODERNISATION_PLAN.md:585 |
 | Not verified, and to be taken first by whoever opens this | docs/roadmap/MINDMAP_PLAN.md:1428 |
@@ -14638,7 +14659,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Odysseus read deeply, 2026-09-21 | docs/roadmap/ANALYSIS.md:2262 |
 | Open items | docs/roadmap/INBOX.md:35 |
 | OpenJarvis (open-jarvis) | docs/roadmap/ANALYSIS.md:2983 |
-| Order and dependencies | docs/roadmap/WORLD_CLASS_PLAN.md:1372 |
+| Order and dependencies | docs/roadmap/WORLD_CLASS_PLAN.md:1387 |
 | PDF viewer and OCR workspace, against pdfcraft | docs/roadmap/ANALYSIS.md:4001 |
 | PR 144 is done when (the owner's checklist, 2026-09-09 05:30 UTC) | docs/roadmap/HANDOVER.md:62 |
 | Parity matrix, 2026-10-10 | docs/roadmap/ANALYSIS.md:3792 |
@@ -14686,18 +14707,19 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Phase B: small-model mode (1 session) | docs/roadmap/AGENT_SKILLS_REFORM.md:72 |
 | Phase C: the run as a readable object (1 session) | docs/roadmap/AGENT_SKILLS_REFORM.md:86 |
 | Phase D: recovery | docs/roadmap/AGENT_SKILLS_REFORM.md:104 |
+| Phase E: measured reliability per skill (Fable, 2026-10-10; WORLD_CLASS_PLAN 25; Brief 54) | docs/roadmap/AGENT_SKILLS_REFORM.md:395 |
 | Phases 0 to 6: built | docs/roadmap/UI_MODERNISATION_PLAN.md:216 |
 | Phases, each with the gate it is finished against | docs/roadmap/MINDMAP_PLAN.md:1294 |
 | Placed (last 20, newest first) | docs/roadmap/INBOX.md:266 |
 | Placed from Brief 40, 2026-10-10 (does the MCP server work) | docs/roadmap/AGENT_SKILLS_REFORM.md:345 |
 | Placed from Brief 40, 2026-10-10 (research and placement) | docs/roadmap/BACKLOG.md:4163 |
-| Placed from Brief 40, 2026-10-10 (the phone over HTTPS) | docs/roadmap/WORLD_CLASS_PLAN.md:3175 |
+| Placed from Brief 40, 2026-10-10 (the phone over HTTPS) | docs/roadmap/WORLD_CLASS_PLAN.md:3190 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/CHAT_PLAN.md:705 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/GRAPH_PLAN.md:206 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/MINDMAP_PLAN.md:1448 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/UI_MODERNISATION_PLAN.md:1150 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/WHITEBOARD_PLAN.md:579 |
-| Placed from INBOX, 2026-09-09 | docs/roadmap/WORLD_CLASS_PLAN.md:1539 |
+| Placed from INBOX, 2026-09-09 | docs/roadmap/WORLD_CLASS_PLAN.md:1554 |
 | Placed from INBOX, 2026-09-09 (the owner's evening batch) | docs/roadmap/CHAT_PLAN.md:737 |
 | Placed from INBOX, 2026-09-09 (the owner's evening batch) | docs/roadmap/DOCUMENTS_PLAN.md:612 |
 | Placed from INBOX, 2026-09-09 (the owner's evening batch) | docs/roadmap/GRAPH_PLAN.md:238 |
@@ -14707,34 +14729,34 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-09-13 | docs/roadmap/GRAPH_PLAN.md:322 |
 | Placed from INBOX, 2026-09-13 | docs/roadmap/MINDMAP_PLAN.md:1460 |
 | Placed from INBOX, 2026-09-13 | docs/roadmap/UI_MODERNISATION_PLAN.md:1171 |
-| Placed from INBOX, 2026-09-13 | docs/roadmap/WORLD_CLASS_PLAN.md:1720 |
+| Placed from INBOX, 2026-09-13 | docs/roadmap/WORLD_CLASS_PLAN.md:1735 |
 | Placed from INBOX, 2026-09-21 | docs/roadmap/DOCUMENTS_PLAN.md:1268 |
 | Placed from INBOX, 2026-09-21 | docs/roadmap/GRAPH_PLAN.md:330 |
 | Placed from INBOX, 2026-09-21 | docs/roadmap/MINDMAP_PLAN.md:1465 |
 | Placed from INBOX, 2026-09-21 | docs/roadmap/UI_MODERNISATION_PLAN.md:1179 |
 | Placed from INBOX, 2026-09-21 | docs/roadmap/WHITEBOARD_PLAN.md:678 |
-| Placed from INBOX, 2026-09-21 | docs/roadmap/WORLD_CLASS_PLAN.md:2068 |
+| Placed from INBOX, 2026-09-21 | docs/roadmap/WORLD_CLASS_PLAN.md:2083 |
 | Placed from INBOX, 2026-09-21 (the Ask sub-tab, four reports in one pass) | docs/roadmap/CHAT_PLAN.md:745 |
 | Placed from INBOX, 2026-09-21 (the dashboard's focused hero) | docs/roadmap/UI_MODERNISATION_PLAN.md:1183 |
-| Placed from INBOX, 2026-09-21 (two app-wide contracts) | docs/roadmap/WORLD_CLASS_PLAN.md:2126 |
+| Placed from INBOX, 2026-09-21 (two app-wide contracts) | docs/roadmap/WORLD_CLASS_PLAN.md:2141 |
 | Placed from INBOX, 2026-09-23 | docs/roadmap/WHITEBOARD_PLAN.md:752 |
 | Placed from INBOX, 2026-09-23 (392) | docs/roadmap/DOCUMENTS_PLAN.md:1290 |
 | Placed from INBOX, 2026-09-25 | docs/roadmap/WHITEBOARD_PLAN.md:780 |
 | Placed from INBOX, 2026-09-27 | docs/roadmap/WHITEBOARD_PLAN.md:812 |
-| Placed from INBOX, 2026-09-27 (399) | docs/roadmap/WORLD_CLASS_PLAN.md:2445 |
+| Placed from INBOX, 2026-09-27 (399) | docs/roadmap/WORLD_CLASS_PLAN.md:2460 |
 | Placed from INBOX, 2026-10-03 (445 (2) audit, found not fixed) | docs/roadmap/MINDMAP_PLAN.md:1483 |
 | Placed from INBOX, 2026-10-03 (INBOX 213) | docs/roadmap/BACKLOG.md:3962 |
 | Placed from INBOX, 2026-10-03 (INBOX 266) | docs/roadmap/BACKLOG.md:4006 |
 | Placed from INBOX, 2026-10-03 (INBOX 268) | docs/roadmap/AGENT_SKILLS_REFORM.md:176 |
 | Placed from INBOX, 2026-10-03 (INBOX 303, music) | docs/roadmap/BACKLOG.md:3942 |
-| Placed from INBOX, 2026-10-03 (INBOX 391, 392) | docs/roadmap/WORLD_CLASS_PLAN.md:2500 |
+| Placed from INBOX, 2026-10-03 (INBOX 391, 392) | docs/roadmap/WORLD_CLASS_PLAN.md:2515 |
 | Placed from INBOX, 2026-10-03 (INBOX 393) | docs/roadmap/UI_MODERNISATION_PLAN.md:1187 |
 | Placed from INBOX, 2026-10-03 (INBOX 397) | docs/roadmap/BACKLOG.md:4119 |
-| Placed from INBOX, 2026-10-03 (INBOX 403, the standing bar) | docs/roadmap/WORLD_CLASS_PLAN.md:2479 |
+| Placed from INBOX, 2026-10-03 (INBOX 403, the standing bar) | docs/roadmap/WORLD_CLASS_PLAN.md:2494 |
 | Placed from INBOX, 2026-10-03 (INBOX 409: the AI assistant bar is what stays open) | docs/roadmap/DOCUMENTS_PLAN.md:1303 |
 | Placed from INBOX, 2026-10-03 (the chat stutter, INBOX 413) | docs/roadmap/CHAT_PLAN.md:799 |
-| Placed from INBOX, 2026-10-03 (the tray at its cap) | docs/roadmap/WORLD_CLASS_PLAN.md:2578 |
-| Placed from INBOX, 2026-10-04 (design work for the next Opus slots) | docs/roadmap/WORLD_CLASS_PLAN.md:3037 |
+| Placed from INBOX, 2026-10-03 (the tray at its cap) | docs/roadmap/WORLD_CLASS_PLAN.md:2593 |
+| Placed from INBOX, 2026-10-04 (design work for the next Opus slots) | docs/roadmap/WORLD_CLASS_PLAN.md:3052 |
 | Placed from INBOX, 2026-10-04: parity with Obsidian's graph | docs/roadmap/GRAPH_PLAN.md:515 |
 | Placed from INBOX, 2026-10-05 | docs/roadmap/MINDMAP_PLAN.md:1487 |
 | Placed from INBOX, 2026-10-05 | docs/roadmap/WHITEBOARD_PLAN.md:827 |
@@ -14743,7 +14765,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from INBOX, 2026-10-05 (OPEN.md triage) | docs/roadmap/DOCUMENTS_PLAN.md:1329 |
 | Placed from INBOX, 2026-10-05 (OPEN.md triage) | docs/roadmap/UI_MODERNISATION_PLAN.md:1282 |
 | Placed from INBOX, 2026-10-05 (OPEN.md triage) | docs/roadmap/WHITEBOARD_PLAN.md:834 |
-| Placed from INBOX, 2026-10-05 (OPEN.md triage) | docs/roadmap/WORLD_CLASS_PLAN.md:3049 |
+| Placed from INBOX, 2026-10-05 (OPEN.md triage) | docs/roadmap/WORLD_CLASS_PLAN.md:3064 |
 | Placed from INBOX, 2026-10-05 (boardmap-1005) | docs/roadmap/WHITEBOARD_PLAN.md:842 |
 | Placed from INBOX, 2026-10-05 (header bars, Settings navigation) | docs/roadmap/UI_MODERNISATION_PLAN.md:1314 |
 | Placed from INBOX, 2026-10-07 (next PR) | docs/roadmap/DOCUMENTS_PLAN.md:1334 |
@@ -14758,7 +14780,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/TIMELINE_PLAN.md:198 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/UI_MODERNISATION_PLAN.md:1318 |
 | Placed from the owner's list, 2026-10-10 | docs/roadmap/WHITEBOARD_PLAN.md:901 |
-| Placed from the owner's list, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3117 |
+| Placed from the owner's list, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3132 |
 | Policies (taken 2026-10-10) | docs/ROADMAP.md:47 |
 | Presentations from boards and maps, against deckcraft | docs/roadmap/ANALYSIS.md:4101 |
 | Promoted to ROADMAP.md, Tier 3, items 32–36 | docs/roadmap/ANALYSIS.md:788 |
@@ -14807,15 +14829,15 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Standing orders for this session (whoever the model is) | docs/roadmap/HANDOVER.md:237 |
 | State of the branch (`claude/notes-flow-rebuild`, PR #162) | docs/roadmap/HANDOVER.md:320 |
 | Steps | docs/roadmap/UI_MODERNISATION_PLAN.md:1140 |
-| Steps | docs/roadmap/WORLD_CLASS_PLAN.md:1531 |
-| Still open | docs/roadmap/WORLD_CLASS_PLAN.md:2269 |
+| Steps | docs/roadmap/WORLD_CLASS_PLAN.md:1546 |
+| Still open | docs/roadmap/WORLD_CLASS_PLAN.md:2284 |
 | Still open after KG1 to KG9 | docs/roadmap/GRAPH_PLAN.md:536 |
 | Still open: the upload split, and what it collides with | docs/roadmap/BACKLOG.md:2767 |
 | Tables in notes and documents, against gridcraft | docs/roadmap/ANALYSIS.md:3970 |
 | The `pytesseract` vendoring question, measured | docs/roadmap/ANALYSIS.md:2149 |
 | The app's stack (outside boards and documents) | docs/roadmap/WHITEBOARD_PLAN.md:457 |
 | The assistant catalogue, 2026-10-10 | docs/roadmap/CHAT_PLAN.md:1064 |
-| The asymmetry these exploit | docs/roadmap/WORLD_CLASS_PLAN.md:1071 |
+| The asymmetry these exploit | docs/roadmap/WORLD_CLASS_PLAN.md:1086 |
 | The constraint that governs everything below, **now half-lifted** | docs/roadmap/ANALYSIS.md:257 |
 | The dock grammar (the rule the whole phase enforces) | docs/roadmap/UI_MODERNISATION_PLAN.md:433 |
 | The draw.io programme, 2026-10-10 | docs/roadmap/WHITEBOARD_PLAN.md:935 |
@@ -14828,14 +14850,14 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The instruction, verbatim | docs/roadmap/AGENT_SKILLS_REFORM.md:7 |
 | The instruction, verbatim | docs/roadmap/UI_MODERNISATION_PLAN.md:8 |
 | The knowledge graph, 2026-10-04 (INBOX 528) | docs/roadmap/GRAPH_PLAN.md:521 |
-| The moves that would outshine everything else, in order of leverage | docs/roadmap/WORLD_CLASS_PLAN.md:1024 |
+| The moves that would outshine everything else, in order of leverage | docs/roadmap/WORLD_CLASS_PLAN.md:1039 |
 | The night's merges reviewed line by line, 2026-09-21 | docs/roadmap/ANALYSIS.md:2631 |
 | The one process change worth making | docs/roadmap/ANALYSIS.md:659 |
 | The one thing deliberately not decided | docs/roadmap/ANALYSIS.md:717 |
 | The one-line answers to the three questions asked | docs/roadmap/ANALYSIS.md:946 |
-| The order, and the rule | docs/roadmap/WORLD_CLASS_PLAN.md:1904 |
+| The order, and the rule | docs/roadmap/WORLD_CLASS_PLAN.md:1919 |
 | The peer apps: fourteen triaged, five read properly | docs/roadmap/ANALYSIS.md:3339 |
-| The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:261 |
+| The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:264 |
 | The quarter's briefs (shorter; expand each into the shape above when | docs/roadmap/SESSION_BRIEFS.md:582 |
 | The reform, in phases | docs/roadmap/AGENT_SKILLS_REFORM.md:52 |
 | The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta") | docs/ROADMAP.md:167 |
@@ -14850,7 +14872,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Three rules that are not negotiable here | docs/roadmap/FABLE_BRIEF.md:51 |
 | Three things I would prioritise, and why | docs/roadmap/ANALYSIS.md:563 |
 | Tools and skills: is odysseus leaner for small models? Measured, and no | docs/roadmap/ANALYSIS.md:352 |
-| Traps that have each cost real time | docs/ROADMAP.md:376 |
+| Traps that have each cost real time | docs/ROADMAP.md:379 |
 | Twenty-four repositories read for MemoryMap, 2026-09-21 | docs/roadmap/ANALYSIS.md:2677 |
 | Undo coverage, audited 2026-10-05 (INBOX 537) | docs/roadmap/WHITEBOARD_PLAN.md:425 |
 | Verification, every phase | docs/roadmap/UI_MODERNISATION_PLAN.md:220 |
@@ -14865,18 +14887,18 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | What "fake / vibe coded / performative" means here, concretely | docs/roadmap/UI_MODERNISATION_PLAN.md:26 |
 | What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:617 |
 | What Coggle specifically does that the phases below must keep | docs/roadmap/MINDMAP_PLAN.md:132 |
-| What exists (checked) | docs/roadmap/WORLD_CLASS_PLAN.md:1479 |
+| What exists (checked) | docs/roadmap/WORLD_CLASS_PLAN.md:1494 |
 | What is actually open, 2026-09-14 | docs/roadmap/INBOX.md:24 |
-| What is already good | docs/roadmap/WORLD_CLASS_PLAN.md:1010 |
-| What is left, 2026-09-24 (INBOX 399: "what is left in the world class plan??") | docs/roadmap/WORLD_CLASS_PLAN.md:795 |
+| What is already good | docs/roadmap/WORLD_CLASS_PLAN.md:1025 |
+| What is left, 2026-09-24 (INBOX 399: "what is left in the world class plan??") | docs/roadmap/WORLD_CLASS_PLAN.md:810 |
 | What is missing that nobody has asked for | docs/roadmap/ANALYSIS.md:642 |
 | What reading it changed about how I'd judge this app | docs/roadmap/ANALYSIS.md:517 |
 | What the code actually does today | docs/roadmap/AGENT_SKILLS_REFORM.md:27 |
 | What this audit did not verify | docs/roadmap/MODERNISATION_AUDIT.md:1522 |
 | What this read could not verify | docs/roadmap/ANALYSIS.md:3681 |
 | What was built | docs/roadmap/BACKLOG.md:2763 |
-| What was deliberately left out | docs/roadmap/WORLD_CLASS_PLAN.md:1387 |
-| What was wrong, and is fixed this session | docs/roadmap/WORLD_CLASS_PLAN.md:1020 |
+| What was deliberately left out | docs/roadmap/WORLD_CLASS_PLAN.md:1402 |
+| What was wrong, and is fixed this session | docs/roadmap/WORLD_CLASS_PLAN.md:1035 |
 | Where I think the roadmap is over-invested | docs/roadmap/ANALYSIS.md:624 |
 | Whiteboard, against draw.io and designcraft | docs/roadmap/ANALYSIS.md:3805 |
 | Why the app feels "off" even where each screen is fine | docs/roadmap/WORLD_CLASS_PLAN.md:54 |

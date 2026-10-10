@@ -297,3 +297,20 @@ def test_a_pair_seen_once_is_not_a_pattern(session) -> None:
     answer = notebook_stats.answer("which tags appear together", session)
     assert answer is not None
     assert answer.facts == []
+
+
+def test_stats_gives_the_four_counts_in_one_line(client):
+    with _session() as session:
+        _note(session, "a", ["work", "urgent"])
+        _note(session, "b", ["work"])
+        session.commit()
+        result = notebook_stats.answer("show me my stats", session)
+        assert result is not None and result.kind == "overview"
+        assert result.text.startswith("You have 2 notes and 0 documents")
+        assert "2 distinct tags" in result.text
+
+
+def test_a_summary_of_the_notes_is_not_a_stats_question(client):
+    """"Summary" asks for the notes' content, which the composer answers."""
+    with _session() as session:
+        assert notebook_stats.answer("give me a summary of the trip", session) is None

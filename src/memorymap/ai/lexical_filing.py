@@ -211,6 +211,16 @@ def suggest_categories(
 TAG_NEIGHBOURS = 6
 TAG_MIN_VOTE = 0.25
 TAG_NAME_VOTE = 0.5
+#: A category the notebook already has, named by the fixed keyword map in
+#: `ai/taxonomy.py` ("squat" is Fitness, "lentils" Cooking), votes this much.
+#: Measured leave-one-out on `tests/fixtures/filing/notes.json` (40 notes,
+#: 8 categories): top-1 0.05 with no vote, 0.15 at 0.5, 1.0 and 2.0 alike,
+#: wrong filings 2 throughout; the smallest weight that gains is taken. The
+#: Gemini branch voted 2.0 for the map's own names whether the notebook had
+#: them or not: 0.225 right but 14 notes filed into categories nobody made.
+#: There is no tag vote from the map: a tag the note names outright already
+#: votes (`TAG_NAME_VOTE`), and only the person's own tags are ever offered.
+TAXONOMY_CATEGORY_VOTE = 0.5
 
 
 def suggest_tags(
@@ -257,19 +267,6 @@ def suggest_tags(
         if words and all(word in wanted_set for word in words):
             spelled.setdefault(key, tag)
             votes[key] = votes.get(key, 0.0) + TAG_NAME_VOTE
-            
-    #: 1. Global Taxonomy Tagging (Flashtext)
-    try:
-        from memorymap.ai.taxonomy import extract_keywords
-        taxonomy_keywords = extract_keywords(content)
-        for kw in taxonomy_keywords:
-            kw_key = kw.casefold()
-            spelled.setdefault(kw_key, kw)
-            # Massive weight for direct taxonomy concept matches
-            votes[kw_key] = votes.get(kw_key, 0.0) + 1.5
-    except Exception:
-        pass
-        
     ranked = sorted(
         (key for key, vote in votes.items() if vote >= TAG_MIN_VOTE and key not in have_folded),
         key=lambda key: votes[key],
@@ -327,16 +324,15 @@ def _tally(
             continue
         votes[name] = votes.get(name, 0.0) + similarity * weight
         supporters[name] = supporters.get(name, 0) + 1
-    #: 1. Global Taxonomy (Flashtext)
-    try:
-        from memorymap.ai.taxonomy import extract_dynamic_categories
-        taxonomy_matches = extract_dynamic_categories(content)
-        for cat in taxonomy_matches:
-            # Massive weight for direct taxonomy concept matches
-            votes[cat] = votes.get(cat, 0.0) + 2.0
-            supporters[cat] = supporters.get(cat, 0) + 2
-    except Exception:
-        pass
+    if TAXONOMY_CATEGORY_VOTE:
+        from memorymap.ai.taxonomy import extract_categories
+
+        held = {name.casefold(): name for name in notes_in if notes_in[name] >= MIN_EXAMPLES}
+        for domain in set(extract_categories(content)):
+            name = held.get(domain.casefold())
+            if name:
+                votes[name] = votes.get(name, 0.0) + TAXONOMY_CATEGORY_VOTE
+                supporters[name] = supporters.get(name, 0) + 1
 
     #: Naming the category is a vote of its own ("gym: new shoes").
     for name in notes_in:

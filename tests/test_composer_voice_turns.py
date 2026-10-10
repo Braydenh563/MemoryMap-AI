@@ -22,7 +22,7 @@ def ask(question: str, notes=NOTES, **kwargs) -> dict:
 
 # --- follow-ons ---------------------------------------------------------------
 
-HISTORY = [{"question": "When is the dentist check-up?", "answer": "Check-up booked for the 21st. (**Dentist**)"}]
+HISTORY = [{"question": "When is the dentist check-up?", "answer": "Check-up booked for the 21st. [**Dentist**]"}]
 
 
 @pytest.mark.parametrize(

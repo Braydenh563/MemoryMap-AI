@@ -75,7 +75,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 
-from memorymap.ai import composer_tables, grounding, question_noise
+from memorymap.ai import arithmetic, composer_tables, grounding, question_noise
 from memorymap.search import query as query_understanding
 
 #: At most this many quoted points in one answer. Six is about what reads as an
@@ -90,7 +90,7 @@ MAX_PER_NOTE = 3
 #: A sentence scoring under this share of the best one is not in the same
 #: league (the reasoning of `extractive.RELATIVE_FLOOR`: BM25 magnitudes move
 #: with the pool, so only a ratio survives a different notebook).
-RELATIVE_FLOOR = 0.15
+RELATIVE_FLOOR = 0.3
 
 #: What a question word found in a note's heading is worth, per word, and once
 #: more when the heading holds every one of them: "Harbor launch plan" is the
@@ -137,15 +137,22 @@ PHRASES: dict[str, str] = {
     "stop": ".",
     "open_quote": "“",
     "close_quote": "”",
-    "open_paren": " [***",
-    "close_paren": "***]",
+    "open_paren": " (",
+    "close_paren": ")",
+    #: A citation is bracketed, not parenthesised (the owner, 2026-10-10:
+    #: "Intext reference should be square brackets or styled differently"):
+    #: "[**Dentist**]" reads as a reference, "(**Dentist**)" as an aside.
+    "cite_open": " [",
+    "cite_close": "]",
+    #: "2 + 2 is 4." (`_sum`): the sum as asked, then its value.
+    "sum_is": " is ",
     "and": " and ",
     "or": " or ",
     # The opening (INBOX 741, the owner: "rn the ask chat messages just say,
     # ur note starting with this says this. also ur not starting with this
     # says this, furthermore, ur note starting with this says this"). The
     # answer is the note's own sentence, said first; the note is named once,
-    # after it, as the citation ("(**Harbor launch plan**)"), never by its
+    # after it, as the citation ("[**Harbor launch plan**]"), never by its
     # first words and never as "Your note ... says:". An opener is optional
     # and varied by the question, so two answers in a row do not start alike.
     "open_notes": "From your notes: ",
@@ -240,10 +247,9 @@ PHRASES: dict[str, str] = {
     #: 741: "when nothing matches at all, it asks a short clarifying
     #: question instead of returning nothing").
     "nothing": (
-        "Nothing in the notes found answers that. Could you rephrase your question, "
-        "or is there a specific note I should check? (You can also ask me to 'search the web' or use a skill.)"
+        "Nothing in the notes found answers that. Which note would it be in, "
+        "or how else might you have put it?"
     ),
-    "which_note": "Which note would it be in, or how else might you have put it? (Or ask me to 'search the web')",
     # An unsure reading of a misspelt word, offered the other way.
     "did_you_mean_a": "Did you mean “",
     "did_you_mean_b": "”?",
@@ -285,33 +291,26 @@ _WEEKDAYS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
 #: latest" is a status before it is a "what", and a comparison can open with
 #: any word at all.
 _SHAPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("utility", re.compile(r"^\s*(what is the time|what time is it|what is today\'s date|what date is it|what day is it|what day of the week is it|create note|add note|new note|remind me|set a timer)\b", re.I)),
-    ("summary", re.compile(r"^\s*(summarize|summarise|summary|overview|give me a summary|give me an overview)\b", re.I)),
-    ("math", re.compile(r"^\s*(what is|calculate)\s+\d+\s*[\+\-\*\/]\s*\d+", re.I)),
-    ("reading_time", re.compile(r"^\s*(how long to read|reading time|how long will this take to read)\b", re.I)),
-    ("translate", re.compile(r"(?:translate(?: this)?(?: to| into)?|say that in|how do i say .* in|->\s*|to\s+)([a-zA-Z]+)\b", re.I)),
-    ("convert", re.compile(r"^\s*(convert|how many) ([0-9\.]+)\s*([a-zA-Z]+) (to|in) ([a-zA-Z]+)\b", re.I)),
-    ("compare", re.compile(r"\b(compare|versus|vs\.?|differences? between|difference|similarities|similar to|better than|worse than|compared to)\b", re.I)),
-    ("count", re.compile(r"^\s*(how (many|much|often|long)|number of|quantity of|amount of|total of)\b", re.I)),
-    ("when", re.compile(r"^\s*(when|what (date|day|time|month|year)|which (date|day|month)|how long ago|what time frame|what timeframe)\b", re.I)),
-    ("who", re.compile(r"^\s*(who|whom|whose|which (person|guy|girl|team)|what person)\b", re.I)),
+    ("compare", re.compile(r"\b(compare|versus|vs\.?|differences? between)\b", re.I)),
+    ("count", re.compile(r"^\s*how (many|much|often|long)\b|\bnumber of\b", re.I)),
+    ("when", re.compile(r"^\s*(when|what (date|day|time|month|year)|which (date|day|month))\b", re.I)),
+    ("who", re.compile(r"^\s*(who|whom|whose)\b", re.I)),
     (
         "status",
         re.compile(
             r"\b(latest|status|progress|update on|updates on|newest|most recent|so far|"
-            r"where (am i|are we|is it|are things|do things stand) (with|on)|any (news|word) (on|about)|"
-            r"how far along|what happened (with|to)|how (is|are) .{2,60}? (going|coming along|getting on)|"
-            r"what is the state of|current state of)\b",
+            r"where (am i|are we|is it|are things) (with|on)|any (news|word) (on|about)|"
+            r"how far along|what happened (with|to)|how (is|are) .{2,60}? (going|coming along|getting on))\b",
             re.I,
         ),
     ),
-    ("where", re.compile(r"^\s*(where|whereabouts|what (address|place|street|room|city|country|location)|which location|where exactly|at what place)\b", re.I)),
+    ("where", re.compile(r"^\s*(where|whereabouts|what (address|place|street|room))\b", re.I)),
     (
         "explain",
-        re.compile(r"^\s*(why|how come|explain|what (made|makes|caused|causes)|how (do|does|did|can|could|should|to|is|are|was|were|would)|give me the reason|reasons for|reason why|tell me why|walk me through)\b", re.I),
+        re.compile(r"^\s*(why|how come|explain|what (made|makes|caused|causes)|how (do|does|did|can|could|should|to|is|are|was|were|would))\b", re.I),
     ),
-    ("list", re.compile(r"^\s*(list|which|name)\b|^\s*(what are (the|my|all)|give me a list of|show me all|can you list|enumerate|all of the)\b", re.I)),
-    ("yesno", re.compile(r"^\s*(is|are|do|does|did|can|could|was|were|has|have|had|should|will|would|am|shall)\b", re.I)),
+    ("list", re.compile(r"^\s*(list|which|name)\b|^\s*what are (the|my|all)\b", re.I)),
+    ("yesno", re.compile(r"^\s*(is|are|do|does|did|can|could|was|were|has|have|had|should|will|would|am)\b", re.I)),
 )
 
 SHAPES = ("what", *(name for name, _ in _SHAPE_RULES), "recent")
@@ -391,43 +390,12 @@ _ANYTHING_ON = re.compile(
     re.I,
 )
 
-from memorymap.vendor.rake import Rake as _RakeExtractor
-from memorymap.vendor.vaderSentiment import SentimentIntensityAnalyzer as _VaderAnalyzer
-
-_RAKE = _RakeExtractor("src/memorymap/vendor/SmartStoplist.txt")
-_VADER = _VaderAnalyzer()
-
-
-from memorymap.ai.fast_matcher import matcher as fast_matcher
-
-from spellchecker import SpellChecker as _SpellCheckerCore
-_SPELLCHECK = _SpellCheckerCore(distance=1)
 
 def _respell(text: str) -> str:
     """Slang and text-speak spelled out, misspelt asking words put right,
-    run-together words split (`question_noise`, INBOX 741). Now heavily
-    boosted by FlashText mathematical semantic normalization and standard
-    spellchecking."""
-    text = question_noise.repair(text)
-    
-    # Gracefully correct basic spelling mistakes for better matches
-    words = text.split()
-    corrected = []
-    for w in words:
-        clean_w = w.strip(".,;:!?")
-        if clean_w.isalpha():
-            cw = _SPELLCHECK.correction(clean_w)
-            if cw and cw != clean_w.lower():
-                # keep original casing if possible
-                if clean_w.istitle():
-                    cw = cw.capitalize()
-                elif clean_w.isupper():
-                    cw = cw.upper()
-                w = w.replace(clean_w, cw)
-        corrected.append(w)
-    text = " ".join(corrected)
-    
-    return fast_matcher.normalize_text(text)
+    run-together words split (`question_noise`, INBOX 741: "does it cover
+    any and ALL typos ... all slang like pls, ty, lol, u, r, wym")."""
+    return question_noise.repair(text)
 
 
 def rephrase(question: str) -> str:
@@ -482,19 +450,30 @@ def classify(question: str, embed=None) -> str:  # noqa: ANN001
     return "what"
 
 
-from memorymap.vendor.porter_stemmer import PorterStemmer
-_PORTER = PorterStemmer()
-
 def _stem(word: str) -> str:
-    """A mathematically robust stemmer that flawlessly reduces English words to their root.
-    
-    Replaces the brittle manual suffix-stripping approach.
+    """A light stem, so "testers" meets "tester" and "booked" meets "book".
+
+    Suffixes only, and only on words long enough that taking one off leaves a
+    word: a stemmer that turned "news" into "new" would match the wrong notes.
     """
     w = word.lower()
-    # Protect negations from being mangled.
-    if w == "not" or w == "note":
-        return w
-    return _PORTER.stem(w)
+    for suffix, keep, least in (("ies", "y", 4), ("ing", "", 3), ("ed", "", 4), ("es", "", 4), ("s", "", 3)):
+        if w.endswith(suffix) and len(w) - len(suffix) >= least:
+            if suffix == "s" and w.endswith(("ss", "us", "is")):
+                break
+            w = w[: len(w) - len(suffix)] + keep
+            #: "running" is "run" and "stopped" is "stop": the doubled last
+            #: consonant a suffix brought is taken off with it (INBOX 725,
+            #: measured: "what do my notes say about running" missed every
+            #: note that says "run" or is tagged it).
+            if suffix in ("ing", "ed") and len(w) >= 3 and w[-1] == w[-2] and w[-1] not in "aeioulsz":
+                w = w[:-1]
+            break
+    #: A silent final "e" goes too, so "hire" meets "hiring" and "make" meets
+    #: "making". Never to leave "not": "note" must not match a negation.
+    if w.endswith("e") and len(w) >= 4 and w[:-1] != "not":
+        w = w[:-1]
+    return w
 
 
 #: Words that name the same thing in a notebook, so "how much will the trip
@@ -640,8 +619,6 @@ class NoteView:
     rank: int
     title: str
     written: date | None
-    sentiment: float = 0.0
-    keywords: list[str] = field(default_factory=list)
     sentences: list[Sentence] = field(default_factory=list)
     words: set[str] = field(default_factory=set)
     title_words: set[str] = field(default_factory=set)
@@ -729,44 +706,6 @@ def _title(content: str) -> tuple[str, int]:
     return (name + "…" if len(words) > UNTITLED_WORDS else name), 0
 
 
-def _rewrite_quote(text: str) -> str:
-    """Light rewrites for grammar, tense and person, marked (CHAT_PLAN decision 23)."""
-    replacements = (
-        (re.compile(r"\b[Ii] am\b"), "you are", "You are"),
-        (re.compile(r"\b[Ii]'m\b"), "you're", "You're"),
-        (re.compile(r"\b[Ii] was\b"), "you were", "You were"),
-        (re.compile(r"\b[Ii]'ve\b"), "you've", "You've"),
-        (re.compile(r"\b[Ii]'ll\b"), "you'll", "You'll"),
-        (re.compile(r"\b[Ii]'d\b"), "you'd", "You'd"),
-        (re.compile(r"\b[Ii]\b"), "you", "You"),
-        (re.compile(r"\b[Mm]y\b"), "your", "Your"),
-        (re.compile(r"\b[Mm]e\b"), "you", "You"),
-        (re.compile(r"\b[Mm]ine\b"), "yours", "Yours"),
-        (re.compile(r"\b[Mm]yself\b"), "yourself", "Yourself"),
-        (re.compile(r"\b[Ww]e\b"), "you", "You"),
-        (re.compile(r"\b[Ww]e're\b"), "you're", "You're"),
-        (re.compile(r"\b[Ww]e've\b"), "you've", "You've"),
-        (re.compile(r"\b[Uu]s\b"), "you", "You"),
-        (re.compile(r"\b[Oo]ur\b"), "your", "Your"),
-        (re.compile(r"\b[Oo]urs\b"), "yours", "Yours"),
-        (re.compile(r"\bb4\b"), "before", "Before"),
-    )
-    for pattern, lower_rep, upper_rep in replacements:
-        def repl(m: re.Match) -> str:
-            val = m.group(0)
-            if val.istitle() or val.isupper():
-                if m.start() == 0:
-                    return upper_rep
-                if val == "I":
-                    return lower_rep
-                return upper_rep
-            if m.start() == 0:
-                return upper_rep
-            return lower_rep
-        text = pattern.sub(repl, text)
-    return text
-
-
 def _unit(view: NoteView, content: str, start: int, end: int, kind: str, done: bool | None) -> Sentence | None:
     """One sentence, trimmed as the rule allows, its offsets moved to match."""
     raw = content[start:end]
@@ -786,9 +725,6 @@ def _unit(view: NoteView, content: str, start: int, end: int, kind: str, done: b
         text = (cut[:space] if space > MAX_QUOTE_CHARS // 2 else cut).rstrip(" ,;:") + "…"
     if text[0].islower():
         text = text[0].upper() + text[1:]
-    
-    text = _rewrite_quote(text)
-    
     words = _words(text)
     #: A fragment of one or two words ("Booked.", "Ideas") is not a claim and
     #: reads as noise quoted on its own. A list item is read inside its list,
@@ -832,7 +768,6 @@ def read_note(note: dict, rank: int) -> NoteView | None:
     filed = [str(t) for t in (note.get("tags") or [])] + [str(note.get("category") or "")]
     view.filed_words = set(_words(" ".join(filed)))
     view.words = set(_words(content))
-    
     in_fence = False
     in_pictures = False
     offset = 0
@@ -1251,12 +1186,12 @@ class _Answer:
         return self.t("one_of_your_notes_cap" if cap else "one_of_your_notes")
 
     def cite(self, view: NoteView, again: bool = False) -> _Answer:
-        """" (**Harbor launch plan**)" or " (your note, 3 March)" after a
+        """" [**Harbor launch plan**]" or " [your note, 3 March]" after a
         quote: the citation as a marker, once per note unless `again`."""
         if view.id in self.named and not again:
             return self
         self.named.add(view.id)
-        self.t("open_paren")
+        self.t("cite_open")
         if view.titled:
             self.t("bold")
             self.parts.append(("title", view.title, view.id))
@@ -1265,7 +1200,7 @@ class _Answer:
             self.t("your_note", "comma").m(self.day(view.written))
         else:
             self.t("one_of_your_notes")
-        return self.t("close_paren")
+        return self.t("cite_close")
 
     def q(self, s: Sentence, terms: list[str], shown: str | None = None) -> _Answer:
         """A quote, and its citation row: once per sentence, at its first use.
@@ -1273,8 +1208,6 @@ class _Answer:
         letter lowered inside a sentence); the row cites what is printed."""
         text = s.text if shown is None else shown
         kind = "picture" if s.kind.startswith("picture") else "quote"
-        if kind == "quote":
-            text = f'"{text}"'
         self.parts.append((kind, text, s.note_id))
         self.last_note = s.note_id
         if s.key in self.cited:
@@ -1297,6 +1230,10 @@ class _Answer:
                 "verdict": "supported",
                 "terms": [w for w in query_understanding.search_terms(text) if _stem(w) in stems][:6],
                 "label": " ".join(content.split())[:60],
+                #: The name the answer cites it by ("[**Dentist**]"), so the
+                #: page can make that name open the note: matched exactly,
+                #: never guessed from the label's opening words.
+                "title": self.views[s.note_id].title if self.views[s.note_id].titled else "",
             }
         )
         return self
@@ -1405,11 +1342,11 @@ def _quotes(out: _Answer, sentences: list[Sentence], terms: list[str], lower_fir
                 out.t("echo").m(out.count(1 + len(s.echoes))).t("echo_end")
             continue
         if s.kind == "picture":
-            out.t("picture_in").name(out.views[s.note_id]).m(": ").q(s, terms)
+            out.t("picture_in").name(out.views[s.note_id]).t("picture_shows").q(s, terms)
             if not s.text.endswith((".", "?", "…")):
                 out.t("stop")
         elif s.kind == "picture_text":
-            out.t("picture_in").name(out.views[s.note_id]).m(" has these words in it: ").t("open_quote").q(s, terms)
+            out.t("picture_in").name(out.views[s.note_id]).t("picture_reads", "open_quote").q(s, terms)
             out.t("close_quote", "stop")
         else:
             out.q(s, terms)
@@ -1424,7 +1361,14 @@ FUSE_MAX_ITEMS = 6
 FUSE_MAX_WORDS = 10
 
 
-
+def _fusable(items: list[Sentence]) -> bool:
+    """Every entry a phrase lifted whole from the list (no sentence of its own
+    inside it, no colon), short enough to read in one breath."""
+    return (
+        2 <= len(items) <= FUSE_MAX_ITEMS
+        and all(s.kind == "item" for s in items)
+        and all(len(s.text.split()) <= FUSE_MAX_WORDS and not re.search(r"[.!?:;]\s*$|:\s", s.text) for s in items)
+    )
 
 
 def _sentence_case(items: list[Sentence]) -> bool:
@@ -1452,7 +1396,15 @@ def _joined(out: _Answer, keys: list[str], unit: list[Sentence], terms: list[str
         _quotes(out, unit, terms)
 
 
-
+def _list_sentence(out: _Answer, items: list[Sentence], terms: list[str]) -> None:
+    """" A, B and C." from the list's own entries."""
+    lower = _sentence_case(items)
+    for i, s in enumerate(items):
+        if i:
+            out.t("and" if i == len(items) - 1 else "comma")
+        shown = s.text[0].lower() + s.text[1:] if lower else s.text
+        out.q(s, terms, shown)
+    out.t("stop")
 
 
 def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list[str], lead: str) -> None:
@@ -1484,7 +1436,11 @@ def _list_block(out: _Answer, view: NoteView, items: list[Sentence], terms: list
     else:
         out.t("it_lists")
     out.m(out.count(len(items)))
-    out.t("colon", "para")
+    if _fusable(items):
+        out.t("colon")
+        _list_sentence(out, items, terms)
+        return
+    out.t("end_colon", "para")
     for i, s in enumerate(items):
         if i:
             out.t("line")
@@ -1671,8 +1627,9 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
     used: set[str] = set()
     for group in _clusters(meaning, units):
         for g, unit in enumerate(group):
-            #: A paragraph break for every new note, making it much easier to read.
-            out.t("para")
+            #: Two notes to a paragraph at most: a topic's paragraph that runs
+            #: on through five notes reads as a wall.
+            out.t("space" if g % 2 else "para")
             view = out.views[unit[0].note_id]
             relation = _relation(out, meaning, unit[0], said or [lead], lead)
             if unit[0].kind.startswith("picture") and len(unit) == 1:
@@ -1698,44 +1655,15 @@ def _others(out: _Answer, meaning: _Meaning, lead: Sentence, rest: list[Sentence
                 #: two colons and no sentence.
                 pool = ["", "and_join", "on_top"] if relation == "also" and _lowered(unit[0]) else [""]
                 if relation != "also":
-                    # Use RAKE to extract the topic of the new note to create a smooth transition
-                    note_text = " ".join([s.text for s in unit])
-                    keywords = _RAKE.run(note_text)
-                    valid_keywords = [k[0] for k in keywords if len(k[0]) > 2]
-                    if valid_keywords:
-                        kw = valid_keywords[0]
-                        transition = _pick(f"{question}:{view.id}", "dynamic_join", [
-                            f"Regarding {kw}",
-                            f"On the topic of {kw}",
-                            f"As for {kw}",
-                            f"Turning to {kw}"
-                        ])
-                        out.m(transition)
-                        if _lowered(unit[0]):
-                            out.t("comma")
-                            _quotes(out, unit, terms, lower_first=True)
-                        else:
-                            out.t("colon")
-                            _quotes(out, unit, terms)
-                    else:
-                        pool = ["separately", "elsewhere", "another_note"]
-                        options = [o for o in pool if o not in used] or [""]
-                        last = _pick(f"{question}:{view.id}", "join", options)
-                        if last:
-                            used.add(last)
-                        if last:
-                            _joined(out, [last], unit, terms)
-                        else:
-                            _quotes(out, unit, terms)
+                    pool = ["separately", "elsewhere", "another_note"]
+                options = [o for o in pool if o not in used] or [""]
+                last = _pick(f"{question}:{view.id}", "join", options)
+                if last:
+                    used.add(last)
+                if last:
+                    _joined(out, [last], unit, terms)
                 else:
-                    options = [o for o in pool if o not in used] or [""]
-                    last = _pick(f"{question}:{view.id}", "join", options)
-                    if last:
-                        used.add(last)
-                    if last:
-                        _joined(out, [last], unit, terms)
-                    else:
-                        _quotes(out, unit, terms)
+                    _quotes(out, unit, terms)
             out.cite(view)
             said.extend(unit)
 
@@ -1764,7 +1692,7 @@ def _timeline(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None
 
 def _earlier(out: _Answer, sentences: list[Sentence], terms: list[str]) -> None:
     """A "latest" question's older notes, newest first, as prose that walks
-    back: "Before that, on 12 September, three workstreams ... (**Q4 roadmap**)"."""
+    back: "Before that, on 12 September, three workstreams ... [**Q4 roadmap**]"."""
     sentences = _with_context(out, [s for s in sentences if s.kind == "prose" or s.kind.startswith("picture")])
     order: list[int] = []
     for s in sentences:
@@ -2124,9 +2052,7 @@ def _next_questions(question: str, shape: str, terms: list[str], views: list[Not
 
 _MORE = re.compile(
     r"^\s*(?:tell me more|more|go on|continue|keep going|say more|what else|anything else|and|more please|"
-    r"more about (?:that|it|this|those)|"
-    r"any other notes|any more|any others|are there any (?:other|more) notes|what else is there|what else do you have|any other mentions)"
-    r"\s*[?.]*\s*$",
+    r"more about (?:that|it|this|those))\s*[?.]*\s*$",
     re.I,
 )
 _ORDINALS = {"first": 0, "1st": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2, "fourth": 3, "4th": 3, "fifth": 4, "5th": 4, "last": -1}
@@ -2255,25 +2181,6 @@ def follow_on(question: str, history: list[dict] | None) -> FollowOn | None:
         if subject:
             resolved = _PRONOUN.sub(lambda _match: subject, text, count=1)
             return FollowOn(resolved, previous, "", "pronoun")
-
-    # SMART CONTEXT MIXER:
-    # Dynamically track topic changes or continuations using RAKE and keyword heuristics.
-    text_lower = text.lower()
-    is_explicit_continuation = any(w in text_lower for w in ["other", "more", "else", "also", "too"])
-    has_pronoun = bool(_PRONOUN.search(text_lower))
-    
-    current_kws = {k[0] for k in _RAKE.run(text) if k[1] > 1.0}
-    prev_kws = {k[0] for k in _RAKE.run(previous) if k[1] > 1.0}
-    
-    is_overlapping_topic = bool(current_kws and prev_kws and not current_kws.isdisjoint(prev_kws))
-    
-    if is_explicit_continuation or has_pronoun or is_overlapping_topic:
-        # It's a follow-up. Blend the questions to keep the full context (e.g. timeframe, verb, old topic)
-        # We also pass 'said' if it's an explicit continuation so we don't repeat the exact same notes.
-        said_hist = "\n".join(str(t.get("answer") or "") for t in turns[-3:]) if is_explicit_continuation else ""
-        resolved = f"{previous}. {text}"
-        return FollowOn(resolved, previous, said_hist, "smart_context")
-        
     return None
 
 
@@ -2429,16 +2336,11 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Hi there. I can tell you when something is, what you decided, or what the latest is on a project.",
         "Greetings. What can I look up for you today?",
         "Hey. Just let me know what you need from your records.",
-        "Hello! I am ready to search your notes.",
-        "Hi! Ask away, I have all your notes ready."
     ),
     "morning": (
         "Good morning. What would you like to look up?",
         "Morning. Your notes are ready when you are.",
-        "Good morning to you! What are we searching for today?",
-        "Morning! Let me know what you need to check.",
-        "Good morning! I am ready to delve into your notes.",
-        "Morning. Ask me about anything you have jotted down."
+        "Morning. Ask me about anything you have jotted down.",
     ),
     "thanks": (
         "You are welcome.",
@@ -2448,17 +2350,14 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "No problem at all.",
         "You got it. Anything else?",
         "My pleasure. What else can we find?",
-        "Happy to assist. Let me know if you need more."
+        "Happy to assist. Let me know if you need more.",
     ),
     "how": (
         "All good here, and your notes are in order. What can I find for you?",
         "Doing well, thanks for asking. What would you like to know?",
         "Fine, thank you. Anything you want to look up?",
-        "I am doing great! What's next on our search list?",
-        "Doing fine, all systems running. What should we look for?",
         "Everything is excellent. How can I assist you with your notes?",
         "I am well, thanks. Let's dig into your records.",
-        "Great! Let me know what you want to find."
     ),
     "bye": (
         "Bye for now. Your notes will be here.",
@@ -2467,18 +2366,15 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Goodbye. Feel free to return when you need me.",
         "Catch you later. I'll keep your notes safe.",
         "Farewell. Let me know if you need anything else later.",
-        "See you next time! Your notes are secured.",
-        "Bye! Have a great day ahead."
     ),
     "sorry": (
         "No need to apologise. What would you like to try?",
         "Not at all. Ask it another way and I will look again.",
         "It's completely fine. What can I do for you?",
         "Don't worry about it. Let's try again.",
-        "No problem! We can always run another search.",
         "That's okay. What are you looking for?",
         "It is no trouble. Let me know what you need.",
-        "All good. Let's find what you need in your notes."
+        "All good. Let's find what you need in your notes.",
     ),
     "laugh": (
         "Glad something made you smile. Anything else I can find?",
@@ -2486,9 +2382,7 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Good to hear. Ask whenever you like.",
         "Haha, very nice. What should we look up now?",
         "Glad you found that funny. Ready for the next question?",
-        "Nice one! Anyway, what's next?",
         "Heh. Let me know if you need to search anything else.",
-        "Glad you're in a good mood! What can I search for you?"
     ),
     "reaction": (
         "I know. Anything you want to look up about it?",
@@ -2498,7 +2392,7 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Totally. Let me know what to look up.",
         "Understood. Anything more to check?",
         "I hear you loud and clear. What next?",
-        "Indeed. Let me know if you have another question."
+        "Indeed. Let me know if you have another question.",
     ),
     "confused": (
         "Sorry, that was not clear. Ask it another way, or say “tell me more” for the rest of what I found.",
@@ -2506,9 +2400,8 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "My answer may have missed. Which part should I look at again?",
         "Apologies, I didn't get that. Mind rephrasing your question?",
         "I seem to be a bit confused. Can you try asking in a different way?",
-        "Hmm, I didn't understand. Could you try wording it differently?",
         "I'm not quite following. Can you tell me exactly what note to look for?",
-        "Could you clarify? Let's try searching one more time."
+        "Could you clarify? Let's try searching one more time.",
     ),
     "ack": (
         "Good. Anything else?",
@@ -2518,42 +2411,33 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Understood. Ready when you are.",
         "Okay. Let me know if you need more.",
         "Acknowledged. Let's move on to the next search.",
-        "Sure thing. What is next on the list?"
+        "Sure thing. What is next on the list?",
     ),
     "who": (
         "I am the notebook's assistant. With no model running I answer from your notes in their own words.",
         "I am here to find things in your notes and say what they say.",
         "I am a search assistant designed to retrieve exactly what you have written in your notes.",
         "I am your dedicated notebook assistant. Ask a question and I'll find it in your records.",
-        "I am an AI assistant focused on fetching answers strictly from your documented notes."
     ),
     "about_app": (
-        "I answer from your notes: ask when something is, who said what, what the latest is on a project, or "
-        "what you know about a subject. Connecting a model adds writing, summaries in its own words and tools.",
-        "Ask me about anything you wrote down: a date, a decision, a list, how a project is going. Two questions "
-        "in one message work too. Connecting a model adds writing and tools.",
+        "I answer from your notes: ask when something is, who said what, what the latest is on a project, or what you know about a subject. Connecting a model adds writing, summaries in its own words and tools.",
+        "Ask me about anything you wrote down: a date, a decision, a list, how a project is going. Two questions in one message work too. Connecting a model adds writing and tools.",
         "I'm built to read your notes and report back exactly what you recorded. Try asking about a specific event or task.",
-        "I help you comb through your notes without needing to summarize them. Ask me when something happened or who said what."
+        "I help you comb through your notes without needing to summarize them. Ask me when something happened or who said what.",
     ),
     "compliment": (
         "I am glad to hear that. What can I find for you next?",
-        "Thank you! Ready for the next question.",
         "That's kind of you. What else should we search for?",
-        "I appreciate the praise! What's next?",
-        "Thanks! I'm here whenever you need another search.",
-        "Thank you! I strive to be helpful. What can I look up?",
         "Much appreciated. Anything else in your notes to find?",
-        "Glad I could be of service. Let me know what else you need."
+        "Glad I could be of service. Let me know what else you need.",
     ),
     "insult": (
-        "I'm sorry to hear that. I'm a simple bot, but I try my best.",
         "Apologies. Let's try rephrasing the question.",
         "My apologies. I will try to get it right next time.",
         "I am sorry if I let you down. How can I improve this search?",
-        "I'll try to do better! Let's search again.",
         "Sorry about that. Could you try asking in a different way?",
         "My bad. I'm limited to exact matches in your notes, so try a different wording.",
-        "Apologies for the frustration. What should we look for instead?"
+        "Apologies for the frustration. What should we look for instead?",
     ),
     "emotion": (
         "I understand. What can I help you find?",
@@ -2563,7 +2447,7 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "I'm sorry to hear that. What can I look up for you?",
         "That's totally fair. Let's focus on what we can find in your notes.",
         "Understood. I am here to assist with any searches you need.",
-        "I can imagine. Let me know what you want to review in your notes."
+        "I can imagine. Let me know what you want to review in your notes.",
     ),
 }
 
@@ -2589,10 +2473,6 @@ NEXT_STEPS = (
     "Say “tell me more” for more on “{subject}”.",
     "I can say more about “{subject}” if you like.",
     "Want the latest on “{subject}” next?",
-    "Should we dive deeper into “{subject}”?",
-    "I'm ready to find more on “{subject}” if you need it.",
-    "Let's see what else there is on “{subject}”.",
-    "Anything else you need on “{subject}”?",
     *composer_tables.NEXT_STEPS_EXTRA,
 )
 NEXT_STEPS_PROFESSIONAL = composer_tables.NEXT_STEPS_PROFESSIONAL
@@ -2638,6 +2518,26 @@ def _did_you_mean(unsure: list[dict]) -> list[list[tuple]]:
     return [[("template", PHRASES["did_you_mean_a"]), ("corrected", unsure[0]["alternative"]), ("template", PHRASES["did_you_mean_b"])]]
 
 
+def _sum(question: str) -> dict | None:
+    """"What is 12 * 4?" worked out (`arithmetic`, our own bounded evaluator),
+    or None for any question that is not only a sum. The notes are not read:
+    a sum's answer is in the question."""
+    expr = arithmetic.sum_in(question)
+    if expr is None:
+        return None
+    value = arithmetic.spoken(arithmetic.evaluate(expr))
+    parts = [("asked", expr.strip()), ("template", PHRASES["sum_is"]), ("measure", value), ("template", PHRASES["stop"])]
+    return {
+        "text": "".join(part[1] for part in parts),
+        "grounding": [],
+        "support": grounding.support("", []),
+        "shape": "sum",
+        "parts": parts,
+        "next": [],
+        "next_parts": [],
+    }
+
+
 def _nothing(shape: str, unsure: list[dict] | None = None, voice: str = composer_tables.DEFAULT_VOICE) -> dict:
     chips = _did_you_mean(unsure or [])
     key = composer_tables.VOICE_VARIANTS[composer_tables.voice_of(voice)]["nothing"][0]
@@ -2679,6 +2579,9 @@ def compose(
     """
     voice = composer_tables.voice_of(voice)
     today = today or date.today()
+    summed = None if recent or said else _sum(question)
+    if summed:
+        return summed
     if not recent and not said:
         parts = split_parts(question)
         if len(parts) > 1:
@@ -2704,94 +2607,8 @@ def compose(
 
     if shape == "recent":
         _newest(out, views_list)
-    elif shape == "reading_time":
-        word_count = sum(len(v.words) for v in views_list)
-        mins = max(1, round(word_count / 238)) # average adult reading speed
-        out.m(f"Across the {len(views_list)} notes retrieved, there are {word_count} words. It should take you roughly {mins} minute{'s' if mins != 1 else ''} to read them.")
-        out.parts.insert(0, ("action", {"type": "reading_time", "words": word_count, "minutes": mins}))
-    elif shape == "translate":
-        lang_match = re.search(r'(?:translate(?: this)?(?: to| into)?|say that in|how do i say .* in|->\s*|to\s+)([a-zA-Z]+)\b', question.lower())
-        target_lang = lang_match.group(1).title() if lang_match else "Another Language"
-        out.m(f"I am ready to translate the retrieved notes into {target_lang}.")
-        out.parts.insert(0, ("action", {"type": "translate", "language": target_lang}))
-    elif shape == "convert":
-        try:
-            from memorymap.vendor.pint import UnitRegistry
-            ureg = UnitRegistry()
-            # Try to match the whole query or fallback to regex extraction
-            conv_match = re.search(r'([0-9\.]+)\s*([a-zA-Z]+)\s*(?:to|in|into)\s*([a-zA-Z]+)', question.lower())
-            if not conv_match:
-                raise ValueError("Could not parse conversion.")
-            amount, unit_from, unit_to = conv_match.groups()
-            
-            quantity = float(amount) * ureg(unit_from)
-            result = quantity.to(unit_to)
-            
-            # Format nicely
-            rounded = round(result.magnitude, 4)
-            if rounded.is_integer():
-                rounded = int(rounded)
-            out.m(f"**{amount} {unit_from}** is equal to **{rounded} {unit_to}**.")
-            out.parts.insert(0, ("action", {"type": "convert", "amount": amount, "from": unit_from, "to": unit_to, "result": rounded}))
-        except Exception:
-            out.m("I'm not sure what units you want to convert, or the conversion isn't supported.")
-    elif shape == "math":
-        try:
-            expr_match = re.search(r'([0-9\+\-\*\/\(\)\.\s]+)', question.lower())
-            if not expr_match:
-                raise ValueError
-            expr = expr_match.group(1).strip()
-            
-            from memorymap.vendor.simpleeval import simple_eval
-            res = simple_eval(expr)
-            
-            out.m(f"The answer is {res}.")
-            out.parts.insert(0, ("action", {"type": "math", "expression": expr, "result": res}))
-        except Exception:
-            out.m("I'm not sure how to calculate that.")
-    elif shape == "utility":
-        text_lower = question.lower()
-        from datetime import datetime
-        if "time" in text_lower:
-            now = datetime.now().strftime("%I:%M %p")
-            out.m(f"It is currently {now}.")
-            out.parts.insert(0, ("action", {"type": "get_time", "result": now}))
-        elif "date" in text_lower or "day" in text_lower:
-            day_str = today.strftime("%A, %B %d, %Y")
-            out.m(f"Today is {day_str}.")
-            out.parts.insert(0, ("action", {"type": "get_date", "result": day_str}))
-        elif any(w in text_lower for w in ["create", "add", "new", "remind", "set"]):
-            kw = [k[0] for k in _RAKE.run(text_lower) if k[1] > 1.0]
-            subject = kw[0] if kw else "that"
-            if "remind" in text_lower or "timer" in text_lower:
-                out.m(f"I've noted your request to be reminded about '{subject}'.")
-                out.parts.insert(0, ("action", {"type": "remind", "subject": subject}))
-            else:
-                out.m(f"I am ready to create your note about '{subject}'.")
-                out.parts.insert(0, ("action", {"type": "create_note", "subject": subject}))
-        else:
-            out.m("I am ready to help you with that action.")
     else:
-        if shape == "summary":
-            meaning = meaning_for(terms)
-            chosen = select("what", terms, views_list, limit=10, meaning=meaning, per_note=1)
-            if chosen:
-                out.m("Here is a categorized summary of what I found in your notes:")
-                out.t("para")
-                order = []
-                for s in chosen:
-                    if s.note_id not in order:
-                        order.append(s.note_id)
-                units = [sorted((s for s in chosen if s.note_id == i), key=lambda s: s.order) for i in order]
-                for group in _clusters(meaning, units):
-                    best_s = max((s for unit in group for s in unit), key=lambda s: s.score)
-                    kws = _RAKE.run(best_s.text)
-                    theme = kws[0][0].title() if kws else "Key Point"
-                    out.t("bullet").m(f"**{theme}:** ").q(best_s, terms).cite(out.views[best_s.note_id]).t("line")
-            else:
-                out.m("I couldn't find any notes to summarize on this topic.")
-        else:
-            sides = compare_sides(question) if shape == "compare" else None
+        sides = compare_sides(question) if shape == "compare" else None
         if not (sides and _compare(out, sides, views_list, meaning_for)):
             shape = "what" if shape == "compare" else shape
             broad = shape == "what" and bool(_BROAD.match(rephrase(question)))
@@ -2805,15 +2622,7 @@ def compose(
                 said=said,
             )
             if not chosen:
-                scored = _score(shape, terms, views_list)
-                if scored:
-                    closest = max(scored, key=lambda s: s.score)
-                    out.t("closest_b" if shape in FACT_SHAPES else "closest_a")
-                    out.q(closest, terms)
-                    out.cite(out.views[closest.note_id])
-                    out.t("para", "which_note")
-                else:
-                    return _nothing(shape, unsure, voice)
+                return _nothing(shape, unsure, voice)
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]
                 broad = False
@@ -2829,7 +2638,6 @@ def compose(
         return _nothing(shape, unsure, voice)
     quotes = "\n\n".join(row["sentence"] for row in out.rows)
     cited = {row["note_id"] for row in out.rows}
-    
     next_parts = (_did_you_mean(unsure) + _next_questions(question, shape, terms, views_list, cited))[:3]
     return {
         "text": out.text,

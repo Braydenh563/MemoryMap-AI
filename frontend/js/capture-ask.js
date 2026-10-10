@@ -1136,6 +1136,11 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
     for (const g of rows) parent.insertBefore(citationMarker(g, byId, numberFor), before);
   }
   collapseCitationRuns(targets);
+  //: A composed answer's "[**Dentist**]" opens its note (ask-compose.js,
+  //: lazy: the boot scripts are at their gzip cap).
+  if (sentences.some((g) => g.title)) {
+    ensureModule("askCompose").then(() => linkCitedTitles(targets, sentences, byId, numberFor));
+  }
 }
 
 //: **One mark per run, at its end** (the owner, 2026-09-24: "the amount of

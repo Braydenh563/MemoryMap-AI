@@ -126,7 +126,7 @@ _VOCABULARY = (
     "longest shortest biggest words written writing wordcount "
     "stale forgotten untouched abandoned "
     "together alongside pairs pair "
-    "statistics stats overview summary"
+    "statistics stats"
 ).split()
 
 #: Words shorter than this are left alone. "tp" is not a typo for "top" in any
@@ -208,7 +208,7 @@ def looks_like_a_question_about_the_notebook(message: str) -> bool:
         #: matcher rather than by reading the code.
         or re.search(r"\bwords?\b|word ?count|writ(?:ten|ing)", text)
         or re.search(r"stale|forgotten|untouched|abandoned", text)
-        or re.search(r"statistics|stats|overview|summary", text)
+        or re.search(r"\bstat(?:istic)?s\b", text)
     )
 
 
@@ -254,7 +254,9 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _stale_notes(session)
     if _asks(text, _TAG_WORDS, r"together|alongside|\bpairs?\b|combination|co-?occur"):
         return _tag_pairs(session)
-    if _asks(text, r"statistics|stats|overview|summary"):
+    #: "Stats" and "statistics" only: "summary" and "overview" ask for the
+    #: notes' content ("a summary of the trip"), which the composer answers.
+    if _asks(text, r"\bstat(?:istic)?s\b"):
         return _general_stats(session)
     return None
 
@@ -341,52 +343,36 @@ def _document_count(session: Session) -> StatAnswer:
 
 
 def _most_linked(session: Session) -> StatAnswer:
-    # ... graph logic remains ...
     """The notes at the centre of the graph.
 
-    Uses NetworkX graph theory to calculate the PageRank of the entire notebook.
-    This goes beyond just counting links, it ranks notes by their true centrality
-    in your knowledge graph (a note linked to by highly central notes is more
-    important than a note with many links from isolated notes).
+    Counts both directions: a note everything points *at* is as central as one
+    that points at everything, and a "best connected" answer that counted only
+    outgoing links would rank the note you happened to write last.
     """
-    import networkx as nx
-    
-    G = nx.DiGraph()
+    counts: Counter[int] = Counter()
     for source, target in session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)).all():
-        G.add_edge(source, target)
-        
-    if len(G.nodes) == 0:
+        counts[source] += 1
+        counts[target] += 1
+    if not counts:
         return StatAnswer("linked", "None of your notes are linked to each other yet.")
-        
-    # Calculate PageRank
-    ranks = nx.pagerank(G)
-    
-    # Sort by highest rank
-    ranked_nodes = sorted(ranks.items(), key=lambda x: x[1], reverse=True)
-    top_ids = [entry_id for entry_id, rank in ranked_nodes[:TOP_N]]
-    
+    top_ids = [entry_id for entry_id, _ in counts.most_common(TOP_N)]
     rows = session.scalars(_visible(select(Entry).where(Entry.id.in_(top_ids)))).all()
     by_id = {row.id: row for row in rows}
     facts = []
-    
     for entry_id in top_ids:
         row = by_id.get(entry_id)
         if row is None:
             continue  # binned or private since the link was made
-            
-        # Display the PageRank percentage
-        score = round(ranks[entry_id] * 100, 1)
-        
         facts.append(
             {
                 "label": (row.content or "").strip().split("\n")[0][:60],
-                "count": f"{score}% centrality",
+                "count": counts[entry_id],
                 "id": row.id,
             }
         )
     if not facts:
         return StatAnswer("linked", "None of your visible notes are linked to each other yet.")
-    listed = "; ".join(f"“{fact['label']}” ({fact['count']})" for fact in facts[:5])
+    listed = "; ".join(f"“{fact['label']}” ({fact['count']} links)" for fact in facts[:5])
     return StatAnswer("linked", f"Your most connected notes are {listed}.", facts)
 
 
@@ -583,21 +569,23 @@ def _tag_pairs(session: Session) -> StatAnswer:
 
 
 def _general_stats(session: Session) -> StatAnswer:
+    """"Show me my stats": the four counts the rest of this module answers
+    one at a time, in one line."""
     note_total = session.scalar(_visible(select(func.count(Entry.id)))) or 0
     cat_total = session.scalar(_visible(select(func.count(func.distinct(Entry.category_id))))) or 0
-    doc_total = session.scalar(_visible(select(func.count(func.distinct(Document.id))).join(Document, Document.entry_id == Entry.id))) or 0
-    
+    #: Documents are not entries, so not filtered as entries are (the same
+    #: count `_document_count` gives).
+    doc_total = session.scalar(select(func.count(Document.id))) or 0
     rows = session.scalars(_visible(select(Entry.tags))).all()
     distinct_tags = len({tag for raw in rows for tag in _tags_of(raw)})
-    
     return StatAnswer(
-        "notebook_summary",
+        "overview",
         f"You have {_plural(note_total, 'note')} and {_plural(doc_total, 'document')} "
         f"across {_plural(cat_total, 'category')}, using {_plural(distinct_tags, 'distinct tag')}.",
         [
-            {"label": "Notes", "count": note_total},
-            {"label": "Documents", "count": doc_total},
-            {"label": "Categories", "count": cat_total},
-            {"label": "Tags", "count": distinct_tags}
-        ]
+            {"label": "notes", "count": note_total},
+            {"label": "documents", "count": doc_total},
+            {"label": "categories", "count": cat_total},
+            {"label": "tags", "count": distinct_tags},
+        ],
     )

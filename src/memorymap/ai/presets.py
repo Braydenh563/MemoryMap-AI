@@ -78,7 +78,7 @@ MODES: dict[str, ResponseMode] = {
         temperature=0.2,
         think=False,
         length_hint=(
-            " Answer concisely but beautifully. Provide a highly direct answer in a few sentences or a short bulleted list. Do not explain your "
+            " Answer in at most two or three sentences. Do not explain your "
             "reasoning, and do not add caveats or suggestions unless asked."
         ),
     ),
@@ -117,9 +117,8 @@ MODES: dict[str, ResponseMode] = {
         temperature=0.8,
         think=None,  # let a reasoning model reason; that is the point here
         length_hint=(
-            "Be exhaustive and deeply thorough. Write expansive, full paragraphs and draw deep, intelligent connections between the notes. "
-            "Structure your response perfectly using markdown headers, lists, or tables where appropriate for rendering a high-quality structural document. "
-            "Use exhaustive markdown linking inline to richly interlink every mentioned note, topic, or entity. Explain your reasoning fully."
+            " Be thorough. Work through the relevant notes, draw connections "
+            "between them, and explain your reasoning."
         ),
     ),
 }

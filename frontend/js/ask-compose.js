@@ -62,3 +62,51 @@ function wireAskUseAi() {
 }
 
 wireAskUseAi();
+
+//: **The name in "[**Dentist**]" opens the note** (the 2026-10-10 triage,
+//: decision 5). An answer written without a model cites each note by its
+//: title in square brackets (`composer.PHRASES["cite_open"]`), and the
+//: grounding row carries that title (`title`), so the match is exact rather
+//: than a guess from opening words. Hover or focus shows the citation peek
+//: (capture-ask.js), the passage the sentence came from, as a numbered mark
+//: does; a press or Enter goes to the note itself, never to the Sources
+//: disclosure. The bold name itself is the control (a link role, focusable),
+//: so the sentence reads and wraps as before and no stylesheet rule is
+//: needed: the global `:focus-visible` ring and the peek are its states.
+//: Called by `addInlineCitations` after every paint; a name already wired
+//: carries `data-note-id` and is skipped.
+function linkCitedTitles(targets, sentences, byId, numberFor) {
+  const byTitle = new Map();
+  for (const g of sentences || []) if (g.title && !byTitle.has(g.title)) byTitle.set(g.title, g);
+  for (const target of targets) {
+    for (const name of target.querySelectorAll("strong:not([data-note-id])")) {
+      const g = byTitle.get(name.textContent.trim());
+      const bracketed = /\[$/.test(name.previousSibling?.textContent || "") && /^\]/.test(name.nextSibling?.textContent || "");
+      if (!g || !bracketed) continue;
+      name.dataset.noteId = String(g.note_id);
+      name.tabIndex = 0;
+      name.setAttribute("role", "link");
+      name.setAttribute("aria-label", `Open the note ${g.title}`);
+      name.style.cursor = "pointer";
+      const describe = () => ({
+        noteId: g.note_id, number: numberFor.get(g.note_id), entry: byId.get(g.note_id), label: g.label,
+        start: g.start, end: g.end, signals: g.signals, verdict: g.verdict, terms: g.terms,
+      });
+      name.addEventListener("mouseenter", () => scheduleCitationPeek(name, describe));
+      name.addEventListener("mouseleave", () => scheduleCitationPeekClose());
+      name.addEventListener("focus", () => {
+        if (!citationPeekState.restoring) openCitationPeek(name, describe(), { pinned: false });
+      });
+      name.addEventListener("blur", (event) => {
+        if (!citationPeekState.panel?.contains(event.relatedTarget)) scheduleCitationPeekClose();
+      });
+      const open = (event) => {
+        event.stopPropagation();
+        closeCitationPeek();
+        flashEntry(g.note_id);
+      };
+      name.addEventListener("click", open);
+      name.addEventListener("keydown", (event) => event.key === "Enter" && open(event));
+    }
+  }
+}

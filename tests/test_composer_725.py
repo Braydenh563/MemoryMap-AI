@@ -68,6 +68,20 @@ def test_a_note_is_never_a_negation():
     assert composer._stem("notes") != composer._stem("not")
 
 
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [("business", "busy"), ("university", "universe"), ("general", "generous"), ("organ", "organisation")],
+)
+def test_unrelated_words_do_not_meet(a, b):
+    """The stemmer's rule (`_stem`: "a stemmer that turned news into new
+    would match the wrong notes"), held for the collisions a full Porter
+    stemmer makes:
+    "business" and "busy" are both "busi" to it, and "university" and
+    "universe" both "univers" (2026-10-10 triage, decision 3: the vendored
+    Porter stemmer measured no gain on the eval and fails this)."""
+    assert composer._stem(a) != composer._stem(b)
+
+
 # --- redundancy ---------------------------------------------------------------------
 
 
@@ -148,7 +162,7 @@ def test_a_second_note_on_the_subject_is_said_with_no_also():
     second = text.split("\n\n")[1]
     #: INBOX 741: the sentence itself, its note named after it, never
     #: "**Offline** also says:".
-    assert "Beta testers active in the forum did not know the app works offline. (**Offline**)" in second
+    assert "Beta testers active in the forum did not know the app works offline. [**Offline**]" in second
     assert not second.startswith("**Offline**") and "says" not in second
 
 

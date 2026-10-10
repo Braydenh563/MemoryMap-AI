@@ -911,32 +911,16 @@ def _notebook_overview(session: Session, args: dict) -> dict:
     }
 
 
-
 def _search_help(session: Session, args: dict) -> dict:
-    """Reads the app's internal guide for a feature."""
+    """The app's own help for a feature, so a question about how MemoryMap
+    works is answered from its guide rather than from the notes or the
+    model's guesses (the same block `help_chat` adds to an app question)."""
     from memorymap.ai import help_chat
     query = args.get("query") or ""
     text = help_chat.help_block_for(query)
     return {
         "guide_text": text,
-        "label": f"ph:book-open Consulted guide for '{_clip(query, 40)}'",
-    }
-
-def _get_app_navigation(session: Session, args: dict) -> dict:
-    """Provides URL paths to different sections of the app."""
-    return {
-        "links": {
-            "Notes": "/notes",
-            "Chat / Agent": "/chat",
-            "Categories": "/categories",
-            "Tags": "/tags",
-            "Library (Files)": "/library",
-            "Settings": "/settings",
-            "Search": "/search",
-            "Whiteboards": "/boards"
-        },
-        "instructions": "To provide a nav link, use markdown like [Go to Settings](/settings).",
-        "label": "ph:compass Checked app navigation links",
+        "label": f"ph:book-open Read the guide on “{_clip(query, 40)}”",
     }
 
 
@@ -3374,21 +3358,15 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "search_help",
-            "Search the app's built-in help guide to learn how to use features, tabs, and settings in MemoryMap.",
+            #: Short on purpose: every tool's schema must fit a 32k window
+            #: untrimmed (tests/test_prompt_budget.py), and this one tipped it.
+            "How a MemoryMap feature or setting works, from its guide.",
             {
                 "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "What feature to learn about"}
-                },
+                "properties": {"query": {"type": "string"}},
                 "required": ["query"],
             },
             _search_help,
-        ),
-        ToolSpec(
-            "get_app_navigation",
-            "Get the URLs for the different sections of the app, so you can provide helpful markdown navigation links to the user.",
-            {"type": "object", "properties": {}},
-            _get_app_navigation,
         ),
         ToolSpec(
             "get_current_time",
@@ -3842,15 +3820,23 @@ CORE_TOOLS = [
     "get_current_time",
     "create_note",
     "save_user_preference",
-
-    "search_help",
-    "get_app_navigation",
 ]
 
 # Groups, and the words that ask for them. Generous on purpose: a cue that
 # fires when it needn't costs a few hundred characters, and one that fails to
 # fire costs the user the thing they asked for.
 TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    #: The app's own guide, for a question about MemoryMap rather than the
+    #: notes (2026-10-10 triage, decision 4: it found the right help entry for
+    #: eight of ten sample questions). A group, not a core tool: most turns
+    #: are about the notes, and a core tool's schema is paid on every round.
+    (
+        ("search_help",),
+        (
+            "how do i", "how to", "where is", "where do i", "where are", "setting",
+            "feature", "button", "shortcut", "the app", "memorymap", "this app",
+        ),
+    ),
     (
         ("set_reminder", "list_reminders", "complete_reminder"),
         (

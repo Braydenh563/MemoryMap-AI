@@ -11,9 +11,9 @@ function appearancePref(key, fallback) {
   if (key === "atlas-style") return "character";
   return fallback;
 }
-function paintDashEmblem() { }
-function repaintOwnFace() { }
-function switchTab() { }
+function paintDashEmblem() {}
+function repaintOwnFace() {}
+function switchTab() {}
 function nameMarkBuddyCustom() { return { name: SIM.seed, style: {} }; }
 //: The companion's menu is the app's (app.js, `openMenuAtPoint`), which is
 //: not loaded here; this stand-in lists the same items at the same point
@@ -35,8 +35,8 @@ function openMenuAtPoint(items, x, y) {
   document.body.append(menu);
   setTimeout(() => document.addEventListener("click", () => menu.remove(), { once: true }), 0);
 }
-function openNameMarkViewer() { }
-function nameMarkBuddyKeepCustom() { }
+function openNameMarkViewer() {}
+function nameMarkBuddyKeepCustom() {}
 const prefsCache = { dashboard_persona: "Atlas" };
 //: The app's tab list: the companion reads the visible `#tab-<name>` page
 //: for its surfaces, and without a list it sees no page at all.

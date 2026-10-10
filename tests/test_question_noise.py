@@ -210,3 +210,55 @@ def test_nothing_found_asks_a_short_clarifying_question():
 def test_noise_nobody_tuned_against_changes_the_kind_rarely(noise_rows):
     derived = [r for r in noise_rows if r["set"] == "derived"]
     assert sum(r["right"] for r in derived) / len(derived) >= 0.98
+
+
+def test_no_table_key_is_written_twice() -> None:
+    """The 2026-10-10 triage, decision 9: a key given twice in the source is
+    either dead (the same value) or a silent override (another one); fifteen
+    were found, all of the first kind."""
+    import ast
+    from pathlib import Path
+
+    for name in ("question_noise.py", "composer_tables.py"):
+        tree = ast.parse((Path("src/memorymap/ai") / name).read_text(encoding="utf-8"))
+        seen: dict[tuple[str, object], int] = {}
+        twice = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict) and isinstance(node.targets[0], ast.Name):
+                table, literal = node.targets[0].id, node.value
+            elif (
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "update"
+                and isinstance(node.func.value, ast.Name) and node.args and isinstance(node.args[0], ast.Dict)
+            ):
+                table, literal = node.func.value.id, node.args[0]
+            else:
+                continue
+            for key in literal.keys:
+                if isinstance(key, ast.Constant):
+                    if (table, key.value) in seen:
+                        twice.append(f"{name}:{key.lineno} {table}[{key.value!r}] (first at {seen[(table, key.value)]})")
+                    seen.setdefault((table, key.value), key.lineno)
+        assert not twice, twice
+
+
+def test_the_composer_imports_without_the_database_layer() -> None:
+    """Decision 9: `import memorymap.ai.composer` under 0.5 s. Measured cold:
+    0.75 to 0.94 s before the triage, 0.08 to 0.15 s after, because
+    `grounding` no longer pulls in the embeddings and the search manager
+    (and with them SQLAlchemy and the database models) at import."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, time; t = time.perf_counter(); import memorymap.ai.composer; "
+        "print(time.perf_counter() - t, 'sqlalchemy' in sys.modules)"
+    )
+    runs = []
+    #: The faster of two runs: a busy CI machine can stall one process for
+    #: longer than the whole import takes, and that is not the import's cost.
+    for _ in range(2):
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True, env={"PYTHONPATH": "src"})
+        took, loaded = out.stdout.split()
+        assert loaded == "False"
+        runs.append(float(took))
+    assert min(runs) < 0.5, runs

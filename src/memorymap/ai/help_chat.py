@@ -1597,7 +1597,7 @@ HELP_TOPICS.extend(
                 "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
-                "footnote", "evidence", "show the evidence", "supported", "unsupported",
+                "footnote", "evidence", "show the evidence", "square brackets", "note name in an answer", "supported", "unsupported",
                 "from your notes", "why this source",
             ),
             "body": (
@@ -1621,7 +1621,8 @@ HELP_TOPICS.extend(
                 "whether that passage supports the sentence or only partly, and "
                 "three short bars for why it was chosen: Words it shares, Meaning, "
                 "and Links, how directly the search reached the note), a press "
-                "keeps it open, and Open note goes there. The button at the end of "
+                "keeps it open, and Open note goes there. A note's name in square "
+                "brackets shows it on hover; a press opens it. The button at the end of "
                 "Grounded in says how many sentences came from your notes (\"9 of "
                 "11 from your notes\"); it opens the evidence, each sentence beside "
                 "the passage it came from, and No note says this beside the ones "

@@ -30,8 +30,10 @@ import math
 import re
 from collections import Counter
 
-from memorymap.ai.embeddings import paragraph_chunks
-from memorymap.search.search_manager import _meaningful_terms
+#: `search_manager._meaningful_terms` is this function by another name;
+#: imported from `query` so this module does not pull the search manager,
+#: and with it SQLAlchemy and the embeddings, into a no-model answer.
+from memorymap.search.query import search_terms as _meaningful_terms
 
 # Below this fraction of a sentence's own meaningful words being found in a
 # note, the "match" is coincidence (shared stopword-adjacent filler) rather
@@ -412,6 +414,13 @@ def paragraph_ordinal(content: str, start: int, end: int | None = None) -> int:
     on a twenty-word stride and often begins at the tail of the paragraph
     before the one it is about.
     """
+    #: Imported here, not at the top: `embeddings` brings the model manager,
+    #: the database models and SQLAlchemy with it (0.44 s of a cold import),
+    #: and the composer, which reaches this module, answers with no model and
+    #: is imported by the eval and the tests on its own (2026-10-10 triage,
+    #: decision 9). In the app it is already loaded and this costs nothing.
+    from memorymap.ai.embeddings import paragraph_chunks
+
     spans = paragraph_chunks(content or "")
     if not spans:
         return 0

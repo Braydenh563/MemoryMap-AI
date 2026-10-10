@@ -7,12 +7,27 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Plans: every surface of the app read against world class in one table (WORLD_CLASS_PLAN 25), with decisions 46 to 54, phases 25a to 25g, the calendar view (TIMELINE_PLAN Phase 5), skill reliability (AGENT_SKILLS_REFORM Phase E) and Briefs 46 to 55; the undo contract is rule 1.8.
 - Setup on Linux and macOS can share the packages already installed on the computer (MEMORYMAP_SYSTEM_SITE_PACKAGES=1), and refuses with a reason when the installed torch is outside the supported range.
 - MCP: another app that uses MemoryMap's tools no longer sees chat-only tools, label icon names, or a wrong protocol version, can auto-approve read tools, and Settings, Tools it can use shows the config snippet to paste with a Copy button.
 - Docker: the image lives in docker/ and works: MEMORYMAP_BIND, MEMORYMAP_PORT and MEMORYMAP_FIRST_PASSWORD (used only while no password is set, never logged), and a container no longer answers its first visitor 403.
 - First install: the welcome card, the README, INSTALL and both launchers now say the first setup needs the internet once (the search model and the packages you chose, with the size) and that MemoryMap works offline after that.
 
 - Other devices: the network certificate is made again when this computer's address changes, so a phone no longer reports the wrong name or a lost connection; Settings, Account and security shows the certificate's names and expiry and a Trust this certificate on your phone button with iPhone and Android steps.
+### Changed
+
+- Answers from your notes cite each note as [**Title**]; hovering the name previews the passage it came from and pressing it opens the note (Ask and Chat).
+- Filing with no model: a fixed keyword map now votes only for a category you already have (top-1 on a 40-note test notebook 0.05 to 0.15, no more wrong filings), and tag suggestions are only ever tags you already use.
+- The Guide is offered to the agent when a question is about the app ("how do I", "where is", a setting), not on every turn.
+
+### Fixed
+
+- Answers from your notes quote your words exactly again (no added quotation marks, no rewritten "I" to "you"), and "How long is the train from Lisbon to Porto?" or "Who are we looking to hire?" are no longer read as requests to translate.
+- Small talk with only the tools extra installed and no model is answered by the app rather than handed to the tool runner.
+
+### Removed
+
+- 15 MB of vendored libraries the app never imported (networkx, whoosh, langdetect, dateutil, pint and a Windows .exe, among others); what remains is credited in docs/THIRD_PARTY.md. Sums ("what is 12 * 4") are worked out by a small evaluator of our own.
 
 ## [0.4.1] - 2026-10-06
 

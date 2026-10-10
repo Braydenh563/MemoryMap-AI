@@ -14,6 +14,20 @@ below). Versioning is `0.x` while the app stabilises.
 - First install: the welcome card, the README, INSTALL and both launchers now say the first setup needs the internet once (the search model and the packages you chose, with the size) and that MemoryMap works offline after that.
 
 - Other devices: the network certificate is made again when this computer's address changes, so a phone no longer reports the wrong name or a lost connection; Settings, Account and security shows the certificate's names and expiry and a Trust this certificate on your phone button with iPhone and Android steps.
+### Changed
+
+- Answers from your notes cite each note as [**Title**]; hovering the name previews the passage it came from and pressing it opens the note (Ask and Chat).
+- Filing with no model: a fixed keyword map now votes only for a category you already have (top-1 on a 40-note test notebook 0.05 to 0.15, no more wrong filings), and tag suggestions are only ever tags you already use.
+- The Guide is offered to the agent when a question is about the app ("how do I", "where is", a setting), not on every turn.
+
+### Fixed
+
+- Answers from your notes quote your words exactly again (no added quotation marks, no rewritten "I" to "you"), and "How long is the train from Lisbon to Porto?" or "Who are we looking to hire?" are no longer read as requests to translate.
+- Small talk with only the tools extra installed and no model is answered by the app rather than handed to the tool runner.
+
+### Removed
+
+- 15 MB of vendored libraries the app never imported (networkx, whoosh, langdetect, dateutil, pint and a Windows .exe, among others); what remains is credited in docs/THIRD_PARTY.md. Sums ("what is 12 * 4") are worked out by a small evaluator of our own.
 
 ## [0.4.1] - 2026-10-06
 

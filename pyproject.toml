@@ -52,7 +52,10 @@ line-length = 100
 # is not ours to style: it lints with ~50 F401/F541/E402 findings, and CI runs
 # `ruff check .` from the repo root, so without this exclusion pulling in an
 # upstream update would fail the build for cosmetics in someone else's code.
-extend-exclude = [".claude/skills"]
+# Vendored Python under src/memorymap/vendor is excluded for the same reason;
+# docs/THIRD_PARTY.md lists every file there with its licence, and
+# tests/test_vendor_manifest.py holds that list to the folder.
+extend-exclude = [".claude/skills", "src/memorymap/vendor"]
 
 [tool.ruff.lint]
 # Ruff's default rules: pyflakes (F) + a curated pycodestyle subset (E). This

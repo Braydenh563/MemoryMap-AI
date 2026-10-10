@@ -371,3 +371,13 @@ def test_a_normal_turn_is_not_affected_by_the_budget(ai_client, session, fake_ol
     # Joined, because streaming splits the answer across deltas.
     answer = "".join(e["delta"] for e in events if e["type"] == "answer")
     assert answer == "You have one note."
+
+
+def test_search_help_reads_the_apps_guide_and_is_offered_for_an_app_question(session):
+    """The 2026-10-10 triage, decision 4: kept because `help_block_for` finds
+    the right entry for most app questions; offered by its cue words rather
+    than on every turn."""
+    out = tools.TOOLS["search_help"].handler(session, {"query": "how do I link two notes"})
+    assert "Linking notes" in out["guide_text"]
+    assert "search_help" not in tools.CORE_TOOLS
+    assert any("search_help" in names for names, _cues in tools.TOOL_GROUPS)

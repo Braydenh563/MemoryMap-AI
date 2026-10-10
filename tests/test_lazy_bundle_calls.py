@@ -110,6 +110,9 @@ REACHED_AFTER_LOAD = {
     #: and calls only when it loaded, as openNavHistoryMenu does.
     "meetingSaveTranscript": "meetings, called by saveMeetingNote after awaiting ensureModule('meetings')",
     "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
+    #: The 2026-10-10 triage: a composed answer's cited names are linked
+    #: once ask-compose.js is in (`addInlineCitations`, capture-ask.js).
+    "linkCitedTitles": "askCompose, called from ensureModule('askCompose').then in addInlineCitations",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it
     #: is `openOnboarding`, whose stand-in loads the bundle first.

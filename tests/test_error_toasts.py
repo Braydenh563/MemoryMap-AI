@@ -238,7 +238,11 @@ FAULTS = {
         '"Couldn\'t open that version."': 'fetching a saved version failed',
         '"The chat isn\'t available right now."': 'a required element is missing from the page: a UI fault',
     },
+    'graph-canvas.js': {
+        '"The moved notes were not pinned where you left them. Drag again to retry."': 'the pin save after a group drag failed: the places shown are not the places kept',
+    },
     'library.js': {
+        '`The topic was not renamed: ${e?.message || e}. Try again.`': 'the rename request failed: the name shown is not the name kept',
         '`${failed} item${failed === 1 ? "" : "s"} couldn\'t be restored.`': 'a bulk restore partly failed',
         '`${failed} item${failed === 1 ? "" : "s"} couldn\'t be deleted.`': 'a bulk delete partly failed',
         '`${failed} document${failed === 1 ? "" : "s"} couldn\'t be deleted.`': 'a bulk delete partly failed',

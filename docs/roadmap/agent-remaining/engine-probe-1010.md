@@ -38,3 +38,53 @@ Numbers: 60 direct questions in 0.89 s total; the route's answers in the
 probe output. Not verified: time windows (every seeded note is dated today);
 the social path with the setting off (not probed); P4's cause (fusion of
 retrievers or chunking) is a reading, the count is measured.
+
+## The other deterministic parts, probed the same way (`$S/probe_determ.py`, now = Tuesday 2026-10-06 14:30)
+
+### `when.resolve` (Brief 39, step: the time window; TIMELINE Phase 5 shares it)
+
+| Phrase | Today | Expected |
+| --- | --- | --- |
+| "last friday" | Fri 2026-10-09 (the next one) | Fri 2026-10-02 |
+| "yesterday", "a week ago", "3 weeks ago", "the week before last", "since march", "in march", "march" | None | the past is a window: 2026-10-05; 2026-09-29; 2026-09-15; the week of 21 to 27 September; 1 March to now; 1 to 31 March 2026 (the most recent March) |
+| "the 21st", "on the 14th", "21st of next month", "end of the month", "next month", "mid november", "end of day", "this weekend", "next weekend", "in a fortnight", "christmas", "new year" | None | 2026-10-21; 2026-10-14; 2026-11-21; 2026-10-31; 2026-11-01 (a window); 2026-11-15; today 17:00; Sat 2026-10-10; Sat 2026-10-17; 2026-10-20; 2026-12-25; 2027-01-01 |
+| "later today" | today 09:00 (before now) | today, now plus three hours, capped at 20:00 |
+| "2/11", "11/2" | None | the person's date order from their locale setting; say which was assumed |
+| "noon", "at 5", "5pm", "17:30", "tomorrow at 9", "next tuesday morning", "first thing monday", "in 90 minutes", "nov 2", "2026-11-02", "the day after tomorrow" | right | hold |
+
+### `when.parse_reminder_text` and `reminder_parser.parse_relative` (TIMELINE Phase 5 decision 15 to 18; Brief 55)
+
+| Text | Today | Expected |
+| --- | --- | --- |
+| "water the plants every tuesday" | text "Water the plants every", one date | a recurring reminder (weekly, Tuesday), text "Water the plants" |
+| "every morning at 7 stretch" | text "Every stretch", today 19:00 | daily at 07:00, text "Stretch" |
+| "dentist 21st 9am" | tomorrow 09:00 | 2026-10-21 09:00 |
+| "pay rent on the 1st" | None | 2026-11-01, monthly offered |
+| "remind me in 20 minutes to check the oven" | text "In 20 minutes to check the oven" | text "Check the oven" |
+| "in 1.5 hours", "tomorrow morning", "in 6 months", "in a year" | None | 16:00; tomorrow 09:00; 2027-04-06; 2027-10-06 |
+
+### `intent.classify` (Brief 39 step: the query plan; the acts grammar)
+
+| Message | Today | Expected |
+| --- | --- | --- |
+| "how do I change the theme", "where is the export button", "what is memorymap", "are you an ai", "can you help me", "help" | notes | about_app (the Guide) |
+| "what's new" | smalltalk | about_app (the CHANGELOG, 25c) |
+| "what is 12*7", "what time is it", "translate hello to french", "what's the weather" | notes | utility (arithmetic, clock, translate; weather is "not something the app knows, and nothing leaves this computer") |
+| "tell me a joke" | notes | smalltalk |
+| "open settings", "go to the graph", "show me the harbor note" | notes | an act: navigate |
+| "delete the boiler note", "remind me tomorrow" | notes | an act (confirm, undo) |
+| "asdfgh" | notes | unknown: ask, do not search |
+| "continue", "more", "why", "shorter" | notes | a follow-on (`follow_on` with history) |
+
+### `help_chat.topics_for` (the Guide; Brief 49's manual page and Phase 6's "one engine")
+
+| Question | Today | Expected |
+| --- | --- | --- |
+| "phone", "can I use it on two computers", "is my data encrypted" | no topic | the phone over HTTPS topic (Brief 40 built it); the data-dir and sync answer ("one notebook per computer today; copy the folder or a backup"); the vault and recovery key topic |
+| "how do I delete my data" | Undo and the bin | the privacy topic: the data folder, uninstall, the bin |
+| "how do I share a note" | Every view has an address | export `.md`, the address, the phone; one topic that says all three |
+| "what is filing" | Tags and categories | a filing topic of its own once section 23 lands |
+
+### `taxonomy.extract_categories` (Brief 39b; WORLD_CLASS 23)
+
+Seven of fifteen everyday notes get no category: "Leg day: squats 5x5", "Lentil dal with cumin", "Harbor launch plan: ship the mobile app", "Boiler service due in March", "Meeting with Priya about pricing", "Loaf 6: 78% hydration", "Sleep: screens off at 10:30", "Watched Dune part two". "Flight to Lisbon, hotel in Porto" gives Travel twice. "Essay about cutting sentences" gives Education. The pack's 527 categories are weak on the notes a person writes most (exercise, cooking, home, sleep, films, work projects); section 23's candidate layer must add the notebook's own category vocabulary and the owner's corrections before the pack's vote, and dedupe.

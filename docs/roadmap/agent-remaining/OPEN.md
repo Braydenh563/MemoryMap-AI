@@ -1228,3 +1228,20 @@ The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](
 - Palette rows missing (heuristic word match, the destination and its click path): 1  Notifications: # unread (muted except reminders); 1  Atlas files it for you; 1  Draw, then keep it as a note; 2  Chat > About this chat; 2  Chat > Search everything and jump anywhere (Ctrl+K); 2  Library > Boards & maps; 2  Library > Bookmarks; 2  Library > Contents; 2  Settings > Search and index; 2  Settings > What it learned; 2  Settings > Web search; 2  Atlas files it for you > Manage categories; 2  Answered from your notes > About the Use AI switch; 3  Notes > Writing room > Write from notes you already have, up to six of; 3  Library > Contents > Probe documentDocument·# sections·#h ago; 3  Atlas files it for you > Manage categories > About managing categories.
 - Deeper than 3 (light): 4  Library > Contents > Probe documentDocument·# sections·#h ago > Outline.
 - The crawl presses navigation-looking controls only and one item of each repeated list; a destination absent from it is "not found by the crawl", not proof it is missing. Sub-tabs on one page share candidates, so a button seen on the first sub-tab is not pressed again on the others.
+
+## Left by the F1 and F2 agents (Briefs 65 and 66, the one reader and quick add, merged 2026-10-10)
+
+- `ai/composer.py` `_DATE_CUE` (about line 380) and its second date pattern (about 933) still compile date words; replace with `recognise.recognise(...)` spans when Brief 67 makes chat a client of the reading, then empty `STILL_READING` in `tests/test_one_reader.py`. [f1-1010]
+- `entry/timewords.py` keeps its own weekday and number tables (the plan's second allowed reader, for stored precision). Brief 68 decides whether `find` becomes `recognise` spans plus a precision map. [f1-1010]
+- `ai/factgraph.py` `_QUANTITY` still reads counts of things ("3 sets", "5 people"); a "count" kind (number plus plural noun) in `recognise` would let it delegate. [f1-1010]
+- `search/query.py` `before:`/`after:` stay ISO only (`test_an_unreadable_date_invents_nothing` holds it); `before:tuesday` is one call to `recognise.span` if the owner wants it. [f1-1010]
+- "last week" is the last seven days in search and the previous Monday to Sunday in `recognise`; both written down, the Reading says the search's window. An owner decision if one meaning is wanted. [f1-1010]
+- `when.resolve("in march")`, "march", "q4" give the next one at 09:00 (a reminder is never in the past); the past one comes from `when.window` and `recognise`. By design. [f1-1010]
+- "on my birthday" reads only with a stored birthday (`context["birthday"]`, `birthday=` on `/read`); no setting holds one yet. [f1-1010]
+- "every weekday", "every other friday" and yearly repeats save once: `routes_reminders.Recurring` holds only daily, weekly and monthly; the Reading keeps the RRULE in `slots["repeat"]`. [f1-1010]
+- Quick add is 56 of 60 on `tests/fixtures/composer/quickadd_1010.json` measured before F1's four fixes landed; re-run `scratchpad/ui-sweeps/quickadd.js` on this head and move CHAT_PLAN F2's Built block to HISTORY only at 60 of 60 (decision 50's gate). [f2-1010]
+- `ai/reading.py` reads "review budget friday" (reminder surface) as sure at 09:00 while quickadd.js asks "What time on ...?" (decision 50); the reading should ask the same question. [f2-1010]
+- Quick note: a reminder chip on a note saved while the server is away (the outbox, `saveQuickNote`'s `result.queued` branch) is dropped; the note is kept. [f2-1010]
+- Palette: only the reminder act has a row (`quickAddPaletteRow`); a note or meeting act and the search window chip (CHAT_PLAN section 1 row 7) wait for Brief 67's act registry. [f2-1010]
+- Timeline at 390: a long window chip wraps to two lines (39 px), no overflow. [f2-1010]
+- Not verified by either: a real model's path; a screen reader toggling a chip; a browser locale other than en-US; the full suite. [f1-1010, f2-1010]

@@ -344,9 +344,12 @@ UI_MODERNISATION Phase 13 (Briefs 56 to 59), the backend review
 WORLD_CLASS 26 (Briefs 60 to 63) and the features pass WORLD_CLASS 27. The deterministic layer under every surface (INBOX 746) is CHAT_PLAN "The deterministic foundation" (decisions 46 to 56, Briefs 64 to 68). The code editor as an IDE (INBOX 748) is DOCUMENTS_PLAN 23 (decisions D1 to D9, Briefs 69 to 71, after 42); the owner's "full improvement" ask (INBOX 749) is the programme already placed, plus learnability measured in UI_MODERNISATION 12z. The owner's trust conditions (INBOX 750) are WORLD_CLASS 28 (rules 1 to 14, decisions 67 to 71, Briefs 72 to 74).
 Merged by 14:30Z: 35, 36 to 38, 39, 39b, 42 steps 1 to 4, 56, 72a, 72b, 73,
 74, 75, chatui, the filing decision 6 hold on every path, CodeQL (46 alerts on
-the day, all at cause). Running: 65, 66, 67 (the deterministic foundation) and
-41 (density, WCAG 2.2). Next: 68, then 69 to 71, 47, 51, 34, 60. The PR merges
-when the gate, the sweeps and one full suite run are green.
+the day, all at cause); by 15:10Z also 65 (the one reader, `ai/recognise.py`
+and `GET /read`) and 66 (quick add on five surfaces, 56 of 60 before 65's
+fixes: re-run `scratchpad/ui-sweeps/quickadd.js`). Running: 67 (the realiser
+and the acts), 41 (density, WCAG 2.2), 42's remainder (docs42b, the OPEN rows)
+and 47 (search everywhere). Next: 68 after 67, then 69 to 71, 51, 34, 60. The
+PR merges when the gate, the sweeps and one full suite run are green.
 
 **A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the
 lint set, not the ratchets: six agent squashes gated green and CI then failed

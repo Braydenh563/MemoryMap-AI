@@ -1686,7 +1686,8 @@ every surface: what the research says it should be made of, where it joins each
 surface, the decisions, and the briefs. It remakes nothing decided in 17 to 45.
 "Today" is read from the code and from the probe tables in
 `agent-remaining/engine-probe-1010.md`, not observed in the app, except where a
-number is given.
+number is given. The probe tables were re-run on the merged head by F0: every row is
+unchanged (`agent-remaining/found-1010.md` part 2).
 
 ### 1. Research read, 2026-10-10, and what each changes here
 
@@ -1708,7 +1709,7 @@ number is given.
 | Note editor | None inline; filing after save | Dates in the text become reminder offers, sums are checked, `[[links]]` suggested from entities, the filing suggestion with its reason (WORLD_CLASS 23) | the five offers appear within 300 ms of the pause, never on quoted text |
 | Quick note sheet, reminders, meetings, timeline | `reminder_parser`, the reminders input, the meeting date field | The one quick-add grammar with chips; recurrence; a missing slot asks once | 60-phrase quick-add set at 1.0; the probe's twelve None phrases resolve |
 | Dashboard | Widgets read counts | The day's digest composed by the engine (due, open questions, what changed, silent topics) in one voice, with the model refining it when present | every digest line is a quoted span or a count |
-| Chat and Ask | The engine (Phase 6) | Unchanged; it becomes a client of the five modules below | Phase 6 gates |
+| Chat and Ask | The engine (Phase 6). Measured by F0 (`scratchpad/variety_metric.py`, `showcase_725`, ten questions asked twenty times, openers counted from the composer's parts): distinct openers of twenty are 1.0 as shipped (`_pick` hashes only the question and a fixed salt; `compose` has no turn input), 2.2 with `previous` fed turn to turn, 2.4 with a turn salt in `_pick`, at most 3; the quoted facts are identical across the twenty for 10 of 10 questions. Maxims over the 25 answers (169 sentences): 6 app sentences with more than one number, 16 note quotes with more than one, 19 numbers in 15 sentences with no source span (computed counts and dates), 0 answers repeating a fact (highest pair 0.42) | Unchanged; it becomes a client of the five modules below | Phase 6 gates; the variety floor of section 1 (eight of twenty) is out of reach of three lead variants per shape |
 | Documents and the code editor | Word goal, reading time, stats | Outline from headings, reading time and counts from one utilities module, "find" with the same windows | counts equal `wc` on the fixture |
 | Whiteboard and mind map | None | Paste a list, get nodes; "arrange as a grid of 3" through the act registry; a sticky's date becomes a chip | the act set at 1.0 on the fixture board |
 | Graph, library, settings | Sort and filter controls | Phrases as filters ("connected to Harbor", "untouched since June"); settings searched by what they do, with synonyms | the 40-phrase filter set at 1.0 |
@@ -1725,7 +1726,7 @@ number is given.
 4. **`ai/realise.py`**, the realiser: templates with protected spans, two voices plus help, salt per chat and turn, the variety floor measured. Every system sentence may route through it; chat first, then toasts and empty states surface by surface.
 5. **`ai/validate.py`**, the validators: `source_check`, grounding marks, the maxims lint, slot completeness and the computed-sentence rule, run on the engine's answer and the model's alike.
 
-Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets the count of files outside `recognise.py` and `timewords.py` that compile a date-word or unit pattern, from today's count down to zero.
+Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets the count of files outside `recognise.py` and `timewords.py` that compile a date-word or unit pattern, from today's count down to zero. Today's count, measured 2026-10-10 by `scratchpad/reader_count.py` (F0): **6 files** (`ai/when.py`, `ai/reminder_parser.py`, `search/query.py`, `ai/notebook_stats.py`, `api/routes_vision.py` by substring, `ai/composer.py` as a date cue), 0 in `frontend/js`, and no unit reader anywhere; the lines are in `agent-remaining/found-1010.md`.
 
 ### 4. Decisions, 2026-10-10 (not to be remade; numbered after Phase 6's 45)
 
@@ -1754,4 +1755,4 @@ Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets
 
 ### 6. Not verified
 
-Every "today" in section 2 outside the probe tables and the search numbers; the 300 ms and 150 ms budgets (set from WORLD_CLASS decision 54's interaction budgets, to be measured); whether a 1 to 3B model uses offered calculator and date tools rather than computing (the standing caveat); the variety floor's eight-of-twenty, which is a first number for F0 to replace.
+Every "today" in section 2 outside the probe tables and the search numbers; the 300 ms and 150 ms budgets (set from WORLD_CLASS decision 54's interaction budgets, to be measured); whether a 1 to 3B model uses offered calculator and date tools rather than computing (the standing caveat); the variety floor's three-of-twenty (the most distinct openers any of ten questions gave with a turn salt in `_pick`; 2.4 on average, 1.0 as shipped), measured by F0 against section 1's eight, which is a target F3 must raise the option pools to meet; the maxims counts, which are of the 25 eval answers only.

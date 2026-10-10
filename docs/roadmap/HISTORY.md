@@ -46311,6 +46311,12 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      Direction (release); CHAT_PLAN decision 61 (no model is the first mode;
      power-aware model use); DOCUMENTS_PLAN docx decision.
 
+766. **The owner, 2026-10-10, verbatim.** "the app needs to work with all
+     models though, dont base things off only what I use, it is a public app
+     so it needs to suit everything and everyone". Placed: CHAT_PLAN decision
+     62 (every provider and size is a first-class target; the owner's setup
+     is one row of the matrix, not the bar), amending 61 in place.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

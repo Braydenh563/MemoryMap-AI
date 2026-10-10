@@ -47,7 +47,7 @@ const qaFields = new WeakMap();
 //: `undefined` until a reading has been asked for; then the route that
 //: answered, or `null` for this page's life when none exists (Brief 65 not
 //: merged), so a missing route costs one request, not one per key.
-let qaRoute;
+const qaReader = { route: undefined };
 
 function qaNow() {
   const d = new Date();
@@ -59,16 +59,16 @@ function qaNow() {
 //: `surface`: "reminder" asks the reading to take the whole box as a
 //: reminder (ai/reading.py `read(context={"surface": ...})`).
 async function qaFetch(text, surface) {
-  if (qaRoute === null) return null;
+  if (qaReader.route === null) return null;
   //: The route's own names (routes_read.py): `q`, the clock as
   //: `/reminders/parse` takes it, the date order from the browser's locale.
   const query = `?q=${encodeURIComponent(text)}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`
     + `&now=${encodeURIComponent(qaNow())}&locale=${encodeURIComponent((navigator.language || "").slice(0, 16))}&surface=${surface}`;
-  for (const route of qaRoute ? [qaRoute] : ["/read", "/api/v1/read"]) {
+  for (const route of qaReader.route ? [qaReader.route] : ["/read", "/api/v1/read"]) {
     try {
       const reading = await apiJson(route + query, { silent: true, timeoutMs: 8000 });
       if (reading && Array.isArray(reading.spans)) {
-        qaRoute = route;
+        qaReader.route = route;
         return reading;
       }
     } catch (error) {
@@ -76,7 +76,7 @@ async function qaFetch(text, surface) {
       if (!(error?.status >= 400 && error.status < 500)) return null;
     }
   }
-  if (!qaRoute) qaRoute = null;
+  if (!qaReader.route) qaReader.route = null;
   return null;
 }
 

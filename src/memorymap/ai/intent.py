@@ -163,7 +163,8 @@ def classify(message: str) -> str:
 
 def is_mash(message: str) -> bool:
     """A key-mash ("asdfgh"): small talk to `classify`, nothing at all to a reading."""
-    return bool(_MASH.fullmatch(_normalise(message)))
+    text = _normalise(message)
+    return bool(_ONE_WORD.fullmatch(text) and _MASH.search(text))
 
 
 def needs_retrieval(intent: str) -> bool:

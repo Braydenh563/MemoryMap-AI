@@ -6,7 +6,7 @@ and WORLD_CLASS_PLAN "Placed from Brief 40, 2026-10-10"; the draft Docker
 files in `scratchpad/docker/`.
 
 - Build and size the Docker image on a machine with a daemon; the 400 MB and
-  1.6 GB figures are estimates from a pip-measured venv (`scratchpad/docker/Dockerfile`).
+  1.6 GB figures are estimates from a pip-measured venv (`docker/Dockerfile`).
 - Reproduce the owner's phone failure on a real iPhone: the five causes are ranked, none reproduced (WORLD_CLASS_PLAN "the phone over HTTPS").
 - Drive the parity tables' "yes" rows in a browser: every row was checked by grep of the code or element ids, none rendered (ANALYSIS.md "Parity matrix").
 - Check what `ask_user` and `make_plan` return to a bare MCP client (AGENT_SKILLS_REFORM "does the MCP server work", item 1).

@@ -1,10 +1,10 @@
-# Draft only. Publish on the host's loopback so the notebook is not on the
+# Publish on the host's loopback so the notebook is not on the
 # network by accident; put a reverse proxy with TLS in front for other devices.
 services:
   memorymap:
     build:
       context: ../..
-      dockerfile: scratchpad/docker/Dockerfile
+      dockerfile: docker/Dockerfile
       args:
         WITH_EMBEDDER: "0"
     ports:
@@ -14,6 +14,9 @@ services:
       - memorymap-models:/models  # embedding model, whisper, OCR, Pyodide
     environment:
       OLLAMA_URL: http://host.docker.internal:11434
+      # Used only while no password is set; remove it from this file after the
+      # first start, the password lives in the notebook from then on.
+      MEMORYMAP_FIRST_PASSWORD: ${MEMORYMAP_FIRST_PASSWORD:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Linux needs this line
     restart: unless-stopped

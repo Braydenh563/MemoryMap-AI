@@ -70,6 +70,46 @@ def set_lan_port(port: int | None) -> None:
     _current_lan_port = port
 
 
+#: **A container's bind** (Brief 40, Docker). Inside Docker the browser reaches
+#: the app through the bridge, so a loopback-only bind is unreachable and the
+#: LAN switch (a password-gated preference, a second HTTPS port) is the wrong
+#: tool: the operator publishes the port themselves, usually on the host's
+#: loopback, and puts TLS in front. `MEMORYMAP_BIND` names the address; unset,
+#: nothing changes. A junk value falls back to loopback rather than raising,
+#: like `MEMORYMAP_PORT`: refusing to start over a stray variable is worse.
+BIND_ENV = "MEMORYMAP_BIND"
+_explicit_bind = False
+
+
+def env_bind(raw: str | None = None) -> str:
+    """The address `MEMORYMAP_BIND` asks for, or loopback when unset or unusable."""
+    if raw is None:
+        raw = os.environ.get(BIND_ENV, "")
+    text = str(raw).strip().strip("[]")
+    if not text:
+        return LOOPBACK
+    if text.lower() == "localhost":
+        return LOOPBACK
+    try:
+        return str(ipaddress.ip_address(text))
+    except ValueError:
+        return LOOPBACK
+
+
+def set_explicit_bind(value: bool) -> None:
+    """The launcher says the operator chose a non-loopback bind."""
+    global _explicit_bind
+    _explicit_bind = bool(value)
+
+
+def explicit_bind() -> bool:
+    """True when `MEMORYMAP_BIND` chose a non-loopback address. The no-password
+    403 (SEC-01) is for a notebook that went on the network by a preference;
+    here the operator published the port on purpose, and refusing the first
+    visitor would leave a fresh container with no way to set a password."""
+    return _explicit_bind
+
+
 def lan_enabled(config: ConfigManager) -> bool:
     """Whether the switch is on. Only a literal True counts: the preferences
     file is one a person may edit by hand, and a stray value must not open the

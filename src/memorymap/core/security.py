@@ -149,7 +149,7 @@ class HostCheckMiddleware:
             #: `/auth/setup`, which would let any device claim the notebook.
             #: The launcher already binds loopback without a password; this
             #: covers a server started any other way.
-            if not _notebook_has_password():
+            if not netbind.explicit_bind() and not _notebook_has_password():
                 response = JSONResponse(
                     status_code=403,
                     content={

@@ -129,6 +129,8 @@ Installed at: /home/you/MemoryMap-AI
 Next time:    open a terminal there and run ./start.sh again
 ```
 
+**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that MemoryMap works offline.
+
 **The first launch also fetches the search model's package.** The built-in
 search model (filing and search by meaning) needs `sentence-transformers`.
 The launcher installs it with the other requirements. A packaged Windows or
@@ -158,6 +160,9 @@ model in the same place.
 | `--shortcut` | Create a desktop shortcut for this launcher and exit |
 | `--version` | Print the version and exit |
 | `--help` | Show the list and exit |
+
+**Sharing the system's packages (opt-in, Linux and macOS).** `MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
+The risk is that a system package shadows the one the app was tested with and fails later in a way that looks unrelated; if anything misbehaves, run `./start.sh --reinstall` without the variable.
 
 **If it does not start, run `--doctor` first.** It prints one row per thing
 that can stop a launch, with a tick or a cross and, for a cross, one line on
@@ -216,6 +221,18 @@ Without it, images simply do not get searchable text, and no upload fails.
 Two extras are downloads rather than pip packages, so Settings, Packages is the
 only place that fetches them: Run Python files (Pyodide) and Tool calling
 without Ollama (needle). Both are pinned and checked against a sha256.
+
+## Docker
+
+For a server or a NAS. From the repository root, `MEMORYMAP_FIRST_PASSWORD=choose-one docker compose -f docker/compose.yaml up -d`, then open `http://localhost:8000`.
+
+- `MEMORYMAP_BIND` is the address inside the container (the image sets `0.0.0.0`; a plain launch stays on `127.0.0.1`). `MEMORYMAP_PORT` is the port (8000).
+- `MEMORYMAP_FIRST_PASSWORD` is used only while no password is set, is never logged and is removed from the process once read. Take it out of your compose file after the first start.
+- Two volumes: `/data` (database, files, certificate, backups) and `/models` (downloaded models), so resetting a notebook never downloads a model again.
+- The compose file publishes the port on the host's loopback only. For other devices, put a reverse proxy with TLS in front.
+- The default image has no torch (about 400 MB on disk): search by keyword and an Ollama embedder on the host (`OLLAMA_URL`). `--build-arg WITH_EMBEDDER=1` adds the built-in search model and CPU torch (about 1.6 GB).
+- What a container cannot do: the desktop window and tray, native file dialogs, the Start menu shortcuts and Repair, and the "Allow other devices" switch (use the port mapping instead).
+- Not built in the sandbox it was written in; report what the first build says.
 
 ## Running it
 

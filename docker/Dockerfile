@@ -1,5 +1,6 @@
-# Draft only (Brief 40, 2026-10-10). Not built here: the sandbox has no Docker
-# daemon, so the sizes in ANALYSIS.md come from a venv measured with pip.
+# Not built in the sandbox (no Docker daemon); the sizes in ANALYSIS.md come
+# from a venv measured with pip. Build from the repo root:
+#   docker build -f docker/Dockerfile -t memorymap .
 #
 # Two variants from one file: the default has no torch (the deterministic
 # engine, FTS5 search, an Ollama embedder on the host); --build-arg
@@ -42,11 +43,10 @@ ENV PATH=/venv/bin:$PATH \
 VOLUME ["/data", "/models"]
 EXPOSE 8000 8443
 USER mm
-# __main__.py binds 127.0.0.1 by design (HOST constant, line 32), and
-# netbind.bind_host only widens it when the LAN preference is on and a
-# password exists. Inside a container the browser reaches the app through
-# Docker's bridge, so every request is "from the network" and an app with no
-# password yet answers 403 (SEC-01). Until the app grows MEMORYMAP_BIND and a
-# first-password environment variable (the plan row), this image cannot be
-# used without a seeded preferences.json; see compose.yaml.
+# MEMORYMAP_BIND widens the bind inside the container (the bridge is not
+# loopback) and MEMORYMAP_FIRST_PASSWORD seeds a password when none is set.
+# Publish the port on the host's loopback (compose.yaml) and put TLS in front
+# for other devices.
+ENV MEMORYMAP_BIND=0.0.0.0 \
+    MEMORYMAP_PORT=8000
 CMD ["python", "-m", "memorymap"]

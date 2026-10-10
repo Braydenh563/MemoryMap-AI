@@ -124,6 +124,9 @@ MORE_TOPICS: list[dict] = [
             "cut that reply short", "model size",
         ),
         "body": (
+            "Settings, Tools it can use also has Use these tools from another "
+            "app: a snippet to paste into an MCP client such as Claude Desktop, "
+            "with a Copy button. "
             "Settings, Tools it can use lists the actions Atlas may take in "
             "Agent mode, grouped as Reads your notebook, Changes your notebook, "
             "Asks you first and Reaches the web; turn one off and it is never "
@@ -485,7 +488,7 @@ MORE_TOPICS: list[dict] = [
             "always with your password, over https on port 8443. The first "
             "visit warns that the certificate is not trusted: compare its "
             "SHA-256 fingerprint with the one under the switch before you "
-            "continue, and Regenerate certificate makes a new one. Change your password or PIN (private "
+            "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate at the next start. Change your password or PIN (private "
             "notes move across; a new one needs at least 8 characters, and an "
             "easy one gets a warning). Re-encrypt private notes (Settings, Account & security) makes "
             "a new encryption key and moves every private note onto it, so an old "

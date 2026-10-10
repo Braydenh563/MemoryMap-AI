@@ -4167,7 +4167,7 @@ Each row is a recommendation taken (standing order 3); the evidence is in
 libraries read, 2026-10-10".
 
 - **A Docker image.** Recommendation: build it, in two flavours from one
-  Dockerfile. Draft at `scratchpad/docker/Dockerfile` and `compose.yaml`
+  Dockerfile. Draft at `docker/Dockerfile` and `compose.yaml`
   (not built: the sandbox has no Docker daemon). Measured from a venv of the
   core requirements without `sentence-transformers`: 213 MB of site-packages
   (numpy 70 with its libs, sqlalchemy 28, cryptography 16, uvloop 16), plus

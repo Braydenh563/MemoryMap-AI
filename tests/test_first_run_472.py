@@ -106,3 +106,16 @@ def test_chat_suggestions_with_no_model_go_to_ask():
     body = js.split("async function loadChatSuggestions(")[1].split("\nfunction ")[0]
     assert "aiIsOff()" in body and 'showNotesSection("ask")' in body
     assert body.index("aiIsOff()") < body.index("sendChatMessage(question)")
+
+
+def test_first_setup_says_it_needs_the_internet_once():
+    """Brief 40: a fresh clone on a train met pip errors with no warning."""
+    from memorymap.core import extras
+
+    js = frontend_text("onboarding.js")
+    assert "The first setup downloads the search model and the packages you chose" in js
+    assert "after that MemoryMap works offline." in js
+    assert extras.download_mb(extras.EXTRAS_BY_ID["semantic"]) == 2000
+    assert extras.download_mb(extras.EXTRAS_BY_ID["documents"]) > 0
+    for doc in ("README.md", "docs/INSTALL.md"):
+        assert "A first install needs the internet once." in (ROOT / doc).read_text(encoding="utf-8")

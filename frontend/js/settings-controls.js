@@ -114,6 +114,10 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   }
 });
 
+$("account-lan-download")?.addEventListener("click", () => {
+  window.location.assign("/auth/lan-certificate.pem");
+});
+
 $("account-lan-regenerate")?.addEventListener("click", async () => {
   const ok = await confirmDialog(
     "Regenerate the certificate?\n\nEvery device that opened the app before warns once more, " +

@@ -83,6 +83,14 @@ async function loadOnboardingDiagnostics(forSlide) {
       : "No model is running yet, and MemoryMap works without one: notes are " +
           "searched by keyword, and filing catches up once a model is on."
   );
+  //: A first install needs the internet once (BACKLOG, Brief 40): said where
+  //: the download is offered, with the size of the set that would come down.
+  if (models?.builtin_embedding_installed === false && models.builtin_embedding_download_mb) {
+    lines.push(
+      "The first setup downloads the search model and the packages you chose " +
+        `(about ${models.builtin_embedding_download_mb} MB); after that MemoryMap works offline.`
+    );
+  }
   if (storage) {
     //: Where it lives, and its size once there is one (INBOX 472).
     const mb = (storage.database_bytes || 0) / (1024 * 1024);

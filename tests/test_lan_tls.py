@@ -30,7 +30,7 @@ def _cert(info):
 def test_made_once_and_reused(tmp_path):
     first = lancert.ensure(tmp_path, NAMES)
     key_bytes = first.key_path.read_bytes()
-    second = lancert.ensure(tmp_path, ["other"])
+    second = lancert.ensure(tmp_path, NAMES)
     assert second.fingerprint == first.fingerprint
     assert second.key_path.read_bytes() == key_bytes
 
@@ -179,3 +179,23 @@ def test_regenerate_reaches_the_running_listener(tmp_path):
     lancert.set_live_context(_Spy())
     assert lancert.reload(lancert.generate(tmp_path, NAMES)) is True
     assert calls == [str(first.cert_path)]
+
+
+def test_new_address_makes_a_new_certificate(tmp_path, caplog):
+    """After a DHCP change the phone must not meet a certificate without the address."""
+    first = lancert.ensure(tmp_path, ["localhost", "192.168.1.9"])
+    with caplog.at_level("INFO", logger="memorymap.core.lancert"):
+        second = lancert.ensure(tmp_path, ["localhost", "192.168.1.9", "192.168.1.77"])
+    assert second.fingerprint != first.fingerprint
+    assert "192.168.1.77" in second.names
+    assert any("made again" in r.message for r in caplog.records)
+    # Same list again: reused, no churn.
+    assert lancert.ensure(tmp_path, ["localhost", "192.168.1.77"]).fingerprint == second.fingerprint
+
+
+def test_certificate_download_is_public_certificate_only(client, app_state):
+    lancert.ensure(app_state.data_dir, NAMES)
+    r = client.get("/auth/lan-certificate.pem")
+    assert r.status_code == 200
+    assert b"BEGIN CERTIFICATE" in r.content and b"PRIVATE KEY" not in r.content
+    assert "attachment" in r.headers["content-disposition"]

@@ -477,7 +477,7 @@ def _run_server() -> None:
     import uvicorn
 
     from memorymap.api.app import create_app
-    from memorymap.core import deps, netbind
+    from memorymap.core import deps, first_password, netbind
 
     app = create_app()
     # LAN mode (core/netbind.py): a second, HTTPS listener on every interface
@@ -485,7 +485,19 @@ def _run_server() -> None:
     # password (`_serve_with_lan`). This computer always has plain http on
     # HOST:PORT, which everything else in this file talks to.
     config = deps.get_config()
+    #: Docker (Brief 40): MEMORYMAP_BIND names a non-loopback address, and
+    #: MEMORYMAP_FIRST_PASSWORD seeds the password a fresh container has no
+    #: console to type. Both unset is the ordinary launch, unchanged.
+    first_password.seed(deps.get_db(), first_password.take_from_env())
     has_password = _password_exists(deps.get_db())
+    env_bind = netbind.env_bind()
+    if env_bind != HOST:
+        netbind.set_explicit_bind(True)
+        netbind.set_current(env_bind)
+        logger.info("Listening on %s:%s (MEMORYMAP_BIND).", env_bind, PORT)
+        uvicorn.run(app, host=env_bind, port=PORT, log_level="info")
+        _stop_lingering_worker_threads()
+        return
     bind = netbind.bind_host(config, has_password=has_password)
     if netbind.lan_enabled(config) and not has_password:
         # SEC-01: never an open notebook on the network. The switch stays as

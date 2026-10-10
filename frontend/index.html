@@ -9997,6 +9997,37 @@ Link to another note with [[its first few words]]."></textarea>
               <ul id="tool-list" class="entry-list"></ul>
               <p id="tool-filter-empty" class="muted empty-line hidden">No tool matches that.</p>
             </div>
+            <!-- An outside client (Claude Desktop and others) can use these
+                 same tools over MCP; the snippet is what its config file takes. -->
+            <div class="settings-group" id="mcp-config-group">
+              <div class="row help-head">
+                <h3>Use these tools from another app</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="mcp-config-help" aria-controls="mcp-config-help"
+                  aria-expanded="false" title="What is MCP"
+                  aria-label="What is MCP">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Paste this into an MCP client's settings to let it read and write this notebook.</p>
+              <div class="help-body hidden" id="mcp-config-help" role="dialog" aria-label="What is MCP">
+                <p>
+                  MCP is a standard way for an app such as Claude Desktop to use
+                  another program's tools. This snippet starts MemoryMap's tool
+                  server on this computer, using the same notebook and the same
+                  Tools it can use switches as Atlas.
+                </p>
+                <p>
+                  Risky changes such as deleting are never offered to another
+                  app, and the server works only from a source install.
+                </p>
+              </div>
+              <pre id="mcp-config-snippet" class="code-block"></pre>
+              <p id="mcp-config-note" class="muted hidden"></p>
+              <div class="row">
+                <button type="button" id="mcp-config-copy" class="ghost small"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+              </div>
+            </div>
           </section>
 
           <!-- Appearance: grouped into scannable setting rows -->
@@ -12107,8 +12138,39 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="account-lan-cert" class="hidden">
                 <p class="muted text-sm flush">Certificate fingerprint (SHA-256), to compare with the warning on the other device:</p>
                 <p class="lan-fingerprint flush" id="account-lan-fingerprint"></p>
+                <p class="muted text-sm flush" id="account-lan-cert-names"></p>
+                <p class="muted text-sm flush" id="account-lan-cert-expiry"></p>
                 <div class="row button-row">
+                  <button id="account-lan-download" class="ghost small" type="button">Trust this certificate on your phone</button>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="lan-trust-help" aria-controls="lan-trust-help" aria-expanded="false"
+                    title="How to trust the certificate on a phone" aria-label="How to trust the certificate on a phone">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
                   <button id="account-lan-regenerate" class="ghost small" type="button">Regenerate certificate</button>
+                </div>
+                <div class="help-body hidden" id="lan-trust-help" role="dialog" aria-label="How to trust the certificate on a phone">
+                  <p>
+                    Open this page on the phone, sign in, and press Trust this
+                    certificate on your phone to download the certificate.
+                  </p>
+                  <p>
+                    iPhone: open the downloaded file, choose Allow, then
+                    Settings, Profile Downloaded, Install. Then Settings,
+                    General, About, Certificate Trust Settings, and switch the
+                    certificate on for full trust.
+                  </p>
+                  <p>
+                    Android: in the phone's own settings, open Security, then
+                    Encryption and credentials, Install a certificate, CA
+                    certificate, and pick the file.
+                  </p>
+                  <p>
+                    If the phone says the name is wrong after this computer's
+                    address changed, the app has already made a new
+                    certificate for the new address: download and trust it
+                    again.
+                  </p>
                 </div>
               </div>
             </div>

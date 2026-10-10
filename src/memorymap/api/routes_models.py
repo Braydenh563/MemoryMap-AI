@@ -252,6 +252,7 @@ def _builtin_embedding_install_state() -> dict:
         state = extras.current()
         return {
             "builtin_embedding_installed": bool(extras.is_installed(extra)),
+            "builtin_embedding_download_mb": extras.download_mb(extra),
             "builtin_embedding_installing": bool(state.running and state.extra_id == "semantic"),
         }
     except Exception:  # noqa: BLE001 - a status field must never fail the status

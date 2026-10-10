@@ -60,7 +60,7 @@ def test_tools_list_shape():
     listed = response["result"]["tools"]
     assert listed  # the registry is never empty
     for entry in listed:
-        assert set(entry) == {"name", "description", "inputSchema"}
+        assert set(entry) == {"name", "description", "inputSchema", "annotations"}
 
 
 def test_tools_call_runs_a_real_tool(app_state):
@@ -123,3 +123,41 @@ def test_serve_skips_blank_and_malformed_lines(app_state):
     lines = [line for line in stdout.getvalue().splitlines() if line]
     assert len(lines) == 1
     assert json.loads(lines[0])["id"] == 8
+
+
+def test_chat_only_and_interactive_tools_are_not_listed():
+    names = {spec.name for spec in offered_tools()}
+    for spec in tools.TOOLS.values():
+        if spec.ends_turn:
+            assert spec.name not in names
+    for name in ("ask_user", "make_plan", "compress_chat", "run_skill", "get_app_navigation", "search_chat_history"):
+        assert name not in names
+
+
+def test_annotations_mark_reads_and_writes():
+    listed = {
+        entry["name"]: entry["annotations"]
+        for entry in handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"]
+    }
+    assert listed["count_notes"]["readOnlyHint"] is True
+    assert listed["create_note"]["readOnlyHint"] is False
+    assert all(a["destructiveHint"] is False for a in listed.values())
+
+
+def test_the_icon_prefix_is_stripped_from_a_label(app_state):
+    response = handle_request(
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "list_categories", "arguments": {}}}
+    )
+    payload = json.loads(response["result"]["content"][0]["text"])
+    assert payload.get("label") and not payload["label"].startswith("ph:")
+
+
+def test_protocol_version_follows_a_supported_client():
+    def init(version):
+        params = {"protocolVersion": version} if version else {}
+        return handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": params})["result"]
+
+    assert init("2025-03-26")["protocolVersion"] == "2025-03-26"
+    assert init("2025-06-18")["protocolVersion"] == "2025-06-18"
+    assert init("2099-01-01")["protocolVersion"] == "2025-06-18"  # the newest we speak
+    assert init(None)["protocolVersion"] == "2024-11-05"

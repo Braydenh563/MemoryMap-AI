@@ -189,4 +189,6 @@ def test_the_packaged_app_does_not_offer_an_mcp_command_it_cannot_run(client, mo
     monkeypatch.delattr(sys, "frozen")
     r2 = client.get("/capabilities")
     source = r2.json()["features"]["mcp"]
-    assert source == {"installed": True, "command": "python -m memorymap.mcp_server"}
+    assert source["installed"] is True and source["command"] == "python -m memorymap.mcp_server"
+    assert source["config"]["args"] == ["-m", "memorymap.mcp_server"]
+    assert source["config"]["env"]["MEMORYMAP_DATA_DIR"]

@@ -7,6 +7,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Setup on Linux and macOS can share the packages already installed on the computer (MEMORYMAP_SYSTEM_SITE_PACKAGES=1), and refuses with a reason when the installed torch is outside the supported range.
+- MCP: another app that uses MemoryMap's tools no longer sees chat-only tools, label icon names, or a wrong protocol version, can auto-approve read tools, and Settings, Tools it can use shows the config snippet to paste with a Copy button.
+- Docker: the image lives in docker/ and works: MEMORYMAP_BIND, MEMORYMAP_PORT and MEMORYMAP_FIRST_PASSWORD (used only while no password is set, never logged), and a container no longer answers its first visitor 403.
+- First install: the welcome card, the README, INSTALL and both launchers now say the first setup needs the internet once (the search model and the packages you chose, with the size) and that MemoryMap works offline after that.
+
+- Other devices: the network certificate is made again when this computer's address changes, so a phone no longer reports the wrong name or a lost connection; Settings, Account and security shows the certificate's names and expiry and a Trust this certificate on your phone button with iPhone and Android steps.
+
 ## [0.4.1] - 2026-10-06
 
 ### Added

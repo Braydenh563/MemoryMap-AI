@@ -309,6 +309,8 @@ version for first-time terminal users.
    Settings, Models.
 3. Write a note, then ask about it in Notes, Ask.
 
+**A first install needs the internet once.** The first setup downloads the search model and the packages you chose; after that MemoryMap works offline.
+
 **The first launch downloads the search model.** Search and filing by meaning
 use a built-in model that needs the `sentence-transformers` package. If it is
 missing, the app installs it the first time it is needed: a one-time download

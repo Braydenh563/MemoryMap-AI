@@ -902,7 +902,32 @@ async function saveToolSwitch(check, name) {
   applyToolFilter();
 }
 
+//: The MCP client snippet (Brief 40): the capabilities route knows this
+//: interpreter and this notebook's folder, so the snippet is correct to paste.
+async function renderMcpSnippet() {
+  const pre = $("mcp-config-snippet");
+  if (!pre) return;
+  const caps = await apiJson("/capabilities").catch(() => null);
+  const mcp = caps?.features?.mcp;
+  const note = $("mcp-config-note");
+  const copy = $("mcp-config-copy");
+  if (!mcp?.installed || !mcp.config) {
+    pre.classList.add("hidden");
+    copy.classList.add("hidden");
+    note.textContent = mcp?.reason || "This install cannot start the tool server.";
+    note.classList.remove("hidden");
+    return;
+  }
+  pre.classList.remove("hidden");
+  copy.classList.remove("hidden");
+  note.classList.add("hidden");
+  const text = JSON.stringify({ mcpServers: { memorymap: mcp.config } }, null, 2);
+  pre.textContent = text;
+  copy.onclick = () => copyToClipboard(text, copy);
+}
+
 async function renderToolSettings() {
+  renderMcpSnippet();
   const list = $("tool-list");
   showSkeletons(list, 4, "li");
   const [catalog, prefs] = await Promise.all([

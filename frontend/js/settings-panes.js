@@ -573,6 +573,12 @@ function renderLanState(state) {
     const shown = Boolean(state.allow_lan && state.certificate);
     cert.classList.toggle("hidden", !shown);
     $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
+    //: The names it vouches for and when it ends: "wrong name" on a phone
+    //: is read off these against the address in the phone's bar.
+    $("account-lan-cert-names").textContent = shown
+      ? `Names on it: ${(state.certificate.names || []).join(", ")}`
+      : "";
+    $("account-lan-cert-expiry").textContent = shown ? `Expires ${state.certificate.expires}` : "";
   }
 }
 

@@ -9,8 +9,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import acts, agent, tools, validate  # noqa: F401  (acts registers propose_act's runner)
+from memorymap.ai import acts, agent, tools, validate
 from memorymap.core.database import Reminder
+
+#: Importing `acts` registers propose_act's runner on the act registry (act_registry.py).
+ACTS_LOADED = acts.__name__
 
 ROOT = Path(__file__).resolve().parents[1]
 SET = json.loads((ROOT / "tests/fixtures/composer/unsourced_1010.json").read_text(encoding="utf-8"))

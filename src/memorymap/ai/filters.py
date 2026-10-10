@@ -25,9 +25,11 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import recognise
 
-_CONNECTED = re.compile(r"\b(?:connected|linked|links?|joined|related)\s+(?:to|with)\s+(?!nothing\b)(.+?)(?=\s+(?:and|that|which|tagged|edited|created|untouched)\b|[,;]|$)", re.I)
+#: `read` folds whitespace to one space before these run, so they say " " and never
+#: `\s+` (a lazy group before `\s+` is polynomial on a run of tabs; CodeQL).
+_CONNECTED = re.compile(r"\b(?:connected|linked|links?|joined|related) (?:to|with) (?!nothing\b)(.+?)(?= (?:and|that|which|tagged|edited|created|untouched)\b|[,;]|$)", re.I)
 _ORPHAN = re.compile(r"\b(?:connected to nothing|not connected(?: to anything)?|unlinked|no links|orphans?|on their own|with no links)\b", re.I)
-_UNTOUCHED = re.compile(r"\b(?:untouched|not (?:touched|edited|changed|opened|updated|looked at)|unchanged|stale|forgotten|neglected)\s+(since|for|in)\s+(.+?)(?=\s+(?:and|that|tagged|connected)\b|[,;]|$)", re.I)
+_UNTOUCHED = re.compile(r"\b(?:untouched|not (?:touched|edited|changed|opened|updated|looked at)|unchanged|stale|forgotten|neglected) (since|for|in) (.+?)(?= (?:and|that|tagged|connected)\b|[,;]|$)", re.I)
 _EDITED = re.compile(r"\b(?:edited|changed|updated|touched|modified)\s+(.+?)(?=\s+(?:and|that|tagged|connected)\b|[,;]|$)", re.I)
 _CREATED = re.compile(r"\b(?:created|written|made|added|new)\s+(.+?)(?=\s+(?:and|that|tagged|connected)\b|[,;]|$)", re.I)
 _TAG = re.compile(r"(?:\btagged\s+(?:with\s+)?|\bwith the tag\s+|\btag\s+|(?<![\w&])#)([A-Za-z][\w-]{0,40})", re.I)
@@ -40,7 +42,7 @@ _HAS = (
     ("link", re.compile(r"\bwith (?:a )?(?:web )?(?:links?|urls?)\b", re.I)),
 )
 _KINDS = (("board", re.compile(r"\b(?:boards?|whiteboards?|mind ?maps?|maps)\b", re.I)),)
-_MENTION = re.compile(r"\b(?:mentioning|mentions|naming|that mention)\s+(.+?)(?=\s+(?:and|that|tagged|connected|edited)\b|[,;]|$)", re.I)
+_MENTION = re.compile(r"\b(?:mentioning|mentions|naming|that mention) (.+?)(?= (?:and|that|tagged|connected|edited)\b|[,;]|$)", re.I)
 _FILLER = re.compile(r"\b(?:show|me|all|the|notes?|ones|everything|anything|that|which|are|is|were|was|only|just|my|and|with|find|list)\b", re.I)
 
 

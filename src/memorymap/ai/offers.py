@@ -31,12 +31,15 @@ FILING_MIN_CHARS = 20
 #: offer says so.
 DEFAULT_HOUR = 9
 
-_QUOTED = re.compile(r"```.*?(?:```|$)|`[^`\n]*`|\"[^\"\n]*\"|“[^”\n]*”|^[ \t]*>.*$", re.S | re.M)
+_QUOTED = re.compile(r"```.*?(?:```|$)|`[^`\n]*`|\"[^\"\n]*\"|“[^“”\n]*”|^[ \t]*>.*$", re.S | re.M)
 _NUM = r"\d+(?:\.\d+)?"
 _SUM = re.compile(rf"(?<![\w.])({_NUM}(?:\s*[-+*/×x]\s*{_NUM})+)\s*=\s*(-?{_NUM})?(?![\w.])")
-_LINKED = re.compile(r"\[\[[^\]\n]*\]\]")
+#: The opening bracket and quote are excluded from a span's body, so a run of `[[` or
+#: `“` with no close is read once, not once per start (CodeQL, polynomial).
+_LINKED = re.compile(r"\[\[[^\[\]\n]*\]\]")
 _SENTENCE_END = re.compile(r"[.!?\n]")
-_DANGLING = re.compile(r"\s+(?:on|at|by|for|from|the)\s*$", re.I)
+#: `_reminder_words` folds whitespace to one space before this runs.
+_DANGLING = re.compile(r" (?:on|at|by|for|from|the) ?$", re.I)
 
 
 def quoted_ranges(text: str) -> list[tuple[int, int]]:
@@ -57,7 +60,7 @@ def _sentence(text: str, start: int, end: int) -> tuple[int, int]:
 def _reminder_words(text: str, span: recognise.Span) -> str:
     head, tail = _sentence(text, span.start, span.end)
     words = (text[head:span.start] + " " + text[span.end:tail]).strip()
-    words = re.sub(r"\s+([,;:])", r"\1", re.sub(r"\s+", " ", words))
+    words = re.sub(r" ([,;:])", r"\1", re.sub(r"\s+", " ", words))
     words = _DANGLING.sub("", words).strip(" ,;:-")
     return words[:120]
 

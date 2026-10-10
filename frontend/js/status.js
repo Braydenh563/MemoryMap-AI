@@ -1920,24 +1920,24 @@ function syncModelGatedControls(status = modelStatus) {
   //: beside it) and says so, the popup agent cannot and says that.
   renderAiOfflineNotice(
     $("ask-offline"),
-    "No model is connected, so this answers from your notes alone: the matching records are below.",
-    { dismissible: true }
+    "No model connected. Ask shows the matching records below.",
+    { dismissible: true, detail: "Ask answers from your notes alone until one is connected." }
   );
-  renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  renderAiOfflineNotice($("command-palette-offline"), "No model connected, so the agent cannot run.");
   //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
   //: answered from the notes by the composer, so the box stays open and the
   //: line says what a model would add rather than that nothing answers.
   renderAiOfflineNotice(
     $("chat-offline"),
-    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode.",
-    { dismissible: true }
+    "No model connected. Chat answers from your notes.",
+    { dismissible: true, detail: "Chat quotes your notes until one is connected. A model adds AI answers and Agent mode." }
   );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
   //: thing that said so was a title on a button that could not be pressed.
   renderAiOfflineNotice(
     $("draft-offline"),
-    "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
+    "No model connected, so nothing can be drafted. The rest of this tab works."
   );
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
@@ -1969,25 +1969,32 @@ function dismissAiOffline(id) {
   } catch (err) { /* memory alone still lasts until the window closes */ }
 }
 
-//: One line and one button, in a named container, or nothing at all. Rebuilt
+//: One row (DESIGN.md, "A notice"): an icon, one short sentence, the button
+//: that fixes it, then the close when it has one. The container carries
+//: `.notice`; what a surface says beyond the sentence goes in `detail`, which
+//: becomes the button's title (INBOX 767: the long sentence was the ugly part).
+//: Rebuilt
 //: rather than toggled because the status poll calls this every tick and a
 //: stale sentence is worse than none. `dismissible` adds the close (DESIGN.md,
 //: "A notice that can be closed"): a dismissed one stays hidden for the session.
-function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
+function renderAiOfflineNotice(container, what, { dismissible = false, detail = "" } = {}) {
   if (!container) return;
   container.replaceChildren();
   const off = aiIsOff();
   const closed = dismissible && aiOfflineDismissed(container.id);
   container.classList.toggle("hidden", !off || closed);
   if (!off || closed) return;
+  //: The icon is the container's first child, which is where `.notice > .ph`
+  //: styles it; `setLabel` on the container builds exactly that.
+  setLabel(container, "ph:plugs");
   const text = document.createElement("span");
-  text.className = "muted";
+  text.className = "ai-offline-text";
   text.textContent = what;
   const link = document.createElement("button");
   link.type = "button";
   link.className = "ghost small";
-  setLabel(link, `ph:plugs ${AI_OFFLINE_HINT}`);
-  link.title = "Open Settings at Models, where a local or remote model is connected";
+  link.textContent = AI_OFFLINE_HINT;
+  link.title = `Open Settings at Models, where a local or remote model is connected.${detail ? ` ${detail}` : ""}`;
   link.addEventListener("click", () => openSettingsModal("models"));
   container.append(text, link);
   if (!dismissible) return;

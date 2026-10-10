@@ -1065,7 +1065,7 @@ MORE_TOPICS.extend(
                 "you. The chip over the answer reads Your notes, no AI. The "
                 "choice is kept on this device; with no model running it is the "
                 "answer and Use AI is greyed, with the reason on it, until a model runs. "
-                "The No model is connected line above the Chat box and the Ask box "
+                "The No model connected line above the Chat box and the Ask box "
                 "has a close button (the small x at its end): it hides that line "
                 "until the next time you start the app, a new session, and "
                 "connecting a model in Settings, Models always brings the answers back."

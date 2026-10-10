@@ -1139,3 +1139,10 @@ Both files are in [`../archive/agent-remaining/`](../archive/agent-remaining/). 
 - The tag picker on an empty field puts the tags the note says first ("training 10 notes, in this note"), but on a note that says none of them it still lists every tag by use (`frontend/js/tag-suggest.js` `fillTagSuggest`): a completion list, not a suggestion, so left. (from filing-1010.md)
 - The model's tag reply is grounded against a faked reply (`tests/test_tag_grounding.py`); what a real small model answers is not verified. (from filing-1010.md)
 - Graph topics as categories ("How are they different from categories??", the graph agent's hand-off in `archive/agent-remaining/graph-1010.md`): not in section 23's steps, so not done. (from filing-1010.md)
+
+## Left by the notice agent (INBOX 767, merged 2026-10-10)
+
+The no-model notice is one row on the `.notice` recipe on all five surfaces (46.8px at 1440, two rows only under 600px); its 58 gzipped bytes were paid for by the blank lines of 08-consistency.css, so the boot CSS cap stands at 183,300 and the next CSS goes in a lazy file.
+
+- Row height at 1440 is 46.8px, not "one line plus padding" (about 38px): the Connect button's 28.8px target floor sets the row. Left as is; shrinking it would break the touch-target lint. (from notice-1010.md)
+- The palette is never shown on a phone (`toggleAgentPalette` goes to Chat), so its 390px notice is unmeasured by design. (from notice-1010.md)

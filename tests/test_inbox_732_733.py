@@ -174,8 +174,8 @@ def _notice() -> str:
 
 def test_chat_and_ask_banners_are_dismissible_and_the_others_are_not():
     block = STATUS[STATUS.index("  renderAiOfflineNotice(\n    $(\"ask-offline\")") : STATUS.index("  syncAgentPaletteAvailability();")]
-    asks = re.search(r'\$\("ask-offline"\),.*?\{ dismissible: true \}\s*\)', block, re.S)
-    chat = re.search(r'\$\("chat-offline"\),.*?\{ dismissible: true \}\s*\)', block, re.S)
+    asks = re.search(r'\$\("ask-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
+    chat = re.search(r'\$\("chat-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
     assert asks and chat, block
     assert block.count("dismissible: true") == 2, block
 

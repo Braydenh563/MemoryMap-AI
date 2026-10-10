@@ -5097,3 +5097,55 @@ def test_a_note_cards_details_line_ends_the_card_and_keeps_the_space_before_edit
     assert 'textContent: "\\u00a0· edited"' in (ROOT / "frontend" / "js" / "note-cards.js").read_text(encoding="utf-8")
     # The phone rule that hides the suffix is still there.
     assert re.search(r"display\s*:\s*none", body(".entry-meta.note-meta .entry-edited"))
+def test_the_no_model_notice_is_one_row_on_the_notice_recipe() -> None:
+    """INBOX 767 (the owner, 2026-10-10): the Chat tab's no-model line was "ugly
+    and on multiple rows": a long sentence, then the button and the close on a
+    second row, in a box of its own.
+
+    So it is the notice recipe now, in the recipe's order: the plug icon as the
+    first child (built by `setLabel` on the container, so `.notice > .ph`
+    styles it), one short sentence, the button, the close last. The long
+    explanation moved to the button's `title`.
+    """
+    status = app_js_text()
+    start = status.index("function renderAiOfflineNotice(")
+    body = status[start : status.index("\n}\n", start)]
+    order = [
+        body.index('setLabel(container, "ph:plugs")'),
+        body.index("container.append(text, link)"),
+        body.index("container.append(close)"),
+    ]
+    assert order == sorted(order), "the row's order is icon, sentence, button, close"
+    assert 'text.className = "ai-offline-text"' in body
+    assert "detail" in body and "link.title" in body, "the long half lives in the button's title"
+
+    #: Every container draws the recipe's box, so none keeps a private one.
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for ident in ("chat-offline", "ask-offline", "draft-offline", "command-palette-offline"):
+        assert re.search(rf'id="{ident}" class="ai-offline-note notice hidden"', html), ident
+    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    assert 'offline.className = "ai-offline-note notice hidden"' in dashboard
+
+    #: One short sentence per surface (under 90 characters), no exclamation mark.
+    sentences = re.findall(r'renderAiOfflineNotice\(\s*\$\("[a-z-]+"\),\s*"([^"]+)"', status)
+    assert len(sentences) == 4, sentences
+    for sentence in sentences:
+        assert len(sentence) < 90 and "!" not in sentence, sentence
+
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    row = re.search(r"\n\.ai-offline-note\.notice \{(.*?)\n\}", css, re.S)
+    assert row and "align-items: center" in row.group(1), ".ai-offline-note.notice has no row rule"
+    assert re.search(r"\n\.ai-offline-text \{[^}]*flex: 1;[^}]*min-width: 0", css), (
+        "the sentence takes the spare width and can shrink, or the button is pushed out of the box"
+    )
+    #: `.notice` does not wrap, which is what keeps it one row at desktop width.
+    notice = re.search(r"\n\.notice \{(.*?)\n\}", css, re.S).group(1)
+    assert "flex-wrap" not in notice and "flex-wrap" not in row.group(1)
+    phone = re.search(r"@media \(max-width: 599\.98px\) \{\s*\.ai-offline-note\.notice \{(.*?)\n  \}(.*?)\n\}\n", css, re.S)
+    assert phone and "display: grid" in phone.group(1), "under 600px (599.98px) the row is a grid"
+    assert re.search(r"\.icon-only\) \{[^}]*grid-area: 2 / 2", phone.group(2)), "the button sits under the sentence"
+    assert re.search(r"\.ai-offline-note > \.icon-only \{[^}]*grid-area: 1 / 3", phone.group(2)), (
+        "the close stays at the end of the first row on a phone"
+    )
+
+

@@ -3386,8 +3386,8 @@ async function renderDigestWidget(body) {
     //: button, which a keyboard cannot focus and a phone cannot hover. The
     //: same line and Settings link as Ask and Chat, kept by the status poll.
     const offline = document.createElement("div");
-    offline.className = "ai-offline-note hidden";
-    offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
+    offline.className = "ai-offline-note notice hidden";
+    offline.dataset.offlineLine = "No model connected, so the digest cannot be written yet.";
     body.append(generate, offline);
     syncModelGatedControls();
   }

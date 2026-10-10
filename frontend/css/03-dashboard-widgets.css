@@ -2684,19 +2684,33 @@ button.chat-trail-link {
   background: var(--surface-2);
 }
 
-/* "No model is connected", with the one click that changes it (CHAT_PLAN.md
-   decision 11). A quiet row, not a warning: running with no AI is a supported
-   way to use this app, the same judgement the AI status pill makes when it
-   colours an offline setup amber rather than red. */
-.ai-offline-note {
-  display: flex;
-  flex-wrap: wrap;
+/* The no-model line (INBOX 767): `.notice` is the box and does not wrap, so this
+   is one row; a phone gets a grid so the close stays on the first row. */
+.ai-offline-note.notice {
   align-items: center;
-  gap: var(--space-3);
-  /* Both sides: with only a top margin, the row after it (the writing desk's
-     chips, the agent palette's description) sat flush against the button
-     (owner, two screenshots: "these elements have no gaps between them"). */
   margin-block: var(--space-3);
+}
+
+.ai-offline-text {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 599.98px) {
+  .ai-offline-note.notice {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+  }
+
+  .ai-offline-note > .ghost:not(.icon-only) {
+    grid-area: 2 / 2;
+    justify-self: start;
+  }
+
+  .ai-offline-note > .icon-only {
+    grid-area: 1 / 3;
+  }
 }
 
 /* The Ask tab's answer foot (CHAT_PLAN.md Phase 3): "Elsewhere in your

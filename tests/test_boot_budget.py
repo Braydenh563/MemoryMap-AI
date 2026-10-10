@@ -54,6 +54,9 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: (`noteEditToolbar`, only `renderEditForm` calls it) into
 #: note-edit-panels.js: 588,354, so the cap is back below 589,100.
 BOOT_JS_CAP = 588_400
+#: 2026-10-10 INBOX 767: the no-model notice's row and phone grid cost 58
+#: gzipped bytes, paid for by the blank lines of 08-consistency.css (61), so
+#: the cap holds; the next CSS goes in a lazy file.
 BOOT_CSS_CAP = 183_300
 
 

@@ -36,7 +36,7 @@ callers that use them, and reads nothing itself (`tests/test_one_reader.py`).
 
 from __future__ import annotations
 
-from memorymap.ai.recognise import (  # noqa: F401  # the module's public names, kept for its callers
+from memorymap.ai.recognise import (
     days_since,
     find,
     parse_reminder_text,
@@ -44,3 +44,7 @@ from memorymap.ai.recognise import (  # noqa: F401  # the module's public names,
     span,
     window,
 )
+
+#: The names callers import from here; the re-export is deliberate (CodeQL reads an
+#: unlisted re-export as an unused import).
+__all__ = ["days_since", "find", "parse_reminder_text", "resolve", "span", "window"]

@@ -41,7 +41,6 @@ EXPECTED = {
         '"Pick an embedding model first, e.g. nomic-embed-text."',
     ],
     'app.js': [
-        'body.warning',
     ],
     'ask-history.js': [
         '"That question is no longer in your history."',
@@ -211,16 +210,18 @@ EXPECTED = {
     ],
 }
 
+#: Rule 4 (2026-10-10): situations the app expects, moved here from FAULTS.
+EXPECTED_RULE4 = {'settings-wiring.js': ['body.warning'], 'attachment-actions.js': ['"That upload is no longer in the Library; it may have been deleted."',
+        '"That file is no longer in the Library; it may have been deleted."'], 'documents-code.js': ['"Formatting needs the code editor, which has not loaded."'], 'whiteboard-library.js': ['"That icon is not in the library\'s set."'], 'documents.js': ['"The chat isn\'t available right now."'], 'library.js': ['"The chat isn\'t available right now."'], 'documents-prose.js': ['`Reading stopped: ${event.error || "the voice did not answer"}.`']}
+for _name, _messages in EXPECTED_RULE4.items():
+    EXPECTED.setdefault(_name, []).extend(_messages)
+
 #: Calls that keep the error style with a literal message, with why each is a
 #: fault. Anything that passes `true` and is not a failed request's own
 #: `.message` has to appear here.
 FAULTS = {
     'app.js': {
         '"Can\'t reach the MemoryMap server. Is it running?"': 'network failure: the server cannot be reached',
-    },
-    'attachment-actions.js': {
-        '"Couldn\'t find that upload."': 'the upload the menu points at is missing from the list: an unexpected state',
-        '"Couldn\'t find that file."': 'the file the menu points at is missing: an unexpected state',
     },
     'chat-attach.js': {
         '"Couldn\'t save this chat turn."': 'saving a chat turn failed after the model answered: lost data',
@@ -229,25 +230,19 @@ FAULTS = {
     },
     'documents-code.js': {
         '"Emmet could not be loaded, so nothing was wrapped."': 'the Emmet module failed to load: a broken asset',
-        '"Formatting needs the code editor, which has not loaded."': 'the code editor failed to load: a broken asset',
-    },
-    'documents-prose.js': {
-        '`Reading stopped: ${event.error || "the voice did not answer"}.`': 'the speech engine raised an error event mid-reading',
     },
     'documents.js': {
         '"Couldn\'t open that version."': 'fetching a saved version failed',
-        '"The chat isn\'t available right now."': 'a required element is missing from the page: a UI fault',
     },
     'graph-canvas.js': {
-        '"The moved notes were not pinned where you left them. Drag again to retry."': 'the pin save after a group drag failed: the places shown are not the places kept',
+        '"The moved notes were not pinned where you left them."': 'the pin save after a group drag failed: the places shown are not the places kept',
     },
     'library.js': {
-        '`The topic was not renamed: ${e?.message || e}. Try again.`': 'the rename request failed: the name shown is not the name kept',
+        '`The topic was not renamed: ${e?.message || e}.`': 'the rename request failed: the name shown is not the name kept',
         '`${failed} item${failed === 1 ? "" : "s"} couldn\'t be restored.`': 'a bulk restore partly failed',
         '`${failed} item${failed === 1 ? "" : "s"} couldn\'t be deleted.`': 'a bulk delete partly failed',
         '`${failed} document${failed === 1 ? "" : "s"} couldn\'t be deleted.`': 'a bulk delete partly failed',
         '"That region couldn\'t be cut out of the page."': 'cutting the region out of the page image failed',
-        '"The chat isn\'t available right now."': 'a required element is missing from the page: a UI fault',
         '`${failed} board${failed === 1 ? "" : "s"} couldn\'t be deleted.`': 'a bulk delete partly failed',
         '`${failed} bookmark${failed === 1 ? "" : "s"} couldn\'t be deleted.`': 'a bulk delete partly failed',
     },
@@ -278,9 +273,6 @@ FAULTS = {
     },
     'update-dialogs.js': {
         'progress.textContent || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",
-    },
-    'whiteboard-library.js': {
-        '"That icon is not in the library\'s set."': 'a stored library entry names an icon the set does not have: bad data',
     },
     'whiteboard.js': {
         '"Couldn\'t undo that."': 'undo threw an exception',
@@ -426,3 +418,43 @@ def test_report_this_has_one_home_and_the_helper_gates_it():
     assert "toast.refused = new Set();" in status
     app = (JS / "app.js").read_text(encoding="utf-8")
     assert "if (response.status < 500) toast.refused.add(errMsg);" in app
+
+
+# --- Rule 4: an error explains and offers (WORLD_CLASS_PLAN 28.1) -----------
+
+#: Literal faults whose one action is the default, Open the logs (Settings,
+#: Logs, where the why is written), because no retry or alternative fits the
+#: call site yet. A ratchet: it only shrinks. Every other literal fault passes
+#: `{ action: [label, fn] }` of its own.
+LOGS_ACTION_CAP = 24
+
+
+def test_every_error_toast_offers_one_action():
+    status = (JS / "status.js").read_text(encoding="utf-8")
+    body = status[status.index("function toast(") : status.index("\n}\n", status.index("function toast(")) + 3]
+    assert 'action || ["Open the logs", () => openSettingsModal("logs")]' in body, (
+        "an error toast without a caller's action must get Open the logs"
+    )
+    assert body.index("toastActionButton(note, label") < body.index('"Report this"')
+
+
+def test_a_literal_fault_carries_its_own_action_or_is_counted():
+    defaulted = []
+    for name, line, args in _all_calls():
+        if _flag(args) != "true" or re.search(r"\b(?:e|err|error)\.message\b", args[0]):
+            continue
+        if len(args) > 2 and "action:" in args[2]:
+            continue
+        defaulted.append(f"{name}:{line}")
+    assert len(defaulted) <= LOGS_ACTION_CAP, (
+        f"{len(defaulted)} literal error toasts fall back to Open the logs (cap {LOGS_ACTION_CAP}): "
+        "give the new one { action: [\"Try again\", fn] } or an alternative:\n  " + "\n  ".join(defaulted)
+    )
+
+
+def test_api_retries_a_network_failure_of_a_read_before_saying_so():
+    app = (JS / "app.js").read_text(encoding="utf-8")
+    body = app[app.index("async function api(") : app.index("\napi.retries = 0;")]
+    assert "attempt < 2 && networkErr instanceof TypeError" in body
+    assert "/^(GET|HEAD)$/.test(fetchOptions.method" in body, "a write must never be resent"
+    assert "api.retries++" in body

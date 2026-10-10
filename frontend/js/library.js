@@ -6886,7 +6886,7 @@ onDomReady(() => {
   $("ocr-to-chat")?.addEventListener("click", () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to ask about yet. Read the page first.", "info");
-    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", true);
+    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", "info");
     const name = ocrWorkspaceCurrent?.original_name || "this image";
     const pdf = ocrIsPdf(ocrWorkspaceCurrent);
     const where = pdf ? `${name}, page ${ocrWorkspacePage + 1}` : name;
@@ -11423,8 +11423,9 @@ function contentsRenameTopic(heading, topic) {
       heading.focus();
       return;
     }
-    const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) })
-      .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}. Try again.`, true); return null; });
+    const rename = () => apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) });
+    const row = await rename()
+      .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}.`, true, { action: ["Try again", rename] }); return null; });
     if (!row) return;
     if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
     renderContents();

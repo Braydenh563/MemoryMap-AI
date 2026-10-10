@@ -56,7 +56,7 @@ from memorymap.ai.grounding import (
 )
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, model_gate
+from memorymap.core import activity, deps, docview, model_gate
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
@@ -2708,8 +2708,10 @@ def _interactive_lines(req):  # noqa: ANN001, ANN202
     background model work waits between its calls (`core/model_gate.py`,
     ARCH-09). Entered on the first line, left when the stream ends or the
     client goes: a generator closed early still runs its `finally`."""
+    #: Listed in Activity while it streams, and Stop there ends it (rule 5).
+    label = "Running a skill" if req.skill else "Answering in Chat"
     with model_gate.interactive():
-        yield from _stream_lines(req)
+        yield from activity.tracked_stream("generation", label, _stream_lines(req))
 
 
 @router.get("/modes")

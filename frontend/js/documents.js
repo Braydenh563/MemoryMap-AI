@@ -11680,7 +11680,7 @@ function docHistoryRow(entry) {
     const full = await apiJson(
       `/documents/${currentDoc.id}/revisions/${entry.id}`
     ).catch(() => null);
-    if (!full) return toast("Couldn't open that version.", true);
+    if (!full) return toast("Couldn't open that version.", true, { action: ["Try again", () => view.click()] });
     $("doc-history-dialog").close();
     //: Through the lightbox, which is already the app's read-only viewer for
     //: a document's text: including its find bar, which is how anyone
@@ -17782,7 +17782,7 @@ async function docTranslatePassage(text) {
   if (!language) return;
   docLastTranslateLanguage = language;
   const box = document.getElementById("chat-input");
-  if (!box) return toast("The chat isn't available right now.", true);
+  if (!box) return toast("The chat isn't available right now.", "info");
   switchTab("chat");
   box.value = `Translate this into ${language}, and keep the formatting:\n\n${text}`;
   box.focus();
@@ -17845,7 +17845,7 @@ function docAiDiscussInChat() {
   const text = (box?.text || "").trim();
   if (!text) return toast("Nothing to discuss yet.", "info");
   const input = document.getElementById("chat-input");
-  if (!input) return toast("The chat isn't available right now.", true);
+  if (!input) return toast("The chat isn't available right now.", "info");
   const range = box ? box.selection() : null;
   const selection = range ? box.text.slice(range.from, range.to).trim() : "";
   switchTab("chat");

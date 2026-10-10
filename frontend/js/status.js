@@ -1115,7 +1115,13 @@ let lastToastAt = 0;
 //:   design (`api()` in app.js notes each 4xx message in `toast.refused`).
 //: Only a 5xx, a network failure or an unexpected exception keeps the red
 //: style and the report button. `tests/test_error_toasts.py` pins both.
-function toast(message, isError = false, { exempt = false } = {}) {
+//:
+//: **An error explains and offers** (WORLD_CLASS_PLAN 28.1 rule 4): an error
+//: toast always carries one action. A caller that knows the way forward passes
+//: it, `{ action: ["Try again", fn] }`; one that does not gets Open the logs,
+//: Settings, Logs, where the why is written (the message says what happened).
+//: `tests/test_error_toasts.py` holds the literal faults to an action of their own.
+function toast(message, isError = false, { exempt = false, action = null } = {}) {
   if (isError === "info" || (isError === true && [...toast.refused].some((m) => String(message).includes(m)))) {
     isError = false;
     exempt = true;
@@ -1139,6 +1145,11 @@ function toast(message, isError = false, { exempt = false } = {}) {
   //: button that saves the support bundle and opens a mail to the owner
   //: with the message already in it. Plain toasts stay plain.
   if (isError) {
+    const [label, run] = action || ["Open the logs", () => openSettingsModal("logs")];
+    note.appendChild(toastActionButton(note, label, () => {
+      clearTimeout(timer);
+      run();
+    }));
     const help = document.createElement("button");
     help.type = "button";
     help.className = "ghost small toast-help";
@@ -2373,7 +2384,7 @@ function renderStatusBar() {
       label: others > 0 ? `${task.label} (+${others})` : task.label,
       title:
         `${task.label}${task.detail ? `, ${task.detail}` : ""}` +
-        "\n\nClick to open Background tasks.",
+        "\n\nClick to open Activity, where it can stop.",
     });
   }
 

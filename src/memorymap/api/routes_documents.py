@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docmeta, docview, filetypes, syntaxcheck
+from memorymap.core import activity, deps, docexport, docmeta, docview, filetypes, syntaxcheck
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -1165,7 +1165,7 @@ def ai_check(
             yield json.dumps(event) + "\n"
 
     return StreamingResponse(
-        lines(),
+        activity.tracked_stream("generation", "Reviewing a document", lines()),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )

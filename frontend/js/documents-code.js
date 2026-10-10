@@ -4206,7 +4206,7 @@ async function docFormatCode(scope = "auto") {
     return false;
   }
   if (!view || !CM) {
-    toast("Formatting needs the code editor, which has not loaded.", true);
+    toast("Formatting needs the code editor, which has not loaded.", "info");
     return false;
   }
   const state = view.state;

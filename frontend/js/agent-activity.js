@@ -401,6 +401,7 @@ function openPanelForRun(run) {
   if (!agentMonitor.classList.contains("hidden")) return;
   if (Date.now() - agentMonitorDismissedAt < AGENT_MONITOR_REOPEN_AFTER_MS) return;
   setAgentMonitorVisible(true);
+  showActivityTab("runs");
   nudgeAgentMonitorIdle();
 }
 
@@ -449,8 +450,31 @@ $("status-activity")?.addEventListener("click", () => {
   setAgentMonitorVisible(!showing);
   // Opened by hand, so the dismissal window that keeps a run from reopening it
   // is spent: otherwise pressing this within 90s of an X does nothing.
-  if (!showing) agentMonitorDismissedAt = 0;
+  if (!showing) {
+    agentMonitorDismissedAt = 0;
+    showActivityTab("runs");
+  }
 });
+
+// --- Activity: one panel, two tabs (WORLD_CLASS_PLAN 28.1 rule 5, decision 70)
+//
+// This panel was the agent's run list. Every running job (indexing, a model
+// answering, imports, reading text, transcribing, backups, the agent's
+// passes) is now its first tab, Running, from `GET /activity`, with Stop on
+// each; the runs are the second. The tabs, the ⋯ and the list are lazy
+// (activity-panel.js): boot only knows how to open the panel on a tab.
+function showActivityTab(tab) {
+  ensureModule("activity").then(() => window.setActivityTab?.(tab));
+}
+
+//: Opened by hand on one tab: pinned, so the idle timer leaves it up.
+function openActivity(tab = "running") {
+  agentMonitorPinned = true;
+  agentMonitorDismissedAt = 0;
+  setAgentMonitorVisible(true);
+  showActivityTab(tab);
+}
+window.openActivity = openActivity;
 
 // The monitor is `position: fixed` in the bottom-right corner, which is also
 // where the whiteboard keeps its zoom controls, so while it was open those

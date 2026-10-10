@@ -249,7 +249,7 @@ async function wbPlaceSticker(choice, at = null) {
     await wbLoadIcons();
     const entry = wbLibIconEntry(choice.value);
     if (!entry) {
-      toast("That icon is not in the library's set.", true);
+      toast("That icon is not in the library's set.", "info");
       return null;
     }
     await wbLibPlace(entry, point);

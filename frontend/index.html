@@ -800,8 +800,13 @@
          widths and two baselines in one row, which is what the owner called
          "not aligned and unprofessional" (2026-09-23). -->
     <h3 class="panel-head monitor-header dialog-head">
-      <span class="monitor-title dialog-head-title"><i class="ph ph-strategy ph-lead" aria-hidden="true"></i> Agent activity</span>
+      <span class="monitor-title dialog-head-title"><i class="ph ph-activity ph-lead" aria-hidden="true"></i> Activity</span>
       <span class="row monitor-header-actions">
+        <button type="button" class="icon-only ghost small dialog-head-btn graph-help-toggle"
+          data-help-for="activity-help" aria-controls="activity-help" aria-expanded="false"
+          title="About Activity" aria-label="About Activity"><i class="ph ph-question" aria-hidden="true"></i></button>
+        <!-- The ⋯ is `kebabMenu`, built into this slot by agent-activity.js. -->
+        <span id="activity-more" class="menu-wrap"></span>
         <button id="agent-monitor-clear" class="icon-only ghost small dialog-head-btn" type="button"
           aria-label="Clear finished runs" title="Clear finished runs"><i class="ph ph-broom" aria-hidden="true"></i></button>
         <button id="agent-monitor-log-toggle" class="icon-only ghost small dialog-head-btn" type="button"
@@ -811,9 +816,31 @@
           aria-label="Close" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </span>
     </h3>
-    <div id="agent-monitor-runs" class="monitor-runs"></div>
-    <p id="agent-monitor-empty" class="muted empty-line">Nothing has run yet this session.</p>
-    <div id="agent-monitor-logs" class="monitor-logs hidden"></div>
+    <div class="help-body hidden" id="activity-help" role="dialog" aria-label="About Activity">
+      <p>
+        Running lists every job the app is doing now (indexing, a model loading
+        or answering, imports, reading text, transcribing, backups, the agent)
+        with Stop where a job can stop part way. Stop the model, in the menu,
+        ends any answer and lets the model leave memory. Agent runs lists each
+        run this session with its steps; the log is in the menu.
+      </p>
+    </div>
+    <!-- Two tabs, one panel (WORLD_CLASS_PLAN decision 70): the jobs list
+         and the agent's run list. The popup kind strip recipe. -->
+    <div class="tabs-line popup-kinds activity-tabs" id="activity-tabs" role="tablist" aria-label="Activity">
+      <button type="button" role="tab" id="activity-tab-running" data-value="running" aria-selected="true" aria-controls="activity-running">Running</button>
+      <button type="button" role="tab" id="activity-tab-runs" data-value="runs" aria-selected="false" aria-controls="activity-runs" tabindex="-1">Agent runs</button>
+    </div>
+    <div id="activity-running" role="tabpanel" aria-labelledby="activity-tab-running" class="activity-running">
+      <p id="activity-model" class="status activity-model"></p>
+      <ul id="activity-list" class="entry-list"></ul>
+      <p id="activity-empty" class="muted empty-line">Nothing running right now.</p>
+    </div>
+    <div id="activity-runs" role="tabpanel" aria-labelledby="activity-tab-runs" class="hidden">
+      <div id="agent-monitor-runs" class="monitor-runs"></div>
+      <p id="agent-monitor-empty" class="muted empty-line">Nothing has run yet this session.</p>
+      <div id="agent-monitor-logs" class="monitor-logs hidden"></div>
+    </div>
   </aside>
 
 
@@ -8887,6 +8914,8 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <select id="chat-model-select" aria-label="Model used for chat" title="Model used for chat"></select>
                 <button id="chat-model-apply" class="ghost small">Use this model</button>
+                <!-- Rule 5: the model leaves memory now, not at its idle timeout. -->
+                <button id="chat-model-stop" class="ghost small" type="button" title="Stop any answer and unload the model from memory"><i class="ph ph-stop-circle ph-lead" aria-hidden="true"></i> Stop the model</button>
               </div>
               <p id="chat-model-note" class="status"></p>
               <!-- What the backend actually says about the model in use: its
@@ -11497,7 +11526,8 @@ Link to another note with [[its first few words]]."></textarea>
                   Everything the app is doing in the background right now,
                   re-indexing your notes, downloading a model, loading the
                   embedding model, setting up SearXNG. Jobs that can be stopped
-                  safely have a Quit button; the rest are left to finish.
+                  safely have a Stop button, here and in Activity (the status
+                  bar's job slot opens it); the rest are left to finish.
                 </p>
               </div>
               <ul id="task-list" class="entry-list"></ul>
@@ -12767,8 +12797,33 @@ Link to another note with [[its first few words]]."></textarea>
                  About is for. Filled in by `renderHealthBlock` in
                  settings.js; every value starts as an em dash rather than
                  blank so a slow first fetch never reads as missing rows. -->
-            <div class="settings-group">
+            <div class="settings-group" id="health-group">
               <h3>Health</h3>
+              <p class="muted" id="health-checked">How the notebook is, each line with when it was true.</p>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Last backup</span>
+                  <small class="muted">The newest copy of the notebook, and when it was taken.</small>
+                </div>
+                <span class="setting-control muted" id="health-last-backup">, </span>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Data folder</span>
+                  <small class="muted">Everything this notebook keeps on disk, in total.</small>
+                </div>
+                <span class="setting-control muted" id="health-data-dir">, </span>
+              </div>
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Integrity</span>
+                  <small class="muted">The database checks itself, and the search index is counted beside your notes.</small>
+                </div>
+                <span class="setting-control row">
+                  <button id="health-integrity-check" class="ghost small" type="button">Check now</button>
+                  <span class="muted" id="health-integrity">Not checked yet</span>
+                </span>
+              </div>
               <div class="setting-row">
                 <div class="setting-label">
                   <span>Database</span>

@@ -2167,7 +2167,7 @@ function isEditConflict(error) {
 //: with the model off; a link nobody gave a reason says so.
 async function explainNote(entry) {
   const full = await apiJson(`/entries/${entry.id}`).catch(() => null);
-  if (!full) return toast("Couldn't read this note.", true);
+  if (!full) return toast("Couldn't read this note.", true, { action: ["Try again", () => explainNote(entry)] });
   const words = stripFrontmatter(full.content || "").replace(/^#+\s*/gm, "").trim();
   const links = full.links || [];
   const name = (link) => notePreviewText(link.preview || "").split("\n")[0].slice(0, 80) || "a note";

@@ -141,4 +141,71 @@ def debug_health(session: Session = Depends(get_session)) -> dict:
         },
         "latency_ms_by_kind": taskhistory.latency_percentiles(),
         "recent_errors": error_lines,
+        "trust": _trust(config, error_lines),
     }
+
+
+#: The last integrity check, so the page can say when it last ran without
+#: running it again (a full `PRAGMA integrity_check` reads every page).
+_last_integrity: dict = {"at": None, "ok": None, "result": "", "index": {}}
+
+
+def _dir_bytes(path: Path) -> int:
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                total += (Path(root) / name).stat().st_size
+            except OSError:
+                continue
+    return total
+
+
+def _trust(config, error_lines: list[dict]) -> dict:  # noqa: ANN001
+    """Rule 14's fields (WORLD_CLASS_PLAN 28.1), each present and dated:
+    when it was last true, or None where it never was."""
+    from datetime import datetime, timezone
+
+    from memorymap.core import backup
+
+    try:
+        newest = (backup.list_backups(config.data_dir) or [None])[0]
+    except OSError:
+        newest = None
+    last_error = error_lines[-1] if error_lines else None
+    return {
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "last_backup": {"at": newest["created_at"], "name": newest["name"]} if newest else {"at": None, "name": ""},
+        "last_error": {"at": last_error.get("time"), "line": str(last_error.get("message", ""))[:300]} if last_error else {"at": None, "line": ""},
+        "running": routes_tasks.activity_rows(),
+        "data_dir_bytes": _dir_bytes(Path(config.data_dir)),
+        "integrity": dict(_last_integrity),
+    }
+
+
+@router.post("/health/integrity")
+def integrity_check(session: Session = Depends(get_session)) -> dict:
+    """The integrity check in one click: SQLite's own `integrity_check` and
+    the search index's rows per kind beside the notebook's own counts."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import text
+
+    from memorymap.search import engine
+
+    rows = [str(row[0]) for row in session.execute(text("PRAGMA integrity_check")).fetchall()]
+    try:
+        index = engine.stats(session).get("index", {})
+    except Exception:  # noqa: BLE001  # an unreadable index is a finding, not a 500
+        index = {}
+    notes = session.scalar(
+        select(func.count(Entry.id)).where(Entry.is_deleted == False, Entry.is_board == False, Entry.is_draft == False)  # noqa: E712
+    ) or 0
+    result = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "ok": rows == ["ok"],
+        "result": "ok" if rows == ["ok"] else "; ".join(rows[:5]),
+        "index": {"notes": notes, **{str(k): v for k, v in (index.items() if isinstance(index, dict) else [])}},
+    }
+    _last_integrity.update(result)
+    return result

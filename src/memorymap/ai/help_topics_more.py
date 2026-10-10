@@ -311,6 +311,42 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "Background tasks", "section": "tasks"},
     },
     {
+        "id": "health",
+        "keywords": (
+            "health", "is my notebook ok", "integrity", "integrity check", "corrupt",
+            "corruption", "last backup", "last error", "data folder size", "how big",
+            "is it healthy", "check the database",
+        ),
+        "body": (
+            "Settings, About, Health says how the notebook is, each line dated: "
+            "the last backup and when it was taken, the data folder's size, what "
+            "is running now, the last error in the log, and Integrity, whose "
+            "Check now has the database check itself and counts the search index "
+            "beside your notes. The palette's Health goes straight there."
+        ),
+        "badge": {"label": "About", "section": "about"},
+    },
+    {
+        "id": "activity",
+        "keywords": (
+            "activity", "activity panel", "what is running", "stop a job", "stop it",
+            "stop the model", "unload the model", "free memory", "model in memory",
+            "stop generating", "stop the answer", "agent runs", "running jobs",
+        ),
+        "body": (
+            "Activity lists every job running now: indexing, a model loading or "
+            "answering, imports, reading text, transcribing, backups and the "
+            "agent's passes, each with a bar and Stop where it can stop part way. "
+            "Open it from the status bar's job slot, its agent runs count, or the "
+            "palette (Activity). Its Agent runs tab lists each run this session "
+            "with its steps, and the log is in its menu. Stop the model, in the "
+            "menu and in Settings, Models beside Use this model, stops any answer "
+            "and unloads the model from memory (Ollama drops it at once); a server "
+            "this app did not start keeps its own model, and the message says so."
+        ),
+        "badge": {"label": "Models", "section": "models"},
+    },
+    {
         "id": "packages",
         "keywords": (
             "packages", "package", "pip", "install a feature", "optional feature",
@@ -1389,6 +1425,8 @@ TOPIC_META: dict[str, dict] = {
     "search-index": {"title": "Search and index", "path": "Settings, Search and index"},
     "answer-style": {"title": "Answer style", "path": "Settings, Personas, Answer style"},
     "background-tasks": {"title": "Background tasks", "path": "Settings, Background tasks"},
+    "health": {"title": "Health", "path": "Settings, About, Health"},
+    "activity": {"title": "Activity", "path": "The status bar's job slot, or the palette, Activity"},
     "packages": {"title": "Packages", "path": "Settings, Packages"},
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
     "logs": {"title": "Logs and reporting a problem", "path": "Settings, Logs", "steps": (
@@ -1519,7 +1557,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "lock", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks",
+        "privacy", "security", "lock", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",

@@ -836,6 +836,13 @@ $("export-csv").addEventListener("click", () => downloadExport("csv"));
 
 $("chat-model-apply").addEventListener("click", applyChatModel);
 
+//: Stop the model (WORLD_CLASS_PLAN 28.1 rule 5): the server stops every
+//: answer, then asks the backend to unload it, and says what it did.
+$("chat-model-stop").addEventListener("click", async () => {
+  const result = await apiJson("/activity/model/stop", { method: "POST" }).catch((e) => ({ detail: e.message }));
+  $("chat-model-note").textContent = result.detail || "";
+});
+
 //: `change`, not `input`: a number box fires `change` when the value is
 //: committed (Enter, or focus leaving), which is the moment somebody means it.
 //: `input` would PUT once per keystroke while they type 16384.

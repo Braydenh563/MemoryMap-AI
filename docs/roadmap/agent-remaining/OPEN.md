@@ -1179,3 +1179,16 @@ The file is in [`../archive/agent-remaining/chatui-1010.md`](../archive/agent-re
 - Start SearXNG "takes a while": not reproduced (status 21 to 101 ms, chat.js:1031 `setWebSearxngRunning`); a search that failed should retry by itself once the engine answers.
 - Web link cards in chat and the web reader share no recipe with markdown.js:1258 `linkCard`; one recipe for both.
 - Citation hover, the composer and captions in retrieval (Brief 39) and the density items (Brief 41) are owned elsewhere.
+
+## Left by the trust73 agent (Brief 73, rules 4, 5 and 14, merged 2026-10-10)
+
+The file is in [`../archive/agent-remaining/trust73-1010.md`](../archive/agent-remaining/trust73-1010.md).
+
+- Rule 4 "says what happened, why": 24 literal error toasts still fall back to Open the logs rather than an action of their own (`tests/test_error_toasts.py` LOGS_ACTION_CAP 24): chat-attach.js 2548/2768/2956, library.js bulk failures (1846, 1892, 3360, 9967, 10106) and 4671, settings.js 3463/3508/3527, whiteboard.js 8335/8351/10359/14697, shell-reminders.js 1135/1143, settings-controls.js 320/393, update-dialogs.js 216, lightbox-view.js 753, note-properties.js 44, documents-code.js 1499. Each wants a Try again bound to its own function, and a why where "Couldn't X." has none.
+- Rule 4: the 338 `toast(e.message, true)` calls get the why from `plainHttpError` and the default Open the logs; a per-site retry is not built.
+- Rule 5 "a long-running task that does not register fails": the lint is a table of thread sites (`tests/test_activity.py` THREAD_SITES); request-bound long work outside the four streams, transcription and picture reading (a document import, a meeting summary, the jobs pool's model lane rows) registers only through `collect()` or not at all; `core/activity.track` is the one line to add.
+- Rule 5: a stopped answer ends its stream without a `done` line; how Chat, the Guide and the documents panel render that end is not verified in the page.
+- Rule 5: "the managed runner killed" has nothing to act on: the app starts no model runner (extras.py says llama-server is run by hand), so an OpenAI-compatible backend answers that it keeps its own model.
+- Rule 14: `/health` stays the launcher's open probe (instance_lock.py, __main__.py read it unauthenticated, and it answers on the LAN); the fields are on the signed-in `GET /debug/health` under `trust`. Moving them onto `/health` needs the owner's yes.
+- Rule 14: the Health block stays in Settings, About (where it was built, PLAN B9) rather than its own section; reach is the palette's Health (1) and Settings, About (2).
+- Not verified: Ollama's real `keep_alive: 0` and `/api/ps` (a slow fake in the agent's scratch dir stood in), the desktop window, WebKit.

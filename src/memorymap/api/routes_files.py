@@ -23,6 +23,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 
+from memorymap.core import activity
 from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -2741,7 +2742,8 @@ def _checked_engine(engine: str) -> str:
 def _local_text(path: Path, choice: str = "") -> str:
     """`ocr.extract_text`, naming the engine only when one was chosen (a fake
     in a test, or an older caller, takes the path alone)."""
-    return ocr.extract_text(path, choice) if choice else ocr.extract_text(path)
+    with activity.track("ocr", "Reading text from a picture", stoppable=False):
+        return ocr.extract_text(path, choice) if choice else ocr.extract_text(path)
 
 
 def _local_regions(path: Path, choice: str = "") -> dict | None:

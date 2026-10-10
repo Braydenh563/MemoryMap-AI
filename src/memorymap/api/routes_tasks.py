@@ -752,3 +752,89 @@ def shutdown() -> dict:
 
     threading.Timer(0.15, _stop).start()  # long enough for this reply to leave
     return {"stopping": True}
+
+
+# --- Activity: one list, one Stop (WORLD_CLASS_PLAN 28.1 rule 5) -------------
+
+#: `jobruns` kinds `collect()` already draws from their own state.
+_RUN_KINDS_IN_COLLECT = {"autonomous", "tidy", "embed-switch", "reindex"}
+
+
+def _model_state() -> dict:
+    """The chat model and whether the backend holds it in memory now."""
+    try:
+        provider = deps.get_ollama()
+        model = deps.get_model_manager().chat_model()
+    except Exception:  # noqa: BLE001  # no backend configured is a state, not a 500
+        return {"model": "", "loaded": None, "stoppable": False}
+    loaded_fn = getattr(provider, "loaded_models", None)
+    loaded = loaded_fn() if callable(loaded_fn) else None
+    is_loaded = None if loaded is None else any(name == model or name.split(":")[0] == model.split(":")[0] for name in loaded)
+    return {"model": model, "loaded": is_loaded, "stoppable": loaded is not None}
+
+
+def activity_rows() -> list[dict]:
+    """Every running job: `collect()`'s rows, the booked runs it does not
+    draw, and what registered with `core/activity.py`."""
+    from memorymap.core import activity, passes
+
+    rows: list[dict] = []
+    for task in collect():
+        rows.append({
+            "id": f"task:{task['kind']}:{task.get('name', '')}",
+            "kind": task["kind"],
+            "label": task["label"],
+            "detail": task.get("detail", ""),
+            "progress": task.get("progress"),
+            "started": task.get("started"),
+            "queued": bool(task.get("queued")),
+            "stoppable": bool(task.get("cancellable")),
+        })
+    covered = {row["kind"] for row in rows} | set(passes.PASS_KINDS) | _RUN_KINDS_IN_COLLECT
+    for live in jobruns.live():
+        if live["kind"] in covered:
+            continue
+        rows.append({
+            "id": f"run:{live['kind']}",
+            "kind": live["kind"],
+            "label": live["label"],
+            "detail": live.get("detail", ""),
+            "progress": live.get("progress"),
+            "started": live.get("started"),
+            "queued": False,
+            "stoppable": False,
+        })
+    rows.extend(activity.snapshot())
+    return rows
+
+
+@router.get("/activity")
+def list_activity() -> dict:
+    """What is running now, each with Stop where Stop does something, and
+    the chat model's state for "Stop the model"."""
+    return {"jobs": activity_rows(), "model": _model_state(), "now": time.time()}
+
+
+@router.post("/activity/{job_id:path}/stop")
+def stop_activity(job_id: str) -> dict:
+    """Stop one job by the id `/activity` gave it; `model` unloads the chat
+    model after stopping every answer that is using it."""
+    from memorymap.core import activity
+
+    if job_id == "model":
+        stopped = activity.stop_kind("generation")
+        state = _model_state()
+        if not state["model"]:
+            return {"status": "ok", "stopped": False, "detail": "No chat model is set, so there is nothing to stop."}
+        unload = getattr(deps.get_ollama(), "unload", None)
+        acted, detail = unload(state["model"]) if callable(unload) else (False, "This backend cannot unload its model.")
+        return {"status": "ok", "stopped": acted or bool(stopped), "detail": detail}
+    if job_id.startswith("task:"):
+        _, kind, name = (job_id.split(":", 2) + ["", ""])[:3]
+        if not kind or len(kind) > 40:
+            return {"status": "ok", "stopped": False, "detail": "That job has already finished."}
+        return cancel_task(CancelTaskBody(kind=kind, name=name))
+    if job_id.startswith("run:"):
+        return {"status": "ok", "stopped": False, "detail": "This job cannot be stopped part way; it will finish on its own."}
+    stopped, detail = activity.stop(job_id)
+    return {"status": "ok", "stopped": stopped, "detail": detail}

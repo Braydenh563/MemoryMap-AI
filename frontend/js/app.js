@@ -198,12 +198,6 @@ const STAGED_URL_PREFIX = "staged:";
 //: Save produces an id. See `handleFileUpload` for the whole arrangement.
 let captureStagedImages = [];
 
-//: The one place that knows the placeholder's shape, so the renderer and the
-//: rewrite cannot disagree about it.
-function stagedImageUrl(key) {
-  return `${STAGED_URL_PREFIX}${key}`;
-}
-
 function stagedImageByUrl(url) {
   if (typeof url !== "string" || !url.startsWith(STAGED_URL_PREFIX)) return null;
   const key = url.slice(STAGED_URL_PREFIX.length);
@@ -427,7 +421,10 @@ async function api(path, options = {}) {
     fetchOptions.signal = fetchOptions.signal || controller.signal;
   }
   let response;
-  try {
+  //: Rule 4: a network-level failure of a read (GET, HEAD) retries itself
+  //: twice, 300 then 600 ms apart, before anything is said; `api.retries`
+  //: counts them. A write is never resent: it may have arrived.
+  for (let attempt = 0; ; attempt++) try {
     response = await fetch(path, {
       ...fetchOptions,
       headers: {
@@ -441,7 +438,13 @@ async function api(path, options = {}) {
         ...fetchOptions.headers,
       },
     });
+    break;
   } catch (networkErr) {
+    if (attempt < 2 && networkErr instanceof TypeError && /^(GET|HEAD)$/.test(fetchOptions.method || "GET")) {
+      api.retries++;
+      await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+      continue;
+    }
     // fetch() itself threw: this is a real network failure (offline, CORS,
     // connection refused). Log it explicitly so it always appears in Logs.
     //: A timeout (`AbortSignal.timeout`, name "TimeoutError") is a slow
@@ -535,6 +538,7 @@ async function api(path, options = {}) {
   }
   return response;
 }
+api.retries = 0;
 // F5 (tests/test_no_bare_fetch.py)
 api.upload = (path, body, options) => api(path, { method: "POST", body, ...options });
 api.stream = api;
@@ -825,72 +829,6 @@ function showLockScreen(setupMode) {
   if (!setupMode && autoSessionOffered && !lockedByHand) resumeWithoutPassword();
 }
 
-async function submitLockForm() {
-  const password = $("lock-password").value;
-  const errorLine = $("lock-error");
-  errorLine.textContent = "";
-  const mode = $("lock-overlay").dataset.mode;
-  //: A new password needs 8 (SEC-17); one set before that still unlocks.
-  const floor = mode === "setup" ? 8 : 4;
-  if (password.length < floor) {
-    errorLine.textContent = `Use at least ${floor} characters.`;
-    return;
-  }
-  if (mode === "prompt") {
-    const prompt = lockPrompt;
-    if (!prompt) return;
-    try {
-      await prompt.submit(password);
-    } catch (error) {
-      errorLine.textContent = error.message;
-      return;
-    }
-    settleLockPrompt(true);
-    return;
-  }
-  try {
-    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    });
-    localStorage.setItem("token", body.token);
-    if (body.warning) toast(body.warning, "info");
-    vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
-    lockedByHand = false;
-    $("lock-password").value = "";
-    // **Give the focus back, or every single-key shortcut in the app is
-    // dead.** Hiding the overlay does not move focus off the field inside
-    // it, so `document.activeElement` stayed `#lock-password` for the whole
-    // session that followed. Every handler that (correctly) refuses to steal
-    // a keystroke while someone is typing, the whiteboard's V/H/P tool keys,
-    // its `n` and `/`, and the same guard elsewhere, therefore returned
-    // immediately on every press, until the reader happened to click some
-    // other focusable control. Found while testing the tool shortcuts: they
-    // did nothing at all from a freshly unlocked app.
-    $("lock-password").blur();
-    //: The overlay stays up as the opening curtain and fades over the
-    //: drawn page (`curtainShell`, `liftLockScreen`).
-    $("lock-btn").classList.remove("hidden");
-    // Signing in starts a session, and a session starts at the front of every
-    // tab: see `resetNavigationForNewSession`. Here as well as at load
-    // because the lock screen is an *overlay*, not a page: unlocking after an
-    // idle lock never reloads anything, so the load-time reset alone would
-    // leave every sub-tab exactly where it was hours ago. Called before
-    // `startApp()`, which is what reads the stored section back.
-    resetNavigationToDefaults();
-    setBusy($("lock-submit"), true, "Opening…");
-    const opening = startApp();
-    curtainShell(opening);
-    //: The step after setup (INBOX 663): a recovery key, offered once the
-    //: app is drawn, skippable. The password just chosen goes with it so
-    //: the offer does not ask for it again; account-recovery.js drops it
-    //: when the dialog closes.
-    if (mode === "setup") offerRecoveryKey(password);
-  } catch (error) {
-    errorLine.textContent = error.message;
-  }
-}
-
 //: **The containers that hold the user's own words**, cleared when the
 //: notebook locks. Enumerated explicitly rather than derived, because this is
 //: a privacy boundary and a reviewer should be able to read exactly what is
@@ -996,7 +934,7 @@ async function initAuth() {
   if (!status) {
     $("save-status").textContent =
       "Can't reach the MemoryMap server, check it's running, then refresh.";
-    toast("Can't reach the MemoryMap server. Is it running?", true);
+    toast("Can't reach the MemoryMap server. Is it running?", true, { action: ["Reload", () => location.reload()] });
     return;
   }
   if (status.setup_required) {
@@ -1886,6 +1824,7 @@ const LAZY_MODULES = {
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
   lightbox: ["/js/lightbox-view.js"],
+  activity: ["/js/activity-panel.js"],
   editConflict: ["/js/edit-conflict.js"],
   categories: ["/js/categories-panel.js"],
   //: The tag manager and the bulk tag dialog (INBOX 447): see tag-manager.js.

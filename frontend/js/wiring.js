@@ -985,7 +985,9 @@ $("status-notes").addEventListener("click", () => {
   showNotesSection("browse"); // or you land on whichever sub-tab was last open
 });
 $("status-reminders").addEventListener("click", () => switchTab("reminders"));
-$("status-task").addEventListener("click", () => openSettingsModal("tasks"));
+//: A running job's slot opens Activity's Running tab, where it can stop
+//: (rule 5, decision 70); its history stays in Settings, Background tasks.
+$("status-task").addEventListener("click", () => window.openActivity?.("running"));
 $("status-command").addEventListener("click", () => openPalette());
 $("status-agent")?.addEventListener("click", () => toggleAgentPalette());
 //: settings.js owns the Guide sheet and loads after this file, so the lookup

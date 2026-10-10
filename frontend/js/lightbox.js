@@ -285,7 +285,7 @@ function attachFileTo(entry) {
 async function attachFromLibrary(entry) {
   const images = await apiJson("/media", { silent: true }).catch(() => null);
   if (!images) {
-    toast("Couldn't load the Library gallery.", true);
+    toast("Couldn't load the Library gallery.", true, { action: ["Try again", () => attachFromLibrary(entry)] });
     return;
   }
   if (!images.length) {

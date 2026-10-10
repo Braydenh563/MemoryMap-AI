@@ -395,6 +395,27 @@ class OllamaClient(Provider):
         except requests.RequestException:
             return False
 
+    def loaded_models(self) -> list[str] | None:
+        """What Ollama holds in memory now (`/api/ps`); None when it cannot say."""
+        try:
+            response = requests.get(f"{self.base_url}/api/ps", timeout=2)
+            response.raise_for_status()
+            return [m.get("name") or m.get("model") or "" for m in response.json().get("models", [])]
+        except (requests.RequestException, ValueError):
+            return None
+
+    def unload(self, model: str) -> tuple[bool, str]:
+        """Stop the model (rule 5): `keep_alive: 0` asks Ollama to drop it
+        from memory now rather than after its idle timeout."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate", json={"model": model, "keep_alive": 0}, timeout=10
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            return False, "Ollama did not answer, so the model could not be stopped. Is Ollama running?"
+        return True, f"Stopped {model}: it is out of memory until the next question."
+
     def list_models(self) -> list[dict]:
         """Installed models (name, size, modified date, ...)."""
         try:

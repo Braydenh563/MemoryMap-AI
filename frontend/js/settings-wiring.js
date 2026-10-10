@@ -243,6 +243,73 @@ window.addEventListener("storage", (event) => {
   purgeLockedContent();
   showLockScreen(false);
 });
+//: The lock form's submit (moved from app.js, whose only caller is here).
+async function submitLockForm() {
+  const password = $("lock-password").value;
+  const errorLine = $("lock-error");
+  errorLine.textContent = "";
+  const mode = $("lock-overlay").dataset.mode;
+  //: A new password needs 8 (SEC-17); one set before that still unlocks.
+  const floor = mode === "setup" ? 8 : 4;
+  if (password.length < floor) {
+    errorLine.textContent = `Use at least ${floor} characters.`;
+    return;
+  }
+  if (mode === "prompt") {
+    const prompt = lockPrompt;
+    if (!prompt) return;
+    try {
+      await prompt.submit(password);
+    } catch (error) {
+      errorLine.textContent = error.message;
+      return;
+    }
+    settleLockPrompt(true);
+    return;
+  }
+  try {
+    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    localStorage.setItem("token", body.token);
+    if (body.warning) toast(body.warning, "info");
+    vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
+    lockedByHand = false;
+    $("lock-password").value = "";
+    // **Give the focus back, or every single-key shortcut in the app is
+    // dead.** Hiding the overlay does not move focus off the field inside
+    // it, so `document.activeElement` stayed `#lock-password` for the whole
+    // session that followed. Every handler that (correctly) refuses to steal
+    // a keystroke while someone is typing, the whiteboard's V/H/P tool keys,
+    // its `n` and `/`, and the same guard elsewhere, therefore returned
+    // immediately on every press, until the reader happened to click some
+    // other focusable control. Found while testing the tool shortcuts: they
+    // did nothing at all from a freshly unlocked app.
+    $("lock-password").blur();
+    //: The overlay stays up as the opening curtain and fades over the
+    //: drawn page (`curtainShell`, `liftLockScreen`).
+    $("lock-btn").classList.remove("hidden");
+    // Signing in starts a session, and a session starts at the front of every
+    // tab: see `resetNavigationForNewSession`. Here as well as at load
+    // because the lock screen is an *overlay*, not a page: unlocking after an
+    // idle lock never reloads anything, so the load-time reset alone would
+    // leave every sub-tab exactly where it was hours ago. Called before
+    // `startApp()`, which is what reads the stored section back.
+    resetNavigationToDefaults();
+    setBusy($("lock-submit"), true, "Opening…");
+    const opening = startApp();
+    curtainShell(opening);
+    //: The step after setup (INBOX 663): a recovery key, offered once the
+    //: app is drawn, skippable. The password just chosen goes with it so
+    //: the offer does not ask for it again; account-recovery.js drops it
+    //: when the dialog closes.
+    if (mode === "setup") offerRecoveryKey(password);
+  } catch (error) {
+    errorLine.textContent = error.message;
+  }
+}
+
 $("lock-submit").addEventListener("click", submitLockForm);
 //: The lock field's own show-password toggle (the browser's reveal vanished
 //: once the field lost focus). Shown text is never kept: a lock resets it.
@@ -1908,6 +1975,13 @@ document.addEventListener("paste", async (e) => {
 //: Images are deliberately *not* staged: an image in the middle of a
 //: paragraph is content, and it needs to be inline markdown at the point in
 //: the text where it was dropped, not an attachment at the bottom.
+
+//: The one place that knows the staged placeholder's shape, so the renderer
+//: and the rewrite cannot disagree about it (moved from app.js, its only users
+//: are here).
+function stagedImageUrl(key) {
+  return `${STAGED_URL_PREFIX}${key}`;
+}
 
 //: **Images wait for the note too now.**
 //:

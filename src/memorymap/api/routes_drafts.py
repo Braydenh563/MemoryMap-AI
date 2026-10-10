@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter
-from memorymap.core import deps
+from memorymap.core import activity, deps
 from memorymap.core.database import Entry
 
 router = APIRouter(prefix="/drafts", tags=["drafts"])
@@ -138,7 +138,7 @@ def compose_draft_stream(
             yield json.dumps(event) + "\n"
 
     return StreamingResponse(
-        lines(),
+        activity.tracked_stream("generation", "Drafting", lines()),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )

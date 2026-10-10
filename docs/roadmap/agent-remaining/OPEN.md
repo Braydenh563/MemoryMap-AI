@@ -1245,3 +1245,14 @@ The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](
 - Palette: only the reminder act has a row (`quickAddPaletteRow`); a note or meeting act and the search window chip (CHAT_PLAN section 1 row 7) wait for Brief 67's act registry. [f2-1010]
 - Timeline at 390: a long window chip wraps to two lines (39 px), no overflow. [f2-1010]
 - Not verified by either: a real model's path; a screen reader toggling a chip; a browser locale other than en-US; the full suite. [f1-1010, f2-1010]
+
+## Left by the F3 agent (Brief 67, the validators and the acts, merged 2026-10-10)
+
+- Palette rows from the registry: `acts.palette_rows` (src/memorymap/ai/acts.py) has no caller and `palette.js` still lists its own starters; a route and the palette drawing them (decision 53; Brief 68 row 7). [f3-1010]
+- A model's proposed act through the registry: `acts.propose` is tested but nothing calls it; the agent's write tools keep their own confirm path (`agent.py`). Brief 68 row 8. [f3-1010]
+- A reminder with no time said is guessed as tomorrow at 9, shown "(no time was said)" (`commands.py`, `when.resolve("tomorrow")`); decisions 48 and 50 say ask once. `acts.missing` and `validate.slots_missing` are in place; the reader fills the slot first. [f3-1010]
+- Ask draws no Confirm and Not right: `capture-ask.js` keeps `onGrounding`'s insights unread though the route sends them (decision 60 lists chat, Tidy and the dashboard; Ask is optional). [f3-1010]
+- The 390 px layout of the Tidy Patterns rows and the Chat pattern line is not measured (1440: Tidy row buttons 32 px, no overflow; Chat line 55 px). [f3-1010]
+- "Grounded in" says 4 notes while the support chip says "3 of 3 from your notes" on "tell me about golf" (seen in a sweep screenshot, not investigated). [f3-1010]
+- The decision 54 sum rule: "12 * 7 is 84." is read as its own "Read as" because it restates the question's sum; every other utility answer has a "Read as" line. [f3-1010]
+- Not verified: real-model answers through the validators (fake transport and the route test only); dark mode. [f3-1010]

@@ -346,10 +346,13 @@ Merged by 14:30Z: 35, 36 to 38, 39, 39b, 42 steps 1 to 4, 56, 72a, 72b, 73,
 74, 75, chatui, the filing decision 6 hold on every path, CodeQL (46 alerts on
 the day, all at cause); by 15:10Z also 65 (the one reader, `ai/recognise.py`
 and `GET /read`) and 66 (quick add on five surfaces, 56 of 60 before 65's
-fixes: re-run `scratchpad/ui-sweeps/quickadd.js`). Running: 67 (the realiser
-and the acts), 41 (density, WCAG 2.2), 42's remainder (docs42b, the OPEN rows)
-and 47 (search everywhere). Next: 68 after 67, then 69 to 71, 51, 34, 60. The
-PR merges when the gate, the sweeps and one full suite run are green.
+fixes: re-run `scratchpad/ui-sweeps/quickadd.js`) and 67 (the validators and
+the act registry; its sweep found every Chat send throwing on the pushed head
+after a ratchet commit took out a `let` another file read: a ratchet fix is
+checked in the browser, not only by the lint). Running: 68 (the surfaces, f4),
+41 (density, WCAG 2.2), 42's remainder (docs42b, the OPEN rows) and 47 (search
+everywhere). Next: 69 to 71, 51, 34, 60. The PR merges when the gate, the
+sweeps and one full suite run are green.
 
 **A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the
 lint set, not the ratchets: six agent squashes gated green and CI then failed

@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Scratchpad: 25 one-off sweep scripts and stencil PNG outputs whose findings are in this changelog deleted (the owner, 2026-10-10), 781 tracked files to 756 against the 766 cap (`tests/test_scratchpad_size.py`).
 - Whiteboard: a key press the desktop webview reports with no key name no longer throws in the browser log (whiteboard.js's two document-level keydown handlers return first; INBOX 763, `tests/test_keydown_without_key.py`).
 - Plans: eleven built briefs (1, 7, 11, 12, 15, 19 to 24) moved from SESSION_BRIEFS.md to HISTORY.md, 2,088 lines down to 1,695.
 - Plans: the companion's behaviour model (SESSION_BRIEFS Brief 34 second part, INBOX 752).

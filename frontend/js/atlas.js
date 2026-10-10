@@ -3247,10 +3247,22 @@ function atlasWatchFigure(figure) {
   }
   atlasFigureObserver.observe(figure);
 }
-document.addEventListener("visibilitychange", () => {
-  document.documentElement.toggleAttribute("data-atlas-hidden", document.hidden);
-  if (!document.hidden) for (const box of document.querySelectorAll(".atl-figure-box")) atlasTailWake(box);
-});
+//: **Nothing of Atlas runs behind the lock or in a hidden window** (Brief 34
+//: decision 7). The lock screen covers the page but left every loop running
+//: under it; `data-atlas-hidden` now stands for either, and the CSS and the
+//: tail's loop rest on it (`atlasTailFrame`).
+function atlasHiddenSync() {
+  const lock = document.getElementById("lock-overlay");
+  const hidden = document.hidden || Boolean(lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt");
+  if (hidden === document.documentElement.hasAttribute("data-atlas-hidden")) return;
+  document.documentElement.toggleAttribute("data-atlas-hidden", hidden);
+  if (!hidden) for (const box of document.querySelectorAll(".atl-figure-box")) atlasTailWake(box);
+}
+document.addEventListener("visibilitychange", atlasHiddenSync);
+if (typeof MutationObserver === "function" && document.getElementById("lock-overlay")) {
+  new MutationObserver(atlasHiddenSync).observe(document.getElementById("lock-overlay"), { attributes: true, attributeFilter: ["class", "data-mode"] });
+}
+atlasHiddenSync();
 
 //: A mood is one attribute: the CSS turns it into brows, lids, eyes,
 //: mouth, blush, tilt, squash and halo, and eases between them.
@@ -3490,6 +3502,8 @@ function atlasRestingMood() {
 //: pending ease of an act (`setAtlasMood`). Here, at boot, because
 //: `setAtlasMood` runs before atlas-motion.js (the blink and the rig) loads.
 const atlasState = { blinkTimer: 0, rigTrace: null, easeTimer: 0 };
+//: The mood drift's clock and memory (`atlasDrift`), here for the same reason.
+const atlasDriftState = { timer: 0, searchTimer: 0, recent: [], changedAt: 0 };
 
 
 //: `easeMs` turns a mood change into a slow cross-fade (`.atl-easing`, the
@@ -3502,6 +3516,7 @@ function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0, backEaseMs =
   const next = ATLAS_MOODS[mood] ? mood : "calm";
   clearTimeout(atlasMoodTimer);
   atlasMoodTimer = 0;
+  if (next !== atlasMoodNow) atlasDriftState.changedAt = Date.now();
   atlasMoodNow = next;
   if (!quiet && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue(ATLAS_MOODS[next].cue);
   const marks = [...document.querySelectorAll(".nm-atlas")];
@@ -3580,8 +3595,51 @@ function atlasOn(event) {
   } else if (event === "streak") {
     setAtlasMood("delighted", 3600);
     atlasPlay("spin", 900);
+  } else if (event === "done") {
+    setAtlasMood("proud", 2800, { quiet: true, backEaseMs: 1200 });
+  } else if (event === "found" || event === "nothing") {
+    //: A search as you type answers every key: only the last one in 1.5s.
+    clearTimeout(atlasDriftState.searchTimer);
+    atlasDriftState.searchTimer = setTimeout(() => {
+      if (atlasMoodNow === "calm" || atlasMoodNow === "curious") setAtlasMood(event === "found" ? "happy" : "confused", 2600, { quiet: true, backEaseMs: 1200 });
+    }, 1500);
   }
 }
+
+//: **A calm Atlas does not hold one face for minutes** (INBOX 742, the
+//: owner: "atlas doesnt seem to change emotions alot if at all"; 2026-10-10:
+//: "I barely get to see atlas change expression"). Measured before
+//: (companionmoods.js, three minutes as the companion with a save, an error
+//: and the chat box in them): see the commit. Its moods came only from app
+//: events, so a session of reading and browsing showed one face. Now, every
+//: 35 to 75 seconds while it is calm, seen and has not changed for 20
+//: seconds, it passes through a nearby mood for 4 to 8 seconds and eases
+//: back: curious, pleased, bashful, proud, fond, a laugh, a thought; at
+//: night drowsier ones. Never one of the last two, never on a hidden tab or
+//: behind the lock. One timer, one mood change a minute at most.
+const ATLAS_DRIFT_POOL = {
+  day: [["curious", 3], ["happy", 3], ["shy", 1.5], ["thinking", 1.2], ["proud", 1], ["love", 0.7], ["laughing", 0.5]],
+  night: [["sleepy", 2], ["curious", 1.5], ["happy", 1], ["shy", 1], ["love", 0.5]],
+};
+function atlasDrift() {
+  atlasDriftState.timer = setTimeout(atlasDrift, 35000 + Math.random() * 40000);
+  if (document.documentElement.hasAttribute("data-atlas-hidden") || atlasMoodNow !== "calm" || Date.now() - atlasDriftState.changedAt < 20000) return;
+  if (!document.querySelector(".nm-atlas")) return;
+  const hour = new Date().getHours();
+  const pool = ATLAS_DRIFT_POOL[hour >= 22 || hour < 6 ? "night" : "day"].filter(([mood]) => !atlasDriftState.recent.includes(mood));
+  let r = Math.random() * pool.reduce((sum, [, w]) => sum + w, 0);
+  let pick = pool[0][0];
+  for (const [mood, w] of pool) {
+    r -= w;
+    if (r <= 0) {
+      pick = mood;
+      break;
+    }
+  }
+  atlasDriftState.recent = [pick, ...atlasDriftState.recent].slice(0, 2);
+  setAtlasMood(pick, 4000 + Math.random() * 4000, { quiet: true, backEaseMs: 1200 });
+}
+atlasDriftState.timer = setTimeout(atlasDrift, 30000);
 
 //: A streak is celebrated once a day, from the dashboard's own count.
 function atlasStreak(days) {

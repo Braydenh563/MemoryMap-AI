@@ -148,6 +148,20 @@ with its owner named in the entry.
      order; the PR stays green and the docs current at each merge. Owner:
      HANDOVER "Now" (the night's queue).
 
+772. **Decision needed, found by the companion agent (Brief 34), 2026-10-10.**
+     Under the system's reduce-motion hint Atlas keeps its calm CSS loops (an
+     earlier decision, `08-consistency.css:5056`): 1,579 style recalcs a
+     minute. Decision 7 says reduced motion keeps poses without loops.
+     Recommendation, taken: decision 7 wins; the system hint and the app's
+     own Reduce setting both stop every loop and keep the pose. Owner: Brief
+     34 continues (companion2).
+
+773. **Decision needed, found by the companion agent (Brief 34), 2026-10-10.**
+     The 100 ms reaction-latency bar conflicts with the 1.5 s reaction
+     debounce the owner asked for ("atlas startles a lot"). Recommendation,
+     taken: both hold; the bar is measured from the end of the debounce to
+     the first changed frame. Owner: Brief 34 continues (companion2).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.

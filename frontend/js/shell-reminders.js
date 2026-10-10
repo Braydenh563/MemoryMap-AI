@@ -1200,6 +1200,8 @@ function reminderItem(reminder, label) {
       method: "PUT",
       body: JSON.stringify({ done: checkbox.checked }),
     });
+    //: A reminder ticked off: Atlas looks proud (INBOX 742).
+    if (checkbox.checked && typeof atlasOn === "function") atlasOn("done");
     loadReminders();
   });
   row.appendChild(checkbox);

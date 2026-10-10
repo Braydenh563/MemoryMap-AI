@@ -26,7 +26,7 @@ MORE_TOPICS: list[dict] = [
             "companion", "corner companion", "buddy", "mascot", "sidekick",
             "little character", "character in the corner", "call back",
             "call it back", "hide the companion", "show the companion",
-            "companion size", "the little guy",
+            "companion size", "the little guy", "rub the companion", "flip the companion",
         ),
         "body": (
             "The corner companion is a small character that lives on the page, "
@@ -39,7 +39,10 @@ MORE_TOPICS: list[dict] = [
             "parts of its own). Companion size is Small, Medium or Large, or "
             "drag the handle at its corner (double-click or double-tap the handle "
             "for Medium again). Drag it onto a panel and that page "
-            "keeps it there. Right-click it, or press Shift+F10 on it, for its "
+            "keeps it there. Move the pointer back and forth over it to rub it "
+            "and it leans into your hand; shake it up and down while you carry "
+            "it and it turns upside down, then lands a little dizzy (each has a "
+            "switch in Appearance, under What it does on its own). Right-click it, or press Shift+F10 on it, for its "
             "menu: Say hello, Enlarge, Stay here on every page, Let it choose "
             "its spot here, a size, Call back and reset its place, and Hide. "
             "Ctrl+Shift+Y shows or hides it from anywhere, and the command "

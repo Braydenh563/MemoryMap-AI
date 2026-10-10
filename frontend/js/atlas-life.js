@@ -248,7 +248,8 @@ function atlasTailFrame(tail, now) {
   tail.raf = 0;
   const { box, spec } = tail;
   if (!box.isConnected) return;
-  const live = atlasMotionOK(box) && !box.classList.contains("atl-off") && !document.hidden;
+  //: `data-atlas-hidden`: a hidden window, or the app locked (atlas.js).
+  const live = atlasMotionOK(box) && !box.classList.contains("atl-off") && !document.hidden && !document.documentElement.hasAttribute("data-atlas-hidden");
   //: The rings' and the planets' loops run and rest with it (`atlasRingLoops`).
   for (const anim of box.atlasLoops || []) if (live !== (anim.playState === "running")) live ? anim.play() : anim.pause();
   //: Thirty a second: each draw repaints the tail's layer.
@@ -257,7 +258,7 @@ function atlasTailFrame(tail, now) {
   atlasPropsFrame(box, live, tail.tick);
   //: And the chest's breath (`atlasBreathFrame`).
   atlasBreathFrame(box, live, now);
-  if (live && tail.tick % 2 && tail.drawn) {
+  if (live && tail.tick % 2 && tail.drawn && !tail.calm) {
     tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     return;
   }
@@ -300,9 +301,27 @@ function atlasTailFrame(tail, now) {
   const stretch = live ? () => 1 + 0.03 * Math.cos(tail.ph3) : null;
   atlasTailDraw(tail, (s) => atlasTailBend(s, p, live ? tail.ph : 0, live ? tail.ph2 : 0, drift, live ? tail.ph3 : 0), stretch);
   tail.drawn = true;
-  if (live) tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
+  //: **At rest in its corner, fifteen draws a second, not thirty** (Brief 34
+  //: decision 7: the companion must never cost the rest of the app).
+  //: Measured at 1440 on the dashboard (companionperf.js IDLE=1, a loaded
+  //: machine): the corner Atlas idle cost 35s of main thread a minute and
+  //: 1,399 layouts, against 0.5s and 3 with the companion off, most of it
+  //: this loop: a frame asked for sixty times a second to draw the tail's
+  //: paths on every other one. Resting, sitting, lying, thinking or low,
+  //: the tail moves on clocks of 1.7s and longer, so fifteen steps a second
+  //: read as the same sway, and a timer between them asks for no frames.
+  //: Walking, carried, gesturing, startled or glad, and always in the large
+  //: view, where it is the one thing on screen, it keeps the frame loop.
+  tail.calm = live && ATLAS_TAIL_CALM.has(tail.state) && !!box.closest("#nm-buddy") && !box.closest(".nm-viewer-figure");
+  if (live && tail.calm) {
+    tail.raf = setTimeout(() => {
+      tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
+    }, ATLAS_TAIL_CALM_MS);
+  } else if (live) tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
   else tail.at = 0;
 }
+const ATLAS_TAIL_CALM = new Set(["idle", "sit", "lie", "think", "sad"]);
+const ATLAS_TAIL_CALM_MS = 66;
 function atlasTailDraw(tail, bend, stretch) {
   const { pts, turn, segs } = atlasTailShape(tail.rest, bend, stretch);
   const d = atlasTailPaths(tail.spec, segs);

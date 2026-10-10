@@ -7,6 +7,11 @@
 // forced layouts (a Layout with a JS stack); from a CPU profile, the
 // functions with the most self time.
 // Env: KINDS (off,me,atlas), TAB (dashboard), OUT (json), MS (4000).
+// IDLE=1 is decision 7's idle-minute measure (Brief 34): no frame counter,
+// trace or profiler (each would cost frames of its own), MS of idle only,
+// reported per minute and per 10s. A kind may carry a state after a colon:
+// me:hidden (document.hidden, as a minimised window), me:locked (lockNow), me:reduced (the
+// system asks for less motion), me:animoff (Appearance, Avatar animation off).
 // Exits 1 when the companion adds more than 1ms of scripting per frame
 // while scrolling, more than 0.2ms per frame idle, or more than 120ms a
 // second of main thread idle, over the page with it off.
@@ -94,7 +99,54 @@ async function phase(page, cdp, browser, name, act) {
   };
 }
 
+async function idleRun() {
+  const rows = [];
+  for (const spec of KINDS) {
+    const [kind, state] = spec.split(':');
+    const { browser, page } = await boot({ viewport: { width: 1440, height: 900 }, reducedMotion: state === 'reduced' ? 'reduce' : undefined });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Performance.enable');
+    await page.evaluate(([k, st]) => {
+      localStorage.removeItem('nm-buddy-spots');
+      if (st === 'animoff') { localStorage.setItem('avatar-motion', 'off'); document.documentElement.dataset.avatarMotion = 'off'; }
+      const b = document.getElementById('avatar-buddy'); b.value = k; b.dispatchEvent(new Event('change', { bubbles: true }));
+    }, [kind, state || '']);
+    await page.evaluate((t) => revealTab(t), TAB);
+    await page.waitForTimeout(6000);
+    // Headless Chromium keeps a page in the background visible, so the
+    // app is told it is hidden the way a minimised window tells it.
+    if (state === 'hidden') {
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
+        Object.defineProperty(document, 'visibilityState', { get: () => 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await page.waitForTimeout(1500);
+    }
+    if (state === 'locked') { await page.evaluate(() => lockNow()); await page.waitForTimeout(1500); }
+    const hidden = await page.evaluate(() => document.hidden);
+    const a = await metrics(cdp);
+    const t0 = Date.now();
+    await page.waitForTimeout(MS);
+    const secs = (Date.now() - t0) / 1000;
+    const b = await metrics(cdp);
+    const d = (k) => b[k] - a[k];
+    const per = (v, s) => +(v * s / secs).toFixed(2);
+    const row = {
+      kind: spec, hidden, secs: +secs.toFixed(1),
+      scriptMsPerMin: per(d('ScriptDuration') * 1000, 60), taskMsPerMin: per(d('TaskDuration') * 1000, 60),
+      scriptMsPer10s: per(d('ScriptDuration') * 1000, 10), taskMsPer10s: per(d('TaskDuration') * 1000, 10),
+      layoutsPerMin: per(d('LayoutCount'), 60), stylesPerMin: per(d('RecalcStyleCount'), 60),
+    };
+    rows.push(row);
+    console.log(JSON.stringify(row));
+    await browser.close();
+  }
+  fs.writeFileSync(OUT, JSON.stringify(rows, null, 1));
+}
+
 (async () => {
+  if (process.env.IDLE) return idleRun();
   const results = [];
   for (const kind of KINDS) {
     const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });

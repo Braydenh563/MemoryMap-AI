@@ -186,6 +186,9 @@ async function finderSearch(append = false) {
   }
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
+  //: Atlas's face answers a search (INBOX 742: it barely changed): glad at
+  //: something found, puzzled at nothing; the last of a burst only (atlas.js).
+  if (finderKind !== "action" && typeof atlasOn === "function") atlasOn(hits.length ? "found" : "nothing");
   //: **A chip counts what this search found, not what the index holds.**
   //: `body.counts` is the index's size per kind (the route says so), and
   //: beside "3 results" a chip reading "Notes 46" was read as 46 matches.

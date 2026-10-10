@@ -102,10 +102,13 @@ function atlasLowerState(buddy, box) {
   if (["sad", "sleepy", "worried"].includes(mood) || has("nmb-drowsy")) return "sad";
   return "idle";
 }
+//: One query, read every frame of the tail's loop: `matchMedia` made anew
+//: each frame was 43ms of 1.3s of Atlas's idle script in a 15s profile.
+const ATLAS_REDUCE_QUERY = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
 function atlasMotionOK(box) {
   const root = document.documentElement;
   if (root.dataset.avatarMotion === "off") return false;
-  const reduced = root.dataset.motion === "reduced" || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const reduced = root.dataset.motion === "reduced" || !!ATLAS_REDUCE_QUERY?.matches;
   return !reduced || (root.dataset.buddyMotion === "full" && !!box.closest("#nm-buddy"));
 }
 function atlasRigAttach(box) {

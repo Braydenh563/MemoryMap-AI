@@ -421,6 +421,24 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (Brief 34, the companion, first round)
+
+The companion agent's Built block (standing order 10); the rest of Brief 34 runs on as companion2.
+
+- Rub and flip (INBOX 743): rub to love (Atlas love or shy), shaken while
+  carried to 180 degrees, landed upright and dizzy; switches under What it
+  does on its own. Driven at 1440 for You and Atlas, 0 page errors.
+- Right-click in the enlarged view (owner's list): verified, the menu opens at
+  the pointer with Companion, Atlas look and Size (fixed by chatui-1010).
+- Face changes in a 3-minute scripted session (companionmoods.js): Atlas 4 to
+  12, faces 2 to 5, longest still 78s to 63s; You 7 to 12, faces 4 to 6.
+- Idle cost (companionperf.js IDLE=1, ms of script a minute, loaded machine):
+  You 737 to 130, Atlas 3,780 to 2,050 (task 34,952 to 14,992, layouts 1,399
+  to 769), You locked 808 to 23, Atlas locked 1,886 to 39; hidden was
+  already gated (You 6, Atlas 16 to 17); off 32, then 8 and 16 (noise).
+- Atlas's ways of moving by distance: 2 to 6 (hop, float, leap, glide, walk,
+  poof); hop and leap driven for Atlas, landing on target.
+
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS B1 and B3 summaries)
 
 The two built summaries that sat under B1 and B3 in WORLD_CLASS_PLAN section 4, moved whole when the plan reached its 4,200-line cap (standing order 10).

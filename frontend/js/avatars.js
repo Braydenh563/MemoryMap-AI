@@ -3464,6 +3464,8 @@ const NMB_ACTIVITIES = [
   ["emotes", "Little emotes (a question mark, a sparkle, a sweat drop)", ["emote"]],
   ["nightcap", "A night cap when it naps", ["nightcap"]],
   ["wander", "Wander off now and then, and come back", ["wander"]],
+  ["rub", "Lean into a rub (the pointer back and forth over it)", ["rub"]],
+  ["flip", "Turn upside down when shaken while carried", ["flip"]],
 ];
 function nameMarkBuddyActivitiesOff() {
   try {
@@ -5325,6 +5327,8 @@ function nameMarkBuddyPanelMoving(el) {
 //: boxes (the figure drawn in HTML, its host) are the compositor's and are
 //: left alone.
 const NMB_TEMPO_MS = 50;
+//: When the hold's hands show (the CSS's `.nmb-hold { opacity: 1 }` rules).
+const NMB_HOLD_SHOWN = '[data-pose="hang"], [data-travel="climb"], .nm-buddy-dragging, .nmb-act-stretch, .nmb-act-yawn, .nmb-act-cheer, .nmb-act-wake, .nmb-act-startle';
 //: The long, still acts are rest, and paced as rest: a stance, a nap, a
 //: book, a seat. Full rate is for the short ones, where it is moving.
 const NMB_RESTING_ACTS = new Set(["lie", "read", "beanbag", "chair", "nap", "peek", "peekdown", ...Object.keys(NMB_STANCES)]);
@@ -5348,6 +5352,21 @@ function nameMarkBuddyTempo() {
     //: Nor Atlas's blink (atlas.js, `atlasBlink`, 320ms): stepped at
     //: 10Hz its lid jumped in three steps.
     nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.id !== "nmb-blend" && a.id !== "atl-blink" && a.playState !== "finished");
+    //: **Nor the hands it holds on by, while they are not shown** (Brief 34
+    //: decision 7). The hold's reach (`.nmb-hold`, shown only hanging,
+    //: carried or in a stretch, a yawn or a cheer) was stepped twenty times
+    //: a second on a figure sitting or standing: each step restyled the
+    //: drawing, and reading the next beat's play states paid for it (a 15s
+    //: profile of the corner Atlas at rest: 494ms in this function). Hidden
+    //: hands are paused where they are, and taken up again within a second
+    //: of showing.
+    if (!buddy.matches(NMB_HOLD_SHOWN)) {
+      nmbTempo.anims = nmbTempo.anims.filter((a) => {
+        if (!a.effect.target.closest(".nmb-hold")) return true;
+        if (a.playState === "running") a.pause();
+        return false;
+      });
+    }
     //: **What animates inside one of Atlas's layers goes at half that**
     //: (libtl-0926, from the Atlas agent's report): a mood's small effects
     //: (sparkles, the thinking dots, a drop), each step of which is a
@@ -5642,7 +5661,8 @@ function nameMarkBuddyCrossfade(buddy, dx, dy, ms) {
 //: "more and better transitions between positions"). Pure, so a test runs
 //: it: `dx`, `dy` from where it is going back to where it was, `size` its
 //: width, `roll` a draw in [0, 1).
-//:   a flyer          float (a lift and a drift), a glide when far
+//:   a flyer          a hop or a float for a step, a leap or a float across
+//:                    a change of level, a float, and the far ways when far
 //:   a small step     a hop, a shuffle or a scoot, one in three each
 //:   mostly up or down, within `NMB_FAR_POOF_SIZES`  climb: along its
 //:                    ledge, then up the edge hand over hand (down it first,
@@ -5655,7 +5675,16 @@ function nameMarkBuddyRoute(dx, dy, size, flies, poseChanged, roll) {
   const d = Math.hypot(dx, dy);
   const ax = Math.abs(dx);
   const ay = Math.abs(dy);
-  if (flies) return d > size * NMB_FAR_SIZES ? "glide" : "float";
+  //: A flyer (Atlas among them) only ever floated, or glided when far (the
+  //: owner, 2026-10-10: "the companion doesn't really have any variation in
+  //: how it moves around at various distances"): now a little bob of a hop
+  //: or a float for a step, a swooping leap across a change of level one
+  //: time in two, and far, the far ways (a glide, a walk on the level, a poof).
+  if (flies) {
+    if (d > size * NMB_FAR_SIZES) return "far";
+    if (d < size * NMB_HOP_SIZES && !poseChanged) return roll < 0.5 ? "hop" : "float";
+    return ay > 36 && roll < 0.5 ? "leap" : "float";
+  }
   if (d < size * NMB_HOP_SIZES && !poseChanged) return ["hop", "shuffle", "scoot"][Math.floor(roll * 3)];
   if (ay > 48 && ay > ax * 0.8 && d < size * NMB_FAR_POOF_SIZES) return "climb";
   if (ay > 36 && d < size * NMB_FAR_SIZES) return "leap";
@@ -6029,6 +6058,92 @@ function nameMarkBuddyPet() {
   //: action unless poked"): it is pleased, and wiggles only when idle.
   if (!nmb.act || NMB_FACELESS_ACTS.includes(nmb.act)) nameMarkBuddyAct("wiggle");
 }
+//: How often the pointer turned back along `axis` (0 is x, 1 is y) in the
+//: last `windowMs` of `samples` ([x, y, t]), a turn counted only after a
+//: leg of `travel` px or more: a rub over it, or a shake while it is
+//: carried (INBOX 743). A pass across it, or a hand's tremor, is none.
+function nameMarkBuddyStrokes(samples, axis, travel, windowMs) {
+  const last = samples[samples.length - 1];
+  if (!last) return 0;
+  let turns = 0;
+  let dir = 0;
+  let anchor = null;
+  for (const sample of samples) {
+    if (last[2] - sample[2] > windowMs) continue;
+    if (anchor === null) {
+      anchor = sample[axis];
+      continue;
+    }
+    const leg = sample[axis] - anchor;
+    if (Math.abs(leg) < travel) continue;
+    if (dir && Math.sign(leg) !== dir) turns += 1;
+    dir = Math.sign(leg);
+    anchor = sample[axis];
+  }
+  return turns;
+}
+//: **Rubbed** (INBOX 743, the owner: "more mouse interaction with the
+//: companion like rubbing its head"): the pointer back and forth over it,
+//: not pressing. It leans into the hand; awake, a fond face (Atlas fond or
+//: bashful) and now and then a word, and a sulk ends, since a rub is the
+//: apology a poke is not; asleep, it nuzzles and sleeps on. One transform
+//: on the face's box, at most once in six seconds.
+const NMB_RUB_LINES = ["Mm, that's nice.", "Hehe, that tickles.", "Right there.", "Again?"];
+function nameMarkBuddyRubbed(buddy) {
+  if (!buddy || nameMarkBuddyStill() || document.hidden || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging") || nameMarkBuddyActOff("rub")) return;
+  const now = Date.now();
+  if (now - (nmb.rubbedAt || 0) < 6000) return;
+  nmb.rubbedAt = now;
+  nmb.pettedAt = now;
+  nameMarkBuddyFeel(0.2);
+  nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.1);
+  const face = buddy.querySelector(":scope > .nm-buddy-face");
+  if (face && typeof face.animate === "function") {
+    face.animate([
+      { transform: "rotate(0deg)" }, { transform: "rotate(-6deg)", offset: 0.25 }, { transform: "rotate(4deg)", offset: 0.55 },
+      { transform: "rotate(-2deg)", offset: 0.8 }, { transform: "rotate(0deg)" },
+    ].map((frame) => ({ ...frame, transformOrigin: "50% 100%" })), { duration: 1400, easing: "ease-in-out" });
+  }
+  if (nameMarkBuddyAsleep(buddy)) return;
+  if (now < nmb.grumpyUntil) {
+    nmb.grumpyUntil = 0;
+    buddy.classList.remove("nmb-grumpy", "nmb-pout");
+    if (!buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;
+  }
+  if (isAtlasSeed(buddy.dataset.seed || "")) {
+    if (typeof setAtlasMood === "function") setAtlasMood(Math.random() < 0.6 ? "love" : "shy", 3200, { quiet: true, backEaseMs: 1200 });
+  } else {
+    nameMarkBuddyExpress("love", 3200);
+  }
+  if (Math.random() < 0.4) nameMarkSay(buddy, NMB_RUB_LINES[Math.floor(Math.random() * NMB_RUB_LINES.length)]);
+}
+//: **Flipped** (INBOX 743, the owner: "flipping it upside down??"): shaken
+//: up and down while carried, it turns over and hangs upside down from your
+//: hold, startled; let go, it turns the rest of the way round as it falls
+//: and lands dizzy for a moment. A transform on the face's box (the
+//: compositor's), nothing laid out; under Still motion it stays upright.
+function nameMarkBuddyFlip(buddy, on) {
+  const face = buddy?.querySelector(":scope > .nm-buddy-face");
+  nmb.flipAnim?.cancel();
+  nmb.flipAnim = null;
+  if (!face || typeof face.animate !== "function" || nameMarkBuddyStill()) return;
+  const frames = on
+    ? [{ transform: "rotate(0deg)" }, { transform: "rotate(200deg)", offset: 0.7 }, { transform: "rotate(180deg)" }]
+    : [{ transform: "rotate(180deg)" }, { transform: "rotate(372deg)", offset: 0.75 }, { transform: "rotate(360deg)" }];
+  const anim = face.animate(frames.map((frame) => ({ ...frame, transformOrigin: "50% 50%" })), { duration: on ? 420 : 560, easing: "ease-out", fill: on ? "forwards" : "none" });
+  const atlas = isAtlasSeed(buddy.dataset.seed || "") && typeof setAtlasMood === "function";
+  buddy.classList.toggle("nmb-flipped", on);
+  if (on) {
+    nmb.flipAnim = anim;
+    if (atlas) setAtlasMood("surprised", 1500, { quiet: true });
+    else nameMarkBuddyExpress("surprised", 8000);
+    return;
+  }
+  nameMarkBuddyFeel(-0.05);
+  if (atlas) setAtlasMood("confused", 2600, { quiet: true, backEaseMs: 1200 });
+  else nameMarkBuddyExpress("dizzy", 2600);
+  nameMarkSay(buddy, ["Whoa.", "Everything is spinning.", "The room is upside down."][Math.floor(Math.random() * 3)]);
+}
 const NMB_POOF_OUT_MS = 180;
 const NMB_POOF_IN_MS = 300;
 function nameMarkBuddyPoof(buddy, dx, dy, fromSeen) {
@@ -6195,8 +6310,40 @@ document.addEventListener("wheel", (event) => {
     return;
   }
 }, { passive: false });
+//: **Behind the lock it is not drawn at all**: the lock screen covers it,
+//: but its face's loops (a blink, a bounce) restyled the page under it
+//: 264 times a minute. Out of the layout while locked, its loops stop;
+//: back as it was when the lock lifts.
+function nameMarkBuddyLockSync() {
+  const band = document.getElementById("nm-buddy-band");
+  const lock = document.getElementById("lock-overlay");
+  if (band) band.style.display = lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt" ? "none" : "";
+}
+if (typeof MutationObserver === "function" && document.getElementById("lock-overlay")) {
+  new MutationObserver(nameMarkBuddyLockSync).observe(document.getElementById("lock-overlay"), { attributes: true, attributeFilter: ["class", "data-mode"] });
+}
+//: **The perch check runs when something could have changed** (Brief 34
+//: decision 7). It used to look every 1.5s whatever happened: each look
+//: walks the tab's controls (`nameMarkBuddyObstacles`), so a page nobody
+//: touched paid for forty of them a minute (companionperf.js IDLE=1: 737ms
+//: of script a minute with the generated companion on, against 32 off,
+//: most of it here), and it went on under the lock screen. Now it looks
+//: within 1.5s of input, a resize or a toast, and otherwise once in 10s in
+//: case the page changed by itself; never in a hidden window or under the
+//: lock.
+const NMB_CHECK_IDLE_MS = 10000;
+for (const type of ["pointerdown", "keydown", "wheel", "resize"]) {
+  (type === "resize" ? window : document).addEventListener(type, () => {
+    nmb.checkDue = true;
+  }, { passive: true, capture: true });
+}
 setInterval(() => {
-  if (!document.hidden && !nmb.away && document.getElementById("nm-buddy")) queueNameMarkBuddyCheck();
+  if (document.hidden || nmb.away || !document.getElementById("nm-buddy") || nameMarkBuddyCurtained()) return;
+  const now = Date.now();
+  if (!nmb.checkDue && !document.querySelector("#toast-box > :not(.hidden)") && now - (nmb.checkedAt || 0) < NMB_CHECK_IDLE_MS) return;
+  nmb.checkDue = false;
+  nmb.checkedAt = now;
+  queueNameMarkBuddyCheck();
 }, 1500);
 
 //: Where it is now still does: on screen, not lost, not held off its
@@ -7249,6 +7396,16 @@ function nameMarkBuddyTick() {
   //: its face, so it takes the place of the drift and the pick, not the mood.
   if (night && nameMarkBuddyReact("yawn")) return;
   if (Math.random() < 0.35) nameMarkBuddyDrift();
+  //: **Its arms do not hang the whole time it stays** (the owner,
+  //: 2026-10-10: "atlas's arm movements on both versions ... are basically
+  //: permanently in a downward arc except for when hanging"). Atlas's
+  //: three ways to hold its arms per mood (`data-atlas-variant`) changed
+  //: only with a new perch, so a settled Atlas held one for as long as it
+  //: stayed. Now and then a tick takes another, and the rig eases the arms
+  //: there with its springs.
+  else if (!nmb.act && nameMarkBuddyHasAtlas(buddy) && !/^(lie|curl)/.test(buddy.dataset.pose || "") && Math.random() < 0.45) {
+    buddy.dataset.atlasVariant = String(nameMarkBuddyPickVariant(3, Number(buddy.dataset.atlasVariant ?? -1)));
+  }
   nameMarkBuddyAct(nameMarkBuddyDecide());
 }
 
@@ -7343,7 +7500,7 @@ function nameMarkBuddyJoy(buddy) {
 //: lingering face brings.
 const NMB_EXPR_SOFTEN = { laughing: "happy", excited: "happy", starstruck: "happy", surprised: "calm", angry: "unimpressed" };
 const NMB_EXPR_EMOTE = { confused: "q", happy: "spark", excited: "spark", laughing: "spark", love: "spark", starstruck: "spark", nervous: "sweat" };
-const NMB_EXPR_EVENTS = ["happy", "laughing", "excited", "surprised", "serious", "sleepy", "unimpressed"];
+const NMB_EXPR_EVENTS = ["happy", "laughing", "excited", "surprised", "serious", "sleepy", "unimpressed", "love", "dizzy"];
 function nameMarkBuddyPrewarm(seed) {
   if (!seed || isAtlasSeed(seed) || (typeof characterRendererFor === "function" && characterRendererFor(seed))) return;
   const near = NMB_EXPR_NEAR[nameMood(seed).mood || ""] || NMB_EXPR_NEAR[""];
@@ -8677,6 +8834,7 @@ function nameMarkBuddyBuild() {
   shutter.appendChild(rider);
   band.appendChild(shutter);
   document.body.appendChild(band);
+  nameMarkBuddyLockSync();
   nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
   nameMarkBuddyToggles(buddy);
   if (typeof IntersectionObserver === "function") {
@@ -8751,9 +8909,17 @@ function nameMarkBuddyBuild() {
       nmb.mood.sociability = Math.max(0, nmb.mood.sociability - 0.05);
       buddy.classList.add("nm-buddy-dragging");
     }
+    //: Shaken up and down while carried, it turns over (`nameMarkBuddyFlip`).
+    (drag.shake ||= []).push([event.clientX, event.clientY, t]);
+    while (drag.shake.length > 2 && t - drag.shake[0][2] > 900) drag.shake.shift();
+    if (!drag.flipped && nameMarkBuddyStrokes(drag.shake, 1, 14, 900) >= 3 && !nameMarkBuddyActOff("flip")) {
+      drag.flipped = true;
+      nameMarkBuddyFlip(buddy, true);
+    }
     if (!dragFrame) dragFrame = requestAnimationFrame(follow);
   });
   const release = () => {
+    if (drag?.flipped) nameMarkBuddyFlip(buddy, false);
     if (drag?.moved) {
       cancelAnimationFrame(dragFrame);
       dragFrame = 0;
@@ -8880,8 +9046,9 @@ function nameMarkBuddyBuild() {
         buddy.dataset.turn = nmb.pointer && nmb.pointer[0] > nmb.x + NMB_W / 2 ? "l" : "r";
         setTimeout(() => {
           //: And it comes down through a pout, not straight back (unless it
-          //: has gone meanwhile: the pout would land on its successor).
-          if (!buddy.isConnected) return;
+          //: has gone meanwhile: the pout would land on its successor, or a
+          //: rub has made up already).
+          if (!buddy.isConnected || (nmb.rubbedAt || 0) > now) return;
           buddy.classList.remove("nmb-grumpy");
           nameMarkBuddyPout(buddy, 5000);
           if (buddy.dataset.turn && !buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;
@@ -8937,6 +9104,22 @@ function nameMarkBuddyBuild() {
   });
   face.addEventListener("pointerleave", unpet);
   face.addEventListener("pointerdown", unpet);
+  //: **Rubbed**: the pointer back and forth over it, not pressing
+  //: (`nameMarkBuddyRubbed`); in the large view too.
+  let rub = [];
+  face.addEventListener("pointermove", (event) => {
+    if (drag || event.buttons || event.pointerType === "touch") return;
+    const t = performance.now();
+    rub.push([event.clientX, event.clientY, t]);
+    while (rub.length > 2 && t - rub[0][2] > 1600) rub.shift();
+    if (rub.length >= 6 && nameMarkBuddyStrokes(rub, 0, 5, 1600) >= 4) {
+      rub = [];
+      nameMarkBuddyRubbed(buddy);
+    }
+  });
+  face.addEventListener("pointerleave", () => {
+    rub = [];
+  });
   //: **Its own menu**, on right-click, a long press, or from the keyboard
   //: (the Menu key or Shift+F10 while it has focus).
   //: Wherever it is opened from, it opens at the companion

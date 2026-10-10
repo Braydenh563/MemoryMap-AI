@@ -148,8 +148,11 @@ def test_ask_is_never_disabled_when_the_model_is_off():
         block = re.search(r'\sid="%s"[^>]*>' % never, MARKUP)
         assert block, never
         assert "data-needs-model" not in block.group(0), never
-    assert "dataset.needsModel =" not in APP
-    assert "setAttribute(\"data-needs-model\"" not in APP
+    # Other controls may be marked from script (the digest button, the skills
+    # trigger); Ask's three never are, so the check names them.
+    for line in APP.splitlines():
+        if "dataset.needsModel =" in line or 'setAttribute("data-needs-model"' in line:
+            assert not re.search(r"ask-btn|\bquestion\b|stop-btn|askBtn|stopBtn", line), line
 
 
 # --- the popup agent (CHAT_PLAN.md decision 9) --------------------------------

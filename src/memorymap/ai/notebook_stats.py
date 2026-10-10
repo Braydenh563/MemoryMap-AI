@@ -72,7 +72,11 @@ def _visible(query):
     them: a count that changes when a note is made private is a count that
     leaks what is in it.
     """
-    return query.where(Entry.deleted_at.is_(None), Entry.is_private.is_(False))
+    #: `is_board` too: a mind map is an `Entry` whose text is its title, and
+    #: "how many notes do I have" counted it (the Notes list does not).
+    return query.where(
+        Entry.deleted_at.is_(None), Entry.is_private.is_(False), Entry.is_board.is_(False)
+    )
 
 
 def _tags_of(raw: str) -> list[str]:

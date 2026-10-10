@@ -35,6 +35,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    inspect as sa_inspect,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -44,6 +45,7 @@ from sqlalchemy.orm import (
     sessionmaker,
     with_loader_criteria,
 )
+from sqlalchemy.orm.attributes import flag_modified
 
 
 def utcnow() -> datetime:
@@ -635,6 +637,36 @@ class LinkProps(TypeDecorator):
         except (crypto.DecryptionError, ValueError):
             return None
         return parsed if isinstance(parsed, dict) else None
+
+
+#: The columns whose change is a person editing a board or mind map. Anything
+#: else written to a board's `Entry` row (opening it bumps `access_count` and
+#: `last_opened_at`; the librarian stamps `filing_state`; a reindex or
+#: embedding pass touches bookkeeping) is the app's own and must not move the
+#: time the Library shows. Reported 2026-10-10: "idk why it says just now on
+#: the mindmap when I hadnt been on it". `Entry.updated_at` has
+#: `onupdate=utcnow`, so *any* UPDATE moved it; opening the map's entry from
+#: an Ask result was enough. Boards only: notes have `edited_at` for the same
+#: question, and `lexical_filing` keys its stamps on a note's `updated_at`.
+_BOARD_EDIT_COLUMNS = frozenset(
+    {"content", "board_settings", "tags", "category_id", "is_deleted", "deleted_at", "archived_at"}
+)
+
+
+@event.listens_for(Entry, "before_update")
+def _only_a_person_moves_a_boards_time(mapper, connection, target):  # noqa: ANN001
+    if not target.is_board:
+        return
+    state = sa_inspect(target)
+    changed = {attr.key for attr in state.attrs if attr.history.has_changes()}
+    if not changed or changed & _BOARD_EDIT_COLUMNS or "updated_at" in changed:
+        return
+    held = state.dict.get("updated_at")
+    if held is None:
+        return
+    # Naming the column in the UPDATE's SET list is what stops `onupdate`
+    # firing; setting it to its own value is not a change, so flag it.
+    flag_modified(target, "updated_at")
 
 
 class EntryLink(Base, WorkspaceMixin):

@@ -231,6 +231,9 @@ def _visible(*extra):
     return (
         Entry.is_deleted == False,  # noqa: E712
         Entry.is_private == False,  # noqa: E712
+        #: Boards and maps are `Entry` rows too, but these are the *note*
+        #: tools; the whiteboard tools read boards by their own queries.
+        Entry.is_board == False,  # noqa: E712
         *extra,
     )
 

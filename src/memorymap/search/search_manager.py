@@ -76,13 +76,20 @@ RECENT_FALLBACK_LIMIT = 10
 
 
 def recent_entries(session: Session, limit: int = RECENT_FALLBACK_LIMIT) -> list[Entry]:
-    """Most recent non-deleted, non-private entries, newest first."""
+    """Most recent non-deleted, non-private notes, newest first.
+
+    Every reader in this module returns *notes*: a board or mind map is an
+    `Entry` too (`Entry.is_board`), but its entry text is the one line
+    `# Title` and its words live on its objects, so listing it here put a map
+    in Ask's results as an Uncategorised note card with a similarity score
+    (reported 2026-10-10). Maps are found as maps by `search.engine`."""
     return list(
         session.scalars(
             select(Entry)
             .where(
                 Entry.is_deleted == False,  # noqa: E712
                 Entry.is_private == False,  # noqa: E712
+                Entry.is_board == False,  # noqa: E712
             )
             .order_by(Entry.created_at.desc(), Entry.id.desc())
             .limit(limit)
@@ -122,6 +129,7 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
     base = (
         Entry.is_deleted == False,  # noqa: E712
         Entry.is_private == False,  # noqa: E712
+        Entry.is_board == False,  # noqa: E712
     )
 
     def matching(require_all: bool, words: list[str] | None = None) -> dict[int, float]:
@@ -441,6 +449,7 @@ def semantic_search(
             select(Entry).where(
                 Entry.id.in_([eid for eid, _ in candidates]),
                 Entry.is_deleted == False,  # noqa: E712
+                Entry.is_board == False,  # noqa: E712
             )
         )
     }
@@ -759,6 +768,7 @@ def graph_expansion(
                 Entry.id.in_(neighbours),
                 Entry.is_deleted == False,  # noqa: E712
                 Entry.is_private == False,  # noqa: E712
+                Entry.is_board == False,  # noqa: E712
             )
         )
     )
@@ -790,6 +800,7 @@ def in_range(
     clauses = [
         Entry.is_deleted == False,  # noqa: E712
         Entry.is_private == False,  # noqa: E712
+        Entry.is_board == False,  # noqa: E712
     ]
     if since is not None:
         clauses.append(Entry.created_at >= datetime.combine(since, time.min))
@@ -1042,6 +1053,7 @@ def _category_notes(session: Session, category_id: int, limit: int) -> list[Entr
             .where(
                 Entry.is_deleted == False,  # noqa: E712
                 Entry.is_private == False,  # noqa: E712
+                Entry.is_board == False,  # noqa: E712
                 Entry.category_id == category_id,
             )
             .order_by(Entry.created_at.desc(), Entry.id.desc())

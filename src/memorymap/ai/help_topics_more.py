@@ -371,7 +371,7 @@ MORE_TOPICS: list[dict] = [
             "or organise notes, each one switches on a feature that is "
             "otherwise off, downloaded from PyPI to this machine. Bundles "
             "group the packages one kind of work needs (Documents, Vision, AI, "
-            "Voice, Desktop, Code): a bundle's Install fetches what is "
+            "Voice, Desktop, Code, Languages): a bundle's Install fetches what is "
             "missing, and its ⋮ reinstalls or removes them all. Tick packages "
             "to install, reinstall or remove several at once from the bar "
             "above the list; they run one after another and one that fails "
@@ -761,6 +761,24 @@ MORE_TOPICS: list[dict] = [
             "show a running count as you type."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
+        "id": "translate-offline",
+        "keywords": (
+            "translate this", "translate offline", "offline translation", "translate without a model",
+            "translate to spanish", "bergamot", "ai free translation",
+        ),
+        "body": (
+            "Select a passage in a note, a document or a reading and run "
+            "Translate this from the command palette (Ctrl+K): it turns "
+            "English into Spanish on this computer, with no model, in about a "
+            "second, and Copy or Replace the selection puts it to use. With "
+            "nothing selected it takes the whole editor you were in. It needs "
+            "Translate offline, a 27 MB download in Settings, Packages "
+            "(Languages); until then the row says so and opens that page. "
+            "Other languages: the Writing room translates with your model."
+        ),
+        "badge": {"label": "Packages", "section": "extras"},
     },
     {
         "id": "insert-template",
@@ -1651,6 +1669,7 @@ TOPIC_META: dict[str, dict] = {
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
     "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
+    "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
     "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},
     "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
     "install-app": {"title": "Install as an app", "path": "Settings, About, Install as an app"},
@@ -1791,7 +1810,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Writing notes", (
         "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
-        "write-with-atlas", "translate", "extract-notes", "voice", "live-captions", "meetings",
+        "write-with-atlas", "translate", "translate-offline", "extract-notes", "voice", "live-captions", "meetings",
     )),
     ("Filing, tags and categories", (
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",

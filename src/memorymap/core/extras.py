@@ -633,6 +633,84 @@ EXTRAS: tuple[Extra, ...] = (
             ),
         ),
     ),
+    #: **The offline translator (WORLD_CLASS 28.5 row 10, Brief 83).** The
+    #: owner, 2026-10-10: "What about ai free translations?" Bergamot, the
+    #: engine behind Firefox's translations (marian-nmt compiled to
+    #: WebAssembly), and one language pair, English to Spanish. The engine
+    #: runs in a Web Worker in the page (`frontend/js/translate-worker.js`)
+    #: under the app's own policy, which already allows WebAssembly for the
+    #: grammar checker; these files are served from the data dir by
+    #: `api/routes_translate.py`, never from the repository.
+    #:
+    #: Licences, read 2026-10-10: the engine is MPL-2.0 (the repository's
+    #: LICENSE, downloaded with it, and the npm package's `license`); the
+    #: model files are MPL-2.0 (`mozilla/translations` README). The WASM
+    #: carries marian-nmt and intgemm (MIT), sentencepiece, ruy and
+    #: ssplit-cpp (Apache-2.0); docs/THIRD_PARTY.md lists them.
+    #:
+    #: Measured (Brief 83, Node 22 and Chromium): a 94-word paragraph in
+    #: 340 to 550 ms on one thread; the first call pays about 1.4 s to load.
+    #:
+    #: **To bump:** the engine is `@browsermt/bergamot-translator` on npm
+    #: (`npm view @browsermt/bergamot-translator dist`, then `sha256sum` the
+    #: tarball); a model's three files and their sizes are in the registry
+    #: at `mozilla/translations`' `db/models.json`. A new pair is a new
+    #: entry here and a row in `ai/translate.PAIRS`.
+    Extra(
+        id="translate",
+        label="Translate offline (Bergamot, English to Spanish)",
+        short_label="the translator",
+        enables="Translate this, in the command palette: a passage of a note, "
+        "a document or a reading turned into Spanish on this computer in "
+        "about a second, with no model and nothing sent anywhere.",
+        packages=("bergamot-translator 0.4.9", "en-es model"),
+        module="",
+        size="~27 MB download, 42 MB on disk",
+        caveat="A small on-device model: good for the gist and a first draft, "
+        "not for legal or medical text. English to Spanish only for now.",
+        kind="download",
+        version="0.4.9-enes-1",
+        licence="MPL-2.0",
+        downloads=(
+            Download(
+                url="https://registry.npmjs.org/@browsermt/bergamot-translator/-/"
+                "bergamot-translator-0.4.9.tgz",
+                sha256="9011be93222d839d7448ffdf00549d53ce8f541fd782ffc79779d1756397c41f",
+                size=1852075,
+                unpack="tar",
+                members=tuple(
+                    (f"package/worker/{name}", name)
+                    for name in ("bergamot-translator-worker.js", "bergamot-translator-worker.wasm")
+                ),
+            ),
+            Download(
+                url="https://raw.githubusercontent.com/browsermt/bergamot-translator/v0.4.5/LICENSE",
+                sha256="1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+                size=16725,
+                unpack="file",
+                members=(("", "LICENSE"),),
+            ),
+            *(
+                Download(
+                    url="https://storage.googleapis.com/moz-fx-translations-data--303e-prod-"
+                    "translations-data/models/en-es/retrain_hr_fix_names_CUAEXUHoQum_cFqh-"
+                    f"ZAryw/exported/{name}.gz",
+                    sha256=sha,
+                    size=size,
+                    unpack="gzip",
+                    members=(("", name),),
+                )
+                for name, sha, size in (
+                    ("model.enes.intgemm.alphas.bin",
+                     "fe4025fde24a4d5f80533cfb7acd53d0eb7f194dfc2d8f427f0d4563cfb6ac06", 22698792),
+                    ("lex.50.50.enes.s2t.bin",
+                     "37a067966f28ff0ba430fddb7412bc5b07afa2cd2fd5a46d9ad74045a1a06380", 2265250),
+                    ("vocab.enes.spm",
+                     "ae2760c04bc6eb5362b16e5c2f145c376bb04bac421c33ba3c0766805e6f03b3", 409312),
+                )
+            ),
+        ),
+    ),
     Extra(
         id="localllm",
         label="Built-in model runner (llama-cpp-python)",
@@ -766,6 +844,12 @@ BUNDLES: tuple[Bundle, ...] = (
         label="Desktop",
         about="MemoryMap in its own window, with a tray icon on Windows.",
         extras=("desktop",),
+    ),
+    Bundle(
+        id="languages",
+        label="Languages",
+        about="Translate a passage into Spanish on this computer, with no model.",
+        extras=("translate",),
     ),
     Bundle(
         id="code",

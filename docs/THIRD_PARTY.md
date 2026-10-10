@@ -30,6 +30,22 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 | docx | `docx/` | 9.9.0 (`dist/index.iife.js` minified) | MIT (`docx/LICENSE`) | https://github.com/dolanmiu/docx | writing a document as .docx (Download as Word), loaded on demand by `documents-word.js` |
 | English word list | `wordlist/` | built by `wordlist/build.sh` | the English Speller Database licence (`wordlist/LICENSE`) | https://wordlist.aspell.net | the documents editor's spelling check |
 
+## Optional downloads (Settings, Packages)
+
+Never in the repository: each is fetched on an Install press from the pinned
+address in `src/memorymap/core/extras.py`, checked against its sha256, and
+unpacked into `<data dir>/extras/<id>/` with its licence beside it.
+
+| Library | Files | Version | Licence | Source | Used by |
+| --- | --- | --- | --- | --- | --- |
+| Bergamot translator | `extras/translate/bergamot-translator-worker.js`, `.wasm` | npm `@browsermt/bergamot-translator` 0.4.9 (engine v0.4.5+4917c11) | MPL-2.0 (`extras/translate/LICENSE`, downloaded with it) | https://github.com/browsermt/bergamot-translator | Translate this (`frontend/js/translate-worker.js`), WORLD_CLASS_PLAN 28.5 row 10 |
+| Firefox Translations model, English to Spanish | `extras/translate/model.enes.intgemm.alphas.bin`, `lex.50.50.enes.s2t.bin`, `vocab.enes.spm` | `retrain_hr_fix_names` export, 2026 registry | MPL-2.0 (the `mozilla/translations` README) | https://github.com/mozilla/translations | the same |
+| marian-nmt (inside the Bergamot WASM) | compiled into the `.wasm` | browsermt fork, as pinned by bergamot-translator v0.4.5 | MIT | https://github.com/browsermt/marian-dev | the translation engine |
+| intgemm (inside the Bergamot WASM) | compiled into the `.wasm` | as pinned by marian-dev | MIT | https://github.com/kpu/intgemm | its 8-bit matrix routines |
+| SentencePiece (inside the Bergamot WASM) | compiled into the `.wasm` | as pinned by marian-dev | Apache-2.0 | https://github.com/google/sentencepiece | splitting text into the model's word pieces |
+| ruy (inside the Bergamot WASM) | compiled into the `.wasm` | as pinned by marian-dev | Apache-2.0 | https://github.com/google/ruy | matrix routines |
+| ssplit-cpp (inside the Bergamot WASM) | compiled into the `.wasm` | as pinned by bergamot-translator v0.4.5 | Apache-2.0 | https://github.com/browsermt/ssplit-cpp | splitting a passage into sentences |
+
 ## Board library (`frontend/board-library/`)
 
 | Library | Files | Version | Licence | Source | Used by |

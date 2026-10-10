@@ -45,6 +45,7 @@ URL.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import ipaddress
 import json
@@ -80,7 +81,9 @@ class Download:
     sha256: str
     #: The file's size in bytes. A download that grows past it is cut off.
     size: int
-    #: "file" (written as it is), "tar" (any compression tarfile reads) or "zip".
+    #: "file" (written as it is), "tar" (any compression tarfile reads), "zip",
+    #: or "gzip" (one gzipped file, written decompressed: the translator's
+    #: model files are published that way).
     unpack: str
     #: (member in the archive, name to write it as). For "file" the member is
     #: "" and there is one pair.
@@ -92,7 +95,7 @@ class Download:
     inspect_imports: bool = False
 
     def __post_init__(self) -> None:
-        if self.unpack not in {"file", "tar", "zip"}:
+        if self.unpack not in {"file", "tar", "zip", "gzip"}:
             raise ValueError(f"unknown unpack step {self.unpack!r}")
         if not self.members:
             raise ValueError("a download names at least one file to keep")
@@ -343,7 +346,15 @@ def _unpack(download: Download, fetched: Path, staging: Path) -> list[str]:
         fetched.replace(staging / name)
         return [name]
     try:
-        if download.unpack == "tar":
+        #: Decompressed only after `_fetch` checked the hash of what was
+        #: downloaded, so what is inflated here is the pinned file and no
+        #: other: its unpacked size is whatever that one file holds.
+        if download.unpack == "gzip":
+            name = download.members[0][1]
+            with gzip.open(fetched, "rb") as handle, open(staging / name, "wb") as out:
+                shutil.copyfileobj(handle, out)
+            written.append(name)
+        elif download.unpack == "tar":
             with tarfile.open(fetched, "r:*") as archive:
                 for member, name in download.members:
                     info = archive.getmember(member)
@@ -361,7 +372,7 @@ def _unpack(download: Download, fetched: Path, staging: Path) -> list[str]:
                     written.append(name)
     except KeyError as exc:
         raise DownloadFailed("missing_member") from exc
-    except (tarfile.TarError, zipfile.BadZipFile, EOFError) as exc:
+    except (tarfile.TarError, zipfile.BadZipFile, gzip.BadGzipFile, EOFError) as exc:
         raise DownloadFailed("bad_archive") from exc
     finally:
         fetched.unlink(missing_ok=True)

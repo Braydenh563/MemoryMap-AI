@@ -343,6 +343,7 @@ in Ollama and pick it in the same place.
 | Read images without Tesseract (RapidOCR) | A second local reader, nothing else to install; used when Tesseract isn't ready |
 | Run Python files (Pyodide) | Runs a `.py` document in a sandbox; a pinned download that works offline |
 | Tool calling without Ollama (needle) | A small built-in model that picks tools when no model server is running; a pinned download that works offline |
+| Translate offline (Bergamot, English to Spanish) | Translate this, in the command palette, with no model; a pinned 27 MB download that works offline |
 
 ## Privacy
 

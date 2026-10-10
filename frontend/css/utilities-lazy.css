@@ -93,3 +93,24 @@
 .stats-more {
   margin-top: var(--space-3);
 }
+
+/* Translate this (translate.js, `LAZY_MODULES.translate`): the translation
+   and the passage, each its own block, the passage quieter. A long pair
+   scrolls with the sheet's card, one scroller, not one per block. */
+.translate-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.translate-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.translate-result {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}

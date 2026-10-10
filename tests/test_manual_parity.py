@@ -122,6 +122,7 @@ UTILITIES = {
     "stop the clock": ("utility-tools.js", '$("status-timer").addEventListener("click", stopUtilityClock);', "the status bar's timer chip", "timer"),
     "count words": ("utility-tools.js", "function countSelection(caught)", "the palette's Count words", "count-words"),
     "live captions": ("captions.js", "function startLiveCaptions()", "the palette's Live captions", "live-captions"),
+    "translate this": ("translate.js", "async function translateCaught(caught)", "the palette's Translate this", "translate-offline"),
     "insert template": ("app-palette.js", "label: `ph:note-blank Insert template: ${template.name}`,", "the palette's insert template", "insert-template"),
 }
 

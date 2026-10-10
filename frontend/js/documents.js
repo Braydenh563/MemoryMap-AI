@@ -12044,7 +12044,8 @@ function docHistoryRowMenu(entry) {
   if (entry.name) {
     items.push(makeMenuItem("ph:bookmark-simple Remove the name", "Keep the version, without its name", () => docSetVersionName(entry, "")));
   }
-  if (typeof docIdeCodeView === "function" && docIdeCodeView()) {
+  //: The code view, as docIdeCodeView reads it; its commands call documents-ide.js directly too.
+  if (docCmView && currentDoc && !docFileType().previewable) {
     items.push(
       makeMenuItem("ph:git-diff Compare in the editor", "Show this version against the editor's text, change by change", () => {
         $("doc-history-dialog").close();

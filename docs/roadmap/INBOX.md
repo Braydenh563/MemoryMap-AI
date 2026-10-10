@@ -177,6 +177,17 @@ with its owner named in the entry.
      the graph used to be, theres no movement to it now :(" and "when the
      graph readjusts it just appears there :(". The cluster's bubbles still
      overlap; outliers sit far out on long links.
+776. **UI, the owner 2026-10-10 22:05Z, three screenshots.** "these
+     highlighted borders are cut off. is agent available now when the ai
+     isnt running?? or should the toggle option be disabled?? also on the
+     submenu bars, can you improve the design of the hover state a bit??
+     like add a grey or sub colour line when hovering over other ones that
+     arent active??" Shots: the top tab bar's focus ring on Graph clipped
+     top and bottom; the chat composer's Ask / Agent toggle with Agent on;
+     the Notes sub-tabs (Your notes, Capture, Writing room, Ask, Questions).
+777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation
+     on the skeleton loaders is very fast and not smooth or pleasing to the
+     eye in how fast and jittery it is"
 
 ## Placed (last 20, newest first)
 

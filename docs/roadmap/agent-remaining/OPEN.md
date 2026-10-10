@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the translate83 agent (Brief 83, merged 2026-10-10)
+
+Detail: [translate83-1010.md](../archive/agent-remaining/translate83-1010.md).
+
+- Live translated captions (28.5 row 10, "for ... captions") not built: Brief 82 landed mid-build.
+- Only English to Spanish: more pairs are a download block plus a PAIRS row, and the sheet then needs a pair picker.
+- The document menu's "Translate this passage..." still hands the passage to chat, not the offline engine.
+- Not verified: under 1 s through the sheet on an unloaded machine; a real network install inside the app; WebView2 and Safari.
+
 ## Left by the docs76 agent (Brief 76, merged 2026-10-10)
 
 Detail: [docs76-1010.md](../archive/agent-remaining/docs76-1010.md).

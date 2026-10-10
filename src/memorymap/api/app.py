@@ -85,6 +85,7 @@ from memorymap.api import (
     routes_timeline,
     routes_search,
     routes_tags,
+    routes_translate,
     routes_update,
     routes_captions,
     routes_voice,
@@ -1259,6 +1260,11 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(run_sandbox.router)
     # A long run's row in Activity (DOCUMENTS_PLAN 25 row 9): locked.
     app.include_router(run_sandbox.jobs_router, dependencies=locked)
+    # The offline translator (WORLD_CLASS_PLAN 28.5 row 10): what is
+    # installed is behind the unlock; the engine and model files are open,
+    # like the Python runtime's, because a Worker's fetch carries no token.
+    app.include_router(routes_translate.router, dependencies=locked)
+    app.include_router(routes_translate.files_router)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_webclip.router, dependencies=locked)

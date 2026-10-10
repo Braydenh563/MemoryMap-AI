@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Translate this, in the command palette: a selected passage of a note, a document or a reading turned from English into Spanish on this computer with no model, then copied or put in place of the selection (Ctrl+Z undoes it). It needs "Translate offline", a 27 MB download in Settings, Packages (new bundle Languages); until it is installed the row says so and opens that page.
+
 - Reminders: every weekday, every 2 weeks, every other Monday and the last Friday of the month repeat as said, and "1 day before" or "an hour before" adds an early alert; quick add shows both as chips, and ticking a repeating reminder moves it to its next time (Brief 85).
 - Reminders fire on the minute they are due (they could be up to a minute late), and an early alert fires once, ahead of its reminder.
 - Reminders: adding, completing and editing one undo with Ctrl+Z, like deleting and snoozing already did.

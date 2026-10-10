@@ -1868,6 +1868,8 @@ const LAZY_MODULES = {
   utilities: ["/js/utility-tools.js"],
   //: Live captions (captions.js's header; Brief 82).
   captions: ["/css/captions-lazy.css", "/js/captions.js"],
+  //: Translate this, the offline translator's sheet (translate.js's header).
+  translate: ["/css/utilities-lazy.css", "/js/translate.js"],
   //: The search box, Find anything, and its saved searches (search.js's header).
   search: ["/css/search-lazy.css", "/js/search.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
@@ -2194,6 +2196,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
+  translate: ["translateCaught"],
   meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",

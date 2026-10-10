@@ -164,7 +164,7 @@ def test_every_download_is_pinned_https_with_a_sha256_and_a_size():
             assert download.url.startswith("https://"), download.url
             assert re.fullmatch(r"[0-9a-f]{64}", download.sha256), download.url
             assert download.size > 0, download.url
-            assert download.unpack in {"file", "tar", "zip"}, download.url
+            assert download.unpack in {"file", "tar", "zip", "gzip"}, download.url
             for _member, name in download.members:
                 assert re.fullmatch(r"[A-Za-z0-9._-]+", name) and name not in {".", ".."}
     assert found >= 3

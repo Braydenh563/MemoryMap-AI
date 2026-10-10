@@ -117,7 +117,6 @@ function renderChatContextPop(stats, used, window, pct) {
 //: file when the pill first shows, so the popover is wired before it can be
 //: pressed. Its stylesheet is fetched from here rather than listed in
 //: `LAZY_MODULES`: app.js is at its own gzip cap (APP_JS_CAP).
-lazyScript("/css/usage-lazy.css");
 wireHelpPopover($("chat-context"), $("chat-context-pop"));
 $("chat-context-compact").addEventListener("click", () => {
   closeHelpPopovers();

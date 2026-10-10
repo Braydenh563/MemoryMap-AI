@@ -74,13 +74,6 @@ with its owner named in the entry.
      its place.
      Owner: DOCUMENTS_PLAN 23 and Brief 42 (the p5 kind, code completion on code documents); Briefs 69 to 71 for the IDE.
 
-736. **The owner, 2026-10-06, verbatim**, with a code document's Output panel (Run
-     again, Stop, Clear, Close; one line of output under a tall empty pane): "I cant
-     adjust the height of this output bottom panel". A drag handle on its top edge
-     (the sidebar resize recipe, keyboard steps too, height kept per document);
-     also seen: Stop stays enabled after "Finished."
-     Owner: DOCUMENTS_PLAN 23, Brief 42 (output panel height, Stop state) and Brief 69 (run, preview and test).
-
 737. **The owner, 2026-10-06, verbatim**: "can the debugging run for other languages
      as well?? also error messages, syntax errors, code suggestions and more". Then:
      "are there any more repos we can vendor??" Today: JS runs (sandboxed), syntax

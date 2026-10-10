@@ -2503,6 +2503,7 @@ function docRunPanel(view) {
   log.setAttribute("aria-label", "Output");
   body.append(frame, log);
   dom.append(head, body);
+  if (typeof docIdeRunGrip === "function") docIdeRunGrip(dom, view);
   docRun = { view, dom, frame, log, status, stopButton, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false };
   return {
     dom,
@@ -2714,9 +2715,19 @@ window.addEventListener("message", (event) => {
     docRunArmTimeout(docRun.id);
     return;
   }
+  //: INBOX 736: Stop stayed enabled after "Finished.". A script is over
+  //: when its top level is and no timer of its own is pending (the worker
+  //: counts them and says `idle` when the last one goes); a page stays live.
   if (data.t === "done") {
     clearTimeout(docRun.timer);
-    if (docRun.running) docRunSetStatus(docRun.dom.classList.contains("is-page") ? "Page loaded." : "Finished.", true);
+    if (!docRun.running) return;
+    if (docRun.dom.classList.contains("is-page")) docRunSetStatus("Page loaded.", true);
+    else if (data.pending > 0) docRunSetStatus("Waiting on timers", true);
+    else docRunSetStatus("Finished.", false);
+    return;
+  }
+  if (data.t === "idle") {
+    if (docRun.running) docRunSetStatus("Finished.", false);
     return;
   }
   if (data.t !== "log") return;
@@ -2776,6 +2787,8 @@ function docCompletionExtras(CM, type) {
     docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
+    //: documents-ide.js: the minimap, the merge view, Ctrl+Shift+M.
+    typeof docIdeExtensions === "function" ? docIdeExtensions(CM, type) : [],
     CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),
   ];
 }

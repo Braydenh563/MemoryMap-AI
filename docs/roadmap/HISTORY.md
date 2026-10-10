@@ -46631,6 +46631,13 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      (a class on the card, removed on the next step), and a sweep checks every
      tour step's target is visible and non-empty.
      Owner: (a) the carddate agent (note-cards.js and the entry CSS); (b) and (c) CHAT_PLAN fact layer (lines 554 and 649, the question kind) and Brief 39; (d) Brief 37 (tour handoff, the blank card, the hover-only step; the hover row added 2026-10-10).
+736. **The owner, 2026-10-06, verbatim**, with a code document's Output panel (Run
+     again, Stop, Clear, Close; one line of output under a tall empty pane): "I cant
+     adjust the height of this output bottom panel". A drag handle on its top edge
+     (the sidebar resize recipe, keyboard steps too, height kept per document);
+     also seen: Stop stays enabled after "Finished."
+     Owner: DOCUMENTS_PLAN 23, Brief 42 (output panel height, Stop state) and Brief 69 (run, preview and test).
+     Fixed 2026-10-10 (Brief 42, docs42): a grip on the panel's top edge (drag, arrow keys, double-click resets, height kept per document; +120px drag measured +120px) and Stop disabled once a script ends with no timer left (`scratchpad/ui-sweeps/docs42c.js`, 5 of 5).
 
 ## Plan size caps, 2026-10-10
 

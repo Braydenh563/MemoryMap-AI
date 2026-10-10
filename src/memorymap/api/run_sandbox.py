@@ -84,7 +84,16 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     if (frame) { frame.remove(); frame = null; }
   }
   function runJs(id, code) {
-    var src = prelude("function(m){postMessage(m)}") + code + "\n;postMessage({t:'done'});";
+    // The timers the script leaves behind are counted, so the app can tell
+    // "the top level ended" from "nothing is left to run" (INBOX 736).
+    var timers = "(function(){var n=0,done=false,live=new Set(),sT=setTimeout,cT=clearTimeout,sI=setInterval,cI=clearInterval;" +
+      "function end(h){if(live.delete(h)&&--n===0&&done)postMessage({t:'idle'})}" +
+      "self.setTimeout=function(f,ms){var a=[].slice.call(arguments,2),h=sT(function(){end(h);typeof f==='function'?f.apply(null,a):0},ms);live.add(h);n++;return h};" +
+      "self.clearTimeout=function(h){cT(h);end(h)};" +
+      "self.setInterval=function(){var h=sI.apply(null,arguments);live.add(h);n++;return h};" +
+      "self.clearInterval=function(h){cI(h);end(h)};" +
+      "self.__mmDone=function(){done=true;postMessage({t:'done',pending:n})}})();";
+    var src = prelude("function(m){postMessage(m)}") + timers + code + "\n;__mmDone();";
     worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
     worker.onmessage = function (e) { if (id === current) up(id, e.data); };
     worker.onerror = function (e) {

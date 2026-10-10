@@ -1060,10 +1060,15 @@ HELP_TOPICS.extend(
                 "lists every use, Ctrl+Shift+F finds in every document, and Go to "
                 "a symbol is in the palette. Ctrl+Shift+Enter runs a .js file (in "
                 "a sandbox, console output and errors in a panel under the editor) "
-                "or renders an .html file; Stop ends it. Blocks fold from the "
+                "or renders an .html file; Stop ends it (it greys out once nothing "
+                "is left to run), and the panel's top edge drags taller or shorter "
+                "(arrow keys too, kept per file). Blocks fold from the "
                 "gutter (Ctrl+Shift+[ and Ctrl+Shift+] fold and unfold, Ctrl+Alt+[ "
                 "and Ctrl+Alt+] all of them), sticky scroll pins the enclosing "
-                "function at the top, and Show whitespace draws spaces and tabs."
+                "function at the top, and Show whitespace draws spaces and tabs. "
+                "Ctrl+Shift+M lists every problem; Minimap (Editor and layout, "
+                "off at first) maps the whole file; Compare with a saved version "
+                "(palette) shows the changes inline, with Reject to put a hunk back."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1442,11 +1447,11 @@ HELP_TOPICS.extend(
                 "image with no description, link text like \"click here\"), Suggest "
                 "changes (tracked changes to accept or reject one at a time or "
                 "all at once), Read aloud (Esc stops), autocorrect, and word "
-                "suggestions (Tab accepts). Word: Download as .docx (with the "
-                "optional Word exporter) keeps tables, links, lists, code, "
-                "pictures (with their alt text, width and alignment) and "
-                "suggested changes as Word's tracked changes, and importing that "
-                ".docx brings them back; other downloads are .md, .html, a .zip "
+                "suggestions (Tab accepts). Word: Download as .docx is written in "
+                "the app, nothing to install, and keeps headings, emphasis, "
+                "links, lists, tables and code (a picture as its alt text); a "
+                ".docx added in the Library is read with its headings, lists and "
+                "tables kept; other downloads are .md, .html, a .zip "
                 "with images, and print or save as PDF."
             ),
             "badge": {"label": "Library", "tab": "library"},

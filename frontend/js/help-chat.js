@@ -14,9 +14,6 @@
 // spec asked for no database row at all, so the running transcript lives
 // only in this module-level array, it survives a tab switch (this module
 // never reloads) but not a page reload, exactly as specified.
-//: The streamed bubble's own rules (help-chat-lazy.css), fetched from here
-//: rather than listed in `LAZY_MODULES`: app.js is at its gzip cap.
-lazyScript("/css/help-chat-lazy.css");
 
 let helpChatHistory = [];
 let helpChatBusy = false;

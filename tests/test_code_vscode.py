@@ -362,7 +362,7 @@ def test_wrap_and_whitespace_are_code_preferences_in_the_wrap_compartment():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for row in ("doc-code-wrap-row", "doc-whitespace-row"):
         assert f'<label id="{row}" class="menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label hidden"' in html
-    assert 'for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);' in _function("syncDocFileType")
+    assert 'for (const id of ["doc-code-wrap-row", "doc-whitespace-row", "doc-minimap-row"]) $(id)?.classList.toggle("hidden", type.previewable);' in _function("syncDocFileType")
     theme = source.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     assert "var(--muted)" in theme.split('".cm-highlightSpace"', 1)[1].split("}", 1)[0]
 

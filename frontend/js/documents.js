@@ -143,7 +143,7 @@ function syncDocFileType() {
   $("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));
   //: Wrapping and whitespace are about a file that does not wrap by itself:
   //: every type but prose, plain text and CSV included (INBOX 402).
-  for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);
+  for (const id of ["doc-code-wrap-row", "doc-whitespace-row", "doc-minimap-row"]) $(id)?.classList.toggle("hidden", type.previewable);
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
@@ -278,6 +278,7 @@ foldDocMenuGroup("ph:download-simple Download or print", [
 ]);
 foldDocMenuGroup("ph:layout Editor and layout", [
   "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode", "doc-code-wrap-row", "doc-whitespace-row",
+  "doc-minimap-row",
 ]);
 foldDocMenuGroup("ph:pencil-simple While you write", [
   "doc-dim-others", "doc-typewriter", "doc-serif", "doc-margin-reader", "doc-autocorrect-row", "doc-complete-row",
@@ -2522,6 +2523,22 @@ const DOC_COMMANDS = [
     code: true, run: () => docToggleCodeDraw("codeWrap") },
   { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
     code: true, run: () => docToggleCodeDraw("whitespace") },
+  //: Brief 42 (documents-ide.js). The two fold chords are CodeMirror's
+  //: `foldKeymap`, bound since Phase 2; Ctrl+Shift+M is VS Code's.
+  { id: "fold-all", icon: "ph:arrows-in-line-vertical", label: "Fold every block in a code file", keys: "Ctrl+Alt+[",
+    code: true, run: () => docIdeFoldAll(false) },
+  { id: "unfold-all", icon: "ph:arrows-out-line-vertical", label: "Unfold every block in a code file", keys: "Ctrl+Alt+]",
+    code: true, run: () => docIdeFoldAll(true) },
+  { id: "problems", icon: "ph:warning-circle", label: "List every problem in this file", keys: "Ctrl+Shift+M",
+    code: true, run: () => docIdeProblems() },
+  { id: "minimap", icon: "ph:sidebar-simple", label: "Show the minimap in a code file", keys: "",
+    code: true, run: () => docIdeToggleMinimap() },
+  { id: "compare-version", icon: "ph:git-diff", label: "Compare with a saved version", keys: "",
+    code: true, run: () => docIdeCompareMenu() },
+  { id: "compare-revert", icon: "ph:arrow-counter-clockwise", label: "Put back the compared hunk at the caret", keys: "",
+    code: true, run: () => docIdeRevertAtCaret() },
+  { id: "compare-stop", icon: "ph:x", label: "Stop comparing with a saved version", keys: "",
+    code: true, run: () => docIdeStopCompare() },
 ];
 
 // DOC-COMMANDS-END
@@ -10135,8 +10152,11 @@ function exportDocumentBundle() {
   return downloadDocumentExport("export.zip", "document.zip");
 }
 
-function exportDocumentDocx() {
-  return downloadDocumentExport("export.docx", "document.docx");
+//: Written in the browser by documents-word.js (Brief 42), loaded on the
+//: first press: no server extra to install, so no 501.
+async function exportDocumentDocx() {
+  if (!(await lazyScript("/js/documents-word.js"))) return toast("The Word writer could not be loaded.", true);
+  return docWordExport();
 }
 
 //: The same fetch, name and save as the zip and the Word file (audit FE-16:
@@ -16108,6 +16128,8 @@ const DOC_TOOL_KEYS = {
   //: INBOX 402: VS Code's Alt+Z and "render whitespace", for a code file.
   codeWrap: "doc-code-wrap",
   whitespace: "doc-whitespace",
+  //: Brief 42: a name missing here was stored under the key "undefined".
+  codeMinimap: "doc-minimap",
 };
 
 function docToolPref(name, fallback) {
@@ -19560,6 +19582,17 @@ function docTableCellClick(event, view) {
 // which the Library bundle loads before this file. See its header.
 // -----------------------------------------------------------------------------
 
+
+//: The code editor's minimap, merge view, palette rows and output grip
+//: (documents-ide.js, Brief 42), fetched as this file runs rather than listed
+//: in app.js's bundle table, whose gzipped size is ratcheted. A code file
+//: opened before it lands gets its tools again once it has.
+lazyScript("/js/documents-ide.js").then(() => {
+  const CM = window.CM6;
+  if (docCmView && CM && docCmParts.code && !docFileType().previewable) {
+    docCmView.dispatch({ effects: docCmParts.code.reconfigure(docCodeTools(CM)) });
+  }
+});
 
 function docCmExtensions(CM) {
   const type = docFileType();

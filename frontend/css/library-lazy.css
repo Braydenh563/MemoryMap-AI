@@ -3256,3 +3256,29 @@ button.ghost.doc-template-choice.wb-template-choice {
   color: var(--muted);
   font-size: var(--text-sm);
 }
+
+/* The code editor's active line, as VS Code draws it (Brief 42, DOCUMENTS_PLAN
+   25 row 3): the number bold and the line bordered while the editor has focus. */
+.cm-editor.doc-content-code .cm-gutters .cm-activeLineGutter {
+  font-weight: 700;
+}
+
+.cm-editor.doc-content-code.cm-focused .cm-activeLine {
+  box-shadow: inset 0 1px 0 var(--border), inset 0 -1px 0 var(--border);
+}
+
+/* The minimap (documents-ide.js), off by default: a quiet lane at the right. */
+.cm-editor.doc-content-code .cm-minimap-gutter {
+  border-left: 1px solid var(--border);
+}
+
+/* The output panel's grip (INBOX 736): the sidebars' handle turned on its
+   side, a hairline along the panel's top edge. */
+.cm-run-panel > .doc-run-resize.sidebar-resize {
+  position: static;
+  flex: 0 0 var(--space-2);
+  width: auto;
+  height: var(--space-2);
+  cursor: row-resize;
+  background: linear-gradient(to bottom, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%);
+}

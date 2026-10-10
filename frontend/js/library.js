@@ -3039,11 +3039,19 @@ async function importLibraryDocuments(files) {
     const form = new FormData();
     form.append("file", file);
     try {
-      const document_ = await apiJson("/documents/import", {
-        method: "POST",
-        headers: authHeaders(),
-        body: form,
-      });
+      //: A Word file is read here by Mammoth (documents-word.js, Brief 42),
+      //: which keeps its headings, lists and tables; the server's extraction
+      //: keeps only the words.
+      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js"))
+        ? await docWordImport(file)
+        : null;
+      const document_ = word
+        ? await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: word.title, content: word.content, file_type: "md" }) })
+        : await apiJson("/documents/import", {
+          method: "POST",
+          headers: authHeaders(),
+          body: form,
+        });
       made.push(document_);
     } catch (error) {
       toast(`Couldn't import “${file.name}”: ${error.message || "the file could not be read."}`, true);

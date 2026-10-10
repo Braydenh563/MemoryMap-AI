@@ -135,7 +135,6 @@ function linkCitedTitles(targets, sentences, byId, numberFor) {
 //: Its sheet comes with this file, through the lazy loader that stamps it
 //: (app.js `lazyScript`); naming it in `LAZY_MODULES` would grow app.js past
 //: its gzip ratchet (`test_static_compression.py`).
-lazyScript("/css/ask-compose-lazy.css");
 
 function markSaidSentences(targets, sentences) {
   for (const g of sentences || []) {

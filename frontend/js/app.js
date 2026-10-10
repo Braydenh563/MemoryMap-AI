@@ -1834,12 +1834,14 @@ const LAZY_MODULES = {
   noteHistory: ["/js/note-history.js"],
   askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
   //: The Ask box's Use AI switch (ask-compose.js), preloaded below.
-  askCompose: ["/js/ask-compose.js"],
+  askCompose: ["/css/ask-compose-lazy.css", "/js/ask-compose.js"],
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
+  //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
+  writingDesk: ["/js/writing-desk.js"],
   //: An attachment card's click (INBOX 440 (2)): attachment-actions.js.
   attachments: ["/js/attachment-actions.js"],
   //: Tesseract's status line (INBOX 443 (3)): see ocr-engine.js.
@@ -1873,7 +1875,7 @@ const LAZY_MODULES = {
   modelBench: ["/js/model-bench.js"],
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
-  usageLedger: ["/js/usage-ledger.js"],
+  usageLedger: ["/css/usage-lazy.css", "/js/usage-ledger.js"],
   //: The Library tab's list without the editors (audit FE-03(c)): one click
   //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
   //: gzipped, to draw a list. `library` below still holds library.js, so
@@ -1887,7 +1889,7 @@ const LAZY_MODULES = {
   //: boot's, the motion arrives with the first figure that mounts.
   atlasMotion: ["/js/atlas-motion.js"],
   //: Atlas the Guide as a chat (help-chat.js's header), on first ask.
-  helpChat: ["/js/help-chat.js"],
+  helpChat: ["/css/help-chat-lazy.css", "/js/help-chat.js"],
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
@@ -2178,6 +2180,7 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
+  writingDesk: ["composeDraft", "suggestDraftTitle", "saveDraftAsNote"],
   //: Each called for its effect when a figure mounts or moves; nothing reads a result.
   atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
   companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer"],

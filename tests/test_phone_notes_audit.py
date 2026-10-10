@@ -117,8 +117,10 @@ def test_the_command_palette_carries_the_notes_rows():
 
 
 def test_the_palette_asks_for_the_notes_rows_with_the_query():
-    matches = _function(_read("app-palette.js"), "paletteMatches")
-    assert "...notesPaletteCommands(lowered)" in matches
+    palette = _read("app-palette.js")
+    #: Brief 90 moved the list's assembly into `paletteBase`, which `paletteMatches` reads first.
+    assert "paletteBase(lowered)" in _function(palette, "paletteMatches")
+    assert "...notesPaletteCommands(lowered)" in _function(palette, "paletteBase")
 
 
 def test_the_drawer_opener_says_what_it_holds_and_closes_on_a_choice():

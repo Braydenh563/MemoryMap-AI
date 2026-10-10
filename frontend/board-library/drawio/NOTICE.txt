@@ -1,0 +1,15 @@
+Shapes in this folder are converted from the stencil libraries of draw.io
+(jgraph/drawio, https://github.com/jgraph/drawio): basic, flowchart, arrows,
+bpmn and networks. Copyright JGraph Ltd. Licensed under the Apache License,
+Version 2.0 (the LICENSE file in this folder).
+
+Changes: the stencil XML drawing operations were converted to SVG path data
+(move, line and cubic curves only) with scratchpad/stencils/convert_stencils.py,
+and each stencil's connection constraints were kept as ports. Names, geometry
+and constraints are otherwise the upstream's.
+
+Upstream asks that its icon sets and stencil libraries, and derivatives of
+them, are not used in or incorporated into Atlassian products or products
+distributed through the Atlassian marketplace or plugin ecosystem, without
+written permission (src/main/webapp/stencils/LICENSE upstream). MemoryMap AI
+is neither. Anyone redistributing these files must keep this notice.

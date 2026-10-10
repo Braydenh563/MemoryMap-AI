@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Chat: Agent mode is greyed, with Ask shown in use, whenever no model can answer, not only when the model server is off: the server up with nothing installed, Ollama without the chosen chat model, and before the first status all count. Your saved choice is untouched and Agent returns when a model answers; Needle keeps it available (INBOX 778).
+
 - Translate this, in the command palette: a selected passage of a note, a document or a reading turned from English into Spanish on this computer with no model, then copied or put in place of the selection (Ctrl+Z undoes it). It needs "Translate offline", a 27 MB download in Settings, Packages (new bundle Languages); until it is installed the row says so and opens that page.
 
 - Reminders: every weekday, every 2 weeks, every other Monday and the last Friday of the month repeat as said, and "1 day before" or "an hour before" adds an early alert; quick add shows both as chips, and ticking a repeating reminder moves it to its next time (Brief 85).

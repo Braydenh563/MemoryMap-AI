@@ -47240,6 +47240,10 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      taken: both hold; the bar is measured from the end of the debounce to
      the first changed frame. Owner: Brief 34 continues (companion2).
 
+778. **Bug, the owner 2026-10-10 22:15Z.** "well the agent mode was still an
+     option when I was on the chat with no ai running :(" (status.js
+     `agentModeAvailable` greys it only when `ollama_running === false`.)
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

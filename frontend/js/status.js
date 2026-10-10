@@ -2751,11 +2751,13 @@ function renderSearchEngineHealth(status) {
 //, every other reader in the app already consults it, and a second store for
 // the same fact is how two of them end up disagreeing. These buttons just show
 // it and set it.
-//: Whether Agent mode can run right now: a model, or the Needle extra on disk
-//: to call tools without one (decision 22). One reader, so the segment, the
-//: "Ask about this" switch and the Web toggle's title cannot disagree.
+//: Whether Agent mode can run right now: a model that can answer
+//: (`model_ready`: a reachable server is not enough, INBOX 778), or the Needle
+//: extra on disk (decision 22). No status yet or a failed poll counts as
+//: neither. One reader, so the segment, the "Ask about this" switch and the Web
+//: toggle's title cannot disagree.
 function agentModeAvailable() {
-  return !(aiIsOff() && !modelStatus?.tools_engine);
+  return modelStatus?.model_ready === true || !!modelStatus?.tools_engine;
 }
 
 function renderChatModeSeg() {
@@ -2773,7 +2775,7 @@ function renderChatModeSeg() {
     agentButton.disabled = gated;
     agentButton.title = gated
       ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
-      : aiIsOff() && engine
+      : engine
         ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
         : agentButton.dataset.enabledTitle;
   }

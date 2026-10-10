@@ -165,9 +165,6 @@ with its owner named in the entry.
      the graph used to be, theres no movement to it now :(" and "when the
      graph readjusts it just appears there :(". The cluster's bubbles still
      overlap; outliers sit far out on long links.
-778. **Bug, the owner 2026-10-10 22:15Z.** "well the agent mode was still an
-     option when I was on the chat with no ai running :(" (status.js
-     `agentModeAvailable` greys it only when `ollama_running === false`.)
 784. **UI, the owner 2026-10-10 22:30Z, five screenshots.** "when hovering
      over categories in the sidebar on notes, the meatball buttons dont have
      curved edges. also in some places it is the hover highlight over icons,
@@ -211,7 +208,7 @@ with its owner named in the entry.
 
 ## Placed (last 20, newest first)
 
-- 2026-10-10: 788 to 793 (the owner's afternoon reports) placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-10 (the owner's afternoon reports)" and DOCUMENTS_PLAN "Placed from INBOX, 2026-10-10 (code as documents)".
+- 2026-10-10: 788 to 794 (the owner's afternoon reports) placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-10 (the owner's afternoon reports)" and DOCUMENTS_PLAN "Placed from INBOX, 2026-10-10 (code as documents)".
 
 - 2026-10-10: 776, 777, 779, 780, 782, 783 placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-10 (the owner's morning UI reports)", owner the uipolish agent.
 

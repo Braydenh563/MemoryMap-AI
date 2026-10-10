@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the agentgate agent (INBOX 778, merged 2026-10-10)
+
+Detail: [agentgate-1010.md](../archive/agent-remaining/agentgate-1010.md).
+
+- Needle with the server up but no model leaves Agent greyed: `tools_engine` is reported only when the server is down (routes_chat.py ~2534).
+- A failed or slow status poll nulls `modelStatus`, so Agent greys until the next good poll and may flicker.
+- Other AI controls still gate on `aiIsOff()`; `model_ready` is the field to move them to.
+
 ## Left by the translate83 agent (Brief 83, merged 2026-10-10)
 
 Detail: [translate83-1010.md](../archive/agent-remaining/translate83-1010.md).

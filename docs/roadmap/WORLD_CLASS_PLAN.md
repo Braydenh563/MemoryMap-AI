@@ -3971,12 +3971,13 @@ part built; sync (B6) designed only.
 62. **The embedder loads on first use** and unloads after an idle hour
     (a setting, default on); the resident number is measured before and
     after.
+63. **A complexity and per-frame census, with ratchets** (the owner, 2026-10-10, INBOX 756: "do the same for the backend. do architectual analysis. look for high complexity and high volumes of excessive calculations per frame etc."). Backend: cyclomatic complexity over `src/` (radon, or the `ast` walk in `scripts/complexity.py` if radon is not vendored), every function over 15 listed with its file and line, the ten worst named in 26.1, and a ratchet at today's count; import graph cycles listed; the hot routes profiled under `cProfile` with the showcase notebook, the top ten by cumulative time recorded. Frontend: every `requestAnimationFrame`, `pointermove`, `scroll`, `wheel`, `ResizeObserver`, `MutationObserver` and `setInterval` handler in `frontend/js` listed with its file and line and what it recomputes; a Chromium performance trace on the whiteboard, the graph, the mind map and the companion at rest and under a drag, long tasks over 50 ms and frames over 16 ms counted, layout thrash (a read after a write in one handler) found by `scratchpad/ui-sweeps/frames.js`; a ratchet on the at-rest frame work (zero long tasks at rest on every surface). Findings become rows in the surface plans, never fixes in the census commit.
 
 ### 26.3 Phases with gates
 
 | Phase | Builds | Gate | Brief |
 | --- | --- | --- | --- |
-| 26.0 Measure | import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60 (Sonnet, medium) |
+| 26.0 Measure | decision 63's complexity and per-frame census; import times, resident memory with and without the embedder, the index audit (every FK and hot `WHERE`), the 54 untested routes listed, the 21 swallows listed, the 32 thread sites classified | numbers in this section | 60 (Sonnet, medium) |
 | 26a Lints | decisions 57, 58, 59 as ratchets; the prints folded | all three green with their seeds | 60 (Sonnet, medium) |
 | 26b Services | decision 55 for whiteboard and files | route tests unchanged and green; `routes_whiteboard.py` under 1,500 lines | 61 (Opus, high) |
 | 26c Data | decision 56 for the four tables; the import-time test | `test_import_time.py` green; the composer eval unchanged (grounded 1.0) | 62 (Opus, high) |

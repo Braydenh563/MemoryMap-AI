@@ -1605,6 +1605,12 @@ Import times, resident memory with and without the embedder, the index
 audit, the 54 untested routes, the 21 swallows, the 32 thread sites; then
 `tests/test_no_silent_except.py`, `tests/test_routes_named.py`, the
 background registry lint and ruff `T201`, each seeded with today's list.
+Then WORLD_CLASS decision 63 (INBOX 756): the complexity census over `src/`
+(functions over 15 listed, ratchet), the import cycles, the profiled hot
+routes, the handler list over `frontend/js`, `scratchpad/ui-sweeps/frames.js`
+(long tasks and frames over 16 ms on whiteboard, graph, mind map, companion,
+at rest and under drag), the at-rest ratchet. Findings go to the surface
+plans as rows; this brief fixes nothing. Budget 120 tool calls; split at 26a.
 
 ### Brief 61 (Opus, high): services for whiteboard and files (26b)
 `api/routes_whiteboard.py` to `whiteboard/service.py`, `api/routes_files.py`
@@ -1665,6 +1671,16 @@ import recognition, the Guide's generated act topics, the agent's tools,
 and system copy through the realiser surface by surface (decision 55).
 
 ## Briefs 69 to 71 (DOCUMENTS_PLAN 23: the IDE; after Brief 42)
+
+### Brief 76 (Opus, high): Atlas everywhere (F5, after 68)
+CHAT_PLAN decision 59 (INBOX 758), gated on decision 58's scorecard from
+Brief 68's report. Four steps, one commit each, the scorecard re-run after
+each: access (every read tool and act, `ai/acts.py`), output forms (table,
+list, card, chart through the chat's blocks), conversation (per-chat context
+of the last readings; voice tables with the salt), the Guide on the reading
+(`ai/help_chat.py` `_matching_topics` and `topics_for` through
+`ai/reading.py`; `tests/test_help_chat*.py` and `test_manual_parity.py`
+green). Report the six scorecard columns before and after.
 
 ### Brief 69 (Opus, high): run, preview and test (I1)
 DOCUMENTS 23 decisions D1, D4 to D7 and D9. Files: `documents-code.js`

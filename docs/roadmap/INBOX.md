@@ -259,6 +259,9 @@ with its owner named in the entry.
 
 ## Placed (last 20, newest first)
 
+
+- 2026-10-10: 753 to 758 placed (HANDOVER Skills note; CHAT_PLAN decisions 58 and 59, F5, Brief 76; UI_MODERNISATION decision 23 and 13.R; WORLD_CLASS decision 63 and Brief 60).
+
 - 2026-10-10: 752 placed in SESSION_BRIEFS Brief 34 (second part) and OPEN.md Atlas rows.
 
 - 2026-10-10: 751 placed as SESSION_BRIEFS Brief 75.
@@ -290,3 +293,4 @@ with its owner named in the entry.
   docks as one bar, timeline redesign, responsive design, em-dashes,
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
+

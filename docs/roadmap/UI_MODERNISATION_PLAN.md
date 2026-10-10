@@ -1497,6 +1497,7 @@ the order a person meets them, with what the code says today.
     banner and the AI-offline notice are toasts with the keep action.
 22. **The Ask answer is answer, then one foot** (sources), everything else
     behind one "Evidence" toggle.
+23. **The bar is a professionally designed product, and the references are named** (the owner, 2026-10-10, INBOX 755: "make the design on par and better than a modern professionaly designed web and app interface. research for inspiration and guidance if needed"). 13.R, before 13c: a reference read of six products the owner's users already know (a notes app, a task app, a browser, a code editor, a whiteboard, and the platform guidelines, Apple HIG and Material 3), one paragraph each in ANALYSIS.md naming the pattern taken and the measurement it sets (rest density, primary count, dialog shape, motion length, type ramp), never a screenshot copied. Every 13.2 row then cites the reference its target comes from. The vendored design skill is consulted and overruled where the references disagree (HANDOVER "Skills").
 
 ### 13.4 Phases with gates
 
@@ -1505,6 +1506,7 @@ the order a person meets them, with what the code says today.
 | 13.0 Measure | visible controls and primaries per page at rest at 1440 and 390, the dialogs classified, the 13 unlabelled buttons plus the JS-built ones, `wcag22.js` and `contrast.js` per surface, the confirms counted, `hierarchy.js` written | 13.1 and 13.2 re-written with numbers; a list of every offence per decision | 56 (Sonnet, medium); measured 2026-10-10, numbers in 13.1 and 13.2, sweep `hierarchy.js` |
 | 13a The stylesheet's grammar | decisions 9 to 17: tokens, colour literals, the type ramp, the layer scale, shadows, motion, hover and focus pairs, `!important`, circles; each with its ratchet in `test_style_scale.py` or a new lint | every ratchet green; `contrast.js` and `errors.js` unchanged; no visual change except the hover and focus twins (measured by `getComputedStyle` on ten controls) | 57 (Opus, high) |
 | 13b The stylesheet's structure | decisions 18 and 19: dissolve the consistency and responsive files into the components; remove the 236 unused selectors | the two ratchets; the sweeps unchanged; file count and line count recorded before and after | 58 (Opus, high) |
+| 13.R The references | decision 23: six references read, the pattern and the number each sets, written into ANALYSIS.md and cited from 13.2 | every 13.2 row names its reference; no target without a number | 57 (Opus, high), first step |
 | 13c The surfaces | the 13.2 rows not owned elsewhere: the shell's weights and the status bar's three states, the sidebar's hierarchy and rail, the capture form's order, the Ask answer's foot (decision 22), the chat bubble recipe, the notification channels (decision 21), the dialogs that become sheets | each row's before and after numbers from Brief 56's sweep; `docks.js`, `contrast.js`, `touch.js`, `wcag22.js` green on every surface | 59 (Opus, high) |
 
 Phase 12 (Brief 41) runs first; 13a and 13b are mechanical enough to run

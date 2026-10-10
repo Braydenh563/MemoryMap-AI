@@ -46224,6 +46224,35 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      with blended transitions, idle variation, event reactions and a smoothness
      measure); OPEN.md "Atlas" carries the rows.
 
+753. **The owner, 2026-10-10, verbatim.** "make use of all relevant skills if
+     you feel the need but dont let them limit you. they are a guide and tool.
+     you ai models are improving all the time and sometimes outdated skills cna
+     be a hindrance." Placed: HANDOVER owner note "Skills" and the agents'
+     common brief.
+754. **The owner, 2026-10-10, verbatim.** "make the deterministic chatbot on
+     par with a fontier ai model". Placed: CHAT_PLAN decision 58 (the parity
+     scorecard) and Brief 68's gate.
+755. **The owner, 2026-10-10, verbatim.** "make the design on par and better
+     than a modern professionaly designed web and app interface. research for
+     inspiration and guidance if needed". Placed: UI_MODERNISATION 13.3
+     decision 23 and the 13.R research row.
+756. **The owner, 2026-10-10, verbatim.** "do the same for the backend. do
+     architectual analysis. look for high complexity and high volumes of
+     excessive calculations per frame etc." Placed: WORLD_CLASS 26.2 decision
+     63 (the complexity and per-frame census) and Brief 60.
+757. **The owner, 2026-10-10, verbatim.** "and more". Placed: the HANDOVER
+     "Mandate" note already reads every placed request as the floor; the
+     note gains the clause.
+758. **The owner, 2026-10-10, verbatim.** "eventually when the deterministic
+     chatbot gets good enout, I want to give it more utility, more abilities,
+     mnore capability, more access, new ways to do and output info, better
+     conversational abilities, better social variation, better context and
+     understanding handling, better responses, better outputs and structure,
+     use it to upgrade the guide??" Then: "idk im just spewing things". Placed:
+     CHAT_PLAN decision 59 (Atlas widens after the gate, and powers the Guide),
+     phase F5 and Brief 76. Read as direction, gated on the engine's bar, not
+     as work now.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

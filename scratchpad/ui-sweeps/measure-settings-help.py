@@ -10,9 +10,10 @@ import glob
 import re
 
 from memorymap.api.routes_settings import PreferencesBody
+from pathlib import Path
 
-html = open("frontend/index.html", encoding="utf-8").read().split("\n")
-js = {f: open(f, encoding="utf-8").read().split("\n") for f in glob.glob("frontend/js/*.js")}
+html = Path("frontend/index.html").read_text(encoding="utf-8").split("\n")
+js = {f: Path(f).read_text(encoding="utf-8").split("\n") for f in glob.glob("frontend/js/*.js")}
 keys = list(PreferencesBody.model_fields)
 print("PreferencesBody keys:", len(keys))
 total_help = sum("data-help-for" in line for line in html)

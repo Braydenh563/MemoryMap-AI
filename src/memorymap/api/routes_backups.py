@@ -171,10 +171,9 @@ def restore_backup(body: RestoreBody) -> dict:
 
 @router.delete("/backups/{name}")
 def delete_backup(name: str) -> dict:
-    folder = backup.backups_dir(deps.get_config().data_dir)
-    path = folder / name
-    # Path(name).name guards traversal; only files inside backups/ die.
-    if path.name != name or not path.is_file():
+    # Only a file inside backups/ dies; a name that reaches outside is "not found".
+    path = backup.backup_path(name, deps.get_config().data_dir)
+    if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="That backup could not be found.")
     path.unlink()
     return {"deleted": name}

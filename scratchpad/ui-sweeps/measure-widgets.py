@@ -2,8 +2,9 @@
 python scratchpad/ui-sweeps/measure-widgets.py   (static: reads frontend/js/dashboard.js plus the file defining each render fn)"""
 import glob
 import re
+from pathlib import Path
 
-src = {f: open(f, encoding="utf-8").read().split("\n") for f in glob.glob("frontend/js/*.js")}
+src = {f: Path(f).read_text(encoding="utf-8").split("\n") for f in glob.glob("frontend/js/*.js")}
 dash = "\n".join(src["frontend/js/dashboard.js"])
 rows = re.findall(r'^\s+(?:"([\w-]+)"|(\w+)): \{ title: "(?:ph:[\w-]+ )?([^"]+)", description: "([^"]+)", render: (\w+)', dash, re.M)
 ACT = re.compile(r'addEventListener|onclick|\.click\b|createElement\("(?:button|a)"\)|smallButton|openNote|openEntry|switchTab|goToTab|href\s*=|kebabMenu|\bbtn\b', re.I)

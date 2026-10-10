@@ -2,10 +2,11 @@
 python scratchpad/ui-sweeps/measure-undo.py"""
 import glob
 import re
+from pathlib import Path
 
 rows = []
 for f in sorted(glob.glob("frontend/js/*.js")):
-    lines = open(f, encoding="utf-8").read().split("\n")
+    lines = Path(f).read_text(encoding="utf-8").split("\n")
     for i, line in enumerate(lines):
         m = re.match(r"\s*(?:async\s+)?function\s+(\w*[Uu]ndo\w*)\s*\(", line) or re.match(r"\s*(?:const|let)\s+(\w*[Uu]ndo\w*)\s*=\s*(?:async\s*)?(?:\(|function)", line)
         if not m:
@@ -21,7 +22,7 @@ for r in rows:
 print(len(rows), "functions;", sum(r[4] for r in rows), "call pushUndo")
 callers = {}
 for f in sorted(glob.glob("frontend/js/*.js")):
-    n = len(re.findall(r"\bpushUndo\(", open(f, encoding="utf-8").read()))
+    n = len(re.findall(r"\bpushUndo\(", Path(f).read_text(encoding="utf-8")))
     if n:
         callers[f.split("/")[-1]] = n
 print("pushUndo( occurrences per file:", callers)

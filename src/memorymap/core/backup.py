@@ -29,6 +29,17 @@ def backups_dir(data_dir: Path) -> Path:
     return folder
 
 
+def backup_path(name: str, data_dir: Path) -> Path | None:
+    """The file a backup's name stands for, or None when the name would
+    reach outside `backups/`. The name comes from a request, so the check is
+    on the real path (links followed), not on the spelling."""
+    folder = os.path.realpath(backups_dir(data_dir))
+    candidate = os.path.realpath(os.path.join(folder, name))
+    if not candidate.startswith(folder + os.sep):
+        return None
+    return Path(candidate)
+
+
 def backup_files(data_dir: Path) -> list[Path]:
     """Every file in the backups folder that is actually a backup, newest first.
 
@@ -271,8 +282,8 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
     The caller MUST dispose every open engine first and rebuild it after
     (deps.reload_db does both). A safety snapshot of the current state is
     taken before overwriting, so even a restore is undoable."""
-    source_path = backups_dir(data_dir) / Path(name).name  # no traversal
-    if not source_path.is_file():
+    source_path = backup_path(name, data_dir)
+    if source_path is None or not source_path.is_file():
         raise FileNotFoundError("That backup could not be found.")
     restore_file(source_path, db_path, data_dir, keep, label=name)
 

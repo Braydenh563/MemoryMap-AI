@@ -1116,8 +1116,6 @@ def test_no_shipped_step_names_a_tool_it_does_not_check_for():
     The one exception is the step that *forbids* the call, where requiring it
     would be the opposite of what the step is for.
     """
-    import re
-
     from memorymap.ai import skills as skills_mod
 
     tools = {t for sk in skills_mod.BUILTIN_SKILLS for t in (sk.get("tools") or [])}

@@ -6,12 +6,13 @@ import sys
 import time
 
 import requests
+from pathlib import Path
 
 port, pid = sys.argv[1], int(sys.argv[2])
 base = f"http://127.0.0.1:{port}"
 tick = os.sysconf("SC_CLK_TCK")
 def cpu():
-    f = open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()
+    f = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
     return (int(f[11]) + int(f[12])) / tick
 tok = requests.post(f"{base}/auth/unlock", json={"password": "testpassword123"}, timeout=30).json()["token"]
 h = {"X-Auth-Token": tok}

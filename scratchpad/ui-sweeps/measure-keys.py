@@ -7,8 +7,9 @@ deliberately not rebindable); 'in table' = a single-character key that is the la
 import collections
 import glob
 import re
+from pathlib import Path
 
-src = open("frontend/js/settings-wiring.js", encoding="utf-8").read()
+src = Path("frontend/js/settings-wiring.js").read_text(encoding="utf-8")
 body = src[src.index("const DEFAULT_SHORTCUTS"):]
 body = body[: body.index("\n};")]
 chords = re.findall(r'keys: "([^"]+)"', body)
@@ -20,7 +21,7 @@ tot = collections.Counter()
 per = collections.defaultdict(collections.Counter)
 other_keys = collections.defaultdict(collections.Counter)
 for f in sorted(glob.glob("frontend/js/*.js")):
-    for m in pat.finditer(open(f, encoding="utf-8").read()):
+    for m in pat.finditer(Path(f).read_text(encoding="utf-8")):
         k = m.group(1)
         g = "convention" if k.lower() in CONV else ("in table" if k.lower() in last else "other")
         per[f.split("/")[-1]][g] += 1

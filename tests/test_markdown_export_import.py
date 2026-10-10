@@ -167,9 +167,6 @@ def test_the_cli_export_reports_rather_than_raises_on_an_unwritable_path(client,
 
 def test_a_note_exported_and_imported_again_keeps_its_date_and_pin(client):
     """Audit 2026-10-10: the words came back, the date and the pin did not."""
-    import io
-    import zipfile
-
     from memorymap.core import deps
     from memorymap.core.database import Entry
 

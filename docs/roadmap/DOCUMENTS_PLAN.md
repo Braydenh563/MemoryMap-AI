@@ -1354,6 +1354,88 @@ popovers on Run, Debug and the panels, the Guide topic `code-run`, and
 `Atomics.wait` inside this sandbox's policy, and whether the app's desktop
 webview honours the two headers.
 
+## 24. Deepened 2026-10-10: the documents editor (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` on a fresh data dir, no
+model configured, Chromium, three runs on a shared four-core machine (ranges
+are across runs): a 3,724-word Markdown document of 40 sections.
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#tab-documents` (a list of three or four documents included) | 46 to 50 | 28 to 35 |
+| Clicks from the dashboard | 3 (Library, Documents, the row); the palette 1 ("Go to Documents", "New document") | the same through the phone shell |
+| Time to the editor | click to painted editor 1,743 ms cold (the lazy bundle); a reopen 155 to 252 ms | 2,823 to 3,013 ms cold |
+| Undo | text: Ctrl+Z and Ctrl+Shift+Z round trip (CodeMirror history). Document acts: 2 of 11 undo (delete, AI edit); none for rename, archive, unlink a note, remove or attach a bookmark, restore a version, apply a writing finding, add to the dictionary, create (static read of each handler in `documents.js` for `pushUndo`) | the same |
+| Overflow | 0 controls past the viewport, 0 clipped, no page scroll; 8 overlaps, each list row's Actions button over its row button | 11 to 20 overlaps: the closed dock menu list (`.doc-dock-menu-list`, 13 items) lays out over the breadcrumbs; whether it paints is not verified |
+| No model | 2 AI controls, both disabled with no reason beside them; the editor palette has 33 commands | the same |
+
+**The professional bar.** Google Docs and Word: every act is one undo step,
+a named version restores as one step and undoes, a 4,000-word document opens
+in under a second, the phone has the same commands. Notion for blocks and
+links, Typora for the live view (section 17).
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Undo for the nine document acts that have none, each through `pushUndo` with the server's answer as its restore (rename, archive, version restore, apply a finding, dictionary add, bookmark attach and remove, note unlink, create as delete) | `undo.js` documents row 2/11 to 11/11 | 1, 3 |
+| 2 | fix | The phone dock menu: the closed list must not lay out (`hidden` or `display: none` until opened), and the opened list sits inside the viewport | `overlap.js` 20 to 0 at 320 and 390 (13 on a code document); 0 controls past the edge | 7, 8 |
+| 3 | fix | The two disabled AI controls say why in their popover and offer "Set up a model" (the CHAT_PLAN gating pattern), or hide; with no model the writing check, outline, find, export and history are the surface | no-model sweep: 0 dead controls | 12, 4, 6 |
+| 4 | redesign | Version history as Google Docs's: named versions, a side-by-side diff, restore as one undo step | restore then Ctrl+Z returns the text byte-equal | 1, 3 |
+| 5 | optimisation | Cold open 1,743 ms at 1440 and 3,013 ms at 390: fetch the documents bundle on idle after unlock and paint the first screen before the outline and checks | click to painted editor under 800 ms at both widths (25g budget, Brief 53) | 13 |
+| 6 | fix | A save that fails says why and retries itself; a draft survives a reload and a crash | `test_never_lose.py` documents rows green; keystroke to saved under 1 s | 3, 4 |
+| 7 | redesign | The list row: the Actions button beside the title, not over it (8 overlaps at 1440) | overlap 8 to 0; the title's right edge left of the button | 7, 11 |
+| 8 | expansion | Comments, highlights on pages, link cards with a viewer, the long-form choice at first run (Brief 42 items) | Brief 42's numbers | 6, 13 |
+| 9 | expansion | Find and replace across every document, with regex and one undo step | a replace-all over 50 documents undoes in one step | 1, 2 |
+| 10 | expansion | Labelled and linked sections with a local graph (the owner's idea; after 8) | Brief 42's last row | 6 |
+| 11 | optimisation | Every control in `#tab-documents` has a `data-help-for` popover and a palette command | `test_manual_parity.py`; 0 missing | 6 |
+
+**Briefs.** 42 (rows 8, 10), 48 (Word round trip), 51 (row 6), 53 (row 5),
+76 (rows 1 to 4, 7, 9, 11, with section 25's code rows).
+
+## 25. Deepened 2026-10-10: the code editor (Brief 72a, decision 71)
+
+Section 23's decisions D1 to D9 stand and are not re-decided; these rows are
+what the editor needs beside them. Measured with `deepen72a.js` as in
+section 24, on a 241-line Python document and a one-line `.js` one.
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#tab-documents` | 45 to 49 | 35 |
+| Clicks from the dashboard | 3, as section 24; the editor palette 45 commands once a code document is open | the same |
+| Time to the editor (from another open document) | 275 to 675 ms | 2,123 to 2,823 ms |
+| Gutters and keys | line numbers, fold gutter and lint gutter present; no minimap; Ctrl+D adds the next match (2 ranges); Ctrl+H opens the replace panel | the same |
+| Run | `.js`: one Run button ("Run this file in a sandbox"); `.py` without the Pyodide extra: no Run button and no line saying why | the same |
+| Undo | text edits round trip; the document acts as section 24 (2 of 11) | the same |
+| Overflow | 0 past the viewport, 0 clipped; the list row overlaps of section 24 | 12 controls past the left edge (`doc-file-type`, "Editor and layout", `doc-connections`, `doc-history`, `doc-copy-link`: the dock menu list at x = -32) and 13 overlaps |
+| No model | 2 AI controls, both disabled; Emmet, completion, folding, find, format on demand are local | the same |
+
+**The professional bar.** VS Code: the selected line's number bold with the
+line bordered, indent guides, multi-cursor, regex find and replace, go to
+symbol, folding, a problems panel, run and debug from one key, a palette that
+lists every command with its shortcut.
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | The phone dock menu lays out past the left edge on a code document (shared with section 24 row 2) | 12 controls past the edge to 0; 13 overlaps to 0 at 320 and 390 | 7, 8 |
+| 2 | fix | A `.py` document with no Pyodide shows Run, disabled, with one line and the Packages link ("Install Python in Settings, Packages") | 1 Run control on every runnable type; 0 types with no line | 12, 4, 6 |
+| 3 | redesign | VS Code's selected line (bold number, bordered line) and indent guides, the owner's design request | computed `font-weight` 700 on `.cm-activeLineGutter`; an indent marker per level on a nested file | 11 |
+| 4 | expansion | Brief 42's packages, each sized gzipped before it lands: lint (`ruff-wasm`, a JS linter), a formatter, a diff against the last save | a diagnostic on its line in the sweep; sizes in the commit | 12 |
+| 5 | expansion | Run, preview, test, debug, consoles: D1 to D9 (Briefs 69 to 71) | section 23's gates | 5, 12 |
+| 6 | fix | Every editor palette command shows its shortcut, and the keybindings sheet is generated from the same table | 45 commands, 0 without a shortcut or a "none" | 6, 10 |
+| 7 | optimisation | Open 275 to 675 ms at 1440 for 241 lines and over 2 s at 390: `docCodeScan` (cx 132) off the open path | under 300 ms at 1440, under 800 ms at 390 | 13 |
+| 8 | expansion | A minimap, off by default, one toggle in View (Brief 42's bar) | toggle present; its width remembered | 11 |
+| 9 | fix | A long run is a job in the Activity panel with Stop (decision 70) | the run lists in `/activity` and stops from it | 5 |
+
+**Briefs.** 42 (rows 3, 4, 8), 69 to 71 (row 5), 73 (row 9), 76 (rows 1, 2,
+6, 7, with section 24).
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

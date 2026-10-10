@@ -1773,6 +1773,46 @@ Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
 
 Every entry built 2026-10-10 (boardmap-1010). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)").
 
+## 15. Deepened 2026-10-10 (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` (fresh data dir, no model,
+three runs on a shared four-core machine, ranges across runs) and
+`boardundo.js`. Sections 13 and 14 hold the map's own phases; these rows are
+the trust contract's (WORLD_CLASS_PLAN 28).
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#library-view-whiteboard`, a five-topic map, one topic selected | 44 (top bar 9) | 24 (top bar 6) |
+| Clicks from the dashboard to a new map | 5 (Library, Boards & maps, New, Map, Create) and a name typed; the palette 1, but it says "New concept map" where the Library's picker and the toast say "mind map" | the same |
+| Time from Create to the first topic painted | 314 to 1,092 ms | 724 to 2,148 ms |
+| Add a child, 20 in a row | 102 to 208 ms each | 424 ms each |
+| Undo | add a child, Undo, Redo: both exact; `boardundo.js` 43/43 covers fold, layout, theme, detach, copy branch, expand all | not driven |
+| Overflow | 0 past the viewport, 0 clipped; 4 overlaps: on the selected topic an icon-only grip sits over "Add a child to" | 8 overlaps (the grips and "Put a topic between these two"); 4 grips past the edge on the pannable canvas (not a defect) |
+| No model | 0 AI controls on the map; the map palette has 33 commands | the same |
+
+**The professional bar.** XMind: a map from the keyboard alone (Tab,
+Enter, arrows), structures beyond the tree (logic chart, org chart,
+fishbone, timeline, tree table), an outline view that edits the same map,
+Zen mode, pitch mode, and every topic act one undo step.
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | A new map in 3 clicks (New map on the Boards landing makes "Untitled map" and opens it with the root in edit) | clicks 5 to 3 | 2, 13 |
+| 2 | fix | One word: "mind map" in the palette, the picker, the toasts and the Guide (DESIGN.md's terms table) | a terms lint over `index.html`, the palette rows and the Guide: 0 "concept map" | 10 |
+| 3 | fix | The selected topic's grips placed so none overlaps another, each with a name | `overlap.js` 4 to 0 at 1440, 8 to 0 at 390; every grip has an accessible name | 7, 8, 9 |
+| 4 | optimisation | Add a child 102 to 424 ms and Create to first topic up to 2,148 ms under load: one render per act, not two (decision 24's add path) | under 50 ms per child, under 500 ms to the first topic at 390 | 13 |
+| 5 | fix | The phone: 24 controls against 44; every map command reachable at 390 through the top bar's kebab sheet | map commands with a phone path to 100% at 390 | 8, 2 |
+| 6 | expansion | XMind's structures that are missing: logic chart, fishbone, timeline, tree table (radial, tree right, tree down, left, right exist) | each a layout row with its sweep in `maplayouts.js` | 6 |
+| 7 | expansion | Linked stickers, reaction stamps and voting (14.4) | 14.4's rows | 6 |
+| 8 | fix | A topic's effect and a Phosphor icon reach the PNG and SVG picture (14.4) | an export pixel check per effect | 11 |
+| 9 | optimisation | Every top bar and grip control has a `data-help-for` popover and a palette row | 0 missing | 6 |
+
+**Briefs.** 36 (14.4), 78 (rows 1 to 6, 8, 9).
+
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).

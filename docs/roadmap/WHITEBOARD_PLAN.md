@@ -1498,6 +1498,46 @@ JS-drawn shape classes, the shape picker, and the shortcut gaps in section 11.
    (connection points, templates, find, hover arrows, same size) until the
    next matrix pass.
 
+## Deepened 2026-10-10 (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` (fresh data dir, no model,
+three runs on a shared four-core machine, ranges across runs) and
+`boardundo.js`. The draw.io programme above is the feature catalogue; these
+rows are the trust contract's (WORLD_CLASS_PLAN 28) for the same surface.
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#library-view-whiteboard`, an empty board open | 40 (top bar 11) | 11 (top bar 7) |
+| Clicks from the dashboard | open a board 3 (Library, Boards & maps, the card); a new board 4 (Library, Boards & maps, New, Create, and a name typed); the palette 1 ("New whiteboard board", "Board overview", "Find a card on this board") | the same |
+| Time to the board (an empty board, bundle loaded) | 86 to 118 ms | 260 to 576 ms |
+| Undo | `boardundo.js` 43/43 on this head; an agent's or another tab's change is not on the stack (the 2026-10-05 audit) | not driven |
+| Overflow | 0 past the viewport, 0 clipped, 0 overlaps, no page scroll (the rail's seven section labels are visually hidden by design, 1 px) | the same |
+| No model | 0 AI controls on the board; every board act is local | the same |
+
+**The professional bar.** draw.io: every act from the keyboard and a menu,
+any diagram from a template in two clicks, a named page history, the same
+editor on a phone. Excalidraw and tldraw for the feel of a stroke and a
+pinch.
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | The phone has 11 controls against 40: list every `WB_COMMANDS` row and the phone path to it (a sheet from the top bar's kebab) | commands with a phone path, counted, to 100% at 390 | 8, 2 |
+| 2 | fix | A new board in 3 clicks: New on the Boards landing makes "Untitled board" and opens it, renamed in place (no name dialog first) | clicks 4 to 3; time from New to a drawable canvas | 2, 13 |
+| 3 | fix | An agent's or another tab's change joins the open board's stack as one step | `boardundo.js` gains the agent row; 44/44 | 1 |
+| 4 | redesign | The History sheet as draw.io's revision list: named snapshots, a preview, restore as one undo step | restore then Ctrl+Z gives the board back object-equal | 1, 3 |
+| 5 | expansion | The draw.io programme's ten phases (Brief 44 part 2), each gated by its own sweep | the matrix rows it names | 6, 11 |
+| 6 | optimisation | 500 objects open in 2,551 ms first (25.2): paint the visible tiles first, then the rest | first paint under 1 s at 500 objects (25g, Brief 53) | 13 |
+| 7 | fix | A failed save says what and why and retries; the board is never left half written | an offline save toast with an action; `test_never_lose.py` board row | 3, 4 |
+| 8 | optimisation | Every rail and top-bar control has a `data-help-for` popover and a palette row | 0 missing | 6 |
+| 9 | expansion | A board AI act (summarise a board, a board from a note) is one chat tool; the board keeps Tidy and the layouts as the no-model path | 0 dead controls with no model | 12 |
+
+**Briefs.** 36 (the owner's fifteen items), 44 (row 5), 51 (row 7), 53
+(row 6), 77 (rows 1 to 4, 8, 9).
+
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).

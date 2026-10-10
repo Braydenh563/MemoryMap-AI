@@ -27,6 +27,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Other devices: the network certificate is made again when this computer's address changes, so a phone no longer reports the wrong name or a lost connection; Settings, Account and security shows the certificate's names and expiry and a Trust this certificate on your phone button with iPhone and Android steps.
 ### Changed
+- Plans: six features deepened under the trust contract (Brief 72a, decision 71): the documents editor (DOCUMENTS_PLAN 24), the code editor (25), the whiteboard, the mind map (MINDMAP 15), the OCR workspace (WORLD_CLASS 28.4) and the audio set (28.5), each measured by `scratchpad/ui-sweeps/deepen72a.js` with undo coverage, clicks from the dashboard, overflow at 1440 and 390 and open times; Briefs 76 to 83; the audio go taken (INBOX 759).
 
 - Answers from your notes cite each note as [**Title**]; hovering the name previews the passage it came from and pressing it opens the note (Ask and Chat).
 - Filing with no model: a fixed keyword map now votes only for a category you already have (top-1 on a 40-note test notebook 0.05 to 0.15, no more wrong filings), and tag suggestions are only ever tags you already use.

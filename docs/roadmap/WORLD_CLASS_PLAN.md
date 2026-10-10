@@ -2238,7 +2238,7 @@ text, piper and kokoro for speech, evaluated on licence and on cost against
 this app's constraints. The evaluation is cheap and is worth having whether
 or not any of it is ever built.
 
-**State 2026-09-24:** (c) deferred by the owner's own word; nothing starts until he says go.
+**State 2026-10-10:** go. The owner's 2026-10-10 list asks for all four (INBOX 759, decision taken by the orchestrator); 28.5 and Briefs 80 to 83 carry the work.
 
 ## 20. A model per feature (asked for directly, 2026-09-21)
 
@@ -3844,6 +3844,8 @@ World class for a local notebook is five things, each measurable:
 | Undo | one model: Ctrl+Z where focus is, an undo bar for server actions | measured: 50 "undo" functions in 21 files, 13 call `pushUndo`; the others are the board, document, chat draft, inline AI, skill run and import implementations (24.6b) | six implementations, no contract | decision 53 |
 | Keyboard | every action reachable; a generated shortcuts sheet | measured: `DEFAULT_SHORTCUTS` 31 entries; 574 key checks, 513 conventions, 14 table keys, 47 other (24.6b) | the 549 checks are the ones not in the table; the sheet must be generated from the table | Phase 12 row |
 | Languages | one | English only; no i18n layer | decision 50 | none |
+| OCR workspace | Google Keep's OCR, Apple Live Text | measured 2026-10-10: 22 to 25 controls, 98 to 240 ms to open, 0 of 5 reading acts undo (28.4) | not in quick access; the palette row says "AI"; no undo; no pinch zoom | 28.4, Brief 79 |
+| Audio: meetings, transcription, captions, translator | Otter, Voice Memos, Live Captions, Apple Translate | measured 2026-10-10: Record refuses with no Whisper add-on; no live captions; no offline translator (28.5) | the recording is not an object; the meeting summary needs a model | 28.5, Briefs 80 to 83 |
 
 ### 25.3 Decisions, 2026-10-10 (do not re-decide)
 
@@ -4118,6 +4120,77 @@ is done only when the rules below hold for the surfaces it touched (decision
 | T1 deepen | 72a, 72b (Opus) | every named feature's plan deepened per decision 71 |
 | T2 build | 73 (Opus) | the Activity panel and model stop (rule 5), the error contract (rule 4), the Health page (rule 14) |
 | T3 hold | every later brief | decision 68 in every report |
+
+### 28.4 Deepened 2026-10-10: the OCR workspace (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` (fresh data dir, no model,
+no Tesseract, a 900 by 400 PNG of three lines, three runs; ranges across
+runs). Today: 22 to 25 controls at 1440, 11 to 12 at 390; open 98 to 240 ms
+at 1440, 474 to 1,335 ms at 390; 3 clicks from the dashboard (Library,
+Files, the row); not in quick access; one palette row, "Read a document or
+image with AI", though Tesseract and RapidOCR read with no model; 0 of 5
+reading acts undo (save an edited reading, delete a page reading, clean
+loops, a region read, an engine install; static read of `library.js`); at
+1440 nothing overflows, at 390 2 to 3 controls sit past the right edge
+(`ocr-reader`, `ocr-rapidocr-install`, "Install Tesseract"); with no engine
+and no model the engine line says "Tesseract isn't installed. Install it
+here, or start an AI model in Settings, to read pages." and offers Install;
+2 AI controls stay enabled. Pinch zoom (the owner's bug) was not driven.
+**The bar:** Google Keep's "Grab image text" (one tap, the text editable
+beside the image), Apple Live Text (select words on the image in place),
+Acrobat for highlights and comments on a PDF page.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Quick access, Find anything and a palette row named "Read text from an image or PDF" (no "AI") | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
+| 2 | fix | Undo for the five reading acts; a deleted reading goes to the bin | 0/5 to 5/5 in `undo.js` | 1, 3 |
+| 3 | fix | Pinch zoom: Ctrl+wheel from a trackpad and two-finger touch on the page | a synthetic Ctrl+wheel changes `#ocr-zoom-level`; a two-touch pinch at 390 | 8, 11 |
+| 4 | fix | At 390 the reader picker and the installs wrap into the row or a sheet | 2 to 3 past the edge to 0 at 320 and 390 | 7, 8 |
+| 5 | fix | No engine and no model: one line offering RapidOCR first (pip, no system binary) with its size, then Tesseract; the AI controls say why | 0 dead controls with no model | 12, 4, 13 |
+| 6 | fix | Reading and installs are jobs in the Activity panel with progress per page and Stop (decision 70) | a 20-page PDF lists and stops | 5 |
+| 7 | redesign | Live Text in place: a text layer over `extract_regions`' boxes, drag to select and copy on the image | a drag-select copies the words in order | 6, 12 |
+| 8 | expansion | Highlights and comments on a PDF page stored in the notebook; the encrypted-PDF prompt; the outline panel verified (ANALYSIS, pdfcraft) | a highlight survives a reload; a locked PDF asks once | 3, 4 |
+| 9 | optimisation | Open at 390 under 500 ms (1,335 ms under load) | the sweep's open time | 13 |
+
+Briefs: 37 (row 1), 42 (row 8's highlights), 73 (row 6), 79 (rows 2 to 5,
+7, 9).
+
+### 28.5 Deepened 2026-10-10: the audio set (Brief 72a, decision 71)
+
+Meeting notes, transcription, live captions, translator. The decisions of
+"Audio in the notebook" (1 to 5) stand. The go is taken (INBOX 759, the state line above).
+Measured as 28.4: "New meeting" is 1 click on the dashboard and opens in 23
+to 61 ms (7 controls); the meeting sheet opens in 27 to 39 ms with 4
+controls; the recorder (palette "Record a meeting or lecture") in 7 to 17
+ms with 4; nothing overflows at 1440 or 390. With no Whisper add-on Record
+refuses before recording ("Voice notes need an add-on that isn't installed
+yet...") so no audio is kept; Summarise ("Find the decisions and action items") stays enabled
+and its route answers 503 with no model (read, not driven); 1 of 6 meeting
+acts undo (Summarise; not create, remind, save into a note, save as a note
+or a document). Live captions: none. Translator: none offline; a document's
+"Translate this" hands the passage to chat (a model). Chromium's Web Speech
+sends audio to a server, so it is out (the offline rule).
+**The bar:** Otter (a live transcript with speakers and timestamps, a word
+plays from its moment, summary and actions), Apple Voice Memos (record,
+trim, a library), Windows Live Captions (on-device, over any app), Apple
+Translate (offline language packs).
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Record never refuses: the audio is kept as a recording object (decision 2) and transcription is offered when the add-on is there | no add-on: Record gives a saved recording with its length | 12, 3 |
+| 2 | fix | The meeting's decisions and actions found with no model (lines saying decided, agreed, action, TODO, a name and a date); the model writes prose on top | 0 dead controls; a sample meeting's 3 actions found | 12, 4 |
+| 3 | redesign | One Audio section: New meeting, Voice note, Dictate, Live captions, Translate as separate entries (the owner: "meeting notes should be different ... from dictation"), each in quick access and the palette | each 1 click from the dashboard or palette | 2, 6, 10 |
+| 4 | fix | Undo for the five meeting acts with none | 1/6 to 6/6 | 1 |
+| 5 | fix | A recording's chunks saved every 10 s, so a crash keeps the meeting | kill the tab at 2 min, recover at least 1:50 | 3 |
+| 6 | expansion | The recordings library: play, speed 0.5 to 2x, the saved waveform, trim, markers while recording (ANALYSIS, soundcraft) | one sweep per act | 6 |
+| 7 | expansion | A timestamped transcript: a line seeks the audio, SRT and VTT out | a click seeks within 0.5 s | 6 |
+| 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
+| 9 | expansion | Live captions (decision 5): whisper.cpp streaming in the optional helper (decision 4's shape), in a `.dock` over any surface, saved as a transcript | speech to caption under 2 s on the reference laptop | 12, 5 |
+| 10 | expansion | An offline translator with no model: Bergamot (WASM, MPL-2.0) evaluated first for licence, size and quality, packs as optional packages; for documents, notes, readings and captions | a paragraph in under 1 s; sizes recorded | 12 |
+| 11 | expansion | Speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on a sample | 12 |
+
+Briefs: 73 (row 8), 80 (rows 1, 3 to 6), 81 (rows 2, 7, 11), 82 (row 9),
+83 (row 10).
 
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 

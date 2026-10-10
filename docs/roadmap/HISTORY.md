@@ -46250,8 +46250,14 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      understanding handling, better responses, better outputs and structure,
      use it to upgrade the guide??" Then: "idk im just spewing things". Placed:
      CHAT_PLAN decision 59 (Atlas widens after the gate, and powers the Guide),
-     phase F5 and Brief 76. Read as direction, gated on the engine's bar, not
+     phase F5 and Brief 84. Read as direction, gated on the engine's bar, not
      as work now.
+
+759. **Decision needed, found by Brief 72a (2026-10-10).** "Audio in the
+     notebook" (WORLD_CLASS_PLAN) said nothing starts until the owner says go
+     (2026-09-24); the owner's 2026-10-10 list asks for all four audio
+     features. Recommendation, taken: that list is the go. State line
+     updated; Briefs 80 to 83 may run.
 
 ## Plan size caps, 2026-10-10
 

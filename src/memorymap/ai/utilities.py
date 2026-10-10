@@ -245,13 +245,17 @@ def until_subject(question: str) -> tuple[str, str] | None:
     return None
 
 
+def _sum_of(question: str, text: str) -> str | None:
+    return arithmetic.sum_in(question) or arithmetic.sum_in(text)
+
+
 def kind_of(question: str) -> str | None:
     """Which utility `question` is, or None: the router's question, answered
     without working anything out."""
     text = _clean(question)
     if not text:
         return None
-    if arithmetic.sum_in(question) or arithmetic.sum_in(text):
+    if _sum_of(question, text):
         return "sum"
     if _PERCENT.match(text):
         return "percent"
@@ -291,7 +295,7 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
     now = now or datetime.now()
     text = _clean(question)
     if kind == "sum":
-        expr = arithmetic.sum_in(question) or arithmetic.sum_in(text)
+        expr = _sum_of(question, text)
         value = arithmetic.spoken(arithmetic.evaluate(expr))
         return [("computed", f"{expr.strip()} is {value}.")]
     if kind == "percent":
@@ -375,6 +379,22 @@ def reading_time(words: int) -> str:
     return f"{minutes / 60:.1f}h read"
 
 
+def _heading_at(lines: list[str], index: int, found: list[dict], max_level: int) -> dict | None:
+    """The heading the line at `index` closes or is, or None: a `#` line, or the
+    `===`/`---` underline of a paragraph line above it."""
+    line = lines[index]
+    match = _ATX.match(line)
+    if match:
+        if match.group(2).strip() and len(match.group(1)) <= max_level:
+            return {"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]}
+        return None
+    if index and _SETEXT.match(line):
+        above = lines[index - 1]
+        if above.strip() and not _NOT_PARAGRAPH.match(above) and not (found and found[-1]["line"] == index - 1):
+            return {"line": index - 1, "level": 1 if line.strip()[0] == "=" else 2, "text": above.strip()[:200]}
+    return None
+
+
 def outline(text: str, max_level: int = 6, limit: int | None = None) -> list[dict]:
     """`{line, level, text}` for each heading, `line` zero-based: `#` headings
     to `max_level`, and the underlined (setext) form, as the editor draws
@@ -388,14 +408,9 @@ def outline(text: str, max_level: int = 6, limit: int | None = None) -> list[dic
             continue
         if fenced:
             continue
-        match = _ATX.match(line)
-        if match and match.group(2).strip():
-            if len(match.group(1)) <= max_level:
-                found.append({"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]})
-        elif index and _SETEXT.match(line):
-            above = lines[index - 1]
-            if above.strip() and not _NOT_PARAGRAPH.match(above) and not (found and found[-1]["line"] == index - 1):
-                found.append({"line": index - 1, "level": 1 if line.strip()[0] == "=" else 2, "text": above.strip()[:200]})
+        heading = _heading_at(lines, index, found, max_level)
+        if heading is not None:
+            found.append(heading)
         if limit and len(found) >= limit:
             break
     return found

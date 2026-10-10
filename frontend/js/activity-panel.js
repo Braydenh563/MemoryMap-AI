@@ -110,8 +110,21 @@ async function stopAllActivity() {
     toast("Nothing running can stop part way.", "info");
     return;
   }
-  await Promise.all(jobs.map((job) => apiJson(`/activity/${encodeURIComponent(job.id)}/stop`, { method: "POST" }).catch(() => null)));
-  toast(`Asked ${jobs.length} job${jobs.length === 1 ? "" : "s"} to stop.`, "info");
+  let error = null;
+  const asked = await Promise.all(
+    jobs.map((job) =>
+      apiJson(`/activity/${encodeURIComponent(job.id)}/stop`, { method: "POST" }).then(
+        () => 1,
+        (caught) => {
+          error = error || caught;
+          return 0;
+        },
+      ),
+    ),
+  );
+  const stopped = asked.reduce((sum, one) => sum + one, 0);
+  if (stopped) toast(`Asked ${stopped} job${stopped === 1 ? "" : "s"} to stop.`, "info");
+  if (error) toast(error.message, true);
   renderActivity();
 }
 window.stopAllActivity = stopAllActivity;

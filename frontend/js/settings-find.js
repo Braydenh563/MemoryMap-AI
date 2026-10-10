@@ -43,6 +43,7 @@ function settingRowText(el) {
 //: would be searching empty panes) and skipping what a person cannot see:
 //: a pane's own hidden state does not count, a hidden group inside it does.
 function settingRows() {
+  settingWordsAsk();
   const rows = [];
   for (const pane of document.querySelectorAll("#settings-modal .settings-section")) {
     const name = pane.id.slice("settings-".length);
@@ -80,13 +81,20 @@ function settingRows() {
 //: "night", "dark" and "theme" find the same setting. The groups are the
 //: server's (`GET /read/words`, ai/filters.py `SETTING_WORDS`), fetched once
 //: when this file loads; without them a word matches only itself.
-const settingWords = { groups: null, filler: new Set() };
-apiJson("/read/words", { silent: true })
-  .then((got) => {
-    settingWords.groups = got.groups || null;
-    settingWords.filler = new Set(got.filler || []);
-  })
-  .catch(() => {});
+const settingWords = { groups: null, filler: new Set(), asked: false };
+//: Asked the first time the rows are read, not when this file loads: a script
+//: that fetches at load runs where nothing is listening (and in a bare
+//: harness), and the rows are read before any query is typed.
+function settingWordsAsk() {
+  if (settingWords.asked) return;
+  settingWords.asked = true;
+  apiJson("/read/words", { silent: true })
+    .then((got) => {
+      settingWords.groups = got.groups || null;
+      settingWords.filler = new Set(got.filler || []);
+    })
+    .catch(() => {});
+}
 
 function settingWordAlts(word) {
   const out = new Set([word]);

@@ -3178,7 +3178,10 @@ function docRunPanel(view) {
   body.append(frame, log, debugView);
   dom.addEventListener("keydown", (event) => docDebugKey(event));
   dom.append(head, helpBody, stdinWrap, body);
-  wireHelpPopover(help, helpBody);
+  //: The panel is attached to the editor after this returns, and
+  //: `initHelpToggles` finds the popover by id in the document, so it runs
+  //: once the panel is in.
+  queueMicrotask(() => initHelpToggles(dom));
   if (typeof docIdeRunGrip === "function") docIdeRunGrip(dom, view);
   docRunShowTab("output", { dom, tabs });
   docRun = { view, dom, frame, log, status, stopButton, live, stdin, stdinWrap, stdinButton, debugView, debug: false, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false, preview: false, liveTimer: null, options: {}, job: null, jobWait: null, jobBeat: null };
@@ -3266,6 +3269,17 @@ function docRunSetStatus(text, running) {
 //: A long run in Activity (25 row 9): listed once it has gone on for two
 //: seconds, renewed every second, and stopped when Activity's Stop was
 //: pressed (the renewal's answer). Its row goes when the run ends here.
+//: The Activity row is a courtesy: the run goes on whether or not it is
+//: listed, and a beat a second would bury a person in toasts. So a refusal is
+//: written to the Logs (Settings, Logs) instead of shown, and the call answers
+//: null.
+function docRunJobCall(path, options) {
+  return apiJson(path, { ...options, silent: true }).catch((error) => {
+    recordBrowserLog("WARN", [`[Run] Activity row ${options.method} ${path}: ${error.message}`]);
+    return null;
+  });
+}
+
 function docRunJobArm(id) {
   if (!docRun) return;
   const run = docRun;
@@ -3273,17 +3287,17 @@ function docRunJobArm(id) {
   run.jobWait = setTimeout(async () => {
     if (docRun !== run || run.id !== id || !run.running) return;
     const label = `Running ${currentDoc?.title || "a code document"}`.slice(0, 120);
-    const body = await apiJson("/documents/run-jobs", { method: "POST", body: JSON.stringify({ label }), silent: true }).catch(() => null);
+    const body = await docRunJobCall("/documents/run-jobs", { method: "POST", body: JSON.stringify({ label }) });
     if (!body?.id) return;
     if (docRun !== run || run.id !== id || !run.running) {
-      apiJson(`/documents/run-jobs/${encodeURIComponent(body.id)}`, { method: "DELETE", silent: true }).catch(() => null);
+      docRunJobCall(`/documents/run-jobs/${encodeURIComponent(body.id)}`, { method: "DELETE" });
       return;
     }
     run.job = body.id;
     run.jobBeat = setInterval(async () => {
       const job = run.job;
       if (!job) return;
-      const beat = await apiJson(`/documents/run-jobs/${encodeURIComponent(job)}/beat`, { method: "POST", silent: true }).catch(() => null);
+      const beat = await docRunJobCall(`/documents/run-jobs/${encodeURIComponent(job)}/beat`, { method: "POST" });
       if (beat?.stopped && docRun === run && run.id === id && run.job === job) docRunStop("Stopped from Activity.");
     }, DOC_RUN_JOB_BEAT_MS);
   }, DOC_RUN_JOB_AFTER_MS);
@@ -3295,7 +3309,7 @@ function docRunJobEnd(run) {
   clearInterval(run.jobBeat);
   const job = run.job;
   run.job = null;
-  if (job) apiJson(`/documents/run-jobs/${encodeURIComponent(job)}`, { method: "DELETE", silent: true }).catch(() => null);
+  if (job) docRunJobCall(`/documents/run-jobs/${encodeURIComponent(job)}`, { method: "DELETE" });
 }
 
 function docRunClear() {

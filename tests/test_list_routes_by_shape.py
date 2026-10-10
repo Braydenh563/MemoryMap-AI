@@ -54,6 +54,7 @@ BOUNDED = {
     "/insights/tag-cloud": "the top sixty tags",
     "/learned/export": "an export, read whole on purpose, capped at 10,000 facts",
     "/privacy/receipt": "this app's own switches",
+    "/read/words": "the app's own Settings word groups (ai/filters.py SETTING_WORDS), a fixed table",
     "/spaces": "the person's spaces, a handful",
     "/tidy/{key}": "capped at tidy.MAX_ROWS (300) rows; `count` still says how many the review found",
     "/websearch/providers": "the search providers this app knows",

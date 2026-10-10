@@ -7,6 +7,8 @@ and a model's act proposed through the registry (`propose_act`, decision 53)."""
 from __future__ import annotations
 
 import json
+
+import pytest
 from pathlib import Path
 
 from memorymap.ai import acts, agent, tools, validate
@@ -65,3 +67,26 @@ def test_the_agent_draws_the_proposed_card():
     src = Path(agent.__file__).read_text(encoding="utf-8")
     assert 'if result.get("act_card"):' in src and 'yield result["act_card"]' in src
 
+
+
+def test_propose_act_hands_over_as_a_proposal_the_loop_draws():
+    """It ends the turn like ask_user, but its card needs the session, so the
+    handover only names the sentence and the loop runs the handler."""
+    event = tools.handoff_event("propose_act", {"sentence": "  pin the dentist note "})
+    assert event == {"type": "act_proposal", "sentence": "pin the dentist note"}
+    with pytest.raises(tools.ToolError):
+        tools.handoff_event("propose_act", {})
+
+
+def test_the_loop_draws_a_models_act_card_and_stops(ai_client, fake_ollama):
+    """Before the handover row, the loop ended the turn without running the
+    handler, so the card never drew."""
+    from tests.test_ask_user import _events
+
+    fake_ollama.tool_script = [
+        [{"name": "propose_act", "arguments": {"sentence": "remind me to call Sam on Friday at 9"}}],
+        [{"name": "create_note", "arguments": {"content": "should never be created"}}],
+    ]
+    events = _events(ai_client, "set that up for me", use_tools=True)
+    assert any(e.get("proposed") is True and e.get("steps") for e in events), [e["type"] for e in events]
+    assert not any(e["type"] == "answer" for e in events)

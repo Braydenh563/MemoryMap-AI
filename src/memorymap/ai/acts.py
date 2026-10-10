@@ -132,6 +132,34 @@ _EDGES = (("hcenter", r"\bcent(?:re|er)s?\b.*\bhoriz|\bhoriz\w*\b.*\bcent"), ("v
           ("left", r"\bleft"), ("right", r"\bright"), ("top", r"\btop"), ("bottom", r"\bbottom"), ("hcenter", r"\bcent(?:re|er)"))
 
 
+def _grid_slots(found: re.Match, low: str) -> tuple[str, dict] | None:
+    said = next((g for g in found.groups() if g), None) if found.groups() else None
+    columns = recognise.count_of(said) if said else None
+    if columns is not None and not 1 <= columns <= 12:
+        return None
+    if columns == 1:
+        return "column", {}
+    return "grid", ({"columns": columns} if columns is not None else {})
+
+
+def _align_slots(found: re.Match, low: str) -> tuple[str, dict] | None:
+    edge = next((name for name, rx in _EDGES if re.search(rx, low)), None)
+    return None if edge is None else ("align", {"edge": edge})
+
+
+def _distribute_slots(found: re.Match, low: str) -> tuple[str, dict] | None:
+    vertical = re.search(r"\b(?:top to bottom|vertical\w*|down|rows)\b", low)
+    return "distribute", {"axis": "vertical" if vertical else "horizontal"}
+
+
+def _same_size_slots(found: re.Match, low: str) -> tuple[str, dict] | None:
+    return "same-size", {"dimension": "height" if re.search(r"height|tall", low) else "width"}
+
+
+#: One reader per intent that has slots; an intent without one (row, column) has none to read.
+_BOARD_SLOTS = {"grid": _grid_slots, "align": _align_slots, "distribute": _distribute_slots, "same-size": _same_size_slots}
+
+
 def board_parse(text: str) -> dict | None:
     """The board act `text` says, `{intent, slots, label, help, inverse}`,
     or None when it is not one (the palette then searches as before)."""
@@ -142,25 +170,10 @@ def board_parse(text: str) -> dict | None:
         found = pattern.search(low)
         if not found:
             continue
-        slots: dict = {}
-        if intent == "grid":
-            said = next((g for g in found.groups() if g), None) if found.groups() else None
-            columns = recognise.count_of(said) if said else None
-            if columns is not None and not 1 <= columns <= 12:
-                return None
-            if columns == 1:
-                intent = "column"
-            elif columns is not None:
-                slots["columns"] = columns
-        elif intent == "align":
-            edge = next((name for name, rx in _EDGES if re.search(rx, low)), None)
-            if edge is None:
-                return None
-            slots["edge"] = edge
-        elif intent == "distribute":
-            slots["axis"] = "vertical" if re.search(r"\b(?:top to bottom|vertical\w*|down|rows)\b", low) else "horizontal"
-        elif intent == "same-size":
-            slots["dimension"] = "height" if re.search(r"height|tall", low) else "width"
+        read = _BOARD_SLOTS.get(intent, lambda _found, _low, _intent=intent: (_intent, {}))(found, low)
+        if read is None:
+            return None
+        intent, slots = read
         act = BOARD[intent]
         return {"intent": intent, "slots": slots, "label": board_label(intent, slots), "help": act.help, "inverse": act.inverse}
     return None

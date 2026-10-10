@@ -781,7 +781,7 @@ MORE_TOPICS.extend(
                 "answer shows the right one (press it to put it in), a name another note "
                 "opens with becomes a [[link]], and File in names the category with its "
                 "reason beside it. Nothing is offered on quoted words: text in quotation "
-                "marks, `code` or a > quote line. At most five show at once. It all "
+                "marks, a code span or a quote line. At most five show at once. It all "
                 "works with no AI model."
             ),
             "badge": {"label": "Notes", "tab": "notes"},

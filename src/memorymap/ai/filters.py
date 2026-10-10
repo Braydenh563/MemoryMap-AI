@@ -66,106 +66,159 @@ def _window(phrase: str, now: datetime) -> tuple[date, date] | None:
     return understood.since, understood.until or now.date()
 
 
-def read(text: str, now: datetime) -> dict:
-    """`{filters: [{kind, ...}], rest}`; no filter when nothing is read."""
-    raw = re.sub(r"\s+", " ", str(text or "")).strip()
-    filters: list[dict] = []
-    taken: list[tuple[int, int]] = []
+class _Reading:
+    """The filters read so far and the spans of the text they used, so a later
+    pattern does not take words an earlier one already did."""
 
-    def free(found: re.Match) -> bool:
-        return not any(found.start() < end and start < found.end() for start, end in taken)
+    def __init__(self, raw: str) -> None:
+        self.raw = raw
+        self.filters: list[dict] = []
+        self.taken: list[tuple[int, int]] = []
 
-    def take(found: re.Match, item: dict) -> None:
-        filters.append({**item, "said": found.group(0).strip()})
-        taken.append((found.start(), found.end()))
+    def free(self, found: re.Match) -> bool:
+        return not any(found.start() < end and start < found.end() for start, end in self.taken)
 
-    if found := _ORPHAN.search(raw):
-        take(found, {"kind": "orphan"})
-    elif found := _CONNECTED.search(raw):
+    def take(self, found: re.Match, item: dict) -> None:
+        self.filters.append({**item, "said": found.group(0).strip()})
+        self.taken.append((found.start(), found.end()))
+
+
+def _read_links(r: _Reading) -> None:
+    if found := _ORPHAN.search(r.raw):
+        r.take(found, {"kind": "orphan"})
+    elif found := _CONNECTED.search(r.raw):
         name = re.sub(r"^(?:the|my|a|an)\s+", "", found.group(1).strip(" .\"'“”"), flags=re.I)
-        take(found, {"kind": "connected", "name": name})
-    if found := _UNTOUCHED.search(raw):
-        phrase = found.group(2).strip()
-        day = _past_day(phrase, now)
+        r.take(found, {"kind": "connected", "name": name})
+
+
+def _read_dates(r: _Reading, now: datetime) -> None:
+    if found := _UNTOUCHED.search(r.raw):
+        day = _past_day(found.group(2).strip(), now)
         if day is not None:
-            take(found, {"kind": "untouched", "since": day.isoformat()})
+            r.take(found, {"kind": "untouched", "since": day.isoformat()})
     for pattern, kind in ((_EDITED, "edited"), (_CREATED, "created")):
-        if (found := pattern.search(raw)) and free(found):
+        if (found := pattern.search(r.raw)) and r.free(found):
             span = _window(found.group(1), now)
             if span is not None:
-                take(found, {"kind": kind, "start": span[0].isoformat(), "end": span[1].isoformat()})
-    for found in _TAG.finditer(raw):
-        take(found, {"kind": "tag", "name": found.group(1).lower()})
-    if found := _CATEGORY.search(raw):
-        take(found, {"kind": "category", "name": found.group(1).strip()})
-    if found := _PINNED.search(raw):
-        take(found, {"kind": "pinned"})
+                r.take(found, {"kind": kind, "start": span[0].isoformat(), "end": span[1].isoformat()})
+
+
+def _read_labels(r: _Reading) -> None:
+    for found in _TAG.finditer(r.raw):
+        r.take(found, {"kind": "tag", "name": found.group(1).lower()})
+    if found := _CATEGORY.search(r.raw):
+        r.take(found, {"kind": "category", "name": found.group(1).strip()})
+    if found := _PINNED.search(r.raw):
+        r.take(found, {"kind": "pinned"})
+
+
+def _read_contents(r: _Reading) -> None:
     for name, pattern in _HAS:
-        if found := pattern.search(raw):
-            take(found, {"kind": "has", "what": name})
+        if found := pattern.search(r.raw):
+            r.take(found, {"kind": "has", "what": name})
     for name, pattern in _KINDS:
-        if found := pattern.search(raw):
-            take(found, {"kind": "type", "what": name})
-    if found := _MENTION.search(raw):
-        take(found, {"kind": "mention", "name": found.group(1).strip()})
-    rest = raw
-    for start, end in sorted(taken, reverse=True):
+        if found := pattern.search(r.raw):
+            r.take(found, {"kind": "type", "what": name})
+    if found := _MENTION.search(r.raw):
+        r.take(found, {"kind": "mention", "name": found.group(1).strip()})
+
+
+def read(text: str, now: datetime) -> dict:
+    """`{filters: [{kind, ...}], rest}`; no filter when nothing is read."""
+    r = _Reading(re.sub(r"\s+", " ", str(text or "")).strip())
+    _read_links(r)
+    _read_dates(r, now)
+    _read_labels(r)
+    _read_contents(r)
+    rest = r.raw
+    for start, end in sorted(r.taken, reverse=True):
         rest = rest[:start] + " " + rest[end:]
-    rest = re.sub(r"\s+", " ", _FILLER.sub(" ", rest)).strip(" ,;.") if filters else raw
-    return {"filters": filters, "rest": rest}
+    rest = re.sub(r"\s+", " ", _FILLER.sub(" ", rest)).strip(" ,;.") if r.filters else r.raw
+    return {"filters": r.filters, "rest": rest}
 
 
 def _midnight(day: str) -> datetime:
     return datetime.combine(date.fromisoformat(day), time.min)
 
 
+def _where_links(session: Session, query, item: dict):  # noqa: ANN001
+    from memorymap.core.database import LIKE_ESCAPE, Entry, EntryLink, like_escape
+    from memorymap.entry.manager import find_by_wiki_name
+
+    links = session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)).all()
+    if item["kind"] == "orphan":
+        linked = {a for a, _ in links} | {b for _, b in links}
+        return query.where(Entry.id.not_in(linked) if linked else True)
+    hub = find_by_wiki_name(session, item["name"])
+    if hub is None:
+        like = f"%{like_escape(item['name'])}%"
+        hub = session.scalars(select(Entry).where(Entry.is_deleted == False, Entry.content.ilike(like, escape=LIKE_ESCAPE))  # noqa: E712
+                              .order_by(Entry.id).limit(1)).first()
+    near = {b for a, b in links if hub and a == hub.id} | {a for a, b in links if hub and b == hub.id}
+    return query.where(Entry.id.in_(near))
+
+
+def _where_has(session: Session, query, item: dict):  # noqa: ANN001
+    from memorymap.core.database import Entry, Reminder
+
+    what = item["what"]
+    if what == "image":
+        return query.where(Entry.content.ilike("%![%](%"))
+    if what == "file":
+        return query.where(or_(Entry.content.ilike("%/media/%"), Entry.content.ilike("%.pdf%")))
+    if what == "link":
+        return query.where(Entry.content.ilike("%http%"))
+    if what == "reminder":
+        return query.where(Entry.id.in_(select(Reminder.entry_id).where(Reminder.entry_id.is_not(None))))
+    return query
+
+
+def _where_dated(session: Session, query, item: dict):  # noqa: ANN001
+    from memorymap.core.database import Entry
+
+    if item["kind"] == "untouched":
+        return query.where(Entry.updated_at < _midnight(item["since"]))
+    column = Entry.updated_at if item["kind"] == "edited" else Entry.created_at
+    return query.where(column >= _midnight(item["start"]), column < _midnight(item["end"]) + timedelta(days=1))
+
+
+def _where_labelled(session: Session, query, item: dict):  # noqa: ANN001
+    from memorymap.core.database import LIKE_ESCAPE, Category, Entry, like_escape
+
+    if item["kind"] == "tag":
+        return query.where(Entry.tags.ilike(f'%"{like_escape(item["name"])}"%', escape=LIKE_ESCAPE))
+    if item["kind"] == "category":
+        return query.join(Category, Category.id == Entry.category_id).where(
+            Category.name.ilike(like_escape(item["name"]), escape=LIKE_ESCAPE))
+    return query.where(Entry.pinned == True)  # noqa: E712
+
+
+def _where_content(session: Session, query, item: dict):  # noqa: ANN001
+    from memorymap.core.database import LIKE_ESCAPE, Entry, like_escape
+
+    if item["kind"] == "type":
+        return query.where(Entry.is_board == True)  # noqa: E712
+    return query.where(Entry.content.ilike(f"%{like_escape(item['name'])}%", escape=LIKE_ESCAPE))
+
+
+#: One narrowing per filter kind, walked by `resolve`.
+_RESOLVERS = {
+    "connected": _where_links, "orphan": _where_links,
+    "untouched": _where_dated, "edited": _where_dated, "created": _where_dated,
+    "tag": _where_labelled, "category": _where_labelled, "pinned": _where_labelled,
+    "type": _where_content, "mention": _where_content, "has": _where_has,
+}
+
+
 def resolve(session: Session, filters: list[dict], now: datetime) -> list[int]:
     """The notes every filter leaves, newest first (at most 2,000)."""
-    from memorymap.core.database import LIKE_ESCAPE, Category, Entry, EntryLink, Reminder, like_escape
-    from memorymap.entry.manager import find_by_wiki_name
+    from memorymap.core.database import Entry
 
     query = select(Entry.id).where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
     for item in filters:
-        kind = item["kind"]
-        if kind in ("connected", "orphan"):
-            links = session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)).all()
-            if kind == "orphan":
-                linked = {a for a, _ in links} | {b for _, b in links}
-                query = query.where(Entry.id.not_in(linked) if linked else True)
-                continue
-            hub = find_by_wiki_name(session, item["name"])
-            if hub is None:
-                like = f"%{like_escape(item['name'])}%"
-                hub = session.scalars(select(Entry).where(Entry.is_deleted == False, Entry.content.ilike(like, escape=LIKE_ESCAPE))  # noqa: E712
-                                      .order_by(Entry.id).limit(1)).first()
-            near = {b for a, b in links if hub and a == hub.id} | {a for a, b in links if hub and b == hub.id}
-            query = query.where(Entry.id.in_(near))
-        elif kind == "untouched":
-            query = query.where(Entry.updated_at < _midnight(item["since"]))
-        elif kind in ("edited", "created"):
-            column = Entry.updated_at if kind == "edited" else Entry.created_at
-            query = query.where(column >= _midnight(item["start"]), column < _midnight(item["end"]) + timedelta(days=1))
-        elif kind == "tag":
-            query = query.where(Entry.tags.ilike(f'%"{like_escape(item["name"])}"%', escape=LIKE_ESCAPE))
-        elif kind == "category":
-            query = query.join(Category, Category.id == Entry.category_id).where(
-                Category.name.ilike(like_escape(item["name"]), escape=LIKE_ESCAPE))
-        elif kind == "pinned":
-            query = query.where(Entry.pinned == True)  # noqa: E712
-        elif kind == "type":
-            query = query.where(Entry.is_board == True)  # noqa: E712
-        elif kind == "mention":
-            query = query.where(Entry.content.ilike(f"%{like_escape(item['name'])}%", escape=LIKE_ESCAPE))
-        elif kind == "has":
-            what = item["what"]
-            if what == "image":
-                query = query.where(Entry.content.ilike("%![%](%"))
-            elif what == "file":
-                query = query.where(or_(Entry.content.ilike("%/media/%"), Entry.content.ilike("%.pdf%")))
-            elif what == "link":
-                query = query.where(Entry.content.ilike("%http%"))
-            elif what == "reminder":
-                query = query.where(Entry.id.in_(select(Reminder.entry_id).where(Reminder.entry_id.is_not(None))))
+        narrow = _RESOLVERS.get(item["kind"])
+        if narrow is not None:
+            query = narrow(session, query, item)
     return list(session.scalars(query.order_by(Entry.id.desc()).limit(2000)))
 
 

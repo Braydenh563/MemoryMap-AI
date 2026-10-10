@@ -1952,24 +1952,32 @@ def _tool_read_events(req: _StreamRequest) -> list[dict]:
     return out
 
 
-def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
-    """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
+def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> list[dict] | None:
+    """**A counted answer, streamed as one piece**, or a read tool's answer
+    with no model. See the same branch in `chat()`: the number is already
+    exact and already a sentence, so there is nothing to generate and nothing
+    to wait for. It arrives before a local model would have finished loading,
+    and it arrives at all when no model is running. None when the stream
+    goes on to compose or generate."""
     if prepared["stats"] is not None:
-        #: **A counted answer, streamed as one piece.** See the same branch
-        #: in `chat()`: the number is already exact and already a sentence,
-        #: so there is nothing to generate and nothing to wait for. It
-        #: arrives before a local model would have finished loading, and it
-        #: arrives at all when no model is running.
-        yield {"type": "answer", "delta": prepared["stats"]["text"]}
+        out = [{"type": "answer", "delta": prepared["stats"]["text"]}]
         drawn = _stats_chart(prepared["stats"])
         if drawn is not None:
-            yield {"type": "chart", "chart": drawn}
-        return
+            out.append({"type": "chart", "chart": drawn})
+        return out
     if not ollama_running:
         shown = prepared["tool_read"] if "tool_read" in prepared else _tool_read_events(req)
         if shown:
-            yield from shown
-            return
+            return list(shown)
+    return None
+
+
+def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
+    """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
+    exact = _exact_events(req, prepared, ollama_running)
+    if exact is not None:
+        yield from exact
+        return
     conversational = not intent.needs_retrieval(prepared["intent"])
     if conversational and prepared["intent"] == intent.ABOUT_APP and _HOW_TO.match(req.question or "") and (
         _composed(req, ollama_running) or not ollama_running
@@ -2404,6 +2412,34 @@ def _spoken_act(req: _StreamRequest) -> str | None:
     return resolved[0]
 
 
+def _note_tool_read(req: _StreamRequest, prepared: dict, ollama_running: bool) -> None:
+    """A read tool answered with no model (decision 59) is the whole
+    notebook's, so the notes retrieval found are not its sources."""
+    if not ollama_running and prepared["stats"] is None and prepared["intent"] != intent.ACT:
+        prepared["tool_read"] = _tool_read_events(req)
+
+
+def _follow_up(req: _StreamRequest):
+    """The follow-up the turn before gives this one: a spoken act stands in
+    for the question itself; a composed turn's "tell me more" is
+    `composer.follow_on`'s; None otherwise."""
+    spoken = _spoken_act(req) if req.history and not req.ollama.is_running() else None
+    if spoken is not None:
+        req.question = spoken
+        return None
+    if req.history and ((req.body.notes_only and req.body.answer_from == "notes") or not req.ollama.is_running()):
+        return composer.follow_on(req.question, req.history)
+    return None
+
+
+def _searched_question(req: _StreamRequest, follow) -> str:
+    """A correction ("no, the gym one") searches the question it corrects
+    with the note it names (decision 35)."""
+    if follow is None:
+        return req.question
+    return f"{follow.question} {follow.prefer}" if follow.prefer else follow.question
+
+
 def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     def event(payload: dict) -> str:
         return json.dumps(payload) + "\n"
@@ -2422,17 +2458,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: turn the composer answers (Ask's From your notes, or any turn with no
     #: model), and only with a turn before it: a model reads the history
     #: itself, and the routing below (`_composed`) is unchanged by it.
-    follow = None
-    spoken = _spoken_act(req) if req.history and not req.ollama.is_running() else None
-    if spoken is not None:
-        req.question = spoken
-    elif req.history and ((req.body.notes_only and req.body.answer_from == "notes") or not req.ollama.is_running()):
-        follow = composer.follow_on(req.question, req.history)
+    follow = _follow_up(req)
     prepared = _prepare(
         req.session,
-        #: A correction ("no, the gym one") searches the question it corrects
-        #: with the note it names (decision 35).
-        (f"{follow.question} {follow.prefer}" if follow.prefer else follow.question) if follow else req.question,
+        _searched_question(req, follow),
         req.body.note_ids,
         force_notes_intent=req.body.answering_agent or follow is not None,
         attached_notes_only=req.body.attached_notes_only,
@@ -2489,10 +2518,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     if will_answer and not tools_only:
         _assist(req, prepared)
-    #: A read tool answered with no model (decision 59) is the whole
-    #: notebook's, so the notes retrieval found are not its sources.
-    if not ollama_running and prepared["stats"] is None and prepared["intent"] != intent.ACT:
-        prepared["tool_read"] = _tool_read_events(req)
+    _note_tool_read(req, prepared, ollama_running)
 
     yield event(
         {

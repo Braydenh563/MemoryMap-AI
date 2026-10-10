@@ -276,10 +276,10 @@ FAULTS = {
         'progress.textContent || "Couldn\'t apply the update."': "the update step failed; the text is the step's own error",
     },
     'whiteboard.js': {
-        '"Couldn\'t undo that."': 'undo threw an exception',
-        '"Couldn\'t redo that."': 'redo threw an exception',
-        '"Couldn\'t read that file."': 'reading the chosen file threw',
-        '`Could not add that note to the board: ${why}`': 'creating the node on the server failed',
+        'voiceLine("failed", { what: "undo that" })': 'undo threw an exception',
+        'voiceLine("failed", { what: "redo that" })': 'redo threw an exception',
+        'voiceLine("failed", { what: "read that file" })': 'reading the chosen file threw',
+        'voiceLine("failed", { what: "add that note to the board", why: why })': 'creating the node on the server failed',
     },
 }
 

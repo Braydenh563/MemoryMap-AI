@@ -38,7 +38,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy import func as sqlfunc
@@ -329,11 +329,18 @@ def _snapshot_board(db: Session, board_id: int) -> Entry:
 
 
 @router.get("/history/snapshots")
-def list_snapshots(board_id: int, db: Session = Depends(get_session)) -> dict:
-    """The board's named snapshots, newest first."""
+def list_snapshots(
+    board_id: int,
+    response: Response,
+    limit: int = Query(default=SNAPSHOTS_MAX, ge=1, le=SNAPSHOTS_MAX),
+    db: Session = Depends(get_session),
+) -> dict:
+    """The board's named snapshots, newest first, up to `limit` (the most a
+    board keeps is `SNAPSHOTS_MAX`, so the default is all of them)."""
     entry = _snapshot_board(db, board_id)
     snaps = [s for s in _board_settings(entry).get("snapshots") or [] if isinstance(s, dict)]
-    return {"snapshots": sorted(snaps, key=lambda s: s.get("event_id", 0), reverse=True)}
+    response.headers["X-Total-Count"] = str(len(snaps))
+    return {"snapshots": sorted(snaps, key=lambda s: s.get("event_id", 0), reverse=True)[:limit]}
 
 
 @router.post("/history/snapshots", status_code=201)

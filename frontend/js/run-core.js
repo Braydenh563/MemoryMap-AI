@@ -35,11 +35,10 @@ const RUN_CORE = {
 function runVendorFetch(url, as = "text") {
   const key = `${as}:${url}`;
   if (!RUN_CORE.loads.has(key)) {
-    const load = fetch(url, { credentials: "same-origin" })
-      .then((response) => {
-        if (!response.ok) throw new Error(`${url} answered ${response.status}`);
-        return as === "bytes" ? response.arrayBuffer() : response.text();
-      })
+    //: `api()` throws on a refusal and carries the session's token, so the
+    //: vendored file is read the way every other same-origin file is.
+    const load = api(url, { silent: true })
+      .then((response) => (as === "bytes" ? response.arrayBuffer() : response.text()))
       .catch((error) => {
         RUN_CORE.loads.delete(key);
         throw error;

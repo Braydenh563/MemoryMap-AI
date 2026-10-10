@@ -2345,6 +2345,20 @@ def validate_make_plan(arguments: dict) -> dict:
     }
 
 
+def validate_propose_act(arguments: dict, history: list[dict] | None) -> dict:
+    """The proposal `propose_act` hands over, or a ToolError saying what is missing.
+
+    The card itself needs the session, which a handover validator does not
+    have: the agent loop sees the `act_proposal` type and runs the tool's
+    handler (which writes nothing) so the card is drawn and the turn stops
+    there, waiting for Confirm.
+    """
+    sentence = " ".join(str(arguments.get("sentence") or "").split())
+    if not sentence:
+        raise ToolError("Say the change in the person's words: remind me to ..., tag the note about ... with ...")
+    return {"type": "act_proposal", "sentence": sentence}
+
+
 #: The tools whose whole effect is to end the turn and hand over, mapped to the
 #: validator that turns the model's arguments into the event the UI receives.
 #: A dispatch table rather than a chain of name checks in the agent loop: the
@@ -2359,6 +2373,7 @@ HANDOFFS: dict[str, Callable[[dict, list[dict] | None], dict]] = {
     "run_skill": lambda arguments, history: validate_run_skill(arguments),
     "make_plan": lambda arguments, history: validate_make_plan(arguments),
     "compress_chat": validate_compress_chat,
+    "propose_act": validate_propose_act,
 }
 
 #: The handovers that start a *run*. A run must not start another run: each one
@@ -2662,10 +2677,9 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "related_notes",
             "Walk the connections around a note: what it links to, what "
-            "replies to it, and what shares its tags. Each result says HOW it "
-            "connects and how far away it is. Set include_suggestions to also "
-            "get notes that READ alike but were never linked, those are "
-            "guesses, not connections.",
+            "replies to it, and what shares its tags, each with HOW it "
+            "connects and how far away. include_suggestions adds notes that "
+            "READ alike but were never linked: guesses, not connections.",
             {
                 "type": "object",
                 "properties": {
@@ -2685,11 +2699,10 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "path_between",
-            "Answer 'how are these two notes related?'. Returns the chain of "
-            "connections joining them: each step says whether it is a link "
-            "somebody made, a reply thread, or a tag the two share. Use this "
-            "for a question about two specific notes; use related_notes for "
-            "what surrounds one.",
+            "Answer 'how are these two notes related?': the chain of "
+            "connections joining them, each step a link somebody made, a "
+            "reply thread, or a shared tag. For what surrounds one note, use "
+            "related_notes.",
             {
                 "type": "object",
                 "properties": {
@@ -2728,13 +2741,11 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "list_notes",
-            "Walk through the user's notes, newest first, optionally filtered "
-            "by category, tag, age, or untagged. Returns previews one page at "
-            "a time: check has_more and call again with next_offset to see "
-            "the rest. Set untagged:true for 'tag my untagged notes' rather "
-            "than listing everything and working out which have none. "
-            "Use this for 'go through my X notes' style requests; use "
-            "search_notes when you're looking for something specific.",
+            "Walk through the user's notes, newest first, optionally by "
+            "category, tag, age or untagged. Previews one page at a time: "
+            "while has_more, call again with next_offset. Set untagged:true "
+            "for 'tag my untagged notes'. Use it for 'go through my X notes'; "
+            "use search_notes to find something specific.",
             {
                 "type": "object",
                 "properties": {
@@ -2769,10 +2780,9 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "count_notes",
-            "Count the user's notes: in total, broken down per category, or "
-            "for one category, tag, age or notes with no tags at all. Returns "
-            "numbers only, so it's the cheap way to answer 'how many…' "
-            "without reading any notes.",
+            "Count the user's notes: in total, per category, or for one "
+            "category, tag, age or untagged. Numbers only: the cheap way to "
+            "answer 'how many…'.",
             {
                 "type": "object",
                 "properties": {
@@ -2808,22 +2818,18 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "notebook_overview",
-            "Categories, tags and the total note count, in one call. Use this "
-            "instead of list_categories + list_tags + count_notes when you "
-            "want the notebook's overall shape (filing it, auditing it, "
-            "summarising how it's organised): one call for what those three "
-            "would otherwise cost separately. For one specific number "
-            "(notes in a category, notes with a tag) count_notes alone is "
-            "still the right call.",
+            "Categories, tags and the total note count, in one call: use it "
+            "instead of list_categories + list_tags + count_notes for the "
+            "notebook's overall shape. For one specific number, count_notes "
+            "alone is still the right call.",
             {"type": "object", "properties": {}},
             _notebook_overview,
         ),
         ToolSpec(
             "list_documents",
             "List the user's long-form documents, newest first, optionally "
-            "filtered by a word in the title or body. Documents are separate "
-            "from notes and are never searched automatically, so use this "
-            "whenever the question is about something they wrote up properly.",
+            "filtered by a word in the title or body. Documents are never "
+            "searched with notes: use this for anything they wrote up properly.",
             {
                 "type": "object",
                 "properties": {
@@ -2839,11 +2845,10 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "search_files",
-            "Search the files the user has uploaded, photos, scans, PDFs, "
-            "attachments: by name, by the caption the app wrote for them, or "
-            "by the text read out of them. Use this for anything about a "
-            "picture or a document file: notes are searched separately and "
-            "never contain a file's contents.",
+            "Search the files the user has uploaded (photos, scans, PDFs, "
+            "attachments) by name, caption or the text read out of them. Use "
+            "it for anything about a picture or file: notes never contain a "
+            "file's contents.",
             {
                 "type": "object",
                 "properties": {
@@ -2860,11 +2865,8 @@ TOOLS: dict[str, ToolSpec] = {
             "read_file",
             "Read everything the app knows about one file: its caption and "
             "the text read out of it. Takes the `kind` and `id` exactly as "
-            "search_files returned them: uploads and attachments are "
-            "different things with their own numbering. The extracted text "
-            "is capped; for a multi-page scan or a long document, pass "
-            "query to get the text around where it actually appears "
-            "instead of just the first page.",
+            "search_files returned them (uploads and attachments are numbered "
+            "separately). The text is capped: for a long file, pass query.",
             {
                 "type": "object",
                 "properties": {
@@ -2875,10 +2877,8 @@ TOOLS: dict[str, ToolSpec] = {
                     "file_id": {"type": "integer", "description": "The file's id"},
                     "query": {
                         "type": "string",
-                        "description": "Optional: a word or phrase you're looking "
-                        "for in this file. Returns the text around where it "
-                        "appears instead of only the start of the reading, which "
-                        "matters for anything longer than a page or two.",
+                        "description": "Optional: a word or phrase to find; returns "
+                        "the text around it, not only the start.",
                     },
                 },
                 "required": ["kind", "file_id"],
@@ -2919,18 +2919,16 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "get_document",
             "Read one document in full, by id. Use after list_documents, "
-            "whose results are only previews. For a long document, pass "
-            "query to get back the few paragraphs most relevant to it "
-            "instead of a plain head-of-document truncation.",
+            "whose results are only previews. For a long one, pass query "
+            "to get its most relevant paragraphs instead of the head.",
             {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "integer", "description": "The document's id"},
                     "query": {
                         "type": "string",
-                        "description": "Optional: what you're looking for in this "
-                        "document. Narrows a long document down to its most "
-                        "relevant paragraphs instead of just the start.",
+                        "description": "Optional: what to look for; returns the "
+                        "most relevant paragraphs.",
                     },
                 },
                 "required": ["document_id"],
@@ -2972,10 +2970,8 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "add_whiteboard_card",
-            "Place an existing note as a card on a whiteboard board, the "
-            "building block of drawing a diagram from a description. Call "
-            "read_whiteboard first so a note already on the board isn't "
-            "placed a second time.",
+            "Place an existing note as a card on a whiteboard board. Call "
+            "read_whiteboard first so a note is not placed twice.",
             {
                 "type": "object",
                 "properties": {
@@ -2993,9 +2989,8 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "add_whiteboard_link",
-            "Draw a link between two cards already on a whiteboard board, "
-            "the connecting step of building a diagram from a description. "
-            "Both cards must already exist (add_whiteboard_card first).",
+            "Draw a link between two cards already on a whiteboard board "
+            "(add_whiteboard_card first).",
             {
                 "type": "object",
                 "properties": {
@@ -3010,8 +3005,7 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "generate_diagram",
             "Place a whole tree of notes on a whiteboard board in one call, "
-            "for 'draw a diagram/mind map of X' when several connected cards "
-            "are needed at once. Each node is either a new note (give "
+            "for 'draw a diagram/mind map of X'. Each node is either a new note (give "
             "'title') or an existing one ('note_id'), plus a short local "
             "'ref' other nodes reference as their 'parent_ref'. Exactly one "
             "node has no parent_ref (the root). Positions are computed "
@@ -3021,14 +3015,13 @@ TOOLS: dict[str, ToolSpec] = {
                 "properties": {
                     "nodes": {
                         "type": "array",
-                        "description": "Each: {ref, title OR note_id, parent_ref (omit for the root)}",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "ref": {"type": "string", "description": "Short local id, e.g. 'a'"},
                                 "title": {"type": "string", "description": "Content for a new note"},
                                 "note_id": {"type": "integer", "description": "An existing note's id instead"},
-                                "parent_ref": {"type": "string", "description": "Another node's ref; omit for the root"},
+                                "parent_ref": {"type": "string", "description": "Omit for the root"},
                             },
                             "required": ["ref"],
                         },
@@ -3056,11 +3049,10 @@ TOOLS: dict[str, ToolSpec] = {
         # thing they never ask the model for is a coordinate.
         ToolSpec(
             "read_mindmap",
-            "Read a mindmap as an indented outline, the map's title, then "
-            "every node with its own id, its kind, and the id of any note or "
-            "document it stands for. Use this before adding to a map, and "
-            "for 'what's in my X map?'. Needs the map's board_id; "
-            "search_whiteboard finds it by name.",
+            "Read a mindmap as an indented outline: its title, then every "
+            "node with its id, kind and any note or document it stands for. "
+            "Use it before adding to a map and for 'what's in my X map?'. "
+            "Needs the map's board_id; search_whiteboard finds it by name.",
             {
                 "type": "object",
                 "properties": {
@@ -3093,11 +3085,10 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "add_map_node",
-            "Add ONE node to a mindmap, under a parent node or as a new "
-            "root. Call read_mindmap (or create_mindmap) first for the ids. "
-            "Positions are worked out automatically, never invent x/y. Use "
-            "kind 'topic' for plain text, or kind 'note' with note_id to put "
-            "an existing note on the map.",
+            "Add ONE node to a mindmap, under a parent or as a new root. "
+            "Call read_mindmap (or create_mindmap) first for the ids. Never "
+            "invent x/y. Kind 'topic' is plain text; kind 'note' with "
+            "note_id puts an existing note on the map.",
             {
                 "type": "object",
                 "properties": {
@@ -3123,10 +3114,9 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "link_map_nodes",
-            "Draw a cross-link between two nodes on the same mindmap, the "
-            "connection a tree can't express ('this branch depends on that "
-            "one'). Both nodes must already exist; read_mindmap gives their "
-            "ids.",
+            "Draw a cross-link between two existing nodes on one mindmap, "
+            "what a tree can't express ('this depends on that'); read_mindmap "
+            "gives their ids.",
             {
                 "type": "object",
                 "properties": {
@@ -3355,8 +3345,8 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "save_skill",
             "Create a saved skill, or update one by using the same name. A "
-            "skill is a repeatable job the user runs with one click: what to "
-            "do, the steps to do it in, and the tools it needs.",
+            "skill is a job the user runs with one click: what to do, the "
+            "steps, and the tools it needs.",
             {
                 "type": "object",
                 "properties": {
@@ -3388,23 +3378,20 @@ TOOLS: dict[str, ToolSpec] = {
                     #: the "Build a skill" skill drives.
                     "verify_tool": {
                         "type": "string",
-                        "description": "A read-only tool that counts something, "
-                        "e.g. count_notes, to check the skill worked (optional)",
+                        "description": "Optional read-only counting tool, e.g. "
+                        "count_notes, to check the skill worked",
                     },
                     "verify_expect": {
                         "type": "string",
-                        "description": "What that count should be afterwards: "
-                        "one of min, max, equals, unchanged",
+                        "description": "min, max, equals or unchanged",
                     },
                     "verify_value": {
                         "type": "integer",
-                        "description": "The number to compare against (not "
-                        "needed for unchanged)",
+                        "description": "The number to compare (not for unchanged)",
                     },
                     "verify_untagged": {
                         "type": "boolean",
-                        "description": "Count only notes with no tags "
-                        "(optional, for count_notes)",
+                        "description": "Count only untagged notes (count_notes)",
                     },
                 },
                 "required": ["name", "prompt"],
@@ -3444,9 +3431,9 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "calculate",
-            "Work out a sum, a percentage, a unit or currency conversion, or a "
-            "count of days, the way the app does. Use it for every number you "
-            "would otherwise compute; say the result and how it was read.",
+            "Work out a sum, percentage, unit or currency conversion, or count "
+            "of days, the way the app does. Use it for every number you would "
+            "otherwise compute; say the result and how it was read.",
             {"type": "object", "properties": {"question": {"type": "string", "description": "e.g. 15% of 240, 5 km in miles, days until 25 December"}},
              "required": ["question"]},
             _calculate,
@@ -3471,9 +3458,8 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "propose_act",
             "Propose one change in the user's words (\"remind me to call Sam on "
-            "Friday at 9\", \"tag the boiler note with home\", \"pin the dentist "
-            "note\"): the app shows it as a card and the user confirms it. Use it "
-            "when you are not sure a change is wanted; then stop and wait.",
+            "Friday at 9\", \"pin the dentist note\"): the app shows a card and "
+            "the user confirms. Use it when unsure a change is wanted; then stop.",
             {"type": "object", "properties": {"sentence": {"type": "string"}}, "required": ["sentence"]},
             _propose_act,
             ends_turn=True,
@@ -3609,9 +3595,8 @@ TOOLS: dict[str, ToolSpec] = {
                     "reason": {
                         "type": "string",
                         "description": (
-                            "Optional: why these notes are connected, in a few words "
-                            "(e.g. 'both about scheduling'). Shown on the graph and in "
-                            "Trace. Skip it when the connection is obvious."
+                            "Optional: why they are connected, in a few words "
+                            "(e.g. 'both about scheduling'). Skip it when obvious."
                         ),
                     },
                     "link_type": {

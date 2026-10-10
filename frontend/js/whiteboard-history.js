@@ -324,7 +324,7 @@ async function wbTakeChangeFromElsewhere(boardId, source) {
   try {
     const top = wbUndoStack[wbUndoStack.length - 1];
     //: The write came past this tab's `api`, so its read cache never heard.
-    if (typeof clearApiCache === "function") clearApiCache();
+    clearApiCache();
     await wbRecordGesture(async () => {
       await fetchWhiteboardState();
     });
@@ -338,7 +338,7 @@ async function wbTakeChangeFromElsewhere(boardId, source) {
       toast(said);
     }
   } catch (err) {
-    if (typeof recordBrowserLog === "function") recordBrowserLog("WARN", [`[Board] reading a change from ${source}: ${err.message || err}`]);
+    recordBrowserLog("WARN", [`[Board] reading a change from ${source}: ${err.message || err}`]);
   } finally {
     wbElsewhere.busy = false;
     const next = wbElsewhere.pending;
@@ -367,7 +367,7 @@ document.addEventListener("mm:board-changed", (event) => {
 //: This tab's writes to a board, told to the other tabs. The wrapper sits
 //: under History's guard (`wbHistGuard` keeps whatever `apiJson` it finds),
 //: and says nothing for a write that failed.
-if (typeof BroadcastChannel === "function") {
+if ("BroadcastChannel" in window) {
   try {
     wbElsewhere.channel = new BroadcastChannel("memorymap-boards");
     wbElsewhere.channel.onmessage = (event) => {
@@ -438,7 +438,7 @@ function wbSnapshotRow(snap, boardId, redraw, close) {
   picture.className = "wb-snapshot-preview";
   apiJson(`/whiteboard/history/${snap.event_id}?board_id=${boardId}`, { silent: true })
     .then((rows) => {
-      if (typeof mapPreview === "function") picture.append(mapPreview(wbSnapshotPreviewBoard(rows), { size: "card" }));
+      picture.append(mapPreview(wbSnapshotPreviewBoard(rows), { size: "card" }));
     })
     .catch(() => picture.classList.add("is-gone"));
   const words = document.createElement("div");

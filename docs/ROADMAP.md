@@ -195,9 +195,12 @@ Rules that hold from here to 1.0:
 6. **One recipe per need.** A second way to do the same thing (a menu, a
    bar, a picker, a card) is removed in the same PR that notices it.
 
-Order: 0.5 and 0.6 run together now (Briefs 35 to 39b and 43); 0.7 follows
-the parity tables; 0.8 is Brief 41 plus the surface briefs' design rows;
-0.9 needs the owner's testers.
+Order: 0.5 and 0.6 run together now (Briefs 35 to 39b and 43, then
+WORLD_CLASS_PLAN 25's Briefs 46, 51 and 53 for 0.5); 0.7 follows the
+parity tables plus Briefs 47, 48, 54 and 55; 0.8 is Brief 41 plus Briefs 49
+and 52 and the surface briefs' design rows; 0.9 needs Brief 50 and the
+owner's testers. The whole-app table (every surface, its bar, its gap and
+its owner) is WORLD_CLASS_PLAN section 25.
 
 The owner's 2026-10-10 list is placed by Brief 40 under "Placed from the
 owner's list, 2026-10-10" in each plan; INBOX stays under its cap.

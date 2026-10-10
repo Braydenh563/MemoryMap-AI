@@ -205,6 +205,21 @@ on a phone must be under 35% on every tab (measured by
 
 ---
 
+### 1.8 Undo (one contract; decision 53, 2026-10-10)
+
+Ctrl or Cmd+Z undoes the last edit where focus is (the editor's own
+history, CodeMirror's for documents and code, the board's and the map's
+histories). A destructive act that reaches the server (delete, bulk move,
+a filing, an import, a skill run's writes) shows the undo bar
+(`pushUndo`, `status.js`) with a ten-second window and the undo history
+menu; nothing else invents an undo. Lint: `tests/test_undo_contract.py`
+fails on a new function whose name contains `undo` outside `status.js`,
+the editors' histories and the board history module, unless it calls
+`pushUndo`; the six implementations of 2026-10-10 (`offerCategoryUndo`,
+`chatDeleteUndo`, `undoDraft`, `pushDocAiUndo`, `activityUndoControl`,
+`inlineAiUndo`) are the ratchet's starting list and fold into `pushUndo`
+in Brief 51.
+
 ## 2. Competitors: what they have that MemoryMap does not (checked, not
 assumed)
 
@@ -3676,3 +3691,133 @@ errors.js against a fresh data dir on this branch (9 tabs, library and notes sub
 | 390px | 0 | 0 |
 
 Not covered: dark theme (THEME=dark), a seeded large notebook, the fault pass (FAULTS=1).
+
+## 25. The whole app against world class, 2026-10-10 (Fable)
+
+The owner, 2026-10-10: "have you analysed the whole app and extended each
+plan?? i need this app world class." Sections 23 and 24, CHAT_PLAN Phase 6,
+UI Phase 12 and WHITEBOARD's draw.io programme each took one surface. This
+section takes every surface, including the ones no plan owns (search,
+import and export, first run, settings, the phone, data safety, performance,
+undo, the keyboard), says what the bar is, what the code shows today, and
+where the gap is owned. The gaps with no owner get phases 25a to 25g below
+and Briefs 46 to 53.
+
+**Limit, stated first.** The "today" column is read from the code (section
+24's census, the route files, the function lists of `timeline.js`,
+`phone-shell.js`, `status.js`, `notes-list.js`, `capture-ask.js`,
+`editor.js`, `dashboard.js`, `search_manager.py`, `sw.js`,
+`settings-wiring.js`) and the plans, not from a browser. Brief 46 measures
+every row before anything in 25a to 25g is built; a row's number replaces
+its reading here when it lands.
+
+### 25.1 The bar
+
+World class for a local notebook is five things, each measurable:
+
+1. **Nothing is lost.** A crash, a power cut, a bad update or a wrong click
+   never costs a note; every destructive act has an undo with a window and
+   a history; restore is tested, not trusted.
+2. **Every task takes the fewest motions,** and all of them work from the
+   keyboard. The reference is VS Code's command palette and Things' capture:
+   one key to start, type, Enter, done.
+3. **The app answers from the notes without a model, and better with one**
+   (ROADMAP Direction, "two engines, one answer").
+4. **Each surface stands against the best single-purpose tool** a person
+   could pick instead (the parity programme), and shares one object model.
+5. **It is one product:** one vocabulary (section 1), one density (Phase
+   12), one undo, one search, one help.
+
+### 25.2 Surface by surface
+
+| Surface | The bar (reference) | Today, from the code | The gap, in one line | Owner |
+| --- | --- | --- | --- | --- |
+| Capture | Drafts, Apple Notes: one key, type, filed on save | `capture-ask.js` 72 functions: tag suggestions, templates, document adder, filing status | the filing decision is not explained or confidently shown (23) | Brief 39b |
+| Notes list | Bear, Obsidian: instant at 10,000 notes, an inline query | `notes-list.js` 94 functions: `parseNoteQuery`, pagination, incremental render, skeletons, rail | the query grammar is invisible; no bulk actions; paint cost at 5,000 unmeasured (Brief 43 item 2 found a 23 s badge) | 25a, Brief 43 |
+| Note editor | Obsidian, Bear: live preview, slash, wiki links, backlinks, outline | `editor.js` 65 functions: slash menu, link matches, selection bar, inline AI | one editor everywhere (DOCUMENTS Phase 8) still open; find and replace inside a note | Brief 42 |
+| Documents | Word, Notion, Typora | `documents.js` 20,621 lines, `build` cx 189 | DOCUMENTS 17, 20, 21 | Brief 42 |
+| Code editor | VS Code | `documents-code.js` 4,399 lines, `docCodeScan` cx 132 | multi-cursor, regex find and replace, folding, bracket pairs, diagnostics (DOCUMENTS 21) | Brief 42 |
+| Whiteboard | draw.io, Excalidraw, tldraw | `whiteboard.js` 19,811 lines, `initWhiteboard` 3,730 | WHITEBOARD "The draw.io programme"; split along seams (45 part 2) | Briefs 36, 44, 45 |
+| Mind map | Coggle, XMind | `whiteboard-map.js` 9,195 lines | MINDMAP 13, 14 | Brief 36 |
+| Graph | Obsidian graph, Logseq | `graph.js` plus `graph-canvas.js` 10,655 lines, `renderGraphSvg` 1,254 | GRAPH "The knowledge graph" open rows | Brief 38 |
+| Timeline and calendar | Fantastical, Google Calendar agenda, Day One | `timeline.js` 59 functions: feed and table, scrubber, day notes, a month popover | no month grid, week view, drag to reschedule, reminders on the grid, ICS in and out | TIMELINE Phase 5 |
+| Ask, no model | a grounded answer with numbered sources | `composer.py` 2,980 lines, `compose` cx 74 | CHAT Phase 6 | Brief 39 |
+| Chat and agent | Claude, ChatGPT: a run you can read and resume | `chat*.js` 8,767 lines, `sendChatMessage` 1,079 lines | Brief 37; AGENT_SKILLS Phase E | Briefs 37, 54 |
+| Search | Spotlight, Alfred, Obsidian search: one box, every kind, operators, saved | `search_manager.py` 1,345 lines (keyword, semantic, graph expansion, learned order); `routes_search.py` three routes; no `search.js`; the notes list's live query is the only box | boards, maps, documents, files, chat and reminders are not in one box; the operators are undocumented; no saved searches; no result kinds | 25a |
+| Filing, tags, properties, relations | Notion properties, Obsidian tags | section 23; `routes_properties.py`, `routes_relations.py`, `routes_tags.py` | 23; properties on every object (0.7 "one object model") | Briefs 39b, 38 |
+| Library and files | Apple Photos, Finder | `library.js` 11,669 lines, `filterLibraryImagesGallery` 1,546 lines | structure (split, 45 part 2); the gallery's one function does everything | Brief 45, 43 |
+| Dashboard | Craft, Notion home: continue and today | `dashboard.js` 93 functions: greeting, clock, art, focus timer, streak, digest, widgets, quick links | no widget can name a measured use; see decision 51 | Phase 12 row |
+| Reminders and tasks | Things, Todoist | `routes_reminders.py`, `routes_tasks.py` (`collect` cx 71), the tray | recurring, snooze, natural dates everywhere, delivery when the window is closed | TIMELINE Phase 5 |
+| Settings | VS Code settings: searchable, each with a description and a default, reset per item | `routes_settings.py` 179 keys; 105 help popovers; 36 rebindable shortcuts | no search across settings; no modified marker or per-item reset; no settings export | 25f |
+| Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
+| First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
+| Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (four sources), web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | no whole-notebook markdown folder with attachments; no round-trip test; import reports are a toast | 25b |
+| Data safety | never lose a note | backups, bundle, restore, alembic baseline, `versioning.py`, `edit_conflicts.py` | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
+| Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |
+| Performance | VS Code: boot under a second on old hardware | boot 319,799 bytes gzipped over 27 scripts plus lazy modules; `routes_bench.py` | budgets exist for weight only; none for interaction time | 25g |
+| Accessibility | WCAG 2.2 AA | Phase 12 | Phase 12 | Brief 41 |
+| Security | a stated threat model | section 12; CSP; the LAN mode (Brief 40 placed) | rate limits on auth; session expiry; the threat model written down | 12 addendum |
+| Undo | one model: Ctrl+Z where focus is, an undo bar for server actions | `pushUndo` and the undo bar (`status.js`), `docUndo`, board history, category undo, chat delete undo, draft undo | six implementations, no contract | decision 53 |
+| Keyboard | every action reachable; a generated shortcuts sheet | `DEFAULT_SHORTCUTS` 36 rebindable; 549 key checks across the scripts | the 549 checks are the ones not in the table; the sheet must be generated from the table | Phase 12 row |
+| Languages | one | English only; no i18n layer | decision 50 | none |
+
+### 25.3 Decisions, 2026-10-10 (do not re-decide)
+
+46. **One search box, every kind.** Search is a surface, not a filter on the
+    notes list: notes, documents, boards, maps, files, chat turns and
+    reminders in one result list with a kind chip each, the operators
+    (`tag:`, `in:`, `before:`, `after:`, `has:`, `is:`, quotes, minus)
+    documented in the box's help, and saved searches as sidebar rows. The
+    engine stays `search_manager.py`; the box is new.
+47. **The calendar is the timeline's third view** (feed, table, calendar),
+    not a surface. Month and week grids, reminders and day notes on the
+    grid, drag to reschedule; ICS export of reminders and ICS import as
+    reminders. No external calendar sync before 1.0.
+48. **Milestone 0.5 is data safety.** Nothing in 0.6 ships before the
+    restore test (25e) is green in CI.
+49. **The service worker caches by stamped URL only.** Every local CSS and
+    JS URL is `?v=<version>-<hash>`, so a cache keyed on the full URL can
+    never serve a stale file; the shell (`/`, the manifest, the icons) is
+    cached with a network-first fetch. This reverses the 2026-09 "no cache"
+    decision because its reason (stale files) is gone.
+50. **English only to 1.0.** No i18n layer before a second language is
+    asked for; copy stays where it is used.
+51. **The dashboard is "continue and today".** A widget stays if Brief 46
+    can name a measured use (opened, clicked, or the thing it shows acted
+    on); the rest move behind "Customise", off by default.
+52. **Settings get search, a modified marker and reset per item before
+    any new setting is added.** A setting is a row with a name, one line of
+    description, its default, and a reset; the panes stay.
+53. **One undo contract,** added to section 1 as rule 1.9: Ctrl or Cmd+Z
+    undoes the last edit where focus is; a destructive server action shows
+    the undo bar with a ten-second window and a history; nothing else
+    invents an undo. The six implementations fold into `pushUndo`.
+54. **Budgets are per interaction,** not only per byte: boot to first
+    paint, first interaction, list paint at 5,000 notes, search at 5,000
+    notes, board open at 500 objects, document open at 50,000 words, each
+    with a number in `tests/test_budgets.py` run on the fixture, measured
+    on the four-core sandbox and set at 1.5 times the measurement.
+
+### 25.4 Phases with gates (each a brief; measure first)
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| 25.0 Measure | the "today" column: every row's number with its command or sweep (`errors.js`, `routes_bench`, `getBoundingClientRect`, timings) | the table above re-written with numbers; section 24.6 extended | 46 (Sonnet, medium) |
+| 25a Search | the box (`search.js`, new, lazy), the result list with kinds, the operators and their help, saved searches, keyboard-only use; documents, boards, maps, files, chat and reminders indexed through the existing engine | a sweep that finds one of each kind by query; operators tested in `test_search_box.py`; under 100 ms at 5,000 notes | 47 (Opus, high) |
+| 25b Import and export | the whole-notebook export (a markdown folder with attachments and a JSON sidecar per note), the round-trip test, the import report as a page with counts and the skipped items named, progress for 5,000 files | export then import of the 500-note fixture equal on every field; the report lists every skip | 48 (Opus, high) |
+| 25c First run and help | the three-step first run (name, a note, an answer without a model), a sample notebook offered once, the manual as a page with search built from the Guide topics, "what changed" from the CHANGELOG | `first-run.spec.js` extended; the manual page's search finds every control name (`test_manual_parity`) | 49 (Opus, high) |
+| 25d PWA shell | the worker caching by stamped URL, the shell cached network-first, a share target for text and URLs into capture, an install prompt in Settings | offline reload shows the shell and the last list; an edited file is never served stale (test with two stamps) | 50 (Sonnet, high) |
+| 25e Never lose a note | the restore test in CI (backup, restore into a scratch dir, compare counts and bodies), an integrity check at boot with a one-line notice, per-note versions visible (a "Versions" row in the note menu, from `versioning.py`), draft recovery after a killed server | `test_restore_roundtrip.py` green; a killed server loses no typed draft (a Playwright test) | 51 (Opus, high) |
+| 25f Settings | search across settings, the modified marker, reset per item, settings export and import as JSON | every setting reachable by search; `test_settings_rows.py` walks the 179 keys | 52 (Opus, high) |
+| 25g Budgets | `tests/test_budgets.py` with decision 54's six timings, the bench page reading them | the six numbers in the README's performance table; CI fails when one exceeds its cap | 53 (Sonnet, high) |
+
+Phase E of AGENT_SKILLS_REFORM (Brief 54) and TIMELINE Phase 5 (Brief 55)
+are written in their plans.
+
+### 25.5 Not verified
+
+Everything in 25.2's "today" column until Brief 46 lands. In particular:
+whether `routes_search` already indexes documents and boards (the engine's
+`_retrieve` may; the box does not show it); whether `versioning.py` keeps
+per-note history or only edit stamps; whether the bundle export is a
+complete notebook.

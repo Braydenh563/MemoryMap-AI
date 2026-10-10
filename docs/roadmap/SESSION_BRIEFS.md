@@ -1904,3 +1904,58 @@ global scope against modules; the per-tab CSS files; the route layout;
 the event bus), each as a decision row with its measurement, and the
 "missing utility" list: for every surface, the actions a professional
 tool offers that this one lacks, from the parity tables.
+
+## Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class
+
+All from WORLD_CLASS_PLAN section 25 (the table, decisions 46 to 54, the
+phases with gates); shared rules as Briefs 35 to 42. Brief 46 runs first and
+alone, because every other brief here builds against a number it produces.
+
+### Brief 46 (Sonnet, medium): measure the table
+Section 25.2's "today" column, row by row, with the command or sweep that
+produced each number: paint time of the notes list at 5,000 notes, search
+latency at 5,000 notes, boot to first paint and first interaction, board open
+at 500 objects, document open at 50,000 words, the dashboard widgets' use
+(which open, click or act), the settings keys with no help line, the
+shortcuts outside `DEFAULT_SHORTCUTS`, the undo implementations, what
+`routes_search` already indexes, what `versioning.py` keeps, what the bundle
+export contains. Writes the numbers into 25.2 and 24.6; no fixes.
+
+### Brief 47 (Opus, high): search everywhere (25a, decision 46)
+`frontend/js/search.js` (new, lazy), `routes_search.py`, `search_manager.py`;
+the recipe is the command palette's list (`palette.js`); help popover, Guide
+topic and manual parity in the same commit. Gate: 25.4.
+
+### Brief 48 (Opus, high): import and export round trip (25b)
+`entry/app_import.py`, `routes_import.py`, `routes_backups.py`, a new
+`entry/export_folder.py`; the import report page from the job line
+(`core/jobruns`). Gate: 25.4.
+
+### Brief 49 (Opus, high): first run and the manual (25c)
+`first-run.spec.js`, `dashboard.js` (`gettingStartedCard`), `routes_help.py`,
+a manual page built from `help_chat.py` and `help_topics_more.py`. Gate: 25.4.
+
+### Brief 50 (Sonnet, high): the PWA shell (25d, decision 49)
+`frontend/sw.js`, `manifest.webmanifest`, `app.py` (`_stamp_for`), a share
+target into capture. Gate: 25.4; the two-stamp staleness test.
+
+### Brief 51 (Opus, high): never lose a note (25e, decision 48; rule 1.8)
+`routes_backups.py`, `core/database.py` (the boot integrity check),
+`api/versioning.py`, `status.js` (`pushUndo`), the six undo folds. Gate:
+25.4 and `test_undo_contract.py`.
+
+### Brief 52 (Opus, high): settings as a product (25f, decision 52)
+`settings.js`, `settings-panes.js`, `settings-wiring.js`,
+`routes_settings.py`. Gate: 25.4.
+
+### Brief 53 (Sonnet, high): budgets per interaction (25g, decision 54)
+`tests/test_budgets.py`, `routes_bench.py`, the README performance table.
+Gate: 25.4.
+
+### Brief 54 (Opus, high): skill reliability (AGENT_SKILLS_REFORM Phase E)
+`ai/skill_runner.py`, `ai/tools/verify.py` (new), `tests/fixtures/skills/`,
+`tests/test_skills_evals.py`. Gate: the plan's.
+
+### Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5)
+`timeline.js`, `routes_timeline.py`, `routes_reminders.py`, the view
+segment; `scratchpad/ui-sweeps/calendar.js` (new). Gate: the plan's table.

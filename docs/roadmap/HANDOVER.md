@@ -327,8 +327,10 @@ agents run (triage, boardmap, chatui, graph: Briefs 35 to 38) on the owner's
 for everything after is ROADMAP "Direction, 2026-10-10", with CHAT_PLAN Phase
 6 (the deterministic engine), WORLD_CLASS_PLAN 23 (filing and the taxonomy
 pack), UI_MODERNISATION Phase 12 (density, WCAG 2.2) and SESSION_BRIEFS 35 to
-42. Next, as agents finish: Brief 40 (Sonnet research and placement), then
-39 and 39b once 35 has merged, then 41, 42, 34. The PR for this branch merges
+42. The whole app against world class is WORLD_CLASS_PLAN 25 (every
+surface, its bar, its gap, its owner; Briefs 46 to 55). Next, as agents
+finish: 39 and 39b once 35 has merged, 42, then 46 (measure, alone), then
+41, 47, 51, 34 and the rest of 46 to 55 in ROADMAP's milestone order. The PR for this branch merges
 when the gate, the sweeps and one full suite run are green.
 
 **Now (2026-10-07, main, 0.4.1 complete):** everything since PR 167 is on main

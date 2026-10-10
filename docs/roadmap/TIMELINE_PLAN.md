@@ -203,3 +203,42 @@ Entries are the owner's words, then the recommendation.
 
 - "The circle on the vertical line on the left isnt in line with the text line"
   Recommendation: align the rail circle to the first line's centre in timeline.js and the timeline CSS, measured with getBoundingClientRect against the line box. Earlier notes on this fix were not verified; measure it again. Also carried by Brief 41 (timeline.js in its file list).
+
+## 9. Phase 5: the calendar as the third view (Fable, 2026-10-10; WORLD_CLASS_PLAN 25, decision 47; Brief 55)
+
+The owner's 2026-10-10 list asks for a calendar; UI Phase 12 names a
+"calendar mode". It is this plan's third view, beside the feed and the
+table, from the same row model (decision 2), so the three can never
+disagree.
+
+### Decisions made (do not re-decide)
+
+14. **Month and week grids, agenda on the phone.** Month at 1024 and up,
+    week at 768 and up, the feed (already an agenda) below that. The grid
+    is CSS grid, DOM cells, no SVG; a cell holds up to three rows and a
+    "+n" that opens the day in the feed.
+15. **What sits on the grid:** reminders (at their time), day notes (as
+    the cell's head), notes by their written date (dots, not rows, so the
+    grid stays readable at 5,000 notes), meetings from `routes_meetings`.
+    A kind filter is the feed's own, shared.
+16. **Drag reschedules a reminder;** dropping a note on a day sets its
+    daily-note date only when it is a day note; anything else is refused
+    with the hint. Every drop is on the undo bar (WORLD_CLASS 1.8).
+17. **ICS both ways for reminders only:** export the reminders as one
+    `.ics` (`routes_reminders`), import an `.ics` as reminders with a
+    report; no account sync before 1.0.
+18. **Keys:** `T` today, arrows move the day, `PageUp`/`PageDown` the
+    month, Enter opens the day's feed, `N` a new reminder on the day.
+
+### Gates
+
+| Step | Builds | Gate |
+| --- | --- | --- |
+| 1 | the month grid from the row model; `timelineViewMode` gains `calendar`; the view segment's third option; help popover and Guide topic updated | `scratchpad/ui-sweeps/calendar.js`: 48-note fixture renders 30 cells, no cell overflows (`scrollHeight` equals `clientHeight`), the three-row cap holds |
+| 2 | the week grid and the phone fallback | the sweep at 1440, 1024, 768 and 390: the right grid at each, no horizontal scroll |
+| 3 | reminders and day notes on the grid; drag to reschedule with undo | `test_reminders_reschedule.py`; the sweep drags one reminder and reads the new `due` |
+| 4 | ICS export and import | `test_ics.py`: a round trip of 20 reminders is equal; an import with a bad line reports it and keeps the rest |
+
+Not verified until built: the dot density at 5,000 notes in one month
+(the fixture has 48 over six months; a 1,000-note month is the stress
+case), and the week grid's hour rows against the feed's buckets.

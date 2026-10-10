@@ -391,3 +391,32 @@ this order):
    (`{"command": ".../python", "args": ["-m", "memorymap.mcp_server"], "env":
    {"MEMORYMAP_DATA_DIR": "..."}}`). The only mention is INSTALL.md's flags
    table. Add a Settings, Tools row with the snippet and a copy button.
+
+## Phase E: measured reliability per skill (Fable, 2026-10-10; WORLD_CLASS_PLAN 25; Brief 54)
+
+Phases A to D made a run a readable, recoverable object. None of them says
+how often a skill succeeds. The owner's 2026-10-10 ask is an app that is
+"reliable", and a skill a person cannot predict is not.
+
+Decisions (do not re-decide):
+
+1. **A success rate per skill, per model class, on the eval model**
+   (`scratchpad/llama-dev.sh`): each shipped skill gets three fixtures
+   (a notebook, an instruction, the expected writes) in
+   `tests/fixtures/skills/`, and `pytest -m evals` reports pass, partial
+   and fail with the step that failed. The suite without a model stays as
+   it is (section 4 of CLAUDE.md).
+2. **A skill below 0.8 on the small class is hidden from the small class,**
+   not shipped and hoped: the palette shows it with "needs a larger model"
+   and the reason, from the measured table.
+3. **The run object carries its budget:** steps, tool calls, tokens and
+   wall time against the skill's declared caps; a run that exceeds one
+   stops with a readable reason and its partial writes on the undo bar.
+4. **Every tool result is checked by the harness before the model sees
+   it** (the 2026-09-21 decision, made a lint): a tool that can write has
+   a verifier in `ai/tools/verify.py`, and `test_tool_verifiers.py` fails
+   on a write tool without one.
+
+Gates: the table of rates in this plan (moved to HISTORY when built);
+`test_skill_fixtures.py` green without a model; the three evals green on
+the dev model for every skill marked for the small class.

@@ -109,6 +109,15 @@ def _pick_tools(tools: list[dict], count: int) -> list[tuple[str, dict]]:
     return [(n, arguments.get(n, {})) for n in picked[:count]]
 
 
+#: A scripted run (`FAKE_SCRIPT=calls.json`, Brief 87): a JSON list of
+#: `[name, arguments]`, one popped per tool round while it lasts, so a plan
+#: run can make a different write in each step. Then the default pick.
+_SCRIPT: list = []
+if os.environ.get("FAKE_SCRIPT"):
+    with open(os.environ["FAKE_SCRIPT"], encoding="utf-8") as handle:
+        _SCRIPT = json.load(handle)
+
+
 def _pick_tool(tools: list[dict]) -> tuple[str, dict] | None:
     """The tool to call, chosen out of what this very request offered."""
     names = []
@@ -119,6 +128,13 @@ def _pick_tool(tools: list[dict]) -> tuple[str, dict] | None:
             names.append(name)
     if not names:
         return None
+    #: Popped only by a request that offers the scripted tool, so a side
+    #: request (a classifier, a title) does not eat a step's write.
+    if os.environ.get("FAKE_LOG"):
+        print("offered", len(names), "script", [c[0] for c in _SCRIPT], ",".join(names), flush=True)
+    if _SCRIPT and _SCRIPT[0][0] in names:
+        name, arguments = _SCRIPT.pop(0)
+        return name, arguments
     arguments = {**ARGUMENTS, **_ENV_ARGUMENTS}
     for preferred in (*_ENV_TOOLS, *PREFERRED_TOOLS):
         if preferred in names:

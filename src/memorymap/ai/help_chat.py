@@ -149,12 +149,13 @@ HELP_TOPICS: list[dict] = [
             "and after it reads a web page or a clipped or imported note, so "
             "does every change and web request. "
             "Conversations save and rename in the sidebar; the same agent pops "
-            "open over any tab with Ctrl/Cmd+Shift+A. While an answer is coming, "
+            "open over any tab with Ctrl/Cmd+Shift+A (from More on a phone), "
+            "runs with no model, and Ctrl+Z takes back its last write. "
+            "While an answer is coming, "
             "the line under it says what is happening: Reaching Atlas, Reading "
             "your notes, Waking the model, Atlas is thinking, Atlas is writing, "
             "or Atlas followed by the tool's name (a persona's name replaces "
-            "Atlas). With Progress indicators set to Still it is the same words, "
-            "without the moving dots."
+            "Atlas); with Progress indicators set to Still, without the dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

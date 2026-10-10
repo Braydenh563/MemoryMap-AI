@@ -446,15 +446,15 @@ of acts that always runs).
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | No model is not dead: the starters and any typed request the reading understands run as deterministic acts through the act registry (CHAT_PLAN decisions 47, 53), with the model line kept for what needs one | disabled controls 16 to 0 with no model; the 14 starters' acts at 1.0 | 12, 6 |
-| 2 | fix | The phone path: the agent opens as a sheet at 390 from the More sheet and the palette | open at 390 measured; 0 past the edge; 2 taps | 8, 2 |
-| 3 | redesign | The plan before the run, Copilot's shape: the steps and the writes each will make, approved once; each step's diff after; Stop between any two steps | a fixture run lists its writes before the first; Stop at step 2 leaves step 1's writes on the undo bar | 5, 1 |
-| 4 | fix | Ctrl+Z after a run takes back its last write; the run's Undo stays for the whole | a fixture run then Ctrl+Z restores the last note byte-equal | 1, 3 |
+| 1 | fix | No model is not dead: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 12, 6 |
+| 2 | fix | The phone path: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 8, 2 |
+| 3 | redesign | The plan before the run: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 5, 1 |
+| 4 | fix | Ctrl+Z after a run: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 1, 3 |
 | 5 | fix | The run list is a tab of the Activity panel with Stop that unloads the model (decision 70) | Brief 73's gate | 5 |
 | 6 | fix | A failed step explains and offers: retry the step, do it without the model, open the model setting | `test_error_toasts.py` agent rows carry an action | 4 |
-| 7 | fix | The 2 overlaps at 1440 | `overlap.js` 2 to 0 | 7, 11 |
+| 7 | fix | The 2 overlaps at 1440: built | Built by Brief 87; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (AGENT_SKILLS_REFORM the agent, Brief 87)") | 7, 11 |
 | 8 | expansion | Phase E's success table drives the palette ("needs a larger model", with the reason) | every skill below 0.8 on the small class labelled | 6, 4 |
 | 9 | optimisation | Time to the first step and per step on the dev model (`scratchpad/llama-dev.sh`), reported, not assumed | the numbers in this table | 25g budget |
 
 **Briefs.** 54 (rows 8, 9), 67 (row 1's registry), 73 (rows 5, 6), 87 (rows
-1 to 4, 7).
+1 to 4, 7: built).

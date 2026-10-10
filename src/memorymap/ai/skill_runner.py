@@ -48,7 +48,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, budget as run_budget, skills, tools
+from memorymap.ai import agent, budget as run_budget, plan_writes, skills, tools  # noqa: F401  (plan_writes sets the agent's plan reader)
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 
@@ -684,6 +684,29 @@ def _replan_step(
     return text
 
 
+def _announce_early(run: _RunState, index: int, step: str, announced: bool) -> Iterator[dict]:
+    """A later step says it is running before its model call, not after:
+    Stop pressed between two steps then lands before the next step's first
+    write (row 3; measured, "running" arrived with the step's first tool
+    call). The first step still waits, so an unsupported model can fall back."""
+    if run.started and not announced:
+        yield {"type": "step", "index": index, "state": "running", "text": step}
+        return True
+    return announced
+
+
+def _plan_step_tools(session: Session, skill: dict, steps: list[str]) -> list[list[str]]:
+    """The tools each planned act step is offered (`_plan_step_offer`)."""
+    return agent._plan_writes(session, steps, tools_too=True) if skill.get("kind") == "plan" else []
+
+
+def _plan_step_offer(setup: _RunSetup, index: int, offered: list[str] | None) -> list[str] | None:
+    """A planned act step is offered the writes its plan was approved with
+    (`plan_writes.step_tools`); anything else keeps what it had."""
+    named = (setup.plan.get("step_tools") or [])[index:index + 1]
+    return named[0] if offered is None and named and named[0] else offered
+
+
 def _step_tools(spec: dict, allowed: list[str] | None, small_model: bool) -> list[str] | None:
     """Which tools this one step is offered.
 
@@ -866,7 +889,7 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
     replannable = True
     fail_reason = ""
     spec = setup.specs[index]
-    offered = _step_tools(spec, setup.allowed, setup.small_model)
+    offered = _plan_step_offer(setup, index, _step_tools(spec, setup.allowed, setup.small_model))
     example = (
         tools.call_example(spec["tools"][0])
         if setup.small_model and spec.get("tools")
@@ -901,6 +924,7 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
             # correction buried under three paragraphs of restated context
             # is one a small model reads as more context.
             instruction = f"{nudge}\n\n{instruction}"
+        announced = yield from _announce_early(run, index, step, announced)
         events = setup.turn(
             instruction,
             run.step_history,
@@ -1164,7 +1188,9 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
                 f"to read; {len(run.known.get('seen_ids') or [])} notes were seen"
             )
         if handed_over or _contract_met(spec, called, step_changes, answer):
-            done: dict = {"type": "step", "index": index, "state": "done", "text": step}
+            #: What the step wrote, each with its Undo, drawn under the step
+            #: when it ticks (AGENT_SKILLS_REFORM "Deepened 2026-10-10" row 3).
+            done: dict = {"type": "step", "index": index, "state": "done", "text": step, "changes": step_changes}
             #: **A step that could have changed something and did not says
             #: so.** The owner, reading a run's own reasoning: nine shipped
             #: steps name a tool and declare `answer_only`, so a model that
@@ -1398,6 +1424,9 @@ def _run_skill(
         #: card that read 0 while the run started at step 2 would show two
         #: steps as pending that were never going to run.
         "start_at": only_step if only_step is not None else max(0, start_at),
+        #: Each step's writes, listed before the first runs (row 3).
+        "writes": agent._plan_writes(session, steps),
+        "step_tools": _plan_step_tools(session, skill, steps),
     }
     changes: list[dict] = []
     # What the run knows so far, as ids rather than as prose, carried into

@@ -105,11 +105,22 @@ const visible = (sel) => `(() => { const e = document.querySelector(${JSON.strin
     await dash();
     r.openMs = await timed(page, `toggleAgentPalette()`, visible("#command-palette-input"));
     await page.waitForTimeout(800);
-    r.m = await page.evaluate(() => __m("#command-palette-overlay"));
+    //: On a phone the agent is a sheet (Brief 87 row 2): measure that, and
+    //: the path a thumb takes to it (More, then Ask the agent).
+    const root = phone ? '.sheet-overlay[data-sheet="agent"]' : "#command-palette-overlay";
+    r.m = await page.evaluate((sel) => __m(sel), root);
+    if (phone) {
+      r.sheetBox = await page.evaluate((sel) => { const c = document.querySelector(sel + " .sheet-card"); if (!c) return null; const b = c.getBoundingClientRect(); return { left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom), vw: innerWidth, vh: innerHeight, pastEdge: [...c.querySelectorAll("*")].filter((e) => { const x = e.getBoundingClientRect(); return e.offsetParent && x.width && (x.left < -1 || x.right > innerWidth + 1); }).length }; }, root);
+      await page.keyboard.press("Escape"); await page.waitForTimeout(500);
+      let taps = 0;
+      await page.tap("#phone-more-btn"); taps++; await page.waitForTimeout(500);
+      await page.locator(".sheet-row", { hasText: "Ask the agent" }).first().tap(); taps++;
+      r.moreTaps = await page.waitForFunction(() => document.querySelector('.sheet-overlay[data-sheet="agent"] #command-palette-input'), null, { timeout: 5000 }).then(() => taps, () => -1);
+    }
     r.offline = await page.evaluate(() => { const e = document.getElementById("command-palette-offline"); return e && !e.classList.contains("hidden") ? e.textContent.trim().slice(0, 160) : null; });
-    r.starters = await page.evaluate(() => document.querySelectorAll("#command-palette-starters > *").length);
+    r.starters = await page.evaluate(() => document.querySelectorAll("#command-palette-starters [data-example]").length);
     r.inputDisabled = await page.evaluate(() => document.getElementById("command-palette-input").disabled);
-    r.disabledControls = await page.evaluate(() => [...document.querySelectorAll("#command-palette-overlay button, #command-palette-overlay textarea, #command-palette-overlay input")].filter((e) => e.offsetParent && e.disabled).map((e) => e.id || e.textContent.trim().slice(0, 16)));
+    r.disabledControls = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} button, ${sel} textarea, ${sel} input`)].filter((e) => e.offsetParent && e.disabled).map((e) => e.id || e.textContent.trim().slice(0, 16)), root);
     if (!r.inputDisabled) { await page.fill("#command-palette-input", "tag every note about the harbor survey with harbor"); await page.keyboard.press("Enter"); await page.waitForTimeout(3000); }
     r.afterRun = await page.evaluate(() => ({ status: document.getElementById("command-palette-status")?.textContent.trim().slice(0, 120), results: document.getElementById("command-palette-results")?.textContent.replace(/\s+/g, " ").trim().slice(0, 200) }));
     r.monitor = await page.evaluate(() => !!document.getElementById("agent-monitor"));

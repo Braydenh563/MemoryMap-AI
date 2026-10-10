@@ -2053,7 +2053,14 @@ function syncModelGatedControls(status = modelStatus) {
     "No model connected. Ask shows the matching records below.",
     { dismissible: true, detail: "Ask answers from your notes alone until one is connected." }
   );
-  renderAiOfflineNotice($("command-palette-offline"), "No model connected, so the agent cannot run.");
+  //: The agent with no model runs acts and readings (AGENT_SKILLS_REFORM
+  //: "Deepened 2026-10-10" row 1, `ai/starter_acts.py`), so the line says
+  //: what a model adds rather than that nothing runs.
+  renderAiOfflineNotice(
+    $("command-palette-offline"),
+    "No model connected. The agent runs acts and reads your notes.",
+    { dismissible: true, detail: "Reminders, notes, tags, links and the day's changes work now. Open questions and drafting need a model." }
+  );
   //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
   //: answered from the notes by the composer, so the box stays open and the
   //: line says what a model would add rather than that nothing answers.
@@ -2156,20 +2163,12 @@ function renderAiOfflineNotice(container, what, { dismissible = false, detail = 
   container.append(close);
 }
 
-//: The popup agent is the one surface with nothing to fall back to, so its
-//: field and its starters are disabled with the rest (decision 11's "visible,
-//: disabled": never hidden, so a reader can still see what it would offer).
+//: The popup agent no longer closes with no model (row 1 above): every
+//: starter and any act the reading knows runs without one, so its field and
+//: starters stay open and only say, on hover, what is answered how.
 function syncAgentPaletteAvailability() {
-  const off = aiIsOff();
   const input = $("command-palette-input");
-  if (input) {
-    input.disabled = off;
-    input.title = off ? `${AI_OFFLINE_HINT}.` : "";
-  }
-  for (const chip of document.querySelectorAll("#command-palette-starters [data-example]")) {
-    chip.disabled = off;
-    if (off) chip.title = `${AI_OFFLINE_HINT}.`;
-  }
+  if (input) input.title = aiIsOff() ? "No model: acts and readings from your notes" : "";
 }
 
 // What the AI is doing, as one decision.

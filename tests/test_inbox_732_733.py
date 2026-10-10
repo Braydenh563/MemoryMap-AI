@@ -181,12 +181,15 @@ def _notice() -> str:
     return _function(STATUS, "function renderAiOfflineNotice(")
 
 
-def test_chat_and_ask_banners_are_dismissible_and_the_others_are_not():
+def test_chat_ask_and_agent_banners_are_dismissible_and_the_others_are_not():
+    """The agent joined Ask and Chat when it learned to run with no model
+    (AGENT_SKILLS_REFORM "Deepened 2026-10-10" row 1)."""
     block = STATUS[STATUS.index("  renderAiOfflineNotice(\n    $(\"ask-offline\")") : STATUS.index("  syncAgentPaletteAvailability();")]
     asks = re.search(r'\$\("ask-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
     chat = re.search(r'\$\("chat-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
-    assert asks and chat, block
-    assert block.count("dismissible: true") == 2, block
+    agent = re.search(r'\$\("command-palette-offline"\),.*?\{ dismissible: true[,}][^)]*\)', block, re.S)
+    assert asks and chat and agent, block
+    assert block.count("dismissible: true") == 3, block
 
 
 def test_a_dismissed_banner_is_remembered_for_the_session_not_the_device():

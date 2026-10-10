@@ -107,6 +107,8 @@ const SURFACES = [
   { name: 'dashboard', root: '#tab-dashboard', open: async (p) => { await tab(p, 'dashboard'); await p.waitForTimeout(800); } },
   { name: 'chat', root: '#tab-chat', open: async (p) => { await tab(p, 'chat'); await p.waitForTimeout(600); } },
   { name: 'reminders', root: '#tab-reminders', open: async (p) => { await tab(p, 'reminders'); await p.waitForTimeout(600); } },
+  // The agent (Brief 87): the palette above 600, its sheet below.
+  { name: 'agent', root: '#command-palette-overlay:not(.hidden), .sheet-overlay[data-sheet="agent"]', open: async (p) => { await tab(p, 'dashboard'); await p.evaluate(() => toggleAgentPalette()); await p.waitForTimeout(900); } },
 ];
 async function closeOverlays(page) {
   for (let i = 0; i < 3; i++) await page.keyboard.press('Escape').catch(() => {});

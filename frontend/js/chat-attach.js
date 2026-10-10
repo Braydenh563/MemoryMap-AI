@@ -2058,6 +2058,7 @@ async function sendChatMessage(preset, opts = {}) {
           ? event.label
           : `ph:warning ${(event.error || event.label || "").replace(/^ph:[\w-]+\s*/, "")}`;
         timeline.tool(toolChip(label, event.ok, event));
+        pushAgentChangeUndo(event.change, event);
         //: The same call, filed in the panel under the step that made it. A
         //: second `toolChip` rather than the same node: one element cannot be
         //: in two places, and the panel's copy has to survive the chat being
@@ -2436,11 +2437,11 @@ async function sendChatMessage(preset, opts = {}) {
     // work here exactly as they do when the user picks the skill themselves.
     // Deferred by a task because this turn is still finishing: it re-enables
     // the input box in `finally`, and the run needs to disable it again.
-    const start =
-      handoff.type === "run_plan"
-        ? () => startPlannedRun(handoff.goal, handoff.steps)
-        : () => startSkill({ name: handoff.skill }, handoff.inputs || {});
-    setTimeout(start, 0);
+    //: A plan the model drew waits for Run the plan (row 3: approved once,
+    //: with each step's writes listed); a skill the person saved starts.
+    const plan = handoff;
+    if (plan.type === "run_plan") planProposalCard(timeline.holder, plan, () => startPlannedRun(plan.goal, plan.steps));
+    else setTimeout(() => startSkill({ name: plan.skill }, plan.inputs || {}), 0);
   }
   if (!answerRaw) {
     // The model returned nothing. This used to return early and leave the

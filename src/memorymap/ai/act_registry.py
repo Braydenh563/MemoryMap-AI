@@ -26,6 +26,14 @@ proposer = None
 reader = None
 help_sentence = None
 
+#: The plan reader (`ai/plan_writes.py`: a step's writes, the tools they need,
+#: an edit's diff), set when that module is imported. The agent reads it
+#: through this leaf because plan_writes imports acts and commands, which
+#: import the agent (the import cycle `tests/test_no_import_cycles.py`
+#: refuses). `api/routes_chat.py` and `ai/skill_runner.py` import it at
+#: module level, so the app always has it.
+plans = None
+
 
 def propose(session, text: str, now, note_ids: list[int] | None = None) -> dict | None:  # noqa: ANN001
     """A model's proposed act through the registered runner (acts.propose)."""

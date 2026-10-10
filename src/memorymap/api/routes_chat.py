@@ -46,11 +46,13 @@ from memorymap.ai import (
     skill_runner,
     skills,
     source_check,
+    starter_acts,
     tool_fallback,
     tools,
     validate,
     vision_ocr,
 )
+from memorymap.ai import plan_writes  # noqa: F401  (sets the agent's plan reader, act_registry.py)
 from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.grounding import (
     SentenceGrounder,
@@ -2278,6 +2280,33 @@ def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
         yield {"type": "navigate", "surface": planned["navigate"]}
 
 
+def _first_events(req: _StreamRequest, prepared: dict, ollama_running: bool, tools_only: bool) -> Iterator[dict]:
+    """The turn's events before the agent is asked: an act, a starter the
+    engine answers with no model, or the plain answer."""
+    if prepared["intent"] == intent.ACT:
+        return _act_events(req, prepared)
+    starter = _starter_read(req, ollama_running or tools_only)
+    if starter:
+        return _starter_events(req, starter)
+    return _plain_events(req, prepared, ollama_running)
+
+
+def _starter_read(req: _StreamRequest, model_ready: bool) -> tuple[str, dict] | None:
+    """A popup agent starter the engine answers when no model can (AGENT_SKILLS_REFORM
+    "Deepened 2026-10-10" row 1); with a model the agent has it."""
+    if model_ready or req.skill or req.body.notes_only:
+        return None
+    return starter_acts.read(req.question)
+
+
+def _starter_events(req: _StreamRequest, starter: tuple[str, dict]) -> Iterator[dict]:
+    """The starter's answer line, then its act card (`ai/starter_acts.py`)."""
+    kind, slots = starter
+    yield from starter_acts.events(
+        req.session, kind, slots, user_now(deps.get_config()), req.body.note_ids, req.history
+    )
+
+
 class CommandRunBody(BaseModel):
     """A confirmed act's steps, or an act's undo steps (decision 38)."""
 
@@ -2553,9 +2582,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         }
     )
 
-    events: Iterator[dict] = (
-        _act_events(req, prepared) if prepared["intent"] == intent.ACT else _plain_events(req, prepared, ollama_running)
-    )
+    events = _first_events(req, prepared, ollama_running, tools_only)
     agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.

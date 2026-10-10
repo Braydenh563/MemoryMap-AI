@@ -333,6 +333,17 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the agent87 agent (Brief 87, merged 2026-10-10)
+
+- Not verified against a real model: whether it plans act-shaped steps `plan_writes` can preview and uses the narrowed tools a planned step is offered (`skill_runner._plan_step_offer`); rows 3 and 4 ran against the scripted fake only.
+- Not verified in the browser: Chat's own path for the plan card and per-write undo (`chat-attach.js` onTool); an edit's diff under a step (pytest only).
+- Stop is between steps, not mid-call: a step whose model call has already returned still writes when Stop lands during the call (the sync generator's thread cannot be interrupted).
+- After Undo the run, the per-write stack entries stay; a later Ctrl+Z re-runs an already applied inverse (harmless for pin, tag and edit). `agentUndoActions`.
+- The other tabs' starters (Notes, Chat, Graph, Library, Documents) are not in `ai/starter_acts.py`; with no model they get the composed answer (palette.js AGENT_TAB_STARTERS).
+- The reading does not take a note by its number ("pin note 12"): `commands._one_target`.
+- Dashboard quick links overflow by 4 px at 1440 and 390 (`#dash-quicklinks .launch-group`).
+- deepen72a.js's shared overlap measure now ignores a clipped scrolling edge, so other surfaces' overlap counts may drop; undo.js was not run on the agent surface.
+
 ## Left by the time85 agent (Brief 85, merged 2026-10-10)
 
 - Timeline row 8's bar, click to rows under 300 ms at 96 notes: 329 at load 6 to 8 (app side 73 to 164); a 57 to 70 ms task right after the rows paint; `content-visibility` on the day sections would cut it but the scrubber reads real heights (timeline.js `drawTimelineWindow`). The boot CSS budget is at its cap (183,300 gzipped, 0 bytes left after this merge: the recall row's rule moved into `.library-filters`): the next timeline or reminders CSS goes in a lazy file, or the timeline's stylesheet becomes one.

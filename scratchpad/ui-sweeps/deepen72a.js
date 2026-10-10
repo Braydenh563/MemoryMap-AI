@@ -18,7 +18,12 @@ const MEASURE = `window.__m = (rootSel) => {
   const clipped = [...root.querySelectorAll('*')].filter((e) => e.childElementCount === 0 && e.textContent.trim() && vis(e) && e.getBoundingClientRect().width > 1 && e.scrollWidth > e.clientWidth + 1 && /hidden|clip/.test(getComputedStyle(e).overflowX) && getComputedStyle(e).textOverflow !== 'ellipsis' && !e.closest('.cm-editor'));
   const small = ctrls.filter((c) => { const r = c.getBoundingClientRect(); return (r.width < 24 || r.height < 24) && c.type !== 'checkbox' && c.type !== 'radio' && c.tagName !== 'A' && !c.classList.contains('select-native-hidden'); });
   let overlaps = 0; const ovl = [];
-  const rs = ctrls.map((c) => c.getBoundingClientRect());
+  // What is on screen of each control: its box cut by every ancestor that
+  // clips (overflow other than visible), so a row scrolled under a list's
+  // edge is not counted as lying over the button past that edge (Brief 87:
+  // the agent's starters, clipped at the intro's foot, were 2 "overlaps").
+  const seen = (c) => { let r = c.getBoundingClientRect(); let t = r.top, b = r.bottom, l = r.left, rt = r.right; for (let p = c.parentElement; p; p = p.parentElement) { const cs = getComputedStyle(p); if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue; const q = p.getBoundingClientRect(); t = Math.max(t, q.top); b = Math.min(b, q.bottom); l = Math.max(l, q.left); rt = Math.min(rt, q.right); } return { top: t, bottom: b, left: l, right: rt }; };
+  const rs = ctrls.map(seen);
   for (let i = 0; i < ctrls.length; i++) for (let j = i + 1; j < ctrls.length; j++) {
     if (ctrls[i].contains(ctrls[j]) || ctrls[j].contains(ctrls[i])) continue;
     const a = rs[i], b = rs[j];

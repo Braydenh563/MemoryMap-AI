@@ -22,7 +22,7 @@ from typing import NamedTuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
+from memorymap.ai import act_registry, budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
 from memorymap.ai.model_manager import SMALL_MODEL_PARAMS_B, ModelManager, parameter_count
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -2314,8 +2314,37 @@ def _finish_handover(
     if handover.get("type") == "act_proposal":
         result = yield from _run_and_record(session, plan, state, name, arguments)
         return "error" not in result
+    if handover.get("type") == "run_plan":
+        #: The writes each step will make, on the card the person approves
+        #: once (AGENT_SKILLS_REFORM "Deepened 2026-10-10" row 3).
+        handover = {**handover, "writes": _plan_writes(session, handover["steps"])}
     yield handover
     return True
+
+
+def _plan_writes(session: Session, steps: list[str], tools_too: bool = False) -> list[list[str]]:
+    """Each step's writes (`ai/plan_writes.py`), or with `tools_too` the
+    tools those writes need."""
+    from memorymap.core import deps
+    from memorymap.core.config import user_now
+
+    plans = _plans()
+    now = user_now(deps.get_config()).replace(tzinfo=None)
+    return (plans.plan_tools if tools_too else plans.plan_writes)(session, steps, now)
+
+
+def _plans():  # noqa: ANN202
+    """`ai/plan_writes.py` through the act registry's leaf (it imports this module)."""
+    if act_registry.plans is None:
+        raise RuntimeError("memorymap.ai.plan_writes is not imported, so no plan can be read")
+    return act_registry.plans
+
+
+def _change_diff(name: str, arguments: dict, undo: dict | None) -> dict | None:
+    """An edit's lines out and in, drawn under its step (row 3's diff after)."""
+    if name != "edit_note" or not isinstance(undo, dict) or "content" not in (arguments or {}):
+        return None
+    return _plans().edit_diff(str((undo.get("arguments") or {}).get("content") or ""), str(arguments["content"]))
 
 
 def _run_and_record(
@@ -2387,6 +2416,7 @@ def _run_and_record(
         change = {
             "tool": name,
             "label": result.get("label") or name,
+            "diff": _change_diff(name, arguments, undo),
             "note_id": _change_note_id(name, result),
             "document_id": _change_document_id(name, result),
             "reminder_id": _change_reminder_id(name, result),

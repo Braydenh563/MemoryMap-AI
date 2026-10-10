@@ -138,7 +138,7 @@ _THESE = {
 }
 _ABOUT_WORDS = ("about ", "on ", "for ", "mentioning ", "that mention ", "called ", "named ", "titled ")
 _NOTE_HEADS = re.compile(
-    r"^(?:all )?(?:of )?(?:my |the |all |any )?(notes?|everything|anything|entries|entry) ",
+    r"^(?:all )?(?:of )?(?:my |the |all |any |every )?(notes?|everything|anything|entries|entry) ",
     re.IGNORECASE,
 )
 
@@ -158,7 +158,7 @@ def _target(text: str) -> dict | None:
                 about = _drop_article(rest[len(word):].strip())
                 if not about:
                     return None
-                single = head.group(1).lower() in ("note", "entry") and not low.startswith("my notes")
+                single = head.group(1).lower() in ("note", "entry") and not low.startswith(("my notes", "every "))
                 return {"about": about, "single": single}
         return None
     words = text.split(" ")

@@ -634,12 +634,13 @@ function agentTimeline(holder, options = {}) {
     if ((plan.steps && plan.steps.length) || plan.kind === "turn") {
       const list = document.createElement("ol");
       list.className = "plan-steps";
-      for (const step of plan.steps) {
+      plan.steps.forEach((step, index) => {
         const item = document.createElement("li");
         item.textContent = step;
+        if (plan.writes) item.appendChild(planStepWrites(plan.writes[index]));
         list.appendChild(item);
         items.push(item);
-      }
+      });
       el.appendChild(list);
     }
     if (plan.tools && plan.tools.length) {
@@ -730,6 +731,13 @@ function agentTimeline(holder, options = {}) {
           ? `, ${stepStateWords(state, { ...event, reason })}`
           : `, ${reason}`;
       item.appendChild(why);
+    }
+    //: Each step's diff after (row 3): what it wrote, each with its Undo.
+    if (state === "done" && event.changes?.length) {
+      const box = document.createElement("div");
+      box.className = "plan-step-changes";
+      for (const change of event.changes) box.appendChild(changeRow(change));
+      item.appendChild(box);
     }
   };
 
@@ -1254,6 +1262,8 @@ function changeRow(change, options = {}) {
           }),
         });
         if (result && result.error) throw new Error(result.error);
+        const action = agentUndoActions.get(JSON.stringify(change.undo));
+        if (action) settleUndoFromToast(action);
         row.classList.add("skill-change-undone");
         setLabel(label, `${change.label || change.tool}, undone`);
         undo.remove();
@@ -1265,7 +1275,89 @@ function changeRow(change, options = {}) {
     });
     row.appendChild(undo);
   }
+  if (change.diff) row.appendChild(changeDiff(change.diff));
   return row;
+}
+
+//: An edit's lines out and in (`agent._change_diff`), on the diff recipe
+//: the confirm card already draws (`.diff-viewer`).
+function changeDiff(diff) {
+  const viewer = document.createElement("div");
+  viewer.className = "diff-viewer";
+  for (const [kind, sign] of [["removed", "-"], ["added", "+"]]) {
+    for (const line of diff[kind] || []) {
+      const el = document.createElement("div");
+      el.className = `diff-${kind}`;
+      el.textContent = `${sign} ${line}`;
+      viewer.appendChild(el);
+    }
+  }
+  if (diff.more) viewer.append(`${diff.more} more lines changed`);
+  return viewer;
+}
+
+//: The writes a plan's step will make, said before it runs (row 3, the
+//: server's `plan_writes`): the exact act, the tool it names, or that it reads.
+function planStepWrites(writes) {
+  //: A div, not a styled span: the boot stylesheet is at its byte cap.
+  const line = document.createElement("div");
+  line.className = "plan-step-writes muted";
+  line.textContent = writes?.length ? `Writes: ${writes.join("; ")}` : "Reads only";
+  return line;
+}
+
+//: **A run's write goes on the app-wide undo stack** (row 4, WORLD_CLASS
+//: decision 53): Ctrl+Z after a run takes back its last write, and a run
+//: stopped at step 2 leaves step 1's writes there. Redo runs the call again
+//: and keeps the inverse of that run. The run's own Undo stays for the whole.
+//: The stack entry for each change's undo, so a row's own Undo (the step's
+//: list, the run's change list: copies of the change, not the same object)
+//: takes it off the stack and Ctrl+Z cannot run it twice.
+const agentUndoActions = new Map();
+function pushAgentChangeUndo(change, call) {
+  if (!change?.undo) return;
+  let inverse = change.undo;
+  const exec = (body) => apiJson("/chat/tools/execute", { method: "POST", body: JSON.stringify(body) });
+  const key = JSON.stringify(change.undo);
+  agentUndoActions.set(key, pushUndo(
+    (change.label || change.tool).replace(/^ph:[\w-]+\s*/, ""),
+    () => exec({ name: inverse.tool, arguments: inverse.arguments, steps: inverse.steps }).then(refreshAfterToolChanges),
+    async () => {
+      const again = await exec({ name: call.name, arguments: call.arguments });
+      inverse = again.undo || inverse;
+      refreshAfterToolChanges();
+    }
+  ));
+}
+
+//: **The plan, approved once** (row 3, the Copilot agent panel's shape): the
+//: steps and what each will write, then Run the plan or Not now. Nothing runs
+//: until it is pressed; a destructive step still asks on its own card.
+function planProposalCard(holder, event, run) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm plan-proposal";
+  const head = document.createElement("p");
+  setLabel(head, `ph:compass ${event.goal}`);
+  const list = document.createElement("ol");
+  list.className = "plan-steps";
+  event.steps.forEach((step, index) => {
+    const item = document.createElement("li");
+    item.textContent = step;
+    item.appendChild(planStepWrites(event.writes?.[index]));
+    list.appendChild(item);
+  });
+  const row = document.createElement("div");
+  row.className = "row";
+  row.append(
+    smallButton("Run the plan", "Run every step; each one's writes are listed above and can be undone", () => {
+      card.replaceWith(toolChip(`ph:play Running ${event.steps.length} steps`));
+      run();
+    }, false),
+    smallButton("Not now", "Run nothing", () => card.replaceWith(toolChip("ph:x Not run: nothing was changed.")))
+  );
+  card.append(head, list, row);
+  holder.appendChild(card);
+  return card;
 }
 
 //: **The live action line: which notes a tool call actually reached for.**

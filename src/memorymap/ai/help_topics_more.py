@@ -727,7 +727,7 @@ MORE_TOPICS: list[dict] = [
             "never an empty notebook: open MemoryMap from the Start menu or "
             "the launcher, then press Retry."
         ),
-        "badge": {"label": "Install as an app", "section": "about"},
+        "badge": {"label": "Install as an app", "section": "about", "target": "about-install"},
     },
 ]
 

@@ -338,6 +338,35 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 42 remainder)
+
+**Built** by the docs42b agent (Brief 42's remainder from OPEN.md, one
+commit each), merged 2026-10-10. The python-docx extra, `GET
+/documents/{id}/export.docx` and `docexport.to_docx` retired (extras 11 to
+10; README count moved; DOCUMENTS Phase 7's superseded row). The browser
+Word writer (`documents-word.js`) writes pictures as ImageRun, suggested
+changes as `w:ins`/`w:del`, real list levels and a Code style; import
+keeps nested lists, code blocks and pictures (stored under /media);
+measured by `scratchpad/ui-sweeps/docs42d.js` (1 picture, 1 insertion, 1
+deletion, the nested item at level 1). `core/filetypes.py` rows and
+`docCmLanguageFor` for `.patch`/`.diff` (token classes 2 to 4 with
+inserted and deleted colours), `Dockerfile` (4), `.vb` and `.vbs` (7
+each), 0 bytes at boot. js-beautify behind Format for js, css and html,
+lazy like Emmet (25,022 bytes gzipped, 0 at boot; 328 ms first and 268 ms
+after on a 504-line file; `frontend/vendor/js-beautify` with its notice).
+Section 25 row 6: the 52 code palette rows all carry a key or "none" (29
+had neither); Ctrl+Shift+8, 7 and 9 make bulleted, numbered and task lists
+(checked in Chromium). The compare menu driven through three saved
+revisions (`docs42e.js`: 5 and 9 changed lines, Stop clears to 0).
+`.doc-content-code` survives focus changes on a .js document and is never
+on a .md one: no class is written onto CodeMirror's DOM outside
+`editorAttributes`, a grep test holds the shape. The output grip's hit area
+7 px to 24 px at 1440 and hidden to 24 px at 390, the visible line unmoved
+(6.4 px at 1 px from the top). Boot JS gzip 581,725 to 581,741. errors.js 0
+at 390 and 1440. Step 9 (INBOX 739's "Untitled document N") was already
+built (`docUntitledName`). Left rows in OPEN.md "Left by the docs42 and
+docs42b agents".
+
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 25a, Brief 47)
 
 **Built** by Brief 47 (search everywhere, decision 46), merged 2026-10-10.

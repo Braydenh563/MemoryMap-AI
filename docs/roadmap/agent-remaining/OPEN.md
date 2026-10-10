@@ -1190,20 +1190,19 @@ The file is in [`../archive/agent-remaining/trust73-1010.md`](../archive/agent-r
 - Rule 14: the Health block stays in Settings, About (where it was built, PLAN B9) rather than its own section; reach is the palette's Health (1) and Settings, About (2).
 - Not verified: Ollama's real `keep_alive: 0` and `/api/ps` (a slow fake in the agent's scratch dir stood in), the desktop window, WebKit.
 
-## Left by the docs42 agent (Brief 42 steps 1 to 4, INBOX 736, merged 2026-10-10)
+## Left by the docs42 and docs42b agents (Brief 42, INBOX 736, merged 2026-10-10)
 
-The file, with the measured before table and the vendoring keep-or-drop table, is in [`../archive/agent-remaining/docs42-1010.md`](../archive/agent-remaining/docs42-1010.md).
+The files, with the measured before table and the vendoring keep-or-drop table, are in [`../archive/agent-remaining/docs42-1010.md`](../archive/agent-remaining/docs42-1010.md) and [`docs42b-1010.md`](../archive/agent-remaining/docs42b-1010.md); what docs42b built is in HISTORY "Moved from the plans, 2026-10-10 (DOCUMENTS Brief 42 remainder)".
 
-- VC7 and section 21: file types for `.patch`/`.diff`, `Dockerfile` and `.vb`/`.vbs` in `core/filetypes.py` (the modes are bundled, 0 bytes more), then `docCmLanguageFor` rows; measure token classes on each (documents.js `docCmLanguageFor`).
-- INBOX 735 first half: the p5.js sketch document kind (code beside a sandboxed live canvas, vendored `p5.min.js` only); `api/run_sandbox.py` would need a p5 runner that loads the vendored file into the frame. Not started.
-- js-beautify as Format for js, css and html (kept above), behind the existing `docFormatCode`, lazy like Emmet.
-- Word export: pictures are written as their alt text and suggested changes are not written as Word tracked changes (python-docx did both); docx has `ImageRun`, `InsertedTextRun` and `DeletedTextRun` (frontend/js/documents-word.js `docWordRuns`). A nested list comes back from Mammoth flattened, and a code block as plain paragraphs.
-- Retire the python-docx extra (`core/extras.py` id `docx`, `GET /documents/{id}/export.docx`, `docexport.to_docx`): nothing in the app calls the route now; tests and the README extras count move with it (DOCUMENTS_PLAN Phase 7 superseded row).
-- The compare menu was driven with a saved text, not through a revision picked from the menu on a document with history (a new document had 0 revisions); `docIdeCompareMenu` in frontend/js/documents-ide.js.
-- The output grip is 6px tall (`.doc-run-resize`); touch.js not run on it at 390.
-- Section 25 row 6: 25 of the 52 code palette rows still have no shortcut and no "none" marker.
-- Brief 42's other items not started: highlights on pages, comments with bookmarks and links, link cards with a viewer, the long-form preference at first run, labelled sections with a local graph (a Phase row first), doctype.js under 30 ms.
-- `.doc-content-code` was dropped by CodeMirror on every focus change (it owns the editor's class attribute); fixed for code files through `editorAttributes` in documents-ide.js, but `syncDocFileType`'s `classList.toggle` (documents.js) is still the shape that loses it: any other class added that way to `docCmView.dom` has the same bug.
+- INBOX 735 first half: the p5.js sketch document kind (code beside a sandboxed live canvas, vendored `p5.min.js` only); `api/run_sandbox.py` would need a p5 runner that loads the vendored file into the frame. Brief 69 (D6 previews). [docs42]
+- Document comments with the board's thread shape (Reply, Edit, Resolve, Attach): a decision first. Comments are `==words== %%remark%%` in the text ("no comment store and there must not be one", documents.js `renderDocComments`) while `wbCommentRow` needs ids, `reply_to`, `edited`, `resolved`. Recommendation (take it): keep the text model; a reply is the next `%%…%%` on the same line, Edit rewrites in place, Attach appends a `[[link]]`, Resolve takes it out; lift `wbCommentRow`'s DOM into a shared row taking `{list, save, refresh}` and add the recipe ratchet in `tests/test_ui_recipes.py`. [docs42b]
+- Word import of tracked changes: the .docx carries `w:ins`/`w:del`, but Mammoth reads an insertion as accepted text and drops a deletion (documents-word.js `docWordImport`); the server reader `docview.docx_to_markdown` keeps them, so a .docx with revisions could go there. [docs42b]
+- A fenced code block's language (```js) is not written to Word, so it comes back as a bare fence (`docWordBlocks`, the `pre` branch); header cells come back bold (as before). [docs42b]
+- .diff, .patch, .vb and .vbs are not in `docview.CODE_SUFFIXES`, so a Library import of one is refused (415); a Dockerfile has no suffix at all (core/docview.py, with the chat picker's `accept` list `tests/test_docview.py` pins). Bug. [docs42b]
+- The output grip is 24 px (the grip recipe), under touch.js's 44 px floor at 390; touch.js does not list the run panel as a surface. [docs42b]
+- js-beautify on a selection is not used (a selection keeps the conservative re-indent); `vendor_use.py` reports "selection" as its one unused capability. [docs42b]
+- Brief 42's other items not started: highlights on pages, comments with bookmarks and links, link cards with a viewer, the long-form preference at first run, labelled sections with a local graph (a Phase row first), doctype.js under 30 ms. [docs42]
+- Not verified: the .docx opened in Word itself (its XML and Mammoth's reading only); Format on a large real file; the list chords on a non-US layout; the docx extra's removal on an install that has python-docx (it stops being listed). [docs42b]
 
 ## Left by the trust agent (Brief 74, T0 sweeps for 72a, 72b and 73, merged 2026-10-10)
 

@@ -351,10 +351,12 @@ the act registry; its sweep found every Chat send throwing on the pushed head
 after a ratchet commit took out a `let` another file read: a ratchet fix is
 checked in the browser, not only by the lint), and 47 (search everywhere:
 "Find anything" moved into lazy `search.js` with a chat kind, kind chips,
-paging, operator help and saved searches; WORLD_CLASS 25a built). Running: 68
-(the surfaces, f4), 41 (density, WCAG 2.2), 42's remainder (docs42b, the OPEN
-rows) and 51 (never lose a note, safety). Next: 69 to 71, 34, 60. The PR
-merges when the gate, the sweeps and one full suite run are green.
+paging, operator help and saved searches; WORLD_CLASS 25a built), and 42's
+remainder (python-docx retired, Word round trip with pictures and tracked
+changes, four file types, js-beautify, every code command keyed, the grip at
+24 px). Running: 68 (the surfaces, f4), 41 (density, WCAG 2.2), 51 (never
+lose a note, safety) and 69 (run, preview and test, ide1). Next: 70, 71, 34,
+60. The PR merges when the gate, the sweeps and one full suite run are green.
 
 **A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the
 lint set, not the ratchets: six agent squashes gated green and CI then failed

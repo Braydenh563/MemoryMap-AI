@@ -342,10 +342,21 @@ pack), UI_MODERNISATION Phase 12 (density, WCAG 2.2) and SESSION_BRIEFS 35 to
 surface, its bar, its gap, its owner; Briefs 46 to 55), the design review
 UI_MODERNISATION Phase 13 (Briefs 56 to 59), the backend review
 WORLD_CLASS 26 (Briefs 60 to 63) and the features pass WORLD_CLASS 27. The deterministic layer under every surface (INBOX 746) is CHAT_PLAN "The deterministic foundation" (decisions 46 to 56, Briefs 64 to 68). The code editor as an IDE (INBOX 748) is DOCUMENTS_PLAN 23 (decisions D1 to D9, Briefs 69 to 71, after 42); the owner's "full improvement" ask (INBOX 749) is the programme already placed, plus learnability measured in UI_MODERNISATION 12z. The owner's trust conditions (INBOX 750) are WORLD_CLASS 28 (rules 1 to 14, decisions 67 to 71, Briefs 72 to 74).
-Brief 35 (triage) merged dfda1b7: boot clean, grounded 1.0. Next, as agents
-finish: 39 and 39b once 35 has merged, 42, then 46 (measure, alone), then
-41, 47, 51, 34 and the rest of 46 to 55 in ROADMAP's milestone order. The PR for this branch merges
+Merged by 14:30Z: 35, 36 to 38, 39, 39b, 42 steps 1 to 4, 56, 72a, 72b, 73,
+74, 75, chatui, the filing decision 6 hold on every path, CodeQL (46 alerts on
+the day, all at cause). Running: 65, 66, 67 (the deterministic foundation) and
+41 (density, WCAG 2.2). Next: 68, then 69 to 71, 47, 51, 34, 60. The PR merges
 when the gate, the sweeps and one full suite run are green.
+
+**A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the
+lint set, not the ratchets: six agent squashes gated green and CI then failed
+17 suite ratchets (`test_global_scope_ratchet`, `test_list_limits`,
+`test_feature_catalog`, `test_error_toasts`, `test_prefs_module`,
+`test_vendor_utilisation`, `test_a11y_wcag22`, the Quick access and tag
+tests) plus 11 filing tests on a hold that read "Dad Jokes" as Relationships.
+Before pushing a batch, run `gate.sh --changed` (the tests that name the
+changed files) or the ratchet files above by hand; the lint gate alone is
+not a merge gate for a batch.
 
 **Now (2026-10-07, main, 0.4.1 complete):** everything since PR 167 is on main
 and folded into CHANGELOG 0.4.1 (composer voice and vocabulary, background

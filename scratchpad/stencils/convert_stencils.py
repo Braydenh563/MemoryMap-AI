@@ -482,7 +482,7 @@ class Shape:
             try:
                 st.width = float(node.get("width"))
             except (TypeError, ValueError):
-                pass
+                pass  # a missing or non-numeric width keeps the style's default
         elif tag == "alpha":
             st.alpha = float(node.get("alpha") or 1)
         elif tag == "fillalpha":

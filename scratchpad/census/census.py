@@ -551,7 +551,11 @@ def section3() -> str:
 _TOP_DECL = re.compile(r"^(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)|^(?:const|let|var|class)\s+([A-Za-z_$][\w$]*)|^window\.([A-Za-z_$][\w$]*)\s*=", re.M)
 
 
-def depth_at(code: str, off: int, _cache: dict = {}) -> int:
+_DEPTH_CACHE: dict = {}
+
+
+def depth_at(code: str, off: int) -> int:
+    _cache = _DEPTH_CACHE
     key = id(code)
     arr = _cache.get(key)
     if arr is None:

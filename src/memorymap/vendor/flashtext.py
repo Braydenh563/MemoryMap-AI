@@ -120,6 +120,7 @@ class KeywordProcessor(object):
                 break
         if self._keyword in current_dict and len_covered == len(word):
             return current_dict[self._keyword]
+        return None
 
     def __setitem__(self, keyword, clean_name=None):
         """To add keyword to the dictionary
@@ -443,8 +444,8 @@ class KeywordProcessor(object):
                 terms_present[term_so_far] = current_dict[key]
             else:
                 sub_values = self.get_all_keywords(term_so_far + key, current_dict[key])
-                for key in sub_values:
-                    terms_present[key] = sub_values[key]
+                for sub_key in sub_values:
+                    terms_present[sub_key] = sub_values[sub_key]
         return terms_present
 
     def extract_keywords(self, sentence, span_info=False, max_cost=0):
@@ -492,11 +493,9 @@ class KeywordProcessor(object):
                 # if end is present in current_dict
                 if self._keyword in current_dict or char in current_dict:
                     # update longest sequence found
-                    sequence_found = None
                     longest_sequence_found = None
                     is_longer_seq_found = False
                     if self._keyword in current_dict:
-                        sequence_found = current_dict[self._keyword]
                         longest_sequence_found = current_dict[self._keyword]
                         sequence_end_pos = idx
 
@@ -624,11 +623,9 @@ class KeywordProcessor(object):
                 # if end is present in current_dict
                 if self._keyword in current_dict or char in current_dict:
                     # update longest sequence found
-                    sequence_found = None
                     longest_sequence_found = None
                     is_longer_seq_found = False
                     if self._keyword in current_dict:
-                        sequence_found = current_dict[self._keyword]
                         longest_sequence_found = current_dict[self._keyword]
                         sequence_end_pos = idx
 

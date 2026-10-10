@@ -259,17 +259,17 @@ def build(root: Path, date: str) -> str:
     out = [
         "# Code map",
         "",
-        f"Generated {date} by `python scripts/codemap.py` from the repository. "
+        (f"Generated {date} by `python scripts/codemap.py` from the repository. "
         "Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the "
-        "lines you need. A stale map fails `tests/test_codemap_fresh.py`.",
+        "lines you need. A stale map fails `tests/test_codemap_fresh.py`."),
         "",
         "Counts: " + ", ".join(f"{label} {value}" for label, value in counts.items()) + ".",
         "",
         f"## Frontend functions ({function_count})",
         "",
-        "Top-level `function name(`, `async function name(` and `const name = (` in "
+        ("Top-level `function name(`, `async function name(` and `const name = (` in "
         "`frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily "
-        "loaded files after, by name. Rows sorted by name within each file.",
+        "loaded files after, by name. Rows sorted by name within each file."),
         "",
     ]
     for rel, found in functions:
@@ -303,8 +303,8 @@ def build(root: Path, date: str) -> str:
     out += [
         f"## Backend routes ({len(routes)})",
         "",
-        "`@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, "
-        "sorted by path. The line is the decorator's.",
+        ("`@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, "
+        "sorted by path. The line is the decorator's."),
         "",
     ]
     out += _table(
@@ -316,8 +316,8 @@ def build(root: Path, date: str) -> str:
     out += [
         f"## Backend modules ({module_count})",
         "",
-        "Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, "
-        "excluding `vendor/`, grouped by file.",
+        ("Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, "
+        "excluding `vendor/`, grouped by file."),
         "",
     ]
     for rel, found in modules:
@@ -340,8 +340,8 @@ def build(root: Path, date: str) -> str:
     out += [
         f"## Plan headings ({len(plans)})",
         "",
-        "Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, "
-        "except the HISTORY.md archive. Sorted by heading.",
+        ("Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, "
+        "except the HISTORY.md archive. Sorted by heading."),
         "",
     ]
     out += _table(("Heading", "File:line"), [(name, f"{rel}:{line}") for name, rel, line in plans])

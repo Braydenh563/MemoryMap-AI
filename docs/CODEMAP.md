@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3562, test files 901, tests 8504, plan headings 860.
+Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3562, test files 901, tests 8504, plan headings 883.
 
 ## Frontend functions (4714)
 
@@ -11878,59 +11878,59 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `BulkState` | src/memorymap/core/extras.py:809 |
-| `Bundle` | src/memorymap/core/extras.py:697 |
+| `BulkState` | src/memorymap/core/extras.py:807 |
+| `Bundle` | src/memorymap/core/extras.py:695 |
 | `Extra` | src/memorymap/core/extras.py:334 |
-| `InstallState` | src/memorymap/core/extras.py:761 |
-| `_busy` | src/memorymap/core/extras.py:1504 |
-| `_canonical` | src/memorymap/core/extras.py:1060 |
-| `_claim` | src/memorymap/core/extras.py:1492 |
-| `_constraints_copy` | src/memorymap/core/extras.py:1234 |
-| `_dispatch` | src/memorymap/core/extras.py:1510 |
-| `_finish_bulk` | src/memorymap/core/extras.py:1731 |
-| `_forget_footprints` | src/memorymap/core/extras.py:970 |
+| `InstallState` | src/memorymap/core/extras.py:759 |
+| `_busy` | src/memorymap/core/extras.py:1502 |
+| `_canonical` | src/memorymap/core/extras.py:1058 |
+| `_claim` | src/memorymap/core/extras.py:1490 |
+| `_constraints_copy` | src/memorymap/core/extras.py:1232 |
+| `_dispatch` | src/memorymap/core/extras.py:1508 |
+| `_finish_bulk` | src/memorymap/core/extras.py:1729 |
+| `_forget_footprints` | src/memorymap/core/extras.py:968 |
 | `_frozen_target_args` | src/memorymap/core/extras.py:258 |
-| `_install_refusal` | src/memorymap/core/extras.py:1566 |
-| `_installed_snapshot` | src/memorymap/core/extras.py:1252 |
+| `_install_refusal` | src/memorymap/core/extras.py:1564 |
+| `_installed_snapshot` | src/memorymap/core/extras.py:1250 |
 | `_interpreter_behind` | src/memorymap/core/extras.py:194 |
-| `_loaded_in_process_reason` | src/memorymap/core/extras.py:1767 |
+| `_loaded_in_process_reason` | src/memorymap/core/extras.py:1765 |
 | `_pip_base_command` | src/memorymap/core/extras.py:315 |
 | `_pip_platforms` | src/memorymap/core/extras.py:279 |
 | `_pip_reason` | src/memorymap/core/extras.py:101 |
 | `_python_candidates` | src/memorymap/core/extras.py:170 |
-| `_read_footprint` | src/memorymap/core/extras.py:940 |
-| `_remove_from_frozen_target` | src/memorymap/core/extras.py:1065 |
-| `_requirement_name` | src/memorymap/core/extras.py:1054 |
-| `_requirements_path` | src/memorymap/core/extras.py:1220 |
-| `_roll_back` | src/memorymap/core/extras.py:1263 |
-| `_run_bulk` | src/memorymap/core/extras.py:1655 |
-| `_run_bulk_item` | src/memorymap/core/extras.py:1685 |
-| `_run_download_install` | src/memorymap/core/extras.py:1436 |
-| `_run_download_uninstall` | src/memorymap/core/extras.py:1478 |
-| `_run_install` | src/memorymap/core/extras.py:1295 |
-| `_run_single` | src/memorymap/core/extras.py:1531 |
-| `_run_uninstall` | src/memorymap/core/extras.py:1132 |
-| `_status_row` | src/memorymap/core/extras.py:887 |
+| `_read_footprint` | src/memorymap/core/extras.py:938 |
+| `_remove_from_frozen_target` | src/memorymap/core/extras.py:1063 |
+| `_requirement_name` | src/memorymap/core/extras.py:1052 |
+| `_requirements_path` | src/memorymap/core/extras.py:1218 |
+| `_roll_back` | src/memorymap/core/extras.py:1261 |
+| `_run_bulk` | src/memorymap/core/extras.py:1653 |
+| `_run_bulk_item` | src/memorymap/core/extras.py:1683 |
+| `_run_download_install` | src/memorymap/core/extras.py:1434 |
+| `_run_download_uninstall` | src/memorymap/core/extras.py:1476 |
+| `_run_install` | src/memorymap/core/extras.py:1293 |
+| `_run_single` | src/memorymap/core/extras.py:1529 |
+| `_run_uninstall` | src/memorymap/core/extras.py:1130 |
+| `_status_row` | src/memorymap/core/extras.py:885 |
 | `activate_frozen_extras` | src/memorymap/core/extras.py:244 |
-| `bulk` | src/memorymap/core/extras.py:989 |
-| `bulk_label` | src/memorymap/core/extras.py:1649 |
-| `bulk_status` | src/memorymap/core/extras.py:974 |
-| `bundles` | src/memorymap/core/extras.py:909 |
-| `cancel` | src/memorymap/core/extras.py:1008 |
-| `current` | src/memorymap/core/extras.py:1004 |
+| `bulk` | src/memorymap/core/extras.py:987 |
+| `bulk_label` | src/memorymap/core/extras.py:1647 |
+| `bulk_status` | src/memorymap/core/extras.py:972 |
+| `bundles` | src/memorymap/core/extras.py:907 |
+| `cancel` | src/memorymap/core/extras.py:1006 |
+| `current` | src/memorymap/core/extras.py:1002 |
 | `download_mb` | src/memorymap/core/extras.py:681 |
-| `download_ready` | src/memorymap/core/extras.py:1844 |
+| `download_ready` | src/memorymap/core/extras.py:1842 |
 | `find_system_python` | src/memorymap/core/extras.py:132 |
-| `footprint` | src/memorymap/core/extras.py:917 |
+| `footprint` | src/memorymap/core/extras.py:915 |
 | `frozen_extras_dir` | src/memorymap/core/extras.py:222 |
-| `install_blocking` | src/memorymap/core/extras.py:1817 |
-| `is_installed` | src/memorymap/core/extras.py:840 |
-| `remove` | src/memorymap/core/extras.py:1579 |
-| `reset_for_tests` | src/memorymap/core/extras.py:1808 |
-| `start` | src/memorymap/core/extras.py:1538 |
-| `start_bulk` | src/memorymap/core/extras.py:1601 |
-| `status` | src/memorymap/core/extras.py:868 |
-| `unavailable_reason` | src/memorymap/core/extras.py:993 |
+| `install_blocking` | src/memorymap/core/extras.py:1815 |
+| `is_installed` | src/memorymap/core/extras.py:838 |
+| `remove` | src/memorymap/core/extras.py:1577 |
+| `reset_for_tests` | src/memorymap/core/extras.py:1806 |
+| `start` | src/memorymap/core/extras.py:1536 |
+| `start_bulk` | src/memorymap/core/extras.py:1599 |
+| `status` | src/memorymap/core/extras.py:866 |
+| `unavailable_reason` | src/memorymap/core/extras.py:991 |
 
 ### src/memorymap/core/filejobs.py (2)
 
@@ -14066,7 +14066,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (860)
+## Plan headings (883)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -14168,8 +14168,12 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 13. Web search effectiveness | docs/roadmap/BACKLOG.md:991 |
 | 13. What a self-contained HTML export is: decided 2026-09-13 | docs/roadmap/DOCUMENTS_PLAN.md:853 |
 | 13.1 Is it slow? The one claim measured before anything was designed | docs/roadmap/MINDMAP_PLAN.md:632 |
+| 13.1 The principles, each as a rule with a measurement | docs/roadmap/UI_MODERNISATION_PLAN.md:1391 |
+| 13.2 Surface by surface | docs/roadmap/UI_MODERNISATION_PLAN.md:1416 |
 | 13.2 The two kinds of connection | docs/roadmap/MINDMAP_PLAN.md:762 |
+| 13.3 Decisions, 2026-10-10 (do not re-decide; numbered after Phase 12's 8) | docs/roadmap/UI_MODERNISATION_PLAN.md:1438 |
 | 13.3 What the surface offers, and by how many doors | docs/roadmap/MINDMAP_PLAN.md:806 |
+| 13.4 Phases with gates | docs/roadmap/UI_MODERNISATION_PLAN.md:1477 |
 | 13.4 What can be customised, against what a map tool offers | docs/roadmap/MINDMAP_PLAN.md:843 |
 | 13.5 Clean and professional: the same measurements section 17 took | docs/roadmap/MINDMAP_PLAN.md:867 |
 | 14. Core nodes, levels and the icon library (INBOX 641, 642; mc1, 2026-10-05) | docs/roadmap/MINDMAP_PLAN.md:1650 |
@@ -14256,7 +14260,15 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 25.4 Phases with gates (each a brief; measure first) | docs/roadmap/WORLD_CLASS_PLAN.md:3801 |
 | 25.5 Not verified | docs/roadmap/WORLD_CLASS_PLAN.md:3817 |
 | 26. Data lifecycle: archive, a full wipe, and a real trust page | docs/roadmap/BACKLOG.md:1718 |
+| 26. The backend against world class, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3825 |
+| 26.1 Judgement, by layer | docs/roadmap/WORLD_CLASS_PLAN.md:3847 |
+| 26.2 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3863 |
+| 26.3 Phases with gates | docs/roadmap/WORLD_CLASS_PLAN.md:3891 |
+| 27. Every feature, its utility and its popups, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3901 |
 | 27. Onboarding and first-run experience | docs/roadmap/BACKLOG.md:1794 |
+| 27.1 Feature by feature: what it offers, what a professional expects, the gap | docs/roadmap/WORLD_CLASS_PLAN.md:3915 |
+| 27.2 The popups, one by one | docs/roadmap/WORLD_CLASS_PLAN.md:3943 |
+| 27.3 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3964 |
 | 28. In-app help: an AI that knows the docs, built | docs/roadmap/BACKLOG.md:1824 |
 | 29. Extensibility ideas, not yet scoped | docs/roadmap/BACKLOG.md:1830 |
 | 29b. Carried out of the §40 audit | docs/roadmap/BACKLOG.md:2012 |
@@ -14467,8 +14479,16 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 53 (Sonnet, high): budgets per interaction (25g, decision 54) | docs/roadmap/SESSION_BRIEFS.md:1951 |
 | Brief 54 (Opus, high): skill reliability (AGENT_SKILLS_REFORM Phase E) | docs/roadmap/SESSION_BRIEFS.md:1955 |
 | Brief 55 (Opus, high): the calendar view (TIMELINE_PLAN Phase 5) | docs/roadmap/SESSION_BRIEFS.md:1959 |
+| Brief 56 (Sonnet, medium): measure the design review | docs/roadmap/SESSION_BRIEFS.md:1968 |
+| Brief 57 (Opus, high): the stylesheet's grammar (13a) | docs/roadmap/SESSION_BRIEFS.md:1976 |
+| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:1980 |
+| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:1984 |
 | Brief 5: W2-3: the note card's actions stop covering its text on touch | docs/roadmap/MODERNISATION_AUDIT.md:1281 |
 | Brief 6 (Wed, Opus): pagination on all 25 lists, and one scheduler | docs/roadmap/SESSION_BRIEFS.md:303 |
+| Brief 60 (Sonnet, medium): measure and the three ratchets (26.0, 26a) | docs/roadmap/SESSION_BRIEFS.md:1994 |
+| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:2000 |
+| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:2004 |
+| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:2009 |
 | Brief 6: W8-1: the audit scripts become the e2e suite | docs/roadmap/MODERNISATION_AUDIT.md:1310 |
 | Brief 7 (Thu, Opus): the event log (B1) | docs/roadmap/SESSION_BRIEFS.md:348 |
 | Brief 7: W5-4: `ai/scheduler.py`, one gate in front of every model call | docs/roadmap/MODERNISATION_AUDIT.md:1347 |
@@ -14478,6 +14498,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Briefs 25 to 31: the plans the owner asked to see finished | docs/roadmap/SESSION_BRIEFS.md:1137 |
 | Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction | docs/roadmap/SESSION_BRIEFS.md:1631 |
 | Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1908 |
+| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:1963 |
+| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:1989 |
 | Bugs | docs/roadmap/CHAT_PLAN.md:957 |
 | Bugs | docs/roadmap/DOCUMENTS_PLAN.md:1350 |
 | Bugs | docs/roadmap/GRAPH_PLAN.md:569 |
@@ -14589,7 +14611,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | E2 · The complexity of the AI path is where the next bug will be, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:653 |
 | E3 · Model calls are scattered across request handlers, background threads and module singletons, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:666 |
 | E4 · The honest positives, so the section is not one-sided (read) | docs/roadmap/MODERNISATION_AUDIT.md:676 |
-| Earlier sessions | docs/roadmap/HANDOVER.md:476 |
+| Earlier sessions | docs/roadmap/HANDOVER.md:479 |
 | F. Agent harness: what "ultimate" needs that is not there | docs/roadmap/AUDIT.md:113 |
 | F. Library, dashboard, settings | docs/roadmap/SESSION_BRIEFS.md:827 |
 | F. Performance and perceived speed | docs/roadmap/MODERNISATION_AUDIT.md:685 |
@@ -14623,7 +14645,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Harper (Automattic) | docs/roadmap/ANALYSIS.md:1830 |
 | Headroom: evaluated, not adopted | docs/roadmap/BACKLOG.md:702 |
 | How far each plan actually is (honest, as of 2026-10-03) | docs/roadmap/HANDOVER.md:300 |
-| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:430 |
+| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:433 |
 | How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:291 |
 | How to read the evidence in here | docs/roadmap/MODERNISATION_AUDIT.md:23 |
 | How to work on this repo | docs/ROADMAP.md:360 |
@@ -14668,6 +14690,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Phase 10: the Liquid Glass adoptions (½ session) | docs/roadmap/UI_MODERNISATION_PLAN.md:590 |
 | Phase 11: the phone, done properly (1 to 2 sessions, next session or later) | docs/roadmap/UI_MODERNISATION_PLAN.md:601 |
 | Phase 12: density, refinement and WCAG 2.2 (the owner, 2026-10-10; Brief 41) | docs/roadmap/UI_MODERNISATION_PLAN.md:1068 |
+| Phase 13: the design review, every surface against the principles (Fable, 2026-10-10) | docs/roadmap/UI_MODERNISATION_PLAN.md:1374 |
 | Phase 1: chrome: three questions, three places (1 session) | docs/roadmap/DOCUMENTS_PLAN.md:192 |
 | Phase 1: grounding and marks (one session; Brief 12) | docs/roadmap/CHAT_PLAN.md:323 |
 | Phase 1: the canvas renderer and physical drag (1–2 sessions) | docs/roadmap/GRAPH_PLAN.md:97 |

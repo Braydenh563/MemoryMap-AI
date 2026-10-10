@@ -681,8 +681,6 @@ EXTRAS: tuple[Extra, ...] = (
 def download_mb(extra: "Extra") -> int:
     """The `size` text ("~2 GB: ...", "~16 MB") as megabytes, for one sentence
     that says how much a first setup downloads; 0 when it cannot be read."""
-    import re
-
     found = re.match(r"~?\s*([\d.]+)\s*(GB|MB)", extra.size)
     if not found:
         return 0

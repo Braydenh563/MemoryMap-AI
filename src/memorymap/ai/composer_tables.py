@@ -302,8 +302,8 @@ _FAMILIES_ADDED: dict[str, dict[str, list[str]]] = {'open_notes': {'natural': ['
                            "There isn't a direct answer, but this comes close: ",
                            "I didn't see an exact hit. The nearest entry is: "],
                'professional': ['An explicit answer is not recorded. The closest relevant entry is: ',
-                                'There is no unequivocal statement on this matter. The most pertinent entry '
-                                'is: ',
+                                ('There is no unequivocal statement on this matter. The most pertinent entry '
+                                'is: '),
                                 'Direct clarification is absent. The nearest equivalent is: ']},
  'going_by': {'natural': ['Going by your notes',
                           'Based on your records',
@@ -566,8 +566,8 @@ _FAMILIES_ADDED: dict[str, dict[str, list[str]]] = {'open_notes': {'natural': ['
                                 ' Because of this mismatch, you should check the latest status.',
                                 ' You might want to double-check this discrepancy.',
                                 ' Take a look to see which one still applies.'],
-                    'professional': [' Due to this discrepancy, verification of the current status is '
-                                     'recommended.',
+                    'professional': [(' Due to this discrepancy, verification of the current status is '
+                                     'recommended.'),
                                      ' It is prudent to cross-reference these entries for accuracy.',
                                      ' Resolution of this inconsistency is advised.',
                                      ' Please verify the correct information, given the discrepancy.',
@@ -806,8 +806,8 @@ EXTRA_SYNONYM_GROUPS: tuple[tuple[str, ...], ...] = (
 # --- comparison ---------------------------------------------------------------------
 
 _MORE = (
-    "better|worse|cheaper|faster|slower|bigger|smaller|larger|longer|shorter|easier|harder|safer|nearer|closer|"
-    "nicer|quicker|lighter|heavier|(?:more|less) [a-z]+"
+    ("better|worse|cheaper|faster|slower|bigger|smaller|larger|longer|shorter|easier|harder|safer|nearer|closer|"
+    "nicer|quicker|lighter|heavier|(?:more|less) [a-z]+")
 )
 
 #: Two-sided comparison patterns, tried after the originals in
@@ -969,8 +969,8 @@ SOCIAL_NATURAL_EXTRA: dict[str, tuple[str, ...]] = {
         "I answer questions from your notes. Ask me when something is, or what you decided.",
     ),
     "about_app": (
-        "Ask me when something is, who said what, how a project stands or what the latest is, and I will answer "
-        "from your notes in their own words. Connecting a model adds writing and tools.",
+        ("Ask me when something is, who said what, how a project stands or what the latest is, and I will answer "
+        "from your notes in their own words. Connecting a model adds writing and tools."),
     ),
 }
 
@@ -1033,10 +1033,10 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "I locate entries in your notes and report what they say.",
     ),
     "about_app": (
-        "I answer from your notes: when something is, who said what, what the latest is on a project, or what "
-        "you have recorded on a subject. Connecting a model adds writing, summaries and tools.",
-        "Ask about anything you have recorded: a date, a decision, a list or the status of a project. Several "
-        "questions in one message are also answered. Connecting a model adds writing and tools.",
+        ("I answer from your notes: when something is, who said what, what the latest is on a project, or what "
+        "you have recorded on a subject. Connecting a model adds writing, summaries and tools."),
+        ("Ask about anything you have recorded: a date, a decision, a list or the status of a project. Several "
+        "questions in one message are also answered. Connecting a model adds writing and tools."),
     ),
 }
 
@@ -1138,16 +1138,16 @@ EXTRA_ASKING_WORDS = EXTRA_ASKING_WORDS | frozenset(['af',
  'sus',
  'tbh',
  'vibes'])
-EXTRA_WRAPPERS = EXTRA_WRAPPERS + tuple(['^(?:quick question|i have a quick '
- 'question)\\b[,.:]?\\s+(?=(?:what|when|where|who|why|how|is|are|do|does|did|can|could)\\b)',
+EXTRA_WRAPPERS = EXTRA_WRAPPERS + tuple([('^(?:quick question|i have a quick '
+ 'question)\\b[,.:]?\\s+(?=(?:what|when|where|who|why|how|is|are|do|does|did|can|could)\\b)'),
  '^(?:do you know|would you know)\\b[,.:]?\\s+(?=(?:what|when|where|who|why|how)\\b)',
- "^(?:i )?(?:cant|cannot|can't) (?:remember|recall|think "
- 'of)\\b[,.:]?\\s+(?=(?:what|when|where|who|why|how)\\b)',
+ ("^(?:i )?(?:cant|cannot|can't) (?:remember|recall|think "
+ 'of)\\b[,.:]?\\s+(?=(?:what|when|where|who|why|how)\\b)'),
  '^(?:by any chance)\\b[,.:]?\\s+(?=(?:do|does|did|is|are|was|were|can|could)\\b)',
  '^(?:let me ask you|let me ask)\\b[,.:]?\\s+',
  "^(?:im not sure|i am not sure|i'm not sure)\\b[,.:]?\\s+(?=(?:if|whether|what|when|where|who|why|how)\\b)",
- '^(?:can you|could you|would you) (?:help me (?:with|remember)|refresh my memory '
- '(?:on|about)?)\\b[,.:]?\\s+',
+ ('^(?:can you|could you|would you) (?:help me (?:with|remember)|refresh my memory '
+ '(?:on|about)?)\\b[,.:]?\\s+'),
  '^(?:hey )?(?:bot|ai|assistant|computer)[,.:]?\\s+',
  '^(?:tell me|remind me) (?:again )?\\b[,.:]?\\s+(?=(?:what|when|where|who|why|how)\\b)',
  '^(?:can you|could you) (?:check|find) (?:my notes|the notes) (?:for|on)?\\b[,.:]?\\s+',
@@ -1156,8 +1156,8 @@ EXTRA_WRAPPERS = EXTRA_WRAPPERS + tuple(['^(?:quick question|i have a quick '
  '^(?:any idea|any clue)\\b\\s+(?=(?:what|when|where|who|why|how|if)\\b)',
  '^(?:i was wondering|i am wondering)\\b\\s+(?=(?:what|when|where|who|why|how|if)\\b)',
  '^(?:bro|bruh|broski|brotato|buddy|mate|dude|man)\\b[,.:]?\\s+',
- '^(?:no cap|lowkey|highkey|tbh|ngl|fr|for real|deadass|bet|say less|say lesss|im dead|i am '
- 'dead|omg|literally)\\b[,.:]?\\s+',
+ ('^(?:no cap|lowkey|highkey|tbh|ngl|fr|for real|deadass|bet|say less|say lesss|im dead|i am '
+ 'dead|omg|literally)\\b[,.:]?\\s+'),
  '^(?:so basically|like|i mean|bro|bruh|bruhh|dude|man|sis|bestie|besty|besties)\\b[,.:]?\\s+',
  "^(?:its giving|it\\'s giving|vibes|the vibes are)\\b\\s+",
  '^(?:sus|kinda sus|hella sus)\\b[,.:]?\\s+',
@@ -1427,10 +1427,10 @@ for _kind, _lines in {'greeting': ['Hi. What are we looking for today?',
          'Okay. Let me know what you need.',
          'Acknowledged. Ready when you are.',
          'Alright. What should we look for now?'],
- 'who': ["I'm your assistant for searching notes. Ask me a question and I'll find the answer in your "
-         'records.'],
- 'about_app': ["I'm designed to retrieve answers directly from your notes. Ask me anything you've recorded, "
-               "and I'll find it."]}.items():
+ 'who': [("I'm your assistant for searching notes. Ask me a question and I'll find the answer in your "
+         'records.')],
+ 'about_app': [("I'm designed to retrieve answers directly from your notes. Ask me anything you've recorded, "
+               "and I'll find it.")]}.items():
     SOCIAL_NATURAL_EXTRA[_kind] = tuple(SOCIAL_NATURAL_EXTRA.get(_kind, ())) + tuple(_lines)
 for _kind, _lines in {'greeting': ['Hey. What can I find for you?',
               'Hi again. Ask me anything about your notes.',

@@ -1791,6 +1791,8 @@ paints per second at rest (companionperf.js); the arm's angle range over a
 walk cycle.
 
 
+Second part (INBOX 752, the owner: "better npc behaviour at the level of real life ... so incredibly smoothe between everything and every event"): one behaviour model for the companion and every avatar, a state machine whose every transition blends (no pose snaps: each joint eases over 120 to 400 ms through the same curve table), idle variation drawn from a weighted pool that never repeats within five picks, reactions to every app event (save, error, reminder, the model thinking, a long task, the lock screen) with a reaction budget per minute, a gaze and lean toward what the person is doing, and the enlarged view driven by the same state. Numbers: transitions per minute that snap (bar 0, measured by sampling joint angles at 60 Hz in `companionperf.js`), distinct idle motions per ten minutes (bar 12), reaction latency from event to first frame (bar under 100 ms), long tasks per second at rest (unchanged from the first part).
+
 ### Brief 43 (Opus, high; Sonnet medium for the fixes it names): the expert audit
 The owner, 2026-10-10: "I have only given you everything I have noticed but I
 am not an expert ... fix, improve and extend and add everything I have missed

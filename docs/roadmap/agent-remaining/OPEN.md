@@ -922,6 +922,10 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
   an exact wrap breakpoint by a few pixels, and none of the fixes depends on
   one holding. [wrap-sweep.md]
 
+## Atlas and the companion, placed from INBOX 752 (2026-10-10)
+
+- The behaviour model (Brief 34, second part): a state machine with blended transitions, idle variation from a weighted pool, reactions to every app event with a budget, gaze and lean, the enlarged view on the same state. Measures: snapping transitions per minute 0; 12 distinct idle motions per ten minutes; reaction latency under 100 ms.
+
 ## Atlas, placed from the owner's list 2026-10-10
 
 Entries are the owner's words, then the recommendation. Bugs come first, then design requests. Brief 34 carries the whole group.

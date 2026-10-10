@@ -46215,6 +46215,15 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      placed as a row in the plan it belongs to; the provenance record practice
      is a candidate for `docs/THIRD_PARTY.md` and `tests/test_vendor_manifest.py`.
 
+752. **The owner, 2026-10-10, verbatim**: "I also want more improvements and
+     expansions and optimisations for the companion, avatars and more. like
+     actions, movements, transitions, animations, variations, better behaviour,
+     more organic, better npc behaviour at the level of real life. and more. it
+     needs to be so incredibly smoothe between everything and every event."
+     Triage: Brief 34 gains a second part (the behaviour model: a state machine
+     with blended transitions, idle variation, event reactions and a smoothness
+     measure); OPEN.md "Atlas" carries the rows.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

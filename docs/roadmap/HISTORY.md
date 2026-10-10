@@ -46259,6 +46259,32 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      features. Recommendation, taken: that list is the go. State line
      updated; Briefs 80 to 83 may run.
 
+760. **The owner, 2026-10-10, verbatim.** "also you still havent fixed the
+     positioning of the dates and times last created or modified in the
+     notes" (screenshot: the Notes list in dark, the right edge of five cards;
+     each date sits right-aligned near the card's bottom, but the gap below
+     it differs per card, about 40px on short cards and about 110px on the
+     tallest, so on a stretched card the time floats mid-card; one reads
+     "1 week ago· edited" with no space before the dot). The open "Next PR
+     (a) Card dates" item above is this. Placed: the carddate agent (Sonnet),
+     fixed in this PR.
+761. **The owner, 2026-10-10, verbatim.** "mindmaps still appear as notes in
+     the ask subtab search and possibly elsewhere as well" (screenshots: the
+     Ask results list a card "test", Uncategorised, 4 weeks ago, 62% similar,
+     with a note's link chip; the Library shows the same "test" as a mind map
+     card, 7 topics, just now). A mind map, or a note it keeps behind a topic,
+     is listed as a plain note. Placed: the mapnotes agent (Sonnet), fixed in
+     this PR, every list that reads notes checked (Ask, Notes, search, graph,
+     timeline, dashboard counts, Find anything, the palette).
+
+762. **The owner, 2026-10-10, verbatim.** "idk why it says "just now" on the
+     mindmap when I hadnt meen on it" (the Library's mind map card "test", 7
+     topics, "just now"). Something other than the owner touched the board's
+     modified time: a reindex, a thumbnail render, a migration, a layout
+     save on open, or the Ask search itself. Placed: the mapnotes agent, with
+     a test that opening, listing, indexing and searching a board leave its
+     modified time alone.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

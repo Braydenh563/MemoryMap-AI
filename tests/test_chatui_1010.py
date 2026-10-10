@@ -176,8 +176,8 @@ def test_a_follow_up_about_the_page_carries_the_page():
     got = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
     assert dict(zip(asks, got)) == asks
     attach = frontend_text("chat-attach.js")
-    assert "const page = await webFollowUp(typed, chatLastWebUrl);" in attach
-    assert 'chatLastWebUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;' in attach
+    assert "const page = await webFollowUp(typed, chatWeb.lastUrl);" in attach
+    assert 'chatWeb.lastUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;' in attach
 
 
 def test_a_result_card_keeps_its_reason_and_ends_with_its_date():

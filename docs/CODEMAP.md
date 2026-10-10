@@ -2666,16 +2666,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `docWordBlob` | frontend/js/documents-word.js:128 |
-| `docWordBlocks` | frontend/js/documents-word.js:240 |
-| `docWordExport` | frontend/js/documents-word.js:161 |
+| `docWordBlob` | frontend/js/documents-word.js:130 |
+| `docWordBlocks` | frontend/js/documents-word.js:242 |
+| `docWordExport` | frontend/js/documents-word.js:163 |
 | `docWordImport` | frontend/js/documents-word.js:59 |
 | `docWordLib` | frontend/js/documents-word.js:22 |
-| `docWordListShape` | frontend/js/documents-word.js:223 |
+| `docWordListShape` | frontend/js/documents-word.js:225 |
 | `docWordMarkSuggestions` | frontend/js/documents-word.js:79 |
 | `docWordPicture` | frontend/js/documents-word.js:95 |
-| `docWordRuns` | frontend/js/documents-word.js:192 |
-| `docWordText` | frontend/js/documents-word.js:176 |
+| `docWordRuns` | frontend/js/documents-word.js:194 |
+| `docWordText` | frontend/js/documents-word.js:178 |
 | `docWordUploadPicture` | frontend/js/documents-word.js:42 |
 
 ### frontend/js/documents.js (554)
@@ -4404,26 +4404,26 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `openTidySheet` | frontend/js/tidy.js:85 |
-| `tidyAfterChange` | frontend/js/tidy.js:568 |
-| `tidyApply` | frontend/js/tidy.js:529 |
-| `tidyApplyWords` | frontend/js/tidy.js:516 |
-| `tidyBadge` | frontend/js/tidy.js:36 |
-| `tidyCounts` | frontend/js/tidy.js:225 |
-| `tidyFoot` | frontend/js/tidy.js:465 |
-| `tidyHead` | frontend/js/tidy.js:188 |
-| `tidyHistory` | frontend/js/tidy.js:586 |
-| `tidyOverview` | frontend/js/tidy.js:295 |
-| `tidyOverviewDraw` | frontend/js/tidy.js:244 |
-| `tidyOverviewRow` | frontend/js/tidy.js:253 |
-| `tidyPatterns` | frontend/js/tidy.js:163 |
-| `tidyRow` | frontend/js/tidy.js:421 |
-| `tidyRows` | frontend/js/tidy.js:408 |
-| `tidyRunLinkReasons` | frontend/js/tidy.js:577 |
-| `tidyShow` | frontend/js/tidy.js:307 |
-| `tidyTitle` | frontend/js/tidy.js:234 |
-| `tidyTools` | frontend/js/tidy.js:348 |
-| `tidyWatchList` | frontend/js/tidy.js:60 |
+| `openTidySheet` | frontend/js/tidy.js:84 |
+| `tidyAfterChange` | frontend/js/tidy.js:567 |
+| `tidyApply` | frontend/js/tidy.js:528 |
+| `tidyApplyWords` | frontend/js/tidy.js:515 |
+| `tidyBadge` | frontend/js/tidy.js:35 |
+| `tidyCounts` | frontend/js/tidy.js:224 |
+| `tidyFoot` | frontend/js/tidy.js:464 |
+| `tidyHead` | frontend/js/tidy.js:187 |
+| `tidyHistory` | frontend/js/tidy.js:585 |
+| `tidyOverview` | frontend/js/tidy.js:294 |
+| `tidyOverviewDraw` | frontend/js/tidy.js:243 |
+| `tidyOverviewRow` | frontend/js/tidy.js:252 |
+| `tidyPatterns` | frontend/js/tidy.js:162 |
+| `tidyRow` | frontend/js/tidy.js:420 |
+| `tidyRows` | frontend/js/tidy.js:407 |
+| `tidyRunLinkReasons` | frontend/js/tidy.js:576 |
+| `tidyShow` | frontend/js/tidy.js:306 |
+| `tidyTitle` | frontend/js/tidy.js:233 |
+| `tidyTools` | frontend/js/tidy.js:347 |
+| `tidyWatchList` | frontend/js/tidy.js:59 |
 
 ### frontend/js/tour.js (47)
 
@@ -8830,21 +8830,26 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `main` | src/memorymap/__main__.py:2488 |
 | `restart_in_console_mode` | src/memorymap/__main__.py:1192 |
 
-### src/memorymap/ai/acts.py (11)
+### src/memorymap/ai/act_registry.py (5)
 
 | Name | File:line |
 |---|---|
-| `Act` | src/memorymap/ai/acts.py:31 |
-| `ask_line` | src/memorymap/ai/acts.py:155 |
-| `capability_line` | src/memorymap/ai/acts.py:142 |
-| `guide_topic` | src/memorymap/ai/acts.py:167 |
-| `inverse` | src/memorymap/ai/acts.py:115 |
-| `missing` | src/memorymap/ai/acts.py:97 |
-| `palette_rows` | src/memorymap/ai/acts.py:162 |
-| `parse` | src/memorymap/ai/acts.py:91 |
-| `preview` | src/memorymap/ai/acts.py:103 |
-| `propose` | src/memorymap/ai/acts.py:124 |
-| `run` | src/memorymap/ai/acts.py:109 |
+| `Act` | src/memorymap/ai/act_registry.py:18 |
+| `ask_line` | src/memorymap/ai/act_registry.py:91 |
+| `capability_line` | src/memorymap/ai/act_registry.py:78 |
+| `guide_topic` | src/memorymap/ai/act_registry.py:103 |
+| `palette_rows` | src/memorymap/ai/act_registry.py:98 |
+
+### src/memorymap/ai/acts.py (6)
+
+| Name | File:line |
+|---|---|
+| `inverse` | src/memorymap/ai/acts.py:66 |
+| `missing` | src/memorymap/ai/acts.py:48 |
+| `parse` | src/memorymap/ai/acts.py:42 |
+| `preview` | src/memorymap/ai/acts.py:54 |
+| `propose` | src/memorymap/ai/acts.py:75 |
+| `run` | src/memorymap/ai/acts.py:60 |
 
 ### src/memorymap/ai/agent.py (43)
 

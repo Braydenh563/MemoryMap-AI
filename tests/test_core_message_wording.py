@@ -61,6 +61,7 @@ class Source:
 SOURCES: tuple[Source, ...] = (
     Source("core/backup.py", raises=("FileNotFoundError", "ValueError"), functions=("restore_backup",)),
     Source("core/syntaxcheck.py", raises=("ValueError",), functions=("check",)),
+    Source("ai/insights.py", raises=("ValueError",), functions=("confirm", "dismiss")),
     Source("core/webclip.py", raises=("ClipRefused",)),
     Source(
         "core/security.py",
@@ -323,6 +324,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_tidy.py", "str(exc)"): "ValueError from entry/tidy.py set_auto and LookupError from entry/tidy.py undo",
     ("routes_voice.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_voice.py", "over_limit_detail"): "the two callers pass literals, which collect() checks",
+    ("routes_insights.py", "str(exc)"): "ValueError from ai/insights.py confirm and dismiss",
     ("routes_voice.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
     ("routes_webclip.py", "WEB_OFF"): "a constant in routes_webclip.py, checked below",
     ("routes_webclip.py", "str(exc)"): "ClipRefused from core/webclip.py",

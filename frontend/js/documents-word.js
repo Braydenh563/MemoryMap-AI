@@ -98,7 +98,9 @@ async function docWordPicture(img) {
   //: CSP would refuse anything else anyway.
   if (!/^(\/(media|files)\/|blob:|data:image\/)/.test(src)) return null;
   try {
-    const response = await fetch(src, { headers: src.startsWith("/") ? authHeaders() : {}, credentials: "same-origin" });
+    //: The notebook's own pictures go through the one door; a `blob:` or
+    //: `data:` address is this tab's, not a request.
+    const response = src.startsWith("/") ? await api(src) : await fetch(src);
     if (!response.ok) return null;
     let blob = await response.blob();
     const bitmap = await createImageBitmap(blob);

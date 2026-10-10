@@ -35,6 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import reminder_parser, when
+from memorymap.ai.act_registry import CONFIRM_INTENTS
 
 #: The verbs of the grammar (decision 38), as said in `Command.verb`.
 VERBS = ("remind", "tag", "untag", "file", "rename", "pin", "unpin", "link", "unlink", "delete", "create", "add", "summarise", "find", "open")
@@ -51,16 +52,15 @@ READ_INTENTS = frozenset({"find", "open", "navigate", "summarise"})
 #: The writes that wait for Confirm: anything that removes, renames, moves or
 #: rewrites. The rest (a reminder, a new note, a pin) run at once with Undo
 #: beside the line that says what was done.
-CONFIRM_INTENTS = frozenset({"delete", "rename", "move", "tag", "untag", "link", "unlink", "append"})
 
 #: Agent mode with no model, for anything `parse` does not read: generated
-#: from the act registry (`acts.capability_line`), kept here by name for the
-#: callers that read it as a constant.
+#: from the act registry (`act_registry.capability_line`), kept here by name
+#: for the callers that read it as a constant.
 def __getattr__(name: str) -> str:
     if name == "CAPABILITY_LINE":
-        from memorymap.ai import acts
+        from memorymap.ai import act_registry
 
-        return acts.capability_line()
+        return act_registry.capability_line()
     raise AttributeError(name)
 
 

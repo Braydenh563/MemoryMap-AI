@@ -340,7 +340,7 @@ def test_the_outline_reads_symbols_for_code_and_never_moves_them():
     assert "if (heading.symbol) return;" in outline
     source = _source()
     table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
-    assert 'label: "Go to a symbol in this file", keys: "",\n    code: true, run: () => docOpenSymbols() }' in table
+    assert 'label: "Go to a symbol in this file", keys: "none",\n    code: true, run: () => docOpenSymbols() }' in table
     app = app_js_text()
     assert 'newChat: { keys: "Ctrl+Shift+O"' in app, "if the chord is free again, give it to the symbols"
 

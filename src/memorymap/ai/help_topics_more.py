@@ -1599,12 +1599,12 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
 
 
 #: The acts Chat does from a sentence: generated from the act registry
-#: (`ai/acts.py`, CHAT_PLAN decision 53), so a new act is in the Guide the
+#: (`ai/act_registry.py`, CHAT_PLAN decision 53), so a new act is in the Guide the
 #: moment it is in the registry, and a renamed one cannot drift.
 def _act_topic() -> dict:
-    from memorymap.ai import acts
+    from memorymap.ai import act_registry
 
-    return acts.guide_topic()
+    return act_registry.guide_topic()
 
 
 MORE_TOPICS.append(_act_topic())

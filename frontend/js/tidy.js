@@ -20,9 +20,8 @@
 const TIDY_HELP = [
   "Tidy finds clean-up jobs by rule, with no AI.",
   "Open a review, tick rows, press its button.",
-  "One Undo reverses a whole batch.",
-  "Merges, renames and bins never run alone.",
-  "Patterns: Confirm keeps one as your word; Not right hides it for good.",
+  "One Undo reverses a batch; nothing runs alone.",
+  "Confirm keeps a pattern; Not right hides it.",
 ];
 
 //: The open sheet's state, and the count's last fetch and its pending

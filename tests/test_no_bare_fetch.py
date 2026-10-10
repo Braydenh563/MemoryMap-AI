@@ -40,6 +40,9 @@ ALLOWED = {
     "status.js": 2,
     # A staged picture's `blob:` address in this tab, not a request.
     "attachment-actions.js": 1,
+    # A pasted picture's `blob:` or `data:` address on the way into a Word
+    # file, not a request; the notebook's own pictures go through `api()`.
+    "documents-word.js": 1,
     # Pages of their own with no app.js and so no `api()`: the quick capture
     # window (capture.html) and the web clipper (clip.html), one request each,
     # carrying the token themselves.

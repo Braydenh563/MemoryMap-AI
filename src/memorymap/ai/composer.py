@@ -27,7 +27,7 @@ the notes it came from (`tests/test_composer_688.py`).
 answer (INBOX 269) quotes the best forty-word window of each note. A window is
 not a sentence: it starts and ends mid-thought, swallows the note's heading and
 flattens a checklist into one line of dashes (measured on the showcase
-notebook, docs/roadmap/agent-remaining/composer688-1006.md). This works in
+notebook, docs/roadmap/archive/agent-remaining/composer688-1006.md). This works in
 sentences and list items, reads what kind of question was asked, and lays the
 answer out the way a careful reader would: the strongest sentence first, set
 apart as a quote and attributed; the rest grouped by note under a measured

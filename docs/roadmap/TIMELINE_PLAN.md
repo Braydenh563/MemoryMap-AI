@@ -229,6 +229,9 @@ disagree.
     report; no account sync before 1.0.
 18. **Keys:** `T` today, arrows move the day, `PageUp`/`PageDown` the
     month, Enter opens the day's feed, `N` a new reminder on the day.
+19. **One calendar** (INBOX 768, 2026-10-10): section 9's view is the one
+    grid; the reminders tab's toggle opens it filtered to reminders, and
+    `renderReminderCalendar` goes.
 
 ### Gates
 
@@ -248,3 +251,107 @@ case), and the week grid's hour rows against the feed's buckets.
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
 
 - **VC2, D3's time scale and axis for the timeline and the calendar** (M, rank 2). `timeline.js` builds its date ticks by hand (51 lines with `Date(` in 2,441); D3's time module is 75 exports with 0 called (`scaleTime`, `timeMonth`, `timeWeek`, `timeDay`, `axisBottom`, `timeFormat`). Measure: tick labels at year, month, week and day zoom match `d3.timeFormat` output for 12 fixed dates (a node test); the hand-rolled tick lines deleted; no label overlap at 390 px (`scratchpad/ui-sweeps` measure).
+
+## 10. Deepened 2026-10-10: the timeline (Brief 72b, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72b.js` on a fresh data dir, no
+model, Chromium, 96 notes back-dated over fourteen months
+(`seed-timeline.py`) and 12 reminders; two runs at 1440 and one at 390 on a
+shared four-core machine (ranges are across runs). Today: 1 click from the
+dashboard at 1440 (the tab bar); at 390 the phone bar holds Notes, Chat,
+Graph and Library, so 2 taps (More, then Timeline); click to painted rows
+479 to 767 ms at 1440, 446 ms at 390; 23 controls at 1440, 26 at 390; two
+views, Feed and Table (no calendar, section 9). At 1440: 0 controls past the
+edge, 1 overlap (a day head's button over its date), 5 targets under 24 px.
+At 390 (the table view, which the phone kept): 6 controls past the right
+edge (`timeline-view-table` among them) and 3 overlaps (`timeline-search`
+over `timeline-view-feed`, `timeline-view-feed` over `timeline-month-btn`,
+`timeline-view-table` over `timeline-days-later`). The rail dot's centre sits
+on the first line's centre (0 px at 1440; the owner's bug in "Placed from
+the owner's list" did not reproduce on this fixture, 390 not measured).
+Undo: `timeline.js` makes no writes of its own; its acts are the shared
+selection bar's (`batchDelete` and `batchEach` in `skills.js`, both through
+`pushUndo`). No model: 0 AI controls; the timeline is whole without one.
+**The bar:** Apple Journal and Day One (on this day, media rows, a heat
+strip), Things' Logbook, Google Photos' scrubber (year and month labels that
+never collide).
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | The dock at 390 and 320: the view segment, search and month controls wrap into one row or move into the dock's menu | 6 past the edge and 3 overlaps to 0 at 320 and 390 (`overlap.js`) | 7, 8 |
+| 2 | fix | The day head's button beside its date, not over it; the five small targets at 24 px, 44 px on a coarse pointer | overlap 1 to 0 at 1440; small targets 5 to 0 | 7, 9, 11 |
+| 3 | fix | `undo.js` drives the selection bar from the timeline (move, tag, favourite, archive, delete) | the timeline row of `undo.js` at 100% | 1 |
+| 4 | expansion | The calendar as the third view (section 9) | section 9's gates | 2, 6 |
+| 5 | expansion | Typed entries land on the day they name ("yesterday lunch with Sam") through the one quick-add grammar (CHAT_PLAN decision 50) | the parsed day equals the row's day on a 20-phrase set | 12, 10 |
+| 6 | redesign | Scrubber and month ticks from D3's time scale (VC2 above) | no label overlap at 390; the hand-rolled tick lines deleted | 7, 11 |
+| 7 | expansion | "On this day" and a year strip on the timeline, not only the dashboard | a note dated a year ago shows in both | 6 |
+| 8 | optimisation | Click to rows 479 to 767 ms with 96 notes: under 300 ms, and under 800 ms on the 5,000-note scale fixture (`scale_test.py`) | the sweep's `clickToRowsMs` | 25g budget |
+
+**Briefs.** 41 (row 2), 55 (row 4), 66 (row 5), 75 (row 6), 85 (rows 1, 3,
+7, 8).
+
+## 11. Deepened 2026-10-10: reminders and notifications (Brief 72b, decisions 69 and 71)
+
+Same sweep and fixture. Today: 1 click at 1440, 2 taps at 390 (More); click
+to list 218 to 551 ms at 1440, 1,194 ms at 390; 88 to 93 controls at 1440, 79
+at 390. Quick add: "dentist friday at 9am" saved in 235 to 496 ms with
+"Added "Dentist": in 6 days" (the right Friday); 0 chips while typing
+(decision 50 unbuilt); at 390 the quick-add row was not visible and the
+phone's compose was not driven. Overflow: 0 past the edge at both widths; 7
+overlaps at 1440, the closed presets menu ("Tonight 7pm", "Tomorrow 9am")
+laid out over the Open, All and Done chips (the closed-menu shape Brief 72a
+found in the documents dock); 5 at 390 (the view toggle over the chips, a
+ghost button over `reminders-new`). Undo: 3 of 6 acts (delete, snooze, clear
+completed; not create, complete, edit; static read of `shell-reminders.js`).
+Notifications: the page polls `/reminders` every 60 s (`REMINDER_POLL_MS`,
+`status.js`), plays a chime, records an in-app notification and posts a
+`Notification` only while a tab is open and permission is granted (asked
+when a reminder is set); `sw.js` has no reminder code, so a closed tab
+fires nothing, and the desktop launcher (`__main__.py`) has no notification
+path. A due time is up to 60 s late. ICS export exists (all, and per
+reminder); no import. Recurrence: none, daily, weekly, monthly. No model:
+the parser (`/reminders/parse`) is deterministic; 1 AI control ("Ask Atlas
+about this") stays enabled. **The bar:** Apple Reminders (the OS notifies
+with the app closed, early alerts, chips as you type), Things (quick entry
+from a global key, This Evening), Todoist's recurrence grammar ("every
+other Tuesday", "last Friday of the month").
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Undo for create, complete and edit through `pushUndo` (create's inverse is the bin) | `undo.js` reminders 3/6 to 6/6 | 1, 3 |
+| 2 | fix | The closed presets menu does not lay out (`hidden` until opened) | overlaps 7 to 0 at 1440, 5 to 0 at 390 | 7, 11 |
+| 3 | expansion | Decision 69, desktop: the launcher posts the OS notification for a due reminder with the window closed to the tray (Windows toast through PowerShell, `osascript` on macOS, `notify-send` on Linux; no new dependency), Snooze and Done as its actions where the OS allows, a click opens the reminder | a reminder due in 60 s fires once with the window hidden, on each OS the CI can run (Linux in CI; Windows and macOS by hand, said so) | 3, 5, 6 |
+| 4 | expansion | Decision 69, browser and PWA: the service worker shows the notification (`registration.showNotification`) so a background tab and the installed PWA fire while the browser runs; Done and Snooze 10 minutes as notification actions | a hidden tab fires; Done from the notification marks it done | 3, 8 |
+| 5 | fix | Fire on time: a timer set to the next due time, the 60 s poll kept as the backstop | due to fire under 5 s (today up to 60 s) | 3 |
+| 6 | fix | A blocked permission says so once, in the reminders head and in Settings, with how to allow it per browser; the chime and the bell stay | permission `denied` shows the line; 0 silent failures | 4, 6 |
+| 7 | expansion | Live chips in the quick-add row (CHAT_PLAN decision 50) and the same row at 390 | chips within 150 ms; the saved value equals the chips; the row present at 390 | 12, 8 |
+| 8 | expansion | Recurrence beyond four (every weekday, every 2 weeks, last Friday) and early alerts ("1 day before") | 20 recurrence phrases at 1.0 | 12 |
+| 9 | expansion | ICS import (section 9 decision 17) | section 9 step 4's gate | 3 |
+
+**Briefs.** 55 (row 9), 66 (row 7), 85 (rows 1, 2, 5, 6, 8), 86 (rows 3,
+4).
+
+## 12. Deepened 2026-10-10: the calendar (Brief 72b, decision 71)
+
+Same sweep and fixture. Today a calendar exists in the reminders tab, not in
+the timeline: `renderReminderCalendar` (`shell-reminders.js`) draws a month
+of 35 cells, 11 with dots, no titles in any cell; cells 190 by 60 px at
+1440 and 42 by 60 at 390; 0 cells overflow; open 258 to 282 ms; no week
+view; 0 drag handlers (no reschedule by drag); notes, day notes and meetings
+are not on it. At 390, 7 overlaps (the view toggle's icon buttons over the
+chips and "Jump to this month"). Section 9 (decisions 14 to 18) puts the
+calendar in the timeline from the row model; the reminders grid is a second
+calendar that section 9 does not mention. **The bar:** Fantastical (titles
+in month cells, a week of hour rows, typed events), Apple Calendar (drag to
+reschedule, week view), Google Calendar's agenda on the phone.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | redesign | One calendar: section 9's view is the component, and the reminders toggle opens it filtered to reminders (decision 19, INBOX 768) | one grid function in the code; both entry points render it | 10, 11 |
+| 2 | fix | Titles in month cells, three rows and "+n" (decision 14) | 0 titles to up to 3 per cell at 1024 and up; 0 cells overflow | 6, 7 |
+| 3 | expansion | Drag to reschedule with the undo bar (decision 16) | 0 drag handlers to a drag that moves `due_at` and undoes | 1 |
+| 4 | expansion | Week grid with hour rows; agenda below 768 (decisions 14, section 9 step 2) | the right grid per width; overlaps 7 to 0 at 390 | 7, 8 |
+| 5 | expansion | Notes as dots, day notes as heads, meetings on the grid (decision 15) | the 48-note fixture's dots per day equal the feed's counts | 6 |
+| 6 | expansion | `N` on a day opens quick add with the day filled (decision 18, CHAT_PLAN decision 50) | the saved due day equals the cell | 2, 12 |
+
+**Briefs.** 55 (rows 1 to 5), 66 (row 6).

@@ -7,10 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Documents: a new document names itself "Untitled document N" (the next free number), as boards and maps do, so Create never needs a name and the list can tell new pages apart (INBOX 739).
 - Scratchpad: 25 one-off sweep scripts and stencil PNG outputs whose findings are in this changelog deleted (the owner, 2026-10-10), 781 tracked files to 756 against the 766 cap (`tests/test_scratchpad_size.py`).
 - Whiteboard: a key press the desktop webview reports with no key name no longer throws in the browser log (whiteboard.js's two document-level keydown handlers return first; INBOX 763, `tests/test_keydown_without_key.py`).
 - Fixed: mind maps and boards no longer appear as notes in Ask, chat answers, the AI's note tools or the notebook statistics (INBOX 761); a map is still found as a map by Find anything and the palette.
 - Fixed: a board's time on its Library card moves only when a person edits it, not when its note is opened, counted or filed (INBOX 762).
+- Plans: ten features deepened under the trust contract (Brief 72b, decisions 69 and 71): the timeline, reminders and notifications, and the calendar (TIMELINE_PLAN 10 to 12), the agent and its harness (AGENT_SKILLS_REFORM), the deterministic features, chat access and the Guide (CHAT_PLAN foundation 7 to 9), statistics, utilities, and the palette with Find anything (UI_MODERNISATION), each measured by `scratchpad/ui-sweeps/deepen72b.js` at 1440 and 390 with no model; Briefs 85 to 90.
 - Plans: eleven built briefs (1, 7, 11, 12, 15, 19 to 24) moved from SESSION_BRIEFS.md to HISTORY.md, 2,088 lines down to 1,695.
 - Plans: the companion's behaviour model (SESSION_BRIEFS Brief 34 second part, INBOX 752).
 - Vendored libraries counted against use: `scratchpad/vendor_use.py` prints "available N, called M, unused" per library (CodeMirror 102 of 375, Harper 17 of 67, D3 19 of 578, p5 21 of 329, Phosphor 260 of 1,536, FlashText 2 of 19, the word list 2 of 9, the draw.io sets 7 of 12); `tests/test_vendor_utilisation.py` ratchets the called counts; 17 ranked capabilities placed in the surface plans (Brief 75).
@@ -39,6 +41,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask: the match reason ("70% similar") now folds to its icon last on a crowded details line, after the tags and the other word facts, so every matching record shows its number or none does (INBOX 728).
+- Notes: a card's time now sits at the card's foot, the same 7px above its edge on every card (INBOX 760); a note with links showed it 48 to 113px up (80 to 146px at 390 against 7px with none), and "ago · edited" has its space back.
 - Graph: switching to Radial, Tree or Arc while the force layout was still settling left the camera on the old view, the new layout off in a corner; a layout switch now ends on the new layout's fitted view, and the radial is centred.
 - Graph: the map no longer opens zoomed in and then pulls back (INBOX 738); its first visible frame is at the fitted zoom.
 - Graph: a fitted view has even margins: the fit is measured on what was drawn (dots, names and topic names) and centred, on the first open, after a layout switch and from the Fit button.

@@ -4,7 +4,7 @@ One shape (`entry/meetings.py`), made by `POST /meetings`, read by
 `GET /entries/{id}/meeting`; an action item becomes a real reminder with no
 model; a meeting sits on the timeline at its own date; Summarise keeps only
 the lines whose source words are in the note. The audit these answer is
-docs/roadmap/agent-remaining/meetings-644.md.
+docs/roadmap/archive/agent-remaining/meetings-644.md.
 """
 
 from __future__ import annotations

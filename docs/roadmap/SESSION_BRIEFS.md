@@ -1274,8 +1274,11 @@ settings items from the owner's list (token pill popover, histories cleared,
 source kinds, searching indicator, similarity numbers, composed bubble label
 and fade, web sources and retry, the no-model tag-suggestion tracebacks,
 questions list, packages progress, OCR in quick access and palette, logs of
-background tasks, suppressed suggestions list, metadata rows). Running as
-the `chatui` agent.
+background tasks, suppressed suggestions list, metadata rows). Also (INBOX 745
+(d), the owner: "the hover menu button doesn show on the tour"): a tour step
+that points at a hover-only control reveals it while the step is up (a class
+on the card, removed on the next step), and a sweep checks every tour step's
+target is visible and non-empty. Running as the `chatui` agent.
 
 ### Brief 38 (Opus, high): the graph, topics first-class, note properties
 Goal: view switches end fitted; the first paint fitted (INBOX 738); even fit
@@ -1700,7 +1703,7 @@ Brief 72a (Opus, high): deepen, per decision 71, the documents editor, code edit
 ### Brief 75 (Sonnet, high): every vendored library at full use (INBOX 751)
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." For each entry in `docs/THIRD_PARTY.md`: exports available against exports called (a script, `scratchpad/vendor_use.py`), the unused capabilities ranked by what they would give a surface, each placed as a row in that surface's plan with its measure; `tests/test_vendor_utilisation.py` ratchets the called count. No code beyond the script and the test.
 
-## Briefs 76 onward (from Brief 72a)
+## Briefs 76 onward (from Briefs 72a and 72b)
 
 - Brief 76 (Opus, high): the documents and code editor trust pass, DOCUMENTS_PLAN 24 rows 1 to 4, 7, 9, 11 and 25 rows 1, 2, 6, 7. Files: `documents.js`, `documents-code.js`, `09-editor.css`. Numbers: document acts that undo 2/11 to 11/11; overlaps at 390 20 to 0 (13 on code) and 12 controls past the edge to 0; cold open 1,743 ms to under 800; `deepen72a.js` and `overlap.js` before and after.
 - Brief 77 (Opus, high): the whiteboard trust pass, WHITEBOARD_PLAN "Deepened 2026-10-10" rows 1 to 4, 8, 9. Files: `whiteboard.js`, `whiteboard-commands.js`, `whiteboard-history.js`, `07-whiteboard-misc.css`. Numbers: commands with a phone path to 100% at 390; a new board 4 clicks to 3; `boardundo.js` 43/43 to 44/44 with the agent's change.
@@ -1710,6 +1713,12 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 - Brief 81 (Opus, high): meetings and transcripts without a model, 28.5 rows 2, 7, 11. Files: `entry/meetings.py`, `routes_meetings.py`, `meetings.js`. Numbers: 0 dead controls with no model; a sample meeting's 3 actions found; a transcript line seeks within 0.5 s; SRT and VTT out.
 - Brief 82 (Opus, high; research first, Sonnet medium): live captions, 28.5 row 9, under decision 4's optional-helper contract. Numbers: speech to caption latency; the helper's size and licence; the suite never reaches for it.
 - Brief 83 (Sonnet medium for the evaluation, Opus high to build): the offline translator, 28.5 row 10. Numbers: Bergamot's licence (ANALYSIS licence line), WASM and per-pair pack sizes, time for a paragraph, quality on ten sample sentences; a keep or drop before anything is vendored.
+- Brief 85 (Opus, high; from Brief 72b): the timeline and reminders trust pass, TIMELINE_PLAN 10 rows 1, 3, 7, 8 and 11 rows 1, 2, 5, 6, 8. Files: `timeline.js`, `shell-reminders.js`, `status.js` (the due timer), the timeline and reminders CSS. Numbers: timeline 390 past-the-edge 6 to 0 and overlaps 3 to 0; reminder acts that undo 3/6 to 6/6; presets-menu overlaps 7 to 0; due to fire up to 60 s to under 5 s; click to rows under 300 ms; `deepen72b.js` before and after.
+- Brief 86 (Opus, high; research first): reminders reach the desktop and the browser (decision 69), TIMELINE_PLAN 11 rows 3, 4. Files: `__main__.py` (the launcher's notifier, no new dependency), `sw.js` (`showNotification` and its actions), `status.js`. Numbers: a reminder due in 60 s fires once with the window hidden (Linux in CI; Windows and macOS by hand, said so); a hidden tab fires; Done from the notification marks it done.
+- Brief 87 (Opus, high): the agent panel trust pass, AGENT_SKILLS_REFORM "Deepened 2026-10-10" rows 1 to 4, 7 (after Brief 67's act registry). Files: `palette.js`, `chat-agent.js`, `agent-activity.js`, `phone-shell.js`. Numbers: disabled controls with no model 16 to 0; the agent opens at 390; overlaps 2 to 0; Ctrl+Z after a run restores its last write.
+- Brief 88 (Opus, high): chat and the Guide trust pass, CHAT_PLAN foundation 8 rows 1, 2, 5 to 7 and 9 rows 2, 3. Files: `chat-agent.js`, `chat-attach.js`, `help-chat.js`, `reveal-targets.js`, the chat CSS. Numbers: head overlaps 3 to 0; source-card overlaps 82 and 136 measured then 0; chat acts that undo to 100%; click to composer at 390 1,913 ms to under 500; every Guide topic's target visible.
+- Brief 89 (Opus, high): statistics and utilities, UI_MODERNISATION "Deepened 2026-10-10" statistics rows 1, 2, 5 and utilities rows 2 to 5 (row 1 is Briefs 65 and 66). Files: a Statistics surface from DESIGN.md's recipes, `dashboard.js`, `app-palette.js`, `ai/notebook_stats.py`. Numbers: statistics 3 clicks to 1; palette rows for statistics and timer 0 to 1 each; stats answers under 300 ms.
+- Brief 90 (Opus, high): the palette and Find anything, UI_MODERNISATION "Deepened 2026-10-10" palette rows 1, 3, 5, 7 (rows 2 and 4 are Brief 47's). Files: `app-palette.js`, `settings-panes.js` (`paletteCommands`), `spaces-find.js`. Numbers: the 11 empty queries find their command; "ocr" 0 rows to a suggestion; small targets 2 to 0; `deepen72b.js` palette and finder rows before and after.
 
 ### Brief 84 (Opus, high): Atlas everywhere (F5, after 68)
 CHAT_PLAN decision 59 (INBOX 758), gated on decision 58's scorecard from

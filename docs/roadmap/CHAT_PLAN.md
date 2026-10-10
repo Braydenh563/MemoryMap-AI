@@ -1768,9 +1768,105 @@ Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets
 
 Every "today" in section 2 outside the probe tables and the search numbers; the 300 ms and 150 ms budgets (set from WORLD_CLASS decision 54's interaction budgets, to be measured); whether a 1 to 3B model uses offered calculator and date tools rather than computing (the standing caveat); the variety floor's three-of-twenty (the most distinct openers any of ten questions gave with a turn salt in `_pick`; 2.4 on average, 1.0 as shipped), measured by F0 against section 1's eight, which is a target F3 must raise the option pools to meet; the maxims counts, which are of the 25 eval answers only.
 
+### 7. Deepened 2026-10-10: the deterministic features (Brief 72b, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72b.js` and its chat probe (fresh
+data dir, no model, 96 notes, 1440): eleven questions typed into Chat. Right,
+from the notes: the count ("You have 96 notes.", 829 ms), the top tags (1,416
+ms), last week (961 ms), the harbor (3,642 ms), what was agreed with Sam
+(1,370 ms), what the next step cost (1,710 ms, "40 dollars" quoted). Wrong:
+"what is 15% of 240" quoted a note instead of 36 (1,523 ms) though
+`ai/arithmetic.py` exists; "convert 5 km to miles" gave "Nothing in the notes
+found answers that" (4,490 ms); "what day is it today" the same (934 to 1,856
+ms; Phase 6 already records it); "remind me to
+call Sam tomorrow at 9" made no reminder ("I couldn't find any saved notes
+matching that question", 658 to 881 ms), while the reminders tab parses the
+same kind of phrase in 235 to 496 ms (TIMELINE_PLAN 11); "summarise my week"
+found nothing (2,916 ms). Six of eleven, none of the four utility or act
+questions. The reader count is 6 files (section 3). **The bar:** Siri and
+Spotlight offline (sums, conversions and dates inline; "remind me" acts), a
+Raycast calculator in any bar, Fantastical's parser. Decisions 46 to 59 stand;
+the rows say where each measured miss lands.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Utilities answer before retrieval: arithmetic, units, dates as computed sentences with "Read as" (decision 54) | the three utility questions 0/3 to 3/3; the eleven join Brief 64's corpus | 12, 4 |
+| 2 | fix | "Remind me ..." in chat is the act: preview, made, on the undo bar (decisions 47, 53) | the reminder exists due tomorrow 09:00; Ctrl+Z removes it | 1, 12 |
+| 3 | fix | "Summarise my week" is extractive over the week's notes without a model | a non-empty answer whose every line is a quoted span | 12 |
+| 4 | fix | A miss takes the repair ladder: the closest thing and the capability line (decision 49) | 0 bare "Nothing in the notes" on the set | 4 |
+| 5 | optimisation | 658 to 4,490 ms per answer at 96 notes: under 1 s each (the 4.5 s miss was a full semantic search for a utility) | the probe's times | 25g budget |
+| 6 | fix | One reader (decision 46): the chat and the reminders tab read "tomorrow at 9" the same way | `test_one_reader` 6 files to 0 | 10 |
+
+**Briefs.** 64 (the corpus), 65 (rows 1, 6), 66 (row 2's grammar), 67 (rows
+2, 4), 68 (rows 3, 5).
+
+### 8. Deepened 2026-10-10: chat access to information (Brief 72b, decision 71)
+
+Same sweep. Today: 1 click from the dashboard at both widths (the tab bar;
+the phone bar at 390); click to the composer 348 ms at 1440, 1,913 ms at 390;
+31 controls at 1440, 23 at 390. At rest, 3 overlaps at both widths: the head's
+`chat-fork`, `chat-export` and `chat-delete` over one another. After ten
+answers, 82 overlaps at 1440 and 136 at 390 (source cards under the head's
+buttons; whether a sticky head over scrolled cards or a paint clash is not
+verified) and 48 targets under 24 px at 1440. Each answer names its sources
+("Sources: 5 notes, meaning + keywords") and its time; reminders, documents,
+boards and files are reached only as a count ("4 other items mention it").
+Undo: `chat-attach.js` and `chat-agent.js` make 26 writes with 1 `pushUndo`
+(static read). No model: 2 AI controls, enabled. **The bar:** Spotlight and
+Siri (one line from your data, the item to open), Copilot (tables, lists and
+cards as the answer's shape), Raycast (answer and act in place).
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | The head's three buttons laid out in a row (or the kebab), never stacked | 3 to 0 at rest at 1440 and 390 | 7, 11 |
+| 2 | fix | Source cards and the head: measured as paint, then fixed if real | 82 and 136 to 0 real overlaps; small targets 48 to 0 | 7, 9 |
+| 3 | expansion | Every object kind answers: "what is due this week", "my documents about the harbor", "boards from June" | a 30-question cross-kind set at 1.0 | 2, 6 |
+| 4 | expansion | The answer's shape follows the question: a count in one line, a list as a list, a comparison as a table (decision 58's structure column) | the maxims lint 0 on the set | 10, 11 |
+| 5 | fix | Chat's writes on the undo bar (delete, rename, fork, clear, a deleted message) | `undo.js` chat row at 100% | 1, 3 |
+| 6 | optimisation | Click to composer 1,913 ms at 390: under 500 ms | the sweep's `clickToInputMs` | 25g budget |
+| 7 | expansion | A source opens its note at the quoted line, highlighted | the click lands with the span marked | 2 |
+
+**Briefs.** 84 (rows 3, 4), 88 (rows 1, 2, 5 to 7).
+
+### 9. Deepened 2026-10-10: the Guide (Brief 72b, decisions 59 and 71)
+
+Same sweep. Today: 1 click at 1440 (`#status-guide`); at 390 the status bar
+is hidden and the Guide is in the More sheet (`phone-shell.js` near line
+1481; not driven). Open 53 to 492 ms at 1440, 331 ms at 390; 3 starters and 5
+controls at rest; 0 overlaps and 0 past the edge at both widths. Eight
+questions with no model, answered in 171 to 442 ms, each with the same
+28-word preface ("The local model is not running, so this is the app's own
+help text for what you asked about, word for word rather than written for
+your question.") and then a topic whose head matches the question's noun
+(backup, iPhone, undo, reminders, model, timeline, search, reminders); 2 to 3
+open buttons each. Whether each topic answers its question (how to stop the
+model, for one; rule 5) was not read. The palette's "guide" finds the tour,
+not the Guide. **The bar:** the macOS Help menu (type a feature, the menu
+item lights), Raycast's and Notion's in-app help, Apple Tips.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | The answer first, in one line from the reading; the preface goes (decision 59, F5) | preface 8/8 to 0; the first sentence answers on the 60-question set | 12, 10 |
+| 2 | fix | Each topic's open button lands on a visible control, lit (`reveal-targets.js`) | every topic's target visible after the click | 2, 6 |
+| 3 | fix | A palette row "Ask the Guide"; 2 taps at 390, measured | the palette finds it; the phone path driven | 2, 8 |
+| 4 | expansion | Topics for the trust surfaces: Activity and Stop, Health, undo, the iPhone on the LAN, desktop notifications | 0 of the 60 questions on a wrong topic | 6 |
+| 5 | expansion | One unused feature a week, from the usage counts (82 unused in 90 days on this fixture) | the offer appears once a week | 6 |
+| 6 | fix | Typos through the word list (VC15) | VC15's count | 4 |
+
+**Briefs.** 37 (row 5), 75 (row 6), 84 (rows 1, 4), 88 (rows 2, 3).
+
 ### Vendored capabilities to use, 2026-10-10 (Brief 75)
 
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
 
 - **VC1, Harper and the word list on the composer and the Ask box** (M, rank 1). Today Harper runs only in `documents-prose.js` (17 of 67 Harper members called) and the word list only in `documents.js` (2 of 9 uses). The composer is where most prose is typed and neither reaches it. Measure: a seeded typo and a seeded agreement error in the composer are underlined after a pause; lint time per 500 characters through `harper-worker.js` measured with the `p2-harper.js` method and held to decision 54's interaction budget; the composer keeps its caret and undo.
 - **VC15, the Guide's "did you mean" from the word list** (S, rank 15). `_matching_topics` in `ai/help_chat.py` forgives one typo by its own rules and never reads `frontend/vendor/wordlist/en.txt` (92,972 words). Measure: of 30 misspelt Guide questions (the `question_noise.py` table is the source), the count that reach the right topic, before and after.
+
+## Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744)
+
+Each row: the owner's words by item number, the measure that closes it, the brief that builds it.
+
+- **729, the composer's joins and summary.** "it just uses one word sentence joints and has no life or complexity to it". Measured 2026-10-10 on "What have I saved about hobbies?" with no model: two quoted notes joined by "Also,", no sentence that ties them ("Your hobbies notes cover painting and a list to try"). Close when the 100-question eval's `lead_in_repeats` and `openers_distinct` hold over a 20-turn session and every multi-note answer opens with one summary clause naming the topic and the count, titles never cut mid-word, no capital after a comma. Brief 39 (the realiser), Brief 67.
+- **731, the Guide failing with a model.** "the help guide failed??" (Atlas answering "whiteboard templates" with "Something went wrong asking that"). Not reproduced with no model (stream and one-shot both answer). Close when the model-path failure's server log line is read (Settings, Logs, from the moment) and the Guide falls back to its topic answer instead of an error whenever the model call fails. Brief 84 (F5, the Guide on the reading).
+- **734, the reminder's wording.** "would the composer be able to do the reminders magic add well??" `ai/reminder_parser.py` reads the date and time; the composer adds the reminder's text and its reason from the note. Close when the act's confirm card (decision 38) shows "Remind you on Friday at 9: call the dentist" with the note it came from, on 10 phrasings, grounded 1.0. Brief 67.
+- **744 (b) and (c), the unquoted sources and the alarm notice.** "it didn mention other matching records i dont think". (b) the composer names the sources it did not quote ("3 more notes match by title: test, test board, test draft"); (c) the "Only 1 of 4 sentences here is quoted" notice shows only when most of the answer is not quoted, and in calm words. Part (a), a board saying board and opening the board, is decision 37. Close when "test notes" lists every source in the answer's text or its foot and the notice does not show on a 2-of-5 answer. Brief 39 step for the foot, Brief 37 for the notice.

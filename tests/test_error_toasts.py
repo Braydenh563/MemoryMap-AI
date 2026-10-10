@@ -3,7 +3,7 @@ INBOX 648 and its sweep: about a hundred calls showed the red style and
 "Report this" for a normal situation, so a person pressing Dictate without the
 voice add-on, Compress on an empty chat or Add on an empty reminder thought the
 app was broken; the classification table is
-docs/roadmap/agent-remaining/toasts-1006.md).
+docs/roadmap/archive/agent-remaining/toasts-1006.md).
 
 The rule, enforced here because nothing else can see it:
 

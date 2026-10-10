@@ -1573,15 +1573,33 @@ function docTemplateFill(template) {
   //: A template's gallery label and the title it gives the document are not
   //: always the same words: "Daily" names the choice in the gallery, and the
   //: document it makes is called by its day (`docTitle`, section 14).
-  const title = template.id === "blank" ? "Untitled" : fill(template.docTitle || template.title);
+  const title = template.id === "blank" ? docNextName() : fill(template.docTitle || template.title);
   return {
     title,
     content: fill(template.content).replaceAll("{{title}}", title),
   };
 }
 
+//: **A new document needs no name** (INBOX 739, the owner: "auto naming of
+//: the whiteboards, mindmaps and documents like \"untitled #\" so the user
+//: isnt forced to name a new object"). The next free number after every
+//: "Untitled document N" there is, as `wbUntitledNames` does for boards and
+//: maps, so a deleted one's number is not reused while a higher one exists.
+// DOC-UNTITLED-BEGIN
+function docUntitledName(titles) {
+  const pattern = /^untitled document (\d{1,6})$/i;
+  let top = 0;
+  for (const title of titles || []) {
+    const match = pattern.exec(String(title || "").trim());
+    if (match) top = Math.max(top, Number(match[1]));
+  }
+  return `Untitled document ${top + 1}`;
+}
+// DOC-UNTITLED-END
+const docNextName = () => docUntitledName(docs.map((d) => d.title));
+
 async function createDocument(template = null) {
-  const body = template ? docTemplateFill(template) : { title: "Untitled", content: "" };
+  const body = template ? docTemplateFill(template) : { title: docNextName(), content: "" };
   const doc = await apiJson("/documents", {
     method: "POST",
     body: JSON.stringify(body),
@@ -1720,7 +1738,7 @@ async function ensureDocumentExists() {
   creatingDocument = (async () => {
     const doc = await apiJson("/documents", {
       method: "POST",
-      body: JSON.stringify({ title: "Untitled", content: "" }),
+      body: JSON.stringify({ title: docNextName(), content: "" }),
     });
     currentDoc = doc;
     docs.unshift({ ...doc });
@@ -1764,7 +1782,9 @@ let docConflictOpen = false;
 async function saveDocument({ silent = false } = {}) {
   if (!currentDoc || docConflictOpen) return;
   clearTimeout(docSaveTimer);
-  const title = $("doc-title").value.trim() || "Untitled";
+  //: An emptied title keeps a name of the same kind rather than going back to a bare "Untitled".
+  const title = $("doc-title").value.trim()
+    || (/^untitled document \d+$/i.test(currentDoc.title || "") ? currentDoc.title : docNextName());
   const content = docText();
   try {
     const saved = await apiJson(`/documents/${currentDoc.id}`, {

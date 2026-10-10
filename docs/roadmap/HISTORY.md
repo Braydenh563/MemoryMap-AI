@@ -46325,6 +46325,91 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      draft desk's and every `data-offline-line` notice. Placed: the notice
      agent (Sonnet), fixed in this PR for all five.
 
+694. **The owner, 2026-10-06, verbatim**, with four screenshots (the chat
+     dock's "Ask | Agent" pill and a Settings "Pace: Auto | Manual" pill,
+     each with the chosen segment's bottom edge cut off; the chat dock in a
+     narrow sidebar with Skills, Web, Plan, the model picker and Ask|Agent
+     wrapping onto four ragged rows; the corner companion drawn over the
+     Attach dialog's head and tabs): "the bottom of these pills gets cut
+     off. aslo the bottom chat dock isnt responsive in design for the
+     sidebar sizes. also the companion covers the attach popup". The cut
+     pills went to 685's sweep and are fixed (the segments take the track's
+     inside); the dock's narrow layout and the
+     companion's stacking (it must sit under every dialog, menu and
+     popover) to a Sonnet agent.
+     **Parts 2 and 3 built** (dock694-1006, `cf6af06`): the chat dock is a
+     size container (`@container chat-dock`, 10-responsive.css), one-line
+     composer to 27rem, two fixed strip lines under 47rem, icon-only toggles
+     under 24rem; the companion's band is z 44 (under menus 45, panels 60,
+     dialogs 1010) and the dock lifts to 46 while its own panel is open.
+     `scratchpad/ui-sweeps/dock694.js`: dock at 320 to 1200, light, dark, touch,
+     and seven popups with the companion placed over their heads. Part 1 (the
+     cut pill bottoms) is still open; 694 is not resolved.
+     Fixed: part 1 measured 2026-10-10 on the chat dock's Ask | Agent pill at 1440 and 390: both segments sit 1px inside the track top and bottom (`-1, -1`), nothing cut; HISTORY 685 records the same fix for the Settings pill; parts 2 and 3 are dock694-1006 (`cf6af06`).
+727. **The owner, 2026-10-06, verbatim**: "there's no searching animation or
+     indicator for when I enter a search in the ask tab and nothing has shown yet".
+     Fixed: Ask shows a progress line inside the answer bubble 50 ms after the question leaves ("Reaching Atlas…", then "Reading your notes…", 26px high), measured 2026-10-10 with no model; `askStatusBusy` and `streamChat` in capture-ask.js (INBOX 649).
+729. **The owner, 2026-10-06, verbatim**, with a no-AI answer to "What have I saved
+     about hobbies?" (quotes joined by "Separately", "Later", "Elsewhere, The
+     picture in…"; titles cut mid-word; a capital after a comma): "its alright but
+     it could definitely be better and be more complex and natural and easier for
+     the user to understand." Goes with CHAT_PLAN Phase 5 and decisions 23-29.
+     Again, verbatim: "it just uses one word sentence joints and has no life or
+     complexity to it, and it needs improving and making better." Concretely: the
+     joins are single adverbs ("Separately,", "Later,", "Elsewhere,"); titles are
+     cut mid-word; quotes repeat their own titles; a capital follows a comma; no
+     summary sentence ties the notes together ("Your hobbies notes cover gaming,
+     the gym and golf"). First items for the next composer session.
+     Placed 2026-10-10: CHAT_PLAN "Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744)", Brief 39 and Brief 67. Measured today: the hobbies answer is two quoted notes joined by "Also," with no summary sentence.
+731. **The owner, 2026-10-06, verbatim**, with the Atlas guide answering "whiteboard
+     templates" with "Something went wrong asking that, try again.": "the help guide
+     failed??" Not reproduced: with no model the stream and the one-shot route both
+     answer (200, the Templates topic), and a two-view turn renders. The owner had
+     a model selected (gemma), so the failure is on the model path; needs the
+     server log line from that moment (Settings, Logs).
+     Placed 2026-10-10: CHAT_PLAN "Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744)", Brief 84. Still not reproduced; needs the owner's server log line.
+734. **The owner, 2026-10-06, verbatim**: "would the composer be able to do the
+     reminders magic add well??" For CHAT_PLAN Phase 5: the reminder parser
+     (`ai/reminder_parser.py`) already reads dates and times without a model; the
+     composer adds the reminder's wording and its reason from the note.
+     Placed 2026-10-10: CHAT_PLAN "Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744)", Brief 67 (the acts).
+739. **The owner, 2026-10-06, verbatim**: "also want auto naming of the whiteboards,
+     mindmaps and documents like \"untitled #\" so the user isnt forced to name a
+     new object". Create works with the name field empty: "Untitled board 3",
+     "Untitled map 2", "Untitled document 4" (the next free number per kind), the
+     name selected for typing over, renamed later from the title.
+     Fixed: boards and maps name themselves (`wbUntitledNames`, whiteboard-templates.js); documents now do too, "Untitled document N" the next free number (`docUntitledName`, documents.js), the title selected for typing over (measured: two clicks of New gave 2 and 1, selection 0 to 19); tests/test_document_untitled_names.py.
+744. **The owner, 2026-10-07, verbatim**, with Chat answering "test notes" (no
+     model): "whiteboard shows as a note and clicking it takes me to the notes page.
+     also it didn mention other matching records i dont think". Sources listed 5
+     (test, test board, test draft, a test-driven development note, a picture
+     note); the answer quoted 2. Next PR: (a) check the search result's kind for
+     "test board" (`raw_results` in routes_chat meta; the card takes
+     `source.kind`, chat-agent.js near `Sources:`): a board must say board and
+     open the board; (b) the composer names the sources it did not quote ("3
+     more notes match by title: test, test board, test draft") rather than
+     leaving them unsaid; (c) the "Only 1 of 4 sentences here is quoted" notice
+     reads as an alarm on an ordinary answer: word it calmly or show it only
+     when most of the answer is not quoted.
+     Placed 2026-10-10: (a) CHAT_PLAN decision 37 (a source says its kind and opens its own surface), (b) and (c) CHAT_PLAN "Placed from INBOX, 2026-10-10 (the coverage pass over 729 to 744)", Briefs 39 and 37.
+
+728. **The owner, 2026-10-06, verbatim**, with Ask's matching records (the green
+     similarity mark shows "68% similar" on some cards and the mark alone on
+     others): "how come only some of the ask tab matching records notes green
+     arrows have % number similarity and others dont show a number??"
+     Owner: the carddate agent, and Brief 37 (similarity numbers). Cause found 2026-10-10: `fitNoteMetas` (note-cards.js:1316 to 1331) folds the match-reason chip to its icon first when an Ask card's details line is too long (measured: "70% similar · “weekend”, “racing”" drawn `is-icon`, 24px wide, beside a plain "65% similar" at 85px). One-line fix: sort `.result-reason-chip` last in the `words` list, as `.review` is. Not touched here (note-cards.js is the carddate agent's).
+768. **Decision asked by the deepen agent (Brief 72b), 2026-10-10.** One
+     calendar or two: the reminders tab's month grid (`renderReminderCalendar`,
+     `shell-reminders.js`) and TIMELINE_PLAN section 9's calendar view.
+     Recommendation: one component, section 9's, with the reminders toggle
+     opening it filtered to reminders. Taken 2026-10-10 as TIMELINE_PLAN
+     decision 19 and section 12 row 1 (Brief 55).
+769. **Decision asked by the deepen agent (Brief 72b), 2026-10-10.** Desktop
+     notifications (decision 69): the launcher posts through the OS's own
+     command (PowerShell toast, `osascript`, `notify-send`) with no new
+     dependency; an optional package only if Windows toasts need actions.
+     Taken 2026-10-10 as written in TIMELINE_PLAN section 11 row 3.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.
@@ -46798,3 +46883,66 @@ while the documents and whiteboard agents hold them.
   suite once before the final report, never push.
 - Before stopping: `archive/agent-remaining/learning-loop.md` updated to the state it
   is actually in, and a five-line report.
+
+## Moved from the plans, 2026-10-10 (Brief 72b)
+
+UI_MODERNISATION_PLAN Phase 11, items 3 and 4, moved whole to make room for
+the Brief 72b blocks (standing order 10).
+
+3. **Chat: built** (2026-09-20). Measured at 390 before: the composer
+   held the note picker, the image button, the box, the microphone and
+   Send, so the box sat on one 44px line and the buttons on another (100px
+   of composer for one line of text); the mode segment was parked off the
+   right edge of the controls strip (x 309 to 457) at 30px tall; a reply's
+   sources unfolded inside the bubble in a 340px transcript; the popup
+   agent floated over the window. After: the attachments move into the
+   strip beside the mode (`dockChatAttachments`), the box takes the row
+   with the two buttons that act on the message (182px wide, one row, the
+   placeholder shortened so autogrow does not size it to two lines of
+   "Ask your notebook anything"), the mode segment is first in the strip
+   at x=39 and 44px tall, the sources open as the sheet recipe with the
+   same body moved in and back (`chatSourcesPanel`), and the shortcut, the
+   status dot and the More sheet's row all go to the Chat tab with the box
+   focused when a model lets it (`toggleAgentPalette`). The sidebar half
+   is item 2's. Measured by `scratchpad/ui-sweeps/phonechat.js`; at 1024
+   the composer wraps as before and the popup opens. Untested: a real
+   soft keyboard, which Chromium here does not raise; the composer is not
+   pinned above it, since the transcript is the scroller and the composer
+   never leaves the screen (page scrollHeight 844 in 844).
+4. **Graph: built** (2026-09-20). Measured at 390x844 first, with real
+   touch through CDP (`scratchpad/ui-sweeps/graphphone.js`, which is this
+   item's gate; pan and pinch were already proved by `graphtouch.js` and are
+   left to it). Before: a hold on a node did nothing at all, the map's node
+   menu being a right-click the phone has no way to send; the lasso needed
+   Shift and was therefore unreachable, so a selection could not be started
+   by a finger at any point; and the map's controls answered in three places
+   over a 362x653 map, the gear's floating panel at 350x288 (42% of the map
+   covered, 795px of content scrolling inside 286px), the View menu at
+   280x257 and the ⋯ menu at 256x311. The node panel was already the
+   `.graph-popup-sheet`, 362x468, and stays as it is.
+
+   After: one hold on the canvas, `wireLongPress`, which decides by what is
+   under it. On a node it opens the node menu, which is now `openMenuAtPoint`
+   rather than the hand-built menu it was, so it brings the clamp, the arrow
+   keys, Escape and the 44px row the touch band gives every menu (measured: 5
+   rows, shortest 44px, inside the window, Escape closes it). On the empty map
+   it arms the lasso: hold, then drag, and the sweep's 220px loop caught 2
+   notes with the selection dock showing "2 selected". The gear opens one
+   sheet at 390x557, full width, holding the View menu's rows, the panel's own
+   sections and the ⋯ menu's saved views, with every control at 44px and each
+   one moved back where it came from on close; at 1024 the gear opens the
+   floating panel exactly as before and the two menus are menus again.
+   **Decision: a tap on a node keeps opening the node panel** rather than only
+   selecting it. The panel is the note, it is already a sheet, and a tap that
+   only selected would leave the phone with no way to open a note from the map
+   at all; selection is the hold's own "Add to selection" row, which is where
+   the desktop's Shift-click also lives.
+
+   Three bugs found on the way, each fixed at its cause: a hold ended in the
+   click the lift synthesises, so holding a node opened its menu *and* its
+   panel (`wireLongPress` now swallows that lift's `mousedown`, `mouseup` and
+   `click`, app-wide); the `mousedown` was what moved the focus, so Escape
+   reached the map instead of the menu; and Chromium takes the focus back out
+   of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
+   asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
+   at 390 after all of it.

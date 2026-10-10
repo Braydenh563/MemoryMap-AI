@@ -9341,10 +9341,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 
 #entry-list > li .entry-date {
-  color: var(--muted);
-  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
   transition: opacity var(--ui-fast) var(--ease-out);
 }
 
@@ -10999,6 +10996,20 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 
 #entry-list > li:not(.list-window-sentinel) > .entry-meta.entry-meta {
   margin-top: var(--space-4);
+  order: 1;
+}
+
+/* The details line ends the card (INBOX 760; `order: 1` above): the link row, why line and
+   review answers are built after it, so a card with links showed its time
+   48 to 113px up from the foot (7px with none). Flex margins do not
+   collapse, so the parts drop their bottom margins to the next top margin. */
+#entry-list:not(.is-rows) > li {
+  display: flex;
+  flex-direction: column;
+}
+
+#entry-list:not(.is-rows) > li:not(.list-window-sentinel) > :not(.entry-meta, .entry-title) {
+  margin-bottom: 0;
 }
 
 #entry-list .entry-meta.note-meta > .chip.category {

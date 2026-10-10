@@ -420,3 +420,41 @@ Decisions (do not re-decide):
 Gates: the table of rates in this plan (moved to HISTORY when built);
 `test_skill_fixtures.py` green without a model; the three evals green on
 the dev model for every skill marked for the small class.
+
+## Deepened 2026-10-10: the agent and its harness (Brief 72b, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72b.js` (fresh data dir, no
+model, Chromium, 96 notes, 1440 and 390). Today: 1 click from the dashboard
+at 1440 (`#status-agent` in the status bar), plus the palette row "Ask the
+agent anything" and Ctrl+Shift+A; at 390 the status bar is hidden and
+`toggleAgentPalette()` leaves `#command-palette-overlay` at `display: none`
+(the phone's More sheet path, `phone-shell.js` near line 1470, was not
+driven). Open 28 ms at 1440. With no model the panel is dead: the input and
+all 14 starters are disabled (16 of 20 controls), above one line, "No model
+is connected, so the agent cannot run. Connect a model in Settings"; 2
+overlaps at 1440 (a starter over the "use the open note" checkbox, another
+over a More actions button). Undo: a run's writes are one plan to confirm
+("Undo the run", `chat-agent.js` near line 786); Ctrl+Z does not reach them
+(0 `pushUndo` in `chat-agent.js` and `agent-activity.js`). The run list is
+`agent-activity.js`'s monitor, not yet a tab of an Activity panel (WORLD_CLASS
+decision 70). The harness: 66 tools (README), verifiers and budgets are
+Phase E, unbuilt; real-model behaviour is not verified (CLAUDE.md section 4).
+**The bar:** the GitHub Copilot agent panel (the plan before it runs, each
+step's diff, stop at any step, keep or undo all), Raycast AI commands (one
+key, a preset per job), Apple Shortcuts for the no-model path (a fixed chain
+of acts that always runs).
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | No model is not dead: the starters and any typed request the reading understands run as deterministic acts through the act registry (CHAT_PLAN decisions 47, 53), with the model line kept for what needs one | disabled controls 16 to 0 with no model; the 14 starters' acts at 1.0 | 12, 6 |
+| 2 | fix | The phone path: the agent opens as a sheet at 390 from the More sheet and the palette | open at 390 measured; 0 past the edge; 2 taps | 8, 2 |
+| 3 | redesign | The plan before the run, Copilot's shape: the steps and the writes each will make, approved once; each step's diff after; Stop between any two steps | a fixture run lists its writes before the first; Stop at step 2 leaves step 1's writes on the undo bar | 5, 1 |
+| 4 | fix | Ctrl+Z after a run takes back its last write; the run's Undo stays for the whole | a fixture run then Ctrl+Z restores the last note byte-equal | 1, 3 |
+| 5 | fix | The run list is a tab of the Activity panel with Stop that unloads the model (decision 70) | Brief 73's gate | 5 |
+| 6 | fix | A failed step explains and offers: retry the step, do it without the model, open the model setting | `test_error_toasts.py` agent rows carry an action | 4 |
+| 7 | fix | The 2 overlaps at 1440 | `overlap.js` 2 to 0 | 7, 11 |
+| 8 | expansion | Phase E's success table drives the palette ("needs a larger model", with the reason) | every skill below 0.8 on the small class labelled | 6, 4 |
+| 9 | optimisation | Time to the first step and per step on the dev model (`scratchpad/llama-dev.sh`), reported, not assumed | the numbers in this table | 25g budget |
+
+**Briefs.** 54 (rows 8, 9), 67 (row 1's registry), 73 (rows 5, 6), 87 (rows
+1 to 4, 7).

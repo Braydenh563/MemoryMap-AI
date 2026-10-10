@@ -2831,7 +2831,7 @@ def _seg_track_names() -> set[str]:
 #: INBOX 665 (the owner: "i dont really like these multi pill elements exept
 #: in some small cases like the little view mode 2 pill ones"). A `.seg` well
 #: of four or more choices written in index.html, each with where its
-#: conversion is placed (agent-remaining/seg665-1006.md). The list may only
+#: conversion is placed (archive/agent-remaining/seg665-1006.md). The list may only
 #: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
 SEG_OF_FOUR_PLACED = {
     #: The one that stays (INBOX 670): the Attach picker's five sources, each
@@ -4888,7 +4888,7 @@ def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() ->
 #: dialog's Board | Mind map and the icon picker's Emoji | Icons were pills and
 #: are strips now. What is left is either a setting's value or a view of one
 #: pane (DESIGN.md's `.seg` row: two or three short choices), or a kind switch
-#: placed in `docs/roadmap/agent-remaining/board715-1006.md`. The lists only
+#: placed in `docs/roadmap/archive/agent-remaining/board715-1006.md`. The lists only
 #: shrink: a new pill in a popup fails here.
 SEG_IN_POPUPS = {
     "doc-history-filter": "Earlier versions: All or AI edits, a filter of one list",
@@ -5066,3 +5066,34 @@ def test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it() -> No
     fades = [body for sel, body in _rules(css) if "#conversation-list li" in sel and "mask-image" in body]
     assert fades, "the end of a chat's title fades under its ⋮"
     assert any(":hover" in sel and "doc-item" in sel for sel, body in _rules(css) if "mask-image" in body)
+
+
+def test_a_note_cards_details_line_ends_the_card_and_keeps_the_space_before_edited() -> None:
+    """INBOX 760, the owner: "you still havent fixed the positioning of the
+    dates and times". The wiki-link row, the why line and the review answers
+    are built after `.entry-meta`, so a card with links showed its time 48px
+    (one row) to 113px (three, at 390) above the card's foot against 7.4px on
+    a card with none (`scratchpad/ui-sweeps/carddate.js`). Card view is a
+    column flex whose details line has the last `order`, and the "· edited"
+    suffix keeps its space as a no-break space, because a plain leading space
+    collapses inside the date's inline flex box."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    card = "#entry-list:not(.is-rows) > li"
+    rules = list(_rules(css))
+
+    def body(selector: str) -> str:
+        return "\n".join(b for s, b in rules if s == selector)
+
+    assert re.search(r"display\s*:\s*flex", body(card)) and re.search(r"flex-direction\s*:\s*column", body(card))
+    meta = body("#entry-list > li:not(.list-window-sentinel) > .entry-meta.entry-meta")
+    assert re.search(r"order\s*:\s*1\b", meta), "the details line is last in card view"
+    parts = body(f"{card}:not(.list-window-sentinel) > :not(.entry-meta, .entry-title)")
+    assert re.search(r"margin-bottom\s*:\s*0\b", parts), "flex margins do not collapse, so the parts drop theirs"
+    assert "!important" not in "\n".join([body(card), meta, parts])
+    # The row view is a grid placed by explicit cell; the card rule must not reach it.
+    assert ":not(.is-rows)" in card
+    # The suffix keeps its space as a no-break space in its text (a plain
+    # leading space collapses inside the date's inline flex box).
+    assert 'textContent: "\\u00a0· edited"' in (ROOT / "frontend" / "js" / "note-cards.js").read_text(encoding="utf-8")
+    # The phone rule that hides the suffix is still there.
+    assert re.search(r"display\s*:\s*none", body(".entry-meta.note-meta .entry-edited"))

@@ -1773,12 +1773,6 @@
   position: relative;
 }
 
-#entry-list>li .entry-meta-end {
-  margin-left: 0;
-  /* No longer a wrapping unit of its own, the date flows with the chips. */
-  display: contents;
-}
-
 #entry-list>li .entry-actions {
   position: absolute;
   top: var(--space-3);

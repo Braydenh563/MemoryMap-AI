@@ -24,7 +24,7 @@ tested, each leaving the person's subject words as they typed them:
    when one is loaded and by character trigrams when not, and given a kind
    only when one is clearly nearest.
 
-What is still missed is said in `docs/roadmap/agent-remaining/composer-voice-1006.md`
+What is still missed is said in `docs/roadmap/archive/agent-remaining/composer-voice-1006.md`
 and measured by `tests/_composer_eval.py --noise`.
 """
 

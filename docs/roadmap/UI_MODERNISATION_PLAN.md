@@ -704,63 +704,8 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      opens nothing, and a tap at 1024 opens nothing. Found by `phone.js`
      on the way: "Show more" under a clamped note was 80x22 at 390; it
      takes the row's floor now.
-3. **Chat: built** (2026-09-20). Measured at 390 before: the composer
-   held the note picker, the image button, the box, the microphone and
-   Send, so the box sat on one 44px line and the buttons on another (100px
-   of composer for one line of text); the mode segment was parked off the
-   right edge of the controls strip (x 309 to 457) at 30px tall; a reply's
-   sources unfolded inside the bubble in a 340px transcript; the popup
-   agent floated over the window. After: the attachments move into the
-   strip beside the mode (`dockChatAttachments`), the box takes the row
-   with the two buttons that act on the message (182px wide, one row, the
-   placeholder shortened so autogrow does not size it to two lines of
-   "Ask your notebook anything"), the mode segment is first in the strip
-   at x=39 and 44px tall, the sources open as the sheet recipe with the
-   same body moved in and back (`chatSourcesPanel`), and the shortcut, the
-   status dot and the More sheet's row all go to the Chat tab with the box
-   focused when a model lets it (`toggleAgentPalette`). The sidebar half
-   is item 2's. Measured by `scratchpad/ui-sweeps/phonechat.js`; at 1024
-   the composer wraps as before and the popup opens. Untested: a real
-   soft keyboard, which Chromium here does not raise; the composer is not
-   pinned above it, since the transcript is the scroller and the composer
-   never leaves the screen (page scrollHeight 844 in 844).
-4. **Graph: built** (2026-09-20). Measured at 390x844 first, with real
-   touch through CDP (`scratchpad/ui-sweeps/graphphone.js`, which is this
-   item's gate; pan and pinch were already proved by `graphtouch.js` and are
-   left to it). Before: a hold on a node did nothing at all, the map's node
-   menu being a right-click the phone has no way to send; the lasso needed
-   Shift and was therefore unreachable, so a selection could not be started
-   by a finger at any point; and the map's controls answered in three places
-   over a 362x653 map, the gear's floating panel at 350x288 (42% of the map
-   covered, 795px of content scrolling inside 286px), the View menu at
-   280x257 and the ⋯ menu at 256x311. The node panel was already the
-   `.graph-popup-sheet`, 362x468, and stays as it is.
-
-   After: one hold on the canvas, `wireLongPress`, which decides by what is
-   under it. On a node it opens the node menu, which is now `openMenuAtPoint`
-   rather than the hand-built menu it was, so it brings the clamp, the arrow
-   keys, Escape and the 44px row the touch band gives every menu (measured: 5
-   rows, shortest 44px, inside the window, Escape closes it). On the empty map
-   it arms the lasso: hold, then drag, and the sweep's 220px loop caught 2
-   notes with the selection dock showing "2 selected". The gear opens one
-   sheet at 390x557, full width, holding the View menu's rows, the panel's own
-   sections and the ⋯ menu's saved views, with every control at 44px and each
-   one moved back where it came from on close; at 1024 the gear opens the
-   floating panel exactly as before and the two menus are menus again.
-   **Decision: a tap on a node keeps opening the node panel** rather than only
-   selecting it. The panel is the note, it is already a sheet, and a tap that
-   only selected would leave the phone with no way to open a note from the map
-   at all; selection is the hold's own "Add to selection" row, which is where
-   the desktop's Shift-click also lives.
-
-   Three bugs found on the way, each fixed at its cause: a hold ended in the
-   click the lift synthesises, so holding a node opened its menu *and* its
-   panel (`wireLongPress` now swallows that lift's `mousedown`, `mouseup` and
-   `click`, app-wide); the `mousedown` was what moved the focus, so Escape
-   reached the map instead of the menu; and Chromium takes the focus back out
-   of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
-   asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
-   at 390 after all of it.
+3. **Chat: built** (2026-09-20). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (Brief 72b)").
+4. **Graph: built** (2026-09-20). Moved to HISTORY.md, the same section.
 5. **Library and Files: built** (2026-09-20). Two-up cards, the reader
    full-screen with a bottom bar; upload from the share sheet.
    - **Two-up cards: decided the other way, not remade.** The 600 band in
@@ -1524,3 +1469,90 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 - **VC3, D3 scales, axes and number formats for the Ask and statistics charts** (M, rank 3). `ask-chart.js` `askChartTicks` returns at most five integer ticks and the charts are hand-built SVG; D3 ships scale 32, shape 63, axis 4 and format 24 exports with 1, 0, 0 and 0 called. Measure: a chart with a 0 to 1,240 range gets round ticks (`scaleLinear().nice().ticks(5)`) and thousands separators; `contrast.js` and `docks.js` stay green; the chart's PNG export (`askChartPng`) still renders.
 - **VC9, one icon picker** (S, rank 9). `pickIconOrEmoji` (all 1,530 Phosphor glyphs and the emoji groups) has 3 call sites (`editor.js`, `whiteboard-library.js`, `whiteboard-map.js`); Spaces choose their icon through their own `spaceIconPicker` (`spaces-find.js` lines 424 and 434). Measure: Spaces create and edit open the shared picker, `spaceIconPicker` is deleted, and the Space icon still validates server-side (`_validate_icon`).
 - **VC14, Phosphor's fill weight for active states** (S, rank 14). One of six weights ships (`Phosphor.woff2` 147,380 bytes, regular only); an active or selected nav item is the usual home of the fill weight. Measure: the extra font bytes for the fill build, and the active-state contrast (`contrast.js`) with the fill glyph; drop the row if the bytes are not worth one state.
+
+## Deepened 2026-10-10: statistics (Brief 72b, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72b.js` (fresh data dir, no model,
+96 notes, 12 reminders; 1440 and 390). The owner asked for "user and usage
+and notebook statistics". Today there is no statistics surface; the numbers
+are spread over four places. The dashboard: painted in 141 ms at 1440 and
+573 ms at 390; ten sections (Reminders, Recently added, Favourites, Quick
+capture, Recent documents, Boards and maps, Weekly digest, On this day,
+Activity heatmap); 31 to 34 numbers on screen; `/insights/stats` answers in
+13 to 79 ms with 5 keys (`total_entries`, `categories`, `per_day`, `days`,
+`to_review`); 0 overlaps, 0 past the edge. Usage: Settings, General, "what
+you use" (`#usage-box`, 3 clicks): "Most used: Dashboard tab 18, Chat tab 3,
+..." and "Not used in 90 days (82)". The notebook in chat
+(`notebook_stats.answer`, ten kinds): the count in 829 ms, the top tags in
+1,416 ms. The graph's `#graph-stats` chip and the mind map's statistics item.
+The palette's "statistics" finds nothing. All of it is deterministic. **The
+bar:** Day One and Apple Journal (streaks, words, places), Screen Time's
+weekly report (usage, against last week), GitHub's contribution graph,
+Obsidian's vault statistics.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | expansion | One Statistics page: notebook (notes, words, tags, categories, links, orphans, growth per month), usage (features used, unused), reminders (made, done, late); 1 click from the heatmap, a palette row | 3 clicks to 1; the palette's "statistics" 0 rows to 1 | 2, 6 |
+| 2 | expansion | A weekly review card, Screen Time's shape: notes made, words written, reminders done, against last week; no model | every line a count with its week | 12, 6 |
+| 3 | redesign | Its charts from the Ask chart recipe on D3 scales (VC3 above) | no tick label overlap at 390; one chart recipe in DESIGN.md | 11, 7 |
+| 4 | fix | The usage list's 82 unused features feed the weekly offer (12z, rule 6) | the dashboard offers one a week | 6 |
+| 5 | optimisation | Chat's statistics answers 829 to 1,416 ms: under 300 ms (the stats are counts) | the chat probe's times | 25g budget |
+| 6 | expansion | Statistics inside a window or topic ("notes about the harbor this month"; CHAT_PLAN catalogue A18) | the A18 rows at 1.0 | 12 |
+
+**Briefs.** 37 (row 4), 65 (row 6), 75 (row 3), 89 (rows 1, 2, 5).
+
+## Deepened 2026-10-10: utilities (Brief 72b, decision 71)
+
+Same sweep. "More utilities": today the small tools are the dashboard's
+focus session (a timer that notifies, `dashboard.js` near line 3906), the
+reminders' parser, the documents editor's word goal, counts and reading
+time, and the chat's statistics. `ai/arithmetic.py` exists, but chat
+answered "what is 15% of 240" with a note and "convert 5 km to miles" with
+"Nothing in the notes" (CHAT_PLAN foundation 7). The palette has 80
+commands; "calculator", "timer", "convert", "word count", "stop the model",
+"activity" and "health" each find 0 commands (only "Search everything for
+..."). Settings' "Tools it can use" is the agent's tool switches, not a tools
+pane for the person. No model needed for any of it. **The bar:** Raycast
+(calculator, units, currency from a dated table, date maths, timers,
+snippets and clipboard history, all in the bar), Alfred, Spotlight's inline
+sums and conversions, PowerToys Run.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | expansion | Utilities inline in the palette and the chat from one module: "15% of 240", "5 km in miles", "days until 25 Dec", "3pm Tokyo in London"; the answer is the first row, Enter copies (CHAT_PLAN decisions 47, 54, 56) | a 40-phrase set at 1.0 in both; 0 to 40 | 12, 2 |
+| 2 | expansion | Timer and stopwatch as palette commands, a status-bar chip with Stop, a notification at the end (the focus session is the seed) | the palette's "timer" 0 rows to 1; the chip stops it | 5, 6 |
+| 3 | expansion | Word, character and reading-time counts for any selection in any editor, one palette command | the counts equal `wc` on the fixture | 6, 12 |
+| 4 | expansion | Templates and snippets inserted from the palette (Settings, Templates holds them) | "insert template" finds and inserts | 2, 6 |
+| 5 | fix | Every utility has a Guide topic and a `data-help-for` popover | `test_manual_parity.py` rows for each | 6 |
+
+**Briefs.** 65 and 66 (row 1), 89 (rows 2 to 5).
+
+## Deepened 2026-10-10: the command palette and Find anything (Brief 72b, decision 71)
+
+Same sweep. The palette: Ctrl+K opens it at both widths; open 42 to 506 ms
+at 1440, 222 ms at 390; 80 commands and 89 rows at rest; 0 overlaps and 0
+past the edge at both widths. Of 18 queries, commands are found for
+reminder, timeline, undo, agent, backup (2 rows), guide (the tour, not the
+Guide) and calendar ("Open today's note"); none for "ocr", "read text from
+image", "stop the model", "statistics", "calculator", "timer", "convert",
+"word count", "find anything", "activity" and "health". Find anything
+(`openFinder`, `spaces-find.js`): open 44 to 151 ms; "harbor" 18 results (16
+notes, 2 reminders) in 840 ms; "Sam" 30 in 819 ms ("showing results for
+sam"); "last week" 30 in 544 ms (words or a window, not verified); "boiler
+pressur" 18 in 851 ms; "settings backup" 2 in 777 ms; "ocr" 0, with no
+suggestion; 9 kind filters; 2 targets under 24 px. **The bar:** Raycast and
+Alfred (one bar for commands, objects and answers, learned ranking, aliases,
+results within a frame of each keystroke), Spotlight's top hit, Linear's
+context-aware actions, VS Code's prefixes.
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | A palette row for every feature and setting, generated from the act registry and the settings index (CHAT_PLAN decision 53) | the 11 empty queries above find their command; registry against the feature list, 0 missing | 2, 6 |
+| 2 | optimisation | Find anything 544 to 851 ms after the last keystroke: under 150 ms per keystroke at 96 notes, under 300 ms at 5,000 | the sweep's per-query ms | 25g budget |
+| 3 | fix | Zero results say why and offer the nearest feature, spelling or kind (CHAT_PLAN decision 49) | "ocr" 0 rows to the OCR command and a suggestion | 4, 6 |
+| 4 | fix | "last week", "in March" are windows through the one reading (decision 47) | every result dated inside the window | 10, 12 |
+| 5 | expansion | Learned ranking from `paletteUsage` and the usage counts; aliases | the top hit for 10 repeated queries is the one run before | 2 |
+| 6 | expansion | Utilities inline (the utilities block above) and the quick-add grammar's parsed act as the first row (CHAT_PLAN F2) | Brief 66's gate | 12, 2 |
+| 7 | fix | The 2 small targets in Find anything | 2 to 0 at 24 px, 44 px coarse | 9 |
+
+**Briefs.** 47 (rows 2, 4), 66 (row 6), 90 (rows 1, 3, 5, 7).

@@ -77,3 +77,11 @@ def test_the_time_is_the_lines_last_fact_everywhere():
 def test_the_low_score_sits_with_the_category():
     cards = _read("note-cards.js")
     assert "categoryChip ? categoryChip.after(confidenceChip) : meta.appendChild(confidenceChip)" in cards
+
+
+def test_the_match_reason_folds_last_like_the_low_score():
+    # INBOX 728: an icon-only "70% similar" beside a worded one read as two
+    # different facts, so the reason chip gives up its words after the rest.
+    cards = _read("note-cards.js")
+    assert 'text.parentElement.matches(".review, .result-reason-chip")' in cards
+    assert ".sort((x, y) => isLast(x) - isLast(y))" in cards

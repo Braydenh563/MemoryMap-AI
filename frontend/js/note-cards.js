@@ -1315,9 +1315,11 @@ function fitNoteMetas(metas) {
     //: Still too long (a phone, with its ⋯ on the line): the facts after
     //: the tags keep their icon and lose their words, the words on the
     //: title, from the end; the low-score warning goes last.
-    const isReview = (text) => text.parentElement.classList.contains("review");
+    //: Ask's match reason folds last too (INBOX 728): an icon-only "70%
+    //: similar" beside a worded one read as two different facts.
+    const isLast = (text) => text.parentElement.matches(".review, .result-reason-chip");
     const words = [...line.meta.querySelectorAll(":scope > .chip:not(.category, .filing-sure, [data-tag]) > .ph-text")]
-      .reverse().sort((x, y) => isReview(x) - isReview(y));
+      .reverse().sort((x, y) => isLast(x) - isLast(y));
     for (const text of words) {
       if (over <= 0) break;
       over -= right(text) - before(text);
@@ -1997,7 +1999,7 @@ function entryItem(entry, options = {}) {
   //: that wrapped put it on a line of its own). The line never wraps now
   //: (`fitNoteMetas`), so this is the line's last fact at its right edge.
   //: The suffix its own span: a phone drops it before the category (UX-13).
-  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: " · edited" }));
+  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: "\u00a0· edited" }));
   meta.appendChild(date);
   meta.appendChild(metaEnd);
 

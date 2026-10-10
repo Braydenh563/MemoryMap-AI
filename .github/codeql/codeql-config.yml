@@ -23,7 +23,7 @@
 # `search/` directory or the query repo-wide, so any *other* file that starts
 # doing something CodeQL should genuinely catch is still covered.
 #
-# `.claude/skills/` — the seven vendored MIT design skills (see
+# `.claude/skills/` — the vendored MIT design skill (see
 # .claude/skills/README.md) — is excluded the same way `pyproject.toml`
 # already excludes it from `ruff` (`extend-exclude = [".claude/skills"]`,
 # same rationale, same file). Their Python is Claude Code tooling copied

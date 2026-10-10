@@ -264,6 +264,36 @@ function docTreeDiagnostics(CM, state) {
   return found;
 }
 
+//: HTML's check (Brief 71, for the Problems tab): a closing tag that closes
+//: nothing open here, and an element left open that HTML does not close by
+//: itself. A void element, or one whose end tag is optional, is not one.
+function docHtmlDiagnostics(CM, state) {
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 200) || CM.language.syntaxTree(state);
+  const found = [];
+  const at = (from, severity, message) => {
+    const line = state.doc.lineAt(from);
+    found.push({ ...docDiagnosticRange(state.doc, line.number, from - line.from + 1), severity, message });
+  };
+  tree.iterate({
+    enter: (node) => {
+      if (found.length >= 50) return false;
+      if (node.name === "MismatchedCloseTag") {
+        at(node.from, "error", `\u201c${state.doc.sliceString(node.from, Math.min(node.to, node.from + 40))}\u201d closes nothing that is open here`);
+        return;
+      }
+      if (node.name !== "Element") return;
+      const open = node.node.firstChild;
+      const last = node.node.lastChild;
+      if (!open || open.name !== "OpenTag" || (last && last.name === "CloseTag")) return;
+      const tag = open.getChild("TagName");
+      const name = tag ? state.doc.sliceString(tag.from, tag.to).toLowerCase() : "";
+      if (!name || DOC_HTML_VOID.has(name) || DOC_HTML_OPTIONAL.has(name)) return;
+      at(open.from, "warning", `<${name}> is never closed`);
+    },
+  });
+  return found;
+}
+
 //: The server's checkers. Resolves to `[]` on any failure: an editor that
 //: underlines nothing because the check could not run is honest, one that
 //: underlines the wrong thing is not.
@@ -333,6 +363,8 @@ function docCodeLintSource(CM) {
         const scanned = docCodeFixes(text, ext, unit);
         if (scanned.length) found = docCodeActions("scan", scanned);
       }
+    } else if (ext === "html") {
+      found = docHtmlDiagnostics(CM, state);
     } else if (DOC_CHECK_REMOTE.has(ext)) {
       found = await docRemoteDiagnostics(ext, state.doc);
       if (ext === "py") {
@@ -2803,21 +2835,6 @@ function docDebugHere(line, reveal = false) {
   docCmView.dispatch({ effects });
 }
 
-//: Output or Debug. `parts` is the panel while it is being built.
-function docRunShowTab(which, parts = null) {
-  const dom = parts?.dom || docRun?.dom;
-  if (!dom) return;
-  const debug = which === "debug";
-  dom.classList.toggle("is-debug", debug);
-  const tabs = parts?.tabs || dom.querySelector(".cm-run-tabs");
-  for (const t of tabs?.children || []) {
-    const on = t.dataset.view === which;
-    t.classList.toggle("active", on);
-    t.setAttribute("aria-selected", on ? "true" : "false");
-    t.tabIndex = on ? 0 : -1;
-  }
-}
-
 //: The Debug tab's DOM: the five actions, where it stopped, then Variables,
 //: Watch, Call stack and Breakpoints. Rebuilt with the panel; filled by
 //: `docDebugRender`.
@@ -3035,49 +3052,51 @@ let docRunToggle = null;
 //: The run panel's '?' (the `data-help-for` recipe): what a run is, in
 //: three lines, the Guide's "Running code" topic at length.
 const DOC_RUN_HELP = [
-  "Run sends this file to a sandbox with no network and none of your notes. What it prints and its errors come back here; Line N goes to the line.",
+  "Run sends this file to a sandbox with no network and none of your notes. What it prints and its errors come back in Output; Line N goes to the line.",
   "JavaScript, TypeScript (types removed, not checked), SQL (an empty SQLite per run) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
-  "A file of tests runs its tests, each listed with its time, a failure underlined on its line. A run still going after two seconds is in Activity, where Stop ends it too.",
+  "Problems lists every finding the checks underline. Tests lists each test with its time, a failure underlined on its line. Console evaluates a line in what the last run left: Python for a .py file, JavaScript for the rest.",
   "Debug (F5, or the Debug tab's first button) runs JavaScript, TypeScript or Python to the first breakpoint (F9, or click beside a line number; right-click for a condition), then steps: F10 over, F11 in, Shift+F11 out, Shift+F5 stop. The tab shows variables, watches, the call stack and the breakpoints.",
+  "Ctrl+J shows or hides the panel, Ctrl+Shift+M opens Problems, Ctrl+Shift+Y the Console, Ctrl+Shift+D Debug; drag the top edge for its height, kept for each tab. A run still going after two seconds is in Activity, where Stop ends it too.",
 ];
+
+//: The panel's tabs (D8), one row each: its words, the chord that shows it
+//: (VS Code's) or "none". A tab is added here and nowhere else: the head,
+//: the keys (`docPanelChord`), the grip's heights and the sheet read it.
+const DOC_PANEL_TABS = [
+  { id: "output", label: "Output", keys: "none" },
+  { id: "problems", label: "Problems", keys: "Ctrl+Shift+M" },
+  { id: "tests", label: "Tests", keys: "none" },
+  { id: "console", label: "Console", keys: "Ctrl+Shift+Y" },
+  { id: "debug", label: "Debug", keys: "Ctrl+Shift+D" },
+];
+
+//: The tab last shown (one choice for every document this session), the
+//: console's history per language, where Up has walked to in it, and the
+//: number of the last line sent to be evaluated. One object, not a `let`.
+const DOC_PANEL = { tab: "output", history: { python: [], js: [] }, at: -1, evalSeq: 0 };
 
 //: The panel's DOM, built when it opens; the sandbox frame lives in it, so
 //: closing the panel removes the frame and whatever was running with it.
+//: Its head is a dock (DESIGN.md's recipe): the tabs as its identity
+//: (`.tabs-line`), the run's status beside them, then the worded ghosts and
+//: the icon run, help and Close, last.
 function docRunPanel(view) {
   const dom = document.createElement("div");
   dom.className = "cm-run-panel";
   const head = document.createElement("div");
-  head.className = "cm-run-head";
-  //: Output and Debug (Brief 70), one tab strip until the panels are
-  //: Brief 71's dock (D8).
-  const tabs = document.createElement("div");
-  tabs.className = "tabs-line cm-run-tabs";
-  tabs.setAttribute("role", "tablist");
-  tabs.setAttribute("aria-label", "Output and Debug");
-  const tab = (key, label) => {
-    const t = document.createElement("button");
-    t.type = "button";
-    t.id = `doc-run-tab-${key}`;
-    t.dataset.view = key;
-    t.setAttribute("role", "tab");
-    t.setAttribute("aria-controls", key === "debug" ? "doc-run-debug" : "doc-run-log");
-    t.textContent = label;
-    t.addEventListener("click", () => docRunShowTab(key));
-    t.addEventListener("keydown", (e) => {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      e.preventDefault();
-      const other = key === "debug" ? "output" : "debug";
-      docRunShowTab(other);
-      document.getElementById(`doc-run-tab-${other}`)?.focus();
-    });
-    return t;
-  };
-  tabs.append(tab("output", "Output"), tab("debug", "Debug"));
+  head.className = "cm-run-head dock";
+  const identity = document.createElement("div");
+  identity.className = "dock-identity cm-run-identity";
+  const tabList = document.createElement("div");
+  tabList.className = "tabs-line cm-panel-tabs";
+  tabList.setAttribute("role", "tablist");
+  tabList.setAttribute("aria-label", "Panels");
   const status = document.createElement("span");
   status.className = "cm-run-status";
   status.setAttribute("role", "status");
-  const spacer = document.createElement("span");
-  spacer.className = "cm-run-spacer";
+  identity.append(tabList, status);
+  const actions = document.createElement("div");
+  actions.className = "dock-actions cm-run-actions";
   const button = (label, icon, action, hint) => {
     const b = document.createElement("button");
     b.type = "button";
@@ -3105,11 +3124,7 @@ function docRunPanel(view) {
   live.classList.add("cm-run-live", "hidden");
   live.setAttribute("aria-pressed", String(docRunLiveOn()));
   const stopButton = button("Stop", "ph-stop", () => docRunStop("Stopped."), "Stop the run");
-  const clear = button("Clear", "ph-eraser", () => docRunClear(), "Clear the output");
-  const close = button("Close", "ph-x", () => docRunClose(), "Close the output");
-  //: The two that fold to their icons first when the head is tight.
-  clear.classList.add("cm-run-fold");
-  close.classList.add("cm-run-fold");
+  const clear = button("Clear", "ph-eraser", () => docRunClearTab(), "Clear this tab");
   //: Input (D9): Python's `input()` reads its lines from this box, one
   //: per call. Shown with its button for Python, and opened by itself when
   //: the file calls `input(`.
@@ -3132,31 +3147,41 @@ function docRunPanel(view) {
     if (currentDoc) DOC_RUN_STDIN.set(currentDoc.id, stdin.value);
   });
   stdinWrap.append(stdinLabel, stdin);
-  const help = document.createElement("button");
-  help.type = "button";
-  help.className = "icon-only ghost small cm-run-help";
+  const iconButton = (label, icon, hint) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "icon-only ghost small";
+    b.title = hint;
+    b.setAttribute("aria-label", label);
+    const i = document.createElement("i");
+    i.className = `ph ${icon}`;
+    i.setAttribute("aria-hidden", "true");
+    b.appendChild(i);
+    return b;
+  };
+  const help = iconButton("About the panel", "ph-question", "About the panel");
+  help.classList.add("cm-run-help");
   help.setAttribute("data-help-for", "doc-run-help");
   help.setAttribute("aria-controls", "doc-run-help");
   help.setAttribute("aria-expanded", "false");
-  help.title = "About Run";
-  help.setAttribute("aria-label", "About Run");
-  const helpIcon = document.createElement("i");
-  helpIcon.className = "ph ph-question";
-  helpIcon.setAttribute("aria-hidden", "true");
-  help.appendChild(helpIcon);
+  const close = iconButton("Close", "ph-x", "Close the panel (Ctrl+J)");
+  close.classList.add("cm-run-close");
+  close.addEventListener("click", () => docRunClose());
   const helpBody = document.createElement("div");
   helpBody.className = "help-body hidden";
   helpBody.id = "doc-run-help";
   helpBody.setAttribute("role", "dialog");
-  helpBody.setAttribute("aria-label", "About Run");
+  helpBody.setAttribute("aria-label", "About the panel");
   for (const line of DOC_RUN_HELP) {
     const p = document.createElement("p");
     p.textContent = line;
     helpBody.appendChild(p);
   }
-  head.append(tabs, help, status, spacer, live, stdinButton, tests, again, stopButton, clear, close);
+  actions.append(live, stdinButton, tests, again, stopButton, clear, help, close);
+  head.append(identity, actions);
+  //: Output: the page a file makes over the log of what it printed.
   const body = document.createElement("div");
-  body.className = "cm-run-body";
+  body.className = "cm-run-body cm-run-pane";
   const frame = document.createElement("iframe");
   frame.className = "cm-run-frame";
   frame.setAttribute("sandbox", "allow-scripts");
@@ -3169,22 +3194,113 @@ function docRunPanel(view) {
   const runner = DOC_RUN_KINDS[docFileType().ext] === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
   frame.src = runner;
   frame.dataset.runner = runner;
-  const log = document.createElement("ol");
-  log.className = "cm-run-log";
-  log.id = "doc-run-log";
-  log.setAttribute("role", "log");
-  log.setAttribute("aria-label", "Output");
+  const logList = (name) => {
+    const list = document.createElement("ol");
+    list.className = "cm-run-log";
+    list.setAttribute("role", "log");
+    list.setAttribute("aria-label", name);
+    return list;
+  };
+  const log = logList("Output");
+  body.append(frame, log);
+  const pane = (id, ...children) => {
+    const own = id === "output" ? body : id === "debug" ? children[0] : null;
+    const p = own || document.createElement("div");
+    if (!own) {
+      p.className = "cm-run-pane";
+      p.append(...children);
+    }
+    p.dataset.pane = id;
+    p.id = `doc-panel-${id}`;
+    p.setAttribute("role", "tabpanel");
+    p.setAttribute("aria-labelledby", `doc-panel-tab-${id}`);
+    return p;
+  };
+  const problemsLog = logList("Problems");
+  const testsLog = logList("Tests");
+  //: The console (D8): its log over one line to type in, `>>>` for Python
+  //: and `>` for JavaScript, as their own consoles write them.
+  const python = DOC_RUN_KINDS[docFileType().ext] === "python";
+  const consoleLog = logList("Console");
+  const consoleForm = document.createElement("form");
+  consoleForm.className = "cm-console-line";
+  const prompt = document.createElement("span");
+  prompt.className = "cm-console-prompt";
+  prompt.setAttribute("aria-hidden", "true");
+  prompt.textContent = python ? ">>>" : ">";
+  const consoleInput = document.createElement("input");
+  consoleInput.type = "text";
+  consoleInput.className = "cm-console-input";
+  consoleInput.spellcheck = false;
+  consoleInput.autocomplete = "off";
+  consoleInput.placeholder = python ? "A line of Python, in what the last run left" : "A line of JavaScript, in what the last run left";
+  consoleInput.setAttribute("aria-label", python ? "Python console: a line to evaluate" : "JavaScript console: a line to evaluate");
+  consoleInput.addEventListener("keydown", (event) => docConsoleKey(event));
+  consoleForm.append(prompt, consoleInput);
+  consoleForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = consoleInput.value;
+    consoleInput.value = "";
+    docConsoleEval(text);
+  });
+  //: Debug (Brief 70, D2 and D3): its five actions and four views, as
+  //: `docDebugView` builds them, are the pane itself.
   const debugView = docDebugView();
-  body.append(frame, log, debugView);
+  const panes = new Map([
+    ["output", pane("output")],
+    ["problems", pane("problems", problemsLog)],
+    ["tests", pane("tests", testsLog)],
+    ["console", pane("console", consoleLog, consoleForm)],
+    ["debug", pane("debug", debugView)],
+  ]);
+  const tabs = new Map();
+  for (const tab of DOC_PANEL_TABS) {
+    if (!panes.has(tab.id)) continue;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = `doc-panel-tab-${tab.id}`;
+    b.className = "cm-panel-tab";
+    b.dataset.tab = tab.id;
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-controls", `doc-panel-${tab.id}`);
+    b.title = tab.keys === "none" ? tab.label : `${tab.label} (${tab.keys})`;
+    const word = document.createElement("span");
+    word.textContent = tab.label;
+    //: A count beside the word (Problems, Tests) is quiet text, the dock's
+    //: `.dock-chip`, never a pill.
+    const count = document.createElement("span");
+    count.className = "dock-chip cm-panel-count";
+    b.append(word, count);
+    b.addEventListener("click", () => docRunShowTab(tab.id));
+    tabList.appendChild(b);
+    tabs.set(tab.id, b);
+  }
+  //: The tablist's keys (WAI-ARIA): the arrows move between tabs, and a
+  //: tab shows as the focus reaches it.
+  tabList.addEventListener("keydown", (event) => {
+    const ids = [...tabs.keys()];
+    const at = ids.indexOf(event.target.dataset?.tab);
+    if (at < 0) return;
+    const next = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: ids.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    docRunShowTab(ids[(next + ids.length) % ids.length], true);
+  });
+  dom.append(head, helpBody, stdinWrap, ...panes.values());
+  //: The debugger's keys (F9, F10, F11 while a session is on, Shift+F5).
   dom.addEventListener("keydown", (event) => docDebugKey(event));
-  dom.append(head, helpBody, stdinWrap, body);
-  //: The panel is attached to the editor after this returns, and
-  //: `initHelpToggles` finds the popover by id in the document, so it runs
-  //: once the panel is in.
-  queueMicrotask(() => initHelpToggles(dom));
+  wireHelpPopover(help, helpBody);
+  //: The panel's own chords while the focus is in it (the console, a tab):
+  //: the editor's keymap does not see a key typed here.
+  dom.addEventListener("keydown", (event) => {
+    if (event.target.closest?.(".cm-panel-tabs") && !event.ctrlKey && !event.metaKey) return;
+    if (!docPanelChord(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  docRun = { view, dom, frame, log, status, stopButton, live, stdin, stdinWrap, stdinButton, tabs, panes, problemsLog, testsLog, consoleLog, consoleInput, debugView, debug: false, tab: "output", evalId: 0, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false, preview: false, liveTimer: null, options: {}, job: null, jobWait: null, jobBeat: null };
   if (typeof docIdeRunGrip === "function") docIdeRunGrip(dom, view);
-  docRunShowTab("output", { dom, tabs });
-  docRun = { view, dom, frame, log, status, stopButton, live, stdin, stdinWrap, stdinButton, debugView, debug: false, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false, preview: false, liveTimer: null, options: {}, job: null, jobWait: null, jobBeat: null };
+  docRunShowTab(DOC_PANEL.tab);
   return {
     dom,
     top: false,
@@ -3193,11 +3309,200 @@ function docRunPanel(view) {
         clearTimeout(docRun.timer);
         clearTimeout(docRun.liveTimer);
         docRunJobEnd(docRun);
-        if (docRun.debug) docDebugEnded("stopped", true);
+        if (docRun.debug) {
+          //: The session ends with the panel, but its lit line is cleared
+          //: after: a panel is destroyed inside the editor's own update,
+          //: where a dispatch throws (measured: "Calls to EditorView.update
+          //: are not allowed while an update is in progress", Ctrl+J while
+          //: paused).
+          DOC_DEBUG.on = false;
+          DOC_DEBUG.stop = null;
+          queueMicrotask(() => docDebugHere(0));
+        }
         docRun = null;
       }
     },
   };
+}
+
+//: Show one of the panel's tabs. Problems is drawn as it is shown; the
+//: grip (documents-ide.js) hears `mm-panel-tab` and sets that tab's height.
+function docRunShowTab(id, focus = false) {
+  if (!docRun || !docRun.panes.has(id)) return false;
+  DOC_PANEL.tab = id;
+  docRun.tab = id;
+  for (const [tab, button] of docRun.tabs) {
+    const on = tab === id;
+    button.setAttribute("aria-selected", String(on));
+    button.tabIndex = on ? 0 : -1;
+    docRun.panes.get(tab).classList.toggle("hidden", !on);
+  }
+  if (id === "problems") docProblemsRender();
+  docRun.dom.dispatchEvent(new CustomEvent("mm-panel-tab", { detail: id }));
+  docRun.view.requestMeasure();
+  if (focus) (id === "console" ? docRun.consoleInput : docRun.tabs.get(id))?.focus();
+  return true;
+}
+
+//: Ctrl+J (no tab): the panel shown or hidden, on the tab it had. A tab's
+//: own chord shows the panel on that tab, or hides it when that tab is
+//: already the one showing: VS Code's toggles.
+function docPanelToggle(tab = null) {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docRunToggle) return false;
+  if (docRun && (tab === null || docRun.tab === tab)) {
+    docRunClose();
+    return true;
+  }
+  if (!docRun) docCmView.dispatch({ effects: docRunToggle.of(true) });
+  if (!docRun) return false;
+  const next = tab || DOC_PANEL.tab;
+  docRunShowTab(next, next === "console");
+  return true;
+}
+
+//: The panel's chords, from `DOC_PANEL_TABS`: true when one was pressed and
+//: done. Read by the editor's keymap (documents-ide.js) and the panel's own.
+function docPanelChord(event) {
+  if (matchesShortcut(event, "Ctrl+J")) return docPanelToggle(null);
+  for (const tab of DOC_PANEL_TABS) {
+    if (tab.keys !== "none" && matchesShortcut(event, tab.keys)) return docPanelToggle(tab.id);
+  }
+  return false;
+}
+
+//: Clear clears the tab you are looking at; Problems is the checks', not
+//: yours to clear.
+function docRunClearTab() {
+  if (!docRun) return;
+  if (docRun.tab === "console") docRun.consoleLog.replaceChildren();
+  else if (docRun.tab === "tests") docRun.testsLog.replaceChildren();
+  else if (docRun.tab === "output") docRunClear();
+}
+
+//: Problems (D8): every diagnostic the editor holds, whichever check made it
+//: (the structure checks, Python's compiler on the server, the scans, the
+//: indentation mix, a failed test), in line order, each row a link to its
+//: line; the count in the tab whether it is showing or not.
+function docProblemsRender() {
+  const lint = window.CM6?.lint;
+  if (!docRun || !docCmView || !lint) return;
+  const state = docCmView.state;
+  const found = [];
+  lint.forEachDiagnostic(state, (d, from) => found.push({ d, from }));
+  found.sort((a, b) => a.from - b.from);
+  const count = docRun.tabs.get("problems")?.querySelector(".cm-panel-count");
+  if (count) count.textContent = found.length ? String(found.length) : "";
+  if (docRun.tab !== "problems") return;
+  const list = docRun.problemsLog;
+  list.replaceChildren();
+  if (!found.length) {
+    docRunRow("info", "No problems in this file.", null, list);
+    return;
+  }
+  for (const { d, from } of found.slice(0, DOC_RUN_MAX_ROWS)) {
+    const level = d.severity === "error" ? "error" : d.severity === "warning" ? "warn" : "info";
+    const line = state.doc.lineAt(Math.min(from, state.doc.length)).number;
+    docRunRow(level, `${d.message}${d.source ? ` (${d.source})` : ""}`, line, list, false);
+  }
+}
+
+//: The console's language: Python for a .py file, JavaScript for the rest.
+function docConsoleLang() {
+  return DOC_RUN_KINDS[docFileType().ext] === "python" ? "python" : "js";
+}
+
+//: Evaluate one line (D8) in what the last run left: the worker's global
+//: for JavaScript (a fresh one when nothing has run), the document's
+//: namespace for Python. The sandbox's `eval` message (api/run_sandbox.py);
+//: what comes back carries `mmEval` and is routed here, not to Output.
+async function docConsoleEval(source) {
+  if (!docRun) return false;
+  const text = String(source || "");
+  if (!text.trim()) return false;
+  const lang = docConsoleLang();
+  const history = DOC_PANEL.history[lang];
+  if (history[history.length - 1] !== text) history.push(text);
+  if (history.length > 100) history.shift();
+  DOC_PANEL.at = -1;
+  const log = docRun.consoleLog;
+  docRunRow("input", `${lang === "python" ? ">>>" : ">"} ${text}`, null, log);
+  if (docRun.running) {
+    docRunRow("info", "A run is still going: stop it, or wait for it to finish.", null, log, false);
+    return false;
+  }
+  if (lang === "python") {
+    docRunSetStatus("Checking for Python", true);
+    const ready = await docRunPythonReady();
+    if (!docRun) return false;
+    if (!ready) {
+      docRunSetStatus("Not run.", false);
+      docRunRow("info", "The Python console needs the Pyodide extra: install it in Settings, Packages, Run Python files.", null, log, false);
+      return false;
+    }
+  }
+  const runner = lang === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
+  if (docRun.frame.dataset.runner !== runner) {
+    docRun.ready = false;
+    docRun.frame.dataset.runner = runner;
+    docRun.frame.src = runner;
+  }
+  DOC_PANEL.evalSeq += 1;
+  const seq = DOC_PANEL.evalSeq;
+  docRun.evalId = seq;
+  docRunSetStatus("Evaluating", true);
+  docRunSend({ type: "eval", mmRun: Math.max(0, docRun.id), mmEval: seq, source: text });
+  clearTimeout(docRun.timer);
+  //: Python's first line may start the runtime: a minute, as a run's start.
+  docRun.timer = setTimeout(() => {
+    if (docRun && docRun.evalId === seq) docRunStop("Stopped: the line was still running.");
+  }, lang === "python" ? DOC_RUN_START_MS : DOC_RUN_TIMEOUT_MS);
+  return true;
+}
+
+//: What the sandbox says about an evaluation: its prints and errors as rows,
+//: then its value (`eval-done`), and the console is ready again.
+function docConsoleMessage(data) {
+  if (!docRun || data.mmEval !== docRun.evalId) return;
+  const log = docRun.consoleLog;
+  if (data.t === "status") {
+    docRunSetStatus(String(data.text || "Evaluating"), true);
+    return;
+  }
+  if (data.t === "log") {
+    docRunRow(String(data.level || "log"), String(data.text ?? ""), Number(data.line) || null, log);
+    return;
+  }
+  if (data.t !== "eval-done") return;
+  clearTimeout(docRun.timer);
+  docRun.evalId = 0;
+  if (typeof data.text === "string" && data.text !== "") docRunRow(data.ok === false ? "error" : "result", String(data.text), null, log);
+  docRunSetStatus("Ready.", false);
+}
+
+//: Up and Down walk the history (newest first), as a terminal's do;
+//: Ctrl+L clears, as it does in both consoles.
+function docConsoleKey(event) {
+  const input = event.target;
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "l") {
+    event.preventDefault();
+    docRun?.consoleLog.replaceChildren();
+    return;
+  }
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const history = DOC_PANEL.history[docConsoleLang()];
+  if (!history.length) return;
+  event.preventDefault();
+  let at = DOC_PANEL.at === -1 ? history.length : DOC_PANEL.at;
+  at += event.key === "ArrowUp" ? -1 : 1;
+  if (at >= history.length) {
+    DOC_PANEL.at = -1;
+    input.value = "";
+    return;
+  }
+  DOC_PANEL.at = Math.max(0, at);
+  input.value = history[DOC_PANEL.at];
+  input.setSelectionRange(input.value.length, input.value.length);
 }
 
 //: Show or hide the Input box (D9).
@@ -3253,6 +3558,8 @@ function docRunExtension(CM) {
     });
     docRunPanelField = [docRunPanelField, CM.view.EditorView.updateListener.of((update) => {
       if (update.docChanged) docRunLiveSchedule();
+      //: Problems follows the checks: redrawn when their answer changes.
+      if (docRun && update.transactions.some((tr) => tr.effects.some((e) => e.is(CM.lint.setDiagnosticsEffect)))) docProblemsRender();
     })];
   }
   return docRunPanelField;
@@ -3321,10 +3628,15 @@ function docRunClear() {
 //: One row of output: its text, and the line it came from as a link back to
 //: the editor. Text only, never markup: this is the one place in the app
 //: that shows words a program chose.
-function docRunRow(level, text, line) {
+function docRunRow(level, text, line, into = null, follow = true) {
   if (!docRun) return;
+  //: `into` is another tab's list (Problems, Tests, Console); only Output's
+  //: rows count toward its cap.
+  const list = into || docRun.log;
   const row = document.createElement("li");
   row.className = `cm-run-row is-${["error", "warn", "info", "debug"].includes(level) ? level : "log"}`;
+  //: A console's typed line and the value it gave back.
+  if (level === "input" || level === "result") row.classList.add(`is-${level}`);
   const words = document.createElement("span");
   words.className = "cm-run-text";
   words.textContent = String(text).slice(0, 4000);
@@ -3341,9 +3653,9 @@ function docRunRow(level, text, line) {
     });
     row.appendChild(link);
   }
-  docRun.log.appendChild(row);
-  docRun.rows += 1;
-  row.scrollIntoView({ block: "nearest" });
+  list.appendChild(row);
+  if (list === docRun.log) docRun.rows += 1;
+  if (follow) row.scrollIntoView({ block: "nearest" });
 }
 
 //: A statement's result (SQL, D5): a table row in the log, its cells as
@@ -3389,8 +3701,8 @@ function docRunTable(columns, rows, more, line) {
 function docRunTestRow(name, state, ms, text, line) {
   if (!docRun) return;
   const kind = ["pass", "fail", "skip"].includes(state) ? state : "fail";
-  docRunRow(kind === "fail" ? "error" : kind === "skip" ? "info" : "log", name, line);
-  const row = docRun.log.lastElementChild;
+  docRunRow(kind === "fail" ? "error" : kind === "skip" ? "info" : "log", name, line, docRun.testsLog);
+  const row = docRun.testsLog.lastElementChild;
   row.classList.add("cm-run-test", `is-${kind}`);
   row.dataset.state = kind;
   const icon = document.createElement("i");
@@ -3438,8 +3750,10 @@ function docRunTestsDone(data) {
   const parts = [`${passed} passed`, `${failed} failed`];
   if (skipped) parts.push(`${skipped} skipped`);
   const said = `${parts.join(", ")} in ${Math.max(0, Math.round(Number(data.ms) || 0))} ms.`;
-  docRunRow(failed ? "error" : "info", said, null);
-  docRun.log.lastElementChild.classList.add("cm-run-summary");
+  docRunRow(failed ? "error" : "info", said, null, docRun.testsLog);
+  docRun.testsLog.lastElementChild.classList.add("cm-run-summary");
+  const count = docRun.tabs.get("tests")?.querySelector(".cm-panel-count");
+  if (count) count.textContent = String(passed + failed + skipped);
   clearTimeout(docRun.timer);
   docRunSetStatus(passed + failed + skipped ? `${parts.join(", ")}.` : "No tests ran.", false);
   docRunShowTestMarks();
@@ -3519,6 +3833,7 @@ function docRunStop(why) {
   docRunSend({ type: "stop", mmRun: docRun.id });
   //: A later message from this run is dropped: the id no longer matches.
   docRun.id = -1;
+  docRun.evalId = 0;
   if (docRun.debug) docDebugEnded("stopped", true);
   docRunSetStatus(why, false);
 }
@@ -3572,6 +3887,9 @@ async function docRunCode(options = {}) {
   if (!docRun) docCmView.dispatch({ effects: docRunToggle.of(true) });
   if (!docRun) return false;
   docRunClear();
+  //: A run's output is what a run is for: the panel shows it (and Tests,
+  //: once the run turns out to be one).
+  if (docRun.tab !== "output") docRunShowTab("output");
   clearTimeout(docRun.timer);
   docRun.dom.classList.remove("is-page");
   if (!page) {
@@ -3637,6 +3955,8 @@ async function docRunCode(options = {}) {
   if (prepared.tests) {
     DOC_RUN_TEST_MARKS.doc = currentDoc?.id ?? null;
     DOC_RUN_TEST_MARKS.marks = [];
+    docRun.testsLog.replaceChildren();
+    docRunShowTab("tests");
   }
   docRun.options = { mode: options.mode, range: options.range };
   docRun.live.classList.toggle("hidden", !prepared.preview);
@@ -3728,6 +4048,11 @@ window.addEventListener("message", (event) => {
       docRun.pending = null;
       docRunSend(message);
     }
+    return;
+  }
+  //: The console's answers (D8), tagged by the sandbox with the line's number.
+  if (typeof data.mmEval === "number" && data.mmEval > 0) {
+    docConsoleMessage(data);
     return;
   }
   if (data.mmRun !== docRun.id) return;
@@ -3847,7 +4172,9 @@ function docCompletionExtras(CM, type) {
     docIndentGuides(CM, type.indent || "  "),
     DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
     docNativeSnippets(CM, type.ext),
-    docRunnable(type) ? docRunExtension(CM) : [],
+    //: Every code file has the panel (Problems, Console); Run says itself
+    //: when a kind does not run.
+    docRunExtension(CM),
     DOC_DEBUG_KINDS.has(type.ext) ? docDebugExtension(CM) : [],
     docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],

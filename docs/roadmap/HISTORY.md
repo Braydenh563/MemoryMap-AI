@@ -338,6 +338,50 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 71, I3)
+
+**Built** by the shell71 agent (DOCUMENTS_PLAN 23 phase I3, D8, and section
+25 row 6). The run panel's head is a `.dock`: its identity is a `.tabs-line`
+tablist drawn from one table, `DOC_PANEL_TABS` (Output, Problems, Tests,
+Console; Brief 70's Debug row needs no other change), its actions the worded
+ghosts then the icon run (help, Close). Each tab keeps its own height in the
+settings store (`doc-run-heights`: Output per document as before, the others
+`panel:<tab>`), measured 210, 260, 180 and 300 px set and the same four after
+a reload. VS Code's toggles: Ctrl+J the panel, Ctrl+Shift+M Problems,
+Ctrl+Shift+Y the Console, answered in the editor (`docIdeKeydown`, a
+highest-precedence DOM handler) and stopped there, because the registry gives
+Ctrl+Shift+P to clipping a note and Ctrl+Shift+Y to the companion (measured:
+the companion no longer toggles with the Console). Two consoles through a new
+`eval` message to the sandbox pages: JavaScript evaluates by indirect `eval`
+in the run's worker, so the script's `let` and `const` are in scope (a fresh
+worker when nothing ran); Python runs `_mm_eval` in the namespace `_mm_run`
+left (`single` mode, so an expression echoes). Answers carry `mmEval` and go
+to the Console, never Output; Up and Down walk the history, Ctrl+L clears.
+Problems lists every diagnostic the editor holds (`forEachDiagnostic`,
+redrawn on `setDiagnosticsEffect`), each row a line link, the count in the
+tab; HTML gained a check of its own (a stray closing tag, an element left
+open) beside the JS, TS and CSS tree checks and Python's compiler on the
+server, which reports before any run. Every code file has the panel now,
+not only the kinds that run. Ctrl+Shift+P and F1 open the app's palette on
+">", which narrows it to the document's commands with a fuzzy match (letters
+in order, runs, word starts and whole words first): 61 commands on a code
+file. Ctrl+\ splits the editor: a second view beside the first, edits both
+ways through one annotation, one history (Ctrl+Z in either), scroll sync off.
+Ctrl+K Ctrl+S (the palette's own Ctrl+K, then Ctrl+S within 1.5 s) opens the
+keybindings sheet: every row of `DOC_COMMANDS` (64) with its key or "No key",
+searchable, on the board sheet's recipe. Outline and breadcrumbs existed
+(INBOX 402) and were measured rather than rebuilt: a crumb jumps, the outline
+row follows the caret. At 390 the head is two rows (138 to 90 px tall, the
+output pane 175 to 223), 0 overlaps (3 before in a 717 px panel at 1440,
+where the buttons now fold to icons by a container query); touch.js 0 on the
+panel, its console, the palette and the sheet; errors.js 0 at 1440 and 390.
+Merged with Brief 70: Debug is a fifth tab (`DOC_PANEL_TABS`, Ctrl+Shift+D),
+its pane `docDebugView()`, and closing the panel while paused no longer
+dispatches inside the editor's update; `code-keys.js` 44/44 with the six
+debugger keys (40 keys, 70 commands, palette 67). Before the merge:
+`code-keys.js` 38/38, `ide-shell.js` 19/19, `ide-split.js` 10/10,
+`code-run.js` 47/47 and 48/48. Tests: `tests/test_ide_shell_b71.py`.
+
 ## Moved from the plans, 2026-10-10 (WHITEBOARD Brief 77, rows 1 to 4)
 
 The wb77 agent's Built block (standing order 10); WHITEBOARD_PLAN "Deepened 2026-10-10" rows 1 to 4 carry the pointer.

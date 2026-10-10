@@ -18,7 +18,9 @@
 //: One compartment for everything here, reused across documents: the
 //: minimap when the preference is on, the merge view while comparing.
 //: `compare` is `{ docId, label, text }` for the version being compared.
-const docIde = { slot: null, compare: null };
+//: `split` is the second editor while the split is on, `sync` the annotation
+//: its edits carry, `chordAt` when Ctrl+K was pressed in the editor.
+const docIde = { slot: null, compare: null, split: null, splitDoc: null, sync: null, chordAt: 0, keysReturn: null };
 
 function docIdeExtensions(CM, type) {
   if (!docIde.slot) docIde.slot = new CM.state.Compartment();
@@ -35,9 +37,13 @@ function docIdeSlot(CM, type) {
     //: gone the first time the editor took focus (measured: the class
     //: present at open, absent once focused). Declared here it is kept.
     CM.view.EditorView.editorAttributes.of({ class: "doc-content-code" }),
-    //: VS Code's Ctrl+Shift+M. CodeMirror's `lintKeymap` binds the same
-    //: chord; only this one row of it is wanted (F8 is bound already).
-    CM.view.keymap.of([{ key: "Mod-Shift-m", run: (view) => CM.lint.openLintPanel(view) }]),
+    //: The panel's chords (Ctrl+J, Ctrl+Shift+M Problems, Ctrl+Shift+Y the
+    //: Console), the palette, the split: before the keymaps, and stopped
+    //: here, because the app's registry gives Ctrl+Shift+P and Ctrl+Shift+Y
+    //: to other things and would answer them too (`docIdeKeydown`).
+    CM.state.Prec.highest(CM.view.EditorView.domEventHandlers({ keydown: (event) => docIdeKeydown(event) })),
+    //: The split's other half follows this one's edits (`docIdeToggleSplit`).
+    CM.view.EditorView.updateListener.of((update) => docIdeSplitFollow(update)),
   ];
   if (docToolPref("codeMinimap", false)) {
     out.push(
@@ -102,11 +108,10 @@ function docIdeFoldAll(unfold) {
   return unfold ? CM.language.unfoldAll(view) : CM.language.foldAll(view);
 }
 
+//: Problems is a tab of the panel now (D8, documents-code.js); this is the
+//: command's name for it, kept for the palette row and older sweeps.
 function docIdeProblems() {
-  const view = docIdeCodeView();
-  const CM = window.CM6;
-  if (!view || !CM) return false;
-  return CM.lint.openLintPanel(view);
+  return docPanelToggle("problems");
 }
 
 function docIdeToggleMinimap(on) {
@@ -204,12 +209,21 @@ function docIdeRunHeights() {
   }
 }
 
-function docIdeRunSaveHeight(px) {
+//: One height per tab (D8): Output's per document, as before (a file that
+//: prints three lines and one that renders a page want different panels);
+//: Problems, Tests and the Console one each, for every document.
+function docIdeRunSaveHeight(px, tab = docRun?.tab) {
   if (!currentDoc) return;
+  const key = tab && tab !== "output" ? `panel:${tab}` : currentDoc.id;
   const all = docIdeRunHeights();
-  if (px === null) delete all[currentDoc.id];
-  else all[currentDoc.id] = Math.round(px);
+  if (px === null) delete all[key];
+  else all[key] = Math.round(px);
   prefs.setJSON(DOC_RUN_HEIGHT_KEY, all);
+}
+
+function docIdeRunSavedHeight(tab) {
+  if (!currentDoc) return undefined;
+  return docIdeRunHeights()[tab && tab !== "output" ? `panel:${tab}` : currentDoc.id];
 }
 
 function docIdeRunApply(dom, px, save = true) {
@@ -266,6 +280,326 @@ function docIdeRunGrip(dom, view) {
     view.requestMeasure();
   });
   dom.prepend(handle);
-  const saved = currentDoc ? docIdeRunHeights()[currentDoc.id] : undefined;
-  if (Number.isFinite(saved)) docIdeRunApply(dom, saved, false);
+  //: Each tab its own height, set as the tab shows (`docRunShowTab`).
+  dom.addEventListener("mm-panel-tab", (event) => {
+    const saved = docIdeRunSavedHeight(event.detail);
+    docIdeRunApply(dom, Number.isFinite(saved) ? saved : null, false);
+  });
+}
+
+// -----------------------------------------------------------------------------
+// The IDE shell (DOCUMENTS_PLAN 23, I3, Brief 71): the editor's own keys, its
+// palette, the split and the keybindings sheet. The panel's tabs, Problems
+// and the consoles are documents-code.js's (`docRunPanel`).
+// -----------------------------------------------------------------------------
+
+//: The editor's chords beyond the panel's, VS Code's each. The command
+//: table (documents.js) carries the same keys for the palette and the sheet.
+const DOC_IDE_KEYS = [
+  { keys: "Ctrl+Shift+P", run: () => docIdeOpenPalette() },
+  { keys: "F1", run: () => docIdeOpenPalette() },
+  { keys: "Ctrl+\\", run: () => docIdeToggleSplit() },
+];
+
+//: A key in the code editor: the panel's chords, then the table above.
+//: Handled ones stop here, so the app's registry (Ctrl+Shift+P clips a note,
+//: Ctrl+Shift+Y the companion) does not answer them as well. Ctrl+K goes
+//: on to the palette as everywhere, and arms Ctrl+K Ctrl+S for a moment.
+function docIdeKeydown(event) {
+  if (matchesShortcut(event, "Ctrl+K")) docIde.chordAt = Date.now();
+  let done = docPanelChord(event);
+  if (!done) {
+    const row = DOC_IDE_KEYS.find((r) => matchesShortcut(event, r.keys));
+    if (row) {
+      row.run();
+      done = true;
+    }
+  }
+  if (!done) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  return true;
+}
+
+//: Ctrl+K Ctrl+S, VS Code's keybindings chord. The first half has already
+//: opened the palette (the app's Ctrl+K, which a code file keeps); the second,
+//: within a second and a half, closes it and opens the sheet, before the
+//: registry's Ctrl+S could save. Any other key ends the chord.
+window.addEventListener("keydown", (event) => {
+  if (!docIde.chordAt) return;
+  if (["Control", "Meta", "Shift", "Alt"].includes(event.key) || matchesShortcut(event, "Ctrl+K")) return;
+  const armed = Date.now() - docIde.chordAt < 1500;
+  docIde.chordAt = 0;
+  if (!armed || !matchesShortcut(event, "Ctrl+S")) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (!$("palette-overlay")?.classList.contains("hidden")) closePalette();
+  docIdeOpenKeys();
+}, true);
+
+//: The editor's palette (Ctrl+Shift+P, F1): the app's palette (the rich
+//: picker, its keys and its preview), opened on ">", which narrows it to
+//: this document's commands matched fuzzily (`paletteMatches`). One list,
+//: not a second one.
+async function docIdeOpenPalette() {
+  await openPalette();
+  const input = $("palette-input");
+  if (!input) return false;
+  input.value = "> ";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
+//: Split (Ctrl+\): a second editor on the same document beside the first,
+//: its own caret and scroll (scroll sync off, VS Code's default). Each
+//: half's edits reach the other through one annotation; the history is the
+//: first half's, so Ctrl+Z in either undoes the last edit made in either.
+function docIdeToggleSplit() {
+  if (docIde.split) return docIdeCloseSplit();
+  const CM = window.CM6;
+  const main = docCmView;
+  const host = $("doc-editor");
+  if (!CM || !main || !host || docFileType().previewable) return false;
+  if (!docIde.sync) docIde.sync = CM.state.Annotation.define();
+  const carried = [docCmParts.language, docCmParts.theme, docCmParts.gutter, docCmParts.wrap]
+    .filter(Boolean)
+    .map((part) => {
+      try {
+        return part.get(main.state) || [];
+      } catch {
+        return [];
+      }
+    });
+  const undo = (redo) => () => (redo ? CM.commands.redo(main) : CM.commands.undo(main));
+  const state = CM.state.EditorState.create({
+    doc: main.state.doc,
+    extensions: [
+      ...carried,
+      CM.view.lineNumbers(),
+      CM.view.highlightActiveLine(),
+      CM.view.highlightActiveLineGutter(),
+      CM.view.drawSelection(),
+      CM.language.bracketMatching(),
+      CM.language.syntaxHighlighting(CM.language.defaultHighlightStyle, { fallback: true }),
+      CM.state.EditorState.tabSize.of(main.state.tabSize),
+      CM.view.EditorView.editorAttributes.of({ class: "doc-split-view doc-content-code" }),
+      CM.view.EditorView.contentAttributes.of({ "aria-label": "The same file, second view" }),
+      CM.state.Prec.highest(CM.view.EditorView.domEventHandlers({ keydown: (event) => docIdeKeydown(event) })),
+      CM.view.keymap.of([
+        { key: "Mod-z", run: undo(false) },
+        { key: "Mod-y", run: undo(true) },
+        { key: "Mod-Shift-z", run: undo(true) },
+        ...CM.commands.defaultKeymap,
+      ]),
+    ],
+  });
+  const view = new CM.view.EditorView({
+    state,
+    dispatchTransactions: (trs, self) => {
+      self.update(trs);
+      for (const tr of trs) {
+        if (tr.changes.empty || tr.annotation(docIde.sync)) continue;
+        main.dispatch({ changes: tr.changes, annotations: [docIde.sync.of(true), CM.state.Transaction.userEvent.of(tr.annotation(CM.state.Transaction.userEvent) || "input")] });
+      }
+    },
+  });
+  docIde.split = view;
+  docIde.splitDoc = currentDoc?.id ?? null;
+  host.classList.add("doc-split-on");
+  host.appendChild(view.dom);
+  view.dispatch({ selection: { anchor: Math.min(main.state.selection.main.head, view.state.doc.length) }, scrollIntoView: true });
+  view.focus();
+  return true;
+}
+
+function docIdeCloseSplit() {
+  const view = docIde.split;
+  if (!view) return false;
+  docIde.split = null;
+  docIde.splitDoc = null;
+  view.destroy();
+  view.dom.remove();
+  $("doc-editor")?.classList.remove("doc-split-on");
+  docCmView?.focus();
+  return true;
+}
+
+//: The first half's edits, into the second. Another document in the first
+//: half (the editor is rebuilt for it) closes the split, and a second half
+//: that has drifted (a whole-text replace that came by another way) takes
+//: the first half's text again.
+function docIdeSplitFollow(update) {
+  const view = docIde.split;
+  if (!view) return;
+  if (docIde.splitDoc !== (currentDoc?.id ?? null) || update.view !== docCmView) {
+    if (update.view === docCmView) docIdeCloseSplit();
+    return;
+  }
+  if (!update.docChanged) return;
+  for (const tr of update.transactions) {
+    if (tr.changes.empty || tr.annotation(docIde.sync)) continue;
+    view.dispatch({ changes: tr.changes, annotations: docIde.sync.of(true) });
+  }
+  if (view.state.doc.length !== update.state.doc.length) {
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: update.state.doc.toString() }, annotations: docIde.sync.of(true) });
+  }
+}
+
+//: The keybindings sheet (DOCUMENTS_PLAN 25 row 6), Ctrl+K Ctrl+S: every row
+//: of the command table with its key or "No key", searchable. DESIGN.md's
+//: sheet of keys (the board's "?"): the dialog recipe, a search field, and
+//: sections of `li.wb-help-row`. Built on first use.
+function docIdeKeysOverlay() {
+  let overlay = $("doc-keys-overlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "doc-keys-overlay";
+  overlay.className = "modal-overlay hidden";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "doc-keys-title");
+  const card = document.createElement("div");
+  card.className = "card modal-card wb-help-card doc-keys-card";
+  const head = document.createElement("div");
+  head.className = "dialog-head";
+  const title = document.createElement("h2");
+  title.className = "dialog-head-title";
+  title.id = "doc-keys-title";
+  const titleIcon = document.createElement("i");
+  titleIcon.className = "ph ph-keyboard ph-lead";
+  titleIcon.setAttribute("aria-hidden", "true");
+  title.append(titleIcon, " Editor keys");
+  const headActions = document.createElement("span");
+  headActions.className = "dialog-head-actions";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "icon-only ghost small dialog-head-btn";
+  close.title = "Close (Esc)";
+  close.setAttribute("aria-label", "Close");
+  const closeIcon = document.createElement("i");
+  closeIcon.className = "ph ph-x";
+  closeIcon.setAttribute("aria-hidden", "true");
+  close.appendChild(closeIcon);
+  close.addEventListener("click", () => docIdeCloseKeys());
+  headActions.appendChild(close);
+  head.append(title, headActions);
+  const intro = document.createElement("p");
+  intro.className = "muted wb-help-intro";
+  intro.textContent = "Every command the document editor has, and its key. Ctrl+Shift+P runs any of them by name.";
+  const field = document.createElement("div");
+  field.className = "search-field wb-help-search";
+  const fieldIcon = document.createElement("i");
+  fieldIcon.className = "ph ph-magnifying-glass search-field-icon";
+  fieldIcon.setAttribute("aria-hidden", "true");
+  const search = document.createElement("input");
+  search.type = "search";
+  search.id = "doc-keys-search";
+  search.className = "search-field-input";
+  search.placeholder = "Find a key or a command";
+  search.setAttribute("aria-label", "Find a key or a command");
+  search.autocomplete = "off";
+  search.spellcheck = false;
+  search.addEventListener("input", () => docIdeRenderKeys(search.value));
+  field.append(fieldIcon, search);
+  const sections = document.createElement("div");
+  sections.className = "wb-help-sections";
+  sections.id = "doc-keys-sections";
+  const none = document.createElement("p");
+  none.className = "muted wb-help-none hidden";
+  none.id = "doc-keys-none";
+  none.setAttribute("role", "status");
+  none.textContent = "Nothing matches. Try a word like run, fold or bold.";
+  card.append(head, intro, field, sections, none);
+  overlay.appendChild(card);
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    docIdeCloseKeys();
+  });
+  wireBackdropClose(overlay, docIdeCloseKeys);
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+//: The sheet's sections: the code editor's commands, then the ones every
+//: document has, in the table's order; a row's keys are split into caps,
+//: a two-chord sequence ("Ctrl+K Ctrl+S") into its two chords.
+function docIdeRenderKeys(query = "") {
+  const host = $("doc-keys-sections");
+  if (!host) return 0;
+  const words = String(query).toLowerCase().split(/\s+/).filter(Boolean);
+  const sections = [
+    { title: "Code files", rows: DOC_COMMANDS.filter((c) => c.code) },
+    { title: "Every document", rows: DOC_COMMANDS.filter((c) => !c.code) },
+  ];
+  host.replaceChildren();
+  let shown = 0;
+  for (const section of sections) {
+    const rows = section.rows.filter((c) => {
+      const text = `${c.label} ${c.keys === "none" ? "no key" : c.keys}`.toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+    if (!rows.length) continue;
+    const box = document.createElement("section");
+    box.className = "wb-help-section";
+    const head = document.createElement("h3");
+    head.className = "wb-help-section-head";
+    head.textContent = section.title;
+    const list = document.createElement("ul");
+    list.className = "wb-help-list";
+    list.setAttribute("aria-label", section.title);
+    for (const command of rows) {
+      const li = document.createElement("li");
+      li.className = "wb-help-row";
+      li.dataset.command = command.id;
+      const icon = document.createElement("i");
+      icon.className = `ph ${command.icon.replace(/^ph:/, "ph-")} wb-help-row-icon`;
+      icon.setAttribute("aria-hidden", "true");
+      const label = document.createElement("span");
+      label.className = "wb-help-row-label";
+      label.textContent = command.label;
+      const keys = document.createElement("span");
+      keys.className = "wb-help-row-keys";
+      if (!command.keys || command.keys === "none") {
+        keys.classList.add("muted");
+        keys.textContent = "No key";
+      } else {
+        for (const chord of command.keys.split(" / ")) {
+          const kbd = document.createElement("kbd");
+          kbd.textContent = chord;
+          keys.append(kbd);
+        }
+      }
+      li.append(icon, label, keys);
+      list.append(li);
+      shown += 1;
+    }
+    box.append(head, list);
+    host.append(box);
+  }
+  $("doc-keys-none")?.classList.toggle("hidden", shown > 0);
+  return shown;
+}
+
+function docIdeOpenKeys() {
+  const overlay = docIdeKeysOverlay();
+  docIde.keysReturn = document.activeElement;
+  const search = $("doc-keys-search");
+  if (search) search.value = "";
+  docIdeRenderKeys("");
+  overlay.classList.remove("hidden");
+  $("doc-keys-sections")?.scrollTo?.(0, 0);
+  search?.focus();
+  return true;
+}
+
+function docIdeCloseKeys() {
+  const overlay = $("doc-keys-overlay");
+  if (!overlay || overlay.classList.contains("hidden")) return false;
+  overlay.classList.add("hidden");
+  const back = docIde.keysReturn;
+  docIde.keysReturn = null;
+  if (back && back.isConnected && typeof back.focus === "function") back.focus();
+  return true;
 }

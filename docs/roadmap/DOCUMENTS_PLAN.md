@@ -1351,7 +1351,7 @@ row does today.
 | --- | --- | --- | --- |
 | I1 run, preview, test | 69 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"); what is left is in `agent-remaining/ide1-1010.md` | `scratchpad/ui-sweeps/code-run.js`, 46/46 at 1440 and 47/47 at 390 |
 | I2 the debugger | 70 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 70, I2"); what is left is in `agent-remaining/debug70-1010.md` | `scratchpad/ui-sweeps/code-debug.js`, 32/32 at 1440 and 31/31 at 390 (js, ts, py: breakpoint, three steps, a watch, the exception stop) |
-| I3 the IDE shell | 71 | D8 panels and consoles, command palette inside the editor, outline, breadcrumbs, go to symbol, split view, a keybindings sheet, the problems panel fed by every linter | palette commands count; keybindings sheet against VS Code's defaults, each one tested with Playwright |
+| I3 the IDE shell | 71 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 71, I3"); what is left is in `agent-remaining/shell71-1010.md` | `code-keys.js` 34/34 keys exercised, palette 61 commands (40/40 and 67 with Brief 70's debugger rows); `ide-shell.js` 19/19 (four heights kept across a reload); `ide-split.js` 10/10 |
 
 Help moves with each phase (standing order 13): the `data-help-for`
 popovers on Run, Debug and the panels, the Guide topic `code-run`, and
@@ -1435,7 +1435,7 @@ lists every command with its shortcut.
 | 3 | redesign | VS Code's selected line (bold number, bordered line) and indent guides, the owner's design request | computed `font-weight` 700 on `.cm-activeLineGutter`; an indent marker per level on a nested file | 11 |
 | 4 | expansion | Brief 42's packages, each sized gzipped before it lands: lint (`ruff-wasm`, a JS linter), a formatter, a diff against the last save. The formatter (js-beautify, lazy, 25,022 bytes gzipped, 0 at boot) and the diff (Compare with a saved version) are built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder"); the linters stay open | a diagnostic on its line in the sweep; sizes in the commit | 12 |
 | 5 | expansion | Run, preview, test, debug, consoles: D1 to D9 (Briefs 69 to 71) | section 23's gates | 5, 12 |
-| 6 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder"): 52 commands, 0 without a key or "none" (29 before); the keybindings sheet from the same table is Brief 71 (I3) | 45 commands, 0 without a shortcut or a "none" | 6, 10 |
+| 6 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder" and "DOCUMENTS Brief 71, I3"): 64 commands, 0 without a key or "none"; the keybindings sheet (Ctrl+K Ctrl+S) draws the same table, 34 keys each pressed by `code-keys.js` | 45 commands, 0 without a shortcut or a "none" | 6, 10 |
 | 7 | optimisation | Open 275 to 675 ms at 1440 for 241 lines and over 2 s at 390: `docCodeScan` (cx 132) off the open path | under 300 ms at 1440, under 800 ms at 390 | 13 |
 | 8 | expansion | A minimap, off by default, one toggle in View (Brief 42's bar) | toggle present; its width remembered | 11 |
 | 9 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): a run past 2 s lists in `/activity` and stops from it | the run lists in `/activity` and stops from it | 5 |

@@ -1482,7 +1482,11 @@ MORE_TOPICS.extend(
                 "tests in the panel asks for them. The palette has Run the "
                 "selected lines and Run the cell at the caret (between # %% "
                 "markers). Stop ends a run; one still going after two seconds is "
-                "listed in Activity, whose Stop ends it too. Debug (F5) steps "
+                "listed in Activity, whose Stop ends it too. Beside Output, "
+                "Problems lists every underline and Tests each test; the Console "
+                "(Ctrl+Shift+Y) evaluates a line in what the run left, Python for "
+                "a .py file and JavaScript for the rest, Up recalling the last. "
+                "Debug (F5) steps "
                 "JavaScript, TypeScript and Python; see the debugger."
             ),
             "badge": {"label": "Library", "tab": "library"},
@@ -1615,7 +1619,8 @@ TOPIC_META: dict[str, dict] = {
     "code-run": {"title": "Running, previewing and testing code", "path": "A code document, Run", "steps": (
         "Open a code document (.js, .ts, .sql, .py, .html, .css, .svg).",
         "Press Run, or Ctrl+Shift+Enter.",
-        "Read the Output panel under the editor; Line N goes to the line.")},
+        "Read the Output panel under the editor; Line N goes to the line.",
+        "Ctrl+Shift+Y opens the Console tab: type a line and press Enter.")},
     "debugger": {"title": "Debugging code", "path": "A code document, the gutter beside a line number, F5", "steps": (
         "Open a JavaScript, TypeScript or Python document.",
         "Click beside a line number, or press F9 on it, for a breakpoint.",

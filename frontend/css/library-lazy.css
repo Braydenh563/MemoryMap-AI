@@ -3375,19 +3375,164 @@ button.ghost.doc-template-choice.wb-template-choice {
   }
 }
 
-/* The head as wide as the panel, and narrower than its worded buttons
-   (Brief 70: Output and Debug as tabs, a Python file's Input and Run tests
-   ran 18px past at 1440): Clear and Close fold to their icons first, each
-   keeping its name in aria-label and its title. */
-.cm-run-panel .cm-run-head {
+/* The panel (Brief 71, D8): its head is a dock, the tabs as its identity
+   (the `.tabs-line` strip, here without its hairline: the head's own edge
+   is the line), the run's status beside them, then the actions. Each tab's
+   pane fills the panel under the head; one shows at a time. */
+.cm-run-panel > .cm-run-head.dock {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--space-2);
+}
+.cm-run-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cm-run-panel .cm-panel-tabs {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  box-shadow: none;
+}
+.cm-run-panel .cm-panel-tabs > button {
+  min-width: 0;
+  padding-inline: var(--space-2);
+}
+.cm-run-panel .cm-run-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cm-panel-count {
+  margin-inline-start: var(--space-1);
+}
+.cm-panel-count:empty {
+  display: none;
+}
+.cm-run-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+.cm-run-pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.cm-run-pane > .cm-run-log {
+  flex: 1;
+}
+
+/* The console's line (D8): a prompt and a field in the log's own type,
+   under the log, edgeless as a terminal's; the focus ring is the app's. */
+.cm-console-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+}
+.cm-console-prompt {
+  color: var(--muted);
+}
+.cm-console-input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+.cm-run-row.is-input {
+  color: var(--muted);
+}
+.cm-run-row.is-result .cm-run-text::before {
+  content: "\2190  ";
+  color: var(--muted);
+}
+
+/* Split (Ctrl+\): the two editors side by side, each half the width, the
+   second parted by a hairline. Its own caret and scroll. */
+#doc-editor.doc-split-on {
+  flex-direction: row;
+}
+#doc-editor.doc-split-on > .cm-editor {
+  flex: 1 1 0;
+  min-width: 0;
+}
+#doc-editor.doc-split-on > .doc-split-view {
+  border-inline-start: 1px solid var(--border);
+}
+
+/* The keybindings sheet's search (Ctrl+K Ctrl+S): the field's whole height
+   is the input's, at the target floor, so a finger on the field lands in it
+   (touch.js measured the input 18px tall inside its 44px field at 390). */
+.doc-keys-card .search-field {
+  height: auto;
+}
+.doc-keys-card .search-field > .search-field-input {
+  min-height: var(--target-min);
+}
+
+/* A panel narrower than its head's words (the editor's column beside both
+   sidebars: 717px at 1440 measured the tabs squeezed to 146px under the
+   buttons): the buttons fold to their icons, as on a phone, so the tabs and
+   the status keep one row. Each keeps its name in aria-label and title.
+   Between that and the width the words need, the actions wrap to a second
+   row (the head wraps) rather than run under the tabs. */
+.cm-run-panel {
   container-type: inline-size;
 }
 @container (max-width: 819.98px) {
-  .cm-run-head .cm-run-fold .cm-run-word {
+  .cm-run-panel .cm-run-head .cm-run-word {
     display: none;
   }
-  .cm-run-head .cm-run-fold .ph-lead {
+  .cm-run-panel .cm-run-head .ph-lead:has(+ .cm-run-word) {
     margin-inline-end: 0;
+  }
+}
+
+/* The panel on a phone: the tabs take the head's first line, the status
+   (when it says something) the next, the actions, edge to edge at the
+   target floor, the last. */
+@media (max-width: 599.98px) {
+  .cm-run-panel > .cm-run-head.dock {
+    flex-wrap: wrap;
+    gap: 0 var(--space-2);
+  }
+  .cm-run-panel > .cm-run-head > .cm-run-identity {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 0 var(--space-3);
+  }
+  .cm-run-panel .cm-run-status {
+    flex-basis: 100%;
+  }
+  .cm-run-panel .cm-run-status:empty {
+    display: none;
+  }
+  .cm-run-panel > .cm-run-head > .cm-run-actions {
+    gap: 0;
+    margin-inline-start: auto;
+    padding-inline: 0;
+  }
+  /* The icon run's pull-together (a 4px overlap) is for a pointer; under a
+     finger two 44px targets touch, never overlap. */
+  .cm-run-panel > .cm-run-head > .cm-run-actions > button {
+    margin-inline: 0;
   }
 }
 

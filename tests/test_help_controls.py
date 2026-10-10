@@ -189,7 +189,8 @@ def test_every_document_command_key_is_in_the_editor_entries():
     docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     table = _table(docs, "const DOC_COMMANDS = [", "\n];")
     #: "none" is a decision recorded in the table, not a key to name.
-    keys = {k for k in re.findall(r'keys: "([^"]*)"', table) if k and k != "none"}
+    #: Read as the string it is: "Ctrl+\\" in the source is the chord Ctrl+\.
+    keys = {k.replace("\\\\", "\\") for k in re.findall(r'keys: "([^"]*)"', table) if k and k != "none"}
     assert len(keys) > 15, "DOC_COMMANDS has moved; this test cannot read it"
     body = _body("documents-controls") + " " + _body("code-files")
     missing = sorted(k for k in keys if not all(_named(part.strip(), body) for part in k.split(" / ")))

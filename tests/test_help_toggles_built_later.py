@@ -34,7 +34,9 @@ def test_every_script_built_help_trigger_is_wired():
         code = re.sub(r"^\s*//.*$", "", text, flags=re.M)
         if path.name == "wiring.js" or not MAKES_ONE.search(code):
             continue
-        if "initHelpToggles(" in code or "openSheet(" in code:
+        #: `wireHelpPopover` is the call `initHelpToggles` makes for each
+        #: trigger (wiring.js), so a file that wires its pair directly is wired.
+        if "initHelpToggles(" in code or "openSheet(" in code or "wireHelpPopover(" in code:
             continue
         offenders.append(path.name)
     assert not offenders, (

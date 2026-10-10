@@ -84,8 +84,44 @@ function paletteText(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
+//: **The editor's palette** (DOCUMENTS_PLAN 23, I3): a query that starts
+//: with ">" is VS Code's Ctrl+Shift+P, which the code editor opens this
+//: palette on (`docIdeOpenPalette`): the open document's commands only,
+//: matched as VS Code matches, the letters in order with gaps allowed,
+//: runs and word starts first.
+function paletteFuzzyScore(label, needle) {
+  if (!needle) return 0;
+  const hay = label.toLowerCase();
+  let at = -1;
+  let score = 0;
+  let last = -2;
+  for (const ch of needle) {
+    if (ch === " ") continue;
+    at = hay.indexOf(ch, at + 1);
+    if (at < 0) return -1;
+    score += at === last + 1 ? 3 : 1;
+    if (at === 0 || /[\s:(,-]/.test(hay[at - 1])) score += 2;
+    last = at;
+  }
+  //: A typed word found whole counts for more than the same letters
+  //: scattered: "run tests" means the row that says "tests".
+  for (const word of needle.split(/\s+/)) if (word && hay.includes(word)) score += word.length * 2;
+  return score;
+}
+
+function paletteEditorMatches(needle) {
+  const rows = paletteCommands().filter((c) => c.group === "This document");
+  if (!needle) return rows;
+  return rows
+    .map((c, order) => ({ c, order, score: paletteFuzzyScore(String(c.label).replace(/^ph:[\w-]+\s*/, ""), needle) }))
+    .filter((r) => r.score >= 0)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .map((r) => r.c);
+}
+
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
+  if (lowered.startsWith(">")) return paletteEditorMatches(lowered.slice(1).trim());
   //: **The app's own commands get a group name too, now that something can
   //: sit above them.** They had none because they were always first and a
   //: header over the top of a list says nothing; with the editor's group

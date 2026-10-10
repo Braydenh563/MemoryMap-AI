@@ -43,7 +43,10 @@ def test_the_palette_rows_name_the_same_keys():
 
 def test_the_debug_tab_is_a_tab_strip_and_four_views():
     panel = _function(CODE, "docRunPanel")
-    assert 'tabs.className = "tabs-line cm-run-tabs";' in panel and 'tabs.setAttribute("role", "tablist");' in panel
+    #: Brief 71's dock: Debug is a row of `DOC_PANEL_TABS`, its pane the view.
+    assert 'tabList.className = "tabs-line cm-panel-tabs";' in panel and 'tabList.setAttribute("role", "tablist");' in panel
+    assert '["debug", pane("debug", debugView)]' in panel
+    assert '{ id: "debug", label: "Debug", keys: "Ctrl+Shift+D" }' in CODE
     view = _function(CODE, "docDebugView")
     assert 'view.setAttribute("role", "tabpanel");' in view
     for title in ('"Variables"', '"Watch"', '"Call stack"', '"Breakpoints"'):

@@ -75,7 +75,7 @@ const PROGRAMS = {
     await page.waitForTimeout(1200);
   };
   const debugState = () => page.evaluate(() => {
-    const v = document.querySelector("#doc-run-debug");
+    const v = document.querySelector("#doc-panel-debug");
     if (!v) return null;
     return {
       status: document.querySelector(".cm-run-status")?.textContent || "",
@@ -132,7 +132,7 @@ const PROGRAMS = {
     await page.waitForTimeout(200);
     const marks = await page.evaluate(() => docDebugBreaks());
     ok(`${lang}: a click in the lane sets a breakpoint on line ${p.line}`, marks.length === 1 && marks[0].line === p.line, J(marks));
-    await page.click("#doc-run-tab-debug");
+    await page.click("#doc-panel-tab-debug");
     await page.fill(".cm-debug-watch-add", p.watch);
     await page.press(".cm-debug-watch-add", "Enter");
     //: Debug, timed to the first stop.
@@ -147,7 +147,7 @@ const PROGRAMS = {
     //: The panel's head and the Debug tab fit their width while paused.
     const fit = await page.evaluate(() => {
       const head = document.querySelector(".cm-run-head");
-      const view = document.querySelector("#doc-run-debug");
+      const view = document.querySelector("#doc-panel-debug");
       return { headW: head.clientWidth, items: [...head.children].filter((c) => c.offsetWidth).map((c) => (c.getAttribute("aria-label") || c.className).slice(0, 12) + ":" + c.offsetWidth).join(" "), head: head.scrollWidth - head.clientWidth, view: view.scrollWidth - view.clientWidth, page: document.documentElement.scrollWidth - innerWidth };
     });
     ok(`${lang}: nothing runs past the panel's width while paused`, fit.head <= 0 && fit.view <= 0 && fit.page <= 0, J(fit));

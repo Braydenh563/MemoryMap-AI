@@ -78,6 +78,14 @@ const SURFACES = [
   // creates a document.
   { tab: 'library', label: 'Run panel', sel: '.cm-run-panel', extra: '[role="separator"]', wait: 7000, byName: true,
     openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-run.js', content: 'console.log(1)', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); await docRunCode(); })()" },
+  // Brief 71 (I3): the panel on its Console tab (the tabs, the console's
+  // line), the editor's palette (Ctrl+Shift+P) and the keys sheet, at 390.
+  { tab: 'library', label: 'Run panel console', sel: '.cm-run-panel', extra: '[role="separator"]', wait: 7000, byName: true,
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-console.js', content: 'console.log(1)', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); await docRunCode(); docRunShowTab('console'); })()" },
+  { tab: 'library', label: 'Editor palette', sel: '#palette-card', wait: 6000, byName: true, closeFn: 'closePalette()',
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-palette.js', content: 'let a = 1;', file_type: 'js' }) }); await loadDocuments(d.id); for (let i = 0; i < 40 && typeof docIdeOpenPalette !== 'function'; i++) await new Promise((r) => setTimeout(r, 250)); await docIdeOpenPalette(); })()" },
+  { tab: 'library', label: 'Editor keys sheet', sel: '#doc-keys-overlay .modal-card', wait: 6000, byName: true, closeFn: 'docIdeCloseKeys()',
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-keys.js', content: 'let a = 1;', file_type: 'js' }) }); await loadDocuments(d.id); for (let i = 0; i < 40 && typeof docIdeOpenKeys !== 'function'; i++) await new Promise((r) => setTimeout(r, 250)); docIdeOpenKeys(); })()" },
   // The Debug tab (Brief 70): the same panel paused on a breakpoint inside a
   // call, with a watch, so the five actions, the stack and breakpoint rows,
   // the watch's remove and its field are all there to measure. ONLY=Debug.
@@ -286,6 +294,12 @@ const SURFACES = [
 
     if (surface.close) {
       await page.click(surface.close).catch(() => {});
+      await page.waitForTimeout(400);
+    }
+    //: An overlay with no close button of its own (the palette) shuts by its
+    //: own function, so the next row's tab is not under it.
+    if (surface.closeFn) {
+      await page.evaluate((src) => { (0, eval)(src); }, surface.closeFn);
       await page.waitForTimeout(400);
     }
 

@@ -2578,7 +2578,23 @@ const DOC_COMMANDS = [
   { id: "unfold-all", icon: "ph:arrows-out-line-vertical", label: "Unfold every block in a code file", keys: "Ctrl+Alt+]",
     code: true, run: () => docIdeFoldAll(true) },
   { id: "problems", icon: "ph:warning-circle", label: "List every problem in this file", keys: "Ctrl+Shift+M",
-    code: true, run: () => docIdeProblems() },
+    code: true, run: () => docPanelToggle("problems") },
+  //: Brief 71 (I3, D8): the panel and its Console on VS Code's chords, the
+  //: editor's palette, the split and this table as a sheet. The chords are
+  //: answered in documents-ide.js (`docIdeKeydown`), which stops them before
+  //: the registry's own Ctrl+Shift+P and Ctrl+Shift+Y.
+  { id: "panel", icon: "ph:terminal-window", label: "Show or hide the panel: Output, Problems, Tests, Console", keys: "Ctrl+J",
+    code: true, run: () => docPanelToggle(null) },
+  { id: "console", icon: "ph:terminal", label: "Open the console: a line of Python or JavaScript in what the last run left", keys: "Ctrl+Shift+Y",
+    code: true, run: () => docPanelToggle("console") },
+  { id: "command-palette", icon: "ph:command", label: "Run an editor command by name (also F1)", keys: "Ctrl+Shift+P",
+    code: true, run: () => docIdeOpenPalette() },
+  { id: "split", icon: "ph:columns", label: "Split the editor: this file again, beside itself", keys: "Ctrl+\\",
+    code: true, run: () => docIdeToggleSplit() },
+  { id: "outline", icon: "ph:tree-view", label: "Show the outline: this file's symbols, following the caret", keys: "none",
+    code: true, run: () => showDocSidebarSection("outline") },
+  { id: "keybindings", icon: "ph:keyboard", label: "Every editor command and its key", keys: "Ctrl+K Ctrl+S",
+    code: true, run: () => docIdeOpenKeys() },
   { id: "minimap", icon: "ph:sidebar-simple", label: "Show the minimap in a code file", keys: "none",
     code: true, run: () => docIdeToggleMinimap() },
   { id: "compare-version", icon: "ph:git-diff", label: "Compare with a saved version", keys: "none",
@@ -18906,14 +18922,12 @@ function docCmTheme(CM) {
       //: Run on a .py file before the Pyodide extra is installed: the row's
       //: one action, kept whole beside the sentence it answers.
       ".cm-run-install": { flex: "none", whiteSpace: "nowrap" },
-      //: Output and Debug (Brief 70): the panel's own tab strip in its head.
-      ".cm-run-tabs": { flex: "none", alignSelf: "stretch" },
-      ".cm-run-panel.is-debug .cm-run-log, .cm-run-panel.is-debug .cm-run-frame": { display: "none" },
       //: The Debug tab: the five actions and where it stopped, the exception
       //: if that is why, then Variables, Watch, Call stack and Breakpoints as
       //: columns that fold to a stack on a narrow panel.
-      ".cm-debug": { display: "none", flex: "1", minHeight: "0", overflow: "auto", flexDirection: "column" },
-      ".cm-run-panel.is-debug .cm-debug": { display: "flex" },
+      //: The Debug tab is one of the panel's panes (Brief 71): shown and hidden
+      //: by `.hidden`, like the others.
+      ".cm-debug": { display: "flex", flex: "1", minHeight: "0", overflow: "auto", flexDirection: "column" },
       ".cm-debug-bar": {
         display: "flex",
         flexWrap: "wrap",

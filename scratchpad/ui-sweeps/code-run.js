@@ -410,8 +410,8 @@ const times = {};
       const r = body.getBoundingClientRect();
       return { shown: !body.classList.contains("hidden") && r.height > 20, left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), lines: body.querySelectorAll("p").length, w: innerWidth, h: innerHeight };
     });
-    //: Four since Brief 70 added Debug's line.
-    ok(`layout ${WIDTH}: the '?' opens four lines of help inside the window`, help.shown && help.lines === 4 && help.left >= 0 && help.right <= help.w && help.top >= 0 && help.bottom <= help.h, J(help));
+    //: Five since Brief 70 added Debug's line and Brief 71 the tabs' and keys' lines.
+    ok(`layout ${WIDTH}: the '?' opens five lines of help inside the window`, help.shown && help.lines === 5 && help.left >= 0 && help.right <= help.w && help.top >= 0 && help.bottom <= help.h, J(help));
     await page.click(".cm-run-help");
   }
 

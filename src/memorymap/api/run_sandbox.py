@@ -489,6 +489,10 @@ _JS_DEBUG_WORKER = r"""
 #:   sandbox and policy, with the same one-line prelude in front of it, and is
 #:   shown.
 #: - `stop`: the worker is terminated, the frame emptied.
+#: - `eval` (the console, D8): one line evaluated in the worker's global as
+#:   the last run left it (a fresh worker when nothing ran, or the last run
+#:   was not a script). Everything it sends up carries the line's `mmEval`
+#:   until its `eval-done`, which holds the value as text.
 RUN_SANDBOX_HTML = (
     r"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Run</title>
@@ -506,14 +510,18 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
   var JS_DEBUG = """
     + json.dumps(_JS_DEBUG_WORKER).replace("</", "<\\/")
     + r""";
-  var worker = null, frame = null, current = 0;
-  function up(id, msg) { msg.mmRun = id; parent.postMessage(msg, "*"); }
+  var worker = null, frame = null, current = 0, evalId = 0, workerKind = "";
+  function up(id, msg) {
+    msg.mmRun = id;
+    if (evalId) { msg.mmEval = evalId; if (msg.t === "eval-done") evalId = 0; }
+    parent.postMessage(msg, "*");
+  }
   // The stack's frames are the finder, the console method, then the caller:
   // the first frame from the third on is the user's own source.
   function prelude(post) {
     return "(function(){var P=" + post + ";function F(v){if(typeof v==='string')return v;" +
       "if(v instanceof Error)return v.name+': '+v.message;try{var s=JSON.stringify(v);return s===undefined?String(v):s}catch(e){return String(v)}}" +
-      "function L(){var s=(new Error().stack||'').split('\\n');for(var i=3;i<s.length;i++){var m=/(?:blob:|srcdoc)[^\\s)]*:(\\d+):\\d+\\)?\\s*$/.exec(s[i]);" +
+      "function L(){var s=(new Error().stack||'').split('\\n');if(/\\beval at /.test(s[3]||''))return null;for(var i=3;i<s.length;i++){var m=/(?:blob:|srcdoc)[^\\s)]*:(\\d+):\\d+\\)?\\s*$/.exec(s[i]);" +
       "if(m)return Number(m[1])}return null}" +
       "['log','info','warn','error','debug'].forEach(function(k){console[k]=function(){var a=[].slice.call(arguments);" +
       "P({t:'log',level:k,text:a.map(F).join(' '),line:L()})}});" +
@@ -524,6 +532,8 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
   function stop() {
     if (worker) { worker.terminate(); worker = null; }
     if (frame) { frame.remove(); frame = null; }
+    evalId = 0;
+    workerKind = "";
   }
   //: Lines of the document before `source`, as blank lines, so the browser's
   //: line numbers stay the document's (Run selection, Run cell).
@@ -547,8 +557,20 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     //: at`) are not taken for the document's by the line finder.
     var tests = d && d.tests && d.harness ? "eval(" + JSON.stringify(String(d.harness)) + ");" : "";
     var after = tests ? "\n;__mmTests().then(__mmDone);" : "\n;__mmDone();";
-    var src = prelude("function(m){postMessage(m)}") + timers + modules + tests + pad(d) + code + after;
+    //: The console's listener (D8), on the same first line: an indirect
+    //: `eval` runs at the worker's global scope, so it sees the script's own
+    //: top-level names, `let` and `const` included.
+    var repl = "self.addEventListener('message',function(e){var m=e.data;if(!m||typeof m.mmEval!=='number')return;" +
+      "function S(v){if(typeof v==='string')return JSON.stringify(v);if(typeof v==='function')return 'function '+(v.name||'(anonymous)');" +
+      "if(v instanceof Error)return v.name+': '+v.message;try{var s=JSON.stringify(v);return s===undefined?String(v):s}catch(x){return String(v)}}" +
+      "function E(x){return x instanceof Error?x.name+': '+x.message:'Uncaught '+S(x)}" +
+      "var r;try{r=(0,eval)(String(m.source))}catch(x){postMessage({t:'eval-done',ok:false,text:E(x)});return}" +
+      "if(r&&typeof r.then==='function'){r.then(function(v){postMessage({t:'eval-done',ok:true,text:'Promise resolved: '+S(v)})}," +
+      "function(x){postMessage({t:'eval-done',ok:false,text:'Promise rejected: '+E(x)})});return}" +
+      "postMessage({t:'eval-done',ok:true,text:S(r)})});";
+    var src = prelude("function(m){postMessage(m)}") + timers + modules + repl + tests + pad(d) + code + after;
     worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    workerKind = "js";
     worker.onmessage = function (e) { if (id === current) up(id, e.data); };
     worker.onerror = function (e) {
       e.preventDefault();
@@ -570,6 +592,7 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     var d = e.data || {};
     if (e.source !== parent || typeof d.mmRun !== "number") return;
     if (d.type === "stop") { stop(); return; }
+    if (d.type === "eval") { evalJs(d); return; }
     //: The panel's action at a debugger stop, for the stepping worker.
     if (d.type === "reply") { if (worker && d.mmRun === current) worker.postMessage({ reply: d.value }); return; }
     if (d.type !== "run") return;
@@ -582,11 +605,25 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
       up(current, { t: "log", level: "error", text: String(err && err.message || err), line: null });
     }
   }
+  function evalJs(d) {
+    evalId = Number(d.mmEval) || 0;
+    try {
+      if (!worker || workerKind !== "js") {
+        if (worker) { worker.terminate(); worker = null; }
+        current = d.mmRun;
+        runJs(current, "", {});
+      }
+      worker.postMessage({ mmEval: evalId, source: String(d.source || "") });
+    } catch (err) {
+      up(current, { t: "eval-done", ok: false, text: String(err && err.message || err) });
+    }
+  }
   //: SQL (D5): sql.js's text and binary arrive in `lib`, from the app.
   function runSql(id, code, d) {
     var lib = d.lib || {};
     if (typeof lib.js !== "string" || !(lib.wasm instanceof ArrayBuffer)) throw new Error("SQLite did not arrive with the run.");
     worker = new Worker(URL.createObjectURL(new Blob([lib.js + "\n;" + SQL_WORKER], { type: "text/javascript" })));
+    workerKind = "sql";
     worker.onmessage = function (e) { if (id === current) up(id, e.data); };
     worker.onerror = function (e) {
       e.preventDefault();
@@ -802,6 +839,10 @@ def _mm_input(prompt=""):
     return line
 
 
+# The namespace the last run left, for the console (D8).
+_MM_NS = {}
+
+
 def _mm_run(code, emit, offset=0, stdin="", ask=None):
     import io
 
@@ -809,10 +850,12 @@ def _mm_run(code, emit, offset=0, stdin="", ask=None):
     saved = sys.stdout, sys.stderr, sys.stdin
     sys.stdout, sys.stderr, sys.stdin = out, err, io.StringIO(str(stdin or ""))
     _MM_ASK[0] = ask
+    namespace = {"__name__": "__main__", "input": _mm_input}
+    _MM_NS["ns"] = namespace
     try:
         # Blank lines for the document above a selection or a cell, so every
         # line number is the document's.
-        exec(compile("\n" * max(0, int(offset)) + code, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
+        exec(compile("\n" * max(0, int(offset)) + code, "<document>", "exec"), namespace)
     except SystemExit as stop:
         out.flush(); err.flush()
         if stop.code not in (None, 0):
@@ -831,6 +874,33 @@ def _mm_run(code, emit, offset=0, stdin="", ask=None):
         out.flush(); err.flush()
         sys.stdout, sys.stderr, sys.stdin = saved
         _MM_ASK[0] = None
+
+
+def _mm_eval(code, emit):
+    """The console (D8): one line in the namespace the last run left (a
+    fresh one before any run). An expression's value is echoed as the
+    Python prompt echoes it (`single` mode, through `sys.displayhook`);
+    several statements run as a block."""
+    import io
+
+    out, err = _MMOut("log", emit), _MMOut("error", emit)
+    saved = sys.stdout, sys.stderr, sys.stdin
+    sys.stdout, sys.stderr, sys.stdin = out, err, io.StringIO("")
+    namespace = _MM_NS.setdefault("ns", {"__name__": "__main__", "input": _mm_input})
+    try:
+        try:
+            compiled = compile(code, "<console>", "single")
+        except SyntaxError:
+            compiled = compile(code, "<console>", "exec")
+        exec(compiled, namespace)
+    except SystemExit:
+        pass
+    except BaseException as exc:
+        out.flush(); err.flush()
+        emit("error", traceback.format_exception_only(type(exc), exc)[-1].strip(), _mm_line(exc), True)
+    finally:
+        out.flush(); err.flush()
+        sys.stdout, sys.stderr, sys.stdin = saved
 
 
 def _mm_line(exc):
@@ -1209,6 +1279,14 @@ self.onmessage = async (e) => {
         line: line == null ? null : Number(line), uncaught: Boolean(uncaught),
       });
     };
+    if (e.data.eval) {
+      //: The console (D8): one line in the last run's namespace.
+      const evaluate = p.globals.get("_mm_eval");
+      try { evaluate(String(e.data.source || ""), emit); } finally { evaluate.destroy(); }
+      post({ t: "eval-done", ok: true });
+      postMessage({ run, idle: true });
+      return;
+    }
     if (e.data.tests) {
       //: Tests (D7): one `test` row per test, then the totals.
       const t0 = performance.now();
@@ -1246,6 +1324,7 @@ self.onmessage = async (e) => {
     post({ t: "done" });
   } catch (err) {
     post({ t: "log", level: "error", text: "Python could not run: " + String((err && err.message) || err), line: null, uncaught: true });
+    if (e.data.eval) post({ t: "eval-done", ok: false });
   }
   postMessage({ run, idle: true });
 };
@@ -1261,7 +1340,7 @@ RUN_SANDBOX_PY_HTML = (
   var WORKER = """
     + json.dumps(_PY_WORKER).replace("</", "<\\/")
     + r""";
-  var worker = null, current = 0, busy = false;
+  var worker = null, current = 0, busy = false, evalId = 0;
   //: D2: with cross-origin isolation the worker can block on this buffer
   //: while the panel decides (a debugger stop, an input() line); without it
   //: a run still runs, and the app says Debug cannot.
@@ -1277,10 +1356,15 @@ RUN_SANDBOX_PY_HTML = (
     Atomics.store(ctl, 0, 1);
     Atomics.notify(ctl, 0);
   }
-  function up(id, msg) { msg.mmRun = id; parent.postMessage(msg, "*"); }
+  function up(id, msg) {
+    msg.mmRun = id;
+    if (evalId) { msg.mmEval = evalId; if (msg.t === "eval-done") evalId = 0; }
+    parent.postMessage(msg, "*");
+  }
   function stop() {
     if (worker) { worker.terminate(); worker = null; }
     busy = false;
+    evalId = 0;
   }
   function boot() {
     var src = "const BASE = " + JSON.stringify(BASE) + ";\n" + WORKER;
@@ -1300,6 +1384,19 @@ RUN_SANDBOX_PY_HTML = (
     var d = e.data || {};
     if (e.source !== parent || typeof d.mmRun !== "number") return;
     if (d.type === "stop") { stop(); return; }
+    //: The console (D8): one line in the namespace the last run left, in
+    //: the same worker (a fresh one, and a fresh namespace, after a Stop).
+    if (d.type === "eval") {
+      if (busy) {
+        parent.postMessage({ mmRun: d.mmRun, mmEval: d.mmEval, t: "eval-done", ok: false, text: "A run is still going: stop it, or wait for it to finish." }, "*");
+        return;
+      }
+      evalId = Number(d.mmEval) || 0;
+      if (!worker) boot();
+      busy = true;
+      worker.postMessage({ run: current, eval: true, source: String(d.source || "") });
+      return;
+    }
     if (d.type === "reply") { if (d.mmRun === current) reply(d.value); return; }
     if (d.type !== "run") return;
     //: A run still going (a `while True`) cannot be interrupted from here:

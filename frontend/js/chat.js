@@ -1476,7 +1476,6 @@ function webPageMarkdown(page) {
 //: One page at a time, like a selection: a citation is "this, about which I
 //: am about to ask", not a collection.
 let attachedWebPage = null;
-let chatLastWebUrl = null;
 //: The budget for the page's text in the prompt. A long article runs to
 //: tens of thousands of characters; the opening of a page is where its claim
 //: is, and a local model's context is the scarcest thing in the round.

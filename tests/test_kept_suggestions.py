@@ -76,7 +76,7 @@ def test_the_card_offers_them_and_shows_the_confidence():
 
     js = app_js_text()
     assert 'setLabel(take, `ph:plus ${tag}`);' in js and 'const group = chip("", "tag suggested-tag");' in js
-    assert "answerSuggestedTags(entry, { discard: [tag] })" in js
+    assert "answerTags(entry, { discard: [tag] })" in js
     assert '"item-fact filing-sure"' in js
 
 

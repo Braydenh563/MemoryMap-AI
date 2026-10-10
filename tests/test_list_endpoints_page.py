@@ -31,6 +31,7 @@ ROUTES = ROOT / "src" / "memorymap" / "api"
 #: Lists whose size this app decides, with the reason each is bounded. Adding
 #: a row here is a claim that can be checked by reading the code it names.
 BOUNDED_BY_THE_APP = {
+    "list_activity": "what is running now: one row per live job, bounded by the workers, not the notebook",
     "list_modes": "the chat modes this app ships, a fixed list in code",
     "list_tools": "the AI tools this app defines, a fixed list in code",
     "list_file_types": "the file types this app knows how to read",

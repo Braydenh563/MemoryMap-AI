@@ -232,6 +232,7 @@ FAULTS = {
         '"Emmet could not be loaded, so nothing was wrapped."': 'the Emmet module failed to load: a broken asset',
     },
     'documents.js': {
+        '"The Word writer could not be loaded."': 'the lazy script failed to load: a file missing from the install or a broken fetch',
         '"Couldn\'t open that version."': 'fetching a saved version failed',
     },
     'graph-canvas.js': {

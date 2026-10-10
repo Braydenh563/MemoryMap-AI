@@ -60,7 +60,10 @@ def test_the_dock_is_the_search_customise_and_one_menu():
     #: every tab's dock ends with one).
     assert 'id="dash-help-toggle"' in dock
     assert len(re.findall(r"<button\b", dock)) == 2, "the dock is the search, two menus and the '?', nothing else"
-    assert "kebabMenu(" not in _function("renderQuickLinks"), "Quick access has its own ⋯ again"
+    #: The owner (2026-10-10): a meatball on the heading's line, the same
+    #: Customise rows; nothing of its own below the heading.
+    quick = _function("renderQuickLinks")
+    assert quick.count("kebabMenu(") == 1 and "head.append(heading, kebabMenu(dashCustomiseItems()" in quick
 
 
 def test_the_start_row_is_kept_whole_with_one_primary():

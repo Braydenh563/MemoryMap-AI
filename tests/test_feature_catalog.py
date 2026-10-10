@@ -72,6 +72,8 @@ SCRIPTS = (
     "meetings.js",
     #: Tidy (INBOX 691), lazy behind `LAZY_MODULES.tidy`.
     "tidy.js",
+    #: The Activity panel (Brief 73), lazy behind `LAZY_MODULES.activity`.
+    "activity-panel.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short

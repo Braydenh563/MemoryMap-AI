@@ -45,6 +45,9 @@ LIBRARY_KEYS = {
     "p5.js": "p5",
     "Phosphor Icons": "phosphor",
     "English word list": "wordlist",
+    "Mammoth": "mammoth",
+    "docx": "docx",
+    "draw.io stencils": "stencils",
 }
 
 P5_FUNCTIONS = [
@@ -732,6 +735,29 @@ def wordlist_report() -> Report:
     )
 
 
+#: Mammoth's public surface (mammoth.browser), and the docx classes a writer
+#: reaches for; both are read in documents-word.js (Brief 42, INBOX 736).
+MAMMOTH_API = ["convertToHtml", "convertToMarkdown", "extractRawText", "embedStyleMap", "images"]
+DOCX_API = [
+    "Document", "Packer", "Paragraph", "TextRun", "HeadingLevel", "Table", "TableRow", "TableCell",
+    "ExternalHyperlink", "InternalHyperlink", "ImageRun", "AlignmentType", "PageBreak", "Header", "Footer",
+    "Bookmark", "LevelFormat", "TabStopType", "UnderlineType", "PageNumber", "FootnoteReferenceRun",
+    "WidthType", "BorderStyle", "ShadingType", "SectionType",
+]
+
+
+def mammoth_report(scripts: dict[str, str]) -> Report:
+    text = scripts.get("documents-word.js", "")
+    called = [name for name in MAMMOTH_API if re.search(rf"\bmammoth\.{name}\b", text)]
+    return Report("mammoth", "Mammoth", list(MAMMOTH_API), called, {}, ["read in documents-word.js, a .docx brought into the Library"])
+
+
+def docx_report(scripts: dict[str, str]) -> Report:
+    text = scripts.get("documents-word.js", "")
+    called = [name for name in DOCX_API if re.search(rf"\bD\.{name}\b", text)]
+    return Report("docx", "docx", list(DOCX_API), called, {}, ["written in documents-word.js, Download as Word"])
+
+
 def d3_module(name: str) -> str:
     """Which d3 module a top-level export belongs to (by name; d3 has no map)."""
     rules = (
@@ -835,7 +861,7 @@ def flashtext_report(sources: dict[str, str]) -> Report:
 
 
 def stencils_report(scripts: dict[str, str]) -> Report:
-    """The draw.io stencil sets and board-library files (not in THIRD_PARTY.md's table)."""
+    """The draw.io stencil sets and board-library files (THIRD_PARTY.md's board-library table)."""
     library = FRONTEND / "board-library"
     index = json.loads(_read(library / "index.json"))
     served = {s["key"] for s in index["sets"]}
@@ -871,6 +897,8 @@ def collect() -> dict[str, Report]:
         p5_report(scripts),
         flashtext_report(sources),
         stencils_report(scripts),
+        mammoth_report(scripts),
+        docx_report(scripts),
     ]
     return {r.key: r for r in reports}
 

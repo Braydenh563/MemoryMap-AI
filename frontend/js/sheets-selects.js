@@ -294,18 +294,24 @@ const SIDEBAR_RAIL_NAMES = {
 
 //: A resize grip says its value (WCAG 4.1.2: a focusable separator requires
 //: `aria-valuenow`). Read by an observer, so every way of resizing reports it.
-function trackSeparatorValue(handle, panel, min, max) {
+function trackSeparatorValue(handle, panel, min, max, axis = "width") {
   handle.setAttribute("aria-valuemin", String(min));
   handle.setAttribute("aria-valuemax", String(max));
-  const write = (width) => {
-    const now = Math.round(width);
+  //: A horizontal separator (the code editor's output panel) reports its height.
+  const tall = axis === "height";
+  const size = () => (tall ? panel.getBoundingClientRect().height : panel.getBoundingClientRect().width);
+  const write = (px) => {
+    const now = Math.round(px);
     if (!now) return; // hidden or folded away: keep the last real value
     handle.setAttribute("aria-valuenow", String(Math.min(Math.max(now, min), max)));
-    handle.setAttribute("aria-valuetext", `${now} pixels wide`);
+    handle.setAttribute("aria-valuetext", `${now} pixels ${tall ? "tall" : "wide"}`);
   };
-  write(panel.getBoundingClientRect().width || min);
+  write(size() || min);
   if (typeof ResizeObserver === "function") {
-    new ResizeObserver((entries) => write(entries[entries.length - 1].borderBoxSize?.[0]?.inlineSize ?? panel.getBoundingClientRect().width)).observe(panel);
+    new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1].borderBoxSize?.[0];
+      write((tall ? box?.blockSize : box?.inlineSize) ?? size());
+    }).observe(panel);
   }
 }
 

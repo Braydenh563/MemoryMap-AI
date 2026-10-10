@@ -30,7 +30,7 @@ function foldNoteToolbarForFirstPaint() {
   //: label with nothing behind it; a press focuses the box, which mounts
   //: the editor and the tools with it.
   bar.addEventListener("click", (event) => {
-    if (!bar.querySelector(".doc-toolbar-tools") && !event.target.closest("button")) $("entry-content").focus();
+    if (!bar.querySelector(".doc-toolbar-tools") && !event.target.closest("button")) startNewNote();
   });
 }
 foldNoteToolbarForFirstPaint();

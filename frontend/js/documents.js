@@ -10155,7 +10155,7 @@ function exportDocumentBundle() {
 //: Written in the browser by documents-word.js (Brief 42), loaded on the
 //: first press: no server extra to install, so no 501.
 async function exportDocumentDocx() {
-  if (!(await lazyScript("/js/documents-word.js"))) return toast("The Word writer could not be loaded.", true);
+  if (!(await lazyScript("/js/documents-word.js"))) return toast("The Word writer could not be loaded.", true, { action: ["Try again", exportDocumentDocx] });
   return docWordExport();
 }
 

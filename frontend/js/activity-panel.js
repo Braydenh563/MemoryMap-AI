@@ -10,18 +10,18 @@
 //: Polled while the tab is in view, every two seconds: the bar is the answer
 //: to "is it still working?", and a slower bar reads as frozen.
 const ACTIVITY_POLL_MS = 2000;
-let activityPollTimer = null;
+const activityPoll = { timer: null };
 
 function activityRunningShown() {
   return !$("agent-monitor").classList.contains("hidden") && !$("activity-running").classList.contains("hidden");
 }
 
 async function renderActivity() {
-  clearTimeout(activityPollTimer);
+  clearTimeout(activityPoll.timer);
   if (!activityRunningShown()) return;
   const body = await apiJson("/activity", { silent: true }).catch(() => null);
   if (body) paintActivity(body);
-  activityPollTimer = setTimeout(renderActivity, ACTIVITY_POLL_MS);
+  activityPoll.timer = setTimeout(renderActivity, ACTIVITY_POLL_MS);
 }
 window.renderActivity = renderActivity;
 

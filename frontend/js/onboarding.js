@@ -291,7 +291,7 @@ function renderOnboardingSlide() {
 //: the update question. `show` returns a promise that settles when its surface is done;
 //: the next turn also waits until nothing modal is on screen, so a surface
 //: that forgets to say when it closed cannot open the next one on top of it.
-let firstRunChain = Promise.resolve();
+const firstRun = { chain: Promise.resolve() };
 
 function firstRunSurfaceOpen() {
   const shown = (id) => {
@@ -310,8 +310,8 @@ function whenFirstRunClear() {
 }
 
 function firstRunTurn(show) {
-  const turn = firstRunChain.then(whenFirstRunClear).then(() => show()).catch(() => {});
-  firstRunChain = turn.then(whenFirstRunClear);
+  const turn = firstRun.chain.then(whenFirstRunClear).then(() => show()).catch(() => {});
+  firstRun.chain = turn.then(whenFirstRunClear);
   return turn;
 }
 

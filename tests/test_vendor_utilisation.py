@@ -39,6 +39,8 @@ CALLED_FLOOR = {
     "p5": 21,
     "flashtext": 2,
     "stencils": 7,
+    "mammoth": 1,
+    "docx": 9,
 }
 
 

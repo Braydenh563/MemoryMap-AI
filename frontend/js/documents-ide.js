@@ -198,7 +198,7 @@ const DOC_RUN_HEIGHT_MIN = 96;
 
 function docIdeRunHeights() {
   try {
-    return JSON.parse(localStorage.getItem(DOC_RUN_HEIGHT_KEY) || "{}") || {};
+    return prefs.json(DOC_RUN_HEIGHT_KEY, null) || {};
   } catch {
     return {};
   }
@@ -209,11 +209,7 @@ function docIdeRunSaveHeight(px) {
   const all = docIdeRunHeights();
   if (px === null) delete all[currentDoc.id];
   else all[currentDoc.id] = Math.round(px);
-  try {
-    localStorage.setItem(DOC_RUN_HEIGHT_KEY, JSON.stringify(all));
-  } catch {
-    /* private mode: the height is not remembered */
-  }
+  prefs.setJSON(DOC_RUN_HEIGHT_KEY, all);
 }
 
 function docIdeRunApply(dom, px, save = true) {
@@ -225,7 +221,6 @@ function docIdeRunApply(dom, px, save = true) {
   }
   const next = Math.min(Math.max(Math.round(px), DOC_RUN_HEIGHT_MIN), max);
   dom.style.height = `${next}px`;
-  dom.querySelector(".doc-run-resize")?.setAttribute("aria-valuenow", String(next));
   if (save) docIdeRunSaveHeight(next);
 }
 
@@ -237,10 +232,8 @@ function docIdeRunGrip(dom, view) {
   handle.setAttribute("tabindex", "0");
   handle.setAttribute("aria-label", "Resize the output: arrow keys, or drag");
   handle.title = "Drag to resize, double-click to reset";
-  //: The value it says (WCAG 4.1.2) is the height: `trackSeparatorValue`
-  //: reads a width, so the three attributes are written here instead.
-  handle.setAttribute("aria-valuemin", String(DOC_RUN_HEIGHT_MIN));
-  handle.setAttribute("aria-valuemax", String(Math.round(window.innerHeight * 0.8)));
+  //: The value it says (WCAG 4.1.2) is the height: the helper's height axis.
+  trackSeparatorValue(handle, dom, DOC_RUN_HEIGHT_MIN, Math.round(window.innerHeight * 0.8), "height");
   handle.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     const startY = event.clientY;

@@ -9,9 +9,10 @@ import re
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian
@@ -380,11 +381,45 @@ def patterns(session: Session = Depends(get_session)) -> dict:
     from memorymap.ai import insights
 
     found = insights.from_session(session, user_now(deps.get_config()).date())
-    return {
-        "patterns": [
-            {"rule": i.rule, "text": i.text, "short": insights.short(i), "note_ids": i.note_ids} for i in found
-        ]
-    }
+    known = insights.memory(session)
+    return {"patterns": [insights.as_row(i, known) for i in found]}
+
+
+class InsightVerdict(BaseModel):
+    """An insight line as the page has it, with what the person said of it
+    (CHAT_PLAN decision 60)."""
+
+    rule: str = Field(max_length=20)
+    text: str = Field(default="", max_length=2000)
+    note_ids: list[int] = Field(default_factory=list, max_length=200)
+    slots: dict = Field(default_factory=dict)
+
+
+@router.post("/confirm", status_code=201)
+def confirm_insight(body: InsightVerdict, session: Session = Depends(get_session)) -> dict:
+    """Confirm: the insight is written as a fact the person vouched for,
+    "confirmed by you, <date>", and said that way from the next turn on."""
+    from memorymap.ai import insights
+
+    try:
+        done = insights.confirm(session, body.model_dump(), user_now(deps.get_config()).date())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.commit()
+    return done
+
+
+@router.post("/dismiss", status_code=201)
+def dismiss_insight(body: InsightVerdict, session: Session = Depends(get_session)) -> dict:
+    """Not right: this insight and its near-variants are not shown again."""
+    from memorymap.ai import insights
+
+    try:
+        done = insights.dismiss(session, body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.commit()
+    return done
 
 
 @router.get("/tag-cloud")

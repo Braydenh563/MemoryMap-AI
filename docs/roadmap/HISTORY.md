@@ -338,6 +338,43 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-10 (CHAT_PLAN Brief 67)
+
+**Built** by Brief 67 (F3: the realiser, the validators and the acts),
+decisions 51 to 54 and 60, one commit each with its numbers.
+
+- **Variety floor (decision 51).** `realise.variety` counts openers,
+  wordings and protected-span sets; `tests/test_realise.py` asserts at least
+  3 openers of 20 turns for F0's ten questions in both voices and 3
+  wordings in the help register, facts identical. Measured with the chat's
+  salt and turn (F0's 1.0 was without them): min 1 to 4 natural, 3
+  professional, 4 help; the broad lead and the help pointer had one wording.
+- **Validators (52 to 54).** `ai/validate.py`: `source_check`, grounding
+  marks, the maxims lint, slot completeness, the computed-sentence rule; on
+  the engine's grounding event and on a model's plain answer (a number in
+  none of its notes is said under it). Maxims over the 115 eval answers 17
+  to 0; the clock, a coin and dice say "Read as".
+- **Act registry (53).** `ai/acts.py` over `commands.py`: 17 acts, 13 writes,
+  each with its inverse; 13 of 13 run and undone leave the notebook as it
+  was. Chat and Ask route through it; the capability line and the Guide's
+  "Things Chat does for you" are generated from it; the act card puts the
+  inverse on the app's undo stack.
+- **Confirm and Not right (60).** `insights.confirm`, `dismiss`, `key`,
+  `memory`; `/insights/confirm` and `/insights/dismiss`; Chat, Tidy's
+  Patterns and the dashboard carry both. A confirmed insight opens the next
+  answer on its subject as "Golf is a hobby of yours (confirmed by you, 10
+  October)."; a dismissed one, with a fifth note added, 0 of 20 runs.
+- **INBOX 729, the composer's joins and summary.** "it just uses one word sentence joints and has no life or complexity to it". Measured 2026-10-10 on "What have I saved about hobbies?" with no model: two quoted notes joined by "Also,", no sentence that ties them ("Your hobbies notes cover painting and a list to try"). Close when the 100-question eval's `lead_in_repeats` and `openers_distinct` hold over a 20-turn session and every multi-note answer opens with one summary clause naming the topic and the count, titles never cut mid-word, no capital after a comma. Brief 39 (the realiser), Brief 67. Closed: every broad answer
+  over several notes opens with the topic and the count, 10 of 10 on the
+  evals ("What do my notes say about running?" was not read as broad: its
+  frame was taken off first); the session's `lead_in_repeats` 0 and
+  `openers_distinct` held; titles and commas by the maxims lint, 0.
+- **INBOX 734, the reminder's wording.** "would the composer be able to do the reminders magic add well??" `ai/reminder_parser.py` reads the date and time; the composer adds the reminder's text and its reason from the note. Close when the act's confirm card (decision 38) shows "Remind you on Friday at 9: call the dentist" with the note it came from, on 10 phrasings, grounded 1.0. Brief 67. Closed: the card says
+  "Remind you on Friday at 9: call the dentist", names the Dentist note and
+  attaches the reminder to it, 10 of 10 phrasings on the route ("on friday
+  at 9 remind me to ..." was not read before); the words after the colon are
+  the person's own.
+
 ## Moved from the plans, 2026-10-10 (CHAT_PLAN Phase 6)
 
 **Built** by Brief 39 (the engine agent), steps 0 to 10, one commit each, the

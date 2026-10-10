@@ -115,7 +115,9 @@ def rederived_insights(question: str, notes: list[dict], on: date) -> set[str]:
 
     terms = composer.subject_terms(question)
     subjects = {composer._asked_span(question, terms), *terms} - {""}
-    return {i.text for subject in subjects for i in insights.for_subject(subject, notes, on, question)}
+    found = [i for subject in subjects for i in insights.for_subject(subject, notes, on, question)]
+    #: After a lead that said the count, a recurrence closes in its short form.
+    return {i.text for i in found} | {insights.after_lead(i) for i in found if i.rule == "recurrence"}
 
 
 def trace_failures(result: dict, question: str, notes: list[dict], on: date, asked_from: str = "") -> list[str]:
@@ -166,6 +168,11 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "asked":
             if text.lower() not in f"{question} {asked_from}".lower():
                 failures.append(f"not from the question: {text!r}")
+        elif kind == "confirmed":
+            #: The person's own word on an insight (decision 60): its source
+            #: is in the line, "confirmed by you, <date>".
+            if "(confirmed by you, " not in text:
+                failures.append(f"a confirmed line with no source: {text!r}")
         elif kind == "computed":
             #: Worked out from the question alone (CHAT_PLAN decision 41): the
             #: utility, run again, says the same sentence.
@@ -746,18 +753,24 @@ def run_insights() -> list[dict]:
             said = [i.text for i in insights.notebook(row["notes"], on, limit=5) if i.rule == "drift"]
         else:
             result = composer.compose(row["question"], row["notes"], today=on)
-            said = [p[1] for p in result["parts"] if p[0] == "measure" and len(p[1]) > 30]
+            #: A recurrence after a lead that said its count closes in its short
+            #: form (`insights.after_lead`, decision 52): ends with the hedge.
+            hedges = tuple(f"{h}." for h in composer_tables.INSIGHT_HEDGES.values())
+            said = [p[1] for p in result["parts"] if p[0] == "measure" and (len(p[1]) > 30 or p[1].lower().endswith(hedges))]
         wanted = None
+        short = None
         if expect and row["rule"] == "recurrence":
             after = f", {_count_word(expect['after'])} of them after work" if expect["after"] >= 3 else ""
             wanted = composer_tables.INSIGHT_TEMPLATES["recurrence"].format(
                 subject=row["subject"], count=expect["count"], since=expect["since"], after=after, hedge=expect["hedge"])
+            tail = after.lstrip(", ")
+            short = f"{tail[:1].upper()}{tail[1:]}; {expect['hedge']}." if tail else f"{expect['hedge'][:1].upper()}{expect['hedge'][1:]}."
         elif expect and row["rule"] == "streak":
             wanted = composer_tables.INSIGHT_TEMPLATES["streak"].format(subject=row["subject"], weeks=expect["weeks"])
         elif expect and row["rule"] == "drift":
             wanted = composer_tables.INSIGHT_TEMPLATES["drift"].format(plan=expect["plan"], since=expect["since"])
-        out.append({"id": row["id"], "positive": row["positive"], "said": said, "wanted": wanted,
-                    "right": (wanted in said) if row["positive"] else not said})
+        out.append({"id": row["id"], "positive": row["positive"], "said": said, "wanted": wanted, "short": short,
+                    "right": (wanted in said or (short is not None and short in said)) if row["positive"] else not said})
     return out
 
 
@@ -770,7 +783,7 @@ def insights_summary(rows: list[dict]) -> dict:
         "negatives_silent": sum(r["right"] for r in negatives),
         "negatives": len(negatives),
         #: Every line said is one the row's numbers give, word for word.
-        "measured_rederived": all(not r["said"] or r["said"][0] == r["wanted"] for r in rows if r["positive"]),
+        "measured_rederived": all(not r["said"] or r["said"][0] in (r["wanted"], r["short"]) for r in rows if r["positive"]),
     }
 
 

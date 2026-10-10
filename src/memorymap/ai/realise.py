@@ -14,6 +14,13 @@ decision 33): grammar rules with a table of pairs each, no model.
   a list said as one sentence, the case after a joining comma, a title cut
   at a word.
 
+- `protected`, `opener`, `wording`, `variety`: the variety floor (decision
+  51). A composed answer is parts; the protected ones (a quote, a title, a
+  measured value, the asked words, a Help sentence) never vary, the rest
+  (openers and joins) vary by chat and turn. `VARIETY_FLOOR` of
+  `VARIETY_TURNS` turns of one question open differently, measured on every
+  build by `tests/test_realise.py` in both voices and the help register.
+
 Each rule is a table of input and output pairs in `tests/test_realise.py`;
 a rule that would change what a sentence means has a pair that shows it
 does not. The composer marks every sentence it shifted, and the grounding
@@ -233,3 +240,46 @@ def cut_title(title: str, limit: int) -> str:
     if space > 0:
         cut = cut[:space]
     return cut.rstrip(" ,;:-") + "…"
+
+
+# --- the variety floor (decision 51) ------------------------------------------------
+
+#: Parts that carry a fact or the person's words: fixed whatever the turn.
+PROTECTED = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "help", "web", "reminder"})
+#: Twenty turns of one question in one chat open at least three ways (the
+#: plan's floor, 2026-10-10; measured 1 before the mention lead had variants).
+VARIETY_FLOOR = 3
+VARIETY_TURNS = 20
+
+
+def protected(parts: list) -> tuple:
+    """The answer's protected spans, in order: what must not change between
+    turns. A quote's first letter lowered after a joiner is the same fact."""
+    return tuple((p[0], p[1][:1].lower() + p[1][1:]) for p in parts if p[0] in PROTECTED and p[1])
+
+
+def opener(parts: list) -> str:
+    """How an answer starts: its first worded template phrase, or the kind of
+    the protected span it starts with ("(quote)")."""
+    for part in parts:
+        if part[0] != "template":
+            return f"({part[0]})"
+        if re.search(r"[A-Za-z]", part[1]):
+            return part[1]
+    return ""
+
+
+def wording(parts: list) -> str:
+    """The answer with every protected span said as its kind: what the
+    realiser chose, apart from what the notes said."""
+    return "".join(p[1] if p[0] not in PROTECTED else f"<{p[0]}>" for p in parts)
+
+
+def variety(results: list[dict]) -> dict:
+    """Over one question's answers in one chat: how many ways they open, how
+    many wordings they take, and how many protected-span sets (one, always)."""
+    return {
+        "openers": len({opener(r["parts"]) for r in results}),
+        "wordings": len({wording(r["parts"]) for r in results}),
+        "facts": len({protected(r["parts"]) for r in results}),
+    }

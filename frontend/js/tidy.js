@@ -22,6 +22,7 @@ const TIDY_HELP = [
   "Open a review, tick rows, press its button.",
   "One Undo reverses a whole batch.",
   "Merges, renames and bins never run alone.",
+  "Patterns: Confirm keeps one as your word; Not right hides it for good.",
 ];
 
 //: The open sheet's state, and the count's last fetch and its pending
@@ -134,7 +135,7 @@ async function openTidySheet(review = "") {
       history.id = "tidy-history";
       //: The Patterns line (CHAT_PLAN decision 32): what the notes measure,
       //: each a count or a date with one fixed hedge; shown with the overview.
-      const patterns = document.createElement("p");
+      const patterns = document.createElement("div");
       patterns.className = "muted inbox-desc tidy-patterns";
       patterns.hidden = true;
       Object.assign(state, { overview, patterns, pane, title, about, tools, list, foot, history });
@@ -162,7 +163,24 @@ async function openTidySheet(review = "") {
 async function tidyPatterns(state) {
   const body = await apiJson("/insights/patterns", { silent: true }).catch(() => null);
   if (TIDY.state !== state || !body?.patterns.length) return;
-  state.patterns.textContent = `Patterns: ${body.patterns.map((p) => p.text).join(" ")}`;
+  //: One line per pattern, each with Confirm and Not right (decision 60); a
+  //: confirmed one is said as the person's word and carries neither.
+  state.patterns.replaceChildren(
+    ...body.patterns.map((pattern) => {
+      const line = document.createElement("p");
+      line.className = "insight-line";
+      line.textContent = `Patterns: ${pattern.text} `;
+      if (!pattern.confirmed) {
+        line.appendChild(
+          insightVerdicts(pattern, (verdict, result) => {
+            if (verdict === "dismissed") line.remove();
+            else line.textContent = `Patterns: ${result.line}`;
+          })
+        );
+      }
+      return line;
+    })
+  );
   state.patterns.hidden = state.view !== "overview";
 }
 

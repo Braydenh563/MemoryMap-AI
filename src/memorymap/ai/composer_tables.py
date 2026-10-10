@@ -207,9 +207,31 @@ _PAIRS: dict[str, dict[str, list[str]]] = {
         "natural": [": ", " you wrote: ", " you noted: "],
         "professional": [": ", ": ", ": ", ", your notes state: "],
     },
+    #: "At least three of your notes mention “sourdough”": the one opener a
+    #: broad question had, so twenty turns of it opened alike (CHAT_PLAN
+    #: decision 51's floor, measured 1 of 20 before these).
+    "mention_lead": {
+        "natural": ["I count at least ", "No fewer than ", "I found at least "],
+        "professional": ["At least ", "A minimum of ", "No fewer than "],
+    },
+    "mention_mid": {
+        "natural": [" of your notes that mention ", " of your notes bring up ", " notes of yours that mention "],
+        "professional": [" of the entries mention ", " entries reference ", " of the records mention "],
+    },
+    #: A broad answer over several notes, none of which holds every word
+    #: asked, opens with one clause naming the topic and how many notes it
+    #: quotes (INBOX 729: "it just uses one word sentence joints").
+    "summary_lead": {
+        "natural": ["Here are ", "There are ", "I have "],
+        "professional": ["The records hold ", "Retrieved: ", "There are "],
+    },
+    "summary_mid": {
+        "natural": [" of your notes on ", " notes here on ", " notes that bear on "],
+        "professional": [" entries on ", " entries concerning ", " relevant entries on "],
+    },
 }
 #: The canonical `wrote_on_b` pairs with the canonical `wrote_on_a`.
-PAIRED = {"wrote_on_b": "wrote_on_a"}
+PAIRED = {"wrote_on_b": "wrote_on_a", "mention_mid": "mention_lead", "summary_mid": "summary_lead"}
 
 
 #: Variants added on 2026-10-10 from the Gemini branch, filtered: no filler
@@ -610,7 +632,7 @@ _FAMILIES_ADDED: dict[str, dict[str, list[str]]] = {'open_notes': {'natural': ['
  'both': {'natural': ['Combining both',
                       'Looking at the two together',
                       'Taking both into account',
-                      'For the two combined',
+                      'For both combined',
                       'Together',
                       'Both sides considered'],
           'professional': ['In combination', 'Evaluating both simultaneously', 'Considered jointly']},

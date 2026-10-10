@@ -189,6 +189,8 @@ PHRASES: dict[str, str] = {
     "latest_undated": "The most recent: ",
     "mention_lead": "At least ",
     "mention_mid": " of your notes mention ",
+    "summary_lead": "I found ",
+    "summary_mid": " notes on ",
     "from_span": ", from ",
     "to_span": " to ",
     "on_day": ", on ",
@@ -268,6 +270,9 @@ PHRASES: dict[str, str] = {
     "kind_web": "page ",
     # The help register (decision 36): after the Help topic's own sentence.
     "help_more": " The Guide, on the status bar, has the rest.",
+    "help_more_2": " There is more in the Guide, on the status bar.",
+    "help_more_3": " The Guide on the status bar goes further.",
+    "help_more_4": " For the rest, open the Guide on the status bar.",
     # Numbered readings of a question that only names something (decision 45).
     "readings_a": "Which do you mean: ",
     "reading_dot": ". ",
@@ -1484,6 +1489,10 @@ def _count_word(n: int) -> str:
 #: openers and joins are chosen again; empty outside a conversation, where the
 #: same question gets the same words every time.
 _SESSION: contextvars.ContextVar[str] = contextvars.ContextVar("composer_session", default="")
+#: What the person said of insights (decision 60, `insights.Memory`), set by
+#: `compose` for one answer: dismissed ones are not said, confirmed ones are
+#: said as their own word.
+_LEARNED: contextvars.ContextVar = contextvars.ContextVar("composer_learned", default=None)
 
 
 def _pick(question: str, salt: str, options: list[str]) -> str:
@@ -2014,10 +2023,8 @@ def _compare(out: _Answer, sides: tuple[str, str], views: list[NoteView], meanin
     out.t("stop", "space", "each_side")
     for label, picks, side_terms in ((sides[0], a_only, a_terms), (sides[1], b_only, b_terms)):
         out.t("para", "bold").asked(label).t("bold")
-        notes = {s.note_id for s in picks}
-        if picks:
-            out.t("open_paren").m(out.count(len(notes))).t("side_note" if len(notes) == 1 else "side_notes")
-            out.t("close_paren")
+        #: The lead said each side's count ("one mentions Lisbon and two
+        #: mention Porto"); the heading does not say it again (decision 52).
         if not picks:
             out.t("line").t("side_none")
             continue
@@ -2082,15 +2089,59 @@ def _insights_for(question: str, terms: list[str], views: list[NoteView], today:
     from memorymap.ai import insights
 
     subject = _asked_span(question, terms)
-    return insights.for_subject(subject, [v.note for v in views], today, question) if subject else []
+    #: The route's notes carry their day as `written` words, not an ISO
+    #: `created_at`, which is what the rules read: the day the composer
+    #: already read is handed over, or no insight ever fired in Chat (found
+    #: by Brief 67's sweep; the evals' notes have `created_at`).
+    notes = [{**v.note, "created_at": v.written.isoformat()} if v.written else v.note for v in views]
+    found = insights.for_subject(subject, notes, today, question) if subject else []
+    known = _LEARNED.get()
+    return [i for i in found if insights.key(i) not in known.dismissed] if known else found
+
+
+def _said_insight(out: _Answer, insight) -> None:  # noqa: ANN001
+    """Note an insight line the answer says, for its Confirm and Not right."""
+    from memorymap.ai import insights
+
+    out.insights = [*getattr(out, "insights", []), insights.as_row(insight, _LEARNED.get())]
+
+
+def _confirmed_lead(out: _Answer, question: str, terms: list[str]) -> bool:
+    """A question about a subject the person confirmed an insight on opens
+    with their word, as a fact (decision 60): "Golf is a hobby of yours
+    (confirmed by you, 10 October)." False when none matches."""
+    known = _LEARNED.get()
+    if not known or not known.confirmed:
+        return False
+    from memorymap.ai import insights
+
+    asked = {insights._stems(t) for t in [_asked_span(question, terms), *terms] if t}
+    for subject, line in known.subjects().items():
+        if subject in asked:
+            out.parts.append(("confirmed", line))
+            out.t("para")
+            out.confirmed_said = True
+            return True
+    return False
 
 
 def _insight_close(out: _Answer, question: str, terms: list[str], views: list[NoteView]) -> None:
     """A broad answer closes with what the notes measure about its subject
     (decision 32), when a rule fires: one line, marked measured."""
     found = _insights_for(question, terms, views, out.today)
-    if found:
-        out.t("para").m(found[0].text)
+    if not found or getattr(out, "confirmed_said", False):
+        return
+    insight = found[0]
+    _said_insight(out, insight)
+    if insight.rule == "recurrence" and getattr(out, "mentioned", None):
+        #: The lead already said how many notes and from when (decision 52's
+        #: quantity maxim: one fact once), so the close says only what is new:
+        #: how many were after work, and the hedge.
+        from memorymap.ai import insights
+
+        out.t("para").m(insights.after_lead(insight))
+        return
+    out.t("para").m(insight.text)
 
 
 def _insight_lead(out: _Answer, question: str, terms: list[str], views: list[NoteView]) -> bool:
@@ -2100,6 +2151,7 @@ def _insight_lead(out: _Answer, question: str, terms: list[str], views: list[Not
     found = _insights_for(question, terms, views, out.today)
     if not found:
         return False
+    _said_insight(out, found[0])
     out.m(found[0].text).t("para")
     return True
 
@@ -2115,11 +2167,25 @@ def _mentions(out: _Answer, question: str, terms: list[str], views: list[NoteVie
     holding = [v for v in views if stems <= (v.words | v.title_words | v.filed_words) and not v.note.get("connected")]
     if len(holding) < 2:
         return False
+    out.mentioned = len(holding)
     out.t("mention_lead").m(out.count(len(holding))).t("mention_mid", "open_quote")
     out.asked(subject).t("close_quote")
     _span(out, holding)
     out.t("stop", "space")
     return True
+
+
+def _summary(out: _Answer, question: str, terms: list[str], firsts: list[Sentence]) -> None:
+    """"I found two notes on “running”." A broad answer that quotes several
+    notes, none holding every word asked, says what it is about and how many
+    notes before the first quote (INBOX 729), so the quotes read as one
+    answer rather than as sentences joined by "Also"."""
+    subject = _asked_span(question, terms)
+    count = len({s.note_id for s in firsts})
+    if count < 2 or not subject:
+        return
+    out.t("summary_lead").m(out.count(count)).t("summary_mid", "open_quote")
+    out.asked(subject).t("close_quote", "stop", "space")
 
 
 def _broad_pool(out: _Answer, chosen: list[Sentence], terms: list[str]) -> list[Sentence]:
@@ -2192,7 +2258,8 @@ def _body(
             firsts,
             key=lambda s: (bool(stems) and stems <= out.views[s.note_id].title_words, rank.get(s.key, 0.0) * s.score, -s.rank),
         )
-        _mentions(out, question, terms, list(out.views.values()))
+        if not _mentions(out, question, terms, list(out.views.values())):
+            _summary(out, question, terms, firsts)
         _lead_block(out, shape, lead, [lead], terms, question)
         _others(out, meaning, lead, [s for s in firsts if s.note_id != lead.note_id and s.key not in skip], terms, question)
         return lead
@@ -3100,7 +3167,11 @@ def _help_answer(question: str) -> dict | None:
         return sum(1 for w in wanted if any(h == w or (min(len(h), len(w)) >= 5 and (h.startswith(w) or w.startswith(h))) for h in have))
 
     best = max(sentences, key=lambda line: (shared(line), -sentences.index(line)))
-    parts = [("help", best, topic.get("id", "")), ("template", PHRASES["help_more"])]
+    #: The topic's sentence is the protected span; the pointer after it varies
+    #: by chat and turn like any opener (decision 51), so "Ask again" in help
+    #: does not repeat itself word for word.
+    more = _pick(question, "help_more", [PHRASES[k] for k in ("help_more", "help_more_2", "help_more_3", "help_more_4")])
+    parts = [("help", best, topic.get("id", "")), ("template", more)]
     return _result(parts, "help")
 
 
@@ -3244,6 +3315,7 @@ def compose(
     dialogue: Dialogue | None = None,
     prefer: str = "",
     resolved: bool = False,
+    learned=None,  # noqa: ANN001
 ) -> dict:
     """`{"text", "grounding", "support", "shape", "parts", "next", "next_parts"}`
     for one question.
@@ -3269,7 +3341,11 @@ def compose(
     if voice == "help":
         #: The help register (decision 36): a how-to answered from the app's
         #: own Help, the Guide's topics, so the Guide and Chat are one engine.
-        helped = _help_answer(question)
+        session = _SESSION.set(f"{salt or (dialogue.salt if dialogue else '')}:{turn}" if (salt or turn or dialogue) else "")
+        try:
+            helped = _help_answer(question)
+        finally:
+            _SESSION.reset(session)
         if helped:
             return helped
         voice = composer_tables.DEFAULT_VOICE
@@ -3289,11 +3365,14 @@ def compose(
                 dialogue.corrections.append(follow.prefer)
         previous = previous or (dialogue.history[-1]["answer"] if dialogue.history else "")
     token = _SESSION.set(f"{salt}:{turn}" if (salt or turn) else "")
+    #: `learned`: what the person said of insights (`insights.memory`).
+    known = _LEARNED.set(learned)
     try:
         result = _compose(question, notes, today=today, recent=recent, embed=embed, said=said, previous=previous,
                           voice=voice, now=now, salt=salt, turn=turn, dialogue=dialogue, prefer=prefer)
     finally:
         _SESSION.reset(token)
+        _LEARNED.reset(known)
     if dialogue is not None:
         dialogue.record(asked, result)
     return result
@@ -3393,7 +3472,11 @@ def _compose(
         sides = compare_sides(question) if shape == "compare" else None
         if not (sides and _compare(out, sides, views_list, meaning_for)):
             shape = "what" if shape == "compare" else shape
-            broad = shape == "what" and bool(_BROAD.match(rephrase(question)))
+            #: Read on the question as asked too: `rephrase` takes "what do my
+            #: notes say about" off, which is the frame that says it is broad
+            #: (INBOX 729: "what do my notes say about running" was answered
+            #: as one fact with the other notes tacked on by "Elsewhere").
+            broad = shape == "what" and bool(_BROAD.match(question) or _BROAD.match(rephrase(question)))
             meaning = meaning_for(terms)
             wish = length_wish(question)
             chosen = select(
@@ -3410,8 +3493,11 @@ def _compose(
                 broad = False
                 out.brief = True
             pair = _disagreement(chosen)
-            if p.kind == "insight" and _insight_lead(out, question, terms, views_list):
+            if _confirmed_lead(out, question, terms):
+                pass
+            elif p.kind == "insight" and _insight_lead(out, question, terms, views_list):
                 broad = True
+            out.broad = broad
             lead = _body(out, shape, chosen, terms, question, meaning, broad, {s.key for s in pair} if pair else set())
             if pair:
                 _disagreements(out, pair, lead, terms)
@@ -3442,6 +3528,11 @@ def _compose(
         "parts": out.parts,
         "next": ["".join(part[1] for part in parts) for parts in next_parts],
         "next_parts": next_parts,
+        #: The insight lines said, each with its key, for Confirm and Not right.
+        "insights": getattr(out, "insights", []),
+        #: A broad question ("what do my notes say about running"): opens with
+        #: the topic and the count when it quotes several notes (INBOX 729).
+        "broad": bool(getattr(out, "broad", False)),
     }
 
 

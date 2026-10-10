@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer
+from memorymap.ai import composer, composer_tables
 from tests.test_composer_688 import NOTES, TODAY, _note, assert_traceable
 
 
@@ -185,7 +185,11 @@ def test_a_broad_question_opens_with_how_many_notes_mention_it():
     ]
     result = ask("What do I know about sourdough?", notes)
     first = result["text"].split("\n", 1)[0]
-    assert first.startswith("At least three of your notes mention “sourdough”, from 3 September to 3 October.")
+    #: The lead and its middle are a pair with variants (decision 51's floor).
+    leads = composer_tables.VOICE_VARIANTS["natural"]["mention_lead"]
+    mids = composer_tables.VOICE_VARIANTS["natural"]["mention_mid"]
+    said = tuple(f"{composer.PHRASES[a]}three{composer.PHRASES[b]}“sourdough”, from 3 September to 3 October." for a, b in zip(leads, mids))
+    assert first.startswith(said), first
     #: The note named for the subject leads, and every note counted is quoted.
     assert "**Sourdough log**" in first
     assert {row["note_id"] for row in result["grounding"]} == {1, 2, 3}

@@ -44,8 +44,10 @@ from memorymap.ai import (
     questions,
     skill_runner,
     skills,
+    source_check,
     tool_fallback,
     tools,
+    validate,
     vision_ocr,
 )
 from memorymap.ai.answer_trim import trim_assistant_padding
@@ -2056,6 +2058,9 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             dialogue=dialogue,
             prefer=follow.prefer if follow else "",
             resolved=True,
+            #: Insights the person confirmed are said as their word; the
+            #: ones they dismissed are not said (decision 60).
+            learned=_insight_memory(req.session),
         )
         if not result["grounding"] and not ollama_running and _web_allowed(req):
             web = _web_answer(req, follow.question if follow else req.question)
@@ -2076,6 +2081,11 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 #: notice says that rather than "the model's own writing".
                 "support": {**result["support"], "by_model": False},
                 "exact": True,
+                #: The engine's own answer through the same validators
+                #: (decisions 52 to 54): empty when every maxim holds.
+                "checks": validate.report(result, req.question)["findings"],
+                #: The insight lines said, for their Confirm and Not right.
+                "insights": result.get("insights", []),
             }
         return
     else:
@@ -2169,28 +2179,42 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
 
 
 #: An act asked in the Ask box, which looks things up: said where to do it.
-ACT_IN_ASK = "That is something to do rather than to look up: say it in Chat and it is done there, with Undo."
+def _insight_memory(session: Session):  # noqa: ANN202
+    """What the person said of insights, or None when it cannot be read: an
+    answer is never lost to the learned store."""
+    from memorymap.ai import insights
+
+    try:
+        return insights.memory(session)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("memorymap.chat").warning("chat: the insight memory could not be read", exc_info=True)
+        return None
 
 
 def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
-    """An act with no model (CHAT_PLAN decision 38): the line that says what
-    it does, then its card. A reminder, a new note, a pin run at once with
-    Undo; a delete, a rename, a move or a tag wait for Confirm
-    (`POST /chat/command/run`). An object that is not one note is asked
-    about, never guessed."""
-    from memorymap.ai import commands
+    """An act with no model (CHAT_PLAN decision 38), through the act registry
+    (`ai/acts.py`, decision 53): the line that says what it does, then its
+    card. A reminder, a new note, a pin run at once with Undo; a delete, a
+    rename, a move or a tag wait for Confirm (`POST /chat/command/run`). An
+    object that is not one note is asked about, never guessed. Ask is a
+    client too: it names the act it read and says where it is done."""
+    from memorymap.ai import acts
 
+    parsed = acts.parse(req.question, user_now(deps.get_config()))
     if req.body.notes_only:
-        yield {"type": "answer", "delta": ACT_IN_ASK}
+        yield {"type": "answer", "delta": acts.ask_line(parsed)}
         return
-    parsed = commands.read(req.question, user_now(deps.get_config()))
     if parsed is None:
-        yield {"type": "answer", "delta": commands.CAPABILITY_LINE}
+        yield {"type": "answer", "delta": acts.capability_line()}
         return
-    planned = commands.plan(req.session, parsed, req.body.note_ids)
+    planned = acts.preview(req.session, parsed, req.body.note_ids)
     card = planned.get("card")
     if card and planned.get("run"):
-        done = commands.run(req.session, card["steps"], card.get("skipped"))
+        done = acts.run(req.session, card["steps"], card.get("skipped"))
+        if done["ok"] and parsed["intent"] == "reminder":
+            #: Said as the card says it (INBOX 734): "Done: remind you on
+            #: Friday at 9: call the dentist."
+            done["summary"] = f"Done: {card['label'][:1].lower()}{card['label'][1:]}."
         yield {"type": "answer", "delta": done["summary"]}
         yield {**card, "done": True, "summary": done["summary"], "undo": done["undo"], "open": done.get("open")}
         return
@@ -2215,13 +2239,13 @@ def run_command(body: CommandRunBody, session: Session = Depends(get_session)) -
     """Run what an act's card showed, after Confirm, or take it back (Undo).
     Only the steps `commands.RUNNABLE` names run, each through the agent's
     own tool door, so permissions and the event log are the agent's."""
-    from memorymap.ai import commands
+    from memorymap.ai import acts, commands
 
     if not body.steps:
         raise HTTPException(status_code=400, detail="There is nothing to run.")
     if any(str(step.get("name") or "") not in commands.RUNNABLE for step in body.steps):
         raise HTTPException(status_code=404, detail="That names a step this app does not run from Chat.")
-    done = commands.run(session, body.steps, body.skipped)
+    done = acts.run(session, body.steps, body.skipped)
     return {"ok": done["ok"], "summary": done["summary"], "undo": done["undo"], "open": done.get("open")}
 
 
@@ -2580,6 +2604,29 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         #: a filter on every delta: a stream that edits what it already said,
         #: token by token, flickers.
         yield event({"type": "answer_final", "text": answer_text})
+    #: **The model proposes, the engine decides** (CHAT_PLAN decision 53): a
+    #: model's plain answer passes the same validators as the engine's, so a
+    #: number or name in none of the notes it was given, nor the question, is
+    #: said under it. The agent path checks its own (`agent.py`, H2).
+    model_checks = None
+    #: A model that stopped leaves the composed answer under MODEL_STOPPED_NOTE:
+    #: the engine's words, quoted from the notes, not the model's.
+    by_model = MODEL_STOPPED_NOTE not in answer_text
+    if not agentic and not composing and not conversational and exact_grounding is None and by_model and answer_text:
+        model_checks = validate.check_model_answer(
+            answer_text,
+            [
+                req.question,
+                str(req.image_context or ""),
+                #: The date the prompt told the model, so "today is 10 October" is backed.
+                user_now(deps.get_config()).strftime("%A %d %B %Y %H:%M"),
+                *(str(n.get("content") or "") for n in [*prepared["notes"], *(prepared.get("model_notes") or [])]),
+            ],
+        )
+        if model_checks["unbacked"]:
+            heads = source_check.heads_up(model_checks["unbacked"])
+            answer_text += heads
+            yield event({"type": "answer", "delta": heads})
     candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
     #: Kept past the branch below so the saved turn carries the same rows the
     #: client was just sent (INBOX 241). A conversational turn, or one nothing
@@ -2615,6 +2662,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 "type": "grounding",
                 "sentences": grounding,
                 "support": grounding_support(answer_text, grounding),
+                **({"checks": model_checks["findings"]} if model_checks else {}),
             })
     if req.body.notes_only and answer_text:
         _save_ask_turn(req.session, req.question, answer_text, prepared, grounding)

@@ -504,6 +504,23 @@ async function renderDashSubmessage() {
       bit.dataset.bit = kind;
       bit.textContent = i ? ` · ${text}` : text;
       if (whole) bit.title = whole;
+      //: The pattern's Confirm and Not right (CHAT_PLAN decision 60) behind
+      //: one ⋯, so the line stays one line; a confirmed one has neither.
+      if (kind === "patterns" && !pattern.confirmed) {
+        const send = (verdict) =>
+          apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(pattern) })
+            .then(() => renderDashSubmessage())
+            .catch((error) => toast(error.message, true));
+        bit.appendChild(
+          kebabMenu(
+            [
+              { label: "ph:check Confirm", title: "This is right: say it as a fact from now on", run: () => send("confirm") },
+              { label: "ph:x Not right", title: "Never show this or anything like it again", run: () => send("dismiss") },
+            ],
+            "Is this pattern right?"
+          )
+        );
+      }
       return bit;
     })
   );

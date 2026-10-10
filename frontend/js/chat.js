@@ -1476,6 +1476,11 @@ function webPageMarkdown(page) {
 //: One page at a time, like a selection: a citation is "this, about which I
 //: am about to ask", not a collection.
 let attachedWebPage = null;
+//: The page the last answer cited, for a follow-up about it (`webFollowUp`).
+//: A field rather than a top-level `let` (the global-scope ratchet): it was
+//: taken out as "never read" while chat-attach.js still read it, so every
+//: Chat send threw a ReferenceError (found by Brief 67's sweep).
+const chatWeb = { lastUrl: null };
 //: The budget for the page's text in the prompt. A long article runs to
 //: tens of thousands of characters; the opening of a page is where its claim
 //: is, and a local model's context is the scarcest thing in the round.

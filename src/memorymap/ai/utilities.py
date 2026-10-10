@@ -273,6 +273,12 @@ def kind_of(question: str) -> str | None:
     return None
 
 
+#: Decision 54: a computed sentence always says how the question was read.
+#: A sum says its expression as the sentence's subject ("12 * 7 is 84."),
+#: which is its reading; everything else carries a "Read as" line.
+_CLOCK_READ = ("computed", "\nRead as the date and time on this computer's clock.")
+
+
 def answer(question: str, now: datetime | None = None, salt: str = "", rates: dict | None = None, rates_date: date | None = None) -> list[tuple] | None:
     """The parts of a utility answer to `question`, or None."""
     kind = kind_of(question)
@@ -286,10 +292,10 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
         return [("computed", f"{expr.strip()} is {value}.")]
     if kind == "clock":
         if _CLOCK.match(text):
-            return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}.")]
+            return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}."), _CLOCK_READ]
         if _YEAR.match(text):
-            return [("computed", f"It is {_MONTH_NAMES[now.month - 1]} {now.year}.")]
-        return [("computed", f"Today is {_day_words(now.date())}.")]
+            return [("computed", f"It is {_MONTH_NAMES[now.month - 1]} {now.year}."), _CLOCK_READ]
+        return [("computed", f"Today is {_day_words(now.date())}."), _CLOCK_READ]
     if kind == "units":
         return _convert(text)
     if kind == "currency":
@@ -302,7 +308,7 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
             low, high = sorted((int(match.group(1)), int(match.group(2))))
             return [("computed", f"{_salted(salt, text, low, high)}."), ("computed", f"\nRead as a whole number from {low} to {high}, picked at random.")]
         if _COIN.match(text):
-            return [("computed", f"{'Heads' if _salted(salt, text, 0, 1) else 'Tails'}.")]
+            return [("computed", f"{'Heads' if _salted(salt, text, 0, 1) else 'Tails'}."), ("computed", "\nRead as one coin toss, picked at random.")]
         match = _DIE.match(text)
         count = int(match.group(1) or 1) if match.group(2) else 1
         sides = int(match.group(2) or 6)
@@ -310,7 +316,8 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
             return None
         rolls = [_salted(f"{salt}:{i}", text, 1, sides) for i in range(count)]
         said = f"You rolled {rolls[0]}." if count == 1 else f"You rolled {', '.join(map(str, rolls))}: {sum(rolls)} in all."
-        return [("computed", said)]
+        dice = "one roll" if count == 1 else f"{count} rolls"
+        return [("computed", said), ("computed", f"\nRead as {dice} of a {sides}-sided die, picked at random.")]
     if kind == "translate":
         return [("phrase", "utility_translate")]
     return [("phrase", "utility_weather")]

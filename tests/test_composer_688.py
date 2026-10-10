@@ -239,7 +239,9 @@ def test_compare_draws_two_sides_with_measured_counts():
             for each in composer.phrase_options("each_side")
         )
     )
-    assert "**Lisbon** (one note)" in text and "**Porto** (one note)" in text
+    #: Each side's count is said once, by the lead (decision 52), not again
+    #: beside its heading.
+    assert "**Lisbon**\n" in text and "**Porto**\n" in text and "(one note)" not in text
     lisbon, porto = text.split("**Porto**", 1)
     assert "Alfama" in lisbon and "Ribeira" in porto
 

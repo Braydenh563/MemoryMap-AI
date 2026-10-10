@@ -1391,6 +1391,28 @@ function pushUndo(label, undo, redo) {
   return action;
 }
 
+//: **An insight line's two verdicts** (CHAT_PLAN decision 60): Confirm writes
+//: it as a fact the person vouched for ("Golf is a hobby of yours (confirmed
+//: by you, 10 October)"), said that way from the next answer on; Not right
+//: keeps it, and every near-variant of it, from being shown again. One row
+//: (the `.row.button-row` recipe) of two `smallButton`s, for Chat, Tidy's
+//: Patterns and the dashboard alike. `onDone(verdict, result)` lets the
+//: surface replace the line; a confirmed insight is drawn with no row.
+function insightVerdicts(insight, onDone) {
+  const row = document.createElement("span");
+  row.className = "row button-row insight-verdicts";
+  const send = (verdict) =>
+    apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(insight) })
+      .then((result) => onDone?.(verdict === "confirm" ? "confirmed" : "dismissed", result))
+      .catch((error) => toast(error.message, true));
+  row.append(
+    smallButton("Confirm", "This is right: say it as a fact from now on", () => send("confirm")),
+    smallButton("Not right", "Not right: never show this or anything like it again", () => send("dismiss"))
+  );
+  return row;
+}
+
+
 // A few call sites also offer an immediate toast "Undo" button alongside the
 // global stack (Wave J's pattern, from before this stack existed). If that
 // button is used, the action has to come off the undo stack, otherwise a

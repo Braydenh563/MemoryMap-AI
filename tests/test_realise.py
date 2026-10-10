@@ -132,3 +132,57 @@ def test_after_comma(text, said):
 )
 def test_cut_title(title, limit, said):
     assert realise.cut_title(title, limit) == said
+
+
+# --- the variety floor (decision 51), measured on every build ---------------------
+
+from tests import _composer_eval as E  # noqa: E402
+
+#: Ten of the showcase questions, one of each answer shape (F0's set).
+FLOOR_QUESTIONS = (
+    "Who asked for a public API?",
+    "How many beta testers are active?",
+    "Compare Lisbon and Porto",
+    "Does Harbor work offline?",
+    "What do I know about sourdough?",
+    "How do I sharpen my knife?",
+    "What is my half marathon training plan?",
+    "How much will the trip cost?",
+    "What is the status of the onboarding rewrite?",
+    "Which dinners take under 30 minutes?",
+)
+HELP_QUESTIONS = ("how do I set a reminder", "how do I export my notes", "how do I lock the app")
+
+
+def _chat(question: str, voice: str) -> list[dict]:
+    from memorymap.ai import composer
+
+    data = E.load()
+    entry = next((e for e in data["questions"] if e["question"] == question), None)
+    notes = E.notes_for(entry, data) if entry else []
+    recent = bool(entry) and str(entry.get("search_mode") or "").endswith("recent")
+    return [
+        composer.compose(question, notes, today=E.today(data), recent=recent, voice=voice, salt="floor", turn=t)
+        for t in range(1, realise.VARIETY_TURNS + 1)
+    ]
+
+
+@pytest.mark.parametrize("voice", ["natural", "professional"])
+def test_variety_floor_over_a_twenty_turn_chat(voice):
+    """Every question opens at least three ways over twenty turns of one chat,
+    and says the same facts every turn (protected spans fixed)."""
+    low = {}
+    for question in FLOOR_QUESTIONS:
+        seen = realise.variety(_chat(question, voice))
+        assert seen["facts"] == 1, (question, seen)
+        if seen["openers"] < realise.VARIETY_FLOOR:
+            low[question] = seen["openers"]
+    assert not low, low
+
+
+def test_variety_floor_in_the_help_register():
+    for question in HELP_QUESTIONS:
+        results = _chat(question, "help")
+        assert all(r["shape"] == "help" for r in results), question
+        seen = realise.variety(results)
+        assert seen["facts"] == 1 and seen["wordings"] >= realise.VARIETY_FLOOR, (question, seen)

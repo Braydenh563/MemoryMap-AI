@@ -183,18 +183,19 @@ def _measures(result: dict) -> list[str]:
 
 def test_an_insight_closes_a_broad_answer_over_four_notes_in_five_weeks():
     result = _ask("tell me about golf", _notes(3, 4, 5, 6))
-    insight = [m for m in _measures(result) if "4 times" in m]
+    insight = [m for m in _measures(result) if "hobby forming" in m or "keeps coming up" in m]
     assert insight, _measures(result)
-    assert "that may be a hobby forming" in insight[0] or "that keeps coming up" in insight[0]
-    assert "4" in insight[0]
+    #: The count is said once (decision 52): by the lead, or by the line.
+    assert "four" in _measures(result) or "4 times" in insight[0]
 
 
 def test_no_insight_on_two_notes():
     # A negative control first: the rule must fire on four notes, or "no
     # insight on two" would pass vacuously before the rule exists.
-    assert [m for m in _measures(_ask("tell me about golf", _notes(3, 4, 5, 6))) if "4 times" in m]
+    hedged = ("hobby forming", "keeps coming up")
+    assert [m for m in _measures(_ask("tell me about golf", _notes(3, 4, 5, 6))) if any(h in m for h in hedged)]
     result = _ask("tell me about golf", _notes(3, 4))
-    assert not [m for m in _measures(result) if "times" in m and "golf" in m.lower()]
+    assert not [m for m in _measures(result) if any(h in m for h in hedged)]
 
 
 # --- Decision 33: the realiser --------------------------------------------------------

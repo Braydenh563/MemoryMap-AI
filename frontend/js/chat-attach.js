@@ -1524,8 +1524,8 @@ async function sendChatMessage(preset, opts = {}) {
   if (attachedWebPage) {
     if (!opts.displayText) opts = { ...opts, displayText: typed };
     question = `${question}\n\n${webPageContextBlock(attachedWebPage)}`;
-  } else if (chatLastWebUrl && (await ensureModule("webClip"))) {
-    const page = await webFollowUp(typed, chatLastWebUrl);
+  } else if (chatWeb.lastUrl && (await ensureModule("webClip"))) {
+    const page = await webFollowUp(typed, chatWeb.lastUrl);
     if (page) {
       if (!opts.displayText) opts = { ...opts, displayText: typed };
       question = `${question}\n\n${webPageContextBlock(page)}`;
@@ -1969,6 +1969,20 @@ async function sendChatMessage(preset, opts = {}) {
           event.support || null,
           meta?.picture_alts || null
         );
+        //: Each insight line the answer said carries Confirm and Not right
+        //: (CHAT_PLAN decision 60), under the answer, one row each.
+        for (const insight of event.insights || []) {
+          if (insight.confirmed) continue;
+          const line = document.createElement("p");
+          line.className = "muted insight-line";
+          line.textContent = `Pattern: ${insight.short}. `;
+          line.appendChild(
+            insightVerdicts(insight, (verdict, result) => {
+              line.textContent = verdict === "confirmed" ? `Confirmed: ${result.line}` : "Not right: it will not be shown again.";
+            })
+          );
+          groundingHolder.appendChild(line);
+        }
       },
       onPlan: (event) => {
         clearPending();
@@ -2290,7 +2304,7 @@ async function sendChatMessage(preset, opts = {}) {
   });
   //: The page this turn went out to read, for a follow-up about it
   //: (`webFollowUp`, web-clip.js).
-  chatLastWebUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;
+  chatWeb.lastUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;
   if (groundingSentences?.length) {
     addInlineCitations(
       bubble.querySelectorAll(".bubble-answer"),
@@ -2885,7 +2899,7 @@ function stopChatTimer() {
 
 function releaseChatComposer({ announce = true } = {}) {
   //: Called by every way out of a chat: the page it read is that chat's.
-  chatLastWebUrl = null;
+  chatWeb.lastUrl = null;
   if (!chatController || !chatStreaming) return;
   const input = $("chat-input");
   input.disabled = false;

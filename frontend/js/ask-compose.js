@@ -178,15 +178,40 @@ function renderActCard(holder, event) {
     setLabel(text, label);
     card.replaceChildren(text, ...more);
   };
-  const done = (summary, undo) => {
+  //: Every act's inverse goes on the app-wide undo stack too (WORLD_CLASS
+  //: decision 53, the act registry's `inverse`), so Ctrl+Z after an act takes
+  //: it back like any other change. Redo runs the act's steps again and keeps
+  //: the inverse of that run, whose ids are new.
+  const post = (steps) =>
+    apiJson("/chat/command/run", { method: "POST", body: JSON.stringify({ steps, skipped: event.skipped || [] }) }).then((result) => {
+      refreshAfterToolChanges();
+      return result;
+    });
+  const done = (summary, undo, steps) => {
     const row = document.createElement("div");
     row.className = "row";
     if (undo?.length) {
-      row.appendChild(smallButton("Undo", "Take this back", () => run(undo, () => card.replaceWith(toolChip("ph:arrow-counter-clockwise Undone.")))));
+      let inverse = undo;
+      const action = pushUndo(
+        summary.replace(/^Done:\s*/, "").replace(/\.$/, ""),
+        () => post(inverse),
+        async () => {
+          const again = await post(steps);
+          inverse = again.undo || [];
+        }
+      );
+      row.appendChild(
+        smallButton("Undo", "Take this back", () =>
+          run(inverse, () => {
+            settleUndoFromToast(action);
+            card.replaceWith(toolChip("ph:arrow-counter-clockwise Undone."));
+          })
+        )
+      );
     }
     line(`ph:check-circle ${summary}`, row);
   };
-  if (event.done) done(event.summary || event.label, event.undo);
+  if (event.done) done(event.summary || event.label, event.undo, event.steps);
   else {
     const notice = document.createElement("p");
     notice.className = "muted";
@@ -194,7 +219,7 @@ function renderActCard(holder, event) {
     const row = document.createElement("div");
     row.className = "row";
     row.append(
-      smallButton("Confirm", "Do this", () => run(event.steps, (result) => done(result.summary, result.undo)), false),
+      smallButton("Confirm", "Do this", () => run(event.steps, (result) => done(result.summary, result.undo, event.steps)), false),
       smallButton("Cancel", "Don't do this", () => card.replaceWith(toolChip("ph:x Cancelled: nothing was changed.")))
     );
     line(`ph:warning ${event.label}`, notice, row);

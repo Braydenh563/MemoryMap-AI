@@ -109,6 +109,12 @@ KINDS = frozenset(
         "alias",
         "reopen_question",
         "answer_question",
+        # An insight line's two buttons (CHAT_PLAN decision 60): a dismissal
+        # keeps that insight and its near-variants away (`insights.memory`);
+        # a confirmation is written as a fact too, and recorded here so the
+        # corrections log says what the person vouched for.
+        "confirm_insight",
+        "dismiss_insight",
     }
 )
 

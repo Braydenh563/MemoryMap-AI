@@ -101,7 +101,9 @@ def test_a_recent_plan_is_never_drift():
 def test_a_broad_answer_closes_with_the_insight_and_stays_grounded():
     result = composer.compose("tell me about golf", GOLF, today=TODAY)
     measures = [p[1] for p in result["parts"] if p[0] == "measure"]
-    assert insights.recurrence("golf", GOLF, TODAY).text in measures
+    found = insights.recurrence("golf", GOLF, TODAY)
+    #: After a lead that said the count, the short form (decision 52).
+    assert found.text in measures or insights.after_lead(found) in measures
     assert not _composer_eval.trace_failures(result, "tell me about golf", GOLF, TODAY)
 
 

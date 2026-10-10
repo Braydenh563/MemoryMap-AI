@@ -53,14 +53,16 @@ READ_INTENTS = frozenset({"find", "open", "navigate", "summarise"})
 #: beside the line that says what was done.
 CONFIRM_INTENTS = frozenset({"delete", "rename", "move", "tag", "untag", "link", "unlink", "append"})
 
-#: Agent mode with no model, for anything `parse` does not read. One line, the
-#: list in the order the card offers them, and one example to copy.
-CAPABILITY_LINE = (
-    "With no model running I can do these myself: set a reminder, tag notes, move "
-    "notes to a category, make a new note, find or open a note, start a meeting, "
-    "pin, link, rename or delete a note (delete always after you confirm). For "
-    "example: remind me to call mum on Friday."
-)
+#: Agent mode with no model, for anything `parse` does not read: generated
+#: from the act registry (`acts.capability_line`), kept here by name for the
+#: callers that read it as a constant.
+def __getattr__(name: str) -> str:
+    if name == "CAPABILITY_LINE":
+        from memorymap.ai import acts
+
+        return acts.capability_line()
+    raise AttributeError(name)
+
 
 #: Steps a command card may run. The registry tools are the agent's; the two
 #: others are this module's own, for what no registry tool does.
@@ -181,8 +183,18 @@ def _tags(text: str) -> list[str]:
     return found if 0 < len(found) <= 5 else []
 
 
+#: Words a time said first may open with ("on Friday at 9 remind me to ...").
+_TIME_FIRST = ("on ", "at ", "this ", "next ", "tomorrow", "today", "tonight", "in ", "monday", "tuesday",
+               "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
 def _reminder(text: str, now: datetime) -> dict | None:
     low = text.lower()
+    cut = low.find(" remind me ")
+    if 0 < cut <= 40 and low.startswith(_TIME_FIRST):
+        #: The time said first is said last, where the time readers look.
+        text = f"{text[cut + 1:]} {text[:cut]}"
+        low = text.lower()
     head = None
     for word in ("remind me", "set me a reminder", "set a reminder", "make a reminder",
                  "add a reminder", "create a reminder", "new reminder", "reminder"):
@@ -670,16 +682,71 @@ def _when_words(due: datetime) -> str:
     return f"{due.strftime('%a')} {due.day} {due.strftime('%b')} at {due.strftime('%H:%M')}"
 
 
+def _clock(due: datetime) -> str:
+    """"9", "9:30", "noon", "5pm", "5:30pm": the hour as people say it."""
+    hour, minute = due.hour, due.minute
+    if hour == 12 and minute == 0:
+        return "noon"
+    said = str(hour % 12 or 12) + (f":{minute:02d}" if minute else "")
+    return said + ("pm" if hour >= 13 else "")
+
+
+def reminder_when(due: datetime, now: datetime) -> str:
+    """When, said against today (INBOX 734): "today at 5pm", "tomorrow at
+    9", "on Friday at 9", "on 21 October at 9"."""
+    days = (due.date() - now.date()).days
+    if days == 0:
+        day = "today"
+    elif days == 1:
+        day = "tomorrow"
+    elif 1 < days < 7:
+        day = f"on {due.strftime('%A')}"
+    else:
+        day = f"on {due.day} {due.strftime('%B')}" + (f" {due.year}" if due.year != now.year else "")
+    return f"{day} at {_clock(due)}"
+
+
+#: Verbs a reminder opens with, left out when finding the note it is about.
+_TASK_VERBS = frozenset("call ring phone text email message book buy pay send check collect pick get see meet ask tell renew cancel finish start fix write read".split())
+
+
+def _reminder_note(session: Session, said: str, note_ids: list[int] | None):  # noqa: ANN202
+    """The note a reminder comes from: the one attached, else the first note
+    holding every word of its object ("call the dentist": the Dentist note)."""
+    attached = _attached(session, note_ids)
+    if len(attached) == 1:
+        return attached[0]
+    words = [w for w in _content_words(said) if w not in _TASK_VERBS]
+    if not words:
+        return None
+    found = _notes_about(session, " ".join(words), single=True)
+    return found[0] if found and not getattr(found[0], "is_private", False) else None
+
+
 def plan(session: Session, parsed: dict, note_ids: list[int] | None = None) -> dict:
     """What the command would do: {"line", "card"?, "tool"?}. Writes nothing."""
     intent = parsed["intent"]
     if intent == "reminder":
+        #: "Remind you on Friday at 9: call the dentist" (INBOX 734): the
+        #: person's own words after the colon, the time said against today,
+        #: and the note it comes from, which the reminder is attached to.
+        from memorymap.core import deps
+        from memorymap.core.config import user_now
+
         due = parsed["due_at"]
-        when_said = _when_words(due) + ("" if parsed.get("time_given") else " (no time was said)")
-        steps = [{"name": "set_reminder", "arguments": {"text": parsed["text"], "due_at": due.isoformat()}}]
+        when_said = reminder_when(due, user_now(deps.get_config()).replace(tzinfo=None)) + (
+            "" if parsed.get("time_given") else " (no time was said)"
+        )
+        said = parsed.get("said") or parsed["text"]
+        label = f"Remind you {when_said}: {said}"
+        arguments = {"text": parsed["text"], "due_at": due.isoformat()}
+        note = _reminder_note(session, said, note_ids)
+        if note is not None:
+            arguments["note_id"] = note.id
+        steps = [{"name": "set_reminder", "arguments": arguments}]
         return {
-            "line": f"Set a reminder “{parsed['text']}” for {when_said}.",
-            "card": _card(f"Set a reminder “{parsed['text']}” for {when_said}", steps),
+            "line": f"{label}.",
+            "card": _card(label, steps, items=[f"#{note.id} {_title(note)}"] if note is not None else None),
             "run": True,
         }
     if intent == "new_note":

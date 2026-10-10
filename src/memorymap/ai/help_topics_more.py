@@ -891,6 +891,7 @@ MORE_TOPICS.extend(
                 "old reminders", "stale reminders", "without the ai", "without ai",
                 "bulk", "housekeeping", "apply automatically",
                 "categories that overlap", "category names", "similar categories",
+                "patterns", "confirm a pattern", "not right", "wrong pattern", "insight",
             ),
             "body": (
                 "Tidy is the broom in the Notes dock, beside the search help; the "
@@ -917,7 +918,10 @@ MORE_TOPICS.extend(
                 "reasons to all in the background, a job you can stop in Settings, "
                 "Background tasks. The command palette and Tools and features open "
                 "Tidy too, and new links already say what their notes share when "
-                "they can."
+                "they can. Under the overview, Patterns says what the notes measure "
+                "(golf 4 times since 5 September), each with Confirm, which keeps it "
+                "as your own word from then on, and Not right, which never shows it "
+                "or anything like it again; Chat and the dashboard's ⋯ offer the same."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1553,7 +1557,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "answers-from-notes", "chat-controls", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "follow-up-trail", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
@@ -1587,3 +1591,16 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "profile", "general-settings", "updates", "logs", "troubleshooting",
     )),
 ]
+
+
+#: The acts Chat does from a sentence: generated from the act registry
+#: (`ai/acts.py`, CHAT_PLAN decision 53), so a new act is in the Guide the
+#: moment it is in the registry, and a renamed one cannot drift.
+def _act_topic() -> dict:
+    from memorymap.ai import acts
+
+    return acts.guide_topic()
+
+
+MORE_TOPICS.append(_act_topic())
+TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}

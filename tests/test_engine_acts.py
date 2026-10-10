@@ -87,7 +87,8 @@ def test_the_run_route_refuses_a_step_it_does_not_run(client, session):
 
 def test_the_ask_box_says_where_acts_are_done(client, session):
     out = _ask(client, "delete the boiler note", notes_only=True, use_tools=False)
-    assert out["text"] == "That is something to do rather than to look up: say it in Chat and it is done there, with Undo."
+    #: The act registry names the act Ask read (decision 53).
+    assert out["text"] == "That is something to do (delete a note) rather than to look up: say it in Chat and it is done there, with Undo."
 
 
 def test_with_a_model_in_agent_mode_the_agent_takes_the_act(ai_client, fake_ollama, session):

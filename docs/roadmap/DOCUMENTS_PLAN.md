@@ -473,6 +473,11 @@ with its images, the Word export behind an optional extra, and import of
 plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
 "Export to Word (python-docx)" and the 501 points at it in Settings (checked
 2026-10-04).
+   Superseded 2026-10-10 (the owner, INBOX 765): Word files are read and
+   written in the browser with Mammoth (read `.docx` to HTML) and docx (write
+   `.docx` from the editor's model), both vendored under `frontend/vendor`
+   with their notices in THIRD_PARTY.md; the python-docx extra is retired
+   once they land (a Phase 7 row, Brief 42).
 
 ## 6. Competitor matrix (what the plan takes from whom)
 

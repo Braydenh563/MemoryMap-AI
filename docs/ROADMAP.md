@@ -26,6 +26,8 @@ BACKLOG; nothing was dropped in the move.
 ## Direction, 2026-10-10 (Fable orchestrating): the thesis, the policies, the tracks
 
 The owner's ask, condensed: judge the Gemini branch, fix every bug of every
+
+**Release, the owner 2026-10-10 (INBOX 765): "Public release now".** The release track runs beside the feature tracks from here: installers for Windows (built in CI already), macOS and Linux, a GitHub release per version with the changelog, a landing page from the README, and the phone path (an installed web app over the owner's Wi-Fi) inside it. Nothing ships with a known data-loss path or a red trust rule (WORLD_CLASS 28.1).
 size (the 2026-10-10 list, INBOX 727 to 745, HANDOVER's next-PR list), use
 the vendored and forked repositories well, make the deterministic engine
 (composer, filing, understanding) something no notebook has, modernise and

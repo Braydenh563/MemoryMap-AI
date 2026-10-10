@@ -46300,6 +46300,17 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      dismissed one is learned and stays quiet), amending decision 32 in place,
      and decision 58's understanding column set to the owner's bar.
 
+765. **The owner, 2026-10-10, asked four decisions (Fable).** Audience: "Public
+     release now". Model: "A small ollama model (2B-9B), or no model at all
+     because ollama makes my computer slow and drains battery so I can only
+     run it when on charge and not trying to play video games etc." Priority:
+     "The deterministic chatbot first and foremost, then the trust and
+     poslish, thenthe code editor and ide, then the comanion and avatars. all
+     of the above but in that order". Word files: "Vendor Mammoth and docx".
+     Placed: HANDOVER "Decisions asked" note and the Now order; ROADMAP
+     Direction (release); CHAT_PLAN decision 61 (no model is the first mode;
+     power-aware model use); DOCUMENTS_PLAN docx decision.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

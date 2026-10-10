@@ -1,5 +1,7 @@
 # HANDOVER
 
+> **Decisions asked, the owner 2026-10-10 (INBOX 765):** audience "Public release now" (installers for Windows, macOS and Linux, a GitHub release and a landing page are release work, not a later phase; the friends-on-a-phone path stays inside it); model "A small ollama model (2B-9B), or no model at all because ollama makes my computer slow and drains battery so I can only run it when on charge and not trying to play video games etc." (so no model is the first mode of the app, a 2B to 9B model the second, and the app must never start or keep a model running without saying so and offering Stop: CHAT_PLAN decision 61); priority "The deterministic chatbot first and foremost, then the trust and polish, then the code editor and IDE, then the companion and avatars. all of the above but in that order" (the Now order below follows it); Word files: Mammoth and docx vendored (DOCUMENTS_PLAN).
+
 > **Skills, the owner 2026-10-10:** "make use of all relevant skills if you feel the need but dont let them limit you. they are a guide and tool. you ai models are improving all the time and sometimes outdated skills cna be a hindrance." Read: a skill is consulted, not obeyed; when its advice and a measurement disagree, the measurement wins and the brief says which skill was overruled and why. `docs/DESIGN.md` still overrides the vendored design skill for anything in `frontend/`.
 
 > **Polish, the owner 2026-10-10:** "keep improving, redesigning, modernising and proffesionalising and imrpoving ui and especially ux across the app. add more small taken for granted features, more utility, more abilities and function. clean everything, polish everything." Read: UX before UI; every brief that touches a surface adds the small expected things (keyboard, undo, empty states, hover and focus, counts, remembered state, a help popover) and lists them in its report.
@@ -328,7 +330,7 @@ state now. The line-by-line ledger of what is left is
 
 ### State of the branch (`claude/notes-flow-rebuild`, PR #162)
 
-**Now (2026-10-10, branch gemini/composer-improvements, Fable orchestrating):**
+**Now (2026-10-10, branch gemini/composer-improvements, Fable orchestrating):** the owner's order (INBOX 765): the deterministic chatbot (CHAT_PLAN Phase 6 and the foundation, Briefs 64 to 68, then 84), then trust and polish (WORLD_CLASS 28, Briefs 72 to 74 and the design rows), then the code editor as an IDE (DOCUMENTS 23, Briefs 69 to 71), then the companion (Brief 34); release work (installers, GitHub release, landing page) runs beside them because the audience is "Public release now".
 the Gemini session's 12 commits are under triage (Brief 35: boot broken by a
 `thefuzz` import, 15 MB of unused vendoring, grounded 1.0 to 0.25); four Opus
 agents run (triage, boardmap, chatui, graph: Briefs 35 to 38) on the owner's

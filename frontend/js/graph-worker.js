@@ -130,6 +130,19 @@ function alphaDecayFor(count) {
 //: High enough that the neighbourhood reorganises around where you put the
 //: node, low enough that the rest of the map is not thrown into the air.
 const DRAG_ALPHA = 0.3;
+//: **A fresh layout is warmed before it is shown** (INBOX 738, the owner:
+//: "the graph always loads in really zoomed in before it rights itself with
+//: the fitted zoom"). The notes start on a small spiral and spread over a few
+//: hundred ticks; the first fit framed the spiral (k 2.5, the clamp) and the
+//: camera then pulled back to k 0.79 as the map spread. Asked for by `init`
+//: (`warm`, only while the canvas is still hidden for its first fit), the
+//: worker steps without posting until the layout is as cool as the settle fit
+//: wants (`WARM_ALPHA`, the main thread's own 0.08) or the budget is spent,
+//: so the first frame anyone sees is framed on the spread shape. A small or
+//: middling notebook is there inside the budget; a big one spends it and
+//: eases out the rest of the way, as before.
+const WARM_MS = 450;
+const WARM_ALPHA = 0.08;
 //: Collide radius = the node's drawn radius + this. The SVG renderer used
 //: +24, which on a 2,000-note map is a collision field an order of magnitude
 //: wider than the node and pushes the layout into a lattice against its own
@@ -1543,6 +1556,14 @@ self.onmessage = (event) => {
       }
       applyGrouping(message.params);
       simulation.alpha(message.alpha == null ? 1 : message.alpha);
+      if (message.warm) {
+        const until = Date.now() + WARM_MS;
+        while (simulation.alpha() > WARM_ALPHA && Date.now() < until) {
+          simulation.tick();
+          ticks += 1;
+          clampToWorld();
+        }
+      }
       run();
       break;
     }

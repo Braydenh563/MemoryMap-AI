@@ -143,12 +143,6 @@ with its owner named in the entry.
      DOCUMENTS_PLAN: errors pinned to their line, syntax errors for py and html,
      a run for Python first.
 
-738. **The owner, 2026-10-06, verbatim**: "the graph always loads in really zoomed in
-     before it rights sitself with thr fitted xoom". The first frame draws at the
-     default zoom before the fit runs; fix: compute the fit from the first settled
-     positions (or the saved layout) before the first paint, or hold the canvas
-     hidden until the fit, with a fade in. Measure the first painted frame's scale.
-
 739. **The owner, 2026-10-06, verbatim**: "also want auto naming of the whiteboards,
      mindmaps and documents like \"untitled #\" so the user isnt forced to name a
      new object". Create works with the name field empty: "Untitled board 3",

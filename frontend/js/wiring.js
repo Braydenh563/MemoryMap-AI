@@ -1282,76 +1282,11 @@ $("graph-new-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveGraphNewNote();
 });
 
-// On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
-function graphZoomBy(factor) {
-  if (!graphZoom || !graphSvg) return;
-  graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
-}
-$("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
-$("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));
-$("graph-zoom-fit").addEventListener("click", () => {
-  if (graphNodesRef && graphNodesRef.length) {
-    fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
-  }
-});
-
-function toggleGraphFullscreen() {
-  const card = $("graph-card");
-  if (card) {
-    const isFull = card.classList.toggle("graph-fullscreen");
-    // **Full screen hides the app chrome** (INBOX 29: "the top bar stays").
-    // The card has covered the screen for a while, inset by one step and
-    // fixed, but the top bar, the tab bar inside it and the status bar were
-    // still laid out under it and still showing through that inset, so full
-    // screen read as a card sitting on the app rather than as the map having
-    // the screen. The class goes on <body> because the chrome is not inside
-    // the card: what is hidden is listed in 02-chat-graph.css beside the
-    // `.graph-fullscreen` rule itself.
-    document.body.classList.toggle("graph-fullscreen-on", isFull);
-    // The single zoom-cluster button now does both jobs a separate "Close
-    // Full Screen" toolbar button used to split between them, asked for
-    // directly: "move the close full screen button in the graph to be next
-    // to the new graph button or smth so it isnt making an extra row." That
-    // second button (`#graph-fullscreen-close`, toolbar) called this exact
-    // same function and existed only because this one gave no sign it also
-    // exits: so rather than relocate a redundant second button, this one
-    // now says which of its two jobs it will do next.
-    const fsBtn = $("graph-fullscreen");
-    if (fsBtn) {
-      fsBtn.title = isFull ? "Exit full screen" : "Full screen";
-      fsBtn.setAttribute("aria-label", fsBtn.title);
-      fsBtn.setAttribute("aria-pressed", String(isFull));
-      const icon = fsBtn.querySelector("i");
-      if (icon) icon.className = isFull ? "ph ph-arrows-in" : "ph ph-frame-corners";
-    }
-    // Trigger a resize event to ensure D3 SVG rescales properly
-    window.dispatchEvent(new Event('resize'));
-    if (graphNodesRef && graphNodesRef.length) {
-      setTimeout(() => {
-        const box = $("graph-box");
-        graphDims.w = box.clientWidth || 800;
-        graphDims.h = box.clientHeight || 540;
-        // Only the SVG renderer has a viewBox; `graphSvg` points at the
-        // <canvas> on the other one, and a `viewBox` attribute on a <canvas>
-        // means nothing. The canvas resizes itself from its ResizeObserver.
-        if (graphSvg && graphSvg.node() && graphSvg.node().tagName === "svg") {
-          graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
-        }
-        if (graphSimulation) {
-          graphSimulation.force("center", d3.forceCenter(graphDims.w / 2, graphDims.h / 2));
-          graphSimulation.force("x", d3.forceX(graphDims.w / 2).strength(0.04));
-          graphSimulation.force("y", d3.forceY(graphDims.h / 2).strength(0.06));
-          graphSimulation.alpha(0.3).restart();
-        }
-        if (isFull) {
-          fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
-        }
-      }, 50);
-    }
-  }
-}
-
-$("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
+//: The zoom strip's buttons and full screen are wired in graph.js, the
+//: graph's own bundle (2026-10-10, the boot script budget): nothing on the
+//: Graph tab can be pressed before it has loaded (`switchTab`'s `inert`),
+//: and the two callers here and in navigation.js run only while the card is
+//: already full screen, which only graph.js can have made it.
 
 //: **One flag for "something fills the whole window"** (INBOX 726, the owner:
 //: "I can see atlas on the edges when on the full screen graph", then "the

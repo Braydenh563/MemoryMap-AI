@@ -994,7 +994,8 @@ MORE_TOPICS.extend(
                 "arrows move, Right opens a row, Left folds it, Home and End jump "
                 "to the ends, and Enter opens. By month puts each document under "
                 "the month it was made, with that month's notes. By topic groups "
-                "notes by the subjects the graph finds in how they link."
+                "notes by the subjects the graph finds in how they link; F2 or "
+                "right-click on a topic's heading renames it or shows it on the graph."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

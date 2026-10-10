@@ -148,7 +148,8 @@ async function resolveCategoryChoice(select) {
 // Anything else is a plain word: all of them must appear, in any order.
 
 //: KG7: the structural terms, `-` included, quoted or [[bracketed]] values whole.
-const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|\S+))/gi;
+//: And `prop:key="a value"` whole (query.py's `_TOKEN`).
+const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|[^\s"=<>!]{1,60}[=<>!]{1,2}"[^"]{1,200}"|\S+))/gi;
 let liveQuery = { q: "", ids: null, pending: "" };
 
 //: The ids the server gives for these terms, or null while it is asked.
@@ -2163,7 +2164,19 @@ function noteCountExcludingDrafts() {
 //: query, so the filter is visible and editable; the tag chips on the
 //: dashboard use the same path.
 function filterNotesByTag(tag) {
-  const value = /\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`;
+  filterNotesBy(/\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`);
+}
+
+//: A property's value as a filter (the owner, 2026-10-10: "is it possible to
+//: add and customise the metadata a little more??"): `prop:key=value`, the
+//: value quoted when it has a space (query.py's `_TOKEN`), a [[note]] by name.
+function propQuery(key, value) {
+  const v = String(value).replace(/^\[\[|\]\]$/g, "").replace(/"/g, "");
+  return `prop:${key}=${/[\s=<>!]/.test(v) ? `"${v}"` : v}`;
+}
+
+//: The Notes list filtered by one query, as the box would be typed.
+function filterNotesBy(value) {
   $("note-search").value = value;
   noteSearch = value;
   $("save-search")?.classList.remove("hidden");
@@ -2821,6 +2834,7 @@ async function _loadEntries() {
   entriesComplete = false;
   referenceCountsCache.clear();
   reminderCountsCache.clear();
+  noteTopicsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -3087,7 +3101,27 @@ function reminderCountChip(entry, options = {}) {
   return alarm;
 }
 
-//: **The two count strips a card carries, as data.**
+//: **A note's topic, on its card** (the owner, 2026-10-10: "Should topics
+//: from the graph be more integrated app wide??"). A topic is found by the
+//: graph (`/graph/topics/of`, renames applied); the chip says which one this
+//: note is in and opens the graph on it. Quiet like the counts: a fact about
+//: the note, not a warning. A rename clears the cache (`gcSaveTopicName`).
+const noteTopicsCache = new Map();
+const _noteTopicsInFlight = new Set();
+
+function noteTopicChip(entry) {
+  const topic = noteTopicsCache.get(entry.id);
+  if (!topic || entry.is_board || entry.is_draft) return null;
+  const mark = chip(`ph:circles-three ${topic.name}`, "refs topic", async (event) => {
+    event.stopPropagation();
+    await switchTab("graph");
+    showTopicInGraph(entry.id);
+  });
+  mark.title = `In the topic ${topic.name}, ${topic.size} notes. Open it on the graph`;
+  return mark;
+}
+
+//: **The count strips a card carries, as data.**
 //:
 //: They are the same mechanism twice over: read the ids on screen, ask once
 //: for all of them, patch the chip onto the cards that are still there. The
@@ -3115,6 +3149,15 @@ const CARD_COUNT_SOURCES = [
     empty: 0,
     chip: (entry) => reminderCountChip(entry, { actions: true }),
   },
+  {
+    cache: noteTopicsCache,
+    inFlight: _noteTopicsInFlight,
+    path: (ids) => `/graph/topics/of?ids=${ids}`,
+    key: "topics",
+    marker: ".chip.topic",
+    empty: null,
+    chip: noteTopicChip,
+  },
 ];
 
 function ensureCardCounts(list, generation) {
@@ -3134,7 +3177,7 @@ function ensureOneCardCount(list, generation, source) {
   apiJson(source.path(wanted.join(",")), { silent: true })
     .then((answer) => {
       if (generation !== _entriesLoadGeneration) return;
-      const counts = (answer && answer.counts) || {};
+      const counts = (answer && answer[source.key || "counts"]) || {};
       for (const id of wanted) {
         const given = counts[String(id)];
         source.cache.set(id, given === undefined || given === null ? source.empty : given);

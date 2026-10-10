@@ -90,3 +90,22 @@ def test_the_table_has_the_properties_as_columns(client):
 
 def test_an_empty_or_plain_query_is_refused_politely(client):
     assert client.get("/entries/query", params={"q": ""}).json() == {"ids": [], "columns": [], "rows": [], "structural": False, "rollups": {}}
+
+
+def test_a_value_with_spaces_is_quoted_after_the_operator():
+    """The owner, 2026-10-10: "is it possible to add and customise the
+    metadata a little more??". A property's value on a card and in the
+    graph's panel is a press that finds the notes with it, and a value like
+    "in progress" is written `prop:status="in progress"`; the token used to
+    stop at the space, so the question was about `"in`."""
+    q = parse('prop:status="in progress" -prop:owner!="Sam Lee" fire')
+    kinds = [(t.kind, t.key, t.op, t.value, t.negate) for t in q]
+    assert ("prop", "status", "=", "in progress", False) in kinds
+    assert ("prop", "owner", "!=", "Sam Lee", True) in kinds
+    assert ("word", None, "=", "fire", False) in kinds
+
+
+def test_a_quoted_value_finds_its_notes(client):
+    a = _note(client, "---\nstatus: in progress\n---\n# Glaze")
+    _note(client, "---\nstatus: done\n---\n# Kiln")
+    assert _ids(client, 'prop:status="in progress"') == [a["id"]]

@@ -3738,8 +3738,11 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- INBOX 693 (the owner: "different preferred shapes or ways of
                  structuring the force graph"): how the Force layout arranges
                  itself, not another layout. Only the forces change; graph.js
-                 saves it and re-lays the map out from where it stands. -->
-            <div class="graph-option-row" id="graph-shape-row">
+                 saves it and re-lays the map out from where it stands.
+                 `graph-physics` for its dimmed state under the other layouts
+                 (`setGraphPhysicsEnabled`): Shape is the Force layout's own,
+                 like the sliders, and the boot CSS has no bytes to spare. -->
+            <div class="graph-option-row graph-physics" id="graph-shape-row">
               <label for="graph-shape" id="graph-shape-label">Shape</label>
               <select id="graph-shape" class="ghost small" aria-labelledby="graph-shape-label"
                 title="How the force layout arranges itself">
@@ -4199,6 +4202,13 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Date, links, views: one muted line, because they are the same
                rank of fact and five chips said they were five ranks. -->
           <p id="graph-popup-info" class="graph-popup-meta muted"></p>
+          <!-- The note's topic: a chip that opens it on the map and a pencil
+               that renames it in place (`renderGraphPopupTopic`, graph.js). -->
+          <p id="graph-popup-topic" class="graph-popup-meta graph-popup-topic hidden"></p>
+          <!-- Its properties (the note's `---` fields), each value a press that
+               lights the notes sharing it, and Properties to add or change
+               them (`renderGraphPopupProps`, graph.js). -->
+          <div id="graph-popup-props" class="graph-popup-props"></div>
           <!-- A sketch is a note plus a PNG, so its node on the map used to
                show only the caption, the drawing itself was unreachable from
                the graph entirely (user-reported: "sketches don't open from

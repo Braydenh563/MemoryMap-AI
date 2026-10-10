@@ -25,6 +25,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Graph: switching to Radial, Tree or Arc while the force layout was still settling left the camera on the old view, the new layout off in a corner; a layout switch now ends on the new layout's fitted view, and the radial is centred.
+- Graph: the map no longer opens zoomed in and then pulls back (INBOX 738); its first visible frame is at the fitted zoom.
+- Graph: a fitted view has even margins: the fit is measured on what was drawn (dots, names and topic names) and centred, on the first open, after a layout switch and from the Fit button.
+- Graph: Shape is dimmed with its reason under Tree, Radial and Arc; it is the Force layout's own.
+- Graph: collapsing and opening the local map beside a note no longer loses its notes off the edge; a folded map keeps its size and framing.
+- Notes: a property value on a note card finds every note with it (the filter writes prop:key=value, quoted when the value has a space), and a note's panel on the graph shows its properties, a value lighting those notes on the map, with a Properties button to add or change them.
+- Graph: topics can be renamed where their name is (double-click the name on the map, the pencil on the topic's card or a note's panel, or F2 or right-click on a topic's heading in Library, Contents, By topic), dragged by their name to move all their notes together, and a note's card and panel show its topic, which opens the graph on that topic.
 - Dropdown buttons are named with the value they show (Audit 2026-10-10): "Sort notes: Newest first" rather than "Sort notes", so voice control that says what is written on the button reaches it. The lock screen no longer asks the server for the Tidy count before you have signed in.
 - An update that changes the notebook's structure now copies the notebook to Backups first (Audit 2026-10-10): the migration used to run on the only copy, and the nightly backup could be a day old. Ordinary launches copy nothing.
 - The Notes dock's Tidy count no longer takes 23 seconds on a 5,000-note notebook (Audit 2026-10-10): it counted loose notes by matching every one against the rest, and rescanned for duplicates on every list redraw. It now takes about 1.4 seconds the first time and answers from memory until a note changes.

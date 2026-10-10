@@ -191,6 +191,19 @@ function setGraphPhysicsEnabled(layoutKind) {
   for (const label of box.querySelectorAll("label[for]")) {
     label.title = why;
   }
+  //: The View section's Shape is the Force layout's too (the owner,
+  //: 2026-10-10: "the graph shape options shouldnt be enabled when on a view
+  //: other than force"): the worker's shapes are sets of forces, and Tree,
+  //: Radial and Arc place every note by rule. Dimmed with its reason, the
+  //: same as the sliders, rather than hidden.
+  const shape = $("graph-shape");
+  if (shape) {
+    shape.disabled = !applies;
+    shape.title = applies ? "How the force layout arranges itself" : "Shape applies to the Force layout only: pick Force under Layout to use it.";
+    $("graph-shape-row")?.classList.toggle("is-disabled", !applies);
+    const label = $("graph-shape-label");
+    if (label) label.title = applies ? "" : shape.title;
+  }
 }
 
 // A category level in a tree layout. It is a real node in the drawing so the
@@ -457,7 +470,7 @@ function arcPath(link) {
 // rows of text become illegible. Fit the *width*, never magnify past 1:1, and
 // start at the top, the panel pans, and a readable tree you scroll beats a
 // complete one you can't read.
-function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc = false) {
+function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc = false, instant = false) {
   // Labels stick out past the node they belong to: to the right in a tree, in
   // every direction on a radial, and by however much the longest one happens
   // to be. Guessing that with a padding constant left label tips off the edge
@@ -487,6 +500,19 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   //: bowing above it (up to 0.3 of the span, `arcPath`) and the labels
   //: hanging below were outside the frame, which centred the bare line and
   //: zoomed in until it filled the width.
+  //: **A radial's names hang under its dots on every side** (the canvas
+  //: renderer centres a label under its node), so its pad is the same left
+  //: and right. The tree's +200 to the right only, kept above for the
+  //: labels a tree draws beside its dots, put the ring 60px left of the
+  //: view's centre (the owner, 2026-10-10: "it put me on a random corner").
+  if (radial && !drawn.width) {
+    box = {
+      x: Math.min(...xs) - 90,
+      y: Math.min(...ys) - 30,
+      width: Math.max(...xs) - Math.min(...xs) + 180,
+      height: Math.max(...ys) - Math.min(...ys) + 60,
+    };
+  }
   if (arc && !drawn.width) {
     const spanXs = Math.max(...xs) - Math.min(...xs);
     const spanYs = Math.max(...ys) - Math.min(...ys);
@@ -537,10 +563,11 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
         : 10 - scale * minY;
   //: Same rule as `fitGraphToView`: see the note beside its own check.
   if (!graphMinimapFinite(tx, ty, scale)) return;
-  svg
-    .transition()
-    .duration(400)
-    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  const framed = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  //: Instant is applied now, not as a zero-length transition: d3 runs that
+  //: on its next timer frame, and the canvas paints one frame before it.
+  if (instant) svg.interrupt().call(zoomBehavior.transform, framed);
+  else svg.transition().duration(400).call(zoomBehavior.transform, framed);
 }
 
 // --- tracing a path between two notes (§9) -----------------------------------
@@ -3279,7 +3306,7 @@ function initGraphKeyboard() {
 }
 
 // Zoom/pan so every node fits with a margin (Wave N).
-function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
+function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant = false) {
   if (!nodes.length) return;
   // Reported: fit-to-view "zooms out like crazy so you only see the generic
   // cluster blobs". Two bugs, both in how the old version measured the map:
@@ -3332,13 +3359,23 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   //: while a layout settles, and two half-second pans are the most movement
   //: this tab makes on its own.
   const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  svg
-    .transition()
-    .duration(still ? 0 : 500)
-    .call(
-      zoomBehavior.transform,
-      d3.zoomIdentity.translate(tx, ty).scale(scale)
-    );
+  const framed = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  //: Instant is applied now (see `frameTree`): a zero-length transition
+  //: still lands a frame late.
+  //: The tab's canvas then balances the fit on what it actually drew
+  //: (`gcBalanceFit`): the pad above is a guess at the labels.
+  const balance = () => {
+    //: The whole map only: a fit to some of it (a topic, `showTopicInGraph`)
+    //: is framed on those notes, and balancing on all of them would undo it.
+    if (typeof gcTab !== "undefined" && gcTab.svg === svg && nodes.length === gcTab.nodes.length) {
+      gcTab.fitCheck = 2;
+      gcRequestDraw(gcTab);
+    }
+  };
+  if (instant) {
+    svg.interrupt().call(zoomBehavior.transform, framed);
+    balance();
+  } else svg.transition().duration(still ? 0 : 500).call(zoomBehavior.transform, framed).on("end", balance);
 }
 
 // Dim everything except nodes that match the search box AND (when hovering)
@@ -3511,6 +3548,8 @@ async function openGraphPopup(event, node) {
   syncGraphPopupSave();
   renderGraphPopupHeader(entry, node);
   renderGraphPopupInfo(entry);
+  renderGraphPopupTopic(entry);
+  renderGraphPopupProps(entry);
   renderGraphPopupMedia(entry);
   renderGraphPopupActions(entry);
   //: The editor is sized to the note it just received, not to a fixed slot.
@@ -4001,6 +4040,129 @@ function placeGraphPopup() {
 //: was made, how connected it is, how often it has been read. A `·`-joined
 //: muted line says "the same kind of small fact" in a way five bordered chips
 //: cannot.
+//: A note (or a document's node) found and framed on the map: the half of
+//: `showNoteInGraph` (note-cards.js) that runs once the bundle is here.
+async function graphShowNote(id, { document: isDocument = false } = {}) {
+  if (isDocument) {
+    const box = $("graph-documents");
+    if (box && !box.checked) {
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  const nodeId = isDocument ? `document:${id}` : id;
+  const deadline = Date.now() + 4000;
+  let node = null;
+  while (Date.now() < deadline) {
+    node = graphNodeById(nodeId);
+    if (node && Number.isFinite(node.x)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!node || !Number.isFinite(node.x)) {
+    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, "info");
+    return;
+  }
+  focusGraphNode(node);
+  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
+    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
+  }
+}
+
+//: **A note's topic, in its panel** (the owner, 2026-10-10: "I still cant
+//: edit topics in the graph or anywhere else"). The chip opens the topic on
+//: the map; the pencil renames it in place (`gcRenameTopicInline`). Read from
+//: the map's own topics under the Topic colour rule, else asked for
+//: (`/graph/topics/of`, which a rename keeps current).
+async function renderGraphPopupTopic(entry) {
+  const box = $("graph-popup-topic");
+  if (!box) return;
+  box.classList.add("hidden");
+  box.replaceChildren();
+  let topic = null;
+  const mapped = graphStructure?.topics && graphStructure.topic_of?.[String(entry.id)];
+  if (mapped !== undefined && mapped !== null && graphStructure?.topics) {
+    topic = graphStructure.topics.find((t) => t.id === mapped) || null;
+  } else {
+    const row = await apiJson(`/graph/topics/of?ids=${entry.id}&members=1`, { silent: true }).catch(() => null);
+    topic = row?.topics?.[String(entry.id)] || null;
+  }
+  if (!topic || graphPopupId !== entry.id) return;
+  const mark = chip(`ph:circles-three ${topic.name}`, "tag", () => showTopicInGraph(entry.id));
+  mark.title = `In the topic ${topic.name}, ${topic.size} notes. Show it on the map`;
+  //: `members=1` above: a rename is stored by the topic's notes.
+  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, mark));
+  rename.classList.add("icon-only");
+  box.append(mark, rename);
+  box.classList.remove("hidden");
+}
+
+//: The map's topic for a note, the Topic colour rule switched on to find it
+//: (topics are only read under it). Null after five seconds without one.
+async function graphTopicFor(entryId) {
+  const colour = $("graph-colour");
+  if (colour && colour.value !== "topic") {
+    colour.value = "topic";
+    colour.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const id = graphStructure?.topic_of?.[String(entryId)];
+    const topic = id === undefined ? null : graphStructure.topics?.find((t) => t.id === id);
+    if (topic && gcTab.nodes.some((node) => Number.isFinite(node.x)) && gcTab.alpha < 0.3) return topic;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
+}
+
+//: A note's topic on the map: the Graph tab under the Topic colour rule, the
+//: topic's notes lit, its card open, and the camera on its notes (a note
+//: card's topic chip, `noteTopicChip`, and the panel's).
+async function showTopicInGraph(entryId) {
+  await switchTab("graph");
+  const topic = await graphTopicFor(entryId);
+  if (!topic) {
+    toast("That note's topic is not on the graph right now: a filter or the view may be hiding it.", "info");
+    return;
+  }
+  closeGraphPopup();
+  gcOpenTopic(topic);
+  const members = gcTopicMembers(topic);
+  if (members.length) fitGraphToView(gcTab.svg, null, gcTab.zoom, members, gcTab.dims.w, gcTab.dims.h);
+}
+
+//: **A note's properties, in its panel** (the owner, 2026-10-10: "is it
+//: possible to add and customise the metadata a little more??"). The
+//: `---` fields the card shows, each value a press that lights the notes on
+//: the map sharing it (`/entries/query`, the Notes filter's own question), and
+//: Properties to add or change them (the note's ⋯ has the same sheet).
+function renderGraphPopupProps(entry) {
+  const box = $("graph-popup-props");
+  if (!box) return;
+  const table = document.createElement("dl");
+  table.className = "note-props";
+  for (const [key, values] of Object.entries(entry.properties || {}).slice(0, 8)) {
+    const dt = document.createElement("dt");
+    dt.textContent = key;
+    const dd = document.createElement("dd");
+    for (const value of (values || []).filter(Boolean)) {
+      const shown = String(value).replace(/^\[\[|\]\]$/g, "");
+      const light = chip(shown, "refs", async () => {
+        const row = await apiJson(`/entries/query?q=${encodeURIComponent(propQuery(key, shown))}`, { silent: true }).catch(() => null);
+        if (!row) return;
+        graphHighlightIds = new Set(row.ids || []);
+        applyGraphHighlight();
+        toast(`${graphHighlightIds.size} note${graphHighlightIds.size === 1 ? "" : "s"} with ${key} ${shown}, lit on the map.`, "info");
+      });
+      light.title = `Light the notes whose ${key} is ${shown}`;
+      dd.append(light, " ");
+    }
+    if (!dd.firstChild) dd.textContent = "–";
+    table.append(dt, dd);
+  }
+  const edit = smallButton("ph:list-bullets Properties", "Add or change this note's properties (status, due, a type's fields), kept in its text", () => openNotePropertiesSheet(entry));
+  box.replaceChildren(...(table.firstChild ? [table] : []), edit);
+}
+
 function renderGraphPopupInfo(entry) {
   const box = $("graph-popup-info");
   const links = (entry.links || []).length;
@@ -5346,6 +5508,79 @@ $("graph-label-plates")?.addEventListener("change", (event) => {
 $("graph-reshuffle")?.addEventListener("click", () => {
   if (!gcReshuffle()) toast("Reshuffle works on the force layout: pick Force under Layout first.");
 });
+
+//: Moved from wiring.js (2026-10-10, the boot script budget): see the note
+//: left there.
+// On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
+function graphZoomBy(factor) {
+  if (!graphZoom || !graphSvg) return;
+  graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
+}
+$("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
+$("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));
+$("graph-zoom-fit").addEventListener("click", () => {
+  if (graphNodesRef && graphNodesRef.length) {
+    fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+  }
+});
+
+function toggleGraphFullscreen() {
+  const card = $("graph-card");
+  if (card) {
+    const isFull = card.classList.toggle("graph-fullscreen");
+    // **Full screen hides the app chrome** (INBOX 29: "the top bar stays").
+    // The card has covered the screen for a while, inset by one step and
+    // fixed, but the top bar, the tab bar inside it and the status bar were
+    // still laid out under it and still showing through that inset, so full
+    // screen read as a card sitting on the app rather than as the map having
+    // the screen. The class goes on <body> because the chrome is not inside
+    // the card: what is hidden is listed in 02-chat-graph.css beside the
+    // `.graph-fullscreen` rule itself.
+    document.body.classList.toggle("graph-fullscreen-on", isFull);
+    // The single zoom-cluster button now does both jobs a separate "Close
+    // Full Screen" toolbar button used to split between them, asked for
+    // directly: "move the close full screen button in the graph to be next
+    // to the new graph button or smth so it isnt making an extra row." That
+    // second button (`#graph-fullscreen-close`, toolbar) called this exact
+    // same function and existed only because this one gave no sign it also
+    // exits: so rather than relocate a redundant second button, this one
+    // now says which of its two jobs it will do next.
+    const fsBtn = $("graph-fullscreen");
+    if (fsBtn) {
+      fsBtn.title = isFull ? "Exit full screen" : "Full screen";
+      fsBtn.setAttribute("aria-label", fsBtn.title);
+      fsBtn.setAttribute("aria-pressed", String(isFull));
+      const icon = fsBtn.querySelector("i");
+      if (icon) icon.className = isFull ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    }
+    // Trigger a resize event to ensure D3 SVG rescales properly
+    window.dispatchEvent(new Event('resize'));
+    if (graphNodesRef && graphNodesRef.length) {
+      setTimeout(() => {
+        const box = $("graph-box");
+        graphDims.w = box.clientWidth || 800;
+        graphDims.h = box.clientHeight || 540;
+        // Only the SVG renderer has a viewBox; `graphSvg` points at the
+        // <canvas> on the other one, and a `viewBox` attribute on a <canvas>
+        // means nothing. The canvas resizes itself from its ResizeObserver.
+        if (graphSvg && graphSvg.node() && graphSvg.node().tagName === "svg") {
+          graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
+        }
+        if (graphSimulation) {
+          graphSimulation.force("center", d3.forceCenter(graphDims.w / 2, graphDims.h / 2));
+          graphSimulation.force("x", d3.forceX(graphDims.w / 2).strength(0.04));
+          graphSimulation.force("y", d3.forceY(graphDims.h / 2).strength(0.06));
+          graphSimulation.alpha(0.3).restart();
+        }
+        if (isFull) {
+          fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+        }
+      }, 50);
+    }
+  }
+}
+
+$("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 
 // INBOX 693: the force layout's Shape (`gcShape`, the worker's `SHAPES`).
 // Remembered; a change re-lays the map out from where every note stands, so

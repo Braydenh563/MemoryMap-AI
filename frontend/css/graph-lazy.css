@@ -1,0 +1,46 @@
+/* graph-lazy.css: the Graph tab's styles that arrived after the boot budget
+   ran out, loaded with the graph's own scripts (app.js `LAZY_MODULES.graph`)
+   rather than at boot. Everything here is drawn only once the map is. */
+
+/* **A topic's name plate is a handle** (the owner, 2026-10-10: "I want to be
+   able to drag whole topics around on the graph"): the grab hand while the
+   pointer is over one in the force layout (`gcPlateAtWorld`). */
+#graph-canvas.graph-plate-hover {
+  cursor: grab;
+}
+
+/* **A topic renamed where its name is** ("I cant rename a topic??"): the
+   field `gcRenameTopicInline` opens in place of the name on the topic's card
+   or a note's panel, or floating over the plate on the map. The app's own
+   text field; this sets only its size and, over the map, its place. */
+.graph-topic-rename {
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  font-weight: 600;
+}
+
+.graph-topic-rename.is-floating {
+  position: absolute;
+  z-index: 3;
+  box-shadow: var(--shadow-sm);
+}
+
+/* A note's topic in its panel: the chip and its pencil on one line. */
+.graph-popup-topic {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A note's properties in its panel: the card's table, then Properties. */
+.graph-popup-props {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.graph-popup-props .note-props {
+  margin: 0;
+}

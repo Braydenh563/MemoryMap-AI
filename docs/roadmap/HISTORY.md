@@ -46065,6 +46065,75 @@ and refuses a topic ("Select a shape, link or text box first").
      I opened the create new board/mindmap panel from". Then, with an empty map card
      still showing: "i deleted this empty map but itdidnt dissapear??" Placed: Sonnet
      agent.
+## Moved from the plans, 2026-10-10 (graph-1010)
+
+From GRAPH_PLAN's "Placed from the owner's list, 2026-10-10", whole, then
+what was built (branch agent/graph-1010).
+
+Entries are the owner's words, then the recommendation. Bugs come first.
+
+### Bugs
+
+- "I went onto the radial view and it put me on a random corner" / "same with the tree"
+  Recommendation: every view switch ends fitted to the visible nodes, for radial and tree as well as force; check with the view-switch sweep. Also carried by Brief 38 (view switches end fitted).
+- "the graph shape options shouldnt be enabled when on a view other than force"
+  Recommendation: gate the shape control to the force view and show why it is off elsewhere. Also carried by Brief 38 (Shape gated to Force).
+- "I collapsed and opened the local map and the stuff disappeared??"
+  Recommendation: the local map redraws its nodes after collapse and reopen; reproduce the collapse, then count nodes before and after. Also carried by Brief 38 (the local map redraw).
+- "I cant rename a topic??"
+  Recommendation: add rename to topics on the graph and in every list that shows them. Also carried by Brief 38 (topics renamed).
+- "this is my graph's fitted view and it is a bit off" / "thats more fitted"
+  Recommendation: use even fit margins on every side and fit on the first paint, then compare the bounding box with the canvas. Also carried by Brief 38 (first paint fitted, even fit margins).
+
+### Design requests
+
+- "I still cant edit topics in the graph or anywhere else, and I want to be able to drag whole topics around on the graph."
+  Recommendation: topics become editable objects with their members, and dragging one moves its members as a group. Also carried by Brief 38 (topics dragged as a group and shown on the note).
+- "Should topics from the graph be more integrated app wide?? How are they different from categories?"
+  Recommendation: answer in GRAPH_PLAN decisions (topics are the person's named clusters, categories are filing targets) and make the same object appear in both places; Brief 38 builds the integration and Brief 39b the taxonomy. Also carried by Brief 38 and Brief 39b.
+
+### Built, 2026-10-10
+
+- **View switches end fitted** (d7a59f1a5): a layout switch ends on the new
+  layout's fitted view; radial centre off by (-541, -247) px before, (0, 0)
+  after (`tests/test_graph_layout_switch_fit.py`).
+- **The first frame is fitted** (f45fe5b2c, INBOX 738).
+- **Even fit margins** (dd28ed9cd): `gcBalanceFit` measures the drawn dots,
+  names and topic plates after a fit and centres the drawing at the fit's 9%
+  margin. 60 notes at 1440x900, left/right/top/bottom 318/351/96/80 before,
+  333/334/69/69 after (`graphfitmargins.js`, `tests/test_graph_fit_balance.py`).
+- **Shape gated to Force** (d79347287): disabled, dimmed (0.45) and titled
+  with its reason under Tree, Radial and Arc (`graphshapeforce.js`).
+- **The local map survives a collapse** (0ddefc3b2): a folded box no longer
+  resizes the canvas to the 800x540 fallback; notes on the canvas after
+  opening again 0 of 16 before, 16 of 16 after (`graphpanecollapse.js`,
+  `tests/test_graph_pane_collapse.py`).
+- **Topics renamed, dragged and shown** (8efdc566b, c31e4f705, f48ac0174):
+  rename in place on the plate (double-click), the topic card, a note's
+  panel and Library's By topic headings (F2, right-click); a plate drag
+  carries the topic's notes, pinned, one `PUT /graph/pins` (12 of 12 moved
+  by 140,70 px, spread 0); a topic chip on note cards (`GET
+  /graph/topics/of`) and the panel opens the graph on the topic
+  (`graphtopicdrag.js`, `graphtopicchip.js`, `librarytopicrename.js`,
+  `tests/test_topic_names.py`, `tests/test_graph_topic_drag.py`).
+- **Properties findable** (36d296761, the owner's "is it possible to add and
+  customise the metadata a little more??"): a card's value filters by
+  `prop:key=value` (quoted values now parse), the graph panel lists them
+  and lights a value's notes (`notepropsfind.js`).
+
+
+## INBOX resolved, 2026-10-10
+
+738. **The owner, 2026-10-06, verbatim**: "the graph always loads in really zoomed in
+     before it rights sitself with thr fitted xoom". The first frame draws at the
+     default zoom before the fit runs; fix: compute the fit from the first settled
+     positions (or the saved layout) before the first paint, or hold the canvas
+     hidden until the fit, with a fade in. Measure the first painted frame's scale.
+     **Fixed (agent/graph-1010):** the first fit framed the starting spiral (the
+     glide had not moved `x`/`y` yet) and glided from k 1; it now snaps the glide,
+     is instant while hidden, and a fresh layout is warmed in the worker first.
+     First visible frame k 1.21 (worst 2.5) to 0.785, settled 0.788
+     (`scratchpad/ui-sweeps/graphfirstframe.js`, 60 notes).
 
 ## Plan size caps, 2026-10-10
 

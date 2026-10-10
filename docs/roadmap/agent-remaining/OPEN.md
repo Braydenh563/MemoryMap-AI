@@ -149,6 +149,14 @@ being written by running agents stay beside this one.
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The graph export's style attributes under the CSP; The options panel scrolls again at 1440x900; /graph/local has no Show switches; GRAPH_PLAN Phase 5; The node popup redesign the owner names; graph.js's step 5 still fails: "clear trace (a route was drawn: false): NO CHANGE"; `graph.js` interrupted by a confirm dialog; scratchpad/ui-sweeps/selectfocus.js fails twice on a notebook with content; INBOX 66: the lightbox the node panel opens is unreachable while the graph is fullscreen.
 
+Left by the graph agent (Brief 38, merged 2026-10-10):
+
+- A tag-named topic's chip repeats the tag chip beside it on the card (`noteTopicChip`, notes-list.js); dedupe against the card's own tags.
+- The floating topic rename field is 42px tall over a 17px plate (`gcRenameTopicInline`, graph-canvas.js); not seen by eye, size it to the plate.
+- A topic drag writes its core note's pin with its own `PUT /graph/pin` beside the group's one `PUT /graph/pins` (`gcDragEnd`); one write.
+- `scratchpad/ui-sweeps/graphfslightbox.js` reads `.lightbox` in the tick it calls the lazy `openLightbox`; the sweep needs an await.
+- Topics becoming categories is Brief 39b's (GRAPH_PLAN "Decision made, 2026-10-10").
+
 ## Chat and popup agent
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Review of the chat pass and the Library and Timeline pass (2026-09-27).

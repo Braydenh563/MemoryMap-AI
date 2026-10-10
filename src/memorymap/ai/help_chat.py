@@ -1476,7 +1476,7 @@ HELP_TOPICS.extend(
                 "undoable with Ctrl+Z) or make a Mind "
                 "map of them, built from their links round the picked or most "
                 "connected note, with Open on the notice that follows. Display options, the gear, opens with View: Layout "
-                "(Force, Tree, Radial or Arc), Shape (Organic, Clusters or Galaxy), Colour, Size, Trace, which finds how "
+                "(Force, Tree, Radial or Arc), Shape (Organic, Clusters or Galaxy; the Force layout's own, dimmed under the others), Colour, Size, Trace, which finds how "
                 "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Reshuffle layout, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
                 "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
                 "Display (Labels, Label backgrounds, Curved "
@@ -1501,6 +1501,7 @@ HELP_TOPICS.extend(
                 "ghost node", "attachments on the graph", "arrows", "text fade",
                 "link thickness", "link force", "label background",
                 "topic", "topics", "subjects", "outline", "colour by topic",
+                "rename a topic", "drag a topic", "move a topic", "topic chip",
                 "filter links", "kind of link", "hide links", "property chips",
                 "note type", "colour by type",
             ),
@@ -1522,8 +1523,12 @@ HELP_TOPICS.extend(
                 "the tag, person or word its notes share most, and its legend entry "
                 "finds those notes and opens its card, where Summarise asks your "
                 "local model for one sentence (with no model, what they share) "
-                "and the pencil renames it (the arrow brings the found name back); "
-                "no note's name is drawn over a topic's name. Filter holds a chip per "
+                "and the pencil renames it in place (the arrow brings the found name back). "
+                "On the map, drag a topic's name to move all its notes together "
+                "(they stay put; Unpin all releases them), double-click it to rename, "
+                "click it for its card. A note's card and its panel show its topic; "
+                "pressing it opens the graph on that topic. "
+                "No note's name is drawn over a topic's name. Filter holds a chip per "
                 "kind of link on the map (press one to take those links off, again "
                 "to bring them back) and per property value (press to light those "
                 "notes). Colour: Note type paints each note its type's colour "
@@ -1540,14 +1545,16 @@ HELP_TOPICS.extend(
                 "property", "properties", "frontmatter", "yaml", "note type",
                 "note types", "fields", "field", "status", "metadata",
                 "query", "live query", "type:", "prop:", "table view",
-                "rollup", "rollups", "roll up",
+                "rollup", "rollups", "roll up", "custom metadata", "find by property",
             ),
             "body": (
                 "A note can carry properties (status: open, owner: Priya), kept "
                 "at the top of its own text between two --- lines, the way "
                 "Obsidian writes them, so an imported vault keeps them and an "
                 "export carries them. They show as a small table under the "
-                "note's title. A note's ⋯ has Properties: add, change or remove "
+                "note's title, where pressing a value finds every note with it; "
+                "a note's panel on the graph shows them too, a value lighting "
+                "those notes on the map, with a Properties button. A note's ⋯ has Properties: add, change or remove "
                 "one, or pick a Type, and Save rewrites only those lines. Note "
                 "types in the command palette makes a kind of note (Meeting: "
                 "attendees, date) with fields that are text, a number, a date, a "
@@ -1557,6 +1564,7 @@ HELP_TOPICS.extend(
                 "in its properties, the type's fields it has not written yet "
                 "show as empty rows, and a value you enter is written as one "
                 "line. The notes filter asks about them: type:meeting, prop:status=open "
+                "(a value with a space in quotes: prop:status=\"in progress\") "
                 "(or prop:effort>2), links:[[Kiln plan]], rel:supports, "
                 "entity:\"Sam Lee\", with - before any of them to leave those out; "
                 "a bar over the list then shows the same notes as a Table, with "

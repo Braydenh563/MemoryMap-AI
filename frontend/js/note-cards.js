@@ -1509,7 +1509,17 @@ function entryItem(entry, options = {}) {
       const dt = document.createElement("dt");
       dt.textContent = key;
       const dd = document.createElement("dd");
-      dd.textContent = (values || []).join(", ").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1") || "–";
+      //: Each value finds its notes (`prop:key=value` in the filter box).
+      for (const value of (values || []).filter(Boolean)) {
+        const shown = String(value).replace(/^\[\[|\]\]$/g, "");
+        const find = chip(shown, "refs", (event) => {
+          event.stopPropagation();
+          filterNotesBy(propQuery(key, shown));
+        });
+        find.title = `Find the notes whose ${key} is ${shown}`;
+        dd.append(find, " ");
+      }
+      if (!dd.firstChild) dd.textContent = "–";
       table.append(dt, dd);
     }
     li.appendChild(table);
@@ -1812,6 +1822,8 @@ function entryItem(entry, options = {}) {
   //: patches the chip in afterwards for cards rendered before they had.
   const refs = referenceCountChip(entry, options);
   if (refs) meta.appendChild(refs);
+  const topicMark = options.actions || options.facts ? noteTopicChip(entry) : null;
+  if (topicMark) meta.appendChild(topicMark);
   //: **And what it made you promise to do** (INBOX 309). Same cache, same
   //: patch-in, same line: a reminder that came out of this note is a fact
   //: about the note in exactly the way "on 1 board" is.
@@ -2330,31 +2342,11 @@ function noteReviewActions(entry) {
 //: A document is a node of its own (`document:<id>`, routes_graph.py) that the
 //: map draws only while its Documents switch is on, so asking for one turns
 //: that switch on first, the way the map's own Show switches would.
-async function showNoteInGraph(id, { document: isDocument = false } = {}) {
+//: The graph's own half is `graphShowNote` (graph.js, 2026-10-10: the boot
+//: script budget); the tab switch loads it first.
+async function showNoteInGraph(id, options = {}) {
   await switchTab("graph");
-  if (isDocument) {
-    const box = $("graph-documents");
-    if (box && !box.checked) {
-      box.checked = true;
-      box.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }
-  const nodeId = isDocument ? `document:${id}` : id;
-  const deadline = Date.now() + 4000;
-  let node = null;
-  while (Date.now() < deadline) {
-    node = graphNodeById(nodeId);
-    if (node && Number.isFinite(node.x)) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  if (!node || !Number.isFinite(node.x)) {
-    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, "info");
-    return;
-  }
-  focusGraphNode(node);
-  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
-    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
-  }
+  return graphShowNote(id, options);
 }
 
 //: Start a chat about one note. Named by its title in the words a person

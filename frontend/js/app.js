@@ -1223,7 +1223,7 @@ function startApp() {
   // preference gates it either). "Only if the app auto updates though,
   // not every time they login", the endpoint self-clears after one read,
   // so this only ever fires the run right after a real update landed.
-  step("check for a source-checkout update notice", checkForSourceUpdateNotice);
+  step("check for an update notice", checkForSourceUpdateNotice);
   step("load conversations", loadConversationList);
   step("check the model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
@@ -1899,7 +1899,7 @@ const LAZY_MODULES = {
   //: d3 (90 KB gzipped) comes with the two surfaces that use it, not at boot
   //: (audit FE-07); `ensureModule` fetches a file once whichever bundle names
   //: it first.
-  graph: ["/vendor/d3.v7.min.js", "/js/graph.js", "/js/graph-canvas.js"],
+  graph: ["/vendor/d3.v7.min.js", "/css/graph-lazy.css", "/js/graph.js", "/js/graph-canvas.js"],
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
   lightbox: ["/js/lightbox-view.js"],

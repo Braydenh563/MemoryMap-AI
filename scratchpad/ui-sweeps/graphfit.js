@@ -1,4 +1,4 @@
-// **The graph stays framed when its card changes size** (INBOX 613). Pass: offX 0 at every step; base -200 after the card widened back.
+// **The graph stays framed when its card changes size** (INBOX 613). Pass: offX near 0 at every step (the dots' middle; since 2026-10-10 a fit centres the drawing, names included, `gcBalanceFit`, so the names' overhang leaves offX within about 20; graphfitmargins.js measures the drawing itself); base -200 after the card widened back.
 const { boot } = require("/home/user/MemoryMap-AI/scratchpad/ui-sweeps/lib.js");
 (async () => {
   const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });

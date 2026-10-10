@@ -11349,9 +11349,77 @@ function contentsBuildSection(outline, { key, label, total, fill }) {
   heading.contentsSet = setOpen;
   setOpen(!folded.has(key));
   heading.addEventListener("click", () => setOpen(list.hidden));
+  contentsWireTopicHeading(heading, key);
   fill(list);
   section.append(heading, list);
   outline.appendChild(section);
+}
+
+//: **A topic is renamed in this list too** (the owner, 2026-10-10: "I cant
+//: rename a topic??", "I still cant edit topics in the graph or anywhere
+//: else"). Under By topic a heading is a topic: F2 or its right-click menu
+//: renames it in place (the graph's route, kept by the topic's notes), and
+//: the menu also shows it on the graph.
+function contentsWireTopicHeading(heading, key) {
+  if (contentsMode !== "topic" || key === CONTENTS_NO_TOPIC) return;
+  const names = contentsTopicNames();
+  const topic = (contentsTopics?.topics || []).find((t) => names.get(t.id) === key);
+  if (!topic) return;
+  heading.title = "F2 or right-click to rename this topic or show it on the graph";
+  heading.addEventListener("keydown", (event) => {
+    if (event.key !== "F2") return;
+    event.preventDefault();
+    contentsRenameTopic(heading, topic);
+  });
+  heading.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openMenuAtPoint([
+      { label: "ph:pencil-simple Rename topic", run: () => contentsRenameTopic(heading, topic) },
+      {
+        label: "ph:graph Show on the graph",
+        run: async () => {
+          await switchTab("graph");
+          showTopicInGraph(topic.ids[0]);
+        },
+      },
+    ], "Topic", event.clientX, event.clientY);
+  });
+}
+
+function contentsRenameTopic(heading, topic) {
+  const field = document.createElement("input");
+  field.type = "text";
+  field.maxLength = 80;
+  field.className = "graph-topic-rename";
+  field.value = topic.name;
+  field.setAttribute("aria-label", `Rename the topic ${topic.name}`);
+  field.title = "Enter to save, Escape to keep the name; empty brings the found name back";
+  heading.hidden = true;
+  heading.after(field);
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    const wanted = field.value.trim();
+    field.remove();
+    heading.hidden = false;
+    if (!save || wanted === topic.name) {
+      heading.focus();
+      return;
+    }
+    const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) }).catch(() => null);
+    if (!row) return;
+    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+    renderContents();
+  };
+  field.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") finish(true);
+    else if (event.key === "Escape") finish(false);
+  });
+  field.addEventListener("blur", () => finish(true));
+  field.focus();
+  field.select();
 }
 
 async function renderContents() {

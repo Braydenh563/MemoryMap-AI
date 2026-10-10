@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4712, frontend ids 2225, CSS sections 485, backend routes 478, backend modules 3550, test files 893, tests 8430, plan headings 810.
+Counts: frontend functions 4712, frontend ids 2225, CSS sections 485, backend routes 478, backend modules 3550, test files 894, tests 8433, plan headings 810.
 
 ## Frontend functions (4712)
 
@@ -13134,7 +13134,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:329 |
 | `settings_from` | src/memorymap/search/websearch.py:315 |
 
-## Tests (8430)
+## Tests (8433)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -13735,6 +13735,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_one_download_helper.py | 3 |
 | tests/test_openapi_gate.py | 3 |
 | tests/test_optional_sign_in.py | 22 |
+| tests/test_orient_script.py | 2 |
 | tests/test_out_of_space.py | 8 |
 | tests/test_outbound_fetch_guard.py | 5 |
 | tests/test_outbound_inventory.py | 4 |
@@ -13761,7 +13762,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_phone_select_mode_tap.py | 2 |
 | tests/test_placed_0909_row31.py | 6 |
 | tests/test_plain_errors.py | 3 |
-| tests/test_plan_hygiene.py | 6 |
+| tests/test_plan_hygiene.py | 7 |
 | tests/test_popup_agent_persona_avatar.py | 3 |
 | tests/test_portable_strftime.py | 1 |
 | tests/test_preferences_api.py | 26 |

@@ -5926,6 +5926,11 @@ select {
   margin: 0;
   font-size: var(--text-h2);
 }
+/* The offline page (offline.html) is this card as an empty state: everything
+   in it centred, the one button under its sentence. */
+.clip-card.empty-state {
+  justify-items: center;
+}
 .clip-preview {
   display: grid;
   gap: var(--space-2);

@@ -69,6 +69,10 @@ OPEN = {
     "/favicon.svg",
     "/manifest.webmanifest",
     "/sw.js",
+    # What the service worker shows when the server cannot be reached
+    # (frontend/sw.js, tests/test_pwa_shell.py): static markup, and the
+    # one page a stopped notebook's owner must always be able to see.
+    "/offline.html",
     # The Run button's sandbox page (INBOX 404): static markup with no data in
     # it, served under its own `sandbox allow-scripts; connect-src 'none'`
     # policy, and framed by an iframe, which cannot send the token header

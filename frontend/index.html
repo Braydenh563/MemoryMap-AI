@@ -12819,6 +12819,31 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Reload the app and clear its cached files">Reload the app</button>
                 <span class="muted">Some changes, an installed extra, a switched model backend, only take effect after a restart.</span>
               </div>
+              <!-- Install as an app (WORLD_CLASS_PLAN 25d). Shown by
+                   settings-wiring.js only when the browser offered the
+                   install (`beforeinstallprompt`) and the app is not already
+                   installed; on iPhone, which has no such event, the note says
+                   how instead and the button stays hidden. -->
+              <div class="row help-head hidden" id="about-install-row">
+                <button id="about-install" class="ghost small hidden" type="button">Install as an app</button>
+                <span class="muted" id="about-install-note">Opens in its own window, with its own icon.</span>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="about-install-help" aria-controls="about-install-help" aria-expanded="false"
+                  title="About installing the app" aria-label="About installing the app">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="about-install-help" role="dialog" aria-label="About installing the app">
+                <p>
+                  Installing gives MemoryMap its own window and icon, and puts
+                  it in your phone's share sheet, so a page or a selection
+                  shared to it lands in Capture. It is the same app, still
+                  served by the copy running on this computer: when that is
+                  not running, the installed app says so rather than showing
+                  an empty notebook. On an iPhone, tap Share, then Add to
+                  Home Screen.
+                </p>
+              </div>
             </div>
 
             <!-- PLAN.md B9: "observability that costs nothing": the same

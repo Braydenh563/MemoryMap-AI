@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MemoryMap is not running</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <!-- What the service worker (sw.js) shows when a page load cannot reach the
+       server (WORLD_CLASS_PLAN decision 49, 25d). It is the whole reason the
+       app is not painted offline: tabs and empty lists over a notebook that is
+       simply not running would read as lost notes. The worker keeps this page
+       and the three stylesheets and one script below at install, so they must
+       stay the only local files it links. Stamps are rewritten to each file's
+       hash as the page is served (`served_offline_html`), as index.html's are.
+       The app's mark is the favicon, not the drawn emblem, which needs the app
+       to run. No inline script, no inline style: the CSP refuses both. -->
+  <script src="/js/theme-boot.js?v=0.4.1"></script>
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.4.1">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.4.1">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.4.1">
+</head>
+<body class="clip-page">
+  <main class="clip-card empty-state" aria-labelledby="offline-heading">
+    <div class="empty-icon"><img src="/favicon.svg" width="44" height="44" alt=""></div>
+    <h1 id="offline-heading" class="empty-title clip-heading">MemoryMap is not running on this computer</h1>
+    <p>Open MemoryMap from the Start menu or the launcher, then try again. Your notes stay on this computer.</p>
+    <div class="row gap clip-actions">
+      <button id="offline-retry" type="button">Retry</button>
+    </div>
+  </main>
+  <script src="/js/offline.js?v=0.4.1"></script>
+</body>
+</html>

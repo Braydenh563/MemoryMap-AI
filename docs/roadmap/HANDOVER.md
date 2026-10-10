@@ -359,8 +359,8 @@ changes, four file types, js-beautify, every code command keyed, the grip at
 24 px), and 41 (density: the top bar 64 to 44, docks at 28, icon hover on
 the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z). Running: 68 (the
 surfaces, f4), 69 (run, preview and test,
-ide1), 34 (the companion and Atlas, one Opus agent), 50 (Sonnet: the PWA
-shell) and 77 (the whiteboard trust pass, wb77); 60 merged 16:45Z. Next: 70, 71 after 69, 84 after 68, then 76, 78 to 83, 85 to 90. The PR merges when the gate,
+ide1), 34 (the companion and Atlas, one Opus agent) and 77 (the whiteboard
+trust pass, wb77); 60 and 50 merged by 16:50Z. Next: 70, 71 after 69, 84 after 68, then 76, 78 to 83, 85 to 90. The PR merges when the gate,
 the sweeps and one full suite run are green.
 
 **A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the

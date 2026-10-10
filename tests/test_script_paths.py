@@ -64,7 +64,7 @@ def test_service_worker_stays_at_the_root():
     assert (FRONTEND_DIR / "sw.js").is_file()
     assert not (JS_DIR / "sw.js").exists()
     wiring = (JS_DIR / "settings-wiring.js").read_text(encoding="utf-8")
-    assert 'serviceWorker.register("/sw.js")' in wiring
+    assert "serviceWorker\n    .register(`/sw.js?v=" in wiring or 'serviceWorker.register("/sw.js' in wiring
 
 
 def test_no_script_is_left_loose_in_frontend():

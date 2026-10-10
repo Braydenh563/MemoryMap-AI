@@ -693,6 +693,27 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Capture from anywhere", "section": "shortcuts", "target": "capture-anywhere-box"},
     },
+    {
+        "id": "install-app",
+        "keywords": (
+            "install", "install the app", "install as an app", "add to home screen",
+            "home screen", "pwa", "own window", "app icon", "share sheet",
+            "share to memorymap", "not running on this computer", "offline page",
+        ),
+        "body": (
+            "Settings, About, Install as an app gives MemoryMap its own window "
+            "and icon, and adds it to your phone's share sheet, so a page or a "
+            "selection shared to it lands in Capture. The button appears only "
+            "when your browser offers the install and the app is not installed "
+            "yet; on an iPhone, tap Share, then Add to Home Screen. It is the "
+            "same app, still served by the copy running on this computer. When "
+            "that copy is not running, the installed app shows a page saying "
+            "MemoryMap is not running on this computer, with a Retry button, "
+            "never an empty notebook: open MemoryMap from the Start menu or "
+            "the launcher, then press Retry."
+        ),
+        "badge": {"label": "Install as an app", "section": "about"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -1430,6 +1451,7 @@ TOPIC_META: dict[str, dict] = {
     "simple-mode": {"title": "Simple mode", "path": "Settings, General, Simple mode", "target": "simple-mode-box"},
     "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
     "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
+    "install-app": {"title": "Install as an app", "path": "Settings, About, Install as an app"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1551,7 +1573,7 @@ TOPIC_META: dict[str, dict] = {
 HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Getting started", (
         "tabs-overview", "tour", "guide", "hidden-features", "shortcuts",
-        "command-palette", "find-anything", "search", "addresses", "settings-overview",
+        "command-palette", "find-anything", "search", "addresses", "settings-overview", "install-app",
     )),
     ("Writing notes", (
         "capture", "quick-note", "quick-add", "capture-anywhere", "note-outbox", "attachments", "notes-controls",

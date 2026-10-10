@@ -477,16 +477,7 @@ second database. Five moves, in dependency order.
 
 ### B1 The event log: every change is a fact, the tables are views
 
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
-SESSION_BRIEFS Brief 7: the event log". One table rather than two:
-`AuditLog` gained `actor` and `payload`, `core/events.py` is the only
-writer and holds `replay`, every public write in `entry/manager.py`
-records exactly one event with whole-field values, a purge is one event
-with the id list, and `tests/test_events.py` (the spec, formerly strict
-xfail throughout) passes with no markers left. History, restore by event
-and `GET /events?since=` are live; what the log does not yet feed (sync,
-global undo of an AI action, the Timeline strip) is in
-`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
+**Built.** HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and SESSION_BRIEFS Brief 7: the event log" and "Moved from the plans, 2026-10-10 (WORLD_CLASS B1 and B3 summaries)"; what the log does not yet feed is in `docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
 
 **Decisions made (do not remake).** Copied whole from the agent file
 on 2026-09-14 (INBOX 220) so they survive its archiving.
@@ -549,17 +540,7 @@ on 2026-09-14 (INBOX 220) so they survive its archiving.
 
 ### B3 The retrieval engine: one index, three signals, explained
 
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
-SESSION_BRIEFS Brief 11: the retrieval engine". `search/index.py` holds one
-FTS5 index over notes, boards, documents, files' extracted text, bookmarks
-and reminders, kept in step by the ORM flush; `search/engine.py` returns
-`Hit`s carrying bm25, cosine and graph proximity with the words that explain
-them; `GET /search` and `/search/stats` serve it; the vector matrix replaced
-three per-request scans of every stored vector.
-`tests/test_search_engine_spec.py` passes with no markers left. Measured on
-the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
-200), similarity for one note 18.0ms to 0.0ms. What is left is in
-`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
+**Built.** HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and SESSION_BRIEFS Brief 11: the retrieval engine" and "Moved from the plans, 2026-10-10 (WORLD_CLASS B1 and B3 summaries)"; what is left is in `docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
 
 **Corrected 2026-10-05 (audit ARCH-07, ARCH-03).** "Three signals" overstated
 recall: candidates came from the keyword pass alone, so cosine only re-ranked
@@ -3825,6 +3806,9 @@ World class for a local notebook is five things, each measurable:
     never serve a stale file; the shell (`/`, the manifest, the icons) is
     cached with a network-first fetch. This reverses the 2026-09 "no cache"
     decision because its reason (stale files) is gone.
+    *Reconciled 2026-10-10:* it agrees with the owner's "fail to load when the
+    backend is closed" once the offline answer is an honest page
+    (`offline.html`, with Retry); the shell itself stays uncached.
 50. **English only to 1.0.** No i18n layer before a second language is
     asked for; copy stays where it is used.
 51. **The dashboard is "continue and today".** A widget stays if Brief 46
@@ -3851,7 +3835,7 @@ World class for a local notebook is five things, each measurable:
 | 25a Search | the box (`search.js`, new, lazy), the result list with kinds, the operators and their help, saved searches, keyboard-only use; documents, boards, maps, files, chat and reminders indexed through the existing engine | a sweep that finds one of each kind by query; operators tested in `test_search_box.py`; under 100 ms at 5,000 notes | 47, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25a, Brief 47)") |
 | 25b Import and export | the whole-notebook export (a markdown folder with attachments and a JSON sidecar per note), the round-trip test, the import report as a page with counts and the skipped items named, progress for 5,000 files | export then import of the 500-note fixture equal on every field; the report lists every skip | 48 (Opus, high) |
 | 25c First run and help | the three-step first run (name, a note, an answer without a model), a sample notebook offered once, the manual as a page with search built from the Guide topics, "what changed" from the CHANGELOG | `first-run.spec.js` extended; the manual page's search finds every control name (`test_manual_parity`) | 49 (Opus, high) |
-| 25d PWA shell | the worker caching by stamped URL, the shell cached network-first, a share target for text and URLs into capture, an install prompt in Settings | offline reload shows the shell and the last list; an edited file is never served stale (test with two stamps) | 50 (Sonnet, high) |
+| 25d PWA shell | built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25d, Brief 50)") | offline reload shows an honest page, never the shell; an edited file is never served stale (two stamps are two cache keys, `test_two_stamps_for_the_same_file_are_two_cache_keys`) | 50 (Sonnet, high) |
 | 25e Never lose a note | the restore test in CI (backup, restore into a scratch dir, compare counts and bodies), an integrity check at boot with a one-line notice, per-note versions visible (a "Versions" row in the note menu, from `versioning.py`), draft recovery after a killed server | `test_restore_roundtrip.py` green; a killed server loses no typed draft (a Playwright test) | 51, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)"): restore equal for ten kinds, quick_check 30 ms at 5,000 notes, draft spec 1 passed, undo lint 10 to 7 |
 | 25f Settings | search across settings, the modified marker, reset per item, settings export and import as JSON | every setting reachable by search; `test_settings_rows.py` walks the 179 keys | 52 (Opus, high) |
 | 25g Budgets | `tests/test_budgets.py` with decision 54's six timings, the bench page reading them | the six numbers in the README's performance table; CI fails when one exceeds its cap | 53 (Sonnet, high) |

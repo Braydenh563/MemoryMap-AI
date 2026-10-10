@@ -1830,16 +1830,24 @@ $("meeting-copy")?.addEventListener("click", (event) =>
 $("meeting-discard").addEventListener("click", resetMeetingUI);
 $("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
 
-// PWA: the shell caches itself so the app opens instantly (Wave F).
-// When a new service worker takes over (after an update), reload once so
-// the page never runs new HTML against stale cached CSS/JS (Wave O fix).
+// PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
+// libraries and icons, and shows offline.html when the server is not
+// running; it never caches the shell or the API. When a new service worker
+// takes over (after an update), reload once so the page never runs new HTML
+// against stale cached CSS/JS (Wave O fix).
 if ("serviceWorker" in navigator) {
   // Only reload when an EXISTING worker is replaced (a real update): not
   // on the first install, whose clients.claim() also fires controllerchange
   // and would reload the page mid-setup (Wave O fix).
   const hadController = Boolean(navigator.serviceWorker.controller);
   // sw.js stays at the root, not in js/: a worker only controls its own path.
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // The app version rides on the URL: the worker names its cache for it, and
+  // a release is a new URL, so the browser installs the new worker at once.
+  // `updateViaCache: "none"` because a `?v=` URL is served as immutable.
+  const appVersion = /^\?v=(\d+\.\d+\.\d+)/.exec(lazyAssetStamp("/js/app.js"))?.[1] || "dev";
+  navigator.serviceWorker
+    .register(`/sw.js?v=${appVersion}`, { updateViaCache: "none" })
+    .catch(() => {});
   let swReloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || swReloaded) return;
@@ -1847,6 +1855,45 @@ if ("serviceWorker" in navigator) {
     location.reload();
   });
 }
+
+// Install as an app (WORLD_CLASS_PLAN 25d): Settings, About. Chromium offers
+// the install through `beforeinstallprompt`, which is held until the button is
+// pressed; it fires nothing once installed, and `appinstalled` hides the row.
+// iPhone has no such event, so the row says how instead of offering a button.
+let installPromptEvent = null;
+function renderInstallRow() {
+  const row = $("about-install-row");
+  if (!row) return;
+  const installed =
+    window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+  const iphone =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const canPrompt = Boolean(installPromptEvent);
+  row.classList.toggle("hidden", installed || !(canPrompt || iphone));
+  $("about-install").classList.toggle("hidden", !canPrompt);
+  $("about-install-note").textContent = canPrompt
+    ? "Opens in its own window, with its own icon."
+    : "On iPhone: tap Share, then Add to Home Screen.";
+}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPromptEvent = event;
+  renderInstallRow();
+});
+window.addEventListener("appinstalled", () => {
+  installPromptEvent = null;
+  renderInstallRow();
+});
+$("about-install")?.addEventListener("click", async () => {
+  const offered = installPromptEvent;
+  if (!offered) return;
+  installPromptEvent = null; // the event can be used once
+  offered.prompt();
+  await offered.userChoice.catch(() => {});
+  renderInstallRow();
+});
+renderInstallRow();
 
 // The generative brand emblem's initial draw (Wave O) moved to settings.js's
 // own tail (§88.3 item 4): renderBrandLogo() itself stays here (used far

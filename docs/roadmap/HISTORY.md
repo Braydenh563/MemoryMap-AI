@@ -421,6 +421,39 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (WORLD_CLASS B1 and B3 summaries)
+
+The two built summaries that sat under B1 and B3 in WORLD_CLASS_PLAN section 4, moved whole when the plan reached its 4,200-line cap (standing order 10).
+
+B1: **Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
+SESSION_BRIEFS Brief 7: the event log". One table rather than two:
+`AuditLog` gained `actor` and `payload`, `core/events.py` is the only
+writer and holds `replay`, every public write in `entry/manager.py`
+records exactly one event with whole-field values, a purge is one event
+with the id list, and `tests/test_events.py` (the spec, formerly strict
+xfail throughout) passes with no markers left. History, restore by event
+and `GET /events?since=` are live; what the log does not yet feed (sync,
+global undo of an AI action, the Timeline strip) is in
+`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
+
+B3: **Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
+SESSION_BRIEFS Brief 11: the retrieval engine". `search/index.py` holds one
+FTS5 index over notes, boards, documents, files' extracted text, bookmarks
+and reminders, kept in step by the ORM flush; `search/engine.py` returns
+`Hit`s carrying bm25, cosine and graph proximity with the words that explain
+them; `GET /search` and `/search/stats` serve it; the vector matrix replaced
+three per-request scans of every stored vector.
+`tests/test_search_engine_spec.py` passes with no markers left. Measured on
+the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
+200), similarity for one note 18.0ms to 0.0ms. What is left is in
+`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
+
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 25d, Brief 50)
+
+The pwa agent's Built cell for the 25.4 row, moved whole at its step boundary (standing order 10).
+
+**Built 2026-10-10** (`sw.js`, `offline.html`, `tests/test_pwa_shell.py`, Settings, About, Install as an app): the worker caches stamped `/js` and `/css`, `/vendor`, the icons and the manifest cache-first on the full URL, in a cache named for the app version; `/` is network-first and never stored; a failed page load shows the offline page; the share target was already built and is now tested. Measured (Chromium, one profile, loaded machine, 69 stamped files): server asset requests 69 cold, 2 on the first reload (worker filling), 0 on every later reload (the old network-only worker: 2 on every reload); `domcontentloaded` 1332 ms cold, 466 to 570 ms warm against 613 to 672 ms before (within the noise of a shared machine, the HTTP cache already held the stamped files as `immutable`). Server stopped: reload shows the offline text, 0 tabs, 0 lists; Retry with the server still down shows it again; Retry after a start returns the app.
+
 ## Moved from the plans, 2026-10-10 (WORLD_CLASS 26.0 and 26a, Brief 60)
 
 The measure60 agent's Built line, moved from WORLD_CLASS_PLAN 26.3 at its step boundary (standing order 10); the numbers stay in 26.4 and 26.5.

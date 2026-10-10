@@ -1536,8 +1536,8 @@ FlashText; superseded by the pack below).
 6. **Sensitive topics** (health, relationships, finance, legal, identity: the
    pack's flag) are suggested, never auto-filed, unless the person turned
    auto-filing on for them in Settings. Amended 2026-10-10 (INBOX 770): on
-   every path, the chat model's and the embedder's included; the no-model
-   path was built first (Brief 39b), the other two are step 6's first row.
+   every path, the chat model's and the embedder's included: built the same
+   day (`janitor._unless_held`, `lexical_filing.holds_sensitive`).
 7. **A personal lexicon** from the pack's reviewed-vocabulary utilities: the
    person's corrections ("Work, not Software") become aliases stored per
    notebook and weighed first; nothing is learned from automatic predictions.

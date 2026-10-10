@@ -31,13 +31,13 @@ class TaxonomyTests(unittest.TestCase):
     def test_no_duplicates(self):
         self.assertEqual(audit_taxonomy()["duplicates_within_categories"], {})
     def test_functions_are_defined(self):
-        self.assertTrue(FUNCTIONAL_CATEGORIES <= TAXONOMY_MAP.keys())
+        self.assertLessEqual(FUNCTIONAL_CATEGORIES, TAXONOMY_MAP.keys())
     def test_legacy_names(self):
         original = {"Projects", "Journal", "Reference", "Fitness", "Health", "Software",
                     "Tech", "AI", "Finance", "Investing", "Brainstorming", "Travel",
                     "Cooking", "Entertainment", "Literature", "Errands", "Relationships",
                     "Education", "Business"}
-        self.assertTrue(original <= TAXONOMY_MAP.keys())
+        self.assertLessEqual(original, TAXONOMY_MAP.keys())
     def test_empty(self):
         self.assertTrue(analyze_note("")["abstained"])
     def test_no_match(self):
@@ -120,7 +120,7 @@ class ExpansionTests(unittest.TestCase):
         original=json.loads(FIXTURES.joinpath("original_taxonomy.json").read_text(encoding="utf-8"))["taxonomy"]
         for category,terms in original.items():
             with self.subTest(category=category):
-                self.assertTrue(set(terms)<=set(TAXONOMY_MAP[category]))
+                self.assertLessEqual(set(terms), set(TAXONOMY_MAP[category]))
     def test_general_designer(self):
         self.assertIn("Designer",[h["label"] for h in extract_occupations("Designer")])
     def test_design_specialists(self):

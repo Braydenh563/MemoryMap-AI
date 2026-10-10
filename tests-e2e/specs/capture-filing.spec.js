@@ -20,10 +20,19 @@ const NOTES = [
   { text: "Long run of 16 km today, the knee held up after the physio exercises", category: "Health" },
 ];
 
+// WORLD_CLASS_PLAN 23, decision 6: a note that reads as health, money,
+// relationships, the law or identity is suggested, not filed, unless the
+// Settings switch is on. The first test turns it on so the Health note
+// files like the others; the last test leaves it off and checks the hold.
+function setAutoFileSensitive(page, on) {
+  return api(page, "/preferences", { method: "PUT", body: JSON.stringify({ auto_file_sensitive: on }) });
+}
+
 test.describe("capture and filing with no model", () => {
   test("notes written in Capture are filed by meaning, tagged, and still there after a reload", async ({ page }) => {
     const errors = watchErrors(page);
     await openApp(page);
+    await setAutoFileSensitive(page, true);
     const ids = [];
     for (const note of NOTES) ids.push(await captureNote(page, note.text));
 
@@ -55,6 +64,18 @@ test.describe("capture and filing with no model", () => {
     const list = page.locator("#entry-list");
     for (const note of NOTES) await expect(list).toContainText(note.text.replace(/ #\w+$/, ""));
     expect(errors).toEqual([]);
+    await setAutoFileSensitive(page, false);
+  });
+
+  test("a health note is held with its category suggested until the switch is on", async ({ page }) => {
+    await openApp(page);
+    await setAutoFileSensitive(page, false);
+    const id = await captureNote(page, "The physio exercises are working: the knee held up on the 16 km run tonight");
+    await waitFiled(page, id);
+    const saved = await api(page, `/entries/${id}`);
+    expect(saved.category, "a health note is not filed on its own").toBe("Uncategorised");
+    const filing = await api(page, `/entries/${id}/filing`);
+    expect(filing.held_sensitive?.category, "the hold names the category it would have filed under").toBe("Health");
   });
 
   test("a full note: title, tags field and a category picked by hand", async ({ page }) => {

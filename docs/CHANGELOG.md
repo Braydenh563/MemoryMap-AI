@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Filing: a health, money, relationships, legal or identity note is held for the person on every filing path, the embedder's nearest notes and the chat model's answer included, until Settings lets it file (decision 6, INBOX 770); the capture E2E spec checks both states.
 - Documents: a new document names itself "Untitled document N" (the next free number), as boards and maps do, so Create never needs a name and the list can tell new pages apart (INBOX 739).
 - Filing with no model: a note files only into a category you have, by your other notes' words and a built-in list of 512 topics ("squats" finds Gym before any Gym note said it), and says why ("It mentions squat and deadlift (Fitness), like the 10 notes in Gym."); unsure, it offers one-tap choices that say why and, when none of yours fits, "New: Art", made only if pressed. On the 120-note fixture, top-1 0.175 to 0.417 (WORLD_CLASS_PLAN 23).
 - Filing: notes about health, money, family, the law or identity wait for you to choose unless Settings, Background tasks, "File health, money and family notes by their words too" is on; Tidy lists them unticked and never moves them by itself.

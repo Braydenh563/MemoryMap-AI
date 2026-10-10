@@ -23,7 +23,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from memorymap.ai import extractor, filing_certainty, janitor, learning, librarian, links, relations
+from memorymap.ai import extractor, filing_certainty, janitor, learning, lexical_filing, librarian, links, relations
 from memorymap.ai import tensions as tensions_module
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api import paging
@@ -361,9 +361,10 @@ class _LateFiling:
     accurately". Either order is handled: an answer that lands before the
     stand-in is decided is taken instead of it."""
 
-    def __init__(self, entry_id: int, workspace_id: str) -> None:
+    def __init__(self, entry_id: int, workspace_id: str, content: str = "") -> None:
         self.entry_id = entry_id
         self.workspace_id = workspace_id
+        self._content = content
         self._lock = threading.Lock()
         self._stand_in: str | None = None
         self._early: tuple[str, int] | None = None
@@ -404,6 +405,10 @@ class _LateFiling:
         )
 
     def arrived(self, category: str, confidence: int) -> None:
+        from memorymap.ai import lexical_filing
+
+        if lexical_filing.holds_sensitive(self._content, category):
+            return  # decision 6: the model's late answer is held like an early one
         confidence = self._calibrated(category, confidence)
         with self._lock:
             if self._stand_in is None:
@@ -490,7 +495,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 # finished: a settled note is never filed twice.
                 if (getattr(entry, "filing_state", "") or "") != "pending":
                     return
-                late = _LateFiling(entry_id, workspace_id)
+                late = _LateFiling(entry_id, workspace_id, manager.readable_content(entry))
                 category, confidence, filed_by = _file_entry_now(
                     session,
                     manager.readable_content(entry),
@@ -582,14 +587,15 @@ def retry_stand_ins() -> int:
                     if entry is None or entry.filing_state != manager.STAND_IN:
                         continue
                     stand_in = manager.category_name_for(session, entry)
+                    content = manager.readable_content(entry)
                     category, confidence, method = janitor._ask_llm(
                         session,
-                        manager.readable_content(entry),
+                        content,
                         deps.get_model_manager(),
                         deps.get_ollama(),
                     )
-            if method == "llm":
-                _LateFiling(entry_id, workspace_id).apply(category, confidence, stand_in)
+            if method == "llm" and not lexical_filing.holds_sensitive(content, category):
+                _LateFiling(entry_id, workspace_id, content).apply(category, confidence, stand_in)
         except Exception:
             logger.warning("couldn't retry the filing of entry %s", entry_id, exc_info=True)
     return len(waiting)

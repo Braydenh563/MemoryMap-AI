@@ -544,6 +544,28 @@ def _name_words(name: str) -> tuple[str, ...]:
     return tuple(tokens(name))
 
 
+def holds_sensitive(content: str, category: str | None = None) -> str | None:
+    """The sensitive topic that keeps `content` from filing itself, or None.
+
+    Decision 6 on every path (INBOX 770): `decide` holds a note the words
+    would file; this is the same test for a category another filer chose
+    (the embedder's nearest notes, the chat model's answer), so a health or
+    money note is suggested, never filed, until Settings says otherwise."""
+    if _auto_file_sensitive():
+        return None
+    from memorymap.ai import taxonomy
+
+    sensitive_set = taxonomy.sensitive_topics()
+    hits = taxonomy.topic_hits(content)
+    topic = next((t for t in taxonomy.strong_topics(content, hits) if t in sensitive_set), None)
+    if topic is None and category:
+        if category in sensitive_set:
+            topic = category
+        else:
+            topic = next((t for t in taxonomy.topic_hits(category) if t in sensitive_set), None)
+    return topic
+
+
 def _auto_file_sensitive() -> bool:
     try:
         from memorymap.core import deps

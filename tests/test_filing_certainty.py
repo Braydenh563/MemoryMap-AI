@@ -139,8 +139,17 @@ def sure_work_client(app_state):
     return TestClient(create_app())
 
 
+def _let_health_file():
+    """These two notes read as dental health, which decision 6 holds on
+    every path; the calibration under test needs them filed."""
+    from memorymap.ai import lexical_filing
+
+    deps.get_config().set_preference(lexical_filing.PREF_AUTO_FILE_SENSITIVE, True)
+
+
 def test_a_model_that_says_one_hundred_is_not_shown_as_sure(sure_work_client, session):
     _seed(session)
+    _let_health_file()
     created = sure_work_client.post(
         "/entries", json={"content": "Dentist appointment on Thursday, teeth check up"}
     ).json()
@@ -153,6 +162,7 @@ def test_a_model_that_says_one_hundred_is_not_shown_as_sure(sure_work_client, se
 
 def test_a_low_certainty_pick_offers_the_other_categories(sure_work_client, session):
     _seed(session)
+    _let_health_file()
     created = sure_work_client.post(
         "/entries", json={"content": "Dentist appointment on Thursday, teeth check up"}
     ).json()

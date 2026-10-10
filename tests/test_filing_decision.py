@@ -122,3 +122,21 @@ def test_the_filing_status_carries_the_why_and_the_proposal(client) -> None:
         status = client.get(f"/entries/{lone['id']}/filing").json()
     assert status["proposal"]["name"] == "Art"
     assert set(status["suggestion_reasons"]) <= set(status["suggestions"])
+
+
+def test_the_hold_applies_to_the_embedder_and_the_model_too(session, monkeypatch) -> None:
+    """Decision 6 on every path (INBOX 770): a category the embedder's
+    nearest notes or the chat model chose is held exactly like one the
+    words would have filed."""
+    from memorymap.ai import janitor
+
+    text = "The physio exercises are working: the knee held up on the run"
+    assert lexical_filing.holds_sensitive(text, None) == "Rehabilitation & Recovery"
+    assert lexical_filing.holds_sensitive("Leg day: squats 5x5", "Health") == "Health"
+    assert lexical_filing.holds_sensitive("Leg day: squats 5x5", "Gym") is None
+    monkeypatch.setattr(janitor, "_semantic_category", lambda *a, **k: ("Health", 80, "semantic-match"))
+    monkeypatch.setattr(janitor, "_ask_llm", lambda *a, **k: ("Health", 90, "llm"))
+    held = janitor.categorise(session, text, object(), object(), object())
+    assert held == (manager.UNCATEGORISED, 0, "none"), held
+    deps.get_config().set_preference(lexical_filing.PREF_AUTO_FILE_SENSITIVE, True)
+    assert janitor.categorise(session, text, object(), object(), object())[0] == "Health"

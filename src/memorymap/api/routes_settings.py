@@ -617,6 +617,9 @@ class PreferencesBody(BaseModel):
 
     # Named filters the user has saved from the Notes tab.
     saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
+    # Named searches from the search box, its rows in the Notes sidebar
+    # (search.js): the box searches every kind, a saved filter only notes.
+    saved_finds: list["SavedSearch"] | None = Field(default=None, max_length=30)
 
 
 class SavedSearch(BaseModel):
@@ -784,6 +787,7 @@ def get_preferences() -> dict:
         "disabled_tools": config.get_preference("disabled_tools", []),
         "voice_model": config.get_preference("voice_model", "base"),
         "saved_searches": config.get_preference("saved_searches", []),
+        "saved_finds": config.get_preference("saved_finds", []),
         # Echoed back so the browser can tell whether the zone it just
         # detected is already the stored one, and skip a pointless write on
         # every startup.

@@ -62,6 +62,8 @@ CSS_FILES = [
     CSS_DIR / "help-chat-lazy.css",
     #: The chips under a quick-add field (quickadd.js, CHAT_PLAN decision 50).
     CSS_DIR / "quickadd-lazy.css",
+    #: The search box's kind chip, Show more and saved-search rows (search.js).
+    CSS_DIR / "search-lazy.css",
 ]
 
 

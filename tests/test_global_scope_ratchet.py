@@ -35,7 +35,7 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: lets became fields of two consts (the word list's loading and failed flags,
 #: the dim and typewriter reading modes).
 GUARDS_CAP = 277
-TOP_LEVEL_LETS_CAP = 702
+TOP_LEVEL_LETS_CAP = 699
 
 
 def _code() -> dict[str, str]:

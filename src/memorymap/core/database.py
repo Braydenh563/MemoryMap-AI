@@ -2239,7 +2239,10 @@ class DatabaseManager:
             # board's row held the words on it: a diff over the boards, a
             # read-only no-op once it has run (`reconcile_boards`).
             with self.session() as session:
-                if search_index.reconcile_boards(session):
+                # Either may write; `or` would skip the second once the first did.
+                boards = search_index.reconcile_boards(session)
+                late = search_index.reconcile_sources(session)
+                if boards or late:
                     session.commit()
             return
         # Only on the one startup that creates the table: every write after

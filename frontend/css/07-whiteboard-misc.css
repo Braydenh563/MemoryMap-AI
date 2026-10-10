@@ -12144,7 +12144,9 @@ header#top-bar {
   padding: 0;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 12vh - var(--space-6));
+  /* The overlay drops it 15vh (`.finder-overlay`), so the ceiling takes 15vh
+     off: at 12vh a full list ran 11px past a 900px window (Brief 47's sweep). */
+  max-height: calc(100vh - 15vh - var(--space-6));
 }
 
 .finder-head {

@@ -421,12 +421,14 @@ MORE_TOPICS: list[dict] = [
         "id": "find-anything",
         "keywords": (
             "find anything", "ctrl p", "finder", "find a note fast", "find a file",
-            "jump to a note",
+            "jump to a note", "saved searches", "find a chat",
         ),
         "body": (
             "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
-            "files, documents and actions in one box as you type: Enter opens "
-            "the top result, the arrows move, Esc closes. It lists the command "
+            "files, documents, chats and actions in one box as you type: Enter opens "
+            "the top result, the arrows move, Esc closes, and the star keeps the "
+            "search as a row under Saved searches in the Notes sidebar. Its '?' lists "
+            "the operators. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark, after the "
             "notes and files. The command palette (Ctrl+K) sends what you type "
             "here: its last row, Search everything for, opens this box with "

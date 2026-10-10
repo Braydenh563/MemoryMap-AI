@@ -2380,9 +2380,7 @@ function docFindInDocuments() {
     if (!range.empty) query = view.state.sliceDoc(range.from, range.to).split("\n")[0].slice(0, 100);
     else query = docWordAt(view.state, range.head)?.name || "";
   }
-  if (typeof openFinder !== "function") return false;
-  if (typeof finderKind !== "undefined") finderKind = "document";
-  openFinder(query);
+  openFinder(query, { kind: "document" });
   return true;
 }
 

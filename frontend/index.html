@@ -734,6 +734,8 @@
           </button>
         </div>
         <span class="dialog-head-actions">
+          <button type="button" id="finder-save" class="icon-only ghost small dialog-head-btn"
+            aria-label="Save this search" title="Save this search to the Notes sidebar"><i class="ph ph-star" aria-hidden="true"></i></button>
           <button type="button" id="finder-close" class="icon-only ghost small dialog-head-btn"
             aria-label="Close" title="Close (Esc)"><i class="ph ph-x" aria-hidden="true"></i></button>
         </span>
@@ -746,10 +748,21 @@
           two found it.
         </p>
         <p>
-          Operators work: <code>tag:recipes</code>, <code>kind:document</code>,
-          <code>before:2026-01</code>, <code>has:image</code>, <code>has:highlight</code>, a
-          <code>"quoted phrase"</code>, and <code>-word</code> to leave
-          something out.
+          Narrow it with operators, alone or together:
+        </p>
+        <ul class="finder-help-ops">
+          <li><code>tag:recipes</code> things tagged recipes</li>
+          <li><code>in:work</code> only the Work space</li>
+          <li><code>kind:chat</code> one kind: note, document, board, map, file, bookmark, reminder or chat</li>
+          <li><code>before:2026-01</code> and <code>after:2025-06-30</code> by the day it was written</li>
+          <li><code>has:image</code> with an image, a file, a link, a reminder or a highlight</li>
+          <li><code>is:pinned</code> pinned, archived, done, open or a draft</li>
+          <li><code>"exact phrase"</code> those words in that order</li>
+          <li><code>-word</code> leaves out anything that says it</li>
+        </ul>
+        <p>
+          Up and Down walk the results, Enter opens one, Escape closes.
+          The star saves the search as a row in the Notes sidebar.
         </p>
       </div>
       <div class="finder-bar">
@@ -1310,6 +1323,13 @@
         <div id="most-used-box" class="hidden">
           <h2>Most used</h2>
           <ul id="most-used"></ul>
+        </div>
+        <!-- Saved searches (WORLD_CLASS_PLAN decision 46): each row opens the
+             search box with its query; drawn by search.js from preferences
+             (`saved_finds`), hidden until there is one. -->
+        <div id="saved-finds-box" class="hidden">
+          <h2>Saved searches</h2>
+          <ul id="saved-finds" aria-label="Saved searches"></ul>
         </div>
         <!-- GRAPH_PLAN.md Phase 4, the local map. The same canvas renderer as
              the Graph tab at `size: "pane"`, drawn from `/graph/local` for
@@ -2415,6 +2435,7 @@ Link to another note with [[its first few words]]."></textarea>
             <p class="empty-title">No notes match your filter</p>
             <p class="muted">Try a different word, or clear the search box.</p>
             <button class="ghost small" type="button" data-empty-action="clear-filter"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the filter</button>
+            <button class="ghost small" type="button" data-empty-action="search-everything"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Search everything</button>
           </div>
         </section>
       </div><!-- .tab-main -->

@@ -861,13 +861,15 @@ HELP_TOPICS.extend(
         },
         {
             "id": "search",
-            "keywords": ("search", "find", "find anything", "look for", "filter", "where did", "locate", "ctrl p", "operator", "search my notes"),
+            "keywords": ("search", "find", "find anything", "look for", "filter", "where did", "locate", "ctrl p", "operator", "search my notes", "saved search", "search chats"),
             "body": (
                 "Find anything (Ctrl+P, or the search box on the dashboard) looks "
-                "through notes, documents, boards, files, links and reminders at "
-                "once, by your words and by meaning, and the chips narrow it to one "
-                "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, has:highlight, and -word to leave something out. A small typo that "
+                "through notes, documents, boards, mind maps, files, links, reminders "
+                "and chats at once, by your words and by meaning; each result wears "
+                "its kind, and the chips narrow it to one. Operators: tag:work, "
+                "in:work for a space, kind:chat, before:2026-01, after:2025-06-30, "
+                "has:image, is:pinned, a \"quoted phrase\", and -word to leave something "
+                "out. The star saves a search as a row in the Notes sidebar. A small typo that "
                 "finds nothing is searched as the nearest word your notes use, "
                 "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."

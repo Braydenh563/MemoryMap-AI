@@ -609,7 +609,7 @@ def test_definition_keys_and_find_in_documents():
     assert '{ key: "Shift-F12", run: () => docShowReferences() }' in editing
     assert '{ key: "Mod-Shift-f", run: () => docFindInDocuments() }' in _function("docCmKeymap")
     find = _function("docFindInDocuments")
-    assert 'finderKind = "document"' in find and "openFinder(query)" in find
+    assert 'openFinder(query, { kind: "document" })' in find
     app = app_js_text()
     for chord in ('"F12"', '"Shift+F12"', '"Ctrl+Shift+F"'):
         assert f"keys: {chord}" not in app, f"{chord} is taken in the registry"

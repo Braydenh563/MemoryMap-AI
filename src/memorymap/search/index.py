@@ -70,7 +70,10 @@ logger = logging.getLogger("memorymap.search.index")
 #: §4), and indexing it as a `board` meant the finder could only ever call it
 #: one; a previous pass relabelled the board chip "boards & maps" instead of
 #: telling the two apart, which the data always could.
-KINDS = ("note", "document", "board", "map", "file", "bookmark", "reminder")
+#: `chat` came with the search box (decision 46): a saved chat and an Ask
+#: turn are both something the person wrote and read, and "where did I ask
+#: about that" was the one question the box could not answer.
+KINDS = ("note", "document", "board", "map", "file", "bookmark", "reminder", "chat")
 
 #: The kinds whose `ref_id` is an `entries.id`: the ones the embedding matrix
 #: and the link graph know, so the only ones cosine and graph distance can
@@ -651,8 +654,10 @@ def _scan_entries(session: Session, *, want: str) -> Iterator[tuple[int, Row]]:
 def _register_all() -> None:
     """Every source, in one place, so adding a kind is one block of code."""
     from memorymap.core.database import (
+        AskTurn,
         Attachment,
         Bookmark,
+        Conversation,
         Document,
         Entry,
         MediaUpload,
@@ -752,6 +757,30 @@ def _register_all() -> None:
             ),
         )
     )
+    register(
+        Source(
+            name="conversations",
+            kind="chat",
+            slot=9,
+            model=Conversation,
+            read=_conversation_row,
+            scan=lambda session: (
+                (conv.id, _conversation_row(conv)) for conv in session.scalars(select(Conversation))
+            ),
+        )
+    )
+    register(
+        Source(
+            name="ask_turns",
+            kind="chat",
+            slot=10,
+            model=AskTurn,
+            read=_ask_turn_row,
+            scan=lambda session: (
+                (turn.id, _ask_turn_row(turn)) for turn in session.scalars(select(AskTurn))
+            ),
+        )
+    )
 
 
 def _document_row(doc) -> Row | None:  # noqa: ANN001
@@ -833,6 +862,81 @@ def _reminder_row(rem) -> Row | None:  # noqa: ANN001
         flags=" ".join(flags),
         written=_written(getattr(rem, "due_at", None)),
     )
+
+
+def _conversation_row(conv) -> Row | None:  # noqa: ANN001
+    """A saved chat: its title, and every turn's words as one body.
+
+    One row per chat rather than per message: the rowid is the chat's id
+    (`_rowid`), and a hit opens the chat, which is where its turns are read.
+    """
+    if conv is None:
+        return None
+    try:
+        messages = json.loads(conv.messages or "[]")
+    except (TypeError, ValueError):
+        messages = []
+    words = [
+        message["content"]
+        for message in (messages if isinstance(messages, list) else [])
+        if isinstance(message, dict) and isinstance(message.get("content"), str) and message["content"].strip()
+    ]
+    flags = []
+    if getattr(conv, "pinned", False):
+        flags.append("pinned")
+    if getattr(conv, "archived_at", None):
+        flags.append("archived")
+    return Row(
+        title=conv.title or "",
+        body="\n".join(words),
+        space=getattr(conv, "workspace_id", "default") or "default",
+        flags=" ".join(flags),
+        written=_written(getattr(conv, "created_at", None)),
+    )
+
+
+def _ask_turn_row(turn) -> Row | None:  # noqa: ANN001
+    """One question asked in the Ask box, with its answer."""
+    if turn is None:
+        return None
+    return Row(
+        title=turn.question or "",
+        body="\n".join(part for part in (turn.question, turn.answer) if part),
+        space=getattr(turn, "workspace_id", "default") or "default",
+        flags="pinned" if getattr(turn, "pinned", False) else "",
+        written=_written(getattr(turn, "created_at", None)),
+    )
+
+
+#: Sources added after notebooks had already been indexed. The write path only
+#: sees what changes from now on, so a chat saved before chats were a kind
+#: would never be found; `reconcile_sources` fills each one once.
+_LATE_SOURCES = ("conversations", "ask_turns")
+
+
+def reconcile_sources(session: Session) -> bool:
+    """Index a late source whose slot is empty while its table is not.
+
+    Returns True when anything was written. Run at every startup after the
+    table exists, beside `reconcile_boards`: a check of two `LIMIT 1` reads
+    once a notebook has been filled, so the second startup is a no-op.
+    """
+    if _table_missing(session):
+        return False
+    connection = session.connection()
+    changed = False
+    for name in _LATE_SOURCES:
+        source = _SOURCES[name]
+        low, high = source.slot * SLOT_STRIDE, (source.slot + 1) * SLOT_STRIDE
+        held = connection.exec_driver_sql(
+            "SELECT 1 FROM search_index WHERE rowid >= ? AND rowid < ? LIMIT 1", (low, high)
+        ).first()
+        if held is not None or session.scalars(select(source.model.id).limit(1)).first() is None:
+            continue
+        for ref_id, row in source.scan(session):
+            _write(connection, source, ref_id, row)
+            changed = changed or row is not None
+    return changed
 
 
 _register_all()

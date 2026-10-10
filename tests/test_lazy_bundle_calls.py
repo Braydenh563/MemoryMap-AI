@@ -99,6 +99,9 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Brief 47: the findAnything shortcut closes the box only while
+    #: #finder-overlay is shown, and only openFinder (the same bundle) shows it.
+    "closeFinder": "search, the findAnything shortcut, only while the box openFinder drew is open",
     #: chat.js moved these out for the boot gzip ratchet (2026-10-10); each
     #: is called in the `.then` of its own `ensureModule` on the same line.
     "renderChatContextPop": "usageLedger, called in the .then of ensureModule('usageLedger') in renderChatContextMeter",

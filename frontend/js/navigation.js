@@ -1639,6 +1639,8 @@ document.addEventListener("click", async (event) => {
       search.dispatchEvent(new Event("input", { bubbles: true }));
       search.focus();
     }
+  } else if (action === "search-everything") {
+    openFinder($("note-search")?.value || "", { kind: "" });
   } else if (action === "upload") {
     $("library-images-upload")?.click();
   } else if (action === "new-document") {

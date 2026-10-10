@@ -3349,6 +3349,9 @@ async function loadTemplates() {
   await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
+  //: Saved searches are the search box's sidebar rows (search.js, lazy),
+  //: fetched now only when there are some to draw.
+  if (prefsCache?.saved_finds?.length) ensureModule("search");
   //: The Capture box's picker reads `templateCatalogue()` when it opens
   //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
   //: template saved in Settings is in the next opening without a redraw.

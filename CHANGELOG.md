@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Search: Find anything finds saved chats and Ask questions as well (a Chat chip, `kind:chat`), wears a kind chip on every row, pages with Show more results, lists every operator (`tag:`, `in:`, `kind:`, `before:`, `after:`, `has:`, `is:`, quotes, minus) behind its '?', and its star saves a search as a row under Saved searches in the Notes sidebar; a notes filter that matches nothing offers Search everything. The box loads after boot rather than with it (Brief 47, decision 46).
+- Search: `tag:` alone finds every note with the tag; it was read over the newest 200 rows only, so at 5,000 notes `tag:tag3` found 5 of about 110.
+- `GET /search` takes `page` beside `limit` and answers `page`, `limit` and `more`; the index gains the `chat` kind, filled once at the next start for a notebook indexed before it.
 - Quick add: the Reminders box, Quick note, a new meeting's title, the Timeline's search and the command palette show what was read (a day, a time, a repeat, a person, a #tag, a window) as chips under the box as you type; Enter saves what the chips say, a chip pressed off stays words, and a reminder with no day or time asks for one rather than guessing (CHAT_PLAN decision 50, Brief 66). Lazy: the boot scripts are 140 bytes smaller gzipped.
 - Reminders: Magic add saves "water the plants every tuesday" as a weekly repeat named "Water the plants", reads "every morning at 7" as 07:00 daily, "dentist 21st 9am" as the 21st, "remind me in 20 minutes to check the oven" as "Check the oven", and "in 1.5 hours", "in 6 months" and "in a year" (CHAT_PLAN F1, Brief 65).
 - Search and chat: "notes from march", "on friday" (the one before, in a question) and "two weeks ago" filter by date, read by the one recogniser (`ai/recognise.py`); "how many notes did I write today" counts the day rather than the whole notebook; chart questions read the same windows (Brief 65).

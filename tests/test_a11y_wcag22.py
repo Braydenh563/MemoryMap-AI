@@ -95,7 +95,7 @@ def test_the_editors_have_names():
 
 
 def test_find_anything_is_a_listbox_only_while_it_lists():
-    find = _read("spaces-find.js")
+    find = _read("search.js")
     role = _function(find, "finderResultsRole")
     assert 'listing ? "listbox" : "group"' in role
     assert "finderResultsRole(results, false);" in _function(find, "finderRenderEmpty")

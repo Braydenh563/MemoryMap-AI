@@ -51,6 +51,10 @@ def warm(body: WarmBody, session: Session = Depends(get_session)) -> dict:
 #: `/entries` already serves with its own paging.
 MAX_LIMIT = 50
 
+#: The deepest page one call will serve. The engine ranks a candidate pool of
+#: `engine.CANDIDATE_DEPTH` rows, so a page past it could only ever be empty.
+MAX_PAGE = 20
+
 
 @router.get("")
 def search(
@@ -60,6 +64,7 @@ def search(
     space: str = Query(default="", description="Limit to one space"),
     hybrid: bool = Query(default=True, description="False for keyword only"),
     limit: int = Query(default=20, ge=1, le=MAX_LIMIT),
+    page: int = Query(default=1, ge=1, le=MAX_PAGE, description="1-based page of `limit` hits"),
     session: Session = Depends(get_session),
 ) -> dict:
     """Hits with their three scores and their explanation, best first.
@@ -76,7 +81,10 @@ def search(
         ctx["entry_id"] = entry_id
     if space:
         ctx["space"] = space
-    hits = engine.search(session, q, ctx=ctx or None, limit=limit, hybrid=hybrid, kinds=kinds or None)
+    #: Paged by ranking deeper and slicing: one more than the page asks for,
+    #: so `more` is known without a count of the whole notebook.
+    want = page * limit + 1
+    hits = engine.search(session, q, ctx=ctx or None, limit=want, hybrid=hybrid, kinds=kinds or None)
     #: **A typo gets the word it meant** (audit 2026-10-05, UX-04). Ask's
     #: `keyword_search` corrected "dentst" to "dentist" and these two boxes
     #: did not, so the same notebook answered a typo differently depending on
@@ -91,7 +99,7 @@ def search(
     if retry and retry != q:
         if not hits:
             hits = engine.search(
-                session, retry, ctx=ctx or None, limit=limit, hybrid=hybrid, kinds=kinds or None
+                session, retry, ctx=ctx or None, limit=want, hybrid=hybrid, kinds=kinds or None
             )
         if hits:
             corrected = retry
@@ -100,7 +108,10 @@ def search(
         #: The query the hits are for when it is not `query`: the view says
         #: "Showing results for ..." rather than letting a typo look matched.
         "corrected": corrected,
-        "hits": [hit.as_dict() for hit in hits],
+        "hits": [hit.as_dict() for hit in hits[(page - 1) * limit : page * limit]],
+        "page": page,
+        "limit": limit,
+        "more": len(hits) > page * limit,
         "counts": engine.index_counts(session),
     }
 

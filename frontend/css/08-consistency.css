@@ -3705,9 +3705,6 @@ body .chip.item-label,
 .finder-row-title {
   font-weight: 500;
 }
-.finder-chip.is-zero {
-  opacity: 0.55;
-}
 .finder-card h3 {
   font-size: var(--text-body);
   color: var(--ink);

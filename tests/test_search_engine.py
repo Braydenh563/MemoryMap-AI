@@ -665,7 +665,7 @@ def test_the_finders_empty_state_reads_the_index_not_the_chips():
     indexed yet" told every empty search the notebook was empty (UX-04)."""
     from pathlib import Path
 
-    source = Path("frontend/js/spaces-find.js").read_text(encoding="utf-8")
+    source = Path("frontend/js/search.js").read_text(encoding="utf-8")
     empty = source[source.index("const indexed = "):]
     empty = empty[: empty.index(";")]
     assert "finderIndexTotals" in empty and "finderCounts" not in empty

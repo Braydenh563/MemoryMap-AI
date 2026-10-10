@@ -1809,3 +1809,54 @@ small, else a BACKLOG row with the number:
    the frontend lints), the xfail markers still honest.
 Report the numbers per item; fixes under one hour land in the brief; the
 rest become BACKLOG rows "Expert audit, 2026-10-10" ranked by user impact.
+
+### Brief 44 (Sonnet high for the catalogue and converter; Opus high for the editor phases): the draw.io programme
+The owner, 2026-10-10: "deep analyse and catalog everything in draw.io as
+well, use, replicate, take and implement it and then build on it and make it
+the best editor the world has ever seen." draw.io is Apache-2.0 (inbound to
+AGPL is fine, notices kept). Part 1 (Sonnet): read the fork
+(Braydenh563/drawio, upstream jgraph/drawio: `src/main/webapp/js/diagramly`,
+`grapheditor` (Format.js, Actions.js, Menus.js, Sidebar*.js, EditorUi.js,
+Graph.js), `stencils/*.xml`, `templates/`, `shapes/`) and write
+WHITEBOARD_PLAN "The draw.io programme, 2026-10-10": a complete catalogue in
+tables by area (Format panel: Style, Text, Arrange tabs, every control;
+Arrange menu; Edit style and edit data; edge styles, waypoints, jumps,
+routing, arrowheads, labels on edges; connection points and constraints;
+layers and pages; shape libraries and the stencil XML format; templates;
+find and replace; outline and navigation; keyboard shortcuts; selection and
+grouping, containers and swimlanes; images, math, embedded links and
+tooltips; export formats; the sidebar search; what collaboration or cloud
+features are out of scope), each row: feature, MemoryMap has it (checked),
+how draw.io does it (one line, file named), how MemoryMap would do it on its
+canvas model (one line), cost. Then the converter: `scratchpad/stencils/`
+`convert_stencils.py` turns a stencil XML library into the board's shape
+JSON (paths, fills, text regions, connection constraints), run on the basic,
+flowchart, arrows, UML and network libraries; the count converted, the ones
+that fail and why, five rendered in Chromium beside draw.io's PNG of the same
+shape, measured. Part 2 (Opus, after Brief 36 merges): the programme's
+phases in WHITEBOARD_PLAN order, each gated by wbregress.sh and the matrix
+rows, starting with the Format panel's three tabs and edge routing.
+
+### Brief 45 (Sonnet medium for the census; Opus high for the review): structure and complexity
+The owner, 2026-10-10: "find all the missing utility and features, sub par
+implementations, issues, poor design or structural or programmatic
+decisions, high complexity." Part 1 (Sonnet): a census, written to
+WORLD_CLASS_PLAN "## 24. Codebase census, 2026-10-10": per file the lines,
+functions, longest function, functions over 80 lines, cyclomatic complexity
+(an ast walk for Python; branch counting for JS), duplicated blocks (a
+normalised 8-line shingle scan across frontend/js and src), functions never
+referenced anywhere (dead code candidates, with the grep that found none),
+globals defined in the 27 classic scripts and read by other files (the
+coupling map), TODO and FIXME counts, the ten largest files, the backend
+routes with no test naming them, the frontend ids with no handler and
+handlers with no id (the lints' own lists), the CSS selectors used by no
+markup, console errors by surface (errors.js). Numbers only, with the
+script under scratchpad/census/ kept as a sweep. Part 2 (Opus): the review
+that the numbers point at: split whiteboard.js (19.8k lines) and
+whiteboard-map.js along their seams with no behaviour change (the lints and
+wbregress.sh prove it), the duplicated blocks folded into recipes, the dead
+code removed, the structural decisions named and judged (the 27-script
+global scope against modules; the per-tab CSS files; the route layout;
+the event bus), each as a decision row with its measurement, and the
+"missing utility" list: for every surface, the actions a professional
+tool offers that this one lacks, from the parity tables.

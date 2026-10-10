@@ -43,12 +43,13 @@ handed on each call.
 from __future__ import annotations
 
 import math
+from datetime import datetime
 import re
 from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
-from memorymap.ai import presets
+from memorymap.ai import act_registry, presets
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
@@ -2095,6 +2096,57 @@ _STOP = frozenset(
 _RUNNER_UP_SHARE = 0.4
 
 
+#: The asking frame of a how-to, taken off before the rest is read as a
+#: sentence ("how do I pin a note" reads "pin a note").
+_HOW_FRAME = re.compile(r"^\s*(?:how (?:do|can|would|should) (?:i|you)|how to|can i|can you|where do i|is there a way to)\s+", re.I)
+
+
+#: Words naming a surface other than a note: "rename a category" or "add a
+#: branch to a mind map" is that surface's own how-to, not a note act.
+_OTHER_SURFACE = re.compile(
+    r"\b(?:graph|board|whiteboard|canvas|sticky|map|mind ?map|branch|document|chat|category|categories|timeline|"
+    r"library|palette|tab|folder|space|file|photo|template|word)s?\b", re.I)
+
+
+def _act_of(question: str) -> tuple[str, bool] | None:
+    """The act a how-to names, read through the one reading (`ai/reading.py`,
+    decision 59 step 4): the sentence after the asking frame, read as an act
+    by `reading.read`, or by its first word when that is an act's verb (the
+    slots a real request needs are not asked for in a how-to). With whether
+    it was read whole (an act the reading itself gave). None for a how-to
+    about another surface."""
+    inner = _HOW_FRAME.sub("", question or "").strip(" ?.")
+    if not inner or inner == (question or "").strip(" ?.") or _OTHER_SURFACE.search(inner):
+        return None
+    if act_registry.reader is None:
+        return None
+    got = act_registry.reader(inner, now=datetime.now())
+    if got.intent in act_registry.ACTS and got.intent not in ("navigate", "open", "find"):
+        return got.intent, True
+    first = inner.split()[0].lower()
+    for act in act_registry.ACTS.values():
+        if act.writes and (act.intent == first or act.verb == first) and act.intent not in ("meeting", "new_note", "append"):
+            return act.intent, False
+    return None
+
+
+def _reading_topics(question: str) -> list[dict]:
+    """The reading band first (decision 59, step 4): a how-to that reads as
+    a note act is answered from the act registry (`act_registry.act_topic`):
+    first when the reading gave the act whole or the words reached no topic,
+    else after the topic the words reached. The keyword rules are the
+    fallback band (`_matching_topics`)."""
+    topics = _matching_topics(question)
+    read = _act_of(question)
+    if read is None:
+        return topics
+    act, whole = read
+    own = act_registry.act_topic(act)
+    if topics and (not whole or topics[0]["id"] in act_registry.ACT_HELP_TOPICS.get(act, ())):
+        return [topics[0], own, *topics[1:]][:MAX_TOPICS]
+    return [own, *topics][:MAX_TOPICS]
+
+
 def _matching_topics(question: str) -> list[dict]:
     """Which `HELP_TOPICS` entries this question is about, best first.
 
@@ -2172,7 +2224,7 @@ def _matching_topics(question: str) -> list[dict]:
 
 
 def topic_title(topic: dict) -> str:
-    return TOPIC_META.get(topic["id"], {}).get("title") or topic["id"].replace("-", " ").capitalize()
+    return TOPIC_META.get(topic["id"], {}).get("title") or topic.get("title") or topic["id"].replace("-", " ").capitalize()
 
 
 #: **The system answer** (INBOX 430, the owner: "a toggle on each answer
@@ -2269,7 +2321,7 @@ def topics_for(question: str, tab: str | None = None) -> list[dict]:
     of its own ("the person asking has the notes tab open"), which is the part
     of the context that was worth having.
     """
-    topics = _matching_topics(question)
+    topics = _reading_topics(question)
     if not tab or topics:
         return topics
     seen = {topic["id"] for topic in topics}
@@ -2355,17 +2407,23 @@ def _prompt_for(
 #: have done, and a question the keywords do not reach gets nothing. The reply
 #: says so in its first line rather than passing this off as an answer
 #: composed for the asker.
-OFFLINE_LEAD = (
-    "The local model is not running, so this is the app's own help text for "
-    "what you asked about, word for word rather than written for your "
-    "question."
-)
+#: Said after the answer, never before it (decision 59, step 4; the Guide
+#: row "the answer first, the preface goes"): the reply is still honest that
+#: it is the app's help text, word for word, and not written by a model.
+OFFLINE_LEAD = "From the app's own help text, word for word: no model is running."
 
 OFFLINE_NOTHING_MATCHED = (
     "The local model is not running, and nothing in the app's own help text "
     "matches that. Try a word from the feature's own name, a tab name, or "
     "open Settings, Help, which lists every topic."
 )
+
+
+def _first_line(question: str, topics: list[dict]) -> str:
+    """The answer in one line, ahead of the topic it comes from: the same
+    sentence Chat's help register gives (`composer.help_line`)."""
+    line = act_registry.help_sentence(question, topics) if act_registry.help_sentence else None
+    return f"{line[0]}\n\n" if line else ""
 
 
 def offline_answer(
@@ -2390,7 +2448,7 @@ def offline_answer(
         on_screen = (context or "").strip()[:MAX_CONTEXT_CHARS]
         if on_screen:
             return {
-                "content": f"{OFFLINE_LEAD}\n\n{on_screen}",
+                "content": f"{on_screen}\n\n{OFFLINE_LEAD}",
                 "badges": [],
                 "sources": [],
             }
@@ -2402,7 +2460,7 @@ def offline_answer(
     #: are named as related, with their chips below as before.
     system = system_answer(topics)
     return {
-        "content": f"{OFFLINE_LEAD}\n\n{system['content']}",
+        "content": f"{_first_line(question, topics)}{system['content']}\n\n{OFFLINE_LEAD}",
         "badges": badges_for(topics),
         "sources": source_names(topics),
         "system": system,

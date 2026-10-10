@@ -210,13 +210,21 @@ _PAIRS: dict[str, dict[str, list[str]]] = {
     #: "At least three of your notes mention “sourdough”": the one opener a
     #: broad question had, so twenty turns of it opened alike (CHAT_PLAN
     #: decision 51's floor, measured 1 of 20 before these).
+    #: Eight a voice since Brief 84 (decision 59's social variation: the
+    #: floor's lowest question opened three ways in twenty turns).
     "mention_lead": {
-        "natural": ["I count at least ", "No fewer than ", "I found at least "],
-        "professional": ["At least ", "A minimum of ", "No fewer than "],
+        "natural": ["I count at least ", "No fewer than ", "I found at least ", "There are at least ",
+                    "By my count, at least ", "I can see at least ", "Going through them, at least ", "It looks like at least "],
+        "professional": ["At least ", "A minimum of ", "No fewer than ", "The records show at least ",
+                         "Upon review, at least ", "By count, at least ", "The search returns at least ", "In total, at least ",
+                         "On record, at least ", "The notes hold at least "],
     },
     "mention_mid": {
-        "natural": [" of your notes that mention ", " of your notes bring up ", " notes of yours that mention "],
-        "professional": [" of the entries mention ", " entries reference ", " of the records mention "],
+        "natural": [" of your notes that mention ", " of your notes bring up ", " notes of yours that mention ", " notes of yours that mention ",
+                    " of your notes bring up ", " of your notes that mention ", " of your notes mention ", " of your notes mention "],
+        "professional": [" of the entries mention ", " entries reference ", " of the records mention ", " entries that mention ",
+                         " of the entries mention ", " entries reference ", " entries that reference ", " of the records mention ",
+                         " entries reference ", " entries that mention "],
     },
     #: A broad answer over several notes, none of which holds every word
     #: asked, opens with one clause naming the topic and how many notes it
@@ -557,7 +565,11 @@ _FAMILIES_ADDED: dict[str, dict[str, list[str]]] = {'open_notes': {'natural': ['
               'professional': ['From the compiled entries, ',
                                'Reviewing the retrieved documentation, ',
                                'Of the pertinent records, ',
-                               'Considering the recovered entries, ']},
+                               'Considering the recovered entries, ',
+                               'Within the retrieved entries, ',
+                               'Based on the entries found, ',
+                               'Among the matching entries, ',
+                               'Per the entries retrieved, ']},
  'across_found': {'natural': ['If we look at all these notes, ',
                               'Across the board in these notes, ',
                               'Combining what I found, ',

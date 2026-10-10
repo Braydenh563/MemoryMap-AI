@@ -111,6 +111,8 @@ REACHED_AFTER_LOAD = {
     "questionsForNote": "questionsView, called in the .then of ensureModule('questionsView') by a card's question count",
     "webFollowUp": "webClip, called in sendChatMessage after `await ensureModule('webClip')` in the same condition",
     "readerBookmark": "webClip, the reader's bookmark button, whose listener awaits ensureModule('webClip') first",
+    #: Brief 84: a Chat answer's bar of counts, drawn in the .then of its ensureModule.
+    "drawAskChart": "askHistory, called in the .then of ensureModule('askHistory') in the chat's onChart",
     "saveWebPageAsNote": "webClip, the reader's Save button, on screen only after showWebReader (same bundle) drew a page",
     "dateFieldWire": "dateField, called in enhanceDateField's first press after `await ensureModule('dateField')` in the same condition",
     #: WORLD_CLASS_PLAN section 17 row 4: called inside

@@ -1916,6 +1916,42 @@ MODEL_STOPPED_NOTE = "The model stopped before it could answer, so this is Atlas
 _HOW_TO = re.compile(r"^\s*(?:how (?:do|can|would|should) i|how to|where (?:is|are|do i find|can i find))\b", re.I)
 
 
+#: A counted answer's facts drawn as a bar of counts (decision 59, step 2):
+#: the stats kinds whose facts are a count per name, and what a bar names.
+_STATS_BY = {"tags": "tag", "categories": "category", "subjects": "tag"}
+
+
+def _stats_chart(stats: dict) -> dict | None:
+    from memorymap.ai import realise
+
+    by = _STATS_BY.get(str(stats.get("kind") or ""))
+    rows = [{"name": str(f.get("label")), "notes": int(f.get("count") or 0)} for f in stats.get("facts") or [] if isinstance(f, dict) and "count" in f]
+    if by is None or realise.form_of(rows) != "chart":
+        return None
+    return realise.chart(f"Notes per {by}", by, rows)
+
+
+def _tool_read_events(req: _StreamRequest) -> list[dict]:
+    """A read tool run with no model (decision 59, steps 1 and 2): the reading
+    names the tool (`reading.tool_of`), Chat runs it with no arguments, and
+    the realiser says it in one line and draws it in its form. Empty when the
+    sentence names no such tool, so the composer answers as before."""
+    from memorymap.ai import act_registry, reading, realise
+    from memorymap.ai import tools as agent_tools
+
+    now = user_now(deps.get_config())
+    got = reading.read(req.question, now=now)
+    if got.tool not in act_registry.NO_MODEL_READS or got.intent in act_registry.ACTS:
+        return []
+    said = realise.tool_answer(got.tool, agent_tools.execute_tool(req.session, got.tool, {}), now.date())
+    if said is None:
+        return []
+    out = [{"type": "answer", "delta": said["text"]}]
+    if said["chart"]:
+        out.append({"type": "chart", "chart": said["chart"]})
+    return out
+
+
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
     """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
     if prepared["stats"] is not None:
@@ -1925,7 +1961,15 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: arrives before a local model would have finished loading, and it
         #: arrives at all when no model is running.
         yield {"type": "answer", "delta": prepared["stats"]["text"]}
+        drawn = _stats_chart(prepared["stats"])
+        if drawn is not None:
+            yield {"type": "chart", "chart": drawn}
         return
+    if not ollama_running:
+        shown = prepared["tool_read"] if "tool_read" in prepared else _tool_read_events(req)
+        if shown:
+            yield from shown
+            return
     conversational = not intent.needs_retrieval(prepared["intent"])
     if conversational and prepared["intent"] == intent.ABOUT_APP and _HOW_TO.match(req.question or "") and (
         _composed(req, ollama_running) or not ollama_running
@@ -2345,6 +2389,21 @@ def _first_agent_event(req: _StreamRequest, agent_events: Iterator[dict]) -> dic
     return first
 
 
+def _spoken_act(req: _StreamRequest) -> str | None:
+    """A spoken follow-up that is an act ("and delete it", "same for
+    Tuesday", "pin the other one"), resolved over the chat's last five turns
+    (`reading.follow`, decision 59 step 3): the sentence it stands for, or
+    None so a question's follow-up stays `composer.follow_on`'s."""
+    from memorymap.ai import reading
+
+    now = user_now(deps.get_config())
+    turns = [{"text": str(t.get("question") or ""), "objects": t.get("objects") or []} for t in (req.history or [])[-reading.FOLLOW_TURNS:]]
+    resolved = reading.follow(req.question, turns, now)
+    if resolved is None or acts.parse(resolved[0], now) is None:
+        return None
+    return resolved[0]
+
+
 def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     def event(payload: dict) -> str:
         return json.dumps(payload) + "\n"
@@ -2364,7 +2423,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: model), and only with a turn before it: a model reads the history
     #: itself, and the routing below (`_composed`) is unchanged by it.
     follow = None
-    if req.history and ((req.body.notes_only and req.body.answer_from == "notes") or not req.ollama.is_running()):
+    spoken = _spoken_act(req) if req.history and not req.ollama.is_running() else None
+    if spoken is not None:
+        req.question = spoken
+    elif req.history and ((req.body.notes_only and req.body.answer_from == "notes") or not req.ollama.is_running()):
         follow = composer.follow_on(req.question, req.history)
     prepared = _prepare(
         req.session,
@@ -2427,11 +2489,15 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     if will_answer and not tools_only:
         _assist(req, prepared)
+    #: A read tool answered with no model (decision 59) is the whole
+    #: notebook's, so the notes retrieval found are not its sources.
+    if not ollama_running and prepared["stats"] is None and prepared["intent"] != intent.ACT:
+        prepared["tool_read"] = _tool_read_events(req)
 
     yield event(
         {
             "type": "meta",
-            "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
+            "raw_results": [] if prepared.get("tool_read") else [r.model_dump(mode="json") for r in prepared["raw_results"]],
             "picture_alts": prepared.get("picture_alts") or {},
             "picture_sizes": prepared.get("picture_sizes") or {},
             "search_mode": prepared["search_mode"],

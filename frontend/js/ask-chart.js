@@ -174,7 +174,13 @@ async function renderAskChart(question, host, isCurrent = () => true) {
     //: (`backgroundWriteFailed`), and the answer above it stands alone.
   }).catch(backgroundWriteFailed);
   if (!isCurrent()) return;
-  const chart = answer && answer.chart;
+  drawAskChart(host, answer && answer.chart);
+}
+
+//: The drawing alone, from a chart object: the Ask box's fetched one above,
+//: and a Chat answer's bar of counts (CHAT_PLAN decision 59, step 2: a
+//: `chart` stream event from `realise.chart`, drawn by chat-attach.js).
+function drawAskChart(host, chart) {
   if (!chart || !chart.rows || !chart.rows.length) {
     host.replaceChildren();
     host.classList.add("hidden");

@@ -119,6 +119,14 @@ def repair_rate() -> tuple[int, int]:
     return one, total
 
 
+def follow_up() -> tuple[int, int]:
+    """Decision 58's context column: the 200 spoken lines resolved over the
+    last five turns (`tests/fixtures/composer/spoken_1010.json`)."""
+    from tests.test_spoken_followups import DATA, right
+
+    return sum(1 for row in DATA["rows"] if right(row)), len(DATA["rows"])
+
+
 def scorecard() -> None:
     """Decision 58's six columns, the engine's number beside a model's."""
     import os
@@ -129,12 +137,13 @@ def scorecard() -> None:
     n, found, grounded = structure()
     low = min(v[0] for v in variety().values())
     r, rt = repair_rate()
+    f, ft = follow_up()
     rows = [
         ("understanding", f"{u} of {ut} ({u / ut:.2f})"),
         ("grounding", f"{g} of {gt} unsourced caught; {grounded} of {n} traced"),
         ("structure", f"{found} maxims findings over {n} answers"),
-        ("variety", f"min {low} distinct openers of {realise.VARIETY_TURNS} (floor {realise.VARIETY_FLOOR}, target 8)"),
-        ("follow-up", "not measured: the 200 spoken lines are not written"),
+        ("variety", f"min {low} distinct openers of {realise.VARIETY_TURNS} (floor {realise.VARIETY_FLOOR}, target 8, was 3)"),
+        ("follow-up", f"{f} of {ft} spoken lines resolved over five turns"),
         ("repair", f"{r} of {rt} unsure or none readings take one step"),
     ]
     print("\nscorecard (decision 58)")

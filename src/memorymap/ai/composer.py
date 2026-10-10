@@ -76,7 +76,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from memorymap.ai import composer_tables, grounding, question_noise, realise, utilities
+from memorymap.ai import act_registry, composer_tables, grounding, question_noise, realise, utilities
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -273,6 +273,12 @@ PHRASES: dict[str, str] = {
     "help_more_2": " There is more in the Guide, on the status bar.",
     "help_more_3": " The Guide on the status bar goes further.",
     "help_more_4": " For the rest, open the Guide on the status bar.",
+    "help_more_5": " The Guide on the status bar says more.",
+    "help_more_6": " Open the Guide on the status bar for the rest.",
+    "help_more_7": " The rest is in the Guide, on the status bar.",
+    "help_more_8": " The Guide, on the status bar, covers the rest.",
+    "help_more_9": " More is in the Guide, on the status bar.",
+    "help_more_10": " The Guide on the status bar has the details.",
     # Numbered readings of a question that only names something (decision 45).
     "readings_a": "Which do you mean: ",
     "reading_dot": ". ",
@@ -3149,7 +3155,22 @@ def _help_answer(question: str) -> dict | None:
     None when no topic matches."""
     from memorymap.ai import help_chat
 
-    topics = help_chat.topics_for(question or "")
+    best = help_line(question, help_chat.topics_for(question or ""))
+    if best is None:
+        return None
+    #: The topic's sentence is the protected span; the pointer after it varies
+    #: by chat and turn like any opener (decision 51), so "Ask again" in help
+    #: does not repeat itself word for word.
+    more = _pick(question, "help_more", [PHRASES[k] for k in ("help_more", *(f"help_more_{n}" for n in range(2, 11)))])
+    parts = [("help", best[0], best[1]), ("template", more)]
+    return _result(parts, "help")
+
+
+def help_line(question: str, topics: list[dict]) -> tuple[str, str] | None:
+    """The one sentence of the best topic that answers a how-to (its step
+    sentence sharing the most of the question's words) and the topic's id:
+    Chat's help register and the Guide's first line (decision 59, step 4),
+    so help and chat say it in one voice. None with no topic."""
     if not topics:
         return None
     topic = topics[0]
@@ -3166,13 +3187,7 @@ def _help_answer(question: str) -> dict | None:
         have = set(_words(line))
         return sum(1 for w in wanted if any(h == w or (min(len(h), len(w)) >= 5 and (h.startswith(w) or w.startswith(h))) for h in have))
 
-    best = max(sentences, key=lambda line: (shared(line), -sentences.index(line)))
-    #: The topic's sentence is the protected span; the pointer after it varies
-    #: by chat and turn like any opener (decision 51), so "Ask again" in help
-    #: does not repeat itself word for word.
-    more = _pick(question, "help_more", [PHRASES[k] for k in ("help_more", "help_more_2", "help_more_3", "help_more_4")])
-    parts = [("help", best, topic.get("id", "")), ("template", more)]
-    return _result(parts, "help")
+    return max(sentences, key=lambda line: (shared(line), -sentences.index(line))), str(topic.get("id", ""))
 
 
 def _result(parts: list[tuple], shape: str, rows: list[dict] | None = None, next_parts: list | None = None) -> dict:
@@ -3669,3 +3684,6 @@ def _brief_text(view: NoteView, content: str, by_note: dict[int, list[Sentence]]
     if last < len(view.sentences) - 1:
         parts.append("…")
     return " ".join(parts)
+
+
+act_registry.help_sentence = help_line

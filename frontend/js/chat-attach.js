@@ -2090,6 +2090,15 @@ async function sendChatMessage(preset, opts = {}) {
       },
       //: The web pages an answer from no model read (CHAT_PLAN decision 37).
       onWebSources: (event) => ensureModule("askCompose").then(() => renderWebSources(timeline.holder, event.sources)),
+      //: A bar of counts from a no-model answer (CHAT_PLAN decision 59, step
+      //: 2), drawn by the Ask box's chart recipe under the answer's line.
+      onChart: (event) => ensureModule("askHistory").then(() => {
+        const host = document.createElement("div");
+        host.className = "ask-chart";
+        timeline.holder.appendChild(host);
+        drawAskChart(host, event.chart);
+        chatScrollToEnd();
+      }),
       onConfirm: (event) => {
         clearPending();
         const card = document.createElement("div");

@@ -21,9 +21,12 @@ Nothing here reads a date or a unit itself: every such word is a span from
 
 from __future__ import annotations
 
+import functools
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+from memorymap.ai import act_registry
 from memorymap.ai import recognise as rec
 
 #: The bands of decision 48, highest first: a reading is in the first band
@@ -86,6 +89,9 @@ class Reading:
     source: str = "none"
     question: str | None = None
     said: str | None = None
+    #: The tool in `ai/tools` this reading reaches with no model (decision 59,
+    #: step 1): an act's own tool, a utility's, or the one its words name.
+    tool: str | None = None
 
     @property
     def band(self) -> str:
@@ -101,6 +107,7 @@ class Reading:
             "source": self.source,
             "question": self.question,
             "said": self.said,
+            "tool": self.tool,
         }
 
 
@@ -188,6 +195,50 @@ def _repeat_slots(slots: dict, spans: list) -> None:
         slots["offer_recurring"] = "monthly"
 
 
+def tool_of(text: str, reading: Reading) -> str | None:
+    """The tool a sentence reaches with no model (decision 59, step 1): the
+    words that name one tool (`act_registry.TOOL_CUES`), else the act's own
+    tool, else the utility's, else a question's search or the Guide's."""
+    if reading.intent == "empty":
+        return None
+    low = " ".join(text.lower().split())
+    for tool, pattern in act_registry.TOOL_CUES:
+        if re.search(pattern, low):
+            return tool
+    if reading.intent in act_registry.ACT_TOOLS:
+        return act_registry.ACT_TOOLS[reading.intent]
+    if reading.intent == "utility":
+        return act_registry.UTILITY_TOOLS.get(str(reading.slots.get("kind")), "calculate")
+    if reading.intent == "about_app":
+        return "search_help"
+    if reading.intent == "question":
+        return "search_notes"
+    return None
+
+
+def _resolving(body):  # noqa: ANN001, ANN202
+    """`body` (the one reading), with the tool the reading reaches named
+    (`tool_of`). With `context["turns"]` (the chat's last turns, {"text",
+    "objects"?}), a spoken follow-up ("and delete it", "same for Tuesday",
+    "the other one") is read as the sentence it stands for (`follow`), and
+    says so (decision 59, steps 1 and 3)."""
+
+    @functools.wraps(body)
+    def resolved_read(text: str, *, now: datetime, context: dict | None = None) -> Reading:
+        turns = (context or {}).get("turns")
+        resolved = follow(str(text or ""), turns, now) if turns else None
+        said = resolved[0] if resolved else text
+        reading = body(said, now=now, context=context)
+        if resolved is not None:
+            reading.slots["follows"] = resolved[1]
+            reading.said = reading.said or f"Read as \u201c{said}\u201d."
+        reading.tool = tool_of(str(said or ""), reading)
+        return reading
+
+    return resolved_read
+
+
+@_resolving
 def read(text: str, *, now: datetime, context: dict | None = None) -> Reading:
     """The one reading of `text` on the person's clock `now`. `context` may
     carry `locale` (the date order, the temperature scale), `surface`
@@ -308,3 +359,131 @@ def repair(reading: Reading | None, *, error: str | None = None, composed: str |
 
     lead = f"The closest I have is {closest}. " if closest else f"{NO_MATCH} "
     return Repair("no_match", lead + commands.CAPABILITY_LINE)
+
+
+#: The reading without the follow-up step, for the turns a follow-up leans on.
+_read = read.__wrapped__
+
+
+# --- spoken follow-ups over the last turns (decision 59, step 3; decision 58's context) ----
+
+#: How many turns back a follow-up may lean (decision 58: the last five).
+FOLLOW_TURNS = 5
+
+_AGAIN = r"^(?:and |ok |okay )?(?:same again|again|do (?:that|it) again|one more time|repeat that)[.?]*$"
+_SAME_FOR = r"^(?:and |ok |okay |now |then )?(?:(?:the )?same (?:for|on)|what about|how about|and for|and on)\s+(?P<x>.+?)[?.]*$"
+_PRONOUN = (r"^(?:and |then |now |ok |okay |also |please )*(?P<verb>delete|bin|pin|unpin|open|summarise|summarize|rename|move|tag)"
+            r"\s+(?:that one|this one|the note|it|that)\b(?P<rest>.*)$")
+_OTHER = r"\bthe other(?: one| note)?\b"
+_TOO = r"^(?:and |also )?(?:the )?(?P<x>.+?)(?: note)? (?:too|as well)[.?]*$"
+
+
+def _turn_object(turn: dict, now: datetime) -> str | None:
+    """What a turn was about: the object its words named (an act's note or a
+    question's subject), else the first object its answer named."""
+    got = _read(str(turn.get("text") or ""), now=now)
+    about = got.slots.get("about") or got.slots.get("subject")
+    if about:
+        return str(about)
+    objects = turn.get("objects") or []
+    return str(objects[0]) if objects else None
+
+
+def _swap_object(text: str, old: str, new: str) -> str:
+    return re.sub(re.escape(old), new, text, count=1, flags=re.I) if re.search(re.escape(old), text, re.I) else text
+
+
+def _day_phrase(new, old) -> str:  # noqa: ANN001
+    """`new` (a date span) said so `recognise` reads it back exactly, keeping
+    the clock of `old` when the old span had one ("same for Tuesday" after
+    "on Friday at 9" is Tuesday at 9)."""
+    if new.kind != "date" or not isinstance(new.value, date):
+        return new.text
+    day = new.value
+    said = f"on {rec._WEEKDAY_NAMES[day.weekday()]} {day.day} {rec._MONTH_NAMES[day.month - 1]}"
+    if old.kind in _CLOCKED and isinstance(old.value, datetime):
+        said += f" at {old.value:%H:%M}"
+    return said
+
+
+def follow(text: str, turns: list[dict] | None, now: datetime) -> tuple[str, str] | None:
+    """A spoken follow-up resolved against the last `FOLLOW_TURNS` turns
+    (each {"text", "objects"?}, oldest first): (the sentence it stands for,
+    the kind: "again", "other", "pronoun", "date", "subject"), or None for a
+    sentence that stands on its own. Dates are `recognise` spans, never read
+    here (decision 46)."""
+    #: "thanks" between is not a turn to lean on (INBOX 741's rule).
+    turns = [t for t in (turns or []) if str(t.get("text") or "").strip()][-FOLLOW_TURNS:]
+    turns = [t for t in turns if _read(str(t["text"]), now=now).intent not in ("smalltalk", "unknown")]
+    raw = " ".join(str(text or "").split())
+    if not turns or not raw:
+        return None
+    low = raw.lower()
+    if re.match(_AGAIN, low):
+        return str(turns[-1]["text"]), "again"
+    if re.search(_OTHER, low):
+        return _follow_other(raw, low, turns, now)
+    pronoun = re.match(_PRONOUN, low)
+    if pronoun:
+        return _follow_pronoun(raw, pronoun, turns, now)
+    same = re.match(_SAME_FOR, low) or re.match(_TOO, low)
+    return _follow_same(raw[same.start("x"):same.end("x")], turns, now) if same else None
+
+
+def _follow_other(raw: str, low: str, turns: list[dict], now: datetime) -> tuple[str, str] | None:
+    """"The other one": the object a turn's answer named that the turn did not."""
+    for turn in reversed(turns):
+        objects = [str(o) for o in turn.get("objects") or []]
+        named = _turn_object(turn, now)
+        others = [o for o in objects if not named or o.lower() != named.lower()]
+        if len(objects) < 2 or not others:
+            continue
+        standing = re.sub(r"^(?:and |what about |how about )?" + _OTHER + r"[?.]*$", "", low).strip()
+        if not standing:
+            return (_swap_object(str(turn["text"]), named, others[0]) if named else str(turn["text"])), "other"
+        return re.sub(_OTHER, f"the {others[0]} note", raw, count=1, flags=re.I), "other"
+    return None
+
+
+def _follow_pronoun(raw: str, pronoun: re.Match, turns: list[dict], now: datetime) -> tuple[str, str] | None:
+    """"Delete it": the act on the newest turn's object."""
+    for turn in reversed(turns):
+        obj = _turn_object(turn, now)
+        if obj:
+            return f"{pronoun['verb']} the {obj} note{raw[pronoun.start('rest'):]}", "pronoun"
+    return None
+
+
+def _follow_same(said: str, turns: list[dict], now: datetime) -> tuple[str, str] | None:
+    """"Same for Tuesday" (a new day for the newest dated turn) or "the gym
+    note too" (a new object for the newest turn that named one)."""
+    dated = any(s.rank == 0 and s.kind in _TIME_KINDS for s in rec.recognise(said, now=now))
+    for turn in reversed(turns):
+        before = str(turn["text"])
+        if dated:
+            redated = _redate(before, said, now)
+            if redated:
+                return redated, "date"
+            continue
+        obj = _turn_object(turn, now)
+        if obj and obj.lower() in before.lower():
+            return _swap_object(before, obj, re.sub(r"^the\s+|\s+note$", "", said, flags=re.I)), "subject"
+    return None
+
+
+def _redate(before: str, said: str, now: datetime) -> str | None:
+    """`before` with its day replaced by the day in `said`, read in the old
+    day's tense: "what about Tuesday" after "what did I write on Monday" is
+    the Tuesday past."""
+    old = [s for s in rec.recognise(before, now=now) if s.rank == 0 and s.kind in _TIME_KINDS]
+    if not old:
+        return None
+    then = old[0].value.date() if isinstance(old[0].value, datetime) else old[0].value
+    tense = "past" if isinstance(then, date) and then < now.date() else None
+    new = [s for s in rec.recognise(said, now=now, tense=tense) if s.rank == 0 and s.kind in _TIME_KINDS]
+    if not new:
+        return None
+    return before[: old[0].start] + _day_phrase(new[0], old[0]) + before[old[0].end:]
+
+
+act_registry.reader = read

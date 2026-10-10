@@ -1,0 +1,4126 @@
+{
+ "about": "CHAT_PLAN decision 58's context column and decision 59 step 3 (Brief 84): 200 spoken follow-ups (pronoun, a new day, same again, a new subject, the other one), each over the five turns before it, with the act or question and the slot it should read as. tests/test_spoken_followups.py; scratchpad/parity.py's follow-up column.",
+ "now": "2026-10-10T10:00:00",
+ "rows": [
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the boiler"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "boiler"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the passport"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "passport"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the dentist"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "dentist"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "garden"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the gym"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "gym"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the piano"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the sourdough"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "sourdough"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the budget"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "budget"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the holiday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "holiday"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the insurance"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "insurance"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "knife"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the printer"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "printer"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the camping"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the wedding"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "wedding"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the piano"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "piano"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the bike"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "bike"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the tax"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "tax"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "roof"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the vet"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "vet"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the gym"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the laptop"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "laptop"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the camping"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "camping"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the recipe"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "recipe"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the boiler"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "boiler"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the passport"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "passport"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the dentist"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "dentist"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the printer"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the garden"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "garden"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the gym"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "gym"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the sourdough"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "sourdough"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the budget"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "budget"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the holiday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "holiday"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the insurance"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "insurance"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the vet"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the knife"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "knife"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the printer"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "printer"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the wedding"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "wedding"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the piano"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "piano"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the bike"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "bike"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the passport"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the tax"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "tax"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the dentist"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the roof"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "roof"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the vet"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "vet"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the laptop"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "laptop"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the camping"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "camping"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the recipe"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "recipe"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the holiday"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the boiler"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "boiler"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the insurance"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the passport"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "passport"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the dentist"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "dentist"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the garden"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "garden"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the gym"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "gym"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the sourdough"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "sourdough"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the bike"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the budget"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "budget"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the tax"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the holiday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "holiday"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the insurance"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "insurance"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the knife"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "knife"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the printer"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "printer"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "wedding"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the recipe"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the piano"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "piano"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the boiler"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the bike"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "bike"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the tax"
+    }
+   ],
+   "text": "and delete it",
+   "intent": "delete",
+   "about": "tax"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the roof"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin it",
+   "intent": "pin",
+   "about": "roof"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the vet"
+    }
+   ],
+   "text": "open it",
+   "intent": "open",
+   "about": "vet"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "now unpin it",
+   "intent": "unpin",
+   "about": "laptop"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the sourdough"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the camping"
+    }
+   ],
+   "text": "ok delete that one",
+   "intent": "delete",
+   "about": "camping"
+  },
+  {
+   "kind": "pronoun",
+   "turns": [
+    {
+     "text": "find my note about the budget"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the recipe"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "then pin that",
+   "intent": "pin",
+   "about": "recipe"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to call mum on Monday at 8"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "reminder",
+   "due_at": "2026-10-14T08:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to pay rent on Tuesday at 9"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and for Thursday",
+   "intent": "reminder",
+   "due_at": "2026-10-15T09:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to book the vet on Wednesday at 10"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "reminder",
+   "due_at": "2026-10-16T10:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to water the plants on Thursday at 11"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "reminder",
+   "due_at": "2026-10-11T11:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to renew the passport on Friday at 12"
+    }
+   ],
+   "text": "and for Monday",
+   "intent": "reminder",
+   "due_at": "2026-10-12T12:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the piano"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to email Sam on Sunday at 13"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "reminder",
+   "due_at": "2026-10-13T13:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to buy milk on Monday at 14"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "reminder",
+   "due_at": "2026-10-14T14:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to fix the bike on Tuesday at 15"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and for Thursday",
+   "intent": "reminder",
+   "due_at": "2026-10-15T15:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to ring the bank on Wednesday at 16"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "reminder",
+   "due_at": "2026-10-16T16:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to post the letter on Thursday at 8"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "reminder",
+   "due_at": "2026-10-11T08:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to call mum on Friday at 9"
+    }
+   ],
+   "text": "and for Monday",
+   "intent": "reminder",
+   "due_at": "2026-10-12T09:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the camping"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to pay rent on Sunday at 10"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "reminder",
+   "due_at": "2026-10-13T10:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to book the vet on Monday at 11"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "reminder",
+   "due_at": "2026-10-14T11:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to water the plants on Tuesday at 12"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and for Thursday",
+   "intent": "reminder",
+   "due_at": "2026-10-15T12:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to renew the passport on Wednesday at 13"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "reminder",
+   "due_at": "2026-10-16T13:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to email Sam on Thursday at 14"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "reminder",
+   "due_at": "2026-10-11T14:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to buy milk on Friday at 15"
+    }
+   ],
+   "text": "and for Monday",
+   "intent": "reminder",
+   "due_at": "2026-10-12T15:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the gym"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to fix the bike on Sunday at 16"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "reminder",
+   "due_at": "2026-10-13T16:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to ring the bank on Monday at 8"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "reminder",
+   "due_at": "2026-10-14T08:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to post the letter on Tuesday at 9"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and for Thursday",
+   "intent": "reminder",
+   "due_at": "2026-10-15T09:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to call mum on Wednesday at 10"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "reminder",
+   "due_at": "2026-10-16T10:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to pay rent on Thursday at 11"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "reminder",
+   "due_at": "2026-10-11T11:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to book the vet on Friday at 12"
+    }
+   ],
+   "text": "and for Monday",
+   "intent": "reminder",
+   "due_at": "2026-10-12T12:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the printer"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to water the plants on Sunday at 13"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "reminder",
+   "due_at": "2026-10-13T13:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to renew the passport on Monday at 14"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "reminder",
+   "due_at": "2026-10-14T14:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "remind me to email Sam on Tuesday at 15"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and for Thursday",
+   "intent": "reminder",
+   "due_at": "2026-10-15T15:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to buy milk on Wednesday at 16"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "reminder",
+   "due_at": "2026-10-16T16:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "remind me to fix the bike on Thursday at 8"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "reminder",
+   "due_at": "2026-10-11T08:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to ring the bank on Friday at 9"
+    }
+   ],
+   "text": "and for Monday",
+   "intent": "reminder",
+   "due_at": "2026-10-12T09:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the vet"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "remind me to post the letter on Sunday at 10"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "reminder",
+   "due_at": "2026-10-13T10:00:00"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Monday"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "question",
+   "since": "2026-10-06"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Tuesday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "question",
+   "since": "2026-10-07"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write on Wednesday"
+    }
+   ],
+   "text": "and on Thursday",
+   "intent": "question",
+   "since": "2026-10-08"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write on Thursday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "question",
+   "since": "2026-10-09"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write on Friday"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "question",
+   "since": "2026-10-04"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the piano"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write on Sunday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and on Monday",
+   "intent": "question",
+   "since": "2026-10-05"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Monday"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "question",
+   "since": "2026-10-06"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Tuesday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "question",
+   "since": "2026-10-07"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write on Wednesday"
+    }
+   ],
+   "text": "and on Thursday",
+   "intent": "question",
+   "since": "2026-10-08"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write on Thursday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "question",
+   "since": "2026-10-09"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write on Friday"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "question",
+   "since": "2026-10-04"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the camping"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write on Sunday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and on Monday",
+   "intent": "question",
+   "since": "2026-10-05"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Monday"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "question",
+   "since": "2026-10-06"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Tuesday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "question",
+   "since": "2026-10-07"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write on Wednesday"
+    }
+   ],
+   "text": "and on Thursday",
+   "intent": "question",
+   "since": "2026-10-08"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write on Thursday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about Friday",
+   "intent": "question",
+   "since": "2026-10-09"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write on Friday"
+    }
+   ],
+   "text": "same for Sunday",
+   "intent": "question",
+   "since": "2026-10-04"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "find my note about the gym"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write on Sunday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and on Monday",
+   "intent": "question",
+   "since": "2026-10-05"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Monday"
+    }
+   ],
+   "text": "what about Tuesday",
+   "intent": "question",
+   "since": "2026-10-06"
+  },
+  {
+   "kind": "date",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "what did I write on Tuesday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same for Wednesday",
+   "intent": "question",
+   "since": "2026-10-07"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the boiler note"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "boiler"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the passport"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "passport"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the dentist"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "dentist"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the garden note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "garden"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the gym"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "gym"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "find my note about the piano"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the sourdough"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "sourdough"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the budget note"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "budget"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the holiday"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "holiday"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the insurance"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "insurance"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the knife note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "knife"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the printer"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "printer"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "find my note about the camping"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the wedding"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "wedding"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the piano note"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "piano"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the bike"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "bike"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the tax"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "tax"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the roof note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "roof"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the vet"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "vet"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "find my note about the gym"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the laptop"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "laptop"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the camping note"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "camping"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the recipe"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "recipe"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the boiler"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "boiler"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the passport note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "passport"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the dentist"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "dentist"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "find my note about the printer"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the garden"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "garden"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the gym note"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "gym"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the sourdough"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "sourdough"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "what did I write about the budget"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "budget"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the holiday note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "same again",
+   "intent": "pin",
+   "about": "holiday"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the insurance"
+    }
+   ],
+   "text": "again",
+   "intent": "find",
+   "about": "insurance"
+  },
+  {
+   "kind": "again",
+   "turns": [
+    {
+     "text": "find my note about the vet"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the knife"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "do that again",
+   "intent": "question",
+   "about": "knife"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the boiler note"
+    }
+   ],
+   "text": "the garden note too",
+   "intent": "pin",
+   "about": "garden"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "delete the passport note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the gym note as well",
+   "intent": "delete",
+   "about": "gym"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the dentist"
+    }
+   ],
+   "text": "what about the sourdough note",
+   "intent": "open",
+   "about": "sourdough"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the garden note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "the budget note too",
+   "intent": "pin",
+   "about": "budget"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "delete the gym note"
+    }
+   ],
+   "text": "and the holiday note as well",
+   "intent": "delete",
+   "about": "holiday"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "find my note about the piano"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the sourdough"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about the insurance note",
+   "intent": "open",
+   "about": "insurance"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the budget note"
+    }
+   ],
+   "text": "the knife note too",
+   "intent": "pin",
+   "about": "knife"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "delete the holiday note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the printer note as well",
+   "intent": "delete",
+   "about": "printer"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the insurance"
+    }
+   ],
+   "text": "what about the wedding note",
+   "intent": "open",
+   "about": "wedding"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the knife note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "the piano note too",
+   "intent": "pin",
+   "about": "piano"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "delete the printer note"
+    }
+   ],
+   "text": "and the bike note as well",
+   "intent": "delete",
+   "about": "bike"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "find my note about the camping"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the wedding"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about the tax note",
+   "intent": "open",
+   "about": "tax"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the piano note"
+    }
+   ],
+   "text": "the roof note too",
+   "intent": "pin",
+   "about": "roof"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "delete the bike note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the vet note as well",
+   "intent": "delete",
+   "about": "vet"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the tax"
+    }
+   ],
+   "text": "what about the laptop note",
+   "intent": "open",
+   "about": "laptop"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the roof note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "the camping note too",
+   "intent": "pin",
+   "about": "camping"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "delete the vet note"
+    }
+   ],
+   "text": "and the recipe note as well",
+   "intent": "delete",
+   "about": "recipe"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "find my note about the gym"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the laptop"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about the boiler note",
+   "intent": "open",
+   "about": "boiler"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the camping note"
+    }
+   ],
+   "text": "the passport note too",
+   "intent": "pin",
+   "about": "passport"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "delete the recipe note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the dentist note as well",
+   "intent": "delete",
+   "about": "dentist"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the boiler"
+    }
+   ],
+   "text": "what about the garden note",
+   "intent": "open",
+   "about": "garden"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the passport note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "the gym note too",
+   "intent": "pin",
+   "about": "gym"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "delete the dentist note"
+    }
+   ],
+   "text": "and the sourdough note as well",
+   "intent": "delete",
+   "about": "sourdough"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "find my note about the printer"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the garden"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about the budget note",
+   "intent": "open",
+   "about": "budget"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "pin the gym note"
+    }
+   ],
+   "text": "the holiday note too",
+   "intent": "pin",
+   "about": "holiday"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "delete the sourdough note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the insurance note as well",
+   "intent": "delete",
+   "about": "insurance"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the budget"
+    }
+   ],
+   "text": "what about the knife note",
+   "intent": "open",
+   "about": "knife"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "pin the holiday note"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "the printer note too",
+   "intent": "pin",
+   "about": "printer"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "delete the insurance note"
+    }
+   ],
+   "text": "and the wedding note as well",
+   "intent": "delete",
+   "about": "wedding"
+  },
+  {
+   "kind": "subject",
+   "turns": [
+    {
+     "text": "find my note about the vet"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the knife"
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "what about the piano note",
+   "intent": "open",
+   "about": "piano"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the boiler",
+     "objects": [
+      "boiler",
+      "sourdough"
+     ]
+    }
+   ],
+   "text": "and the other one",
+   "intent": "open",
+   "about": "sourdough"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the passport",
+     "objects": [
+      "passport",
+      "budget"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "budget"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the dentist",
+     "objects": [
+      "dentist",
+      "holiday"
+     ]
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "holiday"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden",
+     "objects": [
+      "garden",
+      "insurance"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the other one",
+   "intent": "find",
+   "about": "insurance"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the wedding"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the gym",
+     "objects": [
+      "gym",
+      "knife"
+     ]
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "knife"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "find my note about the piano"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the sourdough",
+     "objects": [
+      "sourdough",
+      "printer"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "printer"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the budget",
+     "objects": [
+      "budget",
+      "wedding"
+     ]
+    }
+   ],
+   "text": "and the other one",
+   "intent": "open",
+   "about": "wedding"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the holiday",
+     "objects": [
+      "holiday",
+      "piano"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "piano"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the insurance",
+     "objects": [
+      "insurance",
+      "bike"
+     ]
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "bike"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife",
+     "objects": [
+      "knife",
+      "tax"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the other one",
+   "intent": "find",
+   "about": "tax"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the laptop"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the printer",
+     "objects": [
+      "printer",
+      "roof"
+     ]
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "roof"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "find my note about the camping"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the wedding",
+     "objects": [
+      "wedding",
+      "vet"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "vet"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the piano",
+     "objects": [
+      "piano",
+      "laptop"
+     ]
+    }
+   ],
+   "text": "and the other one",
+   "intent": "open",
+   "about": "laptop"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the bike",
+     "objects": [
+      "bike",
+      "camping"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "camping"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the tax",
+     "objects": [
+      "tax",
+      "recipe"
+     ]
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "recipe"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof",
+     "objects": [
+      "roof",
+      "boiler"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the other one",
+   "intent": "find",
+   "about": "boiler"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the garden"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the vet",
+     "objects": [
+      "vet",
+      "passport"
+     ]
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "passport"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "find my note about the gym"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the laptop",
+     "objects": [
+      "laptop",
+      "dentist"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "dentist"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the camping",
+     "objects": [
+      "camping",
+      "garden"
+     ]
+    }
+   ],
+   "text": "and the other one",
+   "intent": "open",
+   "about": "garden"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the recipe",
+     "objects": [
+      "recipe",
+      "gym"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "gym"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the boiler",
+     "objects": [
+      "boiler",
+      "sourdough"
+     ]
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "sourdough"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the passport",
+     "objects": [
+      "passport",
+      "budget"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the other one",
+   "intent": "find",
+   "about": "budget"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the knife"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the dentist",
+     "objects": [
+      "dentist",
+      "holiday"
+     ]
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "holiday"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "find my note about the printer"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the garden",
+     "objects": [
+      "garden",
+      "insurance"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "insurance"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "open the note about the gym",
+     "objects": [
+      "gym",
+      "knife"
+     ]
+    }
+   ],
+   "text": "and the other one",
+   "intent": "open",
+   "about": "knife"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what did I write about the weather"
+    },
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "find my note about the sourdough",
+     "objects": [
+      "sourdough",
+      "printer"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "printer"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "how many notes do I have"
+    },
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "open the note about the budget",
+     "objects": [
+      "budget",
+      "wedding"
+     ]
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "wedding"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "ok"
+    },
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the holiday",
+     "objects": [
+      "holiday",
+      "piano"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "and the other one",
+   "intent": "find",
+   "about": "piano"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "what is 15% of 80"
+    },
+    {
+     "text": "find my note about the roof"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "open the note about the insurance",
+     "objects": [
+      "insurance",
+      "bike"
+     ]
+    }
+   ],
+   "text": "delete the other one",
+   "intent": "delete",
+   "about": "bike"
+  },
+  {
+   "kind": "other",
+   "turns": [
+    {
+     "text": "find my note about the vet"
+    },
+    {
+     "text": "thanks"
+    },
+    {
+     "text": "find my note about the knife",
+     "objects": [
+      "knife",
+      "tax"
+     ]
+    },
+    {
+     "text": "thanks"
+    }
+   ],
+   "text": "pin the other one",
+   "intent": "pin",
+   "about": "tax"
+  }
+ ]
+}

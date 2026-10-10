@@ -2519,6 +2519,7 @@ async function streamChatEvents({
   onCompressReview,
   onHint,
   onStats,
+  onChart,
   onGrounding,
   onGroundingLive,
   onAnswerFinal,
@@ -2693,6 +2694,9 @@ async function streamChatEvents({
       else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
+      //: A bar of counts the realiser drew from a no-model answer (CHAT_PLAN
+      //: decision 59, step 2), drawn with the Ask box's chart recipe.
+      else if (event.type === "chart" && onChart) onChart(event);
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);

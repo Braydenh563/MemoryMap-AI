@@ -456,6 +456,15 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (CHAT_PLAN F5, Brief 84)
+
+The atlas84 agent's Built block (standing order 10), decision 59's four steps in order, the scorecard re-run after each.
+
+- Access: `Reading.tool` and `reading.tool_of` name the tool a sentence reaches with no model (`act_registry.TOOL_CUES`, `ACT_TOOLS`, `UTILITY_TOOLS`); `tests/fixtures/composer/access_1010.json`, `tests/test_atlas_access.py`. Tools named by the reading 0 of 70 to 70 of 70; acts 17 of 17.
+- Output forms: `realise.form_of` and `realise.render` (chart, table, card, list) through the chat's existing blocks (`.md-table`, the list, the `> [!note]` callout, `drawAskChart` from a `chart` stream event); no-model read tools (`act_registry.NO_MODEL_READS`, `realise.tool_answer`) and counted answers drawn. 8 of 9 read tools take a form; 0 structure findings; `tests/test_output_forms.py`. Measured in Chromium at 1440 and 390.
+- Conversation: `reading.follow` resolves pronoun, a new day, same again, a new subject and "the other one" over the last five turns; `read(context={"turns": ...})` reads the resolved sentence and says so; Chat acts on a spoken follow-up with no model (`routes_chat._spoken_act`). Follow-up 20 of 200 to 200 of 200 (`tests/fixtures/composer/spoken_1010.json`). Variety min 3 to 8 of 20; `realise.VARIETY_FLOOR` raised to 8.
+- The Guide on the reading: `help_chat.topics_for` reads a how-to through the one reading first (`_reading_topics`, via the leaf hook `act_registry.reader`; a note act answered from the registry, `act_registry.act_topic`), the keyword rules (`_matching_topics`) the fallback band; the offline Guide leads with `composer.help_line` (the hook `act_registry.help_sentence`), Chat's help sentence, and names the help text after it (the preface goes). Help bank first-time right 171 of 177 before and after; "how do I pin a note" and "rename a note" now answered (were the graph's controls and nothing); `tests/test_help_chat_reading.py`.
+
 ## Moved from the plans, 2026-10-10 (CHAT_PLAN F4, Brief 68)
 
 The f4 agent's Built block (standing order 10); the scorecard's engine column is in CHAT_PLAN decision 58's row.

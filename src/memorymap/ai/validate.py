@@ -43,7 +43,7 @@ _NUMBER_WORDS = {
 _NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?|\b(?:" + "|".join(_NUMBER_WORDS) + r")\b", re.I)
 #: A joining phrase that ends in a comma, and the case of what follows it.
 _COMMA_END = re.compile(r",\s*$")
-_SHOUT = re.compile(r"!|\boops\b", re.I)
+_SHOUT = re.compile(r"(?<!\[)!|\boops\b", re.I)
 _DOUBLED = re.compile(r"(?<!\n)  +(?!\n)|\.\.(?!\.)|\s[,.;:](?!\d)")
 _SENTENCE = re.compile(r"(?<=[.?!:])\s+|\n+")
 #: The longest sentence of the app's own words a reader takes in at once.

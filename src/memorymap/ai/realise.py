@@ -31,7 +31,7 @@ checked against the note it came from.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 
 _NUMBERS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
@@ -264,9 +264,11 @@ def cut_title(title: str, limit: int) -> str:
 
 #: Parts that carry a fact or the person's words: fixed whatever the turn.
 PROTECTED = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "help", "web", "reminder"})
-#: Twenty turns of one question in one chat open at least three ways (the
-#: plan's floor, 2026-10-10; measured 1 before the mention lead had variants).
-VARIETY_FLOOR = 3
+#: Twenty turns of one question in one chat open at least eight ways: the
+#: plan's floor was three (2026-10-10; measured 1 before the mention lead had
+#: variants), raised to decision 58's target of eight by Brief 84 (measured
+#: 8 natural, 8 professional, 9 help), so it is a ratchet now.
+VARIETY_FLOOR = 8
 VARIETY_TURNS = 20
 
 
@@ -301,3 +303,183 @@ def variety(results: list[dict]) -> dict:
         "wordings": len({wording(r["parts"]) for r in results}),
         "facts": len({protected(r["parts"]) for r in results}),
     }
+
+
+# --- output forms (CHAT_PLAN decision 59, step 2; Brief 84) ---------------------------------
+#
+# The shape comes from the data, never from the question: a count per name
+# is a chart (a bar of counts), two or more columns of equal rows a table,
+# one object a card, plain items a list. Each is drawn through the chat's
+# existing answer blocks: the Markdown renderer's table (`.md-table`), list
+# and callout (`> [!note]`, the card), and the Ask box's chart recipe
+# (`drawAskChart`, ask-chart.js) for the bar of counts. No new markup.
+
+FORMS = ("chart", "table", "card", "list")
+
+
+def form_of(data: object) -> str | None:
+    """The form `data` asks for, or None for data that is a sentence."""
+    if isinstance(data, dict):
+        return "card" if data else None
+    if not isinstance(data, list) or not data:
+        return None
+    if all(isinstance(row, str) for row in data):
+        return "list"
+    if not all(isinstance(row, dict) and row for row in data):
+        return None
+    return _rows_form(data)
+
+
+def _rows_form(rows: list[dict]) -> str:
+    """Equal rows: one is a card, a name and a count each a chart, two or
+    more columns a table; unequal rows a list."""
+    columns = {tuple(row) for row in rows}
+    if len(columns) != 1:
+        return "list"
+    keys = next(iter(columns))
+    if len(rows) == 1:
+        return "card"
+    first = rows[0]
+    counted = len(keys) == 2 and isinstance(first[keys[0]], str) and type(first[keys[1]]) is int
+    return "chart" if counted else "table" if len(keys) >= 2 else "list"
+
+
+def _cell(value: object) -> str:
+    text = "" if value is None else ("yes" if value is True else "no" if value is False else str(value))
+    return " ".join(text.replace("|", "/").split())
+
+
+def table(rows: list[dict], headers: dict[str, str] | None = None) -> str:
+    """A GFM pipe table (the renderer's `.md-table`), columns in row order."""
+    keys = list(rows[0])
+    names = [(headers or {}).get(k) or k.replace("_", " ").capitalize() for k in keys]
+    lines = ["| " + " | ".join(names) + " |", "| " + " | ".join("---" for _ in keys) + " |"]
+    lines += ["| " + " | ".join(_cell(row.get(k)) for k in keys) + " |" for row in rows]
+    return "\n".join(lines)
+
+
+def bullets(items: list[str]) -> str:
+    return "\n".join(f"- {_cell(item)}" for item in items)
+
+
+def card(title: str, fields: dict) -> str:
+    """One object as a callout with a line per field (the renderer's card)."""
+    lines = [f"> [!note] {_cell(title)}"]
+    lines += [f"> - {_cell(k)}: {_cell(v)}" for k, v in fields.items() if v not in (None, "", [])]
+    return "\n".join(lines)
+
+
+def chart(title: str, by: str, rows: list[dict]) -> dict:
+    """A bar of counts in the shape `drawAskChart` takes (ask-chart.js)."""
+    keys = list(rows[0])
+    bars = [{"label": str(r[keys[0]]), "value": int(r[keys[1]])} for r in rows]
+    return {"title": title, "kind": "bar", "by": by, "rows": bars, "total": sum(b["value"] for b in bars)}
+
+
+def render(data: object, *, title: str = "", by: str = "tag", headers: dict[str, str] | None = None) -> dict:
+    """`data` in its form: {"form", "text" (Markdown, "" for a chart), "chart"}."""
+    form = form_of(data)
+    if form == "chart":
+        return {"form": form, "text": "", "chart": chart(title, by, data)}  # type: ignore[arg-type]
+    if form == "table":
+        return {"form": form, "text": table(data, headers), "chart": None}  # type: ignore[arg-type]
+    if form == "card":
+        fields = data if isinstance(data, dict) else data[0]  # type: ignore[index]
+        return {"form": form, "text": card(title, fields), "chart": None}
+    if form == "list":
+        items = [r if isinstance(r, str) else " ".join(_cell(v) for v in r.values()) for r in data]  # type: ignore[union-attr]
+        return {"form": form, "text": bullets(items), "chart": None}
+    return {"form": None, "text": "", "chart": None}
+
+
+def _named(rows: list[dict]) -> list[dict]:
+    return [{"name": str(r.get("name") or ""), "notes": int(r.get("notes") or 0)} for r in rows]
+
+
+def _when(raw: object, today: date) -> str:
+    try:
+        moment = datetime.fromisoformat(str(raw))
+    except ValueError:
+        return ""
+    clock = f"{moment.hour % 12 or 12}{f':{moment.minute:02d}' if moment.minute else ''}{'am' if moment.hour < 12 else 'pm'}"
+    return f"{relative_day(moment.date(), today).removeprefix('on ')} at {clock}"
+
+
+_EMPTY = {"form": None, "text": "", "chart": None}
+
+
+def _say_named(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    key, noun = ("tags", "tag") if tool == "list_tags" else ("categories", "category")
+    rows = _named(result.get(key) or [])
+    if not rows:
+        return f"You have no {key} yet.", _EMPTY
+    lead = f"You have {count_noun(len(rows), noun)}; {rows[0]['name']} has the most notes ({rows[0]['notes']})."
+    return lead, render(rows, title=f"Notes per {noun}", by=noun) if len(rows) > 1 else _EMPTY
+
+
+def _say_count(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    per = [{"name": k, "notes": int(v)} for k, v in (result.get("by_category") or {}).items()]
+    lead = f"You have {count_noun(int(result.get('total') or 0), 'note')}."
+    return lead, render(per, title="Notes per category", by="category") if len(per) > 1 else _EMPTY
+
+
+def _first_five(rows: list[dict]) -> str:
+    return join_items([r["name"] for r in rows[:5]]) + (f" and {len(rows) - 5} more" if len(rows) > 5 else "")
+
+
+def _say_overview(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    cats, tags = _named(result.get("categories") or []), _named(result.get("tags") or [])
+    fields = {"Notes": int(result.get("total_notes") or 0), "Categories": _first_five(cats), "Tags": _first_five(tags)}
+    return "Your notebook at a glance.", render(fields, title="Your notebook")
+
+
+def _say_structure(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    fields = {"Notes": result.get("notes"), "Connected": result.get("connected"),
+              "Clusters": result.get("cluster_count"), "Not linked to anything": result.get("orphan_count")}
+    return "How your notes connect.", render(fields, title="Your notebook's shape")
+
+
+def _say_reminders(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    rows = [{"Reminder": r.get("text"), "When": _when(r.get("due_at"), today)} for r in result.get("reminders") or [] if not r.get("done")]
+    if not rows:
+        return "You have no reminders waiting.", _EMPTY
+    shaped = render(rows) if len(rows) > 1 else render(rows, title=str(rows[0]["Reminder"]))
+    return f"You have {count_noun(len(rows), 'reminder')} waiting.", shaped
+
+
+_LISTED = {"list_documents": ("documents", "document"), "list_notes": ("notes", "note"), "list_skills": ("skills", "skill")}
+
+
+def _say_listed(tool: str, result: dict, today: date) -> tuple[str, dict]:
+    key, noun = _LISTED[tool]
+    found = result.get(key) or []
+    if not found:
+        return f"You have no {key} yet.", _EMPTY
+    if tool == "list_skills":
+        rows = [{"Skill": s.get("name"), "When to use it": cut_title(str(s.get("when_to_use") or ""), 80)} for s in found[:12]]
+        shaped = render(rows) if len(rows) > 1 else _EMPTY
+    else:
+        shaped = render([cut_title(str(d.get("title") or d.get("content") or "").split("\n")[0], 60) for d in found[:10]])
+    total = int(result.get("total_matching") or result.get("total") or len(found))
+    if total > 10:
+        return f"The newest {count_word(min(len(found), 10))} of your {total} {key}.", shaped
+    return f"You have {count_noun(total, noun)}" + (", newest first." if tool != "list_skills" else "."), shaped
+
+
+_SAYERS = {
+    "list_tags": _say_named, "list_categories": _say_named, "count_notes": _say_count,
+    "notebook_overview": _say_overview, "notebook_structure": _say_structure, "list_reminders": _say_reminders,
+    "list_documents": _say_listed, "list_notes": _say_listed, "list_skills": _say_listed,
+}
+
+
+def tool_answer(tool: str, result: dict, today: date) -> dict | None:
+    """A read tool's result said in one line and drawn in its form (decision
+    59, steps 1 and 2): {"text", "form", "chart"}; None for a tool this does
+    not say, or a result that is an error."""
+    sayer = _SAYERS.get(tool)
+    if sayer is None or not isinstance(result, dict) or result.get("error"):
+        return None
+    lead, shaped = sayer(tool, result, today)
+    text = lead if not shaped["text"] else f"{lead}\n\n{shaped['text']}"
+    return {"text": text, "form": shaped["form"], "chart": shaped["chart"]}

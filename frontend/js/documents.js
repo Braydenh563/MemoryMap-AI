@@ -2551,6 +2551,22 @@ const DOC_COMMANDS = [
     code: true, run: () => docRunSelection() },
   { id: "run-cell", icon: "ph:rows", label: "Run the cell at the caret (between # %% markers)", keys: "none",
     code: true, run: () => docRunCell() },
+  //: Brief 70 (DOCUMENTS_PLAN 23, I2): Debug on VS Code's own keys, bound in
+  //: the editor by `docDebugExtension` for the kinds it steps.
+  { id: "debug", icon: "ph:bug", label: "Debug this file, or continue to the next breakpoint", keys: "F5",
+    code: true, run: () => docDebugAct("continue") },
+  { id: "debug-breakpoint", icon: "ph:circle", label: "Add or remove a breakpoint on the caret's line", keys: "F9",
+    code: true, run: () => docDebugToggleHere() },
+  { id: "debug-over", icon: "ph:arrow-bend-down-right", label: "Step over the line (while debugging)", keys: "F10",
+    code: true, run: () => docDebugAct("over") },
+  //: F11 is Focus mode's ("focus" above) except while a session is paused,
+  //: as VS Code shares it between Step into and Full screen.
+  { id: "debug-in", icon: "ph:arrow-elbow-down-right", label: "Step into the call (while debugging)", keys: "F11 while debugging",
+    code: true, run: () => docDebugAct("in") },
+  { id: "debug-out", icon: "ph:arrow-elbow-left-up", label: "Step out of the function (while debugging)", keys: "Shift+F11",
+    code: true, run: () => docDebugAct("out") },
+  { id: "debug-stop", icon: "ph:stop", label: "Stop debugging", keys: "Shift+F5",
+    code: true, run: () => docDebugAct("stop") },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
     code: true, run: () => docToggleCodeDraw("codeWrap") },
   { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "none",
@@ -13501,6 +13517,8 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "F11" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   const tab = $("tab-documents");
   if (!tab || tab.classList.contains("hidden")) return;
+  //: While a debug session is on, F11 is Step into (Brief 70), as in VS Code.
+  if (docDebugOn()) return;
   event.preventDefault();
   toggleDocFocus();
 });
@@ -18817,7 +18835,9 @@ function docCmTheme(CM) {
         borderBottom: "1px solid var(--border)",
       },
       ".cm-run-title": { fontWeight: "600", color: "var(--text)" },
-      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      //: The status gives way first when the head is tight (Brief 70: a
+      //: Python run's head with Input shown ran 60px past at 1440).
+      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)", minWidth: "0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
       ".cm-run-spacer": { flex: "1" },
       ".cm-run-body": { flex: "1", minHeight: "0", display: "flex", flexDirection: "column" },
       ".cm-run-frame": { display: "none", border: "0", width: "100%", flex: "3", minHeight: "0" },
@@ -18878,9 +18898,78 @@ function docCmTheme(CM) {
       },
       ".cm-run-stdin-label": { color: "var(--muted)", fontSize: "var(--text-sm)" },
       ".cm-run-stdin": { fontFamily: "var(--mono, ui-monospace, monospace)", fontSize: "var(--text-sm)", resize: "vertical", minHeight: "0" },
+      //: input() asked mid-run (Brief 70): the prompt, then the field the
+      //: answer is typed in, on the row the answer will take.
+      ".cm-run-ask": { flex: "1", display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0" },
+      ".cm-run-ask .cm-run-text": { flex: "none" },
+      ".cm-run-ask-field": { flex: "1", minWidth: "0", fontFamily: "inherit", fontSize: "inherit" },
       //: Run on a .py file before the Pyodide extra is installed: the row's
       //: one action, kept whole beside the sentence it answers.
       ".cm-run-install": { flex: "none", whiteSpace: "nowrap" },
+      //: Output and Debug (Brief 70): the panel's own tab strip in its head.
+      ".cm-run-tabs": { flex: "none", alignSelf: "stretch" },
+      ".cm-run-panel.is-debug .cm-run-log, .cm-run-panel.is-debug .cm-run-frame": { display: "none" },
+      //: The Debug tab: the five actions and where it stopped, the exception
+      //: if that is why, then Variables, Watch, Call stack and Breakpoints as
+      //: columns that fold to a stack on a narrow panel.
+      ".cm-debug": { display: "none", flex: "1", minHeight: "0", overflow: "auto", flexDirection: "column" },
+      ".cm-run-panel.is-debug .cm-debug": { display: "flex" },
+      ".cm-debug-bar": {
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "var(--space-1)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-debug-where": { color: "var(--muted)", fontSize: "var(--text-sm)", marginInlineStart: "var(--space-2)" },
+      ".cm-debug-thrown": {
+        margin: "0",
+        padding: "var(--space-1) var(--space-3)",
+        maxHeight: "8rem",
+        overflow: "auto",
+        whiteSpace: "pre-wrap",
+        overflowWrap: "anywhere",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-xs)",
+        color: "var(--error)",
+        backgroundColor: "var(--error-soft)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-debug-grid": { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(13rem, 1fr))" },
+      ".cm-debug-section": {
+        minWidth: "0",
+        padding: "var(--space-1) var(--space-2)",
+        borderInlineEnd: "1px solid var(--border)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-debug-title": { margin: "0 0 var(--space-1)", fontSize: "var(--text-sm)", fontWeight: "600", color: "var(--text)" },
+      ".cm-debug-list": { listStyle: "none", margin: "0", padding: "0", fontSize: "var(--text-sm)" },
+      ".cm-debug-row": { display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0" },
+      ".cm-debug-name, .cm-debug-value": { fontFamily: "var(--mono, ui-monospace, monospace)" },
+      ".cm-debug-name": { flex: "none", maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent-text)" },
+      ".cm-debug-value": { flex: "1", minWidth: "0", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: "var(--text)" },
+      ".cm-debug-row.is-error .cm-debug-value": { color: "var(--error)" },
+      ".cm-debug-sub": { marginTop: "var(--space-1)", color: "var(--muted)", fontSize: "var(--text-xs)" },
+      ".cm-debug-empty": { color: "var(--muted)" },
+      ".cm-debug-go": { minWidth: "0", textAlign: "start", fontFamily: "var(--mono, ui-monospace, monospace)" },
+      ".cm-debug-remove": { marginInlineStart: "auto", flex: "none" },
+      ".cm-debug-watch-add": { width: "100%", minHeight: "var(--target-min)", marginTop: "var(--space-1)", fontFamily: "var(--mono, ui-monospace, monospace)", fontSize: "var(--text-sm)" },
+      //: The breakpoint lane, left of the numbers, as VS Code's: a dot, red,
+      //: amber with a condition; a faint one under the pointer says a click
+      //: puts one there. The stopped line is lit across the text.
+      ".cm-debug-gutter .cm-gutterElement": { display: "flex", alignItems: "center", justifyContent: "center", width: "0.875rem", cursor: "pointer" },
+      ".cm-debug-bp": { display: "inline-block", width: "0.625rem", height: "0.625rem", borderRadius: "50%", backgroundColor: "var(--error)" },
+      ".cm-debug-bp.is-cond": { backgroundColor: "var(--warn)" },
+      ".cm-debug-gutter .cm-gutterElement:hover:not(:has(.cm-debug-bp))::before": {
+        content: '""',
+        width: "0.625rem",
+        height: "0.625rem",
+        borderRadius: "50%",
+        backgroundColor: "var(--error)",
+        opacity: "0.35",
+      },
+      ".cm-debug-here": { backgroundColor: "var(--warn-soft)" },
       //: Sticky scroll: the enclosing scopes' first lines over the top of the
       //: scroller, on the opaque ground words laid over words take, with the
       //: hairline and small shadow of a bar that sits above content.

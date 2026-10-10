@@ -42,6 +42,7 @@ LIBRARY_KEYS = {
     "Emmet": "emmet",
     "js-beautify": "jsbeautify",
     "sucrase": "sucrase",
+    "JS-Interpreter": "jsinterpreter",
     "sql.js": "sqljs",
     "Harper": "harper",
     "D3": "d3",
@@ -639,6 +640,24 @@ def sqljs_report() -> Report:
     return Report("sqljs", "sql.js", list(SQLJS_METHODS), called, {"methods": list(SQLJS_METHODS)})
 
 
+#: JS-Interpreter's public API: the names its interpreter.js keeps from a
+#: compiler's renaming (`Interpreter.prototype['...']`).
+JSINTERP_METHODS = [
+    "step", "run", "getStatus", "appendCode", "createObject", "createObjectProto",
+    "createNativeFunction", "createAsyncFunction", "getProperty", "setProperty",
+    "nativeToPseudo", "pseudoToNative", "getGlobalScope", "setGlobalScope",
+    "getStateStack", "setStateStack",
+]
+
+
+def jsinterpreter_report() -> Report:
+    """The JavaScript debugger (DOCUMENTS_PLAN 23, D3). It steps inside the
+    sandbox page, so its calls are in `api/run_sandbox.py`'s worker text."""
+    text = _live_lines(_read(SRC / "api" / "run_sandbox.py"))
+    called = [m for m in JSINTERP_METHODS if re.search(rf"\b(?:interp|it|this)\.{m}\(", text)]
+    return Report("jsinterpreter", "JS-Interpreter", list(JSINTERP_METHODS), called, {"methods": list(JSINTERP_METHODS)})
+
+
 def jsbeautify_report(scripts: dict[str, str]) -> Report:
     exports = sorted(run_node_exports(VENDOR / "js-beautify" / "beautify.min.js", "JSBEAUTIFY"))
     paths: set[str] = set()
@@ -942,6 +961,7 @@ def collect() -> dict[str, Report]:
         jsbeautify_report(scripts),
         sucrase_report(scripts),
         sqljs_report(),
+        jsinterpreter_report(),
         harper_report(scripts),
         phosphor_report(),
         wordlist_report(),

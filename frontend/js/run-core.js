@@ -108,13 +108,25 @@ function runIsP5(source) {
   return RUN_P5_SKETCH.test(source) && /\bcreateCanvas\s*\(/.test(source);
 }
 
+//: Debug for JavaScript and TypeScript (D3): the script lowered to what
+//: JS-Interpreter steps (run-debug.js), and the interpreter's text, fetched
+//: here and handed over, as sql.js is. A p5 sketch draws in a page, which
+//: the stepper has none of. Throws the pass's sentence, with its line.
+async function runDebugScript(request, source) {
+  if (runIsP5(source)) throw new Error("Debug steps scripts: a p5.js sketch draws in a page, so Run it instead.");
+  const lowered = runDebugLower(source);
+  const interp = await runVendorFetch("/vendor/js-interpreter/js-interpreter.min.js");
+  return { ...runBase(request, "jsdebug"), source: lowered.code, lib: { interp }, dom: lowered.dom };
+}
+
 //: The languages. `page`: which sandbox page; `shows`: the run makes a page
-//: to look at rather than (only) output rows.
+//: to look at rather than (only) output rows; `debug`: what Debug sends.
 const RUN_LANGS = {
   js: {
     label: "JavaScript",
     page: "main",
     test: (request) => ({ ...runBase(request, "js"), tests: true, harness: runTestHarnessSource() }),
+    debug: (request) => runDebugScript(request, String(request.source || "")),
     run: async (request) => {
       if (!runIsP5(request.source)) return runBase(request, "js");
       const p5 = await runVendorFetch("/vendor/p5.min.js");
@@ -127,6 +139,7 @@ const RUN_LANGS = {
     notice: "TypeScript runs without type checking: the types are removed, not checked.",
     run: async (request) => ({ ...runBase(request, "js"), source: await runStripTypes(request.source, { jsx: /\.tsx$/i.test(request.path || "") }) }),
     test: async (request) => ({ ...(await RUN_LANGS.ts.run(request)), tests: true, harness: runTestHarnessSource() }),
+    debug: async (request) => runDebugScript(request, await runStripTypes(request.source, { jsx: /\.tsx$/i.test(request.path || "") })),
   },
   //: SQL (D5): SQLite in the sandbox, an in-memory database per run, each
   //: statement's result a table in the panel. sql.js comes from this app's
@@ -169,6 +182,8 @@ const RUN_LANGS = {
     page: "python",
     run: (request) => ({ ...runBase(request, "py"), stdin: String(request.stdin || "") }),
     test: (request) => ({ ...RUN_LANGS.py.run(request), tests: true }),
+    //: D2: `bdb` in the Pyodide worker, which needs the page isolated.
+    debug: (request) => ({ ...RUN_LANGS.py.run(request), debug: true }),
   },
 };
 
@@ -178,16 +193,16 @@ function runLanguage(ext) {
 }
 
 //: The request turned into what the panel needs: the page to load, whether
-//: the run shows a page, and the message to post. `mode` is "run" or
-//: "test". Throws with a sentence the panel shows as the run's one row.
+//: the run shows a page, and the message to post. `mode` is "run", "test"
+//: or "debug". Throws with a sentence the panel shows as the run's one row.
 async function runPrepare(request, mode = "run") {
   const lang = runLanguage(request.ext);
   if (!lang) throw new Error("This kind of file does not run here.");
   //: Run on a file of tests runs its tests (D7): `describe` and `it` mean
   //: nothing without the harness, and a TestCase does nothing on its own.
   if (mode === "run" && lang.test && runLooksLikeTests(request.ext, String(request.source || ""))) mode = "test";
-  const act = mode === "test" ? lang.test : lang.run;
-  if (typeof act !== "function") throw new Error(`${lang.label} has no tests to run here.`);
+  const act = mode === "test" ? lang.test : mode === "debug" ? lang.debug : lang.run;
+  if (typeof act !== "function") throw new Error(mode === "debug" ? `Debug steps JavaScript, TypeScript and Python; ${lang.label} runs with Run.` : `${lang.label} has no tests to run here.`);
   const { page, shows, preview, ...message } = await act(request);
   return {
     page: page || lang.page,
@@ -195,6 +210,7 @@ async function runPrepare(request, mode = "run") {
     //: A preview refreshes itself while "Live" is on (D6).
     preview: Boolean(preview ?? lang.preview),
     tests: mode === "test",
+    debug: mode === "debug",
     notice: lang.notice || "",
     message,
   };

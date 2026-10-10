@@ -307,3 +307,17 @@ def test_python_without_the_runtime_shows_run_disabled_with_one_line():
     body = code[code.index("async function docRunSyncAvailability") :]
     body = body[: body.index("\n}\n")]
     assert "run.disabled = !ready;" in body and 'why.classList.toggle("hidden", ready || !docRunnable(type));' in body
+
+
+def test_debug_is_a_mode_of_the_protocol_for_three_languages():
+    """Brief 70: Debug is a third mode beside run and test, for the rows
+    that implement it, and the lowering pass is in the same lazy bundle."""
+    source = _js("run-core.js")
+    body = source[source.index("const RUN_LANGS = {") :]
+    body = body[: body.index("\n};")]
+    rows = re.split(r"^  (\w+): \{", body, flags=re.M)
+    debuggable = {rows[i] for i in range(1, len(rows), 2) if "debug:" in rows[i + 1]}
+    assert debuggable == {"js", "ts", "py"}
+    assert 'mode === "debug" ? lang.debug' in source
+    app = _js("app.js")
+    assert '"/js/run-debug.js"]' in app

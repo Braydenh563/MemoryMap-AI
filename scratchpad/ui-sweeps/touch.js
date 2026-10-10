@@ -78,6 +78,11 @@ const SURFACES = [
   // creates a document.
   { tab: 'library', label: 'Run panel', sel: '.cm-run-panel', extra: '[role="separator"]', wait: 7000, byName: true,
     openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-run.js', content: 'console.log(1)', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); await docRunCode(); })()" },
+  // The Debug tab (Brief 70): the same panel paused on a breakpoint inside a
+  // call, with a watch, so the five actions, the stack and breakpoint rows,
+  // the watch's remove and its field are all there to measure. ONLY=Debug.
+  { tab: 'library', label: 'Debug tab', sel: '.cm-run-panel', wait: 7000, byName: true,
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-debug.js', content: 'function f(n) {\\n  return n * 2;\\n}\\nvar x = f(1);\\n', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); docDebugToggleAt(docCmView, docCmView.state.doc.line(2).from); DOC_DEBUG.watches.push('n'); await docRunCode({ mode: 'debug' }); })()" },
   ...['general', 'models', 'appearance', 'preferences', 'data', 'privacy', 'account'].map((section) => ({
     tab: 'notes', label: `Settings ${section}`, sel: `#settings-modal #settings-${section}`,
     openFn: `openSettingsModal('${section}')`, close: '#settings-close' })),

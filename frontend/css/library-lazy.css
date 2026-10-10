@@ -3375,6 +3375,30 @@ button.ghost.doc-template-choice.wb-template-choice {
   }
 }
 
+/* The head as wide as the panel, and narrower than its worded buttons
+   (Brief 70: Output and Debug as tabs, a Python file's Input and Run tests
+   ran 18px past at 1440): Clear and Close fold to their icons first, each
+   keeping its name in aria-label and its title. */
+.cm-run-panel .cm-run-head {
+  container-type: inline-size;
+}
+@container (max-width: 819.98px) {
+  .cm-run-head .cm-run-fold .cm-run-word {
+    display: none;
+  }
+  .cm-run-head .cm-run-fold .ph-lead {
+    margin-inline-end: 0;
+  }
+}
+
+/* The breakpoint lane under a finger (Brief 70): wider, so a tap beside a
+   line number lands on it rather than on the fold arrow or the text. */
+@media (pointer: coarse) {
+  .cm-debug-gutter .cm-gutterElement {
+    width: 1.5rem;
+  }
+}
+
 /* A row's "Line N" link at the target floor, as every other control. */
 .cm-run-line {
   display: inline-flex;

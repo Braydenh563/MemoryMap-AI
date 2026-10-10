@@ -346,6 +346,42 @@ The wb77 agent's Built block (standing order 10); WHITEBOARD_PLAN "Deepened 2026
 - Row 2 (rules 2, 13): `wbNewUntitledBoard` and an in-place `renameCurrentBoard` (whiteboard.js); New, From a template (`wb-boards-new-template`) keeps the gallery. `wbnewboard77.js`: clicks from the dashboard 4 and a typed name to 3 (counted as deepen72a.js counts; the New menu's summary is one more press either way); New to a drawable canvas 690 to 873 ms (1440 and 390, a pen stroke lands); Escape keeps "Untitled board N", Enter saves a typed name.
 - Row 3 (rule 1): `wbTakeChangeFromElsewhere` (whiteboard-history.js), fed by capture-ask.js's board tools (`mm:board-changed`) and a BroadcastChannel for other tabs. `boardundo.js` 43/43 to 45/45 (an agent row, an another-tab row).
 - Row 4 (rules 1, 3): `/whiteboard/history/snapshots` (GET, POST, DELETE; routes_board_history.py, in the board's `board_settings`), `wbOpenSnapshots` (a sheet: Save a snapshot, each row the Library card's `mapPreview`, Restore as one recorded gesture, Delete). `tests/test_board_history.py` +3; `wbsnap77.js`: restore then Ctrl+Z object-equal, PASS.
+## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 70, I2)
+
+**Built** by the debug70 agent (DOCUMENTS_PLAN 23 phase I2, one commit a
+step). D2's headers: measured first in Chromium, a sandboxed opaque frame
+has SharedArrayBuffer only when the page framing it is isolated too, so
+every response carries COOP same-origin and COEP require-corp (CORP
+same-origin by default; the Pyodide files keep cross-origin) and the
+panel's frame is allowed `cross-origin-isolated`; the sandbox CSP is
+unchanged; crossOriginIsolated false to true in the app and the frame,
+code-run.js 47/47 before and after, errors.js 0 at four widths. D2: a
+`bdb.Bdb` subclass in `PY_RUNNER` (`_MMDebugger`, `_mm_debug`) posts each
+stop and blocks the worker on `Atomics.wait` until the page writes the
+panel's answer into the buffer; only the document's frames stop;
+conditions are bdb's; an uncaught exception stops at the raise with the
+document's own traceback; `input()` past the Input box asks in the log
+mid-run (Brief 69's Left row; prompt 4.8 s after Run on a cold runtime).
+D3: JS-Interpreter 45d00b0 vendored (`frontend/vendor/js-interpreter`,
+102,770 bytes, 27,001 gzipped, esbuild-minified because the Closure build
+renames the properties a debugger reads), the sandbox's `jsdebug` runner
+stepping it in a worker between `reply` messages, uncaught throws caught in
+`unwind` before the stack goes, a stand-in document for page scripts;
+`run-debug.js` lowers let, const, arrows, template strings and shorthand
+properties on CodeMirror's parse tree with every line kept, and names the
+rest with its line. The Debug tab (Variables, Watch, Call stack,
+Breakpoints; Continue, Step over, Step in, Step out, Stop), the breakpoint
+lane (click, F9, right-click for a condition through `promptDialog`), the
+lit line, VS Code's keys (F11 shared with Focus mode while no session is
+on) and six palette rows; Guide topic `debugger`. Measured by
+`scratchpad/ui-sweeps/code-debug.js` (32/32 at 1440, 31/31 at 390: js, ts
+and py each hit a breakpoint, step to lines 2, 3 and 7 (Python 6), read
+`total * 10` as 0 and 60, stop on the throw), first stop 68 to 97 ms in
+the page at 1440 and 50 to 203 at 390 on a warm runtime; code-run.js
+48/48 at 1440 and 49/49 at 390; touch.js's new Debug tab row 19 controls,
+0 findings (the watch field 39.2 px to 44); tests/test_run_debugger.py,
+test_run_debug_js.py (the real pass and worker in node),
+test_debug_panel.py. Left rows in `agent-remaining/debug70-1010.md`.
 
 ## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 69, I1)
 

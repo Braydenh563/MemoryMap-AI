@@ -37,6 +37,8 @@ CALLED_FLOOR = {
     "sucrase": 4,
     #: Brief 69: the SQL runner in api/run_sandbox.py.
     "sqljs": 12,
+    #: Brief 70: the JavaScript debugger's worker in api/run_sandbox.py.
+    "jsinterpreter": 9,
     "harper": 17,
     "phosphor": 260,
     "wordlist": 2,

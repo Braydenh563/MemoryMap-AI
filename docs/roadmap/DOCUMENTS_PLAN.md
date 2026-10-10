@@ -1350,14 +1350,16 @@ row does today.
 | Phase | Brief | Deliverable | Measured by |
 | --- | --- | --- | --- |
 | I1 run, preview, test | 69 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"); what is left is in `agent-remaining/ide1-1010.md` | `scratchpad/ui-sweeps/code-run.js`, 46/46 at 1440 and 47/47 at 390 |
-| I2 the debugger | 70 | D2 Python, D3 JavaScript, the four views and five actions | a scripted debug session per language: breakpoint hit, step counts, a watched value, an exception stop |
+| I2 the debugger | 70 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 70, I2"); what is left is in `agent-remaining/debug70-1010.md` | `scratchpad/ui-sweeps/code-debug.js`, 32/32 at 1440 and 31/31 at 390 (js, ts, py: breakpoint, three steps, a watch, the exception stop) |
 | I3 the IDE shell | 71 | D8 panels and consoles, command palette inside the editor, outline, breadcrumbs, go to symbol, split view, a keybindings sheet, the problems panel fed by every linter | palette commands count; keybindings sheet against VS Code's defaults, each one tested with Playwright |
 
 Help moves with each phase (standing order 13): the `data-help-for`
 popovers on Run, Debug and the panels, the Guide topic `code-run`, and
-`test_manual_parity.py`. Not verified until built: Pyodide's `bdb` under
-`Atomics.wait` inside this sandbox's policy, and whether the app's desktop
-webview honours the two headers.
+`test_manual_parity.py`. Pyodide's `bdb` under `Atomics.wait` inside this
+sandbox's policy was measured working in Chromium (Brief 70); measured too,
+the frame is isolated only when the app's own page carries the two headers,
+so every response does. Not verified: whether the app's desktop webview
+honours them (where it does not, Debug on Python says so and Run works).
 
 ## 24. Deepened 2026-10-10: the documents editor (Brief 72a, decision 71)
 

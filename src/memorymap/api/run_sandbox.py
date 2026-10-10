@@ -41,6 +41,16 @@ from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["documents"])
 
+#: Cross-origin isolation (D2): with these on the sandbox pages and on the app
+#: that frames them, the sandbox and its workers have `SharedArrayBuffer`,
+#: which the Python debugger and a mid-run `input()` block on. The policy is
+#: unchanged; a webview that drops the headers still runs, and Debug says why
+#: it cannot.
+ISOLATION_HEADERS = {
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Embedder-Policy": "require-corp",
+}
+
 RUN_SANDBOX_CSP = (
     "sandbox allow-scripts; default-src 'none'; "
     "script-src 'unsafe-inline' 'unsafe-eval' blob:; worker-src blob:; "
@@ -147,6 +157,315 @@ self.onmessage = function (e) {
 )
 
 
+#: The JavaScript debugger (DOCUMENTS_PLAN 23, D3), a worker made from
+#: JS-Interpreter's text (handed over by the app in `lib.interp`, from
+#: `frontend/vendor/js-interpreter`) with this after it. The script is
+#: stepped one interpreter state at a time; at each statement about to run
+#: the driver decides whether to stop (a breakpoint and its condition, or the
+#: step asked for: in, over, out by the depth of the call stack), and a stop
+#: is one message with the line, the frame's variables, the stack and the
+#: watches. Between stops the worker is idle, waiting for the panel's next
+#: action as an ordinary message, so it needs no shared memory. An exception
+#: nothing catches is seen as it is thrown, before the stack unwinds, so its
+#: stop has the frame and the variables it was raised with. Watches and
+#: conditions are evaluated natively over the frame's values (read-only by
+#: intent); timers run as the interpreter's own tasks.
+_JS_DEBUG_WORKER = r"""
+(function () {
+  "use strict";
+  var I = Interpreter, interp = null, breaks = {}, watches = [], seen = new WeakSet();
+  var mode = "continue", base = 0, last = null, paused = null, finished = false, thrown = null, builtins = null;
+  var STEP_BUDGET = 4000, REPR = 200, NAMES = 200;
+  //: A statement is where a line stops, as a line is where VS Code stops.
+  var SKIP = { BlockStatement: 1, FunctionDeclaration: 1, EmptyStatement: 1 };
+  function isStatement(node) {
+    return /(?:Statement|Declaration)$/.test(node.type) && !SKIP[node.type];
+  }
+  function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  //: A value as the panel shows it: short, never the interpreter's insides.
+  function show(v, depth) {
+    depth = depth || 0;
+    if (v === undefined) return "undefined";
+    if (v === null) return "null";
+    if (typeof v === "string") return depth ? JSON.stringify(v) : JSON.stringify(v);
+    if (typeof v !== "object") return String(v);
+    if (!(v instanceof I.Object)) return String(v);
+    var p = v.properties || {};
+    if (v.class === "Function") {
+      var n = v.node && v.node.id ? v.node.id.name : "";
+      return "function " + n + "()";
+    }
+    if (v.class === "Error") return String(interp.getProperty(v, "name") || "Error") + ": " + String(interp.getProperty(v, "message") || "");
+    if (v.class === "RegExp" || v.class === "Date") return String(v.data);
+    if (depth > 1) return v.class === "Array" ? "[...]" : "{...}";
+    var parts = [];
+    if (v.class === "Array") {
+      var len = Number(p.length) || 0;
+      for (var i = 0; i < Math.min(len, 50); i++) parts.push(show(p[i], depth + 1));
+      if (len > 50) parts.push("...");
+      return clip("[" + parts.join(", ") + "]");
+    }
+    for (var k in p) {
+      if (!own(p, k)) continue;
+      parts.push(k + ": " + show(p[k], depth + 1));
+      if (parts.length >= 30) { parts.push("..."); break; }
+    }
+    return clip("{" + parts.join(", ") + "}");
+  }
+  function clip(t) { t = String(t); return t.length <= REPR ? t : t.slice(0, REPR - 3) + "..."; }
+  function kind(v) {
+    if (v === null) return "null";
+    if (v instanceof I.Object) return v.class === "Function" ? "function" : v.class === "Array" ? "array" : "object";
+    return typeof v;
+  }
+  function names(props, skip) {
+    var rows = [];
+    for (var k in props) {
+      if (!own(props, k) || (skip && skip[k])) continue;
+      rows.push({ name: k, value: clip(show(props[k])), type: kind(props[k]) });
+      if (rows.length >= NAMES) break;
+    }
+    return rows;
+  }
+  //: The call stack from the interpreter's own state stack: a call whose body
+  //: is running opens a frame; every state with a location moves its frame's
+  //: line, so a caller's line is its call and the top frame's is the stop.
+  function frames(stack) {
+    var out = [{ name: "(top level)", line: null, scope: interp.getGlobalScope() }];
+    for (var i = 0; i < stack.length; i++) {
+      var s = stack[i], n = s.node, top = out[out.length - 1];
+      if (n.loc) top.line = n.loc.start.line;
+      if (s.scope) top.scope = s.scope;
+      if ((n.type === "CallExpression" || n.type === "NewExpression") && s.doneExec_ && s.func_ && s.func_.node) {
+        var fn = s.func_.node;
+        out.push({ name: (fn.id && fn.id.name) || "(anonymous)", line: top.line, scope: s.scope });
+      }
+    }
+    return out.reverse();
+  }
+  //: A watch, or a breakpoint's condition, evaluated against the stopped
+  //: frame's variables: a name resolves through the frame's scopes to the
+  //: interpreter's value, made native; anything else is this worker's own
+  //: global (Math, JSON). Read-only by intent: it runs natively, not stepped.
+  function evaluate(expr, scope) {
+    function find(k) {
+      for (var s = scope; s; s = s.parentScope) if (own(s.object.properties, k)) return s;
+      return null;
+    }
+    var view = new Proxy({}, {
+      has: function (t, k) { return typeof k === "string" && !!find(k); },
+      get: function (t, k) {
+        if (typeof k !== "string") return undefined;
+        var s = find(k);
+        if (!s) return undefined;
+        var v = s.object.properties[k];
+        try { return interp.pseudoToNative(v); } catch (e) { return v; }
+      },
+    });
+    return Function("__mmScope", "with (__mmScope) { return (" + expr + "\n); }")(view);
+  }
+  function showNative(r) {
+    if (typeof r === "string") return clip(JSON.stringify(r));
+    if (r && typeof r === "object") { try { return clip(JSON.stringify(r)); } catch (e) { return clip(String(r)); } }
+    return clip(String(r));
+  }
+  function snapshot(reason, fr, line, text) {
+    var top = fr[0], locals = [], globals = [];
+    var global = interp.getGlobalScope();
+    if (fr.length > 1) {
+      for (var s = top.scope; s && s !== global; s = s.parentScope) locals = locals.concat(names(s.object.properties, { "this": 1, arguments: 1 }));
+      globals = names(global.object.properties, builtins);
+    } else {
+      locals = names(global.object.properties, builtins);
+    }
+    var w = [];
+    for (var i = 0; i < watches.length; i++) {
+      try { w.push({ expr: watches[i], value: showNative(evaluate(watches[i], top.scope)) }); }
+      catch (e) { w.push({ expr: watches[i], error: String(e && e.name || "Error") + ": " + String(e && e.message || e) }); }
+    }
+    return {
+      t: "stop", reason: reason, line: line, text: text || "",
+      locals: locals, globals: globals, watches: w,
+      stack: fr.map(function (f) { return { name: f.name, line: f.line }; }),
+    };
+  }
+  function lineNow() {
+    var stack = interp.getStateStack();
+    for (var i = stack.length - 1; i >= 0; i--) if (stack[i].node.loc) return stack[i].node.loc.start.line;
+    return null;
+  }
+  //: Console rows, with the line that called them.
+  function fmt(v) { return typeof v === "string" ? v : show(v); }
+  function init(it, g) {
+    var con = it.nativeToPseudo({});
+    ["log", "info", "warn", "error", "debug"].forEach(function (k) {
+      it.setProperty(con, k, it.createNativeFunction(function () {
+        var parts = [];
+        for (var i = 0; i < arguments.length; i++) parts.push(fmt(arguments[i]));
+        postMessage({ t: "log", level: k, text: parts.join(" "), line: lineNow() });
+      }));
+    });
+    it.setProperty(g, "console", con);
+    if (DOM) stubDocument(it, g);
+  }
+  //: Scripts that use the DOM debug against a stand-in: every element is a
+  //: plain object whose methods do nothing and whose finders hand back
+  //: another stand-in, so the script's own logic can be stepped. The app
+  //: says so in a row; nothing is drawn.
+  function stubDocument(it, g) {
+    function noop() { return undefined; }
+    function element(tag) {
+      var el = it.nativeToPseudo({ tagName: String(tag || "div").toUpperCase(), id: "", className: "", textContent: "", innerHTML: "", value: "", checked: false, style: {}, dataset: {} });
+      var cls = it.nativeToPseudo({});
+      ["add", "remove", "toggle"].forEach(function (k) { it.setProperty(cls, k, it.createNativeFunction(noop)); });
+      it.setProperty(cls, "contains", it.createNativeFunction(function () { return false; }));
+      it.setProperty(el, "classList", cls);
+      ["addEventListener", "removeEventListener", "setAttribute", "removeAttribute", "remove", "focus", "blur", "click"].forEach(function (k) {
+        it.setProperty(el, k, it.createNativeFunction(noop));
+      });
+      it.setProperty(el, "getAttribute", it.createNativeFunction(function () { return null; }));
+      ["appendChild", "append", "prepend", "insertBefore", "replaceChildren"].forEach(function (k) {
+        it.setProperty(el, k, it.createNativeFunction(function (child) { return child; }));
+      });
+      it.setProperty(el, "querySelector", it.createNativeFunction(function () { return element("div"); }));
+      it.setProperty(el, "querySelectorAll", it.createNativeFunction(function () { return it.nativeToPseudo([]); }));
+      return el;
+    }
+    var doc = element("#document");
+    it.setProperty(doc, "body", element("body"));
+    it.setProperty(doc, "documentElement", element("html"));
+    it.setProperty(doc, "getElementById", it.createNativeFunction(function (id) { var el = element("div"); it.setProperty(el, "id", String(id)); return el; }));
+    it.setProperty(doc, "createElement", it.createNativeFunction(function (tag) { return element(tag); }));
+    it.setProperty(doc, "createTextNode", it.createNativeFunction(function (text) { var el = element("#text"); it.setProperty(el, "textContent", String(text)); return el; }));
+    it.setProperty(g, "document", doc);
+    it.setProperty(g, "window", g);
+    it.setProperty(g, "addEventListener", it.createNativeFunction(noop));
+  }
+  //: An exception nothing catches: seen in `unwind` before the stack is
+  //: unwound, so the stop has the frame it was raised in and its variables.
+  var unwind = I.prototype.unwind;
+  I.prototype.unwind = function (type, value, label) {
+    if (type === I.Completion.THROW && !thrown) {
+      var stack = this.getStateStack(), caught = false;
+      for (var i = 0; i < stack.length; i++) if (stack[i].node.type === "TryStatement") caught = true;
+      if (!caught) {
+        var fr = frames(stack);
+        var text = "Uncaught " + show(value).replace(/^"|"$/g, "");
+        var trace = fr.map(function (f) { return "    at " + f.name + (f.line ? " (line " + f.line + ")" : ""); }).join("\n");
+        thrown = { frames: fr, line: fr[0].line, text: text, trace: text + "\n" + trace };
+      }
+    }
+    return unwind.call(this, type, value, label);
+  };
+  function condition(line, scope) {
+    var cond = breaks[line];
+    if (cond === undefined) return false;
+    if (!cond) return true;
+    try { return Boolean(evaluate(cond, scope)); } catch (e) { return true; }
+  }
+  function within(node, outer) {
+    return outer && node !== outer && node.start >= outer.start && node.end <= outer.end;
+  }
+  //: Decide, at a statement about to run, whether this is a stop.
+  function decide(state) {
+    var node = state.node, line = node.loc.start.line;
+    if (last && line === last.loc.start.line && within(node, last)) return null;
+    //: Continuing past a line with no breakpoint is the common case, and it
+    //: needs no stack walk.
+    if (mode === "continue" && !own(breaks, line)) return null;
+    var fr = frames(interp.getStateStack()), depth = fr.length - 1;
+    if (condition(line, fr[0].scope)) return { reason: "breakpoint", frames: fr, line: line };
+    if (mode === "in" || (mode === "over" && depth <= base) || (mode === "out" && depth < base)) return { reason: "step", frames: fr, line: line };
+    return null;
+  }
+  function pause(stop) {
+    paused = stop;
+    if (stop.node) last = stop.node;
+    postMessage(snapshot(stop.reason, stop.frames, stop.line, stop.text));
+  }
+  function finish(ended) {
+    finished = true;
+    postMessage({ t: "done", ended: ended || "done" });
+  }
+  function go() {
+    if (paused || finished) return;
+    var budget = STEP_BUDGET;
+    try {
+      while (budget-- > 0) {
+        var more = interp.step();
+        if (!more) return finish("done");
+        var stack = interp.getStateStack(), top = stack[stack.length - 1];
+        if (top && top.node.loc && !seen.has(top)) {
+          seen.add(top);
+          if (isStatement(top.node)) {
+            var stop = decide(top);
+            if (stop) { stop.node = top.node; return pause(stop); }
+          }
+        }
+        if (interp.getStatus() === I.Status.TASK) {
+          var due = interp.tasks.length ? interp.tasks[0].time - Date.now() : 0;
+          setTimeout(go, Math.max(0, Math.min(due, 1000)));
+          return;
+        }
+      }
+    } catch (e) {
+      if (thrown) {
+        var t = thrown;
+        return pause({ reason: "exception", frames: t.frames, line: t.line, text: t.trace, uncaught: t.text });
+      }
+      postMessage({ t: "log", level: "error", text: "Uncaught " + String(e && e.message || e), line: lineNow(), uncaught: true });
+      return finish("error");
+    }
+    setTimeout(go, 0);
+  }
+  var DOM = false;
+  self.onmessage = function (e) {
+    var d = e.data || {};
+    if (d.reply) {
+      var r = d.reply;
+      if (Array.isArray(r.breaks)) setBreaks(r.breaks);
+      if (Array.isArray(r.watches)) watches = r.watches.map(String).slice(0, 50);
+      if (!paused) return;
+      if (r.cmd === "eval") { postMessage(snapshot(paused.reason, paused.frames, paused.line, paused.text)); return; }
+      if (paused.reason === "exception") {
+        postMessage({ t: "log", level: "error", text: paused.uncaught, line: paused.line, uncaught: true });
+        paused = null;
+        return finish("error");
+      }
+      if (r.cmd === "stop") { paused = null; return finish("stopped"); }
+      mode = r.cmd === "in" || r.cmd === "over" || r.cmd === "out" ? r.cmd : "continue";
+      base = paused.frames.length - 1;
+      paused = null;
+      go();
+      return;
+    }
+    if (typeof d.source !== "string") return;
+    setBreaks(d.breaks || []);
+    watches = (d.watches || []).map(String).slice(0, 50);
+    DOM = Boolean(d.dom);
+    builtins = {};
+    var bare = new I("", function (it, g) { init(it, g); });
+    for (var k in bare.getGlobalScope().object.properties) builtins[k] = 1;
+    try {
+      interp = new I(d.source, init);
+    } catch (err) {
+      var at = err && err.loc ? err.loc.line : null;
+      postMessage({ t: "log", level: "error", text: "Debug could not read this: " + String(err && err.message || err).replace(/\s*\(\d+:\d+\)$/, ""), line: at, uncaught: true });
+      return finish("error");
+    }
+    postMessage({ t: "started" });
+    go();
+  };
+  function setBreaks(list) {
+    breaks = {};
+    for (var i = 0; i < list.length; i++) {
+      var line = Number(list[i] && list[i].line) || 0;
+      if (line > 0) breaks[line] = String(list[i].cond || "").trim();
+    }
+  }
+})();
+"""
+
 #: The runner. **One protocol for every language** (DOCUMENTS_PLAN 23, D1):
 #: the app sends `{type: "run", mmRun, kind, source, path, stdin, tests,
 #: lineOffset, lib}` and gets back rows, `{t: "log", level, text, line, col}`
@@ -183,6 +502,9 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     + r""";
   var CSS_SAMPLE = """
     + json.dumps(CSS_SAMPLE_HTML).replace("</", "<\\/")
+    + r""";
+  var JS_DEBUG = """
+    + json.dumps(_JS_DEBUG_WORKER).replace("</", "<\\/")
     + r""";
   var worker = null, frame = null, current = 0;
   function up(id, msg) { msg.mmRun = id; parent.postMessage(msg, "*"); }
@@ -248,6 +570,8 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     var d = e.data || {};
     if (e.source !== parent || typeof d.mmRun !== "number") return;
     if (d.type === "stop") { stop(); return; }
+    //: The panel's action at a debugger stop, for the stepping worker.
+    if (d.type === "reply") { if (worker && d.mmRun === current) worker.postMessage({ reply: d.value }); return; }
     if (d.type !== "run") return;
     stop();
     current = d.mmRun;
@@ -321,7 +645,21 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     showPage(id, errorHead() + "<style>html,body{margin:0}canvas{display:block}</style><script>" + pad(d) +
       code.replace(/<\/(script)/gi, "<\\/$1") + "\n<\/script><script>" + lib.p5.replace(/<\/(script)/gi, "<\\/$1") + "<\/script>");
   }
-  var RUNNERS = { js: runJs, html: runHtml, sql: runSql, css: runCss, svg: runSvg, p5: runP5 };
+  //: Debug for JavaScript (D3): JS-Interpreter's text, from the app in
+  //: `lib.interp`, and the driver after it, in a worker that steps the script
+  //: and waits between stops for the panel's next action (`reply`).
+  function runJsDebug(id, code, d) {
+    var lib = d.lib || {};
+    if (typeof lib.interp !== "string") throw new Error("The debugger did not arrive with the run.");
+    worker = new Worker(URL.createObjectURL(new Blob([lib.interp + "\n;" + JS_DEBUG], { type: "text/javascript" })));
+    worker.onmessage = function (e) { if (id === current) up(id, e.data); };
+    worker.onerror = function (e) {
+      e.preventDefault();
+      if (id === current) up(id, { t: "log", level: "error", text: "The debugger stopped: " + e.message, line: null, uncaught: true });
+    };
+    worker.postMessage({ source: pad(d) + code, breaks: Array.isArray(d.breaks) ? d.breaks : [], watches: Array.isArray(d.watches) ? d.watches : [], dom: Boolean(d.dom) });
+  }
+  var RUNNERS = { js: runJs, html: runHtml, sql: runSql, css: runCss, svg: runSvg, p5: runP5, jsdebug: runJsDebug };
   window.onmessage = function (e) {
     //: A message from the page being run goes up as that run's; anything
     //: else must be the app's own.
@@ -345,6 +683,7 @@ def run_sandbox() -> Response:
             "Content-Security-Policy": RUN_SANDBOX_CSP,
             "X-Frame-Options": "SAMEORIGIN",
             "Cache-Control": "no-store",
+            **ISOLATION_HEADERS,
         },
     )
 
@@ -438,13 +777,23 @@ class _MMOut:
         return False
 
 
+#: Asks the panel for a line mid-run (Brief 70): set by a run when the page
+#: has SharedArrayBuffer, so the worker can wait for the answer. One list,
+#: not a global rebinding, so the helpers below share it.
+_MM_ASK = [None]
+
+
 def _mm_input(prompt=""):
     """`input()` answered from the panel's Input box (D9): each call takes
     the next line, and the prompt and the answer show as one row, as a
-    terminal shows them."""
+    terminal shows them. Once the box is used up, the panel asks for the
+    line there and then, where the page can wait for it (D2's buffer)."""
     if prompt:
         sys.stdout.write(str(prompt))
     line = sys.stdin.readline()
+    if not line and _MM_ASK[0] is not None:
+        answer = _MM_ASK[0](str(prompt))
+        line = None if answer is None else str(answer) + "\n"
     if not line:
         sys.stdout.flush()
         raise EOFError("input() asked for more lines than the Input box holds: add a line there and run again.")
@@ -453,12 +802,13 @@ def _mm_input(prompt=""):
     return line
 
 
-def _mm_run(code, emit, offset=0, stdin=""):
+def _mm_run(code, emit, offset=0, stdin="", ask=None):
     import io
 
     out, err = _MMOut("log", emit), _MMOut("error", emit)
     saved = sys.stdout, sys.stderr, sys.stdin
     sys.stdout, sys.stderr, sys.stdin = out, err, io.StringIO(str(stdin or ""))
+    _MM_ASK[0] = ask
     try:
         # Blank lines for the document above a selection or a cell, so every
         # line number is the document's.
@@ -480,6 +830,7 @@ def _mm_run(code, emit, offset=0, stdin=""):
     finally:
         out.flush(); err.flush()
         sys.stdout, sys.stderr, sys.stdin = saved
+        _MM_ASK[0] = None
 
 
 def _mm_line(exc):
@@ -583,6 +934,208 @@ def _mm_tests(code, emit, emit_test, offset=0):
     finally:
         out.flush(); err.flush()
         sys.stdout, sys.stderr = saved
+
+
+import bdb
+
+#: What a stop shows of a value, and how many names a scope lists.
+_MM_REPR = 200
+_MM_NAMES = 200
+
+
+def _mm_show(value):
+    try:
+        text = repr(value)
+    except BaseException as exc:  # a broken __repr__ is the user's, not ours
+        text = f"<repr failed: {type(exc).__name__}>"
+    return text if len(text) <= _MM_REPR else text[: _MM_REPR - 3] + "..."
+
+
+def _mm_names(space, skip=()):
+    rows = []
+    for name, value in list(space.items()):
+        if (name.startswith("__") and name.endswith("__")) or name in skip:
+            continue
+        rows.append({"name": str(name), "value": _mm_show(value), "type": type(value).__name__})
+        if len(rows) >= _MM_NAMES:
+            break
+    return rows
+
+
+class _MMDebugger(bdb.Bdb):
+    """D2: `bdb` itself, not a re-implementation. Each stop goes up as one
+    message (line, locals, globals, the stack, the watch list evaluated in the
+    stopped frame) through `exchange`, which blocks the worker on
+    `Atomics.wait` until the panel's action comes back: continue, over, in,
+    out, stop, or `eval` (new watches or breakpoints, answered with a fresh
+    stop). Only the document's own frames stop; the runtime's and the
+    standard library's run through."""
+
+    def __init__(self, exchange, breaks, watches):
+        super().__init__()
+        self.exchange, self.watches, self.first = exchange, list(watches or []), True
+        self.ended_by_stop = False
+        self.set_breaks(breaks)
+
+    def set_breaks(self, breaks):
+        self.clear_all_breaks()
+        for row in breaks or []:
+            line = int(row.get("line") or 0)
+            cond = str(row.get("cond") or "").strip() or None
+            if line > 0:
+                self.set_break("<document>", line, cond=cond)
+
+    def stop_here(self, frame):
+        return frame.f_code.co_filename == "<document>" and super().stop_here(frame)
+
+    def user_call(self, frame, args):
+        pass
+
+    def user_line(self, frame):
+        if self.first:
+            # Debug runs to the first breakpoint, as VS Code's does: the
+            # first line stops only when it has one.
+            self.first = False
+            here = self.break_here_now(frame)
+            if not here or bdb.effective("<document>", frame.f_lineno, frame)[0] is None:
+                self.set_continue()
+                return
+        self.interaction(frame, "breakpoint" if self.break_here_now(frame) else "step")
+
+    def break_here_now(self, frame):
+        return bool(self.get_breaks("<document>", frame.f_lineno))
+
+    def snapshot(self, frame, reason, stack, text=""):
+        module = frame.f_code.co_name == "<module>"
+        watches = []
+        for expr in self.watches:
+            try:
+                watches.append({"expr": expr, "value": _mm_show(eval(expr, frame.f_globals, frame.f_locals))})
+            except BaseException as exc:
+                watches.append({"expr": expr, "error": f"{type(exc).__name__}: {exc}"})
+        return {
+            "t": "stop",
+            "reason": reason,
+            "line": frame.f_lineno,
+            "text": text,
+            "locals": _mm_names(frame.f_locals, ("input",) if module else ()),
+            "globals": [] if module else _mm_names(frame.f_globals, ("input",)),
+            "stack": stack,
+            "watches": watches,
+        }
+
+    def stack_of(self, frame):
+        rows = []
+        while frame is not None:
+            if frame.f_code.co_filename == "<document>":
+                name = frame.f_code.co_name
+                rows.append({"name": "module" if name == "<module>" else name, "line": frame.f_lineno})
+            frame = frame.f_back
+        return rows
+
+    def interaction(self, frame, reason, text="", stack=None):
+        import json
+
+        sys.stdout.flush(); sys.stderr.flush()
+        while True:
+            reply = self.exchange(json.dumps(self.snapshot(frame, reason, stack or self.stack_of(frame), text)))
+            try:
+                action = json.loads(str(reply)) if reply else {"cmd": "stop"}
+            except ValueError:
+                action = {"cmd": "stop"}
+            if "breaks" in action:
+                self.set_breaks(action["breaks"])
+            if "watches" in action:
+                self.watches = [str(w) for w in action["watches"]][:50]
+            cmd = action.get("cmd")
+            if cmd == "eval":
+                continue
+            if reason == "exception":
+                return
+            if cmd == "over":
+                self.set_next(frame)
+            elif cmd == "in":
+                self.set_step()
+            elif cmd == "out":
+                self.set_return(frame)
+            elif cmd == "continue":
+                self.set_continue()
+            else:
+                self.ended_by_stop = True
+                self.set_quit()
+            return
+
+
+def _mm_debug(code, emit, exchange, offset=0, stdin="", breaks="[]", watches="[]"):
+    """Run the document under `_MMDebugger`. An exception nothing caught
+    stops at the line that raised it, in the frame that raised it, with the
+    traceback's text, before the run ends (the frame's locals are kept by
+    the traceback). Returns how the run ended: done, stopped or error."""
+    import io
+    import json
+    import linecache
+
+    source = "\n" * max(0, int(offset)) + code
+    # `set_break` checks the line exists through linecache; the document has
+    # no file, so its lines are put there under its name.
+    linecache.cache["<document>"] = (len(source), None, source.splitlines(True), "<document>")
+    out, err = _MMOut("log", emit), _MMOut("error", emit)
+    saved = sys.stdout, sys.stderr, sys.stdin
+    sys.stdout, sys.stderr, sys.stdin = out, err, io.StringIO(str(stdin or ""))
+
+    def ask(prompt):
+        reply = exchange(json.dumps({"t": "input", "prompt": str(prompt)}))
+        try:
+            value = json.loads(str(reply)) if reply else None
+        except ValueError:
+            value = None
+        return value.get("line") if isinstance(value, dict) else None
+
+    _MM_ASK[0] = ask
+    debugger = _MMDebugger(exchange, json.loads(breaks or "[]"), json.loads(watches or "[]"))
+    try:
+        # `Bdb.run` swallows the BdbQuit that Stop raises, so it is asked.
+        debugger.run(compile(source, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
+        return "stopped" if debugger.ended_by_stop else "done"
+    except SystemExit as stop:
+        out.flush(); err.flush()
+        if stop.code not in (None, 0):
+            emit("info", f"Exited with {stop.code}.", None, False)
+        return "done"
+    except BaseException as exc:
+        sys.settrace(None)
+        out.flush(); err.flush()
+        text = traceback.format_exception_only(type(exc), exc)[-1].strip()
+        frames = [(f, n) for f, n in traceback.walk_tb(exc.__traceback__) if f.f_code.co_filename == "<document>"]
+        if frames:
+            stack = [{"name": "module" if f.f_code.co_name == "<module>" else f.f_code.co_name, "line": n} for f, n in reversed(frames)]
+            # The traceback as the document's own: its frames, its lines,
+            # none of the runner's or bdb's.
+            told = ["Traceback (most recent call last):"]
+            for f, n in frames:
+                told.append(f"  line {n}, in {'module' if f.f_code.co_name == '<module>' else f.f_code.co_name}")
+                said = linecache.getline("<document>", n).strip()
+                if said:
+                    told.append(f"    {said}")
+            told.append(text)
+            frame, line = frames[-1]
+            debugger.interaction(_MMFrameAt(frame, line), "exception", "\n".join(told)[-4000:], stack)
+        emit("error", text, _mm_line(exc), True)
+        return "error"
+    finally:
+        out.flush(); err.flush()
+        sys.stdout, sys.stderr, sys.stdin = saved
+        _MM_ASK[0] = None
+        linecache.cache.pop("<document>", None)
+
+
+class _MMFrameAt:
+    """A finished frame seen at the line the traceback names: a frame's own
+    `f_lineno` after it has unwound is where it stopped, which for an
+    exception is the raise, but the traceback's line is the one to trust."""
+
+    def __init__(self, frame, line):
+        self.f_code, self.f_globals, self.f_locals, self.f_lineno, self.f_back = frame.f_code, frame.f_globals, frame.f_locals, line, None
 '''
 
 #: The worker, a classic one that `import()`s Pyodide's module from its
@@ -601,6 +1154,30 @@ _PY_WORKER = (
     + f"const MAX_LINES = {MAX_LINES};\n"
     + r"""
 let py = null;
+//: D2's buffer, from the page when it is cross-origin isolated: [0] is the
+//: flag this worker waits on, [1] the reply's length, the reply's bytes
+//: after. `exchange` posts a stop (or an input() prompt) and blocks on
+//: `Atomics.wait` until the page writes the panel's answer and notifies.
+let shared = null;
+let current = null;
+function exchange(text) {
+  if (!shared || !current) return null;
+  const ctl = new Int32Array(shared, 0, 2);
+  Atomics.store(ctl, 0, 0);
+  current(JSON.parse(String(text)));
+  Atomics.wait(ctl, 0, 0);
+  const n = Atomics.load(ctl, 1);
+  return new TextDecoder().decode(new Uint8Array(shared, 8, n).slice());
+}
+function ask(prompt) {
+  const reply = exchange(JSON.stringify({ t: "input", prompt: String(prompt) }));
+  try {
+    const value = JSON.parse(reply);
+    return value && typeof value.line === "string" ? value.line : null;
+  } catch (err) {
+    return null;
+  }
+}
 async function load(post) {
   if (py) return py;
   post({ t: "status", text: "Starting Python" });
@@ -612,6 +1189,8 @@ async function load(post) {
 self.onmessage = async (e) => {
   const run = e.data.run;
   const post = (msg) => postMessage({ run, msg });
+  shared = e.data.sab instanceof SharedArrayBuffer ? e.data.sab : null;
+  current = post;
   try {
     const p = await load(post);
     post({ t: "started" });
@@ -647,9 +1226,22 @@ self.onmessage = async (e) => {
         if (counts && counts.destroy) counts.destroy();
         tester.destroy();
       }
+    } else if (e.data.debug) {
+      //: Debug (D2): the run goes through `bdb`; each stop blocks here.
+      const debug = p.globals.get("_mm_debug");
+      let ended = "done";
+      try {
+        ended = String(debug(String(e.data.source || ""), emit, exchange, Number(e.data.lineOffset) || 0,
+          String(e.data.stdin || ""), JSON.stringify(e.data.breaks || []), JSON.stringify(e.data.watches || [])));
+      } finally { debug.destroy(); }
+      post({ t: "done", ended });
+      postMessage({ run, idle: true });
+      return;
     } else {
       const runner = p.globals.get("_mm_run");
-      try { runner(String(e.data.source || ""), emit, Number(e.data.lineOffset) || 0, String(e.data.stdin || "")); } finally { runner.destroy(); }
+      try {
+        runner(String(e.data.source || ""), emit, Number(e.data.lineOffset) || 0, String(e.data.stdin || ""), shared ? ask : null);
+      } finally { runner.destroy(); }
     }
     post({ t: "done" });
   } catch (err) {
@@ -670,6 +1262,21 @@ RUN_SANDBOX_PY_HTML = (
     + json.dumps(_PY_WORKER).replace("</", "<\\/")
     + r""";
   var worker = null, current = 0, busy = false;
+  //: D2: with cross-origin isolation the worker can block on this buffer
+  //: while the panel decides (a debugger stop, an input() line); without it
+  //: a run still runs, and the app says Debug cannot.
+  var REPLY_MAX = 65536;
+  var shared = self.crossOriginIsolated && typeof SharedArrayBuffer === "function" ? new SharedArrayBuffer(8 + REPLY_MAX) : null;
+  function reply(value) {
+    if (!shared) return;
+    var bytes = new TextEncoder().encode(JSON.stringify(value == null ? null : value));
+    if (bytes.length > REPLY_MAX) bytes = new TextEncoder().encode('{"cmd":"stop"}');
+    var ctl = new Int32Array(shared, 0, 2);
+    new Uint8Array(shared, 8, REPLY_MAX).set(bytes);
+    Atomics.store(ctl, 1, bytes.length);
+    Atomics.store(ctl, 0, 1);
+    Atomics.notify(ctl, 0);
+  }
   function up(id, msg) { msg.mmRun = id; parent.postMessage(msg, "*"); }
   function stop() {
     if (worker) { worker.terminate(); worker = null; }
@@ -693,6 +1300,7 @@ RUN_SANDBOX_PY_HTML = (
     var d = e.data || {};
     if (e.source !== parent || typeof d.mmRun !== "number") return;
     if (d.type === "stop") { stop(); return; }
+    if (d.type === "reply") { if (d.mmRun === current) reply(d.value); return; }
     if (d.type !== "run") return;
     //: A run still going (a `while True`) cannot be interrupted from here:
     //: the worker goes, and the new run gets a fresh one.
@@ -706,10 +1314,14 @@ RUN_SANDBOX_PY_HTML = (
       lineOffset: Number(d.lineOffset) || 0,
       tests: Boolean(d.tests),
       stdin: String(d.stdin || ""),
+      debug: Boolean(d.debug) && Boolean(shared),
+      breaks: Array.isArray(d.breaks) ? d.breaks : [],
+      watches: Array.isArray(d.watches) ? d.watches : [],
+      sab: shared,
     });
   }
   window.onmessage = handle;
-  parent.postMessage({ mmRun: 0, t: "ready", runner: "python" }, "*");
+  parent.postMessage({ mmRun: 0, t: "ready", runner: "python", isolated: Boolean(shared) }, "*");
 })();
 </script></body></html>
 """
@@ -733,6 +1345,7 @@ def run_sandbox_python(request: Request) -> Response:
             "Content-Security-Policy": python_csp(base),
             "X-Frame-Options": "SAMEORIGIN",
             "Cache-Control": "no-store",
+            **ISOLATION_HEADERS,
         },
     )
 

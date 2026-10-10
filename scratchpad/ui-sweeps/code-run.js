@@ -298,10 +298,26 @@ const times = {};
   if (want("pyinput") && pyReady) {
     await open("ask.py", "py", "name = input('Name? ')\nage = int(input('Age? '))\nprint(f'{name} is {age}')\n");
     await page.evaluate(() => { if (docRun) { docRun.stdin.value = ""; DOC_RUN_STDIN.clear(); } });
-    const first = await run("pyinput-empty", "#doc-code-run", 60000);
+    //: Brief 70: with the box empty, input() asks in the log mid-run (D2's
+    //: buffer) instead of failing; Enter answers, Escape is the end of input.
+    const t0 = Date.now();
+    await page.click("#doc-code-run");
+    const asked = await page.waitForSelector(".cm-run-ask-field", { timeout: 60000 }).then(() => true).catch(() => false);
+    times["pyinput-ask"] = { first: Date.now() - t0 };
     const box = await page.evaluate(() => !!docRun && !docRun.stdinWrap.classList.contains("hidden"));
     ok("py input: a file that calls input() opens the Input box", box);
-    ok("py input: with no lines, input() says where to type them", first && first.rows.some((r) => /Input box/.test(r.text) && r.line === "Line 1"), J(first && first.rows));
+    const prompt = asked ? await page.evaluate(() => document.querySelector(".cm-run-row.is-ask .cm-run-text").textContent) : null;
+    ok("py input: with no lines, input() asks in the log mid-run", asked && prompt === "Name? ", J(prompt));
+    if (asked) {
+      await page.fill(".cm-run-ask-field", "Ada");
+      await page.press(".cm-run-ask-field", "Enter");
+      await page.waitForFunction(() => document.querySelector(".cm-run-row.is-ask .cm-run-text")?.textContent === "Age? ", null, { timeout: 5000 }).catch(() => {});
+      await page.fill(".cm-run-ask-field", "36");
+      await page.press(".cm-run-ask-field", "Enter");
+      await page.waitForFunction(() => /^Finished/.test(document.querySelector(".cm-run-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    }
+    const asked2 = await output();
+    ok("py input: answered mid-run, prompt and answer on one row", asked2 && J(asked2.rows.map((r) => r.text)) === J(["Name? Ada", "Age? 36", "Ada is 36"]), J(asked2 && asked2.rows));
     await page.fill(".cm-run-stdin", "Ada\n36");
     const out = await run("pyinput", "#doc-code-run", 60000);
     ok("py input: answered from the panel, prompt and answer on one row", out && J(out.rows.map((r) => r.text)) === J(["Name? Ada", "Age? 36", "Ada is 36"]), J(out && out.rows));
@@ -394,7 +410,8 @@ const times = {};
       const r = body.getBoundingClientRect();
       return { shown: !body.classList.contains("hidden") && r.height > 20, left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), lines: body.querySelectorAll("p").length, w: innerWidth, h: innerHeight };
     });
-    ok(`layout ${WIDTH}: the '?' opens three lines of help inside the window`, help.shown && help.lines === 3 && help.left >= 0 && help.right <= help.w && help.top >= 0 && help.bottom <= help.h, J(help));
+    //: Four since Brief 70 added Debug's line.
+    ok(`layout ${WIDTH}: the '?' opens four lines of help inside the window`, help.shown && help.lines === 4 && help.left >= 0 && help.right <= help.w && help.top >= 0 && help.bottom <= help.h, J(help));
     await page.click(".cm-run-help");
   }
 

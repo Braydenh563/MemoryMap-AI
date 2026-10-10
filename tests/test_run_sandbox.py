@@ -162,3 +162,61 @@ def test_the_python_line_cap_matches_the_apps_and_is_kept_at_the_source():
     assert f"const DOC_RUN_MAX_ROWS = {run_sandbox.MAX_LINES};" in source
     assert f"const MAX_LINES = {run_sandbox.MAX_LINES};" in run_sandbox._PY_WORKER
     assert "if (sent > MAX_LINES && !uncaught) return;" in run_sandbox._PY_WORKER
+
+
+def test_the_sandbox_pages_are_cross_origin_isolated(client):
+    """D2: the Python debugger blocks on `Atomics.wait` over a
+    `SharedArrayBuffer`, which a page has only when it is cross-origin
+    isolated. Measured in Chromium (Brief 70): the sandbox frame is isolated
+    only when the app's own page carries the two headers as well, so every
+    response does, and the frame is allowed `cross-origin-isolated`."""
+    for path in ("/documents/run-sandbox", "/documents/run-sandbox/python", "/"):
+        response = client.get(path)
+        assert response.headers["cross-origin-opener-policy"] == "same-origin", path
+        assert response.headers["cross-origin-embedder-policy"] == "require-corp", path
+    #: The two headers are the only change: the policy is the same string.
+    assert client.get("/documents/run-sandbox").headers["content-security-policy"] == run_sandbox.RUN_SANDBOX_CSP
+
+
+def test_every_file_the_sandbox_loads_carries_a_resource_policy(client):
+    """Under `require-corp` a cross-origin load without
+    `Cross-Origin-Resource-Policy` is refused, and the opaque sandbox's every
+    load is cross-origin: the runtime's files say `cross-origin`. The
+    vendored libraries are fetched by the app itself (same origin) and handed
+    over as text, so they carry the default `same-origin`."""
+    _install_fake_pyodide()
+    for name in ("pyodide.asm.wasm", "pyodide.mjs"):
+        response = client.get(f"/documents/pyodide/{name}")
+        assert response.headers["cross-origin-resource-policy"] == "cross-origin", name
+    assert client.get("/vendor/sucrase/sucrase.min.js").headers["cross-origin-resource-policy"] == "same-origin"
+
+
+def test_the_panel_frame_is_allowed_isolation():
+    from tests._app_js import JS_DIR
+
+    text = (JS_DIR / "documents-code.js").read_text(encoding="utf-8")
+    assert 'frame.setAttribute("allow", "cross-origin-isolated")' in text
+
+
+def test_the_javascript_debugger_steps_in_the_sandbox_and_obeys_only_its_parent():
+    """D3: Debug's runner is a kind like any other, its interpreter handed
+    over by the app (the page fetches nothing), and the panel's actions reach
+    the stepping worker only through the page's own parent check."""
+    page = run_sandbox.RUN_SANDBOX_HTML
+    assert "jsdebug: runJsDebug" in page
+    assert 'if (typeof lib.interp !== "string")' in page
+    handle = page[page.index("function handle(e)") :]
+    handle = handle[: handle.index("\n  }\n")]
+    assert handle.index("e.source !== parent") < handle.index('d.type === "reply"')
+    #: Uncaught exceptions are seen before the stack unwinds.
+    assert "I.prototype.unwind = function" in run_sandbox._JS_DEBUG_WORKER
+
+
+def test_the_python_debugger_waits_on_the_shared_buffer_only_when_isolated():
+    page = run_sandbox.RUN_SANDBOX_PY_HTML
+    assert "self.crossOriginIsolated" in page and "new SharedArrayBuffer(" in page
+    assert "debug: Boolean(d.debug) && Boolean(shared)" in page
+    assert "isolated: Boolean(shared)" in page
+    worker = run_sandbox._PY_WORKER
+    assert "Atomics.wait(ctl, 0, 0)" in worker and "Atomics.store(ctl, 0, 0);" in worker
+    assert worker.index("Atomics.store(ctl, 0, 0);") < worker.index("current(JSON.parse(String(text)));")

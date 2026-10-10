@@ -1482,7 +1482,41 @@ MORE_TOPICS.extend(
                 "tests in the panel asks for them. The palette has Run the "
                 "selected lines and Run the cell at the caret (between # %% "
                 "markers). Stop ends a run; one still going after two seconds is "
-                "listed in Activity, whose Stop ends it too."
+                "listed in Activity, whose Stop ends it too. Debug (F5) steps "
+                "JavaScript, TypeScript and Python; see the debugger."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        #: Brief 70 (DOCUMENTS_PLAN 23, I2): the debugger, written from the
+        #: Debug tab (documents-code.js, `docDebugView`), the gutter
+        #: (`docDebugExtension`) and the palette rows in DOC_COMMANDS.
+        {
+            "id": "debugger",
+            "keywords": (
+                "debug", "debugger", "debugging", "breakpoint", "breakpoints", "step over",
+                "step in", "step into", "step out", "watch", "watch expression", "call stack",
+                "variables", "conditional breakpoint", "f5", "f9", "f10", "f11", "bdb",
+            ),
+            "body": (
+                "Debug runs a JavaScript, TypeScript or Python document to its "
+                "first breakpoint and stops there. Click beside a line number (or "
+                "press F9 on the line) for a breakpoint; right-click it to add a "
+                "condition, and it stops only when that is true. Press F5, or "
+                "Start debugging in the run panel's Debug tab; the stopped line is lit, and "
+                "the Debug tab shows Variables (the frame's names, then Globals), "
+                "Watch (type an expression under it; each stop evaluates it), the "
+                "Call stack (a row goes to its line) and Breakpoints. F10 steps "
+                "over a line, F11 into a call, Shift+F11 out of the function, F5 "
+                "continues and Shift+F5 stops; the same five are buttons at the "
+                "top of the tab. An error nothing catches stops on the line that "
+                "raised it, with its traceback and the frame's variables. Python's "
+                "input() asks in the panel mid-run. Python debugging needs a window "
+                "that gives SharedArrayBuffer (the app's own does); JavaScript is "
+                "stepped by an interpreter that reads ES5, so let, const, arrow "
+                "functions and template strings are rewritten for it, and a class, "
+                "destructuring or async code is named with its line and only Run "
+                "takes it. A script that uses the page debugs against a stand-in "
+                "document, so nothing is drawn."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1582,6 +1616,11 @@ TOPIC_META: dict[str, dict] = {
         "Open a code document (.js, .ts, .sql, .py, .html, .css, .svg).",
         "Press Run, or Ctrl+Shift+Enter.",
         "Read the Output panel under the editor; Line N goes to the line.")},
+    "debugger": {"title": "Debugging code", "path": "A code document, the gutter beside a line number, F5", "steps": (
+        "Open a JavaScript, TypeScript or Python document.",
+        "Click beside a line number, or press F9 on it, for a breakpoint.",
+        "Press F5; at the stop, F10, F11 and Shift+F11 step, F5 continues.",
+        "Read Variables, Watch and the Call stack in the panel's Debug tab.")},
     "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
     "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
@@ -1661,7 +1700,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Documents and code", (
         "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files", "code-run",
-        "margin-reader",
+        "debugger", "margin-reader",
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-templates", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",

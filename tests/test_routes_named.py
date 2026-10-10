@@ -32,7 +32,6 @@ DELETE /entries/{entry_id}/bookmarks/{bookmark_id}
 DELETE /reminders/{reminder_id}/purge
 GET /documents/{document_id}/connections
 GET /documents/{document_id}/export.md
-GET /documents/{document_id}/revisions/{revision_id}
 GET /questions/summary
 POST /board-library/libraries
 POST /board-library/{item_id}/duplicate

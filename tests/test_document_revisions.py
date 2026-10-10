@@ -150,3 +150,48 @@ def test_deleting_a_document_takes_its_history_with_it(client):
             .count()
         )
     assert left == 0, "a deleted document must not leave its text behind"
+
+
+# --- named versions (DOCUMENTS_PLAN 24 row 4, Brief 76) ----------------------
+
+
+def test_naming_the_current_version_keeps_its_text_through_later_edits(client):
+    """Google Docs's "Name current version": the named row holds the text as it
+    stood, and the edits after it never coalesce into it."""
+    doc = _make(client, "Draft one.")
+    named = client.post(f"/documents/{doc['id']}/revisions", json={"name": "Sent to Sam"})
+    assert named.status_code == 201 and named.json()["name"] == "Sent to Sam"
+    for n in range(3):
+        client.put(f"/documents/{doc['id']}", json={"content": f"Draft one, edit {n}."})
+    rows = client.get(f"/documents/{doc['id']}/revisions").json()
+    kept = [row for row in rows if row["name"] == "Sent to Sam"]
+    assert len(kept) == 1
+    body = client.get(f"/documents/{doc['id']}/revisions/{kept[0]['id']}").json()
+    assert body["content"] == "Draft one." and body["name"] == "Sent to Sam"
+    assert len(rows) == 2, "the edits after it are one sitting of their own"
+
+
+def test_a_version_is_renamed_and_unnamed_without_touching_its_text(client):
+    doc = _make(client, "Alpha.")
+    client.put(f"/documents/{doc['id']}", json={"content": "Beta."})
+    row = client.get(f"/documents/{doc['id']}/revisions").json()[0]
+    assert row["name"] is None
+    did, rid = doc["id"], row["id"]
+    url = f"/documents/{did}/revisions/{rid}"
+    named = client.put(url, json={"name": " First cut "}).json()
+    assert named["name"] == "First cut"
+    kept = client.get(url).json()
+    assert kept["content"] == "Alpha."
+    unnamed = client.put(url, json={"name": "  "}).json()
+    assert unnamed["name"] is None
+
+
+def test_a_version_needs_a_name_and_belongs_to_its_document(client):
+    doc = _make(client)
+    other = _make(client, "Other.")
+    blank = client.post(f"/documents/{doc['id']}/revisions", json={"name": " "})
+    assert blank.status_code == 422
+    client.put(f"/documents/{other['id']}", json={"content": "Other, edited."})
+    rid = client.get(f"/documents/{other['id']}/revisions").json()[0]["id"]
+    foreign = client.put(f"/documents/{doc['id']}/revisions/{rid}", json={"name": "x"})
+    assert foreign.status_code == 404

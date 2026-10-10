@@ -3637,3 +3637,50 @@ button.ghost.doc-template-choice.wb-template-choice {
   color: transparent;
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
+
+/* --- the document history, side by side (DOCUMENTS 24 row 4, Brief 76) ---
+   `docDiffSplitLayout` (documents.js) places the rows `docRenderDiff` drew
+   on two columns: the version on the left, what replaced it on the right, an
+   unchanged line on both. Chosen when the row is 560px wide; a phone keeps one column. */
+.doc-diff.doc-diff-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-content: start;
+}
+
+.doc-diff-split-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--modal-bg-opaque);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.doc-history-name {
+  font-weight: 600;
+}
+
+/* Room for the pair: the history is wider than the AI log it shares a class
+   with, and a row lets its diff wrap onto a line of its own. */
+#doc-history-dialog {
+  width: min(56rem, calc(100vw - var(--space-8)));
+}
+
+#doc-history-list .doc-ai-history-entry {
+  flex-wrap: wrap;
+}
+
+#doc-history-list .doc-history-diff {
+  flex: 1 0 100%;
+}
+
+/* **A closed menu has no box** (DOCUMENTS 24 row 2): Chromium laid the
+   closed list out over the breadcrumbs at 390, and 166px past the left edge
+   on a code document. Measured on `toggle`, after `[open]` is set. Here, not
+   beside `.doc-dock-menu-list` in 04, for the boot CSS budget: the document
+   dock is drawn only once this bundle has loaded. */
+.doc-dock-menu:not([open]) > .doc-dock-menu-list {
+  display: none;
+}

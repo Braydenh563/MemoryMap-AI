@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the docs76 agent (Brief 76, merged 2026-10-10)
+
+Detail: [docs76-1010.md](../archive/agent-remaining/docs76-1010.md).
+
+- DOCUMENTS 24 row 7 (the list row's ⋮) not built: it would remake INBOX 722; keep the overlay.
+- DOCUMENTS 24 row 11: 78 controls, none with its own `data-help-for`; one '?' per section plus a command per control.
+- `confirmDialog` and `promptDialog` mount on `<body>`, so one asked from inside a modal opens beneath it; app.js is at its gzip ratchet.
+- Replace in every document reads each document by one request; and it has no dock-menu row.
+
 ## Left by the caption82 agent (Brief 82, merged 2026-10-10)
 
 - The packaged helper: a Download pin per platform (URL, sha256, size) for whisper-server and a model in `core/extras.py` (`id="captions"`; the release asset list was unreadable from the sandbox), then a supervisor that starts it on 127.0.0.1 and sets the URL (`ai/captions.helper_url` reads only the environment today). Linux and macOS have no official binary confirmed. Until then Settings, Packages marks Live captions unavailable and only `MEMORYMAP_CAPTIONS_URL` works.

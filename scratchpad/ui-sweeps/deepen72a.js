@@ -7,6 +7,8 @@
 const { boot } = require(process.env.SW ? process.env.SW + "/lib.js" : "./lib.js");
 const VW = Number(process.env.VW || 1440);
 const phone = VW < 600;
+// SURF="documents,code" measures only those surfaces (Brief 76 before and after).
+const SURF = (process.env.SURF || "").split(",").filter(Boolean);
 const MEASURE = `window.__m = (rootSel) => {
   const root = typeof rootSel === 'string' ? document.querySelector(rootSel) : rootSel;
   if (!root) return null;
@@ -67,7 +69,7 @@ const clickText = (page, text) => page.getByText(text).first().evaluate((e) => {
     return { doc: d.id, code: c.id, words: prose.split(/\s+/).length, lines: code.split("\n").length };
   }, stamp);
   out.fixtures = fx;
-  const run = async (name, fn) => { try { out[name] = await fn(); } catch (e) { out[name] = { error: String(e).slice(0, 200) }; } };
+  const run = async (name, fn) => { if (SURF.length && !SURF.includes(name)) return; try { out[name] = await fn(); } catch (e) { out[name] = { error: String(e).slice(0, 200) }; } };
 
   // 1. Documents editor
   await run("documents", async () => {

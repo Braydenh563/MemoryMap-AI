@@ -1387,17 +1387,17 @@ links, Typora for the live view (section 17).
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | Undo for the nine document acts that have none, each through `pushUndo` with the server's answer as its restore (rename, archive, version restore, apply a finding, dictionary add, bookmark attach and remove, note unlink, create as delete) | `undo.js` documents row 2/11 to 11/11 | 1, 3 |
-| 2 | fix | The phone dock menu: the closed list must not lay out (`hidden` or `display: none` until opened), and the opened list sits inside the viewport | `overlap.js` 20 to 0 at 320 and 390 (13 on a code document); 0 controls past the edge | 7, 8 |
-| 3 | fix | The two disabled AI controls say why in their popover and offer "Set up a model" (the CHAT_PLAN gating pattern), or hide; with no model the writing check, outline, find, export and history are the surface | no-model sweep: 0 dead controls | 12, 4, 6 |
-| 4 | redesign | Version history as Google Docs's: named versions, a side-by-side diff, restore as one undo step | restore then Ctrl+Z returns the text byte-equal | 1, 3 |
+| 1 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): rename, archive, version restore, a writing fix, dictionary add, link attach and remove, note detach and create each one undo step; Ctrl+Z on an open document walks the newer history | `docacts76.js` undo 10/10, redo 10/10 (2/11 before) | 1, 3 |
+| 2 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): the closed dock menu list has no box; opened, it sits in the window | `deepen72a.js` 390 overlaps 20 to 0 (code 9 to 0), past the edge 12 to 0 | 7, 8 |
+| 3 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): AI edit and Extract notes are `aria-disabled` with no model and a press opens why and Set up a model (`data-model-offer`) | no-model probe: 2 dead controls to 0 | 12, 4, 6 |
+| 4 | redesign | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): named versions, a Named filter, Changes side by side, restore as one undo step without a confirm | `dochistory76.js`: restore then Ctrl+Z byte-equal at 1440 and 390 | 1, 3 |
 | 5 | optimisation | Cold open 1,743 ms at 1440 and 3,013 ms at 390: fetch the documents bundle on idle after unlock and paint the first screen before the outline and checks | click to painted editor under 800 ms at both widths (25g budget, Brief 53) | 13 |
 | 6 | fix | A save that fails says why and retries itself; a draft survives a reload and a crash | `test_never_lose.py` documents rows green; keystroke to saved under 1 s | 3, 4 |
-| 7 | redesign | The list row: the Actions button beside the title, not over it (8 overlaps at 1440) | overlap 8 to 0; the title's right edge left of the button | 7, 11 |
+| 7 | redesign | The list row: the Actions button beside the title, not over it (8 overlaps at 1440). **Not built, Brief 76: it remakes INBOX 722** (the owner, 2026-10-06: the ⋮ overlays the row and never reserves a column; held by `test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it`); the title already fades under the ⋮ while it shows. Recommendation: keep the overlay and count a row's own ⋮ as no overlap in `deepen72a.js` | overlap 8 to 0; the title's right edge left of the button | 7, 11 |
 | 8 | expansion | Comments, highlights on pages, link cards with a viewer, the long-form choice at first run (Brief 42 items) | Brief 42's numbers | 6, 13 |
-| 9 | expansion | Find and replace across every document, with regex and one undo step | a replace-all over 50 documents undoes in one step | 1, 2 |
+| 9 | expansion | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): Replace in every document (palette), plain or regex, case, through `POST /documents/contents`, one undo step | `docreplace76.js`: 50 documents, 1 step, one Ctrl+Z restores 50 of 50 | 1, 2 |
 | 10 | expansion | Labelled and linked sections with a local graph (the owner's idea; after 8) | Brief 42's last row | 6 |
-| 11 | optimisation | Every control in `#tab-documents` has a `data-help-for` popover and a palette command | `test_manual_parity.py`; 0 missing | 6 |
+| 11 | optimisation | Every control in `#tab-documents` has a `data-help-for` popover and a palette command. Measured by Brief 76: 78 controls with ids, 0 with a popover of their own, 71 editor commands. Open: a popover per control is not DESIGN.md's recipe (one line per section, the rest behind one '?'); recommendation: one '?' per documents section (sidebar, dock and its menu, find bar, AI panel) naming every control in it, a palette command per control, and a ratchet test listing the gaps | `test_manual_parity.py`; 0 missing | 6 |
 
 **Briefs.** 42 (rows 8, 10), 48 (Word round trip), 51 (row 6), 53 (row 5),
 76 (rows 1 to 4, 7, 9, 11, with section 25's code rows).
@@ -1430,13 +1430,13 @@ lists every command with its shortcut.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | The phone dock menu lays out past the left edge on a code document (shared with section 24 row 2) | 12 controls past the edge to 0; 13 overlaps to 0 at 320 and 390 | 7, 8 |
+| 1 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"), with section 24 row 2 | 390 code document: past the edge 12 to 0, overlaps 9 to 0 | 7, 8 |
 | 2 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): Run disabled with "Install Python in Settings, Packages" beside it | 1 Run control on every runnable type; 0 types with no line | 12, 4, 6 |
-| 3 | redesign | VS Code's selected line (bold number, bordered line) and indent guides, the owner's design request | computed `font-weight` 700 on `.cm-activeLineGutter`; an indent marker per level on a nested file | 11 |
+| 3 | redesign | Built (Brief 42; measured 2026-10-10, HISTORY "DOCUMENTS 24 and 25, Brief 76"): the selected line's number bold, the line bordered, indent guides | `font-weight` 700 on `.cm-activeLineGutter`; markers 0, 1, 2, 3 on a three-deep file | 11 |
 | 4 | expansion | Brief 42's packages, each sized gzipped before it lands: lint (`ruff-wasm`, a JS linter), a formatter, a diff against the last save. The formatter (js-beautify, lazy, 25,022 bytes gzipped, 0 at boot) and the diff (Compare with a saved version) are built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder"); the linters stay open | a diagnostic on its line in the sweep; sizes in the commit | 12 |
 | 5 | expansion | Run, preview, test, debug, consoles: D1 to D9 (Briefs 69 to 71) | section 23's gates | 5, 12 |
 | 6 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder" and "DOCUMENTS Brief 71, I3"): 64 commands, 0 without a key or "none"; the keybindings sheet (Ctrl+K Ctrl+S) draws the same table, 34 keys each pressed by `code-keys.js` | 45 commands, 0 without a shortcut or a "none" | 6, 10 |
-| 7 | optimisation | Open 275 to 675 ms at 1440 for 241 lines and over 2 s at 390: `docCodeScan` (cx 132) off the open path | under 300 ms at 1440, under 800 ms at 390 | 13 |
+| 7 | optimisation | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): `docCodeScan` was 1 to 4 ms; two no-op reconfigures skipped, the findings repainted once, the panels a frame after the text | `deepen72a.js` code open 1440 538 to 240 ms, 390 963 to 649 ms (from the 3,724-word document; load 6 to 7) | 13 |
 | 8 | expansion | A minimap, off by default, one toggle in View (Brief 42's bar) | toggle present; its width remembered | 11 |
 | 9 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): a run past 2 s lists in `/activity` and stops from it | the run lists in `/activity` and stops from it | 5 |
 

@@ -1681,6 +1681,10 @@ class DocumentRevision(Base):
     #: answers.
     source: Mapped[str] = mapped_column(String(10), default="edit")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: A named version (DOCUMENTS 24 row 4, Google Docs's "Name current
+    #: version"): null for an ordinary sitting. A named row is never coalesced
+    #: into by the next edit, so the text it names stays the text it names.
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True, default=None)
 
 
 class WhiteboardNode(Base, WorkspaceMixin):

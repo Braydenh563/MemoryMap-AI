@@ -351,6 +351,53 @@ The time85 agent's Built block (standing order 10); TIMELINE_PLAN section 10 row
 - Section 10 row 7 (rule 6): `renderTimelineRecall` (timeline.js), a chip row under the day strip: On this day (the Time range's own `on=`), then a chip per year with its count (the notebook's density by year); a press runs the dock's range. Found: the dashboard's On this day called last November "1 year ago" and hid the note written on this date; it counts in months now. A note dated 10 October 2025 shows in both (before: dashboard only, and not that note).
 - Section 10 row 8 (25g budget): one render per click (counted); the first page is 100 rows, the scrubber, day strip, recall row and the next 200 rows a frame after the rows paint; a page from a superseded render is dropped. 96 notes, from the dashboard: deepen72b.js clickToRowsMs 396 and 416 before, 329 after (one full run each, load 6 to 8: the 300 bar not shown on this machine); five runs of the same shape 215 to 395 ms (app side, click to the first frame with rows, 73 to 164); 5,000 notes: 197 to 551 (app side 115 to 318), first open after a server start 1,922 to 498.
 - Found on the way: at 320 the repeat and alert chips squeezed a reminder's text to 0px, and with a done reminder Clear done left the dock title 79px of 117 at 390: the chips ride the row's second line, Clear done is `data-fold-narrow`. overlap.js reminders 320/390/1440 overflow 11/3/0, clip 4/2/0 to 0. Final: overlap.js timeline and reminders 0/0/0 at 320, 390 and 1440; errors.js 0 at 1440 and 390.
+## Moved from the plans, 2026-10-10 (DOCUMENTS 24 and 25, Brief 76)
+
+**Built** by the docs76 agent (DOCUMENTS_PLAN 24 rows 1 to 4, 9 and 25
+rows 1, 3, 7; 24 rows 7 and 11 left open, see the plan).
+
+- **24 row 1, every act is one undo step.** Rename, archive, version
+  restore, dictionary add, link attach and remove, note detach and create go
+  through `offerUndo`/`pushUndo` with the server's own inverse (unarchive,
+  re-attach, the old title, a bin and restore of the same id); a writing fix
+  is its own step in the editor's history (`docUndoBreak`). On an open
+  document Ctrl+Z walks whichever history holds the newer step
+  (`appStackIsNewer`, status.js, from `docHistoryStamp`'s per-depth times):
+  before, the document's history took every press and a stack act was
+  reachable only from its toast. `docacts76.js`: undo 10/10, redo 10/10
+  (2 of 11 before, the AI edit already on the stack).
+- **24 row 2 and 25 row 1, the closed phone menu.** `.doc-dock-menu:not([open])
+  > .doc-dock-menu-list { display: none }` (library-lazy.css, for the boot
+  CSS budget). `deepen72a.js` at 390: overlaps 20 to 0, a code document 9 to
+  0, controls past the edge 12 to 0; opened, the list sits in the window at
+  320 and 390.
+- **24 row 3, no-model controls answer.** `data-model-offer` controls are
+  `aria-disabled` with no model and a press opens a help-popover-shell panel
+  (`openModelOffer`): why, what still works, Set up a model. AI edit and
+  Extract notes: 2 dead to 0.
+- **24 row 4, version history.** `document_revisions.name` (migration
+  d9b4e1a7c3f2), `POST /documents/{id}/revisions` names the current text,
+  `PUT .../revisions/{rid}` renames; a named row is never coalesced into.
+  Name this version, a Named filter, a row ⋯ (rename, remove the name,
+  Compare in the editor on code), Changes side by side from a 560px row
+  (`docDiffSplitLayout` places `docRenderDiff`'s rows), restore without a
+  confirm. The name prompt is moved into the open modal (it opened beneath
+  it). `dochistory76.js`: restore then Ctrl+Z byte-equal at 1440 and 390.
+- **24 row 9, replace in every document.** `POST /documents/contents` (one
+  transaction, every id checked first) and the Replace in every document
+  dialog (palette; plain or regex, case). `docreplace76.js`: 50 documents,
+  1 undo step, one Ctrl+Z restores 50 of 50, redo 50 of 50.
+- **25 row 3** was already built (Brief 42): measured `font-weight` 700 on
+  `.cm-activeLineGutter`, the focused line bordered, indent markers 0, 1, 2,
+  3 on a three-deep Python file.
+- **25 row 7, the code open.** `docCodeScan` costs 1 to 4 ms; the cost was
+  two reconfigures that changed nothing (skipped by `docCmPartIs`) and the
+  outline, prose check and side panels laying the editor out again (now a
+  frame after the text, `docAfterFirstPaint`), and the findings painted three
+  times (`docResetDocument` and `syncDocFileType` now leave it to the deferred
+  check). Profile at 1440 500 to 268 ms a run; at 390 from the 3,724-word
+  document 1,057 to 541. `deepen72a.js` code open: 1440 538 to 240 ms, 390
+  963 to 649 ms (prose 803 to 545).
 
 ## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 71, I3)
 

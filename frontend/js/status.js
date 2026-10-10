@@ -1517,6 +1517,7 @@ function offerUndo(label, message, undo, redo, opts = {}) {
 function settleUndoFromToast(action) {
   const idx = undoStack.indexOf(action);
   if (idx !== -1) undoStack.splice(idx, 1);
+  action.undoneAt = Date.now();
   redoStack.push(action);
   renderUndoBar();
 }
@@ -1562,15 +1563,32 @@ function boardHistoryActive() {
 //: editor history (kept per document for the session, `docResetDocument`).
 //: Anywhere else: the app's stack below, for notes, tags, categories, links,
 //: reminders and the rest. Inside a text field Ctrl+Z is always the field's.
-function surfaceHistory() {
+//: `dir` is "redo" for the redo door: on a document the two can differ.
+function surfaceHistory(dir = "undo") {
   if (boardHistoryActive()) {
     return { where: "board", undo: () => window.wbUndo(), redo: () => window.wbRedo?.(), canUndo: window.wbCanUndo, canRedo: window.wbCanRedo };
   }
   const docs = document.getElementById("tab-documents");
-  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo) {
+  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo && !appStackIsNewer(dir)) {
     return { where: "document", undo: () => window.docUndo(), redo: () => window.docRedo(), canUndo: window.docCanUndo, canRedo: window.docCanRedo };
   }
   return null;
+}
+
+//: **One timeline on an open document** (DOCUMENTS 24 row 1). A document's
+//: own acts (rename, archive, a version restored, a note unlinked) reach the
+//: server and sit on the app's stack; its typing sits in the editor's history.
+//: Ctrl+Z walks whichever of the two holds the newer step, so a rename after a
+//: paragraph undoes first and the paragraph next, the order they were made.
+//: Before this the document's history took every press while one was open,
+//: and an act on the stack could only be undone from its toast.
+function appStackIsNewer(dir) {
+  if (dir === "redo") {
+    const top = redoStack[redoStack.length - 1];
+    return Boolean(top) && (top.undoneAt || 0) >= (window.docRedoAt?.() || 0);
+  }
+  const top = undoStack[undoStack.length - 1];
+  return Boolean(top) && top.at >= (window.docUndoAt?.() || 0);
 }
 
 async function performUndo() {
@@ -1584,6 +1602,7 @@ async function performUndo() {
   if (!action) return;
   try {
     await action.undo();
+    action.undoneAt = Date.now();
     redoStack.push(action);
     toast(`Undone: ${action.label}`);
   } catch (error) {
@@ -1596,7 +1615,7 @@ async function performUndo() {
 }
 
 async function performRedo() {
-  const surface = surfaceHistory();
+  const surface = surfaceHistory("redo");
   if (surface) {
     await surface.redo();
     renderUndoBar();
@@ -1634,40 +1653,37 @@ function renderUndoBar() {
   //: are "move this shape back", not a sentence), so the pair falls back to
   //: the plain verbs while one is open, and takes its enabled state from the
   //: board's counts: a button that is lit when there is nothing behind it is
-  //: the thing that makes people stop trusting it.
+  //: the thing that makes people stop trusting it. Each button asks for its
+  //: own history, since on a document the newer step decides (`appStackIsNewer`).
   const surface = surfaceHistory();
-  const last = surface ? null : undoStack[undoStack.length - 1];
-  const next = surface ? null : redoStack[redoStack.length - 1];
-  undoBtn.disabled = surface ? !surface.canUndo?.() : !last;
-  redoBtn.disabled = surface ? !surface.canRedo?.() : !next;
+  paintUndoDoor(undoBtn, "undo", surface, undoStack);
+  paintUndoDoor(redoBtn, "redo", surfaceHistory("redo"), redoStack);
+}
+
+function paintUndoDoor(button, verb, surface, stack) {
+  const redo = verb === "redo";
+  const Verb = redo ? "Redo" : "Undo";
+  const icon = redo ? "ph:arrow-u-up-right" : "ph:arrow-u-up-left";
   if (surface) {
+    const can = redo ? surface.canRedo?.() : surface.canUndo?.();
     const where = surface.where === "board" ? "on this board" : "in this document";
-    paintStatusItem("status-undo", {
-      icon: "ph:arrow-u-up-left",
-      title: surface.canUndo?.() ? `Undo the last change ${where}` : `Nothing to undo ${where}`,
-      shortcut: surface.canUndo?.() ? "undo" : "",
-    });
-    paintStatusItem("status-redo", {
-      icon: "ph:arrow-u-up-right",
-      title: surface.canRedo?.() ? `Redo the last change ${where}` : `Nothing to redo ${where}`,
-      shortcut: surface.canRedo?.() ? "redo" : "",
+    button.disabled = !can;
+    paintStatusItem(button.id, {
+      icon,
+      title: can ? `${Verb} the last change ${where}` : `Nothing to ${verb} ${where}`,
+      shortcut: can ? verb : "",
     });
     return;
   }
-  paintStatusItem("status-undo", {
-    icon: "ph:arrow-u-up-left",
+  const top = stack[stack.length - 1];
+  button.disabled = !top;
+  paintStatusItem(button.id, {
+    icon,
+    title: top ? `${Verb}: ${top.label}` : `Nothing to ${verb}`,
+    shortcut: top ? verb : "",
     //: The right-click gesture is named here because a hidden gesture is not a
     //: feature: the same reason the nav pair's tooltips name theirs.
-    title: last
-      ? `Undo: ${last.label}`
-      : "Nothing to undo",
-    shortcut: last ? "undo" : "",
-    rest: last ? `right-click for the last ${undoStack.length}` : "",
-  });
-  paintStatusItem("status-redo", {
-    icon: "ph:arrow-u-up-right",
-    title: next ? `Redo: ${next.label}` : "Nothing to redo",
-    shortcut: next ? "redo" : "",
+    rest: top && !redo ? `right-click for the last ${stack.length}` : "",
   });
 }
 
@@ -2003,15 +2019,82 @@ function aiIsOff() {
 //: of a question. A plain `disabled = off` would hand all of those back mid-run
 //: on the next tick. So the gate records that it was the one that closed a
 //: control and reopens only what it closed.
+//: **A gated control that answers when pressed** (DOCUMENTS 24 row 3, the
+//: CHAT_PLAN gating pattern). One marked `data-model-offer` is not disabled
+//: with no model: it is `aria-disabled`, still a Tab stop, and a press opens a
+//: popover saying why, what still works here (the attribute's own line) and
+//: one way on, Set up a model. A disabled button explains nothing to someone
+//: who presses it: the no-model sweep counted the documents' two as dead.
+function closeModelGate(control) {
+  if (control.dataset.modelOffer !== undefined) {
+    control.setAttribute("aria-disabled", "true");
+    return;
+  }
+  if (control.disabled) return;
+  control.dataset.modelGated = "1";
+  control.disabled = true;
+}
+
+function openModelGate(control) {
+  if (control.dataset.modelOffer !== undefined) control.removeAttribute("aria-disabled");
+  if (!control.dataset.modelGated) return;
+  control.disabled = false;
+  delete control.dataset.modelGated;
+}
+
+function openModelOffer(control) {
+  closeHelpPopovers();
+  const panel = document.createElement("div");
+  panel.className = "help-body model-offer";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Needs a model");
+  const why = document.createElement("p");
+  why.textContent = `${control.dataset.needsModel}, and no model is connected. ${control.dataset.modelOffer}`.trim();
+  const setUp = smallButton("ph:plugs Set up a model", "Open Settings at Models, where a local or remote model is connected", () => {
+    entry.close();
+    openSettingsModal("models");
+  });
+  setUp.classList.add("primary");
+  panel.append(why, setUp);
+  const entry = {
+    panel,
+    trigger: control,
+    close() {
+      openHelpPopovers.delete(entry);
+      panel.remove();
+      control.setAttribute("aria-expanded", "false");
+    },
+  };
+  panel.style.visibility = "hidden";
+  panel.classList.add("help-popover");
+  (control.closest("dialog[open]") || document.body).appendChild(panel);
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  openHelpPopovers.add(entry);
+  control.setAttribute("aria-expanded", "true");
+  placeHelpPopover(panel, control);
+  setUp.focus();
+}
+
+//: Capture, so the control's own handler (which would start the AI act)
+//: never sees a press made while the gate is shut.
+document.addEventListener(
+  "click",
+  (event) => {
+    const control = event.target.closest?.('[data-model-offer][aria-disabled="true"]');
+    if (!control) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openModelOffer(control);
+  },
+  true
+);
+
 function syncModelGatedControls(status = modelStatus) {
   const off = status ? status.ollama_running === false : false;
   for (const control of document.querySelectorAll("[data-needs-model]")) {
     const reason = control.dataset.needsModel;
     if (off) {
-      if (!control.disabled) {
-        control.dataset.modelGated = "1";
-        control.disabled = true;
-      }
+      closeModelGate(control);
       //: `=== undefined`, not a truthiness test, and the saved copy is dropped
       //: once it has been put back. A control whose own title is empty saves
       //: "" here, and `!""` is true, so on the next tick of the poll (one
@@ -2024,10 +2107,7 @@ function syncModelGatedControls(status = modelStatus) {
       }
       control.title = `${reason}. ${AI_OFFLINE_HINT}.`;
     } else {
-      if (control.dataset.modelGated) {
-        control.disabled = false;
-        delete control.dataset.modelGated;
-      }
+      openModelGate(control);
       if (control.dataset.enabledTitle !== undefined) {
         control.title = control.dataset.enabledTitle;
         delete control.dataset.enabledTitle;

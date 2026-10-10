@@ -721,15 +721,21 @@ HELP_TOPICS: list[dict] = [
         "keywords": (
             "history", "version", "revision", "restore", "undo edit", "previous version",
             "git log", "rollback", "ai edit log", "old version", "earlier version",
-            "what it used to say", "roll back",
+            "what it used to say", "roll back", "named version", "name this version",
+            "compare versions", "side by side",
         ),
         "body": (
             "Documents keep a history. The ... menu -> History lists every "
             "version the document has had, newest first, with who changed it "
             "(you, an AI edit, or a restore), how many words it gained or lost, "
-            "and the opening of that version. \"View\" reads an old version "
-            "without changing anything; \"Restore\" puts it back and keeps the "
-            "version it replaced, so a restore is itself undoable. A stretch of "
+            "and the opening of that version. Name this version keeps the text as "
+            "it stands under a name (Named shows only those; a row's ... menu "
+            "renames one). \"Changes\" shows a version side by side with the one "
+            "after it on a wide window. \"View\" reads an old version "
+            "without changing anything; \"Restore\" puts it back at once and keeps "
+            "the version it replaced: Ctrl+Z or the toast's Undo returns the text "
+            "you had. Rename, archive, a detached note or link and a dictionary "
+            "word undo the same way. A stretch of "
             "editing counts as one entry rather than one per autosave. The AI "
             "panel has a separate \"AI edits\" log for reverting one specific "
             "suggestion the model made."
@@ -1453,6 +1459,7 @@ HELP_TOPICS.extend(
                 "read aloud", "accessibility check", "grammar", "word goal",
                 "typewriter", "focus mode", "find and replace", "replace all",
                 "docx", "word document", "microsoft word", "find in every document",
+                "replace in every document", "replace across documents",
             ),
             "body": (
                 "Document editor keys (Library, Documents; Ctrl+Shift+D starts "
@@ -1466,7 +1473,8 @@ HELP_TOPICS.extend(
                 "Alt+Down moves a section from the outline, and typing / opens "
                 "the blocks menu. Ctrl+F finds and replaces (Enter next, "
                 "Shift+Enter previous, Esc closes), Ctrl+Shift+F finds in every "
-                "document. Views: Edit, where Live renders as you write, Source "
+                "document, and Replace in every document (Ctrl+K) replaces across "
+                "them all, plain or a regular expression, as one undo step. Views: Edit, where Live renders as you write, Source "
                 "is the markdown and Split puts a preview beside it, or Read. The "
                 "sidebar's Outline lists the headings (with a filter when there "
                 "are many), and headings fold. Focus mode (the corners button on "
@@ -1497,7 +1505,9 @@ HELP_TOPICS.extend(
                 "Document editor features. The document's menus hold History "
                 "(every version, and a way back to any), Connections, Extract "
                 "notes, AI edit, a word goal, typewriter scrolling, dim all but "
-                "this paragraph, serif for reading and full width. Footnotes show "
+                "this paragraph, serif for reading and full width. With no model "
+                "connected, AI edit and Extract notes say why when pressed and "
+                "offer Set up a model. Footnotes show "
                 "as numbered notes at the foot in Read view, in print and in the "
                 "HTML download. A page break (the / menu's Page break, written "
                 "\\newpage on its own line) starts what follows on a new page when "

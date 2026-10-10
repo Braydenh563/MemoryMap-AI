@@ -105,7 +105,9 @@ function docFileType() {
 
 // Everything about the editor that depends on the type, applied in one place
 // so a type change and opening a document of that type cannot diverge.
-function syncDocFileType() {
+//: `prose: false` from `openDocument`, whose deferred `renderDocTools` runs
+//: the same check a frame later (DOCUMENTS 25 row 7).
+function syncDocFileType({ prose = true } = {}) {
   const type = docFileType();
   const picker = $("doc-file-type");
   if (picker) picker.value = type.ext;
@@ -169,7 +171,7 @@ function syncDocFileType() {
   //: drawn *on the document* now, so switching a markdown file to `.py` left
   //: squiggles under words in code until this ran: `renderDocProse` empties
   //: the findings for a code file, and the decorations go with them.
-  renderDocProse();
+  if (prose) renderDocProse();
 }
 
 // The dock's kebab closes when you pick something from it, and when you click
@@ -832,12 +834,8 @@ function renderDocList() {
       [
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
-          if (!next) return;
-          await apiJson(`/documents/${doc.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ title: next }),
-          }).catch((e) => toast(e.message, true));
-          loadDocuments(currentDoc?.id);
+          if (!next || next === doc.title) return;
+          await renameDocumentWithUndo(doc, next).catch((e) => toast(e.message, true));
         }),
         appLinkMenuItem("document", doc.id),
         // Not destructive, so not grouped with Delete below, same
@@ -845,12 +843,7 @@ function renderDocList() {
         // for entries (BACKLOG §30b's named remaining scope: chats and
         // documents). Reachable again from the Library's Shelved filter.
         makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-          await apiJson(`/documents/${doc.id}/archive`, { method: "PUT" }).catch((e) =>
-            toast(e.message, true)
-          );
-          if (currentDoc && currentDoc.id === doc.id) currentDoc = null;
-          toast("Archived.");
-          loadDocuments(currentDoc?.id);
+          await archiveDocumentWithUndo(doc).catch((e) => toast(e.message, true));
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
           if (
@@ -902,6 +895,16 @@ function showNoDocument() {
   renderDocComments();
 }
 
+//: Runs `paint` once the frame with the new text has been drawn, if no later
+//: open has started since (`docOpenSeq`).
+function docAfterFirstPaint(seq, paint) {
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      if (seq === docOpenSeq) paint();
+    }, 0)
+  );
+}
+
 async function openDocument(id) {
   //: **Only the newest call opens** (tests/test_new_document_opens_new.py):
   //: the tab's loader opening the last document and New document opening
@@ -935,25 +938,30 @@ async function openDocument(id) {
   $("doc-title").disabled = false;
   docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
-  docResetDocument(doc.content, doc.id);
+  docResetDocument(doc.content, doc.id, { repaint: false });
   scheduleUndoBar();
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
   // (a code document has no Live or Split) and puts the editor into the
   // right mode first, so nothing paints twice.
-  syncDocFileType();
+  syncDocFileType({ prose: false });
   renderDocPreview();
   renderDocStats();
-  //: The status bar and the prose check belong to the document, so they are
-  //: repainted with it rather than waiting for the first keystroke.
-  renderDocTools();
-  renderDocOutline();
   renderDocProperties();
-  renderDocNotes();
-  renderDocBacklinks();
-  renderDocBookmarks();
-  renderDocComments();
+  //: **The first screen first** (DOCUMENTS 25 row 7). The prose check, the
+  //: outline and the side panels belong to the document and are repainted
+  //: with it, a frame after the text is painted rather than before: each
+  //: lays the editor out again (the outline asks which line the caret shows),
+  //: measured at 390 as 607ms of a 1,286ms open for the outline alone.
+  docAfterFirstPaint(seq, () => {
+    renderDocTools();
+    renderDocOutline();
+    renderDocNotes();
+    renderDocBacklinks();
+    renderDocBookmarks();
+    renderDocComments();
+  });
   renderDocList();
   //: Before the place is restored, which stays last (tests/test_doc_long.py).
   offerKeptDocEdit(doc);
@@ -1363,19 +1371,9 @@ function renderDocNotes() {
       showNotesSection("browse"); // focusing inside a hidden section does nothing
       flashEntry(note.id);
     });
-    const remove = smallButton("ph:x", "Detach this note from the document", async () => {
-      currentDoc = await apiJson(
-        `/documents/${currentDoc.id}/notes/${note.id}`,
-        { method: "DELETE" }
-      );
-      renderDocNotes();
-      // Detaching can move a note *into* the backlinks list: it may still
-      // mention this document by [[title]], and that connection only becomes
-      // visible once it is no longer filed under it.
-      renderDocBacklinks();
-      // The note keeps existing, only the connection went.
-      loadEntries();
-    });
+    const remove = smallButton("ph:x", "Detach this note from the document", () =>
+      unlinkDocNoteWithUndo(note).catch((e) => toast(e.message, true))
+    );
     item.append(open, remove);
     list.appendChild(item);
   }
@@ -1412,10 +1410,9 @@ async function renderDocBookmarks() {
     // use, so a bookmark saved before INBOX 310's write-time check existed
     // can't reach window.open() with an unlisted scheme from here either.
     open.addEventListener("click", () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"));
-    const remove = smallButton("ph:x", "Remove this reference", async () => {
-      await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
-      renderDocBookmarks();
-    });
+    const remove = smallButton("ph:x", "Remove this reference", () =>
+      docBookmarkWithUndo(bookmark.id, false).catch((e) => toast(e.message, true))
+    );
     remove.classList.add("doc-outline-row-action");
     //: **Into the text, not only beside it** (owner, 0.3.31: "how do I
     //: hyperlink or attach bookmark references in a document??"). Writes
@@ -1499,12 +1496,8 @@ async function attachBookmarkToDocument() {
   document.addEventListener("keydown", onEscape, true);
   select.addEventListener("change", async () => {
     if (!select.value || !currentDoc) return;
-    await apiJson(`/documents/${currentDoc.id}/bookmarks`, {
-      method: "POST",
-      body: JSON.stringify({ bookmark_id: Number(select.value) }),
-    });
+    await docBookmarkWithUndo(Number(select.value), true).catch((e) => toast(e.message, true));
     close();
-    renderDocBookmarks();
   });
   const cancel = smallButton("ph:x", "Don't attach a link", close);
   cancel.classList.add("doc-outline-row-action");
@@ -1625,6 +1618,7 @@ async function createDocument(template = null) {
   });
   loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
+  offerCreateUndo(doc);
   $("doc-title").focus();
   $("doc-title").select();
 }
@@ -2543,6 +2537,8 @@ const DOC_COMMANDS = [
     code: true, run: () => docShowReferences() },
   { id: "find-documents", icon: "ph:magnifying-glass", label: "Find in every document", keys: "Ctrl+Shift+F",
     run: () => docFindInDocuments() },
+  { id: "replace-documents", icon: "ph:swap", label: "Replace in every document", keys: "none",
+    run: () => openDocReplace() },
   { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
     code: true, run: () => docRunCode() },
   { id: "run-tests", icon: "ph:flask", label: "Run the tests in this file", keys: "none",
@@ -7019,9 +7015,22 @@ function docMathRender(tex, display = false) {
 //: The compartment decision 3 names: Live is this editor with the markdown
 //: decorations on, Source is the same editor with them off. Nothing else
 //: differs between the two views, which is the whole point.
+//: **A reconfigure that changes nothing is skipped** (DOCUMENTS 25 row 7).
+//: Each one is a view update that reads the DOM selection and lays the page
+//: out: measured on a 241-line file, the open spent 103ms here and 75ms in the
+//: gutter's twin below re-saying what `docCmExtensions` had just built. The
+//: live set is cached instances (`docLivePlugin`, the two fields), so on or
+//: off is the whole of its state, as the line numbers' preference is the
+//: gutter's.
+function docCmPartIs(part, on) {
+  const current = part.get(docCmView.state);
+  return Boolean(current && current.length) === Boolean(on);
+}
+
 function docSetLiveDecorations(on) {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.live) return;
+  if (docCmPartIs(docCmParts.live, on)) return;
   docCmView.dispatch({
     effects: docCmParts.live.reconfigure(on ? docLiveExtensions(CM) : []),
   });
@@ -10856,6 +10865,151 @@ async function deleteDocumentWithUndo(doc) {
   });
 }
 
+//: **Every act on a document is one undo step** (DOCUMENTS 24 row 1, rule
+//: 1.8). Each goes through `offerUndo`: the step on the app's stack (Ctrl+Z,
+//: the status bar, its history menu) and the toast's Undo are one entry, and
+//: each undo is the server's own inverse (unarchive, re-attach, the old title
+//: put back), so nothing is re-created under a new id. Measured with
+//: `undo.js` and `docacts76.js`: 2 of 11 acts undid before this, 11 of 11 after.
+function docPutFields(id, fields) {
+  return apiJson(`/documents/${id}`, { method: "PUT", body: JSON.stringify(fields) });
+}
+
+async function renameDocumentWithUndo(doc, next) {
+  const before = doc.title || "Untitled";
+  const put = async (title) => {
+    await docPutFields(doc.id, { title });
+    if (currentDoc?.id === doc.id) $("doc-title").value = title;
+    await loadDocuments(currentDoc?.id);
+  };
+  await docPutFields(doc.id, { title: next });
+  offerUndo(`Renamed “${clipText(before, 40)}”`, `Renamed to “${clipText(next, 40)}”.`, () => put(before), () => put(next));
+  await loadDocuments(currentDoc?.id);
+}
+
+async function archiveDocumentWithUndo(doc) {
+  const archive = async () => {
+    await apiJson(`/documents/${doc.id}/archive`, { method: "PUT" });
+    if (currentDoc?.id === doc.id) currentDoc = null;
+    await loadDocuments(currentDoc?.id);
+  };
+  await archive();
+  offerUndo(
+    `Archived “${clipText(doc.title || "Untitled", 40)}”`,
+    "Archived. It is in the Library's Shelved filter.",
+    async () => {
+      await apiJson(`/documents/${doc.id}/unarchive`, { method: "PUT" });
+      await loadDocuments(doc.id);
+    },
+    archive
+  );
+}
+
+//: Creating is an act too: its undo bins the new document (the recycle bin
+//: keeps its id), its redo brings the same one back. On the stack with no
+//: toast: the new page opening is the answer, and a toast on every page made
+//: would be noise.
+function offerCreateUndo(doc) {
+  pushUndo(
+    `Created “${clipText(doc.title || "Untitled", 40)}”`,
+    async () => {
+      await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+      if (currentDoc?.id === doc.id) currentDoc = null;
+      await loadDocuments(currentDoc?.id);
+    },
+    async () => {
+      await apiJson(`/documents/${doc.id}/restore`, { method: "POST" });
+      await loadDocuments(doc.id);
+    }
+  );
+}
+
+//: A note's link to this document, either way round. The server answers with
+//: the whole document, which is what the panel draws from.
+async function docSetNoteLink(docId, noteId, linked) {
+  const full = linked
+    ? await apiJson(`/documents/${docId}/notes`, { method: "POST", body: JSON.stringify({ entry_id: noteId }) })
+    : await apiJson(`/documents/${docId}/notes/${noteId}`, { method: "DELETE" });
+  if (currentDoc?.id === docId) currentDoc = full;
+  renderDocNotes();
+  //: Detaching can move a note *into* the backlinks list: it may still
+  //: mention this document by [[title]], and that connection only becomes
+  //: visible once it is no longer filed under it.
+  renderDocBacklinks();
+  loadEntries();
+}
+
+async function unlinkDocNoteWithUndo(note) {
+  const docId = currentDoc.id;
+  await docSetNoteLink(docId, note.id, false);
+  offerUndo("Detached a note", "Note detached. The note itself is kept.", () => docSetNoteLink(docId, note.id, true), () => docSetNoteLink(docId, note.id, false));
+}
+
+async function docSetBookmark(docId, bookmarkId, attached) {
+  await (attached
+    ? apiJson(`/documents/${docId}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmark_id: bookmarkId }) })
+    : apiJson(`/documents/${docId}/bookmarks/${bookmarkId}`, { method: "DELETE" }));
+  if (currentDoc?.id === docId) renderDocBookmarks();
+}
+
+async function docBookmarkWithUndo(bookmarkId, attached) {
+  const docId = currentDoc.id;
+  await docSetBookmark(docId, bookmarkId, attached);
+  offerUndo(
+    attached ? "Attached a link" : "Removed a link",
+    attached ? "Link attached." : "Link removed.",
+    () => docSetBookmark(docId, bookmarkId, !attached),
+    () => docSetBookmark(docId, bookmarkId, attached)
+  );
+}
+
+//: The restored text goes in outside the editor's own history: the restore is
+//: one step on the app's stack, and the same change in both would have Ctrl+Z
+//: undo it twice.
+function docWriteOutsideHistory(text) {
+  const CM = window.CM6;
+  if (!docCmView || !CM) {
+    docSurface().text = text;
+    return;
+  }
+  const current = docCmView.state.doc.toString();
+  if (current === text) return;
+  const [from, to, insert] = docUndoDiffRange(current, text);
+  docCmView.dispatch({ changes: { from, to, insert }, annotations: CM.state.Transaction.addToHistory.of(false) });
+}
+
+function docShowSaved(saved) {
+  docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+  if (currentDoc?.id !== saved.id) {
+    renderDocList();
+    return;
+  }
+  currentDoc = saved;
+  docWriteOutsideHistory(saved.content || "");
+  $("doc-title").value = saved.title || "";
+  renderDocPreview();
+  docDirty = false;
+  $("doc-saved").textContent = "Saved";
+  renderDocList();
+}
+
+//: **A restore is one step, not a confirm** (DOCUMENTS 24 row 4, the rule
+//: note-history.js's `restoreTo` already follows): it happens at once and
+//: Ctrl+Z puts back, byte for byte, the text and title that were on screen.
+async function restoreDocVersionWithUndo(entry) {
+  const docId = currentDoc.id;
+  const before = { content: docText(), title: $("doc-title").value.trim() || undefined, revision_source: "restore" };
+  const restore = async () =>
+    docShowSaved(await apiJson(`/documents/${docId}/revisions/${entry.id}/restore`, { method: "POST" }));
+  await restore();
+  offerUndo(
+    `Restored the version from ${new Date(entry.created_at).toLocaleString()}`,
+    "Restored. Undo puts back the version you had.",
+    async () => docShowSaved(await docPutFields(docId, before)),
+    restore
+  );
+}
+
 async function deleteCurrentDocument() {
   if (!currentDoc) return;
   if (!(await confirmDialog(`Delete "${currentDoc.title}"? You can undo this straight after.`))) return;
@@ -11589,7 +11743,65 @@ function docRenderDiff(host, ops, options) {
     line.append(mark, text);
     host.appendChild(line);
   }
+  if (opts.split) docDiffSplitLayout(host, opts.split);
   return host;
+}
+
+//: **Side by side** (DOCUMENTS 24 row 4, Google Docs and every code review
+//: tool): the same rows `docRenderDiff` drew, placed on a two-column grid
+//: rather than drawn a second way. A removed run sits on the left against the
+//: added run that replaced it on the right, line for line; an unchanged line
+//: shows on both sides; a gap or a hunk head spans the two. `labels` names
+//: the columns.
+function docDiffSplitLayout(host, labels) {
+  host.classList.add("doc-diff-split");
+  const heads = labels.map((words) => {
+    const head = document.createElement("div");
+    head.className = "doc-diff-gap doc-diff-split-head";
+    head.textContent = words;
+    return head;
+  });
+  const items = [...host.children];
+  host.prepend(...heads);
+  heads.forEach((head, i) => {
+    head.style.gridRow = "1";
+    head.style.gridColumn = String(i + 1);
+  });
+  let row = 2;
+  let run = { left: 0, right: 0 };
+  const place = (el, col, at) => {
+    el.style.gridRow = String(at);
+    el.style.gridColumn = col;
+  };
+  const flush = () => {
+    row += Math.max(run.left, run.right);
+    run = { left: 0, right: 0 };
+  };
+  for (const el of items) {
+    const removed = el.classList.contains("diff-removed");
+    const added = el.classList.contains("diff-added");
+    if (removed && !run.right) {
+      place(el, "1", row + run.left++);
+      continue;
+    }
+    if (added) {
+      place(el, "2", row + run.right++);
+      continue;
+    }
+    flush();
+    if (removed) {
+      place(el, "1", row + run.left++);
+      continue;
+    }
+    if (!el.classList.contains("doc-diff-line")) {
+      place(el, "1 / -1", row++);
+      continue;
+    }
+    const twin = el.cloneNode(true);
+    place(el, "1", row);
+    place(twin, "2", row++);
+    el.after(twin);
+  }
 }
 
 function docDiffHunkHead(hunk, index, total, skipped, onToggle) {
@@ -11690,19 +11902,20 @@ function renderDocHistoryList() {
   const empty = $("doc-history-empty");
   if (!list || !empty) return;
   docHistoryOpenDiff = null;
-  const shown = docHistoryEntries.filter(
-    (entry) => docHistoryFilter === "all" || (entry.source || "edit") === "ai"
-  );
+  const shown = docHistoryEntries.filter((entry) => {
+    if (docHistoryFilter === "named") return Boolean(entry.name);
+    return docHistoryFilter === "all" || (entry.source || "edit") === "ai";
+  });
   list.replaceChildren();
   empty.classList.toggle("hidden", shown.length > 0);
   if (!shown.length) {
     //: The filter's empty state says which filter is on. "Nothing yet" under an
     //: AI filter on a document with forty hand edits is a lie about the
     //: document rather than a fact about the filter.
-    empty.textContent =
-      docHistoryFilter === "ai"
-        ? "No AI edits in this document's history."
-        : "Nothing yet: this document has not been changed since it was made.";
+    empty.textContent = {
+      ai: "No AI edits in this document's history.",
+      named: "No named versions yet. Name this version keeps the text as it stands now.",
+    }[docHistoryFilter] || "Nothing yet: this document has not been changed since it was made.";
     return;
   }
   for (const entry of shown) list.appendChild(docHistoryRow(entry));
@@ -11730,6 +11943,13 @@ function docHistoryRow(entry) {
   text.className = "doc-ai-history-text";
   const line = document.createElement("p");
   line.textContent = `${shape.label} · ${docHistoryDelta(entry.word_delta)}`;
+  //: A named version leads with its name, the way Google Docs lists them.
+  if (entry.name) {
+    const name = document.createElement("strong");
+    name.className = "doc-history-name";
+    name.textContent = entry.name;
+    line.prepend(name, " · ");
+  }
   const meta = document.createElement("p");
   meta.className = "muted text-sm";
   meta.textContent = `${new Date(entry.created_at).toLocaleString()} · ${entry.words} words`;
@@ -11745,7 +11965,7 @@ function docHistoryRow(entry) {
   //: and nothing drawn over the content it is about.
   const diffBox = document.createElement("div");
   diffBox.className = "doc-history-diff hidden";
-  text.append(line, meta, preview, diffBox);
+  text.append(line, meta, preview);
 
   const changes = document.createElement("button");
   changes.type = "button";
@@ -11788,31 +12008,12 @@ function docHistoryRow(entry) {
   restore.textContent = "Restore";
   restore.title = "Put the document back to this version";
   restore.addEventListener("click", async () => {
-    //: Asked first, because this replaces what is on screen. Cheap to undo
-    //: (the restore keeps the version it replaced) but not obviously so from
-    //: the outside, and a confirm is what says it is a real change.
-    const ok = await confirmDialog(
-      `Put this document back to the version from ${new Date(entry.created_at).toLocaleString()}?\n\n` +
-        "The version you have now is kept in the history, so this is undoable.",
-      { confirmLabel: "Restore it" }
-    );
-    if (!ok) return;
+    //: At once, no confirm: the restore is one step on the undo stack and its
+    //: toast says how to take it back (DOCUMENTS 24 row 4).
     restore.disabled = true;
     try {
-      const saved = await apiJson(
-        `/documents/${currentDoc.id}/revisions/${entry.id}/restore`,
-        { method: "POST" }
-      );
-      currentDoc = saved;
-      docSurface().text = saved.content || "";
-      $("doc-title").value = saved.title || "";
-      renderDocPreview();
-      docDirty = false;
-      $("doc-saved").textContent = "Saved";
-      docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
-      renderDocList();
+      await restoreDocVersionWithUndo(entry);
       $("doc-history-dialog").close();
-      toast("Restored. The version you had is in the history.");
     } catch (error) {
       toast(error.message || "Couldn't restore that version.", true);
     } finally {
@@ -11822,9 +12023,95 @@ function docHistoryRow(entry) {
 
   const actions = document.createElement("span");
   actions.className = "row doc-history-actions";
-  actions.append(changes, view, restore);
-  row.append(icon, text, actions);
+  actions.append(changes, view, restore, docHistoryRowMenu(entry));
+  //: The diff takes the row's whole width, under all three columns, so a
+  //: side-by-side pair has room for two readable columns.
+  row.append(icon, text, actions, diffBox);
   return row;
+}
+
+//: The row's less-used acts behind its ⋯ (`kebabMenu`): name or rename the
+//: version, take the name off, and on a code document compare it in the
+//: editor (the merge view, `docIdeCompareWith`).
+function docHistoryRowMenu(entry) {
+  const items = [
+    makeMenuItem(
+      `ph:bookmark-simple ${entry.name ? "Rename this version" : "Name this version"}`,
+      "A name keeps this version easy to find, and the edits after it never fold into it",
+      () => docNameVersion(entry)
+    ),
+  ];
+  if (entry.name) {
+    items.push(makeMenuItem("ph:bookmark-simple Remove the name", "Keep the version, without its name", () => docSetVersionName(entry, "")));
+  }
+  if (typeof docIdeCodeView === "function" && docIdeCodeView()) {
+    items.push(
+      makeMenuItem("ph:git-diff Compare in the editor", "Show this version against the editor's text, change by change", () => {
+        $("doc-history-dialog").close();
+        docIdeCompareWith(entry.id, new Date(entry.created_at).toLocaleString());
+      })
+    );
+  }
+  return kebabMenu(items, "More for this version", { vertical: true });
+}
+
+//: **A prompt asked from inside the history dialog.** `promptDialog` mounts
+//: its overlay on `<body>`, and a `showModal()` dialog makes everything
+//: outside it inert, so the prompt opened beneath the history unreachable
+//: (measured: the click at its centre landed on the history). Moved into the
+//: open modal as soon as it is made (the executor runs synchronously), the
+//: same escape `wireHelpPopover` makes for a "?". Done here rather than in
+//: app.js, whose gzipped size is held by `test_static_compression.py`.
+function docPromptInModal(message, initial) {
+  const asked = promptDialog(message, initial);
+  const overlay = document.body.lastElementChild;
+  const modal = document.querySelector("dialog:modal");
+  if (modal && overlay?.classList.contains("confirm-overlay")) {
+    modal.appendChild(overlay);
+    overlay.querySelector("input")?.select();
+  }
+  return asked;
+}
+
+async function docNameVersion(entry) {
+  const next = await docPromptInModal(entry.name ? "Rename this version:" : "Name this version:", entry.name || "");
+  if (next === null || next === undefined) return;
+  await docSetVersionName(entry, next);
+}
+
+//: Naming is an act like any other: one undo step that puts the old name back.
+async function docSetVersionName(entry, name) {
+  const docId = currentDoc.id;
+  const before = entry.name || "";
+  const put = async (value) => {
+    await apiJson(`/documents/${docId}/revisions/${entry.id}`, { method: "PUT", body: JSON.stringify({ name: value }) });
+    if (currentDoc?.id === docId && $("doc-history-dialog")?.open) await openDocHistory();
+  };
+  try {
+    await put(name);
+  } catch (error) {
+    return toast(error.message || "Couldn't name that version.", true);
+  }
+  offerUndo(name.trim() ? `Named a version “${clipText(name.trim(), 40)}”` : "Removed a version's name", name.trim() ? "Version named." : "Name removed.", () => put(before), () => put(name));
+}
+
+//: Google Docs's "Name current version": the text as it stands, saved first so
+//: the name holds what is on screen.
+async function docNameCurrentVersion() {
+  if (!currentDoc) return;
+  const name = await docPromptInModal("Name this version:", "");
+  if (!name || !name.trim()) return;
+  if (docDirty) await saveDocument({ silent: true });
+  const docId = currentDoc.id;
+  let made;
+  try {
+    made = await apiJson(`/documents/${docId}/revisions`, { method: "POST", body: JSON.stringify({ name }) });
+  } catch (error) {
+    return toast(error.message || "Couldn't name this version.", true);
+  }
+  if ($("doc-history-dialog")?.open) await openDocHistory();
+  const entry = { id: made.id, name: made.name };
+  offerUndo(`Named a version “${clipText(made.name, 40)}”`, "Version named. It is under Named in the history.", () => docSetVersionName(entry, ""), () => docSetVersionName(entry, made.name));
 }
 
 async function toggleDocHistoryDiff(entry, row, button, box) {
@@ -11872,7 +12159,9 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
     head.textContent = `+${stat.added} −${stat.removed} lines, against ${against}.`;
     const view = document.createElement("div");
     box.append(head, view);
-    docRenderDiff(view, ops, { emptyText: "The text is the same; only the title changed." });
+    //: Side by side where the dialog has the room, one column on a phone.
+    const split = box.clientWidth >= 560 ? ["This version", newer ? "The version after it" : "Now"] : null;
+    docRenderDiff(view, ops, { emptyText: "The text is the same; only the title changed.", split });
   } catch (error) {
     box.replaceChildren();
     const failed = document.createElement("p");
@@ -11882,7 +12171,126 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
   }
 }
 
+// --- Replace in every document (DOCUMENTS 24 row 9) ---------------------------
+//
+// VS Code's replace across files: a pattern (plain or a regular expression,
+// matched with or without case), the documents it would change and how many
+// times, then Replace all. The texts are rebuilt here and written in one
+// request (`POST /documents/contents`), and the one undo step writes the
+// originals back the same way, so fifty documents change, or change back,
+// whole. Each changed document keeps the version it replaced in its history.
+const docReplace = { matches: [], timer: 0 };
+
+function docReplacePattern() {
+  const find = $("doc-replace-find").value;
+  if (!find) return null;
+  const flags = $("doc-replace-case").checked ? "g" : "gi";
+  const source = $("doc-replace-regex").checked ? find : find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  try {
+    return new RegExp(source, flags);
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function openDocReplace() {
+  if (docDirty) await saveDocument({ silent: true });
+  const dialog = $("doc-replace-dialog");
+  if (!dialog) return;
+  if (!dialog.open) dialog.showModal();
+  const view = docCmView;
+  const picked = view && !view.state.selection.main.empty ? view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to).split("\n")[0] : "";
+  if (picked) $("doc-replace-find").value = picked;
+  $("doc-replace-find").focus();
+  $("doc-replace-find").select();
+  await renderDocReplace();
+}
+
+//: The documents a replace would change, read fresh: the list's own rows hold
+//: no text, and a count from stale text would promise a change it cannot make.
+async function docReplaceScan(pattern) {
+  const list = await apiJson("/documents");
+  const out = [];
+  for (const doc of list) {
+    const full = await apiJson(`/documents/${doc.id}`);
+    const count = (full.content || "").match(pattern)?.length || 0;
+    if (count) out.push({ id: full.id, title: full.title, content: full.content || "", count });
+  }
+  return out;
+}
+
+async function renderDocReplace() {
+  const summary = $("doc-replace-summary");
+  const list = $("doc-replace-list");
+  const run = $("doc-replace-run");
+  const pattern = docReplacePattern();
+  list.replaceChildren();
+  run.disabled = true;
+  docReplace.matches = [];
+  if (!pattern || pattern.error) {
+    summary.textContent = pattern?.error ? `That pattern does not read: ${pattern.error}` : "Type what to find.";
+    return;
+  }
+  summary.textContent = "Searching…";
+  const matches = await docReplaceScan(pattern);
+  if (String(docReplacePattern()) !== String(pattern)) return;
+  docReplace.matches = matches;
+  const total = matches.reduce((sum, m) => sum + m.count, 0);
+  summary.textContent = matches.length
+    ? `${total} match${total === 1 ? "" : "es"} in ${matches.length} document${matches.length === 1 ? "" : "s"}.`
+    : "No document has it.";
+  for (const match of matches) {
+    const row = document.createElement("li");
+    row.className = "doc-ai-history-entry";
+    row.textContent = `${match.title || "Untitled"} · ${match.count}`;
+    list.appendChild(row);
+  }
+  run.disabled = !matches.length;
+}
+
+async function docWriteContents(items) {
+  await apiJson("/documents/contents", { method: "POST", body: JSON.stringify({ documents: items }) });
+  const open = items.find((item) => item.id === currentDoc?.id);
+  if (open) docShowSaved(await apiJson(`/documents/${open.id}`));
+  loadDocuments(currentDoc?.id);
+}
+
+async function runDocReplace() {
+  const pattern = docReplacePattern();
+  if (!pattern || pattern.error || !docReplace.matches.length) return;
+  //: A plain replace is plain: `$&` and `$1` mean something only to a pattern.
+  const typed = $("doc-replace-with").value;
+  const replacement = $("doc-replace-regex").checked ? typed : typed.replace(/\$/g, "$$$$");
+  const before = docReplace.matches.map((m) => ({ id: m.id, content: m.content }));
+  const after = docReplace.matches.map((m) => ({ id: m.id, content: m.content.replace(pattern, replacement) }));
+  const total = docReplace.matches.reduce((sum, m) => sum + m.count, 0);
+  try {
+    await docWriteContents(after);
+  } catch (error) {
+    return toast(error.message || "Couldn't replace. Nothing was changed.", true);
+  }
+  $("doc-replace-dialog").close();
+  offerUndo(
+    `Replaced ${total} in ${after.length} document${after.length === 1 ? "" : "s"}`,
+    `Replaced ${total} in ${after.length} document${after.length === 1 ? "" : "s"}. Undo takes it all back.`,
+    () => docWriteContents(before),
+    () => docWriteContents(after)
+  );
+}
+
+for (const id of ["doc-replace-find", "doc-replace-regex", "doc-replace-case"]) {
+  $(id)?.addEventListener(id === "doc-replace-find" ? "input" : "change", () => {
+    clearTimeout(docReplace.timer);
+    docReplace.timer = setTimeout(renderDocReplace, 250);
+  });
+}
+$("doc-replace-run")?.addEventListener("click", runDocReplace);
+$("doc-replace-with")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !$("doc-replace-run").disabled) runDocReplace();
+});
+
 $("doc-history")?.addEventListener("click", openDocHistory);
+$("doc-history-name")?.addEventListener("click", docNameCurrentVersion);
 //: The AI assistant's own model. `openFeatureModelSheet` lives in app.js,
 //: which loads first, and is the same sheet the Chat tab and the writing desk
 //: open: one picker, three ways in.
@@ -15798,6 +16206,9 @@ function docProseFix(finding) {
     renderDocProse();
     return toast("That text has changed, the list is refreshed.", "info");
   }
+  //: Its own step in the editor's history (Ctrl+Z, rule 1.8), never folded
+  //: into the typing before it.
+  docUndoBreak();
   box.value = docProseApply(box.value, finding);
   markDocDirty();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -15820,6 +16231,7 @@ function docProseFixAll() {
     applied += 1;
   }
   if (!applied) return toast("Nothing left to fix.", "info");
+  docUndoBreak();
   box.value = text;
   markDocDirty();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -17162,8 +17574,11 @@ async function docDictionaryWrite(words) {
 async function docDictionaryAdd(word) {
   const clean = String(word || "").trim();
   if (!clean) return;
-  await docDictionaryWrite([...docDictionary(), clean.toLowerCase()]);
-  toast(`“${clean}” added to your dictionary.`);
+  const lower = clean.toLowerCase();
+  const without = () => docDictionaryWrite([...docDictionary()].filter((other) => other !== lower));
+  const add = () => docDictionaryWrite([...docDictionary(), lower]);
+  await add();
+  offerUndo(`Added “${clean}” to the dictionary`, `“${clean}” added to your dictionary.`, without, add);
 }
 
 //: Findings dismissed for this sitting only. Not persisted, deliberately:
@@ -18343,6 +18758,39 @@ function docUndo() {
   docSurface()?.focus();
   return document.execCommand("undo");
 }
+
+//: **When each of this document's own steps was made**, by history depth and
+//: per document (its history is kept per document for the session), so the
+//: status bar can tell whether Ctrl+Z belongs to the editor or to an act on
+//: the app's stack (`appStackIsNewer`, status.js). A scripted write outside
+//: the history (a restored version) is not a step and is not stamped.
+const docHistoryTimes = new Map();
+const docHistoryUndone = new Map();
+
+function docHistoryStamp(update) {
+  const CM = window.CM6;
+  if (!CM || !currentDoc) return;
+  const id = currentDoc.id;
+  if (update.transactions.some((tr) => tr.isUserEvent("undo"))) {
+    docHistoryUndone.set(id, Date.now());
+    return;
+  }
+  if (update.transactions.some((tr) => tr.isUserEvent("redo"))) return;
+  if (update.transactions.every((tr) => tr.annotation(CM.state.Transaction.addToHistory) === false)) return;
+  const times = docHistoryTimes.get(id) || [];
+  times[CM.commands.undoDepth(update.state)] = Date.now();
+  docHistoryTimes.set(id, times);
+}
+
+window.docUndoAt = () => {
+  if (!docCmView || !window.CM6 || !currentDoc) return 0;
+  const depth = window.CM6.commands.undoDepth(docCmView.state);
+  return depth ? (docHistoryTimes.get(currentDoc.id) || [])[depth] || 0 : 0;
+};
+window.docRedoAt = () => {
+  if (!docCmView || !window.CM6 || !currentDoc) return 0;
+  return window.CM6.commands.redoDepth(docCmView.state) ? docHistoryUndone.get(currentDoc.id) || 0 : 0;
+};
 
 //: For the status bar's pair (`surfaceHistory`): this document's own steps.
 window.docCanUndo = () => (docCmView && window.CM6 ? window.CM6.commands.undoDepth(docCmView.state) > 0 : Boolean(currentDoc));
@@ -19914,6 +20362,7 @@ function docCmApplySpellcheck() {
 //: pipeline for typed and scripted edits alike.
 function docCmUpdate(update) {
   if (update.docChanged) {
+    docHistoryStamp(update);
     docSurfaceChanged();
     docHistoryPersist();
     //: **Autocorrect, which never ran once under the engine.** The delegated
@@ -20234,6 +20683,7 @@ function docFenceGutterOn() {
 function docCmSyncGutter() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.gutter) return;
+  if (docCmPartIs(docCmParts.gutter, docFenceGutterOn())) return;
   docCmView.dispatch({ effects: docCmParts.gutter.reconfigure(docCmGutter(CM)) });
 }
 
@@ -20703,7 +21153,11 @@ function docHeadingFold(CM) {
 const docHistories = new Map();
 let docHistoryOwner = null;
 
-function docResetDocument(text, id = null) {
+//: `repaint: false` when the caller repaints the findings itself a frame
+//: later (`openDocument`, through `renderDocTools`): the findings plugin is
+//: rebuilt by `setState` from the same list, and the extra dispatch was a
+//: second layout of the page (138ms of a 573ms open at 390).
+function docResetDocument(text, id = null, { repaint = true } = {}) {
   const CM = window.CM6;
   if (!docCmView || !CM) {
     const surface = docSurface();
@@ -20732,7 +21186,7 @@ function docResetDocument(text, id = null) {
   //: it is used" shape: the view would come back in Source's configuration
   //: while the view control still said Live, and nothing would log a thing.
   docSetLiveDecorations(docView === "live");
-  docCmRepaintFindings();
+  if (repaint) docCmRepaintFindings();
   //: The `[!kind]-` callouts, folded as their markers ask, on the one event
   //: that means "a different document is on screen now".
   docFoldMarkedCallouts();

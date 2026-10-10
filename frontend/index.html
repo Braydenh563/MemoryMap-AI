@@ -1127,13 +1127,13 @@
       <div class="dialog-head">
       <h2 class="dialog-head-title">Document history</h2>
       <span class="dialog-head-actions">
+        <button type="button" id="doc-history-name" class="ghost small dialog-head-btn"
+          title="Keep the text as it stands now under a name; the edits after it never fold into it"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Name this version</button>
         <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="doc-history-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </span>
     </div>
-      <p class="muted">Every version this document has had. Editing for a while
-        counts as one entry, so this reads as sittings rather than keystrokes, 
-        and restoring one keeps the version it replaced, so nothing here is ever
-        lost.</p>
+      <p class="muted">Every version this document has had, one entry per sitting;
+        a restore keeps the version it replaced and Ctrl+Z takes it back.</p>
       <!-- **"An AI changed this" is a filter, not a second list**
            (DOCUMENTS_PLAN Phase 5 item 2). The history already records who
            made each version; a person looking for what the model did to their
@@ -1142,6 +1142,8 @@
       <div class="seg" id="doc-history-filter" role="group" aria-label="Which versions to show">
         <button type="button" data-history-filter="all" aria-pressed="true"
           title="Every version this document has had">All</button>
+        <button type="button" data-history-filter="named" aria-pressed="false"
+          title="Only the versions you named">Named</button>
         <button type="button" data-history-filter="ai" aria-pressed="false"
           title="Only the versions an AI edit replaced">AI edits</button>
       </div>
@@ -1166,6 +1168,32 @@
         <button type="button" class="ghost small" data-close-dialog="doc-ai-history-dialog">Close</button>
       </div>
     </dialog>
+  <!-- Replace in every document (DOCUMENTS_PLAN 24 row 9): VS Code's
+       replace across files, as one undo step. Rows by `renderDocReplace`. -->
+  <dialog id="doc-replace-dialog" class="card space-dialog doc-ai-history-dialog doc-replace-dialog" aria-labelledby="doc-replace-title">
+    <div class="dialog-head">
+      <h2 class="dialog-head-title" id="doc-replace-title">Replace in every document</h2>
+      <span class="dialog-head-actions">
+        <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="doc-replace-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
+    </div>
+    <p class="muted">Every document at once, as one step: Ctrl+Z takes the whole replace back.</p>
+    <label for="doc-replace-find">Find</label>
+    <input type="text" id="doc-replace-find" autocomplete="off" spellcheck="false">
+    <label for="doc-replace-with">Replace with</label>
+    <input type="text" id="doc-replace-with" autocomplete="off" spellcheck="false">
+    <div class="row">
+      <label class="row align-center checkbox-label small"><input type="checkbox" id="doc-replace-regex"> <span>Regular expression</span></label>
+      <label class="row align-center checkbox-label small"><input type="checkbox" id="doc-replace-case"> <span>Match case</span></label>
+    </div>
+    <p id="doc-replace-summary" class="muted text-sm" role="status"></p>
+    <ul id="doc-replace-list" class="doc-ai-history-list"></ul>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost small" data-close-dialog="doc-replace-dialog">Cancel</button>
+      <button type="button" class="accent small" id="doc-replace-run" disabled>Replace all</button>
+    </div>
+  </dialog>
+
   <dialog id="doc-word-goal-dialog" class="card space-dialog">
     <div class="dialog-head">
       <h2 class="dialog-head-title">Word-count goal</h2>
@@ -4717,7 +4745,7 @@ Link to another note with [[its first few words]]."></textarea>
                  only while the strip is hidden (`applyDocToolbarCollapsed`). -->
             <button id="doc-format-show" class="ghost small doc-format-show hidden" type="button"
               title="Show the formatting toolbar (Ctrl+Shift+X)" aria-label="Show the formatting toolbar (Ctrl+Shift+X)"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span>Formatting</span></button>
-            <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
+            <button id="doc-ai" data-needs-model="AI editing needs the local AI" data-model-offer="The writing check, find, outline, export and history work without one." class="ghost small" type="button"
               title="Ask Atlas to rewrite this document, or the text you've selected" aria-label="AI edit"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">AI edit</span></button>
             <!-- A code document's Format (the owner, 2026-09-23: "a button
                  to automatically format the whole document, ot just a
@@ -4793,7 +4821,7 @@ Link to another note with [[its first few words]]."></textarea>
                      menu the AI edit button already sits beside. -->
                 <button id="doc-ai-model" class="menu-item doc-dock-menu-item" type="button"
                   title="Pick the model Atlas runs on in this document"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
-                <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
+                <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" data-model-offer="The writing check, find, outline, export and history work without one." class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-map-headings" class="menu-item doc-dock-menu-item" type="button"
                   title="Make a new mind map from this document's headings, with a topic that leads back here"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map the headings</button>

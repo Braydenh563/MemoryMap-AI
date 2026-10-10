@@ -491,6 +491,41 @@ def create_document(
 MAX_IMPORT_BYTES = 50 * 1024 * 1024
 
 
+class ContentItem(BaseModel):
+    id: int
+    content: str = Field(max_length=MAX_CONTENT)
+
+
+class ContentBatch(BaseModel):
+    documents: list[ContentItem] = Field(max_length=1000)
+
+
+@router.post("/contents")
+def write_contents(body: ContentBatch, session: Session = Depends(get_session)) -> dict:
+    """Many documents' text in one transaction (DOCUMENTS 24 row 9): Replace in
+    every document writes its results here, and its one undo step writes the
+    originals back the same way, so a replace over fifty documents lands, or
+    is taken back, whole. Every id is checked before anything is written; each
+    changed document keeps the version it replaced in its history."""
+    ids = [item.id for item in body.documents]
+    if len(set(ids)) != len(ids):
+        raise HTTPException(status_code=422, detail="A document is listed twice.")
+    documents = {doc.id: doc for doc in (_existing(session, doc_id) for doc_id in ids)}
+    updated = []
+    for item in body.documents:
+        document = documents[item.id]
+        if item.content == document.content:
+            continue
+        _record_document_revision(session, document, source="edit")
+        document.content = item.content
+        document.updated_at = utcnow()
+        updated.append(document.id)
+    if updated:
+        log_action(session, "edited", "document", updated[0], f"{len(updated)} documents in one replace")
+    session.commit()
+    return {"updated": updated}
+
+
 @router.post("/import", status_code=201)
 def import_document(
     file: UploadFile, session: Session = Depends(get_session)
@@ -675,7 +710,7 @@ def _record_document_revision(session: Session, document: Document, source: str 
             if previous.tzinfo is not None:
                 previous = previous.replace(tzinfo=None)
             reference = now.replace(tzinfo=None) if now.tzinfo is not None else now
-            if (reference - previous).total_seconds() < REVISION_QUIET_SECONDS:
+            if not latest.name and (reference - previous).total_seconds() < REVISION_QUIET_SECONDS:
                 latest.title = document.title
                 latest.content = document.content
                 latest.source = source
@@ -1182,6 +1217,8 @@ class DocumentRevisionOut(BaseModel):
     title: str
     source: str
     created_at: str
+    #: Set on a named version, null on an ordinary sitting.
+    name: str | None = None
     #: The size of the change, so the list says *how much* happened without
     #: making anyone open each entry: a history where every row looks the same
     #: is a history you have to read linearly.
@@ -1226,6 +1263,7 @@ def document_revisions(
                 title=row.title or document.title,
                 source=row.source or "edit",
                 created_at=row.created_at.isoformat(),
+                name=row.name or None,
                 words=words,
                 word_delta=newer_words - words,
                 preview=_preview(row.content or ""),
@@ -1250,7 +1288,53 @@ def document_revision(
         "content": row.content,
         "source": row.source,
         "created_at": row.created_at.isoformat(),
+        "name": row.name or None,
     }
+
+
+class RevisionNameBody(BaseModel):
+    #: Empty or blank takes the name off.
+    name: str = Field(default="", max_length=120)
+
+
+@router.post("/{document_id}/revisions", status_code=201)
+def name_current_version(
+    document_id: int, body: RevisionNameBody, session: Session = Depends(get_session)
+) -> dict:
+    """Name the document as it stands now (DOCUMENTS 24 row 4, Google Docs's
+    "Name current version"): a revision holding the current text, never
+    coalesced into by the edits after it."""
+    document = _existing(session, document_id)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="A version needs a name.")
+    row = DocumentRevision(
+        document_id=document.id,
+        title=document.title,
+        content=document.content,
+        source="edit",
+        name=name,
+    )
+    session.add(row)
+    session.commit()
+    return {"id": row.id, "name": row.name, "created_at": row.created_at.isoformat()}
+
+
+@router.put("/{document_id}/revisions/{revision_id}")
+def rename_version(
+    document_id: int,
+    revision_id: int,
+    body: RevisionNameBody,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Name, rename or un-name one version; the text it holds is untouched."""
+    _existing(session, document_id)
+    row = session.get(DocumentRevision, revision_id)
+    if row is None or row.document_id != document_id:
+        raise HTTPException(status_code=404, detail="That revision could not be found.")
+    row.name = body.name.strip() or None
+    session.commit()
+    return {"id": row.id, "name": row.name}
 
 
 @router.post("/{document_id}/revisions/{revision_id}/restore")

@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Backups: the notebook file gets a quick check each time the app starts (30 ms on a 5,000-note notebook), before anything writes to it; when it fails, a notice that stays until closed points to the newest backup in Settings, Import & export, where the Backups section says the same. A file too damaged to open at all stops the start with words naming the newest backup and the files to move aside (WORLD_CLASS 25e, Brief 51).
+- Notes: History's Put this back no longer asks first; it is one Undo (the toast, the status bar, Ctrl+Z) that returns the text and tags the note had (rule 1.8).
+- Undo: an import and a Writing desk AI pass are now entries on the undo stack too, so the toast's or the pane's Undo, the status bar and Ctrl+Z are the same act and each can be redone; categories and chats share one `offerUndo` with them (rule 1.8, `tests/test_undo_contract.py`).
+- Tests: a backup restored on a new machine is compared kind by kind (`tests/test_restore_roundtrip.py`), and typed drafts in Capture, Quick note and the edit form are found again after the server is killed (`tests-e2e/specs/draft-recovery.spec.js`).
 - Search: Find anything finds saved chats and Ask questions as well (a Chat chip, `kind:chat`), wears a kind chip on every row, pages with Show more results, lists every operator (`tag:`, `in:`, `kind:`, `before:`, `after:`, `has:`, `is:`, quotes, minus) behind its '?', and its star saves a search as a row under Saved searches in the Notes sidebar; a notes filter that matches nothing offers Search everything. The box loads after boot rather than with it (Brief 47, decision 46).
 - Search: `tag:` alone finds every note with the tag; it was read over the newest 200 rows only, so at 5,000 notes `tag:tag3` found 5 of about 110.
 - `GET /search` takes `page` beside `limit` and answers `page`, `limit` and `more`; the index gains the `chat` kind, filled once at the next start for a notebook indexed before it.

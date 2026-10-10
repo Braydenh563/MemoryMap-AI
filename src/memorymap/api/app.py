@@ -653,6 +653,7 @@ def _startup_maintenance() -> None:
     #: when it last ran beside its Run now (`core/passes.py`).
     with jobruns.job_run("maintenance") as run:
         steps = (
+            ("_check_notebook_file", "Check the notebook file"),
             ("_purge_expired_bin_entries", "Clear expired notes from the bin"),
             ("_compact_event_log", "Tidy the edit history"),
             ("_backup_if_due", "Back up if today's is due"),
@@ -669,6 +670,14 @@ def _startup_maintenance() -> None:
                 run.say(f"That step did not finish: {words.lower()}. The server log has the detail.")
             run.step(index + 1)
         run.result = "at start"
+
+
+def _check_notebook_file() -> None:
+    """SQLite's quick check on the notebook, first, before anything writes
+    (WORLD_CLASS 25e). The page shows the notice from `/backups/integrity`;
+    a damaged file is never copied over a good backup, because the daily
+    backup checks its own copy (`backup.verify_copy`) and refuses it."""
+    backup.check_at_boot(deps.get_config().db_path)
 
 
 def _backup_if_due() -> None:

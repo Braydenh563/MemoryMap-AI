@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -209,6 +211,82 @@ def verify_copy(path: Path) -> None:
         raise OSError(0, "the backup did not pass its check")
 
 
+#: The notebook file's check at start (WORLD_CLASS 25e), kept so the page can
+#: ask for it without running it again. `quick_check` rather than the full
+#: `integrity_check`: measured on a 5,000-note notebook (scripts/scale_test.py,
+#: 6 MB), 30 ms against 55 ms; it reads every page and finds the damage a
+#: crash or a bad disk leaves, and skips only matching index entries to rows,
+#: which the one-click full check in Settings, Health still does.
+#: Keyed by the file's path, so a second notebook in one process (the tests,
+#: a restore) never reads another file's answer.
+_boot_checks: dict[str, dict] = {}
+_boot_check_lock = threading.Lock()
+
+
+def check_at_boot(db_path: Path) -> dict:
+    """Run the quick check once per process and keep its answer.
+
+    Called by the start-up housekeeping and by `GET /backups/integrity`,
+    whichever comes first; the second gets the kept answer. A file SQLite
+    cannot open at all is a failed check too, never an exception."""
+    key = str(Path(db_path).resolve())
+    with _boot_check_lock:
+        if key in _boot_checks:
+            return dict(_boot_checks[key])
+        started = time.perf_counter()
+        try:
+            connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            try:
+                rows = [str(row[0]) for row in connection.execute("PRAGMA quick_check").fetchmany(5)]
+            finally:
+                connection.close()
+        except sqlite3.DatabaseError as exc:
+            rows = [f"the file could not be read: {exc}"]
+        ok = rows == ["ok"]
+        answer = _boot_checks[key] = {
+            "check": "quick_check",
+            "ok": ok,
+            "result": "ok" if ok else "; ".join(rows)[:500],
+            "ms": round((time.perf_counter() - started) * 1000, 1),
+            "at": datetime.now(timezone.utc).isoformat(),
+        }
+        if not ok:
+            logger.error("the notebook file failed its check at start: %s", safe_value(answer["result"]))
+        return dict(answer)
+
+
+class DamagedNotebookError(RuntimeError):
+    """The notebook file failed its check and the app could not open it."""
+
+
+def damaged_notebook_words(db_path: Path, data_dir: Path) -> str:
+    """What to do when the file cannot be opened at all, so the page that
+    would show the notice never loads: said in the log and in the desktop
+    launcher's loading window instead. Names the newest backup and the two
+    sidecar files, which would replay the damaged file's pages onto a good
+    copy if left beside it."""
+    answer = check_at_boot(db_path)
+    try:
+        newest = (list_backups(data_dir) or [None])[0]
+    except OSError:
+        newest = None
+    if newest is None:
+        way_back = "There is no local backup; a full backup file saved elsewhere can be restored after a fresh start."
+    else:
+        way_back = (
+            f"Restore the newest backup: with the app closed, move {db_path.name} and any "
+            f"{db_path.name}-wal and {db_path.name}-shm beside it somewhere safe, then copy "
+            f"{backups_dir(data_dir) / newest['name']} to {db_path}."
+        )
+    return f"Your notebook file is damaged and could not be opened ({answer['result']}). {way_back}"
+
+
+def forget_boot_check(db_path: Path) -> None:
+    """For a restore, which replaces the file the answer was about."""
+    with _boot_check_lock:
+        _boot_checks.pop(str(Path(db_path).resolve()), None)
+
+
 def prune(data_dir: Path, keep: int = KEEP_BACKUPS) -> int:
     """Delete every backup past the newest `keep`. Returns how many were
     removed, so a caller changing the limit can say how much that freed up
@@ -354,6 +432,9 @@ def restore_file(
             )
 
         os.replace(tmp_path, db_path)
+        # The start-up answer was about the file just replaced; the restored
+        # copy passed its own check above, so the notice must not outlive it.
+        forget_boot_check(db_path)
         # The database runs in WAL mode (database.py), so db_path may still
         # have a -wal/-shm pair from before the restore, holding frames for
         # the database that just got replaced. Left in place they would be

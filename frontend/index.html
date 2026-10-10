@@ -12129,6 +12129,7 @@ Link to another note with [[its first few words]]."></textarea>
                    already knows where the notebook lives and holds the two
                    things worth deleting. -->
               <p id="storage-space-notice" class="notice notice-warn hidden" role="note"></p>
+              <p id="integrity-notice" class="notice notice-warn hidden" role="note"></p>
               <div class="row">
                 <button id="backup-now" class="ghost small">Back up now</button>
                 <span id="backup-status" class="status" role="status"></span>
@@ -12152,6 +12153,12 @@ Link to another note with [[its first few words]]."></textarea>
                   app starts. Restoring first snapshots the current state,
                   so even a restore can be undone. Backups live in your
                   data folder, they never leave this computer.
+                </p>
+                <p>
+                  Each start, the app gives the notebook file a quick check
+                  before anything writes to it. If the check fails, a notice
+                  says so when the app opens and here: restore the newest
+                  backup below.
                 </p>
               </div>
             </div>

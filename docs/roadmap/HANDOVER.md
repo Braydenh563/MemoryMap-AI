@@ -357,10 +357,10 @@ paging, operator help and saved searches; WORLD_CLASS 25a built), and 42's
 remainder (python-docx retired, Word round trip with pictures and tracked
 changes, four file types, js-beautify, every code command keyed, the grip at
 24 px), and 41 (density: the top bar 64 to 44, docks at 28, icon hover on
-the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Running: 68 (the
-surfaces, f4), 51 (never lose a note, safety), 69 (run, preview and test,
-ide1), 34 (the companion and Atlas, one Opus agent) and 60 (Sonnet: measure
-and the three ratchets). Next: 70, 71 after 69. The PR merges when the gate,
+the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z). Running: 68 (the
+surfaces, f4), 69 (run, preview and test,
+ide1), 34 (the companion and Atlas, one Opus agent), 60 (Sonnet: measure
+and the three ratchets) and 50 (Sonnet: the PWA shell). Next: 70, 71 after 69, 84 after 68. The PR merges when the gate,
 the sweeps and one full suite run are green.
 
 **A trap the batch merge paid for (2026-10-10).** `scripts/gate.sh` runs the

@@ -1028,6 +1028,8 @@ function startApp() {
   if (shellStatus) shellStatus.textContent = "";
   // Warm the filing model, retry stand-ins (routes_models.warm_filing).
   api("/models/warm-filing", { method: "POST", silent: true }).catch(() => {});
+  // The notebook file's quick check at start: silent when it passed.
+  apiJson("/backups/integrity", { silent: true }).then(noteDamagedNotebook).catch(() => {});
 
   // The desktop window's own title bar already shows the app's icon, so the
   // header's logo tile under it is the same mark twice (INBOX 705). The server

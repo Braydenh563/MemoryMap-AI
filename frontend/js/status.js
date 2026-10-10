@@ -1250,11 +1250,28 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   const text = document.createElement("span");
   text.className = "toast-msg";
   text.textContent = message;
-  note.toastTimer = setTimeout(() => dismissToast(note), 8000);
+  // `sticky`: a notice that stays true until acted on (a damaged notebook
+  // file) is not timed out; its close button is the way to put it away.
+  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
   note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
   toastStack(box, () => box.appendChild(note));
+}
+
+//: The notebook file's check at start (`GET /backups/integrity`, WORLD_CLASS
+//: 25e) in one sentence that says what to do. Shared by the boot notice and
+//: Settings, Import & export, so both say the same thing.
+function integrityWords() {
+  return "Your notebook file failed its check at start. Restore the newest backup in Settings, Import & export.";
+}
+
+function noteDamagedNotebook(check) {
+  if (!check || check.ok !== false) return;
+  toastAction(integrityWords(), "Open backups", () => openSettingsModal("data", "backup-now"), {
+    go: { settings: "data", focus: "backup-now" },
+    sticky: true,
+  });
 }
 
 //: The second button of every "Moved to the bin." notice: the bin is the
@@ -1412,6 +1429,27 @@ function insightVerdicts(insight, onDone) {
   return row;
 }
 
+
+//: **Rule 1.8's one shape** (WORLD_CLASS 1.8) for an act that reached the
+//: server: an entry on the undo stack (the bar, Ctrl+Z, the history menu) and
+//: a toast whose Undo is that same entry, taken off the stack when pressed so
+//: Ctrl+Z cannot run it a second time. `tests/test_undo_contract.py` holds
+//: every other function named for an undo to this file's contract.
+function offerUndo(label, message, undo, redo, opts = {}) {
+  const action = pushUndo(label, undo, redo);
+  toastAction(
+    message,
+    "Undo",
+    async () => {
+      settleUndoFromToast(action);
+      await Promise.resolve()
+        .then(undo)
+        .catch((error) => toast(error.message, true));
+    },
+    opts
+  );
+  return action;
+}
 
 // A few call sites also offer an immediate toast "Undo" button alongside the
 // global stack (Wave J's pattern, from before this stack existed). If that

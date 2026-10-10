@@ -421,6 +421,16 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 25e, Brief 51)
+
+The safety agent's Built block (never lose a note), moved whole from WORLD_CLASS_PLAN 25.4 at its step boundary (standing order 10).
+
+- `tests/test_restore_roundtrip.py`: backup restored into a second app on an empty data dir, zip and sealed; ten kinds compared by rows and every file by hash; all equal, nothing to fix.
+- Boot integrity: `backup.check_at_boot` (`PRAGMA quick_check`, 30 ms at 5,000 notes; full check 55 ms), first housekeeping step; `GET /backups/integrity`, `/storage.integrity`; sticky toast plus a `.notice-warn` in Settings, Import & export; `DamagedNotebookError` with the way back when the file cannot be opened at all.
+- History's Put this back: `pushUndo` plus the toast's Undo, no confirm (note-history.js, lazy, 0 boot bytes).
+- `tests-e2e/specs/draft-recovery.spec.js`: SIGKILL the server, restart, reload; Capture, Quick note and the edit form all come back (1 passed).
+- `offerUndo` (status.js) and `tests/test_undo_contract.py` (ratchet 10 to 7); folded: categories, chat delete, import (with redo), Writing desk passes (with redo).
+
 ## Moved from the plans, 2026-10-10 (CHAT_PLAN Brief 67)
 
 **Built** by Brief 67 (F3: the realiser, the validators and the acts),

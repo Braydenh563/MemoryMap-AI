@@ -322,7 +322,10 @@ MORE_TOPICS: list[dict] = [
             "the last backup and when it was taken, the data folder's size, what "
             "is running now, the last error in the log, and Integrity, whose "
             "Check now has the database check itself and counts the search index "
-            "beside your notes. The palette's Health goes straight there."
+            "beside your notes. The palette's Health goes straight there. The "
+            "app also gives the notebook file a quick check each time it starts, "
+            "and if that fails it says so and points to the newest backup in "
+            "Settings, Import & export."
         ),
         "badge": {"label": "About", "section": "about"},
     },

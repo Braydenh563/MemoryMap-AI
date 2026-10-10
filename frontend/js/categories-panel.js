@@ -492,12 +492,7 @@ function colourCategoriesFromPanel(metas) {
               return;
             }
             const message = `${metas.length} categories are now ${categoryColourName(key).toLowerCase()}.`;
-            const undo = () => apply((name) => before.get(name));
-            const action = pushUndo(message, undo, () => apply(() => key));
-            toastAction(message, "Undo", async () => {
-              settleUndoFromToast(action);
-              await undo();
-            });
+            offerUndo(message, message, () => apply((name) => before.get(name)), () => apply(() => key));
           },
         });
         card.append(preview, picker);
@@ -1011,12 +1006,7 @@ function pickCategoryColour(meta) {
             return;
           }
           const message = `${meta.name} is now ${categoryColourName(key).toLowerCase()}.`;
-          const undo = () => saveCategoryColour(meta, before);
-          const action = pushUndo(message, undo, () => saveCategoryColour(meta, key));
-          toastAction(message, "Undo", async () => {
-            settleUndoFromToast(action);
-            await undo();
-          });
+          offerUndo(message, message, () => saveCategoryColour(meta, before), () => saveCategoryColour(meta, key));
         },
       });
       card.append(preview, picker);
@@ -1031,12 +1021,11 @@ function pickCategoryColour(meta) {
 //: One toast and one undo-stack entry per change, so the toast's Undo and
 //: Ctrl+Z are the same act.
 function offerCategoryUndo(message, undo, redo) {
-  const action = pushUndo(message, async () => { await undo(); await refreshAfterCategoryChange(); }, async () => { await redo(); await refreshAfterCategoryChange(); });
-  toastAction(message, "Undo", async () => {
-    settleUndoFromToast(action);
-    await undo();
+  const refreshed = (act) => async () => {
+    await act();
     await refreshAfterCategoryChange();
-  });
+  };
+  offerUndo(message, message, refreshed(undo), refreshed(redo));
 }
 
 // Moved from notes-list.js (boot gzip): every caller is in this file.

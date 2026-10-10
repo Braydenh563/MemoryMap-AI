@@ -2616,13 +2616,45 @@ function updateDraftCount() {
 const draftUndoStack = [];
 const MAX_DRAFT_UNDO = 20;
 
+//: Rule 1.8: each point is also one entry on the app's undo stack, so the
+//: pane's Undo, the status bar's, Ctrl+Z outside a field and the history menu
+//: are one history. The entry's redo puts back what the pass had written,
+//: read when the undo runs, because the pass is still arriving when the
+//: point is taken.
 function pushDraftUndo() {
-  draftUndoStack.push({
+  const point = {
     thoughts: $("draft-thoughts").value,
     draft: $("draft-text").value,
-  });
+  };
+  let after = null;
+  point.action = pushUndo(
+    "Writing desk: the last AI pass",
+    () => {
+      after = { thoughts: $("draft-thoughts").value, draft: $("draft-text").value };
+      const at = draftUndoStack.indexOf(point);
+      if (at !== -1) draftUndoStack.splice(at, 1);
+      putDraftBack(point);
+    },
+    () => {
+      if (!after) return;
+      draftUndoStack.push(point);
+      putDraftBack(after);
+    }
+  );
+  draftUndoStack.push(point);
   if (draftUndoStack.length > MAX_DRAFT_UNDO) draftUndoStack.shift();
   updateDraftUndoButton();
+}
+
+function putDraftBack(point) {
+  $("draft-thoughts").value = point.thoughts;
+  // Stepping back past a pass means those thoughts were not folded in after
+  // all: otherwise the next Draft would skip them and silently drop an idea.
+  foldedThoughts = "";
+  $("draft-text").value = point.draft;
+  updateDraftCount();
+  updateDraftUndoButton();
+  saveDraftLocally();
 }
 
 function updateDraftUndoButton() {
@@ -2641,14 +2673,12 @@ function updateDraftUndoButton() {
 function undoDraft() {
   const previous = draftUndoStack.pop();
   if (!previous) return;
-  $("draft-thoughts").value = previous.thoughts;
-  // Stepping back past a pass means those thoughts were not folded in after
-  // all: otherwise the next Draft would skip them and silently drop an idea.
-  foldedThoughts = "";
-  $("draft-text").value = previous.draft;
-  updateDraftCount();
-  updateDraftUndoButton();
-  saveDraftLocally();
+  //: The same entry the status bar holds, run from the pane's own button, so
+  //: its redo knows what the pass had written.
+  if (previous.action) {
+    settleUndoFromToast(previous.action);
+    previous.action.undo();
+  } else putDraftBack(previous);
   $("draft-status").classList.remove("error");
   $("draft-status").textContent = "Went back to the previous version.";
   announce("Restored the draft from before the last AI pass.");

@@ -3033,15 +3033,11 @@ function chatDeleteUndo(gone, after = () => {}) {
     loadConversationList();
     after();
   };
-  const action = pushUndo(`Deleted the chat “${row.title}”`, remake, async () => {
+  offerUndo(`Deleted the chat “${row.title}”`, "Chat deleted.", remake, async () => {
     await apiJson(`/conversations/${row.id}`, { method: "DELETE" });
     if (chatConv.id === row.id) newChatConversation();
     loadConversationList();
     after();
-  });
-  toastAction("Chat deleted.", "Undo", async () => {
-    settleUndoFromToast(action);
-    await remake().catch((e) => toast(e.message, true));
   });
 }
 

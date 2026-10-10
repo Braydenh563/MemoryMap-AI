@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from fastapi import HTTPException, Request
+from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import EmbeddingService
@@ -182,7 +183,20 @@ def _init_app_state(data_dir: str | Path | None = None) -> None:
     if _config is None:
         _config = ConfigManager(data_dir=data_dir)
     if _db is None:
-        _db = DatabaseManager(_config.db_path)
+        try:
+            _db = DatabaseManager(_config.db_path)
+        except DatabaseError as exc:
+            # A damaged file stops the app before any page can say so; the
+            # check tells damage apart from a locked or busy file, which
+            # keeps its own error (WORLD_CLASS 25e).
+            from memorymap.core import backup, startup_status
+
+            if backup.check_at_boot(_config.db_path)["ok"]:
+                raise
+            words = backup.damaged_notebook_words(Path(_config.db_path), Path(_config.data_dir))
+            startup_status.set_phase(words)
+            logging.getLogger("memorymap.startup").error("%s", words)
+            raise backup.DamagedNotebookError(words) from exc
     if _ollama is None:
         _ollama = build_llm_client(_config)
     # `ai/provider.py` reads the user's sampling overrides through a getter

@@ -32,18 +32,38 @@ async function openEntryHistory(entry) {
     return;
   }
 
+  //: Rule 1.8: putting a version back is one Undo (the bar, Ctrl+Z, the
+  //: toast), not a confirm before it. Undo writes back the text and tags the
+  //: note had when the sheet opened; the server keeps that text as a version
+  //: too, so the sheet itself is a second way back.
   const restoreTo = async (url, message) => {
-    if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
-    try {
-      await apiJson(url, { method: "POST" });
-      overlay.classList.add("hidden");
-      toast(message);
+    const before = { content: entry.content, tags: entry.tags || [] };
+    const show = async () => {
       await loadEntries();
       flashEntry(entry.id);
+    };
+    const back = async () => {
+      await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify(before) });
+      await show();
+    };
+    const again = async () => {
+      await apiJson(url, { method: "POST" });
+      await show();
+    };
+    try {
+      await apiJson(url, { method: "POST" });
     } catch (error) {
       $("history-status").classList.add("error");
       $("history-status").textContent = error.message;
+      return;
     }
+    overlay.classList.add("hidden");
+    const action = pushUndo("Put back an earlier version", back, again);
+    toastAction(message, "Undo", async () => {
+      settleUndoFromToast(action);
+      await back();
+    });
+    await show();
   };
 
   // The current text first, so you can see what you'd be replacing.

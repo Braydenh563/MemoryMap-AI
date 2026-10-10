@@ -121,3 +121,5 @@ module.exports = async () => {
   await seed(config.BASE_URL, token);
   await signIn(config.FRESH_URL, path.join(__dirname, ".auth-fresh.json"));
 };
+//: The draft-recovery spec signs in to a server of its own the same way.
+module.exports.signIn = signIn;

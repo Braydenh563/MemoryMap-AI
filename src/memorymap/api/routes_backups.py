@@ -86,7 +86,20 @@ def storage_location() -> dict:
         "disk_total_bytes": diskspace.total_bytes(config.data_dir),
         #: The threshold is the server's to decide, not four call sites'.
         "low_space_bytes": diskspace.LOW_SPACE_BYTES,
+        "integrity": backup.check_at_boot(db_path),
     }
+
+
+@router.get("/backups/integrity")
+def integrity_at_start() -> dict:
+    """The notebook file's check at start (WORLD_CLASS 25e): `ok`, the
+    check's words and its time. The page asks once at boot and shows a
+    notice only when `ok` is false; the newest backup is the way back."""
+    config = deps.get_config()
+    result = backup.check_at_boot(Path(config.db_path))
+    newest = (backup.list_backups(config.data_dir) or [None])[0]
+    result["newest_backup"] = newest["name"] if newest else ""
+    return result
 
 
 @router.get("/backups")

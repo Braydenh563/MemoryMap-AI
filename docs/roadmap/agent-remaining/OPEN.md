@@ -1263,3 +1263,14 @@ The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](
 - `GET /resurface/near/{id}` 500s ("shapes (384,) and (4,) not aligned") when the notebook holds vectors of another dimension (the scale_test fixture's 4-d vectors after a 384-d save); a model switch with stale vectors would do the same (`api/routes_resurface*`). Bug. [search-1010]
 - Brief 47's "the sidebar's search field routes here": the Notes sidebar has no search field; the no-match Search everything button and the saved-search rows are the routes built. [search-1010]
 - Not verified: hybrid ranking cost at 5,000 notes with a real embedding model (keyword plus the fake backend only); the saved-search ⋯ menu opened in a browser; the phone's saved-search rows at 390 beyond the DOM count. [search-1010]
+
+## Left by the density agent (Brief 41, UI_MODERNISATION Phase 12, merged 2026-10-10)
+
+- Step 5b, decision 6 (a primary calendar paired with the reminders): TIMELINE_PLAN section 9 (Phase 5, Brief 55); `renderReminderCalendar` (shell-reminders.js) stands until it goes (decision 19). [density-1010]
+- Decision 8, indent guides: the active line is built (library-lazy.css `.cm-activeLineGutter`); indent markers are not in the vendored CodeMirror bundle (DOCUMENTS_PLAN 25 row 3, Brief 71's shell). [density-1010]
+- Decision 7: only note cards changed (category pill to a dot and a word); chat bubble metadata not measured (no conversation without a model) and library cards untouched. [density-1010]
+- Decision 1, panel padding 12 and sidebar gutter 8: not measured or moved; the Notes dock wraps to two rows at 1440 (86 px). [density-1010]
+- Decision 5 for a date field built after boot: the map topic's due date (whiteboard-map.js) stays native; the date picker's typed field sets the date only ("tomorrow at 3pm" does not move the time field). [density-1010]
+- Sweeps: touch.js reports Settings appearance and privacy "did not open" (section names moved); overlap.js still counts 4 px rows on `#notes-tidy`, `#dash-quicklinks`, `.library-controls`. [density-1010]
+- One focus ring at 1:1 in Chat (`button.active`, its outline takes the ground colour, both themes; `scratchpad/ui-sweeps/focusring.js`). Bug. [density-1010]
+- Not verified: tests elsewhere that relied on blank lines removed from CSS files 00, 01, 02, 05, 06, 07 and 10 to pay for the CSS budget; the picker on the Timeline range and Ask's as-of day beyond a smoke check; 390 beyond Reminders. [density-1010]

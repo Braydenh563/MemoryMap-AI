@@ -63,7 +63,7 @@
 //: The languages the server checks. A 400 from it (PyYAML not installed, say)
 //: takes that language out of this set for the session, so a file is not
 //: asked about again on every pause in typing.
-const DOC_CHECK_REMOTE = new Set(["py", "toml", "xml", "yaml"]);
+const DOC_CHECK_REMOTE = new Set(["py", "toml", "xml", "svg", "yaml"]);
 //: Mirrors `syntaxcheck.MAX_CHARS`: past it the server answers 422, so the
 //: request is not made.
 const DOC_CHECK_MAX_CHARS = 200000;
@@ -348,7 +348,7 @@ function docCodeLintSource(CM) {
     } else if (DOC_CHECK_SCAN.has(ext)) {
       found = docCodeActions("scan", docCodeFixes(text, ext, unit));
     }
-    return found.concat(docCodeActions("indent-mix", docIndentMixFixes(text, unit, state.tabSize, ext)));
+    return found.concat(docCodeActions("indent-mix", docIndentMixFixes(text, unit, state.tabSize, ext)), docRunTestDiagnostics(state));
   };
 }
 
@@ -2449,7 +2449,24 @@ function docFindInDocuments() {
 // runtime's own files and nothing else. Until it is installed, Run says so
 // and offers the button that installs it.
 
-const DOC_RUN_KINDS = { js: "js", html: "html", py: "py" };
+//: The types that run, and the sandbox page each runs in. The languages
+//: themselves (what a run sends) are `RUN_LANGS` in run-core.js, the lazy
+//: bundle loaded on the first Run; this table is only what the toolbar and
+//: the panel need before it is in.
+const DOC_RUN_KINDS = { js: "main", ts: "main", sql: "main", html: "main", css: "main", svg: "main", py: "python" };
+//: Preview live (D6): how long after the last keystroke a preview refreshes.
+const DOC_RUN_LIVE_MS = 400;
+//: The types whose tests run (D7): the panel's Run tests button.
+const DOC_RUN_TESTS = new Set(["js", "ts", "py"]);
+//: The last test run's failures, as diagnostics on their lines in the
+//: editor (D7), for the document they came from. One object, not a `let`.
+const DOC_RUN_TEST_MARKS = { doc: null, marks: [] };
+//: What each document's Input box held (D9), for this tab's life.
+const DOC_RUN_STDIN = new Map();
+//: A run still going after this long is listed in Activity with Stop
+//: (DOCUMENTS_PLAN 25 row 9, decision 70), renewed this often.
+const DOC_RUN_JOB_AFTER_MS = 2000;
+const DOC_RUN_JOB_BEAT_MS = 1000;
 const DOC_RUN_SANDBOX_URL = "/documents/run-sandbox";
 const DOC_RUN_SANDBOX_PY_URL = "/documents/run-sandbox/python";
 const DOC_RUN_TIMEOUT_MS = 10000;
@@ -2459,10 +2476,9 @@ const DOC_RUN_TIMEOUT_MS = 10000;
 const DOC_RUN_START_MS = 60000;
 const DOC_RUN_MAX_ROWS = 500;
 
-//: Why a type shows Run and cannot run, in the panel, in one line.
-const DOC_RUN_CANNOT = {
-  ts: "TypeScript runs once it is compiled to JavaScript, and this editor does not compile. Save it as a .js file to run it here.",
-};
+//: Why a type shows Run and cannot run, in the panel, in one line. Empty
+//: since TypeScript runs (D4); kept for the next type that cannot.
+const DOC_RUN_CANNOT = {};
 
 //: Whether a type shows Run: the three that run, and the one that says why not.
 function docRunnable(type) {
@@ -2476,6 +2492,22 @@ async function docRunPythonReady() {
   if (typeof apiJson !== "function") return false;
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
   return Boolean(body?.extras?.find((e) => e.id === "pyodide")?.installed);
+}
+
+//: Run's state for the open type (25 row 2): a .py document with no Python
+//: installed shows Run disabled and the one line that leads to the install.
+//: Asked again on every open, so an install counts at the next document.
+async function docRunSyncAvailability(type) {
+  const run = $("doc-code-run");
+  const why = $("doc-code-run-why");
+  if (!run || !why) return;
+  const python = DOC_RUN_KINDS[type.ext] === "python";
+  const ready = python ? await docRunPythonReady() : true;
+  //: Another document opened while that was asked: its own call decides.
+  if (docFileType().ext !== type.ext) return;
+  run.disabled = !ready;
+  run.title = ready ? "Run this file in a sandbox and show its output (Ctrl+Shift+Enter)" : "Running Python needs the Python package: install it in Settings, Packages";
+  why.classList.toggle("hidden", ready || !docRunnable(type));
 }
 
 //: Settings, Packages, with the Python row in view and its button focused.
@@ -2498,6 +2530,14 @@ let docRun = null;
 let docRunSeq = 0;
 let docRunPanelField = null;
 let docRunToggle = null;
+
+//: The run panel's '?' (the `data-help-for` recipe): what a run is, in
+//: three lines, the Guide's "Running code" topic at length.
+const DOC_RUN_HELP = [
+  "Run sends this file to a sandbox with no network and none of your notes. What it prints and its errors come back here; Line N goes to the line.",
+  "JavaScript, TypeScript (types removed, not checked), SQL (an empty SQLite per run) and Python (once installed; Input feeds input()) run. HTML, CSS, SVG and p5.js sketches show as a page; Live refreshes it as you type.",
+  "A file of tests runs its tests, each listed with its time, a failure underlined on its line. A run still going after two seconds is in Activity, where Stop ends it too.",
+];
 
 //: The panel's DOM, built when it opens; the sandbox frame lives in it, so
 //: closing the panel removes the frame and whatever was running with it.
@@ -2522,15 +2562,72 @@ function docRunPanel(view) {
     const i = document.createElement("i");
     i.className = `ph ${icon} ph-lead`;
     i.setAttribute("aria-hidden", "true");
-    b.append(i, ` ${label}`);
+    //: The word can fold away on a phone (library-lazy.css): the name stays.
+    const word = document.createElement("span");
+    word.className = "cm-run-word";
+    word.textContent = label;
+    b.setAttribute("aria-label", label);
+    b.append(i, word);
     b.addEventListener("click", action);
     return b;
   };
   const again = button("Run again", "ph-play", () => docRunCode(), "Run the file again (Ctrl+Shift+Enter)");
+  const tests = button("Run tests", "ph-flask", () => docRunCode({ mode: "test" }), "Run the tests in this file and list each one");
+  tests.classList.add("cm-run-tests-btn");
+  tests.classList.toggle("hidden", !DOC_RUN_TESTS.has(docFileType().ext));
+  //: Preview live (D6): shown once a run is a preview; pressed, the preview
+  //: refreshes 400 ms after the typing stops, and on every save.
+  const live = button("Live", "ph-lightning", () => docRunSetLive(!docRunLiveOn()), "Preview live: refresh as you type");
+  live.classList.add("cm-run-live", "hidden");
+  live.setAttribute("aria-pressed", String(docRunLiveOn()));
   const stopButton = button("Stop", "ph-stop", () => docRunStop("Stopped."), "Stop the run");
   const clear = button("Clear", "ph-eraser", () => docRunClear(), "Clear the output");
   const close = button("Close", "ph-x", () => docRunClose(), "Close the output");
-  head.append(title, status, spacer, again, stopButton, clear, close);
+  //: Input (D9): Python's `input()` reads its lines from this box, one
+  //: per call. Shown with its button for Python, and opened by itself when
+  //: the file calls `input(`.
+  const isPy = docFileType().ext === "py";
+  const stdinButton = button("Input", "ph-keyboard", () => docRunShowStdin(stdinWrap.classList.contains("hidden")), "Show the lines input() reads");
+  stdinButton.classList.add("cm-run-stdin-btn");
+  stdinButton.classList.toggle("hidden", !isPy);
+  stdinButton.setAttribute("aria-expanded", "false");
+  const stdinWrap = document.createElement("label");
+  stdinWrap.className = "cm-run-stdin-wrap hidden";
+  const stdinLabel = document.createElement("span");
+  stdinLabel.className = "cm-run-stdin-label";
+  stdinLabel.textContent = "Input, one line for each input() call";
+  const stdin = document.createElement("textarea");
+  stdin.className = "cm-run-stdin";
+  stdin.rows = 2;
+  stdin.spellcheck = false;
+  stdin.value = (currentDoc && DOC_RUN_STDIN.get(currentDoc.id)) || "";
+  stdin.addEventListener("input", () => {
+    if (currentDoc) DOC_RUN_STDIN.set(currentDoc.id, stdin.value);
+  });
+  stdinWrap.append(stdinLabel, stdin);
+  const help = document.createElement("button");
+  help.type = "button";
+  help.className = "icon-only ghost small cm-run-help";
+  help.setAttribute("data-help-for", "doc-run-help");
+  help.setAttribute("aria-controls", "doc-run-help");
+  help.setAttribute("aria-expanded", "false");
+  help.title = "About Run";
+  help.setAttribute("aria-label", "About Run");
+  const helpIcon = document.createElement("i");
+  helpIcon.className = "ph ph-question";
+  helpIcon.setAttribute("aria-hidden", "true");
+  help.appendChild(helpIcon);
+  const helpBody = document.createElement("div");
+  helpBody.className = "help-body hidden";
+  helpBody.id = "doc-run-help";
+  helpBody.setAttribute("role", "dialog");
+  helpBody.setAttribute("aria-label", "About Run");
+  for (const line of DOC_RUN_HELP) {
+    const p = document.createElement("p");
+    p.textContent = line;
+    helpBody.appendChild(p);
+  }
+  head.append(title, help, status, spacer, live, stdinButton, tests, again, stopButton, clear, close);
   const body = document.createElement("div");
   body.className = "cm-run-body";
   const frame = document.createElement("iframe");
@@ -2539,7 +2636,7 @@ function docRunPanel(view) {
   frame.title = "The page this file makes";
   //: The runner this file needs from the start, so a first run is not a
   //: switch (see the `ready` check in the message listener).
-  const runner = DOC_RUN_KINDS[docFileType().ext] === "py" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
+  const runner = DOC_RUN_KINDS[docFileType().ext] === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
   frame.src = runner;
   frame.dataset.runner = runner;
   const log = document.createElement("ol");
@@ -2547,23 +2644,64 @@ function docRunPanel(view) {
   log.setAttribute("role", "log");
   log.setAttribute("aria-label", "Output");
   body.append(frame, log);
-  dom.append(head, body);
+  dom.append(head, helpBody, stdinWrap, body);
+  wireHelpPopover(help, helpBody);
   if (typeof docIdeRunGrip === "function") docIdeRunGrip(dom, view);
-  docRun = { view, dom, frame, log, status, stopButton, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false };
+  docRun = { view, dom, frame, log, status, stopButton, live, stdin, stdinWrap, stdinButton, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false, preview: false, liveTimer: null, options: {}, job: null, jobWait: null, jobBeat: null };
   return {
     dom,
     top: false,
     destroy: () => {
       if (docRun && docRun.dom === dom) {
         clearTimeout(docRun.timer);
+        clearTimeout(docRun.liveTimer);
+        docRunJobEnd(docRun);
         docRun = null;
       }
     },
   };
 }
 
+//: Show or hide the Input box (D9).
+function docRunShowStdin(show) {
+  if (!docRun) return;
+  docRun.stdinWrap.classList.toggle("hidden", !show);
+  docRun.stdinButton.setAttribute("aria-expanded", String(show));
+  docRun.view.requestMeasure();
+  if (show) docRun.stdin.focus();
+}
+
+//: Preview live, remembered for every document (a preference, not a
+//: property of one file).
+function docRunLiveOn() {
+  return docToolPref("runLive", false);
+}
+
+function docRunSetLive(on) {
+  prefs.set(DOC_TOOL_KEYS.runLive, on ? "1" : "0");
+  if (!docRun) return;
+  docRun.live.setAttribute("aria-pressed", String(on));
+  if (on && docRun.preview) docRunCode(docRun.options);
+}
+
+//: A change to the text, while a preview is open with Live on: run again
+//: once the typing has stopped for 400 ms.
+function docRunLiveSchedule() {
+  if (!docRun || !docRun.preview || !docRunLiveOn()) return;
+  clearTimeout(docRun.liveTimer);
+  docRun.liveTimer = setTimeout(() => {
+    if (docRun && docRun.preview) docRunCode(docRun.options);
+  }, DOC_RUN_LIVE_MS);
+}
+
+//: A save refreshes an open preview (D6); with Live on, the typing already has.
+function docRunAfterSave() {
+  if (docRun && docRun.preview && !docRunLiveOn()) docRunCode(docRun.options);
+}
+
 //: The field that says whether the panel is open, and the effect that
-//: flips it; the panel follows it through `showPanel`.
+//: flips it; the panel follows it through `showPanel`. With it, the
+//: listener that feeds Preview live.
 function docRunExtension(CM) {
   if (!docRunPanelField) {
     docRunToggle = CM.state.StateEffect.define();
@@ -2575,6 +2713,9 @@ function docRunExtension(CM) {
       },
       provide: (field) => CM.view.showPanel.from(field, (open) => (open ? docRunPanel : null)),
     });
+    docRunPanelField = [docRunPanelField, CM.view.EditorView.updateListener.of((update) => {
+      if (update.docChanged) docRunLiveSchedule();
+    })];
   }
   return docRunPanelField;
 }
@@ -2584,6 +2725,42 @@ function docRunSetStatus(text, running) {
   docRun.status.textContent = text;
   docRun.running = running;
   docRun.stopButton.disabled = !running;
+  if (!running) docRunJobEnd(docRun);
+}
+
+//: A long run in Activity (25 row 9): listed once it has gone on for two
+//: seconds, renewed every second, and stopped when Activity's Stop was
+//: pressed (the renewal's answer). Its row goes when the run ends here.
+function docRunJobArm(id) {
+  if (!docRun) return;
+  const run = docRun;
+  docRunJobEnd(run);
+  run.jobWait = setTimeout(async () => {
+    if (docRun !== run || run.id !== id || !run.running) return;
+    const label = `Running ${currentDoc?.title || "a code document"}`.slice(0, 120);
+    const body = await apiJson("/documents/run-jobs", { method: "POST", body: JSON.stringify({ label }), silent: true }).catch(() => null);
+    if (!body?.id) return;
+    if (docRun !== run || run.id !== id || !run.running) {
+      apiJson(`/documents/run-jobs/${encodeURIComponent(body.id)}`, { method: "DELETE", silent: true }).catch(() => null);
+      return;
+    }
+    run.job = body.id;
+    run.jobBeat = setInterval(async () => {
+      const job = run.job;
+      if (!job) return;
+      const beat = await apiJson(`/documents/run-jobs/${encodeURIComponent(job)}/beat`, { method: "POST", silent: true }).catch(() => null);
+      if (beat?.stopped && docRun === run && run.id === id && run.job === job) docRunStop("Stopped from Activity.");
+    }, DOC_RUN_JOB_BEAT_MS);
+  }, DOC_RUN_JOB_AFTER_MS);
+}
+
+function docRunJobEnd(run) {
+  if (!run) return;
+  clearTimeout(run.jobWait);
+  clearInterval(run.jobBeat);
+  const job = run.job;
+  run.job = null;
+  if (job) apiJson(`/documents/run-jobs/${encodeURIComponent(job)}`, { method: "DELETE", silent: true }).catch(() => null);
 }
 
 function docRunClear() {
@@ -2618,6 +2795,119 @@ function docRunRow(level, text, line) {
   docRun.log.appendChild(row);
   docRun.rows += 1;
   row.scrollIntoView({ block: "nearest" });
+}
+
+//: A statement's result (SQL, D5): a table row in the log, its cells as
+//: text (never markup), NULL shown as such, and how many rows were left out.
+function docRunTable(columns, rows, more, line) {
+  if (!docRun) return;
+  docRunRow("log", rows.length || more ? `${rows.length + more} row${rows.length + more === 1 ? "" : "s"}` : "No rows.", line);
+  const row = docRun.log.lastElementChild;
+  row.classList.add("is-table");
+  const wrap = document.createElement("div");
+  wrap.className = "cm-run-table-wrap";
+  const table = document.createElement("table");
+  table.className = "cm-run-table";
+  const head = table.createTHead().insertRow();
+  for (const name of columns.slice(0, 64)) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = String(name);
+    head.appendChild(th);
+  }
+  const body = table.createTBody();
+  for (const values of rows.slice(0, 200)) {
+    const tr = body.insertRow();
+    for (const value of (Array.isArray(values) ? values : []).slice(0, 64)) {
+      const td = tr.insertCell();
+      td.textContent = value === null ? "NULL" : String(value).slice(0, 400);
+      if (value === null) td.className = "is-null";
+    }
+  }
+  wrap.appendChild(table);
+  if (more > 0) {
+    const note = document.createElement("p");
+    note.className = "cm-run-more";
+    note.textContent = `${more} more not shown.`;
+    wrap.appendChild(note);
+  }
+  row.appendChild(wrap);
+}
+
+//: One test (D7): its state as an icon and a word for the screen reader,
+//: its name, its time, the line it is on; a failure's message (the diff
+//: unittest or `expect` wrote) under it, as text.
+function docRunTestRow(name, state, ms, text, line) {
+  if (!docRun) return;
+  const kind = ["pass", "fail", "skip"].includes(state) ? state : "fail";
+  docRunRow(kind === "fail" ? "error" : kind === "skip" ? "info" : "log", name, line);
+  const row = docRun.log.lastElementChild;
+  row.classList.add("cm-run-test", `is-${kind}`);
+  row.dataset.state = kind;
+  const icon = document.createElement("i");
+  icon.className = `ph ${{ pass: "ph-check-circle", fail: "ph-x-circle", skip: "ph-minus-circle" }[kind]}`;
+  //: The state in words for a screen reader: the icon's colour and shape
+  //: alone would be colour alone.
+  icon.setAttribute("role", "img");
+  icon.setAttribute("aria-label", { pass: "Passed", fail: "Failed", skip: "Skipped" }[kind]);
+  row.prepend(icon);
+  const time = document.createElement("span");
+  time.className = "cm-run-ms";
+  time.textContent = `${Math.max(0, Math.round(ms))} ms`;
+  row.querySelector(".cm-run-text").after(time);
+  if (text) {
+    const why = document.createElement("pre");
+    why.className = "cm-run-why";
+    why.textContent = String(text).slice(0, 4000);
+    row.appendChild(why);
+  }
+  if (kind === "fail" && Number.isInteger(line) && line > 0) {
+    DOC_RUN_TEST_MARKS.marks.push({ line, message: `Test failed: ${name}. ${String(text || "").split("\n")[0]}`.slice(0, 400) });
+  }
+}
+
+//: The failures of the last test run, as the linter's diagnostics, while
+//: the document they came from is the one open.
+function docRunTestDiagnostics(state) {
+  if (!currentDoc || DOC_RUN_TEST_MARKS.doc !== currentDoc.id) return [];
+  const out = [];
+  for (const mark of DOC_RUN_TEST_MARKS.marks) {
+    if (mark.line > state.doc.lines) continue;
+    const line = state.doc.line(mark.line);
+    out.push({ from: line.from, to: line.to, severity: "error", source: "tests", message: mark.message });
+  }
+  return out;
+}
+
+//: The totals, as the run's last row and its status; the editor's
+//: diagnostics are asked for again so the failures show on their lines.
+function docRunTestsDone(data) {
+  if (!docRun) return;
+  const passed = Number(data.passed) || 0;
+  const failed = Number(data.failed) || 0;
+  const skipped = Number(data.skipped) || 0;
+  const parts = [`${passed} passed`, `${failed} failed`];
+  if (skipped) parts.push(`${skipped} skipped`);
+  const said = `${parts.join(", ")} in ${Math.max(0, Math.round(Number(data.ms) || 0))} ms.`;
+  docRunRow(failed ? "error" : "info", said, null);
+  docRun.log.lastElementChild.classList.add("cm-run-summary");
+  clearTimeout(docRun.timer);
+  docRunSetStatus(passed + failed + skipped ? `${parts.join(", ")}.` : "No tests ran.", false);
+  docRunShowTestMarks();
+}
+
+//: The failures on their lines now, without waiting for an edit: the
+//: linter only runs again on a change (`forceLinting` does nothing until
+//: one), so its last answer, less any older test marks, plus these. The
+//: linter's own source adds them too, so the next pass keeps them.
+function docRunShowTestMarks() {
+  const lint = window.CM6?.lint;
+  if (!docCmView || !lint?.setDiagnostics) return;
+  const kept = [];
+  lint.forEachDiagnostic(docCmView.state, (d, from, to) => {
+    if (d.source !== "tests") kept.push({ ...d, from, to });
+  });
+  docCmView.dispatch(lint.setDiagnostics(docCmView.state, kept.concat(docRunTestDiagnostics(docCmView.state))));
 }
 
 function docRunSend(message) {
@@ -2675,47 +2965,94 @@ function docRunArmTimeout(id) {
 }
 
 //: Run the open file: the panel opens (or is reused), the output is
-//: cleared, and the text as it is now goes to the sandbox.
-async function docRunCode() {
+//: cleared, and the text as it is now goes to the sandbox as one request of
+//: the run protocol (run-core.js). `options.mode` is "run" or "test";
+//: `options.range` runs part of the file (a selection or a cell) with its
+//: line numbers kept.
+async function docRunCode(options = {}) {
   const CM = window.CM6;
   const type = docFileType();
   if (!docCmView || !CM || !docRunToggle) return false;
-  const kind = DOC_RUN_KINDS[type.ext];
+  const page = DOC_RUN_KINDS[type.ext];
   if (!docRun) docCmView.dispatch({ effects: docRunToggle.of(true) });
   if (!docRun) return false;
   docRunClear();
   clearTimeout(docRun.timer);
-  docRun.dom.classList.toggle("is-page", kind === "html");
-  if (!kind) {
+  docRun.dom.classList.remove("is-page");
+  if (!page) {
     docRunRow("info", DOC_RUN_CANNOT[type.ext] || "This kind of file does not run here.", null);
     docRunSetStatus("Not run.", false);
     return false;
   }
-  const code = docCmView.state.doc.toString();
+  const doc = docCmView.state.doc;
+  const range = options.range || null;
+  //: A Python file that asks for input with the box closed: open it, so the
+  //: lines it reads have somewhere to be typed (the run still goes ahead).
+  if (page === "python" && docRun.stdinWrap.classList.contains("hidden") && /\binput\s*\(/.test(doc.toString())) {
+    docRun.stdinWrap.classList.remove("hidden");
+    docRun.stdinButton.setAttribute("aria-expanded", "true");
+  }
+  let source = range ? doc.sliceString(range.from, range.to) : doc.toString();
+  if (range && options.dedent) {
+    const lines = source.split("\n");
+    const indents = lines.filter((l) => l.trim()).map((l) => /^[ \t]*/.exec(l)[0].length);
+    const cut = indents.length ? Math.min(...indents) : 0;
+    if (cut) source = lines.map((l) => l.slice(Math.min(cut, /^[ \t]*/.exec(l)[0].length))).join("\n");
+  }
+  const request = {
+    ext: type.ext,
+    source,
+    lineOffset: range ? doc.lineAt(range.from).number - 1 : 0,
+    path: currentDoc?.title || "",
+    stdin: docRun.stdin?.value || "",
+  };
   const id = ++docRunSeq;
   docRun.id = id;
-  if (kind === "py") {
+  docRunSetStatus("Preparing", true);
+  let prepared;
+  try {
+    if (!(await ensureModule("run"))) throw new Error("The runner did not load. Check the connection to the app and run again.");
+    prepared = await runPrepare(request, options.mode || "run");
+  } catch (error) {
+    if (!docRun || docRun.id !== id) return false;
+    docRunRow("error", String(error?.message || error), Number.isInteger(error?.line) ? error.line + request.lineOffset : null);
+    docRunSetStatus("Not run.", false);
+    return false;
+  }
+  //: Another Run, a Stop or a closed panel while that was loading: this run
+  //: is not the current one any more.
+  if (!docRun || docRun.id !== id) return false;
+  docRun.dom.classList.toggle("is-page", prepared.shows);
+  docRun.preview = prepared.preview;
+  docRun.tests = prepared.tests;
+  if (prepared.tests) {
+    DOC_RUN_TEST_MARKS.doc = currentDoc?.id ?? null;
+    DOC_RUN_TEST_MARKS.marks = [];
+  }
+  docRun.options = { mode: options.mode, range: options.range };
+  docRun.live.classList.toggle("hidden", !prepared.preview);
+  if (prepared.notice) docRunRow("info", prepared.notice, null);
+  if (prepared.page === "python") {
     docRunSetStatus("Checking for Python", true);
     const ready = await docRunPythonReady();
-    //: Another Run, a Stop or a closed panel while that was asked: this run
-    //: is not the current one any more.
     if (!docRun || docRun.id !== id) return false;
     if (!ready) {
       docRunPythonMissing();
       return false;
     }
   }
-  //: One frame, two runners: the Python page for .py, the other for the
-  //: rest. A switch reloads the frame, and the run waits for its `ready`.
-  const runner = kind === "py" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
+  //: One frame, two pages: Python's for .py, the other for the rest. A
+  //: switch reloads the frame, and the run waits for its `ready`.
+  const runner = prepared.page === "python" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
   if (docRun.frame.dataset.runner !== runner) {
     docRun.ready = false;
     docRun.frame.dataset.runner = runner;
     docRun.frame.src = runner;
   }
-  docRunSetStatus(kind === "py" ? "Starting Python" : "Running", true);
-  docRunSend({ type: "run", kind, code, mmRun: id });
-  if (kind === "py") {
+  docRunSetStatus(prepared.page === "python" ? "Starting Python" : "Running", true);
+  docRunSend({ ...prepared.message, type: "run", mmRun: id });
+  docRunJobArm(id);
+  if (prepared.page === "python") {
     docRun.timer = setTimeout(() => {
       if (docRun && docRun.id === id && docRun.running) {
         docRunStop("Stopped: Python did not start within a minute.");
@@ -2725,6 +3062,42 @@ async function docRunCode() {
     docRunArmTimeout(id);
   }
   return true;
+}
+
+//: Run the selected lines (D9), or the caret's line: whole lines, their
+//: shared indent taken off so a block's body runs on its own, its line
+//: numbers the document's (the protocol's `lineOffset`).
+function docRunSelection() {
+  if (!docCmView || !DOC_RUN_KINDS[docFileType().ext]) return false;
+  const { doc, selection } = docCmView.state;
+  const from = doc.lineAt(selection.main.from);
+  const to = doc.lineAt(selection.main.to);
+  return docRunCode({ range: { from: from.from, to: to.to }, dedent: true });
+}
+
+//: The cell at the caret (D9): from the `# %%` (or `// %%`, `-- %%`) line
+//: at or above it to the line before the next one. With no markers, the
+//: whole file.
+function docRunCell() {
+  if (!docCmView || !DOC_RUN_KINDS[docFileType().ext]) return false;
+  const { doc, selection } = docCmView.state;
+  const marker = /^\s*(?:#|\/\/|--)\s*%%/;
+  const here = doc.lineAt(selection.main.head).number;
+  let start = 1;
+  for (let n = here; n >= 1; n -= 1) {
+    if (marker.test(doc.line(n).text)) {
+      start = n;
+      break;
+    }
+  }
+  let end = doc.lines;
+  for (let n = Math.max(here, start) + 1; n <= doc.lines; n += 1) {
+    if (marker.test(doc.line(n).text)) {
+      end = n - 1;
+      break;
+    }
+  }
+  return docRunCode({ range: { from: doc.line(start).from, to: doc.line(end).to } });
 }
 
 //: The sandbox's messages. Only from the panel's own frame, only for the run
@@ -2766,7 +3139,14 @@ window.addEventListener("message", (event) => {
   if (data.t === "done") {
     clearTimeout(docRun.timer);
     if (!docRun.running) return;
-    if (docRun.dom.classList.contains("is-page")) docRunSetStatus("Page loaded.", true);
+    if (docRun.tests) {
+      //: The harness's totals are the run's end; `done` comes after them.
+      docRunSetStatus(docRun.status.textContent, false);
+      return;
+    }
+    //: A stylesheet or an SVG is a still picture: nothing left to stop.
+    if (["css", "svg"].includes(docFileType().ext)) docRunSetStatus("Preview shown.", false);
+    else if (docRun.dom.classList.contains("is-page")) docRunSetStatus("Page loaded.", true);
     else if (data.pending > 0) docRunSetStatus("Waiting on timers", true);
     else docRunSetStatus("Finished.", false);
     return;
@@ -2775,11 +3155,25 @@ window.addEventListener("message", (event) => {
     if (docRun.running) docRunSetStatus("Finished.", false);
     return;
   }
+  if (data.t === "test") {
+    docRunTestRow(String(data.name || "test"), String(data.state || "fail"), Number(data.ms) || 0, String(data.text || ""), Number(data.line) || null);
+    return;
+  }
+  if (data.t === "tests-done") {
+    docRunTestsDone(data);
+    return;
+  }
+  if (data.t === "table") {
+    docRunTable(Array.isArray(data.columns) ? data.columns : [], Array.isArray(data.rows) ? data.rows : [], Number(data.more) || 0, Number(data.line) || null);
+    if (docRun.rows >= DOC_RUN_MAX_ROWS) docRunStop(`Stopped after ${DOC_RUN_MAX_ROWS} lines of output.`);
+    return;
+  }
   if (data.t !== "log") return;
   docRunRow(String(data.level || "log"), String(data.text ?? ""), Number(data.line) || null);
   //: An uncaught error ends a script's top level as surely as its last line
   //: does: the run is over, not still going for the timeout to find.
-  if (data.uncaught && docRun.running && !docRun.dom.classList.contains("is-page")) {
+  //: A still preview (a stylesheet, an SVG) that fails to read is over too.
+  if (data.uncaught && docRun.running && (!docRun.dom.classList.contains("is-page") || ["css", "svg"].includes(docFileType().ext))) {
     clearTimeout(docRun.timer);
     docRunSetStatus("Stopped by an error.", false);
   }

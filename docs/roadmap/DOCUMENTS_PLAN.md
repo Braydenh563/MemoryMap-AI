@@ -1349,7 +1349,7 @@ row does today.
 
 | Phase | Brief | Deliverable | Measured by |
 | --- | --- | --- | --- |
-| I1 run, preview, test | 69 | D1 protocol, D4 TypeScript, D5 SQL, D6 previews, D7 tests, D9 Python | one sweep per kind in `scratchpad/ui-sweeps/code-run.js`; sizes gzipped per vendored file |
+| I1 run, preview, test | 69 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"); what is left is in `agent-remaining/ide1-1010.md` | `scratchpad/ui-sweeps/code-run.js`, 46/46 at 1440 and 47/47 at 390 |
 | I2 the debugger | 70 | D2 Python, D3 JavaScript, the four views and five actions | a scripted debug session per language: breakpoint hit, step counts, a watched value, an exception stop |
 | I3 the IDE shell | 71 | D8 panels and consoles, command palette inside the editor, outline, breadcrumbs, go to symbol, split view, a keybindings sheet, the problems panel fed by every linter | palette commands count; keybindings sheet against VS Code's defaults, each one tested with Playwright |
 
@@ -1429,14 +1429,14 @@ lists every command with its shortcut.
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
 | 1 | fix | The phone dock menu lays out past the left edge on a code document (shared with section 24 row 2) | 12 controls past the edge to 0; 13 overlaps to 0 at 320 and 390 | 7, 8 |
-| 2 | fix | A `.py` document with no Pyodide shows Run, disabled, with one line and the Packages link ("Install Python in Settings, Packages") | 1 Run control on every runnable type; 0 types with no line | 12, 4, 6 |
+| 2 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): Run disabled with "Install Python in Settings, Packages" beside it | 1 Run control on every runnable type; 0 types with no line | 12, 4, 6 |
 | 3 | redesign | VS Code's selected line (bold number, bordered line) and indent guides, the owner's design request | computed `font-weight` 700 on `.cm-activeLineGutter`; an indent marker per level on a nested file | 11 |
 | 4 | expansion | Brief 42's packages, each sized gzipped before it lands: lint (`ruff-wasm`, a JS linter), a formatter, a diff against the last save. The formatter (js-beautify, lazy, 25,022 bytes gzipped, 0 at boot) and the diff (Compare with a saved version) are built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder"); the linters stay open | a diagnostic on its line in the sweep; sizes in the commit | 12 |
 | 5 | expansion | Run, preview, test, debug, consoles: D1 to D9 (Briefs 69 to 71) | section 23's gates | 5, 12 |
 | 6 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder"): 52 commands, 0 without a key or "none" (29 before); the keybindings sheet from the same table is Brief 71 (I3) | 45 commands, 0 without a shortcut or a "none" | 6, 10 |
 | 7 | optimisation | Open 275 to 675 ms at 1440 for 241 lines and over 2 s at 390: `docCodeScan` (cx 132) off the open path | under 300 ms at 1440, under 800 ms at 390 | 13 |
 | 8 | expansion | A minimap, off by default, one toggle in View (Brief 42's bar) | toggle present; its width remembered | 11 |
-| 9 | fix | A long run is a job in the Activity panel with Stop (decision 70) | the run lists in `/activity` and stops from it | 5 |
+| 9 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): a run past 2 s lists in `/activity` and stops from it | the run lists in `/activity` and stops from it | 5 |
 
 **Briefs.** 42 (rows 3, 4, 8), 69 to 71 (row 5), 73 (row 9), 76 (rows 1, 2,
 6, 7, with section 24).

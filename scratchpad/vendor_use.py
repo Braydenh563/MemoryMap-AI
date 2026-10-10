@@ -41,6 +41,8 @@ LIBRARY_KEYS = {
     "CodeMirror 6": "codemirror",
     "Emmet": "emmet",
     "js-beautify": "jsbeautify",
+    "sucrase": "sucrase",
+    "sql.js": "sqljs",
     "Harper": "harper",
     "D3": "d3",
     "p5.js": "p5",
@@ -602,6 +604,41 @@ def emmet_report(scripts: dict[str, str]) -> Report:
     )
 
 
+def sucrase_report(scripts: dict[str, str]) -> Report:
+    """The TypeScript pass (run-core.js). The bundle's global is reached
+    through `runVendorScript(url, "SUCRASE")`, so a call is counted where a
+    file names the global and calls the export on what it returned."""
+    exports = sorted(run_node_exports(VENDOR / "sucrase" / "sucrase.min.js", "SUCRASE"))
+    transforms = ["typescript", "jsx", "imports", "flow", "react-hot-loader", "jest"]
+    available = exports + [f"transform:{t}" for t in transforms]
+    called: list[str] = []
+    for text in scripts.values():
+        if '"SUCRASE"' not in text:
+            continue
+        called += [name for name in exports if re.search(rf"\.{name}\(", text)]
+        called += [f"transform:{t}" for t in transforms if f'"{t}"' in text]
+    return Report("sucrase", "sucrase", available, sorted(set(called)), {"functions": exports})
+
+
+#: sql.js's API (Database, Statement, StatementIterator), from its README.
+SQLJS_METHODS = [
+    "Database", "run", "exec", "each", "prepare", "iterateStatements", "export", "close",
+    "getRowsModified", "create_function", "create_aggregate", "bind", "step", "get",
+    "getColumnNames", "getAsObject", "getSQL", "getNormalizedSQL", "reset", "free",
+    "next", "getRemainingSQL",
+]
+
+
+def sqljs_report() -> Report:
+    """The SQL runner. It runs inside the sandbox page, so its calls are in
+    `api/run_sandbox.py`'s worker text, not in a frontend script."""
+    text = _live_lines(_read(SRC / "api" / "run_sandbox.py"))
+    #: The runner's own names for a database, a statement and the iterator,
+    #: so a regular expression's `.exec(` is not counted as SQL.
+    called = [m for m in SQLJS_METHODS if re.search(rf"(?:new SQL\.|\b(?:db|stmt|ins|it)\.){m}\(", text)]
+    return Report("sqljs", "sql.js", list(SQLJS_METHODS), called, {"methods": list(SQLJS_METHODS)})
+
+
 def jsbeautify_report(scripts: dict[str, str]) -> Report:
     exports = sorted(run_node_exports(VENDOR / "js-beautify" / "beautify.min.js", "JSBEAUTIFY"))
     paths: set[str] = set()
@@ -903,6 +940,8 @@ def collect() -> dict[str, Report]:
         codemirror_report(scripts),
         emmet_report(scripts),
         jsbeautify_report(scripts),
+        sucrase_report(scripts),
+        sqljs_report(),
         harper_report(scripts),
         phosphor_report(),
         wordlist_report(),

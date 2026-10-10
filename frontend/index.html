@@ -4704,12 +4704,17 @@ Link to another note with [[its first few words]]."></textarea>
                  (syncDocFileType swaps the two). -->
             <button id="doc-code-format" class="ghost small hidden" type="button"
               title="Format the selected lines, or the whole file when nothing is selected (Shift+Alt+F)"><i class="ph ph-brackets-curly ph-lead" aria-hidden="true"></i> Format</button>
-            <!-- Run (INBOX 404): a .js or .html file in the sandbox, its
-                 output in a panel under the editor. Shown for the types that
-                 run, and for TypeScript and Python, which say what they would
-                 need (syncDocFileType). -->
+            <!-- Run (INBOX 404, Brief 69): a code document in the sandbox
+                 through the one run protocol (run-core.js), its output in a
+                 panel under the editor. Shown for the types that run or
+                 preview (DOC_RUN_KINDS, syncDocFileType). -->
             <button id="doc-code-run" class="ghost small hidden" type="button"
               title="Run this file in a sandbox and show its output (Ctrl+Shift+Enter)"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Run</button>
+            <!-- A .py document before Python is installed: Run is disabled
+                 and this one line says what it needs and goes there
+                 (DOCUMENTS_PLAN 25 row 2, docRunSyncAvailability). -->
+            <button id="doc-code-run-why" class="linklike small hidden" type="button"
+              title="Open Settings, Packages, at Run Python files">Install Python in Settings, Packages</button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
                  browser gives the open/close, the keyboard handling and the

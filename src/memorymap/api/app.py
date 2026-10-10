@@ -1255,6 +1255,8 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     # registered before the documents router so `/documents/{id}` does not
     # claim the path (`api/run_sandbox.py`).
     app.include_router(run_sandbox.router)
+    # A long run's row in Activity (DOCUMENTS_PLAN 25 row 9): locked.
+    app.include_router(run_sandbox.jobs_router, dependencies=locked)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_webclip.router, dependencies=locked)

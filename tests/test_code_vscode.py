@@ -13,6 +13,8 @@ Chromium by `scratchpad/ui-sweeps/doccodevs.js`.
 
 from __future__ import annotations
 
+import re
+
 import json
 import shutil
 import subprocess
@@ -502,7 +504,9 @@ def test_run_goes_through_the_sandbox_and_trusts_only_its_frame():
 def test_python_runs_in_its_own_runner_once_the_extra_is_installed():
     """The owner, 2026-09-24: "Run Python files: yes, as an opt-in extra"."""
     source = _source()
-    assert 'const DOC_RUN_KINDS = { js: "js", html: "html", py: "py" };' in source
+    #: The types that run and their page; the languages are run-core.js's rows
+    #: (tests/test_run_protocol.py).
+    assert re.search(r'^const DOC_RUN_KINDS = \{[^}]*\bpy: "python"', source, re.M)
     assert 'const DOC_RUN_SANDBOX_PY_URL = "/documents/run-sandbox/python";' in source
     run = _function("docRunCode")
     #: Not installed: the panel says so and offers the Settings row, rather

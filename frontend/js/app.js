@@ -1827,6 +1827,9 @@ const LAZY_MODULES = {
   //: lightbox-view.js's header.
   lightbox: ["/js/lightbox-view.js"],
   activity: ["/js/activity-panel.js"],
+  //: Run, preview and test for a code document (DOCUMENTS_PLAN 23, D1): the
+  //: protocol and its languages, loaded on the first Run.
+  run: ["/js/run-core.js", "/js/run-tests.js"],
   editConflict: ["/js/edit-conflict.js"],
   categories: ["/js/categories-panel.js"],
   //: The tag manager and the bulk tag dialog (INBOX 447): see tag-manager.js.

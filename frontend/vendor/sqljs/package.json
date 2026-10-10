@@ -1,0 +1,8 @@
+{
+  "name": "memorymap-sqljs-copy",
+  "private": true,
+  "description": "Pins the sql.js release whose dist files are copied here; see build.sh.",
+  "dependencies": {
+    "sql.js": "1.14.2"
+  }
+}

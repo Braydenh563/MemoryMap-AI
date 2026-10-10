@@ -19,9 +19,11 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 | CodeMirror 6 | `codemirror/` | packages pinned in `codemirror/package.json` (view 6.x) | MIT (`codemirror/LICENSE`) | https://codemirror.net | the documents editor's source mode |
 | Emmet | `emmet/` | 2.4.11 | MIT (`emmet/LICENSE`) | https://github.com/emmetio/emmet | abbreviations in the code editor |
 | js-beautify | `js-beautify/` | 2.0.3 | MIT (`js-beautify/LICENSE`) | https://github.com/beautifier/js-beautify | Format on a whole JavaScript, CSS or HTML document, loaded on demand by `documents-code.js` |
+| sucrase | `sucrase/` | 3.35.1 (bundled by `sucrase/build.sh`) | MIT (`sucrase/LICENSE`) | https://github.com/alangpierce/sucrase | running a TypeScript document: the types are stripped, not checked, loaded on demand by `run-core.js` |
+| sql.js | `sqljs/` | 1.14.2 (`sql-wasm.js` and `sql-wasm.wasm`, copied by `sqljs/build.sh`) | MIT (`sqljs/LICENSE`) | https://github.com/sql-js/sql.js | running a SQL document against an in-memory SQLite in the run sandbox, fetched on demand by `run-core.js` |
 | Harper | `harper/` | harper.js 2.10.0 | Apache-2.0 (`harper/LICENSE`) | https://github.com/Automattic/harper | grammar checking in documents, as WebAssembly |
 | D3 | `d3.v7.min.js` | 7.9.0 | ISC (`d3.LICENSE.txt`) | https://d3js.org | the graph and the whiteboard's layouts |
-| p5.js | `p5.min.js` | 1.9.4 | LGPL-2.1 (`p5.LICENSE.txt`) | https://p5js.org | the generated brand emblem |
+| p5.js | `p5.min.js` | 1.9.4 | LGPL-2.1 (`p5.LICENSE.txt`) | https://p5js.org | the generated brand emblem, and Run on a p5.js sketch document (`run-core.js` hands the file to the run sandbox) |
 | Phosphor Icons | `phosphor/` | the web font build | MIT (`phosphor/LICENSE`) | https://phosphoricons.com | every icon in the app |
 | Mammoth | `mammoth/` | 1.13.0 (`mammoth.browser.min.js`) | BSD-2-Clause (`mammoth/LICENSE`) | https://github.com/mwilliamson/mammoth.js | reading a .docx imported into the Library, loaded on demand by `documents-word.js` |
 | docx | `docx/` | 9.9.0 (`dist/index.iife.js` minified) | MIT (`docx/LICENSE`) | https://github.com/dolanmiu/docx | writing a document as .docx (Download as Word), loaded on demand by `documents-word.js` |

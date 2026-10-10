@@ -3340,3 +3340,46 @@ button.ghost.doc-template-choice.wb-template-choice {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Brief 69, touch.js's 44px floor (the grip measured 6.4px tall at 390):
+   where the target floor is a finger's, the grip's own box is the floor's
+   height, grown upward over the editor by a negative margin, so the panel's
+   head and the hairline (drawn in the box's bottom 6px) stay exactly where
+   they were and the box itself is what a tap lands on. Upward and not down,
+   because the head's buttons are below it. */
+@media (pointer: coarse), (max-width: 819.98px) {
+  .cm-run-panel > .doc-run-resize.sidebar-resize {
+    z-index: 1;
+    flex-basis: var(--target-min);
+    height: var(--target-min);
+    margin-top: calc(var(--space-2) - var(--target-min));
+    background: linear-gradient(to bottom, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%) bottom / 100% var(--space-2) no-repeat;
+  }
+  .cm-run-panel > .doc-run-resize.sidebar-resize::before {
+    content: none;
+  }
+}
+
+/* The panel's head on a phone (Brief 69): the buttons fold to their icons
+   (each keeps its name in aria-label and its title), and the row wraps
+   rather than running past the panel's edge (it ran 49px past at 390). */
+@media (max-width: 599.98px) {
+  .cm-run-panel .cm-run-head {
+    flex-wrap: wrap;
+  }
+  .cm-run-panel .cm-run-head .cm-run-word {
+    display: none;
+  }
+  .cm-run-panel .cm-run-head .ph-lead:has(+ .cm-run-word) {
+    margin-inline-end: 0;
+  }
+}
+
+/* A row's "Line N" link at the target floor, as every other control. */
+.cm-run-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+}

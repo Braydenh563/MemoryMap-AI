@@ -141,6 +141,7 @@ function syncDocFileType() {
   //: document never shows both or neither.
   $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
   $("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));
+  docRunSyncAvailability(type);
   //: Wrapping and whitespace are about a file that does not wrap by itself:
   //: every type but prose, plain text and CSV included (INBOX 402).
   for (const id of ["doc-code-wrap-row", "doc-whitespace-row", "doc-minimap-row"]) $(id)?.classList.toggle("hidden", type.previewable);
@@ -1560,6 +1561,16 @@ const DOC_TEMPLATES = [
     docTitle: "{{isodate}}",
     content: "# {{isodate}}\n\n## What happened\n\n- \n\n## Still open\n\n- [ ] \n\n## Next\n\n- \n",
   },
+  //: **A p5.js sketch** (INBOX 735, the owner: "since p5.js is vendored, can
+  //: it be a document option in the text editor??"). A JavaScript document
+  //: whose Run shows the canvas beside the code, through the vendored p5
+  //: only (run-core.js finds `setup` and `createCanvas`; Brief 69, D6).
+  {
+    id: "p5", title: "p5.js sketch", hint: "Code and a live canvas: Run draws it beside the editor.",
+    docTitle: "Sketch {{isodate}}",
+    fileType: "js",
+    content: "// A p5.js sketch: Run (Ctrl+Shift+Enter) draws it in the panel below.\nfunction setup() {\n  createCanvas(400, 300);\n}\n\nfunction draw() {\n  background(240);\n  circle(mouseX, mouseY, 40);\n}\n",
+  },
 ];
 
 function docTemplateFill(template) {
@@ -1583,6 +1594,8 @@ function docTemplateFill(template) {
   return {
     title,
     content: fill(template.content).replaceAll("{{title}}", title),
+    //: A code template (the p5 sketch) makes a document of its own type.
+    ...(template.fileType ? { file_type: template.fileType } : {}),
   };
 }
 
@@ -1725,7 +1738,8 @@ function showDocTemplatePreview(template) {
   page.className = "doc-template-page md";
   const filled = docTemplateFill(template);
   if (filled.content) {
-    renderMarkdown(page, filled.content);
+    //: A code template previews as the code it makes, not as prose.
+    renderMarkdown(page, template.fileType ? `\`\`\`${template.fileType}\n${filled.content}\`\`\`\n` : filled.content);
   } else {
     const empty = document.createElement("p");
     empty.className = "muted doc-template-empty";
@@ -1810,6 +1824,8 @@ async function saveDocument({ silent = false } = {}) {
     forgetDocEditLocally(saved.id);
     $("doc-saved").textContent = "Saved";
     if (!silent) toast("Document saved.");
+    //: An open preview shows what was saved (D6).
+    docRunAfterSave();
     docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
     renderDocList();
   } catch (error) {
@@ -2529,6 +2545,12 @@ const DOC_COMMANDS = [
     run: () => docFindInDocuments() },
   { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
     code: true, run: () => docRunCode() },
+  { id: "run-tests", icon: "ph:flask", label: "Run the tests in this file", keys: "none",
+    code: true, run: () => docRunCode({ mode: "test" }) },
+  { id: "run-selection", icon: "ph:text-indent", label: "Run the selected lines", keys: "none",
+    code: true, run: () => docRunSelection() },
+  { id: "run-cell", icon: "ph:rows", label: "Run the cell at the caret (between # %% markers)", keys: "none",
+    code: true, run: () => docRunCell() },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
     code: true, run: () => docToggleCodeDraw("codeWrap") },
   { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "none",
@@ -13527,6 +13549,9 @@ $("doc-ai").addEventListener("click", openDocAiPanel);
 //: whole file (`docFormatCode`). The press takes the focus from the editor,
 //: so it is handed back: formatting is a step in the middle of typing.
 $("doc-code-run")?.addEventListener("click", () => docRunCode());
+//: DOCUMENTS_PLAN 25 row 2: Run on a .py document with no Python yet is
+//: disabled, and this line beside it is the way to the install.
+$("doc-code-run-why")?.addEventListener("click", () => docRunOpenPythonExtra());
 
 $("doc-code-format").addEventListener("click", async () => {
   await docFormatCode("auto");
@@ -16135,6 +16160,8 @@ const DOC_TOOL_KEYS = {
   whitespace: "doc-whitespace",
   //: Brief 42: a name missing here was stored under the key "undefined".
   codeMinimap: "doc-minimap",
+  //: Brief 69 (D6): Preview live in the run panel.
+  runLive: "doc-run-live",
 };
 
 function docToolPref(name, fallback) {
@@ -18422,6 +18449,7 @@ function docCmLanguageFor(CM, ext) {
     case "kt": return stream(CM.kotlin);
     case "rb": return stream(CM.ruby);
     case "xml": return stream(CM.xml);
+    case "svg": return stream(CM.xml);
     //: Added with the modes themselves (2026-09-09). `ini` is CodeMirror's
     //: `properties` mode, which is what that format is called there.
     case "swift": return stream(CM.swift);
@@ -18817,6 +18845,39 @@ function docCmTheme(CM) {
       ".cm-run-row.is-info, .cm-run-row.is-debug": { color: "var(--muted)" },
       ".cm-run-text": { flex: "1", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
       ".cm-run-line": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
+      //: A SQL statement's result (Brief 69, D5): the count on the row's
+      //: first line, the table under it at the row's full width, scrolling
+      //: sideways inside the row rather than widening the panel.
+      ".cm-run-row.is-table": { flexWrap: "wrap" },
+      ".cm-run-table-wrap": { flexBasis: "100%", minWidth: "0", overflowX: "auto" },
+      ".cm-run-table": { borderCollapse: "collapse", fontSize: "var(--text-xs)" },
+      ".cm-run-table th, .cm-run-table td": {
+        border: "1px solid var(--border)",
+        padding: "var(--space-1) var(--space-2)",
+        textAlign: "left",
+        whiteSpace: "nowrap",
+      },
+      ".cm-run-table th": { fontWeight: "600", backgroundColor: "var(--surface-2)" },
+      ".cm-run-table td.is-null": { color: "var(--muted)", fontStyle: "italic" },
+      ".cm-run-more": { margin: "var(--space-1) 0 0", color: "var(--muted)" },
+      //: A test (D7): its state's icon, its name, its time, its line; a
+      //: failure's message under it in the row's own ink.
+      ".cm-run-test": { flexWrap: "wrap" },
+      ".cm-run-test.is-pass > .ph": { color: "var(--ok)" },
+      ".cm-run-test .cm-run-text": { flex: "1" },
+      ".cm-run-ms": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
+      ".cm-run-why": { flexBasis: "100%", margin: "var(--space-1) 0 0", whiteSpace: "pre-wrap", font: "inherit", overflowWrap: "anywhere" },
+      ".cm-run-summary": { fontWeight: "600" },
+      //: Input (D9): the lines Python's input() reads, a field under the head.
+      ".cm-run-stdin-wrap": {
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-1)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-run-stdin-label": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      ".cm-run-stdin": { fontFamily: "var(--mono, ui-monospace, monospace)", fontSize: "var(--text-sm)", resize: "vertical", minHeight: "0" },
       //: Run on a .py file before the Pyodide extra is installed: the row's
       //: one action, kept whole beside the sentence it answers.
       ".cm-run-install": { flex: "none", whiteSpace: "nowrap" },

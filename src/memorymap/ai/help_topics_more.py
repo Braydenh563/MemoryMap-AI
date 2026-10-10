@@ -1453,6 +1453,39 @@ MORE_TOPICS.extend(
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
+        #: Brief 69 (DOCUMENTS_PLAN 23, I1): run, preview and test, written
+        #: from the run panel (documents-code.js), run-core.js's languages
+        #: and the palette rows in DOC_COMMANDS.
+        {
+            "id": "code-run",
+            "keywords": (
+                "run code", "run a file", "run python", "run javascript", "run typescript",
+                "typescript", "sql", "sqlite", "query", "p5", "p5.js", "sketch", "preview css",
+                "preview svg", "svg", "unit test", "unit tests", "run tests", "unittest",
+                "input()", "run selection", "run cell", "output panel", "pyodide",
+            ),
+            "body": (
+                "Run (Ctrl+Shift+Enter, beside Format) runs a code document in a "
+                "sandbox with no network and none of your notes, and shows what it "
+                "prints, its errors and their lines in the Output panel under the "
+                "editor. JavaScript runs as it is; TypeScript runs with its types "
+                "removed, not checked; SQL runs against an empty SQLite database "
+                "made for the run, each statement's result a table; Python runs "
+                "once Python is installed in Settings, Packages (until then Run is "
+                "greyed and the line beside it goes there), and input() reads its "
+                "lines from the panel's Input box. HTML, CSS (over a sample page), "
+                "SVG and a p5.js sketch (New from a template, p5.js sketch) show as "
+                "a page; Live in the panel refreshes it as you type. A file of "
+                "tests (describe, it and expect in JavaScript or TypeScript; "
+                "unittest or test_ functions in Python) runs its tests, each "
+                "listed with its time and a failure underlined on its line; Run "
+                "tests in the panel asks for them. The palette has Run the "
+                "selected lines and Run the cell at the caret (between # %% "
+                "markers). Stop ends a run; one still going after two seconds is "
+                "listed in Activity, whose Stop ends it too."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
     ]
 )
 
@@ -1545,6 +1578,10 @@ TOPIC_META: dict[str, dict] = {
     "translate": {"title": "Translating", "path": "Notes tab, Writing room"},
     "tags-categories": {"title": "Tags and categories", "path": "A note's own row, or Capture's Filing menu"},
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
+    "code-run": {"title": "Running, previewing and testing code", "path": "A code document, Run", "steps": (
+        "Open a code document (.js, .ts, .sql, .py, .html, .css, .svg).",
+        "Press Run, or Ctrl+Shift+Enter.",
+        "Read the Output panel under the editor; Line N goes to the line.")},
     "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
     "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
@@ -1623,7 +1660,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
-        "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files",
+        "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files", "code-run",
         "margin-reader",
     )),
     ("Boards and maps", (

@@ -58,7 +58,7 @@ def yaml_available() -> bool:
 
 def languages() -> set[str]:
     """The file-type extensions this module can check."""
-    found = {"py", "toml", "xml"}
+    found = {"py", "toml", "xml", "svg"}
     if yaml_available():
         found.add("yaml")
     return found
@@ -146,7 +146,7 @@ def _yaml(text: str) -> list[dict]:
     return []
 
 
-_CHECKERS = {"py": _python, "toml": _toml, "xml": _xml, "yaml": _yaml}
+_CHECKERS = {"py": _python, "toml": _toml, "xml": _xml, "svg": _xml, "yaml": _yaml}
 
 
 def check(language: str, text: str) -> list[dict]:

@@ -87,6 +87,8 @@ FILE_TYPES: tuple[FileType, ...] = (
     FileType("rb", "Ruby", line_comment="#"),
     FileType("rs", "Rust", line_comment="//", indent="    "),
     FileType("sql", "SQL", line_comment="--", block_comment=("/* ", " */"), indent="    "),
+    #: Brief 69 (D6): an SVG previews in the run panel; it edits as XML.
+    FileType("svg", "SVG", line_comment="", block_comment=("<!-- ", " -->")),
     FileType("swift", "Swift", line_comment="//", indent="    "),
     FileType("ts", "TypeScript", line_comment="//", block_comment=("/* ", " */")),
     FileType("vbs", "VBScript", line_comment="'", indent="    "),

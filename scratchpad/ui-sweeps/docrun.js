@@ -111,10 +111,10 @@ const ok = (n, c, d) => {
   ok("its errors too", !!out && out.rows.some((r) => r.cls === "is-error" && /undefinedFn/.test(r.text) && r.line === "Line 4"), J(out && out.rows));
   ok("and it cannot reach this server either", !!out && out.rows.some((r) => r.text === "page blocked"), J(out && out.rows));
 
-  // --- what cannot run says why -----------------------------------------------------
-  await open("types.ts", "ts", "let a: number = 1;");
-  out = await run(300);
-  ok("TypeScript says what it would need", !!out && out.rows.length === 1 && /compiled to JavaScript/.test(out.rows[0].text) && out.status === "Not run.", J(out));
+  // --- TypeScript runs, its types stripped (Brief 69, D4; code-run.js has the rest) ---
+  await open("types.ts", "ts", "let a: number = 1;\nconsole.log(a + 1);");
+  out = await run(1500);
+  ok("TypeScript runs without type checking", !!out && /without type checking/.test(out.rows[0]?.text) && out.rows[1]?.text === "2", J(out));
   await open("notes3.md", "md", "Words");
   const hidden = await page.evaluate(() => document.getElementById("doc-code-run").classList.contains("hidden"));
   ok("prose has no Run", hidden);

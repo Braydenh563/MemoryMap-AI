@@ -72,6 +72,12 @@ const SURFACES = [
   // One row per section worth a finger: the sheet shows a single section at a
   // time, so "Settings" measured one section's controls and said nothing of the
   // rest.
+  // The code editor's run panel (Brief 69): a .js document run once, so the
+  // panel's head, its grip (`extra`: a separator is a control a finger drags)
+  // and its Input box are measured. Run only by name (ONLY=Run), since it
+  // creates a document.
+  { tab: 'library', label: 'Run panel', sel: '.cm-run-panel', extra: '[role="separator"]', wait: 7000, byName: true,
+    openFn: "(async () => { switchTab('documents'); await new Promise((r) => setTimeout(r, 1200)); const d = await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: 'touch-run.js', content: 'console.log(1)', file_type: 'js' }) }); await loadDocuments(d.id); await new Promise((r) => setTimeout(r, 800)); await docRunCode(); })()" },
   ...['general', 'models', 'appearance', 'preferences', 'data', 'privacy', 'account'].map((section) => ({
     tab: 'notes', label: `Settings ${section}`, sel: `#settings-modal #settings-${section}`,
     openFn: `openSettingsModal('${section}')`, close: '#settings-close' })),
@@ -127,6 +133,7 @@ const SURFACES = [
   const only = process.env.ONLY ? new RegExp(process.env.ONLY, 'i') : null;
   for (const surface of SURFACES) {
     if (only && !only.test(surface.label)) continue;
+    if (surface.byName && !only) continue;
     // A tab with no visible button in the bar (Dashboard, Timeline and
     // Reminders live behind the phone's More sheet below 600) cannot be
     // clicked, and the old `.catch(() => {})` swallowed that: the page stayed on
@@ -142,18 +149,18 @@ const SURFACES = [
       // header kebab below 600, so it is opened through the function the kebab
       // row calls.
       await page.evaluate((src) => { (0, eval)(src); }, surface.openFn);
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(surface.wait || 900);
     } else if (surface.open) {
       await page.click(surface.open).catch(() => {});
       await page.waitForTimeout(700);
     }
 
-    const result = await page.evaluate(({ sel, MIN }) => {
+    const result = await page.evaluate(({ sel, MIN, extra }) => {
       const root = document.querySelector(sel);
       if (!root) return { missing: true };
       const visible = (e) => e.checkVisibility
         && e.checkVisibility({ visibilityProperty: true, opacityProperty: true, contentVisibilityAuto: true });
-      const controls = [...root.querySelectorAll('button, select, summary, input:not([type="hidden"]), .seg')]
+      const controls = [...root.querySelectorAll(`button, select, summary, input:not([type="hidden"]), .seg${extra ? ', ' + extra : ''}`)]
         .filter(visible)
         // Three kinds of element are deliberately unreachable and each has a
         // visible control standing for it: a `<select>` kept only as the value
@@ -270,7 +277,7 @@ const SURFACES = [
         }
       }
       return { count: controls.length, small, covered, shared };
-    }, { sel: surface.sel, MIN });
+    }, { sel: surface.sel, MIN, extra: surface.extra || "" });
 
     if (surface.close) {
       await page.click(surface.close).catch(() => {});

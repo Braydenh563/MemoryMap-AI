@@ -37,6 +37,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["documents"])
 
@@ -47,25 +48,142 @@ RUN_SANDBOX_CSP = (
     "connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 )
 
-#: The runner. It answers three messages from the app, each tagged with the
-#: run's id so a late message from a stopped run is dropped:
+#: The page a `.css` document is previewed against (D6): the elements a
+#: stylesheet usually styles, in one short document, with the class names a
+#: starter stylesheet tends to use. Plain markup, no script.
+CSS_SAMPLE_HTML = (
+    '<main class="container"><header class="header"><h1>Heading one</h1>'
+    '<p class="lead">A lead paragraph with <a href="#">a link</a>, <strong>strong</strong>, '
+    "<em>emphasis</em> and <code>code</code>.</p></header>"
+    '<nav class="nav"><a href="#">Home</a> <a href="#">About</a> <a href="#">Contact</a></nav>'
+    '<article class="card"><h2>Heading two</h2><p>A paragraph of body text long enough to wrap '
+    "onto a second line at most widths, so line height and measure show.</p>"
+    "<ul><li>First item</li><li>Second item</li></ul><ol><li>One</li><li>Two</li></ol>"
+    "<blockquote>A quotation.</blockquote><h3>Heading three</h3>"
+    "<pre><code>const answer = 42;</code></pre></article>"
+    '<table class="table"><thead><tr><th>Name</th><th>Value</th></tr></thead>'
+    "<tbody><tr><td>Alpha</td><td>1</td></tr><tr><td>Beta</td><td>2</td></tr></tbody></table>"
+    '<form class="form"><label>Name <input type="text" placeholder="Your name"></label> '
+    '<label>Choice <select><option>One</option><option>Two</option></select></label> '
+    '<label><input type="checkbox"> Remember</label> <textarea rows="2">Text</textarea> '
+    '<button type="button" class="button btn primary">Primary</button> '
+    '<button type="button" class="button btn">Secondary</button></form>'
+    '<hr><footer class="footer"><small>Small print.</small></footer></main>'
+)
+
+#: The SQL runner (D5), a worker made from sql.js's own text (handed over by
+#: the app in `lib.js`) with this after it. An **in-memory database per run**,
+#: never the app's own: the worker has no network and no storage, and the
+#: binary it compiles came over `postMessage` too. Each statement's result is
+#: a `table` row (the first 200 rows of it, and how many more there were) on
+#: the line the statement starts on; a statement that returns nothing says
+#: how many rows it changed. A parse or run error stops the run on its line.
+#: `tables` (CSV text already split by the app) are loaded first.
+SQL_ROW_CAP = 200
+
+_SQL_WORKER = (
+    f"var ROW_CAP = {SQL_ROW_CAP};\n"
+    + r"""
+function cell(v) {
+  if (v === null || v === undefined) return null;
+  if (v instanceof Uint8Array) return "[blob, " + v.length + " bytes]";
+  return v;
+}
+function lineAt(text, pos) {
+  var n = 1;
+  for (var i = 0; i < pos && i < text.length; i++) if (text.charCodeAt(i) === 10) n++;
+  return n;
+}
+//: Whitespace and comments before a statement's first word, so its line is
+//: the line its first word is on.
+var LEAD = /^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/;
+self.onmessage = function (e) {
+  var d = e.data || {};
+  var text = String(d.source || ""), offset = Number(d.lineOffset) || 0;
+  initSqlJs({ wasmBinary: d.wasm }).then(function (SQL) {
+    var db = new SQL.Database();
+    var line = null;
+    try {
+      (d.tables || []).forEach(function (t) {
+        var cols = t.columns.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; });
+        db.run("CREATE TABLE \"" + String(t.name).replace(/"/g, '""') + "\" (" + cols.join(", ") + ")");
+        var ins = db.prepare("INSERT INTO \"" + String(t.name).replace(/"/g, '""') + "\" VALUES (" + cols.map(function () { return "?"; }).join(", ") + ")");
+        t.rows.forEach(function (r) { ins.run(r); });
+        ins.free();
+        postMessage({ t: "log", level: "info", text: "Loaded " + t.rows.length + " rows into " + t.name + ".", line: null });
+      });
+      var it = db.iterateStatements(text);
+      for (;;) {
+        var rest = it.getRemainingSQL();
+        var start = text.length - rest.length;
+        start += LEAD.exec(rest)[0].length;
+        line = start < text.length ? lineAt(text, start) + offset : null;
+        var step = it.next();
+        if (step.done) break;
+        var stmt = step.value, rows = [], more = 0;
+        var columns = stmt.getColumnNames();
+        while (stmt.step()) {
+          if (rows.length < ROW_CAP) rows.push(stmt.get().map(cell));
+          else more++;
+        }
+        stmt.free();
+        if (columns.length) postMessage({ t: "table", columns: columns, rows: rows, more: more, line: line });
+        else {
+          var changed = db.getRowsModified();
+          postMessage({ t: "log", level: "info", text: changed === 0 ? "Done." : changed === 1 ? "1 row changed." : changed + " rows changed.", line: line });
+        }
+      }
+      postMessage({ t: "done", pending: 0 });
+    } catch (err) {
+      postMessage({ t: "log", level: "error", text: String(err && err.message || err), line: line, uncaught: true });
+    } finally {
+      db.close();
+    }
+  }, function (err) {
+    postMessage({ t: "log", level: "error", text: "SQLite could not start: " + String(err && err.message || err), line: null, uncaught: true });
+  });
+};
+"""
+)
+
+
+#: The runner. **One protocol for every language** (DOCUMENTS_PLAN 23, D1):
+#: the app sends `{type: "run", mmRun, kind, source, path, stdin, tests,
+#: lineOffset, lib}` and gets back rows, `{t: "log", level, text, line, col}`
+#: (plus `t: "table"` and `t: "test"` rows for the kinds that make them), each
+#: tagged with the run's id so a late message from a stopped run is dropped.
+#: `kind` picks a runner from `RUNNERS`; the panel, Stop and the limits are the
+#: app's, the same for all of them (`frontend/js/run-core.js` builds the
+#: message). `lineOffset` is how many lines of the document come before
+#: `source` (Run selection, Run cell), so a reported line is still the
+#: document's. `lib` is a vendored library's text (and a WebAssembly binary)
+#: the app fetched from its own origin and handed over, because this page
+#: may fetch nothing at all.
 #:
-#: - `run` with `kind: "js"`: the code becomes a `blob:` worker with a one-line
-#:   prelude **on the code's own first line**, so a line number the browser
-#:   reports is the document's line number with nothing subtracted. The
-#:   prelude sends `console.*` up as text with the line it was called from,
-#:   and a closing `postMessage` says the top level finished.
-#: - `run` with `kind: "html"`: the page goes into a `srcdoc` frame, which
-#:   inherits this page's sandbox and policy, with the same one-line prelude
-#:   in front of it, and is shown.
+#: - `js`: the code becomes a `blob:` worker with a one-line prelude **on the
+#:   code's own first line**, so a line number the browser reports is the
+#:   document's line number with nothing subtracted. The prelude sends
+#:   `console.*` up as text with the line it was called from, and a closing
+#:   `postMessage` says the top level finished. `tests: true` puts the app's
+#:   test harness (`run-tests.js`) in front and runs the suite after.
+#: - `html`: the page goes into a `srcdoc` frame, which inherits this page's
+#:   sandbox and policy, with the same one-line prelude in front of it, and is
+#:   shown.
 #: - `stop`: the worker is terminated, the frame emptied.
-RUN_SANDBOX_HTML = r"""<!doctype html>
+RUN_SANDBOX_HTML = (
+    r"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Run</title>
 <style>html,body{margin:0;height:100%;background:#fff;color:#111;font:13px system-ui,sans-serif}
 iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
 </head><body><script>
 (function () {
   "use strict";
+  var SQL_WORKER = """
+    + json.dumps(_SQL_WORKER).replace("</", "<\\/")
+    + r""";
+  var CSS_SAMPLE = """
+    + json.dumps(CSS_SAMPLE_HTML).replace("</", "<\\/")
+    + r""";
   var worker = null, frame = null, current = 0;
   function up(id, msg) { msg.mmRun = id; parent.postMessage(msg, "*"); }
   // The stack's frames are the finder, the console method, then the caller:
@@ -77,13 +195,18 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
       "if(m)return Number(m[1])}return null}" +
       "['log','info','warn','error','debug'].forEach(function(k){console[k]=function(){var a=[].slice.call(arguments);" +
       "P({t:'log',level:k,text:a.map(F).join(' '),line:L()})}});" +
-      "self.addEventListener('unhandledrejection',function(e){P({t:'log',level:'error',text:'Uncaught (in promise) '+F(e.reason),line:null})});})();";
+      "self.addEventListener('unhandledrejection',function(e){var r=e.reason,s=String(r&&r.stack||'').split('\\n'),n=null;" +
+      "for(var i=0;i<s.length&&n===null;i++){var m=/(?:blob:|srcdoc)[^\\s)]*:(\\d+):\\d+\\)?\\s*$/.exec(s[i]);if(m)n=Number(m[1])}" +
+      "P({t:'log',level:'error',text:'Uncaught (in promise) '+F(r),line:n})});})();";
   }
   function stop() {
     if (worker) { worker.terminate(); worker = null; }
     if (frame) { frame.remove(); frame = null; }
   }
-  function runJs(id, code) {
+  //: Lines of the document before `source`, as blank lines, so the browser's
+  //: line numbers stay the document's (Run selection, Run cell).
+  function pad(d) { var n = Math.max(0, Math.min(100000, Number(d.lineOffset) || 0)); return new Array(n + 1).join("\n"); }
+  function runJs(id, code, d) {
     // The timers the script leaves behind are counted, so the app can tell
     // "the top level ended" from "nothing is left to run" (INBOX 736).
     var timers = "(function(){var n=0,done=false,live=new Set(),sT=setTimeout,cT=clearTimeout,sI=setInterval,cI=clearInterval;" +
@@ -93,7 +216,16 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
       "self.setInterval=function(){var h=sI.apply(null,arguments);live.add(h);n++;return h};" +
       "self.clearInterval=function(h){cI(h);end(h)};" +
       "self.__mmDone=function(){done=true;postMessage({t:'done',pending:n})}})();";
-    var src = prelude("function(m){postMessage(m)}") + timers + code + "\n;__mmDone();";
+    //: A script that says `export` or `require` after the TypeScript pass
+    //: (sucrase's `imports` transform) finds the names it expects; a run has
+    //: no modules to import, and says so by name.
+    var modules = "var exports={},module={exports:exports};function require(n){throw new Error('Cannot import '+n+': a run has no modules.')}";
+    //: The harness is evaluated from a string on the same first line, so it
+    //: adds no line to the document's numbering, and its own frames (`eval
+    //: at`) are not taken for the document's by the line finder.
+    var tests = d && d.tests && d.harness ? "eval(" + JSON.stringify(String(d.harness)) + ");" : "";
+    var after = tests ? "\n;__mmTests().then(__mmDone);" : "\n;__mmDone();";
+    var src = prelude("function(m){postMessage(m)}") + timers + modules + tests + pad(d) + code + after;
     worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
     worker.onmessage = function (e) { if (id === current) up(id, e.data); };
     worker.onerror = function (e) {
@@ -102,13 +234,13 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
       if (id === current) up(id, { t: "log", level: "error", text: text, line: e.lineno || null, uncaught: true });
     };
   }
-  function runHtml(id, code) {
+  function runHtml(id, code, d) {
     frame = document.createElement("iframe");
     frame.setAttribute("sandbox", "allow-scripts");
     var head = "<script>" + prelude("function(m){parent.postMessage(m,'*')}") +
       "window.addEventListener('error',function(e){e.preventDefault();var m=String(e.message);" +
       "parent.postMessage({t:'log',level:'error',text:/^Uncaught/.test(m)?m:'Uncaught '+m,line:e.lineno||null,uncaught:true},'*')});<\/script>";
-    frame.srcdoc = head + code;
+    frame.srcdoc = head + pad(d) + code;
     document.body.appendChild(frame);
     frame.addEventListener("load", function () { if (id === current) up(id, { t: "done" }); });
   }
@@ -119,13 +251,77 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
     if (d.type !== "run") return;
     stop();
     current = d.mmRun;
+    var run = Object.prototype.hasOwnProperty.call(RUNNERS, d.kind) ? RUNNERS[d.kind] : RUNNERS.js;
     try {
-      if (d.kind === "html") runHtml(current, String(d.code || ""));
-      else runJs(current, String(d.code || ""));
+      run(current, String(d.source != null ? d.source : d.code || ""), d);
     } catch (err) {
       up(current, { t: "log", level: "error", text: String(err && err.message || err), line: null });
     }
   }
+  //: SQL (D5): sql.js's text and binary arrive in `lib`, from the app.
+  function runSql(id, code, d) {
+    var lib = d.lib || {};
+    if (typeof lib.js !== "string" || !(lib.wasm instanceof ArrayBuffer)) throw new Error("SQLite did not arrive with the run.");
+    worker = new Worker(URL.createObjectURL(new Blob([lib.js + "\n;" + SQL_WORKER], { type: "text/javascript" })));
+    worker.onmessage = function (e) { if (id === current) up(id, e.data); };
+    worker.onerror = function (e) {
+      e.preventDefault();
+      if (id === current) up(id, { t: "log", level: "error", text: "SQLite stopped: " + e.message, line: null, uncaught: true });
+    };
+    worker.postMessage({ source: code, wasm: lib.wasm, lineOffset: Number(d.lineOffset) || 0, tables: Array.isArray(d.tables) ? d.tables : [] });
+  }
+  //: A page in a frame from a string, shown, `done` when it has loaded.
+  //: The previews (D6) are pages too: a stylesheet over the sample, an SVG
+  //: as an image, a p5 sketch with the library beside it.
+  function showPage(id, html) {
+    frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", "allow-scripts");
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+    frame.addEventListener("load", function () { if (id === current) up(id, { t: "done" }); });
+  }
+  function errorHead() {
+    return "<script>" + prelude("function(m){parent.postMessage(m,'*')}") +
+      "window.addEventListener('error',function(e){e.preventDefault();var m=String(e.message);" +
+      "parent.postMessage({t:'log',level:'error',text:/^Uncaught/.test(m)?m:'Uncaught '+m,line:e.lineno||null,uncaught:true},'*')});<\/script>";
+  }
+  //: A stylesheet over the sample page. No script runs: the frame carries
+  //: only the sample and the rules, whose `</style` cannot close early.
+  function runCss(id, code) {
+    showPage(id, "<!doctype html><html><head><meta charset='utf-8'><style>" +
+      code.replace(/<\/(style)/gi, "<\\/$1") + "</style></head><body>" + CSS_SAMPLE + "</body></html>");
+  }
+  //: An SVG, parsed here first so a broken one is a row on its line, then
+  //: shown as an image: an `<img>` runs none of the file's own script.
+  function runSvg(id, code) {
+    var parsed = new DOMParser().parseFromString(code, "image/svg+xml");
+    var broken = parsed.querySelector("parsererror");
+    if (broken || !parsed.documentElement || parsed.documentElement.localName !== "svg") {
+      //: The browser's report is a page of its own ("This page contains the
+      //: following errors: error on line 3 at column 7: ..."): its one
+      //: sentence is kept, and its line becomes the row's link.
+      var text = broken ? String(broken.textContent || "").replace(/\s+/g, " ") : "";
+      var at = /error on line (\d+) at column \d+: (.*?)(?: Below is a rendering.*)?$/i.exec(text);
+      var said = !broken ? "This is not an SVG: its outer element is not <svg>." : "Could not read this SVG: " + (at ? at[2] : text).trim();
+      up(id, { t: "log", level: "error", text: said.slice(0, 300), line: at ? Number(at[1]) : null, uncaught: true });
+      return;
+    }
+    showPage(id, "<!doctype html><html><head><meta charset='utf-8'><style>html,body{margin:0;height:100%}" +
+      "body{display:grid;place-items:center;background:#fff;background-image:linear-gradient(45deg,#eee 25%,transparent 25%,transparent 75%,#eee 75%),linear-gradient(45deg,#eee 25%,transparent 25%,transparent 75%,#eee 75%);" +
+      "background-size:16px 16px;background-position:0 0,8px 8px}img{max-width:100%;max-height:100%}</style></head><body>" +
+      "<img alt='' src='data:image/svg+xml;charset=utf-8," + encodeURIComponent(code).replace(/'/g, "%27") + "'></body></html>");
+  }
+  //: A p5.js sketch (D6, INBOX 735): the sketch's own script first, on the
+  //: frame's first line so a line number is the document's, then the
+  //: vendored p5.min.js, handed over by the app, which finds `setup` and
+  //: `draw` and starts. A `</script` in the sketch cannot close it early.
+  function runP5(id, code, d) {
+    var lib = d.lib || {};
+    if (typeof lib.p5 !== "string") throw new Error("p5.js did not arrive with the run.");
+    showPage(id, errorHead() + "<style>html,body{margin:0}canvas{display:block}</style><script>" + pad(d) +
+      code.replace(/<\/(script)/gi, "<\\/$1") + "\n<\/script><script>" + lib.p5.replace(/<\/(script)/gi, "<\\/$1") + "<\/script>");
+  }
+  var RUNNERS = { js: runJs, html: runHtml, sql: runSql, css: runCss, svg: runSvg, p5: runP5 };
   window.onmessage = function (e) {
     //: A message from the page being run goes up as that run's; anything
     //: else must be the app's own.
@@ -136,6 +332,7 @@ iframe{border:0;width:100%;height:100%;display:block;background:#fff}</style>
 })();
 </script></body></html>
 """
+)
 
 
 @router.get("/documents/run-sandbox")
@@ -241,12 +438,31 @@ class _MMOut:
         return False
 
 
-def _mm_run(code, emit):
+def _mm_input(prompt=""):
+    """`input()` answered from the panel's Input box (D9): each call takes
+    the next line, and the prompt and the answer show as one row, as a
+    terminal shows them."""
+    if prompt:
+        sys.stdout.write(str(prompt))
+    line = sys.stdin.readline()
+    if not line:
+        sys.stdout.flush()
+        raise EOFError("input() asked for more lines than the Input box holds: add a line there and run again.")
+    line = line.rstrip("\n")
+    sys.stdout.write(line + "\n")
+    return line
+
+
+def _mm_run(code, emit, offset=0, stdin=""):
+    import io
+
     out, err = _MMOut("log", emit), _MMOut("error", emit)
-    saved = sys.stdout, sys.stderr
-    sys.stdout, sys.stderr = out, err
+    saved = sys.stdout, sys.stderr, sys.stdin
+    sys.stdout, sys.stderr, sys.stdin = out, err, io.StringIO(str(stdin or ""))
     try:
-        exec(compile(code, "<document>", "exec"), {"__name__": "__main__"})
+        # Blank lines for the document above a selection or a cell, so every
+        # line number is the document's.
+        exec(compile("\n" * max(0, int(offset)) + code, "<document>", "exec"), {"__name__": "__main__", "input": _mm_input})
     except SystemExit as stop:
         out.flush(); err.flush()
         if stop.code not in (None, 0):
@@ -261,6 +477,109 @@ def _mm_run(code, emit):
                 line = frame.lineno
         text = traceback.format_exception_only(type(exc), exc)[-1].strip()
         emit("error", text, line, True)
+    finally:
+        out.flush(); err.flush()
+        sys.stdout, sys.stderr, sys.stdin = saved
+
+
+def _mm_line(exc):
+    """The document's line an exception was raised from (its innermost
+    `<document>` frame), or None."""
+    line = None
+    if isinstance(exc, SyntaxError) and exc.filename == "<document>":
+        line = exc.lineno
+    for frame in traceback.extract_tb(exc.__traceback__):
+        if frame.filename == "<document>":
+            line = frame.lineno
+    return line
+
+
+def _mm_tests(code, emit, emit_test, offset=0):
+    """Tests are a kind of run (D7): every `unittest.TestCase` in the
+    document, and every plain `test*` function (pytest's shape, bare
+    `assert`, without pytest), in the order they are written. Each sends
+    `emit_test(name, state, ms, text, line)`; the totals come back."""
+    import time
+    import unittest
+
+    out, err = _MMOut("log", emit), _MMOut("error", emit)
+    saved = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = out, err
+    counts = {"passed": 0, "failed": 0, "skipped": 0}
+    space = {"__name__": "__mm_tests__"}
+    try:
+        try:
+            exec(compile("\n" * max(0, int(offset)) + code, "<document>", "exec"), space)
+        except BaseException as exc:
+            out.flush(); err.flush()
+            emit("error", traceback.format_exception_only(type(exc), exc)[-1].strip(), _mm_line(exc), True)
+            return counts
+
+        class Result(unittest.TestResult):
+            outcome = ("pass", "", None)
+
+            def _note(self, state, err_info):
+                exc = err_info[1]
+                text = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+                self.outcome = (state, text, _mm_line(exc))
+
+            def addFailure(self, test, err_info):
+                super().addFailure(test, err_info)
+                self._note("fail", err_info)
+
+            def addError(self, test, err_info):
+                super().addError(test, err_info)
+                self._note("fail", err_info)
+
+            def addSkip(self, test, reason):
+                super().addSkip(test, reason)
+                self.outcome = ("skip", str(reason), None)
+
+            def addUnexpectedSuccess(self, test):
+                super().addUnexpectedSuccess(test)
+                self.outcome = ("fail", "Passed, but it was marked as expected to fail.", None)
+
+        def first_line(fn):
+            import inspect
+
+            # A decorated test (`unittest.skip`) is found by the function it wraps.
+            fn = inspect.unwrap(getattr(fn, "__func__", fn))
+            code_obj = getattr(fn, "__code__", None)
+            return code_obj.co_firstlineno if code_obj and code_obj.co_filename == "<document>" else None
+
+        found = []
+        loader = unittest.TestLoader()
+        for value in list(space.values()):
+            if isinstance(value, type) and issubclass(value, unittest.TestCase) and value.__module__ == "__mm_tests__":
+                for name in loader.getTestCaseNames(value):
+                    found.append((first_line(getattr(value, name)) or 0, f"{value.__name__}.{name}", value(name)))
+            elif callable(value) and not isinstance(value, type) and getattr(value, "__name__", "").startswith("test"):
+                line = first_line(value)
+                if line is not None:
+                    found.append((line, value.__name__, value))
+        if not found:
+            emit("info", "No tests found: a test is a unittest.TestCase method, or a function whose name starts with test.", None, False)
+            return counts
+        for line, name, test in sorted(found, key=lambda row: row[0]):
+            start = time.perf_counter()
+            if isinstance(test, unittest.TestCase):
+                result = Result()
+                test(result)
+                state, text, where = result.outcome
+            else:
+                state, text, where = "pass", "", None
+                try:
+                    test()
+                except BaseException as exc:  # a plain test fails on anything it raises
+                    state, where = "fail", _mm_line(exc)
+                    text = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+                    if isinstance(exc, AssertionError) and not str(exc):
+                        text = "AssertionError: the assert on this line was false."
+            out.flush(); err.flush()
+            ms = round((time.perf_counter() - start) * 1000)
+            counts[{"pass": "passed", "fail": "failed", "skip": "skipped"}[state]] += 1
+            emit_test(name, state, ms, text, where or line or None)
+        return counts
     finally:
         out.flush(); err.flush()
         sys.stdout, sys.stderr = saved
@@ -311,8 +630,27 @@ self.onmessage = async (e) => {
         line: line == null ? null : Number(line), uncaught: Boolean(uncaught),
       });
     };
-    const runner = p.globals.get("_mm_run");
-    try { runner(String(e.data.code || ""), emit); } finally { runner.destroy(); }
+    if (e.data.tests) {
+      //: Tests (D7): one `test` row per test, then the totals.
+      const t0 = performance.now();
+      const emitTest = (name, state, ms, text, line) => post({
+        t: "test", name: String(name), state: String(state), ms: Number(ms) || 0,
+        text: String(text || ""), line: line == null ? null : Number(line),
+      });
+      const tester = p.globals.get("_mm_tests");
+      let counts = null;
+      try {
+        counts = tester(String(e.data.source || ""), emit, emitTest, Number(e.data.lineOffset) || 0);
+        const totals = counts.toJs({ dict_converter: Object.fromEntries });
+        post({ t: "tests-done", passed: totals.passed, failed: totals.failed, skipped: totals.skipped, ms: Math.round(performance.now() - t0) });
+      } finally {
+        if (counts && counts.destroy) counts.destroy();
+        tester.destroy();
+      }
+    } else {
+      const runner = p.globals.get("_mm_run");
+      try { runner(String(e.data.source || ""), emit, Number(e.data.lineOffset) || 0, String(e.data.stdin || "")); } finally { runner.destroy(); }
+    }
     post({ t: "done" });
   } catch (err) {
     post({ t: "log", level: "error", text: "Python could not run: " + String((err && err.message) || err), line: null, uncaught: true });
@@ -362,7 +700,13 @@ RUN_SANDBOX_PY_HTML = (
     current = d.mmRun;
     if (!worker) boot();
     busy = true;
-    worker.postMessage({ run: current, code: String(d.code || "") });
+    worker.postMessage({
+      run: current,
+      source: String(d.source != null ? d.source : d.code || ""),
+      lineOffset: Number(d.lineOffset) || 0,
+      tests: Boolean(d.tests),
+      stdin: String(d.stdin || ""),
+    });
   }
   window.onmessage = handle;
   parent.postMessage({ mmRun: 0, t: "ready", runner: "python" }, "*");
@@ -434,3 +778,66 @@ def pyodide_file(name: str) -> FileResponse:
             "Cache-Control": "no-cache",
         },
     )
+
+
+# --- A long run is a job in the Activity panel (DOCUMENTS_PLAN 25 row 9) ------
+#
+# Decision 70: background work is "visible and stoppable". A run happens in
+# the browser's sandbox, not here, so the panel registers a run that is still
+# going after two seconds, renews it every second, and asks each time whether
+# Activity's Stop was pressed; the answer stops the run in the tab. The lease
+# (`core/activity.py`) ends a row whose tab went away. These routes are
+# behind the unlock like every other (`jobs_router`): they name a run, never
+# its code.
+
+#: Seconds a run's row lives without a renewal.
+RUN_JOB_LEASE_S = 6.0
+#: Runs listed at once: a bounded list, whatever a page asks for.
+RUN_JOB_MAX = 8
+RUN_JOB_KIND = "code-run"
+
+#: Behind the unlock, unlike the sandbox pages above: `app.py` includes this
+#: router with the lock, the pages' router without it.
+jobs_router = APIRouter(tags=["documents"])
+
+
+class RunJobBody(BaseModel):
+    label: str = Field(default="Running a code document", max_length=120)
+
+
+def _run_job(job_id: str):
+    from memorymap.core import activity
+
+    job = activity.get(job_id)
+    if job is None or job.kind != RUN_JOB_KIND:
+        raise HTTPException(status_code=404, detail="That run has ended.")
+    return job
+
+
+@jobs_router.post("/documents/run-jobs")
+def start_run_job(body: RunJobBody) -> dict:
+    """List a long run in Activity, with Stop."""
+    from memorymap.core import activity
+
+    if activity.count(RUN_JOB_KIND) >= RUN_JOB_MAX:
+        raise HTTPException(status_code=429, detail="Too many runs are listed already.")
+    label = " ".join(body.label.split())[:120] or "Running a code document"
+    job = activity.start(RUN_JOB_KIND, label, stoppable=True, lease=RUN_JOB_LEASE_S)
+    return {"id": job.id, "lease": RUN_JOB_LEASE_S}
+
+
+@jobs_router.post("/documents/run-jobs/{job_id}/beat")
+def beat_run_job(job_id: str) -> dict:
+    """Renew the run's row; says whether Activity asked it to stop."""
+    job = _run_job(job_id)
+    job.touch()
+    return {"stopped": job.stopped}
+
+
+@jobs_router.delete("/documents/run-jobs/{job_id}")
+def end_run_job(job_id: str) -> dict:
+    """The run ended in the tab: its row goes."""
+    from memorymap.core import activity
+
+    activity.finish(_run_job(job_id))
+    return {"status": "ok"}

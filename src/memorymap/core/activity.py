@@ -40,7 +40,14 @@ _jobs: dict[str, Job] = {}
 class Job:
     """One running piece of work, as the Activity panel shows it."""
 
-    def __init__(self, kind: str, label: str, on_stop: Callable[[], object] | None, stoppable: bool) -> None:
+    def __init__(
+        self,
+        kind: str,
+        label: str,
+        on_stop: Callable[[], object] | None,
+        stoppable: bool,
+        lease: float | None = None,
+    ) -> None:
         self.id = f"job-{next(_ids)}"
         self.kind = kind
         self.label = label
@@ -50,6 +57,18 @@ class Job:
         self.on_stop = on_stop
         self.stoppable = stoppable or on_stop is not None
         self._stop = threading.Event()
+        #: A job run somewhere else (a code run in the browser's sandbox)
+        #: holds a lease it renews with `touch`; one not renewed in time is
+        #: gone, so a closed tab does not leave a row that never ends.
+        self.lease = lease
+        self.beat = time.monotonic()
+
+    @property
+    def expired(self) -> bool:
+        return self.lease is not None and time.monotonic() - self.beat > self.lease
+
+    def touch(self) -> None:
+        self.beat = time.monotonic()
 
     @property
     def stopped(self) -> bool:
@@ -85,11 +104,31 @@ class Job:
         }
 
 
-def start(kind: str, label: str, *, on_stop: Callable[[], object] | None = None, stoppable: bool = False) -> Job:
-    job = Job(kind, label, on_stop, stoppable)
+def start(
+    kind: str,
+    label: str,
+    *,
+    on_stop: Callable[[], object] | None = None,
+    stoppable: bool = False,
+    lease: float | None = None,
+) -> Job:
+    job = Job(kind, label, on_stop, stoppable, lease)
     with _lock:
+        _prune()
         _jobs[job.id] = job
     return job
+
+
+def _prune() -> None:
+    """Drop the leased jobs nobody renewed. Called with `_lock` held."""
+    for job_id in [job_id for job_id, job in _jobs.items() if job.expired]:
+        del _jobs[job_id]
+
+
+def count(kind: str) -> int:
+    with _lock:
+        _prune()
+        return sum(1 for job in _jobs.values() if job.kind == kind)
 
 
 def finish(job: Job | None) -> None:
@@ -129,6 +168,7 @@ def tracked_stream(kind: str, label: str, lines: Iterator) -> Iterator:
 
 def get(job_id: str) -> Job | None:
     with _lock:
+        _prune()
         return _jobs.get(job_id)
 
 
@@ -149,6 +189,7 @@ def stop_kind(kind: str) -> int:
 
 def snapshot() -> list[dict]:
     with _lock:
+        _prune()
         return [job.row() for job in sorted(_jobs.values(), key=lambda j: -j.started)]
 
 

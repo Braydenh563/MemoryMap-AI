@@ -338,6 +338,32 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 69, I1)
+
+**Built** by the ide1 agent (DOCUMENTS_PLAN 23 phase I1 and section 25 rows
+2 and 9, one commit each). D1: one request shape (`{kind, source, path,
+stdin, tests, lineOffset, lib}`) from the panel through `run-core.js` (a
+lazy bundle with `run-tests.js`, `LAZY_MODULES.run`; the language modules
+are `run-*.js` at the top of `frontend/js` rather than a `run/` folder,
+because 65 lints glob `frontend/js/*.js` only) to the sandbox page's
+`RUNNERS` table; libraries reach the sandbox over `postMessage` from the
+app's own origin, so its policy still fetches nothing. D4: sucrase 3.35.1
+(206,318 bytes, 47,286 gzipped, kept). D5: sql.js 1.14.2 (sql-wasm.js
+16,642 and sql-wasm.wasm 322,099 gzipped, kept), an in-memory database per
+run, tables capped at 200 rows. D6: css over a sample page, svg through
+`<img>` (its script never runs; a new `.svg` file type), p5 sketches with
+the vendored p5.min.js (a template, INBOX 735's first half), Live at
+400 ms and a refresh on save. D7: unittest discovery plus plain `test*`
+functions; the JS harness evaluated on the worker script's first line;
+pytest measured (12 wheels, 2,786,858 bytes) and dropped. D9: `input()`
+from the panel's Input box, Run selection, Run cell; numpy (2,960,568
+bytes) and matplotlib (13,266,929 bytes with its closure) measured and
+not shipped. Row 2: Run disabled with its one line on a fresh data dir.
+Row 9: `core/activity.py` leases (6 s) and `/documents/run-jobs`, 8 at
+most; Stop in Activity reached the tab in 789 to 844 ms. Measured by
+`scratchpad/ui-sweeps/code-run.js` (46/46 at 1440, 47/47 at 390) and
+`touch.js`'s new Run panel row (8 controls, 0 findings; 2 before).
+
 ## Moved from the plans, 2026-10-10 (DOCUMENTS Brief 42 remainder)
 
 **Built** by the docs42b agent (Brief 42's remainder from OPEN.md, one

@@ -522,7 +522,7 @@ EXTRAS: tuple[Extra, ...] = (
         module="",
         size="~7 MB download, 14 MB on disk",
         caveat="The standard library only: packages such as numpy are not "
-        "included, and input() gets the end of the input.",
+        "included. input() reads its lines from the Input box in the Output panel.",
         kind="download",
         version="314.0.7",
         licence="MPL-2.0",

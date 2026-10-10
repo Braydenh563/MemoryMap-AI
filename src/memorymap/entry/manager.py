@@ -756,6 +756,12 @@ def record_dates(session: Session, entry: Entry) -> None:
             now = user_now(deps.get_config())
         except Exception:  # noqa: BLE001  # no app state (a script, a test)
             now = datetime.now()
+        #: An imported note's words were written on its own day, not today:
+        #: "tomorrow" in a 2024 export is a day in 2024 (CHAT_PLAN section 2,
+        #: the import row). `app_import.write` sets that day and calls this
+        #: again.
+        if entry.source_path and entry.created_at is not None and entry.created_at.date() < now.date():
+            now = entry.created_at
         session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
         resolved = []
         for mention in timewords.find(entry.content or "", now):

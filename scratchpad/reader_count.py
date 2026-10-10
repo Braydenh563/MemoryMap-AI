@@ -46,7 +46,7 @@ VERDICT = {
     "src/memorymap/ai/utilities.py": "not a reader: weekday names for writing a date (units and date questions read by recognise)",
     "src/memorymap/ai/factgraph.py": "not a reader: time-unit names a count is not (dates, money, durations read by recognise)",
     # Brief 67 (F3), 2026-10-10.
-    "src/memorymap/ai/commands.py": "not a reader: _TIME_FIRST, the words that open a reminder's time part, to split it from the task (the date read by when, which delegates to recognise)",
+    "src/memorymap/ai/commands.py": "not a reader: _TIME_FIRST, the words that open a reminder's time part (weekday words included), to split it from the task; the date is read by when, which delegates to recognise",
 }
 
 WEEKDAYS = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"

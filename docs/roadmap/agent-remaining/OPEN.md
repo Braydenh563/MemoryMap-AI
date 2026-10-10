@@ -1264,6 +1264,24 @@ The file, with the T0 table, is in [`../archive/agent-remaining/trust-1010.md`](
 - Brief 47's "the sidebar's search field routes here": the Notes sidebar has no search field; the no-match Search everything button and the saved-search rows are the routes built. [search-1010]
 - Not verified: hybrid ranking cost at 5,000 notes with a real embedding model (keyword plus the fake backend only); the saved-search ⋯ menu opened in a browser; the phone's saved-search rows at 390 beyond the DOM count. [search-1010]
 
+## Left by the f4 agent (Brief 68, CHAT_PLAN F4, merged 2026-10-10)
+
+- Note editor: offers on the Edit form are wired (`note-edit-panels.js` after `li.append(surface, ...)`) but measured only on the Capture composer; the Edit form's filing offer sets the hidden select and redraws the chip through its `change`, not seen in a sweep. [f4-1010]
+- Note editor: a sum only when written with `=` ("12 + 7 = 21"); a column of amounts with a "Total:" line is not checked (`ai/offers.py` `_SUM`). [f4-1010]
+- Dashboard: the digest is in dashboard.js (a boot file, about 700 bytes gzipped); a lazy home would delay the first paint of the widget it opens. The model "refining" the digest (the plan's "with the model refining it when present") is not built: Atlas's week below it is the old stream, unchanged. [f4-1010]
+- Documents: the status bar shows characters, words and reading time; lines (`wc -l`) are counted by `textCounts` but shown nowhere. "find with the same windows" is the Library's Search documents box (`GET /documents?q=`); the editor's own Find bar is a substring find, unchanged. [f4-1010]
+- Board: board acts are off on a mind map (`wbPaletteActRow` returns null when `wbIsMap()`): a map's layout is its tidy, not a grid. Pasting a list as stickies or map topics was already built (`wbPasteText`, `wbMapPasteText`). [f4-1010]
+- Library: a "boards" or "mind maps" filter resolves to `Entry.is_board` ids, but the Library's filter keeps note cards only (`library.js` `libraryPhrase`), so it shows nothing there; the Graph is notes only too. [f4-1010]
+- Filters: "last week" is the last seven days here (the search's meaning) and the Monday to Sunday week in `recognise`; F1's owner decision row still stands. [f4-1010]
+- Settings: the synonym groups and the filler list are a hand table (`filters.SETTING_WORDS`, `SETTING_FILLER`), measured on 10 phrases in the browser; no settings phrase fixture in tests. [f4-1010]
+- Import: people and places are named in the summary only; they are not written as tags or entities (the save's own extraction runs as before). `recognise` reads a person only in some shapes ("with Ken", "Sam Carter"), not "serviced by Ken" or "Ken Adams serviced" (`ai/recognise.py` `_contact_cands`). [f4-1010]
+- Agent: `propose_act` is offered in the reminder and tag tool groups only; whether a 1 to 3B model calls Calculate rather than computing is not verified (no model here). [f4-1010]
+- Voice: 67 failure toasts in library.js, whiteboard.js and whiteboard-map.js moved; the other 112 JS files still hold their own strings, and only the failure shape is in the table (decision 55: surface by surface). One template toast left as written (`library.js` "Couldn't import “${file.name}”"). [f4-1010]
+- Scorecard: the follow-up column needs decision 58's 200 spoken lines, which are not written; variety's minimum is 3 of 20 against the plan's target of 8. [f4-1010]
+- Boot JS 582,371 to 583,240 bytes gzipped (+869: the digest, the Library and Graph filters, the palette rows, the voice table, `textCounts`; cap 588,400); boot CSS 183,286 to 183,286 (cap 183,300, 14 bytes left). New UI otherwise lives in the lazy quick add, library and graph bundles. [f4-1010]
+
+Swept on this head: errors.js 0 errors and 0 layout findings at 1440, 1024, 820 and 390 (1024 timed out once on a click under load, 0 on the rerun); touch.js 0 findings. Not verified: a real model's path (no `MEMORYMAP_EVALS_URL`); the agent palette at 390 (it did not open from `toggleAgentPalette` in the phone shell); a screen reader on the new chips; the full suite.
+
 ## Left by the companion agent (Brief 34, first round, merged 2026-10-10)
 
 Taken up by the companion2 agent (Brief 34 continues, INBOX 772 and 773).

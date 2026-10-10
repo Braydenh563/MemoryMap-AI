@@ -273,6 +273,48 @@ function wbPaletteCommands() {
   }));
 }
 
+//: **A sentence over a board is an act** (CHAT_PLAN section 2, the board's
+//: acts): "arrange as a grid of 3", "stack them", "align left" in the command
+//: palette is the first row, read by the server (`GET /read/board`,
+//: `acts.board_parse`; this file reads no words itself) and run by the
+//: board's own arrange commands, so Undo takes it back. Synchronous for
+//: `paletteMatches`, like quick add's act row: the reading arrives on its own
+//: and redraws the palette.
+const wbActReading = { q: null, act: null };
+
+function wbPaletteActRow(query) {
+  if (!wbCommandsLive() || wbIsMap()) return null;
+  const q = String(query || "").trim();
+  if (!q) return null;
+  if (wbActReading.q !== q) {
+    wbActReading.q = q;
+    wbActReading.act = null;
+    apiJson("/read/board?q=" + encodeURIComponent(q), { silent: true })
+      .then((got) => {
+        if (wbActReading.q !== q || !got.act) return;
+        wbActReading.act = got.act;
+        const field = $("palette-input");
+        if (!$("palette-overlay").classList.contains("hidden") && field.value.trim() === q) renderPalette(field.value);
+      })
+      .catch(() => {});
+    return null;
+  }
+  const act = wbActReading.act;
+  if (!act) return null;
+  return { group: "This board", label: `ph:squares-four ${act.label}`, about: act.help, run: () => setTimeout(() => wbRunBoardAct(act)) };
+}
+
+function wbRunBoardAct(act) {
+  const slots = act.slots || {};
+  if (act.intent === "grid") return wbArrangeGridSelection(slots.columns || 0);
+  if (act.intent === "row") return wbArrangeGridSelection(Infinity);
+  if (act.intent === "column") return wbArrangeGridSelection(1);
+  if (act.intent === "align") return wbAlignSelection(slots.edge);
+  if (act.intent === "distribute") return wbDistributeSelection(slots.axis);
+  if (act.intent === "same-size") return wbSameSizeSelection(slots.dimension);
+  return null;
+}
+
 //: The shortcut sheet's whiteboard section, from the same table, so the two
 //: cannot disagree. Called by `openShortcuts` (settings-wiring.js).
 function renderWbShortcutSheet(list) {

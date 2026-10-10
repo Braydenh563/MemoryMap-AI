@@ -1626,7 +1626,7 @@ function gcHighlight(s = gcTab) {
   const onPath = chrome && graphTrace ? new Set(graphTrace.ids) : null;
   const ids = chrome ? graphHighlightIds : null;
   const searchOk = (n) =>
-    onPath ? onPath.has(n.id) : ids ? ids.has(n.id) : !query || n.preview.toLowerCase().includes(query);
+    onPath ? onPath.has(n.id) : ids ? ids.has(n.id) : graphQueryMatch(n.id, n.preview, query);
   const neighbours =
     s.hoveredId != null && s.adj ? s.adj.get(s.hoveredId) : null;
   const hoverOk = (id) => neighbours == null || id === s.hoveredId || neighbours.has(id);

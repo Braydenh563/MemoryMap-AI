@@ -172,7 +172,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "graph",
-        "keywords": ("graph", "concept map", "mind map", "mindmap", "network"),
+        "keywords": ("graph", "concept map", "mind map", "mindmap", "network", "connected to", "untouched since", "filter the graph"),
         "body": (
             "The Graph tab shows notes as a force-directed map, links and threads "
             "drawn between them, plus optional AI similarity lines. Search "
@@ -180,7 +180,11 @@ HELP_TOPICS: list[dict] = [
             "categories on and off. Concept maps (an authored mindmap, not the "
             "automatic graph) are made and managed from the Library. A concept "
             "map's topics are notes, kept out of Notes and Recently added; a "
-            "search finds them. After Enter names a topic, typing renames it."
+            "search finds them. After Enter names a topic, typing renames it. "
+            "The Graph's search box reads filters as well as words: "
+            "\"connected to Harbor\", \"untouched since June\", \"tagged work\", "
+            "\"pinned\", \"with pictures\", \"edited last week\"; any other "
+            "words still have to match."
         ),
         "badge": {"label": "Graph", "tab": "graph"},
     },
@@ -206,12 +210,15 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "dashboard",
-        "keywords": ("dashboard", "widget", "streak", "digest"),
+        "keywords": ("dashboard", "widget", "streak", "digest", "my day", "what changed today", "quiet topics"),
         "body": (
             "The Dashboard is the at-a-glance home: a greeting with your note "
             "count, what is due and a pattern your notes show (a subject you "
             "keep writing about, a busy week; Tidy lists them), a search box, the Quick access tiles, "
-            "and widgets such as reminders, recent notes, the weekly AI digest, "
+            "and widgets such as reminders, recent notes, the Digest (your day "
+            "with no AI: what is due, open questions, what changed since "
+            "yesterday and topics gone quiet, each line a count or a quote that "
+            "opens its note; Atlas writes the week on request), "
             "stats, your streak, Most opened this month and Filings to check. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
             "remembered per user."
@@ -232,13 +239,16 @@ HELP_TOPICS: list[dict] = [
             "passage you marked in a note, each with its note. The Activity chip "
             "lists everything you and Atlas did, and its Export activity button "
             "saves that log as a spreadsheet (when, who, what, which item) to "
-            "hand over. Events about private notes are left out of it."
+            "hand over. Events about private notes are left out of it. The "
+            "Library's search reads the same filters as the Graph's: "
+            "\"connected to Harbor\", \"untouched since June\", \"tagged "
+            "work\", \"pinned\", \"filed under Cooking\"."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
     {
         "id": "documents",
-        "keywords": ("document", "editor", "markdown", "code file", "live view", "source view"),
+        "keywords": ("document", "editor", "markdown", "code file", "live view", "source view", "word count", "character count", "search documents"),
         "body": (
             "The document editor (opened from Library -> Documents) has four "
             "views: Live (renders as you write), Source, Split and Read. Enter "
@@ -252,13 +262,17 @@ HELP_TOPICS: list[dict] = [
             "save as PDF first asks for the page size, orientation, margins and "
             "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
             "the corner of a picture to resize it (or focus the corner and use the "
-            "arrow keys), and its align button puts it left, centre or right."
+            "arrow keys), and its align button puts it left, centre or right. "
+            "The status bar counts characters, words and reading time the way "
+            "the note composer does (an emoji is one character). Search "
+            "documents reads a window: \"harbor last week\" finds the ones "
+            "about the harbor edited in the last week."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
     {
         "id": "whiteboard",
-        "keywords": ("whiteboard", "sketch pad", "canvas", "freehand"),
+        "keywords": ("whiteboard", "sketch pad", "canvas", "freehand", "arrange as a grid", "grid of", "stack them", "sticky date", "date on a sticky"),
         "body": (
             "The whiteboard (Library, Boards & maps) is a pannable canvas for "
             "freehand sketches and note cards together. Freehand sketches also "
@@ -266,7 +280,13 @@ HELP_TOPICS: list[dict] = [
             "and image are kept with the board. Board, Export saves a PNG (1x, 2x "
             "or 3x, with a transparent background if you like), SVG or PDF named "
             "after the board. Paste text from another app onto a board: a link "
-            "becomes a link box, one line a text box, a list a grid of stickies."
+            "becomes a link box, one line a text box, a list a grid of stickies. "
+            "In the command palette over a board, say what to do with the "
+            "selection (or the whole board): \"arrange as a grid of 3\", "
+            "\"put them in a row\", \"stack them\", \"align left\", \"space "
+            "them evenly\", \"same width\"; Undo takes it back. A sticky that "
+            "names a day shows it as a chip at its foot; press it to set a "
+            "reminder for a day still to come."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

@@ -1140,7 +1140,7 @@ async function wbSetBackground(patch, { undo = true } = {}) {
     if (String(window.currentBoardId ?? "") !== String(id)) return false;
     wbState.background = out.background || {};
   } catch (err) {
-    toast(err.message || "Couldn't change the background.", true);
+    toast(err.message || voiceLine("failed", { what: "change the background" }), true);
     wbApplyBackground();
     return false;
   }
@@ -3488,6 +3488,37 @@ async function wbDistributeSelection(axis) {
   wbPushMoveBatch(pushed);
 }
 
+//: **A grid of N across** (CHAT_PLAN section 2, the board's acts: "arrange
+//: as a grid of 3" in the command palette, `acts.board_parse`). The selection,
+//: or the whole board when fewer than two are selected, in reading order
+//: (top, then left), into cells the size of the largest item with the paste
+//: grid's gap, from the group's own top-left corner so it stays where it was.
+//: One across is a column, all across a row; one move batch, so Undo takes the
+//: whole arrangement back.
+async function wbArrangeGridSelection(columns) {
+  if (wbSelectionEntries().length < 2) wbSelectAllItems();
+  const entries = wbSelectionEntries();
+  if (entries.length < 2) {
+    toast("Select two or more items to arrange them.");
+    return;
+  }
+  const across = Math.max(1, Math.min(entries.length, columns || Math.ceil(Math.sqrt(entries.length))));
+  entries.sort((a, b) => a.bbox.minY - b.bbox.minY || a.bbox.minX - b.bbox.minX);
+  const width = Math.max(...entries.map((e) => e.bbox.maxX - e.bbox.minX));
+  const height = Math.max(...entries.map((e) => e.bbox.maxY - e.bbox.minY));
+  const left = Math.min(...entries.map((e) => e.bbox.minX));
+  const top = Math.min(...entries.map((e) => e.bbox.minY));
+  const { gap } = WB_PASTE_STICKY;
+  const pushed = [];
+  for (const [i, e] of entries.entries()) {
+    const dx = left + (i % across) * (width + gap) - e.bbox.minX;
+    const dy = top + Math.floor(i / across) * (height + gap) - e.bbox.minY;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+    pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
+  }
+  wbPushMoveBatch(pushed);
+}
+
 //: **Same size**, the third of WHITEBOARD_PLAN decision 3's eleven arrange
 //: actions and the one that had no function at all. Every selected item takes
 //: the largest one's width (or height); the largest rather than the
@@ -3565,7 +3596,7 @@ function wbExtractNotes() {
     .filter(Boolean)
     .join("\n\n---\n\n");
   if (!text.trim()) {
-    toast("Couldn't read the selected notes' content: try reloading the Notes tab first.");
+    toast(voiceLine("failed", { what: "read the selected notes' content: try reloading the Notes tab first" }));
     return;
   }
   openExtractPreview(text, { sourceEntryIds: entryIds });
@@ -4369,7 +4400,7 @@ function wbEditNodeText(nodeId, firstKey = "") {
         // render would use the old content and the edit would look discarded.
         await loadEntries();
       } catch (err) {
-        toast(err.message || "Couldn't save that.", true);
+        toast(err.message || voiceLine("failed", { what: "save that" }), true);
       }
     }
     // **Put the text back by hand, not by re-rendering.** Found live: after
@@ -5893,7 +5924,7 @@ async function wbCreateCopies(items, dx, dy) {
       wbState[list].push(made);
       created.push({ action: "create", kind, id: made.id });
     } catch (err) {
-      toast(err.message || "Couldn't make that copy.", true);
+      toast(err.message || voiceLine("failed", { what: "make that copy" }), true);
     }
   }
   return created;
@@ -8332,7 +8363,7 @@ async function wbUndo() {
     }
     wbScheduleRender();
   } catch {
-    toast("Couldn't undo that.", true);
+    toast(voiceLine("failed", { what: "undo that" }), true);
   }
 }
 
@@ -8348,7 +8379,7 @@ async function wbRedo() {
     wbUpdateUndoRedoButtons();
     wbScheduleRender();
   } catch {
-    toast("Couldn't redo that.", true);
+    toast(voiceLine("failed", { what: "redo that" }), true);
   }
 }
 
@@ -8367,7 +8398,7 @@ async function wbCreateObject(kind, data, x, y, width, height, z = 1) {
     await refreshBoardList();
     return created;
   } catch (err) {
-    toast(err.message || "Couldn't add that to the board.", true);
+    toast(err.message || voiceLine("failed", { what: "add that to the board" }), true);
     return null;
   }
 }
@@ -9511,7 +9542,7 @@ async function wbDeleteBoard(id, title) {
   try {
     await wbBinBoard(id, true);
   } catch (err) {
-    toast(err.message || "Couldn't delete that board.", true);
+    toast(err.message || voiceLine("failed", { what: "delete that board" }), true);
     return false;
   }
   const action = pushUndo(`Deleted "${title}"`, () => wbBinBoard(id, false), () => wbBinBoard(id, true));
@@ -9549,7 +9580,7 @@ async function wbClearBoard() {
   wbScheduleRender();
   await refreshBoardList();
   const left = wbState.nodes.length + wbState.sketches.length + (wbState.objects?.length || 0);
-  toast(left ? "Couldn't clear the whole board; what is left is shown." : "Board cleared.", Boolean(left));
+  toast(left ? voiceLine("failed", { what: "clear the whole board; what is left is shown" }) : "Board cleared.", Boolean(left));
 }
 
 // --- Whiteboard export (asked for directly: "a way to screen clip a or a
@@ -10191,7 +10222,7 @@ async function wbGenerateMapFromNotes() {
       body: JSON.stringify({ note_ids: chosen.map((note) => note.id) }),
     });
   } catch (error) {
-    toast(error.message || "Couldn't propose a map from those notes.", true);
+    toast(error.message || voiceLine("failed", { what: "propose a map from those notes" }), true);
     return;
   }
 
@@ -10214,7 +10245,7 @@ async function wbGenerateMapFromNotes() {
     await openWhiteboardBoard(board.id);
     await wbMapTidyFresh();
   } catch (error) {
-    toast(error.message || "Couldn't create that map.", true);
+    toast(error.message || voiceLine("failed", { what: "create that map" }), true);
   }
 }
 
@@ -10356,7 +10387,7 @@ async function wbImportOutlineFile(event) {
     //: it (W5). Everything else is text.
     content = format === "xmind" ? wbBase64(await file.arrayBuffer()) : await file.text();
   } catch {
-    toast("Couldn't read that file.", true);
+    toast(voiceLine("failed", { what: "read that file" }), true);
     return;
   }
   if (!content.trim()) {
@@ -10393,7 +10424,7 @@ async function wbImportOutlineFile(event) {
     // The server's own message, not a generic one: it names the actual
     // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse
     // failure), and those are the only things a person can act on.
-    toast(error.message || "Couldn't import that outline.", true);
+    toast(error.message || voiceLine("failed", { what: "import that outline" }), true);
   }
 }
 
@@ -10856,7 +10887,7 @@ function wbExportBoard() {
     try {
       await chosen.run(where);
     } catch (err) {
-      toast(err.message || "Couldn't export the board.", true);
+      toast(err.message || voiceLine("failed", { what: "export the board" }), true);
     }
   };
 
@@ -11743,7 +11774,7 @@ async function initWhiteboard() {
       });
       if (await wbSetBackground({ image: uploaded.url })) toast("Background image set.");
     } catch (err) {
-      toast(err.message || "Couldn't set that background image.", true);
+      toast(err.message || voiceLine("failed", { what: "set that background image" }), true);
     }
   });
   wbApplyGrid();
@@ -14351,7 +14382,7 @@ async function initWhiteboard() {
       const height = width * ((naturalSize.h || 200) / (naturalSize.w || 300));
       await wbCreateObject("image", { url: uploaded.url }, x - width / 2, y - height / 2, width, height);
     } catch (err) {
-      toast(err.message || "Couldn't add that image.", true);
+      toast(err.message || voiceLine("failed", { what: "add that image" }), true);
     }
   }
 
@@ -14703,7 +14734,7 @@ async function initWhiteboard() {
       //: screen rather than in a console nobody has open.
       const why = (err && err.message) || "the server refused it";
       console.error("Error creating node:", why);
-      toast(`Could not add that note to the board: ${why}`, true);
+      toast(voiceLine("failed", { what: "add that note to the board", why: why }), true);
     }
   });
 
@@ -14942,7 +14973,7 @@ async function renameCurrentBoard() {
     await refreshBoardList(board);
     toast(`Board renamed to "${board.title}".`);
   } catch (err) {
-    toast(err.message || "Couldn't rename that board.", true);
+    toast(err.message || voiceLine("failed", { what: "rename that board" }), true);
   }
 }
 
@@ -15008,7 +15039,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
       wbZoomToFit({ animate: false });
       toast(`"${board.title}" started from a template.`);
     } catch (err) {
-      toast(err.message || "Couldn't create that board.", true);
+      toast(err.message || voiceLine("failed", { what: "create that board" }), true);
     }
     return;
   }
@@ -15074,7 +15105,7 @@ async function wbCreateBlankBoard(name, kind) {
       await apiJson(`/whiteboard/boards/${board.id}/nodes`, {
         method: "POST",
         body: JSON.stringify({ kind: "topic", parent_id: null, text: name.trim() }),
-      }).catch((err) => toast(err.message || "Couldn't add the root topic.", true));
+      }).catch((err) => toast(err.message || voiceLine("failed", { what: "add the root topic" }), true));
     }
     // `list_boards` only lists a board once something is actually placed on
     // it (see its own docstring), an empty new one is invisible to both
@@ -15110,7 +15141,7 @@ async function wbCreateBlankBoard(name, kind) {
       toast(`Board "${board.title}" created.`);
     }
   } catch (err) {
-    toast(err.message || "Couldn't create that board.", true);
+    toast(err.message || voiceLine("failed", { what: "create that board" }), true);
   }
 }
 
@@ -18197,7 +18228,72 @@ function wbMapNodeTakeBack(d) {
 // genuinely different element shapes (an <img>, a contenteditable <div>)
 // sharing one drag+resize+select scaffold reads better factored out than
 // inlined a third time.
+//: **A sticky's day is a chip** (CHAT_PLAN section 2, the board's row): the
+//: first day a sticky names ("launch friday 3pm") shows as a chip on its
+//: paper, read by the server in one request for the board (`POST
+//: /read/dates`, the one recogniser; quoted words skipped), and a day still
+//: to come is a reminder a press away, with Undo. Painted on a pause after a
+//: render, from a cache keyed by the words, so a pan or a move asks nothing.
+const wbStickyDates = { timer: 0, read: new Map() };
+
+function wbScheduleStickyDates() {
+  clearTimeout(wbStickyDates.timer);
+  wbStickyDates.timer = setTimeout(wbPaintStickyDates, 250);
+}
+
+async function wbPaintStickyDates() {
+  const papers = [...document.querySelectorAll("#whiteboard-container .wb-sticky")];
+  const words = (el) => String(el.__data__?.data?.content || "");
+  const ask = [...new Set(papers.map(words).filter((t) => t.trim() && !wbStickyDates.read.has(t)))].slice(0, 200);
+  if (ask.length) {
+    try {
+      const got = await apiJson("/read/dates", { method: "POST", silent: true, body: JSON.stringify({ texts: ask, tz_offset_minutes: -new Date().getTimezoneOffset() }) });
+      ask.forEach((text, i) => wbStickyDates.read.set(text, got.dates[i] || null));
+    } catch {
+      return;
+    }
+  }
+  for (const paper of papers) {
+    const day = wbStickyDates.read.get(words(paper));
+    let tag = paper.querySelector(":scope > .wb-sticky-date");
+    if (!day) {
+      tag?.remove();
+      continue;
+    }
+    if (!tag) {
+      tag = chip("", "tag wb-sticky-date", (event) => {
+        event.stopPropagation();
+        wbStickyRemind(paper.__data__, wbStickyDates.read.get(words(paper)));
+      });
+      tag.addEventListener("pointerdown", (event) => event.stopPropagation());
+      paper.appendChild(tag);
+    }
+    setLabel(tag, `${day.reminder ? "ph:bell-simple" : "ph:calendar-blank"} ${day.short}`);
+    tag.title = day.reminder ? `Read as ${day.read_as}. Press to set a reminder.` : `Read as ${day.read_as}.`;
+    tag.setAttribute("aria-label", tag.title);
+  }
+}
+
+async function wbStickyRemind(d, day) {
+  if (!d || !day?.reminder) return;
+  try {
+    const reminder = await apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({ text: day.reminder.text, due_at: day.reminder.due_at, priority: "normal", recurring: "none" }),
+    });
+    loadReminders();
+    toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
+    pushUndo("Reminder set", async () => {
+      await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+      loadReminders();
+    });
+  } catch (error) {
+    toast(`The reminder was not set: ${error.message}`, true);
+  }
+}
+
 function renderWbObjects(canvas) {
+  wbScheduleStickyDates();
   async function deleteObject(d) {
     // The same rule as the map's own subtree delete, at the other door: this
     // is what the Delete tool, the context menu's Delete and the selection
@@ -20112,7 +20208,7 @@ async function createConceptMap() {
     if (placed) wbCenterOn(wbItemBBox("node", placed), { animate: false });
     toast(`“${title}”: press Tab for a branch, Enter for a sibling.`);
   } catch (err) {
-    toast(err.message || "Couldn't create that map.", true);
+    toast(err.message || voiceLine("failed", { what: "create that map" }), true);
   }
 }
 window.createConceptMap = createConceptMap;

@@ -357,8 +357,7 @@ paging, operator help and saved searches; WORLD_CLASS 25a built), and 42's
 remainder (python-docx retired, Word round trip with pictures and tracked
 changes, four file types, js-beautify, every code command keyed, the grip at
 24 px), and 41 (density: the top bar 64 to 44, docks at 28, icon hover on
-the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z). Running: 68 (the
-surfaces, f4), 69 (run, preview and test,
+the glyph, the date picker; Phase 12 steps 1 to 4 and 6). Merged 51 (never lose a note, 16:30Z). 68 merged 17:20Z. Running: 69 (run, preview and test,
 ide1), 34 continues (Atlas's faces and tail, companion2, dispatched 17:10Z)
 and 77 (the whiteboard trust pass, wb77); 60, 50 and 34's first round merged by
 17:05Z. Next: 70, 71 after 69, 84 after 68, then 76, 78 to 83, 85 to 90. The PR merges when the gate,

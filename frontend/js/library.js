@@ -539,9 +539,14 @@ function renderLibrary(options) {
     // With Semantic on, a note also matches if the meaning search returned it,
     // even when it shares no words with the query. Everything else is
     // unchanged: see `librarySemanticIds`.
-    items = librarySemanticIds
-      ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
-      : items.filter(wordMatch);
+    const phrase = libraryPhrase.q === query && libraryPhrase.ids;
+    const rest = libraryPhrase.rest;
+    const restMatch = (i) => !rest || (i.title || "").toLowerCase().includes(rest) || (i.preview || "").toLowerCase().includes(rest);
+    items = phrase
+      ? items.filter((i) => i.kind === "note" && libraryPhrase.ids.has(i.id) && restMatch(i))
+      : librarySemanticIds
+        ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
+        : items.filter(wordMatch);
   }
   items = librarySorted(items);
 
@@ -1614,7 +1619,7 @@ $("binned-restore").addEventListener("click", async () => {
     await apiJson(`/entries/${id}/restore`, { method: "POST" });
     toast("Restored.");
   } catch (error) {
-    toast(`Couldn't restore that note: ${error.message}`, true);
+    toast(voiceLine("failed", { what: "restore that note", why: error.message }), true);
     return;
   }
   closeBinnedReader();
@@ -1632,7 +1637,7 @@ $("binned-purge").addEventListener("click", async () => {
     await apiJson(`/entries/${id}/purge`, { method: "DELETE" });
     toast("Deleted for good.");
   } catch (error) {
-    toast(`Couldn't delete that note: ${error.message}`, true);
+    toast(voiceLine("failed", { what: "delete that note", why: error.message }), true);
     return;
   }
   closeBinnedReader();
@@ -1717,8 +1722,28 @@ async function refreshLibraryServerSearch() {
   libraryServerQuery = query;
 }
 
+//: **A phrase in the search is a filter** (CHAT_PLAN section 2, the
+//: Library's row): "connected to Harbor", "untouched since June", "tagged
+//: work", "pinned" keep the notes they leave, read and resolved by the server
+//: (`GET /read/filter`, ai/filters.py), and the words left over still search.
+//: `ids` null: no filter was read, and the box is the plain search it was.
+const libraryPhrase = { q: "", ids: null, rest: "" };
+
+async function refreshLibraryPhrase() {
+  const query = ($("library-search")?.value || "").trim().toLowerCase();
+  if (query === libraryPhrase.q) return;
+  Object.assign(libraryPhrase, { q: query, ids: null, rest: "" });
+  if (!query) return;
+  try {
+    const got = await apiJson("/read/filter?q=" + encodeURIComponent(query) + `&tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { silent: true });
+    if (libraryPhrase.q === query && got.ids) Object.assign(libraryPhrase, { ids: new Set(got.ids), rest: (got.rest || "").toLowerCase() });
+  } catch {
+    // No reading: the words search as before.
+  }
+}
+
 async function runLibrarySearch() {
-  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch()]);
+  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch(), refreshLibraryPhrase()]);
   libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
@@ -3099,7 +3124,7 @@ async function renderLibraryDocuments() {
       DOCUMENTS_PAGE_SIZE
     );
   } catch (error) {
-    toast(error.message || "Could not load documents.", true);
+    toast(error.message || voiceLine("failed", { what: "load documents" }), true);
     return;
   } finally {
     clearSkeletons(list);
@@ -3258,7 +3283,7 @@ async function renderLibraryDocuments() {
           try {
             full = await apiJson(`/documents/${doc.id}`);
           } catch (error) {
-            toast(error.message || "Couldn't open that document.", true);
+            toast(error.message || voiceLine("failed", { what: "open that document" }), true);
             return;
           }
           openLightbox(
@@ -3969,7 +3994,7 @@ function ocrRenderOtherReadings(body) {
         toast("Cleaned up repeated lines.");
         await ocrLoadPage(image, ocrWorkspacePage);
       } catch (error) {
-        toast(error.message || "Could not clean up that reading.", true);
+        toast(error.message || voiceLine("failed", { what: "clean up that reading" }), true);
       } finally {
         button.disabled = false;
       }
@@ -3992,7 +4017,7 @@ function ocrRenderOtherReadings(body) {
         toast("Reading deleted.");
         await ocrLoadPage(image, ocrWorkspacePage);
       } catch (error) {
-        toast(error.message || "Could not delete that reading.", true);
+        toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
       } finally {
         button.disabled = false;
       }
@@ -4318,7 +4343,7 @@ function ocrRenderRegions(body) {
           await ocrLoadPage(image, ocrWorkspacePage);
         } catch (error) {
           remove.disabled = false;
-          toast(error.message || "Could not delete that reading.", true);
+          toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
         }
       });
       head.appendChild(remove);
@@ -7156,7 +7181,7 @@ onDomReady(() => {
       //: same gap; one `catch` now covers both.)
       $("ocr-message").textContent = error.message || "Couldn't describe that.";
       $("ocr-message").classList.remove("hidden");
-      toast(error.message || "Couldn't describe that.", true);
+      toast(error.message || voiceLine("failed", { what: "describe that" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7199,7 +7224,7 @@ onDomReady(() => {
       toast("Reading deleted.");
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Could not delete that reading.", true);
+      toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7223,7 +7248,7 @@ onDomReady(() => {
       toast("Cleaned up repeated lines.");
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Could not clean up that reading.", true);
+      toast(error.message || voiceLine("failed", { what: "clean up that reading" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7329,7 +7354,7 @@ onDomReady(() => {
       toast("Saved your changes.");
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Couldn't save that.", true);
+      toast(error.message || voiceLine("failed", { what: "save that" }), true);
     } finally {
       setBusy(button, false);
     }
@@ -7369,7 +7394,7 @@ onDomReady(() => {
       $("ocr-workspace").classList.add("hidden");
       flashEntry(created.id);
     } catch (error) {
-      toast(error.message || "Couldn't save that note.", true);
+      toast(error.message || voiceLine("failed", { what: "save that note" }), true);
     }
   });
 });
@@ -8443,7 +8468,7 @@ function filterLibraryImagesGallery() {
           });
         } catch (error) {
           setCaptionState(image.caption);
-          toast(error.message || "Couldn't save that caption.", true);
+          toast(error.message || voiceLine("failed", { what: "save that caption" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8508,7 +8533,7 @@ function filterLibraryImagesGallery() {
       } catch (error) {
         captionText.textContent = previousCaptionText;
         syncProvenance();
-        toast(error.message || "Couldn't generate a caption.", true);
+        toast(error.message || voiceLine("failed", { what: "generate a caption" }), true);
       } finally {
         captionBtn.disabled = false;
       }
@@ -8599,7 +8624,7 @@ function filterLibraryImagesGallery() {
           setOcrState(updated.ocr_text);
         } catch (error) {
           setOcrState(image.ocr_text);
-          toast(error.message || "Couldn't save that text.", true);
+          toast(error.message || voiceLine("failed", { what: "save that text" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8642,7 +8667,7 @@ function filterLibraryImagesGallery() {
         setOcrState(updated.ocr_text);
       } catch (error) {
         ocrText.textContent = previousOcrText;
-        toast(error.message || "Couldn't read the text in that image.", true);
+        toast(error.message || voiceLine("failed", { what: "read the text in that image" }), true);
       } finally {
         ocrBtn.disabled = modelStatus && modelStatus.tesseract_available === false;
       }
@@ -8787,7 +8812,7 @@ function filterLibraryImagesGallery() {
           setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
         } catch (error) {
           setVisionOcrState(previousText, previousModel);
-          toast(error.message || "Couldn't save that text.", true);
+          toast(error.message || voiceLine("failed", { what: "save that text" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8825,7 +8850,7 @@ function filterLibraryImagesGallery() {
         // re-hiding the box if this was the first-ever attempt and it
         // failed, rather than leaving an empty line visible forever.
         setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
-        toast(error.message || "Couldn't read the text in that image.", true);
+        toast(error.message || voiceLine("failed", { what: "read the text in that image" }), true);
       } finally {
         visionOcrBtn.disabled = false;
       }
@@ -10257,7 +10282,7 @@ async function renameBookmarkGroup(from, to) {
       });
       moved++;
     } catch (error) {
-      toast(error.message || "Couldn't move that bookmark.", true);
+      toast(error.message || voiceLine("failed", { what: "move that bookmark" }), true);
     }
   }
   const empties = emptyBookmarkGroups().filter((g) => g !== from);
@@ -10830,7 +10855,7 @@ function bookmarkRow(bookmark) {
         renderBookmarks();
       } catch (error) {
         save.disabled = false;
-        toast(error.message || "Couldn't save that bookmark.", true);
+        toast(error.message || voiceLine("failed", { what: "save that bookmark" }), true);
       }
     });
 

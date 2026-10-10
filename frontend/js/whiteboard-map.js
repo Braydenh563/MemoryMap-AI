@@ -900,7 +900,7 @@ async function wbMapSetTheme(patch) {
     if (selected) wbSyncMapStrip(selected);
     return true;
   } catch (err) {
-    toast(err.message || "Couldn't change how this map draws.", true);
+    toast(err.message || voiceLine("failed", { what: "change how this map draws" }), true);
     return false;
   }
 }
@@ -933,7 +933,7 @@ async function wbMapClearEveryTopic() {
       ? `${count} topic${count === 1 ? "" : "s"} back to following this map.`
       : "Every topic was already following this map.");
   } catch (err) {
-    toast(err.message || "Couldn't reset the topics.", true);
+    toast(err.message || voiceLine("failed", { what: "reset the topics" }), true);
   }
 }
 
@@ -2201,7 +2201,7 @@ async function wbMapSetNumbered(on) {
     wbAnnounce(on ? "Branches numbered." : "Branches not numbered.");
     return true;
   } catch (err) {
-    toast(err.message || "Couldn't change the numbering.", true);
+    toast(err.message || voiceLine("failed", { what: "change the numbering" }), true);
     wbSyncMapChrome();
     return false;
   }
@@ -2746,7 +2746,7 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null
     }
     Object.assign(d, await move(d.id, targetId));
   } catch (err) {
-    toast(err.message || "Couldn't move that branch.", true);
+    toast(err.message || voiceLine("failed", { what: "move that branch" }), true);
     return false;
   }
   if (d.data?.pinned) {
@@ -4038,7 +4038,7 @@ async function wbMapInsertBetween(parentId, childId) {
       Object.assign(child, moved);
       history.push({ action: "reparent", kind: "object", id: childId, parentId });
     } catch (err) {
-      toast(err.message || "Couldn't move that topic under the new one.", true);
+      toast(err.message || voiceLine("failed", { what: "move that topic under the new one" }), true);
     }
   }
   history.push({ action: "create", kind: "object", id: created.id });
@@ -4102,7 +4102,7 @@ async function wbMapCreateNode({ parentId = null, kind = "topic", text = WB_MAP_
     wbPushUndo({ action: "create", kind: "object", id: created.id });
     return created;
   } catch (err) {
-    toast(err.message || "Couldn't add that node.", true);
+    toast(err.message || voiceLine("failed", { what: "add that node" }), true);
     return null;
   }
 }
@@ -4268,7 +4268,7 @@ async function wbMapPasteText(text) {
       body: JSON.stringify({ parent_id: node ? node.id : null, text: text.slice(0, 200000) }),
     });
   } catch (err) {
-    toast(err.message || "Couldn't paste that onto the map.", true);
+    toast(err.message || voiceLine("failed", { what: "paste that onto the map" }), true);
     return 0;
   }
   wbState.objects = [...(wbState.objects || []), ...made];
@@ -4346,7 +4346,7 @@ async function wbMapWriteDocument() {
   try {
     tree = await apiJson(`/whiteboard/boards/${boardId}/tree`);
   } catch (err) {
-    toast(err.message || "Couldn't read this map.", true);
+    toast(err.message || voiceLine("failed", { what: "read this map" }), true);
     return null;
   }
   //: The index may predate a map made a moment ago; it is refreshed once.
@@ -4362,7 +4362,7 @@ async function wbMapWriteDocument() {
       body: JSON.stringify({ title: title.slice(0, 200), content: `${boardEmbedMarkdown(board)}\n\n${body}\n` }),
     });
   } catch (err) {
-    toast(err.message || "Couldn't make that document.", true);
+    toast(err.message || voiceLine("failed", { what: "make that document" }), true);
     return null;
   }
   switchTab("documents");
@@ -4475,7 +4475,7 @@ async function wbMapAdoptProvisional(row, { expand = null, origin = null, order 
     wbState.objects = (wbState.objects || []).filter((o) => o !== row);
     const step = wbUndoStack.find((e) => e.action === "create" && e.id === tempId);
     if (step) wbDropUndoEntry(step);
-    toast(err.message || "Couldn't add that node.", true);
+    toast(err.message || voiceLine("failed", { what: "add that node" }), true);
     wbScheduleRender();
     return false;
   }
@@ -4667,7 +4667,7 @@ async function wbMapOutdent(id) {
     wbPushUndo(history.length === 1 ? history[0] : { action: "batch", entries: history });
     renderWhiteboardNow();
   } catch (err) {
-    toast(err.message || "Couldn't move that node.", true);
+    toast(err.message || voiceLine("failed", { what: "move that node" }), true);
   }
 }
 
@@ -4813,7 +4813,7 @@ async function wbMapClearToOneTopic() {
       gone.add(root.id);
       wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
     } catch (err) {
-      toast(err.message || "Couldn't clear the map.", true);
+      toast(err.message || voiceLine("failed", { what: "clear the map" }), true);
       return;
     }
   }
@@ -4847,7 +4847,7 @@ async function wbMapDeleteSubtree(id) {
     deleted = Array.isArray(res.deleted) ? res.deleted : [];
     links = Array.isArray(res.links) ? res.links : [];
   } catch (err) {
-    toast(err.message || "Couldn't delete that.", true);
+    toast(err.message || voiceLine("failed", { what: "delete that" }), true);
     return;
   }
   const gone = new Set(deleted.map((row) => row.id));
@@ -4944,7 +4944,7 @@ async function wbMapRestoreRows(rows, links = []) {
       if (!remap.has(row.parent_id) || row.parent_id == null) tops.push(made.id);
       wbState.objects.push({ ...made, ...full, parent_id: made.parent_id });
     } catch (err) {
-      toast(err.message || "Couldn't restore that node.", true);
+      toast(err.message || voiceLine("failed", { what: "restore that node" }), true);
       break;
     }
   }
@@ -4984,7 +4984,7 @@ async function wbMapRestoreRows(rows, links = []) {
       wbState.sketches = wbState.sketches || [];
       wbState.sketches.push(made);
     } catch (err) {
-      toast(err.message || "Couldn't restore a link.", true);
+      toast(err.message || voiceLine("failed", { what: "restore a link" }), true);
     }
   }
   wbRemapUndoIds(remap, linkRemap);
@@ -6603,7 +6603,7 @@ async function wbMapTakePicture(file) {
     await wbMapSetNodeStyle(node, { image: uploaded.url });
     renderWhiteboardNow();
   } catch (err) {
-    toast(err.message || "Couldn't add that picture.", true);
+    toast(err.message || voiceLine("failed", { what: "add that picture" }), true);
   }
 }
 
@@ -7256,7 +7256,7 @@ async function wbMapRemoveKeepingBranch(id) {
       }
     }
   } catch (err) {
-    toast(err.message || "Couldn't move that branch up.", true);
+    toast(err.message || voiceLine("failed", { what: "move that branch up" }), true);
     return;
   }
   await wbMapDeleteSubtree(id);
@@ -7284,7 +7284,7 @@ async function wbMapSever(id) {
     });
     Object.assign(node, moved);
   } catch (err) {
-    toast(err.message || "Couldn't cut that topic free.", true);
+    toast(err.message || voiceLine("failed", { what: "cut that topic free" }), true);
     return;
   }
   // A severed topic keeps the colour it had as part of the branch it left,
@@ -7303,7 +7303,7 @@ async function wbMapSever(id) {
       await wbMapTidyBranch(oldParent);
       renderWhiteboardNow();
     } catch (err) {
-      toast(err.message || "Couldn't put it back.", true);
+      toast(err.message || voiceLine("failed", { what: "put it back" }), true);
     }
   });
 }
@@ -7760,7 +7760,7 @@ async function wbMapReverseCrossLink(sketchId) {
     });
     Object.assign(info.sketch, saved);
   } catch (err) {
-    toast(err.message || "Couldn't turn that cross-link around.", true);
+    toast(err.message || voiceLine("failed", { what: "turn that cross-link around" }), true);
     return;
   }
   renderWhiteboardNow();
@@ -7802,7 +7802,7 @@ async function wbMapCutCrossLink(sketchId) {
   try {
     await apiJson(`/whiteboard/sketches/${sketchId}`, { method: "DELETE" });
   } catch (err) {
-    toast(err.message || "Couldn't cut that cross-link.", true);
+    toast(err.message || voiceLine("failed", { what: "cut that cross-link" }), true);
     return;
   }
   wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
@@ -7833,7 +7833,7 @@ async function wbMapReverseEdge(childId) {
     Object.assign(child, await move(child.id, grandparent));
     Object.assign(parent, await move(parent.id, child.id));
   } catch (err) {
-    toast(err.message || "Couldn't turn that line around.", true);
+    toast(err.message || voiceLine("failed", { what: "turn that line around" }), true);
     return;
   }
   await wbMapTidy({ quiet: true });
@@ -7956,7 +7956,7 @@ async function wbMapSetLayout(layout) {
       ? "Layout set to Free, nodes stay where you put them."
       : `Laid out ${moved} node${moved === 1 ? "" : "s"}.`);
   } catch (err) {
-    toast(err.message || "Couldn't change the layout.", true);
+    toast(err.message || voiceLine("failed", { what: "change the layout" }), true);
   }
 }
 
@@ -8817,7 +8817,7 @@ function wbMapDueRow(node, parts, set) {
         await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
         toast(`Reminder set for ${wbMapDueWords(parts.due).words}, 9:00.`);
       } catch (error) {
-        toast(error.message || "Couldn't set that reminder.", true);
+        toast(error.message || voiceLine("failed", { what: "set that reminder" }), true);
       }
     });
     wrap.append(clear, remind);
@@ -9141,7 +9141,7 @@ async function wbMapFromDocument(doc, text) {
       body: JSON.stringify({ format: "markdown", content: outline, name: (doc.title || "Untitled document").slice(0, 100) }),
     });
   } catch (err) {
-    toast(err.message || "Couldn't make that map.", true);
+    toast(err.message || voiceLine("failed", { what: "make that map" }), true);
     return null;
   }
   try {

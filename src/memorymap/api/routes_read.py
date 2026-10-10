@@ -10,15 +10,27 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from memorymap.ai import reading
+from memorymap.ai import offers, reading
 from memorymap.core.database import utcnow
+from memorymap.core.deps import get_session
 
 router = APIRouter(tags=["reading"])
 
 #: Long enough for a sentence with a list in it; a reading is not a document.
 MAX_CHARS = 2000
+
+
+def _clock(tz_offset_minutes: int, now: str) -> datetime:
+    clock = utcnow().astimezone(timezone(timedelta(minutes=tz_offset_minutes)))
+    try:
+        given = datetime.fromisoformat(now) if now else None
+    except ValueError:
+        given = None
+    return given if given is not None and given.tzinfo is not None else clock
 
 
 @router.get("/read")
@@ -34,12 +46,88 @@ def read_text(
     as `/reminders/parse` takes it), as JSON. `now` (ISO 8601 with an offset)
     fixes the clock for a sweep that measures against a fixture date; one
     that does not parse, or has no offset, is ignored."""
-    clock = utcnow().astimezone(timezone(timedelta(minutes=tz_offset_minutes)))
-    try:
-        given = datetime.fromisoformat(now) if now else None
-    except ValueError:
-        given = None
-    if given is not None and given.tzinfo is not None:
-        clock = given
+    clock = _clock(tz_offset_minutes, now)
     context = {key: value for key, value in (("locale", locale), ("surface", surface), ("birthday", birthday)) if value}
     return reading.read(q, now=clock, context=context).json()
+
+
+class OffersBody(BaseModel):
+    #: A note, not a reading: the editor sends the whole draft.
+    content: str = Field("", max_length=100_000)
+    entry_id: int | None = None
+    category: str | None = Field(None, max_length=200)
+    tz_offset_minutes: int = Field(0, ge=-14 * 60, le=14 * 60)
+    locale: str = Field("", max_length=16)
+    now: str = Field("", max_length=40)
+
+
+@router.post("/read/offers")
+def note_offers(body: OffersBody, session: Session = Depends(get_session)) -> dict:
+    """What the note editor offers for the draft (`ai/offers.py`): reminder
+    offers from its days, its sums checked, `[[links]]` to notes its names
+    open, and the filing suggestion with its reason. A POST because a draft
+    is longer than a query string should carry."""
+    clock = _clock(body.tz_offset_minutes, body.now)
+    found = offers.offers(session, body.content, now=clock, entry_id=body.entry_id,
+                          category=body.category, locale=body.locale or None)
+    return {"offers": found}
+
+
+@router.get("/read/board")
+def board_act(q: str = Query("", max_length=MAX_CHARS)) -> dict:
+    """The board act `q` says (`acts.board_parse`: "arrange as a grid of
+    3"), for the command palette over a board, or `{"act": null}`."""
+    from memorymap.ai import acts
+
+    return {"act": acts.board_parse(q)}
+
+
+class DatesBody(BaseModel):
+    texts: list[str] = Field(default_factory=list, max_length=200)
+    tz_offset_minutes: int = Field(0, ge=-14 * 60, le=14 * 60)
+    now: str = Field("", max_length=40)
+
+
+@router.post("/read/dates")
+def date_chips(body: DatesBody) -> dict:
+    """The day each short text names (`offers.date_chip`), in order, null for
+    one that names none: a board's stickies, read in one request."""
+    clock = _clock(body.tz_offset_minutes, body.now)
+    return {"dates": [offers.date_chip(text[:2000], now=clock) for text in body.texts]}
+
+
+@router.get("/read/filter")
+def phrase_filter(
+    q: str = Query("", max_length=MAX_CHARS),
+    tz_offset_minutes: int = Query(0, ge=-14 * 60, le=14 * 60),
+    now: str = Query("", max_length=40),
+    session: Session = Depends(get_session),
+) -> dict:
+    """The filters a search phrase reads as (`ai/filters.py`: "connected to
+    Harbor", "untouched since June") and the notes they leave; `ids` is null
+    when nothing was read, so the surface searches the words as before."""
+    from memorymap.ai import filters
+
+    clock = _clock(tz_offset_minutes, now)
+    found = filters.read(q, clock)
+    ids = filters.resolve(session, found["filters"], clock) if found["filters"] else None
+    return {**found, "ids": ids}
+
+
+@router.get("/read/words")
+def setting_words() -> dict:
+    """The groups of words that mean one thing in Settings ("dark", "night",
+    "theme"), for its search (settings-find.js)."""
+    from memorymap.ai import filters
+
+    return {"groups": filters.setting_words(), "filler": sorted(filters.SETTING_FILLER)}
+
+
+@router.get("/read/acts")
+def act_rows() -> dict:
+    """The act registry as the palette and Help show it (`acts.palette_rows`,
+    `acts.capability_line`): one source for what the app does from a
+    sentence."""
+    from memorymap.ai import acts
+
+    return {"rows": acts.palette_rows(), "capability": acts.capability_line()}

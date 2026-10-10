@@ -558,3 +558,177 @@ async function qaPaletteRemind(text, slots) {
     });
   }
 })();
+
+// --- The note editor's offers (CHAT_PLAN section 2, the note editor row) ---
+//
+// A day in the text is a reminder offer, a sum written with a wrong answer is
+// caught, a name another note opens with is a `[[link]]` offer, and the
+// filing suggestion says why. The offers are the server's (`POST
+// /read/offers`, ai/offers.py, through the one recogniser), never on quoted
+// words, drawn as this file's chip row under the box once typing pauses,
+// inside the 300 ms the plan sets. The new note composer is attached when
+// this bundle loads, an opened note's form when it opens
+// (note-edit-panels.js, guarded).
+
+const NOTE_OFFER_ICONS = {
+  reminder: "ph:bell-simple",
+  sum: "ph:equals",
+  link: "ph:link-simple",
+  filing: "ph:folder-simple",
+};
+//: A pause, not a keystroke: short enough that the offers land inside the
+//: 300 ms the plan sets after the last key, long enough that a word typed at
+//: speed asks once.
+const NOTE_OFFER_WAIT_MS = 150;
+const noteOfferFields = new WeakMap();
+
+function noteOfferKey(offer) {
+  return `${offer.kind}:${offer.said}:${offer.label}`;
+}
+
+//: `opts.after`: the element the row goes after (the box, not the textarea,
+//: which a live editor wraps); `opts.category`: the select a filing offer
+//: sets; `opts.entryId`: the note being edited, never linked to itself.
+function noteOffersAttach(field, opts = {}) {
+  if (!field) return null;
+  let state = noteOfferFields.get(field);
+  if (state) {
+    Object.assign(state.opts, opts);
+    return state;
+  }
+  const row = document.createElement("div");
+  row.className = "qa-chips note-offers hidden";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "Offers from what you wrote");
+  const why = document.createElement("span");
+  why.className = "qa-ask muted hidden";
+  row.appendChild(why);
+  (opts.after || field).after(row);
+  state = { field, opts, row, why, seq: 0, timer: 0, done: new Set(), text: "" };
+  noteOfferFields.set(field, state);
+  field.addEventListener("input", () => noteOffersSchedule(state));
+  if (field.value.trim()) noteOffersSchedule(state);
+  return state;
+}
+
+function noteOffersSchedule(state) {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => noteOffersFetch(state), NOTE_OFFER_WAIT_MS);
+}
+
+async function noteOffersFetch(state) {
+  const text = state.field.value;
+  if (text === state.text) return;
+  state.text = text;
+  const seq = ++state.seq;
+  if (!text.trim()) {
+    noteOffersDraw(state, []);
+    return;
+  }
+  let offers = [];
+  try {
+    const select = state.opts.category;
+    const result = await apiJson("/read/offers", {
+      method: "POST",
+      body: JSON.stringify({
+        content: text,
+        entry_id: state.opts.entryId || null,
+        category: select && select.value && select.value !== "__new__" ? select.value : null,
+        tz_offset_minutes: -new Date().getTimezoneOffset(),
+      }),
+    });
+    offers = result.offers || [];
+  } catch {
+    offers = [];
+  }
+  if (seq !== state.seq) return;
+  noteOffersDraw(state, offers.filter((o) => !state.done.has(noteOfferKey(o))));
+}
+
+function noteOffersDraw(state, offers) {
+  for (const old of state.row.querySelectorAll(".note-offer")) old.remove();
+  let filingWhy = "";
+  for (const offer of offers) {
+    const el = chip(`${NOTE_OFFER_ICONS[offer.kind] || "ph:sparkle"} ${offer.label}`, "tag qa-chip note-offer", () => noteOfferTake(state, offer, el));
+    el.title = offer.reason;
+    el.dataset.kind = offer.kind;
+    state.row.insertBefore(el, state.why);
+    if (offer.kind === "filing") filingWhy = offer.reason;
+  }
+  state.why.textContent = filingWhy;
+  state.why.classList.toggle("hidden", !filingWhy);
+  state.row.classList.toggle("hidden", !offers.length);
+  state.row.dataset.drawnAt = String(performance.now());
+}
+
+//: Words put back through the rich editor when one is mounted over the box
+//: (its own history, so Ctrl+Z takes an accepted sum or link back like any
+//: typing), else through `insertText` on the plain box for the same reason.
+function noteOfferReplace(field, offer) {
+  const { start, end } = offer;
+  const said = offer.said;
+  let at = start;
+  if (said && field.value.slice(start, end) !== said) at = field.value.indexOf(said);
+  if (at < 0) return false;
+  const to = at + (said ? said.length : 0);
+  const surface = noteSurfaceIfAny(field);
+  if (surface) {
+    surface.setRangeText(offer.value.replace, at, to, "end");
+    surface.view?.focus();
+    return true;
+  }
+  field.focus();
+  field.setSelectionRange(at, to);
+  if (!document.execCommand("insertText", false, offer.value.replace)) {
+    field.setRangeText(offer.value.replace, at, to, "end");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  return true;
+}
+
+async function noteOfferTake(state, offer, el) {
+  state.done.add(noteOfferKey(offer));
+  el.remove();
+  if (!state.row.querySelector(".note-offer")) state.row.classList.add("hidden");
+  if (offer.kind === "sum" || offer.kind === "link") {
+    noteOfferReplace(state.field, offer);
+    return;
+  }
+  if (offer.kind === "filing") {
+    const select = state.opts.category;
+    if (!select) return;
+    if (![...select.options].some((o) => o.value === offer.value.category)) {
+      select.insertBefore(Object.assign(document.createElement("option"), { value: offer.value.category, textContent: offer.value.category }), select.lastElementChild);
+    }
+    const before = select.value;
+    select.value = offer.value.category;
+    select.dispatchEvent(new Event("change"));
+    pushUndo(`Filed in ${offer.value.category}`, () => {
+      select.value = before;
+      select.dispatchEvent(new Event("change"));
+    });
+    return;
+  }
+  if (offer.kind === "reminder") {
+    try {
+      const reminder = await apiJson("/reminders", {
+        method: "POST",
+        body: JSON.stringify({ text: offer.value.text, due_at: offer.value.due_at, entry_id: state.opts.entryId || null, priority: "normal", recurring: "none" }),
+      });
+      loadReminders();
+      toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
+      pushUndo("Reminder set", async () => {
+        await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+        loadReminders();
+      });
+    } catch (error) {
+      state.done.delete(noteOfferKey(offer));
+      toast(`The reminder was not set: ${error.message}`, true);
+    }
+  }
+}
+
+noteOffersAttach($("entry-content"), {
+  after: $("entry-content")?.closest(".note-composer") || $("entry-content")?.parentElement,
+  category: $("entry-category"),
+});

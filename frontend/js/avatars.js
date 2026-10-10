@@ -6111,7 +6111,7 @@ function nameMarkBuddyRubbed(buddy) {
     if (!buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;
   }
   if (isAtlasSeed(buddy.dataset.seed || "")) {
-    if (typeof setAtlasMood === "function") setAtlasMood(Math.random() < 0.6 ? "love" : "shy", 3200, { quiet: true, backEaseMs: 1200 });
+    setAtlasMood(Math.random() < 0.6 ? "love" : "shy", 3200, { quiet: true, backEaseMs: 1200 });
   } else {
     nameMarkBuddyExpress("love", 3200);
   }
@@ -6131,7 +6131,7 @@ function nameMarkBuddyFlip(buddy, on) {
     ? [{ transform: "rotate(0deg)" }, { transform: "rotate(200deg)", offset: 0.7 }, { transform: "rotate(180deg)" }]
     : [{ transform: "rotate(180deg)" }, { transform: "rotate(372deg)", offset: 0.75 }, { transform: "rotate(360deg)" }];
   const anim = face.animate(frames.map((frame) => ({ ...frame, transformOrigin: "50% 50%" })), { duration: on ? 420 : 560, easing: "ease-out", fill: on ? "forwards" : "none" });
-  const atlas = isAtlasSeed(buddy.dataset.seed || "") && typeof setAtlasMood === "function";
+  const atlas = isAtlasSeed(buddy.dataset.seed || "");
   buddy.classList.toggle("nmb-flipped", on);
   if (on) {
     nmb.flipAnim = anim;
@@ -6319,6 +6319,7 @@ function nameMarkBuddyLockSync() {
   const lock = document.getElementById("lock-overlay");
   if (band) band.style.display = lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt" ? "none" : "";
 }
+//: `typeof MutationObserver`: tests/test_atlas_shape.py loads this file in a node vm with a bare `document`.
 if (typeof MutationObserver === "function" && document.getElementById("lock-overlay")) {
   new MutationObserver(nameMarkBuddyLockSync).observe(document.getElementById("lock-overlay"), { attributes: true, attributeFilter: ["class", "data-mode"] });
 }

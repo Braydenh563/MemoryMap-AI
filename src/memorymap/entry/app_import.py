@@ -43,7 +43,7 @@ import posixpath
 import re
 import zipfile
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time, timezone
 from urllib.parse import unquote
 
 SOURCES = ("notion", "obsidian", "evernote", "apple")
@@ -251,6 +251,7 @@ def read_obsidian(files: list[tuple[str, bytes]], parse_frontmatter) -> ReadResu
                 body=body.strip(),
                 tags=list(tags) if isinstance(tags, list) else [str(tags)],
                 category=meta.get("category") or None,
+                created=meta.get("created"),
                 path=name,
             )
         )
@@ -363,6 +364,56 @@ def read(source: str, files: list[tuple[str, bytes]], parse_frontmatter=None) ->
     return result
 
 
+# --- the day a note was written (CHAT_PLAN section 2, the import row) -------------
+
+#: The property lines an export writes the day under: Obsidian's `date:` and
+#: `created:`, Notion's "Created:" and "Created time:", a hand-made "Written:".
+_WRITTEN_KEYS = re.compile(r"^\s*(?:created(?: time| at| on)?|date(?: created)?|written(?: on)?)\s*:\s*(.+?)\s*$", re.I | re.M)
+_YEAR = re.compile(r"\b\d{4}\b")
+
+
+def _absolute_day(text: str) -> datetime | None:
+    """The first day in `text` said with its year, read by the one
+    recogniser (decision 46): "2024-03-14", "March 14, 2024 9:41 AM",
+    "14 March 2024". A day said without a year ("friday", "tomorrow") is
+    relative to a moment the export does not record, so it is not read."""
+    from memorymap.ai import recognise
+
+    for span in recognise.recognise(text, now=datetime.now(timezone.utc)):
+        if span.rank or span.kind not in ("date", "datetime") or not _YEAR.search(span.text):
+            continue
+        value = span.value
+        if isinstance(value, datetime):
+            return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+        #: Midday, so the day stays the day in every zone the timeline is read in.
+        return datetime.combine(value, time(12))
+    return None
+
+
+def written_on(title: str, body: str) -> datetime | None:
+    """The day a note says it was written: a `created:` or `date:` line in
+    its first lines, else its title (a daily note named "2024-03-14"). None
+    when neither names a day with its year."""
+    head = "\n".join((body or "").split("\n")[:12])
+    for found in _WRITTEN_KEYS.finditer(head):
+        day = _absolute_day(found.group(1))
+        if day is not None:
+            return day
+    return _absolute_day(title or "")
+
+
+def people_and_places(body: str) -> dict:
+    """The people and places a note names, as the recogniser reads them, for
+    the import's summary."""
+    from memorymap.ai import recognise
+
+    found: dict[str, set[str]] = {"person": set(), "place": set()}
+    for span in recognise.recognise((body or "")[:20000], now=datetime.now(timezone.utc)):
+        if span.kind in found and not span.rank:
+            found[span.kind].add(span.text)
+    return {"people": sorted(found["person"]), "places": sorted(found["place"])}
+
+
 # --- the writer ---------------------------------------------------------------
 
 
@@ -390,6 +441,7 @@ def write(session, source: str, notes: list[Imported]) -> dict:  # noqa: ANN001
     made: list = []
     seen: set[str] = set()
     already = 0
+    named: dict[str, set[str]] = {"people": set(), "places": set()}
     for note, key in zip(notes, keys):
         if key in existing or key in seen:
             already += 1
@@ -405,9 +457,16 @@ def write(session, source: str, notes: list[Imported]) -> dict:  # noqa: ANN001
         entry.source_path = key
         if note.category:
             entry.user_filed = True  # the app it came from said where it belongs
-        if note.created is not None:
-            entry.created_at = note.created
+        created = note.created or written_on(note.title, note.body)
+        if created is not None:
+            entry.created_at = created
+            #: "Tomorrow" in a note from 2024 meant a day in 2024: the dated
+            #: mentions are read again on the day the note was written.
+            manager.record_dates(session, entry)
+        for kind, names in people_and_places(note.body).items():
+            named[kind].update(names)
         ids.append(entry.id)
         made.append(entry)
     session.commit()
-    return {"imported": len(ids), "already": already, "ids": ids, "entries": made}
+    return {"imported": len(ids), "already": already, "ids": ids, "entries": made,
+            "people": sorted(named["people"])[:50], "places": sorted(named["places"])[:50]}

@@ -2391,6 +2391,10 @@ def _run_and_record(
         # made rather than three clicks away in Settings.
         event["proposal"] = result["proposal"]
     yield event
+    if result.get("act_card"):
+        #: A model's act (`propose_act`, decision 53): the registry's own card,
+        #: drawn as a typed act's is, waiting for Confirm; nothing ran.
+        yield result["act_card"]
     return result
 
 

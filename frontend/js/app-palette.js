@@ -135,7 +135,9 @@ function paletteMatches(query) {
   };
   //: The act the words describe, first (quickadd.js, CHAT_PLAN decision 50):
   //: "remind me friday 9 dentist" is a reminder, its chips under the box.
-  const act = typeof quickAddPaletteRow === "function" ? quickAddPaletteRow(query) : null;
+  //: Over a board, a sentence that arranges it (whiteboard-commands.js).
+  const act = (typeof quickAddPaletteRow === "function" ? quickAddPaletteRow(query) : null)
+    || (typeof wbPaletteActRow === "function" ? wbPaletteActRow(query) : null);
   return [...(act ? [act] : []), ...commands, handoff];
 }
 

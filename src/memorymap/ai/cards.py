@@ -340,6 +340,10 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "save_skill": (),
     "delete_skill": (),
     "get_current_time": (),
+    "calculate": (),  # a sentence and its reading, said in the answer
+    "read_text": (),
+    "check_answer": (),
+    "propose_act": (),  # its card is the registry's own act card
     # Guide prose: its `guide_text` is the reply itself, not a card.
     "search_help": (),
     "save_user_preference": (),  # carries its own accept/decline card

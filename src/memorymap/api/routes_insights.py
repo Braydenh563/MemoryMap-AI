@@ -373,6 +373,23 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
     }
 
 
+@router.get("/day")
+def day_digest_lines(now: str = "", session: Session = Depends(get_session)) -> dict:
+    """The dashboard's day digest (`ai/day_digest.py`): each line a count or
+    a quoted span, with no model. `now` (ISO 8601 with an offset) fixes the
+    clock for a test; one that does not parse is ignored."""
+    from memorymap.ai import day_digest
+
+    clock = user_now(deps.get_config())
+    try:
+        given = datetime.fromisoformat(now) if now else None
+    except ValueError:
+        given = None
+    if given is not None and given.tzinfo is not None:
+        clock = given
+    return day_digest.compose(session, clock)
+
+
 @router.get("/patterns")
 def patterns(session: Session = Depends(get_session)) -> dict:
     """The Patterns line (CHAT_PLAN decision 32): what the notes measure,

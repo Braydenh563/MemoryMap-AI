@@ -1372,23 +1372,23 @@ function docLoadEmmet() {
 //: conservative re-indent below, which never moves a token.
 const DOC_BEAUTIFY_BUNDLE = "/vendor/js-beautify/beautify.min.js";
 const DOC_BEAUTIFY_TYPES = new Set(["js", "css", "html"]);
-let docBeautifyLoad = null;
+const docBeautify = { load: null };
 
 function docLoadBeautify() {
   if (window.JSBEAUTIFY) return Promise.resolve(true);
-  if (docBeautifyLoad) return docBeautifyLoad;
-  docBeautifyLoad = new Promise((resolve) => {
+  if (docBeautify.load) return docBeautify.load;
+  docBeautify.load = new Promise((resolve) => {
     const script = document.createElement("script");
     script.src = DOC_BEAUTIFY_BUNDLE;
     script.async = true;
     script.addEventListener("load", () => resolve(Boolean(window.JSBEAUTIFY)));
     script.addEventListener("error", () => {
-      docBeautifyLoad = null;
+      docBeautify.load = null;
       resolve(false);
     });
     document.head.appendChild(script);
   });
-  return docBeautifyLoad;
+  return docBeautify.load;
 }
 
 //: The file type's own indent unit, blank lines kept (at most one in a

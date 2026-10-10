@@ -1918,7 +1918,7 @@ function setDocWordGoal(id, goal) {
 //: four places that mean "the document changed", and because a goal is
 //: per-document state while the counts are pure arithmetic over the box.
 function renderDocStats() {
-  const words = (docText().match(/\S+/g) || []).length;
+  const { words } = textCounts(docText());
   const goal = currentDoc ? getDocWordGoal(currentDoc.id) : 0;
   const button = $("doc-word-goal");
   const label = $("doc-goal-label");
@@ -2330,7 +2330,7 @@ function docScanHeadings(text) {
   const lines = String(text == null ? "" : text).split("\n");
   lines.forEach((line, index) => {
     // A "# " inside a code fence is code, not a heading.
-    if (line.trim().startsWith("```")) inFence = !inFence;
+    if (/^(```|~~~)/.test(line.trim())) inFence = !inFence;
     if (inFence) return;
     const match = /^(#{1,4})\s+(.*\S)\s*$/.exec(line);
     if (match) {
@@ -14389,7 +14389,6 @@ function docCaretPoint(box) {
 
 // --- the status bar -----------------------------------------------------------
 
-const DOC_READING_WPM = 220;
 
 //: Line and column are 1-based, because that is what every editor and every
 //: error message in the world means by them.
@@ -14414,7 +14413,7 @@ function docCaretStats(box) {
   //: and a selection count that lagged the selection would be worse than
   //: none. Counted only when there is a selection to count, so the common
   //: case (a caret, no range) still does no work at all.
-  const words = selected ? (box.text.slice(range.from, range.to).match(/\S+/g) || []).length : 0;
+  const words = selected ? textCounts(box.text.slice(range.from, range.to)).words : 0;
   return {
     line: line.number,
     column: range.from - line.from + 1,
@@ -14569,14 +14568,10 @@ function renderDocCounts() {
   //: count, the character total or the reading time. Measured on a 128-word
   //: document with two comments in it: 134 words counted before this, 128
   //: after, which is the number the same document's Read view shows.
-  const text = docCommentStrip(docText());
-  const words = (text.match(/\S+/g) || []).length;
-  const chars = text.length;
-  const minutes = words / DOC_READING_WPM;
-  const read =
-    !words ? "" : minutes < 1 ? "under a min" : minutes < 60
-      ? `${Math.round(minutes)} min read`
-      : `${(minutes / 60).toFixed(1)}h read`;
+  //: Counted by `textCounts` (settings-wiring.js), the one count the
+  //: composer, this bar and the server share: characters are code points, as
+  //: `wc -m` counts them, so an emoji is one, not two.
+  const { words, chars, read } = textCounts(docCommentStrip(docText()));
   //: Characters first, because that is the one the existing header line never
   //: showed and the one that was asked for by name.
   counts.textContent = [

@@ -609,6 +609,14 @@ def _amount(word: str) -> int | None:
     return _AMOUNTS.get(word)
 
 
+def count_of(word: str) -> int | None:
+    """A whole count said as digits or a word ("3", "three", "a few"), or
+    None: for a surface that needs a small number from a command ("a grid of
+    three") and must not read it itself."""
+    value = _amount(str(word or "").strip())
+    return value if isinstance(value, int) else None
+
+
 def _month_end(day: date) -> date:
     after = day.replace(day=28) + timedelta(days=4)
     return after - timedelta(days=after.day)

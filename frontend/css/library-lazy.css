@@ -263,6 +263,21 @@
   pointer-events: none;
 }
 
+/* A sticky's day (whiteboard.js `wbPaintStickyDates`, CHAT_PLAN section 2):
+   the tag chip at the paper's foot, left of the fold, on the paper's own
+   ink; it never covers the words above it at the paste size (180 by 140). */
+.wb-object-text.wb-sticky > .wb-sticky-date {
+  position: absolute;
+  left: var(--space-2);
+  bottom: var(--space-2);
+  max-width: calc(100% - var(--space-6) - var(--space-3));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--wb-paper) 88%, black);
+  color: #2a2a1f;
+}
+
 /* The rounded rectangle (the owner, 2026-10-10: "the rounded rectangle
    shape doesnt work on the mindmap"). `--wb-map-rounded` (on `.wb-map-node`,
    below) is never less round than a small step, so a sharp

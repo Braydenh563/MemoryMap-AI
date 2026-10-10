@@ -174,6 +174,26 @@ function rememberAgentStarter(text) {
   }
 }
 
+//: **The acts, from the registry** (CHAT_PLAN section 2, the help row;
+//: `acts.palette_rows` through `GET /read/acts`): every act Chat does from one
+//: sentence, under "Do" after the table's own two, each titled with its help
+//: line, so the palette, the capability line and the Guide say the same thing.
+//: Fetched once; until it answers (or with no server) the table stands alone.
+const agentActs = { rows: null, asked: false };
+
+function agentActStarters() {
+  if (!agentActs.asked) {
+    agentActs.asked = true;
+    apiJson("/read/acts", { silent: true })
+      .then((got) => {
+        agentActs.rows = (got.rows || []).filter((row) => row.stem).map((row) => ({ group: "Do", label: row.label, text: row.stem, help: row.help }));
+        if (agentActs.rows.length) renderAgentStarters();
+      })
+      .catch(() => {});
+  }
+  return agentActs.rows || [];
+}
+
 function renderAgentStarters() {
   const box = $("command-palette-starters");
   if (!box) return;
@@ -188,7 +208,7 @@ function renderAgentStarters() {
   if (here) groups.push([`On ${agentTabLabel(tab)}`, here.slice(), "map-pin"]);
   const recent = agentStarterRecents();
   if (recent.length) groups.push(["Recent", recent, "clock-counter-clockwise"]);
-  for (const starter of AGENT_STARTERS) {
+  for (const starter of [...AGENT_STARTERS, ...agentActStarters()]) {
     const last = groups[groups.length - 1];
     if (last && last[0] === starter.group) last[1].push(starter);
     else groups.push([starter.group, [starter], AGENT_STARTER_ICONS[starter.group]]);
@@ -223,9 +243,9 @@ function renderAgentStarters() {
       //: scanned by shape rather than read in full.
       setLabel(button, `ph:${icon} ${item.label}`);
       button.dataset.example = item.text;
-      button.title = /\s$/.test(item.text)
+      button.title = item.help || (/\s$/.test(item.text)
         ? `Start a message: ${item.text.trim()}…`
-        : `Ask: ${item.text}`;
+        : `Ask: ${item.text}`);
       box.appendChild(button);
     }
   }

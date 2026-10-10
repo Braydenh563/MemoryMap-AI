@@ -63,7 +63,9 @@ function settingRows() {
       const where = head ? head.textContent.replace(/\s+/g, " ").trim() : el.closest("[data-help-group]")?.dataset.helpGroup || "";
       //: `data-keys` and `data-find`: a help topic's keywords and text, so it is found by
       //: the words a person types, not only by its title.
-      const haystack = `${text} ${el.getAttribute("title") || ""} ${el.querySelector("input, select, textarea")?.getAttribute("aria-label") || ""} ${el.dataset.keys || ""} ${el.dataset.find || ""}`.toLowerCase();
+      //: The row's whole text too, its helper copy included: a setting is
+      //: found by what it does ("battery"), not only by its label.
+      const haystack = `${text} ${el.textContent || ""} ${el.getAttribute("title") || ""} ${el.querySelector("input, select, textarea")?.getAttribute("aria-label") || ""} ${el.dataset.keys || ""} ${el.dataset.find || ""}`.toLowerCase();
       rows.push({ section: name, sectionLabel, where, text, haystack, keys: el.dataset.keys || "", el, isHead: el.matches("h3, h4") });
     }
   }
@@ -74,12 +76,50 @@ function settingRows() {
 //: starts with the word or has it at a word start ranks above one that merely
 //: contains it, and a group head above a control. Capped, because a list of
 //: forty is the section filter over again.
+//: **Words that mean one thing** (CHAT_PLAN section 2, the settings row):
+//: "night", "dark" and "theme" find the same setting. The groups are the
+//: server's (`GET /read/words`, ai/filters.py `SETTING_WORDS`), fetched once
+//: when this file loads; without them a word matches only itself.
+const settingWords = { groups: null, filler: new Set() };
+apiJson("/read/words", { silent: true })
+  .then((got) => {
+    settingWords.groups = got.groups || null;
+    settingWords.filler = new Set(got.filler || []);
+  })
+  .catch(() => {});
+
+function settingWordAlts(word) {
+  const out = new Set([word]);
+  for (const group of settingWords.groups || []) {
+    if (group.some((said) => word === said || (said.length > 3 && word.startsWith(said)))) for (const said of group) out.add(said);
+  }
+  return [...out];
+}
+
+//: What a query asks for, as one list of words-meaning-the-same per thing
+//: named: a group's phrase said whole ("back up") is one thing, a request's
+//: own words ("how do I") are none, every other word is itself or its group.
+function settingQueryAlts(query) {
+  let rest = ` ${query.toLowerCase().split(/\s+/).filter(Boolean).join(" ")} `;
+  const out = [];
+  for (const group of settingWords.groups || []) {
+    const said = group.find((phrase) => phrase.includes(" ") && rest.includes(` ${phrase} `));
+    if (!said) continue;
+    out.push(group);
+    rest = rest.replace(` ${said} `, " ");
+  }
+  const words = rest.split(" ").filter(Boolean);
+  const named = words.filter((w) => !settingWords.filler.has(w));
+  return out.concat((named.length || out.length ? named : words).map(settingWordAlts));
+}
+
 function findSettings(query, limit = 8) {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const scored = [];
+  const alts = settingQueryAlts(query);
   for (const row of settingRows()) {
-    if (!words.every((w) => row.haystack.includes(w))) continue;
+    if (!alts.every((said) => said.some((w) => row.haystack.includes(w)))) continue;
     const lower = row.text.toLowerCase();
     let score = row.isHead ? 1 : 0;
     for (const w of words) {

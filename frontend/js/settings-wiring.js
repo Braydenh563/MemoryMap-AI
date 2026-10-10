@@ -1610,15 +1610,27 @@ function renderCaptureFiles() {
 //: time in the foot"), in the words a document's own count line uses
 //: (`renderDocCounts`, documents.js) and at its 220 words a minute, so one
 //: piece of writing reads the same length in both places.
-const CAPTURE_READING_WPM = 220;
+//: **One count for a text, everywhere it is shown** (CHAT_PLAN section 2,
+//: the documents row): words, characters and lines as `wc -w`, `wc -m` and
+//: `wc -l` give them, and the reading time. The server's twin is
+//: `ai/utilities.py` `counts`; tests/test_text_utilities.py holds both to
+//: `wc` on one fixture. Here, not in documents.js, because the composer
+//: below counts at boot and the documents bundle is lazy.
+const TEXT_READING_WPM = 220;
+function textCounts(text) {
+  const value = String(text || "");
+  const words = (value.match(/\S+/g) || []).length;
+  const minutes = words / TEXT_READING_WPM;
+  const read = !words ? "" : minutes < 1 ? "under a min" : minutes < 60 ? `${Math.round(minutes)} min read` : `${(minutes / 60).toFixed(1)}h read`;
+  let chars = 0;
+  for (const _ of value) chars += 1;
+  return { words, chars, lines: (value.match(/\n/g) || []).length, minutes, read };
+}
 
 function captureCountText(text) {
-  const words = (String(text || "").match(/\S+/g) || []).length;
+  const { words, read } = textCounts(text);
   const head = `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
-  if (!words) return head;
-  const minutes = words / CAPTURE_READING_WPM;
-  const read = minutes < 1 ? "under a min read" : `${Math.round(minutes)} min read`;
-  return `${head} · ${read}`;
+  return words ? `${head} · ${read}` : head;
 }
 
 $("entry-content").addEventListener("input", (e) => {
@@ -1860,7 +1872,7 @@ if ("serviceWorker" in navigator) {
 // the install through `beforeinstallprompt`, which is held until the button is
 // pressed; it fires nothing once installed, and `appinstalled` hides the row.
 // iPhone has no such event, so the row says how instead of offering a button.
-let installPromptEvent = null;
+const installPrompt = { event: null };
 function renderInstallRow() {
   const row = $("about-install-row");
   if (!row) return;
@@ -1869,7 +1881,7 @@ function renderInstallRow() {
   const iphone =
     /iPhone|iPad|iPod/.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const canPrompt = Boolean(installPromptEvent);
+  const canPrompt = Boolean(installPrompt.event);
   row.classList.toggle("hidden", installed || !(canPrompt || iphone));
   $("about-install").classList.toggle("hidden", !canPrompt);
   $("about-install-note").textContent = canPrompt
@@ -1878,17 +1890,17 @@ function renderInstallRow() {
 }
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
-  installPromptEvent = event;
+  installPrompt.event = event;
   renderInstallRow();
 });
 window.addEventListener("appinstalled", () => {
-  installPromptEvent = null;
+  installPrompt.event = null;
   renderInstallRow();
 });
 $("about-install")?.addEventListener("click", async () => {
-  const offered = installPromptEvent;
+  const offered = installPrompt.event;
   if (!offered) return;
-  installPromptEvent = null; // the event can be used once
+  installPrompt.event = null; // the event can be used once
   offered.prompt();
   await offered.userChoice.catch(() => {});
   renderInstallRow();

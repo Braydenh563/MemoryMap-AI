@@ -658,11 +658,16 @@ function filterSettings(term) {
   }
 
   let matches = 0;
+  //: Each word, or a word meaning the same thing (settings-find.js
+  //: `settingQueryAlts`, once that file has loaded): "night" keeps the
+  //: section with the theme in it.
+  const alts = typeof settingQueryAlts === "function" ? settingQueryAlts(query) : [[query]];
+  const holds = (text) => text.includes(query) || alts.every((said) => said.some((w) => text.includes(w)));
   for (const button of buttons) {
     const section = $(`settings-${button.dataset.section}`);
     const hit =
-      button.textContent.toLowerCase().includes(query) ||
-      (section && settingsSectionText(section).includes(query));
+      holds(button.textContent.toLowerCase()) ||
+      (section && holds(settingsSectionText(section)));
     button.classList.toggle("hidden", !hit);
     if (hit) matches += 1;
   }

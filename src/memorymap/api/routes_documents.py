@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import tempfile
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -23,8 +24,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
-from memorymap.ai import drafter, vision_ocr
+from memorymap.ai import drafter, utilities, vision_ocr
 from memorymap.core import activity, deps, docexport, docmeta, docview, filetypes, syntaxcheck
+from memorymap.core.config import user_now
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -381,6 +383,20 @@ def list_documents(
     live = Document.archived_at.is_(None)
     filters = [live]
     term = q.strip()
+    #: **A window in the search is a window** (CHAT_PLAN section 2, the
+    #: documents row): "harbor last week" is the documents about the harbor
+    #: edited in the last week, read by the notes search's own reader
+    #: (`search.query.understand`, through the one recogniser), so a phrase
+    #: means one stretch of days in every search box.
+    if term:
+        from memorymap.search import query as search_query
+
+        understood = search_query.understand(term, user_now(deps.get_config()))
+        if understood.since is not None:
+            filters.append(Document.updated_at >= datetime.combine(understood.since, time.min))
+            if understood.until is not None:
+                filters.append(Document.updated_at < datetime.combine(understood.until + timedelta(days=1), time.min))
+            term = understood.subject if not understood.time_only else ""
     if term:
         like = f"%{like_escape(term)}%"
         filters.append(
@@ -410,28 +426,13 @@ def list_documents(
 #: editor.
 OUTLINE_DOCUMENTS = 500
 OUTLINE_HEADINGS = 40
-_HEADING_LINE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
 
 
 def _document_headings(content: str) -> list[dict]:
     """`{line, level, text}` for each markdown heading, `line` zero-based (the
-    editor's `jumpToDocLine` takes that), fenced code skipped so a `# comment`
-    in a code block is not a section."""
-    found: list[dict] = []
-    fenced = False
-    for index, line in enumerate((content or "").split("\n")):
-        stripped = line.strip()
-        if stripped.startswith("```") or stripped.startswith("~~~"):
-            fenced = not fenced
-            continue
-        if fenced:
-            continue
-        match = _HEADING_LINE.match(line)
-        if match and match.group(2).strip():
-            found.append({"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]})
-            if len(found) >= OUTLINE_HEADINGS:
-                break
-    return found
+    editor's `jumpToDocLine` takes that): `utilities.outline`, the one
+    outline the editor, this index and the agent share."""
+    return utilities.outline(content, limit=OUTLINE_HEADINGS)
 
 
 @router.get("/outline")

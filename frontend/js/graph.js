@@ -3386,9 +3386,40 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant
 // next search or refresh.
 let graphHighlightIds = null;
 
+//: **A phrase in the search is a filter** (CHAT_PLAN section 2, the graph's
+//: row): "connected to Harbor", "untouched since June", "tagged work",
+//: "pinned" light the notes they leave, read and resolved by the server
+//: (`GET /read/filter`, ai/filters.py; this file reads no words itself). The
+//: words left over still match the preview. A box with no filter in it
+//: (`ids` null) is the plain search it always was.
+const graphPhrase = { q: "", ids: null, rest: "" };
+
+function graphReadPhrase(query) {
+  if (graphPhrase.q === query) return;
+  graphPhrase.q = query;
+  graphPhrase.ids = null;
+  if (!query) return;
+  apiJson("/read/filter?q=" + encodeURIComponent(query) + `&tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { silent: true })
+    .then((got) => {
+      if (graphPhrase.q !== query || !got.ids) return;
+      graphPhrase.ids = new Set(got.ids);
+      graphPhrase.rest = (got.rest || "").toLowerCase();
+      applyGraphHighlight();
+    })
+    .catch(() => {});
+}
+
+function graphQueryMatch(id, preview, query) {
+  if (graphPhrase.ids && graphPhrase.q === query) {
+    return graphPhrase.ids.has(id) && (!graphPhrase.rest || preview.toLowerCase().includes(graphPhrase.rest));
+  }
+  return !query || preview.toLowerCase().includes(query);
+}
+
 function applyGraphHighlight() {
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
+  graphReadPhrase(query);
   // Reported: no way to cancel the "≈ Similar" highlight - it only ever
   // reset as a side effect of something else (typing over it, or a full
   // refresh). Same shape as #graph-focus-clear: shown exactly while there's
@@ -3414,7 +3445,7 @@ function applyGraphHighlight() {
       ? onPath.has(d.id)
       : graphHighlightIds
         ? graphHighlightIds.has(d.id)
-        : !query || d.preview.toLowerCase().includes(query);
+        : graphQueryMatch(d.id, d.preview, query);
 
   const neighbours =
     graphHoveredId != null && graphAdjacency

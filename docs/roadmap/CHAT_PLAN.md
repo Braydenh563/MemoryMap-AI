@@ -1632,7 +1632,7 @@ Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets
 | F1 recogniser and reading | Modules 1 and 2; the five readers delegate; the probe's date and reminder tables pass | `recognise_1010.json` 200 rows at 1.0; `test_one_reader` ratchet set | 65, built 2026-10-10 (HISTORY "CHAT_PLAN Briefs 65 and 66") |
 | F2 quick add and the palette | The grammar, chips, slot questions in quick note, reminders, meetings, timeline, palette | 60-phrase set at 1.0; `quickadd.js` sweep: chips within 150 ms, saved value equals chip | 66, built 2026-10-10 (HISTORY "CHAT_PLAN Briefs 65 and 66") |
 | F3 realiser, validators, acts | Modules 3 to 5; chat and Ask become clients; the maxims lint | variety floor met; maxims lint 0 on the evals; every act has an inverse | 67, built 2026-10-10 (HISTORY "CHAT_PLAN Brief 67") |
-| F4 the surfaces | Section 2's rows outside chat, one commit each | each row's measure | 68 (Opus, after F1 to F3) |
+| F4 the surfaces | Section 2's rows outside chat, one commit each | each row's measure | 68, built 2026-10-10 (HISTORY "Moved from the plans, 2026-10-10 (CHAT_PLAN F4, Brief 68)"): ten rows, understanding 165 of 165, grounding 12 of 12 caught, repair 14 of 14 |
 | F5 Atlas everywhere | decision 59: access, output forms, conversation, the Guide on the reading | the scorecard of decision 58 unchanged or better per step; the Guide's `tests/test_help_chat*.py` green; the Guide answers the 60-question manual-parity set through the reading | 84 (Opus, high), after 68 |
 
 ### 6. Not verified

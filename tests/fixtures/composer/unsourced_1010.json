@@ -1,0 +1,31 @@
+{
+ "_about": "Model answers against what they drew on (CHAT_PLAN section 2, the agent row): `unsourced` is every number the answer says that no source holds. A tool result (the calculate tool's) is a source. Caught at 1.0, no false catch, by tests/test_agent_utilities.py.",
+ "sources": {
+  "boat": "Paid 40 dollars deposit for the boat shed on 3 March. The roof needs 12 sheets at 18.50 each.",
+  "gym": "Leg day: squats 5x5 at 100kg. Ran 5k in 27 minutes, then 2h50 on the bike.",
+  "calc": "{\"answer\": \"12 * 18.50 is 222.\", \"read_as\": \"12 * 18.50\"}",
+  "pct": "{\"answer\": \"15% of 240 is 36.\", \"read_as\": \"15 hundredths of 240\"}"
+ },
+ "rows": [
+  {"answer": "You paid a 40 dollar deposit.", "sources": ["boat"], "unsourced": []},
+  {"answer": "You paid a 45 dollar deposit.", "sources": ["boat"], "unsourced": ["45"]},
+  {"answer": "The roof needs 14 sheets.", "sources": ["boat"], "unsourced": ["14"]},
+  {"answer": "The sheets cost 222 in all.", "sources": ["boat"], "unsourced": ["222"]},
+  {"answer": "The sheets cost 222 in all.", "sources": ["boat", "calc"], "unsourced": []},
+  {"answer": "Each sheet is 18.50, so 12 come to 225.", "sources": ["boat"], "unsourced": ["225"]},
+  {"answer": "You squatted 100kg for 5 sets of 5.", "sources": ["gym"], "unsourced": []},
+  {"answer": "You squatted 120kg.", "sources": ["gym"], "unsourced": ["120"]},
+  {"answer": "Your 5k took 27 minutes.", "sources": ["gym"], "unsourced": []},
+  {"answer": "Your 5k took 25 minutes.", "sources": ["gym"], "unsourced": ["25"]},
+  {"answer": "You ran 10k.", "sources": ["gym"], "unsourced": ["10"]},
+  {"answer": "The ride took 2h50.", "sources": ["gym"], "unsourced": []},
+  {"answer": "The ride took 2h55.", "sources": ["gym"], "unsourced": ["55"]},
+  {"answer": "The deposit was paid on 3 March.", "sources": ["boat"], "unsourced": []},
+  {"answer": "The deposit was paid on 5 March.", "sources": ["boat"], "unsourced": ["5"]},
+  {"answer": "15% of 240 is 36.", "sources": ["pct"], "unsourced": []},
+  {"answer": "15% of 240 is 38.", "sources": ["pct"], "unsourced": ["38"]},
+  {"answer": "That is 36, or about 40 with tax.", "sources": ["pct"], "unsourced": ["40"]},
+  {"answer": "You wrote 4 notes about running.", "sources": ["gym"], "unsourced": ["4"]},
+  {"answer": "The boat shed deposit was 40 dollars and the roof 12 sheets.", "sources": ["boat"], "unsourced": []}
+ ]
+}

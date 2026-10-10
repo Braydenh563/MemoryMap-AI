@@ -555,6 +555,9 @@ ${textarea.value}`).match(/\S+/g) || []).length;
   surface.className = "note-composer note-edit-surface";
   surface.append(titleInput, meta, toolbarEl, textarea);
   li.append(surface, chipsHost, foot);
+  //: The editor's offers (quickadd.js `noteOffersAttach`): a form
+  //: opened before the bundle loads has none rather than an error.
+  if (typeof noteOffersAttach === "function") noteOffersAttach(textarea, { after: surface, category: categorySelect, entryId: entry.id });
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

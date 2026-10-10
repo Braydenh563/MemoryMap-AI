@@ -82,6 +82,8 @@ _TODAY = re.compile(
     re.I,
 )
 _YEAR = re.compile(r"^what (?:year|month) is it(?: now)?$", re.I)
+#: "15% of 240" (CHAT_PLAN section 7 row 1: it quoted a note instead of 36).
+_PERCENT = re.compile(r"^(?:what(?:'s| is)\s+|work out\s+|calculate\s+)?(-?\d+(?:\.\d+)?)\s*(?:%|percent|per cent)\s+of\s+(-?\d[\d,]*(?:\.\d+)?)$", re.I)
 _WEEKDAY_OF = re.compile(r"^what day(?: of the week)? (?:is|was|will be|falls on) (\S.*)$", re.I)
 _DIE = re.compile(r"^(?:roll|throw)\s+(?:a\s+|one\s+|the\s+)?(?:die|dice|d6)$|^roll\s+(\d{1,2})?d(\d{1,3})$", re.I)
 _COIN = re.compile(r"^(?:flip|toss)\s+a\s+coin$|^heads or tails$", re.I)
@@ -251,6 +253,8 @@ def kind_of(question: str) -> str | None:
         return None
     if arithmetic.sum_in(question) or arithmetic.sum_in(text):
         return "sum"
+    if _PERCENT.match(text):
+        return "percent"
     if _CLOCK.match(text) or _TODAY.match(text) or _YEAR.match(text):
         return "clock"
     if any(p.match(text) for p in _patterns("convert")):
@@ -290,6 +294,11 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
         expr = arithmetic.sum_in(question) or arithmetic.sum_in(text)
         value = arithmetic.spoken(arithmetic.evaluate(expr))
         return [("computed", f"{expr.strip()} is {value}.")]
+    if kind == "percent":
+        share, whole = _PERCENT.match(text).groups()
+        worked = arithmetic.evaluate(f"{share} / 100 * {whole.replace(',', '')}")
+        return [("computed", f"{share}% of {whole} is {arithmetic.spoken(worked)}."),
+                ("computed", f"\nRead as {share} hundredths of {whole}.")]
     if kind == "clock":
         if _CLOCK.match(text):
             return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}."), _CLOCK_READ]
@@ -321,3 +330,72 @@ def answer(question: str, now: datetime | None = None, salt: str = "", rates: di
     if kind == "translate":
         return [("phrase", "utility_translate")]
     return [("phrase", "utility_weather")]
+
+
+# --- a text's counts and outline (CHAT_PLAN section 2, the documents row) -------------
+#
+# One module for what the documents editor, the note composer, the Library's
+# Contents index and the agent say about a text's size and shape, so a count
+# is one number wherever it is shown. The browser's twin is `textCounts`
+# (settings-wiring.js) and `docScanHeadings` (documents.js);
+# `tests/test_text_utilities.py` holds all three to `wc` and to each other on
+# one fixture.
+
+#: Words a minute for "reading time": the rate the editor has always used.
+READING_WPM = 220
+_ATX = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
+_SETEXT = re.compile(r"^\s*(=+|-{2,})\s*$")
+_NOT_PARAGRAPH = re.compile(r"^\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|\|)")
+
+
+def counts(text: str) -> dict:
+    """Words, characters and lines as `wc -w`, `wc -m` and `wc -l` count them
+    (a word is a run of non-space, a character a code point, a line a
+    newline), and the reading time in minutes."""
+    text = str(text or "")
+    words = len(text.split())
+    return {
+        "words": words,
+        "chars": len(text),
+        "lines": text.count("\n"),
+        "minutes": words / READING_WPM,
+        "read": reading_time(words),
+    }
+
+
+def reading_time(words: int) -> str:
+    """How the app says a reading time: "under a min", "4 min read", "1.5h read"."""
+    if not words:
+        return ""
+    minutes = words / READING_WPM
+    if minutes < 1:
+        return "under a min"
+    if minutes < 60:
+        return f"{round(minutes)} min read"
+    return f"{minutes / 60:.1f}h read"
+
+
+def outline(text: str, max_level: int = 6, limit: int | None = None) -> list[dict]:
+    """`{line, level, text}` for each heading, `line` zero-based: `#` headings
+    to `max_level`, and the underlined (setext) form, as the editor draws
+    them; a `#` inside a fenced block is code, not a heading."""
+    found: list[dict] = []
+    fenced = False
+    lines = str(text or "").split("\n")
+    for index, line in enumerate(lines):
+        if line.strip().startswith(("```", "~~~")):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        match = _ATX.match(line)
+        if match and match.group(2).strip():
+            if len(match.group(1)) <= max_level:
+                found.append({"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]})
+        elif index and _SETEXT.match(line):
+            above = lines[index - 1]
+            if above.strip() and not _NOT_PARAGRAPH.match(above) and not (found and found[-1]["line"] == index - 1):
+                found.append({"line": index - 1, "level": 1 if line.strip()[0] == "=" else 2, "text": above.strip()[:200]})
+        if limit and len(found) >= limit:
+            break
+    return found

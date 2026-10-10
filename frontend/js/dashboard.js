@@ -71,7 +71,7 @@ const DASH_WIDGETS = {
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
   "on-this-day": { title: "ph:calendar-blank On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
-  digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
+  digest: { title: "ph:newspaper Digest", description: "Your day from the notes: what is due, open questions, what changed and quiet topics; Atlas writes the week on request.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
   focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
@@ -1635,7 +1635,7 @@ function featureCatalog() {
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", tab: "reminders" },
       { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", reveal: "reminder-magic" },
       { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", reveal: "widget-focus" },
-      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", reveal: "widget-digest" },
+      { name: "Digest", desc: "Your day from the notes with no AI, and an AI recap of the week on request.", reveal: "widget-digest" },
       { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", reveal: "tensions" },
       // Resurfacing had shipped on two surfaces (the sort and the widget) and
       // was named on neither list.
@@ -3347,7 +3347,66 @@ async function streamDigest(onDelta) {
   return { text, cacheable };
 }
 
-async function renderDigestWidget(body) {
+//: **The day, from the engine** (CHAT_PLAN section 2, the dashboard row):
+//: what is due, the open questions, what changed since yesterday and the
+//: topics gone quiet, from `/insights/day` with no model. Every line is a
+//: count or words quoted from one note or reminder, and a quote opens where
+//: it came from. The model's week stays below, on request.
+async function renderDayDigest(box) {
+  let day;
+  try {
+    day = await apiJson("/insights/day", { silent: true });
+  } catch {
+    box.replaceChildren();
+    return;
+  }
+  //: The dashboard's own list (`.dash-list`): every line opens where it came
+  //: from, a quote its note or the reminders, a count the list it counted.
+  const list = document.createElement("ul");
+  list.className = "dash-list digest-day-lines";
+  const opens = {
+    due: () => switchTab("reminders"),
+    questions: async () => {
+      await switchTab("notes");
+      showNotesSection("questions");
+    },
+    changed: () => switchTab("notes"),
+    quiet: async (line) => {
+      await switchTab("notes");
+      showCategoryNotes(line.category);
+    },
+  };
+  for (const line of day.lines || []) {
+    const li = document.createElement("li");
+    li.className = line.kind === "quote" ? "digest-day-line muted text-sm" : "digest-day-line";
+    li.dataset.kind = line.kind;
+    li.dataset.part = line.part;
+    li.textContent = line.text;
+    const source = line.source || {};
+    const open = source.entry_id ? () => flashEntry(source.entry_id) : () => opens[line.part](line);
+    li.setAttribute("role", "link");
+    li.tabIndex = 0;
+    li.addEventListener("click", open);
+    li.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") open();
+    });
+    list.appendChild(li);
+  }
+  if (!list.childElementCount) {
+    const quiet = document.createElement("p");
+    quiet.className = "muted";
+    quiet.textContent = day.empty || "";
+    box.replaceChildren(quiet);
+    return;
+  }
+  box.replaceChildren(list);
+}
+
+async function renderDigestWidget(outer) {
+  const dayBox = document.createElement("div");
+  const body = document.createElement("div");
+  outer.replaceChildren(dayBox, body);
+  renderDayDigest(dayBox);
   const showDigest = (text) => {
     const out = document.createElement("div");
     renderMarkdown(out, text);

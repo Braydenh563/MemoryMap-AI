@@ -1121,6 +1121,23 @@ let lastToastAt = 0;
 //: it, `{ action: ["Try again", fn] }`; one that does not gets Open the logs,
 //: Settings, Logs, where the why is written (the message says what happened).
 //: `tests/test_error_toasts.py` holds the literal faults to an action of their own.
+//: **The app's voice for what it says itself** (CHAT_PLAN decision 55,
+//: Brief 68 row 9): one register for a failure, "Couldn't open that
+//: document.", never "Could not" beside "Couldn't", never an exclamation. The
+//: table is the realiser's (`ai/realise.py` `VOICE`); tests/test_voice_tables.py
+//: holds the two equal and counts the surfaces moved onto it (the Library,
+//: the board and the map first, the three with the most toasts).
+const VOICE = {
+  failed: "Couldn't {what}.",
+  failed_why: "Couldn't {what}: {why}",
+};
+
+function voiceLine(key, slots = {}) {
+  const why = slots.why ? String(slots.why).trim() : "";
+  const shape = VOICE[key === "failed" && why ? "failed_why" : key] || "";
+  return shape.replace(/\{(\w+)\}/g, (_, name) => (name === "why" ? why : String(slots[name] ?? "")));
+}
+
 function toast(message, isError = false, { exempt = false, action = null } = {}) {
   if (isError === "info" || (isError === true && [...toast.refused].some((m) => String(message).includes(m)))) {
     isError = false;

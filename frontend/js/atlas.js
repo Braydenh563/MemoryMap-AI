@@ -3259,6 +3259,7 @@ function atlasHiddenSync() {
   if (!hidden) for (const box of document.querySelectorAll(".atl-figure-box")) atlasTailWake(box);
 }
 document.addEventListener("visibilitychange", atlasHiddenSync);
+//: `typeof MutationObserver`: tests/test_atlas_shape.py loads this file in a node vm with a bare `document`.
 if (typeof MutationObserver === "function" && document.getElementById("lock-overlay")) {
   new MutationObserver(atlasHiddenSync).observe(document.getElementById("lock-overlay"), { attributes: true, attributeFilter: ["class", "data-mode"] });
 }

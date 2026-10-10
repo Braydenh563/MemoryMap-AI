@@ -941,6 +941,73 @@ def _get_current_time(session: Session, args: dict) -> dict:
     }
 
 
+# --- the deterministic layer, offered to the model (CHAT_PLAN section 2, the agent row) ---
+#
+# A 1 to 3B model miscounts days and fumbles a percentage; these hand it the
+# app's own answers (the recogniser, the utilities, the validators) so it
+# computes nothing itself. Each result says how it read the input, and its
+# numbers are a tool result, which `source_check` counts as a source.
+
+
+def _calculate(session: Session, args: dict) -> dict:
+    from memorymap.ai import arithmetic, utilities
+    from memorymap.core.config import user_now
+
+    question = str(args.get("question") or "").strip()[:300]
+    if not question:
+        return {"error": "Say what to work out, for example: 15% of 240."}
+    now = user_now(deps.get_config())
+    parts = utilities.answer(question, now) or utilities.answer(f"what is {question}", now)
+    if not parts:
+        try:
+            value = arithmetic.spoken(arithmetic.evaluate(question))
+        except arithmetic.NotArithmetic:
+            return {"error": "That is not a sum, a percentage, a conversion or a date question the app can work out."}
+        parts = [("computed", f"{question} is {value}.")]
+    text = "".join(t for kind, t in parts if kind == "computed").strip()
+    answer, _, read_as = text.partition("\nRead as ")
+    return {"answer": answer.strip(), "read_as": read_as.strip().rstrip(".") or question, "label": "ph:calculator Worked it out"}
+
+
+def _read_text(session: Session, args: dict) -> dict:
+    from memorymap.ai import recognise
+    from memorymap.core.config import user_now
+
+    text = str(args.get("text") or "")[:2000]
+    spans = recognise.recognise(text, now=user_now(deps.get_config()))
+    return {
+        "read": [{"kind": s.kind, "said": s.text, "read_as": s.read_as, "value": s.json()["value"]} for s in spans if not s.rank][:40],
+        "label": "ph:magnifying-glass Read the dates and amounts",
+    }
+
+
+def _check_answer(session: Session, args: dict) -> dict:
+    from memorymap.ai import validate
+
+    answer = str(args.get("answer") or "")[:6000]
+    sources = [str(s)[:20000] for s in (args.get("sources") or [])][:40]
+    checked = validate.check_model_answer(answer, sources)
+    return {"unsourced": checked["unbacked"], "ok": checked["ok"], "label": "ph:seal-check Checked the answer"}
+
+
+def _propose_act(session: Session, args: dict) -> dict:
+    """A model's act, through the act registry (CHAT_PLAN decision 53, F3's
+    `acts.propose`): the sentence is read by the same grammar a typed act is,
+    previewed as its card and left waiting for the person's Confirm. The
+    model proposes, the engine decides; nothing is written here."""
+    from memorymap.ai import act_registry
+    from memorymap.core.config import user_now
+
+    sentence = str(args.get("sentence") or "").strip()[:400]
+    planned = act_registry.propose(session, sentence, user_now(deps.get_config()))
+    if planned is None:
+        return {"error": "That is not an act the app knows. Say it as: remind me to ..., tag the note about ... with ..., pin the note about ..."}
+    out = {"line": planned.get("line", ""), "label": "ph:hand-pointing Proposed, waiting for you"}
+    if planned.get("card"):
+        out["act_card"] = planned["card"]
+    return out
+
+
 def _summarize_notes(session: Session, args: dict) -> dict:
     """Gather recent notes (optionally by category / time window) so the model
     can summarise them in its answer. Read-only."""
@@ -3376,6 +3443,42 @@ TOOLS: dict[str, ToolSpec] = {
             _get_current_time,
         ),
         ToolSpec(
+            "calculate",
+            "Work out a sum, a percentage, a unit or currency conversion, or a "
+            "count of days, the way the app does. Use it for every number you "
+            "would otherwise compute; say the result and how it was read.",
+            {"type": "object", "properties": {"question": {"type": "string", "description": "e.g. 15% of 240, 5 km in miles, days until 25 December"}},
+             "required": ["question"]},
+            _calculate,
+        ),
+        ToolSpec(
+            "read_text",
+            "Read the dates, times, durations, amounts and units in a piece of "
+            "text exactly as the app reads them, each with how it was read. "
+            "Use it instead of working out what a date means yourself.",
+            {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+            _read_text,
+        ),
+        ToolSpec(
+            "check_answer",
+            "Check a draft answer against the text it came from: lists any "
+            "number or name in the answer the sources do not contain.",
+            {"type": "object", "properties": {"answer": {"type": "string"},
+                                              "sources": {"type": "array", "items": {"type": "string"}}},
+             "required": ["answer", "sources"]},
+            _check_answer,
+        ),
+        ToolSpec(
+            "propose_act",
+            "Propose one change in the user's words (\"remind me to call Sam on "
+            "Friday at 9\", \"tag the boiler note with home\", \"pin the dentist "
+            "note\"): the app shows it as a card and the user confirms it. Use it "
+            "when you are not sure a change is wanted; then stop and wait.",
+            {"type": "object", "properties": {"sentence": {"type": "string"}}, "required": ["sentence"]},
+            _propose_act,
+            ends_turn=True,
+        ),
+        ToolSpec(
             "summarize_notes",
             "Gather the user's recent notes (optionally from the last N days or a "
             "category) so you can summarise them. Read-only.",
@@ -3838,7 +3941,17 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("set_reminder", "list_reminders", "complete_reminder"),
+        #: The app's own working (CHAT_PLAN section 2, the agent row): a small
+        #: model asked for a number is handed the tool that works it out.
+        ("calculate", "read_text", "check_answer"),
+        (
+            "calculate", "work out", "how many", "how much", "percent", "%", "convert",
+            "total", "add up", "average", "days until", "days since", "how long until",
+            "what date", "which day", "sum of", "times", "divided",
+        ),
+    ),
+    (
+        ("set_reminder", "list_reminders", "complete_reminder", "propose_act"),
         (
             "remind", "reminder", "forget", "due", "deadline", "tomorrow",
             "tonight", "later", "schedule", "chase", "follow up", "o'clock",
@@ -3847,7 +3960,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("tag_note", "rename_tag", "delete_tag"),
+        ("tag_note", "rename_tag", "delete_tag", "propose_act"),
         ("tag", "label", "untagged", "retag", "categorise", "categorize"),
     ),
     (

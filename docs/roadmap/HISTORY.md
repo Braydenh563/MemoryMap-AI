@@ -421,6 +421,26 @@ merged 2026-10-10.
   bytes smaller gzipped, 390 px hit-box overlaps 8 to 0, errors.js and
   touch.js 0. Left rows in OPEN.md.
 
+## Moved from the plans, 2026-10-10 (CHAT_PLAN F4, Brief 68)
+
+The f4 agent's Built block (standing order 10); the scorecard's engine column is in CHAT_PLAN decision 58's row.
+
+Built (one commit per row, CHAT_PLAN section 2): the note editor's offers
+(`ai/offers.py`, `POST /read/offers`, quickadd.js `noteOffersAttach`); the
+dashboard's day digest (`ai/day_digest.py`, `GET /insights/day`); counts and
+outline from `ai/utilities.py` with the browser's `textCounts`, documents
+search reading windows; board acts (`acts.board_parse`, `GET /read/board`,
+`wbArrangeGridSelection`) and sticky date chips (`POST /read/dates`); phrases
+as filters (`ai/filters.py`, `GET /read/filter`, `GET /read/words`) in the
+Graph, Library and Settings; import days (`app_import.written_on`); the
+Guide's gap topics and the registry's act rows in the agent palette
+(`GET /read/acts`); the agent's Calculate, Read text, Check answer and
+Propose act tools; the voice table (`realise.VOICE`, status.js `voiceLine`)
+on the Library, the board and the map; decision 58's scorecard in
+`scratchpad/parity.py`.
+
+Scorecard, engine column: understanding 165 of 165; grounding 12 of 12 caught, 115 of 115 traced; structure 0 maxims findings over 115 answers; variety minimum 3 of 20 (floor 3, target 8); follow-up not measured (the 200 spoken lines are not written); repair 14 of 14 one step. The model column was not run (no model configured).
+
 ## Moved from the plans, 2026-10-10 (Brief 34, the companion, first round)
 
 The companion agent's Built block (standing order 10); the rest of Brief 34 runs on as companion2.

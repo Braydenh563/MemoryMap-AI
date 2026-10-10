@@ -125,12 +125,18 @@ MORE_TOPICS: list[dict] = [
             "tools it can use", "which tools", "turn off a tool", "disable a tool",
             "small model mode", "run budget", "tool list", "tokens per step",
             "tools offered", "using a tool", "use a tool", "stop atlas using",
-            "cut that reply short", "model size",
+            "cut that reply short", "model size", "calculator", "does atlas do sums",
         ),
         "body": (
             "Settings, Tools it can use also has Use these tools from another "
             "app: a snippet to paste into an MCP client such as Claude Desktop, "
             "with a Copy button. "
+            "A number Atlas would work out (a sum, a percentage, a conversion, a "
+            "count of days) comes from the app's own calculator, Calculate, and a "
+            "date in your words from Read text, so a small model computes "
+            "nothing in its head; Check answer finds any number its answer "
+            "says that the notes do not, and Propose act shows a change as "
+            "a card you confirm. "
             "Settings, Tools it can use lists the actions Atlas may take in "
             "Agent mode, grouped as Reads your notebook, Changes your notebook, "
             "Asks you first and Reaches the web; turn one off and it is never "
@@ -514,8 +520,10 @@ MORE_TOPICS: list[dict] = [
             "feel (Appearance, Keyboard shortcuts), Privacy and security "
             "(Account & security, Privacy), System (Packages, Background tasks, "
             "Logs) and Help and About. The search box at the top of the list "
-            "finds a setting by any word in it and lists the matching settings "
-            "under it, each opening where it sits. A long section lists its "
+            "finds a setting by any word in it or by what it does, with words "
+            "that mean the same (\"night\" or \"darker\" finds the theme, "
+            "\"battery\" the battery-efficient mode, \"back up\" Backups), and "
+            "lists the matching settings under it, each opening where it sits. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
             "section picker holds the same groups under the section you are in."
@@ -639,7 +647,11 @@ MORE_TOPICS: list[dict] = [
             "Notion pages become wiki links. Each note remembers where it came from, "
             "so importing the same export again adds nothing twice and says how "
             "many were already here. Imported text is treated as someone else's "
-            "words: Atlas never follows instructions written in it."
+            "words: Atlas never follows instructions written in it. A note's day "
+            "comes from the export where it says one with its year: a daily "
+            "note named 2024-03-14, a date: or Created: line; that is its day "
+            "on the Timeline, and \"tomorrow\" in it means the day after it was "
+            "written. The import's summary names the people and places it read."
         ),
         "badge": {"label": "Import from another app", "section": "data", "target": "import-app-box"},
     },
@@ -754,6 +766,25 @@ MORE_TOPICS.extend(
                 "works with no AI model."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},
+        },
+        {
+            "id": "editor-offers",
+            "keywords": (
+                "offers under the note", "offers while i write", "remind me from a note",
+                "sum checked", "check my sums", "wrong sum", "link suggestion", "suggest a link",
+                "filing suggestion", "why this category", "chips under the note",
+            ),
+            "body": (
+                "While you write a note (Capture, or a note's Edit form), offers show as "
+                "chips under the box when you pause: a day in the text becomes Remind me "
+                "(press it to set the reminder, with Undo), a sum written with a wrong "
+                "answer shows the right one (press it to put it in), a name another note "
+                "opens with becomes a [[link]], and File in names the category with its "
+                "reason beside it. Nothing is offered on quoted words: text in quotation "
+                "marks, `code` or a > quote line. At most five show at once. It all "
+                "works with no AI model."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
         },
         {
             "id": "quick-note",
@@ -1542,6 +1573,7 @@ TOPIC_META: dict[str, dict] = {
     "dashboard-controls": {"title": "Dashboard controls", "path": "Dashboard tab"},
     "hidden-features": {"title": "Hidden features and power keys", "path": "Everywhere"},
     "quick-note": {"title": "Quick note", "path": "Alt+N, from any tab"},
+    "editor-offers": {"title": "Offers while you write", "path": "Notes, Capture, or a note's Edit form"},
     "quick-add": {"title": "Dates and tags read as you type", "path": "Reminders, Quick note, New meeting, Timeline search, the command palette"},
     "note-outbox": {"title": "Saving while the server is away", "path": "Notes tab, above Capture"},
     "attachments": {"title": "Pictures and files in a note", "path": "Capture, or a note being edited"},
@@ -1579,7 +1611,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview", "install-app",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "quick-add", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
     )),
@@ -1615,7 +1647,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "lock", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
+        "privacy", "security", "encryption", "lock", "phone", "two-computers", "delete-data", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks", "activity", "health",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",
@@ -1626,6 +1658,93 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
 #: The acts Chat does from a sentence: generated from the act registry
 #: (`ai/act_registry.py`, CHAT_PLAN decision 53), so a new act is in the Guide the
 #: moment it is in the registry, and a renamed one cannot drift.
+#: The Guide's gaps from the engine probe (CHAT_PLAN section 2, the help
+#: row; `agent-remaining/engine-probe-1010.md`): the phone, two computers,
+#: encryption, deleting your data and sharing a note had no topic of their
+#: own. `tests/test_guide_gaps.py` holds the probe's table at 1.0.
+MORE_TOPICS.extend([
+    {
+        "id": "phone",
+        "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
+                     "open it on my phone"),
+        "body": (
+            "Your phone opens this computer's notebook over your own network: turn "
+            "on Allow other devices on this network (Settings, Account & security, "
+            "Other devices), then open the address it shows on the phone (https, "
+            "port 8443) and sign in with your password. The first visit warns that "
+            "the certificate is not trusted: compare the fingerprint shown under the "
+            "switch, or use Trust this certificate on your phone, whose ? has the "
+            "iPhone and Android steps. The phone reads and writes the same notebook; "
+            "nothing goes through the internet, so the computer has to be on."
+        ),
+        "badge": {"label": "Account & security", "section": "account"},
+    },
+    {
+        "id": "two-computers",
+        "keywords": ("two computers", "another computer", "second computer", "sync", "syncing", "laptop and desktop",
+                     "move to a new computer", "new computer", "other computer", "use it on two"),
+        "body": (
+            "One notebook lives on one computer, in its data folder (Settings, Import "
+            "& export shows where). There is no sync between two copies. To move to a "
+            "new computer, save a full backup there and restore it on the new one, or "
+            "copy the data folder while the app is closed. To use one notebook from a "
+            "second computer at the same time, open it over your network from the "
+            "first: Settings, Account & security, Other devices."
+        ),
+        "badge": {"label": "Import & export", "section": "data"},
+    },
+    {
+        "id": "encryption",
+        "keywords": ("encrypted", "encryption", "is my data encrypted", "encrypt my notes", "is it secure", "secure",
+                     "who can read my notes"),
+        "body": (
+            "Private notes are encrypted at rest with a key made from your unlock "
+            "password; without it their words cannot be read from the data folder. "
+            "Other notes are stored as they are written, in the data folder on your "
+            "computer, so your disk's own encryption is what keeps them. A full "
+            "backup can be sealed with a password (Settings, Import & export). A "
+            "recovery key (Settings, Account & security) opens private notes if the "
+            "password is forgotten, and Re-encrypt private notes makes a new key."
+        ),
+        "badge": {"label": "Account & security", "section": "account"},
+    },
+    {
+        "id": "delete-data",
+        "keywords": ("delete my data", "delete everything", "erase my data", "remove my data", "wipe", "uninstall",
+                     "start over", "delete all my notes"),
+        "body": (
+            "A deleted note, document or reminder goes to the bin first: Undo or the "
+            "bin's Restore brings it back, and the bin clears itself after the time "
+            "set in Settings, General, Bin (or Empty the bin at once). Everything "
+            "else is in the data folder (Settings, Import & export shows where): to "
+            "erase the notebook, save a backup if you want one, close the app and "
+            "delete that folder, then uninstall. Nothing is kept anywhere else."
+        ),
+        "badge": {"label": "General", "section": "general"},
+    },
+    {
+        "id": "share-note",
+        "keywords": ("share a note", "share this note", "send a note", "share", "sharing", "give someone a note",
+                     "email a note"),
+        "body": (
+            "Three ways, none through a server: the note's menu, Download .md, "
+            "saves it as a Markdown file to send; copy its "
+            "address (every view has one) for anyone opening this notebook with "
+            "you; or let them open the notebook from their phone or computer on "
+            "your network (Settings, Account & security, Other devices)."
+        ),
+        "badge": {"label": "Import & export", "section": "data"},
+    },
+])
+TOPIC_META.update({
+    "phone": {"title": "On your phone", "path": "Settings, Account & security, Other devices"},
+    "two-computers": {"title": "Two computers", "path": "Settings, Import & export"},
+    "encryption": {"title": "What is encrypted", "path": "Settings, Account & security"},
+    "delete-data": {"title": "Deleting your data", "path": "Settings, General, Bin"},
+    "share-note": {"title": "Sharing a note", "path": "A note's menu, Download .md"},
+})
+
+
 def _act_topic() -> dict:
     from memorymap.ai import act_registry
 

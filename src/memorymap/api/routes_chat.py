@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import budget as run_budget, composer
 from memorymap.ai import (
+    acts,
     agent,
     captioning,
     context,
@@ -2198,8 +2199,6 @@ def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
     rename, a move or a tag wait for Confirm (`POST /chat/command/run`). An
     object that is not one note is asked about, never guessed. Ask is a
     client too: it names the act it read and says where it is done."""
-    from memorymap.ai import acts
-
     parsed = acts.parse(req.question, user_now(deps.get_config()))
     if req.body.notes_only:
         yield {"type": "answer", "delta": acts.ask_line(parsed)}
@@ -2239,7 +2238,7 @@ def run_command(body: CommandRunBody, session: Session = Depends(get_session)) -
     """Run what an act's card showed, after Confirm, or take it back (Undo).
     Only the steps `commands.RUNNABLE` names run, each through the agent's
     own tool door, so permissions and the event log are the agent's."""
-    from memorymap.ai import acts, commands
+    from memorymap.ai import commands
 
     if not body.steps:
         raise HTTPException(status_code=400, detail="There is nothing to run.")

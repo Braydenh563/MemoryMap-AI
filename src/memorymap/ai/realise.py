@@ -37,6 +37,24 @@ _NUMBERS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight"
 _MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
 _WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
+# --- the app's own voice (decision 55) ----------------------------------------------
+
+#: What the app says itself, one register (Brief 68 row 9): a failure is
+#: "Couldn't {what}.", or with its reason "Couldn't {what}: {why}". The
+#: browser's twin is `VOICE` in status.js, held equal by
+#: tests/test_voice_tables.py.
+VOICE = {
+    "failed": "Couldn't {what}.",
+    "failed_why": "Couldn't {what}: {why}",
+}
+
+
+def say(key: str, **slots: str) -> str:
+    why = str(slots.get("why") or "").strip()
+    shape = VOICE["failed_why" if key == "failed" and why else key]
+    return shape.format(**{**slots, "why": why})
+
+
 # --- person ---------------------------------------------------------------------
 
 #: Whole-phrase rewrites first (verb agreement), then single words. Lowercase

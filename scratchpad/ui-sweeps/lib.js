@@ -91,6 +91,9 @@ async function boot(opts={}) {
   const page = await ctx.newPage();
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });
+  //: `clock`: the page's clock starts there and runs on (quickadd.js's phrase
+  //: set is written for one "now").
+  if (opts.clock) await page.clock.install({ time: new Date(opts.clock) });
   await page.goto(BASE + '/', {waitUntil:'domcontentloaded'});
   //: **Two ways in** (OPEN.md, 0.3.3): a notebook with "Ask for a password
   //: when the app opens" turned off never shows `#lock-password` on this

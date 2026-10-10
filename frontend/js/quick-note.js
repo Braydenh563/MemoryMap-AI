@@ -227,6 +227,10 @@ function openQuickNote() {
     );
     dialog.showModal();
   }
+  //: The chips under the box (quickadd.js): a #tag is saved as a tag; a day
+  //: or time is an offer of a reminder on the note, off until pressed,
+  //: unless the words begin as a reminder does.
+  quickAddAttach(box, "note", { offKinds: ["date", "time", "datetime", "duration", "recurrence"] });
   box.focus();
   box.setSelectionRange(box.value.length, box.value.length);
 }
@@ -243,6 +247,7 @@ function keepQuickNoteDraft() {
 
 function clearQuickNote() {
   quickNoteBox().value = "";
+  quickAddClear(quickNoteBox());
   keepQuickNoteDraft();
 }
 
@@ -260,7 +265,8 @@ async function saveQuickNote() {
   button.disabled = true;
   quickNoteStatus("Saving…");
   try {
-    const result = await createNoteSafely({ content, tags: [] });
+    const slots = await quickAddSlots(quickNoteBox());
+    const result = await createNoteSafely({ content, tags: slots?.tags || [] });
     clearQuickNote();
     $("quick-note").close();
     if (result.queued) {
@@ -268,8 +274,9 @@ async function saveQuickNote() {
       return;
     }
     const saved = result.saved;
+    const reminded = slots?.due ? await quickNoteReminder(saved.id, slots) : "";
     toastAction(
-      saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`,
+      (saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`) + reminded,
       "Go to it",
       () => flashEntry(saved.id),
       { go: { open: "entry", id: saved.id } },
@@ -296,6 +303,22 @@ async function saveQuickNote() {
   } finally {
     quickNoteSaving = false;
     button.disabled = false;
+  }
+}
+
+//: The reminder the note's chips said, on the note itself: answers the words
+//: the toast adds, empty when the server refused it (the note is kept).
+async function quickNoteReminder(entryId, slots) {
+  try {
+    const text = (slots.title.split("\n")[0] || "Quick note").slice(0, 100);
+    const reminder = await apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({ text, due_at: slots.due.toISOString(), entry_id: entryId, priority: "normal", recurring: slots.recurring || "none" }),
+    });
+    loadReminders();
+    return ` Reminder set: ${relativeWhen(reminder.due_at)}.`;
+  } catch (error) {
+    return ` The reminder was not set: ${error.message}`;
   }
 }
 

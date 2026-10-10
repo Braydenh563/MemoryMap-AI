@@ -1885,6 +1885,7 @@ const LAZY_MODULES = {
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
   meetings: ["/js/meetings.js"],
+  quickAdd: ["/css/quickadd-lazy.css", "/js/quickadd.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
   //: boot's, the motion arrives with the first figure that mounts.
   atlasMotion: ["/js/atlas-motion.js"],
@@ -2201,6 +2202,7 @@ const LAZY_ENTRY_POINTS = {
   accountRecovery: ["openForgotPassword", "offerRecoveryKey", "showRecoveryKey", "makeRecoveryKey", "recoveryAccountRow"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate", "templateCatalogue"],
+  quickAdd: ["quickAddAttach", "quickAddSlots", "quickAddAsk", "quickAddClear", "magicAddReminder"],
   meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",
@@ -2312,4 +2314,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "quickAdd", "fieldClear", "chordGuide", "notePanels", "dragEdge", "askCompose"].forEach((name) => ensureModule(name)), 3000);

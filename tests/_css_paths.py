@@ -60,6 +60,8 @@ CSS_FILES = [
     CSS_DIR / "usage-lazy.css",
     #: The Guide's streamed bubble (help-chat.js loads it).
     CSS_DIR / "help-chat-lazy.css",
+    #: The chips under a quick-add field (quickadd.js, CHAT_PLAN decision 50).
+    CSS_DIR / "quickadd-lazy.css",
 ]
 
 

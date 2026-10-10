@@ -1659,30 +1659,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   return true;
 }
 
-// Magic Add: send natural language to the AI, which parses it into a reminder.
-async function magicAddReminder() {
-  const input = $("reminder-magic");
-  const status = $("reminder-magic-status");
-  const text = input.value.trim();
-  if (!text) return;
-  status.classList.remove("error");
-  setLabel(status, "ph:spin Parsing…");
-  try {
-    const reminder = await apiJson("/reminders/parse", {
-      method: "POST",
-      // Send our clock, so "tomorrow evening" is resolved against the time
-      // the user can see rather than the server's UTC.
-      body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
-    });
-    input.value = "";
-    status.textContent = `Added “${reminder.text}”: ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
-    askNotificationPermission();
-    loadReminders();
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-}
+// Magic Add (`magicAddReminder`) is quickadd.js's, with the chips.
 
 // The Wave O reminder poller used to live here. **It was dead code with a
 // live timer**, and that combination is worse than either half.

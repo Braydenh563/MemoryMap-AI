@@ -56,6 +56,7 @@ async function openPalette() {
   $("palette-input").value = typed;
   paletteIndex = 0;
   renderPalette(typed);
+  quickAddAttach($("palette-input"), "palette");
   $("palette-input").focus();
   const first = early?.enter && paletteMatches(typed)[0];
   if (first) return paletteRun(first);
@@ -132,7 +133,10 @@ function paletteMatches(query) {
     handoff: true,
     run: () => openFinder(typed),
   };
-  return [...commands, handoff];
+  //: The act the words describe, first (quickadd.js, CHAT_PLAN decision 50):
+  //: "remind me friday 9 dentist" is a reminder, its chips under the box.
+  const act = typeof quickAddPaletteRow === "function" ? quickAddPaletteRow(query) : null;
+  return [...(act ? [act] : []), ...commands, handoff];
 }
 
 //: **The rich picker** (rich-picker.js, DESIGN.md's recipe index): the "/"

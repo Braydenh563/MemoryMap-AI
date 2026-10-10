@@ -523,7 +523,8 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "New meeting (the Dashboard's Quick access, the command palette, "
             "Library's Create, Tools and features) asks for a title, when and "
-            "who, then opens the meeting as a note with Agenda, Notes, Decisions "
+            "who (a title like \"Sync with Ana friday 2pm\" fills When and "
+            "Who from its chips), then opens the meeting as a note with Agenda, Notes, Decisions "
             "and Action items; Start and record does the same and starts "
             "transcribing straight into its Notes (Ctrl+Shift+R records too). Write an action item as \"- [ ] Send the deck "
             "@Sam by Friday\": @Name is its owner, the plain words its due. "
@@ -609,7 +610,9 @@ HELP_TOPICS: list[dict] = [
             "for, opens Find anything (Ctrl/Cmd+P) with the words already "
             "searched. It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
-            "answers and acts on an open-ended request."
+            "answers and acts on an open-ended request. Typed as a "
+            "reminder (\"remind me friday 9 dentist\"), its first row is "
+            "that reminder, with its chips under the box."
         ),
         "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
@@ -1748,8 +1751,9 @@ HELP_TOPICS.extend(
                 "tomorrow evening, high priority\"), then Enter or the sparkle button "
                 "(Add from this sentence) works out the time and the "
                 "priority. Times like \"tomorrow at 5pm\", \"next Friday\", "
-                "\"tonight\" or \"in 20 minutes\" are read with no AI; the AI is "
-                "asked only for a phrasing those rules miss. Or type the reminder, pick a priority (normal, low or "
+                "\"tonight\" or \"in 20 minutes\" are read with no AI and shown as chips "
+                "under the box before Enter (press one to leave it as words); with no "
+                "day or time it asks for one rather than guessing. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "

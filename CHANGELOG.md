@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Quick add: the Reminders box, Quick note, a new meeting's title, the Timeline's search and the command palette show what was read (a day, a time, a repeat, a person, a #tag, a window) as chips under the box as you type; Enter saves what the chips say, a chip pressed off stays words, and a reminder with no day or time asks for one rather than guessing (CHAT_PLAN decision 50, Brief 66). Lazy: the boot scripts are 140 bytes smaller gzipped.
 - Filing: a health, money, relationships, legal or identity note is held for the person on every filing path, the embedder's nearest notes and the chat model's answer included, until Settings lets it file (decision 6, INBOX 770); the capture E2E spec checks both states.
 - Documents: Download as Word is written in the browser (docx, vendored, loaded on the first press) rather than by an optional server extra that answered 501 on most installs, and a .docx added in the Library is read by Mammoth with its headings, lists, emphasis, links and tables kept rather than as bare text (Brief 42, INBOX 765).
 - Documents (code): the Output panel has a grip on its top edge (drag, arrow keys, double-click to reset; the height kept per document), and Stop greys out once a script has finished and has no timer left, rather than staying lit after "Finished." (INBOX 736).

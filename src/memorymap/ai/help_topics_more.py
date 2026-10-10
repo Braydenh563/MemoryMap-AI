@@ -704,6 +704,29 @@ MORE_TOPICS: list[dict] = [
 MORE_TOPICS.extend(
     [
         {
+            "id": "quick-add",
+            "keywords": (
+                "chips under the box", "read as", "quick add", "date chip", "what it read",
+                "remind me friday", "natural language date", "type a date", "wrong date",
+                "time chip", "repeat chip", "tag chip",
+            ),
+            "body": (
+                "Quick add: where you type something dated or tagged (the Reminders "
+                "box, Quick note, a new meeting's title, the Timeline's search and the "
+                "command palette), what the words were read as shows as chips under "
+                "the box as you type: a day, a time, a repeat, a person, a #tag, a "
+                "window like \"last week\". Enter saves what the chips say. Press a "
+                "chip to leave those words as words. When something needed is "
+                "missing (a reminder with no time), it asks once and saves nothing "
+                "until you add it, rather than guessing. In Quick note a day is an "
+                "offer of a reminder on the note, used when pressed or when the note "
+                "starts \"remind me\". On the Timeline, Enter turns a window into the "
+                "From and To range and keeps the other words as the search. It all "
+                "works with no AI model."
+            ),
+            "badge": {"label": "Reminders", "tab": "reminders"},
+        },
+        {
             "id": "quick-note",
             "keywords": (
                 "quick note", "alt+n", "jot down", "note from anywhere",
@@ -1485,6 +1508,7 @@ TOPIC_META: dict[str, dict] = {
     "dashboard-controls": {"title": "Dashboard controls", "path": "Dashboard tab"},
     "hidden-features": {"title": "Hidden features and power keys", "path": "Everywhere"},
     "quick-note": {"title": "Quick note", "path": "Alt+N, from any tab"},
+    "quick-add": {"title": "Dates and tags read as you type", "path": "Reminders, Quick note, New meeting, Timeline search, the command palette"},
     "note-outbox": {"title": "Saving while the server is away", "path": "Notes tab, above Capture"},
     "attachments": {"title": "Pictures and files in a note", "path": "Capture, or a note being edited"},
     "filing": {"title": "How a note is filed", "path": "A note's card, beside its category"},
@@ -1521,7 +1545,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
     )),

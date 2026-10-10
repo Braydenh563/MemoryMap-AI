@@ -128,6 +128,14 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
       whenInput.className = "prop-value";
       whenInput.value = meetingNowValue();
       const people = meetingPeopleField();
+      //: The title's chips (quickadd.js): "Sync with Ana friday 2pm" sets When
+      //: as it is read and names Ana; a chip pressed off puts When back.
+      let typedWhen = whenInput.value;
+      let chipWhen = false;
+      whenInput.addEventListener("input", () => {
+        typedWhen = whenInput.value;
+        chipWhen = false;
+      });
       body.append(
         meetingFormRow("Title", titleInput, "meeting-new-title"),
         meetingFormRow("When", whenInput, "meeting-new-when"),
@@ -135,6 +143,18 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
       );
       people.field.previousElementSibling.htmlFor = "meeting-new-people";
       people.input.id = "meeting-new-people";
+      quickAddAttach(titleInput, "meeting", {
+        after: titleInput.closest(".prop-row"),
+        onSlots: (slots) => {
+          if (slots?.date || slots?.time) {
+            whenInput.value = `${slots.date || typedWhen.slice(0, 10)}T${slots.time || typedWhen.slice(11, 16)}`;
+            chipWhen = true;
+          } else if (chipWhen) {
+            whenInput.value = typedWhen;
+            chipWhen = false;
+          }
+        },
+      });
       const status = document.createElement("p");
       status.className = "status";
       status.setAttribute("role", "status");
@@ -159,12 +179,17 @@ async function openNewMeeting({ title = "", notes = "", then = null } = {}) {
         status.classList.remove("error");
         let made = null;
         try {
+          const slots = await quickAddSlots(titleInput);
+          const attendees = people.read();
+          for (const name of slots?.people || []) {
+            if (!attendees.some((p) => p.toLowerCase() === name.toLowerCase())) attendees.push(name);
+          }
           made = await apiJson("/meetings", {
             method: "POST",
             body: JSON.stringify({
-              title: titleInput.value.trim(),
+              title: slots ? slots.title : titleInput.value.trim(),
               when: whenInput.value || "",
-              attendees: people.read(),
+              attendees,
               notes,
             }),
           });

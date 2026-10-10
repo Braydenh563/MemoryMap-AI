@@ -5156,3 +5156,19 @@ def test_the_no_model_notice_is_one_row_on_the_notice_recipe() -> None:
     )
 
 
+
+
+def test_what_a_field_was_read_as_is_one_chip_row() -> None:
+    """DESIGN.md, "What a field's words were read as" (CHAT_PLAN decision 50):
+    the chips under a field come from quickadd.js alone, and no surface asks
+    the reading route for itself, so every field reads, asks and saves the
+    same way."""
+    own = {"quickadd.js"}
+    builders = [p.name for p in JS if p.name not in own and "qa-chips" in p.read_text(encoding="utf-8")]
+    assert not builders, f"a chip row built outside quickadd.js: {builders}"
+    readers = [
+        p.name
+        for p in JS
+        if p.name not in own and re.search(r"""["'`]/(?:api/)?read\?""", p.read_text(encoding="utf-8"))
+    ]
+    assert not readers, f"a surface asking /read itself rather than through quickAddAttach: {readers}"

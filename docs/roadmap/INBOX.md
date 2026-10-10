@@ -173,6 +173,10 @@ with its owner named in the entry.
      in or fit to my screen?? I pressed the fit button and it didnt do much".
      First open: the cluster fills about a fifth of the canvas; after Fit,
      about half, and the bubbles overlap one another heavily.
+     Then, with a third screenshot: "I prefered the force and movement how
+     the graph used to be, theres no movement to it now :(" and "when the
+     graph readjusts it just appears there :(". The cluster's bubbles still
+     overlap; outliers sit far out on long links.
 
 ## Placed (last 20, newest first)
 

@@ -538,10 +538,11 @@ async function qaPaletteRemind(text, slots) {
 }
 
 (() => {
-  //: The reader's first answer loads its tables (measured: over 4 s cold);
-  //: asked now, a few seconds after boot, so the first word typed is not
-  //: the one that waits.
-  qaFetch("in 5 minutes", "reminder");
+  //: The reader's first answer loads its tables (measured: over 4 s cold,
+  //: and 305 ms for the first note after a reminder: the chat path's own
+  //: modules); both asked now, a few seconds after boot, so the first word
+  //: typed is not the one that waits.
+  qaFetch("in 5 minutes", "reminder").then(() => qaFetch("in 5 minutes", "note"));
   quickAddAttach($("reminder-magic"), "reminder", { after: $("reminder-magic-row") });
   const search = $("timeline-search");
   if (search) {

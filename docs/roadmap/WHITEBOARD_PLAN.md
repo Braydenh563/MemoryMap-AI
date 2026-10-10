@@ -972,6 +972,7 @@ checking each row (CLAUDE.md "already exists" rule):
   `wbCloneConnect`, Alt+Shift+Arrow), draw.io's hover arrows.
 - Same width and same height exist (`same-width`, `same-height`); draw.io
   has no such command.
+- (Odysseus, fourth read 2026-10-10) 
 
 ### 1. Format panel, Style tab
 

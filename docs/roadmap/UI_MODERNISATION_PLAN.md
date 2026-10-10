@@ -1090,6 +1090,8 @@ indentation lines." "Note metadata and chat bubble metadata still feels
 incredibly messy, not modern, and unrefined." "Some tooltip buttons are circles
 and some are rounded squares."
 
+- (Odysseus, fourth read 2026-10-10) 
+
 ### Decisions, 2026-10-10 (do not re-decide)
 1. **A density scale in tokens.** Control heights 28px (dense: docks, toolbars,
    sub-menu bars), 32px (default: forms, menus), 40px (touch, phone); icon

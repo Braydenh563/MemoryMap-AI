@@ -298,6 +298,7 @@ after a usage reset. Either way, without asking anything:
    claiming, no em-dashes, no scope creep, the four failure shapes checked
    in every diff. If a decision seems needed, it is already written in a
    plan file; find it.
+- (Odysseus, fourth read 2026-10-10) 
 
 ### How far each plan actually is (honest, as of 2026-10-03)
 

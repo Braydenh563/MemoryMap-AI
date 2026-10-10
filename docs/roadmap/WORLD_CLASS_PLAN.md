@@ -88,6 +88,8 @@ the screens follow it. The contract is short enough to memorise and each
 line has a lint that fails the build, because the app has been made
 inconsistent three times by sessions that did not know the rule existed.
 
+- (Odysseus, fourth read 2026-10-10) 
+
 ### 1.1 Surfaces (four levels, no more)
 
 | Level | Recipe | Example | Never |
@@ -791,6 +793,7 @@ take five of these.
 - Forms: labels above fields, one column under 600, required marked,
   errors inline under the field.
 - Links: underlined on hover only, accent colour, external ones marked.
+- (Odysseus, fourth read 2026-10-10) 
 
 **State 2026-09-24:** (d) a standing checklist, not a row: the sweeps in `scratchpad/ui-sweeps/` hold most of it, and nothing here is scheduled on its own.
 
@@ -977,6 +980,9 @@ audit is open.
    HTTP. Settings, LAN shows the certificate's fingerprint, so a phone user
    can check the one-time warning, with "Regenerate certificate". The help
    says the traffic is encrypted and explains the warning.
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -3265,6 +3271,7 @@ connection that had opened):
    or print the one-line `netsh` command when turning the switch on.
 Help moves with it (standing order 13): `ai/help_topics_more.py` "lock"
 topic, the `data-help-for` on the switch, `tests/test_manual_parity.py`.
+- (Odysseus, fourth read 2026-10-10) 
 
 ## 24. Codebase census, 2026-10-10
 

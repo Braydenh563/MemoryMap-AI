@@ -257,19 +257,6 @@ with its owner named in the entry.
      (a class on the card, removed on the next step), and a sweep checks every
      tour step's target is visible and non-empty.
 
-747. **The owner, 2026-10-10, verbatim**: "run another deep analysis on the
-     odysseus repository for things worth taking and being inspired by and
-     replicating: https://github.com/odysseus-dev/odysseus.git, like analyse
-     absolutely everything about it, from its features, how they are designed,
-     metadata and libraries used. how it is packaged and more. I got this list
-     from it's file THIRD_PARTY_PROVENANCE.json if it is of any help" (the file,
-     summarised: `$S/up/odysseus_provenance_summary.md`; six retained browser
-     libraries and fonts, each with byte-identical proof, upstream URLs, sha256
-     and a notice file). Triage: a research brief (Sonnet high) cataloguing the
-     repository into ANALYSIS.md "Odysseus, read 2026-10-10", with each finding
-     placed as a row in the plan it belongs to; the provenance record practice
-     is a candidate for `docs/THIRD_PARTY.md` and `tests/test_vendor_manifest.py`.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-10: 751 placed as SESSION_BRIEFS Brief 75.

@@ -1689,6 +1689,8 @@ surface, the decisions, and the briefs. It remakes nothing decided in 17 to 45.
 number is given. The probe tables were re-run on the merged head by F0: every row is
 unchanged (`agent-remaining/found-1010.md` part 2).
 
+- (Odysseus, fourth read 2026-10-10) 
+
 ### 1. Research read, 2026-10-10, and what each changes here
 
 | Source | The practice | What it becomes here |

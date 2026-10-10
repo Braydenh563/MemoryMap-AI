@@ -46202,6 +46202,19 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      ratchet `tests/test_vendor_utilisation.py` keeps the called count from
      falling.
 
+747. **The owner, 2026-10-10, verbatim**: "run another deep analysis on the
+     odysseus repository for things worth taking and being inspired by and
+     replicating: https://github.com/odysseus-dev/odysseus.git, like analyse
+     absolutely everything about it, from its features, how they are designed,
+     metadata and libraries used. how it is packaged and more. I got this list
+     from it's file THIRD_PARTY_PROVENANCE.json if it is of any help" (the file,
+     summarised: `$S/up/odysseus_provenance_summary.md`; six retained browser
+     libraries and fonts, each with byte-identical proof, upstream URLs, sha256
+     and a notice file). Triage: a research brief (Sonnet high) cataloguing the
+     repository into ANALYSIS.md "Odysseus, read 2026-10-10", with each finding
+     placed as a row in the plan it belongs to; the provenance record practice
+     is a candidate for `docs/THIRD_PARTY.md` and `tests/test_vendor_manifest.py`.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

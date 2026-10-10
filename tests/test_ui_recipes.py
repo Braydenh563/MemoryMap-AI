@@ -3940,7 +3940,7 @@ def test_one_builder_draws_a_thinking_fold() -> None:
         ("palette.js", "thinkingBox = thinkingFold();"),
         ("help-chat.js", "const think = thinkingFold();"),
         ("capture-ask.js", 'thinkingFoldIn(thinkingHost)'),
-        ("chat-agent.js", 'thinkingFoldIn(thinkingHost)'),
+        ("writing-desk.js", 'thinkingFoldIn(thinkingHost)'),
     ):
         assert call in js[name], f"{name} no longer draws its reasoning with the one fold"
     html = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)

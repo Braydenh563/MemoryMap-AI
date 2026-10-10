@@ -9332,21 +9332,21 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2004 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:1958 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2061 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:1981 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2250 |
-| `answer` | src/memorymap/ai/help_chat.py:2437 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2375 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2202 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2501 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2173 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2334 |
-| `source_names` | src/memorymap/ai/help_chat.py:2169 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2151 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2137 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2216 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2000 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:1954 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2057 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:1977 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2246 |
+| `answer` | src/memorymap/ai/help_chat.py:2433 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2371 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2198 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2497 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2169 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2330 |
+| `source_names` | src/memorymap/ai/help_chat.py:2165 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2147 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2133 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2212 |
 
 ### src/memorymap/ai/inbox.py (7)
 

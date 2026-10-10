@@ -1,5 +1,7 @@
 # HANDOVER
 
+> **Coverage and authority, the owner 2026-10-10:** "make sure nothing from all my requests and bugs and issues has been missed and is missed. and then go further. fix any issues or architectural decisions you dont agree with as I trust you more than it." So: every owner item is placed verbatim in a plan (Brief 40 (a)) and checked off at merge; Brief 43 goes past the list; and the orchestrator may overturn a recorded decision when the evidence says so, writing the reversal and its measurement next to the old decision rather than deleting it.
+>
 > **Agents, the owner 2026-10-10:** "make use of sonnet 5.5 as well as it is cheaper, maybe even haiku 5.5 ... just maximise the amount of use I can get token wise from my usage. be thorough. miss no bugs or flaws." and "maybe change effort for agents based on the task?? just make sure quality doesnt suffer". So: effort set per task (high for design and engine work, medium for named fixes, low only for mechanical passes); Opus for design judgement, Sonnet for well-defined fixes and research, Haiku for placement, sweeps and copy moves; up to four Opus at once plus Sonnet or Haiku extras (the 2026-10-05 allowance). Never Fable agents. Quality bar unchanged: measure, test, commit per step, five-line report.
 >
 > **Models and count, the owner 2026-10-05:** mainly Opus; Sonnet for well defined, labour tasks ("actually mainly use opus but just remember that sonnet is there for well defined and labour tasks"). Once the current four finish, at most three agents at once.

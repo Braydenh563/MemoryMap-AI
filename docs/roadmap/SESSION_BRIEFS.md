@@ -1859,6 +1859,28 @@ shape, measured. Part 2 (Opus, after Brief 36 merges): the programme's
 phases in WHITEBOARD_PLAN order, each gated by wbregress.sh and the matrix
 rows, starting with the Format panel's three tabs and edge routing.
 
+The owner, 2026-10-10, on part 2: "its not just draw.io's catalogue but all
+the ways tools, and functions and other things work and function and how
+refined it is." So part 2 is **mechanics parity, measured**, not a feature
+list: for every tool and gesture the board has, a behaviour spec taken from
+draw.io's own handlers (Graph.js, mxGraphHandler, mxVertexHandler,
+mxEdgeHandler, mxRubberband, mxPanningHandler, the Sidebar's drop and hover
+code) in one table: the gesture (select, multi-select, rubber band, move,
+resize with and without aspect, rotate, snap to grid and to guides, connect
+by hover port, drag a connector end, add and move a waypoint, double-click
+to edit text, pan with space and with the wheel, zoom to the cursor, undo
+granularity, copy and paste placement, keyboard nudge and its step sizes,
+duplicate with offset, group and ungroup, z-order, lock); draw.io's exact
+behaviour (thresholds in pixels, modifier keys, timing, cursor, what the
+guides show, what the preview draws); MemoryMap's today (driven in
+Playwright, frame by frame where it matters); the gap; the fix. Every
+mechanic lands with a sweep that measures it (pixel thresholds, handle
+sizes, snap distances, guide appearance, undo steps), and the phase is
+done when the table has no gap marked "worse". The same table shape is
+then written for the mind map (against the best of the plan's references)
+and the documents editor (against VS Code and wordcraft) in Briefs 36 and
+42, so refinement is measured on every surface, not asserted.
+
 ### Brief 45 (Sonnet medium for the census; Opus high for the review): structure and complexity
 The owner, 2026-10-10: "find all the missing utility and features, sub par
 implementations, issues, poor design or structural or programmatic

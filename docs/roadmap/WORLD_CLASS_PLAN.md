@@ -799,7 +799,6 @@ take five of these.
 
 ---
 
-
 ## Audit, 2026-09-13 night (INBOX 209: "poke holes in this application")
 
 **Moved whole to HISTORY.md, "Moved from the plans, 2026-09-24".** A1 to A7 and A9 are done (the first
@@ -1743,8 +1742,6 @@ calendar: built. The month view (`#reminder-calendar`) and, 2026-09-26,
 F2's frontend half (five callers read `/files/gallery` whole) was built
 2026-09-24 and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
-
-
 ## 18. The next horizon, written 2026-09-14 at the close of PR 144
 
 **Where the plan stands.** Built and moved to HISTORY: B1 the event log,
@@ -2136,7 +2133,6 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
     than fixed: it is the one route in the app that rewrites every private
     note, and a button for it wants its own session. **Built 2026-10-05**
     (`settings-controls.js` calls `POST /auth/rotate-vault-key`, nbf1005; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)"); the other 261 lines are decided (nothing to do).
-
 
 285 (indexless tool-call fragments) was fixed 2026-09-24 and moved to
 HISTORY.md, "Moved from the plans, 2026-09-24".
@@ -3192,7 +3188,6 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
 - "doesnt harper use a binary though?? are there any other repos or libraries that we can vendor??"
   Recommendation: Harper is a WebAssembly build in the frontend; the Brief 40 table records any other WASM or pure Python candidate. Also carried by Brief 40.
 
-
 ## Placed from Brief 40, 2026-10-10 (the phone over HTTPS)
 
 The owner: "https://192.168.0.107:8443 ... safari said the page was
@@ -3584,7 +3579,6 @@ Anywhere (top 15 pairs by name count):
 #### 5.1 TODO, FIXME, XXX, HACK (src/memorymap, frontend/js, frontend/css, index.html; vendor excluded)
 
 Totals: TODO 0, FIXME 0, XXX 0, HACK 0.
-
 
 #### 5.2 Ten largest files by bytes
 
@@ -4075,13 +4069,13 @@ is done only when the rules below hold for the surfaces it touched (decision
 
 | # | Rule | Measure (the sweep or lint, and its bar) |
 | --- | --- | --- |
-| 1 | **Undo and redo everywhere.** Every change on every surface is one undo step; Ctrl+Z and Ctrl+Shift+Z act on the surface that has focus; a destructive act shows the undo bar. | `scratchpad/ui-sweeps/undo.js`: the mutating actions per surface (from the act registry, CHAT_PLAN decision 51) against those that undo; bar 100%. `measure-undo.py` counts `pushUndo` today. |
-| 2 | **Three clicks to anything.** Every surface, setting and object is three clicks from the dashboard and one from the palette or Find anything. | `reach.js`: the click graph from the nav, menus and palette registry; bar: no node deeper than 3, none missing from the palette. |
+| 1 | **Undo and redo everywhere.** Every change on every surface is one undo step; Ctrl+Z and Ctrl+Shift+Z act on the surface that has focus; a destructive act shows the undo bar. | `scratchpad/ui-sweeps/undo.js`: the mutating actions per surface (from the act registry, CHAT_PLAN decision 51) against those that undo; bar 100%. `measure-undo.py` counts `pushUndo` today. today: 25 data-changing controls pressed in light, 5 undone by Ctrl+Z (3 of 16 in dark); in the code 80 of 274 server-writing functions name an undo path; settings 0 of 13 (28.4). |
+| 2 | **Three clicks to anything.** Every surface, setting and object is three clicks from the dashboard and one from the palette or Find anything. | `reach.js`: the click graph from the nav, menus and palette registry; bar: no node deeper than 3, none missing from the palette. today: 55 destinations found from the dashboard (1, 14, 36, 3 and 1 at depths 0 to 4, crawl complete to depth 4), 1 deeper than 3, 16 with no palette command (of 80 commands); dark: 55 destinations, 1 deeper than 3, 14 without a command (28.4). |
 | 3 | **Nothing is lost.** A change is saved within a second; a draft survives a crash and a reload; a deletion goes to the bin for 30 days; a backup runs daily by default and restores (section 25e, Brief 51). | `test_never_lose.py` and the backup round trip; bar: every path in the table of 25e green. |
 | 4 | **An error explains and offers.** Every error-level toast says what happened, why, and one action (retry, an alternative, open the setting); network-level failures retry themselves first. | `test_error_toasts.py` extended: an error toast without an action fails; the retry count in `api()` measured. |
 | 5 | **Background work is visible and stoppable.** One Activity panel lists every running job (indexing, embedding, model load, generation, imports, OCR, transcription, backups, the agent) with Stop; stopping the model unloads it (`keep_alive: 0` for Ollama, the managed runner killed). | `/activity` lists every registered job; a lint fails a long-running task that does not register; a sweep stops a generation and sees the model unload. |
 | 6 | **Every feature can be found.** Each has a Guide topic, a palette command and a help popover; the dashboard offers one unused feature a week. | `test_manual_parity.py`; palette registry against the feature list; bar: none missing. |
-| 7 | **Nothing clashes or overflows.** At 320, 390, 820, 1024, 1440: no clipped text, no sibling rects overlapping in a bar, no `scrollWidth` past `clientWidth` where nothing scrolls. | `overlap.js` added to `chrome.js` and `docks.js`; bar 0 per width. |
+| 7 | **Nothing clashes or overflows.** At 320, 390, 820, 1024, 1440: no clipped text, no sibling rects overlapping in a bar, no `scrollWidth` past `clientWidth` where nothing scrolls. | `overlap.js` added to `chrome.js` and `docks.js`; bar 0 per width. today (light, 12 surfaces; overflow / docks / clipped text): 320: 95 / 0 / 6; 390: 14 / 0 / 5; 820: 28 / 0 / 17; 1024: 30 / 0 / 19; 1440: 23 / 0 / 15 (28.4). |
 | 8 | **The phone works, the iPhone first.** The app opens on an iPhone over the LAN (the certificate flow in Settings, Phone), installs as a PWA, and every surface is usable with a thumb. | A WebKit run of the sweeps at 390 by 844; the LAN certificate test; a release is blocked while the iPhone cannot open it (decision 67). |
 | 9 | **WCAG 2.2 AA.** | `axe.js`, `srtree.js`, `zoom.js`; bar 0 findings per theme (Phase 12). |
 | 10 | **One information architecture.** One vocabulary (DESIGN.md's terms table), the same act in the same menu position on every surface, settings grouped by task. | `test_ui_signatures.py` and a terms lint over `index.html`, the Guide and Settings; bar: every term from the table, none of its banned synonyms. |
@@ -4197,3 +4191,7 @@ Briefs: 73 (row 8), 80 (rows 1, 3 to 6), 81 (rows 2, 7, 11), 82 (row 9),
 The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
 
 - **VC8, the word list in search typo tolerance and the question-noise real-word check** (M, rank 8). `ai/question_noise.py` names `frontend/vendor/wordlist/en.txt` in a comment and never reads it; the search engine does not consult it either (the list is read by `documents.js` alone). A query word absent from the list and one edit from a word in the notebook is a typo. Measure: on the 30 misspelt queries of the existing noise table, recall at 10 before and after; no change on correctly spelt queries; the list loads once and costs under 50 ms at start.
+### 28.6 T0 numbers, 2026-10-10
+
+Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overlap.js`, `measure-writes.py` in `scratchpad/ui-sweeps/`): 124 controls pressed, 25 changed the notebook, 5 undone (statically 80 of 274 server-writing functions name an undo path); 55 destinations, 1 deeper than 3 clicks, 16 without a palette command; overflow/clipped 95/6, 14/5, 28/17, 30/19, 23/15 at 320 to 1440, docks 0 intersections. The table by surface and the findings by selector are in [`archive/agent-remaining/trust-1010.md`](archive/agent-remaining/trust-1010.md) (section "T0 numbers").
+

@@ -2821,9 +2821,11 @@ async function deleteChatTurn(assistantBubble) {
 
   if (chatConv.id !== null) {
     try {
-      const result = await apiJson(`/conversations/${chatConv.id}/turns/${index}`, {
+      const id = chatConv.id;
+      const result = await apiJson(`/conversations/${id}/turns/${index}`, {
         method: "DELETE",
       });
+      chatUndo("chatTurnUndo", id, index, result);
       if (result.conversation_deleted) {
         newChatConversation();
         loadConversationList();
@@ -3049,6 +3051,12 @@ function chatDeleteUndo(gone, after = () => {}) {
     loadConversationList();
     after();
   });
+}
+
+//: **Every chat write is on the undo bar** (CHAT_PLAN 8 row 5): the helpers
+//: are chat-undo.js, fetched on the first write, out of the boot scripts.
+function chatUndo(name, ...args) {
+  lazyScript("/js/chat-undo.js").then(() => window[name](...args));
 }
 
 // Download the open conversation as clean Markdown (questions + answers).

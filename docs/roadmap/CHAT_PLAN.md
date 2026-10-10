@@ -1689,13 +1689,13 @@ cards as the answer's shape), Raycast (answer and act in place).
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | The head's three buttons laid out in a row (or the kebab), never stacked | 3 to 0 at rest at 1440 and 390 | 7, 11 |
-| 2 | fix | Source cards and the head: measured as paint, then fixed if real | 82 and 136 to 0 real overlaps; small targets 48 to 0 | 7, 9 |
+| 1 | fix | The head's three buttons: built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); overlaps 3 to 0 at 1440 and 390 | |
+| 2 | fix | Source cards and the head: built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); 47 and 78 to 0 (folded cards, never painted), small targets 51 and 17 to 0 | |
 | 3 | expansion | Every object kind answers: "what is due this week", "my documents about the harbor", "boards from June" | a 30-question cross-kind set at 1.0 | 2, 6 |
 | 4 | expansion | The answer's shape follows the question: a count in one line, a list as a list, a comparison as a table (decision 58's structure column) | the maxims lint 0 on the set | 10, 11 |
-| 5 | fix | Chat's writes on the undo bar (delete, rename, fork, clear, a deleted message) | `undo.js` chat row at 100% | 1, 3 |
-| 6 | optimisation | Click to composer 1,913 ms at 390: under 500 ms | the sweep's `clickToInputMs` | 25g budget |
-| 7 | expansion | A source opens its note at the quoted line, highlighted | the click lands with the span marked | 2 |
+| 5 | fix | Chat's writes on the undo bar: built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); `undo.js` chat 1/5 to 4/5 (Send is the composer's), `chatundo88.js` 4/4 | |
+| 6 | optimisation | Click to composer at 390: built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); switchTab to composer 293 to 370 ms down to 197 to 202 ms; the 1,913 not reproduced | |
+| 7 | expansion | A source opens its note at the quoted line: built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); span marked 0 to 1 at 1440 and 390 | |
 
 **Briefs.** 84 (rows 3, 4), 88 (rows 1, 2, 5 to 7).
 
@@ -1718,8 +1718,8 @@ item lights), Raycast's and Notion's in-app help, Apple Tips.
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
 | 1 | fix | The answer first, in one line from the reading; the preface goes (decision 59, F5) | preface 8/8 to 0; the first sentence answers on the 60-question set | 12, 10 |
-| 2 | fix | Each topic's open button lands on a visible control, lit (`reveal-targets.js`) | every topic's target visible after the click | 2, 6 |
-| 3 | fix | A palette row "Ask the Guide"; 2 taps at 390, measured | the palette finds it; the phone path driven | 2, 8 |
+| 2 | fix | Each topic's open button lands on a control, lit: built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); topics landing lit and seen 9 to 140 of 140 at 1440, 9 to 139 at 390 | |
+| 3 | fix | A palette row "Ask the Guide": built | Built by Brief 88; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)"); "guide" finds it first; More, Guide 2 taps at 390 | |
 | 4 | expansion | Topics for the trust surfaces: Activity and Stop, Health, undo, the iPhone on the LAN, desktop notifications | 0 of the 60 questions on a wrong topic | 6 |
 | 5 | expansion | One unused feature a week, from the usage counts (82 unused in 90 days on this fixture) | the offer appears once a week | 6 |
 | 6 | fix | Typos through the word list (VC15) | VC15's count | 4 |

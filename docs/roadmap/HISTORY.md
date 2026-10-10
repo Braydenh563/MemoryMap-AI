@@ -533,6 +533,61 @@ download and any run against a real whisper-server** (caption82-1010.md).
   one 5 s sentence, the add-on download (Windows release zips are named by
   whisper.cpp's releases, which this sandbox cannot read, so no URL or sha256
   was written), Firefox and Safari capture.
+## Moved from the plans, 2026-10-10 (CHAT_PLAN 8 and 9, Brief 88)
+
+**Built** by Brief 88 (CHAT_PLAN 8 rows 1, 2, 5, 6, 7; 9 rows 2, 3),
+measured on port 8836 with 48 notes and 12 reminders, 1440 and 390
+(`deepen72b.js` chat and Guide rows, `overlap.js`, `touch.js`, `undo.js`,
+and four new sweeps: `chatundo88.js`, `sourcequote88.js`,
+`guidelanding.js`, `guidetaps88.js`).
+
+- **8.1, the head.** The overlaps were Export and Delete, two visually
+  hidden proxy buttons the head's kebab clicked, stacked on Fork's spot. The
+  kebab's rows call `exportChatMarkdown` and `deleteCurrentChat` and the
+  proxies are gone: overlaps at rest 3 to 0 at 1440 and 390.
+- **8.2, source cards as paint.** The 82 and 136 were cards folded inside a
+  closed Sources `<details>`: stale boxes, `checkVisibility()` false, never
+  painted. `deepen72a.js`'s measure now skips what is not painted (and the
+  sr-only clip), clips boxes by their scrolling ancestors and counts a
+  `::after` hit box. Real fixes: message actions and grounding chips at
+  `--target-min`, the citation mark's hit box at every width with a floor.
+  After four answers: overlaps 47 to 0 at 1440, 78 to 0 at 390 (0 real with
+  every Sources panel open); small targets 51 to 0 and 17 to 0; `touch.js`
+  PASS; `overlap.js` chat 0 at both widths.
+- **8.5, chat's writes on the undo bar.** Rename (head, sidebar, Library),
+  pin, archive, both forks, Save as a document and a deleted message each
+  push their inverse (decision 53); a deleted message comes back at its
+  index through `POST /conversations/{id}/turns/{index}/restore`, its DELETE
+  answering with the removed pair, or the whole row when it was the last.
+  `undo.js` now snapshots `/conversations`: chat 1/5 to 4/5 undone and
+  redone (the fifth is Send, whose Ctrl+Z is the composer's text undo);
+  `chatundo88.js` rename, Fork, a deleted message and the open chat's
+  Delete 4/4.
+- **8.6, click to composer.** The welcome and the starter chips drew before
+  the frame that showed the composer (`renderChatEmptyState` 61 to 118 ms of
+  layout at 390); they follow it now. switchTab to a visible composer 293
+  to 370 ms down to 197 to 202 ms (in-page, three runs). The plan's 1,913 ms
+  was not reproduced: deepen72b read 309 ms in its full order before the
+  change; a cold click 700 ms after boot reads 730 to 1,281 ms under a load
+  average of 7, mostly the dashboard's own boot work.
+- **8.7, a source opens at its quote.** A note source card, the citation
+  peek and the evidence card call `openNoteAtPassage`: the card flashed as
+  before and the cited span (offsets now on the answer's marks) marked with
+  the Custom Highlight API (`markNotePassage`, reveal-targets.js; the rule in
+  `reveal-lazy.css`). Marked 0 to 1, in the opened card and in the window at
+  both widths.
+- **9.2, the Guide lands lit.** A topic's open button (`guideLand`,
+  help-chat.js) goes to its tab or Settings section and rings the control:
+  the row the badge names, a tab's own control (`GUIDE_TAB_LANDING`), or the
+  first control there when the named one is hidden on purpose.
+  A row in the phone's Settings sheet is kept in view while the pane
+  settles. `guidelanding.js` presses the 41 distinct badges behind the 140
+  topics: lit, in the window and the top hit, 9 to 140 of 140 at 1440 and
+  9 to 139 of 140 at 390 (Atlas look's row under the sheet's head in one
+  run of four).
+- **9.3, a palette row.** "Ask the Guide" (reveal `atlas-help`): Ctrl+K
+  "guide" found the tour first and now finds the Guide first. At 390: More,
+  Guide is 2 taps; More, Commands, "guide", the row is 3 taps and opens it.
 
 ## Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)
 

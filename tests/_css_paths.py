@@ -74,6 +74,8 @@ CSS_FILES = [
     CSS_DIR / "questions-lazy.css",
     #: The voice-note recorder and Library, Recordings (meetings.js, Brief 80).
     CSS_DIR / "meetings-lazy.css",
+    #: The quoted span a source opens at (`LAZY_MODULES.reveal`, Brief 88).
+    CSS_DIR / "reveal-lazy.css",
 ]
 
 

@@ -629,7 +629,9 @@ HELP_TOPICS: list[dict] = [
             "Chat or Ask tab for those), and nothing said to it is saved: the "
             "conversation is gone on reload, and \"New chat\" clears it now. "
             "It is reachable from the status bar on every tab, from the head "
-            "of every Settings pane, and from Settings, Help."
+            "of every Settings pane, from the command palette (Ask the Guide), "
+            "from the Help pane in Settings and, on a phone, from More. An answer's "
+            "open button lands on the control it is about, ringed."
         ),
         "badge": {"label": "Help", "section": "help"},
     },

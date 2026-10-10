@@ -53,7 +53,7 @@
  "menus.js::mutation-observer": 1,
  "menus.js::raf": 2,
  "navigation.js::mutation-observer": 3,
- "navigation.js::raf": 3,
+ "navigation.js::raf": 4,
  "note-cards.js::resize-observer": 2,
  "note-edit-panels.js::raf": 4,
  "note-properties.js::raf": 1,

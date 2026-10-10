@@ -3238,7 +3238,7 @@ def test_a_citation_mark_previews_its_source_on_the_help_popover_recipe() -> Non
     assert '"help-popover citation-peek"' in peek, "the peek is not a help popover"
     assert "placeHelpPopover(panel, link)" in peek, "the peek places itself instead of through the popover's placement"
     assert "document.body.appendChild(panel)" in peek, "the peek must leave for <body>, or a card's filter clips it"
-    assert "flashEntry(source.noteId)" in peek, "the peek has no way to the note"
+    assert "openNoteAtPassage(source.noteId" in peek, "the peek has no way to the note"
     for path in CSS:
         for selector, body in _rules(path.read_text(encoding="utf-8")):
             if "citation-peek" in selector:

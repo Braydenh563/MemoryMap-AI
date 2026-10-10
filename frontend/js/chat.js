@@ -638,6 +638,7 @@ async function forkFromBubble(bubble) {
       body: JSON.stringify({ up_to: index + 1 }),
     });
     await loadConversationList();
+    chatUndo("chatForkUndo", fork);
     toastAction(`Forked at this message → “${fork.title}”.`, "Open it", () =>
       openConversation(fork.id), { go: { open: "conversation", id: fork.id } }
     );
@@ -1899,10 +1900,9 @@ function renderChatTurnCount() {
 //: of its most prominent controls, and the row read as a pile rather than as
 //: a header.
 //:
-//: The rows *click the original buttons*, which is the pattern the Library's
-//: own kebab already uses (library.js): every handler, confirm dialog and
-//: disabled state stays exactly where it was, and this file learns nothing new
-//: about what Export or Delete actually do.
+//: Fork and Compress rows click their visible buttons, so the disabled state
+//: and handler stay in one place; Export and Delete have no button of their
+//: own (Brief 88: the hidden proxies stacked over Fork) and call theirs.
 function mountChatActionsMenu() {
   const host = $("chat-actions-menu");
   if (!host || host.childElementCount) return;
@@ -1922,7 +1922,7 @@ function mountChatActionsMenu() {
           run: click("chat-compress"),
         },
         { ...featureModelMenuItem("chat"), group: "chat" },
-        { label: "ph:download-simple Export as Markdown", group: "keep", run: click("chat-export") },
+        { label: "ph:download-simple Export as Markdown", group: "keep", run: () => exportChatMarkdown() },
         {
           //: Odysseus's "Save to Documents", which lands better here than it
           //: does there: this app *has* a Documents tab, and a conversation
@@ -1942,7 +1942,7 @@ function mountChatActionsMenu() {
           },
         },
         { ...appLinkMenuItem("chat", () => chatConv.id), group: "keep" },
-        { label: "ph:trash Delete this chat", group: "end", danger: true, run: click("chat-delete") },
+        { label: "ph:trash Delete this chat", group: "end", danger: true, run: () => deleteCurrentChat() },
       ],
       "More actions for this conversation"
     )
@@ -1951,7 +1951,7 @@ function mountChatActionsMenu() {
 
 //: **A conversation, kept as a document.**
 //:
-//: The transcript already exports as a file (`#chat-export`); this keeps it
+//: The transcript already exports as a file (the menu's Export row); this keeps it
 //: *inside* the notebook, where it is searchable, linkable and editable like
 //: everything else. Titled after the conversation so the Documents list reads
 //: as a list of conversations rather than of dated blobs.
@@ -1967,6 +1967,7 @@ async function saveChatAsDocument() {
         content: `# ${title}\n\n${text}\n`,
       }),
     });
+    chatUndo("chatDocumentUndo", doc);
     toastAction("Saved to your documents.", "Open it", () => {
       switchTab("documents");
       if (typeof openDocument === "function") openDocument(doc.id);

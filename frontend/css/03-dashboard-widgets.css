@@ -2582,6 +2582,11 @@ header#top-bar select,
   flex-basis: 100%;
 }
 
+/* A grounding chip is a control: the band's floor, not the chip's 21px. */
+.answer-grounding .result-reason-chip {
+  min-height: var(--target-min);
+}
+
 .answer-grounding.hidden {
   display: none;
 }

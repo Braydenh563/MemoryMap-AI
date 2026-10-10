@@ -602,3 +602,8 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 
 - The graph is not idle at rest: `scratchpad/ui-sweeps/frames.js` counted 1, 9 and 10 long tasks (58 to 70 ms) in 3 s, 150 to 170 ms of script a second and 38 to 52 gaps over 20 ms of 83 to 134 frames, 2.5 s after the tab opened; a drag was 12 to 44 gaps over 20 ms of 302. Find what still runs (the force simulation after it settles, or a redraw loop) and stop it at rest; target zero long tasks (WORLD_CLASS 26.5).
 - `/graph` is 22 ms for 45 KB of 71 notes; 10 of that is `_payload_key` (`routes_graph.py:667`). Not measured at 5,000 notes.
+
+## Placed from INBOX, 2026-10-10 (the owner on the graph, again)
+
+- INBOX 798, the owner 2026-10-10 23:27Z, screenshot: "the graph is still completely broken 😞 I miss how it used to move 😞 look at how the movement is in main and base and refine off that" (34 notes in one vertical line, topic labels stacked on it) and "there is no smooth transition, I just change views or reset it and it just suddenly changes or disappears and reappears". Owner: the graphfeel agent, round 2 (root cause of the line; main's motion as the reference; animated view changes).
+- INBOX 799, the owner 2026-10-10 23:45Z: "Alright work autonomously to fix, finish,redesign, improve and extend everything. I will be at work. Impress me! :D" (the standing order for the day: the queue in HANDOVER, three Opus agents at most, Sonnet for well-defined work).

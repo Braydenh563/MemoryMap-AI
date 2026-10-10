@@ -46,17 +46,83 @@ function helpChatAppendRow(row) {
 }
 
 //: A button that opens where a help entry points: a tab, a Settings
-//: section, or one row in it (the document-level `[data-goto-*]` handler
-//: above does the going).
+//: section, or one row in it, and lands on a control there, lit.
 function helpChatOpenButton(link, label) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "chip chip-interactive";
-  if (link.tab) btn.dataset.gotoTab = link.tab;
-  if (link.section) btn.dataset.gotoSection = link.section;
-  if (link.target) btn.dataset.gotoTarget = link.target;
+  btn.dataset.guideLand = link.section ? `${link.section}/${link.target || ""}` : link.tab;
+  btn.addEventListener("click", () => guideLand(link));
   chipWords(btn, label || link.label);
   return btn;
+}
+
+//: **Where a topic about a whole tab lands** (CHAT_PLAN 9 row 2): the
+//: control the tab is for, rather than its top, which left the eye to find
+//: the thing the answer was about.
+const GUIDE_TAB_LANDING = {
+  notes: "entry-content",
+  chat: "chat-input",
+  graph: "graph-search",
+  reminders: "reminder-magic",
+  timeline: "timeline-search",
+  library: "library-subtabs",
+  dashboard: "dash-find",
+  //: The Library's New on a wide window, the open document's title on a
+  //: phone (its New is in the drawer, off the left edge).
+  documents: "library-docs-new doc-title",
+};
+
+//: Resolves to the element once it has a box (a lazy tab's bundle, a
+//: section built on open), or null when `ms` runs out.
+async function guideShown(find, ms) {
+  for (let waited = 0; waited < ms; waited += 100) {
+    const el = find();
+    if (el?.getClientRects().length) return el;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
+}
+
+//: When the named control is not there to see (a row shown only with a
+//: model, a phone's folded field), the first control on the page instead:
+//: a section's top is a heading, and a heading is nothing to press.
+//: On screen across: a drawer's control has a box off the left edge.
+function guideOnScreen(el) {
+  const box = el?.getClientRects().length ? el.getBoundingClientRect() : null;
+  return Boolean(box && box.right > 0 && box.left < window.innerWidth);
+}
+
+function guideFirstControl(root) {
+  const shown = (el) => guideOnScreen(el) && !el.closest(".hidden, [hidden]") && !el.dataset.helpFor;
+  return [...(root?.querySelectorAll("input, select, textarea, button, [role=switch]") || [])].find(shown) || null;
+}
+
+async function guideLand(link) {
+  closeOverlaysForChord();
+  if (link.section) await openSettingsModal(link.section, link.target || null);
+  else await switchTab(link.tab);
+  //: Notes opens on its list; the topics are about writing one.
+  if (link.tab === "notes") showNotesSection("capture");
+  const ids = (link.target || (link.section ? "" : GUIDE_TAB_LANDING[link.tab])).split(" ").filter(Boolean);
+  const live = (id) => (guideOnScreen($(id)) ? $(id) : null);
+  //: A row hidden on purpose (no model, not the desktop app) is not waited for.
+  const onPurpose = ids.every((id) => $(id)?.closest(".hidden, [hidden]"));
+  const named = onPurpose ? null : await guideShown(() => ids.map(live).find(Boolean), 2000);
+  const root = link.section ? $(`settings-${link.section}`) : $(`tab-${link.tab}`);
+  //: Waited for too: a pane that builds its rows on open has none at first.
+  const el = named || (await guideShown(() => guideFirstControl(root), 2500));
+  if (!el) return;
+  flashRevealed(el);
+  //: flashRevealed scrolls only a menu's own list inside a sheet, and the
+  //: phone's Settings is a sheet whose pane is laid out again as its rows
+  //: arrive: a row below the fold, or pushed past it, was ringed unseen. So
+  //: for a second and a half it is put back in view whenever it has left.
+  for (const pause of [300, 500, 700]) {
+    await new Promise((resolve) => setTimeout(resolve, pause));
+    const box = el.getBoundingClientRect();
+    if (box.top < 0 || box.top > window.innerHeight - 40) el.scrollIntoView({ block: "center" });
+  }
 }
 
 function renderHelpChatMessage(role, content, badges = [], sources = [], system = null) {

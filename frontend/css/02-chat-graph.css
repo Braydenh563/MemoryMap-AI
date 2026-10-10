@@ -252,6 +252,8 @@
   letter-spacing: 0;
 }
 .msg-action {
+  /* The band's floor (Brief 88): 30 by 20 was a hover target under 24. */
+  min-height: var(--target-min);
   border: 1px solid var(--glass-border);
   background: var(--card);
   color: var(--ink);
@@ -4478,20 +4480,20 @@ mark.lightbox-hit {
    measured 10 by 13px: a tap 8px off any edge missed (`markhit.js` at 390).
    The glyph keeps its size and the line its leading; an invisible box the
    touch floor's height, and 8px either side, takes the tap. Two marks side
-   by side share the gap between them, the later one on top. */
-@media (max-width: 819.98px), (pointer: coarse) {
-  .answer-citation-link {
-    position: relative;
-  }
-  .answer-citation-link::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: calc(var(--space-2) * -1);
-    left: calc(var(--space-2) * -1);
-    height: var(--target-min);
-    translate: 0 -50%;
-  }
+   by side share the gap between them, the later one on top. A mouse gets
+   the same box at the band's floor (Brief 88: 10 by 13 at 1440). */
+.answer-citation-link {
+  position: relative;
+}
+.answer-citation-link::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(100% + var(--space-2) * 2);
+  min-width: var(--target-min);
+  height: var(--target-min);
+  translate: -50% -50%;
 }
 /* The mark whose peek is open stays lit, so the card's caret has something
    visibly its own to point at. */

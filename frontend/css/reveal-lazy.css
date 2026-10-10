@@ -1,0 +1,10 @@
+/* reveal-lazy.css: loaded with reveal-targets.js (app.js `LAZY_MODULES.reveal`)
+   rather than at boot, for the gzip budget. */
+
+/* The span a source was quoted for, marked in the note it opens (CHAT_PLAN 8
+   row 7, `markNotePassage`): a highlight range, so the card's markup is
+   untouched. The tint of the source card's own passage mark
+   (`.chat-source-passage mark`, 02-chat-graph.css). */
+::highlight(source-quote) {
+  background-color: var(--accent-soft);
+}

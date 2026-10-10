@@ -2113,7 +2113,7 @@ function chatSourcesFrom({ meta, toolEvents, touched }) {
       //: attached files rather than only a line of its text. Reported: "the
       //: sources in the chat responses dont render inline md, images or files."
       entry,
-      open: board ? () => openWhiteboardBoard(entry.id) : () => flashEntry(entry.id),
+      open: board ? () => openWhiteboardBoard(entry.id) : (event) => openNoteAtPassage(entry.id, event?.currentTarget),
     });
   }
   for (const item of touched || []) {

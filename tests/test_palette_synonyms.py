@@ -63,3 +63,13 @@ def test_the_guided_tour_is_one_ctrl_k_away():
     row = body[body.index("Take the guided tour") :]
     row = row[: row.index("}")]
     assert 'openTour("basics")' in row, row
+
+
+def test_the_guide_is_one_ctrl_k_away():
+    """CHAT_PLAN 9 row 3 (Brief 88): Ctrl+K "guide" found the tour and not
+    the Guide. A row now opens it, through the reveal entry that opens it."""
+    body = _commands_body()
+    row = body[body.index('"ph:question Ask the Guide"') :]
+    row = row[: row.index("}")]
+    assert 'reveal: "atlas-help"' in row
+    assert "guide" in row and "help" in row

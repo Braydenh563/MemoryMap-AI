@@ -12,13 +12,17 @@ const SURF = (process.env.SURF || "").split(",").filter(Boolean);
 const MEASURE = `window.__m = (rootSel) => {
   const root = typeof rootSel === 'string' ? document.querySelector(rootSel) : rootSel;
   if (!root) return null;
-  const vis = (e) => { if (e.closest('[hidden]')) return false; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  // checkVisibility: a closed <details> keeps its children's stale boxes, so the
+  // chat's folded source cards counted as 82 and 136 overlaps nobody can see.
+  const vis = (e) => { if (e.closest('[hidden]') || !e.checkVisibility({ contentVisibilityAuto: true }) || getComputedStyle(e).clipPath === 'inset(50%)') return false; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const ctrls = [...root.querySelectorAll('button, select, input, textarea, [role=button], [role=menuitem], [role=tab], a[href]')].filter((c) => !c.closest('.select-menu') && !c.classList.contains('select-opener') && vis(c));
   const W = innerWidth;
   const scrollAnc = (e) => { for (let p = e.parentElement; p; p = p.parentElement) { const cs = getComputedStyle(p); if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && p.scrollWidth > p.clientWidth + 1) return true; } return false; };
   const off = ctrls.filter((c) => { const r = c.getBoundingClientRect(); return (r.right > W + 1 || r.left < -1) && !scrollAnc(c); });
   const clipped = [...root.querySelectorAll('*')].filter((e) => e.childElementCount === 0 && e.textContent.trim() && vis(e) && e.getBoundingClientRect().width > 1 && e.scrollWidth > e.clientWidth + 1 && /hidden|clip/.test(getComputedStyle(e).overflowX) && getComputedStyle(e).textOverflow !== 'ellipsis' && !e.closest('.cm-editor'));
-  const small = ctrls.filter((c) => { const r = c.getBoundingClientRect(); return (r.width < 24 || r.height < 24) && c.type !== 'checkbox' && c.type !== 'radio' && c.tagName !== 'A' && !c.classList.contains('select-native-hidden'); });
+  // A hit box drawn by ::after (the citation mark's) takes the click too.
+  const hitBox = (c) => { const r = c.getBoundingClientRect(); const a = getComputedStyle(c, '::after'); if (a.content === 'none' || a.position !== 'absolute') return r; return { width: Math.max(r.width, parseFloat(a.width) || 0), height: Math.max(r.height, parseFloat(a.height) || 0) }; };
+  const small = ctrls.filter((c) => { const r = hitBox(c); return (r.width < 24 || r.height < 24) && c.type !== 'checkbox' && c.type !== 'radio' && c.tagName !== 'A' && !c.classList.contains('select-native-hidden'); });
   let overlaps = 0; const ovl = [];
   // What is on screen of each control: its box cut by every ancestor that
   // clips (overflow other than visible), so a row scrolled under a list's

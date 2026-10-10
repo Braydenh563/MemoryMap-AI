@@ -1836,7 +1836,7 @@ const LAZY_MODULES = {
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
-  reveal: ["/js/reveal-targets.js"],
+  reveal: ["/css/reveal-lazy.css", "/js/reveal-targets.js"],
   onboarding: ["/js/onboarding.js"],
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],

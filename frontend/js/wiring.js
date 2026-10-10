@@ -703,7 +703,6 @@ $("conv-browse-all").addEventListener("click", async () => {
   renderLibraryFilters();
   renderLibrary();
 });
-$("chat-export").addEventListener("click", exportChatMarkdown);
 
 //: **Fork: keep this thread, try another direction.** Asked for directly.
 //: The server copies (`POST /conversations/{id}/fork`) rather than branching: 
@@ -723,6 +722,7 @@ $("chat-fork").addEventListener("click", async () => {
       body: JSON.stringify({}),
     });
     await loadConversationList();
+    chatUndo("chatForkUndo", fork);
     toastAction(`Forked to “${fork.title}”.`, "Open it", () => openConversation(fork.id), { go: { open: "conversation", id: fork.id } });
   } catch (error) {
     toast(error.message || "Couldn't fork this conversation.", true);
@@ -765,6 +765,7 @@ async function renameCurrentConversation() {
       body: JSON.stringify({ title: next }),
     });
     $("chat-title").textContent = next;
+    chatUndo("chatTitleUndo", chatConv.id, current, next);
     loadConversationList();
   } catch (error) {
     toast(error.message || "Couldn't rename this conversation.", true);
@@ -804,7 +805,6 @@ $("chat-title").addEventListener("keydown", (event) => {
     renameCurrentConversation();
   }
 });
-$("chat-delete").addEventListener("click", deleteCurrentChat);
 $("chat-compress").addEventListener("click", compressChatContext);
 $("chat-compress-apply").addEventListener("click", applyCompression);
 $("chat-compress-cancel").addEventListener("click", () =>

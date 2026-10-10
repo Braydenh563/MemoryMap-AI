@@ -48,7 +48,7 @@ async function snapshot(page, withStorage) {
     const H = { 'X-Auth-Token': localStorage.getItem('token') || '' };
     const get = async (p) => { try { return await (await fetch(base + p, { headers: H })).json(); } catch (e) { return null; } };
     const out = {};
-    for (const p of ['/entries?limit=500', '/documents', '/reminders', '/bookmarks', '/whiteboard/boards', '/tags', '/categories', '/skills', '/preferences', '/entities', '/chat/tools', '/learned/switches', '/models/sampling', '/websearch/providers', '/models/utility-model']) out[p] = await get(p);
+    for (const p of ['/entries?limit=500', '/documents', '/reminders', '/bookmarks', '/whiteboard/boards', '/tags', '/categories', '/skills', '/preferences', '/entities', '/chat/tools', '/learned/switches', '/models/sampling', '/websearch/providers', '/models/utility-model', '/conversations']) out[p] = await get(p);
     const docs = out['/documents'] || [];
     for (const d of docs.slice(0, 6)) out['/documents/' + d.id] = await get('/documents/' + d.id);
     for (const b of (out['/whiteboard/boards'] || []).filter((b) => /^Probe/.test(b.title || ''))) out['/whiteboard/?board_id=' + b.id] = await get('/whiteboard/?board_id=' + b.id);

@@ -48,7 +48,7 @@ PER_MESSAGE_IDS = (
 )
 
 #: …and the ones that are about the conversation, not the message.
-CONVERSATION_IDS = ("chat-title", "chat-export", "chat-usage")
+CONVERSATION_IDS = ("chat-title", "chat-actions-menu", "chat-usage")
 
 
 def _markup() -> str:

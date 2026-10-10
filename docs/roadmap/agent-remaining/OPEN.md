@@ -333,6 +333,16 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the chat88 agent (Brief 88, merged 2026-10-10)
+
+Detail: [chat88-1010.md](../archive/agent-remaining/chat88-1010.md).
+
+- Send stays off the undo bar (Ctrl+Z in the composer is text undo); recommended as is.
+- Tab-level Guide topics ring the tab's main control, not each topic's own control.
+- The "remind me" chat answer's text appears twice in the bubble's innerText (not checked whether drawn twice).
+- The Atlas look row landed under the Settings sheet's head at 390 in one of four runs.
+- Not verified: a Chat tap 700 ms after boot at 390 on an idle machine; the Highlight API in the macOS webview.
+
 ## Left by the bootdiet agent (merged 2026-10-10)
 
 Detail: [bootdiet-1010.md](../archive/agent-remaining/bootdiet-1010.md).

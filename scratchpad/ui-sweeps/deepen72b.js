@@ -26,7 +26,9 @@ const visible = (sel) => `(() => { const e = document.querySelector(${JSON.strin
   const { browser, page } = await boot(opts);
   await page.evaluate(MEASURE);
   const out = { VW };
-  const run = async (name, fn) => { try { out[name] = await fn(); } catch (e) { out[name] = { error: String(e).slice(0, 200) }; } };
+  // ONLY=chat,guide runs just those rows, for a brief that owns them.
+  const only = process.env.ONLY ? process.env.ONLY.split(",") : null;
+  const run = async (name, fn) => { if (only && !only.includes(name)) return; try { out[name] = await fn(); } catch (e) { out[name] = { error: String(e).slice(0, 200) }; } };
   if (process.env.SEED) {
     out.seed = await page.evaluate(async (notesToo) => {
       const topics = ["harbor survey", "boiler pressure", "lecture on cells", "trip to Lisbon", "budget review", "reading list"];

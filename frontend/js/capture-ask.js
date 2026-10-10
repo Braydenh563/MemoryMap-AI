@@ -917,6 +917,15 @@ function flashEntry(id) {
 // ROADMAP.md Tier 2 §13: changeRow's View button only ever reached notes and
 // documents: reminders and categories had no navigation target at all, on
 // top of having no backend id/name resolver. Same shape as flashEntry above.
+//: **A source opens its note at the quoted line** (CHAT_PLAN 8 row 7): the
+//: card in the list, flashed as before, with the cited span marked. `from`
+//: is the passage, or the clicked card whose answer's marks know it; the
+//: marking is in reveal-targets.js, out of the boot (the reveal bundle).
+function openNoteAtPassage(id, from) {
+  flashEntry(id);
+  ensureModule("reveal").then(() => markNotePassage(id, from));
+}
+
 async function flashReminder(id) {
   switchTab("reminders");
   // The change that brought us here (setting or completing a reminder) may
@@ -1222,6 +1231,8 @@ function citationMarker(g, byId, numberFor) {
   //: it points at agree (INBOX 299), and `showCitedPassage` already reads
   //: exactly this attribute off a source card.
   marker.dataset.noteId = String(g.note_id);
+  //: Where in the note, so a source card opens at the quoted line (CHAT_PLAN 8 row 7).
+  if (Number.isInteger(g.start) && Number.isInteger(g.end)) Object.assign(marker.dataset, { start: g.start, end: g.end });
   const link = document.createElement("button");
   link.type = "button";
   link.className = "answer-citation-link";
@@ -1419,7 +1430,7 @@ function openCitationPeek(link, source, { pinned }) {
   panel.setAttribute("aria-label", `Source ${source.number}`);
   const go = () => {
     closeCitationPeek();
-    flashEntry(source.noteId);
+    openNoteAtPassage(source.noteId, citationPeekText(source.entry?.content, source.start, source.end).passage);
   };
   //: The whole preview is the way in (INBOX 80: "clicking the preview panel
   //: itself goes there"), as one button: one tab stop and one target, not a
@@ -1934,7 +1945,7 @@ function renderEvidenceView(view, sentences, support, rawResults, answerEl, numb
       const facts = [entry?.category, entry?.created_at ? relativeTime(entry.created_at) : ""].filter(Boolean);
       if (facts.length) card.append(evidenceSpan("library-file-meta answer-evidence-meta", facts.join(" · ")));
       card.setAttribute("aria-label", `Open source ${number}: ${title}`);
-      card.addEventListener("click", () => flashEntry(g.note_id));
+      card.addEventListener("click", () => openNoteAtPassage(g.note_id, passage));
       sources.append(card);
     }
     item.append(evidenceSpan("answer-evidence-sentence", plainText(row.sentence), "p"), sources);

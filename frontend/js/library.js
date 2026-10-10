@@ -774,17 +774,19 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this chat", async () => {
         const next = await promptDialog("Rename this chat:", item.title);
         if (!next) return;
-        await apiJson(`/conversations/${item.id}`, {
+        const renamed = await apiJson(`/conversations/${item.id}`, {
           method: "PUT",
           body: JSON.stringify({ title: next }),
         }).catch((e) => toast(e.message, true));
+        if (renamed) chatUndo("chatTitleUndo", item.id, item.title, next);
         reload();
         loadConversationList();
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-        await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
+        const archived = await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
         );
+        if (archived) chatUndo("chatArchiveUndo", item.id, item.title);
         if (chatConv && chatConv.id === item.id) newChatConversation();
         toast("Archived.");
         reload();

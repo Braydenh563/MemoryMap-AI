@@ -99,6 +99,9 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Brief 88: a source opens its note at the quoted line, in the .then of
+    #: ensureModule('reveal') in capture-ask.js's openNoteAtPassage.
+    "markNotePassage": "reveal, called in the .then of ensureModule('reveal') in openNoteAtPassage",
     #: Brief bootdiet: the catalogue is in the palette's bundle, and every other
     #: reader (Tools and features, Quick access, startApp's recovered recordings)
     #: awaits `lazyScript` / `ensureModule` before it reads or calls.

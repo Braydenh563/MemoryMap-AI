@@ -38,6 +38,10 @@ below). Versioning is `0.x` while the app stabilises.
 - Documents: Replace in every document (the editor's Ctrl+K list) replaces across all documents, plain or a regular expression, with or without case, and one Ctrl+Z takes the whole replace back.
 - Documents: with no model connected, AI edit and Extract notes say why when pressed and offer Set up a model, instead of sitting disabled.
 - Documents: on a phone the document menu no longer lies over the breadcrumbs or past the screen's edge while closed, and a code document opens in about half the time (the outline and checks draw a frame after the text).
+- Chat: Ctrl+Z undoes a chat's rename, pin, archive, fork, a deleted message and a chat saved as a document, as it already undid a deleted chat; a deleted message comes back in its place (Brief 88).
+- Chat: a note source opens its note with the quoted passage marked, from a source card, a citation's preview or the evidence list.
+- Chat: message actions, grounding chips and citation marks take a full-size press; the head's hidden Export and Delete stand-ins are gone (the menu's rows do it).
+- The Guide: an answer's open button lands on the control it is about, ringed, not the top of a tab or a Settings section; Ctrl+K "guide" finds Ask the Guide.
 - Documents (code): the panel under the editor has tabs, Output, Problems, Tests and Console, each keeping its own height; Ctrl+J shows or hides it, Ctrl+Shift+M opens Problems and Ctrl+Shift+Y the Console, as in VS Code (Brief 71). Every code file has the panel, not only the kinds that run.
 - Documents (code): two consoles. A line of JavaScript evaluates in what the last run left (its `let` and `const` included), a line of Python in the run's namespace; Up and Down recall earlier lines, Ctrl+L clears.
 - Documents (code): Problems lists every underline the checks make, each a link to its line, the count in its tab; HTML has a check of its own now (a stray closing tag, an element left open).

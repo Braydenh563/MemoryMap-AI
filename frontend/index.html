@@ -2744,10 +2744,10 @@ Link to another note with [[its first few words]]."></textarea>
                  export, copy, delete: is behind the same ⋯ this app uses for
                  "more actions on this object" everywhere else.
 
-                 `#chat-export` and `#chat-delete` keep their ids and their
-                 handlers and simply stop being visible: the menu rows click
-                 them, which is the pattern the Library's own kebab already
-                 uses. Nothing in app.js has to know this happened. -->
+                 Export and Delete are the menu's own rows, calling their
+                 handlers directly (Brief 88): the two visually hidden proxy
+                 buttons they used to click sat stacked over Fork, three
+                 boxes on one spot in every overlap sweep. -->
             <div class="dock-actions chat-tool-group chat-tool-group-end"
               role="group" aria-label="This conversation">
               <button id="chat-fork" class="ghost small icon-only"
@@ -2756,24 +2756,6 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="chat-compress" class="ghost small icon-only"
                 aria-label="Compress the earlier messages"
                 title="Compress: summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i></button>
-              <button id="chat-export" class="ghost small visually-hidden" tabindex="-1" aria-hidden="true" title="Download this chat as a Markdown file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
-              <!-- The saved-chat list has its own Delete, and deleting a
-                   conversation's last turn deletes the conversation with it,
-                   but the chat you're looking at right now, including a
-                   brand-new one that hasn't sent a message yet, had no delete
-                   of its own; "+ New" abandons it but doesn't say so. This
-                   covers both: a fresh, empty pane resets silently (nothing
-                   was ever saved to lose), and a saved one asks first, same
-                   as the sidebar's Delete does. -->
-              <button id="chat-delete" class="ghost small danger visually-hidden" tabindex="-1" aria-hidden="true" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
-              <!-- Last, and marked `dock-more`: the kebab is the grammar's
-                   final utility and the two buttons above it are
-                   `visually-hidden` proxies the menu rows click, not controls
-                   anyone sees, and `aria-hidden` for the same reason: a
-                   screen reader heard "Export" and "Delete" twice, once for
-                   each proxy and once for the menu row that is the control. In DOM order they were sitting after it, so the
-                   row's last *tabbable* thing was not the one the eye ends
-                   on. -->
               <!-- **Help where every other dock keeps it** (INBOX 479): refresh,
                    help, more. It lived in the empty conversation's corner
                    (INBOX 236 took it out of the middle) and went the moment a

@@ -117,6 +117,9 @@ const DASH_WIDGETS = {
   //: since it was the original and removing `onthisday` here needed no
   //: layout migration: `dashLayout()` already drops any saved id that
   //: isn't in this object.)
+  //: Brief 89 (statistics row 2): Screen Time's weekly report, drawn by
+  //: statistics.js, which also holds the page it opens.
+  week: { title: "ph:calendar-dots This week", description: "Notes made, words written and reminders done this week, against last week.", render: (body) => renderWeekWidget(body) },
   pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
@@ -145,7 +148,7 @@ const DASH_DEFAULT_WIDE = ["heatmap"];
 //: layout that has never been saved is affected; any saved choice wins.
 const DASH_DEFAULT_SHOWN = [
   "reminders", "recent-notes", "pinned", "capture",
-  "documents", "boards", "digest", "on-this-day", "heatmap",
+  "documents", "boards", "digest", "on-this-day", "heatmap", "week",
 ];
 
 //: Widgets added after the dashboard shipped that start switched off. The
@@ -153,7 +156,7 @@ const DASH_DEFAULT_SHOWN = [
 //: offered in the picker rather than appended to every existing dashboard.
 //: Applied only while a saved layout has never seen the widget: once anybody
 //: adds it, or saves a layout with it hidden, the saved layout decides.
-const DASH_OPT_IN = ["activity", "night"];
+const DASH_OPT_IN = ["activity", "night", "week"];
 
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
@@ -1645,6 +1648,8 @@ function featureCatalog() {
       { name: "Unfinished", desc: "Notes with checklist items still waiting to be ticked.", reveal: "widget-unfinished" },
       { name: "Writing pace", desc: "How many words you have written each day this fortnight.", reveal: "widget-pace" },
       { name: "Activity heatmap", desc: "A year of capture activity at a glance.", reveal: "widget-heatmap" },
+      { name: "Statistics", desc: "Your notebook, reminders and usage, counted, with this week against last.", reveal: "statistics" },
+      { name: "This week", desc: "Notes made, words written and reminders done, against last week.", reveal: "widget-week" },
       { name: "Streaks", desc: "How many days in a row you've captured something.", reveal: "widget-streak" },
     ]},
     { group: "Make it yours", items: [
@@ -2318,7 +2323,7 @@ function dashWidgetRow(name, layout, position = null) {
 //: Anything unlisted falls into "other", so a widget added later still appears
 //:, silently vanishing from the picker is the one failure this must not have.
 const DASH_WIDGET_GROUPS = {
-  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview",
+  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview", week: "overview",
   digest: "overview", art: "overview",
   pinned: "notes", random: "notes", categories: "notes", "on-this-day": "notes",
   unfinished: "notes", orphans: "notes", tensions: "notes", boards: "notes",
@@ -3675,7 +3680,17 @@ async function renderHeatmapWidget(body) {
   const summary = document.createElement("p");
   summary.className = "muted";
   summary.textContent = `${data.total} notes in the last year · busiest day ${data.busiest}`;
-  body.appendChild(summary);
+  //: Brief 89 (statistics row 1): the page is one click from here, the
+  //: grid itself and the button below, where it was three (Settings,
+  //: General, What you use).
+  const stats = smallButton("ph:chart-bar Statistics", "Open the Statistics page: notebook, reminders and usage, counted", () => openStatistics());
+  stats.id = "heatmap-statistics";
+  grid.addEventListener("click", () => openStatistics());
+  //: In a row so the button is its own width beside the line, not a bar.
+  const foot = document.createElement("div");
+  foot.className = "row";
+  foot.append(summary, stats);
+  body.appendChild(foot);
 }
 
 // --- category breakdown ------------------------------------------------------

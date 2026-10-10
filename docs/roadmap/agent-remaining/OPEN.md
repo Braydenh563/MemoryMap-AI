@@ -333,6 +333,18 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the stats89 agent (Brief 89, merged 2026-10-10)
+
+The remaining file is in `archive/agent-remaining/`; the rows below are what it left, one line each.
+
+- Utilities row 5, "every utility has ... a `data-help-for` popover": the timer, stopwatch and Count words are palette rows with no surface of their own, so their in-place help is the row's `about` line and the Guide topic; a '?' needs a surface to sit on (a palette head '?' is a design call for Brief 90). `settings-panes.js` `paletteCommands`, the three rows.
+- Statistics row 3 (VC3, Brief 75): the page's two charts use the hand-built `askChartTicks`; tick labels did not collide at 1440 or 390 with this data (0 and 0), not checked at a 0 to 1,240 range.
+- Statistics row 4 (Brief 37): the page's "not used lately" list (86 on the fixture) is the feed the weekly offer wants; not wired.
+- The week is Monday-first on `user_now`; a Sunday-first locale reads it a day out (`notebook_stats.week_start`).
+- Words written this week are the words in the notes made that week; edits to older notes are not counted (no per-edit word delta is stored).
+- A reminder ticked before `done_at` existed counts as done but in no week.
+- `EntryLink` rows are counted whole: a link to a binned or private note is still a link on the page (`_notebook_block`).
+
 ## Left by the debug70, shell71 and ocr79 agents (Briefs 70, 71 and 79, merged 2026-10-10)
 
 The three remaining files are in `archive/agent-remaining/`; the rows below are what they left, one line each.

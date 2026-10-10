@@ -1,0 +1,95 @@
+/* utilities-lazy.css: the Statistics page and the dashboard's This week card
+   (statistics.js), loaded with that bundle (`LAZY_MODULES.statistics`), not
+   at boot: the boot CSS budget is full (tests/test_boot_budget.py). The
+   palette's timer chip is a plain `.status-item` and needs nothing here. */
+
+.stats-card {
+  width: min(56rem, 100%);
+}
+
+.stats-lede {
+  margin: 0 0 var(--space-4);
+}
+
+.stats-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.stats-section > h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.stats-about {
+  margin: var(--space-1) 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* A count is a tile inside the card: a tone, not a second bordered pane
+   (DESIGN.md, "A card inside a card is a tone"). */
+.stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--space-3);
+}
+
+.stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  min-width: 0;
+}
+
+.stats-tile-value {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-tile-label {
+  font-size: var(--text-sm);
+}
+
+.stats-week-span {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.stats-week-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stats-week-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) auto;
+  column-gap: var(--space-3);
+  align-items: baseline;
+}
+
+.stats-week-value {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.stats-week-change {
+  grid-column: 1 / -1;
+  font-size: var(--text-sm);
+}
+
+.stats-unused {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+.stats-more {
+  margin-top: var(--space-3);
+}

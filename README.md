@@ -105,7 +105,11 @@ Open a section for the detail.
 - A command palette (`Ctrl`/`Cmd`+`K`) runs any command or goes to any place
   (typed words it cannot match go to Find anything, `Ctrl`+`P`, which
   searches notes and documents), and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
-  take plain language: "call Sam tomorrow evening".
+  take plain language: "call Sam tomorrow evening". The palette also starts a
+  timer ("timer 10 minutes") or a stopwatch on the status bar, counts the
+  words in a selection, and inserts a template where the cursor is.
+- Statistics counts the notebook, your reminders and what you use, with this
+  week against last, from the Dashboard's activity heatmap.
 
 </details>
 

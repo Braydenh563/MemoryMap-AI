@@ -99,6 +99,11 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Brief 89: the palette's small tools, each called in the .then of
+    #: ensureModule('utilities') on its own palette row (settings-panes.js).
+    "startUtilityTimer": "utilities, called in the .then of ensureModule('utilities') on the palette's timer rows",
+    "startStopwatch": "utilities, called in the .then of ensureModule('utilities') on the palette's stopwatch row",
+    "countSelection": "utilities, called in the .then of ensureModule('utilities') on the palette's Count words row",
     #: Brief 47: the findAnything shortcut closes the box only while
     #: #finder-overlay is shown, and only openFinder (the same bundle) shows it.
     "closeFinder": "search, the findAnything shortcut, only while the box openFinder drew is open",

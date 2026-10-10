@@ -109,3 +109,38 @@ def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     assert "function wireManageCategoryKeys(list, state, redraw)" in notes
     assert "function drawManageCategoryFooter(footer, state, redraw)" in notes
     assert 'filter.placeholder = "Filter categories";' in notes
+
+
+#: The person's small tools (UI_MODERNISATION utilities row 5, Brief 89):
+#: utility -> (file, a line that proves it, where a person finds it, its
+#: Guide topic). Each has a way in, a line of help where it is offered, and
+#: a Guide topic that says how to use it.
+UTILITIES = {
+    "statistics": ("statistics.js", 'helpBody.id = "stats-help";', "the heatmap's Statistics, the palette's Statistics", "statistics"),
+    "timer": ("utility-tools.js", "function startUtilityTimer(minutes = 25)", "the palette's Start a timer, or timer 10 minutes", "timer"),
+    "stopwatch": ("utility-tools.js", "function startStopwatch()", "the palette's Start a stopwatch", "timer"),
+    "stop the clock": ("utility-tools.js", '$("status-timer").addEventListener("click", stopUtilityClock);', "the status bar's timer chip", "timer"),
+    "count words": ("utility-tools.js", "function countSelection(caught)", "the palette's Count words", "count-words"),
+    "insert template": ("app-palette.js", "label: `ph:note-blank Insert template: ${template.name}`,", "the palette's insert template", "insert-template"),
+}
+
+
+def test_every_utility_has_its_way_in_and_a_guide_topic():
+    from memorymap.ai import help_chat
+
+    topics = {topic["id"] for topic in help_chat.HELP_TOPICS}
+    gone = [
+        f"{name}: {where}"
+        for name, (file, proof, where, topic) in UTILITIES.items()
+        if proof not in (FRONTEND / "js" / file).read_text(encoding="utf-8") or topic not in topics
+    ]
+    assert not gone, "Small tools that lost their way in or their Guide topic:\n  " + "\n  ".join(gone)
+    #: Each palette row carries its one line of help (`about`), the palette's
+    #: in-place help; the Statistics page and Settings, Templates also have a
+    #: '?' popover (`data-help-for`).
+    panes = (FRONTEND / "js" / "settings-panes.js").read_text(encoding="utf-8")
+    for label in ("Statistics", "Start a timer", "Start a stopwatch", "Count words"):
+        row = next((line for line in panes.splitlines() if 'label: "ph:' in line and f' {label}"' in line), "")
+        assert "about:" in row, f"the palette's {label} row has no line of help"
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    assert 'data-help-for="templates-help"' in html and "insert template" in html.split('id="templates-help"', 1)[1][:1200]

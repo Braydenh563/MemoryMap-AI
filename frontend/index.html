@@ -8085,6 +8085,9 @@ Link to another note with [[its first few words]]."></textarea>
            is happening" for hours is the decoration the caveat above warns
            about; a slot that appears is a thing you notice. -->
       <button id="status-task" class="status-item status-task hidden" type="button"></button>
+      <!-- A timer or stopwatch started from the palette (utility-tools.js,
+           Brief 89): hidden until one runs; pressing it stops it. -->
+      <button id="status-timer" class="status-item hidden" type="button"></button>
       <!-- The way back to the Agent Activity panel. It used to open itself on
            every agent log line and there was no other way to reach it, so the
            only two states were "in your face" and "gone for good". Log lines no
@@ -9818,6 +9821,10 @@ Link to another note with [[its first few words]]."></textarea>
                 can also be removed. Picking one
                 from the Capture tab's dropdown never throws away text
                 you've already typed there without asking first.
+              </p>
+              <p>
+                To put one into any editor where the cursor is, type
+                insert template in the command palette (Ctrl+K) and pick it.
               </p>
             </div>
             <ul id="template-list" class="entry-list"></ul>

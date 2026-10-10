@@ -2440,6 +2440,16 @@ def _searched_question(req: _StreamRequest, follow) -> str:
     return f"{follow.question} {follow.prefer}" if follow.prefer else follow.question
 
 
+def _checks_grounding(prepared: dict, agentic: bool, composing: bool, conversational: bool) -> bool:
+    """Whether the grounding check reads this answer: a model's prose, not a
+    plan, a composed line or small talk. A counted answer (`notebook_stats`,
+    a worked utility) is the engine's own sentence, streamed as written: its
+    numbers are counts of rows, in no note, and "Heads up: I could not find
+    96 in your notes" under "You have 96 notes" was the check misreading it
+    (Brief 89)."""
+    return not agentic and not composing and not conversational and prepared["stats"] is None
+
+
 def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     def event(payload: dict) -> str:
         return json.dumps(payload) + "\n"
@@ -2703,7 +2713,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: A model that stopped leaves the composed answer under MODEL_STOPPED_NOTE:
     #: the engine's words, quoted from the notes, not the model's.
     by_model = MODEL_STOPPED_NOTE not in answer_text
-    if not agentic and not composing and not conversational and exact_grounding is None and by_model and answer_text:
+    if _checks_grounding(prepared, agentic, composing, conversational) and exact_grounding is None and by_model and answer_text:
         model_checks = validate.check_model_answer(
             answer_text,
             [

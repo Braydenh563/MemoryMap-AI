@@ -67,6 +67,7 @@ from memorymap.api import (
     routes_night,
     routes_questions,
     routes_read,
+    routes_statistics,
     routes_privacy,
     routes_vision,
     routes_resurface,
@@ -1305,6 +1306,7 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_privacy.router, dependencies=locked)
     app.include_router(routes_capabilities.router, dependencies=locked)
     app.include_router(routes_read.router, dependencies=locked)
+    app.include_router(routes_statistics.router, dependencies=locked)
     #: WORLD_CLASS_PLAN section 17: the review queue, most opened, tidy proposals, charts.
     app.include_router(routes_vision.router, dependencies=locked)
 

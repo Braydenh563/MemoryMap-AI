@@ -625,6 +625,38 @@ let prefsCache = null;
 // not just for the moment the save was in flight.
 let prefsSaveInFlight = null;
 
+//: Moved here from app.js (Brief 89, app.js's gzip ratchet): it is a
+//: preferences write, beside the reader it awaits; `startApp` calls it after
+//: every boot script has loaded.
+// The browser is the only thing that knows where the user actually is. The
+// server may be running in UTC, a container, a NAS, a machine whose clock was
+// never set: and every relative time the AI computes ("in 10 minutes",
+// "tomorrow at 9") is resolved against that. So the zone is reported once at
+// startup, and again whenever it changes (travel, or a DST shift).
+//
+// Only the IANA NAME is sent, never coordinates: "Australia/Brisbane" is what
+// makes the arithmetic right, and it is far less identifying than a location.
+async function reportTimezone() {
+  let zone = "";
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return; // an environment without Intl still works, just on server time
+  }
+  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
+  //: runs in parallel, so this one used to reach the comparison before the
+  //: boot GET had answered, find `prefsCache` still null, and PUT the same
+  //: zone the server already had on every single cold start. With the shared
+  //: reader the comparison has something to compare.
+  await loadPreferences().catch(() => null);
+  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ timezone: zone }),
+    silent: true,
+  }).catch(() => prefsCache);
+}
+
 //: **One GET /preferences per boot** (WORLD_CLASS_PLAN A2). The whole of
 //: `startApp` runs its steps in parallel, and three of them wanted the
 //: preferences: the settings restore, `loadTemplates` (custom templates and
@@ -1420,6 +1452,13 @@ function paletteCommands() {
     { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy", about: "The two things that can go online, both off by default." },
     { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks", about: "What the app is working on while you write." },
     { label: "ph:heartbeat Health", reveal: "settings:about", keywords: "integrity check last backup last error data folder size status", about: "How the notebook is: last backup, last error, what is running, size, integrity." },
+    { label: "ph:chart-bar Statistics", keywords: "stats numbers counts usage week review growth", about: "Your notebook, reminders and usage, counted, with this week against last.", act: () => openStatistics() },
+    //: The small tools (Brief 89, UI_MODERNISATION utilities rows 2 to 4):
+    //: "timer 10 minutes" and "insert template ..." also build their own rows
+    //: from the words (`utilityPaletteRows`, app-palette.js).
+    { label: "ph:timer Start a timer", keywords: "timer countdown pomodoro minutes alarm", about: "25 minutes on the status bar, or type “timer 10 minutes”. Press it to stop.", act: () => ensureModule("utilities").then(() => startUtilityTimer(25)) },
+    { label: "ph:timer Start a stopwatch", keywords: "stopwatch count up how long time it", about: "Counts up on the status bar. Press it to stop.", act: () => ensureModule("utilities").then(() => startStopwatch()) },
+    { label: "ph:text-aa Count words", keywords: "word count characters letters reading time selection length", about: "Words, characters and reading time of the selected text, or of the editor.", act: () => ensureModule("utilities").then(() => countSelection(paletteCaught)) },
     { label: "ph:activity Activity", keywords: "running jobs stop background model unload memory agent runs", about: "Every job running now, with Stop, and the agent's runs.", act: () => openActivity("running") },
     { label: "ph:stop-circle Stop the model", keywords: "unload free memory model stop generating", about: "Stop any answer and unload the model from memory.", act: () => ensureModule("activity").then(() => window.stopActivityModel()) },
     { label: "ph:package Settings → Packages", reveal: "settings:extras", about: "Optional parts: speech, reading pages, better search." },

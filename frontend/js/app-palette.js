@@ -23,6 +23,12 @@
 
 let paletteIndex = 0;
 
+//: What the palette was opened over (Brief 89, utilities rows 3 and 4): the
+//: field that had the focus and the text selected in it, caught before the
+//: palette's own box takes the focus, so Count words and Insert template act
+//: on the editor the person was in.
+const paletteCaught = { target: null, selection: "", start: null, end: null, range: null };
+
 //: The usage ledger's counts (core/usage.py, WORLD_CLASS_PLAN H9): with
 //: nothing typed, the commands this person runs most come first.
 const paletteUsage = new Map();
@@ -51,6 +57,16 @@ async function openPalette() {
   window.paletteEarly = null;
   if (early) $("palette-input").removeEventListener("keydown", early.onKey);
   overlayReturnFocus = early ? early.returnFocus : document.activeElement;
+  //: A text box keeps its own caret through a blur; a rich editor's lives in
+  //: the document's selection, which the palette's box is about to take.
+  const held = window.getSelection();
+  Object.assign(paletteCaught, {
+    target: overlayReturnFocus,
+    selection: early ? early.selection : String(held || ""),
+    start: overlayReturnFocus?.selectionStart ?? null,
+    end: overlayReturnFocus?.selectionEnd ?? null,
+    range: early ? early.range : held?.rangeCount ? held.getRangeAt(0).cloneRange() : null,
+  });
   const typed = early ? $("palette-input").value : "";
   $("palette-overlay").classList.remove("hidden");
   $("palette-input").value = typed;
@@ -174,7 +190,54 @@ function paletteMatches(query) {
   //: Over a board, a sentence that arranges it (whiteboard-commands.js).
   const act = (typeof quickAddPaletteRow === "function" ? quickAddPaletteRow(query) : null)
     || (typeof wbPaletteActRow === "function" ? wbPaletteActRow(query) : null);
-  return [...(act ? [act] : []), ...commands, handoff];
+  return [...(act ? [act] : []), ...utilityPaletteRows(lowered), ...commands, handoff];
+}
+
+//: "timer 10 minutes", "25 min timer", "countdown 90s": a length read from
+//: the words, minutes when no unit is given.
+const PALETTE_TIMER = /^(?:start (?:a )?)?(?:timer|countdown)(?: for)? (\d+(?:\.\d+)?) ?([a-z]*)$|^(\d+(?:\.\d+)?) ?([a-z]*) (?:timer|countdown)$/;
+const PALETTE_UNITS = { h: 60, hr: 60, hrs: 60, hour: 60, hours: 60, s: 1 / 60, sec: 1 / 60, secs: 1 / 60, second: 1 / 60, seconds: 1 / 60 };
+
+//: The small tools' rows built from what was typed (UI_MODERNISATION
+//: utilities rows 2 and 4): a timer of the length named, and the templates
+//: (Settings, Templates) for "insert template" or "template meeting".
+function utilityPaletteRows(lowered) {
+  const rows = [];
+  const timer = lowered.match(PALETTE_TIMER);
+  if (timer) {
+    const amount = Number(timer[1] || timer[3]);
+    const unit = timer[2] || timer[4] || "m";
+    const minutes = amount * (PALETTE_UNITS[unit] || (/^m/.test(unit) ? 1 : 0));
+    if (minutes > 0) {
+      rows.push({
+        group: "Do it",
+        label: `ph:timer Start a timer: ${amount} ${PALETTE_UNITS[unit] === 60 ? "hour" : PALETTE_UNITS[unit] ? "second" : "minute"}${amount === 1 ? "" : "s"}`,
+        about: "Counts down on the status bar and says when the time is up. Press it to stop.",
+        run: () => ensureModule("utilities").then(() => startUtilityTimer(minutes)),
+      });
+    }
+  }
+  const asked = lowered.match(/^(?:insert )?(?:a )?(?:templates?|snippets?)\b ?(.*)$/);
+  if (asked) {
+    //: Before note-templates.js has loaded this is its stand-in's promise:
+    //: the rows come on the redraw it ends with.
+    const catalogue = templateCatalogue();
+    if (catalogue instanceof Promise) {
+      catalogue.then(() => renderPalette($("palette-input").value)).catch(() => {});
+      return rows;
+    }
+    const { builtin, custom } = catalogue;
+    const caught = { ...paletteCaught };
+    for (const template of [...custom, ...builtin].filter((t) => t.name.toLowerCase().includes(asked[1].trim())).slice(0, 10)) {
+      rows.push({
+        group: "Insert a template",
+        label: `ph:note-blank Insert template: ${template.name}`,
+        about: template.description || "From Settings, Templates; it goes in where the cursor was.",
+        run: () => ensureModule("utilities").then(() => insertTemplate(template, caught)),
+      });
+    }
+  }
+  return rows;
 }
 
 //: **The rich picker** (rich-picker.js, DESIGN.md's recipe index): the "/"

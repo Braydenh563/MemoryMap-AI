@@ -66,6 +66,8 @@ CSS_FILES = [
     CSS_DIR / "search-lazy.css",
     #: Atlas's faces at 28 and 20px (atlas.js `atlasSheet`, Brief 34 continues).
     CSS_DIR / "atlas-lazy.css",
+    #: The Statistics page and This week (statistics.js, Brief 89).
+    CSS_DIR / "utilities-lazy.css",
 ]
 
 

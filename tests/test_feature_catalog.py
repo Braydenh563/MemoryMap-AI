@@ -74,6 +74,11 @@ SCRIPTS = (
     "tidy.js",
     #: The Activity panel (Brief 73), lazy behind `LAZY_MODULES.activity`.
     "activity-panel.js",
+    #: The Statistics page (Brief 89), lazy behind `LAZY_MODULES.statistics`.
+    "statistics.js",
+    #: The palette's timer, stopwatch, counts and templates (Brief 89),
+    #: lazy behind `LAZY_MODULES.utilities`.
+    "utility-tools.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short

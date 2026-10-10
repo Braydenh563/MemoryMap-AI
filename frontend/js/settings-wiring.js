@@ -2273,7 +2273,11 @@ $("pref-single-keys").checked = singleKeysOn();
   window.openPalette = (...args) => {
     const input = $("palette-input");
     if (!window.paletteEarly) {
-      const early = (window.paletteEarly = { returnFocus: document.activeElement });
+      //: What was selected, before the palette's box takes the focus (Count
+      //: words and Insert template act on it, app-palette.js `paletteCaught`).
+      const held = window.getSelection();
+      const range = held?.rangeCount ? held.getRangeAt(0).cloneRange() : null;
+      const early = (window.paletteEarly = { returnFocus: document.activeElement, selection: String(held || ""), range });
       early.onKey = (e) => e.key === "Enter" && (e.preventDefault(), (early.enter = true));
       input.value = "";
       input.addEventListener("keydown", early.onKey);

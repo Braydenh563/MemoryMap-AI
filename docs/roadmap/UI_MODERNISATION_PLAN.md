@@ -1498,11 +1498,11 @@ Obsidian's vault statistics.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | expansion | One Statistics page: notebook (notes, words, tags, categories, links, orphans, growth per month), usage (features used, unused), reminders (made, done, late); 1 click from the heatmap, a palette row | 3 clicks to 1; the palette's "statistics" 0 rows to 1 | 2, 6 |
-| 2 | expansion | A weekly review card, Screen Time's shape: notes made, words written, reminders done, against last week; no model | every line a count with its week | 12, 6 |
+| 1 | expansion | Statistics page: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 2 | expansion | Weekly review card: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
 | 3 | redesign | Its charts from the Ask chart recipe on D3 scales (VC3 above) | no tick label overlap at 390; one chart recipe in DESIGN.md | 11, 7 |
 | 4 | fix | The usage list's 82 unused features feed the weekly offer (12z, rule 6) | the dashboard offers one a week | 6 |
-| 5 | optimisation | Chat's statistics answers 829 to 1,416 ms: under 300 ms (the stats are counts) | the chat probe's times | 25g budget |
+| 5 | optimisation | Chat's statistics answers: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
 | 6 | expansion | Statistics inside a window or topic ("notes about the harbor this month"; CHAT_PLAN catalogue A18) | the A18 rows at 1.0 | 12 |
 
 **Briefs.** 37 (row 4), 65 (row 6), 75 (row 3), 89 (rows 1, 2, 5).
@@ -1526,10 +1526,10 @@ sums and conversions, PowerToys Run.
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
 | 1 | expansion | Utilities inline in the palette and the chat from one module: "15% of 240", "5 km in miles", "days until 25 Dec", "3pm Tokyo in London"; the answer is the first row, Enter copies (CHAT_PLAN decisions 47, 54, 56) | a 40-phrase set at 1.0 in both; 0 to 40 | 12, 2 |
-| 2 | expansion | Timer and stopwatch as palette commands, a status-bar chip with Stop, a notification at the end (the focus session is the seed) | the palette's "timer" 0 rows to 1; the chip stops it | 5, 6 |
-| 3 | expansion | Word, character and reading-time counts for any selection in any editor, one palette command | the counts equal `wc` on the fixture | 6, 12 |
-| 4 | expansion | Templates and snippets inserted from the palette (Settings, Templates holds them) | "insert template" finds and inserts | 2, 6 |
-| 5 | fix | Every utility has a Guide topic and a `data-help-for` popover | `test_manual_parity.py` rows for each | 6 |
+| 2 | expansion | Timer and stopwatch: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 3 | expansion | Selection counts: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 4 | expansion | Templates from the palette: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
+| 5 | fix | A Guide topic per utility: built | Built by Brief 89; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)") | |
 
 **Briefs.** 65 and 66 (row 1), 89 (rows 2 to 5).
 

@@ -689,6 +689,77 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "What you use", "section": "general", "target": "usage-box"},
     },
+    #: Brief 89: the Statistics page and the palette's small tools, each
+    #: written from the controls' own words (statistics.js, utility-tools.js).
+    {
+        "id": "statistics",
+        "keywords": (
+            "statistics", "stats", "how many notes", "word count of my notebook", "notebook statistics",
+            "this week", "weekly review", "week in review", "growth per month", "usage statistics",
+        ),
+        "body": (
+            "Statistics counts your notebook with no model: notes, words, tags, "
+            "categories, documents, links and notes with no link, a chart of notes "
+            "made per month over the last year, reminders made, done, open and late, "
+            "and what you use on this computer (features used, uses counted, and "
+            "the ones not used lately). This week compares notes made, words "
+            "written and reminders done since Monday with the whole of last week. "
+            "Open it from the Statistics button under the Dashboard's Activity "
+            "heatmap (or a click on the heatmap), the This week card's All "
+            "statistics, or Statistics in the command palette (Ctrl+K). Private "
+            "and binned notes are not counted."
+        ),
+        "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
+    {
+        "id": "timer",
+        "keywords": (
+            "timer", "countdown", "stopwatch", "pomodoro", "set a timer", "start a timer",
+            "stop the timer", "time how long",
+        ),
+        "body": (
+            "Type timer in the command palette (Ctrl+K) for Start a timer (25 "
+            "minutes) and Start a stopwatch, or type a length, such as timer 10 "
+            "minutes, 90s timer or countdown 2h, and press Enter. The time runs "
+            "on the status bar (on a phone the bar comes back while it runs); "
+            "press it to stop. When a timer runs out it says so in a message and "
+            "a notification. The Dashboard's Focus timer widget is a separate "
+            "timer with its own Start and Reset."
+        ),
+        "badge": {"label": "Dashboard", "tab": "dashboard"},
+    },
+    {
+        "id": "count-words",
+        "keywords": (
+            "word count", "count words", "character count", "how many words", "reading time",
+            "count the selection", "how long is this",
+        ),
+        "body": (
+            "Select text in any editor (a note, the Capture box, a document) and "
+            "run Count words from the command palette (Ctrl+K): it says the "
+            "words, the characters with and without spaces, and the reading "
+            "time, counted the way wc counts. With nothing selected it counts "
+            "the whole editor you were in. The Capture box and a document also "
+            "show a running count as you type."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
+        "id": "insert-template",
+        "keywords": (
+            "insert template", "insert a template", "snippet", "snippets", "boilerplate",
+            "template into a note", "paste a template",
+        ),
+        "body": (
+            "Type insert template (or template and part of its name) in the "
+            "command palette (Ctrl+K) to list your templates; Enter puts the one "
+            "you choose where your cursor was, in any editor, with {date}, "
+            "{{time}} and {{clipboard}} filled in. With no editor open it goes "
+            "into the Capture box. The templates, yours and the built-in ones, "
+            "are in Settings, Templates, where you write, edit and reset them."
+        ),
+        "badge": {"label": "Templates", "section": "templates"},
+    },
     {
         "id": "capture-anywhere",
         "keywords": (
@@ -1558,6 +1629,10 @@ TOPIC_META: dict[str, dict] = {
     "import-apps": {"title": "Import from another app", "path": "Settings, Import & export, Import from another app", "target": "import-app-box"},
     "simple-mode": {"title": "Simple mode", "path": "Settings, General, Simple mode", "target": "simple-mode-box"},
     "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
+    "statistics": {"title": "Statistics", "path": "Dashboard, Activity heatmap, Statistics"},
+    "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
+    "count-words": {"title": "Count words", "path": "Command palette, Count words"},
+    "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},
     "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
     "install-app": {"title": "Install as an app", "path": "Settings, About, Install as an app"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
@@ -1720,7 +1795,10 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Graph, Timeline, Reminders and Dashboard", (
         "graph", "graph-controls", "graph-display", "entities", "properties", "timeline", "timeline-controls", "reminders",
-        "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces",
+        "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces", "statistics",
+    )),
+    ("Small tools", (
+        "timer", "count-words", "insert-template",
     )),
     ("Look and feel", (
         "appearance", "themes", "simple-mode", "accessibility", "performance", "background-art",

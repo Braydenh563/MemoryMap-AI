@@ -39,10 +39,10 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Category, Document, Entry, EntryLink, utcnow
+from memorymap.core.database import Category, Document, Entry, EntryLink, Reminder, utcnow
 
 #: How many rows a "top N" answer lists. Ten is a glance; fifty is a report
 #: nobody reads in a chat bubble, and the follow-up question ("show me all of
@@ -665,3 +665,125 @@ def _general_stats(session: Session) -> StatAnswer:
             {"label": "tags", "count": distinct_tags},
         ],
     )
+
+
+# --- the Statistics page (UI_MODERNISATION statistics rows 1 and 2) ----------
+#
+# The page asks once (`GET /statistics`) and draws what comes back: every
+# figure on it is a count made here, from rows, with no model. Bounded: twelve
+# months of growth, two weeks of review, the usage ledger's top rows.
+
+GROWTH_MONTHS = 12
+USAGE_ROWS = 200
+
+
+def _words(text: str | None) -> int:
+    return len(str(text or "").split())
+
+
+def _month_keys(now: datetime, months: int = GROWTH_MONTHS) -> list[str]:
+    year, month = now.year, now.month
+    keys = []
+    for _ in range(months):
+        keys.append(f"{year:04d}-{month:02d}")
+        year, month = (year, month - 1) if month > 1 else (year - 1, 12)
+    return keys[::-1]
+
+
+def _notebook_block(session: Session, now: datetime) -> dict:
+    """Notes, words, tags and growth from one pass over the live notes; the
+    other counts are one aggregate query each."""
+    zone = now.tzinfo
+    rows = session.execute(_visible(select(Entry.content, Entry.tags, Entry.created_at))).all()
+    keys = _month_keys(now)
+    growth = dict.fromkeys(keys, 0)
+    tags: set[str] = set()
+    words = 0
+    for content, raw, created in rows:
+        words += _words(content)
+        tags.update(_tags_of(raw))
+        if created is not None:
+            key = (created.astimezone(zone) if created.tzinfo else created).strftime("%Y-%m")
+            if key in growth:
+                growth[key] += 1
+    linked = or_(
+        exists().where(EntryLink.source_entry_id == Entry.id),
+        exists().where(EntryLink.target_entry_id == Entry.id),
+    )
+    return {
+        "notes": len(rows),
+        "words": words,
+        "tags": len(tags),
+        "categories": session.scalar(select(func.count(Category.id))) or 0,
+        "documents": session.scalar(select(func.count(Document.id))) or 0,
+        "links": session.scalar(select(func.count(EntryLink.id))) or 0,
+        "orphans": session.scalar(_visible(select(func.count(Entry.id)).where(~linked))) or 0,
+        "growth": [{"label": key, "value": growth[key]} for key in keys],
+    }
+
+
+def _reminder_block(session: Session, now: datetime) -> dict:
+    """Made, done, late and open, in one aggregate query (binned reminders
+    are out of every select, `_hide_binned`)."""
+    moment = now.astimezone(utcnow().tzinfo)
+    open_ = Reminder.done.is_(False)
+    made, done, late = session.execute(
+        select(
+            func.count(Reminder.id),
+            func.coalesce(func.sum(case((Reminder.done.is_(True), 1), else_=0)), 0),
+            func.coalesce(func.sum(case((and_(open_, Reminder.due_at < moment), 1), else_=0)), 0),
+        )
+    ).one()
+    return {"made": made, "done": int(done), "late": int(late), "open": made - int(done)}
+
+
+def week_start(now: datetime) -> datetime:
+    """Monday 00:00 of `now`'s week, on `now`'s own clock."""
+    day = now.date() - timedelta(days=now.weekday())
+    return datetime.combine(day, time(0), now.tzinfo)
+
+
+def _week_counts(session: Session, start: datetime, end: datetime) -> dict:
+    a, b = start.astimezone(utcnow().tzinfo), end.astimezone(utcnow().tzinfo)
+    texts = session.scalars(
+        _visible(select(Entry.content)).where(Entry.created_at >= a, Entry.created_at < b)
+    ).all()
+    done = session.scalar(
+        select(func.count(Reminder.id)).where(Reminder.done_at >= a, Reminder.done_at < b)
+    ) or 0
+    return {
+        "start": start.date().isoformat(),
+        "end": (end - timedelta(seconds=1)).date().isoformat(),
+        "notes": len(texts),
+        "words": sum(_words(text) for text in texts),
+        "reminders_done": done,
+    }
+
+
+def week_review(session: Session, now: datetime) -> dict:
+    """This week so far against the whole of last week (Screen Time's shape):
+    notes made, words written in them, reminders ticked off. "Done" is when
+    the tick was made (`Reminder.done_at`); one ticked before that column
+    existed has no week, so it is in neither."""
+    this = week_start(now)
+    last = this - timedelta(days=7)
+    return {
+        "this": _week_counts(session, this, now + timedelta(seconds=1)),
+        "last": _week_counts(session, last, this),
+    }
+
+
+def page(session: Session, now: datetime, usage_summary: dict) -> dict:
+    """Everything the Statistics page draws, in one answer."""
+    features = list(usage_summary.get("features") or [])[:USAGE_ROWS]
+    return {
+        "as_of": now.isoformat(),
+        "notebook": _notebook_block(session, now),
+        "reminders": _reminder_block(session, now),
+        "week": week_review(session, now),
+        "usage": {
+            "features": features,
+            "unused_days": usage_summary.get("unused_days"),
+            "uses": sum(int(f.get("count") or 0) for f in features),
+        },
+    }

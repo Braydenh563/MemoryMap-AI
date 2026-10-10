@@ -11,6 +11,10 @@ below). Versioning is `0.x` while the app stabilises.
 - Documents (code): two consoles. A line of JavaScript evaluates in what the last run left (its `let` and `const` included), a line of Python in the run's namespace; Up and Down recall earlier lines, Ctrl+L clears.
 - Documents (code): Problems lists every underline the checks make, each a link to its line, the count in its tab; HTML has a check of its own now (a stray closing tag, an element left open).
 - Documents (code): Ctrl+Shift+P (or F1) runs any editor command by name with a fuzzy match, Ctrl+\ splits the editor into two views of one file, and Ctrl+K Ctrl+S opens a searchable sheet of every editor command and its key.
+- Statistics: one page for your notebook (notes, words, tags, categories, links, notes with no link, growth per month), your reminders (made, done, open, late) and what you use, opened from the Dashboard's Activity heatmap or the palette's Statistics (Brief 89).
+- This week: notes made, words written and reminders done against last week, on the Statistics page and as a Dashboard card.
+- Chat's counted answers ("how many notes do I have") no longer end with a false "Heads up: I could not find 96 in your notes".
+- The command palette has a timer ("timer 10 minutes") and a stopwatch that run on the status bar and stop when you press them, Count words for any selection, and "insert template" to put a template where the cursor is.
 - Chat with no model runs the notebook's read tools itself: "list my tags", "what reminders do I have", "give me an overview of my notebook" and the like answer in one line and draw the answer in its shape: a bar chart of counts, a table, a card or a list (CHAT_PLAN decision 59, Brief 84).
 - Chat with no model follows the conversation: "and delete it", "same for Tuesday", "pin the other one" and "the gym note too" act on what the last five turns were about (200 of 200 spoken follow-ups, from 20).
 - Chat's answers open in more ways: twenty turns of one question now open at least eight ways in each voice (was three).

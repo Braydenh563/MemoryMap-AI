@@ -1166,6 +1166,18 @@ class Reminder(Base, WorkspaceMixin):
     #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
     #: Hidden from every read by `_hide_binned`.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: When it was ticked off, for the weekly review's "reminders done"
+    #: (UI_MODERNISATION statistics row 2). Stamped by `_stamp_done_at` below,
+    #: so the four places that tick a reminder need not each remember to.
+    done_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+@event.listens_for(Reminder.done, "set")
+def _stamp_done_at(target, value, oldvalue, initiator):  # noqa: ANN001
+    if value and oldvalue is not True:
+        target.done_at = utcnow()
+    elif not value:
+        target.done_at = None
 
 
 class NoteScore(Base, WorkspaceMixin):

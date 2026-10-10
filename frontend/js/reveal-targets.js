@@ -474,6 +474,8 @@ const REVEAL_TARGETS = {
   "widget-orphans": { open: () => revealDashWidget("orphans"), sel: '[data-widget="orphans"]', built: "renderDashboard" },
   "widget-unfinished": { open: () => revealDashWidget("unfinished"), sel: '[data-widget="unfinished"]', built: "renderDashboard" },
   "widget-pace": { open: () => revealDashWidget("pace"), sel: '[data-widget="pace"]', built: "renderDashboard" },
+  "widget-week": { open: () => revealDashWidget("week"), sel: '[data-widget="week"]', built: "renderDashboard" },
+  statistics: { open: () => openStatistics(), sel: ".stats-card", built: "openStatistics", flash: false },
   "widget-heatmap": { open: () => revealDashWidget("heatmap"), sel: '[data-widget="heatmap"]', built: "renderDashboard" },
   "widget-streak": { open: () => revealDashWidget("streak"), sel: '[data-widget="streak"]', built: "renderDashboard" },
   "dash-layout": {

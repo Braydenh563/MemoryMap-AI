@@ -1215,13 +1215,13 @@ header#top-bar[data-scrolled="1"],
      for the rest of the session, a second bar over the tab bar for a thing
      nobody has to see without asking; the count is a badge on More and the
      runs are a row in its sheet (`syncPhoneMoreRuns`, phone-shell.js). */
-  #status-bar [data-status-zone] > :not(#status-task, #offline-indicator, #power-saver-indicator) {
+  #status-bar [data-status-zone] > :not(#status-task, #status-timer, #offline-indicator, #power-saver-indicator) {
     display: none;
   }
-  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-timer:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
     --status-bar-h: 0px;
   }
-  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-timer:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
     visibility: hidden;
     overflow: hidden;
     padding-block: 0;

@@ -129,12 +129,12 @@ const visible = (sel) => `(() => { const e = document.querySelector(${JSON.strin
     const qs = ["how many notes do I have", "what is 15% of 240", "convert 5 km to miles", "what day is it today", "what did I write last week", "notes about the harbor", "what are my top tags", "remind me to call Sam tomorrow at 9", "what did I agree with Sam", "summarise my week", "how much did the next step cost"];
     r.answers = [];
     for (const q of qs) {
-      const n0 = await page.evaluate(() => document.getElementById("chat-messages").children.length);
+      const n0 = await page.evaluate(() => document.querySelectorAll("#chat-messages > .msg").length);
       await page.fill("#chat-input", q); const t = Date.now(); await page.click("#chat-send");
       let ms = -1, a = "";
       for (let i = 0; i < 120 && ms < 0; i++) {
         await page.waitForTimeout(150);
-        const s = await page.evaluate((n) => { const kids = [...document.getElementById("chat-messages").children].slice(n); const last = kids[kids.length - 1]; return { k: kids.length, gen: !!last && last.classList.contains("is-generating"), t: last ? last.innerText.replace(/\s+/g, " ").trim() : "" }; }, n0);
+        const s = await page.evaluate((n) => { const kids = [...document.querySelectorAll("#chat-messages > .msg")].slice(n); const last = kids[kids.length - 1]; return { k: kids.length, gen: !!last && last.classList.contains("is-generating"), t: last ? last.innerText.replace(/\s+/g, " ").trim() : "" }; }, n0);
         if (s.k >= 2 && !s.gen && s.t.length > 8) { ms = Date.now() - t; a = s.t.slice(0, 160); }
       }
       r.answers.push({ q, ms, a });

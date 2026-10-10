@@ -1206,35 +1206,6 @@ function startApp() {
   //: first tab drawn.
   return Promise.all([looksReady, tabReady]);
 }
-// The browser is the only thing that knows where the user actually is. The
-// server may be running in UTC, a container, a NAS, a machine whose clock was
-// never set: and every relative time the AI computes ("in 10 minutes",
-// "tomorrow at 9") is resolved against that. So the zone is reported once at
-// startup, and again whenever it changes (travel, or a DST shift).
-//
-// Only the IANA NAME is sent, never coordinates: "Australia/Brisbane" is what
-// makes the arithmetic right, and it is far less identifying than a location.
-async function reportTimezone() {
-  let zone = "";
-  try {
-    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  } catch {
-    return; // an environment without Intl still works, just on server time
-  }
-  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
-  //: runs in parallel, so this one used to reach the comparison before the
-  //: boot GET had answered, find `prefsCache` still null, and PUT the same
-  //: zone the server already had on every single cold start. With the shared
-  //: reader the comparison has something to compare.
-  await loadPreferences().catch(() => null);
-  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
-  prefsCache = await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ timezone: zone }),
-    silent: true,
-  }).catch(() => prefsCache);
-}
-
 // The per-tab data loads switchTab performs, without the tab-switching itself.
 // Kept beside switchTab's own dispatch so the two can't drift apart.
 async function refreshActiveTab() {
@@ -1892,6 +1863,9 @@ const LAZY_MODULES = {
   noteTemplates: ["/js/note-templates.js"],
   meetings: ["/js/meetings.js"],
   quickAdd: ["/css/quickadd-lazy.css", "/js/quickadd.js"],
+  //: The Statistics page and This week (statistics.js's header).
+  statistics: ["/css/utilities-lazy.css", "/js/ask-chart.js", "/js/statistics.js"],
+  utilities: ["/js/utility-tools.js"],
   //: The search box, Find anything, and its saved searches (search.js's header).
   search: ["/css/search-lazy.css", "/js/search.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
@@ -2215,6 +2189,7 @@ const LAZY_ENTRY_POINTS = {
   quickAdd: ["quickAddAttach", "quickAddSlots", "quickAddAsk", "quickAddClear", "magicAddReminder"],
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
+  statistics: ["openStatistics", "renderWeekWidget"],
   meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "toggleMeetingPause", "saveMeetingNote", "saveMeetingDocument", "resetMeetingUI"],
   askHistory: [
     "toggleAskHistoryPanel",

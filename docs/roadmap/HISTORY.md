@@ -391,6 +391,45 @@ The ocr79 agent's Built block (standing order 10); WORLD_CLASS_PLAN 28.4 rows 2 
 - Row 5 (rules 12, 4, 13): with no engine and no model the engine line offers Install RapidOCR (60 MB, nothing else to install) then Install Tesseract (10 MB plus a system program), sizes from `core/extras.py` through `engine_status` (`rapidocr_size`, `tesseract_size`); `ocrEngineStartInstall(extra)` installs either. `ocrSyncCanRead` makes Read, the region's Read and Describe `aria-disabled` with the reason in their title; a press toasts it and opens the reader menu. AI controls disabled with a reason 0 of 1 to 1 of 1.
 - Row 7 (rules 6, 12): `extract_regions` keeps each word's box (`words`, Tesseract's own; RapidOCR's lines cut by characters, `_line_words`); `ocrPaintLiveText` lays them over the picture as transparent type sized in `cqh` and stretched once to its box; a copy whose selection starts there gives the words in reading order (`ocrLiveTextSelection`). `ocr79.js` live: a drag from the first word to the last copies the three lines exactly, at 1440 and 390 (the regions answer stubbed: no engine here).
 - Row 9 (rule 13): traced at 390, the open's first frame was 367 ms, two `ocrFitDock` runs of 287 and 194 ms, each step a 30 to 90 ms style recalculation. Now the fit is a halving search remembered per width, words and shown controls (`ocrDockApply`, `ocrScheduleFitDock`, one per frame): first frame 110 ms. Open at 390, three runs: 398, 246, 683 ms to 353, 127, 387 ms; 1440 354, 237, 78 to 204, 114, 100.
+## Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)
+
+**Built** by Brief 89 (statistics rows 1, 2 and 5; utilities rows 2 to 5),
+measured on port 8832 with 96 notes and 26 reminders, 1440 and 390
+(`scratchpad/ui-sweeps/stats89.js`, `util89.js`, `stats89chat.js`).
+
+- **Statistics row 1.** `GET /statistics` (`routes_statistics.py`,
+  `notebook_stats.page`) answers the page in one call: notes, words, tags,
+  categories, documents, links, notes with no link, twelve months of
+  growth, reminders made, done, open and late, the usage ledger's rows.
+  `statistics.js` (lazy, with `ask-chart.js` and `utilities-lazy.css`) draws
+  it in a `.modal-card` from the Ask chart recipe (`columns` and `source`
+  added to it). Clicks from the heatmap 3 (Settings, General, What you use)
+  to 1 (its Statistics button, or the grid); the palette's "statistics" 0
+  rows to 1; a Tools and features row. Overlaps 0, past the edge 0 and tick
+  labels colliding 0 at both widths; the dialog 342 px at 390, inset 24.
+- **Statistics row 2.** This week (`Reminder.done_at`, stamped on every
+  tick by a `set` listener) on the page and as the dashboard's This week
+  widget (default for a fresh layout, offered to saved ones): notes made,
+  words written, reminders done, each "N, M more than last week (last)".
+- **Statistics row 5.** Counted answers took 10 to 27 ms on the server and
+  87 to 134 ms click to sentence (149 to 377 ms at load 9); the plan's 829
+  to 1,416 ms was deepen72b's 150 ms poll and a first reply it could not
+  see (fixed: it counts `.msg` rows). Found: every counted answer ended
+  "Heads up: I could not find 96 in your notes"; counted answers skip the
+  model-answer grounding check now (`tests/test_notebook_stats_chat.py`).
+- **Utilities rows 2 to 4.** `utility-tools.js` (lazy): Start a timer (25
+  minutes, or "timer 10 minutes", "90s timer"), Start a stopwatch, on the
+  status bar's `#status-timer` (state zone; on a phone the bar returns
+  while it runs, 73x44); pressing it stops it, a timer that runs out says so
+  in a toast and a notification. The palette's "timer" 0 rows to 2, "timer
+  25 minutes" 0 to 1. Count words: the selection (or the whole editor) by
+  `textCounts`, 113 words and 583 characters on `counts_1010.md`, equal to
+  `wc`. "insert template" 0 rows to 4, put in at the caret held when the
+  palette opened (`paletteCaught`).
+- **Utilities row 5.** Guide topics `statistics`, `timer`, `count-words`,
+  `insert-template` (a Small tools group in Settings, Help); the Statistics
+  page's '?' popover and the Templates popover's line; six
+  `UTILITIES` rows in `tests/test_manual_parity.py`.
 
 ## Moved from the plans, 2026-10-10 (WHITEBOARD Brief 77, rows 1 to 4)
 

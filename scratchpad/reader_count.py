@@ -83,7 +83,7 @@ def py_scan(path: Path):
     try:
         tree = ast.parse(src)
     except SyntaxError:
-        return [], [], []
+        return [], [], [], []
     doc_ids = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -124,8 +124,8 @@ def _strip_js(src: str) -> str:
     return "\n".join(out)
 
 
-JS_REGEX = re.compile(r"(?<![\w)\]\"'`/<])/((?:\\.|\[(?:\\.|[^\]\n])*\]|[^/\n\\\[])+)/[dgimsuyv]*")
-JS_NEW = re.compile(r"new RegExp\(\s*([\"'`])((?:\\.|(?!\1).)*)\1")
+JS_REGEX = re.compile(r"(?<![\w)\]\"'`/<])/((?:\\.|\[(?:\\.|[^\]\n\\])*\]|[^/\n\\\[])+)/[dgimsuyv]*")
+JS_NEW = re.compile(r"new RegExp\(\s*([\"'`])((?:\\.|(?!\1)[^\\\n])*)\1")
 JS_STRING = re.compile(r"\"([^\"\n]*)\"|'([^'\n]*)'|`([^`\n]*)`")
 JS_INCLUDES = re.compile(r"""\.(?:includes|indexOf)\(\s*["']([a-z ]+)["']""", re.I)
 

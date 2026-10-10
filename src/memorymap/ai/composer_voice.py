@@ -41,7 +41,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 
 from memorymap.ai import composer
-from memorymap.ai.composer import NoteView, Sentence, _Answer, _count_word, _pick, read_note
+from memorymap.ai.composer import NoteView, Sentence, _Answer, _count_word, read_note
 from memorymap.search import query as query_understanding
 
 #: The voice's fixed phrases: the only words written here. The punctuation keys
@@ -300,7 +300,7 @@ def _back(view: NoteView, today: date) -> dict | None:
     if not s or not view.written:
         return None
     v = _Voice({view.id: view}, today)
-    style = _pick(_salt(today, view.id), "back", ["a", "b", "c"])
+    style = composer._pick(_salt(today, view.id), "back", ["a", "b", "c"])
     if style == "a":
         v.t("v_back_a").m(v.day(view.written)).t("v_back_a_mid").name(view).t("colon").quoted(s)
     elif style == "b":
@@ -348,7 +348,7 @@ def _open_items(views: list[NoteView], today: date) -> list[dict]:
             v.name(view).t("v_open_count").m(_count_word(len(open_))).t("v_open_count_mid")
             v.m(_count_word(len(tasks))).t("v_open_count_end").quoted(first)
         else:
-            v.t("v_open_a" if _pick(_salt(today, view.id), "open", ["a", "b"]) == "a" else "v_open_b")
+            v.t("v_open_a" if composer._pick(_salt(today, view.id), "open", ["a", "b"]) == "a" else "v_open_b")
             v.name(view).t("colon").quoted(first)
         out.append(v.done("open", note_id=view.id))
     return out[:PER_KIND]
@@ -438,7 +438,7 @@ def _empty_day(views: list[NoteView], today: date) -> dict | None:
     if not s:
         return None
     v = _Voice({last.id: last}, today)
-    if _pick(_salt(today, last.id), "empty", ["a", "b"]) == "a":
+    if composer._pick(_salt(today, last.id), "empty", ["a", "b"]) == "a":
         v.t("v_empty_a").name(last).t("v_empty_a_mid").m(v.day(last.written)).t("v_says").quoted(s)
     else:
         v.t("v_empty_b").name(last).t("v_empty_b_mid").m(v.day(last.written)).t("v_says").quoted(s)

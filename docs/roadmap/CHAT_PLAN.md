@@ -386,6 +386,117 @@ then the composer's quoted sentence pair, a model's checked line when one
 runs, feeding Tidy's "Add reasons" and "Add reasons to all". Open items and
 numbers: agent-remaining/composer725-1006.md.
 
+### Phase 6: the deterministic engine (the owner, 2026-10-10; Brief 39)
+
+The owner's words: "I want the composer to basically be a mastermind, basically
+an ai model, but not an ai model"; "more insights, some social and conversational
+aspects, more response variation"; "stringing sentences together based off
+meaning, similarity etc"; "it needs a very robust and full scale intelligence
+engine"; "note timewords so it can be like, last Friday you did this"; "alter
+personal words used in notes like my or I to you or your"; "Composer doesn't know
+it is atlas"; "Note captions arent counted as note content"; "when I press ask
+this question again, the composer doesn't change it up". Decisions 17 to 29 hold
+(zero wrong facts, every sentence quoted or measured, light rule rewrites only).
+What follows is the architecture that gets there; each decision is a step.
+
+#### Decisions, 2026-10-10 (do not re-decide)
+
+30. **A fact layer under the sentences** (`ai/factgraph.py`, new). From every
+    source view, facts typed by rule, each with its span: event (verb lemma,
+    object, time), quantity (number, unit, of what), date (absolute, or relative
+    resolved with `when.py`), entity (person, place, organisation: capitalisation
+    plus the taxonomy pack's entity and role seeds), list item, checklist item
+    with its done state, decision ("decided", "going with"), preference ("I
+    like", "prefer", "hate"), question, plan ("plan to", "will", "going to"),
+    polarity by a 300-word lexicon with negation scope (no VADER; dropped if no
+    tested feature uses it), topic candidates (the pack). A quoted sentence is
+    grounded by its span; a measured sentence (count, span of dates, first and
+    last, frequency, trend) is grounded by the facts it is computed from and
+    marked measured. Both are decision 25's two allowed kinds.
+31. **A query plan, not only a shape.** `classify()` becomes `plan()`: the
+    answer kind (fact, list, timeline, comparison, count, yes or no, why, how,
+    status, recommendation, recall by time, insight), the constraints (a time
+    window via `when.py`, entities, tags, category, source kind), the length
+    wish, and reference resolution against the dialogue state (it, that, the
+    second one, the gym note). Each kind has a discourse schema: lead, support,
+    contrast, gap, measured line, next questions. The schema decides the joins;
+    the joins are never the same two running (decision 18).
+32. **Insights are measurements with a fixed hedge, never claims.** "You have
+    written about golf 4 times since August, three of them after work; that may
+    be a hobby forming." The sentence is computed from facts (count, dates, a
+    time-of-day fact); the hedge is one tested phrase and fires only on a rule
+    (at least 3 mentions across at least 3 weeks); the line is marked measured.
+    Insights close a broad answer and appear as one "Patterns" line in Tidy and
+    the dashboard; they are never filed as facts. A lint: every insight
+    template's slots are counts, dates or quoted spans.
+33. **Realisation by grammar rules** (`ai/realise.py`, new), not phrase tables
+    alone: person shift with verb agreement ("I am" to "you are", "my" to
+    "your", "I've" to "you have"), tense from the fact's temporal scope against
+    today, number agreement, relative time ("last Friday", "three weeks ago",
+    "yesterday") from the note's date against today, the pronoun rule of
+    decision 20, sentence case after a comma fixed, titles never cut mid-word.
+    Quotation is a renderer style (a quoted sentence is marked, not wrapped in
+    quote characters, which broke grounding on the Gemini branch). Every rule
+    has a table of input and expected output pairs as its test.
+34. **Variation is session-salted.** `_pick()` takes the turn number and a
+    per-chat salt as well as the question, so Ask again composes differently
+    (the lead stays when one sentence is clearly best; openers, joins and the
+    order of the other notes rotate; where scores tie, the second note may
+    change). No template twice in a session (decision 25), measured by
+    `lead_in_repeats` and `openers_distinct` over a 20-turn session in the eval.
+35. **Dialogue state** (`FollowOn` grows into `Dialogue`): topic stack, notes
+    already quoted (not quoted again unless asked), entities mentioned, the last
+    answer's measured values, the person's corrections ("no, the gym note")
+    which re-rank; carried in the request's history, no server state.
+36. **Identity.** The engine is Atlas (policy 4 in ROADMAP's Direction). "Who
+    are you" and about-app questions answer as Atlas; how-to questions take the
+    help topics as their grounded source through a `voice="help"` register
+    (composer-voice-1006.md), so the Guide and Chat are one engine. The bubble
+    label reads "Atlas, from your notes" with no model and "Atlas, <model>" with
+    one. The model, when it runs, is told the same identity and the same facts.
+37. **Sources of every kind.** `NoteView` becomes `SourceView`: note, board (its
+    texts), map (its nodes), document, picture caption (captions are content),
+    and web page when web search is on (fetched text as sentences, cited by
+    URL, shown as a scrollable source list inside the bubble). The source card
+    says its kind and opens its own surface (INBOX 744).
+38. **Acts.** `ai/commands.py` (on `wip/composer-acts`, 56 phrasings, not yet
+    run) is finished: a command is parsed, shown as the action it would take,
+    confirmed, run through the agent's own tool functions, undoable. Agent
+    mode opens without a model for these verbs (decision 22). With web search
+    enabled the engine may run the search tool and read results as sources.
+39. **The engine explains.** One line per filing ("Filed under Fitness: shares
+    gym, squat and protein with 6 notes there") and per link reason (Phase 5
+    (g)) from the same fact layer; WORLD_CLASS_PLAN section 23 owns the filing
+    decision.
+40. **The bar.** The 25 showcase, the 90-question voice set and the noisy set
+    stay; new fixtures: 40 insight questions, 30 twenty-turn dialogues, 30
+    acts, 20 web-source questions, 30 mixed-kind sources. New metrics: measured
+    sentences re-derivable from the fixture (1.0), variation across a session,
+    answer-kind accuracy, person-shift correctness. Grounded stays 1.0 on every
+    set on every build; a blind panel (the owner, decision 29) at the end.
+
+#### Steps (one commit each; the numbers in the message)
+
+1. Fact layer on the showcase fixture, with its tests (decision 30).
+2. The query plan and time windows (31); the two misclassified showcase
+   questions are its first tests.
+3. The realiser: person shift first (the owner's ask), then tense and relative
+   time (33); the renderer styles quotations.
+4. Session salt and the dialogue state (34, 35); the 20-turn eval.
+5. Sources of every kind and captions as content (37).
+6. Insights (32) with the Tidy and dashboard line.
+7. Acts (38), from the wip branch's commands.py.
+8. Identity and the help register (36).
+9. Web sources inside the bubble (37, second half).
+10. The eval sets and the blind panel (40); CHANGELOG; the plan's Built block
+    moved to HISTORY.
+
+#### Not verified until built
+Whether rule polarity earns its place (drop it if no feature the owner asked
+for uses it); how real notebooks' pasted text, jokes and quotes behave in the
+fact layer (the question-list bug, INBOX 745 (b), is the same problem);
+import time under 0.5 s with the fact layer loaded lazily.
+
 ## 6. Consistency rules
 
 The answer renderer, the composer and the bubbles are one component each

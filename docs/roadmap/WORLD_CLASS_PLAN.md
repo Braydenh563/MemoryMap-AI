@@ -1461,6 +1461,81 @@ package's own comments use to step round the lint, there are three cycle
 groups, the largest fifteen modules. `tests/test_import_module_cycles.py` now
 counts those edges and holds both numbers as a ratchet (open: shrink them).
 
+## 23. Filing and the taxonomy: candidates, a decision, an explanation (2026-10-10; Brief 39b)
+
+The owner's words: "Should we include a library of common possible categories and
+even ways to join words to make custom categories and then there can be a
+similarity search for new or existing category filing and concatenation for new
+categories, suggested alternative existing and new categories, same for tags. It
+should be a thing where it decides if it is closer to an existing category or a
+new category, and maybe it can even provide suggestions for merging categories
+and alternate category names"; "some categories might not just be gym or
+Fitness but gym & fitness"; "Study and university tags are suggested on the top
+note no matter what the note is about"; "Still lots of issues with filing
+without the ai model running". INBOX 730 answered that filing without a model
+exists (lexical filing, centroids, nearest neighbours); this section makes it
+good and explained.
+
+### What exists (checked)
+`ai/lexical_filing.py` (TF-IDF votes, category-name votes, tag votes with
+`TAG_NAME_VOTE`, `TAG_MIN_VOTE`), `ai/janitor.py` (`_semantic_category`,
+centroids over the embedder, nearest neighbours), Tidy's rule reviews
+(`frontend/js/tidy.js`), the Gemini branch's `ai/taxonomy.py` (18 categories,
+FlashText; superseded by the pack below).
+
+### Decisions, 2026-10-10 (do not re-decide)
+1. **Seed data, not a classifier.** The Perplexity "final consolidated pack"
+   (5.0.0: `memorymap_taxonomy.json` 527 categories and 6,478 assignments,
+   `memorymap_occupations.json` 1,109 roles, `memorymap_entities.json`,
+   `memorymap_facets.json`, `memorymap_context_rules.json` as a spec, 64 passing
+   tests) lands as JSON under `src/memorymap/ai/data/taxonomy/` (about 470 KB),
+   loaded lazily on the first filing, matched by the vendored FlashText as
+   **candidate generation only**. Its module's API shape (`analyze_note`,
+   `extract_categories`, `extract_occupations`, `extract_entities`,
+   `reset_taxonomy_processors`) replaces Gemini's `ai/taxonomy.py`; its tests
+   come with it. Credits in THIRD_PARTY.md.
+2. **The decision is the person's categories first.** For each existing
+   category: a name or alias match to the pack's topics ("Gym" is Fitness), the
+   TF-IDF votes shared with notes already filed there, the centroid cosine when
+   the embedder runs, a recency prior. A **new** category is proposed only when
+   no existing one clears its threshold; a **composite** ("Gym & fitness") only
+   when two topics tie within ten percent and both occur in the note. New and
+   composite names are proposals until accepted once; then they are the
+   person's and are matched like any other.
+3. **Every filing is explained** in one line on the suggested-category chip and
+   in Tidy (CHAT_PLAN decision 39): the words shared, the notes it joins, the
+   measure that decided.
+4. **Merge and rename suggestions** live in Tidy: two categories whose topic
+   sets overlap at least 0.6 and whose centroids are within 0.15 become a row
+   "Merge Gym and Fitness?" with counts; alternate names come from the pack's
+   labels and the person's own titles. Applying asks; undo is one press.
+5. **Tags** take the same candidates, capped at three, each explained; a tag is
+   never proposed on a note that contains none of its words (the "Study and
+   university" bug: find the vote that did it, with a test).
+6. **Sensitive topics** (health, relationships, finance, legal, identity: the
+   pack's flag) are suggested, never auto-filed, unless the person turned
+   auto-filing on for them in Settings.
+7. **A personal lexicon** from the pack's reviewed-vocabulary utilities: the
+   person's corrections ("Work, not Software") become aliases stored per
+   notebook and weighed first; nothing is learned from automatic predictions.
+8. **Measurement first.** `tests/fixtures/filing/` grows to 120 hand-labelled
+   notes (varied kinds and lengths, pasted text, jokes, captions, several
+   sensitive); top-1 accuracy with and without the embedder, before and after
+   every step, recorded here. Below 0.8 top-1 without a model the step is not
+   done.
+9. **Contextual rules** (the pack's 30 seed rules and 50 acceptance fixtures)
+   are the phase after: a small interpreter for positive and competing context
+   patterns within the sentence, measured on those fixtures, only once steps 1
+   to 8 hold.
+
+### Steps
+1. The fixture and the baseline numbers (decision 8); the "Study" bug.
+2. The pack as data, FlashText candidates, Gemini's taxonomy.py replaced.
+3. The decision (2) and the explanation line (3), with Settings for sensitive
+   topics (6).
+4. Merge and rename rows in Tidy (4); the personal lexicon (7).
+5. CHANGELOG, Guide topics, help popovers; the Built block to HISTORY.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

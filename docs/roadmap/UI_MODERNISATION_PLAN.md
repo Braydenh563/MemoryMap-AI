@@ -1065,6 +1065,88 @@ different problem than the list says.
     would read lighter; Settings scrolls sideways in two sections at 768.
     The list, with ids, is `archive/agent-remaining/phone.md`.
 
+## Phase 12: density, refinement and WCAG 2.2 (the owner, 2026-10-10; Brief 41)
+
+The owner's words, verbatim: "the ui still needs a more modern and professional
+polish. I think an issue might be that some of the ui elements, controls and
+dropdowns are too large and bulky and have too large spacing and margins around
+them and gaps around panels?? like the vs code ui is a lot more cleaner and
+refined and the sidebar is still floating but its more subtle, the controls are
+smaller and intentional, not wierdly bunched. I think a lot of surfaces need this
+modern redesign. also on microsoft teams I noticed on the sub menu bars, there
+are grey underlined hover states, and when I hover over icons, no semi
+highlighted border box appears behind them, I just hover over or click on them
+and the icons themselves change to the highlighted colour." "also I think the
+topbar is a little large but idk maybe not. maybe research design principles or
+standards?? ensure wcag 2.2 accessibility is followed and complied with." "all
+the controls and docks on each page and dropdown menus and popup menus and
+stuff just need a major polish and refinement and they all need to be
+consistent across the app. think maximum learnability, minimalist and
+instinctive to use." "the reminder dropdowns for setting datetimes and stuff,
+they need a custom style. I also think there needs to be a better and more
+primary calendar feature paired with the reminders." "on vs code selected lines
+have their line number bolded, the line subtly bordered and there are also
+indentation lines." "Note metadata and chat bubble metadata still feels
+incredibly messy, not modern, and unrefined." "Some tooltip buttons are circles
+and some are rounded squares."
+
+### Decisions, 2026-10-10 (do not re-decide)
+1. **A density scale in tokens.** Control heights 28px (dense: docks, toolbars,
+   sub-menu bars), 32px (default: forms, menus), 40px (touch, phone); icon
+   buttons square at the row's height; gaps on a 4px grid (4, 8, 12, 16); panel
+   padding 12px; the sidebar gutter 8px; the topbar 44px measured (today's
+   number recorded first). One token set in `00-tokens-shell.css`; no literal
+   heights in the other files (`test_style_scale.py` extends to heights).
+2. **The hover grammar.** An icon button changes its icon colour on hover and
+   focus (no box behind it); a sub-menu bar item takes a 2px underline (Teams);
+   a text button keeps its box; a row takes a tint. Active states keep a box
+   with the accent at low alpha. Recorded in DESIGN.md with a lint in
+   `test_ui_recipes.py` (no `.ghost:hover { background` on icon-only buttons).
+3. **One radius per class** from tokens: pill for segments and chips, the
+   button radius for buttons (circles only for the companion and avatars),
+   the panel radius for panels and menus. Tooltips and help triggers are the
+   same shape everywhere (the owner's "circles and rounded squares").
+4. **WCAG 2.2 AA as a sweep** (`scratchpad/ui-sweeps/wcag22.js`, from axe.js):
+   target size at least 24 by 24 CSS px (2.5.8); focus visible with a 2px ring
+   at 3:1 against its background (2.4.11, 2.4.13); text contrast 4.5:1 and UI
+   contrast 3:1; every drag action has a non-drag alternative (2.5.7: boards
+   and maps move by arrow keys and menus; reorders have Move up and down);
+   help in a consistent place (3.2.6: the ? popover at the section head);
+   redundant entry avoided (3.3.7); the lock screen allows paste and a password
+   manager (3.3.8). The sweep runs per surface and its counts go in this phase.
+5. **Custom pickers.** Date and time (reminders, the timeline, documents'
+   properties) on the sheets-selects recipe: a month grid with keyboard
+   navigation, a time list in the person's clock format, typed entry accepted
+   (`when.py` parses it), today and clear actions, measured at 1440 and 390.
+6. **A calendar view** of reminders and dated notes: TIMELINE_PLAN's Calendar
+   mode (month and week), not a new tab; reminders draggable between days with
+   a keyboard alternative; the day strip (INBOX 561) becomes its week row.
+7. **Metadata rows**: one muted line per card or bubble, chips only for state
+   (pinned, due, unsaved), the kind icon first, the time last and pinned to the
+   card's corner (INBOX 745 (a)); the same rule on note cards, chat bubbles,
+   library cards and timeline rows; a census before and after
+   (`perf2-1005-census.js` counts and heights).
+8. **The code editor's active line** (DOCUMENTS 21): bold line number, a subtle
+   full-width border, indent guides; the writing checks everywhere rule is
+   DOCUMENTS 21's.
+9. **Research is recorded, then applied.** The agent reads the ui-ux-pro-max
+   skill's UX guidelines and styles, the Apple HIG and Fluent 2 density and
+   hover sections, VS Code's workbench metrics and WCAG 2.2's new criteria, and
+   records the ten rules it takes (with the number each sets) in DESIGN.md
+   before changing CSS. "Reasoned UI is not observed UI": every change is
+   measured in Chromium at 1440, 1024 and 390, light and dark, and the sweeps
+   (errors, docks, contrast, touch, wcag22) pass on the head.
+
+### Steps
+1. The census: today's control heights, gaps, radii, hover boxes, topbar height,
+   per surface (the numbers in this phase).
+2. Tokens and the scale (1), topbar and docks first.
+3. The hover grammar and radius classes (2, 3) with their lints.
+4. The WCAG 2.2 sweep (4) and its fixes, surface by surface.
+5. Pickers (5), then the calendar mode (6).
+6. Metadata rows (7); the editor's active line (8).
+7. DESIGN.md, help, CHANGELOG; the Built block to HISTORY.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

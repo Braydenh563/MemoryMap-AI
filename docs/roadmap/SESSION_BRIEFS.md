@@ -1627,3 +1627,144 @@ avatars.js.
   Open: `namemarks.js` finds one pair of 23 names under its 15% floor
   (13.9%), since neighbouring natural skin tones differ less than the gel
   colours did.
+
+## Briefs 35 to 42 (2026-10-10, Fable orchestrating): the owner's list, the engine, the direction
+
+Shared rules for all eight: `docs/roadmap/agent-remaining/agent_common.md`
+plus the 2026-10-10 additions in HANDOVER's top block (effort by task; Sonnet
+and Haiku for well-defined and mechanical work). Every item below is the
+owner's, verbatim where quoted; the complete 2026-10-10 list is placed in each
+plan under "Placed from the owner's list, 2026-10-10" by Brief 40. ROADMAP's
+"Direction, 2026-10-10" is the thesis these serve.
+
+### Brief 35 (Opus, high): the Gemini branch triaged
+Goal: boot works with no new dependencies; unused vendoring gone; grounded
+back to 1.0 on the showcase; credits file. Facts and decisions: ROADMAP
+Direction policy 1 and the agent's own brief (the orchestrator's prompt,
+2026-10-10). Files: `src/memorymap/vendor/`, `ai/composer.py`,
+`ai/question_noise.py`, `ai/composer_tables.py`, `ai/intent.py`,
+`ai/lexical_filing.py`, `ai/presets.py`, `ai/tools/__init__.py`,
+`api/routes_chat.py`, `frontend/js/skills.js`, `requirements.txt`,
+`tests/_composer_eval.py`. Numbers: grounded 1.0 to 0.25 (Gemini head), to
+1.0; import time 1.08 s to under 0.5 s; vendor 15 MB to under 1 MB; lints
+green. Running as the `triage` agent.
+
+### Brief 36 (Opus, high): whiteboard and mind map
+Goal: the fifteen board and map items of the owner's list (edge arrows,
+port anchors, vertical text, note sidebar clipping, ghost preview and the
+clipped frame, comments edited and with links, sticky versus text box, slash
+menus in boxes and nodes, the icon library findable, the empty Boards state
+and auto-naming, rounded rectangles on the map, branch colour and spacing on
+insert, Enter as newline, appearance options) with WHITEBOARD_PLAN "Placed
+from INBOX, 2026-10-07". Files: `whiteboard.js`, `whiteboard-map.js`,
+`07-whiteboard-misc.css`. Sweeps: wbregress.sh, wbrotatelinks.js, wbports.js,
+mapcore.js, mindmap.js. Running as the `boardmap` agent.
+
+### Brief 37 (Opus, high): Chat, Ask, first run and the owner's UI bugs
+Goal: model gating per CHAT_PLAN decision 22; the first-run queue with zero
+overlapping panels; the tour handoff (INBOX 745 (d)); 32 chat, Ask, notes and
+settings items from the owner's list (token pill popover, histories cleared,
+source kinds, searching indicator, similarity numbers, composed bubble label
+and fade, web sources and retry, the no-model tag-suggestion tracebacks,
+questions list, packages progress, OCR in quick access and palette, logs of
+background tasks, suppressed suggestions list, metadata rows). Running as
+the `chatui` agent.
+
+### Brief 38 (Opus, high): the graph, topics first-class, note properties
+Goal: view switches end fitted; the first paint fitted (INBOX 738); even fit
+margins; Shape gated to Force; topics renamed, dragged as a group and shown
+on the note; the local map redraw; custom note properties. Files:
+`graph.js`, `graph-canvas.js`, `note-properties.js`. Running as the `graph`
+agent.
+
+### Brief 39 (Opus, high): the deterministic engine
+Goal: CHAT_PLAN Phase 6, decisions 30 to 40, steps 1 to 10 in order, each a
+commit with the eval numbers. Starts when Brief 35 has merged (same files).
+Files: `ai/composer.py`, new `ai/factgraph.py`, `ai/realise.py`,
+`ai/commands.py` (from `git show origin/wip/composer-acts:src/memorymap/ai/commands.py`
+and its test), `ai/composer_tables.py`, `ai/question_noise.py`, `ai/when.py`,
+`ai/facts.py`, `api/routes_chat.py`, `frontend/js/chat-agent.js` (the bubble
+label, the quotation style, the web source list), `tests/_composer_eval.py`
+and `tests/fixtures/composer/`. Numbers: grounded 1.0 on every set;
+first_line 25/25; openers_distinct and lead_in_repeats over a 20-turn
+session; measured-sentence accuracy 1.0; import time under 0.5 s. Traps: a
+rewrite rule that changes meaning (test pairs for every rule); a measured
+sentence whose number cannot be re-derived from the fixture (the lint);
+quoting with quote characters (offsets).
+
+### Brief 39b (Opus, high): filing and the taxonomy
+Goal: WORLD_CLASS_PLAN section 23, steps 1 to 5. Starts when Brief 35 has
+merged. The pack is at the orchestrator's scratchpad
+(`up/final/MemoryMap_Final/`) until step 2 lands it under
+`src/memorymap/ai/data/taxonomy/`. Files: `ai/lexical_filing.py`,
+`ai/janitor.py`, `ai/taxonomy.py` (replaced), `frontend/js/tidy.js`,
+`tag-suggest.js`, Settings. Numbers: top-1 accuracy on the 120-note fixture
+with and without the embedder, before and after each step; the "Study" bug
+reproduced then gone.
+
+### Brief 40 (Sonnet, medium; Haiku for the placement pass): research and placement
+Goal: (a) place every item of the owner's 2026-10-10 list (the orchestrator's
+`owner-1010.txt`) that Briefs 35 to 39b do not already carry into its plan
+under "Placed from the owner's list, 2026-10-10", verbatim, one line of
+recommendation each, bugs first; INBOX stays under twenty. (b) Research,
+recorded in ANALYSIS.md under "Repositories and libraries read, 2026-10-10":
+for each of the owner's forks (storytold's wordcraft, designcraft, deckcraft,
+gridcraft, photocraft, lightcraft, pdfcraft, soundcraft, filmcraft; jgraph's
+drawio) the licence, stack, size, and the three things worth taking as
+ideas or formats; haifengl/smile (Java) the algorithms worth re-implementing
+small; candidate vendorable libraries (pure Python or plain JS, offline,
+licence, size, what it would replace: for example symspell as an algorithm
+not a package, parsedatetime versus `when.py`, KaTeX, mermaid, Pyodide size,
+ruff-wasm, eslint-linter-browserify, sql.js, transformers.js) each with a
+keep or drop and why; NLTK and WordNet's size against a trimmed table.
+(d) The gap matrix of ROADMAP's parity programme: one table per surface in ANALYSIS.md, from each fork's README, feature list and command catalogue (WebFetch; the forks are public), each row checked against the running app. (c) Answers, each as a plan row or BACKLOG row with a recommendation: a
+Docker image (a `Dockerfile` and compose file, offline model volumes,
+measured image size); reusing the system Python's packages
+(`--system-site-packages` as a setup choice with its risks); whether the MCP
+server works (run it, list its tools, say what is broken); the phone over
+HTTPS (self-signed trust flow on iOS Safari and Brave, the "connection was
+lost" cause, a QR code and a one-page trust guide, mkcert-style local CA as
+an option); whether a first install needs the internet and where the app
+says so. Files: ANALYSIS.md, BACKLOG.md, the plans, `scratchpad/` for any
+probe. Numbers: counts placed; image size; the MCP tool list.
+
+### Brief 41 (Opus, high): UI density, refinement and WCAG 2.2
+Goal: UI_MODERNISATION_PLAN Phase 12, steps 1 to 7. Invoke the
+ui-ux-pro-max skill for the research step and record the ten rules taken in
+DESIGN.md first. Files: `00-tokens-shell.css`, `08-consistency.css`,
+`01-forms-settings.css`, `sheets-selects.js`, `timeline.js`,
+`notecardmeta`-related CSS, DESIGN.md. Numbers: the census before and after
+(control heights, gaps, radii, hover boxes, topbar height), the wcag22 sweep
+counts per surface, contrast minima. Traps: a token change that flattens a
+card (`NaN` once did); glass-off list; help moves with every control.
+
+### Brief 42 (Opus, high): documents
+Goal: DOCUMENTS_PLAN section 21 (the code editor to VS Code standard, writing
+checks everywhere) and the owner's items: INBOX 735 (p5 sketch kind; code
+completion on code documents), 736 (output panel height; Stop state),
+highlights on pages ("I want to be able to highlight sections on pages like
+key passages and references"), comments with bookmarks and links, embedded
+link cards with a viewer ("a way to embed and render embedded links and a
+special viewer for them"), the long-form preference at first run
+("when the user logs in, they should be able to choose their preferred style
+of taking notes"), and the idea in the owner's list of labelled and linked
+sections inside a document with a local graph embedded (a Phase row in
+DOCUMENTS_PLAN with decisions, built only after the rest). Files:
+`documents.js`, `documents-code.js`, `documents-prose.js`, `09-editor.css`,
+`frontend/vendor/codemirror`. Numbers: doctype.js under 30 ms; the
+completion switch measured on a .js document; highlights persisted and
+re-rendered.
+
+### Brief 34 continues (Opus, high): Atlas and the companion
+INBOX 742 and 743 and the owner's list ("atlas's arm movements on both
+versions need a lot better animating as they are basically permanently in a
+downward arc except for when hanging"; "experiment with more tail behaviour
+and movement as well, and give the rings, as well as nebular flow and lower
+body subtle animations that are all cheap"; "the companion doesn't really have
+any variation in how it moves around at various distances"; "more mouse
+interaction with the companion like rubbing its head, flipping it upside
+down"; "the behaviour of the companion is not often reflected in the enlarged
+view"). Numbers: mood changes per session before and after; layouts and
+paints per second at rest (companionperf.js); the arm's angle range over a
+walk cycle.
+

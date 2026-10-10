@@ -1,5 +1,7 @@
 # HANDOVER
 
+> **Agents, the owner 2026-10-10:** "make use of sonnet 5.5 as well as it is cheaper, maybe even haiku 5.5 ... just maximise the amount of use I can get token wise from my usage. be thorough. miss no bugs or flaws." and "maybe change effort for agents based on the task?? just make sure quality doesnt suffer". So: effort set per task (high for design and engine work, medium for named fixes, low only for mechanical passes); Opus for design judgement, Sonnet for well-defined fixes and research, Haiku for placement, sweeps and copy moves; up to four Opus at once plus Sonnet or Haiku extras (the 2026-10-05 allowance). Never Fable agents. Quality bar unchanged: measure, test, commit per step, five-line report.
+>
 > **Models and count, the owner 2026-10-05:** mainly Opus; Sonnet for well defined, labour tasks ("actually mainly use opus but just remember that sonnet is there for well defined and labour tasks"). Once the current four finish, at most three agents at once.
 >
 > **More Sonnet, the owner 2026-10-05:** "focus on finishing everything open. work faster, be thorough, be more token efficient. Ill allow more agents if they are sonnet 5.5". At most four Opus; extra agents beyond that are Sonnet. Shared rules: agent-remaining/agent_rules_1005.md.
@@ -314,6 +316,18 @@ state now. The line-by-line ledger of what is left is
 | WORLD_CLASS_PLAN / SESSION_BRIEFS | Briefs 1 to 34 written; the row check of 2026-09-24, F3, `similar_pairs`, S1 to S3 and S5, the llama.cpp runner | The ranked list of 38 (plan section 8): Brief 15's LAN tail, B2 durable jobs, D2, I1, chunk vectors then I6, I3 |
 
 ### State of the branch (`claude/notes-flow-rebuild`, PR #162)
+
+**Now (2026-10-10, branch gemini/composer-improvements, Fable orchestrating):**
+the Gemini session's 12 commits are under triage (Brief 35: boot broken by a
+`thefuzz` import, 15 MB of unused vendoring, grounded 1.0 to 0.25); four Opus
+agents run (triage, boardmap, chatui, graph: Briefs 35 to 38) on the owner's
+2026-10-10 list, INBOX 727 to 745 and the plans' placed items; the direction
+for everything after is ROADMAP "Direction, 2026-10-10", with CHAT_PLAN Phase
+6 (the deterministic engine), WORLD_CLASS_PLAN 23 (filing and the taxonomy
+pack), UI_MODERNISATION Phase 12 (density, WCAG 2.2) and SESSION_BRIEFS 35 to
+42. Next, as agents finish: Brief 40 (Sonnet research and placement), then
+39 and 39b once 35 has merged, then 41, 42, 34. The PR for this branch merges
+when the gate, the sweeps and one full suite run are green.
 
 **Now (2026-10-07, main, 0.4.1 complete):** everything since PR 167 is on main
 and folded into CHANGELOG 0.4.1 (composer voice and vocabulary, background

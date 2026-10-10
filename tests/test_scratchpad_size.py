@@ -2,7 +2,7 @@
 
 scratchpad/ once held 1,394 of the repo's 3,008 tracked files (one-off sweeps
 whose findings were already in CHANGELOG, their PNG outputs, old seed
-scripts). The cleanup left 963; this caps the tracked count at that plus 40.
+scripts). The cleanup left 963, the 2026-10-10 one 736; this caps the tracked count at that plus 30.
 When it fails, run `python scratchpad/cleanup_inventory.py --list`, delete
 what it marks DELETE (scratchpad/README.md says how), and only then think
 about the cap. Never raise it to make a sweep fit.
@@ -11,8 +11,8 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CLEANED_COUNT = 963
-CAP = CLEANED_COUNT + 40
+CLEANED_COUNT = 736
+CAP = CLEANED_COUNT + 30
 
 
 def test_tracked_scratchpad_files_stay_under_the_cap():

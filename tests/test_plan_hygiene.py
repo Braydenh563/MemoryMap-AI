@@ -33,6 +33,40 @@ def _skip(path: Path) -> bool:
 PLANS = sorted(ROADMAP.glob("*_PLAN.md")) + [ROADMAP / "AGENT_SKILLS_REFORM.md"]
 
 
+#: Line caps per planning file: today's count rounded up to the next 100, plus
+#: 200 (2026-10-10). Orientation reads are the largest token cost, so these
+#: only ratchet down. Keys are file names; ROADMAP.md lives in docs/, the rest
+#: in docs/roadmap/.
+PLAN_LINE_CAPS = {
+    "CHAT_PLAN.md": 1300,
+    "DOCUMENTS_PLAN.md": 1600,
+    "GRAPH_PLAN.md": 800,
+    "MINDMAP_PLAN.md": 2000,
+    "TIMELINE_PLAN.md": 500,
+    "UI_MODERNISATION_PLAN.md": 1600,
+    "WHITEBOARD_PLAN.md": 1200,
+    "WORLD_CLASS_PLAN.md": 3500,
+    "AGENT_SKILLS_REFORM.md": 600,
+    "ROADMAP.md": 600,
+    "BACKLOG.md": 4500,
+    "ANALYSIS.md": 4500,
+    "SESSION_BRIEFS.md": 2100,
+}
+
+
+def test_plan_files_stay_under_their_size_caps() -> None:
+    over = []
+    for name, cap in PLAN_LINE_CAPS.items():
+        path = ROADMAP.parent / name if name == "ROADMAP.md" else ROADMAP / name
+        lines = path.read_text(encoding="utf-8").count("\n")
+        if lines > cap:
+            over.append(f"{name}: {lines} lines (cap {cap})")
+    assert over == [], (
+        "move built blocks to HISTORY.md ('Moved from the plans') or condense; "
+        "never raise the cap without moving something out: " + "; ".join(over)
+    )
+
+
 def test_no_plan_carries_a_built_block() -> None:
     offenders = []
     for plan in PLANS:

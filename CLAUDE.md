@@ -64,7 +64,8 @@ disagree, the most recent dated entry wins.
    be cut from an old base and a reset is refused. It commits per step and
    at least every 20 minutes, so a usage limit never loses work, and writes
    its remaining list before stopping. The orchestrator merges, gates and
-   pushes.
+   pushes. Every brief begins with `docs/roadmap/agent-remaining/agent_common.md`
+   and the `orient` skill.
 5. **Quality does not drop with the model.** Tests first, measure before
    claiming, one commit per step, push per batch, five-line reports
    (status, commits, numbers, not verified, found-not-fixed).

@@ -46066,3 +46066,22 @@ and refuses a topic ("Select a shape, link or text box first").
      still showing: "i deleted this empty map but itdidnt dissapear??" Placed: Sonnet
      agent.
 
+## Plan size caps, 2026-10-10
+
+Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.
+
+| File | Cap (lines) |
+| --- | --- |
+| `CHAT_PLAN.md` | 1300 |
+| `DOCUMENTS_PLAN.md` | 1600 |
+| `GRAPH_PLAN.md` | 800 |
+| `MINDMAP_PLAN.md` | 2000 |
+| `TIMELINE_PLAN.md` | 500 |
+| `UI_MODERNISATION_PLAN.md` | 1600 |
+| `WHITEBOARD_PLAN.md` | 1200 |
+| `WORLD_CLASS_PLAN.md` | 3500 |
+| `AGENT_SKILLS_REFORM.md` | 600 |
+| `ROADMAP.md` | 600 |
+| `BACKLOG.md` | 4500 |
+| `ANALYSIS.md` | 4500 |
+| `SESSION_BRIEFS.md` | 2100 |

@@ -63,7 +63,7 @@ def js_files() -> list[Path]:
 
 def classic_scripts() -> list[str]:
     """The 27 classic scripts: /js/app.js through /js/agent-activity.js in index.html order."""
-    names = re.findall(r'<script src="/js/([\w.-]+\.js)', read(INDEX))
+    names = re.findall(r'<script src="/js/([\w.-]+\.js)', read(INDEX), re.IGNORECASE)
     start = names.index("app.js")
     end = names.index("agent-activity.js")
     return names[start : end + 1]
@@ -375,7 +375,7 @@ def section1(full: bool) -> str:
         out.append(f"### {title}")
         out.append(table(["function", "file:line", "lines", "cx"], [(r[1], f"{r[0]}:{r[2]}", r[3], r[4]) for r in rows]))
         out.append("")
-    allover = sorted((r for l in allfns.values() for r in l if r[3] > 80), key=lambda r: -r[3])
+    allover = sorted((r for group in allfns.values() for r in group if r[3] > 80), key=lambda r: -r[3])
     out.append("### 1.5 Functions over 80 lines")
     out.append(f"{len(allover)} in total ({sum(1 for r in allover if r[0].endswith('.py'))} Python, {sum(1 for r in allover if r[0].endswith('.js'))} JavaScript). Top 20 by length:\n")
     out.append(table(["function", "file:line", "lines", "cx"], [(r[1], f"{r[0]}:{r[2]}", r[3], r[4]) for r in allover[:20]]))
@@ -629,7 +629,7 @@ def section4(full: bool) -> str:
                 down_any[(n, min(files, key=lambda f: pos[f]))].add(nm)
             if nm in idents0[n]:
                 down_load[(n, min(files, key=lambda f: pos[f]))].add(nm)
-    out.append(f"### 4.2 Downward references (a script naming a global defined only in a later script)\n")
+    out.append("### 4.2 Downward references (a script naming a global defined only in a later script)\n")
     out.append(
         f"Anywhere in the file (including inside functions, which run later and are legal): {sum(len(v) for v in down_any.values())} names over {len(down_any)} script pairs. "
         f"At brace depth 0 (runs at load; IIFE and object-literal bodies are depth 1 and are not seen): {sum(len(v) for v in down_load.values())} names over {len(down_load)} pairs.\n"
@@ -681,7 +681,7 @@ def section5(full: bool) -> str:
         out.append("")
     # 5.3 routes with no test naming the path
     tests_text = "\n".join(read(p) for p in sorted(TESTS.rglob("*.py")))
-    route_re = re.compile(r"""@(\w+)\.(get|post|put|delete|patch)\(\s*(?:\n\s*)?["']([^"']*)["']""")
+    route_re = re.compile(r"""@(\w+)\.(get|post|put|delete|patch)\(\s*["']([^"']*)["']""")
     prefix_re = re.compile(r"""(\w+)\s*=\s*APIRouter\(([^)]*)\)""")
     prefix_in = re.compile(r"""prefix\s*=\s*["']([^"']*)["']""")
     routes = []

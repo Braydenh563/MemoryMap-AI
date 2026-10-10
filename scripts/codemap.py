@@ -30,7 +30,7 @@ HTTP_METHODS = frozenset(
     {"get", "post", "put", "patch", "delete", "options", "head", "api_route", "websocket"}
 )
 ROUTER_NAMES = frozenset({"router", "app"})
-SCRIPT_SRC = re.compile(r'<script src="/js/([^"?]+)')
+SCRIPT_SRC = re.compile(r'<script src="/js/([^"?]+)', re.IGNORECASE)
 ID_ATTRIBUTE = re.compile(r'(?<![\w-])id="([^"]*)"')
 FUNCTION_DECLARATION = re.compile(r"^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(")
 ARROW_CONSTANT = re.compile(r"^const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?\(")

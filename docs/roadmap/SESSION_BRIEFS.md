@@ -1755,6 +1755,28 @@ DOCUMENTS_PLAN with decisions, built only after the rest). Files:
 completion switch measured on a .js document; highlights persisted and
 re-rendered.
 
+The owner, 2026-10-10, on the code editor: "it leaves a lot to be desired
+and just sucks compared to vs code and other IDEs. make sure to make full
+use of the vendored repositories and libraries, are there any others that
+should be vendored??" Brief 42 therefore starts from ANALYSIS.md's
+"documents (code) against VS Code" parity table and DOCUMENTS 21, and
+evaluates these against ROADMAP policy 1 (plain JS or WASM, offline, small,
+lazy-loaded, licence beside it), each with a measured size and a keep or
+drop before any is vendored: the CodeMirror 6 packages not yet in
+`frontend/vendor/codemirror` (lint, merge for a diff view, more `lang-*`
+modes and lezer grammars, indentation markers, the search panel's
+replace), `ruff-wasm` (Python lint and format), `eslint-linter-browserify`
+(JS and TS lint), `js-beautify` or `prettier` standalone (formatting, the
+smaller first), `KaTeX` (maths in prose and code comments), `mermaid`
+(already decided in BACKLOG), Pyodide only as an optional package through
+the packages system (too large to ship), and a tree-sitter WASM grammar
+only if the outline and symbol navigation cannot be had from lezer. The
+editor's bar is VS Code's everyday feel: bracket pairs and guides, active
+line and gutter, multi-cursor, find and replace with regex, go to line and
+symbol, folding, minimap off by default, format on demand, diagnostics
+pinned to their line, completion that knows the language, a command
+palette inside the editor, and a diff view against the last saved version.
+
 ### Brief 34 continues (Opus, high): Atlas and the companion
 INBOX 742 and 743 and the owner's list ("atlas's arm movements on both
 versions need a lot better animating as they are basically permanently in a

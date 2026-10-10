@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the caption82 agent (Brief 82, merged 2026-10-10)
+
+- The packaged helper: a Download pin per platform (URL, sha256, size) for whisper-server and a model in `core/extras.py` (`id="captions"`; the release asset list was unreadable from the sandbox), then a supervisor that starts it on 127.0.0.1 and sets the URL (`ai/captions.helper_url` reads only the environment today). Linux and macOS have no official binary confirmed. Until then Settings, Packages marks Live captions unavailable and only `MEMORYMAP_CAPTIONS_URL` works.
+- Real latency: `scratchpad/captions_audio.py` through a real whisper-server on the reference laptop (`pytest -m captions tests/test_captions_live.py`), then tune `STEP_MS`, `LENGTH_MS` and the `audio_ctx` margin (`ai/captions.py`). Measured here against the fake: median 1.03 to 1.12 s from word start at a 0.5 s stand-in, worst word 1.2 s quiet and 2.2 s under load; whisper.cpp tiny.en 0.51 s and base.en 1.85 s per 5 s window with the cut context on one thread (4 threads ran 25 times slower in this container).
+- Accuracy under a cut `audio_ctx` was read on one sentence only.
+- Stop saves a note until Brief 80's recording object lands; then `routes_captions._save` attaches the audio and makes the transcript its text; the Audio section (28.5 row 3) takes a status-bar tool for captions.
+- `ScriptProcessorNode` is deprecated; an AudioWorklet needs a blob: worker the CSP does not allow (`captions.js` `startLiveCaptions`).
+- Not verified: any real whisper-server or microphone, Firefox and Safari capture, Chromium's fake-mic start offset.
+
 ## Left by the agent87 agent (Brief 87, merged 2026-10-10)
 
 - Not verified against a real model: whether it plans act-shaped steps `plan_writes` can preview and uses the narrowed tools a planned step is offered (`skill_runner._plan_step_offer`); rows 3 and 4 ran against the scripted fake only.

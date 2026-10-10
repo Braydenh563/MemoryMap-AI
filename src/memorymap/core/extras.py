@@ -658,6 +658,31 @@ EXTRAS: tuple[Extra, ...] = (
         "owning model load/unload, for a capability llama-server already "
         "gives you today.",
     ),
+    #: **Live captions (WORLD_CLASS_PLAN 28.5 row 9, Brief 82).** whisper.cpp's
+    #: `whisper-server` (MIT), a separate executable, never a Python import.
+    #: The captions code in `ai/captions.py` already speaks to it through
+    #: `MEMORYMAP_CAPTIONS_URL`; what is missing is the pinned download. A
+    #: `Download` needs a URL, a sha256 and a byte size read from a release
+    #: asset, and the release page was not readable when this was written
+    #: (caption82-1010.md), so a guessed pin would be a fabricated checksum.
+    #: Listed so Settings, Packages names the feature and says what is left.
+    #: Not `kind="download"` until then: a download row is a pinned version
+    #: and files (test_extras_download.py), and this one has neither.
+    Extra(
+        id="captions",
+        label="Live captions (whisper.cpp)",
+        short_label="Live captions",
+        enables="Live captions over any screen: what the microphone hears, "
+        "written as you speak and saved as a note, on this computer.",
+        packages=("whisper.cpp server",),
+        module="",
+        size="~35 MB for the helper and the tiny.en model",
+        licence="MIT",
+        unavailable="The helper isn't packaged for one-click install yet. To "
+        "try captions now, run whisper.cpp's whisper-server on this computer "
+        "and start MemoryMap with MEMORYMAP_CAPTIONS_URL set to its address "
+        "(for example http://127.0.0.1:8080).",
+    ),
 )
 
 
@@ -729,6 +754,12 @@ BUNDLES: tuple[Bundle, ...] = (
         label="Voice",
         about="Dictate notes and questions, transcribed on this computer.",
         extras=("voice",),
+    ),
+    Bundle(
+        id="captions",
+        label="Live captions",
+        about="Captions over any screen as you speak, written on this computer.",
+        extras=("captions",),
     ),
     Bundle(
         id="desktop",

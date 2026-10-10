@@ -48,7 +48,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, budget as run_budget, plan_writes, skills, tools  # noqa: F401  (plan_writes sets the agent's plan reader)
+from memorymap.ai import agent, budget as run_budget, plan_writes, skills, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 
@@ -697,7 +697,7 @@ def _announce_early(run: _RunState, index: int, step: str, announced: bool) -> I
 
 def _plan_step_tools(session: Session, skill: dict, steps: list[str]) -> list[list[str]]:
     """The tools each planned act step is offered (`_plan_step_offer`)."""
-    return agent._plan_writes(session, steps, tools_too=True) if skill.get("kind") == "plan" else []
+    return plan_writes.plan_tools(session, steps, agent.plan_now()) if skill.get("kind") == "plan" else []
 
 
 def _plan_step_offer(setup: _RunSetup, index: int, offered: list[str] | None) -> list[str] | None:

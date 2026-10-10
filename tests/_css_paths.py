@@ -68,6 +68,8 @@ CSS_FILES = [
     CSS_DIR / "atlas-lazy.css",
     #: The Statistics page and This week (statistics.js, Brief 89).
     CSS_DIR / "utilities-lazy.css",
+    #: The live captions dock (captions.js, Brief 82).
+    CSS_DIR / "captions-lazy.css",
 ]
 
 

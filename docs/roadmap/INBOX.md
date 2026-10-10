@@ -161,6 +161,13 @@ with its owner named in the entry.
      debounce the owner asked for ("atlas startles a lot"). Recommendation,
      taken: both hold; the bar is measured from the end of the debounce to
      the first changed frame. Owner: Brief 34 continues (companion2).
+774. **Usage and agent mix, the owner 2026-10-11 (morning).** "in a single
+     day I have used 50% of my weekly usage", "no keep going, I just stopped
+     unig fable becasue it is expensive. do just as good of a job as it",
+     "actually you can use 2-3 opus agents, just make sure to use sonnet and
+     haiku when they can do just as good a job as well". Taken: orchestrator
+     on Opus; at most three Opus agents; Sonnet and Haiku for every brief
+     they can do to the same standard. Placed in HANDOVER's owner notes.
 
 ## Placed (last 20, newest first)
 

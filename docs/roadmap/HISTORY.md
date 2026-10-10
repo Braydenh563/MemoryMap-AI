@@ -405,6 +405,67 @@ The ocr79 agent's Built block (standing order 10); WORLD_CLASS_PLAN 28.4 rows 2 
 - Row 5 (rules 12, 4, 13): with no engine and no model the engine line offers Install RapidOCR (60 MB, nothing else to install) then Install Tesseract (10 MB plus a system program), sizes from `core/extras.py` through `engine_status` (`rapidocr_size`, `tesseract_size`); `ocrEngineStartInstall(extra)` installs either. `ocrSyncCanRead` makes Read, the region's Read and Describe `aria-disabled` with the reason in their title; a press toasts it and opens the reader menu. AI controls disabled with a reason 0 of 1 to 1 of 1.
 - Row 7 (rules 6, 12): `extract_regions` keeps each word's box (`words`, Tesseract's own; RapidOCR's lines cut by characters, `_line_words`); `ocrPaintLiveText` lays them over the picture as transparent type sized in `cqh` and stretched once to its box; a copy whose selection starts there gives the words in reading order (`ocrLiveTextSelection`). `ocr79.js` live: a drag from the first word to the last copies the three lines exactly, at 1440 and 390 (the regions answer stubbed: no engine here).
 - Row 9 (rule 13): traced at 390, the open's first frame was 367 ms, two `ocrFitDock` runs of 287 and 194 ms, each step a 30 to 90 ms style recalculation. Now the fit is a halving search remembered per width, words and shown controls (`ocrDockApply`, `ocrScheduleFitDock`, one per frame): first frame 110 ms. Open at 390, three runs: 398, 246, 683 ms to 353, 127, 387 ms; 1440 354, 237, 78 to 204, 114, 100.
+## Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)
+
+**Built** by Brief 82 against a fake helper (`scratchpad/fake_captions_server.py`,
+port 8841; app on 8839), 1440 and 390, light and dark
+(`scratchpad/ui-sweeps/captions82.js`). **Not built: the one-click helper
+download and any run against a real whisper-server** (caption82-1010.md).
+
+- **Research (no vendoring).** whisper.cpp is MIT ("The ggml authors").
+  `whisper-stream` reads the microphone through SDL2 on the native side and
+  rewrites an ANSI line, so it is not the helper; `whisper-server` (HTTP,
+  `POST /inference`, WAV in, `audio_ctx` as a form field) is. Models,
+  exact bytes: tiny.en 77,704,715, base.en 147,964,211, small.en 487,614,201
+  (q5_1: 32,166,155 / 59,721,011 / 190,098,681). The repo's one published
+  speed is small.en, 4 threads, encode 1062 ms per 30 s window (its bench
+  README); the per-device table is in whisper.cpp issue 89, which this
+  sandbox cannot read (403). Measured here through the `pywhispercpp` wheel in
+  a scratch venv (this box: one core of throughput, 1 thread; at 4 threads
+  tiny.en took 58 s for what 1 thread did in 2.3): a 5 s window on tiny.en
+  2.25 s, base.en 6.15 s, small.en 20.5 s; with `audio_ctx` cut to the window
+  (stream's `-ac`) tiny.en 0.51 s at 384 and base.en 1.85 s.
+- **The contract.** `MEMORYMAP_CAPTIONS_URL` (+ `MEMORYMAP_CAPTIONS_MODEL`) is
+  the only seam; a helper that is not on this machine is refused (audio never
+  leaves it); `GET /voice/status` carries `captions: {available, model,
+  hint}`; `tests/test_captions.py` runs against the fake, `tests/
+  test_captions_live.py` (marker `captions`) skips without the URL and holds
+  that no test or gate step starts a helper.
+- **The route and the window.** `POST /voice/captions/start`,
+  `/{id}/audio` (raw 16 kHz PCM16, 64 KiB at most, one request in flight
+  per helper call), `/{id}/stop` (saves a note tagged captions; nothing said,
+  nothing saved). Stream's fixed-step idea in `ai/captions.py`: every 700 ms
+  of new audio the last 6 s go to the helper with `audio_ctx` = window/20 + 64;
+  a pause of 800 ms or a full window commits the line; a chunk that arrives
+  while a call is out is answered at once (`busy`). A failing helper shows an
+  error line, five in a row end the run and keep the text. One run at a time,
+  listed in Activity with Stop; an abandoned run (60 s) is saved by the next
+  start.
+- **The dock.** `captions.js` + `captions-lazy.css` (lazy), `#captions-dock`
+  (`.dock`, `data-dock-name="captions"`): title and a quiet model and clock
+  chip, the running line over three finished ones (`aria-live`), Copy, the '?',
+  Stop last and filled. Palette row "Live captions" (starts, or stops and
+  saves). Page-side decimation to 16 kHz so Firefox's rate rule never
+  applies. Settings, Packages lists "Live captions (whisper.cpp)" as not
+  packaged yet with the way to try it; the Guide has a topic.
+- **Measured against the fake** (8 words, tone bursts, Chromium's fake
+  microphone; the stand-in delay is the helper's time): at 0 ms speech to
+  caption median 507 to 528 ms from the word's start (107 to 128 ms after
+  its end, worst 328); at 500 ms (tiny.en, cut context) median 1.03 to 1.12 s
+  from the start, worst word 1.2 s on a quiet box and 2.2 s (1.8 s after its
+  end) in a run taken while the gate ran, so load decides the tail; at 1900 ms (tiny.en,
+  full context) median 4.0 s: the cut context is not optional. The dock's own
+  share, reply received to text painted, median 9 to 13 ms, worst 21. Layout:
+  3 controls, Stop last and filled, no page overflow, clear of the status bar
+  at 1440 and 11 px above the tab bar at 390 (Stop 44 px tall); the running
+  line's contrast on the dock is 17.1 light and 14.0 dark, the finished
+  lines' 5.9 and 8.0.
+- **Not verified:** real inference latency on the reference laptop, a real
+  whisper-server or any real microphone, accuracy under a cut context beyond
+  one 5 s sentence, the add-on download (Windows release zips are named by
+  whisper.cpp's releases, which this sandbox cannot read, so no URL or sha256
+  was written), Firefox and Safari capture.
+
 ## Moved from the plans, 2026-10-10 (UI_MODERNISATION statistics and utilities, Brief 89)
 
 **Built** by Brief 89 (statistics rows 1, 2 and 5; utilities rows 2 to 5),

@@ -86,6 +86,7 @@ from memorymap.api import (
     routes_search,
     routes_tags,
     routes_update,
+    routes_captions,
     routes_voice,
     routes_webclip,
     routes_websearch,
@@ -1294,6 +1295,7 @@ def _include_routers(app: FastAPI, locked: list) -> None:
     app.include_router(routes_reminders.router, dependencies=locked)
     app.include_router(routes_bookmarks.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)
+    app.include_router(routes_captions.router, dependencies=locked)
     app.include_router(routes_tasks.router, dependencies=locked)
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)

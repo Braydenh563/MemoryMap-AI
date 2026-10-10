@@ -1,0 +1,78 @@
+/* captions-lazy.css: the live captions dock (captions.js, Brief 82), loaded
+   with that bundle (`LAZY_MODULES.captions`), not at boot: the boot CSS
+   budget is full (tests/test_boot_budget.py). The element is always in the
+   page, hidden, so nothing here is needed until the first caption starts.
+
+   It is the dock recipe (zones, one filled Stop, the '?' before it) floated
+   over whatever surface is open: the floating-control ground (opaque, so a
+   caption never sits on the text behind it), the glass edge and shadow, the
+   panel radius. A new floating surface joins the opaque shell list in
+   07-whiteboard-misc.css; this one declares only its place. */
+
+.captions-dock {
+  position: fixed;
+  left: var(--page-gutter);
+  right: var(--page-gutter);
+  bottom: calc(var(--status-bar-h) + var(--space-4));
+  /* Above the docks and the floating primary button (44), below sheets and
+     dialogs, which have to stay usable while captions run. */
+  z-index: 45;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--space-4) var(--panel-pad);
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+}
+
+.captions-dock .dock-identity {
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.captions-lines {
+  flex: 1 1 22rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* Three past lines and the running one, then the oldest scrolls away. */
+  max-height: calc(3 * 1.5 * var(--text-sm) + 1.5 * var(--text-lg) + 3 * var(--space-1));
+  overflow: hidden;
+  justify-content: flex-end;
+}
+
+.captions-lines p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.captions-past {
+  white-space: pre-line;
+  font-size: var(--text-sm);
+}
+
+.captions-running {
+  min-height: 1.4em;
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
+.captions-dock.is-error .captions-running {
+  color: var(--warn);
+}
+
+@media (max-width: 599.98px) {
+  .captions-dock {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-4) + env(safe-area-inset-bottom, 0px));
+    gap: var(--space-3);
+  }
+  .captions-lines {
+    flex-basis: 100%;
+    max-height: calc(1.5 * var(--text-sm) + 1.5 * var(--text-lg) + var(--space-1));
+  }
+  .captions-dock .dock-actions {
+    margin-left: auto;
+  }
+}

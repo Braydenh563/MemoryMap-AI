@@ -1866,6 +1866,8 @@ const LAZY_MODULES = {
   //: The Statistics page and This week (statistics.js's header).
   statistics: ["/css/utilities-lazy.css", "/js/ask-chart.js", "/js/statistics.js"],
   utilities: ["/js/utility-tools.js"],
+  //: Live captions (captions.js's header; Brief 82).
+  captions: ["/css/captions-lazy.css", "/js/captions.js"],
   //: The search box, Find anything, and its saved searches (search.js's header).
   search: ["/css/search-lazy.css", "/js/search.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
@@ -2142,6 +2144,8 @@ document.addEventListener("keydown", (event) => {
 //:    caption came back. Skipping is the right answer when the Library has
 //:    never been opened; opening it loads and renders it anyway.
 const LAZY_ENTRY_POINTS = {
+  //: The palette's Live captions row (captions.js; Brief 82): nobody reads its return.
+  captions: ["toggleLiveCaptions"],
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory", "undoSkillRun"],

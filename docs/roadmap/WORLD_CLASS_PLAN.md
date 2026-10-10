@@ -4164,7 +4164,7 @@ Translate (offline language packs).
 | 6 | expansion | The recordings library: play, speed 0.5 to 2x, the saved waveform, trim, markers while recording (ANALYSIS, soundcraft) | one sweep per act | 6 |
 | 7 | expansion | A timestamped transcript: a line seeks the audio, SRT and VTT out | a click seeks within 0.5 s | 6 |
 | 8 | fix | Transcription is a job with progress and Stop (decision 70) | a 60-minute file lists, reports, stops | 5 |
-| 9 | expansion | Live captions (decision 5): whisper.cpp streaming in the optional helper (decision 4's shape), in a `.dock` over any surface, saved as a transcript | speech to caption under 2 s on the reference laptop | 12, 5 |
+| 9 | expansion | Live captions: built against a fake helper; open: the packaged helper download and a run on the reference laptop | Built by Brief 82; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (WORLD_CLASS 28.5 row 9, live captions, Brief 82)"); the open rows are in archive/agent-remaining/caption82-1010.md | |
 | 10 | expansion | An offline translator with no model: Bergamot (WASM, MPL-2.0) evaluated first for licence, size and quality, packs as optional packages; for documents, notes, readings and captions | a paragraph in under 1 s; sizes recorded | 12 |
 | 11 | expansion | Speaker labels behind the model gate (ANALYSIS keeps it) | 2 speakers labelled on a sample | 12 |
 

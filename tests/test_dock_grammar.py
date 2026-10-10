@@ -63,6 +63,8 @@ ZONES = ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]
 #: surface lands; the test below fails if the markup and this list disagree,
 #: so the ratchet cannot silently loosen.
 ON_THE_GRAMMAR = {
+    # The live captions dock, floated over any surface (captions.js, Brief 82).
+    "captions",
     "chat",
     "graph",
     "library",

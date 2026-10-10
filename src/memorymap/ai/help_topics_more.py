@@ -729,6 +729,24 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
     {
+        "id": "live-captions",
+        "keywords": (
+            "live captions", "captions", "subtitles", "live transcription", "transcribe live",
+            "write what i say", "speech to text live", "stop the captions",
+        ),
+        "body": (
+            "Type captions in the command palette (Ctrl+K) for Live captions: a "
+            "bar appears over whatever you are looking at and writes what the "
+            "microphone hears, on this computer, never over the internet. The "
+            "bottom line is still being written; the three above it are done. "
+            "Copy takes everything said so far, and Stop (or the palette row "
+            "again) saves it as a note tagged captions. Captions need a local "
+            "speech helper; its row in Settings, Packages says what is "
+            "missing, and without one the row says so and nothing is recorded."
+        ),
+        "badge": {"label": "Notes", "tab": "notes"},
+    },
+    {
         "id": "count-words",
         "keywords": (
             "word count", "count words", "character count", "how many words", "reading time",
@@ -1631,6 +1649,7 @@ TOPIC_META: dict[str, dict] = {
     "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
     "statistics": {"title": "Statistics", "path": "Dashboard, Activity heatmap, Statistics"},
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
+    "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
     "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},
     "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
@@ -1772,7 +1791,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Writing notes", (
         "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
-        "write-with-atlas", "translate", "extract-notes", "voice", "meetings",
+        "write-with-atlas", "translate", "extract-notes", "voice", "live-captions", "meetings",
     )),
     ("Filing, tags and categories", (
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",

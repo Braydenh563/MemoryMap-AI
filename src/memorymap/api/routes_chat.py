@@ -52,7 +52,6 @@ from memorymap.ai import (
     validate,
     vision_ocr,
 )
-from memorymap.ai import plan_writes  # noqa: F401  (sets the agent's plan reader, act_registry.py)
 from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.grounding import (
     SentenceGrounder,

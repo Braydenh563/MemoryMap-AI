@@ -20,15 +20,18 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 // touch API without the media query, so the two are asked for together
 // everywhere in this directory.
 const CTX_OPTS = ['hasTouch', 'isMobile', 'deviceScaleFactor', 'locale',
-  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent'];
+  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent', 'permissions'];
 async function boot(opts={}) {
   //: SCROLLBARS=1 draws real scrollbars, as Windows does (17px, taking
   //: layout width). Headless Chromium hides them by default, which is the
   //: one difference between a sweep and the owner's desktop window that no
   //: viewport or scale setting reproduces (INBOX 397).
-  const browser = await chromium.launch(
-    process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}
-  );
+  //: `opts.args` are extra Chromium flags (the captions sweep's fake
+  //: microphone: --use-fake-device-for-media-stream and a WAV to play).
+  const browser = await chromium.launch({
+    ...(process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}),
+    ...(opts.args ? { args: opts.args } : {}),
+  });
   const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor: opts.scale || 1};
   for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
   const ctx = await browser.newContext(ctxOpts);

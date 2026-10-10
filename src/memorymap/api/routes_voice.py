@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian, voice
+from memorymap.ai import captions, librarian, voice
 from memorymap.core import activity, deps
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
@@ -34,6 +34,9 @@ def status() -> dict:
         "available": available,
         "model": deps.get_config().get_preference("voice_model", "base"),
         "hint": None if available else voice.INSTALL_HINT,
+        #: Live captions are a separate optional helper (decision 5), so they
+        #: have their own availability, model and hint.
+        "captions": captions.status(),
     }
 
 

@@ -16,6 +16,7 @@ import logging
 import re
 from urllib.parse import urlsplit
 from collections.abc import Iterator
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
@@ -2325,12 +2326,17 @@ def _finish_handover(
 def _plan_writes(session: Session, steps: list[str], tools_too: bool = False) -> list[list[str]]:
     """Each step's writes (`ai/plan_writes.py`), or with `tools_too` the
     tools those writes need."""
+    plans = _plans()
+    return (plans.plan_tools if tools_too else plans.plan_writes)(session, steps, plan_now())
+
+
+def plan_now() -> datetime:
+    """The naive local time a plan's steps are read against (dates in a step
+    such as "on Friday" resolve on the reader's clock)."""
     from memorymap.core import deps
     from memorymap.core.config import user_now
 
-    plans = _plans()
-    now = user_now(deps.get_config()).replace(tzinfo=None)
-    return (plans.plan_tools if tools_too else plans.plan_writes)(session, steps, now)
+    return user_now(deps.get_config()).replace(tzinfo=None)
 
 
 def _plans():  # noqa: ANN202

@@ -259,6 +259,8 @@ with its owner named in the entry.
 
 ## Placed (last 20, newest first)
 
+- 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.
+
 - 2026-10-10: 766 placed as CHAT_PLAN decision 62, amending 61.
 
 - 2026-10-10: 765 placed in HANDOVER, ROADMAP Direction, CHAT_PLAN decision 61 and DOCUMENTS_PLAN (docx).

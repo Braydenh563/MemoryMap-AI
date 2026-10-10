@@ -1322,6 +1322,7 @@ inside a 4,000px section.
 - **INBOX 760, card dates.** The time floats mid-card on a card the grid stretched taller than its content (about 110px under it on the tallest card, 40px on short ones); "1 week ago· edited" has lost its space. Pin the details line to the card's bottom edge, measured on a row of unequal cards; the space restored. Carddate agent.
 - **INBOX 761, mind maps listed as notes.** The Ask results show a mind map as an Uncategorised note card; check every reader of notes (Ask, Notes, search, graph, timeline, dashboard counts, Find anything, palette) and exclude what a board keeps behind its topics, with a test per reader. Mapnotes agent.
 - **INBOX 762, "just now" on an untouched mind map.** The Library card's modified time moved without the owner; find what writes `updated_at` on a board when it is only opened, listed, indexed, searched or thumbnailed, stop it, and pin it with a test. Mapnotes agent.
+- **INBOX 767, the no-model notice.** One row at 1440 (icon, one short sentence, the action as a link-styled button, the X at the end), wraps to two only under 600px; the five surfaces share it (`renderAiOfflineNotice`). Measured: notice height equals one line height plus padding at 1440; copy under 90 characters. Notice agent.
 
 Entries are the owner's words, then the recommendation. Bugs come first, then design requests.
 

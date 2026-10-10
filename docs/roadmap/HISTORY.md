@@ -46317,6 +46317,14 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      62 (every provider and size is a first-class target; the owner's setup
      is one row of the matrix, not the bar), amending 61 in place.
 
+767. **The owner, 2026-10-10, verbatim**, with a screenshot of the Chat tab's
+     no-model notice (a bordered box: one long sentence on the first row,
+     "Connect a model in Settings" button and an X on a second row): "also I
+     wanna redesign this message as it is ugly and on multiple rows". The
+     same `renderAiOfflineNotice` (status.js) draws Ask's, the palette's, the
+     draft desk's and every `data-offline-line` notice. Placed: the notice
+     agent (Sonnet), fixed in this PR for all five.
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

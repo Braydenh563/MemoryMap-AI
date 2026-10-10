@@ -1298,6 +1298,9 @@ async function tourWaitForTarget(step) {
   let last = "";
   for (;;) {
     const found = tourResolve(step);
+    // Before the visibility test: a hover-only control is not visible until
+    // its card is revealed, and would otherwise time out and be dropped.
+    tourReveal(found.el);
     if (tourVisible(found.el)) {
       const box = found.el.getBoundingClientRect();
       const key = [box.left, box.top, box.width, box.height].map(Math.round).join(",");
@@ -1615,33 +1618,17 @@ function tourVerifyCard(tries = 0) {
   );
 }
 
-//: **A control that only shows on hover is shown while its step is up**
-//: (INBOX 745 (d), the owner of the Library's "A card's menu" step: "the
-//: hover menu button doesn show on the tour"). The card's ⋯ sits in a wrapper
-//: faded to opacity 0 until the card is hovered; `opacity` is not inherited,
-//: so the button itself reads 1, passed `tourVisible`, and the ring framed an
-//: empty square. The faded ancestors (up to the card, a few levels) are made
-//: opaque inline for the step and put back on the next step or at the end.
-const tourRevealed = [];
-
-function tourRevealHoverOnly(el) {
-  tourUnreveal();
-  let node = el;
-  for (let depth = 0; node && node !== document.body && depth < 6; depth += 1) {
-    if (Number(getComputedStyle(node).opacity || "1") < 0.05) {
-      tourRevealed.push([node, node.style.opacity]);
-      node.style.opacity = "1";
-    }
-    node = node.parentElement;
-  }
-}
-
-function tourUnreveal() {
-  for (const [node, was] of tourRevealed.splice(0)) node.style.opacity = was;
+//: A card's actions show on hover only, so a step pointing at one framed an
+//: empty square (INBOX 745 d). The card holding the target takes `tour-reveal`,
+//: which the hover rules also match, for as long as the step shows.
+function tourReveal(el) {
+  for (const card of document.querySelectorAll(".tour-reveal")) card.classList.remove("tour-reveal");
+  el?.closest?.(".library-card")?.classList.add("tour-reveal");
 }
 
 async function tourShow() {
   const run = tourRun;
+  tourReveal(null);
   //: **One walk at a time.** Next pressed twice while a tab is loading used to
   //: start a second walk over the same run while the first was still
   //: awaiting, and the two then spliced and rendered over each other. Each
@@ -1666,7 +1653,6 @@ async function tourShow() {
     if (stale()) return;
     const { el, alt } = await tourWaitForTarget(step);
     if (stale()) return;
-    tourRevealHoverOnly(el);
     //: Brought into view first, then judged: a control below the fold of a
     //: scrolling panel is a step worth showing once the panel has been
     //: scrolled to it, and only a control that is still not in the window
@@ -1813,8 +1799,8 @@ function tourClose(finished) {
   if (!tourRun) return;
   const run = tourRun;
   tourRun = null;
+  tourReveal(null);
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.add("hidden");
-  tourUnreveal();
   //: The first-run queue's cue that the screen is the next surface's.
   document.dispatchEvent(new Event("tour-closed"));
   // Finished or skipped, the answer is the same: this person has been offered

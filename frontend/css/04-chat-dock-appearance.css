@@ -1290,6 +1290,9 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 .chat-skill-pace {
   flex: 0 0 auto;
   margin: 0;
+  /* Off the strip on a phone, so the strip's track rules miss it (INBOX 694). */
+  padding: 1px;
+  gap: 0;
 }
 
 .chat-skill-pace button {

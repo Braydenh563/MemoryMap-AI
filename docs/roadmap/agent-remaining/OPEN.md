@@ -1075,7 +1075,6 @@ Thirty-nine finished agent files moved to [`../archive/agent-remaining/`](../arc
 - `suggestions-inbox.js` (a partial link run) and `whiteboard.js` (a clear that left items) are red by a computed flag; they are partial failures. (from toasts-1006.md)
 - `ai-tools.js` says "Open Settings, Models" in words, and none is a link. A button on the toast is the next step and is a new control. (from toasts-1006.md)
 - Not verified: the other 100 `toast(..., true)` call sites were not each triggered. A lint covers them; their situations (a formatter refusing a file, Atlas off in Suggestions) were not driven. (from toasts-1006.md)
-- Frontend comments still cite five agent files by their old path (`dashboard.js` 429, `phone-shell.js` 38, `whiteboard-map.js` 1284 and 5759, `index.html` 13676). They are comments, but served JS and HTML count toward the gzip caps, so repoint them together with a budget check. (from the 2026-10-10 path check)
 
 ## Left by the agents merged 2026-10-10 (deepen-b 72b, mapnotes, vendor 75, briefs, coverage)
 
@@ -1098,7 +1097,6 @@ The five files are in [`../archive/agent-remaining/`](../archive/agent-remaining
 - The Timeline labels a map under the "Boards" kind chip (`frontend/js/timeline.js:266`); it draws it with a map chip and an "Open this map" action, so it is not a note leak. (from mapnotes-1010.md)
 - Notes keep the old `updated_at` rule (any write moves it): `edited_at` answers "when a person changed it", but `lexical_filing` (`src/memorymap/ai/lexical_filing.py:554`) keys stamps on `updated_at`, so the board-only guard in `core/database.py` was not widened. (from mapnotes-1010.md)
 - Each VC row is unbuilt; the script and test are the only code (Brief 75 says no code beyond them). (from vendor-1010.md)
-- `docs/THIRD_PARTY.md` has no row for the draw.io stencils (`frontend/board-library/drawio/`, Apache-2.0, notice beside the data) or `icons.json` (Phosphor, MIT): `tests/test_vendor_manifest.py` covers only the two vendor directories. Left for the draw.io agent, who owns that notice. (from vendor-1010.md)
 - The p5 API list in `scratchpad/vendor_use.py` is a Chromium dump pinned to 1.9.4; regenerate it with a p5 upgrade. (from vendor-1010.md)
 - Brief 2 (consistency lints): HISTORY mentions it only as an owner reference; no record of the lint set being built as the brief. (from briefs-1010.md)
 - Brief 3 (prefs, api.stream/upload, innerHTML): HISTORY line 43146 area still lists `api.stream`/`api.upload` and the no-bare-fetch lint as not built. (from briefs-1010.md)
@@ -1116,7 +1114,6 @@ The five files are in [`../archive/agent-remaining/`](../archive/agent-remaining
 - Briefs 25 to 31 (group): each plan phase list is still open; "nothing is built" for 25. (from briefs-1010.md)
 - Brief 32 (templates and base layouts): deferred by the owner; BACKLOG 4b carries the standing row. (from briefs-1010.md)
 - Brief 33 (rest of WORLD_CLASS_PLAN): HANDOVER.md:450 names it as the next brief. (from briefs-1010.md)
-- 694: re-measure the Settings Pace pill (Library, AI skills) at 390. (from coverage-1010.md)
 - 745 (d): the hover-only tour step reveal is built nowhere (tour.js has no hover handling). (from coverage-1010.md)
 
 ## Left by the a11yfix and filing agents (merged 2026-10-10)

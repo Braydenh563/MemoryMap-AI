@@ -55,6 +55,16 @@ def test_every_browser_bundle_under_vendor_is_credited() -> None:
         assert _credited(name), f"frontend/vendor/{name} has no row in docs/THIRD_PARTY.md"
 
 
+def test_the_board_library_data_is_credited_with_its_notices() -> None:
+    """The draw.io stencils and the Phosphor path set ship outside vendor/."""
+    board = ROOT / "frontend" / "board-library"
+    assert _credited("drawio/"), "frontend/board-library/drawio/ has no row in docs/THIRD_PARTY.md"
+    assert _credited("icons.json"), "frontend/board-library/icons.json has no row in docs/THIRD_PARTY.md"
+    for notice in ("LICENSE", "NOTICE.txt"):
+        assert (board / "drawio" / notice).is_file(), f"drawio/{notice} is missing beside the stencil data"
+    assert (WEB_VENDOR / "phosphor" / "LICENSE").is_file()
+
+
 def test_every_credits_row_names_a_licence_and_a_source() -> None:
     for row in _rows()[1:]:
         cells = [cell.strip() for cell in row.strip("|").split("|")]

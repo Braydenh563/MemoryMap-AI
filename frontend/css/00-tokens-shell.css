@@ -2297,7 +2297,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-card:hover .library-card-menu,
 .library-card:focus-visible .library-card-menu,
-.library-card:focus-within .library-card-menu {
+.library-card:focus-within .library-card-menu,
+.library-card.tour-reveal .library-card-menu {
   opacity: 1;
 }
 

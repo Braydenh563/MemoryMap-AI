@@ -426,7 +426,7 @@ function fetchDashGraph() {
 //: `/reminders` three times over (WORLD_CLASS_PLAN A2). To the end of the
 //: list, not the first page: `/reminders` is `due_at` ascending, so a first
 //: page of old, ticked-off rows would hide everything upcoming
-//: (`agent-remaining/list-paging.md`).
+//: (`archive/agent-remaining/list-paging.md`).
 let dashRemindersInflight = null;
 let dashRemindersAt = 0;
 function dashReminders() {

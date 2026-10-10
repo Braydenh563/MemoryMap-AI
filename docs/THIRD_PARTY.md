@@ -26,6 +26,13 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 | docx | `docx/` | 9.9.0 (`dist/index.iife.js` minified) | MIT (`docx/LICENSE`) | https://github.com/dolanmiu/docx | writing a document as .docx (Download as Word), loaded on demand by `documents-word.js` |
 | English word list | `wordlist/` | built by `wordlist/build.sh` | the English Speller Database licence (`wordlist/LICENSE`) | https://wordlist.aspell.net | the documents editor's spelling check |
 
+## Board library (`frontend/board-library/`)
+
+| Library | Files | Version | Licence | Source | Used by |
+| --- | --- | --- | --- | --- | --- |
+| draw.io stencils | `drawio/` | converted by `scripts/build_board_library.py` | Apache-2.0 (`drawio/LICENSE`, `drawio/NOTICE.txt`) | https://github.com/jgraph/drawio | the whiteboard's shape library (basic, flowchart, arrows, BPMN, networks) |
+| Phosphor Icons | `icons.json` | glyphs converted to paths by `scripts/build_board_library.py` | MIT (`../vendor/phosphor/LICENSE`) | https://phosphoricons.com | the whiteboard's icon shapes |
+
 ## Data
 
 - `ai/data/taxonomy/` is the MemoryMap taxonomy pack, 5.0.0-consolidated

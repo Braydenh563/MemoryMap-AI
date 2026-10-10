@@ -35,7 +35,7 @@ const emblemObservers = new Map(); // element -> IntersectionObserver
 //: needs no polling and no per-panel wiring.
 //:
 //: Not a claim about the whiteboard's drag lag. That report is still
-//: unattributed (`agent-remaining/mindmap.md`); this is work the app was
+//: unattributed (`archive/agent-remaining/mindmap.md`); this is work the app was
 //: doing for nothing, found while profiling it.
 function watchEmblemVisibility(holder, canvas) {
   if (typeof IntersectionObserver === "undefined") return;

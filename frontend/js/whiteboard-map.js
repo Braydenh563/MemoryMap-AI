@@ -1281,7 +1281,7 @@ function wbSyncMapTemplates(passed = null) {
 }
 
 //: **The first-open hint, shown once for this browser** (MINDMAP_PLAN §12.5,
-//: "the empty map says how to start"; the audit in `agent-remaining/mindmap.md`
+//: "the empty map says how to start"; the audit in `archive/agent-remaining/mindmap.md`
 //: found six actions reachable only from a ring nobody meets by accident).
 //:
 //: The lifetime the decision asks for is "gone on the first topic added and
@@ -5756,7 +5756,7 @@ function wbSyncMapToolState() {
 //: full; link is a web address on the topic, drawn as a marker that opens it;
 //: **image is not built** (it needs the upload path a board image uses, and a
 //: node whose body is a picture rather than a label), and
-//: `agent-remaining/mindmap.md` carries the next step for it.
+//: `archive/agent-remaining/mindmap.md` carries the next step for it.
 //:
 //: Size and alignment reuse `font_size` and `align`, which a text box already
 //: stores in the same units, rather than inventing a second vocabulary for

@@ -1548,3 +1548,7 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 ## Placed from Brief 60, 2026-10-10 (the measured census)
 
 - Measured clean (WORLD_CLASS 26.5): the showcase board at rest has 0 long tasks and 0 gaps over 20 ms in 3 s; a drag of one object has 1 gap over 20 ms of 253 frames (`frames.js`, companion off). The 18 `requestAnimationFrame` sites and 15 `pointermove` handlers in `whiteboard.js` are the largest counts in the app, held per file by `tests/test_frontend_wake_sources.py`. Not measured: a board of 500 objects, or the companion on.
+
+## Placed from INBOX, 2026-10-10 (the owner on feature depth)
+
+- INBOX 797, the owner 2026-10-10 23:02Z: "Also I feel like the mindmap and whiteboard are still missing a lot of features and options and stuff that draw.io and other things like the craft repos have :(" Owner: an Opus brief (canvasdepth), next Opus slot: re-audit the whiteboard against draw.io, designcraft and the other craft references in ANALYSIS.md ("Whiteboard, against draw.io and designcraft", "Mind map, against designcraft's canvas"), plus tldraw, Excalidraw, XMind and MindNode; rank every gap by how often a person meets it; build the top ones measured (connection points, the shape library at scale, named layers with visibility, swimlanes, more Mermaid kinds, and for maps: themes, branch styles, relationship lines, boundaries, summaries, outline import and export, presentation mode), each a commit with a test.

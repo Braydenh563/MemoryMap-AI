@@ -241,7 +241,10 @@ def check_at_boot(db_path: Path) -> dict:
             finally:
                 connection.close()
         except sqlite3.DatabaseError as exc:
-            rows = [f"the file could not be read: {exc}"]
+            #: The driver's words stay in the log: the page gets a fixed
+            #: sentence (the route returns this dict as it is).
+            logger.error("the notebook file could not be read at start: %s", safe_value(str(exc)))
+            rows = ["the file could not be read"]
         ok = rows == ["ok"]
         answer = _boot_checks[key] = {
             "check": "quick_check",

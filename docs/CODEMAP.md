@@ -8844,12 +8844,12 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `inverse` | src/memorymap/ai/acts.py:66 |
-| `missing` | src/memorymap/ai/acts.py:48 |
-| `parse` | src/memorymap/ai/acts.py:42 |
-| `preview` | src/memorymap/ai/acts.py:54 |
-| `propose` | src/memorymap/ai/acts.py:75 |
-| `run` | src/memorymap/ai/acts.py:60 |
+| `inverse` | src/memorymap/ai/acts.py:73 |
+| `missing` | src/memorymap/ai/acts.py:55 |
+| `parse` | src/memorymap/ai/acts.py:49 |
+| `preview` | src/memorymap/ai/acts.py:61 |
+| `propose` | src/memorymap/ai/acts.py:82 |
+| `run` | src/memorymap/ai/acts.py:67 |
 
 ### src/memorymap/ai/agent.py (43)
 
@@ -12150,22 +12150,22 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `DamagedNotebookError` | src/memorymap/core/backup.py:258 |
-| `_sweep_partials` | src/memorymap/core/backup.py:310 |
+| `DamagedNotebookError` | src/memorymap/core/backup.py:261 |
+| `_sweep_partials` | src/memorymap/core/backup.py:313 |
 | `backup_files` | src/memorymap/core/backup.py:45 |
-| `backup_if_due` | src/memorymap/core/backup.py:339 |
-| `backup_is_due` | src/memorymap/core/backup.py:321 |
+| `backup_if_due` | src/memorymap/core/backup.py:342 |
+| `backup_is_due` | src/memorymap/core/backup.py:324 |
 | `backup_now` | src/memorymap/core/backup.py:137 |
 | `backup_path` | src/memorymap/core/backup.py:34 |
 | `backups_dir` | src/memorymap/core/backup.py:28 |
 | `check_at_boot` | src/memorymap/core/backup.py:226 |
-| `damaged_notebook_words` | src/memorymap/core/backup.py:262 |
-| `forget_boot_check` | src/memorymap/core/backup.py:284 |
+| `damaged_notebook_words` | src/memorymap/core/backup.py:265 |
+| `forget_boot_check` | src/memorymap/core/backup.py:287 |
 | `list_backups` | src/memorymap/core/backup.py:73 |
 | `optimize_fts` | src/memorymap/core/backup.py:96 |
-| `prune` | src/memorymap/core/backup.py:290 |
-| `restore_backup` | src/memorymap/core/backup.py:357 |
-| `restore_file` | src/memorymap/core/backup.py:369 |
+| `prune` | src/memorymap/core/backup.py:293 |
+| `restore_backup` | src/memorymap/core/backup.py:360 |
+| `restore_file` | src/memorymap/core/backup.py:372 |
 | `snapshot` | src/memorymap/core/backup.py:121 |
 | `strip_leftovers` | src/memorymap/core/backup.py:110 |
 | `verify_copy` | src/memorymap/core/backup.py:199 |

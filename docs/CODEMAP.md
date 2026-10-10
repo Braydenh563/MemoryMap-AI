@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4750, frontend ids 2241, CSS sections 486, backend routes 481, backend modules 3573, test files 914, tests 8555, plan headings 906.
+Counts: frontend functions 4750, frontend ids 2241, CSS sections 486, backend routes 481, backend modules 3573, test files 914, tests 8555, plan headings 917.
 
 ## Frontend functions (4750)
 
@@ -14137,7 +14137,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (906)
+## Plan headings (917)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -14154,6 +14154,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 1. The consistency contract (the system under the little things) | docs/roadmap/WORLD_CLASS_PLAN.md:84 |
 | 1. The instruction, verbatim | docs/roadmap/DOCUMENTS_PLAN.md:11 |
 | 1. The instruction, verbatim | docs/roadmap/MINDMAP_PLAN.md:13 |
+| 1. What changed since 2026-09-14 | docs/roadmap/ANALYSIS.md:4244 |
 | 1. What exists (checked in the code) | docs/roadmap/CHAT_PLAN.md:11 |
 | 1. What exists (checked in the code) | docs/roadmap/TIMELINE_PLAN.md:11 |
 | 1. What exists (checked in the code) | docs/roadmap/WHITEBOARD_PLAN.md:12 |
@@ -14182,6 +14183,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 10. Built: Phase 2 (frontend) | docs/roadmap/MINDMAP_PLAN.md:295 |
 | 10. Chat and the agent surface | docs/roadmap/PLAN.md:198 |
 | 10. Flaws found by static probes (cheap to reproduce, each with its command) | docs/roadmap/WORLD_CLASS_PLAN.md:878 |
+| 10. Not verified | docs/roadmap/ANALYSIS.md:4460 |
 | 10. Outline, navigation and view | docs/roadmap/WHITEBOARD_PLAN.md:1213 |
 | 10. The spelling check: decided 2026-09-12 | docs/roadmap/DOCUMENTS_PLAN.md:712 |
 | 10. Timeline tab, and time-aware notes | docs/roadmap/BACKLOG.md:643 |
@@ -14291,6 +14293,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 2. Documents: to the level of Obsidian / Typora / iA Writer | docs/roadmap/PLAN.md:61 |
 | 2. Done when | docs/roadmap/SESSION_BRIEFS.md:1398 |
 | 2. Format panel, Text tab, and the Arrange tab | docs/roadmap/WHITEBOARD_PLAN.md:1009 |
+| 2. Packaging and distribution | docs/roadmap/ANALYSIS.md:4274 |
 | 2. Quick wins | docs/roadmap/BACKLOG.md:85 |
 | 2. Surface by surface, against this app | docs/roadmap/ANALYSIS.md:2328 |
 | 2. The capability catalogue without a model | docs/roadmap/CHAT_PLAN.md:1363 |
@@ -14360,6 +14363,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 3. Edit style, Edit data, placeholders, tooltips | docs/roadmap/WHITEBOARD_PLAN.md:1053 |
 | 3. Files | docs/roadmap/SESSION_BRIEFS.md:1425 |
 | 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:287 |
+| 3. Metadata and dependencies | docs/roadmap/ANALYSIS.md:4301 |
 | 3. Research: what the field actually offers | docs/roadmap/MINDMAP_PLAN.md:79 |
 | 3. The diagnosis | docs/roadmap/DOCUMENTS_PLAN.md:54 |
 | 3. The five modules | docs/roadmap/CHAT_PLAN.md:1721 |
@@ -14394,6 +14398,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 4. Decisions to make first | docs/roadmap/GRAPH_PLAN.md:73 |
 | 4. Decisions, 2026-10-10 (not to be remade; numbered after Phase 6's 45) | docs/roadmap/CHAT_PLAN.md:1731 |
 | 4. Library tab: chats, documents, images, archive | docs/roadmap/BACKLOG.md:204 |
+| 4. Provenance and publication practice | docs/roadmap/ANALYSIS.md:4313 |
 | 4. Scope decision (make this call first) | docs/roadmap/MINDMAP_PLAN.md:119 |
 | 4. The backend, made revolutionary (and still SQLite, still offline) | docs/roadmap/WORLD_CLASS_PLAN.md:470 |
 | 4. The decision to make first: the editing surface | docs/roadmap/DOCUMENTS_PLAN.md:108 |
@@ -14405,6 +14410,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 5. Build first: fifteen capabilities by value over cost | docs/roadmap/CHAT_PLAN.md:1628 |
 | 5. Connection points and constraints | docs/roadmap/WHITEBOARD_PLAN.md:1087 |
 | 5. Documents | docs/roadmap/BACKLOG.md:287 |
+| 5. Features by surface, not covered before | docs/roadmap/ANALYSIS.md:4345 |
 | 5. Phases | docs/roadmap/CHAT_PLAN.md:321 |
 | 5. Phases | docs/roadmap/GRAPH_PLAN.md:95 |
 | 5. Phases | docs/roadmap/TIMELINE_PLAN.md:114 |
@@ -14428,6 +14434,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 6. OpenAI-compatible backends: **done** | docs/roadmap/BACKLOG.md:389 |
 | 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:1455 |
 | 6. Semantic search and the knowledge graph, "the ultimate upgrade" | docs/roadmap/PLAN.md:128 |
+| 6. The companion and device pairing | docs/roadmap/ANALYSIS.md:4374 |
 | 60. Odysseus, re-read: the repo tripled in size, and this time the question was answered from its own words | docs/roadmap/ANALYSIS.md:839 |
 | 62. Extract notes: from the Writing Room, Documents, and Graph selections | docs/roadmap/BACKLOG.md:2050 |
 | 63. Ship a starter skills library, DONE, this claim was stale | docs/roadmap/BACKLOG.md:2064 |
@@ -14435,6 +14442,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 65. Highlight/web-clip capture | docs/roadmap/BACKLOG.md:2073 |
 | 66. Kortex.co, read and triaged, and the second-frontend question decided | docs/roadmap/ANALYSIS.md:959 |
 | 7. Acceptance | docs/roadmap/MINDMAP_PLAN.md:255 |
+| 7. Design system | docs/roadmap/ANALYSIS.md:4391 |
 | 7. Desktop packaging | docs/roadmap/BACKLOG.md:393 |
 | 7. Files this will touch | docs/roadmap/DOCUMENTS_PLAN.md:501 |
 | 7. Not verified until built | docs/roadmap/CHAT_PLAN.md:657 |
@@ -14462,8 +14470,10 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 8. Research: what the reference products do, and what it changes here | docs/roadmap/TIMELINE_PLAN.md:174 |
 | 8. Risks | docs/roadmap/MINDMAP_PLAN.md:268 |
 | 8. Templates | docs/roadmap/WHITEBOARD_PLAN.md:1194 |
+| 8. The strongest things worth taking, ranked | docs/roadmap/ANALYSIS.md:4423 |
 | 8b. Web search: two Windows bugs found, and what is left | docs/roadmap/BACKLOG.md:517 |
 | 9. Built: Phase 1 (backend) | docs/roadmap/MINDMAP_PLAN.md:291 |
+| 9. Declined, with why | docs/roadmap/ANALYSIS.md:4443 |
 | 9. Find and replace | docs/roadmap/WHITEBOARD_PLAN.md:1203 |
 | 9. Notes (capture + list) | docs/roadmap/PLAN.md:186 |
 | 9. On testing with a real model in the sandbox | docs/roadmap/WORLD_CLASS_PLAN.md:864 |
@@ -14771,6 +14781,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Not verified, and to be taken first by whoever opens this | docs/roadmap/MINDMAP_PLAN.md:1428 |
 | Now: weeks 0–4: "the app stops hiding its own content" | docs/roadmap/MODERNISATION_AUDIT.md:1034 |
 | Odysseus read deeply, 2026-09-21 | docs/roadmap/ANALYSIS.md:2262 |
+| Odysseus, fourth read 2026-10-10 (INBOX 747) | docs/roadmap/ANALYSIS.md:4223 |
 | Open items | docs/roadmap/INBOX.md:35 |
 | OpenJarvis (open-jarvis) | docs/roadmap/ANALYSIS.md:2983 |
 | Order and dependencies | docs/roadmap/WORLD_CLASS_PLAN.md:1387 |

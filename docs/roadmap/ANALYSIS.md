@@ -4219,3 +4219,259 @@ lists `sentence-transformers` (which requires torch) and the venv at
 contradicts CLAUDE.md section 7's "do not install torch"; and `pint`,
 `langdetect`, `dateutil` and `networkx` are vendored (about 12 MB together).
 Both belong to Brief 35's triage.
+
+## Odysseus, fourth read 2026-10-10 (INBOX 747)
+
+Asked for directly (INBOX 747): *"analyse absolutely everything about it, from
+its features, how they are designed, metadata and libraries used. how it is
+packaged and more."* §33, §60 and "Odysseus read deeply, 2026-09-21" settled
+the provider layer, the tool and skill token budget, passive capture, MCP,
+hybrid search, compaction, endpoint fallback, Compare, Deep Research and three
+warnings; their "take" items stand in BACKLOG §11 and §18 and are not re-argued.
+This pass covers what changed since, and what those passes never looked at:
+packaging, metadata, provenance, the companion, the design system.
+
+**Method and its limit.** Head `a8c147b` (2026-10-07, `odysseus-dev/odysseus`),
+shallow clone read as files only; nothing was run (no launcher, script, test or
+container). History came from one `git fetch --depth=300`, which reaches back
+to 2026-08-20 (442 commits since 2026-09-15, 366 without merges), so the log
+is complete from the third read's date on but the tracker, review threads and
+CI results are not visible. Counts are `git ls-files` plus `wc -l`; "ours" is
+this repository at `79d82a486`. Every claim about our side was grepped first.
+Verdict words: **take** (build it), **adapt** (take the idea, change the shape),
+**decline** (with why), **have** (we already do it; the comparison is stated).
+
+### 1. What changed since 2026-09-14
+
+| Measure | Third read (`3b6c169`) | Now (`a8c147b`) | Note |
+| --- | --- | --- | --- |
+| Python lines, all | 247,751 | 471,497 | non-test 255,902; tests 215,595 |
+| Test files / lines | 839 / 109,308 | 1,328 / 215,595 | 9,996 test functions by grep (ours: 924 files, 159,142 lines, 8,543); 4 CI shards |
+| JS / CSS / HTML lines | 166,420 / 41,402 / 4,917 | 205,050 / 51,925 / 5,186 | CSS now 22 files; `style.css` (36,653 lines in §60) is gone |
+| Files tracked | not counted | 2,478 | diff since: 1,414 files, +374,395 / -111,339 |
+| Growth by directory | | tests +118,636; static +100,807 / -56,186; src +87,398; scripts +34,579; routes +18,147 / -10,413 | `services` -35,362 (catalogs emptied) |
+| Authors in the window | | three carry 435 of 442 commits | 197, 173 and 65; the other seven wrote one or two each |
+| Commit style | | 166 untyped, 106 fix, 36 test, 19 feat, 14 docs, 13 refactor | Conventional Commits asked for, not kept |
+
+| What changed | Evidence | Relevance to us |
+| --- | --- | --- |
+| Agent runtime rebuilt in "waves" 1 to 5 | `src/agent_runtime/` 17 files, 6,195 lines; `src/containment.py` 1,694; `process_lifecycle.py` 670; 20 files, 2,480 lines of Markdown in `docs/runtime-decomposition/` | A shell-wielding agent's problem. We have no shell tool (§33 declined it). Principles only: section 5 rows 1 and 2 |
+| Truthful completion: claim, outcome, observation, verdict | `agent_runtime/effects.py` 823 lines: `ExecutionOutcome`, `Impact`, `CleanupState` kept apart; "request, admission, dispatch, execution, verification are five facts" | The idea behind our `unsupported_claims` (agent.py:1203); theirs is stricter. Decline the machinery |
+| Turn contract: classify, then freeze what a turn may call | `docs/AGENT_TURN_CONTRACT.md`; `src/turn_contract.py` | Section 5 row 1 |
+| 159 commits on 09-17 and 09-18 alone (web research, artifact completion) | harness 0.20.6 to 0.20.19; `docs/search-quality-audit-20260917.md`: "not solved; no quality promotion claimed" | One bug class worth stealing: the harness appended citations the model never made (row 4) |
+| `style.css` (36,653 lines) split into 21 ordered fragments, mechanically, rules not regrouped | `static/css/00-tokens.css` header; `tests/css_snapshot/` | Section 7 |
+| `settings.js` into `settings/` (14 files), email library into `emailLibrary/` (12) and `routes/email/` | commits 09-29 and 09-30 | They are catching up to a split we did by file purpose |
+| Security sweep 10-05 and 10-06: NAT64 SSRF, ReDoS, parser DoS, delegated authority, cost-ledger key isolation, approval gate default on | 28 non-merge commits name it; `tests/test_redos_core_parsers.py` 859 lines | Gate and ReDoS: we have both (row 2). NAT64 and IPv6 loopback: row 3 |
+| Publication clearance: 21 assets removed, 14 restored with sha256, catalogs emptied | `PUBLICATION_ASSET_DECISIONS.md`, `THIRD_PARTY_PROVENANCE.json` | Section 4 |
+| CI and test infrastructure | 11 workflows (1,029 lines), pytest in 4 shards, `scripts/generate_env_reference.py`, `tests/smoke/`, `scripts/odysseus-dev` | Sections 2 and 5 |
+| Multiple ChatGPT subscriptions with usage, lazy Featherless discovery | `routes/chatgpt_subscription_routes.py`, `static/js/chatgptSubscriptionUsage.js` | Decline: account-bridging cloud providers |
+| Governance: private `lab`, public `dev`, curated `main`; ref-parity audit script | `scripts/ref_parity_audit.py`, `.github/pull_request_template.md` | Decline: a two-repo flow. Their agent-PR policy, see section 9 |
+
+Net read: +90% Python in 23 days and tests doubled, spent mostly on
+containment, test isolation and publication hygiene rather than new surfaces;
+`ROADMAP.md` still opens with "SQUASH BUGS" and prompt bloat.
+
+### 2. Packaging and distribution
+
+Odysseus ships four ways: Docker Compose (the README's only quick start), a
+PyInstaller "portable" Windows folder, a macOS launcher `.app` and `.dmg`, and a
+systemd unit. It has no installer, no signing, no release tags (none in the clone), no CHANGELOG, and no packaged-app smoke test. Our packaging is further
+along on every desktop row; the gaps are Docker, supply chain and macOS.
+
+| Piece (file:line) | What it does | Ours | Verdict |
+| --- | --- | --- | --- |
+| `Odysseus.spec`, `build-windows-portable.ps1`, `launcher.py` | PyInstaller onedir, `console=False`, `upx=True`, `hiddenimports=[]`, 9 data dirs/files. `launcher.py`: tkinter splash on a thread before app imports, `NullWriter` for windowless streams (l.25), `multiprocessing.freeze_support()` (l.22), pystray tray, browser opened after a fixed 3.5 s sleep | `packaging/windows/memorymap.spec` 289 lines lists every module by file (a hidden-import guard, measured 198/200 before), `installer.iss` 408, `installer.wxs` 157, `frozen_smoke.py` 400, `package-check.yml` 299 | **have**; theirs is the weaker design (fixed sleep, no import list, no smoke) |
+| `build-macos-app.sh` (179 lines) | Builds `dist/Odysseus.app` that runs the checkout's own venv (no Python bundled), install path baked in, `osascript` dialogs, port 7860 (7000 is held by AirPlay Receiver), `.icns` from `sips`, `.dmg` by `hdiutil` UDZO. Opens the UI in a chrome-less window with Chrome, Edge, Brave or Chromium `--app=URL` (l.109), else the default browser | Nothing for macOS: BACKLOG §79 says Gatekeeper needs a paid account and notarization. `start-desktop.sh` is the macOS path | **adapt**: a launcher the person builds on their own Mac is never quarantined, so Gatekeeper never sees it. `packaging/macos/make-app.sh` (S) plus the `--app=` window as the fallback when pywebview is absent (also Linux). Unverified without a Mac |
+| `install-service.sh` + `odysseus-ui.service` (19 lines) | Copies a unit with `YOURUSER` placeholders and `--host 0.0.0.0`, port 7000 (the app now defaults to 7011): stale and unsafe as shipped | Nothing; INSTALL.md has Docker for "a server or a NAS" | **adapt**: a user unit (`systemctl --user`), bound to 127.0.0.1, generated with real paths by `python -m memorymap --print-unit` (S). Decline their copy |
+| `Dockerfile` (132 lines) | `python:3.14-slim`, 21 apt packages (build-essential, cmake, git, nodejs, npm, chromium, tmux, nmap, ping, ssh, gosu...), Docker CLI tarball, agent-browser from npm; second stage only builds patched Real-ESRGAN wheels; `INSTALL_OPTIONAL` build arg keeps AGPL PyMuPDF out by default; no `HEALTHCHECK` | `docker/Dockerfile` 52 lines, slim 3.13, `WITH_EMBEDDER` arg (same idea), non-root `mm`, two volumes, no HEALTHCHECK | **have**; ours is a tenth of the surface, which is the point. Two defects of ours below |
+| `docker/entrypoint.sh` (155 lines) | `PUID`/`PGID` pattern: create the user, `chown` bind mounts on every start, skip recursive repair when a mount maps to a broad root such as `/home` or `/srv` (l.54, l.87), `gosu` so SIGTERM reaches uvicorn | Named volumes, `USER mm`; **no `mkdir`/`chown` for `/data` or `/models`** | **take** the cure, not the script: `RUN mkdir /data /models && chown mm:mm` before `USER` so the named volume inherits the owner (unverified: no daemon). Likely first-run `Permission denied` today |
+| `docker-compose.yml` (189 lines, 4 services) | odysseus + chromadb + searxng (pinned by tag and digest, with the issue number that forced it) + ntfy; `image:` GHCR with `build: .` as fallback; loopback port binds; searxng `cap_drop: ALL` | `docker/compose.yaml` 25 lines, one service | **have**. **Defect, measured**: our `build.context: ../..` resolves to `/home/user` (`docker compose -f docker/compose.yaml config`), so the build cannot find `docker/Dockerfile`. Fix is `..` |
+| `docker/gpu.*.yml` (19, 34), `host-docker.yml` (12), `host-network.yml` (21), `host-workspace.yml` (11) | Capabilities as opt-in overlays named in `COMPOSE_FILE`, each with a comment saying what it hands over ("raw socket access grants broad control"). The top-level `docker-compose.gpu-*.yml` are 208/211-line full copies (drift risk, guarded by `tests/test_gpu_compose_standalone.py`) | No overlays; a GPU Ollama is outside the container | **adapt** the pattern if we ever add an elevated mode: overlay, never a flag in the base file. Decline the copies |
+| `.github/workflows/docker-publish.yml` (153 lines) | Native amd64 and arm64 runners (no QEMU), push by digest, then one manifest-merge job; tags `latest`, `X.Y.Z`, immutable `X.Y.Z-<sha7>`, `dev`; `imagetools inspect` proves the tags resolved. README says pin the `-sha` tag in production | `release.yml` attaches a Windows installer and a Linux zip; **no container registry image**; `docker build` is by hand | **take** (M): GHCR multi-arch on tag, with the `X.Y.Z-<sha>` pin. Needs the owner's call on publishing an image |
+| `container-scan.yml`, `container-trivy.yml` | hadolint blocks (ignores DL3008 with a reason); Trivy advisory, PR runs hold a read-only token, SARIF upload only on a push to main | None | **take** (S): hadolint on `docker/Dockerfile`; Trivy once an image is published |
+| `.dockerignore` (root, 58 lines) with a test that secrets stay excluded | `tests/test_docker_devops_hardening.py` 293 lines: compose forwards every env var, base compose never mounts the socket, overlays do, entrypoint repairs stay inside mounts | `docker/.dockerignore` (7 lines) sits beside the Dockerfile; with `-f docker/Dockerfile` and context at the repo root BuildKit reads `docker/Dockerfile.dockerignore` or the root file, so ours is probably never read and the 461 MB `.git` goes in the context. No Docker test at all | **take** (S): move to `Dockerfile.dockerignore`, plus a static test that the compose context holds the Dockerfile, the ignore file sits where BuildKit looks, and `/data` is owned by `mm` |
+| `update_windows.bat`, `launch-windows.ps1` (173 lines) | Docker update script; venv bootstrap that detects the Windows `bash.exe` stubs in `System32` and `WindowsApps` (`Test-WindowsBashStub`) | `start.bat`, `start-desktop.bat`, installer | **have**; the stub-bash check is a good trap to know, we run no bash on Windows |
+
+The frozen-app story is a clean split: they never ran a frozen build in CI, we
+run one on every packaging pull request. Nothing here changes the §33 verdict
+that single-process SQLite is the simpler shape; their compose file needs three
+sidecars (ChromaDB, SearXNG, ntfy) before the app starts, which is also why
+their ROADMAP asks for "degraded-state reporting" for each of them.
+
+### 3. Metadata and dependencies
+
+| Piece | Odysseus | Ours | Verdict |
+| --- | --- | --- | --- |
+| `pyproject.toml` | 29 lines, pytest settings only: no `[project]`, not installable, run as `uvicorn app:app` from the checkout. Markers `area_*` (8), `sub_*` (from filenames, `tests/_taxonomy.py`), `slow`, `serial` | Full `[project]` (classifiers, urls, `memorymap` script, `voice`/`desktop` extras), ruff with `BLE001` | **have**; their `area_*` marker derived from the filename, with no file moves, is a cheap way to run "security tests only" (`-m area_security`). **adapt** (S) if a slice is ever wanted; `gate.sh --changed` already covers the routine case |
+| `requirements.txt` split | 36 packages, **4 carry any version bound** (`httpcore`, `pydantic`, `pydantic-settings`, `mcp<2`); `-optional` 9 packages with a licence reason on each (PyMuPDF AGPL, kokoro pinned with `python_version >= "3.11" and < "3.13"`); `-dev` is `-r requirements.txt` plus xdist; Dependabot groups pip, npm, actions and docker weekly | 19 packages, each with an upper bound by the file's own rule; `make lock` for exact pins; extras in `pyproject` | **have**; ours is the safer shape. One rule to copy: `markitdown==0.1.6` is "a release more than 30 days old" (their issue #485), a dependency-age floor against a poisoned fresh release. **adapt** (S): one line in `docs/CONTRIBUTING.md` and a Dependabot `cooldown` |
+| `package.json` | Private; dev only: `@playwright/test ^1.62.1` and `@antithesishq/bombadil ^0.7.0` (a property-based UI explorer: `tests/bombadil-spec.ts`, 107 lines of `always`/`eventually` rules over a random click walk) | `tests-e2e/` Playwright, 11 specs; `scratchpad/ui-sweeps/e2e648-crawl.js` presses every visible non-destructive button and flags dead ones and endless spinners | **have**; decline the dependency |
+| Two version numbers | `APP_VERSION = "1.0.3"` (`src/constants.py:8`) is the release; `HARNESS_VERSION` (0.20.19) is the behaviour build and must match `APP_BUILD_VERSION` (`tests/test_harness_version.py`). `/api/version` returns version, build and `source_commit` (`app.py:961`, `git rev-parse HEAD` with a 2 s timeout, `ODYSSEUS_SOURCE_COMMIT` override, "unknown" without `.git`); a footer under the Settings nav shows it to admins and hides "unknown" (`tests/test_settings_sidebar_build_provenance.py`) | `/health` returns `version` only (`api/app.py:1301`); no commit, no start time. CLAUDE.md §5 records "a stale uvicorn is why a correct fix did not work twice" | **take** (S): `source_commit` and `started_at` in `/health` and About; frozen builds stamp the commit at build time. Answers "is this the code I just changed" without a terminal |
+| Environment variables | `.env.example` has 3 live keys; the rest of the 117 `ODYSSEUS_*` reads are in a **generated** page, `website/configuration-reference.md` (286 lines, 81 for operators, 36 internal), built by an AST walk that also finds reads through helper functions and inside script strings; `tests/test_env_reference.py` fails when the page is stale or a variable lacks a note | 11 distinct `MEMORYMAP_*` names in `src`; all but `MEMORYMAP_DESKTOP` (internal) appear in INSTALL, PRIVACY, TROUBLESHOOTING or ARCHITECTURE | **decline** the generator at this size; **adapt** (S) a 15-line test that every `MEMORYMAP_*` read in `src` is named in `docs/` |
+| `config/` | One file: `config/searxng/settings.yml`, a template with a `__SEARXNG_SECRET__` placeholder substituted by the compose entrypoint, so no secret lives in the repository | `search/searxng_docker.py` writes its own | **have** |
+| Libraries worth a look | `nh3` (Rust HTML sanitizer) for LLM-written report HTML; `croniter`, `icalendar`, `caldav`, `pyotp`; `qrcode[pil]` (server-side QR; SAN-162 dropped the vendored browser QR bundle); `rapidocr`; `markitdown`; `psd-tools` | Our clips become Markdown text server-side, so no untrusted HTML reaches the DOM; OCR is Tesseract or RapidOCR; no QR library | `nh3`, `psd-tools`: **decline**. `qrcode` (BSD, pure Python, has an SVG factory) is **take** only if the "trust this notebook on your phone" QR (WORLD_CLASS_PLAN, Placed from Brief 40) is built |
+
+### 4. Provenance and publication practice
+
+Odysseus spent roughly 2026-10-05 to 10-07 on a publication clearance: a maintainer
+review listed every non-code artifact, decided
+keep or drop, and wrote the result down. The record is worth more than the
+decisions. What the pasted `THIRD_PARTY_PROVENANCE.json` is, measured:
+
+| Layer | What it holds | Size and enforcement |
+| --- | --- | --- |
+| `THIRD_PARTY_PROVENANCE.json` | Top level: `scope` ("no broader asset clearance is asserted"), `authority_manifest_sha256`, `starting_tree`. Six `retained` entries, each: `action_id`, `identity`, `version`, `identity_proof` (byte-identical to a named release member, with sizes), `upstream_urls`, `license_basis`, `bundled_components` (the transitive libraries inside a minified bundle), `artifacts[]` (path, sha256, git oid, size), `modified: false`, `source_records[]` (url, final_url, bytes, sha256, saved path, what it `proves`), `notice`, `notice_sha256` | 49,157 bytes. `tests/test_publication_plan_b.py:19-28` recomputes size and sha256 of every artifact and notice from disk |
+| `licenses/` | 12 files, 167,050 bytes; two are generated aggregates (docx 34,658 bytes for 22 component licences; mammoth 41,096 bytes for 28) | A bundle's own licence is not enough: a UMD build carries its dependencies' |
+| `ACKNOWLEDGMENTS.md` (9,205 bytes) | Sections: adapted code (opencode MIT, llmfit MIT, Tongyi DeepResearch Apache-2.0, each with the files it was adapted into), services pulled by compose with their licence, vendored front-end libraries, runtime CDN libraries, fonts, Python dependencies with licence, "interoperated with, not bundled", and licence-compatibility notes | Linked from the provenance file; names the AGPL-optional PyMuPDF consequence |
+| `PUBLICATION_ASSET_DECISIONS.md` (7,661 bytes) | A ledger: `SAN-nnn` for 21 removed paths, then `RESTORE-nnn` for 14 put back with the sha256 and the commit that introduced each. States "omission is not a finding of infringement" | `test_publication_plan_b.py:31-75` asserts 21 and 14 entries, restored files hash-match, the still-omitted 7 do not exist and **no tracked file mentions their names** |
+| Packaging check | `Odysseus.spec`, the `.ps1`, the macOS script and the Dockerfile must each name `licenses`, `THIRD_PARTY_PROVENANCE.json` and `ACKNOWLEDGMENTS.md` | `test_distribution_paths_include_all_notices` (l.135) |
+| Scanner hygiene | `.gitleaks.toml` allows four package ids that look like keys, only in that file and only for that rule; `.gitattributes` keeps `static/lib/**` byte-identical | |
+| Data, not only code | `services/hwfit/data/*.json` were copied model catalogs; replaced by `[]`, 35,362 lines gone from `services`, with a README saying cold installs have no recommendations until a rescan | The "runtime metadata is user data, not a redistributable snapshot" rule |
+
+Ours, measured against it: `docs/THIRD_PARTY.md` (39 lines) has 7 browser rows
+and 1 Python row, each with version, licence and "used by"; no hashes, no
+upstream URL for the bundled-in parts, no notice-file hash.
+`tests/test_vendor_manifest.py` and `test_vendor_licences.py` check presence of a
+row and a LICENSE file, not content.
+
+| Finding | Evidence | Verdict |
+| --- | --- | --- |
+| **Not credited**: `frontend/board-library/drawio/` (5 stencil sets, 0.4 MB, converted from jgraph/drawio, Apache-2.0) and `icons.json` (2.4 MB, Phosphor glyphs as paths) | Neither is in `docs/THIRD_PARTY.md`; the manifest test only walks `vendor/` directories. The drawio folder has its own `LICENSE` and `NOTICE.txt` | **take** (S): rows now, and the manifest test walks `board-library/` too |
+| **No licence ships with the app**: no LICENSE text, no THIRD_PARTY.md in the installer, zip, MSI or image | `grep -in licen` over `installer.iss`, `installer.wxs`, both specs and `docker/Dockerfile` finds nothing; the spec bundles `CHANGELOG.md` only (`memorymap.spec:169`). AGPL asks that a conveyed copy carry the licence; MIT, BSD and Apache notices ask the same of a binary | **take** (S): bundle `LICENSE`, `docs/THIRD_PARTY.md` and `frontend/vendor/*/LICENSE`; the installer shows the AGPL on its first page; add their `test_distribution_paths_include_all_notices` shape. Unverified: whether PyInstaller already collects each wheel's `dist-info` licence files, check a built folder |
+| No byte check on vendored files | Their sha256 test would also have caught a silently re-built CodeMirror (ours is a patched build: `test_codemirror_bundle_is_the_patched_build` greps for the patch string only) | **adapt** (M): `frontend/vendor/PROVENANCE.json`, one row per artifact: path, sha256, size, version, upstream URL, licence id, notice path, and for built bundles `build: build.sh` plus `package.json` instead of an `identity_proof`. Test recomputes. Skip `bundled_components` except for CodeMirror and Harper |
+| Data tables of unknown origin | THIRD_PARTY.md already admits one (`ai/question_noise.py` misspellings, maybe CC BY-SA 4.0) | **adapt**: a "Data" row per shipped table with its origin and licence (the word list already has one; `SUGGESTED_MODELS` is hand-kept, so say so) |
+| A removal ledger | Their `SAN-`/`RESTORE-` ids with a test that omitted files stay omitted and unreferenced | **adapt** (S): a short "Removed" list in THIRD_PARTY.md when something leaves for licence reasons; the 15 MB / `.exe` case already named in `test_vendor_manifest.py` is the first entry |
+| The cleanest idea in the set: a *scope line* | "No broader asset clearance is asserted" | **take** (free): THIRD_PARTY.md says what it does and does not clear |
+
+### 5. Features by surface, not covered before
+
+Surfaces §33, §60 and the third read already judged (providers, tool and skill
+budget, passive memory, MCP, hybrid search, compaction, fallback, Compare, Deep
+Research, CalDAV, OCR, graph, whiteboard, timeline) are not repeated.
+
+| Surface | Odysseus (file:line, design) | Ours (grepped) | Verdict |
+| --- | --- | --- | --- |
+| Agent: turn contract | `src/turn_contract.py`; `docs/AGENT_TURN_CONTRACT.md:12-22`: classify capabilities, then freeze `required <= offered <= executable`; a required capability that is not offered **stops before inference** and says so | `focus_detail` offers by keyword and records why (`tools/__init__.py:4085`); a tool Settings has off is still tried and returns a `ToolError` (`:1753`, `:4777`) | **adapt** (S): when the words ask for a capability that is off ("search the web" with web off), answer in one line without a model call. A test per tool group |
+| Agent: approval gate | `THREAT_MODEL.md`: once untrusted content is in a run, state-changing tools wait for a separate approval; was off by default until 2026-10-06 | `_PARK_WHEN_TAINTED` (`agent.py:1257-1266`) parks writes and outbound tools, always on, no setting; `tests/test_injection_fence.py` | **have**; ours is stronger (a constant, not an env switch) |
+| Agent: what a source list means | Their own audit found the harness appended citations the model never made; fixed 2026-09-17 | Sources panel is built from what tools returned (`agent.py:906`, `:2232`); notes answers check each sentence (`grounding.ground_answer_sentences`) | **have**. Keep the rule: a source list is what was fetched |
+| Agent: background result into a chat | `docs/BACKGROUND_TOOL_JOBS.md`: dispatcher-supplied `origin_chat_id`; message and delivery marker commit in **one transaction** with a deterministic id; a startup worker reconciles missed callbacks; if synthesis is unavailable, an honest notice plus the report link | `DurableJob` and `JobRun` (`core/jobs.py`); no producer delivers into a chat | **adapt** when the first long job (a research read, a night run) must post into a conversation: deterministic message id, one transaction |
+| Agent: skills audit | `docs/skills-lifecycle.md`: at most 8 records per pass, oldest first; inconclusive retries after 1 day, failed repair after 1 week; All / Built-in / Approved / Draft | `AGENT_SKILLS_REFORM.md`; skills are the owner's, not auto-extracted at scale | **decline** the queue; the 1-day and 1-week retry ladder is a fair default if we ever audit |
+| Agent: bundled procedures | `resources/skills/` 12 `SKILL.md` in 6 groups; `verified-state-change`: read the target, change once, read it back, compare, repair only the mismatch | `unsupported_claims` (`agent.py:1203`) catches "saved" with no write; the write tools return the change | **have** in code; the 6 steps are a good test script for a real model (`pytest -m evals`) |
+| Agent: shell, containment, effect log | `src/containment.py` (bwrap, "no silent downgrade"), `process_lifecycle.py`, `effect_log.py` (append-only, fsync before dispatch) | No shell tool by decision (§33) | **decline**; the "report which dimensions were actually enforced" shape is the one idea, for the day `run_sandbox.py` grows limits |
+| Eval method | `docs/runtime-decomposition/COMPARISON_PROTOCOL.md`: the unit is one scenario; measured and estimated usage never summed; "useful work per round" as raw counts, no weighted score; a denial is not an unauthorized effect | `usage_source` marks estimated vs reported; `ai/bench.py` | **have** the first rule; adopt the second and third in any score we publish |
+| Security: SSRF address test | `src/url_safety.py:58-73`: `64:ff9b::/96` is decoded to its embedded IPv4 and judged strictly | `core/security.py` `is_internal_address` is `... or not address.is_global`. **Measured on Python 3.13.16: `64:ff9b::a9fe:a9fe` (NAT64 of 169.254.169.254), `64:ff9b::a00:1` and `64:ff9b::7f00:1` all report `is_global == True`**, so `public_addresses` lets them through | **take** (S): decode the /96 first, then judge the IPv4. Low risk (needs a NAT64 network and a hostile URL) but it is a measured hole |
+| Security: documentation | `THREAT_MODEL.md` (7,797 bytes): trust boundary, a role by capability table, the reserved-username sentinel, and a **Known gaps** list with issue numbers; `SECURITY.md` has a "publishing a fork" `git grep` for key patterns | `docs/SECURITY.md` (75 lines) has scope notes but no gap list; gaps live in WORLD_CLASS_PLAN 12 | **adapt** (S): a short "Known gaps" list in `docs/SECURITY.md` |
+| Backup | `scripts/odysseus-backup`: SQLite `.backup` API, `verify PATH` walks the tarball read-only, `restore --yes`; skips `deep_research/` and `mail-attachments/` unless asked | `core/backup.py:186` `verify_copy` at creation; integrity check before replace (`:294`); sealed bundles | **have**; a read-only "check this backup" before restoring is optional (S) |
+| Readiness | `src/readiness.py`: `/api/ready` is 503 unless the database answers and `data/` is writable; `/api/health` is liveness | `/health` (liveness), `/debug/health` (counts) | **adapt** with the Docker `HEALTHCHECK`: `/health` is enough; add `data_dir_writable` to it (S) |
+| Command line | 22 `scripts/odysseus-*` CLIs, 5,214 lines, all JSON, `odysseus <name>` dispatcher (git style), bash and zsh completions (92 and 72 lines); most read SQLite directly | `--export`, `--capture`, `memorymap.mcp_server` (210 lines, non-destructive tools only) | **adapt** (S): `python -m memorymap tool NAME --json` over `mcp_server.offered_tools()`, so a script gets the registry's rules. **Decline** the direct-DB pattern: their own Codex README forbids it for agents because it bypasses Settings |
+| External agents | `integrations/claude`, `integrations/codex`: the app serves a skill zip behind a scoped token; the skill is an intent router ("reminder at 5pm is a todo with a due date, not a calendar event") and a 403 rule ("treat 403 as an intentional restriction") | Settings has an MCP row with a connection snippet (`renderMcpSnippet`, `skills.js:912`) | **adapt** (S): add a `SKILL.md` to that row: note vs reminder vs board vs document, and "a refused tool is the person's choice". No tokens: stdio keeps the local boundary |
+| Dev loop | `scripts/odysseus-dev`: ports derived from the worktree path hash, own data dir, never adopts another checkout's index, readiness by `/api/ready`, detached with a recorded stop handle, `--from-pr N`; `odysseus-smoke`: one scenario per area, a table that prints `NOT RUN` and `NOT COVERED` with the reason (`tests/smoke/areas.py`) | `scratchpad/ui-sweeps/serve.sh PORT DIR` by hand; `tests-e2e` 11 specs; agents are told their port | **adapt** (S): port from `sha1(path)`, and a coverage table with declared gaps beside `tests-e2e` |
+| Reminders and notes | `routes/note/` (943 lines): a Keep-style flat `Note` (17 columns), `repeat`, `ai_classification` gated by a content hash, a button that spawns a chat to "solve this todo"; ntfy delivery with retry (`src/builtin_actions.py`, 2026-10-07) | Reminders with tray and browser notifications; checklists feed the Unfinished widget; no general tasks (BACKLOG §17) | **decline**: ours is richer and a task system is a decision, not a copy |
+| Weather, YouTube, email, vault, contacts, signatures, TTS/STT cloud, face recognition, ChatGPT/Copilot/Codex bridges | `src/agent_tools/weather_tools.py` (keyless Open-Meteo) and the rest | Offline by design; web is one opt-in | **decline** |
+| Photo editor | `static/js/editor/` 91 files, `13-image-editor.css` 4,902 lines, 29 Playwright specs, 3 plans (812 lines) | Boards and documents; no raster editing | **decline**: not a notebook |
+| Floating tool windows | `tileManager.js` 415, `modalSnap.js` 1,079, `modalManager.js` 1,573 lines: drag, snap to edge, minimise | `.dock` grammar (DESIGN.md) | **decline** |
+| Tests: what they assert | `tests/TESTING_STANDARD.md:116-135`: "behavioral-first", source-text assertions only with a docstring reason; 349 of 1,300 test files call `read_text` (27%) | **497 of 915 of ours call `read_text`** (54%; an upper bound, some read fixtures and docs), because the DOM is invisible to pytest and lints stand in | **adapt** (S): new source-text tests carry a docstring line saying why behaviour cannot be driven; count them in `gate.sh` output so the ratio is visible. Do not convert old ones |
+
+### 6. The companion and device pairing
+
+Four files, 531 lines (`companion/`), five routes under `/api/companion`:
+`ping`, `info`, `models` (the caller's own endpoints, never key material), `GET
+pair` (a form that never mints) and `POST pair` (admin cookie; mints). The phone
+client is an Expo app that is **not in this repository**; the server side is a
+contract of `{"v":1,"host","port","token"}` shown as a QR.
+
+| Design point | Where | Ours | Verdict |
+| --- | --- | --- | --- |
+| One-time `ody_` token, bcrypt hash plus 8-character prefix stored, scope `chat`, shown once | `pairing.py:182-205` | Single user; the password is the gate; LAN mode is HTTPS on 8443 with a certificate fingerprint to compare (`docs/PRIVACY.md`) | **decline** tokens: they add storage, a revoke screen and scopes (their THREAT_MODEL gap 4 says scopes are "coarse" and only `chat` or `admin`) |
+| Mint only on POST; GET renders a form | `routes.py:11-18` | Pairing is by password | **have** the lesson (never mint on a navigation) |
+| Host validation for a URL a phone will reuse | `pairing.py:40-72`: ASCII only, DNS labels, no `xn--`, **a single decimal or `0x` label is refused because a WHATWG URL parser reads `134744072` as `8.8.8.8` and the phone would send its token to a public address**; accepted: one label, `.local`, or IPv4 in 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.168/16 | `netbind.host_allowed`, `lan_addresses` | **adapt**: when the QR trust guide is built (WORLD_CLASS_PLAN, Placed from Brief 40, item 2), the encoded URL goes through one validator with this test case |
+| LAN address discovery by UDP `connect` to 8.8.8.8, no packet sent | `pairing.py:131` | `netbind.py:315` does the same probe, plus IPv6 | **have** |
+| A QR carrying the pairing payload | `pairing_qr_png_data_uri` (`qrcode`) | WORLD_CLASS_PLAN lists a QR trust guide, unbuilt | **take** with that item (section 3, `qrcode`) |
+| Plain `http` only, because "the deployed v1 client understands only HTTP" | `parse_companion_base_url` | HTTPS, with iOS certificate rules measured (Brief 40) | Ours is the harder and better path; no change |
+
+### 7. Design system
+
+| Measure | Odysseus | Ours |
+| --- | --- | --- |
+| CSS | 51,925 lines, 22 files (a 36,653-line `style.css` split on 2026-09-29, **rules moved verbatim, not regrouped**) | 73,672 lines, 16 files, grouped by purpose |
+| `!important` | 1,930 (3.7 per 100 lines); their header counts 1,151 redeclared selectors | 174 (0.24 per 100 lines) |
+| Custom properties defined | 48, colour only (`00-tokens.css`: 180 lines, no spacing, radius, type or motion tokens) | 483, spacing, radius, type, motion and palette tokens (`test_style_scale.py`) |
+| Hex literals / `px` font-size declarations | 820 / 1,436 | 392 / 2 |
+| Themes | 19 presets, 10 animated background patterns, light as `:root.light`, 8 saved custom themes | 10 palettes, dark and light each, up to 20 saved looks |
+| Density | `density-compact` and `density-spacious` root classes | auto / comfortable / compact; Phase 12 refines it |
+| Fonts | 8 bundled WOFF2, 984 KB: Fira Code (UI default, so the whole UI is monospace), Inter, OpenDyslexic | System fonts plus the Phosphor icon font; a dyslexia face is BACKLOG item at `:1114` |
+| Accessibility markup in `index.html` | 136 `aria-` and 21 `role=` in 2,675 lines | 2,494 and 494 in 13,749 lines (about 18 and 3.6 per 100 lines, against 5 and 0.8) |
+| Reduced motion | 27 `prefers-reduced-motion` blocks | 45, plus an explicit Moving override |
+| Guardrails | `CONTRIBUTING.md` rules enforced by review: reuse variables, no emoji, no parallel components, screenshot required | `DESIGN.md` recipe index, `test_ui_recipes.py` (166 tests), `test_style_scale.py` (22) |
+| Cache busting | hand-bumped `?v=20260916...` strings; they document that two versions of one import path give two module instances | hash stamp (`_stamp_for`), classic scripts, no module identity problem |
+| Frontend map | `static/js/MODULE_SUMMARY.md`, 229 lines by hand | `docs/CODEMAP.md` generated, `test_codemap_fresh.py` |
+| Production strays | 4 design-exploration pages in `static/` (`*-variants.html`, 33 KB) served in production | none |
+
+The one thing they have that we do not is the **computed-style snapshot**
+(`tests/css_snapshot/README.md`, `scripts/css_snapshot.py`): Playwright reads
+`getComputedStyle` for 122 pinned properties on 676 elements (76 in the app
+shell, 14 on login, 586 synthesised from every selector declared more than once)
+in 24 variants (4 viewports x dark and light x 3 densities) = 16,224 snapshots in
+about 21 seconds, hashed into a committed `baseline.json`; a failure names the
+elements and variants whose hash moved, and the baseline is re-recorded only
+when the change was meant. Built because a mechanical file split can flip which
+rule wins and nothing else notices. **Adapt** (M): the same harness over our
+palettes and phone widths, run only at phase gates that move CSS
+(UI_MODERNISATION_PLAN Phases 12 and 13), not on every commit, since active UI
+work would re-record it daily. Our `ui-sweeps` measure one thing at a time
+(contrast, docks, touch); none can say "nothing else moved".
+
+### 8. The strongest things worth taking, ranked
+
+Size is S (under a day), M (a day or two). Each row is placed in
+`docs/roadmap/agent-remaining/odyssey-1010.md` for the orchestrator.
+
+| # | Take | Evidence | Size | Belongs in |
+| --- | --- | --- | --- | --- |
+| 1 | **Supply-chain hygiene for CI.** Pin every action to a commit SHA, `persist-credentials: false` on every checkout, `permissions: {}` by default, an actionlint and zizmor workflow, a checksum-pinned gitleaks job, dependency-review (blocking) and pip-audit (advisory), Dependabot weekly with grouped updates | Theirs: 53 of 53 `uses:` pinned, 11 workflows. Ours: **0 of 26 pinned, 0 of 5 workflows set `persist-credentials`**, no zizmor, no secret-scan job, no pip-audit. The riskiest line is `release.yml:115` `softprops/action-gh-release@v3` holding `contents: write` | S to M | WORLD_CLASS_PLAN 12 (security review) |
+| 2 | **Ship the licences and credit every shipped file.** AGPL text, `THIRD_PARTY.md` and each vendored LICENSE inside the installer, MSI, Linux zip and image, with a test per build file; credit `board-library/drawio/` (Apache-2.0) and `icons.json`; add `frontend/vendor/PROVENANCE.json` (sha256, size, version, upstream URL, licence, notice) with a recomputing test; a scope line in THIRD_PARTY.md | Section 4: nothing licence-shaped is in any packaging file; the manifest test walks `vendor/` only | S then M | BACKLOG 7; `docs/THIRD_PARTY.md`; `tests/test_vendor_manifest.py` |
+| 3 | **Docker that builds, with a test.** `build.context: ..`; `mkdir /data /models && chown mm` before `USER`; `Dockerfile.dockerignore`; `HEALTHCHECK` on `/health`; hadolint; a static test of those four. A GHCR multi-arch image with an immutable `X.Y.Z-<sha>` tag if the owner wants one | Measured: compose context resolves to `/home/user`; `.git` is 461 MB; no daemon here, so the volume owner is reasoned, not run | S | BACKLOG 7 |
+| 4 | **A running-build stamp** (`source_commit`, `started_at`, data dir id) in `/health` and Settings, About | Answers CLAUDE.md §5's stale-uvicorn trap; theirs is `app.py:961` plus a footer | S | WORLD_CLASS_PLAN 7 (small things) |
+| 5 | **NAT64 in the SSRF address test** | Measured on Python 3.13.16, three NAT64 addresses report global | S | WORLD_CLASS_PLAN 12 |
+| 6 | **A macOS launcher the person builds on their own Mac**, plus the Chromium `--app=URL` window as the fallback shell | `build-macos-app.sh:109`; unquarantined because it never left the machine; unverified without a Mac | S | BACKLOG 79 |
+| 7 | **Computed-style snapshot baseline** for CSS refactors, at phase gates only | 16,224 snapshots in about 21 s on their side; ours has no "nothing else moved" check | M | UI_MODERNISATION_PLAN Phases 12 and 13 |
+| 8 | **Say it before inference when a capability is off**, with a test per tool group | `turn_contract.py`; ours returns a `ToolError` after the model tried | S | CHAT_PLAN "The deterministic foundation" |
+| 9 | **Command line and a `SKILL.md` over the tool registry** | 22 CLIs and two integration skills on their side; ours is stdio MCP plus a snippet row | S | BACKLOG 29 |
+| 10 | **Dev loop details**: port from a hash of the worktree path; a smoke table that prints `NOT COVERED` with a reason | `scripts/odysseus-dev`, `tests/smoke/areas.py` | S | HANDOVER (agents table); `tests-e2e/README` |
+| 11 | **Visible test-honesty ratio**: new source-text tests say why in the docstring; `gate.sh` prints the count | 54% of our test files read file text, against 27% of theirs | S | WORLD_CLASS_PLAN 1 (consistency contract) |
+| 12 | **A Known gaps list** in `docs/SECURITY.md`, and a dependency-age floor (30 days) in CONTRIBUTING | `THREAT_MODEL.md` last section; `requirements-optional.txt` comment on issue #485 | S | `docs/SECURITY.md`; `docs/CONTRIBUTING.md` |
+
+### 9. Declined, with why
+
+| Declined | Why |
+| --- | --- |
+| The agent runtime waves (containment, effect log, resource authority, 6,195 lines plus 2,480 lines of design) | They answer a shell tool. We have none; our confirm cards and the taint gate cover the writes we do have |
+| Three sidecars (ChromaDB, SearXNG, ntfy) and a fat image (Chromium, nmap, Docker CLI, build-essential) | One process and SQLite is the product; their own ROADMAP asks for "degraded-state reporting" for each sidecar |
+| Account bridges: several ChatGPT subscriptions, Copilot, Codex, 33 provider specs | Not a local-first path; each is an ongoing break-fix |
+| Token pairing and `ody_` API tokens | One user, one password; tokens need storage, scopes and a revoke screen |
+| Photo editor, floating snap windows, 4 variant pages in production | Not a notebook; `.dock` is the window grammar |
+| Offline service-worker cache (`sw.js`, 318 lines) | The owner chose network-only so a stopped server fails loudly (`frontend/sw.js` header) |
+| CDN libraries at runtime (Pyodide, PDFObject from jsdelivr, CSP allows the host) | Contradicts "100% offline"; our extras download once into the data folder |
+| The internal loopback bearer token (`INTERNAL_TOOL_TOKEN`) | §60 settled it; our tools run in process. `THREAT_MODEL.md` shows the cost: a reserved username that grants admin |
+| Hand-bumped `?v=` strings, a mechanical CSS split with 1,930 `!important` | Our hash stamp and grouped files already avoid both |
+| Sharded CI (`tests/_shards.py`, 4 jobs), a generated env reference | Our suite is under 9 minutes on four cores and we read 11 `MEMORYMAP_*` names; revisit past the 25-minute CI timeout |
+| Bombadil UI explorer, SFT corpus tooling (about 60 scripts), `odysseus-*` CLIs that open SQLite directly | We have a button crawler; we do not train models; direct DB access bypasses Settings |
+| PR-description gates, `lab`/`dev`/`main`, an "open an issue first" rule for agent PRs | Our PRs come from the owner's own sessions |
+
+### 10. Not verified
+
+- Nothing in the repository was run: no launcher, build, compose file, test or
+  script. Container behaviour, PyInstaller output and CI results are source
+  reads only.
+- Our Docker findings come from `docker compose config` (parse only; there is
+  no daemon) and reading the Dockerfile. The root-owned `/data` volume and the
+  unread `docker/.dockerignore` are reasoned from Docker's documented rules.
+- The NAT64 result is from Python's `ipaddress` in this sandbox (3.13.16);
+  other Python versions differ in `is_global`. No NAT64 network was available.
+- Whether PyInstaller already copies each wheel's `dist-info` licence files into
+  our frozen folder was not checked; a built folder is needed.
+- Line and file counts are `git ls-files` plus `wc -l`; the 442-commit window
+  starts at the depth-300 fetch, which could hide earlier commits only if the
+  history is not linear. "Test files that call `read_text`" is a grep, not a
+  classification.
+- Their ROADMAP asks "do integrations even work", so no feature of theirs is
+  credited as working, only as designed.

@@ -191,6 +191,23 @@ with its owner named in the entry.
      button and this text in the dashboard hero section" (the hero line "You
      have 34 notes · Patterns: university, 4 times since 16 July" with its ⋯
      button touching the last word; the menu holds Confirm and Not right.)
+787. **Composer, the owner 2026-10-10 22:50Z, three screenshots.** "the atlas
+     guide repeted twice?? and it ist customised with the composer yet
+     either. I feel like if the user is set to view the deterministic
+     response, they should have the option to see either the base help text
+     or a slightly more customised version with the composer. also the
+     composer's responses still need A LOT of work and refinement." Then:
+     "yeah the composer is still pretty barebone, has no life to it and I may
+     as well just ignore it and use the matching records" and "make the
+     composer better please :)". Shots: the Guide answering "hey" with the
+     Dashboard topic, its paragraph shown twice (once bare, once under "The
+     dashboard / Where:"), then "From the app's own help text, word for word:
+     no model is running."; Chat "ideas for projects": "Some ideas for
+     features you had: The picture in your note from 31 August shows The
+     image contains a text excerpt discussing ..." with "Only 0 of 2
+     sentences here are quoted word for word"; Chat "games notes": two
+     quoted sentences rewritten into "you" with "[your note, 17 July]" and
+     "Across your other entries:".
 
 ## Placed (last 20, newest first)
 

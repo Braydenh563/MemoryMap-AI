@@ -59,7 +59,9 @@ test("New mind map: Tab adds a branch, typed and kept across a reload", async ({
   await page.keyboard.press("Tab");
   await expect(page.locator('.wb-map-text[contenteditable]')).toBeFocused();
   await page.keyboard.type("First branch");
-  await page.keyboard.press("Enter");
+  // Plain Enter is a new line in a topic's name (the owner, 2026-10-10);
+  // Escape keeps the name and leaves the editor, which is what saves it.
+  await page.keyboard.press("Escape");
   await expect
     .poll(async () => {
       const tree = await api(page, `/whiteboard/boards/${map.id}/tree`);

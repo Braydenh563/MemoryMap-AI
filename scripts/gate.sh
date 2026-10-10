@@ -141,6 +141,19 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # drift on 2026-09-12 that every `--changed` gate that day had passed. One
   # second.
   tests/test_docs_site.py)
+# **The code map regenerates itself here**, never by hand: `docs/CODEMAP.md`
+# is what every agent greps instead of reading files (the orient skill), and
+# `tests/test_codemap_fresh.py` fails when a function has moved since the last
+# build. A gate that left the map stale would turn that lint into a chore, so
+# the gate rebuilds it (about 2.5 s) and, under --staged, stages it so the
+# commit carries the map its code matches.
+if [ -f "$ROOT/scripts/codemap.py" ]; then
+  "$PY" "$ROOT/scripts/codemap.py" > /dev/null 2>&1 || true
+  if [ "$STAGED" = 1 ] && ! git -C "$ROOT" diff --quiet -- docs/CODEMAP.md; then
+    git -C "$ROOT" add docs/CODEMAP.md
+  fi
+fi
+
 # **The lint set runs once.** Under `--staged` it runs against the index (the
 # scratch tree below) and not also against the working tree: the two used to
 # run back to back, so a staged commit paid for the lint set twice (over

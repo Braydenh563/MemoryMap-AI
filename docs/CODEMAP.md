@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4712, frontend ids 2225, CSS sections 485, backend routes 478, backend modules 3550, test files 893, tests 8430, plan headings 803.
+Counts: frontend functions 4712, frontend ids 2225, CSS sections 485, backend routes 478, backend modules 3550, test files 893, tests 8430, plan headings 810.
 
 ## Frontend functions (4712)
 
@@ -14034,7 +14034,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (803)
+## Plan headings (810)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -14193,7 +14193,14 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 22.5 Where the app goes next (release path) | docs/roadmap/WORLD_CLASS_PLAN.md:2427 |
 | 23. Filing and the taxonomy: candidates, a decision, an explanation (2026-10-10; Brief 39b) | docs/roadmap/WORLD_CLASS_PLAN.md:1464 |
 | 23. Organisation: manual grouping and multi-category notes | docs/roadmap/BACKLOG.md:1588 |
+| 24. Codebase census, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3254 |
 | 24. Dashboard: more widgets, and layout depth | docs/roadmap/BACKLOG.md:1620 |
+| 24.1 Size and complexity | docs/roadmap/WORLD_CLASS_PLAN.md:3258 |
+| 24.2 Duplicated blocks | docs/roadmap/WORLD_CLASS_PLAN.md:3380 |
+| 24.3 Dead-code candidates | docs/roadmap/WORLD_CLASS_PLAN.md:3420 |
+| 24.4 Coupling of the classic scripts | docs/roadmap/WORLD_CLASS_PLAN.md:3473 |
+| 24.5 Counts | docs/roadmap/WORLD_CLASS_PLAN.md:3560 |
+| 24.6 Console errors per surface | docs/roadmap/WORLD_CLASS_PLAN.md:3667 |
 | 25. App control: tray, health checks, and dependency repair | docs/roadmap/BACKLOG.md:1652 |
 | 26. Data lifecycle: archive, a full wipe, and a real trust page | docs/roadmap/BACKLOG.md:1718 |
 | 27. Onboarding and first-run experience | docs/roadmap/BACKLOG.md:1794 |

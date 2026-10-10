@@ -51,7 +51,7 @@ MAX_APP_WORDS = 40
 #: Parts that are the app's own words (decision 52's lint reads them).
 APP_KINDS = frozenset({"template"})
 #: Parts that may carry a number: a fact, the person's question, or a sum.
-NUMBERED_KINDS = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "computed", "help", "web", "reminder"})
+NUMBERED_KINDS = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "computed", "help", "web", "reminder", "term"})
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,15 @@ def grounding_marks(answer: str, rows: list[dict]) -> dict:
 # --- the maxims (decision 52) -------------------------------------------------------
 
 
+#: A measured day ("5 September", "5 September 2025"): one value, the date,
+#: so a count of five beside it is not the same fact said twice (INBOX 787),
+#: and the same day said twice still is.
+_DAY = re.compile(r"^\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|November|December)(?: \d{4})?$")
+
+
 def _values(text: str) -> list[str]:
+    if _DAY.match((text or "").strip()):
+        return [text.strip()]
     out = []
     for match in _NUMBER.finditer(text or ""):
         said = match.group(0).lower().replace(",", "")

@@ -625,7 +625,10 @@ HELP_TOPICS: list[dict] = [
             "to be on. It answers on the utility model in Settings, Models "
             "while smart model routing is on, on the chat model while that is "
             "off, and Settings, Models can give the guide a model of its "
-            "own. It cannot read your notes or documents (ask the "
+            "own. With no model running it still answers from the help: "
+            "Atlas's answer is put together for your question, and the From "
+            "the help tab above it shows the topic word for word. "
+            "It cannot read your notes or documents (ask the "
             "Chat or Ask tab for those), and nothing said to it is saved: the "
             "conversation is gone on reload, and \"New chat\" clears it now. "
             "It is reachable from the status bar on every tab, from the head "
@@ -2363,6 +2366,10 @@ def topics_for(question: str, tab: str | None = None) -> list[dict]:
     of its own ("the person asking has the notes tab open"), which is the part
     of the context that was worth having.
     """
+    if social_reply(question):
+        #: A greeting names no feature, so the open tab's topics are not its
+        #: answer either (INBOX 787: "hey" was answered with the Dashboard).
+        return []
     topics = _reading_topics(question)
     if not tab or topics:
         return topics
@@ -2450,9 +2457,10 @@ def _prompt_for(
 #: says so in its first line rather than passing this off as an answer
 #: composed for the asker.
 #: Said after the answer, never before it (decision 59, step 4; the Guide
-#: row "the answer first, the preface goes"): the reply is still honest that
-#: it is the app's help text, word for word, and not written by a model.
-OFFLINE_LEAD = "From the app's own help text, word for word: no model is running."
+#: row "the answer first, the preface goes"): the reply says where it came
+#: from in words a person would use (INBOX 787: "From the app's own help
+#: text, word for word: no model is running." read badly).
+OFFLINE_LEAD = "From the app's help, with no model running."
 
 OFFLINE_NOTHING_MATCHED = (
     "The local model is not running, and nothing in the app's own help text "
@@ -2460,12 +2468,110 @@ OFFLINE_NOTHING_MATCHED = (
     "open Settings, Help, which lists every topic."
 )
 
+#: **A greeting is answered as one** (INBOX 787: "hey" was answered with the
+#: open tab's topic, the Dashboard's paragraph, twice). The reply says who is
+#: answering and the client puts the tab's three starters under it
+#: (`atlasStartersFor`), so the first thing to ask is one tap away.
+_GREETING = re.compile(
+    r"^\W*(?:hi|hey|hello|hiya|howdy|yo|good (?:morning|afternoon|evening))"
+    r"(?:\s+(?:there|again|atlas|guide))?\W*$",
+    re.I,
+)
+_THANKS = re.compile(r"^\W*(?:thanks|thank you|thx|cheers|ta)(?:\s+(?:atlas|a lot|so much|very much))?\W*$", re.I)
+GREETING_REPLY = (
+    f"Hi, I'm {GUIDE_NAME}, the app's guide. Ask me where a feature lives, "
+    "what a setting does or how to do something here. Three to start with:"
+)
+THANKS_REPLY = "You're welcome. Ask me about any tab or setting."
 
-def _first_line(question: str, topics: list[dict]) -> str:
-    """The answer in one line, ahead of the topic it comes from: the same
-    sentence Chat's help register gives (`composer.help_line`)."""
+
+def social_reply(question: str) -> dict | None:
+    """The Guide's reply to a greeting or a thanks, or None for a question."""
+    text = (question or "").strip()
+    if _GREETING.match(text):
+        return {"content": GREETING_REPLY, "badges": [], "sources": [], "greeting": True}
+    if _THANKS.match(text):
+        return {"content": THANKS_REPLY, "badges": [], "sources": []}
+    return None
+
+
+#: **The composed answer** (INBOX 787, the owner: "they should have the option
+#: to see either the base help text or a slightly more customised version with
+#: the composer"). The question's own answer first (where it is, for a where;
+#: the help sentence that best answers it, for anything else), then the
+#: steps or one more sentence, then where the feature lives. Every sentence is
+#: the help text's own or a fixed phrase around its path; the topic word for
+#: word is the other side of the answer's toggle (`system_answer`).
+_WHERE_ASKED = re.compile(r"^\s*(?:where(?:'s| is| are| do| can| would)?|which (?:tab|setting|menu))\b", re.I)
+
+
+#: A second sentence longer than this is a wall, not a help: the topic's
+#: own text, a tap away, has it.
+SECOND_SENTENCE_WORDS = 35
+_HOW_ASKED = re.compile(r"^\s*(?:how (?:do|can|should|would) (?:i|you|we)|how to|can i|is there a way)\b", re.I)
+_COUNTS = ("no", "one", "two", "three", "four", "five", "six")
+
+
+def _place(path: str) -> str:
+    """"the Reminders tab" for "Reminders tab"; a Settings path as written."""
+    return f"the {path}" if path.endswith(" tab") and not path.startswith("The ") else path
+
+
+def _help_sentences(body: str) -> list[str]:
+    return [m.group(0).strip() for m in re.finditer(r"[^.!?]+[.!?]", body) if len(m.group(0).split()) >= 4]
+
+
+def _second_sentence(question: str, body: str, said: str) -> str:
+    """One more sentence of the topic that shares a word with the question
+    and is not the one already said, else ""."""
+    wanted = {w for w in _WORD.findall(question.lower()) if w not in _STOP and len(w) > 2}
+    for line in _help_sentences(body):
+        if line == said or said.startswith(line) or line in said or len(line.split()) > SECOND_SENTENCE_WORDS:
+            continue
+        have = set(_WORD.findall(line.lower()))
+        if any(h == w or (min(len(h), len(w)) >= 5 and (h.startswith(w) or w.startswith(h))) for w in wanted for h in have):
+            return line
+    return ""
+
+
+def _guide_lead(question: str, topics: list[dict]) -> str:
+    """The help sentence that best answers `question` (`composer.help_line`).
+    Before the composer is loaded (a bare import of this module), the
+    topic's first sentence leads: never an answer with no answer in it."""
     line = act_registry.help_sentence(question, topics) if act_registry.help_sentence else None
-    return f"{line[0]}\n\n" if line else ""
+    return line[0] if line else next(iter(_help_sentences(topics[0]["body"])), "")
+
+
+def _guide_opening(question: str, path: str, steps: tuple, lead: str) -> tuple[list[str], bool, bool]:
+    """The answer's first lines, and whether it said the place and walked
+    the steps: where it is for a where-question; how many steps and where
+    from for a how-to with steps; else the lead sentence."""
+    where = bool(path) and bool(_WHERE_ASKED.match(question))
+    walk = bool(steps) and bool(_HOW_ASKED.match(question)) and len(steps) < len(_COUNTS)
+    lines = [f"It's in {_place(path)}."] if where else []
+    if walk:
+        lines.append(f"It takes {_COUNTS[len(steps)]} steps" + (f", from {_place(path)}:" if path else ":"))
+    elif lead:
+        lines.append(lead)
+    return lines, where, walk
+
+
+def composed_answer(question: str, topics: list[dict]) -> str:
+    """The Guide's answer composed for `question` from the best topic."""
+    first = topics[0]
+    meta = TOPIC_META.get(first["id"], {})
+    path = str(meta.get("path") or "").rstrip(".")
+    steps = tuple(meta.get("steps") or ())
+    lead = _guide_lead(question, topics)
+    lines, where, walk = _guide_opening(question, path, steps, lead)
+    more = "" if steps else _second_sentence(question, first["body"], lead)
+    lines += ["\n".join(f"{n}. {step}" for n, step in enumerate(steps, 1))] if steps else [more] if more else []
+    if path and not where and not walk:
+        lines.append(f"**Where:** {path}")
+    related = [topic_title(topic) for topic in topics[1:]]
+    if related:
+        lines.append("**Related:** " + ", ".join(related))
+    return "\n\n".join(lines)
 
 
 def offline_answer(
@@ -2482,6 +2588,9 @@ def offline_answer(
     the model off.
     """
     question = (question or "").strip()[:MAX_MESSAGE_CHARS]
+    social = social_reply(question)
+    if social:
+        return social
     topics = topics_for(question, tab) if question else []
     if not topics:
         #: The app's help text for whatever is on screen, when there is any:
@@ -2495,14 +2604,12 @@ def offline_answer(
                 "sources": [],
             }
         return {"content": OFFLINE_NOTHING_MATCHED, "badges": [], "sources": []}
-    #: **One answer, then where else to look** (INBOX 406). Three topics'
-    #: bodies pasted end to end read as a wall where the question's answer
-    #: was one paragraph of three; the best match is the answer, and the
-    #: runners-up (already cut to those worth showing, `_RUNNER_UP_SHARE`)
-    #: are named as related, with their chips below as before.
+    #: **Composed by default, the help text a tap away** (INBOX 787). The
+    #: composed answer is the content; `system` is the topic as written
+    #: (INBOX 430's layout), which the client offers as "From the help".
     system = system_answer(topics)
     return {
-        "content": f"{_first_line(question, topics)}{system['content']}\n\n{OFFLINE_LEAD}",
+        "content": f"{composed_answer(question, topics)}\n\n{OFFLINE_LEAD}",
         "badges": badges_for(topics),
         "sources": source_names(topics),
         "system": system,

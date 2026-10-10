@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the composer agent (INBOX 787, merged 2026-10-10)
+
+Detail: [composer-1010.md](../archive/agent-remaining/composer-1010.md).
+
+- "What do I know about X" still quotes one sentence unless its notes are tagged with the subject (the 725 and 741 evals pin it).
+- Single-note answers still end with "[your note, date]"; some next-question chips repeat the subject; an overview over more than 24 notes should say "at least".
+- Not verified: a real embedder, the professional voice in a browser, 390px, the picture notice in a browser.
+
 ## Left by the chat88 agent (Brief 88, merged 2026-10-10)
 
 Detail: [chat88-1010.md](../archive/agent-remaining/chat88-1010.md).

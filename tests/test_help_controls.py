@@ -224,7 +224,14 @@ def test_every_whiteboard_tool_key_is_in_the_whiteboard_entry():
 
 def _longest_offline_answer() -> str:
     return max(
-        (help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")["content"] for t in help_chat.HELP_TOPICS),
+        #: Either view of the answer (INBOX 787): the composed one the panel
+        #: keeps, or the help text word for word.
+        (
+            text
+            for t in help_chat.HELP_TOPICS
+            for reply in [help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")]
+            for text in (reply["content"], (reply.get("system") or {}).get("content", ""))
+        ),
         key=len,
     )
 
@@ -232,7 +239,7 @@ def _longest_offline_answer() -> str:
 @pytest.mark.parametrize("route", ["/help/ask", "/help/ask/stream"])
 def test_the_question_after_a_controls_answer_is_still_answered(client, route):
     first = client.post("/help/ask", json={"question": "what are all the whiteboard shortcuts"}).json()
-    assert len(first["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
+    assert len(first["system"]["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
     history = [
         {"role": "user", "content": "what are all the whiteboard shortcuts"},
         {"role": "assistant", "content": _longest_offline_answer()},

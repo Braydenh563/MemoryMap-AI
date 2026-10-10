@@ -73,11 +73,12 @@ def measured_values(notes: list[dict], on: date) -> set[str]:
     for note in notes:
         day = date.fromisoformat(str(note["created_at"])[:10])
         month = composer._MONTHS[day.month - 1]
-        values |= {f"{day.day} {month}", f"{day.day} {month} {day.year}"}
+        #: A span by month (INBOX 787's overview: "from July to September").
+        values |= {f"{day.day} {month}", f"{day.day} {month} {day.year}", month, f"{month} {day.year}"}
         if day == on:
-            values.add("today")
+            values |= {"today", "Today"}
         if (on - day).days == 1:
-            values.add("yesterday")
+            values |= {"yesterday", "Yesterday"}
     return values
 
 
@@ -165,6 +166,11 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "measure":
             if text not in measured and text not in rederived_insights(question, notes, on):
                 failures.append(f"not a measured value: {text!r}")
+        elif kind == "term":
+            #: A word of the notes as written there, naming a thread or a
+            #: name that links them (INBOX 787's overview).
+            if not re.search(rf"\b{re.escape(text)}\b", by_id[part[2]]["content"]):
+                failures.append(f"not a word of note {part[2]}: {text!r}")
         elif kind == "asked":
             if text.lower() not in f"{question} {asked_from}".lower():
                 failures.append(f"not from the question: {text!r}")

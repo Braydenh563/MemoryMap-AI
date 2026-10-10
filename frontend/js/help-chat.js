@@ -381,6 +381,7 @@ async function submitHelpChatQuestion(question) {
       signal.aborted ? [] : result?.sources || [],
       signal.aborted ? null : result?.system || null
     );
+    if (answerRow && result?.greeting && !signal.aborted) renderHelpChatGreeting(answerRow);
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
   } catch (error) {
@@ -523,6 +524,7 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
     badges: done?.badges || [],
     sources: done?.sources || [],
     system: done?.system || null,
+    greeting: !!done?.greeting,
     shown: text,
   };
 }
@@ -652,6 +654,25 @@ function renderAtlasStarters() {
       host.appendChild(chip);
     }
   }
+}
+
+//: **A greeting gets three things to ask** (INBOX 787: "hey" was answered
+//: with the open tab's topic). The reply says who is answering; the tab's
+//: starters go under it as chips, the same ones the empty state offers.
+function renderHelpChatGreeting(row) {
+  const host = document.createElement("div");
+  host.className = "help-chat-badges";
+  const tab = typeof agentCurrentTab === "function" ? agentCurrentTab() : null;
+  for (const question of atlasStartersFor(tab)) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "ghost small atlas-starter";
+    chip.textContent = question;
+    chip.title = `Ask Atlas: ${question}`;
+    chip.addEventListener("click", () => askAtlas(question));
+    host.appendChild(chip);
+  }
+  row.appendChild(host);
 }
 
 //: The one way in with a question already chosen: used by the starters, and

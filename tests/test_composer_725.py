@@ -220,7 +220,9 @@ def test_a_pictures_reading_is_introduced_as_the_picture():
     assert ("picture", "a blue bean drawn in pen") in kinds and ("picture_text", "bean v2") in kinds
     assert not any(s.text.startswith("[Pictures") for s in view.sentences)
     result = ask("What does the bean sketch show?", [PICTURE_NOTE])
-    assert "The picture in **Sketches** shows a blue bean drawn in pen." in result["text"]
+    #: Its words are said with it, never as a second sentence naming the
+    #: picture again (INBOX 787).
+    assert "The picture in **Sketches** shows a blue bean drawn in pen, which reads “bean v2”." in result["text"]
     row = next(r for r in result["grounding"] if r["sentence"] == "a blue bean drawn in pen")
     assert PICTURE_NOTE["content"][row["start"]:row["end"]] == "a blue bean drawn in pen"
 

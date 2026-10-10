@@ -76,7 +76,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from memorymap.ai import act_registry, composer_tables, grounding, question_noise, realise, utilities
+from memorymap.ai import act_registry, composer_overview, composer_tables, grounding, question_noise, realise, utilities
 from memorymap.ai import when as when_words
 from memorymap.search import query as query_understanding
 
@@ -300,12 +300,18 @@ PHRASES: dict[str, str] = {
     "next_note_a": "What does “",
     "next_note_b": "” say?",
     "next_tag_a": "What else do my notes say about ",
+    "ov_next_about": "What did I write about ",
+    "ov_doing": " of your notes say what you are working on",
+    "ov_list": "a list: ",
+    "ov_span_one": ", all from ",
+    "picture_text_lead": "a picture with the words ",
     "next_tag_b": "?",
     "next_latest_a": "What is the latest on ",
     "next_when_a": "When did I write about ",
 }
 #: The voices' variants of the joining phrases and openers (`composer_tables`):
 #: ordinary entries, so every closed-set check covers them.
+PHRASES.update(composer_tables.OVERVIEW_PHRASES)
 PHRASES.update(composer_tables.EXTRA_PHRASES)
 
 def phrase_options(key: str, voice: str | None = None) -> tuple[str, ...]:
@@ -827,18 +833,49 @@ _PICTURES_HEAD = "[Pictures in this note"
 _PICTURE_LINE = re.compile(r"^\s*-\s+[^:\n]+:\s+(?:shows (?P<caption>.+?))?(?:;?\s*text in it: \"(?P<text>.+?)\")?\]?\s*$")
 
 
+#: A captioning model's frame around what a picture shows ("The image
+#: contains a text excerpt ..."): read past, so the answer says "a text
+#: excerpt ..." and never "shows The image shows" (INBOX 787).
+_CAPTION_FRAME = re.compile(
+    r"^(?:the|this)\s+(?:image|picture|photo|photograph|screenshot)\s+(?:contains|shows|depicts|is of|is)\s+(?=\S)", re.I
+)
+#: The lines of a picture's text as the route joins them (" / "), and a
+#: numbered list run into one line ("1. Offline search 2. Tags").
+_PICTURE_TEXT_BREAK = re.compile(r"\s+/\s+|\s+(?=\d{1,2}[.)]\s)")
+
+
+def _picture_spans(group: str, text: str) -> list[tuple[int, str]]:
+    """The units one picture reading gives, each with its offset in `text`:
+    the caption past its frame, the text one line (or list entry) each."""
+    if group == "caption":
+        frame = _CAPTION_FRAME.match(text)
+        return [(frame.end() if frame else 0, text[frame.end():] if frame else text)]
+    spans, cursor = [], 0
+    for brk in [*_PICTURE_TEXT_BREAK.finditer(text), None]:
+        end = brk.start() if brk else len(text)
+        piece = text[cursor:end]
+        lead = len(piece) - len(piece.lstrip())
+        number = re.match(r"\d{1,2}[.)]\s+", piece[lead:])
+        lead += number.end() if number else 0
+        spans.append((cursor + lead, piece[lead:].strip()))
+        cursor = brk.end() if brk else end
+    return spans
+
+
 def _picture_units(view: NoteView, content: str, line_start: int, line: str) -> None:
     match = _PICTURE_LINE.match(line.rstrip("\r\n"))
     if not match:
         return
     for group, kind in (("caption", "picture"), ("text", "picture_text")):
-        text = (match.group(group) or "").strip()
-        if len(text.split()) < 2:
-            continue
-        start = line_start + match.start(group)
-        words = _words(text)
-        if words:
-            view.sentences.append(Sentence(view.id, view.rank, start, start + len(text), text, words, kind))
+        whole = match.group(group) or ""
+        for offset, text in _picture_spans(group, whole):
+            text = text.strip()
+            if len(text.split()) < 2:
+                continue
+            start = line_start + match.start(group) + offset
+            words = _words(text)
+            if words:
+                view.sentences.append(Sentence(view.id, view.rank, start, start + len(text), text, words, kind))
 
 
 #: A list line naming a picture file and what it shows.
@@ -1335,6 +1372,12 @@ class _Answer:
         self.parts.append(("asked", text))
         return self
 
+    def term(self, text: str, holder: NoteView) -> _Answer:
+        """A word of the notes, as written there: a name or a thread that
+        groups them ("League"), never a claim of its own."""
+        self.parts.append(("term", text, holder.id))
+        return self
+
     def name(self, view: NoteView, cap: bool = False) -> _Answer:
         """The note's name: its heading in bold, or, for a note with no
         heading, "your note from 3 March" (never its first words)."""
@@ -1564,6 +1607,8 @@ def _quotes(out: _Answer, sentences: list[Sentence], terms: list[str], lower_fir
     sentence's first letter, after a joiner that ends in a comma."""
     lower_first, out.lower_next = lower_first or out.lower_next, False
     for i, s in enumerate(sentences):
+        if _said_with_before(sentences, i):
+            continue
         if i:
             out.t("space")
         if not i and lower_first and _lowered(s):
@@ -1571,17 +1616,75 @@ def _quotes(out: _Answer, sentences: list[Sentence], terms: list[str], lower_fir
             if s.echoes:
                 out.t("echo").m(out.count(1 + len(s.echoes))).t("echo_end")
             continue
-        if s.kind == "picture":
-            out.t("picture_in").name(out.views[s.note_id]).t("picture_shows").q(s, terms)
-            if not s.text.endswith((".", "?", "…")):
-                out.t("stop")
-        elif s.kind == "picture_text":
-            out.t("picture_in").name(out.views[s.note_id]).t("picture_reads", "open_quote").q(s, terms)
-            out.t("close_quote", "stop")
+        if s.kind.startswith("picture"):
+            _picture_said(out, sentences, i, terms)
         else:
             out.q(s, terms)
+            if s.kind == "prose" and i + 1 < len(sentences) and not _ENDED.search(s.text):
+                #: A first line with no full stop ("Side project ideas from
+                #: the hackathon") ran into the next quote (INBOX 787).
+                out.t("stop")
         if s.echoes:
             out.t("echo").m(out.count(1 + len(s.echoes))).t("echo_end")
+
+
+#: A picture's words said in full up to this many lines.
+PICTURE_LINES = 6
+
+
+def _said_with_before(sentences: list[Sentence], i: int) -> bool:
+    """A picture's line said with the reading before it (`_picture_said`)."""
+    s, before = sentences[i], sentences[i - 1] if i else None
+    return s.kind == "picture_text" and before is not None and before.kind.startswith("picture") and before.note_id == s.note_id
+
+
+def _picture_said(out: _Answer, sentences: list[Sentence], i: int, terms: list[str]) -> None:
+    """One picture's reading said once (INBOX 787): "The picture in your note
+    from 5 September shows a screenshot of ..., which reads “Ranked
+    Solo/Duo” and “Gold II”." Its lines after the first are said with it,
+    never as a sentence each that names the picture again."""
+    s = sentences[i]
+    run = _picture_run(out, sentences, i)
+    out.t("picture_in").name(out.views[s.note_id])
+    reads = run
+    if s.kind == "picture":
+        out.t("picture_shows").q(s, terms, s.text.rstrip(".") if len(run) > 1 else None)
+        reads = run[1:]
+        out.t(*(("ov_reads",) if reads else ()))
+    else:
+        out.t("picture_reads")
+    _quoted_lines(out, reads, terms)
+    if reads or not _ENDED.search(s.text):
+        out.t("stop")
+
+
+def _quoted_lines(out: _Answer, lines: list[Sentence], terms: list[str]) -> None:
+    """“A”, “B” and “C”: a picture's lines in quotes."""
+    for n, line in enumerate(lines):
+        if n:
+            out.t("and" if n == len(lines) - 1 else "comma")
+        out.t("open_quote").q(line, terms).t("close_quote")
+
+
+def _picture_run(out: _Answer, sentences: list[Sentence], i: int) -> list[Sentence]:
+    """The reading at `i` and the lines of its words said with it: every line,
+    up to six, when the answer chose one of them ("what is on my feature
+    list" asked for the list, and two lines of five were said); else the
+    lines chosen right after it."""
+    s = sentences[i]
+    lines = [u for u in out.views[s.note_id].sentences if u.kind == "picture_text" and u.order >= s.order]
+    chosen = any(u.kind == "picture_text" and u.note_id == s.note_id for u in sentences[i:])
+    if chosen and len(lines) <= PICTURE_LINES + 1:
+        return [s, *[u for u in lines if u is not s][:PICTURE_LINES]]
+    run = [s]
+    for later in sentences[i + 1:]:
+        if later.kind != "picture_text" or later.note_id != s.note_id:
+            break
+        run.append(later)
+    return run
+
+
+_ENDED = re.compile(r"[.!?…:;\"”’)\]]\s*$")
 
 
 #: A list the person wrote reads as one sentence when every entry is a short
@@ -2305,11 +2408,9 @@ def _newest(out: _Answer, views: list[NoteView]) -> None:
         else:
             out.name(view, cap=True)
         out.t("colon")
-        first = view.sentences[0]
-        if first.kind == "picture":
-            out.t("picture_in").name(view).t("picture_shows").q(first, [])
-        else:
-            out.q(first, [])
+        #: A picture's note as what it shows and its words; a note's
+        #: heading with the sentence after it (INBOX 787).
+        _overview_line(out, composer_overview.best_line(view.sentences, set()), set())
 
 
 # --- what to ask next -----------------------------------------------------------
@@ -3166,6 +3267,21 @@ def _help_answer(question: str) -> dict | None:
     return _result(parts, "help")
 
 
+#: Verbs of one doing, for the help line: a sentence saying "add" answers
+#: "how do I make" half as well as one saying "make".
+_HELP_DOING: dict[str, frozenset[str]] = {
+    word: group - {word}
+    for group in (
+        frozenset({"make", "create", "add", "new", "set", "start", "type"}),
+        frozenset({"delete", "remove", "bin", "trash", "clear"}),
+        frozenset({"change", "switch", "pick", "choose", "edit"}),
+        frozenset({"find", "search", "look", "open"}),
+        frozenset({"stop", "disable", "pause", "off", "hide"}),
+    )
+    for word in group
+}
+
+
 def help_line(question: str, topics: list[dict]) -> tuple[str, str] | None:
     """The one sentence of the best topic that answers a how-to (its step
     sentence sharing the most of the question's words) and the topic's id:
@@ -3181,11 +3297,21 @@ def help_line(question: str, topics: list[dict]) -> tuple[str, str] | None:
     #: Every word of the question counts here, "note" included: the asking
     #: words that are noise in a notebook ("note") name the control in Help.
     wanted = set(_words(question))
+    #: The topic's own name is what every one of its sentences is about, so it
+    #: counts half: the verb asked ("make") is what picks the sentence.
+    named = set(_words(str(topic.get("id", "")).replace("-", " ")))
 
-    def shared(line: str) -> int:
-        #: A word and its longer form ("remind", "reminder") are one word here.
+    def shared(line: str) -> float:
+        #: A word and its longer form ("remind", "reminder") are one word here;
+        #: a verb of the same doing ("make" for "set") is half a word (INBOX
+        #: 787: "how do I make a reminder" led with how the tab is laid out).
         have = set(_words(line))
-        return sum(1 for w in wanted if any(h == w or (min(len(h), len(w)) >= 5 and (h.startswith(w) or w.startswith(h))) for h in have))
+        def one(w: str, h: str) -> bool:
+            return h == w or (min(len(h), len(w)) >= 5 and (h.startswith(w) or w.startswith(h)))
+
+        hits = sum(0.5 if w in named else 1 for w in wanted if any(one(w, h) for h in have))
+        kin = sum(1 for w in wanted if not any(one(w, h) for h in have) and any(one(g, h) for g in _HELP_DOING.get(w, ()) for h in have))
+        return hits + 0.5 * kin
 
     return max(sentences, key=lambda line: (shared(line), -sentences.index(line))), str(topic.get("id", ""))
 
@@ -3241,11 +3367,255 @@ def _recall(out: _Answer, p: Plan, views: list[NoteView], question: str) -> None
         else:
             out.t("list_from").m(out.day(view.written))
         out.t("colon")
-        first = view.sentences[0]
-        if first.kind == "picture":
-            out.t("picture_in").name(view).t("picture_shows").q(first, [])
+        #: A picture's note as what it shows and its words; a note's
+        #: heading with the sentence after it (INBOX 787).
+        _overview_line(out, composer_overview.best_line(view.sentences, set()), set())
+
+
+# --- the overview of a topic (INBOX 787) ------------------------------------------
+
+#: At most this many notes in an overview, and this many under one thread:
+#: past these it is the records list again, which is beside the answer.
+OVERVIEW_NOTES = 8
+OVERVIEW_PER_THEME = 4
+#: The subject is a name ("Jake"): the lead says where it comes up, and
+#: its notes are not grouped (each is about them already).
+_PERSON = re.compile(r"^[A-Z][\w'-]+$")
+
+
+def _overview_answer(
+    question: str, notes: list[dict], *, today: date, voice: str, said: str, prefer: str, dialogue: Dialogue | None = None,
+) -> dict | None:
+    """A topic asked about as a whole ("games notes", "what did I write about
+    uni", "who is Jake"), answered as a person would: how many notes and
+    over which days, the thread most share, the notes grouped by it with a
+    day and one short line each, the name that links them, and what to ask
+    next. None when the question is not one, or fewer than two notes are
+    about it (the question's own shape answers those)."""
+    subject = _overview_subject(question, today) if not (said or prefer) else None
+    if not subject:
+        return None
+    views = [v for v in (read_note(n, i) for i, n in enumerate(_distinct_ids(notes or []))) if v]
+    stems = _subject_stems(subject)
+    head = next((_stem(t) for t in subject_terms(subject)), "")
+    found = composer_overview.members(stems, views, _holds, head)
+    if len(found) < 2 or not _overview_over_broad(question, stems, views):
+        return None
+    out = _Answer({v.id: v for v in views}, today)
+    out.voice, out.question, out.subject = composer_tables.voice_of(voice), question, stems
+    #: No joining words twice in a conversation (decision 25).
+    out.used = set(dialogue.used) if dialogue is not None else set()
+    themes = [] if _PERSON.match(subject) else composer_overview.themes(found, stems, _stem, views)
+    _overview_lead(out, question, subject, found, themes)
+    shown = _overview_groups(out, found, themes, stems)
+    _overview_links(out, found, themes, stems, views)
+    if len(found) > shown:
+        out.t("para", "ov_more_a").m(out.count(len(found) - shown)).t("ov_more_b")
+    result = _result(out.parts, "overview", out.rows, _overview_next(question, subject, found, themes))
+    result["broad"] = True
+    return result
+
+
+def _month(out: _Answer, when: date) -> str:
+    """"July", or "July 2025" outside this year: a span's ends, by month, so
+    the days the lines below give are not said twice (decision 52)."""
+    name = _MONTHS[when.month - 1]
+    return name if when.year == out.today.year else f"{name} {when.year}"
+
+
+def _overview_subject(question: str, today: date) -> str | None:
+    """The topic a question asks about as a whole, when nothing else in it
+    (a time, a tag, a sum, a recall) answers it first."""
+    subject = composer_overview.topic(question)
+    p = plan(question, today) if subject else None
+    if p is None or p.window or p.constraints or p.kind in ("utility", "recall"):
+        return None
+    return subject
+
+
+def _subject_stems(subject: str) -> set[str]:
+    if subject == composer_overview.DOING:
+        return {subject}
+    return {_stem(t) for t in subject_terms(subject)} or {_stem(w) for w in _words(subject)}
+
+
+def _overview_over_broad(question: str, stems: set[str], views: list[NoteView]) -> bool:
+    """A broad question ("what do I know about sourdough") keeps its own
+    answer (INBOX 729: how many notes mention it, the note named for it
+    first) unless its notes are filed under the subject more than they say
+    it: "summarise my uni notes" found the one note that says "uni" and
+    missed the five tagged uni."""
+    if not (_BROAD.match(question) or _BROAD.match(rephrase(question))):
+        return True
+    filed = sum(1 for v in views if any(_holds(stem, v.filed_words) for stem in stems))
+    worded = sum(1 for v in views if all(_holds(stem, v.words) for stem in stems))
+    return filed > worded
+
+
+def _span_of(out: _Answer, views: list[NoteView]) -> None:
+    """", from July to September" over the notes' days; ", all from
+    September" when they share a month."""
+    days = sorted(v.written for v in views if v.written)
+    if not days:
+        return
+    first, last = _month(out, days[0]), _month(out, days[-1])
+    if first == last:
+        out.t("ov_span_one").m(first)
+    else:
+        out.t("ov_span_a").m(first).t("ov_span_b").m(last)
+
+
+def _overview_lead(out: _Answer, question: str, subject: str, found: list[NoteView], themes: list) -> None:
+    """The first sentence answers: how many notes, over which days, and the
+    thread most of them share."""
+    said = _as_typed(subject, question)
+    if subject == composer_overview.DOING:
+        out.m(out.count(len(found)).capitalize()).t("ov_doing")
+        _span_of(out, found)
+        out.t("stop")
+        return
+    if _PERSON.match(subject):
+        out.asked(said).t("ov_who_mid").m(out.count(len(found))).t("ov_who_end")
+        _span_of(out, found)
+        out.t("stop")
+        return
+    out.t("ov_lead_a").m(out.count(len(found))).t("ov_lead_b").asked(said)
+    _span_of(out, found)
+    if themes:
+        label, held = themes[0]
+        out.t("semicolon").term(label, held[0]).t("ov_theme_mid").m(out.count(len(held))).t("ov_theme_end")
+    else:
+        out.t("stop")
+
+
+def _overview_groups(out: _Answer, found: list[NoteView], themes: list, stems: set[str]) -> int:
+    """The notes under their threads, then the rest; how many were shown."""
+    themed = {v.id for _, held in themes for v in held}
+    rest = [v for v in found if v.id not in themed]
+    shown = 0
+    for label, held in themes:
+        out.t("para", "bold").term(label, held[0]).t("bold")
+        shown += _overview_bullets(out, held[:OVERVIEW_PER_THEME], stems | {_stem(label.lower())}, {_stem(label.lower())})
+    if rest and shown < OVERVIEW_NOTES:
+        out.t("para")
+        if themes:
+            out.t("bold", "ov_also", "bold")
+        shown += _overview_bullets(out, rest[: OVERVIEW_NOTES - shown], stems, set(), first=not themes)
+    return shown
+
+
+def _overview_bullets(out: _Answer, views: list[NoteView], stems: set[str], text_stems: set[str], first: bool = False) -> int:
+    """One line a note, oldest first: its day, then the line that stands
+    for it (a picture's reading as what it shows and the words in it)."""
+    for i, view in enumerate(sorted(views, key=lambda v: (v.written or date.min, v.rank))):
+        if i or not first:
+            out.t("line")
+        out.t("bullet")
+        if view.written:
+            day = out.day(view.written)
+            out.m(day[:1].upper() + day[1:]).t("colon")
         else:
-            out.q(first, [])
+            out.name(view, cap=True).t("colon")
+        _overview_line(out, composer_overview.best_line(view.sentences, stems, text_stems), stems)
+    return len(views)
+
+
+def _overview_line(out: _Answer, units: list[Sentence], stems: set[str]) -> None:
+    """A note's line: its sentences, each ended; a picture as what it shows,
+    then ", which reads" and its words in quotes."""
+    terms = sorted(stems)
+    if len(units) > 1 and all(s.kind in ("item", "task") for s in units):
+        _overview_list(out, units, terms)
+        return
+    for i, s in enumerate(units):
+        if s.kind == "picture_text":
+            out.t("ov_reads" if i else "picture_text_lead", "open_quote").q(s, terms).t("close_quote")
+            continue
+        if i:
+            out.t("space")
+        followed = i + 1 < len(units) and units[i + 1].kind == "picture_text"
+        out.q(s, terms, s.text.rstrip(".") if followed else None)
+        if not followed and not _ENDED.search(s.text):
+            out.t("stop")
+    if units and units[-1].kind == "picture_text":
+        out.t("stop")
+
+
+def _overview_list(out: _Answer, units: list[Sentence], terms: list[str]) -> None:
+    """A list note as one sentence: "a list: a habit tracker, ...", its
+    entries lowered only when all are written that way, and parted by
+    semicolons when not, so no capital follows a comma."""
+    out.t("ov_list")
+    lower = _sentence_case(units)
+    between = "comma" if lower else "semicolon"
+    for n, s in enumerate(units):
+        if n:
+            out.t("and" if n == len(units) - 1 else between)
+        text = s.text.rstrip(".")
+        out.q(s, terms, text[0].lower() + text[1:] if lower else text)
+    out.t("stop")
+
+
+def _overview_links(out: _Answer, found: list[NoteView], themes: list, stems: set[str], views: list[NoteView]) -> None:
+    """A name two or more of the notes share that no thread named: what
+    links them across the groups ("Jake is in two of these notes.")."""
+    skip = {label.lower() for label, _ in themes} | {w for w in stems}
+    for name, n in composer_overview.shared_names(found, skip, views):
+        if _stem(name.lower()) in stems:
+            continue
+        holder = next(v for v in found if name in str(v.note.get("content") or ""))
+        out.t("para").term(name, holder).t("ov_shared_mid").m(out.count(n)).t("ov_shared_end")
+        return
+
+
+def _overview_next(question: str, subject: str, found: list[NoteView], themes: list) -> list[list[tuple]]:
+    """What to ask next, from what the notes hold: the biggest thread, a
+    name that links them, and the latest on the subject."""
+    picks: list[list[tuple]] = []
+    for label, held in themes[:1]:
+        picks.append([("template", PHRASES["ov_next_about"]), ("term", label, held[0].id), ("template", PHRASES["next_tag_b"])])
+    picks += _overview_name_chip(found, subject, themes)
+    picks += _overview_tag_chip(found, subject)
+    said = _as_typed(subject, question)
+    if len(said) <= 40 and subject != composer_overview.DOING:
+        picks.append([("template", PHRASES["next_latest_a"]), ("asked", said), ("template", PHRASES["next_tag_b"])])
+    return [p for p in picks if len("".join(part[1] for part in p)) <= NEXT_MAX_CHARS][:3]
+
+
+def _overview_name_chip(found: list[NoteView], subject: str, themes: list) -> list[list[tuple]]:
+    """A name in the notes that is neither a thread nor the subject."""
+    asked = {_stem(w) for w in _words(subject)}
+    skip = {label.lower() for label, _ in themes} | {w.lower() for w in _words(subject)} | {subject.lower()}
+    for name, _n in composer_overview.shared_names(found, skip, least=1):
+        if {_stem(w) for w in _words(name)} & asked:
+            continue
+        holder = next(v for v in found if name in str(v.note.get("content") or ""))
+        return [[("template", PHRASES["ov_next_about"]), ("term", name, holder.id), ("template", PHRASES["next_tag_b"])]]
+    return []
+
+
+def _overview_tag_chip(found: list[NoteView], subject: str) -> list[list[tuple]]:
+    """A tag two or more of the notes share that the subject is not: a
+    thread the next question can pull ("study" under ideas)."""
+    asked = {_stem(w) for w in _words(subject)}
+    held = Counter(str(t) for v in found for t in dict.fromkeys(v.note.get("tags") or []) if not set(_words(str(t))) & asked)
+    for tag, n in held.most_common(1):
+        if n >= 2 and re.fullmatch(r"\w[\w -]{1,30}", tag):
+            view = next(v for v in found if tag in (v.note.get("tags") or []))
+            return [[("template", PHRASES["next_tag_a"]), ("filed", tag, view.id), ("template", PHRASES["next_tag_b"])]]
+    return []
+
+
+def _recall_next(window: tuple, views: list[NoteView]) -> list[list[tuple]]:
+    """What to ask after a recall by time (INBOX 787: "last week" offered
+    nothing): the threads through that time's notes, then a shared tag."""
+    inside = [v for v in views if _in_window(v, window)]
+    picks = [
+        [("template", PHRASES["ov_next_about"]), ("term", label, held[0].id), ("template", PHRASES["next_tag_b"])]
+        for label, held in composer_overview.themes(inside, set(), _stem, views)
+    ]
+    picks += _overview_tag_chip(inside, "")
+    return [p for p in picks if len("".join(part[1] for part in p)) <= NEXT_MAX_CHARS][:3]
 
 
 def _filtered(views: list[NoteView], p: Plan) -> tuple[list[NoteView], tuple | None]:
@@ -3383,14 +3753,23 @@ def compose(
     #: `learned`: what the person said of insights (`insights.memory`).
     known = _LEARNED.set(learned)
     try:
-        result = _compose(question, notes, today=today, recent=recent, embed=embed, said=said, previous=previous,
-                          voice=voice, now=now, salt=salt, turn=turn, dialogue=dialogue, prefer=prefer)
+        result = _answer_turn(question, notes, today=today, recent=recent, embed=embed, said=said, previous=previous,
+                              voice=voice, now=now, salt=salt, turn=turn, dialogue=dialogue, prefer=prefer)
     finally:
         _SESSION.reset(token)
         _LEARNED.reset(known)
     if dialogue is not None:
         dialogue.record(asked, result)
     return result
+
+
+def _answer_turn(question: str, notes: list[dict], **kwargs) -> dict:
+    """A topic asked about as a whole is an overview (INBOX 787); anything
+    else, or a topic with one note about it, is `_compose`'s."""
+    return _overview_answer(
+        question, notes, today=kwargs["today"] or date.today(), voice=kwargs["voice"], said=kwargs["said"],
+        prefer=kwargs["prefer"], dialogue=kwargs["dialogue"],
+    ) or _compose(question, notes, **kwargs)
 
 
 def _compose(
@@ -3472,7 +3851,7 @@ def _compose(
     if p.kind == "recall" and p.window and not said:
         shape = "recall"
         _recall(out, p, views_list, question)
-        return _result(out.parts, shape, out.rows)
+        return _result(out.parts, shape, out.rows, _recall_next(p.window, views_list))
     if p.window and not said and views_list and not any(_in_window(v, p.window) for v in views_list):
         #: A window no note found falls in: said, never answered from notes
         #: written at another time.

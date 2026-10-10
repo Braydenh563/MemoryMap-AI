@@ -238,8 +238,87 @@ _PAIRS: dict[str, dict[str, list[str]]] = {
         "professional": [" entries on ", " entries concerning ", " relevant entries on "],
     },
 }
+#: The overview of a topic (INBOX 787, the owner: "the composer is still
+#: pretty barebone, has no life to it"): how many notes, over which days,
+#: the thread most of them share, then the notes grouped by it. Each pair
+#: varies together so "You have ... notes about" never meets "entries on".
+_OVERVIEW_PAIRS: dict[str, dict[str, list[str]]] = {
+    "ov_lead_a": {
+        "natural": ["I found ", "There are ", "Your notebook holds "],
+        "professional": ["The notebook holds ", "There are ", "The records show "],
+    },
+    "ov_lead_b": {
+        "natural": [" notes about ", " notes on ", " notes about "],
+        "professional": [" entries on ", " entries concerning ", " entries on "],
+    },
+    #: Every first half reads with every second half: a conversation that has
+    #: used one second half picks another, whichever first half it has.
+    "ov_span_a": {
+        "natural": [", from ", ", running from "],
+        "professional": [", dated ", ", spanning "],
+    },
+    "ov_span_b": {
+        "natural": [" to ", " to "],
+        "professional": [" to ", " to "],
+    },
+    "ov_theme_mid": {
+        "natural": [" is in ", " features in "],
+        "professional": [" appears in ", " is mentioned in "],
+    },
+    "ov_who_mid": {
+        "natural": [" is in ", " appears in "],
+        "professional": [" appears in ", " is named in "],
+    },
+    "ov_who_end": {
+        "natural": [" of your notes", " of your notes"],
+        "professional": [" entries", " entries"],
+    },
+    "ov_shared_mid": {
+        "natural": [" comes up in ", " is in "],
+        "professional": [" appears in ", " is named in "],
+    },
+    "ov_shared_end": {
+        "natural": [" of these notes.", " of them."],
+        "professional": [" of these entries.", " of these entries."],
+    },
+    "ov_more_a": {
+        "natural": ["There are ", "And "],
+        "professional": ["A further ", "There are "],
+    },
+    "ov_more_b": {
+        "natural": [" more besides.", " more not shown here."],
+        "professional": [" entries not shown.", " entries not shown here."],
+    },
+}
+_FAMILIES.update({
+    "ov_also": {"natural": ["Other notes", "The rest"], "professional": ["Other entries", "Remaining entries"]},
+    "ov_reads": {"natural": [", which reads ", ", with the words "], "professional": [", reading ", ", which reads "]},
+})
+_PAIRS.update(_OVERVIEW_PAIRS)
+#: The canonical texts the variants above vary (`composer.PHRASES` takes them).
+OVERVIEW_PHRASES = {
+    "ov_lead_a": "You have ",
+    "ov_lead_b": " notes about ",
+    "ov_span_a": ", written from ",
+    "ov_span_b": " to ",
+    "ov_theme_mid": " comes up in ",
+    "ov_theme_end": " of them.",
+    "ov_who_mid": " comes up in ",
+    "ov_who_end": " of your notes",
+    "ov_shared_mid": " is in ",
+    "ov_shared_end": " of these notes.",
+    "ov_more_a": "Plus ",
+    "ov_more_b": " more.",
+    "ov_also": "Also",
+    "ov_reads": ", reading ",
+    "ov_next_who": "Who is ",
+}
 #: The canonical `wrote_on_b` pairs with the canonical `wrote_on_a`.
-PAIRED = {"wrote_on_b": "wrote_on_a", "mention_mid": "mention_lead", "summary_mid": "summary_lead"}
+PAIRED = {
+    "wrote_on_b": "wrote_on_a", "mention_mid": "mention_lead", "summary_mid": "summary_lead",
+    "ov_lead_b": "ov_lead_a", "ov_span_b": "ov_span_a", "ov_who_end": "ov_who_mid",
+    "ov_shared_end": "ov_shared_mid", "ov_more_b": "ov_more_a",
+}
 
 
 #: Variants added on 2026-10-10 from the Gemini branch, filtered: no filler

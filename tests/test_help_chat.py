@@ -493,10 +493,12 @@ def test_the_guide_answers_from_its_own_help_text_with_no_model():
         "an offline reply must say that this is the app's help text rather "
         "than an answer written for the question"
     )
-    #: The body of the topic the keywords reached, not a paraphrase of it.
+    #: The body of the topic the keywords reached, not a paraphrase of it:
+    #: the answer's "From the help" view (INBOX 787; the composed answer is
+    #: the default view).
     topics = help_chat.topics_for("how do I set a reminder?")
     assert topics, "the fixture question must match a topic, or this proves nothing"
-    assert topics[0]["body"] in reply["content"]
+    assert topics[0]["body"] in reply["system"]["content"]
     #: And the same chips an answered turn carries: they are what turn "that
     #: lives on the Reminders tab" into a way to get there, and they are
     #: exactly as true with the model off.

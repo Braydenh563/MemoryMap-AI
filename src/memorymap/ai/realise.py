@@ -263,7 +263,7 @@ def cut_title(title: str, limit: int) -> str:
 # --- the variety floor (decision 51) ------------------------------------------------
 
 #: Parts that carry a fact or the person's words: fixed whatever the turn.
-PROTECTED = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "help", "web", "reminder"})
+PROTECTED = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "help", "web", "reminder", "term"})
 #: Twenty turns of one question in one chat open at least eight ways: the
 #: plan's floor was three (2026-10-10; measured 1 before the mention lead had
 #: variants), raised to decision 58's target of eight by Brief 84 (measured

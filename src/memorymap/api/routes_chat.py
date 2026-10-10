@@ -1050,6 +1050,11 @@ def _time_words(dates, today) -> list[str]:  # noqa: ANN001
     return out
 
 
+def _one_line(text: str) -> str:
+    """A picture's read text as one line, its lines joined by " / "."""
+    return " / ".join(line.strip() for line in text.splitlines() if line.strip())
+
+
 def _media_readings(session: Session, content: str, captions_only: bool = False) -> str:
     """What the app already knows about the pictures inside a note.
 
@@ -1087,6 +1092,10 @@ def _media_readings(session: Session, content: str, captions_only: bool = False)
             continue
         caption = (upload.caption or "").strip()
         text = "" if captions_only else (upload.vision_ocr_text or upload.ocr_text or "").strip()
+        #: One line a picture: the text's own lines joined by " / " (INBOX
+        #: 787: a reading over several lines broke the block, and the answer
+        #: quoted `text in it: "Ranked Solo/Duo.` and stopped).
+        text = _one_line(text)
         if not caption and not text:
             continue
         parts = []
@@ -1174,6 +1183,69 @@ def _attachment_readings(session: Session, entry_id: int) -> str:
     if not lines:
         return ""
     return "\n\n[Files attached to this note, as this app read them:\n" + "\n".join(lines) + "]"
+
+
+#: A topic asked about as a whole reads this many notes (INBOX 787): "games
+#: notes" answered from the five a similarity search ranked counted five, and
+#: the overview says how many there are.
+OVERVIEW_LIMIT = 24
+#: Notes found by what their pictures show or say, beside retrieval.
+PICTURE_MATCHES = 3
+
+
+def _widened(session: Session, question: str, entries: list) -> list:
+    """The retrieved notes, plus the notes whose pictures match the question
+    (keyword search reads a note's words, not its pictures' readings: "what
+    did I note about binary search trees" missed the lecture slide), plus,
+    for a topic asked about as a whole, its notes by keyword and by tag."""
+    from memorymap.ai import composer_overview
+
+    extra = _picture_notes(session, composer.subject_terms(question))
+    subject = composer_overview.topic(question)
+    if subject:
+        extra += search_manager.keyword_search(session, subject, limit=OVERVIEW_LIMIT)
+        extra += _filed_under(session, composer.subject_terms(subject))
+    seen = {entry.id for entry in entries}
+    out = list(entries)
+    for entry in extra:
+        if entry.id not in seen and not entry.is_deleted and not entry.is_private:
+            seen.add(entry.id)
+            out.append(entry)
+    return out[: max(len(entries), OVERVIEW_LIMIT)]
+
+
+def _filed_under(session: Session, terms: list[str]) -> list:
+    """Notes tagged with, or filed in a category named for, a word of the
+    topic ("games" finds the notes tagged games that never say the word)."""
+    words = [t.lower() for t in terms if len(t) >= 3][:3]
+    if not words:
+        return []
+    clauses = [func.lower(Entry.tags).like(f'%"{like_escape(w.rstrip("s"))}%', escape=LIKE_ESCAPE) for w in words]
+    named = select(Category.id).where(or_(*(func.lower(Category.name).like(f"{like_escape(w.rstrip('s'))}%", escape=LIKE_ESCAPE) for w in words)))
+    clauses.append(Entry.category_id.in_(named))
+    query = (
+        select(Entry)
+        .where(Entry.is_deleted == False, Entry.is_private == False, or_(*clauses))  # noqa: E712
+        .order_by(Entry.created_at.desc())
+        .limit(OVERVIEW_LIMIT)
+    )
+    return list(session.scalars(query))
+
+
+def _picture_notes(session: Session, terms: list[str]) -> list:
+    """Notes holding a picture whose caption or read text has every word of
+    the question's subject, at most `PICTURE_MATCHES`."""
+    words = [t.lower() for t in terms if len(t) >= 3][:4]
+    if not words:
+        return []
+    said = func.lower(func.coalesce(MediaUpload.caption, "") + " " + func.coalesce(MediaUpload.vision_ocr_text, "") + " " + func.coalesce(MediaUpload.ocr_text, ""))
+    names = list(session.scalars(
+        select(MediaUpload.filename).where(*(said.like(f"%{like_escape(w)}%", escape=LIKE_ESCAPE) for w in words)).limit(PICTURE_MATCHES)
+    ))
+    if not names:
+        return []
+    holding = or_(*(Entry.content.like(f"%{like_escape(name)}%", escape=LIKE_ESCAPE) for name in names))
+    return list(session.scalars(select(Entry).where(Entry.is_deleted == False, holding).limit(PICTURE_MATCHES)))  # noqa: E712
 
 
 def _prepare(
@@ -1264,6 +1336,7 @@ def _prepare(
             session, question, deps.get_embeddings(), limit=5
         )
         entries, mode = found.entries, found.mode
+        entries = _widened(session, question, entries)
         # Which of these are here because they are *connected* to a match
         # rather than because they matched. The user asked about one thing and
         # is being shown notes about another; without saying why, the panel
@@ -1896,13 +1969,24 @@ def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] |
     return result, sources
 
 
+def _composed_support(result: dict) -> dict:
+    """The support of an answer no model wrote (`by_model: False`): every
+    sentence of it is quoted or the app's own joining words, so the notice
+    says something only when most of what it quotes is how the app read a
+    picture (INBOX 787: "Only 0 of 2 sentences here are quoted" under an
+    answer that had nothing else to say)."""
+    rows = result.get("grounding") or []
+    pictures = sum(1 for row in rows if row.get("said") == "picture")
+    return {**result["support"], "by_model": False, "low": pictures * 2 > len(rows) > 0}
+
+
 def _web_events(result: dict, sources: list[dict]) -> Iterator[dict]:
     yield {"type": "answer", "delta": result["text"]}
     yield {
         "type": "grounding",
         "sentences": result["grounding"],
         "next": result["next"],
-        "support": {**result["support"], "by_model": False},
+        "support": _composed_support(result),
         "exact": True,
     }
     #: The pages read, for the scrollable list inside the bubble.
@@ -2133,7 +2217,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 #: `by_model: False`: no model wrote a word of it, so a low count
                 #: is the app's own joining words and picture readings, and the
                 #: notice says that rather than "the model's own writing".
-                "support": {**result["support"], "by_model": False},
+                "support": _composed_support(result),
                 "exact": True,
                 #: The engine's own answer through the same validators
                 #: (decisions 52 to 54): empty when every maxim holds.

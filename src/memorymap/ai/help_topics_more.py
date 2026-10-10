@@ -1291,7 +1291,11 @@ MORE_TOPICS.extend(
                 "or but when two may disagree), a sentence several notes repeat said "
                 "once with how many say it, a timeline for a when question, the "
                 "newest first for a latest question, two sides for a comparison, and "
-                "a few questions to ask next. Tell me more, or the second one, "
+                "a few questions to ask next. Asked about a topic as a whole (games "
+                "notes, who is Jake, what am I working on), it says how many notes and "
+                "over which months, groups them by the name most of them share, and "
+                "gives each note's day and one line (a picture as what it shows and its "
+                "words). Tell me more, or the second one, "
                 "follows on from the answer before. The Chat tab answers the same "
                 "way whenever no model is running: its box stays open, and Agent "
                 "mode is greyed unless the Needle extra can run it. Every "
@@ -1647,7 +1651,9 @@ TOPIC_META: dict[str, dict] = {
     "ask-chat": {"title": "Asking and chatting", "path": "Chat tab, or Ctrl+Shift+A over any tab"},
     "skills": {"title": "Skills", "path": "Settings, Skills"},
     "graph": {"title": "The graph", "path": "Graph tab"},
-    "reminders": {"title": "Reminders", "path": "Reminders tab"},
+    "reminders": {"title": "Reminders", "path": "Reminders tab", "steps": (
+        "Open the Reminders tab (m then r).", "Type into Remind me to, with a time such as \"tomorrow at 5pm\".",
+        "Press Add; pick a priority or a repeat first if you like.")},
     "dashboard": {"title": "The dashboard", "path": "Dashboard tab"},
     "library": {"title": "The Library", "path": "Library tab"},
     "documents": {"title": "Documents", "path": "Library tab, Documents"},

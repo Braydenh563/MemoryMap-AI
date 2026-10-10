@@ -47317,6 +47317,24 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      question cut at a quote, ""If you were a spice, ..." then "" or "What's
      the most adventurous thing ...".)
 
+787. **Composer, the owner 2026-10-10 22:50Z, three screenshots.** "the atlas
+     guide repeted twice?? and it ist customised with the composer yet
+     either. I feel like if the user is set to view the deterministic
+     response, they should have the option to see either the base help text
+     or a slightly more customised version with the composer. also the
+     composer's responses still need A LOT of work and refinement." Then:
+     "yeah the composer is still pretty barebone, has no life to it and I may
+     as well just ignore it and use the matching records" and "make the
+     composer better please :)". Shots: the Guide answering "hey" with the
+     Dashboard topic, its paragraph shown twice (once bare, once under "The
+     dashboard / Where:"), then "From the app's own help text, word for word:
+     no model is running."; Chat "ideas for projects": "Some ideas for
+     features you had: The picture in your note from 31 August shows The
+     image contains a text excerpt discussing ..." with "Only 0 of 2
+     sentences here are quoted word for word"; Chat "games notes": two
+     quoted sentences rewritten into "you" with "[your note, 17 July]" and
+     "Across your other entries:".
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

@@ -1,0 +1,11 @@
+{
+  "name": "memorymap-js-beautify-bundle",
+  "private": true,
+  "description": "Pins the js-beautify bundled into beautify.min.js; see build.sh.",
+  "dependencies": {
+    "js-beautify": "2.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

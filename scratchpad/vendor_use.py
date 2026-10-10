@@ -40,6 +40,7 @@ LIBRARY_KEYS = {
     "FlashText": "flashtext",
     "CodeMirror 6": "codemirror",
     "Emmet": "emmet",
+    "js-beautify": "jsbeautify",
     "Harper": "harper",
     "D3": "d3",
     "p5.js": "p5",
@@ -601,6 +602,17 @@ def emmet_report(scripts: dict[str, str]) -> Report:
     )
 
 
+def jsbeautify_report(scripts: dict[str, str]) -> Report:
+    exports = sorted(run_node_exports(VENDOR / "js-beautify" / "beautify.min.js", "JSBEAUTIFY"))
+    paths: set[str] = set()
+    for text in scripts.values():
+        paths |= qualified_uses(text, ("JSBEAUTIFY",))
+    # A selection is formatted by the conservative re-indent, not the library
+    # (its `indent_level` would let it take one): the capability not yet used.
+    available = exports + ["selection"]
+    return Report("jsbeautify", "js-beautify", available, _called(available, paths), {"functions": exports})
+
+
 def _class_methods(source: str, class_re: str) -> list[str]:
     """Public method and accessor names of the first class whose name matches."""
     names: list[str] = []
@@ -890,6 +902,7 @@ def collect() -> dict[str, Report]:
     reports = [
         codemirror_report(scripts),
         emmet_report(scripts),
+        jsbeautify_report(scripts),
         harper_report(scripts),
         phosphor_report(),
         wordlist_report(),

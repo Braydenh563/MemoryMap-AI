@@ -451,24 +451,6 @@ EXTRAS: tuple[Extra, ...] = (
         size="~20 MB",
     ),
     Extra(
-        id="docx",
-        label="Export to Word (python-docx)",
-        enables="The Word (.docx) item in a document's Export menu: headings, "
-        "lists, quotes, tables, links, pictures and code written as a real Word file "
-        "rather than as markdown with a different extension, and suggested "
-        "changes as Word's own tracked changes.",
-        packages=("python-docx",),
-        module="docx",
-        size="~5 MB",
-        # No caveat, and deliberately no `unavailable`: unlike the two entries
-        # that install a library nothing calls, the writer behind this one is
-        # built (`core/docexport.to_docx`) and the button that reaches it is on
-        # the document's Export menu already. What was missing was only the row
-        # here, so `GET /documents/{id}/export.docx`'s 501 could name a package
-        # and nothing else: the one thing a no-terminal app must never do is
-        # tell somebody what they lack without saying where the button is.
-    ),
-    Extra(
         id="ocr",
         label="Search inside images (Tesseract OCR)",
         enables="Text found in an uploaded image (a whiteboard photo, a "
@@ -717,8 +699,8 @@ BUNDLES: tuple[Bundle, ...] = (
     Bundle(
         id="documents",
         label="Documents",
-        about="Import PDFs, Word files and slides, read scanned PDFs, and export to Word.",
-        extras=("documents", "docx", "pdfpages"),
+        about="Import PDFs, Word files and slides, and read scanned PDFs.",
+        extras=("documents", "pdfpages"),
     ),
     Bundle(
         id="vision",

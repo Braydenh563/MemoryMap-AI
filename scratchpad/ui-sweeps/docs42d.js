@@ -1,19 +1,27 @@
 // Brief 42: Word files in the browser. Download as Word on a document with a
-// heading, emphasis, a list, a table and a code block, then the same bytes
-// read back by Mammoth through the Library's import path.
+// heading, emphasis, a nested list, a table, a code block, a picture and two
+// suggested changes, then the same bytes read back by Mammoth through the
+// Library's import path. The .docx's own XML is read by python3's zipfile.
 // Usage: BASE=http://127.0.0.1:8846 node docs42d.js
 const { boot } = require("./lib.js");
 const J = JSON.stringify;
 let bad = 0;
 const ok = (n, c, d) => { if (!c) bad += 1; console.log(`${c ? "PASS" : "FAIL"}  ${n}  - ${d}`); };
-const MD = "# Plan\n\nSome **bold** and *slanted* words with [a link](https://example.com).\n\n- one\n- two\n  - nested\n\n1. first\n2. second\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```\ncode line\n```\n";
+const MD = "# Plan\n\nSome **bold** and *slanted* words with [a link](https://example.com).\n\n- one\n- two\n  - nested\n\n1. first\n2. second\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```\ncode line\n  indented\n```\n\nA box: ![Red box](PICTURE)\n\nKeep {++new words++} and {--old words--} here.\n";
 (async () => {
   const { browser, page } = await boot();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.evaluate(() => switchTab("documents"));
   await page.waitForTimeout(1500);
-  await page.evaluate(async (c) => { const d = await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: "Word trip", content: c, file_type: "md" }) }); await loadDocuments(d.id); }, MD);
+  await page.evaluate(async (c) => {
+    const canvas = document.createElement("canvas"); canvas.width = 40; canvas.height = 20;
+    canvas.getContext("2d").fillRect(0, 0, 40, 20);
+    const png = await new Promise((r) => canvas.toBlob(r, "image/png"));
+    const form = new FormData(); form.append("file", new File([png], "box.png", { type: "image/png" }));
+    const up = await apiJson("/media/upload", { method: "POST", headers: authHeaders(), body: form });
+    c = c.replace("PICTURE", up.url);
+    const d = await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: "Word trip", content: c, file_type: "md" }) }); await loadDocuments(d.id); }, MD);
   await page.waitForTimeout(2000);
   const r = await page.evaluate(async () => {
     let saved = null;
@@ -29,11 +37,19 @@ const MD = "# Plan\n\nSome **bold** and *slanted* words with [a link](https://ex
     const back = await docWordImport(file);
     const importMs = Math.round(performance.now() - t1);
     const html = (await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() })).value;
-    return { saved: true, name: saved.name, bytes: saved.blob.size, exportMs, importMs, md: back.content, title: back.title, tags: ["h1", "strong", "em", "ul", "table", "a"].filter((t) => html.includes(`<${t}`)) };
+    const raw = new Uint8Array(await saved.blob.arrayBuffer());
+    let bin = ""; for (const b of raw) bin += String.fromCharCode(b);
+    return { b64: btoa(bin), saved: true, name: saved.name, bytes: saved.blob.size, exportMs, importMs, md: back.content, title: back.title, tags: ["h1", "strong", "em", "ul", "table", "a"].filter((t) => html.includes(`<${t}`)) };
   });
   ok("Download as Word writes a .docx in the browser", r.saved && /\.docx$/.test(r.name) && r.bytes > 2000, J({ name: r.name, bytes: r.bytes, ms: r.exportMs }));
   ok("the heading, emphasis, lists, table and link survive into Word", r.tags && r.tags.length === 6, J(r.tags));
   ok("Mammoth reads it back to markdown the editor keeps", /^# Plan/m.test(r.md || "") && /\*\*bold\*\*/.test(r.md) && /\| \*\*A\*\* \| \*\*B\*\* \|/.test(r.md || "") && /^1\. first/m.test(r.md) && !/Copy/.test(r.md), J({ ms: r.importMs, title: r.title, md: (r.md || "").slice(0, 300) }));
+  const tmp = require("os").tmpdir() + "/docs42d.docx";
+  require("fs").writeFileSync(tmp, Buffer.from(r.b64 || "", "base64"));
+  const xml = JSON.parse(require("child_process").execFileSync("python3", ["-c",
+    "import json,re,sys,zipfile;x=zipfile.ZipFile(sys.argv[1]).read('word/document.xml').decode();print(json.dumps({'ins':x.count('<w:ins '),'del':x.count('<w:delText'),'drawing':x.count('<w:drawing>'),'levels':re.findall(r'w:ilvl w:val=\"(\\d)\"',x),'code':x.count('w:val=\"Code\"')}))", tmp]).toString());
+  ok("a picture is a Word picture, suggestions are tracked changes, the nested item is level 1", xml.drawing === 1 && xml.ins === 1 && xml.del === 1 && xml.levels.includes("1"), J(xml));
+  ok("the import keeps the nested list, the code block and the picture", /^  - nested$/m.test(r.md || "") && /```\ncode line\n  indented\n```/.test(r.md || "") && /!\[Red box\]\(\/media\//.test(r.md || ""), J((r.md || "").slice(-220)));
   console.log("errors", J(errors.slice(0, 4)), "bad", bad);
   await browser.close();
 })();

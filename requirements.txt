@@ -107,7 +107,6 @@ pytest-xdist>=3.8.0,<4.0
 #     pages with no text layer into images a vision/OCR model can read;
 #     without it a scanned PDF is only ever reported as one.
 #   pip install "markitdown[pdf,docx,pptx]"  # import PDF/Word/PowerPoint as notes
-#   pip install python-docx       # export a document to real Word (.docx)
 #   Run Python files (Pyodide) and needle are downloads, not pip packages:
 #     Settings → Packages fetches and checks them.
 #

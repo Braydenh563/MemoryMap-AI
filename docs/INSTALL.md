@@ -203,7 +203,6 @@ pip install faster-whisper                # voice notes
 pip install pywebview pystray Pillow      # the desktop window and its tray icon
 pip install pypdfium2 Pillow              # read scanned PDFs
 pip install "markitdown[pdf,docx,pptx]"   # import PDF, Word and PowerPoint
-pip install python-docx                   # export a document to Word
 pip install pytesseract Pillow            # text in images
 ```
 

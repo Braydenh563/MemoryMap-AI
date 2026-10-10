@@ -540,7 +540,7 @@ const FILE_KIND_LABELS = {
   js: "Code", ts: "Code", jsx: "Code", tsx: "Code", py: "Code", java: "Code",
   c: "Code", h: "Code", cpp: "Code", hpp: "Code", cs: "Code", go: "Code",
   rs: "Code", rb: "Code", php: "Code", sh: "Code", sql: "SQL",
-  swift: "Code", kt: "Code",
+  swift: "Code", kt: "Code", vb: "Code", vbs: "Code", diff: "Code", patch: "Code",
   zip: "Archive", mp3: "Audio", wav: "Audio", m4a: "Audio",
   mp4: "Video", mov: "Video", webm: "Video",
 };

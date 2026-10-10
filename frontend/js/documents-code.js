@@ -1365,6 +1365,53 @@ function docLoadEmmet() {
   return docEmmetLoad;
 }
 
+//: **js-beautify, for Format on a whole JavaScript, CSS or HTML document**
+//: (Brief 42, kept in the vendoring table at a third of prettier's size).
+//: Loaded the first time Format runs on one of the three, never at boot, as
+//: Emmet is; a selection, every other type, and a failed load keep the
+//: conservative re-indent below, which never moves a token.
+const DOC_BEAUTIFY_BUNDLE = "/vendor/js-beautify/beautify.min.js";
+const DOC_BEAUTIFY_TYPES = new Set(["js", "css", "html"]);
+let docBeautifyLoad = null;
+
+function docLoadBeautify() {
+  if (window.JSBEAUTIFY) return Promise.resolve(true);
+  if (docBeautifyLoad) return docBeautifyLoad;
+  docBeautifyLoad = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = DOC_BEAUTIFY_BUNDLE;
+    script.async = true;
+    script.addEventListener("load", () => resolve(Boolean(window.JSBEAUTIFY)));
+    script.addEventListener("error", () => {
+      docBeautifyLoad = null;
+      resolve(false);
+    });
+    document.head.appendChild(script);
+  });
+  return docBeautifyLoad;
+}
+
+//: The file type's own indent unit, blank lines kept (at most one in a
+//: row), and one line break at the end, as the conservative path does.
+function docBeautifyText(text, ext, unit) {
+  if (!text.trim()) return { text, changed: false };
+  const tabs = unit === "\t";
+  const base = {
+    indent_size: tabs ? 1 : unit.length,
+    indent_char: tabs ? "\t" : " ",
+    indent_with_tabs: tabs,
+    end_with_newline: true,
+    preserve_newlines: true,
+    max_preserve_newlines: 2,
+  };
+  //: `e4x` because a `.js` document is mounted with JSX; a wrap width of 0
+  //: because Format here never re-flows a line.
+  const out = ext === "js" ? JSBEAUTIFY.js(text, { ...base, e4x: true })
+    : ext === "css" ? JSBEAUTIFY.css(text, base)
+      : JSBEAUTIFY.html(text, { ...base, wrap_line_length: 0 });
+  return { text: out, changed: out !== text };
+}
+
 //: Whether the caret is where markup's text goes, rather than inside a tag,
 //: an attribute, a comment or a doctype. Inside `<script>` and `<style>` the
 //: source is not asked at all: it is mounted on HTML's own language data.
@@ -4235,8 +4282,10 @@ async function docFormatCode(scope = "auto") {
     toast(refusal, "info");
     return false;
   }
-  //: The server check is a round trip; typing during it would make the
-  //: result a format of text that is no longer there.
+  const beautify = !selection && DOC_BEAUTIFY_TYPES.has(type.ext) && (await docLoadBeautify());
+  //: The server check is a round trip, and so is the formatter's first
+  //: load; typing during either would make the result a format of text
+  //: that is no longer there.
   if (docCmView !== view || view.state.doc.toString() !== text) {
     toast("The text changed while it was being checked. Format again.", "info");
     return false;
@@ -4258,6 +4307,7 @@ async function docFormatCode(scope = "auto") {
     if (!result.error) changes = docFormatChanges(piece, result.text, sel.from);
   } else {
     if (type.ext === "json") result = docFormatJsonText(text, unit);
+    else if (beautify) result = docBeautifyText(text, type.ext, unit);
     else if (type.ext === "html" || type.ext === "xml") result = docFormatMarkupText(text, type.ext, unit, range);
     else result = docFormatCodeText(text, type.ext, unit, range);
     if (!result.error) changes = docFormatChanges(text, result.text);

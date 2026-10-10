@@ -1005,47 +1005,6 @@ def export_bundle(
     )
 
 
-@router.get("/{document_id}/export.docx")
-def export_docx(document_id: int, session: Session = Depends(get_session)) -> Response:
-    """The document as a Word file, when this install has the extra.
-
-    python-docx is an optional extra by decision (Phase 7): a .docx writer is
-    a dependency most people who keep their notes in markdown will never want,
-    and nothing else in the app needs it. Absent, this is a 501 with the name
-    of the extra in it rather than a 500: the request was fine, the install
-    cannot answer it.
-    """
-    document = _existing(session, document_id)
-    kind = filetypes.get(document.file_type)
-    if kind.ext != "md":
-        raise HTTPException(
-            status_code=400,
-            detail=f"A Word export is for a markdown document; this one is {kind.label}.",
-        )
-    if not docexport.docx_available():
-        raise HTTPException(
-            status_code=501,
-            detail="This install has no Word exporter yet. Turn it on in "
-            "Settings, Packages, "
-            "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
-            "are available now.",
-        )
-    #: Its pictures come from the media folder (FEAT-18), as the bundle's do.
-    media_dir = deps.get_config().data_dir / "media"
-    data = docexport.to_docx(document.title, document.content or "", media_dir=media_dir)
-    return Response(
-        content=data,
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ),
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="{_safe_filename(document.title, "docx")}"'
-            )
-        },
-    )
-
-
 @router.post("/{document_id}/ai-edit")
 def ai_edit(
     document_id: int, body: AiEditBody, session: Session = Depends(get_session)

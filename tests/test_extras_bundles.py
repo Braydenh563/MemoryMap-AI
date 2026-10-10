@@ -93,7 +93,7 @@ def test_every_bundle_names_entries_of_the_allowlist():
 
 def test_the_bundles_the_owner_named_exist():
     by_id = {bundle.id: bundle for bundle in extras.BUNDLES}
-    assert {"docx", "documents", "pdfpages"} <= set(by_id["documents"].extras)
+    assert {"documents", "pdfpages"} <= set(by_id["documents"].extras)
     assert {"ocr", "pdfpages"} <= set(by_id["vision"].extras)
     assert {"semantic", "localllm"} <= set(by_id["ai"].extras)
     assert by_id["voice"].extras == ("voice",)
@@ -143,23 +143,23 @@ def test_a_missing_package_has_no_version_and_no_size(monkeypatch):
 
 def test_a_bulk_install_runs_each_package_in_the_order_asked(client, fake_pip, monkeypatch):
     _installed(monkeypatch, set())
-    started, message = extras.start_bulk("install", ["voice", "docx", "desktop"])
+    started, message = extras.start_bulk("install", ["voice", "rapidocr", "desktop"])
     assert started, message
     names = [_pip_packages(command) for command in fake_pip.commands]
-    assert names == [["faster-whisper"], ["python-docx"], ["pywebview", "pystray", "Pillow"]]
+    assert names == [["faster-whisper"], ["rapidocr_onnxruntime"], ["pywebview", "pystray", "Pillow"]]
     items = extras.bulk_status()["items"]
-    assert [item["id"] for item in items] == ["voice", "docx", "desktop"]
+    assert [item["id"] for item in items] == ["voice", "rapidocr", "desktop"]
     assert {item["outcome"] for item in items} == {"completed"}
 
 
 def test_one_failure_does_not_stop_the_rest(client, fake_pip, monkeypatch):
     _installed(monkeypatch, set())
-    fake_pip.failing = {"python-docx"}
-    extras.start_bulk("install", ["voice", "docx", "desktop"])
+    fake_pip.failing = {"rapidocr_onnxruntime"}
+    extras.start_bulk("install", ["voice", "rapidocr", "desktop"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     assert items["voice"]["outcome"] == "completed"
-    assert items["docx"]["outcome"] == "failed"
-    assert "No matching distribution" in items["docx"]["message"]
+    assert items["rapidocr"]["outcome"] == "failed"
+    assert "No matching distribution" in items["rapidocr"]["message"]
     assert items["desktop"]["outcome"] == "completed"
     assert len(fake_pip.commands) == 3
     state = extras.bulk_status()
@@ -178,26 +178,26 @@ def test_a_bundle_installs_its_own_packages(client, fake_pip, monkeypatch):
 
 def test_a_bulk_install_skips_what_is_already_there(client, fake_pip, monkeypatch):
     _installed(monkeypatch, {"voice"})
-    extras.start_bulk("install", ["voice", "docx"])
+    extras.start_bulk("install", ["voice", "rapidocr"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     assert items["voice"]["outcome"] == "skipped"
-    assert items["docx"]["outcome"] == "completed"
-    assert [_pip_packages(c) for c in fake_pip.commands] == [["python-docx"]]
+    assert items["rapidocr"]["outcome"] == "completed"
+    assert [_pip_packages(c) for c in fake_pip.commands] == [["rapidocr_onnxruntime"]]
 
 
 def test_a_bulk_install_skips_an_extra_that_is_not_ready(client, fake_pip, monkeypatch):
     _installed(monkeypatch, set())
-    extras.start_bulk("install", ["localllm", "docx"])
+    extras.start_bulk("install", ["localllm", "rapidocr"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     if extras.unavailable_reason(extras.EXTRAS_BY_ID["localllm"]):
         assert items["localllm"]["outcome"] == "skipped"
         assert items["localllm"]["message"].endswith(".")
-    assert items["docx"]["outcome"] == "completed"
+    assert items["rapidocr"]["outcome"] == "completed"
 
 
 def test_bulk_reinstall_forces_pip_through_the_same_runner(client, fake_pip, monkeypatch):
-    _installed(monkeypatch, {"voice", "docx"})
-    started, message = extras.start_bulk("reinstall", ["voice", "docx"])
+    _installed(monkeypatch, {"voice", "rapidocr"})
+    started, message = extras.start_bulk("reinstall", ["voice", "rapidocr"])
     assert started, message
     assert len(fake_pip.commands) == 2
     for command in fake_pip.commands:
@@ -206,17 +206,17 @@ def test_bulk_reinstall_forces_pip_through_the_same_runner(client, fake_pip, mon
 
 def test_a_reinstall_of_something_absent_is_an_install(client, fake_pip, monkeypatch):
     _installed(monkeypatch, set())
-    extras.start_bulk("reinstall", ["docx"])
+    extras.start_bulk("reinstall", ["rapidocr"])
     assert extras.bulk_status()["items"][0]["outcome"] == "completed"
     assert "--force-reinstall" not in fake_pip.commands[0]
 
 
 def test_bulk_uninstall_removes_only_what_is_installed(client, fake_pip, monkeypatch):
-    _installed(monkeypatch, {"docx"})
-    extras.start_bulk("uninstall", ["voice", "docx"])
+    _installed(monkeypatch, {"rapidocr"})
+    extras.start_bulk("uninstall", ["voice", "rapidocr"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     assert items["voice"]["outcome"] == "skipped"
-    assert items["docx"]["outcome"] == "completed"
+    assert items["rapidocr"]["outcome"] == "completed"
     assert fake_pip.commands == [fake_pip.commands[0]]
     assert "uninstall" in fake_pip.commands[0]
 
@@ -224,20 +224,20 @@ def test_bulk_uninstall_removes_only_what_is_installed(client, fake_pip, monkeyp
 def test_a_loaded_voice_model_fails_its_row_and_not_the_batch(client, fake_pip, monkeypatch):
     from memorymap.ai import voice
 
-    _installed(monkeypatch, {"voice", "docx"})
+    _installed(monkeypatch, {"voice", "rapidocr"})
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
-    extras.start_bulk("reinstall", ["voice", "docx"])
+    extras.start_bulk("reinstall", ["voice", "rapidocr"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     assert items["voice"]["outcome"] == "failed"
     assert "Restart MemoryMap" in items["voice"]["message"]
-    assert items["docx"]["outcome"] == "completed"
+    assert items["rapidocr"]["outcome"] == "completed"
 
 
 def test_a_bulk_action_is_one_job_on_the_pool(client, monkeypatch):
     seen = []
     monkeypatch.setattr(extras.jobs, "enqueue", lambda kind, func, *args, name="", **kw: seen.append((kind, func)) or 1)
     _installed(monkeypatch, set())
-    started, _ = extras.start_bulk("install", ["voice", "docx"])
+    started, _ = extras.start_bulk("install", ["voice", "rapidocr"])
     assert started
     assert len(seen) == 1 and seen[0][0] == "extras"
     assert jobs.KIND_LANES["extras"] in jobs.LANE_WIDTHS
@@ -248,7 +248,7 @@ def test_a_single_install_is_on_the_pool_too(client, monkeypatch):
     seen = []
     monkeypatch.setattr(extras.jobs, "enqueue", lambda kind, func, *args, name="", **kw: seen.append(kind) or 1)
     _installed(monkeypatch, set())
-    started, _ = extras.start("docx")
+    started, _ = extras.start("rapidocr")
     assert started and seen == ["extras"]
 
 
@@ -256,11 +256,11 @@ def test_one_bulk_at_a_time_and_no_single_install_beside_it(client, monkeypatch)
     monkeypatch.setattr(extras.jobs, "enqueue", lambda *a, **k: 1)
     _installed(monkeypatch, set())
     assert extras.start_bulk("install", ["voice"])[0]
-    started, message = extras.start_bulk("install", ["docx"])
+    started, message = extras.start_bulk("install", ["rapidocr"])
     assert not started and message.endswith(".")
-    started, message = extras.start("docx")
+    started, message = extras.start("rapidocr")
     assert not started and "already running" in message
-    started, message = extras.remove("docx")
+    started, message = extras.remove("rapidocr")
     assert not started
 
 
@@ -298,7 +298,7 @@ def test_the_bulk_route_starts_a_bundle(client, monkeypatch):
 def test_a_running_bulk_shows_its_progress_in_background_tasks(client, monkeypatch):
     monkeypatch.setattr(extras.jobs, "enqueue", lambda *a, **k: 1)
     _installed(monkeypatch, set())
-    extras.start_bulk("install", ["voice", "docx"])
+    extras.start_bulk("install", ["voice", "rapidocr"])
     rows = [task for task in routes_tasks.collect() if task["kind"] == "extra"]
     assert len(rows) == 1
     assert rows[0]["label"] == "Installing 2 packages"
@@ -316,10 +316,10 @@ def test_cancel_stops_the_rest_of_a_bulk(client, fake_pip, monkeypatch):
             extras.cancel()
 
     monkeypatch.setattr(extras, "_run_install", run_then_cancel)
-    extras.start_bulk("install", ["voice", "docx", "desktop"])
+    extras.start_bulk("install", ["voice", "rapidocr", "desktop"])
     items = {item["id"]: item for item in extras.bulk_status()["items"]}
     assert items["voice"]["outcome"] == "completed"
-    assert items["docx"]["outcome"] == "cancelled"
+    assert items["rapidocr"]["outcome"] == "cancelled"
     assert items["desktop"]["outcome"] == "cancelled"
     assert len(fake_pip.commands) == 1
 
@@ -330,12 +330,12 @@ def test_the_bulk_summary_reaches_the_history(client, fake_pip, monkeypatch):
     recorded = []
     monkeypatch.setattr(taskhistory, "record", lambda *a, **k: recorded.append(a))
     _installed(monkeypatch, set())
-    fake_pip.failing = {"python-docx"}
-    extras.start_bulk("install", ["voice", "docx"])
+    fake_pip.failing = {"rapidocr_onnxruntime"}
+    extras.start_bulk("install", ["voice", "rapidocr"])
     kind, label, outcome, detail = recorded[-1][:4]
     assert kind == "extra" and label == "Installing 2 packages"
     assert outcome == "failed"
-    assert "Export to Word" in detail
+    assert "Read images without Tesseract" in detail
 
 
 def test_offline_is_said_as_offline_on_each_row(client, fake_pip, monkeypatch):
@@ -357,7 +357,7 @@ def test_offline_is_said_as_offline_on_each_row(client, fake_pip, monkeypatch):
 
     monkeypatch.setattr(extras.subprocess, "Popen", _OfflinePip)
     _installed(monkeypatch, set())
-    extras.start_bulk("install", ["voice", "docx"])
+    extras.start_bulk("install", ["voice", "rapidocr"])
     for item in extras.bulk_status()["items"]:
         assert item["outcome"] == "failed"
         assert item["message"] == extras.PIP_OFFLINE_MESSAGE

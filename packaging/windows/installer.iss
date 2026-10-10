@@ -129,7 +129,7 @@ Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAp
 ; own updater runs this installer with /VERYSILENT, and with the page's
 ; defaults that re-ran a 2 GB search-by-meaning download, hidden, inside
 ; every update, while the person was told to reopen the app in a minute.
-; A scripted install names what it wants: /EXTRAS=documents,docx.
+; A scripted install names what it wants: /EXTRAS=documents,pdfpages.
 ; Not run here any more (the owner, 2026-10-07: Setup froze on this line for
 ; the minutes torch takes, no progress, no minimise, no cancel). CurStepChanged
 ; writes the ticked ids to pending-extras.txt in the data folder, and the app
@@ -334,11 +334,11 @@ begin
     Packages := Packages + 'semantic,';
   if ChkVoice.Checked then
     Packages := Packages + 'voice,';
-  { One box, three extras: the page has room for three rows and no scroll, and
-    reading scanned PDFs and writing .docx are the same user's wish as
-    importing documents (the owner, 2026-09-24). }
+  { One box, two extras: the page has room for three rows and no scroll, and
+    reading scanned PDFs is the same user's wish as importing documents (the
+    owner, 2026-09-24). Word files are written in the browser now. }
   if ChkDocuments.Checked then
-    Packages := Packages + 'documents,pdfpages,docx,';
+    Packages := Packages + 'documents,pdfpages,';
   { Strip trailing comma }
   if Length(Packages) > 0 then
     Packages := Copy(Packages, 1, Length(Packages) - 1);

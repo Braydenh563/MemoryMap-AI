@@ -97,10 +97,10 @@ def test_the_palette_rows_have_a_shortcut_or_say_none() -> None:
         ("fold-all", "Ctrl+Alt+["),
         ("unfold-all", "Ctrl+Alt+]"),
         ("problems", "Ctrl+Shift+M"),
-        ("minimap", ""),
-        ("compare-version", ""),
-        ("compare-revert", ""),
-        ("compare-stop", ""),
+        ("minimap", "none"),
+        ("compare-version", "none"),
+        ("compare-revert", "none"),
+        ("compare-stop", "none"),
     ]:
         row = re.search(r'\{ id: "' + re.escape(cid) + r'".*?keys: "([^"]*)"', table, re.S)
         assert row, cid
@@ -136,3 +136,26 @@ def test_stop_is_disabled_once_a_script_has_nothing_left_to_run() -> None:
     listener = code[code.index('if (data.t === "done")') : code.index('if (data.t !== "log") return;')]
     assert 'docRunSetStatus("Finished.", false)' in listener
     assert 'data.t === "idle"' in listener
+
+
+def test_no_class_is_written_onto_the_engines_own_dom() -> None:
+    """CodeMirror owns `view.dom`'s class attribute and rewrites it on every
+    focus change, so `.doc-content-code` toggled there by `syncDocFileType`
+    was gone at the first focus (docs42). A class the editor wears is
+    declared through `editorAttributes`; this greps for the shape that loses
+    it: a class written through `docSurface()` (whose `classList` is the
+    view's when the engine is mounted) or straight onto `docCmView.dom`."""
+    bad = re.compile(
+        r"(docSurface\(\)\??\.classList|docCmView\??\.dom\??\.classList)\.(add|remove|toggle|replace)\("
+    )
+    hits = [
+        f"{path.name}:{n}"
+        for path in sorted(JS.glob("*.js"))
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if bad.search(line)
+    ]
+    assert hits == [], f"a class written onto CodeMirror's own DOM: {hits}"
+    ide = (JS / "documents-ide.js").read_text(encoding="utf-8")
+    assert 'editorAttributes.of({ class: "doc-content-code" })' in ide
+    sync = _function((JS / "documents.js").read_text(encoding="utf-8"), "syncDocFileType")
+    assert 'docBoxEl()?.classList.toggle("doc-content-code", code)' in sync

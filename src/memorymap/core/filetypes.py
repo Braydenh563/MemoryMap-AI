@@ -70,6 +70,12 @@ FILE_TYPES: tuple[FileType, ...] = (
     FileType("cpp", "C++", line_comment="//", block_comment=("/* ", " */"), indent="    "),
     FileType("cs", "C#", line_comment="//", block_comment=("/* ", " */"), indent="    "),
     FileType("css", "CSS", line_comment="", block_comment=("/* ", " */")),
+    #: A patch has no comment syntax: a line starting `#` is context to `git
+    #: apply`, so Ctrl+/ inserts nothing rather than corrupting the hunk.
+    FileType("diff", "Diff"),
+    #: No extension at all: `normalise("Dockerfile")` lowercases the whole
+    #: name, which is this key.
+    FileType("dockerfile", "Dockerfile", line_comment="#"),
     FileType("go", "Go", line_comment="//", indent="\t"),
     FileType("html", "HTML", line_comment="", block_comment=("<!-- ", " -->")),
     FileType("java", "Java", line_comment="//", indent="    "),
@@ -83,6 +89,8 @@ FILE_TYPES: tuple[FileType, ...] = (
     FileType("sql", "SQL", line_comment="--", block_comment=("/* ", " */"), indent="    "),
     FileType("swift", "Swift", line_comment="//", indent="    "),
     FileType("ts", "TypeScript", line_comment="//", block_comment=("/* ", " */")),
+    FileType("vbs", "VBScript", line_comment="'", indent="    "),
+    FileType("vb", "Visual Basic", line_comment="'", indent="    "),
     FileType("xml", "XML", line_comment="", block_comment=("<!-- ", " -->")),
 )
 
@@ -110,6 +118,7 @@ ALIASES = {
     "htm": "html",
     "scss": "css",
     "sass": "css",
+    "patch": "diff",
 }
 
 

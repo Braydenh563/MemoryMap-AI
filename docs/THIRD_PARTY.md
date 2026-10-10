@@ -18,6 +18,7 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 | --- | --- | --- | --- | --- | --- |
 | CodeMirror 6 | `codemirror/` | packages pinned in `codemirror/package.json` (view 6.x) | MIT (`codemirror/LICENSE`) | https://codemirror.net | the documents editor's source mode |
 | Emmet | `emmet/` | 2.4.11 | MIT (`emmet/LICENSE`) | https://github.com/emmetio/emmet | abbreviations in the code editor |
+| js-beautify | `js-beautify/` | 2.0.3 | MIT (`js-beautify/LICENSE`) | https://github.com/beautifier/js-beautify | Format on a whole JavaScript, CSS or HTML document, loaded on demand by `documents-code.js` |
 | Harper | `harper/` | harper.js 2.10.0 | Apache-2.0 (`harper/LICENSE`) | https://github.com/Automattic/harper | grammar checking in documents, as WebAssembly |
 | D3 | `d3.v7.min.js` | 7.9.0 | ISC (`d3.LICENSE.txt`) | https://d3js.org | the graph and the whiteboard's layouts |
 | p5.js | `p5.min.js` | 1.9.4 | LGPL-2.1 (`p5.LICENSE.txt`) | https://p5js.org | the generated brand emblem |

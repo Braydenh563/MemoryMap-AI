@@ -3273,12 +3273,25 @@ button.ghost.doc-template-choice.wb-template-choice {
 }
 
 /* The output panel's grip (INBOX 736): the sidebars' handle turned on its
-   side, a hairline along the panel's top edge. */
+   side, a hairline along the panel's top edge. Shown at every width (the
+   sidebars' own handle is hidden below 600px, where there is no column to
+   size; this panel has a height to size on a phone too). Relative so its
+   hit area below can reach past its 6px box and sit above the editor. */
 .cm-run-panel > .doc-run-resize.sidebar-resize {
-  position: static;
+  position: relative;
+  display: block;
   flex: 0 0 var(--space-2);
   width: auto;
   height: var(--space-2);
   cursor: row-resize;
   background: linear-gradient(to bottom, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%);
+}
+
+/* DESIGN.md's grip recipe: 24px for the hand, the hairline where it was.
+   The box stays 6px so the panel and the line do not move; the hit area is
+   this layer, centred on it, 9px into the editor above and the output below. */
+.cm-run-panel > .doc-run-resize.sidebar-resize::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--space-2) - 24px) / 2) 0;
 }

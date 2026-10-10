@@ -601,35 +601,14 @@ def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
         assert "-r" not in extra.packages, f"{extra.id} installs from a requirements file"
 
 
-def test_the_word_exporter_is_an_installable_extra(client):
-    """A 501 that names a package is a dead end in a no-terminal app.
-
-    `GET /documents/{id}/export.docx` answers 501 when python-docx is missing,
-    and until this entry existed the message named the package and stopped
-    there: the reader was told what they lack and given nowhere to get it. The
-    allowlist is the only route to an install, so the button the message points
-    at has to exist here first.
-    """
-    body = client.get("/extras").json()
-    entry = next((e for e in body["extras"] if e["id"] == "docx"), None)
-    assert entry is not None, "no Word export extra in the catalogue"
-    assert extras.EXTRAS_BY_ID["docx"].packages == ("python-docx",)
-    assert extras.EXTRAS_BY_ID["docx"].module == "docx"
-    assert not extras.EXTRAS_BY_ID["docx"].unavailable, "the export button exists, so it is available"
-
-
-def test_the_word_export_501_points_at_the_settings_button(client):
-    """The message and the extra are checked together on purpose: a 501 that
-    names Settings while the catalogue has no such row would send somebody to
-    an empty screen."""
+def test_the_word_exporter_is_retired(client):
+    """Word files are written in the browser (documents-word.js), so the
+    python-docx extra and its 501 route went (Brief 42): no row offers a
+    package nothing calls, and the old route is gone rather than answering."""
+    assert "docx" not in extras.EXTRAS_BY_ID
+    assert all("docx" not in bundle.extras for bundle in extras.BUNDLES)
     made = client.post("/documents", json={"title": "Word export", "content": "# Hi\n"})
-    document_id = made.json()["id"]
-    response = client.get(f"/documents/{document_id}/export.docx")
-    if response.status_code == 200:
-        pytest.skip("python-docx is installed here, so there is no 501 to read")
-    assert response.status_code == 501
-    detail = response.json()["detail"]
-    assert "Settings, Packages" in detail and "Export to Word" in detail, detail
+    assert client.get(f"/documents/{made.json()['id']}/export.docx").status_code in (404, 405)
 
 
 # --- a packaged (frozen) build installs where it can import from ------------------
@@ -717,14 +696,14 @@ def test_the_installer_page_runs_the_apps_own_installer():
     import re
 
     #: Every id the page can hand over, whether a box sends one or several
-    #: ("documents,pdfpages,docx," since 2026-09-24), is a real extra.
+    #: ("documents,pdfpages," since Brief 42), is a real extra.
     sent = [
         extra_id
         for group in re.findall(r"Packages \+ '([a-z,]+)'", iss)
         for extra_id in group.split(",")
         if extra_id
     ]
-    assert {"semantic", "voice", "documents", "pdfpages", "docx"} <= set(sent)
+    assert {"semantic", "voice", "documents", "pdfpages"} <= set(sent)
     for extra_id in sent:
         assert extra_id in extras.EXTRAS_BY_ID
 

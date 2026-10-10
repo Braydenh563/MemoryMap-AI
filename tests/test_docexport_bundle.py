@@ -1,4 +1,4 @@
-"""A document leaves with its pictures, and (optionally) as a Word file.
+"""A document leaves with its pictures.
 
 DOCUMENTS_PLAN Phase 7. `export.md` hands over the text alone, and a document
 with images in it then lands somewhere else with `/media/…` links that resolve
@@ -7,9 +7,8 @@ The bundle is the answer to that, and the two things worth testing about it are
 the two that would be silently wrong: that the picture is really in the zip, and
 that the markdown's own link now points at it.
 
-The Word export is an optional extra, so every test of it skips cleanly when
-python-docx is not installed, and the endpoint's own behaviour *without* the
-extra (a 501 that names it, not a 500) is tested on every install.
+The Word export is written in the browser now (`documents-word.js`,
+`tests/test_word_files_b42.py`); the python-docx extra is retired (Brief 42).
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ from __future__ import annotations
 import io
 import zipfile
 
-import pytest
 
 from memorymap.core import docexport
 
@@ -125,62 +123,3 @@ def test_a_name_cannot_climb_out_of_the_media_folder(app_state, tmp_path):
 
     assert carried == []
     assert set(zipfile.ZipFile(io.BytesIO(data)).namelist()) == {"Climb.md"}
-
-
-# --- the Word export, which is an optional extra ---------------------------
-
-docx_only = pytest.mark.skipif(
-    not docexport.docx_available(),
-    reason="python-docx is an optional extra; the suite must not need it",
-)
-
-
-def test_without_the_extra_the_endpoint_says_which_extra(client, app_state, monkeypatch):
-    """A 501 that names it, not a 500, and not a silent empty file."""
-    monkeypatch.setattr(docexport, "docx_available", lambda: False)
-    created = client.post("/documents", json={"title": "Essay", "content": "Hi"}).json()
-
-    response = client.get(f"/documents/{created['id']}/export.docx")
-
-    assert response.status_code == 501
-    detail = response.json()["detail"]
-    #: Named the way the person can act on it: the Settings switch that
-    #: installs it, not the package (the wording sweep, INBOX 472).
-    assert "Export to Word" in detail
-    #: And it says what *is* available, so the answer is a route out rather
-    #: than a dead end.
-    assert "zip" in detail
-
-
-@docx_only
-def test_the_word_export_is_a_real_docx_with_the_words_in_it(client, app_state):
-    content = "# Heading\n\nSome **bold** text.\n\n- one\n- two\n"
-    created = client.post(
-        "/documents", json={"title": "Essay", "content": content}
-    ).json()
-
-    response = client.get(f"/documents/{created['id']}/export.docx")
-
-    assert response.status_code == 200
-    #: The title keeps its case, as every other export does ("My-Essay.md").
-    assert "Essay.docx" in response.headers["content-disposition"]
-    #: A .docx is a zip of XML; reading the document part back is the cheapest
-    #: check that this is a real one and that the text survived.
-    archive = zipfile.ZipFile(io.BytesIO(response.content))
-    xml = archive.read("word/document.xml").decode("utf-8")
-    assert "Heading" in xml
-    assert "bold" in xml
-    assert "**" not in xml  # the marks are styles now, not characters
-    assert "one" in xml and "two" in xml
-
-
-@docx_only
-def test_the_word_converter_keeps_its_limits_where_it_can_see_them():
-    """What it does not understand stays the paragraph it was. Tables were
-    the example here until INBOX 404 taught it them (a Word table now, see
-    `test_prose_tools.py`'s round trip); an embed is the one that stays."""
-    data = docexport.to_docx("T", "![[Another note]]\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n")
-
-    xml = zipfile.ZipFile(io.BytesIO(data)).read("word/document.xml").decode("utf-8")
-    assert "![[Another note]]" in xml
-    assert "<w:tbl>" in xml and "| a | b |" not in xml

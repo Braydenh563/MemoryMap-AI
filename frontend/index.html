@@ -4789,11 +4789,8 @@ Link to another note with [[its first few words]]."></textarea>
                      on the server because the files are on the server. -->
                 <button id="doc-export-zip" class="menu-item doc-dock-menu-item" type="button"
                   title="Download the markdown and its images as one zip"><i class="ph ph-file-zip ph-lead" aria-hidden="true"></i> Download with images (.zip)</button>
-                <!-- Word, when this install has python-docx. Offered whatever
-                     the answer is: a menu that hides what an install cannot do
-                     leaves a person wondering whether the app can do it at
-                     all, and the endpoint's own 501 says which package is
-                     missing and what is available instead. -->
+                <!-- Word, written in the browser by the vendored docx library
+                     (the documents Word module), loaded on the first press. -->
                 <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
@@ -4929,9 +4926,9 @@ Link to another note with [[its first few words]]."></textarea>
                folds below), but the wrap already absorbs the extra width
                gracefully rather than clipping or scrolling, so matching the
                note editor's wording is a look change, not a regression. -->
-          <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
-          <button type="button" data-md="ol" title="Numbered list"><i class="ph ph-list-numbers ph-lead" aria-hidden="true"></i> Numbered</button>
-          <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
+          <button type="button" data-md="ul" title="Bulleted list (Ctrl+Shift+8)"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
+          <button type="button" data-md="ol" title="Numbered list (Ctrl+Shift+7)"><i class="ph ph-list-numbers ph-lead" aria-hidden="true"></i> Numbered</button>
+          <button type="button" data-md="task" title="Task list (Ctrl+Shift+9)"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
           <!-- **Two folds, because twenty-five controls do not fit.** Reported:

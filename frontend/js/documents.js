@@ -146,8 +146,13 @@ function syncDocFileType() {
   for (const id of ["doc-code-wrap-row", "doc-whitespace-row", "doc-minimap-row"]) $(id)?.classList.toggle("hidden", type.previewable);
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
+  //: On the fallback textarea only. CodeMirror owns its own `class` and
+  //: rewrites it on every focus change, so a class toggled onto the view's
+  //: DOM is gone at the first focus; the engine's `doc-content-code` is
+  //: declared through `editorAttributes` (documents-ide.js, `docIdeSlot`),
+  //: mounted with the code tools on exactly the types this is true for.
   const code = !type.previewable;
-  docSurface()?.classList.toggle("doc-content-code", code);
+  docBoxEl()?.classList.toggle("doc-content-code", code);
   applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
@@ -2405,6 +2410,11 @@ function docSectionRange(headings, index, lineCount) {
 //
 // Bracketed by `DOC-COMMANDS-BEGIN`/`END` so `tests/test_doc_commands.py` can
 // read the table's shape without a browser.
+//
+// **Every row says its chord or "none"** (DOCUMENTS_PLAN section 25 row 6):
+// an empty `keys` was a row nobody had decided about. "none" is a decision
+// (no free chord that means it anywhere else, or a chord the app gives to
+// something else), and the palette and the sheet show nothing for it.
 
 // DOC-COMMANDS-BEGIN
 
@@ -2449,44 +2459,44 @@ const DOC_COMMANDS = [
   { id: "indent", icon: "ph:text-indent", label: "Indent the line or list item", keys: "Tab", run: null },
   { id: "outdent", icon: "ph:text-outdent", label: "Outdent the line or list item", keys: "Shift+Tab", run: null },
   { id: "move-section", icon: "ph:arrows-down-up", label: "Move the section, from the outline", keys: "Alt+↑ / Alt+↓", run: null },
-  { id: "ul", icon: "ph:list-bullets", label: "Bulleted list", keys: "", run: () => applyMarkdown("ul") },
-  { id: "ol", icon: "ph:list-numbers", label: "Numbered list", keys: "", run: () => applyMarkdown("ol") },
-  { id: "task", icon: "ph:check-square", label: "Task list", keys: "", run: () => applyMarkdown("task") },
-  { id: "quote", icon: "ph:quotes", label: "Quote", keys: "", run: () => applyMarkdown("quote") },
-  { id: "link", icon: "ph:link", label: "Link", keys: "", run: () => applyMarkdown("link") },
-  { id: "view-edit", icon: "ph:pencil-simple", label: "Edit this document", keys: "",
+  { id: "ul", icon: "ph:list-bullets", label: "Bulleted list", keys: "Ctrl+Shift+8", run: () => applyMarkdown("ul") },
+  { id: "ol", icon: "ph:list-numbers", label: "Numbered list", keys: "Ctrl+Shift+7", run: () => applyMarkdown("ol") },
+  { id: "task", icon: "ph:check-square", label: "Task list", keys: "Ctrl+Shift+9", run: () => applyMarkdown("task") },
+  { id: "quote", icon: "ph:quotes", label: "Quote", keys: "none", run: () => applyMarkdown("quote") },
+  { id: "link", icon: "ph:link", label: "Link", keys: "none", run: () => applyMarkdown("link") },
+  { id: "view-edit", icon: "ph:pencil-simple", label: "Edit this document", keys: "none",
     run: () => setDocView(lastEditView) },
-  { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "",
+  { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "none",
     run: () => setDocView("rendered") },
   { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting toolbar", keys: "Ctrl+Shift+X",
     run: () => toggleDocToolbar() },
   { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
-  { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
+  { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "none",
     run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
-  { id: "dim-others", icon: "ph:circle-half-tilt", label: "Dim every paragraph but this one", keys: "",
+  { id: "dim-others", icon: "ph:circle-half-tilt", label: "Dim every paragraph but this one", keys: "none",
     run: () => docRunControl("doc-dim-others", "Dimming") },
-  { id: "serif", icon: "ph:text-aa", label: "Serif reading face", keys: "",
+  { id: "serif", icon: "ph:text-aa", label: "Serif reading face", keys: "none",
     run: () => docRunControl("doc-serif", "The serif face") },
-  { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
+  { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "none",
     run: () => docRunControl("doc-word-goal", "The word goal") },
-  { id: "ai", icon: "ph:sparkle", label: "Ask Atlas to edit this document", keys: "",
+  { id: "ai", icon: "ph:sparkle", label: "Ask Atlas to edit this document", keys: "none",
     run: () => docRunControl("doc-ai", "AI editing") },
-  { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
+  { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "none",
     run: () => docRunControl("doc-extract", "Extracting notes") },
-  { id: "map-headings", icon: "ph:tree-structure", label: "Map this document's headings", keys: "",
+  { id: "map-headings", icon: "ph:tree-structure", label: "Map this document's headings", keys: "none",
     run: () => docRunControl("doc-map-headings", "Mapping the headings") },
-  { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "",
+  { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "none",
     run: () => docRunControl("doc-history", "Version history") },
-  { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "",
+  { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "none",
     run: () => docRunControl("doc-connections", "Connections") },
-  { id: "export-md", icon: "ph:download-simple", label: "Download as .md", keys: "",
+  { id: "export-md", icon: "ph:download-simple", label: "Download as .md", keys: "none",
     run: () => docRunControl("doc-export-md", "The markdown export") },
-  { id: "export-html", icon: "ph:file-html", label: "Download as one .html file", keys: "",
+  { id: "export-html", icon: "ph:file-html", label: "Download as one .html file", keys: "none",
     run: () => docRunControl("doc-export-html", "The HTML export") },
-  { id: "export-docx", icon: "ph:file-doc", label: "Download as Word (.docx)", keys: "",
+  { id: "export-docx", icon: "ph:file-doc", label: "Download as Word (.docx)", keys: "none",
     run: () => docRunControl("doc-export-docx", "The Word export") },
-  { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "",
+  { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "none",
     run: () => docRunControl("doc-export-pdf", "The PDF export") },
   //: `code: true` rows are offered by the palette only while a code
   //: document is open; the shortcut sheet lists them always, marked by
@@ -2501,15 +2511,15 @@ const DOC_COMMANDS = [
     code: true, run: () => docCodeCommentAtCaret(docSurface(), true) },
   //: Emmet's editing commands (INBOX 402). No chord: VS Code has none for
   //: them either, and every free one is spoken for by something commoner.
-  { id: "emmet-wrap", icon: "ph:brackets-angle", label: "Wrap the selection with an Emmet abbreviation", keys: "",
+  { id: "emmet-wrap", icon: "ph:brackets-angle", label: "Wrap the selection with an Emmet abbreviation", keys: "none",
     code: true, run: () => docEmmetWrap() },
-  { id: "emmet-balance-out", icon: "ph:arrows-out-line-horizontal", label: "Select the enclosing tag (Emmet balance outward)", keys: "",
+  { id: "emmet-balance-out", icon: "ph:arrows-out-line-horizontal", label: "Select the enclosing tag (Emmet balance outward)", keys: "none",
     code: true, run: () => docEmmetBalance(false) },
-  { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "",
+  { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "none",
     code: true, run: () => docEmmetBalance(true) },
   //: VS Code's Ctrl+Shift+O, without the chord: the registry gives it to a
   //: new chat. The outline panel lists the same symbols.
-  { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
+  { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "none",
     code: true, run: () => docOpenSymbols() },
   { id: "definition", icon: "ph:arrow-square-in", label: "Go to where the name at the caret is defined", keys: "F12",
     code: true, run: () => docGoToDefinition() },
@@ -2521,7 +2531,7 @@ const DOC_COMMANDS = [
     code: true, run: () => docRunCode() },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
     code: true, run: () => docToggleCodeDraw("codeWrap") },
-  { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
+  { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "none",
     code: true, run: () => docToggleCodeDraw("whitespace") },
   //: Brief 42 (documents-ide.js). The two fold chords are CodeMirror's
   //: `foldKeymap`, bound since Phase 2; Ctrl+Shift+M is VS Code's.
@@ -2531,13 +2541,13 @@ const DOC_COMMANDS = [
     code: true, run: () => docIdeFoldAll(true) },
   { id: "problems", icon: "ph:warning-circle", label: "List every problem in this file", keys: "Ctrl+Shift+M",
     code: true, run: () => docIdeProblems() },
-  { id: "minimap", icon: "ph:sidebar-simple", label: "Show the minimap in a code file", keys: "",
+  { id: "minimap", icon: "ph:sidebar-simple", label: "Show the minimap in a code file", keys: "none",
     code: true, run: () => docIdeToggleMinimap() },
-  { id: "compare-version", icon: "ph:git-diff", label: "Compare with a saved version", keys: "",
+  { id: "compare-version", icon: "ph:git-diff", label: "Compare with a saved version", keys: "none",
     code: true, run: () => docIdeCompareMenu() },
-  { id: "compare-revert", icon: "ph:arrow-counter-clockwise", label: "Put back the compared hunk at the caret", keys: "",
+  { id: "compare-revert", icon: "ph:arrow-counter-clockwise", label: "Put back the compared hunk at the caret", keys: "none",
     code: true, run: () => docIdeRevertAtCaret() },
-  { id: "compare-stop", icon: "ph:x", label: "Stop comparing with a saved version", keys: "",
+  { id: "compare-stop", icon: "ph:x", label: "Stop comparing with a saved version", keys: "none",
     code: true, run: () => docIdeStopCompare() },
 ];
 
@@ -2565,7 +2575,7 @@ function docPaletteCommands() {
   return DOC_COMMANDS.filter((command) => command.run && (!command.code || code)).map((command) => ({
     group: "This document",
     label: `${command.icon} ${command.label}`,
-    keys: command.keys,
+    keys: command.keys === "none" ? "" : command.keys,
     run: command.run,
   }));
 }
@@ -2578,7 +2588,7 @@ function renderDocShortcutSheet(list) {
   if (!list) return;
   list.replaceChildren();
   for (const command of DOC_COMMANDS) {
-    if (!command.keys) continue;
+    if (!command.keys || command.keys === "none") continue;
     const li = document.createElement("li");
     const keys = document.createElement("span");
     keys.className = "shortcut-keys";
@@ -18422,6 +18432,11 @@ function docCmLanguageFor(CM, ext) {
     case "swift": return stream(CM.swift);
     case "r": return stream(CM.r);
     case "ini": return stream(CM.properties);
+    //: Bundled with the editor already (entry.js), so 0 bytes more.
+    case "diff": return stream(CM.diff);
+    case "dockerfile": return stream(CM.dockerFile);
+    case "vb": return stream(CM.vb);
+    case "vbs": return stream(CM.vbScript);
     //: **`php` and `csv` stay plain text on purpose.** `@codemirror/lang-php`
     //: is a full Lezer grammar that also drags in lang-html, measured at
     //: +28,563 bytes gzipped, 10.6% of this bundle, for one language; and a
@@ -19455,6 +19470,10 @@ function docCmHighlight(CM) {
       { tag: [t.punctuation, t.separator, t.bracket, t.operator], ...punctuation },
       { tag: [t.meta, t.processingInstruction], color: "var(--muted)" },
       { tag: t.invalid, color: "var(--error)" },
+      //: A patch's added and removed lines (the diff mode's only tokens
+      //: besides `@@`): without these a `.diff` drew in one colour.
+      { tag: t.inserted, color: "var(--ok)" },
+      { tag: t.deleted, color: "var(--error)" },
       { tag: t.link, color: "var(--accent-text)", textDecoration: "underline" },
       //: Markdown's own tags, so Source view on a `.md` file is not the one
       //: file type in the editor with no highlighting at all. Live view draws
@@ -19526,6 +19545,10 @@ function docCmKeymap(CM) {
     { key: "Mod-1", run: () => { applyMarkdown("h1"); return true; } },
     { key: "Mod-2", run: () => { applyMarkdown("h2"); return true; } },
     { key: "Mod-3", run: () => { applyMarkdown("h3"); return true; } },
+    //: Google Docs' list chords; the base key is read, so Shift's `*` is 8.
+    { key: "Mod-Shift-8", run: () => { applyMarkdown("ul"); return true; } },
+    { key: "Mod-Shift-7", run: () => { applyMarkdown("ol"); return true; } },
+    { key: "Mod-Shift-9", run: () => { applyMarkdown("task"); return true; } },
     //: One gesture, one entry point: `toggleDocFindBar` opens the engine's
     //: panel here and the app's own bar on the fallback, so this binding does
     //: not have to know which is on screen.

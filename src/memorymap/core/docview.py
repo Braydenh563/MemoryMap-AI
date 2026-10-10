@@ -380,8 +380,8 @@ def docx_to_markdown(path: Path) -> str:
     part), bold, italic and strike keep their markers, and Word's tracked
     changes become suggestion mode's marks (`{++…++}`, `{--…--}`), so a draft
     reviewed in Word arrives with its revisions still to accept or reject.
-    This is the other half of `docexport.to_docx`, and
-    `tests/test_prose_tools.py` sends one through both.
+    A Word file brought into the Library is read in the browser by Mammoth
+    (`documents-word.js`); this is the server's path for one filed as a note.
 
     Returns "" for anything it cannot read, which is what puts the caller back
     on its existing "no text found" path rather than a traceback.

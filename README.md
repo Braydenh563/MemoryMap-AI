@@ -118,8 +118,8 @@ Open a section for the detail.
   highlighted. A document reopens where you left it.
 - The Writing room turns rough thoughts into a proper note, or a pasted block
   into several linked notes, before anything is saved.
-- Export a document as Markdown, HTML, PDF or Word (Word is an optional
-  package), and your notes as JSON, CSV or Markdown.
+- Export a document as Markdown, HTML, PDF or Word, and your notes as JSON,
+  CSV or Markdown.
 
 </details>
 
@@ -334,7 +334,6 @@ in Ollama and pick it in the same place.
 | Voice notes (faster-whisper) | Local dictation for the microphone buttons |
 | Desktop window (pywebview) | The app in its own window, and a tray icon on Windows |
 | Import documents (markitdown) | PDF, Word and slide decks become notes |
-| Export to Word (python-docx) | A document's Word export |
 | Read scanned PDFs (pypdfium2) | Scanned pages become images a vision or OCR model can read |
 | Search inside images (Tesseract OCR) | Text in images becomes searchable; also needs the Tesseract program |
 | Read images without Tesseract (RapidOCR) | A second local reader, nothing else to install; used when Tesseract isn't ready |

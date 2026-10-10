@@ -32,6 +32,7 @@ pytestmark = pytest.mark.skipif(
 CALLED_FLOOR = {
     "codemirror": 102,
     "emmet": 10,
+    "jsbeautify": 3,
     "harper": 17,
     "phosphor": 260,
     "wordlist": 2,
@@ -39,8 +40,8 @@ CALLED_FLOOR = {
     "p5": 21,
     "flashtext": 2,
     "stencils": 7,
-    "mammoth": 1,
-    "docx": 9,
+    "mammoth": 2,
+    "docx": 12,
 }
 
 

@@ -476,8 +476,8 @@ plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
    Superseded 2026-10-10 (the owner, INBOX 765): Word files are read and
    written in the browser with Mammoth (read `.docx` to HTML) and docx (write
    `.docx` from the editor's model), both vendored under `frontend/vendor`
-   with their notices in THIRD_PARTY.md; the python-docx extra is retired
-   once they land (a Phase 7 row, Brief 42).
+   with their notices in THIRD_PARTY.md. The python-docx extra, its route
+   and `docexport.to_docx` are retired (Brief 42, docs42b, 2026-10-10).
 
 ## 6. Competitor matrix (what the plan takes from whom)
 

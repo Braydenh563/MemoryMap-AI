@@ -4180,3 +4180,6 @@ The owner: "make sure all the vendored repositories are made full use of. I want
 
 Brief 74 measured rules 1, 2 and 7 on 12 surfaces (`undo.js`, `reach.js`, `overlap.js`, `measure-writes.py` in `scratchpad/ui-sweeps/`): 124 controls pressed, 25 changed the notebook, 5 undone (statically 80 of 274 server-writing functions name an undo path); 55 destinations, 1 deeper than 3 clicks, 16 without a palette command; overflow/clipped 95/6, 14/5, 28/17, 30/19, 23/15 at 320 to 1440, docks 0 intersections. The table by surface and the findings by selector are in [`archive/agent-remaining/trust-1010.md`](archive/agent-remaining/trust-1010.md) (section "T0 numbers").
 
+## Placed from INBOX, 2026-10-10 (filing suggestions)
+
+- INBOX 781, the owner: "I want the deterministic engine to be better for when suggesting tags, bot for popup suggestions, when using the \"tag and file with atlas\", and also when making a note etc." Owner: section 23; an Opus brief measured against a labelled set (precision of the first tag and category suggestion, before and after) on the three paths named: the popup suggestions, Tag and file with Atlas, and a new note.

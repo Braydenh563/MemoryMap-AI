@@ -165,44 +165,38 @@ with its owner named in the entry.
      the graph used to be, theres no movement to it now :(" and "when the
      graph readjusts it just appears there :(". The cluster's bubbles still
      overlap; outliers sit far out on long links.
-776. **UI, the owner 2026-10-10 22:05Z, three screenshots.** "these
-     highlighted borders are cut off. is agent available now when the ai
-     isnt running?? or should the toggle option be disabled?? also on the
-     submenu bars, can you improve the design of the hover state a bit??
-     like add a grey or sub colour line when hovering over other ones that
-     arent active??" Shots: the top tab bar's focus ring on Graph clipped
-     top and bottom; the chat composer's Ask / Agent toggle with Agent on;
-     the Notes sub-tabs (Your notes, Capture, Writing room, Ask, Questions).
-777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation
-     on the skeleton loaders is very fast and not smooth or pleasing to the
-     eye in how fast and jittery it is"
 778. **Bug, the owner 2026-10-10 22:15Z.** "well the agent mode was still an
      option when I was on the chat with no ai running :(" (status.js
      `agentModeAvailable` greys it only when `ollama_running === false`.)
-779. **UI, the owner 2026-10-10 22:15Z, two screenshots.** "on custom themes
-     can you maybe adjust the delete bin icon a little?? and also I think the
-     Your Themes setting section is designed awkwardly". The bin sits on the
-     card's corner, cut by the border; the section is a left label column
-     beside one card, the name field and Save, with the two reset buttons
-     below the whole row.
-780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve
-     the opacity of the peak function in the settings as well?" (Settings'
-     Peek: the panel is still mostly opaque and blurred over the app.)
-781. **Engine, the owner 2026-10-10 22:20Z.** "also when filing and tagging
-     and stuff, I want the deterministic engine to be better for when
-     suggesting tags, bot for popup suggestions, when using the "tag and file
-     with atlas", and also when making a note etc." Recommendation, taken: an
-     Opus brief on WORLD_CLASS 23 (filing and the taxonomy pack) measured
-     against a labelled set, after the running Opus agents.
-782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the
-     confirm and not right buttons in the tidy popup panel?? and any other
-     similar instances of them across the app" (Tidy's Patterns rows: two
-     full-size bordered buttons under each sentence.)
-783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a
-     suggestion??" (Tidy, Category names: one suggestion, ticked, with All,
-     None and Rename 1 category; no way to dismiss it for good.)
+784. **UI, the owner 2026-10-10 22:30Z, five screenshots.** "when hovering
+     over categories in the sidebar on notes, the meatball buttons dont have
+     curved edges. also in some places it is the hover highlight over icons,
+     with no change in the border or background colour, and then there's
+     still ones with the highlighted bg. also some highlight borders still get
+     cut off. the copy and meatball button preview on the table in the /
+     command menu are poorly visualised. and this is my gary the moss monster
+     note and sketch, but it shows up wierdly on the [[ note menu,". Shots:
+     the sidebar category row's square ⋮; the notes list row's focus ring cut
+     at its top and bottom; the / menu's Table preview (Copy and ⋯ in a grey
+     blob over the caption); the Gary note (title, sketch, links); the [[
+     picker listing it as "Gary The Moss Monster :D Gary The Moss M..." and
+     the preview repeating the title four times with no sketch.
+785. **UI, the owner 2026-10-10 22:33Z, screenshot.** "Also I think the
+     buttons in the headers in the questions subtab need to be redesigned"
+     (Notes, Questions: each source note's header is a full bordered button
+     with a note icon; the first is inside a highlighted band. Also seen: a
+     question cut at a quote, ""If you were a spice, ..." then "" or "What's
+     the most adventurous thing ...".)
+786. **UI, the owner 2026-10-10 22:40Z, screenshot.** "no spacing between the
+     button and this text in the dashboard hero section" (the hero line "You
+     have 34 notes · Patterns: university, 4 times since 16 July" with its ⋯
+     button touching the last word; the menu holds Confirm and Not right.)
 
 ## Placed (last 20, newest first)
+
+- 2026-10-10: 776, 777, 779, 780, 782, 783 placed in UI_MODERNISATION_PLAN "Placed from INBOX, 2026-10-10 (the owner's morning UI reports)", owner the uipolish agent.
+
+- 2026-10-10: 781 placed in WORLD_CLASS_PLAN "Placed from INBOX, 2026-10-10 (filing suggestions)", an Opus brief after the running ones.
 
 - 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.
 

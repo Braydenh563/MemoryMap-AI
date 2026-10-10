@@ -140,6 +140,14 @@ with its owner named in the entry.
      the toast-with-action recipe in DESIGN.md, and fix what is off.
      Owner: Brief 34 (companion), second part, and OPEN.md Atlas rows (INBOX 752): gestures, the enlarged view mirroring the corner, the framed Atlas clipped to its oval, the Show companion notice measured against the toast recipe.
 
+771. **The owner, 2026-10-10, 16:02Z, verbatim.** "I am sleeping so continue
+     autonomously. Impress me a lot. I want to fall off my chair lol with how
+     good the changes, fixes, improvements, additions, and nire are when I
+     wake up in the morning lol." Read: no cap on the night's work beyond the
+     agent cap (four Opus, Sonnet extra); every open brief in SESSION_BRIEFS
+     order; the PR stays green and the docs current at each merge. Owner:
+     HANDOVER "Now" (the night's queue).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-10: 767 placed in UI_MODERNISATION "Placed from the owner's list, 2026-10-10" and with the notice agent.

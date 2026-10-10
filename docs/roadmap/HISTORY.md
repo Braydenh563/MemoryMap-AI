@@ -46085,3 +46085,19 @@ Orientation reads are the largest token cost, so every plan and planning file ha
 | `BACKLOG.md` | 4500 |
 | `ANALYSIS.md` | 4500 |
 | `SESSION_BRIEFS.md` | 2100 |
+## INBOX resolved, 2026-10-10
+
+746. **The owner, 2026-10-10, verbatim**: "all deterministic features,
+     calculations, utlities, functions, abilities, the deterministic chatbot and
+     more need to be integrated and used everywhere across the application, it
+     needs to boost and upgrade the system and what the application can do, how
+     it does it, it needs to be extremely intelligent, varied, natura;l, have
+     good ux, and more. it needs to assist the ai and be the best foundation and
+     utility for the application. this is just me spraying my thoughts at you
+     but I am inexperienced and unknowledgable. you are the expert. Ill trust
+     you to handle everything. do research on all the modern methods and
+     structures and principles and professional practices and everything. make
+     sure you impress me." Triage: the deterministic layer as the app's
+     foundation, researched and placed in CHAT_PLAN "The deterministic
+     foundation, 2026-10-10" (decisions, the integration map, briefs).
+

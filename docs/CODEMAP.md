@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3568, test files 904, tests 8515, plan headings 884.
+Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3568, test files 904, tests 8515, plan headings 897.
 
 ## Frontend functions (4714)
 
@@ -14075,7 +14075,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (884)
+## Plan headings (897)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -14088,6 +14088,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:1368 |
 | 1. Format panel, Style tab | docs/roadmap/WHITEBOARD_PLAN.md:990 |
 | 1. Live log console (started, not finished) | docs/roadmap/BACKLOG.md:32 |
+| 1. Research read, 2026-10-10, and what each changes here | docs/roadmap/CHAT_PLAN.md:1691 |
 | 1. The consistency contract (the system under the little things) | docs/roadmap/WORLD_CLASS_PLAN.md:84 |
 | 1. The instruction, verbatim | docs/roadmap/DOCUMENTS_PLAN.md:11 |
 | 1. The instruction, verbatim | docs/roadmap/MINDMAP_PLAN.md:13 |
@@ -14233,6 +14234,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 2. The prompt | docs/roadmap/FABLE_BRIEF.md:16 |
 | 2. What already exists (checked in the code, not assumed) | docs/roadmap/MINDMAP_PLAN.md:44 |
 | 2. What exists (checked in the code, not assumed) | docs/roadmap/DOCUMENTS_PLAN.md:31 |
+| 2. Where the layer joins each surface | docs/roadmap/CHAT_PLAN.md:1703 |
 | 2. Why it disappoints (from the screenshots, each checked in the code) | docs/roadmap/WHITEBOARD_PLAN.md:28 |
 | 2. Why it disappoints (measured against the screenshots) | docs/roadmap/CHAT_PLAN.md:28 |
 | 2. Why it disappoints (measured, 48 notes across six months, 1358px) | docs/roadmap/TIMELINE_PLAN.md:24 |
@@ -14291,6 +14293,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:287 |
 | 3. Research: what the field actually offers | docs/roadmap/MINDMAP_PLAN.md:79 |
 | 3. The diagnosis | docs/roadmap/DOCUMENTS_PLAN.md:54 |
+| 3. The five modules | docs/roadmap/CHAT_PLAN.md:1720 |
 | 3. The strongest things worth taking | docs/roadmap/ANALYSIS.md:2471 |
 | 3. The target, in one paragraph | docs/roadmap/CHAT_PLAN.md:60 |
 | 3. The target, in one paragraph | docs/roadmap/GRAPH_PLAN.md:61 |
@@ -14320,6 +14323,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 4. Decisions made (do not re-decide) | docs/roadmap/TIMELINE_PLAN.md:58 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/WHITEBOARD_PLAN.md:76 |
 | 4. Decisions to make first | docs/roadmap/GRAPH_PLAN.md:73 |
+| 4. Decisions, 2026-10-10 (not to be remade; numbered after Phase 6's 45) | docs/roadmap/CHAT_PLAN.md:1730 |
 | 4. Library tab: chats, documents, images, archive | docs/roadmap/BACKLOG.md:204 |
 | 4. Scope decision (make this call first) | docs/roadmap/MINDMAP_PLAN.md:119 |
 | 4. The backend, made revolutionary (and still SQLite, still offline) | docs/roadmap/WORLD_CLASS_PLAN.md:470 |
@@ -14336,6 +14340,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 5. Phases | docs/roadmap/GRAPH_PLAN.md:95 |
 | 5. Phases | docs/roadmap/TIMELINE_PLAN.md:114 |
 | 5. Phases | docs/roadmap/WHITEBOARD_PLAN.md:472 |
+| 5. Phases with gates | docs/roadmap/CHAT_PLAN.md:1744 |
 | 5. Ship order (suggested sprints, each ends green + measured) | docs/roadmap/PLAN.md:114 |
 | 5. The feature set, in build order | docs/roadmap/MINDMAP_PLAN.md:156 |
 | 5. The phases | docs/roadmap/DOCUMENTS_PLAN.md:160 |
@@ -14350,6 +14355,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 6. Files this will touch | docs/roadmap/MINDMAP_PLAN.md:240 |
 | 6. Layers and pages | docs/roadmap/WHITEBOARD_PLAN.md:1115 |
 | 6. Measuring "professional" without telemetry | docs/roadmap/WORLD_CLASS_PLAN.md:730 |
+| 6. Not verified | docs/roadmap/CHAT_PLAN.md:1754 |
 | 6. OpenAI-compatible backends: **done** | docs/roadmap/BACKLOG.md:389 |
 | 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:1455 |
 | 6. Semantic search and the knowledge graph, "the ultimate upgrade" | docs/roadmap/PLAN.md:128 |
@@ -14498,6 +14504,11 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:2000 |
 | Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:2004 |
 | Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:2009 |
+| Brief 64 (Sonnet, medium): measure the foundation (F0) | docs/roadmap/SESSION_BRIEFS.md:2016 |
+| Brief 65 (Opus, high): the recogniser and the reading (F1) | docs/roadmap/SESSION_BRIEFS.md:2025 |
+| Brief 66 (Opus, high): quick add and the palette (F2) | docs/roadmap/SESSION_BRIEFS.md:2035 |
+| Brief 67 (Opus, high): the realiser, the validators and the acts (F3) | docs/roadmap/SESSION_BRIEFS.md:2044 |
+| Brief 68 (Opus, high): the surfaces (F4, after 65 to 67) | docs/roadmap/SESSION_BRIEFS.md:2051 |
 | Brief 6: W8-1: the audit scripts become the e2e suite | docs/roadmap/MODERNISATION_AUDIT.md:1310 |
 | Brief 7 (Thu, Opus): the event log (B1) | docs/roadmap/SESSION_BRIEFS.md:348 |
 | Brief 7: W5-4: `ai/scheduler.py`, one gate in front of every model call | docs/roadmap/MODERNISATION_AUDIT.md:1347 |
@@ -14509,6 +14520,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Briefs 46 to 55 (2026-10-10, Fable): the whole app against world class | docs/roadmap/SESSION_BRIEFS.md:1908 |
 | Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:1963 |
 | Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:1989 |
+| Briefs 64 to 68 (CHAT_PLAN "The deterministic foundation") | docs/roadmap/SESSION_BRIEFS.md:2014 |
 | Bugs | docs/roadmap/CHAT_PLAN.md:957 |
 | Bugs | docs/roadmap/DOCUMENTS_PLAN.md:1350 |
 | Bugs | docs/roadmap/GRAPH_PLAN.md:569 |
@@ -14872,6 +14884,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The assistant catalogue, 2026-10-10 | docs/roadmap/CHAT_PLAN.md:1064 |
 | The asymmetry these exploit | docs/roadmap/WORLD_CLASS_PLAN.md:1086 |
 | The constraint that governs everything below, **now half-lifted** | docs/roadmap/ANALYSIS.md:257 |
+| The deterministic foundation, 2026-10-10 (INBOX 746) | docs/roadmap/CHAT_PLAN.md:1677 |
 | The dock grammar (the rule the whole phase enforces) | docs/roadmap/UI_MODERNISATION_PLAN.md:433 |
 | The draw.io programme, 2026-10-10 | docs/roadmap/WHITEBOARD_PLAN.md:935 |
 | The features audit's Phase G, what is left (placed 2026-10-05, op3-1005) | docs/roadmap/MINDMAP_PLAN.md:1629 |

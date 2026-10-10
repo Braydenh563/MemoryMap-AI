@@ -1673,3 +1673,84 @@ floors in section 4, which are reasoned from the existing sets; the time
 windows against a real user's phrasings beyond the 14 forms measured; whether
 the Gemini-branch findings in section 0 survive Brief 35's triage (re-run the
 37 questions on its head before step 1 of section 5).
+
+## The deterministic foundation, 2026-10-10 (INBOX 746)
+
+The owner: "all deterministic features, calculations, utilities, functions,
+abilities, the deterministic chatbot and more need to be integrated and used
+everywhere across the application ... it needs to assist the ai and be the best
+foundation and utility for the application ... do research on all the modern
+methods and structures and principles and professional practices." The
+catalogue above specifies the engine for chat. This section is the layer under
+every surface: what the research says it should be made of, where it joins each
+surface, the decisions, and the briefs. It remakes nothing decided in 17 to 45.
+"Today" is read from the code and from the probe tables in
+`agent-remaining/engine-probe-1010.md`, not observed in the app, except where a
+number is given.
+
+### 1. Research read, 2026-10-10, and what each changes here
+
+| Source | The practice | What it becomes here |
+| --- | --- | --- |
+| Microsoft Recognizers-Text, Facebook Duckling | One recogniser suite with fixed dimensions (number, ordinal, date and time, duration, money, quantity with unit, temperature, distance, range, email, URL, phone), each returning the span it read and its resolved value; every product calls the same suite | `ai/recognise.py`: the one reader of numbers, dates, durations, units and ranges. Today five readers disagree: `when.resolve` (no past dates, "last friday" is next Friday, "later today" is 09:00), `reminder_parser.parse_relative` (no recurrence, "every morning at 7" is 19:00, "21st 9am" is tomorrow), `entry/timewords.find`, `search/query` (`before:`, `after:` ISO only) and the composer's utility branches |
+| Rasa NLU and Core | Tokeniser, featurisers, intent and entity extraction, a fallback classifier with a threshold, forms that fill slots one question at a time, rules over stories | `intent.classify` keeps the intents; entities come from the recogniser; an act with a missing slot asks one question ("Remind you when?"), never guesses; fallback is a threshold, not a shape |
+| Validator-first neuro-symbolic systems (PAL, Logic-LM, the planner and executor split) | The model proposes, a typed and re-runnable check decides; execution stays deterministic; recovery has two tiers (replan, or recover deterministically) | Decision 17 extended: a model's act runs only through the act registry with the same preview, confirm and undo as a typed one; `source_check` and grounding are the validators for both paths; a model that dies leaves the composed answer on screen |
+| Grice's maxims as design rules (ServiceNow, Voiceflow, LivePerson conversation design) | Quantity, quality, relation, manner; implicit confirmation ("Friday at 9, then") over explicit for low-risk acts; a repair ladder for no-match, no-input and error with one reprompt then a way out | A lint over the eval answers: one fact per sentence, every number sourced, nothing the question did not ask, no two sentences saying one thing; the repair ladder is one contract used by chat, Ask, quick add, search and the palette |
+| Fantastical and Todoist quick entry, chrono.js | Recognised fragments highlight live as you type and are stripped from the title; sigils (`#tag`, `@list`, `!` priority); grammar [what] [where] [when] [alert]; a leading word switches the kind | One quick-add grammar for notes, reminders, meetings, timeline entries and the palette; the recognised date, place, tag and person show as chips under the field before Enter; what the chips say is what is saved |
+| Template realisation (Gatt and Krahmer; YAG; Kondadadi et al.) | Templates with conditional rules and nested slots; protected spans (numbers, names, quotations) fixed while connectives vary; variety measured as distinct template sequences over a set of outputs | `ai/realise.py` grows from `composer._pick`: protected spans never vary, openers and joins do, salted per chat and turn; a measured variety floor (twenty asks of one question give at least eight distinct openers and identical facts) |
+| Raycast prefix grammar, Linear and Notion palettes | A prefix scopes the search; the palette is where power users type what they want done | The palette reads the same grammar: "remind me friday 9 dentist" shows the parsed act as its first row with its chips; "notes about harbor last week" shows the search with its window |
+
+### 2. Where the layer joins each surface
+
+| Surface | Deterministic job today (code) | Joins it | Measured by |
+| --- | --- | --- | --- |
+| Notes list and search box | `search/query` filters, `corrected` stems ("boiler pressur"), `question_noise` | Natural windows ("last week", "in march") and people and places as filters through the recogniser; the correction is a word, never a stem; chips show the reading | `search_1010.json` 30 of 30; zero stem corrections |
+| Note editor | None inline; filing after save | Dates in the text become reminder offers, sums are checked, `[[links]]` suggested from entities, the filing suggestion with its reason (WORLD_CLASS 23) | the five offers appear within 300 ms of the pause, never on quoted text |
+| Quick note sheet, reminders, meetings, timeline | `reminder_parser`, the reminders input, the meeting date field | The one quick-add grammar with chips; recurrence; a missing slot asks once | 60-phrase quick-add set at 1.0; the probe's twelve None phrases resolve |
+| Dashboard | Widgets read counts | The day's digest composed by the engine (due, open questions, what changed, silent topics) in one voice, with the model refining it when present | every digest line is a quoted span or a count |
+| Chat and Ask | The engine (Phase 6) | Unchanged; it becomes a client of the five modules below | Phase 6 gates |
+| Documents and the code editor | Word goal, reading time, stats | Outline from headings, reading time and counts from one utilities module, "find" with the same windows | counts equal `wc` on the fixture |
+| Whiteboard and mind map | None | Paste a list, get nodes; "arrange as a grid of 3" through the act registry; a sticky's date becomes a chip | the act set at 1.0 on the fixture board |
+| Graph, library, settings | Sort and filter controls | Phrases as filters ("connected to Harbor", "untouched since June"); settings searched by what they do, with synonyms | the 40-phrase filter set at 1.0 |
+| Import and export | Frontmatter dates kept (audit) | Date, place and person recognition on imported text for filing and the timeline | the import fixture's dates land on the right day |
+| Help and the Guide | `help_chat.topics_for` (121 topics) | The capability line and every act's help line generated from the registry; the Guide's gaps from the probe (phone, two computers, encryption) filled | the probe's Guide table at 1.0 |
+| The agent and the skills | 67 tools | The recogniser, the utilities and the validators offered to the model as tools, so a 1 to 3B model computes nothing itself | a model answer with an unsourced number is caught 1.0 (`source_check`) |
+| Toasts, empty states, confirmations | Hand-written strings in 115 JS files | Written through the realiser's voice tables, surface by surface, so the app speaks as one | the copy lint finds no exclamation marks, no "Oops", one register |
+
+### 3. The five modules
+
+1. **`ai/recognise.py`**, the recogniser suite: `recognise(text, *, now, locale) -> list[Span]`, each `Span(kind, text, start, end, value, read_as)`. Kinds: number, ordinal, date, time, datetime, duration, recurrence, range, money, quantity (with a 150-unit table), temperature, email, url, phone, person, place, tag. Past and future both resolve; ambiguous readings return both, ranked. The five readers in section 1 delegate to it and keep their signatures; the probe tables are its first tests.
+2. **`ai/reading.py`**, the typed reading: `read(text, *, now, context) -> Reading(intent, slots, spans, confidence, source)`. One parse per input, shared by chat, search, quick add and the palette. Confidence bands: sure (act or answer), likely (act, and say what was read), unsure (one question naming the two readings), none (the repair ladder).
+3. **`ai/acts.py`**, the act registry: each act has `parse`, `preview`, `run` (through the agent's tools), `inverse` (undo through `pushUndo`, WORLD_CLASS decision 53) and a help line. The capability line, the palette rows and the Guide's act topics are generated from it. `origin/wip/composer-acts` `commands.py` (56 phrasings) is its seed.
+4. **`ai/realise.py`**, the realiser: templates with protected spans, two voices plus help, salt per chat and turn, the variety floor measured. Every system sentence may route through it; chat first, then toasts and empty states surface by surface.
+5. **`ai/validate.py`**, the validators: `source_check`, grounding marks, the maxims lint, slot completeness and the computed-sentence rule, run on the engine's answer and the model's alike.
+
+Rule: a surface never reads language itself. `tests/test_one_reader.py` ratchets the count of files outside `recognise.py` and `timewords.py` that compile a date-word or unit pattern, from today's count down to zero.
+
+### 4. Decisions, 2026-10-10 (not to be remade; numbered after Phase 6's 45)
+
+46. **One recogniser suite** (`ai/recognise.py`) reads every number, date, duration, unit, range and contact in the app; the existing readers delegate to it.
+47. **One typed reading per input**, shared by chat, search, quick add and the palette; no surface parses twice.
+48. **Confidence bands decide behaviour**: sure acts; likely acts and says what it read; unsure asks one question naming both readings; none takes the repair ladder. Thresholds live in one table with the eval that set them.
+49. **The repair ladder is one contract**: no match gives the closest thing and the capability line; no input waits; an error keeps the composed answer on screen and says the model stopped. Chat, Ask, quick add, search and the palette share it.
+50. **Quick add with live chips everywhere a dated or tagged thing is typed**; what the chips say is what is saved; a missing slot is asked once, never guessed.
+51. **The realiser keeps protected spans fixed and varies the rest**; a variety floor is measured on every build.
+52. **Grice's maxims are lints over the eval answers**, not guidance.
+53. **The model proposes, the engine decides**: a model's act runs through the registry with preview, confirm and undo; its answers pass the same validators.
+54. **Computed sentences** (the catalogue's proposal 1, taken): allowed in utility answers only, always with "Read as", never mixed into a claim about the notes.
+55. **The app speaks in one voice**: system copy moves to the realiser surface by surface; no big bang.
+56. **No network in the deterministic layer**: currency and the like are dated tables that say their date.
+
+### 5. Phases with gates
+
+| Phase | Builds | Gate | Brief |
+| --- | --- | --- | --- |
+| F0 measure | The reader count, the probe tables re-run on the merged head, the variety metric and the maxims count on `showcase_725` | Numbers in sections 2 and 3 replace "read from code" | 64 (Sonnet) |
+| F1 recogniser and reading | Modules 1 and 2; the five readers delegate; the probe's date and reminder tables pass | `recognise_1010.json` 200 rows at 1.0; `test_one_reader` ratchet set | 65 (Opus) |
+| F2 quick add and the palette | The grammar, chips, slot questions in quick note, reminders, meetings, timeline, palette | 60-phrase set at 1.0; `quickadd.js` sweep: chips within 150 ms, saved value equals chip | 66 (Opus) |
+| F3 realiser, validators, acts | Modules 3 to 5; chat and Ask become clients; the maxims lint | variety floor met; maxims lint 0 on the evals; every act has an inverse | 67 (Opus) |
+| F4 the surfaces | Section 2's rows outside chat, one commit each | each row's measure | 68 (Opus, after F1 to F3) |
+
+### 6. Not verified
+
+Every "today" in section 2 outside the probe tables and the search numbers; the 300 ms and 150 ms budgets (set from WORLD_CLASS decision 54's interaction budgets, to be measured); whether a 1 to 3B model uses offered calculator and date tools rather than computing (the standing caveat); the variety floor's eight-of-twenty, which is a first number for F0 to replace.

@@ -2010,3 +2010,47 @@ taxonomy as JSON under `src/memorymap/data/`, lazy and cached;
 `ai/agent.py` `run_agent` and `ai/skill_runner.py` `_run_one_step` as state
 machines; `ai/embeddings.py` lazy load and idle unload with its setting;
 `ai/tools/` one file per family.
+
+## Briefs 64 to 68 (CHAT_PLAN "The deterministic foundation")
+
+### Brief 64 (Sonnet, medium): measure the foundation (F0)
+Count the files compiling date-word or unit patterns outside
+`ai/recognise.py` and `entry/timewords.py` (a script in `scratchpad/`, its
+number into CHAT_PLAN section 3's ratchet); re-run the probe tables in
+`agent-remaining/engine-probe-1010.md` on the merged head; the variety
+metric (twenty asks of ten questions from `showcase_725`, distinct openers)
+and the maxims count (facts per sentence, unsourced numbers) with
+`tests/_composer_eval.py`. Numbers into sections 2 and 3; no fixes.
+
+### Brief 65 (Opus, high): the recogniser and the reading (F1)
+`ai/recognise.py` and `ai/reading.py` per CHAT_PLAN section 3, decisions
+46 to 48. `when.resolve`, `reminder_parser.parse_relative`,
+`entry/timewords.find`, `search/query` date filters and the composer's
+utility branches delegate, signatures kept. Fixture
+`tests/fixtures/composer/recognise_1010.json` (200 rows, from the probe's
+date, reminder and None phrases outward) at 1.0; `tests/test_one_reader.py`
+ratchet. Coordinate with Brief 39's engine agent: `ai/composer.py` stays
+theirs; land the modules first, the delegation second.
+
+### Brief 66 (Opus, high): quick add and the palette (F2)
+Decision 50. One grammar (`frontend/js/quickadd.js`, lazy) for the quick
+note sheet, the reminders input, the meeting date field, timeline entries
+and `app-palette.js`: chips for date, time, recurrence, place, person, tag
+under the field; a missing slot asks once; Enter saves what the chips say.
+Server side through `/api/read` (the reading, decision 47). Sweep
+`scratchpad/ui-sweeps/quickadd.js`: chips within 150 ms, saved equals chip,
+60 phrases at 1.0. Help moves with the UI (standing order 13).
+
+### Brief 67 (Opus, high): the realiser, the validators and the acts (F3)
+`ai/realise.py` from `composer._pick` (protected spans, salt, variety floor
+measured), `ai/validate.py` (source_check, grounding, the maxims lint, slot
+completeness, decision 54's computed rule), `ai/acts.py` seeded from
+`origin/wip/composer-acts` `commands.py` with preview, run, inverse and a
+help line per act; chat and Ask become clients. Decisions 51 to 54.
+
+### Brief 68 (Opus, high): the surfaces (F4, after 65 to 67)
+CHAT_PLAN section 2's rows outside chat, one commit each with its measure:
+the note editor's offers, the dashboard digest, documents' counts, the
+whiteboard and mind map acts, the graph, library and settings filters,
+import recognition, the Guide's generated act topics, the agent's tools,
+and system copy through the realiser surface by surface (decision 55).

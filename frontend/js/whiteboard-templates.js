@@ -326,6 +326,26 @@ function wbTemplatePicture(choice, kind) {
   return branch ? wbThumbSvg(wbMapThumbSpec(entry)) : wbLibThumb(entry);
 }
 
+//: **A new board needs no name** (INBOX 739, the owner: "auto naming of the
+//: whiteboards, mindmaps ... like "untitled #" so the user isnt forced to
+//: name a new object"). The next free number after every "Untitled board N"
+//: (or map) there is, counted from the boards themselves, so a deleted one's
+//: number is not reused while a higher one exists. Shown as the name field's
+//: placeholder, so what Create makes is what the field already says.
+async function wbUntitledNames() {
+  const rows = await apiJson("/whiteboard/boards", { silent: true }).catch(() => []);
+  const next = (base) => {
+    const pattern = new RegExp(`^${base} (\\d{1,6})$`, "i");
+    let top = 0;
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const match = pattern.exec(String(row?.title || "").trim());
+      if (match) top = Math.max(top, Number(match[1]));
+    }
+    return `${base} ${top + 1}`;
+  };
+  return { board: next("Untitled board"), map: next("Untitled map") };
+}
+
 //: Resolves `{name, kind, ref}` (ref null for blank) or null when cancelled.
 async function wbOpenTemplateGallery(kind = "board") {
   const dialog = document.getElementById("wb-template-dialog");
@@ -334,7 +354,7 @@ async function wbOpenTemplateGallery(kind = "board") {
   const nameField = document.getElementById("wb-template-name");
   const tabs = document.getElementById("wb-template-kind");
   if (!dialog || !list || !preview || !nameField || !tabs) return null;
-  await wbLoadLibrary();
+  const [, untitled] = await Promise.all([wbLoadLibrary(), wbUntitledNames()]);
   let chosen = null;
   let choices = [];
   const choose = (choice, { focus = false } = {}) => {
@@ -404,7 +424,7 @@ async function wbOpenTemplateGallery(kind = "board") {
       tab.setAttribute("aria-selected", on ? "true" : "false");
       tab.tabIndex = on ? 0 : -1;
     }
-    nameField.placeholder = kind === "map" ? "Name the new map" : "Name the new board";
+    nameField.placeholder = untitled[kind === "map" ? "map" : "board"];
     choices = wbTemplateChoices(kind);
     list.append(row(choices[0]));
     for (const [key, words] of [...WB_TEMPLATE_PURPOSES, ["yours", "Yours"]]) {
@@ -421,12 +441,7 @@ async function wbOpenTemplateGallery(kind = "board") {
     settle = resolve;
   });
   const finish = (make) => {
-    const name = nameField.value.trim();
-    if (make && !name) {
-      nameField.focus();
-      toast(kind === "map" ? "Give the map a name first." : "Give the board a name first.");
-      return;
-    }
+    const name = nameField.value.trim() || untitled[kind === "map" ? "map" : "board"];
     dialog.close();
     settle(make ? { name, kind, ref: chosen?.ref || null } : null);
   };

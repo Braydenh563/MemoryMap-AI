@@ -4209,8 +4209,11 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert wb.count("wbOpenComments(") == 4, "the definition, the mark, the item menu, the topic menu"
     assert 'panel.className = "help-popover wb-comments";' in wb
-    assert "placeHelpPopover(panel, target);" in wb[wb.index("function wbOpenComments(") :][:7000]
-    assert wb.count("await wbSetComments(") == 2, "a post and a delete"
+    #: The window is the function's own length (it grew Attach and replies,
+    #: 2026-10-10): the placing must still be inside it.
+    opener = wb[wb.index("function wbOpenComments(") :]
+    assert "placeHelpPopover(panel, target);" in opener[: opener.index("\nfunction ", 10)]
+    assert wb.count("await wbSetComments(") == 2, "a post, and every change to a comment (reply, edit, resolve, delete)"
     assert "wbPaintCommentMarks();" in wb[wb.index("function renderWhiteboard()") :]
     assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]
     assert '".wb-comment-pin",' in wb[wb.index("const WB_INV_ZOOM_GRIPS") :][:200]

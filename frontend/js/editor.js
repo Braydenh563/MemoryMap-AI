@@ -105,6 +105,10 @@ function editorSurfaceKind(box) {
 function editorSurfaceFor(box) {
   if (!box) return null;
   if (box.kind === "textarea" || box.kind === "codemirror") return box;
+  //: A board's text box or map topic while it is being typed in carries its
+  //: own surface (whiteboard.js `wbEditableSurface`): it is a contenteditable,
+  //: which no adapter in documents.js speaks.
+  if (box.wbEditorSurface) return box.wbEditorSurface;
   if (typeof asSurface !== "function") {
     editorEnsureSurfaceModule(box);
     return null;
@@ -467,8 +471,11 @@ function editorApplyAction(textarea, action) {
       .split("\n")
       .map((line) => (line.startsWith(action.line) ? line : action.line + line))
       .join("\n");
+    //: An empty line has nothing to select: the caret goes after the
+    //: marker, so "/todo" then typing writes the item (measured on a board
+    //: text box, 2026-10-10: the selected "- [ ] " was typed over).
     editorSplice(textarea, lineStart, Math.max(lineEnd, end), prefixed, {
-      from: 0,
+      from: target.trim() ? 0 : prefixed.length,
       to: prefixed.length,
     });
     return;
@@ -877,9 +884,17 @@ function editorBackOverTrail(textarea) {
   textarea.setSelectionRange(at, at);
 }
 
+//: **A context that is the note's rows, cut** (the boards' text boxes, map
+//: topics and comments, 2026-10-10): context to the row ids it keeps, filled
+//: by the lazy file that owns those surfaces (whiteboard.js
+//: `WB_EDITOR_CONTEXT_ROWS`), so the lists cost the boot nothing.
+const EDITOR_CONTEXT_ROWS = {};
+
 function editorCommands(context) {
   if (context === "chat") return chatCommands();
   if (context === "skill") return skillCommands();
+  const keep = EDITOR_CONTEXT_ROWS[context];
+  if (keep) return editorBlockRows("note").filter((row) => keep.includes(row.id));
   const commands = editorBlockRows(context);
 
   // --- AI actions ---

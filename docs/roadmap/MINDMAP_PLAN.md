@@ -1760,32 +1760,15 @@ Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
 - **Linked stickers** (Illustrator's symbols): edit one placed icon or emoji
   and every copy follows. Needs a `library_ref` that is followed, which
   decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
-- **Topic effects** (Photoshop's layer styles): shadow and glow per topic and
-  per level; a level field each, under decision 40's rule.
+- ~~Topic effects~~ built 2026-10-10: HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)"); not yet in the PNG or SVG picture.
 - **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
 - **The whiteboard half of 641's research**, beyond stickers.
-- The exported picture draws every topic as one box: the levels, shapes and a
-  Phosphor icon do not reach PNG or SVG (an emoji icon does, as text).
+- The exported picture draws each topic's shape since 2026-10-10 (boardmap-1010); a
+  topic's effect and a Phosphor icon still do not reach PNG or SVG (an emoji icon does, as text).
 - The document editor's `:shortcode:` completion keeps its own 248-entry table
   (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
   can wait on the picker's script.
 
 ## Placed from the owner's list, 2026-10-10
 
-Entries are the owner's words, then the recommendation. Bugs come first.
-
-### Bugs
-
-- "the rounded rectangle shape doesnt work on the mindmap"
-  Recommendation: make the rounded rectangle a real node shape on the map (its radius token, its hit area and its export), then measure it in the sweep. Also carried by Brief 36 (rounded rectangles on the map).
-- "Pressing enter when typing on a mindmap node makes a new node instead of a new line. Also the / command menu and [[ adding notes etc doesn’t work on mind map nodes."
-  Recommendation: Enter inserts a line break inside a node (Shift+Enter or a key rule creates a sibling), and the / and [[ handlers run inside node text. Also carried by Brief 36 (Enter as newline, slash menus in nodes).
-- "New mind map nodes don’t take into account direction of flow for that branch"
-  Recommendation: a new node takes its side and direction from its parent branch, not from a default. Also carried by Brief 36 (branch colour and spacing on insert).
-- "when I added a mindmap node in between, it changed the colour of the other nodes in the branch and the spacing is really close to the other things and bunched up"
-  Recommendation: inserting a node keeps the other nodes' colours and reflows the branch spacing to the map's spacing token; measure the gaps before and after. Also carried by Brief 36 (branch colour and spacing on insert).
-
-### Design requests
-
-- "I want more mindmap appearance options. Other mind mapping software is still soo much better and the current one still isnt clean, doest have much and needs a lot of improvement"
-  Recommendation: add node and branch appearance options (shape, fill, border, line style, spacing) as recipe controls, benchmarked against the MINDMAP_PLAN research. Also carried by Brief 36 (appearance options) and MINDMAP_PLAN section 14.
+Every entry built 2026-10-10 (boardmap-1010). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)").

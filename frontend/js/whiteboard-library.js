@@ -264,8 +264,8 @@ async function wbPlaceSticker(choice, at = null) {
 
 //: The board's Insert, Emoji and icons…: the picker stays open, so several
 //: can be placed or dragged; a pick lands in the middle of the view.
-function wbOpenStickerPicker() {
-  const anchor = document.querySelector('[aria-controls="wb-insert-menu"]');
+function wbOpenStickerPicker(from = null) {
+  const anchor = from?.isConnected ? from : document.querySelector('[aria-controls="wb-insert-menu"]');
   pickIconOrEmoji({
     anchor,
     title: "Emoji and icons to place",

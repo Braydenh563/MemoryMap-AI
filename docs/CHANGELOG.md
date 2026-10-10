@@ -43,6 +43,22 @@ below). Versioning is `0.x` while the app stabilises.
 ### Removed
 
 - 15 MB of vendored libraries the app never imported (networkx, whoosh, langdetect, dateutil, pint and a Windows .exe, among others); what remains is credited in docs/THIRD_PARTY.md. Sums ("what is 12 * 4") are worked out by a small evaluator of our own.
+### Added
+
+- Whiteboard and mind maps: a comment can be edited (in place, Enter keeps it, the row says edited), replied to (drawn one step in under it), resolved (folded into "N resolved", the corner mark counts what is open and shows a tick when nothing is) and deleted with its replies. The box has Attach (a bookmark, note, document or board) and the "/" and "[[" menus; a link alone on a line is drawn as a link card, a [[note]] as its chip.
+- Whiteboard and mind maps: "/" in a text box or a topic being typed in opens the editor's menu (a text box: lists, a to-do, headings, links, an emoji; a topic: links, an emoji, the date), and "[[" links a note.
+- Mind maps: Enter while typing a topic's name breaks the line; Tab adds a child, Ctrl+Enter a sibling below and Shift+Enter one above, each keeping the name; Esc keeps it.
+- Whiteboard and mind maps: the emoji and icon library is a smiley on the tool dock (Add on a board, Map on a map), not only Insert, Emoji and icons….
+- Boards & maps: a new board or mind map needs no name: Create with the name empty makes "Untitled board N" or "Untitled map N", the next free number, shown in the name field first (INBOX 739). An empty Boards & maps tab offers New board and New mind map; the board picker no longer offers an empty Default board.
+- Mind maps: Effect, a topic's soft shadow or a glow in its branch colour, in the topic's Shape group and per level in How this map looks (No effect keeps one topic plain on a level that has one); kept in OPML and FreeMind exports.
+- Mind maps: Spacing, in How this map looks: Compact, Normal or Roomy, the gaps between topics and between a topic and its children (16 and 46, 26 and 76, 42 and 122 pixels), laid out again at once.
+- Whiteboard: a sticky note is paper (its colour, a lift and a folded corner) and a text box is words on the board (no fill, a faint dashed edge); a sticky's bar starts with seven paper colours.
+- Whiteboard: dragging out a frame, sticky or text box draws a ghost of what the release makes; clone arrows follow a drag, resize and turn on all four sides; top, middle or bottom alignment for a text box's and a shape's words; the sidebar's note rows are a name over one quiet line.
+
+- Mind maps: Rounded draws a rounded rectangle on every topic, a core one and the centre included (a core topic drew an ellipse whichever Rounded was chosen), never square under a sharp look; the picture and SVG export draw each topic's own shape.
+- Mind maps: a topic put between two others keeps every branch its colour and takes its child's side and place among the branches; on a both-sides map a branch stays on its side when one grows (one added topic used to send two branches across the trunk).
+- Whiteboard: the selection rectangle is no longer cut off part way across when the board grows during the drag; clone-and-connect joins fixed ports so the far end stays put.
+
 ## [0.4.1] - 2026-10-06
 
 ### Added

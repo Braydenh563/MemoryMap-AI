@@ -30,7 +30,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from memorymap.api import paging
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator, model_serializer
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -138,6 +138,11 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_arrow": frozenset({"on", "off"}),
     "palette": frozenset({"deep", "soft", "vivid", "bold", "paired", "bright", "earth"}),
     "font": frozenset({"serif", "mono", "wide"}),
+    #: **How far apart the topics sit** (the owner, 2026-10-10: "the spacing
+    #: is really close to the other things and bunched up", and "I want more
+    #: mindmap appearance options"). The tidy's two gaps scaled; normal is no
+    #: value. The map's, like the font: never resolved onto a topic.
+    "spacing": frozenset({"compact", "roomy"}),
     #: **The hierarchy preset** (MINDMAP_PLAN.md decision 39): how the centre,
     #: the main branches and everything deeper draw. Classic is the default
     #: and is stored as no value; the frontend holds what each one draws
@@ -160,6 +165,10 @@ MAP_LEVEL_FIELDS: dict[str, frozenset | type] = {
     "spine": frozenset({"dashed", "none", "solid"}),
     "fill": frozenset({"solid", "tint", "none"}),
     "edge_width": frozenset({"thin", "thick", "normal"}),
+    #: Topic effects (MINDMAP_PLAN §14.4, the owner 2026-10-10: "I want more
+    #: mindmap appearance options"): a soft shadow or a glow in the branch
+    #: colour, per level as per topic; `none` is a level saying "not here".
+    "effect": frozenset({"shadow", "glow", "none"}),
 }
 MAP_LEVELS = ("0", "1", "2")
 
@@ -167,7 +176,7 @@ MAP_LEVELS = ("0", "1", "2")
 #: one topic: never filled in under a topic's style (`_themed_style`), so an
 #: export never writes them onto a node and a re-import never reads them back
 #: as a topic's own choice.
-MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font", "hierarchy", "levels"})
+MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font", "hierarchy", "levels", "spacing"})
 
 #: **A stored name for the app's own default, per themed select** (decision
 #: 9's narrow case, built). Every select in the topic strip stores the app's
@@ -256,6 +265,18 @@ class WhiteboardComment(BaseModel):
     id: str = Field(min_length=1, max_length=40)
     text: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
     at: str = Field(default="", max_length=40)
+    #: The owner, 2026-10-10: "there's no way to edit a comment" and comments
+    #: "need a lot of improvement". When it was last edited, whether it is
+    #: resolved (folded away, out of the count), and the id of the comment
+    #: it answers (a reply is drawn under its parent). Each is left out when
+    #: it says nothing, so a thread written before them reads back unchanged.
+    edited: str | None = Field(default=None, max_length=40)
+    resolved: bool | None = None
+    reply_to: str | None = Field(default=None, max_length=40)
+
+    @model_serializer(mode="wrap")
+    def _drop_unsaid(self, handler):
+        return {key: value for key, value in handler(self).items() if value is not None}
 
 
 #: A thread: `None` (or empty) is no thread.
@@ -345,6 +366,9 @@ class WhiteboardObjectData(BaseModel):
     #: how the first attempt at this looked like a frontend bug: the toggle
     #: flipped, the PUT succeeded, and the value came back missing.
     align: str | None = Field(default=None, pattern="^(left|center|right|auto)$")
+    #: Where the text sits up and down its box (the owner, 2026-10-10:
+    #: "there's no way to vertically centre text"); absent is the top.
+    valign: str | None = Field(default=None, pattern="^(middle|bottom)$")
     md: bool | None = None
     #: A map reference node's target: the note / document / file / bookmark id
     #: this node stands for. Only meaningful for `MAP_REFERENCE_KINDS`; a
@@ -386,6 +410,10 @@ class WhiteboardObjectData(BaseModel):
     #: **An emoji placed on the canvas as a sticker** (decision 44): a text
     #: object drawn as its glyph alone, sized to its box, with no card.
     sticker: bool | None = None
+    #: **A sticky note** (the owner, 2026-10-10: "there's no real way to
+    #: visually distinguish between a text box and a note"): a text object
+    #: drawn as paper, lifted, with a folded corner. Its colour is `bg`.
+    sticky: bool | None = None
     #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
     #: Five values and not the plan's eight: `None` is the rounded card this
     #: map has always drawn, and `pill`, `rect`, `ellipse` and `none` are the
@@ -399,6 +427,10 @@ class WhiteboardObjectData(BaseModel):
     #: appears and disappears from the picker depending on another toggle is
     #: a second rule to remember, and the three shapes are all just a radius.
     shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none|rounded)$")
+    #: A topic's effect (MINDMAP_PLAN §14.4's topic effects): a soft shadow
+    #: or a glow in its branch colour; `none` keeps one topic plain on a
+    #: level that has one.
+    effect: str | None = Field(default=None, pattern="^(shadow|glow|none)$")
     #: **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core
     #: idea, with its own shape set and a heavier weight"). A mark on the
     #: node, not a third tier in the data model: §12.0 refused a "sub core"
@@ -1467,6 +1499,30 @@ def _map_branch_colors(
     for node_id, parent_id in parents.items():
         key = parent_id if parent_id in parents else None
         children.setdefault(key, []).append(node_id)
+    # **A branch is as old as its oldest topic** (the owner, 2026-10-10: "when
+    # I added a mindmap node in between, it changed the colour of the other
+    # nodes in the branch"). A topic put between a root and its child is the
+    # newest id on the map, so ordering a root's children by their own id sent
+    # the moved branch to the end of the palette and shifted every branch after
+    # it. Ordered by the oldest id in each branch, it takes the place (and the
+    # colour) of the branch it now holds. A map nobody re-parented orders as
+    # before: a branch's own topic is its oldest. `canvas.wbMapColors` agrees.
+    walk_order: list[int] = []
+    visited: set[int] = set()
+    pending = list(children.get(None, []))
+    while pending:
+        node_id = pending.pop()
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        walk_order.append(node_id)
+        pending.extend(children.get(node_id, []))
+    oldest: dict[int, int] = {}
+    for node_id in reversed(walk_order):
+        oldest[node_id] = min([node_id, *(oldest[c] for c in children.get(node_id, []) if c in oldest)])
+    for root_id in children.get(None, []):
+        if root_id in children:
+            children[root_id].sort(key=lambda c: oldest.get(c, c))
     colors: dict[int, str] = {}
     seen: set[int] = set()
     branch = 0
@@ -3087,6 +3143,7 @@ MAP_STYLE_FIELDS = (
     "core",
     "spine",
     "fill",
+    "effect",
     "icon",
     "link",
     "edge_label",
@@ -4107,6 +4164,7 @@ _FREEMIND_PRIVATE = {
     "core": "_core",
     "spine": "_spine",
     "fill": "_fill",
+    "effect": "_effect",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -4141,6 +4199,7 @@ _OPML_PRIVATE = {
     "core": "_core",
     "spine": "_spine",
     "fill": "_fill",
+    "effect": "_effect",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",

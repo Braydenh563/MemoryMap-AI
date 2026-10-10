@@ -100,6 +100,10 @@ function wbFmtValue(entry, field) {
     case "bold": return Boolean(kind === "shape" ? s.label_bold : o.bold);
     case "italic": return Boolean(kind === "shape" ? s.label_italic : o.italic);
     case "align": return (kind === "shape" ? s.label_align : o.align) || (kind === "shape" ? "center" : "left");
+    //: Words in a shape sit in its middle and a text box's at its top unless
+    //: told otherwise (the owner, 2026-10-10: "there's no way to vertically
+    //: centre text").
+    case "valign": return (kind === "shape" ? s.label_valign : o.valign) || (kind === "shape" ? "middle" : "top");
     case "ink": return (kind === "shape" ? s.label_color : o.color) || "#1f2430";
     default: return null;
   }
@@ -337,6 +341,9 @@ function wbFormatSync() {
     for (const button of panel.querySelectorAll("#wb-fmt-align [data-align]")) {
       button.setAttribute("aria-pressed", String(button.dataset.align === wbFmtValue(first, "align")));
     }
+    for (const button of panel.querySelectorAll("#wb-fmt-valign [data-valign]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.valign === wbFmtValue(first, "valign")));
+    }
     document.getElementById("wb-fmt-bold")?.setAttribute("aria-pressed", String(wbFmtValue(first, "bold")));
     document.getElementById("wb-fmt-italic")?.setAttribute("aria-pressed", String(wbFmtValue(first, "italic")));
   }
@@ -501,6 +508,17 @@ onDomReady(() => {
     const button = e.target.closest("[data-align]");
     if (!button) return;
     wbFmtApply("text", textPatch("label_align", "align", button.dataset.align), `Text aligned ${button.dataset.align}.`);
+  });
+  on("wb-fmt-valign", "click", (e) => {
+    const button = e.target.closest("[data-valign]");
+    if (!button) return;
+    const at = button.dataset.valign;
+    //: The kind's own default is stored as no value, so a reset style and a
+    //: box never touched read the same.
+    wbFmtApply("text", (entry, kind) => {
+      const plain = kind === "shape" ? "middle" : "top";
+      return kind === "shape" ? { label_valign: at === plain ? undefined : at } : { valign: at === plain ? undefined : at };
+    }, `Text at the ${at}.`);
   });
   for (const axis of ["x", "y", "w", "h"]) {
     on(`wb-fmt-${axis}`, "change", (e) => wbFmtGeometry(axis, Number(e.target.value)));

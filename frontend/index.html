@@ -5985,8 +5985,14 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="library-boards-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title">No boards yet</p>
-          <p>A board is a canvas for notes, sketches and images; a mind map is a board with a tree on it.</p>
-          <button class="ghost small" type="button" data-empty-action="new-board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
+          <p>A board is a canvas for notes, sketches and images; a mind map is a tree of topics. Each starts blank or from a template.</p>
+          <!-- The owner, 2026-10-10: "also si there meant to be a default
+               board??" No (WHITEBOARD_PLAN decision 38): a fresh install has
+               this, and both kinds are one press from it. -->
+          <span class="row wb-empty-actions">
+            <button class="ghost small" type="button" data-empty-action="new-board"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> New board</button>
+            <button class="ghost small" type="button" id="library-boards-new-map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
+          </span>
         </div>
         <p id="library-boards-no-match" class="muted hidden"></p>
       </section>
@@ -6554,6 +6560,9 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="wb-map-focus-here" class="ghost icon-button" type="button" title="Show this branch and its neighbours only (F)" aria-label="Show this branch and its neighbours only (F)">
           <i class="ph ph-crosshair" aria-hidden="true"></i>
         </button>
+        <button id="wb-map-add-sticker" class="ghost icon-button" type="button" title="Emoji and icons: drag one onto a topic to make it the topic's icon, or press one to place it" aria-label="Emoji and icons">
+          <i class="ph ph-smiley-sticker" aria-hidden="true"></i>
+        </button>
         <!-- **Where everything on a map lives, in one place** (INBOX 200, the
              owner: "what controls and tools are available and where, and how
              the item radials are used is confusing"; the answer is
@@ -6713,6 +6722,13 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         <button id="wb-add-image" class="ghost icon-button" type="button" data-wb-key="i" title="Upload an image onto the board (I)" aria-label="Upload an image onto the board (I)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        </button>
+        <!-- The emoji and icon library on the dock (the owner, 2026-10-10: "I
+             thought you added draggable emojis and an emoji and icon
+             library?? Idk where it is or how to use it"): it was only Insert,
+             Emoji and icons…. Press one to place it mid-view, or drag it. -->
+        <button id="wb-add-sticker" class="ghost icon-button" type="button" title="Emoji and icons: press one to place it, or drag it onto the board" aria-label="Emoji and icons">
+          <i class="ph ph-smiley-sticker" aria-hidden="true"></i>
         </button>
         <input type="file" id="wb-image-file-input" aria-label="Choose an image to place on the board" title="Choose an image to place on the board" accept="image/*" class="hidden" aria-hidden="true">
         <!-- The picture that goes *in* a map topic (MINDMAP_PLAN.md §12.1
@@ -6934,6 +6950,10 @@ Link to another note with [[its first few words]]."></textarea>
           <input type="checkbox" id="wb-prop-shapefill-on" aria-label="Filled"><span>Filled</span>
         </label>
       </div>
+      <!-- A sticky note's paper: one swatch per colour, filled by
+           `wbFillPaperSwatches` (the owner, 2026-10-10: "note appearances
+           arent changable"). Any other colour is the "..." menu's Background. -->
+      <div class="wb-context-group hidden wb-paper-group" data-wb-ctx="paper" role="group" aria-label="Note colour"></div>
       <div class="wb-context-group hidden" data-wb-ctx="text">
         <label class="wb-context-field" title="Text size">
           <span class="wb-context-label">Size</span>
@@ -7181,6 +7201,18 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="self" data-short="This topic">Fill this topic</option>
                 <option value="branch" data-short="Its branch">Fill with its branch</option>
                 <option value="solid" data-short="Solid">Solid colour</option>
+              </select>
+            </div>
+            <!-- **An effect** (MINDMAP_PLAN §14.4's topic effects; the owner,
+                 2026-10-10: "I want more mindmap appearance options"): a soft
+                 shadow under the topic, or a glow in its branch colour. A
+                 level can set one too (How this map looks, its levels). -->
+            <div class="wb-menu-row">
+              <span>Effect</span>
+              <select id="wb-map-effect" class="ghost small" aria-label="An effect on this topic" title="A soft shadow under this topic, or a glow in its branch colour">
+                <option value="">No effect</option>
+                <option value="shadow">Shadow</option>
+                <option value="glow">Glow</option>
               </select>
             </div>
           </div>
@@ -7469,6 +7501,13 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="ghost small icon-only" data-align="left" aria-pressed="false" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
               <button type="button" class="ghost small icon-only" data-align="center" aria-pressed="false" title="Align centre" aria-label="Align centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
               <button type="button" class="ghost small icon-only" data-align="right" aria-pressed="false" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
+            </span>
+          </div>
+          <div class="wb-fmt-row" data-fmt="text"><span class="wb-fmt-label">Vertical</span>
+            <span id="wb-fmt-valign" class="wb-fmt-buttons" role="group" aria-label="Vertical alignment">
+              <button type="button" class="ghost small icon-only" data-valign="top" aria-pressed="false" title="Text at the top" aria-label="Text at the top"><i class="ph ph-align-top-simple" aria-hidden="true"></i></button>
+              <button type="button" class="ghost small icon-only" data-valign="middle" aria-pressed="false" title="Text in the middle" aria-label="Text in the middle"><i class="ph ph-align-center-horizontal-simple" aria-hidden="true"></i></button>
+              <button type="button" class="ghost small icon-only" data-valign="bottom" aria-pressed="false" title="Text at the bottom" aria-label="Text at the bottom"><i class="ph ph-align-bottom-simple" aria-hidden="true"></i></button>
             </span>
           </div>
         </section>

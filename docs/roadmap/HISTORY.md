@@ -46190,3 +46190,36 @@ Orientation reads are the largest token cost, so every plan and planning file ha
      sure you impress me." Triage: the deterministic layer as the app's
      foundation, researched and placed in CHAT_PLAN "The deterministic
      foundation, 2026-10-10" (decisions, the integration map, briefs).
+
+## Moved from the plans, 2026-10-10 (boardmap-1010)
+
+WHITEBOARD_PLAN's and MINDMAP_PLAN's "Placed from the owner's list,
+2026-10-10", every entry, built on `agent/boardmap-1010`; MINDMAP_PLAN
+§14.4's topic effects. WHITEBOARD_PLAN decision 17 is amended there and
+decision 38 is new. One commit each; the sweeps are in
+`scratchpad/ui-sweeps/`.
+
+### The whiteboard
+
+| The owner's words | What changed | Measured |
+| --- | --- | --- |
+| "the edge arrows are still not moving and you cant even see the top one" | The clone arrows are laid out every selection-bar frame from the box as it is, turned with it, a fixed screen distance out; the top one clears the rotate grip | `wbedgegrips.js` 21/51 to 58/58 |
+| "the point at which the link line connects to it changes vertically depending on where I drag it" | Clone-and-connect joins fixed ports (stored box fractions, draw.io's), which stretch and turn with the box | `wbcloneport.js` 1/3 to 3/3 |
+| "there's no way to vertically centre text" | Format, Text, Vertical: top, middle, bottom for a text box (`valign`) and a shape's words (`label_valign`) | `wbvalign.js` 14/14 |
+| "text gets cut off on the note sidebar in the whiteboard" | A note row is its first line over one muted line, each ellipsised | `wbnoterows.js` 4/6 to 6/6 |
+| "dragging to create any object should ghost preview that object" | The frame, sticky and text tools draw a ghost of the kind in the card layer | `wbplaceghost.js` 3/9 to 30/30 |
+| "I tried dragging to create a frame and it randomly visually cut off half way on the screen" | The selection canvas was sized once at the press; it now follows a container that grows mid-drag | 878 of 1408px drawn before; `wbplaceghost.js` 16/16 |
+| "there's no way to edit a comment"; comments "need a lot of improvement"; "attach bookmarks, web links and more in comments" | Reply, Edit, Resolve, Delete per comment; Attach and the "/" and "[[" menus in the box; words through `renderMarkdown` (link cards, note chips) | `wbcomments.js` 25/26 to 36/36 at 1440 light and 390 dark |
+| "there's no real way to visually distinguish between a text box and a note. and note appearances arent changable" | A sticky is paper (`sticky: true`, a lift, a folded corner) with seven papers on its bar; a text box has no fill and a faint dashed edge | `wbstickylook.js` 17/17 light and dark; ink 10.1 to 12.9:1 on every paper |
+| "/ command menus don't appear in text boxes in the whiteboard" | A board box carries an editor surface while typed in (`wbEditableSurface`); context "board" | `wbslashmenus.js` 13/13 |
+| "I thought you added draggable emojis and an emoji and icon library?? Idk where it is" | A smiley on the tool dock, Add on a board and Map on a map | `wbstickerdock.js` 6/6 |
+| "also si there meant to be a default board??"; INBOX 739's "untitled #" | Decision 38: the empty tab offers New board and New mind map; the picker offers the scratch board only with something on it; an empty name makes "Untitled board N" | `wbfirstrun.js` 7/7 on a fresh data dir |
+
+### The mind map
+
+| The owner's words | What changed | Measured |
+| --- | --- | --- |
+| "the rounded rectangle shape doesnt work on the mindmap" | The rounded pin is drawn as `data-shape="rounded"` (a core topic drew the ellipse); `--wb-map-rounded` never under a small step; the export draws each topic's corner | `wbmaprounded.js` 6/6 |
+| "Pressing enter when typing on a mindmap node makes a new node instead of a new line. Also the / command menu and [[ adding notes etc doesn't work on mind map nodes." | Enter breaks the line; Tab a child, Ctrl+Enter a sibling below, Shift+Enter above; "/" (context "topic") and "[[" in a topic | `wbslashmenus.js` 13/13 |
+| "when I added a mindmap node in between, it changed the colour of the other nodes in the branch and the spacing is really close"; "New mind map nodes don't take into account direction of flow for that branch" | A branch is as old as its oldest topic (canvas and server); the inserted topic takes its child's spot and slot; a both-sides branch keeps its side | `mapinsertflow.js` 5/11 on base to 11/11 |
+| "I want more mindmap appearance options" | §14.4's topic effects (a shadow or a glow, per topic and per level) and a map Spacing (Compact, Normal, Roomy) | `mapeffects.js` 8/8, `mapspacing.js` 7/7 |

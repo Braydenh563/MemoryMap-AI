@@ -177,12 +177,92 @@ const OY = VW < 600 ? 150 : 0;
   await page.waitForTimeout(400);
   s = await look("object", ids.sticky);
   ok("the mark opens the thread", s.panel?.rows === 1, JSON.stringify(s.panel));
-  await page.evaluate(() => document.querySelector("#wb-comments .wb-comment .icon-only").click());
+  await page.evaluate(() => document.querySelector("#wb-comments .wb-comment [aria-label=\"Delete this comment\"]").click());
   await page.waitForTimeout(800);
   s = await look("object", ids.sticky);
   ok("the trash deletes it and the mark goes", s.count === 0 && !s.mark, JSON.stringify(s));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
+
+  // 2b. The owner, 2026-10-10: "there's no way to edit a comment"; links in
+  // comments; replies and resolve. A link alone on a line is the link card;
+  // Reply nests; Edit keeps the words and says "edited"; Resolve folds the
+  // thread and the mark becomes a tick; "/" in the box opens the editor menu.
+  await page.evaluate((id) => wbOpenComments("object", id), ids.sticky);
+  await page.waitForTimeout(300);
+  await page.keyboard.type("See the spec");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("https://example.com/specs/board-comments");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(700);
+  let rr = await page.evaluate(() => {
+    const row = document.querySelector("#wb-comments .wb-comment");
+    const card = row?.querySelector(".link-card");
+    return { card: Boolean(card), href: card?.getAttribute("href"), title: card?.querySelector(".link-card-title")?.textContent };
+  });
+  ok("a link alone on its line is drawn as the link card", rr.card && rr.href === "https://example.com/specs/board-comments", JSON.stringify(rr));
+  await page.evaluate(() => document.querySelector('#wb-comments .wb-comment [aria-label="Reply"]').click());
+  await page.waitForTimeout(200);
+  rr = await page.evaluate(() => ({ replying: !document.querySelector("#wb-comments .wb-comments-replying").hidden, focus: document.activeElement?.id }));
+  ok("Reply opens the box, saying what it answers", rr.replying && rr.focus === "wb-comments-box", JSON.stringify(rr));
+  await page.keyboard.type("Agreed");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(700);
+  rr = await page.evaluate((id) => {
+    const thread = wbState.objects.find((o) => o.id === id).data.comments;
+    const reply = document.querySelector("#wb-comments .wb-comment-reply");
+    const top = document.querySelector("#wb-comments .wb-comment:not(.wb-comment-reply)");
+    return { n: thread.length, replyTo: thread[1]?.reply_to === thread[0]?.id, indent: reply && top ? Math.round(reply.getBoundingClientRect().left - top.getBoundingClientRect().left) : null };
+  }, ids.sticky);
+  ok("the reply is kept against its comment and drawn one step in", rr.n === 2 && rr.replyTo && rr.indent >= 8, JSON.stringify(rr));
+  await page.evaluate(() => document.querySelector('#wb-comments .wb-comment-reply [aria-label="Edit this comment"]').click());
+  await page.waitForTimeout(200);
+  rr = await page.evaluate(() => ({ focus: document.activeElement?.id, value: document.activeElement?.value }));
+  ok("Edit opens the comment's own words, focused", rr.focus === "wb-comments-edit" && rr.value === "Agreed", JSON.stringify(rr));
+  await page.keyboard.press("End");
+  await page.keyboard.type(", with [[Comment sweep card]]");
+  await page.waitForTimeout(250);
+  const linkMenu = await page.evaluate(() => typeof editorMenuState !== "undefined" && editorMenuState.open);
+  if (linkMenu) await page.keyboard.press("Escape");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(700);
+  rr = await page.evaluate((id) => {
+    const c = wbState.objects.find((o) => o.id === id).data.comments[1];
+    const row = document.querySelector("#wb-comments .wb-comment-reply");
+    return { text: c.text, edited: Boolean(c.edited), meta: row?.querySelector("time")?.textContent, chip: Boolean(row?.querySelector(".wb-comment-text a, .wb-comment-text button, .wb-comment-text .wiki-link")) };
+  }, ids.sticky);
+  ok("Enter keeps the edit and the row says edited", /Agreed, with \[\[Comment sweep card\]\]/.test(rr.text) && rr.edited && /edited/.test(rr.meta || ""), JSON.stringify(rr));
+  ok("a [[link]] in a comment is drawn as a link", rr.chip, JSON.stringify(rr));
+  await page.evaluate(() => document.querySelector('#wb-comments .wb-comment:not(.wb-comment-reply) [aria-label="Resolve this comment"]').click());
+  await page.waitForTimeout(700);
+  s = await look("object", ids.sticky);
+  rr = await page.evaluate(() => {
+    const fold = document.querySelector("#wb-comments .wb-comments-resolved");
+    const mark = document.querySelector(".wb-comment-pin .wb-comment-mark.is-resolved");
+    return { fold: fold?.querySelector("summary")?.textContent, mark: Boolean(mark), label: mark?.getAttribute("aria-label") };
+  });
+  ok("Resolve folds the thread and the mark becomes a tick", rr.fold === "1 resolved" && rr.mark, JSON.stringify(rr));
+  await page.evaluate(() => document.querySelector('#wb-comments [aria-label="Reopen this comment"]').click());
+  await page.waitForTimeout(700);
+  rr = await page.evaluate(() => ({ fold: Boolean(document.querySelector("#wb-comments .wb-comments-resolved")), text: document.querySelector(".wb-comment-pin .wb-comment-mark")?.textContent }));
+  ok("Reopen brings it back and the mark counts it", !rr.fold && rr.text === "2", JSON.stringify(rr));
+  await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-new").click());
+  await page.waitForTimeout(200);
+  ok("the box has an Attach button", await page.evaluate(() => Boolean(document.querySelector("#wb-comments .wb-comments-attach:not([hidden])"))));
+  await page.keyboard.type("/");
+  await page.waitForTimeout(400);
+  rr = await page.evaluate(() => ({
+    open: typeof editorMenuState !== "undefined" && editorMenuState.open,
+    rows: [...document.querySelectorAll("#editor-menu [role=option]")].map((o) => o.textContent.trim().slice(0, 24)).slice(0, 12),
+  }));
+  ok('"/" in the comment box opens the link and emoji menu', rr.open && rr.rows.some((t) => /Bookmark link/.test(t)) && !rr.rows.some((t) => /Heading/.test(t)), JSON.stringify(rr));
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await page.evaluate(async (id) => { const o = wbState.objects.find((x) => x.id === id); await wbSetComments("object", o, []); }, ids.sticky);
+  await page.evaluate(() => wbCloseComments());
+  await page.waitForTimeout(300);
 
   // 3. The card: kept through a fresh read, followed through a drag, constant size at 2x.
   await page.evaluate(async (id) => {

@@ -59,6 +59,13 @@
   pointer-events: auto;
 }
 
+/* Every comment resolved: a quiet tick, still a button. */
+.wb-comment-mark.is-resolved {
+  background: var(--card);
+  color: var(--muted);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--divider);
+}
+
 .wb-comment-mark:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -119,8 +126,70 @@
 .wb-comments-empty {
   margin: 0;
   font-size: var(--text-sm);
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.wb-comments-empty {
+  white-space: pre-wrap;
+}
+
+/* The words go through `renderMarkdown`: its paragraphs sit tight here. */
+.wb-comment-text > :first-child {
+  margin-top: 0;
+}
+
+.wb-comment-text > :last-child {
+  margin-bottom: 0;
+}
+
+.wb-comment-text .link-card {
+  margin-block: var(--space-1);
+}
+
+/* A reply sits under what it answers, one step in, on a rule. */
+.wb-comment-reply {
+  margin-left: var(--space-3);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--divider);
+}
+
+.wb-comment.is-resolved .wb-comment-text {
+  color: var(--muted);
+}
+
+/* The row's actions are quiet until the row is pointed at or focused. */
+.wb-comment-tools {
+  display: inline-flex;
+  gap: var(--space-1);
+  flex: none;
+  opacity: 0.55;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.wb-comment:hover .wb-comment-tools,
+.wb-comment:focus-within .wb-comment-tools {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .wb-comment-tools {
+    opacity: 1;
+  }
+}
+
+.wb-comments-resolved > summary {
+  cursor: pointer;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  padding-block: var(--space-1);
+}
+
+.wb-comments-replying {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
 }
 
 .wb-comment-meta,
@@ -156,23 +225,115 @@
 }
 
 .wb-object-text {
-  /* Reported directly: a text box was hard to tell apart from the board
-     behind it. Two real gaps, not one, a 1px *dashed* `--glass-border`
-     (10-13% alpha in most themes) reads as barely-there even against the
-     app's own known background, and the board's own background colour is
-     picked freely by the user (`#wb-bg-color-picker`), so nothing here can
-     assume it contrasts with `--card` the way an ordinary panel can. Every
-     other floating surface on this board (`.whiteboard-floating-panel`) is
-     a `.card.glass` and gets a blur + shadow for exactly this reason; a
-     text box had neither. `max(…, 0.55)` keeps the box legible even with
-     glass opacity turned all the way down, where the mix alone would fall
-     to near-transparent. */
-  background: color-mix(in srgb, var(--card) calc(max(var(--glass-opacity), 0.55) * 100%), transparent);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  border: 1.5px solid var(--border);
-  box-shadow: var(--glass-shadow);
+  /* **A text box is words on the board; a sticky is paper** (the owner,
+     2026-10-10: "there's no real way to visually distinguish between a
+     text box and a note"). Both were the same white glass card with the
+     same shadow, the sticky only yellow. A text box now has no fill, no
+     blur and no lift: its words sit on the board, inside a faint dashed
+     edge that says where the box is (an empty one stays findable; an
+     earlier report found a text box "hard to tell apart from the board"
+     when it had no edge at all). A fill or edge set in the "..." menu
+     still wins: those are inline. The sticky's paper is `.wb-sticky`. */
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  box-shadow: none;
   padding: 0.5rem 0.6rem;
+}
+
+/* The paper: the note's colour (`--wb-paper`, set with its `bg`), no
+   drawn edge, the lift of a note on a desk, and the bottom-right corner
+   folded over: the tip cut back to the board's own ground, the fold the
+   paper a shade darker. Hover and selection outlines are unchanged. */
+.wb-object-text.wb-sticky {
+  border: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--wb-sticky-shadow);
+}
+
+.wb-object-text.wb-sticky::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--space-6);
+  height: var(--space-6);
+  border-top-left-radius: var(--radius-sm);
+  background: linear-gradient(to top left, var(--wb-board-bg) 50%, color-mix(in srgb, var(--wb-paper) 78%, black) 50%);
+  box-shadow: -1px -1px 2px rgb(0 0 0 / 0.12);
+  pointer-events: none;
+}
+
+/* The rounded rectangle (the owner, 2026-10-10: "the rounded rectangle
+   shape doesnt work on the mindmap"). `--wb-map-rounded` (on `.wb-map-node`,
+   below) is never less round than a small step, so a sharp
+   look's `--radius` of 0 cannot make it a Box; and a topic told to be the
+   rounded rectangle is one even when it is core, whose own shape
+   (`.wb-map-core:not([data-shape])`) is the ellipse. Later than
+   07-whiteboard-misc.css's own `.wb-map-node`, so this radius is the one a
+   topic with no shape draws; every other shape's rule is more specific. */
+.wb-map-node {
+  --wb-map-rounded: max(var(--radius-md), var(--space-2));
+  /* The topic effect's shadow: its own, not the glass shadow, which a look
+     with glass off draws faintly or not at all. */
+  --wb-map-lift: 0 1px 3px rgb(0 0 0 / 0.14), 0 8px 18px -6px rgb(0 0 0 / 0.3);
+  border-radius: var(--wb-map-rounded);
+}
+
+.wb-map-node[data-shape="rounded"] {
+  border-radius: var(--wb-map-rounded);
+}
+
+/* **Topic effects** (MINDMAP_PLAN §14.4; the owner, 2026-10-10: "I want
+   more mindmap appearance options"): a shadow lifts the topic off the map;
+   a glow rings it in its own branch colour. A plain topic (no box) has
+   nothing to cast either from. Later than the shape rules, so a shape's own
+   `box-shadow: none` does not take a chosen effect away. */
+.wb-map-node[data-effect="shadow"]:not([data-shape="none"]) {
+  box-shadow: var(--wb-map-lift);
+}
+
+.wb-map-node[data-effect="glow"]:not([data-shape="none"]) {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--wb-branch) 22%, transparent),
+    0 0 var(--space-6) color-mix(in srgb, var(--wb-branch) 45%, transparent);
+}
+
+/* The empty Boards & maps tab's two doors, side by side under its line. */
+.wb-empty-actions {
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* The papers on a sticky's bar: round chips of the colour, the current
+   one ringed. Target size from the bar's own small buttons. */
+.wb-paper-group {
+  gap: var(--space-1);
+}
+
+.wb-paper-swatch {
+  width: 1.5rem;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--swatch);
+}
+
+.wb-paper-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .wb-paper-swatch {
+    width: var(--target-min);
+    min-width: var(--target-min);
+    height: var(--target-min);
+    min-height: var(--target-min);
+  }
 }
 
 /* A sketch's own resize handles (ROADMAP.md Tier 2 §11), real SVG elements
@@ -2997,4 +3158,101 @@ button.ghost.doc-template-choice.wb-template-choice {
 .library-card-tick:not(:checked):hover::after {
   border-color: var(--accent);
   opacity: 1;
+}
+
+/* --- Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot
+   stylesheet's cap. --- */
+
+/* A sticky note's paper: the colour a new one gets (`wbCreateSticky`), its
+   edge, and the lift that tells it from a text box at a glance. Paper in
+   both themes, as a real note is; its ink is chosen for the paper. */
+#whiteboard-container {
+  --wb-sticky-paper: #fff4a3;
+  --wb-sticky-edge: #e8d56a;
+  --wb-sticky-shadow: 0 1px 2px rgb(0 0 0 / 0.14), 0 6px 14px -4px rgb(0 0 0 / 0.18);
+  /* One sticky's own paper, set on it by the renderer from its `bg`. */
+  --wb-paper: var(--wb-sticky-paper);
+}
+
+/* Up and down the box (the Format panel's Vertical row; the owner,
+   2026-10-10: "there's no way to vertically centre text"). A column whose
+   runs are pushed to the middle or the foot; `safe` keeps an overflowing
+   box scrolling from its first line rather than cutting it off the top. */
+.wb-object-text[data-valign] .wb-text-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.wb-object-text[data-valign="middle"] .wb-text-content {
+  justify-content: safe center;
+}
+
+.wb-object-text[data-valign="bottom"] .wb-text-content {
+  justify-content: safe flex-end;
+}
+
+/* The ghost of a frame, sticky or text box being dragged out (the owner,
+   2026-10-10: "dragging to create any object should ghost preview that
+   object, not be the drag selection"): the kind's own look, faded, in the
+   card layer's board units. */
+.wb-place-ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.wb-place-ghost::before {
+  content: attr(data-label);
+  position: absolute;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.wb-place-ghost[data-kind="frame"] {
+  border: 1.5px solid color-mix(in srgb, var(--muted) 80%, transparent);
+}
+
+.wb-place-ghost[data-kind="frame"]::before {
+  bottom: 100%;
+  left: 0;
+  padding-bottom: var(--space-1);
+}
+
+.wb-place-ghost[data-kind="sticky"] {
+  background: var(--wb-sticky-paper);
+  border: 1px solid var(--wb-sticky-edge);
+  box-shadow: var(--wb-sticky-shadow);
+}
+
+.wb-place-ghost[data-kind="text"] {
+  border: 1px dashed color-mix(in srgb, var(--muted) 70%, transparent);
+  background: color-mix(in srgb, var(--card) 50%, transparent);
+}
+
+.wb-place-ghost[data-kind="text"]::before {
+  top: var(--space-2);
+  left: var(--space-2);
+}
+
+.wb-library-item-title,
+.wb-library-item-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-library-item-title {
+  font-weight: 600;
+}
+
+.wb-library-item-preview {
+  color: var(--muted);
+  font-size: var(--text-sm);
 }

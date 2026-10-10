@@ -241,7 +241,13 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    18's): the comments oldest first with their time, a delete on each, one box
    at the foot; Enter posts, Shift+Enter breaks the line, Escape closes. Each
    post and each delete is one undo step. A notebook has one author, so no
-   names, mentions or resolve (deleting the last comment is resolving). A
+   names or mentions. **Amended 2026-10-10** (the owner: "there's no way to
+   edit a comment", comments "need a lot of improvement", "attach bookmarks,
+   web links and more in comments"): a comment may carry `edited`,
+   `resolved` and `reply_to` (each left out when it says nothing); a row has
+   Reply, Edit, Resolve and Delete; resolved threads fold away and the mark
+   counts what is open; the box has Attach and the "/" and "[[" menu, and the
+   words are drawn by the app's markdown (link cards, note chips). A
    connector takes no thread (its label is what a line says). Not in any
    export: a thread is talk about the board, not the board.
 18. **A frame is an export scope; frames nest by what they hold; nothing is
@@ -417,6 +423,16 @@ accessibility, and learnability") are why.
     menu's "Emoji and icons" opens the picker. INBOX 641's research for the
     board beyond stickers (Illustrator's linked symbols, Photoshop's layer
     effects, Miro's reactions) is open there.
+38. **No default board; a new one needs no name** (taken 2026-10-10, the
+    owner: "also si there meant to be a default board??", and INBOX 739's
+    "auto naming ... so the user isnt forced to name a new object"). A fresh
+    install's Boards & maps tab is its empty state with New board and New
+    mind map, each opening the template gallery on its kind. The server's
+    scratch board (`id: null`, "Default board") is offered by the picker, as
+    by the gallery, only when something is on it (`libraryListsBoard`). The
+    gallery's name field may stay empty: Create makes "Untitled board N" or
+    "Untitled map N", the next number after the highest there is, shown as
+    the field's placeholder (`wbUntitledNames`).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 
@@ -900,37 +916,7 @@ Held by the boardmap-1005 agent; the built halves are in HISTORY.md
 
 ## Placed from the owner's list, 2026-10-10
 
-Entries are the owner's words, then the recommendation. Bugs come first.
-
-### Bugs
-
-- "there's no way to vertically centre text"
-  Recommendation: add top, middle and bottom vertical alignment to text on boxes and stickies, then measure the offset with getBoundingClientRect after a resize. Also carried by Brief 36 (vertical text).
-- "the edge arrows are still not moving and you cant even see the top one"
-  Recommendation: both arrowheads must render and follow their connector during drag, resize and rotate; extend wbrotatelinks.js to check the top end. Also carried by Brief 36 (edge arrows).
-- "text gets cut off on the note sidebar in the whiteboard"
-  Recommendation: measure scrollHeight against clientHeight in the note sidebar at the default width, then fix the overflow. Also carried by Brief 36 (note sidebar clipping).
-- "also si there meant to be a default board??"
-  Recommendation: decide the first-run board state (a starter board or an explained empty state) and record the decision in this plan. Also carried by Brief 36 (empty Boards state and auto-naming).
-- "I used those little side triangle arrows on the edge of a sticky note to make another connected sticky note but when I move the new sonnected sticky note, the point at which the link line connects to it changes vertically depending on where I drag it."
-  Recommendation: pin each port anchor to its side of the sticky so the attach point moves only along that edge; check with wbports.js after a drag. Also carried by Brief 36 (port anchors).
-- "I tried dragging to create a frame and it randomly visually cut off half way on the screen??"
-  Recommendation: reproduce the frame drag at a fixed viewport and compare the frame's bounds with the canvas viewport; fix the clipping. Also carried by Brief 36 (clipped frame).
-- "there's no way to edit a comment"
-  Recommendation: add edit and delete to board comments, with the link support in Brief 36 (comments edited and with links). Use the same comment component for documents (Brief 42).
-- "/ command menus don’t appear in text boxes in the whiteboard"
-  Recommendation: attach the slash menu handler that notes use to whiteboard text boxes, and cover it with a sweep. Also carried by Brief 36 (slash menus in boxes and nodes).
-
-### Design requests
-
-- "there's no real way to visually distinguish between a text box and a note. and note appearances arent changable"
-  Recommendation: give stickies and text boxes distinct default looks, and let a note's appearance be changed from its properties panel. Also carried by Brief 36 (sticky versus text box, appearance options).
-- "Also dragging to create any object should ghost preview that object, not be the drag selection."
-  Recommendation: show a ghost of the object being created during the drag, not a selection rectangle. Also carried by Brief 36 (ghost preview).
-- "Comments in boards, maps, and other places need a lot of improvement and enhancement and fixing as well."
-  Recommendation: bring board and map comments to the shared comment recipe (edit, delete, links, bookmarks) and measure it on both surfaces. Also carried by Brief 36 (comments edited and with links) and Brief 42 (comments on documents).
-- "Also I thought you added draggable emojis and an emoji and icon library?? Idk where it is or how to use it."
-  Recommendation: put the icon and emoji library behind one visible entry point on boards and maps, and say where it is in Help. Also carried by Brief 36 (icon library findable).
+Every entry built 2026-10-10 (boardmap-1010). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)"); decision 17 amended and decision 38 taken above.
 
 ## The draw.io programme, 2026-10-10
 

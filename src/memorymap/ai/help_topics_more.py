@@ -1221,6 +1221,46 @@ MORE_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-comments",
+            "keywords": (
+                "comment", "comments", "edit a comment", "reply to a comment", "resolve a comment",
+                "resolved comments", "comment thread", "link in a comment", "bookmark in a comment",
+                "attach to a comment",
+            ),
+            "body": (
+                "Comments on a board or a map. Right-click a card, sticky, shape or "
+                "topic and choose Comment… for a thread on it; the count on its "
+                "corner opens it again. Each comment has Reply (answered one step in "
+                "under it), Edit (in place: Enter keeps it, Esc puts it back, and the "
+                "row then says edited), Resolve (folded under N resolved; the corner "
+                "counts only what is open, and shows a tick once nothing is) and "
+                "Delete (with its replies). In the box, Attach adds a bookmark, note, "
+                "document or board, / offers links, a bookmark, an emoji or the date, "
+                "and [[ links a note. A link alone on its line shows as a link card. "
+                "Enter posts, Shift+Enter breaks the line, and Ctrl+Z takes back any "
+                "change. Threads are not exported."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "sticky-notes",
+            "keywords": (
+                "sticky", "sticky note", "stickies", "note colour", "note color", "sticky colour",
+                "text box or note", "text box vs sticky", "paper colour",
+            ),
+            "body": (
+                "Sticky notes and text boxes on a board. A sticky (N, or the note "
+                "on the tool dock) is paper: its colour, a lift, and a folded "
+                "corner. A text box (T) is words on the board, with no fill and a "
+                "faint dashed edge. Select a sticky and its bar starts with seven "
+                "papers (yellow, orange, pink, purple, blue, green, grey); any other "
+                "colour, and a text box's own fill or edge, are under the bar's ... "
+                "menu, Box. Each change is one Undo step. Typing in either, / offers "
+                "lists, a to-do, headings, links and an emoji, and [[ links a note."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "emoji-and-icons",
             "keywords": (
                 "emoji", "emojis", "icon", "icons", "sticker", "stickers", "emoji picker",
@@ -1230,7 +1270,8 @@ MORE_TOPICS.extend(
                 "Emoji and icons. One picker holds every Phosphor icon the app ships "
                 "and about 470 emoji: Emoji or Icons in the tab strip under its title, "
                 "type to search, Recent first, arrows and Enter to choose, Escape to close. On a board or a "
-                "map, Insert, Emoji and icons… keeps it open: press one to place it "
+                "map, the smiley on the tool dock (Add on a board, Map on a map) or Insert, "
+                "Emoji and icons… keeps it open: press one to place it "
                 "in the middle of the view, or drag it where it goes. An emoji lands "
                 "as a sticker (no card, resize it like any item), an icon as a shape "
                 "you can recolour; dropped on a map topic, either becomes that "
@@ -1258,7 +1299,8 @@ MORE_TOPICS.extend(
                 "the hierarchy (Classic, Outline with plain text on the lines, "
                 "Boxed, or Flat for every topic alike) and, with Setting on The "
                 "centre, Main branches or Sub-topics, that level's size, weight, box, edge bar, "
-                "fill and line. A topic's menu, Look: Copy this topic's style and "
+                "fill, line and effect. A topic's Effect, in its Shape group: a soft shadow, or "
+                "a glow in its branch colour (No effect keeps one plain on a level that has one). A topic's menu, Look: Copy this topic's style and "
                 "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
                 "Use this look for its level, which hands the topic's own look to "
                 "every topic at its level. Each is one Undo step. A topic's icon: "
@@ -1369,7 +1411,9 @@ TOPIC_META: dict[str, dict] = {
     "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
     "mind-map-study": {"title": "Study the map", "path": "Library tab, Boards & maps, a map's board menu"},
     "mind-map-look": {"title": "How a map's topics look", "path": "Library tab, Boards & maps, a map"},
-    "emoji-and-icons": {"title": "Emoji and icons", "path": "A board or map's Insert menu; a topic's Text menu"},
+    "emoji-and-icons": {"title": "Emoji and icons", "path": "The smiley on a board's or map's tool dock, or its Insert menu; a topic's Text menu"},
+    "board-comments": {"title": "Comments on boards and maps", "path": "An item's right-click menu, Comment…"},
+    "sticky-notes": {"title": "Sticky notes and text boxes", "path": "A board's tool dock, Add"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1436,6 +1480,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-templates", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look", "emoji-and-icons",
+        "board-comments", "sticky-notes",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

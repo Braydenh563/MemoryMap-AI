@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3568, test files 904, tests 8515, plan headings 897.
+Counts: frontend functions 4714, frontend ids 2234, CSS sections 485, backend routes 479, backend modules 3568, test files 904, tests 8515, plan headings 898.
 
 ## Frontend functions (4714)
 
@@ -14075,7 +14075,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_xmind_import.py | 3 |
 | tests/test_zoom_wheel_delta.py | 3 |
 
-## Plan headings (897)
+## Plan headings (898)
 
 Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, except the HISTORY.md archive. Sorted by heading.
 
@@ -14263,23 +14263,24 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 24.4 Coupling of the classic scripts | docs/roadmap/WORLD_CLASS_PLAN.md:3488 |
 | 24.5 Counts | docs/roadmap/WORLD_CLASS_PLAN.md:3575 |
 | 24.6 Console errors per surface | docs/roadmap/WORLD_CLASS_PLAN.md:3682 |
+| 24.6b Interaction timings, 2026-10-10 | docs/roadmap/WORLD_CLASS_PLAN.md:3695 |
 | 25. App control: tray, health checks, and dependency repair | docs/roadmap/BACKLOG.md:1652 |
-| 25. The whole app against world class, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3695 |
-| 25.1 The bar | docs/roadmap/WORLD_CLASS_PLAN.md:3714 |
-| 25.2 Surface by surface | docs/roadmap/WORLD_CLASS_PLAN.md:3731 |
-| 25.3 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3764 |
-| 25.4 Phases with gates (each a brief; measure first) | docs/roadmap/WORLD_CLASS_PLAN.md:3801 |
-| 25.5 Not verified | docs/roadmap/WORLD_CLASS_PLAN.md:3817 |
+| 25. The whole app against world class, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3772 |
+| 25.1 The bar | docs/roadmap/WORLD_CLASS_PLAN.md:3791 |
+| 25.2 Surface by surface | docs/roadmap/WORLD_CLASS_PLAN.md:3808 |
+| 25.3 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3841 |
+| 25.4 Phases with gates (each a brief; measure first) | docs/roadmap/WORLD_CLASS_PLAN.md:3878 |
+| 25.5 Not verified | docs/roadmap/WORLD_CLASS_PLAN.md:3894 |
 | 26. Data lifecycle: archive, a full wipe, and a real trust page | docs/roadmap/BACKLOG.md:1718 |
-| 26. The backend against world class, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3825 |
-| 26.1 Judgement, by layer | docs/roadmap/WORLD_CLASS_PLAN.md:3847 |
-| 26.2 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3863 |
-| 26.3 Phases with gates | docs/roadmap/WORLD_CLASS_PLAN.md:3891 |
-| 27. Every feature, its utility and its popups, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3901 |
+| 26. The backend against world class, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3902 |
+| 26.1 Judgement, by layer | docs/roadmap/WORLD_CLASS_PLAN.md:3924 |
+| 26.2 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3940 |
+| 26.3 Phases with gates | docs/roadmap/WORLD_CLASS_PLAN.md:3968 |
+| 27. Every feature, its utility and its popups, 2026-10-10 (Fable) | docs/roadmap/WORLD_CLASS_PLAN.md:3978 |
 | 27. Onboarding and first-run experience | docs/roadmap/BACKLOG.md:1794 |
-| 27.1 Feature by feature: what it offers, what a professional expects, the gap | docs/roadmap/WORLD_CLASS_PLAN.md:3915 |
-| 27.2 The popups, one by one | docs/roadmap/WORLD_CLASS_PLAN.md:3943 |
-| 27.3 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:3964 |
+| 27.1 Feature by feature: what it offers, what a professional expects, the gap | docs/roadmap/WORLD_CLASS_PLAN.md:3992 |
+| 27.2 The popups, one by one | docs/roadmap/WORLD_CLASS_PLAN.md:4020 |
+| 27.3 Decisions, 2026-10-10 (do not re-decide) | docs/roadmap/WORLD_CLASS_PLAN.md:4041 |
 | 28. In-app help: an AI that knows the docs, built | docs/roadmap/BACKLOG.md:1824 |
 | 29. Extensibility ideas, not yet scoped | docs/roadmap/BACKLOG.md:1830 |
 | 29b. Carried out of the §40 audit | docs/roadmap/BACKLOG.md:2012 |

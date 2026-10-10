@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Plans: the whole-app table's "today" column measured at 5,001 notes (WORLD_CLASS_PLAN 24.6b and 25.2: boot, list paint, search, board and document opens, idle CPU, memory, widgets, settings help, shortcuts, undo, the bundle), with the sweeps under scratchpad/ui-sweeps/measure-*.
 - Plans: the deterministic layer as the foundation under every surface (CHAT_PLAN "The deterministic foundation": the research read, where it joins each surface, five modules, decisions 46 to 56, Briefs 64 to 68).
 - Plans: the design review (UI_MODERNISATION_PLAN Phase 13: sixteen principles measured against the stylesheet and the markup, every surface, decisions 9 to 22, Briefs 56 to 59), the backend review (WORLD_CLASS_PLAN 26, decisions 55 to 62, Briefs 60 to 63) and the features and popups pass (WORLD_CLASS_PLAN 27, decisions 63 to 66).
 - Plans: every surface of the app read against world class in one table (WORLD_CLASS_PLAN 25), with decisions 46 to 54, phases 25a to 25g, the calendar view (TIMELINE_PLAN Phase 5), skill reliability (AGENT_SKILLS_REFORM Phase E) and Briefs 46 to 55; the undo contract is rule 1.8.

@@ -3692,6 +3692,83 @@ errors.js against a fresh data dir on this branch (9 tabs, library and notes sub
 
 Not covered: dark theme (THEME=dark), a seeded large notebook, the fault pass (FAULTS=1).
 
+### 24.6b Interaction timings, 2026-10-10
+
+Measured by the `measure` agent (Brief 46) in a headless Chromium against a
+data dir with 5,001 notes (seeded through `POST /entries`, 978 s, about 5 per
+second), 1 document of 50,001 words and 1 board of 500 text objects. **The
+machine was saturated while every number below was taken** (4 cores, load
+average 8 to 10 from other sessions' browsers and servers), so the wall times
+are upper bounds: a trivial `GET /entries?limit=1` took 1.6 to 2.6 s and a
+static `GET /` 0.9 s on the same server in the same minutes. They rank
+interactions against each other; they are not budgets. Re-run on an idle
+machine before `tests/test_budgets.py` (Brief 53) fixes a figure.
+
+| Interaction | Measured (p50 unless noted) | Command |
+| --- | --- | --- |
+| Seed 5,001 notes | 978 s, three concurrent writers | `.venv/bin/python scratchpad/ui-sweeps/measure-seed.py 8794 5000` |
+| Boot, cold context | DOMContentLoaded 10,468 ms, first contentful paint 4,484 ms, lock field visible 11,581 ms (5 runs) | `node scratchpad/ui-sweeps/measure-interactions.js` (PHASE=boot) |
+| Unlock to interactive (lock overlay hidden, curtain gone, dashboard hero visible) | 4,461 ms; a reload with the stored token 5,842 ms | same |
+| Notes list paint, tab switch to rows | 261 ms (107 to 617 over 10 runs); 61 rows of 5,003 in the DOM | PHASE=list |
+| `GET /search`, "garden" | hybrid 2,425 ms, keyword 1,815 ms (20 hits) | PHASE=search |
+| `GET /search`, "dentist budget" | hybrid 3,489 ms, keyword 3,404 ms (20 hits) | PHASE=search |
+| `GET /search`, "Note 4242" | hybrid 4,959 ms (6 hits), keyword 2,544 ms (1 hit) | PHASE=search |
+| Notes list query box, last keystroke to rows changed | "garden" 238 ms, "dentist budget" 260 ms, "Note 4242" 168 ms; settled 256, 273, 168 ms | PHASE=keybox |
+| Board open, 500 objects, call to all 500 `.wb-object` plus two frames | first open 2,551 ms; four later opens 55, 77, 88, 100 ms | `node scratchpad/ui-sweeps/measure-objects.js` (PHASE=board) |
+| Document open, 50,001 words (308,327 characters) | 740 ms (557 to 986 over 5 runs), `openDocument` call to resolved plus two frames | PHASE=doc |
+| Server CPU, 60 s idle, dashboard tab open | 66.2% then 63.3% of one core, resident 1.95 to 2.13 GB | `SERVER_PID=n node scratchpad/ui-sweeps/measure-idle.js` |
+| Server CPU, 60 s idle, notes tab open | 16.0% then 2.0% of one core, resident 0.92 to 1.0 GB | same |
+| Resident memory | 0.74 GB just after start; 8.5 GB on the first server after 35 minutes of seeding and sweeps (not reproduced) | `/proc/PID/status` VmRSS |
+| Seed 500 board objects | 52 s through `POST /whiteboard/objects` (104 ms each) | PHASE=board |
+| 20-note bundle | `POST /backups/bundle` 0.09 s, 46,214 bytes: `memorymap.db` (692,224 bytes, 57 tables) plus every file under `media/` and `uploads/` (here one 67-byte png) | `.venv/bin/python scratchpad/ui-sweeps/measure-bundle.py 8795` |
+
+Static counts, from the code (`python scratchpad/ui-sweeps/measure-*.py`):
+
+- **Dashboard** (`measure-widgets.py`, `measure-objects.js` PHASE=widgets):
+  `DASH_WIDGETS` holds 29 widgets (the plan said 25); `featureCatalog` is a
+  separate list of 125 rows. With all on, in a notebook of plain notes,
+  stats, streak, heatmap and pace hold no button, link or row; the other 25
+  hold at least one. Not run with reminders or bookmarks present.
+- **Settings** (`measure-settings-help.py`): `PreferencesBody` has 72 fields
+  (86 distinct keys are read or written through `get_preference` and
+  `set_preference` in `src/memorymap/`; the plan's 179 is not a count of
+  either). `index.html` holds 105 `data-help-for` popovers, 69 of them
+  inside the Settings modal. By the script's rule (a popover in the same
+  `<h3>` block as the control, else a muted line within four lines): 31 keys
+  have a popover, 0 a plain help line, 10 have neither (`recycle_bin_days`,
+  `conversation_retention_days`, `search_min_similarity`,
+  `search_relative_z_margin`, `communication_style`, `display_name`,
+  `web_search_enabled`, `searxng_autostart`, `session_idle_ttl_minutes`,
+  `searxng_url`), and 31 have no Settings control the script could find.
+- **Keyboard** (`measure-keys.py`): `DEFAULT_SHORTCUTS` has 31 entries (the
+  plan said 36). 574 `.key ===`-style checks in 62 files: 513 test a
+  convention key the table leaves unrebindable, 14 a letter that ends a table
+  chord, 47 any other literal (`whiteboard.js` 8, `settings-panes.js` 5,
+  `documents.js`, `whiteboard-library.js`, `settings-wiring.js`, `library.js`
+  and `timeline.js` 4 each, the rest 3 or fewer). `toLowerCase()` and
+  `switch (e.key)` forms are not counted.
+- **Undo** (`measure-undo.py`): 50 functions with "undo" in the name in 21
+  files, 13 of which call `pushUndo` (called from 27 files). The rest: the
+  `wb*Undo*` set in `whiteboard.js`, `docUndo*` in `documents.js`, `undoDraft`
+  in `chat-agent.js`, `inlineAiUndo`, `undoSkillRun`, `undoImport`, the
+  activity feed's `activityUndo*`, and `undo-store.js` (IndexedDB).
+- **Search index** (`src/memorymap/search/index.py:46`): `KINDS = ("note",
+  "document", "board", "map", "file", "bookmark", "reminder")`, eight
+  sources registered (lines 665 to 746; two for `file`). `GET /search` calls
+  `engine.search` (`routes_search.py`), not `search_manager._retrieve`, which
+  is Ask's notes-only path. Chat messages are not indexed. A live call
+  returned `counts: {note: 5003, document: 1, board: 1, map: 0, file: 0,
+  bookmark: 0, reminder: 0}` and a board among the hits for "measure".
+  A "Find anything" dialog already calls it (`spaces-find.js:907`,
+  `index.html:705`); the notes list also calls it with
+  `kind=note,board,map` (`notes-list.js:1727`).
+- **History**: `api/versioning.py` is the `/api/v1` prefix middleware and
+  keeps nothing. Per-note history is `EntryRevision` (`core/database.py:1290`),
+  full text and tags before each edit, `MAX_REVISIONS = 20` per note
+  (`entry/manager.py:3468`), listed and restorable (`routes_entries.py:3095`,
+  `:3241`), with a panel in `note-history.js`. Documents keep
+  `DocumentRevision` (`:1547`), boards `whiteboard-history.js`.
+
 ## 25. The whole app against world class, 2026-10-10 (Fable)
 
 The owner, 2026-10-10: "have you analysed the whole app and extended each
@@ -3733,32 +3810,32 @@ World class for a local notebook is five things, each measurable:
 | Surface | The bar (reference) | Today, from the code | The gap, in one line | Owner |
 | --- | --- | --- | --- | --- |
 | Capture | Drafts, Apple Notes: one key, type, filed on save | `capture-ask.js` 72 functions: tag suggestions, templates, document adder, filing status | the filing decision is not explained or confidently shown (23) | Brief 39b |
-| Notes list | Bear, Obsidian: instant at 10,000 notes, an inline query | `notes-list.js` 94 functions: `parseNoteQuery`, pagination, incremental render, skeletons, rail | the query grammar is invisible; no bulk actions; paint cost at 5,000 unmeasured (Brief 43 item 2 found a 23 s badge) | 25a, Brief 43 |
+| Notes list | Bear, Obsidian: instant at 10,000 notes, an inline query | measured: 261 ms from tab switch to rows at 5,003 notes (61 rows in the DOM); a query keystroke to rows changed 168 to 260 ms; `notes-list.js` 94 functions (24.6b) | the query grammar is invisible; no bulk actions; paint cost at 5,000 unmeasured (Brief 43 item 2 found a 23 s badge) | 25a, Brief 43 |
 | Note editor | Obsidian, Bear: live preview, slash, wiki links, backlinks, outline | `editor.js` 65 functions: slash menu, link matches, selection bar, inline AI | one editor everywhere (DOCUMENTS Phase 8) still open; find and replace inside a note | Brief 42 |
-| Documents | Word, Notion, Typora | `documents.js` 20,621 lines, `build` cx 189 | DOCUMENTS 17, 20, 21 | Brief 42 |
+| Documents | Word, Notion, Typora | measured: 740 ms to open 50,001 words; `documents.js` 20,621 lines, `build` cx 189 (24.6b) | DOCUMENTS 17, 20, 21 | Brief 42 |
 | Code editor | VS Code | `documents-code.js` 4,399 lines, `docCodeScan` cx 132 | multi-cursor, regex find and replace, folding, bracket pairs, diagnostics (DOCUMENTS 21) | Brief 42 |
-| Whiteboard | draw.io, Excalidraw, tldraw | `whiteboard.js` 19,811 lines, `initWhiteboard` 3,730 | WHITEBOARD "The draw.io programme"; split along seams (45 part 2) | Briefs 36, 44, 45 |
+| Whiteboard | draw.io, Excalidraw, tldraw | measured: 500 objects open in 2,551 ms first, 55 to 100 ms after; `whiteboard.js` 19,811 lines, `initWhiteboard` 3,730 (24.6b) | WHITEBOARD "The draw.io programme"; split along seams (45 part 2) | Briefs 36, 44, 45 |
 | Mind map | Coggle, XMind | `whiteboard-map.js` 9,195 lines | MINDMAP 13, 14 | Brief 36 |
 | Graph | Obsidian graph, Logseq | `graph.js` plus `graph-canvas.js` 10,655 lines, `renderGraphSvg` 1,254 | GRAPH "The knowledge graph" open rows | Brief 38 |
 | Timeline and calendar | Fantastical, Google Calendar agenda, Day One | `timeline.js` 59 functions: feed and table, scrubber, day notes, a month popover | no month grid, week view, drag to reschedule, reminders on the grid, ICS in and out | TIMELINE Phase 5 |
 | Ask, no model | a grounded answer with numbered sources | `composer.py` 2,980 lines, `compose` cx 74 | CHAT Phase 6 | Brief 39 |
 | Chat and agent | Claude, ChatGPT: a run you can read and resume | `chat*.js` 8,767 lines, `sendChatMessage` 1,079 lines | Brief 37; AGENT_SKILLS Phase E | Briefs 37, 54 |
-| Search | Spotlight, Alfred, Obsidian search: one box, every kind, operators, saved | `search_manager.py` 1,345 lines (keyword, semantic, graph expansion, learned order); `routes_search.py` three routes; no `search.js`; the notes list's live query is the only box | boards, maps, documents, files, chat and reminders are not in one box; the operators are undocumented; no saved searches; no result kinds | 25a |
+| Search | Spotlight, Alfred, Obsidian search: one box, every kind, operators, saved | measured: `GET /search` already indexes notes, documents, boards, maps, files, bookmarks and reminders (not chat), and a "Find anything" dialog calls it; p50 1.8 to 5.0 s at 5,003 notes on a loaded machine (24.6b) | boards, maps, documents, files, chat and reminders are not in one box; the operators are undocumented; no saved searches; no result kinds | 25a |
 | Filing, tags, properties, relations | Notion properties, Obsidian tags | section 23; `routes_properties.py`, `routes_relations.py`, `routes_tags.py` | 23; properties on every object (0.7 "one object model") | Briefs 39b, 38 |
 | Library and files | Apple Photos, Finder | `library.js` 11,669 lines, `filterLibraryImagesGallery` 1,546 lines | structure (split, 45 part 2); the gallery's one function does everything | Brief 45, 43 |
-| Dashboard | Craft, Notion home: continue and today | `dashboard.js` 93 functions: greeting, clock, art, focus timer, streak, digest, widgets, quick links | no widget can name a measured use; see decision 51 | Phase 12 row |
+| Dashboard | Craft, Notion home: continue and today | measured: 29 widgets; 4 are display only (stats, streak, heatmap, pace), 25 hold a button, link or row; `dashboard.js` 93 functions (24.6b) | no widget can name a measured use; see decision 51 | Phase 12 row |
 | Reminders and tasks | Things, Todoist | `routes_reminders.py`, `routes_tasks.py` (`collect` cx 71), the tray | recurring, snooze, natural dates everywhere, delivery when the window is closed | TIMELINE Phase 5 |
-| Settings | VS Code settings: searchable, each with a description and a default, reset per item | `routes_settings.py` 179 keys; 105 help popovers; 36 rebindable shortcuts | no search across settings; no modified marker or per-item reset; no settings export | 25f |
+| Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | no search across settings; no modified marker or per-item reset; no settings export | 25f |
 | Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
 | First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
 | Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (four sources), web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | no whole-notebook markdown folder with attachments; no round-trip test; import reports are a toast | 25b |
-| Data safety | never lose a note | backups, bundle, restore, alembic baseline, `versioning.py`, `edit_conflicts.py` | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
+| Data safety | never lose a note | measured: bundle is `memorymap.db` (all 57 tables) plus `media/` and `uploads/`; per-note history is `EntryRevision`, 20 per note, with a panel; `versioning.py` is the `/api/v1` middleware (24.6b) | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
 | Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |
-| Performance | VS Code: boot under a second on old hardware | boot 319,799 bytes gzipped over 27 scripts plus lazy modules; `routes_bench.py` | budgets exist for weight only; none for interaction time | 25g |
+| Performance | VS Code: boot under a second on old hardware | measured: boot 10.5 s DOMContentLoaded and 4.5 s to interactive on a saturated machine; idle server 63 to 66% of a core with the dashboard open, 2 to 16% on Notes; 319,799 bytes gzipped over 27 scripts (24.6b) | budgets exist for weight only; none for interaction time | 25g |
 | Accessibility | WCAG 2.2 AA | Phase 12 | Phase 12 | Brief 41 |
 | Security | a stated threat model | section 12; CSP; the LAN mode (Brief 40 placed) | rate limits on auth; session expiry; the threat model written down | 12 addendum |
-| Undo | one model: Ctrl+Z where focus is, an undo bar for server actions | `pushUndo` and the undo bar (`status.js`), `docUndo`, board history, category undo, chat delete undo, draft undo | six implementations, no contract | decision 53 |
-| Keyboard | every action reachable; a generated shortcuts sheet | `DEFAULT_SHORTCUTS` 36 rebindable; 549 key checks across the scripts | the 549 checks are the ones not in the table; the sheet must be generated from the table | Phase 12 row |
+| Undo | one model: Ctrl+Z where focus is, an undo bar for server actions | measured: 50 "undo" functions in 21 files, 13 call `pushUndo`; the others are the board, document, chat draft, inline AI, skill run and import implementations (24.6b) | six implementations, no contract | decision 53 |
+| Keyboard | every action reachable; a generated shortcuts sheet | measured: `DEFAULT_SHORTCUTS` 31 entries; 574 key checks, 513 conventions, 14 table keys, 47 other (24.6b) | the 549 checks are the ones not in the table; the sheet must be generated from the table | Phase 12 row |
 | Languages | one | English only; no i18n layer | decision 50 | none |
 
 ### 25.3 Decisions, 2026-10-10 (do not re-decide)

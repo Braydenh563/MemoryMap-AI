@@ -35,12 +35,39 @@ def _js_strings(text: str) -> list[str]:
     return re.findall(r'"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`', code)
 
 
+def _without_scripts(markup: str) -> str:
+    """The markup with every script element cut out, by the HTML parser rather
+    than a regex: the file is ours, but a regex of that shape is the one CodeQL
+    reads as an HTML filter, and it is never as sure of the end tag as the parser."""
+    from html.parser import HTMLParser
+
+    starts = [0]
+    for line in markup.splitlines(keepends=True):
+        starts.append(starts[-1] + len(line))
+    spans: list[list[int]] = []
+
+    class Cut(HTMLParser):
+        def _at(self) -> int:
+            line, column = self.getpos()
+            return starts[line - 1] + column
+
+        def handle_starttag(self, tag: str, attrs) -> None:  # noqa: ANN001
+            if tag == "script":
+                spans.append([self._at(), len(markup)])
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag == "script" and spans and spans[-1][1] == len(markup):
+                spans[-1][1] = markup.index(">", self._at()) + 1
+
+    Cut().feed(markup)
+    for start, end in reversed(spans):
+        markup = markup[:start] + markup[end:]
+    return markup
+
+
 def _surfaces() -> dict[str, str]:
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    index = re.sub(r"<!--.*?-->", "", index, flags=re.S)
-    #: Case-insensitive and `</script >` too: the file is ours, but the shape is
-    #: the one CodeQL reads as an HTML filter, so it has the filter's rigour.
-    index = re.sub(r"<script\b.*?</script\s*>", "", index, flags=re.S | re.I)
+    index = _without_scripts(re.sub(r"<!--.*?-->", "", index, flags=re.S))
     out = {"frontend/index.html": index}
     for path in sorted((ROOT / "frontend" / "js").glob("*.js")):
         strings = [a or b for a, b in _js_strings(path.read_text(encoding="utf-8"))]

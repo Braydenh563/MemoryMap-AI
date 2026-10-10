@@ -3250,3 +3250,429 @@ connection that had opened):
    or print the one-line `netsh` command when turning the switch on.
 Help moves with it (standing order 13): `ai/help_topics_more.py` "lock"
 topic, the `data-help-for` on the switch, `tests/test_manual_parity.py`.
+
+## 24. Codebase census, 2026-10-10
+
+Brief 45 part 1, numbers only. Produced by `python scratchpad/census/census.py` (stdlib, about 40 s; `--full` lists every row, `--section N` one section); section 24.6 is `scratchpad/ui-sweeps/errors.js`. The script header states the limits (JS is scanned, not parsed; names are matched as tokens). Part 2 reads these.
+
+### 24.1 Size and complexity
+
+#### 1.1 Python (src/memorymap, vendor excluded)
+223 files, 131372 lines, 3674 functions, 128 over 80 lines, summed complexity 20809.
+
+| file | lines | functions | longest (lines) | over 80 | max cx | sum cx |
+| --- | --- | --- | --- | --- | --- | --- |
+| src/memorymap/api/routes_whiteboard.py | 5428 | 128 | _board_preview (198) | 7 | 35 | 851 |
+| src/memorymap/ai/question_noise.py | 5242 | 14 | repair (43) | 0 | 23 | 121 |
+| src/memorymap/ai/tools/__init__.py | 4878 | 90 | execute_tool (115) | 6 | 31 | 669 |
+| src/memorymap/api/routes_files.py | 3931 | 91 | analyse_attachment (181) | 6 | 47 | 544 |
+| src/memorymap/api/routes_entries.py | 3835 | 107 | list_entries (145) | 11 | 41 | 674 |
+| src/memorymap/entry/manager.py | 3519 | 138 | _hard_delete (179) | 2 | 24 | 561 |
+| src/memorymap/ai/agent.py | 3153 | 49 | run_agent (416) | 5 | 78 | 486 |
+| src/memorymap/api/routes_settings.py | 3015 | 82 | get_preferences (137) | 2 | 26 | 383 |
+| src/memorymap/ai/composer.py | 2980 | 90 | compose (191) | 4 | 74 | 932 |
+| src/memorymap/core/database.py | 2729 | 25 | _ensure_alembic_baseline (102) | 3 | 10 | 95 |
+| src/memorymap/api/routes_chat.py | 2609 | 55 | _stream_lines (289) | 5 | 86 | 440 |
+| src/memorymap/__main__.py | 2582 | 62 | _start_tray (330) | 5 | 20 | 269 |
+| src/memorymap/ai/help_chat.py | 2480 | 15 | _matching_topics (74) | 0 | 26 | 108 |
+| src/memorymap/ai/composer_tables.py | 2034 | 2 | _build (16) | 0 | 8 | 10 |
+| src/memorymap/core/extras.py | 1840 | 48 | _run_install (139) | 1 | 23 | 293 |
+| src/memorymap/ai/skills.py | 1774 | 25 | normalise (110) | 1 | 33 | 198 |
+| src/memorymap/api/routes_graph.py | 1765 | 43 | _build_graph (321) | 3 | 45 | 324 |
+| src/memorymap/ai/skill_runner.py | 1587 | 26 | _run_one_step (425) | 2 | 53 | 236 |
+| src/memorymap/search/engine.py | 1499 | 48 | search (145) | 2 | 69 | 363 |
+| src/memorymap/api/app.py | 1475 | 47 | _register_error_handlers (163) | 4 | 21 | 166 |
+| src/memorymap/ai/help_topics_more.py | 1458 | 0 | - (0) | 0 | 0 | 0 |
+| src/memorymap/ai/librarian.py | 1447 | 33 | build_messages (116) | 1 | 15 | 190 |
+| src/memorymap/api/routes_documents.py | 1447 | 45 | import_document (99) | 2 | 16 | 157 |
+| src/memorymap/ai/provider.py | 1440 | 48 | extract_text_tool_calls (150) | 1 | 30 | 254 |
+| src/memorymap/api/routes_auth.py | 1433 | 53 | rotate_vault_key (142) | 1 | 15 | 210 |
+
+(top 25 of 223 files by lines; `--full` lists all)
+
+#### 1.2 JavaScript (frontend/js)
+115 files, 189722 lines, 5530 functions, 278 over 80 lines, summed complexity 39215.
+
+| file | lines | functions | longest (lines) | over 80 | max cx | sum cx |
+| --- | --- | --- | --- | --- | --- | --- |
+| frontend/js/documents.js | 20621 | 610 | docLivePlugin (1517) | 22 | 189 | 3936 |
+| frontend/js/whiteboard.js | 19811 | 560 | initWhiteboard (3730) | 26 | 653 | 4914 |
+| frontend/js/library.js | 11669 | 276 | filterLibraryImagesGallery (1546) | 20 | 113 | 2034 |
+| frontend/js/whiteboard-map.js | 9195 | 333 | wbBuildMapNode (301) | 11 | 42 | 2236 |
+| frontend/js/avatars.js | 9098 | 286 | drawCharacter (800) | 11 | 512 | 3099 |
+| frontend/js/graph.js | 5660 | 124 | renderGraphSvg (1254) | 11 | 168 | 925 |
+| frontend/js/dashboard.js | 5054 | 156 | startArt (276) | 12 | 34 | 947 |
+| frontend/js/graph-canvas.js | 4995 | 133 | gcDraw (729) | 9 | 220 | 1297 |
+| frontend/js/settings.js | 4492 | 142 | openSettingsModal (168) | 7 | 45 | 739 |
+| frontend/js/documents-code.js | 4399 | 134 | docCodeScan (425) | 4 | 132 | 1153 |
+| frontend/js/atlas.js | 3702 | 103 | atlasBuild (287) | 5 | 80 | 625 |
+| frontend/js/notes-list.js | 3516 | 115 | appendInlineRun (220) | 8 | 52 | 850 |
+| frontend/js/capture-ask.js | 3277 | 95 | askQuestion (311) | 4 | 87 | 694 |
+| frontend/js/chat-attach.js | 3006 | 73 | sendChatMessage (1079) | 4 | 176 | 562 |
+| frontend/js/chat-agent.js | 2953 | 88 | agentTimeline (488) | 6 | 43 | 547 |
+| frontend/js/status.js | 2887 | 97 | openNotifications (197) | 4 | 28 | 589 |
+| frontend/js/navigation.js | 2831 | 65 | renderMarkdown (408) | 5 | 74 | 438 |
+| frontend/js/chat.js | 2808 | 89 | messageMetaLine (146) | 4 | 36 | 499 |
+| frontend/js/editor.js | 2569 | 74 | editorLinkMatches (115) | 3 | 35 | 432 |
+| frontend/js/timeline.js | 2441 | 70 | timelineRowElement (134) | 3 | 26 | 456 |
+| frontend/js/sheets-selects.js | 2419 | 62 | enhanceSelect (242) | 7 | 41 | 378 |
+| frontend/js/note-cards.js | 2406 | 46 | entryItem (915) | 2 | 169 | 457 |
+| frontend/js/app.js | 2390 | 54 | startApp (187) | 4 | 32 | 329 |
+| frontend/js/bg-art.js | 2244 | 46 | bgArtRun (153) | 2 | 47 | 288 |
+| frontend/js/menus.js | 2210 | 56 | entryOverflowMenu (393) | 7 | 29 | 350 |
+
+(top 25 of 115 files by lines; `--full` lists all)
+
+#### 1.3 Ten most complex Python functions
+| function | file:line | lines | cx |
+| --- | --- | --- | --- |
+| _stream_lines | src/memorymap/api/routes_chat.py:2083 | 289 | 86 |
+| run_agent | src/memorymap/ai/agent.py:2738 | 416 | 78 |
+| compose | src/memorymap/ai/composer.py:2655 | 191 | 74 |
+| collect | src/memorymap/api/routes_tasks.py:50 | 356 | 71 |
+| search | src/memorymap/search/engine.py:1077 | 145 | 69 |
+| follow_on | src/memorymap/ai/composer.py:2173 | 105 | 62 |
+| _retrieve | src/memorymap/search/search_manager.py:1053 | 215 | 57 |
+| _run_one_step | src/memorymap/ai/skill_runner.py:848 | 425 | 53 |
+| restore_board | src/memorymap/api/routes_board_history.py:334 | 129 | 49 |
+| analyse_attachment | src/memorymap/api/routes_files.py:446 | 181 | 47 |
+
+#### 1.4 Ten most complex JavaScript functions
+| function | file:line | lines | cx |
+| --- | --- | --- | --- |
+| initWhiteboard | frontend/js/whiteboard.js:10401 | 3730 | 653 |
+| drawCharacter | frontend/js/avatars.js:1721 | 800 | 512 |
+| gcDraw | frontend/js/graph-canvas.js:1541 | 729 | 220 |
+| build | frontend/js/documents.js:7422 | 942 | 189 |
+| sendChatMessage | frontend/js/chat-attach.js:1478 | 1079 | 176 |
+| entryItem | frontend/js/note-cards.js:1371 | 915 | 169 |
+| renderGraphSvg | frontend/js/graph.js:1801 | 1254 | 168 |
+| nameMood | frontend/js/avatars.js:395 | 488 | 141 |
+| docCodeScan | frontend/js/documents-code.js:2906 | 425 | 132 |
+| renderWhiteboard | frontend/js/whiteboard.js:16408 | 864 | 126 |
+
+#### 1.5 Functions over 80 lines
+406 in total (128 Python, 278 JavaScript). Top 20 by length:
+
+| function | file:line | lines | cx |
+| --- | --- | --- | --- |
+| initWhiteboard | frontend/js/whiteboard.js:10401 | 3730 | 653 |
+| openLightbox | frontend/js/lightbox-view.js:25 | 1888 | 54 |
+| filterLibraryImagesGallery | frontend/js/library.js:7890 | 1546 | 113 |
+| docLivePlugin | frontend/js/documents.js:6941 | 1517 | 52 |
+| renderGraphSvg | frontend/js/graph.js:1801 | 1254 | 168 |
+| sendChatMessage | frontend/js/chat-attach.js:1478 | 1079 | 176 |
+| build | frontend/js/documents.js:7422 | 942 | 189 |
+| entryItem | frontend/js/note-cards.js:1371 | 915 | 169 |
+| docCmTheme | frontend/js/documents.js:18486 | 871 | 1 |
+| renderWhiteboard | frontend/js/whiteboard.js:16408 | 864 | 126 |
+| drawCharacter | frontend/js/avatars.js:1721 | 800 | 512 |
+| renderWbObjects | frontend/js/whiteboard.js:17554 | 780 | 96 |
+| gcDraw | frontend/js/graph-canvas.js:1541 | 729 | 220 |
+| nameMood | frontend/js/avatars.js:395 | 488 | 141 |
+| agentTimeline | frontend/js/chat-agent.js:504 | 488 | 43 |
+| mapPreview | frontend/js/note-cards.js:386 | 467 | 69 |
+| nameMarkBuddyBuild | frontend/js/avatars.js:8526 | 444 | 47 |
+| _run_one_step | src/memorymap/ai/skill_runner.py:848 | 425 | 53 |
+| docCodeScan | frontend/js/documents-code.js:2906 | 425 | 132 |
+| cmdPaletteAsk | frontend/js/palette.js:831 | 418 | 42 |
+
+### 24.2 Duplicated blocks
+
+338 files, 203831 normalised lines (blank and comment lines dropped); window 8 lines; shingles with fewer than 4 distinct lines or under 100 characters are skipped.
+133 duplicated blocks (groups of 2+ places); 2636 distinct source lines sit inside a duplicated block (1.3% of normalised lines).
+
+| normalised lines | places | file:line |
+| --- | --- | --- |
+| 41 | 2 | src/memorymap/ai/composer_tables.py:1578, src/memorymap/ai/composer_tables.py:1808 |
+| 37 | 2 | src/memorymap/ai/question_noise.py:152, src/memorymap/ai/question_noise.py:4410 |
+| 21 | 2 | src/memorymap/api/routes_files.py:774, src/memorymap/api/routes_files.py:1675 |
+| 19 | 2 | src/memorymap/api/routes_auth.py:630, src/memorymap/api/routes_auth.py:738 |
+| 18 | 2 | src/memorymap/ai/ollama_client.py:764, src/memorymap/ai/ollama_client.py:889 |
+| 18 | 2 | frontend/js/notes-list.js:1963, frontend/js/notes-list.js:2290 |
+| 17 | 2 | frontend/js/documents-code.js:1626, frontend/js/documents-prose.js:1718 |
+| 17 | 2 | frontend/js/whiteboard.js:17005, frontend/js/whiteboard.js:17937 |
+| 16 | 2 | src/memorymap/ai/ollama_client.py:799, src/memorymap/ai/openai_client.py:896 |
+| 16 | 2 | frontend/js/library.js:3953, frontend/js/library.js:7191 |
+| 14 | 2 | src/memorymap/api/routes_library.py:392, src/memorymap/api/routes_library.py:506 |
+| 14 | 2 | frontend/js/whiteboard.js:5176, frontend/js/whiteboard.js:5304 |
+| 13 | 2 | src/memorymap/ai/ollama_client.py:688, src/memorymap/ai/openai_client.py:825 |
+| 13 | 2 | src/memorymap/api/routes_files.py:2617, src/memorymap/api/routes_files.py:3069 |
+| 13 | 2 | src/memorymap/api/routes_settings.py:2693, src/memorymap/api/routes_settings.py:2852 |
+| 13 | 2 | frontend/js/library.js:10293, frontend/js/whiteboard.js:10319 |
+| 13 | 2 | frontend/js/whiteboard.js:13581, frontend/js/whiteboard.js:13719 |
+| 12 | 3 | src/memorymap/api/routes_auth.py:978, src/memorymap/api/routes_auth.py:1060, src/memorymap/api/routes_auth.py:1262 |
+| 12 | 2 | src/memorymap/ai/ollama_client.py:728, src/memorymap/ai/openai_client.py:855 |
+| 12 | 2 | frontend/js/documents.js:8487, frontend/js/documents.js:9001 |
+| 12 | 2 | frontend/js/suggestions-inbox.js:114, frontend/js/tidy.js:158 |
+| 11 | 3 | frontend/js/documents-prose.js:390, frontend/js/documents.js:6287, frontend/js/documents.js:15013 |
+| 11 | 3 | frontend/js/library.js:8423, frontend/js/library.js:8579, frontend/js/library.js:8767 |
+| 11 | 2 | src/memorymap/api/routes_entries.py:1284, src/memorymap/api/routes_entries.py:2545 |
+| 11 | 2 | src/memorymap/api/routes_whiteboard.py:5344, src/memorymap/api/routes_whiteboard.py:5417 |
+| 11 | 2 | src/memorymap/core/extras.py:1153, src/memorymap/core/extras.py:1334 |
+| 11 | 2 | src/memorymap/core/security.py:333, src/memorymap/core/security.py:353 |
+| 11 | 2 | src/memorymap/search/engine.py:771, src/memorymap/search/engine.py:811 |
+| 11 | 2 | frontend/js/categories-panel.js:68, frontend/js/tag-manager.js:458 |
+| 11 | 2 | frontend/js/categories-panel.js:225, frontend/js/tag-manager.js:581 |
+
+(top 30 of 133 blocks by size)
+
+### 24.3 Dead-code candidates
+
+Corpus: identifier tokens in frontend/ (js, html, css), src/ and tests/, vendor excluded; strings and comments count as uses. A candidate is a name whose only occurrence is its own definition (grep count after the definition, 0). The last column is the count of uses in tests/ alone (a name used only by tests is listed with a non-zero count).
+
+#### 3.1 Top-level functions in the 27 classic scripts: 1221 defined, 0 candidates
+
+(none)
+
+#### 3.2 Python defs in src/memorymap: 3674 defined, 40 candidates (excluded as called by a framework: dunder methods, 346 decorated defs such as route handlers and validators, and SQLAlchemy type hooks)
+
+| def | file:line | uses in tests |
+| --- | --- | --- |
+| capture_signals | src/memorymap/__main__.py:585 | 0 |
+| scheduler_alive | src/memorymap/ai/autonomous.py:249 | 2 |
+| phrase_options | src/memorymap/ai/composer.py:263 | 13 |
+| _yes_no_wrapped | src/memorymap/ai/composer.py:455 | 0 |
+| today_line | src/memorymap/ai/composer_voice.py:490 | 1 |
+| title_for | src/memorymap/ai/composer_voice.py:639 | 3 |
+| suggested_searches | src/memorymap/ai/composer_voice.py:667 | 1 |
+| suggest_entities | src/memorymap/ai/entities.py:104 | 5 |
+| extract_concepts | src/memorymap/ai/fast_matcher.py:31 | 0 |
+| unfence | src/memorymap/ai/fence.py:61 | 3 |
+| note_passage_scores | src/memorymap/ai/grounding.py:298 | 2 |
+| feature_model | src/memorymap/ai/model_manager.py:484 | 14 |
+| reset_jobs | src/memorymap/ai/model_manager.py:831 | 7 |
+| reset_for_tests | src/memorymap/ai/needle_provider.py:185 | 38 |
+| forget_ollama_binary | src/memorymap/ai/offline.py:47 | 2 |
+| is_llama_cpp | src/memorymap/ai/openai_client.py:319 | 2 |
+| extract_categories | src/memorymap/ai/taxonomy.py:98 | 0 |
+| notebook_began | src/memorymap/ai/timetravel.py:154 | 0 |
+| budget_for_window | src/memorymap/ai/tools/__init__.py:4487 | 5 |
+| reset_for_tests | src/memorymap/api/routes_update.py:171 | 38 |
+| backup_if_due | src/memorymap/core/backup.py:250 | 4 |
+| strip_comments | src/memorymap/core/docexport.py:97 | 1 |
+| handle_starttag | src/memorymap/core/docview.py:193 | 17 |
+| handle_endtag | src/memorymap/core/docview.py:234 | 16 |
+| handle_data | src/memorymap/core/docview.py:262 | 5 |
+| reset_for_tests | src/memorymap/core/embedmodels.py:795 | 38 |
+| reset_for_tests | src/memorymap/core/embedswitch.py:389 | 38 |
+| payload_bytes | src/memorymap/core/events.py:591 | 6 |
+| reset_for_tests | src/memorymap/core/extras.py:1796 | 38 |
+| queued_count | src/memorymap/core/jobs.py:407 | 3 |
+| running_count | src/memorymap/core/jobs.py:411 | 2 |
+| reset_for_tests | src/memorymap/core/passes.py:263 | 38 |
+| is_open | src/memorymap/core/vault.py:68 | 10 |
+| has_recovery | src/memorymap/core/vault.py:235 | 0 |
+| handle_starttag | src/memorymap/core/webclip.py:206 | 17 |
+| handle_endtag | src/memorymap/core/webclip.py:230 | 16 |
+| handle_data | src/memorymap/core/webclip.py:244 | 5 |
+| set_category | src/memorymap/entry/manager.py:226 | 2 |
+| vectors_by_id | src/memorymap/search/engine.py:1396 | 7 |
+| sources_for_kind | src/memorymap/search/index.py:198 | 1 |
+
+### 24.4 Coupling of the classic scripts
+
+27 classic scripts in index.html order (app.js to agent-activity.js); 1838 top-level names defined (1837 distinct); 648 read by another script.
+
+#### 4.1 Per script (a name counts as read when another script contains it as an identifier token)
+
+| script | globals defined | read elsewhere | reader scripts |
+| --- | --- | --- | --- |
+| app.js | 100 | 63 | 23 |
+| prefs.js | 10 | 6 | 20 |
+| store.js | 2 | 1 | 1 |
+| note-cards.js | 61 | 18 | 9 |
+| menus.js | 43 | 17 | 11 |
+| lightbox.js | 13 | 9 | 3 |
+| selection.js | 38 | 6 | 4 |
+| notes-list.js | 155 | 49 | 21 |
+| capture-ask.js | 130 | 35 | 14 |
+| chat.js | 116 | 56 | 18 |
+| chat-agent.js | 94 | 47 | 11 |
+| chat-attach.js | 94 | 46 | 12 |
+| sheets-selects.js | 76 | 22 | 19 |
+| skills.js | 72 | 16 | 11 |
+| shell-reminders.js | 71 | 29 | 15 |
+| markdown.js | 49 | 29 | 4 |
+| navigation.js | 90 | 26 | 21 |
+| router.js | 22 | 6 | 7 |
+| settings-panes.js | 62 | 14 | 15 |
+| media.js | 42 | 18 | 3 |
+| status.js | 155 | 46 | 23 |
+| ai-tools.js | 60 | 30 | 6 |
+| phone-shell.js | 73 | 13 | 16 |
+| wiring.js | 58 | 15 | 9 |
+| settings-wiring.js | 57 | 12 | 5 |
+| spaces-find.js | 58 | 9 | 6 |
+| agent-activity.js | 37 | 10 | 4 |
+
+#### 4.2 Downward references (a script naming a global defined only in a later script)
+
+Anywhere in the file (including inside functions, which run later and are legal): 424 names over 140 script pairs. At brace depth 0 (runs at load; IIFE and object-literal bodies are depth 1 and are not seen): 2 names over 2 pairs.
+
+At load (depth 0):
+
+| script | defined later in | names | examples |
+| --- | --- | --- | --- |
+| chat-agent.js | sheets-selects.js | 1 | aiNameNow |
+| wiring.js | spaces-find.js | 1 | openFinder |
+
+Anywhere (top 15 pairs by name count):
+
+| script | defined later in | names |
+| --- | --- | --- |
+| note-cards.js | notes-list.js | 22 |
+| status.js | ai-tools.js | 14 |
+| notes-list.js | markdown.js | 12 |
+| app.js | status.js | 12 |
+| chat-attach.js | status.js | 11 |
+| chat.js | sheets-selects.js | 10 |
+| menus.js | notes-list.js | 8 |
+| selection.js | status.js | 8 |
+| note-cards.js | status.js | 8 |
+| skills.js | status.js | 7 |
+| shell-reminders.js | status.js | 7 |
+| capture-ask.js | status.js | 7 |
+| capture-ask.js | settings-wiring.js | 7 |
+| menus.js | status.js | 6 |
+| notes-list.js | status.js | 6 |
+
+#### 4.3 The fifteen globals read by the most other scripts
+
+| global | defined in | reader scripts |
+| --- | --- | --- |
+| toast | status.js | 22 |
+| $ | app.js | 21 |
+| apiJson | app.js | 21 |
+| setLabel | app.js | 21 |
+| prefs | prefs.js | 20 |
+| api | app.js | 16 |
+| switchTab | navigation.js | 16 |
+| confirmDialog | app.js | 14 |
+| smallButton | app.js | 14 |
+| loadEntries | notes-list.js | 14 |
+| toastAction | status.js | 12 |
+| chip | app.js | 11 |
+| copyToClipboard | chat.js | 11 |
+| prefsCache | settings-panes.js | 11 |
+| renderEntries | notes-list.js | 10 |
+
+### 24.5 Counts
+
+#### 5.1 TODO, FIXME, XXX, HACK (src/memorymap, frontend/js, frontend/css, index.html; vendor excluded)
+
+Totals: TODO 0, FIXME 0, XXX 0, HACK 0.
+
+
+#### 5.2 Ten largest files by bytes
+
+frontend/js:
+
+| file | bytes | lines |
+| --- | --- | --- |
+| frontend/js/whiteboard.js | 975984 | 19811 |
+| frontend/js/documents.js | 964068 | 20621 |
+| frontend/js/library.js | 564789 | 11669 |
+| frontend/js/avatars.js | 497076 | 9098 |
+| frontend/js/whiteboard-map.js | 432391 | 9195 |
+| frontend/js/graph.js | 267187 | 5660 |
+| frontend/js/dashboard.js | 240995 | 5054 |
+| frontend/js/graph-canvas.js | 228977 | 4995 |
+| frontend/js/atlas.js | 225772 | 3702 |
+| frontend/js/settings.js | 206353 | 4492 |
+
+frontend/css:
+
+| file | bytes | lines |
+| --- | --- | --- |
+| frontend/css/07-whiteboard-misc.css | 534476 | 13496 |
+| frontend/css/08-consistency.css | 530280 | 11631 |
+| frontend/css/01-forms-settings.css | 240750 | 6747 |
+| frontend/css/05-sidebars-themes.css | 233359 | 6726 |
+| frontend/css/04-chat-dock-appearance.css | 231725 | 6392 |
+| frontend/css/02-chat-graph.css | 230235 | 6694 |
+| frontend/css/00-tokens-shell.css | 217837 | 4681 |
+| frontend/css/03-dashboard-widgets.css | 171667 | 5161 |
+| frontend/css/06-timeline-dialogs.css | 148530 | 4200 |
+| frontend/css/10-responsive.css | 120837 | 3002 |
+
+src/memorymap (vendor excluded):
+
+| file | bytes | lines |
+| --- | --- | --- |
+| src/memorymap/api/routes_whiteboard.py | 240186 | 5428 |
+| src/memorymap/ai/tools/__init__.py | 213773 | 4878 |
+| src/memorymap/ai/question_noise.py | 186754 | 5242 |
+| src/memorymap/api/routes_files.py | 185904 | 3931 |
+| src/memorymap/api/routes_entries.py | 173879 | 3835 |
+| src/memorymap/ai/agent.py | 154772 | 3153 |
+| src/memorymap/entry/manager.py | 149080 | 3519 |
+| src/memorymap/core/database.py | 147726 | 2729 |
+| src/memorymap/ai/help_chat.py | 147179 | 2480 |
+| src/memorymap/api/routes_settings.py | 142810 | 3015 |
+
+#### 5.3 Backend routes with no test file naming their path
+
+478 routes (`@router.*`-style decorators with the router's own prefix; any `include_router(prefix=...)` is not added). 54 have no path match in tests/: a `{param}` segment matches any run of non-space, non-quote characters, so this undercounts untested routes.
+
+| route file | untested routes |
+| --- | --- |
+| src/memorymap/api/routes_documents.py | 12 |
+| src/memorymap/api/routes_entries.py | 10 |
+| src/memorymap/api/routes_board_library.py | 6 |
+| src/memorymap/api/routes_conversations.py | 6 |
+| src/memorymap/api/routes_whiteboard.py | 4 |
+| src/memorymap/api/routes_meetings.py | 3 |
+| src/memorymap/api/routes_properties.py | 2 |
+| src/memorymap/api/routes_reminders.py | 2 |
+| src/memorymap/api/routes_tidy.py | 2 |
+| src/memorymap/api/routes_bench.py | 1 |
+| src/memorymap/api/routes_categories.py | 1 |
+| src/memorymap/api/routes_files.py | 1 |
+| src/memorymap/api/routes_learned.py | 1 |
+| src/memorymap/api/routes_mentions.py | 1 |
+| src/memorymap/api/routes_questions.py | 1 |
+
+#### 5.4 CSS class and id names in frontend/css used by no markup or script
+
+3758 distinct class or id names in selector preludes; 236 appear as no token in index.html or frontend/js (names built by string concatenation, and classes added by Python-rendered HTML, would be false candidates).
+
+| css file | unused names (a name in two files counts in both) |
+| --- | --- |
+| 08-consistency.css | 131 |
+| 05-sidebars-themes.css | 30 |
+| 07-whiteboard-misc.css | 23 |
+| 02-chat-graph.css | 20 |
+| 03-dashboard-widgets.css | 17 |
+| 09-editor.css | 9 |
+| 01-forms-settings.css | 7 |
+| 04-chat-dock-appearance.css | 6 |
+| 00-tokens-shell.css | 6 |
+| 10-responsive.css | 4 |
+| 06-timeline-dialogs.css | 4 |
+| library-lazy.css | 3 |
+
+#### 5.5 Frontend ids and handlers
+
+| measure | count |
+| --- | --- |
+| id attributes in index.html | 2227 |
+| distinct ids | 2227 |
+| ids looked up by $("id") or getElementById in frontend/js | 1812 |
+| looked-up ids with no element in index.html (runtime-created or missing) | 52 |
+| ids bound with $("id").addEventListener("event") | 812 |
+| bound ids with no element in index.html | 9 |
+| index.html ids named by no token in frontend/js | 273 |
+
+### 24.6 Console errors per surface
+
+errors.js against a fresh data dir on this branch (9 tabs, library and notes subtabs, 19 Settings sections, light theme).
+
+| width | page and console errors | layout findings |
+| --- | --- | --- |
+| 1440px | 0 | 0 |
+| 1024px | 0 | 0 |
+| 820px | 0 | 0 |
+| 390px | 0 | 0 |
+
+Not covered: dark theme (THEME=dark), a seeded large notebook, the fault pass (FAULTS=1).

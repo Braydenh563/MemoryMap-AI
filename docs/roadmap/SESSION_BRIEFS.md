@@ -67,45 +67,7 @@ use `el.style.x =` or a class).
 
 ---
 
-## Brief 1 (Mon, Sonnet): the em-dash sweep and its lint
-
-**Status: done on 2026-09-08 (sweep 7b9ed67, lint `tests/test_no_em_dashes.py`, suite green in CI). Start at Brief 2.**
-
-**Goal.** Zero em-dashes in `frontend/` and `src/`, with a lint that keeps
-it so, and no test broken by the change.
-
-**Done when.** `grep -rc ', ' frontend src | grep -v ':0'` prints nothing;
-`tests/test_no_em_dashes.py` exists and passes; the full suite is green.
-
-**Decisions made.** The replacement rules are in `scratchpad/emdash.py`
-(bullet, pair, short-lead colon, long-lead comma). Do not invent new rules;
-if a line reads badly after the sweep, fix that line by hand and note it.
-`docs/` is not in scope (comments and plans may keep their dashes; the
-owner's complaint is the app's own copy).
-
-**Steps.**
-1. `git merge` any open agent branches first if told to; otherwise start.
-2. `python3 scratchpad/emdash.py frontend src tests` and read the printed
-   per-file counts.
-3. `node --check` every `frontend/js/*.js`; `.venv/bin/ruff check .`.
-4. Run `python -m pytest -q tests/` (7 to 8 minutes). Tests that asserted a
-   string with an em-dash now fail; fix the expected strings in the tests,
-   never the code, unless the code's new string is wrong.
-5. Grep the results for lines that now read badly: `git diff | grep "^+" |
-   grep -E ": [a-z]|, [A-Z]" | head -50` and fix by hand.
-6. Add `tests/test_no_em_dashes.py`: walk `frontend/` (excluding `vendor/`)
-   and `src/`, assert no file contains an em-dash, with the message "an
-   em-dash in <path>:<line>; rewrite the sentence (colon, comma or full
-   stop)".
-7. Commit: "No em-dashes in the app's own files, with the lint that keeps
-   it so". Push.
-
-**Traps.** The system prompt of the agent (`src/memorymap/ai/agent.py`) is
-budgeted by `PROSE_BUDGET_CHARS`; the sweep shortens it, so the assertion
-still passes. `frontend/vendor/` is third-party: exclude it in both the
-sweep and the lint.
-
----
+### Brief 1: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Brief 2 (Mon, Sonnet): the consistency lints
 
@@ -345,17 +307,7 @@ one's.
 
 ---
 
-## Brief 7 (Thu, Opus): the event log (B1)
-
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
-SESSION_BRIEFS Brief 7: the event log". `AuditLog` carries `actor` and
-`payload`, `core/events.py` is the only writer, every public write in
-`entry/manager.py` records exactly one event with a whole-field payload,
-`tests/test_events.py` passes with no xfail markers left, and history,
-restore and `GET /events?since=` are live. What is still open is in
-`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
-
----
+### Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Brief 8 (Thu, Opus): `[[` autocomplete and the connections rail
 
@@ -471,41 +423,9 @@ agent's miniature renderer; use it, do not draw a second one.
 
 ---
 
-## Brief 11 (Sat, Opus): the retrieval engine (B3), with explanations
+### Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
-SESSION_BRIEFS Brief 11: the retrieval engine". One index over every kind
-(`search/index.py`), one `search()` with three scores and an explanation per
-hit (`search/engine.py`), the operators of §5.1 on the existing parser,
-`GET /search`, the Notes list's "why this result" line, and a vector matrix
-that ended three per-request scans of every stored vector. Every marker in
-`tests/test_search_engine_spec.py` is off. What is left is in
-`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
-
----
-
-## Brief 12 (Sat, Opus): per-claim citations in Chat (D3)
-
-**Goal.** Each sentence of an answer carries a source mark; hovering
-highlights the source; the "I don't know" state is designed.
-
-**Done when.** On the ten fixture questions in `tests/fixtures/chat/`
-(create them), ≥ 95% of answer sentences carry a citation to a source in
-the retrieval set; the composer is ≤ 2 rows at rest at 1024.
-
-**Decisions made.** The stream already emits `grounding`, `related`,
-`answer` and `stats` events (`routes_chat.py`). Add a `cite` event
-`{sentence_index, source_ids}` computed server-side after each answer
-chunk boundary by matching sentence n-grams against the retrieved
-sources (no second model call; `ai/grounding.py` has the matcher to
-extend). Unsupported sentences get a hollow mark and the "I don't know"
-copy is triggered when < 50% of sentences are supported. The composer:
-one field, a "+" menu (attach, scope, persona, skill), send.
-
-**Steps.** Fixtures; the matcher test; the event; the marks in `app.js`'s
-answer renderer; the composer; the empty and unsupported states.
-
----
+### Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5)
 
@@ -537,47 +457,7 @@ WORLD_CLASS_PLAN §11's last paragraph.
 
 ---
 
-## Brief 15 (any day, Opus): network hardening before LAN mode
-
-**Goal.** WORLD_CLASS_PLAN §12 items S1, S2, S3, S5 closed, proven by a
-test that runs the app bound to 0.0.0.0.
-
-**Done when.** `tests/test_lan_mode.py` passes: media URLs carry a
-short-lived media token, not the session token, and the session token in
-`?token=` is refused; five wrong unlocks from one client address do not
-throttle another; `import_directory` returns 403 when the bind is not
-loopback; a bookmark or clip of `http://127.0.0.1:8781/` and of
-`http://10.0.0.1/` is refused by `assert_public_url()`; uvicorn access
-logs contain no `token=`.
-
-**Decisions made.** Media token = HMAC-SHA256 over `path|expiry` with a
-per-process key, 10 minutes, minted by `/media/token?path=` and cached by
-`mediaSrc`; the session token stays a header. Throttle keyed by
-`request.client.host` with the global list kept as a ceiling. The
-outbound guard lives in `core/security.py` and reuses `websearch.py`'s
-resolver (~689). Settings gets "Allow other devices on this network"
-only after this brief merges.
-
-**Steps.** Test file first (subprocess app on a free port, bound
-0.0.0.0); S1; S2; S3; S5; the log scrubber; the Settings toggle last.
-
-**State 2026-09-24.** S1, S2, S3, the rest of S5, S6's redirect half and
-`/debug/health`'s paths are built, each with its own test (HISTORY.md, "Moved
-from the plans, 2026-09-24"). Two of the decisions above were taken
-differently, and are recorded here rather than silently: S1 is an HttpOnly,
-SameSite=Strict cookie scoped to `/media` and `/files` holding a ticket that
-names the session, not an HMAC token in the URL, because a ticket in the URL
-is still a credential in history, logs and pasted text and `mediaSrc` is
-synchronous at fifty call sites; S3 confines `import_directory` to home and
-the data folder (with symlink escapes checked) rather than refusing it off
-loopback, which holds on loopback too. **2026-09-26:** `tests/test_lan_mode.py`
-passes (the real launcher on 0.0.0.0, reached over this machine's network
-address), with the switch's route, the launcher's bind and a Host guard
-against DNS rebinding (HISTORY.md, "Moved from the plans, 2026-09-26"). Left:
-the Settings toggle, built the same night (Account and security, "Allow
-other devices on this network").
-
----
+### Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## The quarter's briefs (shorter; expand each into the shape above when
 its session starts)
@@ -849,290 +729,17 @@ blurred at rest with the art off; every number in the plan's Built block;
 no em-dashes, no exclamation marks, sentence case; commit trailers;
 push per batch.
 
-## Brief 19 (Opus agent): DOCUMENTS Phase 2 steps 2 to 4, the engine
+### Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Relaunch text, verbatim, when the agent dies (its worktree survives:
-`git worktree list`, resume with the same words). Read CLAUDE.md, then
-DOCUMENTS_PLAN "Phase 2" and "Built, Phase 2 step 1", then DESIGN.md.
-Own worktree, commit per working piece, never push, five-line report,
-`archive/agent-remaining/documents-engine.md` before stopping.
+### Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Decisions (not remade): the bundle loads on demand via `loadCodeMirror()`
-(script-inject `/vendor/codemirror/codemirror.min.js`, no `?v=`), the
-textarea stays as the fallback; one adapter `docSurface()` (text get/set,
-`selection()`, `setSelection`, `replaceRange`, `onChange`, `coordsAt`,
-`focus`, `scrollTop`, `lineAt`) is the only thing documents.js and
-editor.js touch (the 18 `.value` reads, listeners at ~3081, 3097, 3113,
-3116, 3573; editor.js's 8); the view mounts in `#doc-source-wrap` as
-`#doc-editor`; Live = the same view with a decorations Compartment on,
-Source = off; `setDocView` (~200) keeps its contract; `renderDocLive`
-(~1504) and the `.lp-*` CSS are deleted once acceptance passes; Live
-decorations in value order (headings with hidden markers, inline marks
-with markers hidden until the caret enters, links as chips, task boxes
-that toggle, quotes and callouts, images as widgets, `[[wiki]]` chips via
-`layerDocWikiLinks`), computed from the lezer tree over
-`view.visibleRanges`; findings (docProseFindings ~4187,
-docBackdropFindings ~4437, docFindingAtOffset ~5201, docOpenSuggestFor
-~5258) become `cm-finding cm-finding-<kind>` marks, the backdrop layer
-retired; undo = CM6 history, the docUndo* stack (~6260 to 6440) retired
-after the editor.js sweep gate passes; find/replace = CM6 search panel
-restyled by CSS; folding on headings with the gutter preference; line
-numbers via CM6 for the document, `mountGutterFor` (~1139) stays for the
-other textareas; the `/` menu, `[[` autocomplete (~4819 to 4940), the
-toolbar (wrapDocSelection ~2359, wireMarkdownToolbar ~3301,
-wireMdFormatShortcuts ~3379) and selection to chat re-point at the
-adapter; styling via `EditorView.theme` from tokens plus a new
-`frontend/css/09-editor.css` linked with `?v=`; dark via
-`dataset.mode`; code files get their language (js/ts, py, css, html,
-json, yaml, stream modes), unknown plain.
+### Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Tests first: `tests/test_doc_surface.py` is on the branch, strict-xfail;
-remove each marker as it passes. Gates: doctype.js under 30 ms keydown to
-paint in Live at 20k words; editor.js undo gate; documents-chrome.js
-unchanged; errors.js clean at four widths; zero `securitypolicyviolation`;
-the bundle absent from the boot request list. Serve on 8786; never pkill
-uvicorn; CSP rejects `style=`; no em-dashes; commit trailers.
+### Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-## Brief 20 (Opus agent): graph node panel, Library image cards, whiteboard panels
+### Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
-Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md, INBOX 59, 56, 52, 64,
-65 and GRAPH_PLAN "Phase 6: the node panel". Own worktree, commit per
-item, never push, five-line report, `archive/agent-remaining/visual-c.md`. Do not
-touch documents.js or editor.js.
-
-Item 1, the graph node panel (grep "Favourite" and "Trace" together in
-graph.js/app.js and the panel in index.html): header (title, one category
-chip, confidence as a small muted mark), one muted meta line, the
-attachment as a compact row, the content editor four lines minimum and
-autogrowing, tags, one primary Save shown only when changed; actions as
-one icon toolbar row in three hairline-divided groups: read (Open,
-Similar, Trace), shape (Grow, Focus, Link, Remind), keep (Favourite; Bin
-last, ghost); Open the one filled button; the panel scrolls inside.
-Measure at 1440, 1024 and 390 (buttons per row, scrollHeight vs
-clientHeight, nothing under 36px, nothing clipped); graph4b.js passes.
-
-Item 2, Library image cards (library.js ~5271 `.library-image-tile`, CSS
-in 05 and 07): thumbnail with the file name as a scrim caption, one line
-"Used in <chip>" or "Not used yet", the description clamped to three
-lines with a "More" ghost button, OCR text under one disclosure,
-provenance as one muted foot line "Described by X · read by Y", edit and
-delete controls unchanged. Measure card height before/after with a long
-description, three font sizes per card, nothing clipped at 1024.
-
-Item 3, whiteboard panels: the bottom tool bar (`.whiteboard-floating-
-panel.bottom-center`, zoom pill `.bottom-right`, CSS in 07): one surface,
-hairline dividers, no per-control background except the active tool, the
-zoom pill on the same recipe and height; the properties panel (INBOX 64):
-sections Style, Guides, Arrange, Notes; Arrange as one icon toolbar row
-(align x3, distribute x2, group/ungroup pair) with tooltips; Extract notes
-as the section's one text button; no two control rects intersect; the
-panel scrolls inside. Measure: elements with their own background inside
-the bar, bar height equals the zoom pill, touch.js and docks.js
-unchanged, errors.js clean. Serve on 8788. Every new glass surface goes on
-the `[data-glass="off"]` list. Sentence case, no em-dashes, tokens only,
-commit trailers.
-
-## Brief 21 (Opus agent): UI_MODERNISATION Phases 9 and 10, the rest of the plan
-
-Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md (the recipe index and
-"Taken from Liquid Glass and the HIG"), UI_MODERNISATION_PLAN Phase 9
-(the breakpoint table and its rules), Phase 10 and its placed items
-(INBOX 60, 94, 100 to 104), and `archive/agent-remaining/responsive.md`. Own
-worktree, commit per step, never push, five-line report,
-`archive/agent-remaining/responsive.md` rewritten before stopping.
-
-Scope rules, because two other agents are running: every new CSS goes in
-a new `frontend/css/10-responsive.css` linked after 08-consistency.css
-with `?v=` (tests/test_asset_cache_busting.py); edits to existing CSS
-files only when a rule must be removed; do not touch documents.js,
-editor.js, whiteboard.js, library.js, graph.js or graph-canvas.js (their
-owners are mid-flight); app.js and index.html edits kept to the tab bar,
-the sidebars, the docks' responsive behaviour and the scroll-edge
-listener.
-
-Phase 9, in the plan's order: the four breakpoints as stated once
-(≥1100, 820 to 1100, 600 to 820, <600) with what changes app-wide;
-`--target-min` steps up in the 820 block; safe-area insets; sidebars
-collapse to icons then become sheets; docks keep identity, search, Filter
-and the primary under 820 with the rest in ⋯; two-up grids on iPad
-portrait; on the phone every tab gets the Phase 5 rules (strips scroll,
-one control row, the primary pinned bottom-right, bottom docks above the
-keyboard), the tab bar pinned to the bottom. Gate: errors.js and touch.js
-at 1440, 1024, 820, 600 and 390; no horizontal page scroll at any width;
-docks.js unchanged at desktop; the numbers per width in the commit.
-
-Phase 10, each with its own commit and measurement: 100 the scroll edge
-effect (`data-scrolled` set by one listener, a 16px gradient under
-`.dock`, the sub-tab strips and the top bar; absent at scrollTop 0;
-contrast.js on a scrolled list); 101 `--radius-inner` and the
-test_style_scale rule; 102 `.glass-clear` with `--glass-scrim` for the
-panels over the art and `--text-on-glass` on every blurred surface
-(contrast.js over aurora and constellation); 103 menus morphing from
-their opener (`kebabMenu`, `details.dock-menu`; off under Reduce motion)
-and sheets inset by `--space-3` then `--modal-bg` at full height (menus.js,
-touch.js); 104 the phone tab bar receding on scroll down, back on scroll
-up, never hidden; then 94 (the background animations: a measured frame
-cost per style, still under Performance mode, no seams, the intensity
-slider visible at every step) and 60 (the dashboard start section per its
-decision). Every new glass surface goes on the `[data-glass="off"]` list
-(tests/test_ui_recipes.py). Serve on 8790; never pkill uvicorn; sentence
-case; no em-dashes; tokens only; commit trailers.
-
-
-## Brief 22 (Opus agent): the three Notes sub-tabs, Capture, Write with AI and Ask
-
-**Built.** Moved to HISTORY.md, "From SESSION_BRIEFS Brief 22: the three
-Notes sub-tabs". Capture's controls are two heights (36 for the head row and
-the formatting strip, 40 for everything you act on) with the note box inside
-the composer's own surface at last; Write with AI is two of the same column,
-both 472.6px with both boxes 330.3px; the Ask card sits on one 9.6px step;
-and the three owner reports that came in with it (INBOX 119's preview gutter
-and menu gap, 120's duplicated suggestion rows) are fixed with their numbers
-in HISTORY's "INBOX resolved". What is left is in
-`docs/roadmap/archive/agent-remaining/notes-subtabs.md`.
-
----
-
-## Brief 23 (Opus agent, backend first): the corrections loop and resurfacing
-
-WORLD_CLASS_PLAN 15, I7 and I9, plus I4. The two largest unbuilt specs left
-on this branch: `tests/test_learned_spec.py` (15 strict-xfail markers) and
-`tests/test_resurface_spec.py` (7). Own worktree, commit per step,
-`scripts/gate.sh --changed` per step, never push, five-line report,
-`archive/agent-remaining/learning-loop.md` before stopping.
-
-**Read this before writing a line of it.** A part of I7 already exists, in a
-different shape from the one the spec names, and rebuilding it is this
-project's most expensive recurring mistake (CLAUDE.md section 1). What is
-there, found 2026-09-12: `ai/librarian.py` from line 908, "filing
-corrections", records a correction as an `AuditLog` row with
-`action="correction"` and a payload of `{from, to, excerpt}`, written by
-`entry/manager.update_entry` when a note the AI filed is moved by hand, and
-read back by `filing_corrections`, `corrections_note` and `filing_prompt`,
-which put the last five into the next filing prompt. It has its own
-constants (`CORRECTIONS_REMEMBERED = 5`, `CORRECTION_EXCERPT_CHARS = 80`).
-
-The spec asks for `ai/learning.py` with `record`, `corrections`, `boosts`,
-`filing_evidence`, `centroid_excluded`, `decayed` and `MAX_BOOST`, over a
-`corrections` table and a derived `learned_boosts`. **Decide, in the first
-commit, one of two things, and write the reason into the plan:** either the
-`learning` module owns the store and `librarian`'s three functions become
-readers of it (the `AuditLog` rows migrating once), or the `AuditLog` row
-stays the store and `learning` is the layer over it. Whichever you choose,
-there must be exactly one place a correction is written and one place it is
-read. The spec's own header allows the second: "a session that needs a
-different shape changes the test in the same commit, with the reason."
-
-Order, because the later work depends on the earlier:
-
-1. **I7, the store and the boosts** (`test_learned_spec.py`, the first five
-   tests). `record`/`corrections`/`boosts`/`decayed`/`MAX_BOOST`, bounded
-   and halving in 30 days, plus `POST /learned/corrections`.
-2. **I7's three consumers.** Filing (`filing_evidence` returns the matching
-   corrections *and* the nearest filed notes; `centroid_excluded` stops a
-   category two refiles have moved away from), search
-   (`search_manager.retrieve` reorders on an `open_after_ask` boost), and
-   link suggestions (a dismissed pair never returns from
-   `/entries/link-suggestions`).
-3. **I4, resurfacing** (`test_resurface_spec.py`, all seven).
-   `ai/resurface.py` with `compute_scores`, `ranked`, `for_context`, a
-   `note_scores` table written nightly, `GET /resurface` and
-   `POST /resurface/compute`. The endpoint is under 50 ms on 500 notes
-   because the scores are precomputed; the daily three are stable within a
-   day (`?as_of=`) and differ across days; a notebook of five notes returns
-   nothing rather than the same three forever; a `dismiss_resurface`
-   correction is honoured across restarts, which is why this comes after 1.
-4. **I9, the Settings section**, last and only if the frontend is free: ask
-   the orchestrator before touching `index.html` or `app.js`, two agents are
-   usually in them. Every derived row listed with its source span, model and
-   time; edit (never overwritten after), delete (never re-derived), reset,
-   a switch per runner and a master switch, "forget everything" leaving
-   notes and revisions byte-identical (the spec hashes the tables), a
-   private note's facts never listed, and a readable JSON export.
-
-Remove a strict-xfail marker only when its test passes on its own, and never
-weaken a test to make it pass: if a test is wrong, change it in the same
-commit and say why in the message. No em-dashes; sentence case; commit
-trailers; never `pkill -f uvicorn`; own port through
-`scratchpad/ui-sweeps/serve.sh` if you need a server at all.
-
-## Brief 24 (Opus agent, backend only): the derived facts pipeline (I9)
-
-The ten strict-xfail markers left in `tests/test_learned_spec.py`, after
-Brief 23 built I7 and I4. Written 2026-09-12 by the orchestrator, from
-`archive/agent-remaining/learning-loop.md`, which is the file to read first: it says
-what exists, and it is the reason this is a brief of its own.
-
-**The finding that makes it one.** I9 reads like a Settings section in
-WORLD_CLASS_PLAN 15. It is not. Every one of the ten tests drives a pipeline
-that does not exist yet: a night pass that derives facts from notes, a table
-for them carrying provenance, an edit and delete and reset lifecycle with
-tombstones, and a switch per runner. The screen is the last hour of the work,
-not the first.
-
-**Decisions, made here, so the session does not remake them:**
-
-1. **The night pass is a fourth task in `ai/autonomous.py`**, not a new
-   runtime. That module already has the scheduler, the cancel and snooze
-   protocol, `_enabled_tasks` reading a preference per task, and the
-   `system:librarian` attribution that answers "who did this". A new
-   scheduler beside it would be a second answer to every one of those.
-2. **The derived rows get their own table**, unlike corrections, which stayed
-   in `AuditLog` (Brief 23's decision, and its reason was that a store with
-   the index, retention and compaction already existed). A derived fact needs
-   columns `AuditLog` has no room for and must carry: `entry_id`, `kind`,
-   `text`, `span_start`, `span_end`, `model`, `confidence`, `computed_at`,
-   `edited_by_user`, `original_text`, `deleted_at`. The last two are the
-   lifecycle: an edited row is never overwritten by a re-run, a deleted row
-   is never re-derived, and both have to survive `force=True`.
-3. **A delete is also a correction.** `test_a_deleted_fact_is_not_rederived`
-   asserts a `delete_fact` kind in `GET /learned/corrections`, so the
-   tombstone is the derived table's own `deleted_at` *and* a
-   `learning.record` row: the first stops the re-derivation, the second is
-   what the loop learns from.
-4. **Private notes are filtered at the read, not at the write.** The spec
-   makes a note private *after* its facts are derived and expects them gone
-   from the listing. Filtering only on the way in would leave them listed.
-5. **"Forget everything" touches the derived tables only.** The spec hashes
-   `entries` and `entry_revisions` before and after and requires them byte
-   identical, which is the whole promise: what the app learned is separable
-   from what you wrote.
-
-**Tests first**, in this order, removing a marker only when its test passes on
-its own: list with span, edit survives a re-run, delete is not re-derived,
-reset, the per-runner switch, the master switch, forget everything, private
-notes, export. Never weaken a test to make it pass; if one is wrong, change it
-in the same commit and say why.
-
-**Files.** `src/memorymap/ai/autonomous.py` (the fourth task),
-`src/memorymap/ai/facts.py` (new: derive, store, lifecycle),
-`src/memorymap/core/database.py` (the table and its index),
-`src/memorymap/api/routes_learned.py` (the routes: `POST /night/run`,
-`GET /learned`, `GET|PATCH|DELETE /learned/{id}`, `POST /learned/{id}/reset`,
-`GET|PUT /learned/switches`, `DELETE /learned`, `GET /learned/export`), and
-`tests/test_learned_spec.py`. `ai/extractor.py` and `ai/tensions.py` already
-pull statements out of a note's text and are where to look before writing a
-third way to do it. The frontend is not in this brief: ask the orchestrator
-before touching `index.html` or `app.js`, and expect the answer to be no
-while the documents and whiteboard agents hold them.
-
-**Traps.**
-
-- The specs run on `ai_client` and `fake_ollama`, so whatever the fake
-  transport returns *is* the model's answer. Read `tests/fakes.py` before
-  designing the prompt: a pipeline that only derives facts from a real
-  model's phrasing cannot pass its own tests.
-- The span is asserted against the note's own text
-  (`content[span[0]:span[1]].endswith("?")`), so the derivation has to carry
-  offsets out of the text it read, not re-find the sentence afterwards.
-- `budget` is a real limit, not decoration: `POST /night/run` takes one and
-  the pass has to stop inside it.
-- Standing order 4 (CLAUDE.md): own port and data dir if a server is needed,
-  never `pkill -f uvicorn`, `git commit -- <paths>` and never `git add`, no
-  em-dashes, commit trailers, `scripts/gate.sh --changed` per step, the full
-  suite once before the final report, never push.
-- Before stopping: `archive/agent-remaining/learning-loop.md` updated to the state it
-  is actually in, and a five-line report.
+### Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)")
 
 ## Briefs 25 to 31: the plans the owner asked to see finished
 

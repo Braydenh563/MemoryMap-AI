@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Plans: eleven built briefs (1, 7, 11, 12, 15, 19 to 24) moved from SESSION_BRIEFS.md to HISTORY.md, 2,088 lines down to 1,695.
 - Plans: the companion's behaviour model (SESSION_BRIEFS Brief 34 second part, INBOX 752).
 - Plans: every vendored library audited for use (SESSION_BRIEFS Brief 75, INBOX 751).
 - Plans: the trust contract (WORLD_CLASS_PLAN 28: fourteen rules with a measure each, the iPhone a release blocker, reminders to desktop and browser notifications without a push server, one Activity panel; Briefs 72 to 74).

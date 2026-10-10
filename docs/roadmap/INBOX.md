@@ -156,18 +156,6 @@ with its owner named in the entry.
      own Reduce setting both stop every loop and keep the pose. Owner: Brief
      34 continues (companion2).
 
-773. **Decision needed, found by the companion agent (Brief 34), 2026-10-10.**
-     The 100 ms reaction-latency bar conflicts with the 1.5 s reaction
-     debounce the owner asked for ("atlas startles a lot"). Recommendation,
-     taken: both hold; the bar is measured from the end of the debounce to
-     the first changed frame. Owner: Brief 34 continues (companion2).
-774. **Usage and agent mix, the owner 2026-10-10 21:40Z.** "in a single
-     day I have used 50% of my weekly usage", "no keep going, I just stopped
-     unig fable becasue it is expensive. do just as good of a job as it",
-     "actually you can use 2-3 opus agents, just make sure to use sonnet and
-     haiku when they can do just as good a job as well". Taken: orchestrator
-     on Opus; at most three Opus agents; Sonnet and Haiku for every brief
-     they can do to the same standard. Placed in HANDOVER's owner notes.
 775. **Bug, the owner 2026-10-10 21:52Z, two screenshots (desktop, 34 notes).**
      "I went onto the graph and this is what it looked like?? it didnt zoom
      in or fit to my screen?? I pressed the fit button and it didnt do much".
@@ -188,6 +176,31 @@ with its owner named in the entry.
 777. **UI, the owner 2026-10-10 22:10Z.** "the shimmering sliding animation
      on the skeleton loaders is very fast and not smooth or pleasing to the
      eye in how fast and jittery it is"
+778. **Bug, the owner 2026-10-10 22:15Z.** "well the agent mode was still an
+     option when I was on the chat with no ai running :(" (status.js
+     `agentModeAvailable` greys it only when `ollama_running === false`.)
+779. **UI, the owner 2026-10-10 22:15Z, two screenshots.** "on custom themes
+     can you maybe adjust the delete bin icon a little?? and also I think the
+     Your Themes setting section is designed awkwardly". The bin sits on the
+     card's corner, cut by the border; the section is a left label column
+     beside one card, the name field and Save, with the two reset buttons
+     below the whole row.
+780. **UI, the owner 2026-10-10 22:18Z, screenshot.** "also can you improve
+     the opacity of the peak function in the settings as well?" (Settings'
+     Peek: the panel is still mostly opaque and blurred over the app.)
+781. **Engine, the owner 2026-10-10 22:20Z.** "also when filing and tagging
+     and stuff, I want the deterministic engine to be better for when
+     suggesting tags, bot for popup suggestions, when using the "tag and file
+     with atlas", and also when making a note etc." Recommendation, taken: an
+     Opus brief on WORLD_CLASS 23 (filing and the taxonomy pack) measured
+     against a labelled set, after the running Opus agents.
+782. **UI, the owner 2026-10-10 22:22Z, screenshot.** "can you redesign the
+     confirm and not right buttons in the tidy popup panel?? and any other
+     similar instances of them across the app" (Tidy's Patterns rows: two
+     full-size bordered buttons under each sentence.)
+783. **Question, the owner 2026-10-10 22:23Z, screenshot.** "how do I delete a
+     suggestion??" (Tidy, Category names: one suggestion, ticked, with All,
+     None and Rename 1 category; no way to dismiss it for good.)
 
 ## Placed (last 20, newest first)
 

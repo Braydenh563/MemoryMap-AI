@@ -47226,6 +47226,20 @@ Entries are the owner's words, then the recommendation. Bugs come first.
      Owner: DOCUMENTS_PLAN 23, Brief 42 (output panel height, Stop state) and Brief 69 (run, preview and test).
      Fixed 2026-10-10 (Brief 42, docs42): a grip on the panel's top edge (drag, arrow keys, double-click resets, height kept per document; +120px drag measured +120px) and Stop disabled once a script ends with no timer left (`scratchpad/ui-sweeps/docs42c.js`, 5 of 5).
 
+774. **Usage and agent mix, the owner 2026-10-10 21:40Z.** "in a single
+     day I have used 50% of my weekly usage", "no keep going, I just stopped
+     unig fable becasue it is expensive. do just as good of a job as it",
+     "actually you can use 2-3 opus agents, just make sure to use sonnet and
+     haiku when they can do just as good a job as well". Taken: orchestrator
+     on Opus; at most three Opus agents; Sonnet and Haiku for every brief
+     they can do to the same standard. Placed in HANDOVER's owner notes.
+
+773. **Decision needed, found by the companion agent (Brief 34), 2026-10-10.**
+     The 100 ms reaction-latency bar conflicts with the 1.5 s reaction
+     debounce the owner asked for ("atlas startles a lot"). Recommendation,
+     taken: both hold; the bar is measured from the end of the debounce to
+     the first changed frame. Owner: Brief 34 continues (companion2).
+
 ## Plan size caps, 2026-10-10
 
 Orientation reads are the largest token cost, so every plan and planning file has a line cap (today's count rounded up to the next 100, plus 200) enforced by `tests/test_plan_hygiene.py`; raise one only after moving something out.

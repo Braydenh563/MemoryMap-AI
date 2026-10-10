@@ -412,8 +412,13 @@ def _archive(session: Session) -> list[dict]:
                 "thumb_url": None if thumb_id else _first_inline_image_url(content),
             }
         )
-    #: Documents and reminders have a bin too (WORLD_CLASS_PLAN 5 item 10):
-    #: the same list, told apart by `subtype`, each with its own routes.
+    items.extend(_other_binned(session))
+    return items
+
+def _other_binned(session: Session) -> list[dict]:
+    """The documents, reminders and OCR readings in the bin, as `_archive`
+    lists them (each kind has its own routes; `subtype` tells them apart)."""
+    items: list[dict] = []
     from memorymap.entry import bin as other_bin
 
     documents, reminders = other_bin.binned(session)

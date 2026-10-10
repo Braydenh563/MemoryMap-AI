@@ -3637,6 +3637,14 @@ function docRunRow(level, text, line, into = null, follow = true) {
   row.className = `cm-run-row is-${["error", "warn", "info", "debug"].includes(level) ? level : "log"}`;
   //: A console's typed line and the value it gave back.
   if (level === "input" || level === "result") row.classList.add(`is-${level}`);
+  if (level === "result") {
+    //: The value's mark is a Phosphor icon, never a glyph in CSS content
+    //: (tests/test_no_ui_emoji.py).
+    const mark = document.createElement("i");
+    mark.className = "ph ph-arrow-elbow-down-right cm-run-mark";
+    mark.setAttribute("aria-hidden", "true");
+    row.appendChild(mark);
+  }
   const words = document.createElement("span");
   words.className = "cm-run-text";
   words.textContent = String(text).slice(0, 4000);

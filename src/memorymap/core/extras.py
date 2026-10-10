@@ -660,6 +660,16 @@ EXTRAS: tuple[Extra, ...] = (
     ),
 )
 
+
+def _extra_size(extra_id: str) -> str:
+    found = next((extra for extra in EXTRAS if extra.id == extra_id), None)
+    return (found.size or "").lstrip("~") if found else ""
+
+
+#: The OCR workspace's offer says each install's size from this table
+#: (`ocr.engine_state`); ocr.py cannot import this module (the cycle lint).
+ocr.extra_size = _extra_size
+
 def download_mb(extra: "Extra") -> int:
     """The `size` text ("~2 GB: ...", "~16 MB") as megabytes, for one sentence
     that says how much a first setup downloads; 0 when it cannot be read."""

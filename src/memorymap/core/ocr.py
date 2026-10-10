@@ -609,11 +609,16 @@ def engine_status() -> dict:
     }
 
 
-def _extra_size(extra_id: str) -> str:
-    from memorymap.core import extras
+def extra_size(extra_id: str) -> str:
+    """The download an extra costs, as `core/extras.py`'s table says it.
+    extras.py imports this module, so it sets this name when its table is
+    built rather than being imported here (tests/test_no_import_cycles.py
+    holds the direction); until then no size is known."""
+    return ""
 
-    found = next((extra for extra in extras.EXTRAS if extra.id == extra_id), None)
-    return (found.size or "").lstrip("~") if found else ""
+
+def _extra_size(extra_id: str) -> str:
+    return extra_size(extra_id)
 
 
 def unavailable_reason(choice: str = "") -> str:

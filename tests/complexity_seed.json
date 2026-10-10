@@ -179,7 +179,6 @@
  "src/memorymap/api/routes_graph.py::graph_local": 23,
  "src/memorymap/api/routes_graph.py::graph_path": 26,
  "src/memorymap/api/routes_insights.py::greeting": 21,
- "src/memorymap/api/routes_library.py::_archive": 18,
  "src/memorymap/api/routes_library.py::_notes": 19,
  "src/memorymap/api/routes_library.py::_shelved": 18,
  "src/memorymap/api/routes_map_from_notes.py::build_tree": 26,

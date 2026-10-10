@@ -2,7 +2,7 @@
 
 Generated 2026-10-10 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5013, frontend ids 2278, CSS sections 486, backend routes 506, backend modules 4076, test files 981, tests 9137, plan headings 953.
+Counts: frontend functions 5013, frontend ids 2278, CSS sections 486, backend routes 506, backend modules 4079, test files 981, tests 9137, plan headings 953.
 
 ## Frontend functions (5013)
 
@@ -2478,36 +2478,36 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `DOC_CSS_COLORS` | frontend/js/documents-code.js:728 |
-| `docApplyCodeFix` | frontend/js/documents-code.js:5724 |
+| `docApplyCodeFix` | frontend/js/documents-code.js:5732 |
 | `docBalanceRange` | frontend/js/documents-code.js:1012 |
 | `docBeautifyText` | frontend/js/documents-code.js:1428 |
 | `docBracketColours` | frontend/js/documents-code.js:2086 |
 | `docBracketDepths` | frontend/js/documents-code.js:2069 |
 | `docCmSyncCodeTools` | frontend/js/documents-code.js:677 |
-| `docCodeActions` | frontend/js/documents-code.js:5739 |
+| `docCodeActions` | frontend/js/documents-code.js:5747 |
 | `docCodeCompletionData` | frontend/js/documents-code.js:636 |
 | `docCodeCompletionSource` | frontend/js/documents-code.js:607 |
-| `docCodeEditing` | frontend/js/documents-code.js:5476 |
-| `docCodeFixNow` | frontend/js/documents-code.js:5706 |
-| `docCodeFixes` | frontend/js/documents-code.js:5201 |
-| `docCodeIndentAt` | frontend/js/documents-code.js:5461 |
-| `docCodeIndentLevel` | frontend/js/documents-code.js:4749 |
-| `docCodeInsertPoint` | frontend/js/documents-code.js:5192 |
-| `docCodeInsertPointForString` | frontend/js/documents-code.js:5279 |
-| `docCodeLastCodeBefore` | frontend/js/documents-code.js:5262 |
-| `docCodeLineOf` | frontend/js/documents-code.js:4738 |
+| `docCodeEditing` | frontend/js/documents-code.js:5484 |
+| `docCodeFixNow` | frontend/js/documents-code.js:5714 |
+| `docCodeFixes` | frontend/js/documents-code.js:5209 |
+| `docCodeIndentAt` | frontend/js/documents-code.js:5469 |
+| `docCodeIndentLevel` | frontend/js/documents-code.js:4757 |
+| `docCodeInsertPoint` | frontend/js/documents-code.js:5200 |
+| `docCodeInsertPointForString` | frontend/js/documents-code.js:5287 |
+| `docCodeLastCodeBefore` | frontend/js/documents-code.js:5270 |
+| `docCodeLineOf` | frontend/js/documents-code.js:4746 |
 | `docCodeLintSource` | frontend/js/documents-code.js:340 |
-| `docCodePairs` | frontend/js/documents-code.js:5450 |
-| `docCodeProblemMessage` | frontend/js/documents-code.js:4764 |
-| `docCodeProfile` | frontend/js/documents-code.js:4223 |
-| `docCodeScan` | frontend/js/documents-code.js:4311 |
+| `docCodePairs` | frontend/js/documents-code.js:5458 |
+| `docCodeProblemMessage` | frontend/js/documents-code.js:4772 |
+| `docCodeProfile` | frontend/js/documents-code.js:4231 |
+| `docCodeScan` | frontend/js/documents-code.js:4319 |
 | `docCodeSnippetOptions` | frontend/js/documents-code.js:577 |
 | `docCodeSymbols` | frontend/js/documents-code.js:2128 |
 | `docCodeTools` | frontend/js/documents-code.js:647 |
 | `docColorAt` | frontend/js/documents-code.js:1827 |
 | `docColorSwatches` | frontend/js/documents-code.js:1867 |
 | `docCompleteTab` | frontend/js/documents-code.js:1688 |
-| `docCompletionExtras` | frontend/js/documents-code.js:4157 |
+| `docCompletionExtras` | frontend/js/documents-code.js:4165 |
 | `docConsoleEval` | frontend/js/documents-code.js:3419 |
 | `docConsoleKey` | frontend/js/documents-code.js:3485 |
 | `docConsoleLang` | frontend/js/documents-code.js:3411 |
@@ -2554,13 +2554,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docEmmetWrap` | frontend/js/documents-code.js:1569 |
 | `docEmmetWrapText` | frontend/js/documents-code.js:1033 |
 | `docFindInDocuments` | frontend/js/documents-code.js:2454 |
-| `docFormatChanges` | frontend/js/documents-code.js:5581 |
-| `docFormatCode` | frontend/js/documents-code.js:5605 |
-| `docFormatCodeText` | frontend/js/documents-code.js:4801 |
-| `docFormatJsonText` | frontend/js/documents-code.js:5118 |
-| `docFormatMarkupText` | frontend/js/documents-code.js:4881 |
-| `docFormatRemoteRefusal` | frontend/js/documents-code.js:5560 |
-| `docFormatTreeRefusal` | frontend/js/documents-code.js:5546 |
+| `docFormatChanges` | frontend/js/documents-code.js:5589 |
+| `docFormatCode` | frontend/js/documents-code.js:5613 |
+| `docFormatCodeText` | frontend/js/documents-code.js:4809 |
+| `docFormatJsonText` | frontend/js/documents-code.js:5126 |
+| `docFormatMarkupText` | frontend/js/documents-code.js:4889 |
+| `docFormatRemoteRefusal` | frontend/js/documents-code.js:5568 |
+| `docFormatTreeRefusal` | frontend/js/documents-code.js:5554 |
 | `docGhostPlugin` | frontend/js/documents-code.js:1700 |
 | `docGhostSuffix` | frontend/js/documents-code.js:994 |
 | `docGoToDefinition` | frontend/js/documents-code.js:2407 |
@@ -2569,34 +2569,34 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docHtmlDiagnostics` | frontend/js/documents-code.js:270 |
 | `docHtmlTextAt` | frontend/js/documents-code.js:1450 |
 | `docIndentGuides` | frontend/js/documents-code.js:2008 |
-| `docIndentMixFixes` | frontend/js/documents-code.js:5365 |
+| `docIndentMixFixes` | frontend/js/documents-code.js:5373 |
 | `docIndentSteps` | frontend/js/documents-code.js:1989 |
 | `docJsonDiagnostics` | frontend/js/documents-code.js:221 |
 | `docJsonErrorAt` | frontend/js/documents-code.js:103 |
-| `docJsonFixes` | frontend/js/documents-code.js:5289 |
+| `docJsonFixes` | frontend/js/documents-code.js:5297 |
 | `docJsxChildAt` | frontend/js/documents-code.js:1461 |
 | `docLoadBeautify` | frontend/js/documents-code.js:1409 |
 | `docLoadEmmet` | frontend/js/documents-code.js:1383 |
 | `docNativeSnippets` | frontend/js/documents-code.js:591 |
-| `docOpenCodeFixes` | frontend/js/documents-code.js:5754 |
-| `docOpenSymbols` | frontend/js/documents-code.js:4136 |
+| `docOpenCodeFixes` | frontend/js/documents-code.js:5762 |
+| `docOpenSymbols` | frontend/js/documents-code.js:4144 |
 | `docPanelChord` | frontend/js/documents-code.js:3366 |
 | `docPanelToggle` | frontend/js/documents-code.js:3350 |
 | `docPickDefinition` | frontend/js/documents-code.js:2396 |
 | `docProblemsRender` | frontend/js/documents-code.js:3387 |
-| `docPythonColonFix` | frontend/js/documents-code.js:5342 |
+| `docPythonColonFix` | frontend/js/documents-code.js:5350 |
 | `docPythonDefines` | frontend/js/documents-code.js:2352 |
 | `docReferencesOf` | frontend/js/documents-code.js:2328 |
 | `docRemoteDiagnostics` | frontend/js/documents-code.js:300 |
 | `docRgbToHex` | frontend/js/documents-code.js:1093 |
 | `docRunAfterSave` | frontend/js/documents-code.js:3541 |
-| `docRunArmTimeout` | frontend/js/documents-code.js:3867 |
-| `docRunAsk` | frontend/js/documents-code.js:3780 |
-| `docRunCell` | frontend/js/documents-code.js:4010 |
+| `docRunArmTimeout` | frontend/js/documents-code.js:3875 |
+| `docRunAsk` | frontend/js/documents-code.js:3788 |
+| `docRunCell` | frontend/js/documents-code.js:4018 |
 | `docRunClear` | frontend/js/documents-code.js:3622 |
 | `docRunClearTab` | frontend/js/documents-code.js:3376 |
-| `docRunClose` | frontend/js/documents-code.js:3841 |
-| `docRunCode` | frontend/js/documents-code.js:3882 |
+| `docRunClose` | frontend/js/documents-code.js:3849 |
+| `docRunCode` | frontend/js/documents-code.js:3890 |
 | `docRunExtension` | frontend/js/documents-code.js:3548 |
 | `docRunJobArm` | frontend/js/documents-code.js:3590 |
 | `docRunJobCall` | frontend/js/documents-code.js:3583 |
@@ -2605,22 +2605,22 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docRunLiveSchedule` | frontend/js/documents-code.js:3532 |
 | `docRunOpenPythonExtra` | frontend/js/documents-code.js:2546 |
 | `docRunPanel` | frontend/js/documents-code.js:3083 |
-| `docRunPythonMissing` | frontend/js/documents-code.js:3849 |
+| `docRunPythonMissing` | frontend/js/documents-code.js:3857 |
 | `docRunPythonReady` | frontend/js/documents-code.js:2523 |
 | `docRunRow` | frontend/js/documents-code.js:3631 |
-| `docRunSelection` | frontend/js/documents-code.js:3999 |
-| `docRunSend` | frontend/js/documents-code.js:3821 |
+| `docRunSelection` | frontend/js/documents-code.js:4007 |
+| `docRunSend` | frontend/js/documents-code.js:3829 |
 | `docRunSetLive` | frontend/js/documents-code.js:3523 |
 | `docRunSetStatus` | frontend/js/documents-code.js:3568 |
 | `docRunShowStdin` | frontend/js/documents-code.js:3509 |
 | `docRunShowTab` | frontend/js/documents-code.js:3330 |
-| `docRunShowTestMarks` | frontend/js/documents-code.js:3766 |
-| `docRunStop` | frontend/js/documents-code.js:3830 |
+| `docRunShowTestMarks` | frontend/js/documents-code.js:3774 |
+| `docRunStop` | frontend/js/documents-code.js:3838 |
 | `docRunSyncAvailability` | frontend/js/documents-code.js:2532 |
-| `docRunTable` | frontend/js/documents-code.js:3663 |
-| `docRunTestDiagnostics` | frontend/js/documents-code.js:3732 |
-| `docRunTestRow` | frontend/js/documents-code.js:3701 |
-| `docRunTestsDone` | frontend/js/documents-code.js:3745 |
+| `docRunTable` | frontend/js/documents-code.js:3671 |
+| `docRunTestDiagnostics` | frontend/js/documents-code.js:3740 |
+| `docRunTestRow` | frontend/js/documents-code.js:3709 |
+| `docRunTestsDone` | frontend/js/documents-code.js:3753 |
 | `docRunnable` | frontend/js/documents-code.js:2516 |
 | `docShowReferences` | frontend/js/documents-code.js:2428 |
 | `docStickyHeaders` | frontend/js/documents-code.js:2201 |
@@ -2628,13 +2628,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docTagLink` | frontend/js/documents-code.js:1758 |
 | `docTagRename` | frontend/js/documents-code.js:1044 |
 | `docTreeDiagnostics` | frontend/js/documents-code.js:244 |
-| `docTreeHasJsx` | frontend/js/documents-code.js:5531 |
+| `docTreeHasJsx` | frontend/js/documents-code.js:5539 |
 | `docWordAt` | frontend/js/documents-code.js:2317 |
 | `docXmlAutoClose` | frontend/js/documents-code.js:1793 |
 | `docXmlOpenedBy` | frontend/js/documents-code.js:1067 |
 | `docXmlTextAt` | frontend/js/documents-code.js:1471 |
 | `docXmlUnclosed` | frontend/js/documents-code.js:1074 |
-| `docYamlBlockLines` | frontend/js/documents-code.js:5091 |
+| `docYamlBlockLines` | frontend/js/documents-code.js:5099 |
 
 ### frontend/js/documents-ide.js (28)
 
@@ -8666,7 +8666,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/lan-certificate` | POST | `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:857 |
 | `/lan-certificate.pem` | GET | `download_lan_certificate` | src/memorymap/api/routes_auth.py:842 |
 | `/latest` | GET | `latest` | src/memorymap/api/routes_night.py:84 |
-| `/library` | GET | `library` | src/memorymap/api/routes_library.py:1049 |
+| `/library` | GET | `library` | src/memorymap/api/routes_library.py:1054 |
 | `/link-reasons/run` | POST | `tidy_link_reasons_run` | src/memorymap/api/routes_tidy.py:73 |
 | `/link-reasons/stop` | POST | `tidy_link_reasons_stop` | src/memorymap/api/routes_tidy.py:83 |
 | `/link-suggestions` | GET | `link_suggestions` | src/memorymap/api/routes_entries.py:1643 |
@@ -8955,7 +8955,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4076)
+## Backend modules (4079)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11719,29 +11719,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `put_switches` | src/memorymap/api/routes_learned.py:204 |
 | `reset_fact` | src/memorymap/api/routes_learned.py:303 |
 
-### src/memorymap/api/routes_library.py (19)
+### src/memorymap/api/routes_library.py (20)
 
 | Name | File:line |
 |---|---|
-| `_activity` | src/memorymap/api/routes_library.py:889 |
+| `_activity` | src/memorymap/api/routes_library.py:894 |
 | `_archive` | src/memorymap/api/routes_library.py:357 |
 | `_chats` | src/memorymap/api/routes_library.py:253 |
 | `_clip` | src/memorymap/api/routes_library.py:120 |
 | `_clip_plain` | src/memorymap/api/routes_library.py:144 |
 | `_documents` | src/memorymap/api/routes_library.py:218 |
-| `_drafts` | src/memorymap/api/routes_library.py:842 |
+| `_drafts` | src/memorymap/api/routes_library.py:847 |
 | `_entry_kind` | src/memorymap/api/routes_library.py:196 |
 | `_first_inline_image_url` | src/memorymap/api/routes_library.py:168 |
-| `_highlights` | src/memorymap/api/routes_library.py:727 |
+| `_highlights` | src/memorymap/api/routes_library.py:732 |
 | `_human_size` | src/memorymap/api/routes_library.py:186 |
 | `_images` | src/memorymap/api/routes_library.py:302 |
 | `_like` | src/memorymap/api/routes_library.py:54 |
-| `_notes` | src/memorymap/api/routes_library.py:607 |
-| `_overview` | src/memorymap/api/routes_library.py:1004 |
-| `_shelved` | src/memorymap/api/routes_library.py:480 |
-| `_tags` | src/memorymap/api/routes_library.py:964 |
-| `_totals` | src/memorymap/api/routes_library.py:1033 |
-| `library` | src/memorymap/api/routes_library.py:1050 |
+| `_notes` | src/memorymap/api/routes_library.py:612 |
+| `_other_binned` | src/memorymap/api/routes_library.py:418 |
+| `_overview` | src/memorymap/api/routes_library.py:1009 |
+| `_shelved` | src/memorymap/api/routes_library.py:485 |
+| `_tags` | src/memorymap/api/routes_library.py:969 |
+| `_totals` | src/memorymap/api/routes_library.py:1038 |
+| `library` | src/memorymap/api/routes_library.py:1055 |
 
 ### src/memorymap/api/routes_map_from_notes.py (6)
 
@@ -12882,63 +12883,64 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `uninstall` | src/memorymap/core/extra_downloads.py:412 |
 | `url_allowed` | src/memorymap/core/extra_downloads.py:162 |
 
-### src/memorymap/core/extras.py (53)
+### src/memorymap/core/extras.py (54)
 
 | Name | File:line |
 |---|---|
-| `BulkState` | src/memorymap/core/extras.py:789 |
-| `Bundle` | src/memorymap/core/extras.py:677 |
+| `BulkState` | src/memorymap/core/extras.py:799 |
+| `Bundle` | src/memorymap/core/extras.py:687 |
 | `Extra` | src/memorymap/core/extras.py:334 |
-| `InstallState` | src/memorymap/core/extras.py:741 |
-| `_busy` | src/memorymap/core/extras.py:1484 |
-| `_canonical` | src/memorymap/core/extras.py:1040 |
-| `_claim` | src/memorymap/core/extras.py:1472 |
-| `_constraints_copy` | src/memorymap/core/extras.py:1214 |
-| `_dispatch` | src/memorymap/core/extras.py:1490 |
-| `_finish_bulk` | src/memorymap/core/extras.py:1711 |
-| `_forget_footprints` | src/memorymap/core/extras.py:950 |
+| `InstallState` | src/memorymap/core/extras.py:751 |
+| `_busy` | src/memorymap/core/extras.py:1494 |
+| `_canonical` | src/memorymap/core/extras.py:1050 |
+| `_claim` | src/memorymap/core/extras.py:1482 |
+| `_constraints_copy` | src/memorymap/core/extras.py:1224 |
+| `_dispatch` | src/memorymap/core/extras.py:1500 |
+| `_extra_size` | src/memorymap/core/extras.py:664 |
+| `_finish_bulk` | src/memorymap/core/extras.py:1721 |
+| `_forget_footprints` | src/memorymap/core/extras.py:960 |
 | `_frozen_target_args` | src/memorymap/core/extras.py:258 |
-| `_install_refusal` | src/memorymap/core/extras.py:1546 |
-| `_installed_snapshot` | src/memorymap/core/extras.py:1232 |
+| `_install_refusal` | src/memorymap/core/extras.py:1556 |
+| `_installed_snapshot` | src/memorymap/core/extras.py:1242 |
 | `_interpreter_behind` | src/memorymap/core/extras.py:194 |
-| `_loaded_in_process_reason` | src/memorymap/core/extras.py:1747 |
+| `_loaded_in_process_reason` | src/memorymap/core/extras.py:1757 |
 | `_pip_base_command` | src/memorymap/core/extras.py:315 |
 | `_pip_platforms` | src/memorymap/core/extras.py:279 |
 | `_pip_reason` | src/memorymap/core/extras.py:101 |
 | `_python_candidates` | src/memorymap/core/extras.py:170 |
-| `_read_footprint` | src/memorymap/core/extras.py:920 |
-| `_remove_from_frozen_target` | src/memorymap/core/extras.py:1045 |
-| `_requirement_name` | src/memorymap/core/extras.py:1034 |
-| `_requirements_path` | src/memorymap/core/extras.py:1200 |
-| `_roll_back` | src/memorymap/core/extras.py:1243 |
-| `_run_bulk` | src/memorymap/core/extras.py:1635 |
-| `_run_bulk_item` | src/memorymap/core/extras.py:1665 |
-| `_run_download_install` | src/memorymap/core/extras.py:1416 |
-| `_run_download_uninstall` | src/memorymap/core/extras.py:1458 |
-| `_run_install` | src/memorymap/core/extras.py:1275 |
-| `_run_single` | src/memorymap/core/extras.py:1511 |
-| `_run_uninstall` | src/memorymap/core/extras.py:1112 |
-| `_status_row` | src/memorymap/core/extras.py:867 |
+| `_read_footprint` | src/memorymap/core/extras.py:930 |
+| `_remove_from_frozen_target` | src/memorymap/core/extras.py:1055 |
+| `_requirement_name` | src/memorymap/core/extras.py:1044 |
+| `_requirements_path` | src/memorymap/core/extras.py:1210 |
+| `_roll_back` | src/memorymap/core/extras.py:1253 |
+| `_run_bulk` | src/memorymap/core/extras.py:1645 |
+| `_run_bulk_item` | src/memorymap/core/extras.py:1675 |
+| `_run_download_install` | src/memorymap/core/extras.py:1426 |
+| `_run_download_uninstall` | src/memorymap/core/extras.py:1468 |
+| `_run_install` | src/memorymap/core/extras.py:1285 |
+| `_run_single` | src/memorymap/core/extras.py:1521 |
+| `_run_uninstall` | src/memorymap/core/extras.py:1122 |
+| `_status_row` | src/memorymap/core/extras.py:877 |
 | `activate_frozen_extras` | src/memorymap/core/extras.py:244 |
-| `bulk` | src/memorymap/core/extras.py:969 |
-| `bulk_label` | src/memorymap/core/extras.py:1629 |
-| `bulk_status` | src/memorymap/core/extras.py:954 |
-| `bundles` | src/memorymap/core/extras.py:889 |
-| `cancel` | src/memorymap/core/extras.py:988 |
-| `current` | src/memorymap/core/extras.py:984 |
-| `download_mb` | src/memorymap/core/extras.py:663 |
-| `download_ready` | src/memorymap/core/extras.py:1824 |
+| `bulk` | src/memorymap/core/extras.py:979 |
+| `bulk_label` | src/memorymap/core/extras.py:1639 |
+| `bulk_status` | src/memorymap/core/extras.py:964 |
+| `bundles` | src/memorymap/core/extras.py:899 |
+| `cancel` | src/memorymap/core/extras.py:998 |
+| `current` | src/memorymap/core/extras.py:994 |
+| `download_mb` | src/memorymap/core/extras.py:673 |
+| `download_ready` | src/memorymap/core/extras.py:1834 |
 | `find_system_python` | src/memorymap/core/extras.py:132 |
-| `footprint` | src/memorymap/core/extras.py:897 |
+| `footprint` | src/memorymap/core/extras.py:907 |
 | `frozen_extras_dir` | src/memorymap/core/extras.py:222 |
-| `install_blocking` | src/memorymap/core/extras.py:1797 |
-| `is_installed` | src/memorymap/core/extras.py:820 |
-| `remove` | src/memorymap/core/extras.py:1559 |
-| `reset_for_tests` | src/memorymap/core/extras.py:1788 |
-| `start` | src/memorymap/core/extras.py:1518 |
-| `start_bulk` | src/memorymap/core/extras.py:1581 |
-| `status` | src/memorymap/core/extras.py:848 |
-| `unavailable_reason` | src/memorymap/core/extras.py:973 |
+| `install_blocking` | src/memorymap/core/extras.py:1807 |
+| `is_installed` | src/memorymap/core/extras.py:830 |
+| `remove` | src/memorymap/core/extras.py:1569 |
+| `reset_for_tests` | src/memorymap/core/extras.py:1798 |
+| `start` | src/memorymap/core/extras.py:1528 |
+| `start_bulk` | src/memorymap/core/extras.py:1591 |
+| `status` | src/memorymap/core/extras.py:858 |
+| `unavailable_reason` | src/memorymap/core/extras.py:983 |
 
 ### src/memorymap/core/filejobs.py (2)
 
@@ -13209,46 +13211,47 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `set_lan_port` | src/memorymap/core/netbind.py:67 |
 | `url_host` | src/memorymap/core/netbind.py:160 |
 
-### src/memorymap/core/ocr.py (36)
+### src/memorymap/core/ocr.py (37)
 
 | Name | File:line |
 |---|---|
 | `_adopt_tesseract` | src/memorymap/core/ocr.py:136 |
-| `_extra_size` | src/memorymap/core/ocr.py:612 |
+| `_extra_size` | src/memorymap/core/ocr.py:620 |
 | `_image_size` | src/memorymap/core/ocr.py:467 |
 | `_language_kwargs` | src/memorymap/core/ocr.py:324 |
-| `_line_words` | src/memorymap/core/ocr.py:860 |
-| `_log_binary_missing` | src/memorymap/core/ocr.py:651 |
-| `_log_package_missing` | src/memorymap/core/ocr.py:665 |
-| `_one_thread_for_tesseract` | src/memorymap/core/ocr.py:636 |
+| `_line_words` | src/memorymap/core/ocr.py:865 |
+| `_log_binary_missing` | src/memorymap/core/ocr.py:656 |
+| `_log_package_missing` | src/memorymap/core/ocr.py:670 |
+| `_one_thread_for_tesseract` | src/memorymap/core/ocr.py:641 |
 | `_probe_windows_tesseract` | src/memorymap/core/ocr.py:107 |
 | `_rapidocr_lines` | src/memorymap/core/ocr.py:425 |
 | `_rapidocr_reader` | src/memorymap/core/ocr.py:411 |
 | `_rapidocr_regions` | src/memorymap/core/ocr.py:490 |
 | `_rapidocr_text` | src/memorymap/core/ocr.py:462 |
-| `_reading_block_kind` | src/memorymap/core/ocr.py:931 |
+| `_reading_block_kind` | src/memorymap/core/ocr.py:936 |
 | `_registry_tesseract_dir` | src/memorymap/core/ocr.py:75 |
-| `_word_box` | src/memorymap/core/ocr.py:847 |
-| `attempt_binary_install` | src/memorymap/core/ocr.py:1060 |
+| `_word_box` | src/memorymap/core/ocr.py:852 |
+| `attempt_binary_install` | src/memorymap/core/ocr.py:1065 |
 | `clear_language_cache` | src/memorymap/core/ocr.py:251 |
 | `effective_language` | src/memorymap/core/ocr.py:311 |
 | `engine` | src/memorymap/core/ocr.py:378 |
 | `engine_name` | src/memorymap/core/ocr.py:396 |
 | `engine_status` | src/memorymap/core/ocr.py:561 |
-| `extract_and_store` | src/memorymap/core/ocr.py:969 |
-| `extract_in_background` | src/memorymap/core/ocr.py:1018 |
-| `extract_regions` | src/memorymap/core/ocr.py:729 |
-| `extract_text` | src/memorymap/core/ocr.py:674 |
+| `extra_size` | src/memorymap/core/ocr.py:612 |
+| `extract_and_store` | src/memorymap/core/ocr.py:974 |
+| `extract_in_background` | src/memorymap/core/ocr.py:1023 |
+| `extract_regions` | src/memorymap/core/ocr.py:734 |
+| `extract_text` | src/memorymap/core/ocr.py:679 |
 | `installed_languages` | src/memorymap/core/ocr.py:213 |
 | `local_available` | src/memorymap/core/ocr.py:404 |
 | `packages_available` | src/memorymap/core/ocr.py:331 |
 | `rapidocr_available` | src/memorymap/core/ocr.py:361 |
-| `regions_from_reading` | src/memorymap/core/ocr.py:883 |
+| `regions_from_reading` | src/memorymap/core/ocr.py:888 |
 | `saved_language` | src/memorymap/core/ocr.py:280 |
 | `set_language` | src/memorymap/core/ocr.py:290 |
 | `tesseract_available` | src/memorymap/core/ocr.py:165 |
 | `tesseract_version` | src/memorymap/core/ocr.py:257 |
-| `unavailable_reason` | src/memorymap/core/ocr.py:619 |
+| `unavailable_reason` | src/memorymap/core/ocr.py:624 |
 
 ### src/memorymap/core/passes.py (19)
 

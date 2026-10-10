@@ -1563,6 +1563,9 @@ function featureCatalog() {
       { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", reveal: "chat-web-search" },
       { name: "Export chat", desc: "Download a conversation as Markdown.", reveal: "chat-export" },
       { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", reveal: "set-search-relevance" },
+      //: Chat's answers that need no model (ai/utilities.py), named nowhere in
+      //: either list, so "calculator" and "convert" found nothing (Brief 90).
+      { name: "Quick answers", desc: "Sums, percentages, unit and currency conversions, dates and word counts, answered in Chat with no model.", reveal: "chat-answers" },
     ]},
     // **Documents had no rows at all**, and the editor is one of the largest
     // surfaces in the app: blocks, an outline, breadcrumbs, a spelling and
@@ -1683,6 +1686,9 @@ function featureCatalog() {
       { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
       { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
       { name: "Command palette", desc: "Ctrl/⌘-K to run a command or go to a place; its last row searches everything.", reveal: "palette" },
+      //: Brief 90: the search over everything had no line here, so Ctrl+K
+      //: "find anything" found nothing (deepen72b.js).
+      { name: "Find anything", desc: "One search over notes, documents, boards, files, bookmarks, reminders and chats, with filters.", reveal: "finder" },
       { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
       { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
       { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },

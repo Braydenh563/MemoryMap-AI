@@ -37,9 +37,12 @@ def _searchable_rows() -> list[str]:
 
 
 def test_the_palette_matches_keywords_as_well_as_the_label():
-    matches = SOURCE[SOURCE.index("function paletteMatches(") :]
+    #: The scorer reads them since Brief 90 (`paletteScore`, which
+    #: `paletteMatches` reaches through `paletteRanked`).
+    matches = SOURCE[SOURCE.index("function paletteScore(") :]
     matches = matches[: matches.index("\n}\n")]
-    assert "c.keywords" in matches, "a row's keywords must be searched with its label"
+    assert "row.keywords" in matches, "a row's keywords must be searched with its label"
+    assert "paletteRanked(" in SOURCE[SOURCE.index("function paletteMatches(") :]
 
 
 def test_the_words_the_audit_typed_each_find_a_row():

@@ -1553,12 +1553,12 @@ context-aware actions, VS Code's prefixes.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | A palette row for every feature and setting, generated from the act registry and the settings index (CHAT_PLAN decision 53) | the 11 empty queries above find their command; registry against the feature list, 0 missing | 2, 6 |
+| 1 | fix | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: typed text reaches every catalogue feature, act and setting (`paletteFeatureRows`, `paletteActRows`, `paletteSettingRows`) | 7 of 18 words empty to 0 at 1440 and 390 (the other 4 of the 11 were found by rows added since the sweep); 0 catalogue features missing (`tests/test_palette_coverage.py`) | 2, 6 |
 | 2 | optimisation | Find anything 544 to 851 ms after the last keystroke: under 150 ms per keystroke at 96 notes, under 300 ms at 5,000 | the sweep's per-query ms | 25g budget |
-| 3 | fix | Zero results say why and offer the nearest feature, spelling or kind (CHAT_PLAN decision 49) | "ocr" 0 rows to the OCR command and a suggestion | 4, 6 |
+| 3 | fix | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: the palette's Nearest row and the handoff's why; Find anything's empty state with one way on (kind, dictionary spelling, nearest feature) | "ocr" finds the OCR workspace in both; calculater, remidner, ocrr, statstics 0 to 1 nearest | 4, 6 |
 | 4 | fix | "last week", "in March" are windows through the one reading (decision 47) | every result dated inside the window | 10, 12 |
-| 5 | expansion | Learned ranking from `paletteUsage` and the usage counts; aliases | the top hit for 10 repeated queries is the one run before | 2 |
+| 5 | expansion | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: `palettePick` (prefs `palette-picks`), `PALETTE_ALIASES`, the reason in each row's title | the row run before is first for 0 of 10 repeated queries to 10 of 10 | 2 |
 | 6 | expansion | Utilities inline (the utilities block above) and the quick-add grammar's parsed act as the first row (CHAT_PLAN F2) | Brief 66's gate | 12, 2 |
-| 7 | fix | The 2 small targets in Find anything | 2 to 0 at 24 px, 44 px coarse | 9 |
+| 7 | fix | **Built 2026-10-10 (Brief 90; HISTORY "UI_MODERNISATION the palette, Brief 90")**: the field is the band's hit area | 2 to 0 under 24 px at 1440 and 390; touch.js Find anything 0 under 44 px at 390 | 9 |
 
 **Briefs.** 47 (rows 2, 4), 66 (row 6), 90 (rows 1, 3, 5, 7).

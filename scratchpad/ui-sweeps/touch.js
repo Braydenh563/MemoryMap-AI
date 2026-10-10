@@ -52,6 +52,8 @@ const SURFACES = [
   { tab: 'notes', label: 'Notes sub-tabs', sel: '#notes-subtabs' },
   { tab: 'chat', label: 'Chat composer', sel: '.chat-dock' },
   { tab: 'dashboard', label: 'Dashboard', sel: '#tab-dashboard' },
+  // Find anything (Brief 90, row 7): its field was 22px tall.
+  { tab: 'dashboard', label: 'Find anything', sel: '#finder-overlay', openFn: 'openFinder()', close: '#finder-close' },
   { tab: 'graph', label: 'Graph dock', sel: '[data-dock-name="graph"]' },
   { tab: 'timeline', label: 'Timeline dock', sel: '[data-dock-name="timeline"]' },
   { tab: 'reminders', label: 'Reminders dock', sel: '[data-dock-name="reminders"]' },
@@ -181,7 +183,7 @@ const SURFACES = [
         // screen-reader recipes (`.visually-hidden`, `.sr-only` — the chat
         // composer's file input is one, driven by a visible paperclip), and a
         // `.seg` group, whose own buttons are what a finger lands on.
-        .filter((e) => !e.closest('.dock-native-hidden, .visually-hidden, .sr-only'))
+        .filter((e) => !e.closest('.dock-native-hidden, .select-native-hidden, .visually-hidden, .sr-only'))
         .filter((e) => !e.classList.contains('seg'))
         .filter((e) => !e.closest('.dock-menu-list'));
 

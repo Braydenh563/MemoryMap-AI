@@ -107,14 +107,11 @@ function finderOverlay() { return document.getElementById("finder-overlay"); }
 //: are not in the index, they change with the tab you are on, and matching a
 //: dozen labels in the browser is cheaper than a round trip.
 function finderActions(query) {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length || typeof paletteCommands !== "function") return [];
-  const out = [];
-  for (const command of paletteCommands()) {
-    const label = String(command.label || "").replace(/^ph:[\w-]+\s*/, "");
-    const hay = label.toLowerCase();
-    if (!words.every((word) => hay.includes(word))) continue;
-    out.push({
+  //: The palette's rows and its ranking (app-palette.js `paletteFind`, Brief
+  //: 90): every feature, act and setting, not only the hand-written commands.
+  return paletteFind(query).slice(0, 6).map((command) => {
+    const label = richPickerSplitLabel(command.label).text;
+    return {
       kind: "action",
       id: label,
       title: label,
@@ -127,10 +124,8 @@ function finderActions(query) {
       score: 0.5,
       written: "",
       run: command.run,
-    });
-    if (out.length >= 6) break;
-  }
-  return out;
+    };
+  });
 }
 
 async function finderSearch(append = false) {
@@ -184,6 +179,9 @@ async function finderSearch(append = false) {
     finderRender();
     return;
   }
+  //: The palette's file is lazy; in by now on any second search.
+  if (!(finderKind && finderKind !== "action")) await ensureModule("appPalette");
+  if (run !== finderState.run) return;
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
   //: Atlas's face answers a search (INBOX 742: it barely changed): glad at
@@ -254,6 +252,115 @@ function finderRenderEmpty() {
   box.append(icon, title, body);
   results.appendChild(box);
   finderRenderFilters();
+}
+
+//: **Nothing matched says why, and offers one way on** (row 3, CHAT_PLAN
+//: decision 49; DESIGN.md's empty state: one sentence and one action). The
+//: way on is the first of: every kind, when a kind filter is on; the word as
+//: spelled in the dictionary (frontend/vendor/wordlist), when that spelling
+//: finds something; the nearest feature by name (the palette's own rows).
+function finderRenderNothing(results) {
+  const query = finderQuery.trim();
+  const box = document.createElement("div");
+  box.className = "empty-state";
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = "Nothing matched";
+  const body = document.createElement("p");
+  const indexed = Object.values(finderIndexTotals).reduce((sum, n) => sum + (n || 0), 0);
+  body.textContent = indexed ? finderWhyNothing(query) : "Nothing is indexed yet. Save a note and it will appear here.";
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "ghost small hidden finder-nothing-action";
+  box.append(title, body, action);
+  results.appendChild(box);
+  if (indexed && query) finderOffer(action, query);
+}
+
+function finderWhyNothing(query) {
+  const kind = FINDER_KINDS.find((k) => k.key === finderKind);
+  if (kind) return `No ${kind.many} hold “${query}”.`;
+  return `No note, document, board, file, bookmark, reminder or chat holds “${query}”, and no part of the app is called that.`;
+}
+
+async function finderOffer(button, query) {
+  const run = finderState.run;
+  const offer = finderKindOffer() || (await finderSpellingOffer(query)) || (await finderFeatureOffer(query));
+  if (!offer || run !== finderState.run || !button.isConnected) return;
+  setLabel(button, offer.label);
+  button.addEventListener("click", offer.run);
+  button.classList.remove("hidden");
+}
+
+function finderKindOffer() {
+  if (!finderKind) return null;
+  return {
+    label: "ph:funnel-simple Search every kind",
+    run: () => {
+      finderKind = "";
+      finderSearch();
+    },
+  };
+}
+
+function finderUse(text) {
+  const input = document.getElementById("finder-input");
+  if (input) input.value = text;
+  finderQuery = text;
+  finderSearch();
+}
+
+//: The dictionary, fetched on the first search that finds nothing (871KB,
+//: the documents' spelling list; never at open).
+const finderWords = { load: null };
+function finderWordlist() {
+  if (!finderWords.load) finderWords.load = api("/vendor/wordlist/en.txt", { silent: true })
+    .then((response) => response.text())
+    .then((text) => new Set(text.split("\n").map((w) => w.trim()).filter(Boolean)))
+    .catch(() => new Set());
+  return finderWords.load;
+}
+
+//: Words one edit away that the dictionary holds: a swap, a letter added, a
+//: letter changed, a letter dropped, in that order (a missed key is the
+//: commonest slip).
+function finderSpellings(word, words) {
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const tries = [];
+  for (let i = 0; i < word.length - 1; i++) tries.push(word.slice(0, i) + word[i + 1] + word[i] + word.slice(i + 2));
+  for (let i = 0; i <= word.length; i++) for (const c of letters) tries.push(word.slice(0, i) + c + word.slice(i));
+  for (let i = 0; i < word.length; i++) for (const c of letters) tries.push(word.slice(0, i) + c + word.slice(i + 1));
+  for (let i = 0; i < word.length; i++) tries.push(word.slice(0, i) + word.slice(i + 1));
+  return [...new Set(tries.filter((t) => t !== word && t.length > 2 && words.has(t)))];
+}
+
+//: The first respelling that finds something, three tried at most: a
+//: suggestion that also finds nothing is no way on.
+async function finderSpellingOffer(query) {
+  const words = await finderWordlist();
+  const said = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const wrong = said.findIndex((w) => w.length > 2 && /^[a-z]+$/.test(w) && !words.has(w));
+  if (!words.size || wrong < 0) return null;
+  for (const spelled of finderSpellings(said[wrong], words).slice(0, 3)) {
+    const guess = said.map((w, i) => (i === wrong ? spelled : w)).join(" ");
+    const body = await apiJson(`/search?q=${encodeURIComponent(guess)}&limit=1`, { silent: true }).catch(() => null);
+    if (body?.hits?.length) return { label: `ph:text-aa Search for “${guess}”`, run: () => finderUse(guess) };
+  }
+  return null;
+}
+
+async function finderFeatureOffer(query) {
+  await ensureModule("appPalette");
+  const row = paletteNearestCommand(query);
+  if (!row) return null;
+  const { icon, text } = richPickerSplitLabel(row.label);
+  return {
+    label: `${icon || "ph:compass"} Open ${text}`,
+    run: () => {
+      closeFinder();
+      row.run();
+    },
+  };
 }
 
 //: **Built once, updated in place.** Every search refreshes the counts, and a
@@ -342,21 +449,7 @@ function finderRender() {
   finderState.active = -1;
   finderResultsRole(results, rows.length > 0);
   if (!rows.length) {
-    const box = document.createElement("div");
-    box.className = "empty-state";
-    const title = document.createElement("p");
-    title.className = "empty-title";
-    title.textContent = "Nothing matched";
-    const body = document.createElement("p");
-    //: Says *why* it is empty, which the counts make possible: nothing
-    //: matched and nothing of that kind exists yet are different answers and
-    //: a bare empty list renders them identically.
-    const indexed = Object.values(finderIndexTotals).reduce((sum, n) => sum + (n || 0), 0);
-    body.textContent = indexed
-      ? "Try fewer words, or take a filter off."
-      : "Nothing is indexed yet. Save a note and it will appear here.";
-    box.append(title, body);
-    results.appendChild(box);
+    finderRenderNothing(results);
     if (summary) summary.textContent = "";
     return;
   }

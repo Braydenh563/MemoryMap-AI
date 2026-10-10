@@ -287,6 +287,8 @@ const REVEAL_TARGETS = {
 
   // Ask & chat
   "chat-input": { tab: "chat", el: "chat-input", focus: true, flash: false },
+  "chat-answers": { tab: "chat", el: "chat-input", focus: true, flash: false },
+  "finder": { open: () => openFinder(), el: "finder-input", focus: true, flash: false },
   "chat-new": { tab: "chat", open: () => newChatConversation(), el: "chat-input", focus: true, flash: false },
   "chat-attach": { tab: "chat", open: () => $("attach-note").click(), el: "note-picker-panel" },
   "chat-conversations": { tab: "chat", el: "conversation-list", fallback: "chat-sidebar" },

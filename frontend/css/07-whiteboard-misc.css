@@ -10921,6 +10921,22 @@ header#top-bar {
 /* The browser's own clear affordance, which sits at a size and colour this
    app does not use and appears only in some engines. Escape clears the field
    and the dialog has its own close. */
+/* **The field is the band's hit area** (UI_MODERNISATION "the command
+   palette", row 7, Brief 90). Measured: the field stood 22px tall inside a
+   40px band, under the 24px floor at 1440 and half the 44px one on a phone,
+   because the band's padding sat outside it. The padding moves onto the
+   field, so a click anywhere in the band's height lands in it, and the
+   field takes the touch floor where the pointer is coarse. Measured after:
+   the field 35px in a 37px band at 1440, 44px in a 46px band on a phone. */
+.finder-bar {
+  padding-block: 0;
+}
+.finder-bar .finder-input,
+.finder-bar .finder-input:focus,
+.finder-bar .finder-input:focus-visible {
+  padding-block: var(--space-2);
+  min-height: var(--target-min);
+}
 .finder-input::-webkit-search-cancel-button {
   display: none;
 }

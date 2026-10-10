@@ -15,6 +15,10 @@ below). Versioning is `0.x` while the app stabilises.
 - This week: notes made, words written and reminders done against last week, on the Statistics page and as a Dashboard card.
 - Chat's counted answers ("how many notes do I have") no longer end with a false "Heads up: I could not find 96 in your notes".
 - The command palette has a timer ("timer 10 minutes") and a stopwatch that run on the status bar and stop when you press them, Count words for any selection, and "insert template" to put a template where the cursor is.
+- Ctrl+K finds every feature in Tools and features, every act Chat does and the matching settings, not only its own list: "statistics", "timer", "word count", "calculator" and "find anything" each find their row.
+- Ctrl+K learns: the command you ran for some words comes first the next time you type them, and hovering a row says why it is where it is; "todo", "whiteboard" and "hotkeys" find what they mean.
+- Nothing matched now says why: Ctrl+K offers the nearest command for a word a letter out, and Find anything offers one way on (every kind, a spelling, or the nearest feature).
+- Find anything's search field is the whole height of its bar, and 44px tall on a touch screen.
 - Chat with no model runs the notebook's read tools itself: "list my tags", "what reminders do I have", "give me an overview of my notebook" and the like answer in one line and draw the answer in its shape: a bar chart of counts, a table, a card or a list (CHAT_PLAN decision 59, Brief 84).
 - Chat with no model follows the conversation: "and delete it", "same for Tuesday", "pin the other one" and "the gym note too" act on what the last five turns were about (200 of 200 spoken follow-ups, from 20).
 - Chat's answers open in more ways: twenty turns of one question now open at least eight ways in each voice (was three).

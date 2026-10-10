@@ -16,7 +16,7 @@ const MEASURE = `window.__m = (rootSel) => {
   const scrollAnc = (e) => { for (let p = e.parentElement; p; p = p.parentElement) { const cs = getComputedStyle(p); if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && p.scrollWidth > p.clientWidth + 1) return true; } return false; };
   const off = ctrls.filter((c) => { const r = c.getBoundingClientRect(); return (r.right > W + 1 || r.left < -1) && !scrollAnc(c); });
   const clipped = [...root.querySelectorAll('*')].filter((e) => e.childElementCount === 0 && e.textContent.trim() && vis(e) && e.getBoundingClientRect().width > 1 && e.scrollWidth > e.clientWidth + 1 && /hidden|clip/.test(getComputedStyle(e).overflowX) && getComputedStyle(e).textOverflow !== 'ellipsis' && !e.closest('.cm-editor'));
-  const small = ctrls.filter((c) => { const r = c.getBoundingClientRect(); return (r.width < 24 || r.height < 24) && c.type !== 'checkbox' && c.type !== 'radio' && c.tagName !== 'A'; });
+  const small = ctrls.filter((c) => { const r = c.getBoundingClientRect(); return (r.width < 24 || r.height < 24) && c.type !== 'checkbox' && c.type !== 'radio' && c.tagName !== 'A' && !c.classList.contains('select-native-hidden'); });
   let overlaps = 0; const ovl = [];
   const rs = ctrls.map((c) => c.getBoundingClientRect());
   for (let i = 0; i < ctrls.length; i++) for (let j = i + 1; j < ctrls.length; j++) {

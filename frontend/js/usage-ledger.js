@@ -87,6 +87,9 @@ $("pref-simple-mode")?.addEventListener("change", (event) => applySimpleMode(eve
 $("usage-clear")?.addEventListener("click", async () => {
   try {
     await apiJson("/usage", { method: "DELETE" });
+    //: And the palette's learned order, which is the same habit kept per
+    //: browser (app-palette.js `palettePick`, Brief 90).
+    prefs.remove("palette-picks");
     toast("Every count is cleared.");
   } catch (error) {
     toast(error.message || "Couldn't clear the counts.", true);

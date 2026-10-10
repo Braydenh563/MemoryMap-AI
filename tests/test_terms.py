@@ -38,8 +38,9 @@ def _js_strings(text: str) -> list[str]:
 def _surfaces() -> dict[str, str]:
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     index = re.sub(r"<!--.*?-->", "", index, flags=re.S)
-    #: Case-insensitive: the file is ours, but the shape is the one CodeQL reads as a filter.
-    index = re.sub(r"<script\b.*?</script>", "", index, flags=re.S | re.I)
+    #: Case-insensitive and `</script >` too: the file is ours, but the shape is
+    #: the one CodeQL reads as an HTML filter, so it has the filter's rigour.
+    index = re.sub(r"<script\b.*?</script\s*>", "", index, flags=re.S | re.I)
     out = {"frontend/index.html": index}
     for path in sorted((ROOT / "frontend" / "js").glob("*.js")):
         strings = [a or b for a, b in _js_strings(path.read_text(encoding="utf-8"))]
